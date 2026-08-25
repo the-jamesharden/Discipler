@@ -1,0 +1,141 @@
+# Discipler Vision
+
+## Purpose
+
+Discipler exists to help churches grow without losing relational depth.
+
+Churches often have people who want to mentor and people who want to be mentored, but the operational work required to turn that desire into sustained relationships can fall back on pastors and ministry leaders. Recruiting, organizing availability, pairing people, following up, noticing silence, tracking materials, identifying concerns, and understanding whether the ministry is healthy can become a manual burden.
+
+Discipler should carry that operating burden without replacing the ministry itself.
+
+## Product Philosophy
+
+The relationship is the ministry. Discipler is the infrastructure around it.
+
+A mentor or group leader should spend their energy discipling people, not managing software.
+
+A mentee or group participant should be able to participate without learning a complex application or feeling watched.
+
+A pastor should have enough visibility to know who needs attention and how the ministry is doing without manually chasing every relationship.
+
+Technology should make healthy discipleship easier to operate at scale while remaining largely invisible when relationships are healthy.
+
+## Relationship Model
+
+Discipleship may happen one-to-one or in groups.
+
+Discipler should support both through a shared underlying workflow wherever the actual ministry behavior is the same.
+
+### One-to-One
+
+A mentor leads a relationship with one mentee.
+
+### Group
+
+A group leader leads a relationship with multiple participants.
+
+The group workflow should not become a separate product merely because more people are present. Where the business behavior is the same, the implementation should share the same suggestion, material, check-in, history, care, and intelligence concepts. In the settled model there is no group concept at all: a relationship is one leader and N participants, and a one-to-one relationship is simply the case where N is one.
+
+## Intake and Pairing
+
+Participants enter the ministry through an intake process that captures the information needed to operate the ministry, including availability.
+
+Discipler uses availability to create simple suggested one-to-one pairings. Suggestions are recommendations for the pastor, not automatic assignments.
+
+The pastor always has access to the full roster and can pair people manually, including creating groups by selecting multiple participants for a leader.
+
+When a pairing changes the pool of available people, suggested pairings should immediately reflect the new reality.
+
+## Relationship Launch
+
+Once an admin creates a relationship, its leader is invited to see who they have been matched with and to accept it. Acceptance is the launch: it activates the relationship and releases the opening message to everyone in it.
+
+There are no configurable launch modes. A kickoff gathering is something a church does in a room; Discipler does not model, schedule, or track it.
+
+## Materials
+
+Discipleship materials are part of the operating history of the ministry.
+
+Pastors should be able to assign materials to individual people and groups, see who is assigned what, and preserve assignment history over time.
+
+The system should make it possible to understand later which materials were being used during particular weeks and how those periods corresponded with satisfaction and other ministry signals.
+
+## Check-In Rhythm
+
+The check-in rhythm is one of Discipler's primary operating and data-collection mechanisms. It is delivered over SMS; the vendor carrying those messages is an implementation detail and not part of the product's language.
+
+It asks the approved meeting questions, including whether the relationship met, how the meeting went or the relevant satisfaction question, whether there was a concern, and what the concern was when applicable.
+
+The resulting responses and non-responses define the relationship's current state.
+
+Two consecutive weekly check-ins without a response must surface that relationship for pastoral care — as must three consecutive replies reporting that no meeting happened.
+
+## One History, Multiple Uses
+
+Discipler should store what happened over time instead of keeping only the newest value.
+
+The same week-by-week history should drive:
+
+1. current relationship state
+2. immediate pastor visibility
+3. the Care Needed view
+4. Ministry Intelligence
+
+The product should avoid separate competing systems of truth for operations and analytics.
+
+## Immediate Pastor Visibility
+
+Pastors should be able to see the current state of the ministry and the history behind it.
+
+A separate Care Needed view should surface every person or relationship that currently meets an approved care threshold, and should say which threshold was met.
+
+## Ministry Intelligence
+
+Ministry Intelligence is not a disconnected analytics product. It is derived from the same historical records generated by intake, material assignment, check-in activity, and relationship activity.
+
+It should help pastors understand:
+
+- overall ministry trends
+- material performance
+- satisfaction over time
+- response rates
+- response patterns by age
+- response patterns by gender
+- quarterly ministry health
+- other approved longitudinal trends
+
+Demographic information comes from approved intake/profile data and is combined with historical response data for aggregate analysis.
+
+## Concerns
+
+Individual concerns should reach the pastor through the normal care workflow.
+
+Discipler should not automatically mine all concerns into generalized summaries.
+
+If a pastor explicitly requests an aggregated view, Discipler may summarize recurring concern themes and the most frequent areas of need.
+
+## Integrations
+
+Discipler may integrate with systems such as Planning Center to reduce duplicate administrative work.
+
+An integration should complement the Discipler workflow rather than become a dependency for the core ministry.
+
+Where possible, every essential integrated path should have a manual Discipler equivalent.
+
+## Definition of Success
+
+Discipler succeeds when:
+
+- more people who want discipleship relationships actually enter them
+- pastors can organize one-to-one and group relationships without excessive administrative work
+- healthy relationships require little ongoing software attention
+- stalled relationships surface before they quietly disappear
+- concerns reach the appropriate ministry leader
+- pastors can understand ministry health without manually contacting everyone
+- mentors and group leaders can focus on discipling people
+- materials can be evaluated in the context of real ministry history
+- churches can grow the number of discipleship relationships without proportional growth in administrative burden
+
+## Guiding Principle
+
+Discipler helps churches scale healthy discipleship relationships without replacing the human relationships that make discipleship meaningful.
