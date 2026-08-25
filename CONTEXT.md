@@ -94,6 +94,9 @@ The state of a relationship that an admin has created but whose leader has not y
 **Acceptance**:
 The leader's act of taking responsibility for a relationship, performed on the leader dashboard after seeing who they have been matched with. It activates the relationship and is the timestamped record that the leader agreed to it.
 
+**Paused**:
+The state of a relationship that its leader has paused for a selected period. Check-ins for that relationship are suppressed for the duration, membership is unchanged, and nobody returns to the roster as available. The relationship stays visible and visibly marked as paused on both the leader's list of relationships and the admin dashboard. Paused masks the relationship's underlying derived state rather than replacing the history behind it; on resume, that derived state resurfaces.
+
 **Ended**:
 The terminal state of a relationship that has finished, for any reason. Its history is preserved untouched, and the people in it return to the roster as Ready to Pair unless they have opted out.
 
@@ -107,11 +110,14 @@ A person-level status describing where someone stands in the ministry, independe
 The timestamped, versioned record of what a person agreed to at intake. Discipler shares a phone number only where the consent record permits it.
 
 **Swap**:
-A leader's request to be released from a discipleship relationship and matched with someone else.
+A leader's request to be released from a specific discipleship relationship and matched with a different participant. A swap is a recorded request awaiting admin action. It is never itself a change of relationship state, and the relationship remains intact until an admin resolves it.
 
 **Care Needed**:
 The pastor-facing view of people or relationships that currently require pastoral attention.
 _Avoid_: Failure queue
+
+**Follow-Up Item**:
+A condition on a relationship or person that requires admin review, gathered in the Care Needed view. A follow-up item is never cleared by the event that raised it and never clears itself; it persists until an admin acts on it.
 
 **Concern**:
 A qualitative issue raised through the discipleship check-in process for pastoral awareness or follow-up. A concern persists until an admin resolves it, independently of how the relationship is currently doing. It is a badge on the relationship, never a state of it.

@@ -32,113 +32,122 @@ From then on Discipler is nearly invisible. Once a week each Leader gets a singl
 4. As a Person completing Intake, I want to agree to receive text messages as a distinct decision, so that I know exactly what I am opting into.
 5. As a Person completing Intake, I want to agree to my phone number being shared as a separate decision, so that agreeing to hear from my church does not automatically hand my number to a stranger.
 6. As a Person completing Intake, I want to give my age as a range rather than an exact number, so that I am not asked for more precision than the Ministry needs.
-7. As a Person completing Intake, I want my email address to be optional, so that a missing email does not block me from participating.
-8. As a Person who has just completed Intake, I want an immediate Welcome Message, so that I know I am in and what to expect next.
-9. As a Ministry, I want the exact wording each Person agreed to recorded with a version and a timestamp, so that we can answer later what someone actually consented to.
-10. As an Admin, I want a Person's Intake to be the only thing that grants consent, so that importing someone never speaks on their behalf.
+7. As a Person completing Intake, I want to select my gender on the same form as everything else, so that joining is one form and not two.
+8. As a Person completing Intake, I want my email address to be optional, so that a missing email does not block me from participating.
+9. As a Person who has just completed Intake, I want an immediate Welcome Message, so that I know I am in and what to expect next.
+10. As a Ministry, I want the exact wording each Person agreed to recorded with a version and a timestamp, so that we can answer later what someone actually consented to.
+11. As an Admin, I want a Person's Intake to be the only thing that grants consent, so that importing someone never speaks on their behalf.
 
 ### Roster
 
-11. As an Admin, I want to upload a spreadsheet of names, phone numbers, and email addresses, so that I do not type our congregation in by hand.
-12. As an Admin, I want uploaded people to appear as `No Intake Submitted`, so that being on our roster is never mistaken for wanting to participate.
-13. As an Admin, I want to see every Person in the Ministry with their Participation Status, so that I know at a glance who is available and who is not.
-14. As an Admin, I want to see who each Person is currently in a relationship with, so that I do not have to open a record to find out.
-15. As an Admin, I want a Person in a relationship with several participants to show everyone in it, so that group membership is visible from the Roster.
-16. As an Admin, I want an unpaired Person to carry a Pair action directly on their row, so that I can act on what I am looking at.
-17. As an Admin, I want to set an intended role for a Person before they complete Intake, so that I can plan while waiting on them.
-18. As an Admin, I want to send a Person a link that reopens their own Intake form prefilled, so that their availability or phone number can be corrected without giving them an account.
-19. As an Admin, I want a Person who has opted out to be excluded from pairing and from follow-up, so that we honor what they told us.
+12. As an Admin, I want to upload a spreadsheet of names, phone numbers, and email addresses, so that I do not type our congregation in by hand.
+13. As an Admin, I want uploaded people to appear as `No Intake Submitted`, so that being on our roster is never mistaken for wanting to participate.
+14. As an Admin, I want to see every Person in the Ministry with their Participation Status, so that I know at a glance who is available and who is not.
+15. As an Admin, I want to see who each Person is currently in a relationship with, so that I do not have to open a record to find out.
+16. As an Admin, I want a Person in a relationship with several participants to show everyone in it, so that group membership is visible from the Roster.
+17. As an Admin, I want an unpaired Person to carry a Pair action directly on their row, so that I can act on what I am looking at.
+18. As an Admin, I want to set an intended role for a Person before they complete Intake, so that I can plan while waiting on them.
+19. As an Admin, I want to send a Person a link that reopens their own Intake form prefilled, so that their availability or phone number can be corrected without giving them an account.
+20. As an Admin, I want a Person who has opted out to be excluded from pairing and from follow-up, so that we honor what they told us.
 
 ### Suggested Pairs
 
-20. As an Admin, I want Discipler to propose one-to-one matches, so that I do not compare everyone's availability by hand.
-21. As an Admin, I want each suggestion labelled Excellent fit, Good fit, or Recommended, so that I know whether I am looking at a strong option or the bottom of the list.
-22. As an Admin, I want each suggestion to state its reason in one plain sentence, so that I can explain to anyone why it was proposed.
-23. As an Admin, I want suggestions never to show a numeric compatibility score, so that Discipler is not making a judgment it cannot justify.
-24. As an Admin, I want gender matching enforced absolutely, so that our safeguarding policy cannot be bypassed by anyone using the product.
-25. As an Admin, I want the age constraint to apply only to suggestions, so that I can still pair two people myself when I know it is right.
-26. As an Admin, I want people who share no availability with any eligible Leader listed separately rather than hidden, so that the hardest-to-place people do not silently disappear.
-27. As an Admin, I want people in the No Schedule Overlap section never presented as a fit, so that I am not offered a relationship that cannot meet.
-28. As an Admin, I want the suggestion list ordered stably between visits, so that I can trust it.
-29. As an Admin, I want ties broken in favor of whoever has waited longest since Intake, so that nobody is overlooked indefinitely.
-30. As an Admin, I want suggestions to update as soon as pairing changes who is available, so that I never act on a stale list.
-31. As an Admin, I want to pair any two eligible people from the Roster without using a suggestion, so that my judgment is never subordinate to the list.
-32. As an Admin, I want to form a relationship with several participants by selecting them together, so that groups need no separate workflow.
+21. As an Admin, I want Discipler to propose one-to-one matches, so that I do not compare everyone's availability by hand.
+22. As an Admin, I want each suggestion labelled Excellent fit, Good fit, or Recommended, so that I know whether I am looking at a strong option or the bottom of the list.
+23. As an Admin, I want each suggestion to state its reason in one plain sentence, so that I can explain to anyone why it was proposed.
+24. As an Admin, I want suggestions never to show a numeric compatibility score, so that Discipler is not making a judgment it cannot justify.
+25. As an Admin, I want gender matching enforced absolutely, so that our safeguarding policy cannot be bypassed by anyone using the product.
+26. As an Admin, I want the age constraint to apply only to suggestions, so that I can still pair two people myself when I know it is right.
+27. As an Admin, I want people who share no availability with any eligible Leader listed separately rather than hidden, so that the hardest-to-place people do not silently disappear.
+28. As an Admin, I want people in the No Schedule Overlap section never presented as a fit, so that I am not offered a relationship that cannot meet.
+29. As an Admin, I want the suggestion list ordered stably between visits, so that I can trust it.
+30. As an Admin, I want ties broken in favor of whoever has waited longest since Intake, so that nobody is overlooked indefinitely.
+31. As an Admin, I want suggestions to update as soon as pairing changes who is available, so that I never act on a stale list.
+32. As an Admin, I want to pair any two eligible people from the Roster without using a suggestion, so that my judgment is never subordinate to the list.
+33. As an Admin, I want to form a relationship with several participants by selecting them together, so that groups need no separate workflow.
 
 ### Acceptance
 
-33. As an Admin, I want creating a relationship not to activate it, so that nothing reaches participants before their Leader has agreed to lead them.
-34. As a Leader, I want a text telling me I have been matched and inviting me to look, so that my first contact is an invitation rather than an assignment.
-35. As a Leader, I want to see who I have been matched with before I am asked for anything, so that I know why I am being asked to set up an account.
-36. As a Leader, I want to set a password to accept, so that I have a way back into Discipler later.
-37. As a Leader, I want the phone number Discipler will text shown to me rather than requested, so that I cannot mistype my way out of my own check-ins.
-38. As a Leader, I want the name I type to be what appears on the site, so that a spelling difference is not treated as an error.
-39. As a Leader, I want my Invitation Link to keep working if I open it and get interrupted, so that a phone call does not cost me a re-issue.
-40. As a Ministry, I want Acceptance recorded with a timestamp, so that we have a durable record that this Leader agreed to this relationship.
-41. As a Participant, I want to hear who my Leader is and how to recognize their number, so that an unknown text tomorrow is not alarming.
-42. As a Participant, I want a way to say a match is not right without a conversation, so that declining costs me nothing socially.
-43. As an Admin, I want to be reminded when a Leader has not accepted after two days, so that a relationship does not sit unstarted without anyone noticing.
-44. As an Admin, I want an unaccepted relationship surfaced to me after five days with how long it has waited, so that I can intervene.
-45. As an Admin, I want to cancel an unaccepted relationship, so that people are never held out of the pool by a decision nobody made.
+34. As an Admin, I want creating a relationship not to activate it, so that nothing reaches participants before their Leader has agreed to lead them.
+35. As a Leader, I want a text telling me I have been matched and inviting me to look, so that my first contact is an invitation rather than an assignment.
+36. As a Leader, I want to see who I have been matched with before I am asked for anything, so that I know why I am being asked to set up an account.
+37. As a Leader, I want to set a password to accept, so that I have a way back into Discipler later.
+38. As a Leader, I want the phone number Discipler will text shown to me rather than requested, so that I cannot mistype my way out of my own check-ins.
+39. As a Leader, I want the name I type to be what appears on the site, so that a spelling difference is not treated as an error.
+40. As a Leader, I want my Invitation Link to keep working if I open it and get interrupted, so that a phone call does not cost me a re-issue.
+41. As a Ministry, I want Acceptance recorded with a timestamp, so that we have a durable record that this Leader agreed to this relationship.
+42. As a Participant, I want to hear who my Leader is and how to recognize their number, so that an unknown text tomorrow is not alarming.
+43. As a Participant, I want a way to say a match is not right without a conversation, so that declining costs me nothing socially.
+44. As an Admin, I want to be reminded when a Leader has not accepted after two days, so that a relationship does not sit unstarted without anyone noticing.
+45. As an Admin, I want an unaccepted relationship surfaced to me after five days with how long it has waited, so that I can intervene.
+46. As an Admin, I want to cancel an unaccepted relationship, so that people are never held out of the pool by a decision nobody made.
 
 ### The Check-In Rhythm
 
-46. As a Leader, I want one weekly text conversation covering every relationship I lead, so that leading three relationships does not mean three separate threads.
-47. As a Leader, I want to be asked about my relationships in a consistent order, so that the conversation is predictable week to week.
-48. As a Leader, I want to be asked whether we met before being asked how it went, so that I am not answering questions about a meeting that did not happen.
-49. As a Leader, I want answering "no" to move straight on, so that a missed week costs me one reply.
-50. As a Leader, I want to be asked what the Concern was only when I have said there is one, so that I am not prompted for detail I do not have.
-51. As a Leader, I want my replies understood when I type "yes" instead of "1", so that I am not fighting the format.
-52. As a Leader, I want one clarification when my reply cannot be read, so that a typo does not cost me the week.
-53. As a Leader, I want Discipler to stop re-prompting after two clarifications but still accept a late correct reply, so that I am neither nagged nor locked out.
-54. As a Leader, I want a closing thank-you only after my last relationship, so that I know the conversation is finished.
-55. As a Leader, I want a single reminder the day after I miss a question, so that a forgotten text is recoverable.
-56. As a Leader, I want the conversation to move on if I abandon it partway, so that my other relationships still get asked about.
-57. As a Leader, I want a fresh conversation each week rather than being held to last week's unfinished one, so that I can always start clean.
-58. As a Participant, I want to receive no check-ins, so that participating costs me nothing.
-59. As a Ministry, I want opt-out language on every Starter Message and on the first check-in of each month, so that we meet our obligations without spamming our own people.
-60. As a Ministry, I want no phone number ever sent to a Leader by text, so that our first contact reads as a ministry rather than a cold introduction.
+47. As a Leader, I want one weekly text conversation covering every relationship I lead, so that leading three relationships does not mean three separate threads.
+48. As a Leader, I want to be asked about my relationships in a consistent order, so that the conversation is predictable week to week.
+49. As a Leader, I want to be asked whether we met before being asked how it went, so that I am not answering questions about a meeting that did not happen.
+50. As a Leader, I want answering "no" to move straight on, so that a missed week costs me one reply.
+51. As a Leader, I want to be asked what the Concern was only when I have said there is one, so that I am not prompted for detail I do not have.
+52. As a Leader, I want my replies understood when I type "yes" instead of "1", so that I am not fighting the format.
+53. As a Leader, I want one clarification when my reply cannot be read, so that a typo does not cost me the week.
+54. As a Leader, I want Discipler to stop re-prompting after two clarifications but still accept a late correct reply, so that I am neither nagged nor locked out.
+55. As a Leader, I want a closing thank-you only after my last relationship, so that I know the conversation is finished.
+56. As a Leader, I want a single reminder the day after I miss a question, so that a forgotten text is recoverable.
+57. As a Leader, I want the conversation to move on if I abandon it partway, so that my other relationships still get asked about.
+58. As a Leader, I want a fresh conversation each week rather than being held to last week's unfinished one, so that I can always start clean.
+59. As a Participant, I want to receive no check-ins, so that participating costs me nothing.
+60. As a Ministry, I want opt-out language on every Starter Message and on the first check-in of each month, so that we meet our obligations without spamming our own people.
+61. As a Ministry, I want no phone number ever sent to a Leader by text, so that our first contact reads as a ministry rather than a cold introduction.
 
 ### Relationship State and care
 
-61. As an Admin, I want a relationship that has gone silent for two weeks flagged, so that a fading relationship reaches me while it can still be recovered.
-62. As an Admin, I want a relationship reporting three weeks of not meeting flagged, so that a faithfully-answering Leader who never meets does not stay invisible.
-63. As an Admin, I want the care item to say which condition fired, so that I know whether I am calling about silence or about scheduling.
-64. As an Admin, I want a Concern to surface the week it is raised, so that I hear about it while it is current.
-65. As an Admin, I want a relationship to return to Healthy once it reports meeting without a Concern, so that state reflects now rather than history.
-66. As an Admin, I want an unresolved Concern to persist beside the relationship even after it returns to Healthy, so that it is not buried by a good week.
-67. As an Admin, I want to mark a Concern resolved deliberately, so that nothing closes itself.
-68. As an Admin, I want multiple Concerns on one relationship shown with a count, so that I can see there is more than one.
-69. As an Admin, I want to reach Concern text one Person at a time rather than as a list, so that the most sensitive data in the product takes deliberate effort to read.
-70. As an Admin, I want Concern text cleared when I resolve it by default, so that we do not accumulate a permanent file of people's hardest weeks.
-71. As an Admin, I want to see contact details, resolve a Concern, send one additional check-in, or end the relationship from a care item, so that the view is actionable.
-72. As a Ministry, I want an Admin clicking Nudge repeatedly to send at most one message, so that no interface action can over-message our congregation.
-73. As a Leader, I want a missed meeting never framed as a failure, so that answering honestly is safe.
+62. As an Admin, I want a relationship that has gone silent for two weeks flagged, so that a fading relationship reaches me while it can still be recovered.
+63. As an Admin, I want a relationship reporting three weeks of not meeting flagged, so that a faithfully-answering Leader who never meets does not stay invisible.
+64. As an Admin, I want the care item to say which condition fired, so that I know whether I am calling about silence or about scheduling.
+65. As an Admin, I want a Concern to surface the week it is raised, so that I hear about it while it is current.
+66. As an Admin, I want a relationship to return to Healthy once it reports meeting without a Concern, so that state reflects now rather than history.
+67. As an Admin, I want an unresolved Concern to persist beside the relationship even after it returns to Healthy, so that it is not buried by a good week.
+68. As an Admin, I want to mark a Concern resolved deliberately, so that nothing closes itself.
+69. As an Admin, I want multiple Concerns on one relationship shown with a count, so that I can see there is more than one.
+70. As an Admin, I want to reach Concern text one Person at a time rather than as a list, so that the most sensitive data in the product takes deliberate effort to read.
+71. As an Admin, I want Concern text cleared when I resolve it by default, so that we do not accumulate a permanent file of people's hardest weeks.
+72. As an Admin, I want to see contact details, resolve an item, send one additional check-in, resume a paused relationship, or end the relationship from a follow-up item, so that the view is actionable.
+73. As a Ministry, I want an Admin clicking Nudge repeatedly to send at most one message, so that no interface action can over-message our congregation.
+74. As a Leader, I want a missed meeting never framed as a failure, so that answering honestly is safe.
 
 ### Pause, swap, and ending
 
-74. As a Leader, I want to pause my check-ins for a season, so that a holiday does not put me in the care queue.
-75. As a Leader, I want to choose how long I am pausing, so that a summer away and a fortnight away are not the same thing.
-76. As a Leader, I want my relationships intact while paused, so that stepping back does not cost me the people I lead.
-77. As a Participant, I want to stay in my relationship while my Leader is paused, so that I am not returned to the pool without being asked.
-78. As a Leader, I want my check-ins to resume automatically, so that coming back requires nothing of me.
-79. As a Leader, I want to resume early by texting back, so that returning sooner is easy.
-80. As an Admin, I want to pause a relationship myself, so that I can act on something I have been told offline.
-81. As a Leader, I want to ask to be matched with someone else, so that a relationship that is not working has an exit that is not a conversation.
-82. As an Admin, I want to end a relationship with a recorded reason, so that we know later whether it completed or broke down.
-83. As an Admin, I want an ended relationship's history preserved exactly, so that a relationship that ran well and finished is an outcome rather than a deletion.
-84. As a Person whose relationship has ended, I want to return to the Roster as available, so that I can be matched again.
-85. As an Admin, I want one Participant leaving a relationship not to end it for everyone else, so that the rest can continue.
-86. As an Admin, I want a departed Participant's past weeks to stay attached to the relationship, so that history is not rewritten by someone leaving.
+75. As a Leader, I want to pause my check-ins for a season, so that a holiday does not put me in the care queue.
+76. As a Leader, I want to choose 1, 2, 4, 8, or 12 weeks with 2 weeks preselected, so that a summer away and a fortnight away are not the same thing.
+77. As a Leader, I want a paused relationship to stay on my list marked Paused rather than disappearing, so that stepping back does not cost me the people I lead.
+78. As a Participant, I want to stay in my relationship while my Leader is paused, so that I am not returned to the pool without being asked.
+79. As a Leader, I want my pause to end only when I resume it or an Admin does, so that my check-ins never restart on a date I have forgotten.
+80. As a Leader, I want to reply START to resume a paused relationship immediately, so that returning sooner needs nobody's permission.
+81. As an Admin, I want to pause a relationship myself, so that I can act on something I have been told offline.
+82. As a Leader, I want to reply SWAP to ask to be matched with someone else, so that a relationship that is not working reaches my Admin without a difficult conversation.
+83. As a Leader, I want everything to stay exactly as it is after I ask for a swap, so that asking costs nobody their place while my Admin decides.
+84. As an Admin, I want a paused relationship to stay visible and marked Paused, so that I can tell it apart from a healthy, stalled, or ended one.
+85. As an Admin, I want an expired pause to reach me for review rather than resuming itself, so that nobody's check-ins restart without a person deciding.
+86. As an Admin, I want to see which pause period was selected and that it has expired, so that I know what I am reviewing.
+87. As an Admin, I want to resume a paused relationship myself, so that an expired pause has an outcome other than ending it.
+88. As an Admin, I want a resumed relationship to return to whatever its history says rather than to Healthy, so that a stalled relationship is not quietly cleared by a pause.
+89. As an Admin, I want a swap request to show me the Leader, the relationship, and that a different Participant is being asked for, so that I can act without chasing context.
+90. As an Admin, I want neither an expired pause nor a swap request to clear itself, so that nothing that needs my decision disappears before I make it.
+91. As an Admin, I want to end a relationship with a recorded reason, so that we know later whether it completed or broke down.
+92. As an Admin, I want an ended relationship's history preserved exactly, so that a relationship that ran well and finished is an outcome rather than a deletion.
+93. As a Person whose relationship has ended, I want to return to the Roster as available, so that I can be matched again.
+94. As an Admin, I want one Participant leaving a relationship not to end it for everyone else, so that the rest can continue.
+95. As an Admin, I want a departed Participant's past weeks to stay attached to the relationship, so that history is not rewritten by someone leaving.
 
 ### History and integrity
 
-87. As a Ministry, I want what happened stored rather than only the latest values, so that our history can answer questions we have not asked yet.
-88. As a Ministry, I want a late reply attached to the question it answers, so that an old unanswered week is never falsely marked answered.
-89. As a Ministry, I want Material Assignments dated rather than overwritten, so that we can tell later what was in use during a given week.
-90. As a Ministry, I want our data never combined with another Ministry's, so that the agreement we entered into is kept.
-91. As a Ministry, I want a record of who viewed a Concern, resolved one, ended a relationship, or exported data, so that sensitive actions are accountable.
-92. As an Admin, I want to see a relationship's check-ins newest-first, so that I have context before I make a call.
+96. As a Ministry, I want what happened stored rather than only the latest values, so that our history can answer questions we have not asked yet.
+97. As a Ministry, I want a late reply attached to the question it answers, so that an old unanswered week is never falsely marked answered.
+98. As a Ministry, I want Material Assignments dated rather than overwritten, so that we can tell later what was in use during a given week.
+99. As a Ministry, I want our data never combined with another Ministry's, so that the agreement we entered into is kept.
+100. As a Ministry, I want a record of who viewed a Concern, resolved one, ended a relationship, or exported data, so that sensitive actions are accountable.
+101. As an Admin, I want to see a relationship's check-ins newest-first, so that I have context before I make a call.
 
 ## Implementation Decisions
 
@@ -150,13 +159,13 @@ Message copy branches on Participant count — a Participant's name when there i
 
 ### Single command boundary
 
-Every external trigger enters through one application-service boundary. The commands are: Intake submitted, Person imported, relationship created, relationship cancelled, Leader accepted, inbound SMS received, Admin action taken (resolve, nudge, pause, end), and a scheduled tick.
+Every external trigger enters through one application-service boundary. The commands are: Intake submitted, Person imported, relationship created, relationship cancelled, Leader accepted, inbound SMS received, Admin action taken (resolve, nudge, pause, resume, end), and a scheduled tick.
 
 Each command returns effects rather than performing I/O directly: outbound messages to enqueue, and history events to append. This is the seam the test suite drives, and it is the only way into the domain.
 
 ### Injected clock
 
-Every time-dependent rule reads from an injected clock, never from system time directly. The rules that depend on it: two-week silence, three-week non-meeting, twenty-four-hour sequence timeout, next-day reminder, twelve-hour nudge cooldown, two- and five-day Acceptance reminders, seven-to-fourteen-day Invitation Link expiry, and Pause duration.
+Every time-dependent rule reads from an injected clock, never from system time directly. The rules that depend on it: two-week silence, three-week non-meeting, twenty-four-hour sequence timeout, next-day reminder, twelve-hour nudge cooldown, two- and five-day Acceptance reminders, seven-to-fourteen-day Invitation Link expiry, Pause duration, and Pause expiry — the last evaluated as a distinct condition that raises a follow-up item without changing state.
 
 This is a hard requirement. Without it none of the care logic is testable.
 
@@ -176,13 +185,18 @@ Healthy                     → default once accepted
 Stalled                     → 2 consecutive unanswered check-ins
                             OR 3 consecutive "did not meet" replies
 Needs Care                  → a Concern raised this week
-Paused                      → Leader stepped back; nobody returns to the pool
+Paused                      → Leader paused this relationship for 1/2/4/8/12 weeks;
+                              masks the derived state, nobody returns to the pool
 Ended                       → terminal, with a reason
 ```
 
 A relationship holds exactly one state. Concerns are **not** a state: they are badges that persist beside the relationship until an Admin resolves them, so a relationship can be Healthy with unresolved Concerns outstanding. Stalled clears automatically on any answered check-in; a Concern clears only by explicit resolution.
 
 The care reason is part of the output, not a UI inference — "gone silent, 2 weeks" and "responding, not meeting, 3 weeks" are different reasons and must be distinguishable by the caller.
+
+`Paused` **masks** the derived state rather than replacing the history behind it. While a relationship is paused the derivation reports `Paused`; on resume it reports whatever the history yields. No new unanswered check-ins accrue during a pause, and the pause does not answer the old ones — so a relationship that was `Stalled` when it was paused is `Stalled` again on resume and stays there until an answered check-in clears the condition. **Resuming never sets `Healthy` on its own.** Setting state to `Healthy` on resume would silently erase a live care signal.
+
+An expired Pause and an open Swap request are **not** states and **not** care conditions derived from check-in history. Like Concerns they are follow-up items that sit beside the relationship, coexist with any state including `Paused`, and clear only by explicit Admin action. Pause expiry changes no state and sends nothing: the relationship remains `Paused` until an Admin resumes or ends it, and the Starter Message is released on resume, never on expiry.
 
 ### Check-In Sequence
 
@@ -200,7 +214,15 @@ If a new week comes due while a sequence is open, the old sequence is abandoned 
 
 One webhook handles every inbound message. Resolution is: sender's phone number → Person → their open Check-In Sequence → the question currently awaiting a reply. Nothing resolves to "the Person's relationship" — a Leader may hold several, and the sequence position is what disambiguates.
 
-Keywords are handled before sequence interpretation: STOP and START at the person level, PAUSE and SWAP as domain commands.
+Keywords are handled before sequence interpretation. `STOP` is the person-level carrier opt-out and is unchanged. `PAUSE`, `START`, and `SWAP` are relationship-scoped domain commands:
+
+- `PAUSE` — moves that relationship to `Paused` immediately, for a selected period of 1, 2, 4, 8, or 12 weeks, defaulting to 2. No Admin approval is involved.
+- `START` — resumes that paused relationship immediately and releases the Starter Message. No Admin approval is involved. Because the pause has ended, no expiry follow-up item is ever raised for it.
+- `SWAP` — records a request against that relationship and raises an Admin follow-up item. It changes no state, moves nobody, and ends nothing.
+
+**UNRESOLVED — how an inbound keyword identifies which relationship it applies to.** A Leader may hold several relationships; `PAUSE`, `START`, and `SWAP` are each scoped to one of them; and an inbound message carrying only a keyword does not identify which. The sequence position that disambiguates a check-in reply is unavailable here, because `START` and `SWAP` normally arrive with no open sequence at all. `PAUSE` carries a second gap: there is no defined way for a Leader to choose among the five durations over SMS. **No selection or routing mechanism is specified, and none may be inferred.**
+
+**UNRESOLVED — `START` carries two meanings.** `docs/reference/mentor-experience.md` and `docs/reference/mentee-experience.md` define `START` as the carrier-level re-opt-in that reverses `STOP` and restores all messaging to a Person; this spec also uses it to resume one paused relationship. For a Person who has opted out and also holds a paused relationship, the two readings collide. The documented carrier behavior is preserved and must not be deleted to accommodate the resume keyword. `docs/consent-language.md` advertises only `STOP` and `HELP`, so the carrier `START` behavior has never been adopted into a canonical document either.
 
 ### Outbound messages and limits
 
@@ -262,7 +284,12 @@ Scenarios that must be covered at this seam:
 - A new week arriving mid-sequence abandons the old one without rewriting its history.
 - Nudge clicked repeatedly sends once.
 - Contact-sharing consent absent means no phone number is sent.
-- Pause suspends check-ins, keeps membership, keeps Participants out of the pool, and auto-resumes with a Starter Message.
+- Pause suspends check-ins for that relationship, keeps membership, keeps Participants out of the pool, and leaves the relationship visible and marked `Paused` to both its Leader and the Admin.
+- `START` resumes a paused relationship immediately and releases the Starter Message.
+- A pause period elapsing raises a follow-up item, sends nothing, and leaves the state `Paused`; the Admin then resuming it releases the Starter Message.
+- A relationship that was `Stalled` when it was paused is still `Stalled` on resume, and clears only on an answered check-in. **Resume must not set `Healthy`.**
+- A relationship resumed by `START` before its period elapses never raises an expiry follow-up item.
+- `SWAP` records a request and raises a follow-up item without changing state, moving anyone, or clearing itself, and coexists with `Paused`.
 - An Invitation Link survives being opened and abandoned, and is consumed on account creation.
 - Two Ministries operating concurrently never see each other's data.
 

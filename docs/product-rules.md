@@ -272,6 +272,8 @@ Optional: email address.
 
 Gender and Discipleship Goal are required because both feed suggestion — gender is an absolute constraint, so a missing value would make a person unsuggestable entirely.
 
+There is one intake form. Gender is a required field on that same form, selected by the person while they complete it, and it feeds the pairing eligibility and suggestion rules from there. There is no separate gender intake form and no separate gender intake workflow.
+
 Age is collected as an **age range**, not an exact age or date of birth.
 
 ## Settled: On-Demand Concern Aggregation Is Not in V1
@@ -310,3 +312,39 @@ Intake offers six ranges: 18–24, 25–34, 35–44, 45–54, 55–64, 65+.
 The age constraint is restated over them: **a leader is not suggested for a participant more than one band above them.** A leader in 25–34 is suggested for participants up to 35–44, but not 45–54.
 
 This is coarser than the ten-year gap it replaces, and deliberately so — Discipler no longer holds exact ages, and a rule must not imply more precision than the data behind it. It remains explainable in one sentence, which the suggestion ADR requires of every input, and manual pairing still overrides it.
+
+## Settled: Pause Is Leader-Controlled, Bounded, and Visible
+
+A leader may pause a relationship they lead. The transition to `Paused` is immediate and requires no admin approval.
+
+A pause runs for exactly one of five periods: 1 week, 2 weeks, 4 weeks, 8 weeks, or 12 weeks. The default is 2 weeks and the maximum is 12. No other duration is permitted.
+
+Weekly check-ins for that relationship are suppressed for the duration of the pause, and no silence accrues against it while it is paused.
+
+Pausing never removes, archives, ends, or hides a relationship. Membership is unchanged and nobody returns to the suggestion pool. The relationship stays on the leader's list of relationships, visibly marked `Paused`, and stays on the admin dashboard, visibly marked `Paused` and distinguishable from Healthy, Stalled, and Ended.
+
+`Paused` masks the relationship's underlying derived state; it does not rewrite the history behind it. No new unanswered check-ins accrue during a pause, and the pause does not answer the old ones. On resume the underlying state resurfaces, so a relationship that was `Stalled` when it was paused is `Stalled` again on resume and stays there until an answered check-in clears that condition. **Resuming never sets `Healthy` on its own.**
+
+A leader may resume early by replying `START`. That resume is also immediate, requires no admin approval, and releases the Starter Message. A relationship resumed early never reaches its pause expiry, so no follow-up item is created for it.
+
+> **Supersedes:** `docs/reference/mentor-experience.md` and `docs/reference/mentee-experience.md`, which describe a fixed four-week pause that resumes automatically when it ends. The duration is now a choice among five values, and expiry no longer resumes anything. Those files are historical evidence and are not edited; the conflict is recorded here.
+
+## Settled: An Expired Pause Requires Admin Review
+
+When the selected pause period expires, the relationship does not return to Active. It remains `Paused`, and the expiry creates or surfaces a follow-up item for the admin.
+
+The admin must be able to see that the relationship was paused, which period was selected, that the period has expired, that the relationship has not resumed, and that admin review is required.
+
+Expiry is not equivalent to Resolved, Active, or Ended, and it sends nothing. The Starter Message is released on resume, never on expiry.
+
+The admin decides what happens next: resuming the relationship, which releases the Starter Message and lets the underlying derived state resurface, or ending it with a recorded reason. The follow-up item clears only when the admin acts.
+
+## Settled: A Swap Request Is a Request, Not a State Transition
+
+`SWAP` is a leader's request to be released from a specific relationship and matched with a different participant. Discipler records the request against that relationship and creates a follow-up item for the admin.
+
+Receiving a swap request does not end the relationship, remove the leader, remove the participant, return anyone to the pairing pool, create a replacement relationship, reassign anybody, or set the relationship to `Ended`. It is not a relationship-state transition. The relationship holds its existing state — including `Paused` — and remains intact until an admin acts.
+
+The admin must be able to see which leader requested the swap, which relationship the request concerns, that the leader is asking for a different participant, and that the relationship remains intact while awaiting a decision.
+
+Recording the request never clears the follow-up item. The admin resolves it either by ending the relationship with a recorded reason or by resolving the request and leaving the relationship in place. Reassignment and replacement need no separate action: ending a relationship returns everyone to `Ready to Pair`, and the admin pairs from the roster as usual.

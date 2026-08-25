@@ -47,13 +47,17 @@ RELATIONSHIP STATE
    ├── Healthy
    ├── Stalled       — 2 weeks silent, or 3 weeks not meeting
    ├── Needs Care    — a concern raised this week
-   ├── Paused        — leader stepped back; nobody returns to the pool
+   ├── Paused        — leader paused this relationship for 1/2/4/8/12 weeks
+   │                   (default 2); check-ins suppressed, nobody returns to
+   │                   the pool, relationship stays visible on both surfaces;
+   │                   expiry raises admin review and resumes nothing
    └── Ended         — terminal, with a reason
    ↓
 WEEK-BY-WEEK HISTORY
    ├── admin dashboard: Overview, Check-Ins, Suggested Pairs,
    │                    Follow-Up, Materials, Roster
-   ├── Follow-Up: see contact · resolve concern · nudge · end
+   ├── Follow-Up: stalled · unresolved concern · expired pause · swap request
+   │              see contact · resolve · nudge · resume · end
    └── Ministry Intelligence (reporting interface deferred past V1;
                               the history it reads must be complete now)
 ```
@@ -83,6 +87,16 @@ Creating a relationship does not activate it. The leader receives an SMS invitat
 Contact details never travel by SMS to a leader; they appear on the leader dashboard. A participant does receive their leader's name and number, so an unknown text tomorrow has context.
 
 An unaccepted relationship holds its people out of the suggestion pool. The leader is reminded after two days, it surfaces to the admin after five, and an admin can cancel it at any point.
+
+## Pause, resume, and swap
+
+A leader may pause a relationship they lead for 1, 2, 4, 8, or 12 weeks, defaulting to 2. The transition is immediate and needs no admin approval. Check-ins for that relationship stop, nobody moves, and the relationship stays visible and marked `Paused` on both the leader's list and the admin dashboard.
+
+`Paused` masks the state the relationship would otherwise derive rather than rewriting its history. Replying `START` resumes it immediately and releases the Starter Message; the underlying state then resurfaces, so a relationship that was stalled when it was paused is stalled again until an answered check-in clears it. Resuming never sets Healthy on its own.
+
+If the pause period elapses instead, nothing happens automatically. The relationship stays `Paused`, no message is sent, and a follow-up item asks the admin to review it. The admin resumes it or ends it.
+
+`SWAP` is a leader's request to be matched with a different participant. It records the request against that relationship and raises a follow-up item. It changes no state, moves nobody, and ends nothing; the relationship stays intact until the admin acts. Neither an expired pause nor a swap request clears itself.
 
 ## History
 

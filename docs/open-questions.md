@@ -2,9 +2,15 @@
 
 The original seed list of 78 questions was worked through in the grilling session. Most are now settled and recorded in `docs/product-rules.md`, `CONTEXT.md`, `docs/adr/`, and the surface documents. This file now holds only what genuinely remains.
 
-## Nothing is open in the core loop
+## The core loop is settled apart from inbound keyword routing
 
-Every question about intake, suggestion, acceptance, the check-in rhythm, relationship state, care surfacing, and the two dashboards has been resolved and recorded. What remains below is deferred capability, not unresolved design.
+Every question about intake, suggestion, acceptance, the check-in rhythm, relationship state, care surfacing, and the two dashboards has been resolved and recorded. Two questions about inbound SMS keywords remain, and they are genuine gaps rather than deferred capability.
+
+## Open: inbound keyword routing
+
+- **Which relationship an inbound keyword applies to.** A leader may lead several relationships, and `PAUSE`, `START`, and `SWAP` are each scoped to exactly one of them. An inbound message carrying only a keyword does not identify which, and the sequence position that disambiguates a check-in reply is unavailable — `START` and `SWAP` normally arrive with no open sequence at all. No selection or routing mechanism is defined, and none may be inferred.
+- **How a leader chooses a pause duration over SMS.** A pause is 1, 2, 4, 8, or 12 weeks, defaulting to 2. There is no defined mechanism for expressing that choice in an inbound message, and whether an SMS confirmation step exists is also undefined.
+- **`START` carries two meanings.** `docs/reference/` defines `START` as the carrier-level re-opt-in that reverses `STOP` for a person; it is also the keyword that resumes one paused relationship. For a person who has opted out and also holds a paused relationship, the two readings collide. The carrier behavior is preserved as documented. Note that `docs/consent-language.md` advertises only `STOP` and `HELP`, so the carrier `START` behavior has never been adopted into a canonical document.
 
 ## Deferred with the quarterly report
 
