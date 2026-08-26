@@ -8,7 +8,7 @@ accepted
 
 Discipler is a greenfield repository. The core operating loop spec requires a relational store for append-only ministry history, authentication for two access tiers, a webhook endpoint for inbound SMS, and a scheduled tick. Nothing has been built, so the platform choice is unconstrained and every ticket in the implementation sequence depends on it.
 
-Two properties of the product make this choice consequential rather than routine. First, no ministry's history may ever be combined with another's — tenant isolation is a data contract, not a preference. Second, the Week-by-Week History cannot be reconstructed after the fact, so the store holding it has to be correct from the first week of the pilot.
+Two properties of the product make this choice consequential rather than routine. First, no ministry's history may ever be combined with another's — Ministry isolation is a data contract, not a preference. Second, the Week-by-Week History cannot be reconstructed after the fact, so the store holding it has to be correct from the first week of the pilot.
 
 ## Decision
 

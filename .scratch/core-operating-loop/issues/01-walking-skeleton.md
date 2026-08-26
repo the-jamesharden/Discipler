@@ -73,3 +73,58 @@ while `CONTEXT.md` lists **Tenant** as a term to avoid in favour of **Ministry**
 The code uses Ministry throughout. The ADR wording was left alone rather than
 edited after acceptance.
 
+### Review pass — findings fixed
+
+A code review of this ticket raised ten issues, all of them implementation rather
+than product. Fixing them turned up an eleventh that the review could not have
+seen, and it is the one that matters most.
+
+**Sign-in was disabled outright.** `supabase/config.toml` carried
+`[auth.email] enable_signup = false`, intended to express *accounts are never
+self-registered*. That key does not mean that. The CLI maps it to
+`GOTRUE_EXTERNAL_EMAIL_ENABLED`, which governs the **whole email provider**, so it
+disabled signing *in* as well as signing up — `Email logins are disabled`. The
+first acceptance criterion could not hold on any freshly started stack.
+
+The product decision was never in doubt and has not changed. It is expressed by
+`enable_signup` under `[auth]`, which maps to `GOTRUE_DISABLE_SIGNUP` and is the
+setting that means what it says. `[auth.email] enable_signup` is now back on, with
+a comment saying why, and both halves are verified: a provisioned Admin signs in,
+and `POST /auth/v1/signup` still answers `signup_disabled`.
+
+This hid for as long as it did because the two settings read almost identically in
+the config file, and because a stack already running keeps the config it started
+with. It only surfaces on `supabase stop && supabase start`.
+
+**The end-to-end suite had never run.** `tests/integration/admin-signs-in.test.ts`
+probed `127.0.0.1:3210`; nothing serves there, so `describe.skipIf` skipped all
+seven tests and `npm test` reported green. It now probes port 3000, matching
+`next start` and `site_url`. This was the only proof of acceptance criterion 1,
+and it was reporting success without executing.
+
+Also fixed: `currentAdmin` raised a dropped query error instead of reporting a
+genuine Admin as not an Admin; the effect store no longer lets a failed rollback
+mask the error that caused it, and no longer returns a dead connection to the
+pool; `pg` moved to `dependencies`, where the runtime actually needs it; the
+domain-independence guard now catches relative escapes and un-prefixed Node
+built-ins, which it previously did not; the sign-in page renders error *codes*
+rather than reflecting arbitrary query-string text in its own alert styling; the
+`create role` statement is replayable, so these migrations can be applied to a
+preview branch; a missing anon key no longer 500s every route including the one
+page that would have explained the problem; the composition root can hand its
+connection pool back; and `vite-node` is declared rather than borrowed from
+vitest's tree.
+
+**65 tests pass**, none skipped. The count is up from the 59 recorded above
+because seven end-to-end tests now execute rather than skip, and the domain guard
+grew checks. `.github/workflows/ci.yml` brings the stack and the app up and runs
+the suite with `CI` set, so the skip cannot come back silently.
+
+### Resolved — the terminology question above
+
+**Ministry isolation** is the term. A Ministry is Discipler's tenant boundary:
+data belonging to one Ministry must never be accessible to another Ministry.
+`CONTEXT.md` now carries that definition and lists *Tenant isolation* as the
+phrasing to avoid; the ADR, `docs/product-rules.md` and `docs/consent-language.md`
+were aligned to it.
+

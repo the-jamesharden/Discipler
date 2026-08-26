@@ -109,11 +109,11 @@ Three items were carried into the grilling session as working decisions to be pr
 - **Launch modes** — removed entirely. See *No Launch Modes, No Kickoff in the Product*.
 - **Event scope** — a kickoff is not modeled in the product at all.
 
-## Settled: Tenant Isolation in Ministry Intelligence
+## Settled: Ministry Isolation in Ministry Intelligence
 
 Ministry Intelligence operates strictly inside one ministry's own data.
 
-Discipler must not pool response, satisfaction, or material data across ministries, even in aggregate or anonymized form. Cross-ministry comparison would produce more statistically useful material insight, and it is rejected anyway: it breaks the data contract a ministry entered into, and tenant isolation outranks analytical value.
+Discipler must not pool response, satisfaction, or material data across ministries, even in aggregate or anonymized form. Cross-ministry comparison would produce more statistically useful material insight, and it is rejected anyway: it breaks the data contract a ministry entered into, and Ministry isolation outranks analytical value.
 
 ## Settled: Material Insight Is Descriptive, Not Inferential
 
@@ -450,7 +450,7 @@ A silence gap is thirty rolling days since Discipler last sent that person a mes
 
 Two rules key off it: the A2P compliance prefix, and the participant-facing opt-out language. They share one definition rather than being separately maintained.
 
-Rolling days rather than calendar months, because a person messaged on 31 January and again on 1 March has crossed two calendar boundaries with twenty-nine days of contact. Per person per ministry, because every other rule in the product is ministry-scoped and making this one the exception would invite a cross-ministry read of a person's history, which the tenant isolation rule forbids.
+Rolling days rather than calendar months, because a person messaged on 31 January and again on 1 March has crossed two calendar boundaries with twenty-nine days of contact. Per person per ministry, because every other rule in the product is ministry-scoped and making this one the exception would invite a cross-ministry read of a person's history, which the Ministry isolation rule forbids.
 
 ## Settled: What Opt-Out Language a Participant Receives
 

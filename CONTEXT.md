@@ -5,8 +5,12 @@ Discipler's domain is the operation of church discipleship relationships: gettin
 ## Language
 
 **Ministry**:
-A church or ministry organization using Discipler to operate discipleship relationships.
-_Avoid_: Tenant, customer account
+A church or ministry organization using Discipler to operate discipleship relationships. A Ministry is Discipler's tenant boundary: data belonging to one Ministry must never be accessible to another Ministry.
+_Avoid_: Tenant, customer account (as model terms; "tenant boundary" remains correct prose for the property itself)
+
+**Ministry isolation**:
+The rule that data belonging to one Ministry is never accessible to another. The name for the property the tenant boundary exists to hold.
+_Avoid_: Tenant isolation
 
 **Admin**:
 The authorized ministry staff member who oversees people, relationships, care needs, materials, and ministry-level insight. Named for the role rather than the office, because not every ministry using Discipler is led by a pastor.

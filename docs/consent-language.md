@@ -32,4 +32,4 @@ A person can reasonably agree to hear from their church and not agree to have th
 
 These statements cover messaging and contact sharing only. They are not a privacy policy, not terms of service, and not consent to any use of a person's data beyond operating their own discipleship relationship and their own ministry's reporting.
 
-Nothing in this wording permits a person's data to leave their ministry. See the tenant isolation rule in `docs/product-rules.md`.
+Nothing in this wording permits a person's data to leave their ministry. See the Ministry isolation rule in `docs/product-rules.md`.
