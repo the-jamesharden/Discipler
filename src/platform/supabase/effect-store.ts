@@ -70,6 +70,11 @@ export const createPostgresEffectStore = (connectionString: string): PostgresEff
   return {
     async transact<T>(ministryId: MinistryId, work: (sink: EffectSink) => Promise<T>) {
       const client = await pool.connect()
+      // A connection that died mid-transaction cannot be rolled back and must not
+      // go back into the pool, or the next command to borrow it fails for a reason
+      // that has nothing to do with itself.
+      let connectionIsSuspect: Error | undefined
+
       try {
         await client.query('begin')
         // Both reset at commit or rollback, so they cannot leak to the next
@@ -81,10 +86,17 @@ export const createPostgresEffectStore = (connectionString: string): PostgresEff
         await client.query('commit')
         return result
       } catch (error) {
-        await client.query('rollback')
+        try {
+          await client.query('rollback')
+        } catch (rollbackError) {
+          // Swallowed on purpose: the rollback failing is a symptom, and throwing
+          // it here would replace the error that actually explains the failure.
+          connectionIsSuspect =
+            rollbackError instanceof Error ? rollbackError : new Error(String(rollbackError))
+        }
         throw error
       } finally {
-        client.release()
+        client.release(connectionIsSuspect)
       }
     },
     close: () => pool.end(),

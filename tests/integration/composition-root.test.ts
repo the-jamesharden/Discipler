@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createMinistryWithAdmin, localSupabase, type MinistryFixture } from '../support/local-supabase'
 
 /**
@@ -11,7 +11,7 @@ import { createMinistryWithAdmin, localSupabase, type MinistryFixture } from '..
 
 describe('the wired-up command service', () => {
   let ministry: MinistryFixture
-  let getCommandService: typeof import('~/service/container')['getCommandService']
+  let container: typeof import('~/service/container')
 
   beforeAll(async () => {
     ministry = await createMinistryWithAdmin('Riverside Chapel')
@@ -19,11 +19,17 @@ describe('the wired-up command service', () => {
     process.env.DATABASE_URL = localSupabase().databaseUrl
     // Imported after the environment is set, because the container reads it when
     // it first builds the store.
-    ;({ getCommandService } = await import('~/service/container'))
+    container = await import('~/service/container')
+  })
+
+  // The real container holds a real connection pool, so this file gives it back
+  // rather than leaving it open the way the running app does.
+  afterAll(async () => {
+    await container.closeCommandService()
   })
 
   it('accepts a command through the real store without an in-memory stand-in', async () => {
-    const result = await getCommandService().execute({
+    const result = await container.getCommandService().execute({
       type: 'scheduled.tick',
       ministryId: ministry.id,
     })
@@ -32,6 +38,6 @@ describe('the wired-up command service', () => {
   })
 
   it('hands back the same service rather than opening a pool per call', () => {
-    expect(getCommandService()).toBe(getCommandService())
+    expect(container.getCommandService()).toBe(container.getCommandService())
   })
 })

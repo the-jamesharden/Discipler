@@ -22,13 +22,18 @@ export const currentAdmin = async (): Promise<SignedInAdmin | null> => {
 
   // Deliberately not `.maybeSingle()`: that raises rather than returns when a
   // person administers more than one Ministry.
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('ministry_member')
     .select('ministry_id, ministry(name)')
     .eq('user_id', user.id)
     .eq('tier', 'admin')
     .order('created_at')
     .limit(1)
+
+  // A failed lookup is not the same fact as "not an Admin". Swallowing it would
+  // tell an Admin they have no Ministry because the database was briefly
+  // unreachable, so it is raised rather than folded into the null case.
+  if (error) throw new Error(`Could not resolve the signed-in Admin: ${error.message}`)
 
   const membership = data?.[0]
   if (!membership) return null
