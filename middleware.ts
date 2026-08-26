@@ -9,7 +9,20 @@ import { supabaseCredentials } from '~/platform/supabase/credentials'
  */
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request })
-  const { url, anonKey } = supabaseCredentials()
+
+  let credentials
+  try {
+    credentials = supabaseCredentials()
+  } catch (error) {
+    // With no credentials there is no session to refresh. Throwing here would put a
+    // 500 on every route, /login included -- and /login is the one page that could
+    // have said what to do about it. So the request passes through unrefreshed and
+    // the reason is logged where whoever started the app will see it.
+    console.error(error)
+    return response
+  }
+
+  const { url, anonKey } = credentials
 
   const supabase = createServerClient(url, anonKey, {
     cookies: {

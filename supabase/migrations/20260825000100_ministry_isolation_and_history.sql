@@ -218,7 +218,17 @@ grant select, insert on ministry_event to service_role;
 -- So the command boundary drops into a role that cannot bypass RLS, and declares
 -- which Ministry it is acting for. A command handling Riverside cannot write a row
 -- belonging to Northgate even if it tries.
-create role discipler_command nologin;
+-- Roles are cluster-scoped rather than database-scoped, so unlike every other
+-- statement in this file a bare `create role` cannot be replayed against a second
+-- database in the same cluster -- a Supabase preview branch, say, which shares one.
+do $$
+begin
+  if not exists (select from pg_catalog.pg_roles where rolname = 'discipler_command') then
+    create role discipler_command nologin;
+  end if;
+end
+$$;
+
 grant discipler_command to postgres;
 
 grant usage on schema app, public to discipler_command;

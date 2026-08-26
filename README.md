@@ -10,7 +10,8 @@ Requires Node 22, Docker, and the Supabase CLI.
 npm install
 npm run db:start     # local Supabase (Postgres, Auth) via Docker
 npm run db:reset     # apply migrations
-cp .env.example .env.local   # fill in the keys `npm run db:start` prints
+cp .env.example .env.local   # already holds the local keys; check them against
+                             # what `npm run db:start` printed
 npm run seed         # creates two Ministries and an Admin for each, and prints
                      # their sign-in details -- accounts are never self-registered
 npm run dev
