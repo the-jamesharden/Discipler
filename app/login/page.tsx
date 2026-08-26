@@ -1,9 +1,12 @@
+import { signInFailureMessage } from './failures'
+
 export default async function LoginPage({
   searchParams,
 }: {
   searchParams: Promise<{ error?: string }>
 }) {
   const { error } = await searchParams
+  const message = signInFailureMessage(error)
 
   return (
     <main>
@@ -11,9 +14,9 @@ export default async function LoginPage({
       <p className="subtle">Discipler</p>
 
       <div className="panel">
-        {error ? (
+        {message ? (
           <p className="error" role="alert">
-            {error}
+            {message}
           </p>
         ) : null}
 

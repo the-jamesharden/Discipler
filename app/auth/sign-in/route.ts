@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '~/platform/supabase/server-client'
+import type { SignInFailure } from '../../login/failures'
 
 /**
  * Sign-in as an ordinary form POST rather than a client-side call, so it works
@@ -11,20 +12,20 @@ export async function POST(request: NextRequest) {
   const email = String(form.get('email') ?? '').trim()
   const password = String(form.get('password') ?? '')
 
-  const failed = (message: string) =>
-    NextResponse.redirect(
-      new URL(`/login?error=${encodeURIComponent(message)}`, request.url),
-      { status: 303 },
-    )
+  // A code rather than the message itself: the sign-in page owns the wording, and
+  // nothing a stranger puts in the query string can be rendered in the app's own
+  // error styling.
+  const failed = (reason: SignInFailure) =>
+    NextResponse.redirect(new URL(`/login?error=${reason}`, request.url), { status: 303 })
 
-  if (!email || !password) return failed('Enter your email and password.')
+  if (!email || !password) return failed('missing-credentials')
 
   const supabase = await createSupabaseServerClient()
   const { error } = await supabase.auth.signInWithPassword({ email, password })
 
   // Deliberately vague: a precise message would tell an outsider which email
   // addresses belong to a Ministry.
-  if (error) return failed('That email and password did not match.')
+  if (error) return failed('no-such-account')
 
   return NextResponse.redirect(new URL('/roster', request.url), { status: 303 })
 }
