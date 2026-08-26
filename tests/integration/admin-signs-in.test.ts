@@ -17,7 +17,7 @@ import {
  * Admin can reach their Roster at all.
  */
 
-const baseUrl = process.env.APP_URL ?? 'http://127.0.0.1:3210'
+const baseUrl = process.env.APP_URL ?? 'http://127.0.0.1:3000'
 
 const appIsRunning = await fetch(`${baseUrl}/login`, { redirect: 'manual' })
   .then((response) => response.ok)
