@@ -1,0 +1,129 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# A second push to the same branch makes the first run's answer irrelevant.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Typecheck, build and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies from the lockfile
+        run: npm ci
+
+      - name: Install the Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          # Left unpinned deliberately: supabase/config.toml uses recent config
+          # keys, and an older CLI refuses to parse a config it does not know.
+          version: latest
+
+      # The runner's Docker daemon is the whole stack -- Postgres, Auth, PostgREST.
+      # Nothing here touches a hosted Supabase project, and no cloud credentials
+      # are read: the tests get everything from `supabase status` below.
+      - name: Start the local Supabase stack
+        run: supabase start
+
+      # `supabase start` applies supabase/migrations to the fresh database it
+      # creates. This is here so a migration that fails to apply is visible as a
+      # step rather than as a confusing failure inside a test.
+      - name: Show the applied migrations
+        run: supabase migration list --local
+
+      # The app reads these three. NEXT_PUBLIC_* are inlined by `next build`, so
+      # they have to be in the environment before the build step, not just before
+      # the server starts. The test suite does not use them -- it shells out to
+      # `supabase status` itself -- but the running app has no other source.
+      - name: Export the local stack's credentials
+        run: |
+          set -euo pipefail
+          status="$(supabase status -o json)"
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=$(jq -r .API_URL <<<"$status")"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$(jq -r .ANON_KEY <<<"$status")"
+            echo "DATABASE_URL=$(jq -r .DB_URL <<<"$status")"
+            echo "APP_URL=http://127.0.0.1:3000"
+          } >> "$GITHUB_ENV"
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build the application
+        run: npm run build
+
+      - name: Start the application in the background
+        run: |
+          set -euo pipefail
+          npm start > app.log 2>&1 &
+          echo "APP_PID=$!" >> "$GITHUB_ENV"
+
+      # The end-to-end suite drives the app over HTTP. It refuses to skip under CI,
+      # so an app that never came up has to fail here, loudly, rather than turn
+      # into seven silently-passing tests.
+      - name: Wait for the application to answer on port 3000
+        run: |
+          set -euo pipefail
+          for _ in $(seq 1 60); do
+            if ! kill -0 "$APP_PID" 2>/dev/null; then
+              echo "The application process exited before it started serving."
+              exit 1
+            fi
+            if curl -sf -o /dev/null "$APP_URL/login"; then
+              echo "The application is serving on $APP_URL."
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "The application did not answer on $APP_URL within 60 seconds."
+          exit 1
+
+      # CI=true is already set by GitHub Actions, which is what stops
+      # tests/integration/admin-signs-in.test.ts from skipping itself.
+      - name: Run the test suite
+        run: npm test
+
+      - name: Application log
+        if: failure()
+        run: |
+          echo "::group::app.log"
+          cat app.log || echo "(no application log was written)"
+          echo "::endgroup::"
+
+      - name: Supabase status and container logs
+        if: failure()
+        run: |
+          echo "::group::supabase status"
+          supabase status || true
+          echo "::endgroup::"
+          for container in $(docker ps -a --filter "name=supabase" --format "{{.Names}}"); do
+            echo "::group::docker logs $container"
+            docker logs --tail 200 "$container" 2>&1 || true
+            echo "::endgroup::"
+          done
+
+      - name: Stop the application
+        if: always()
+        run: kill "${APP_PID:-}" 2>/dev/null || true
+
+      - name: Stop the local Supabase stack
+        if: always()
+        run: supabase stop --no-backup || true
