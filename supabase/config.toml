@@ -220,7 +220,11 @@ web3 = 30
 
 [auth.email]
 # Allow/disallow new user signups via email to your project.
-enable_signup = false
+# Left on: this key controls the email provider as a whole, so turning it off
+# disables signing in as well as signing up, and a provisioned Admin could not
+# reach their Roster at all. Self-registration is refused by `enable_signup`
+# under [auth] above, which is the setting that means what it says.
+enable_signup = true
 # If enabled, a user will be required to confirm any email change on both the old, and new email
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
