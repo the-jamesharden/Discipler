@@ -32,7 +32,7 @@ Suggestions carry visible tier labels — Excellent fit, Good fit, Recommended �
 
 The Follow-Up tab is the Care Needed view. It gathers every relationship and person currently needing admin attention in one place, so nothing depends on an admin noticing it elsewhere. Four conditions put an item here:
 
-1. **Stalled** — gone silent for two weeks, or reporting three weeks of not meeting.
+1. **Stalled** — gone silent for two weeks, or reporting three weeks of not meeting. The item names which condition fired and reports how long it has held, in the unit that matches the reason: gone silent reports days since last contact, responding-not-meeting reports weeks reported as no meeting. The two cannot share a counter — days since last contact is already fourteen or more when silence fires and roughly seven when not-meeting fires, so one number would make a relationship going nowhere for three weeks read as more recent than one silent for a fortnight.
 2. **Unresolved concern** — a concern raised and not yet resolved.
 3. **Expired pause** — the selected pause period has elapsed. The item shows that the relationship was paused, which period was selected, that it has expired, and that the relationship has not resumed. The relationship is still `Paused`; expiry changes no state and resumes nothing.
 4. **Open swap request** — the leader has asked to be matched with a different participant. The item shows which leader asked, which relationship the request concerns, and that the leader wants a different participant. The relationship remains intact and holds its existing state while it waits.

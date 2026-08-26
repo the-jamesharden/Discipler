@@ -325,7 +325,11 @@ Pausing never removes, archives, ends, or hides a relationship. Membership is un
 
 `Paused` masks the relationship's underlying derived state; it does not rewrite the history behind it. No new unanswered check-ins accrue during a pause, and the pause does not answer the old ones. On resume the underlying state resurfaces, so a relationship that was `Stalled` when it was paused is `Stalled` again on resume and stays there until an answered check-in clears that condition. **Resuming never sets `Healthy` on its own.**
 
-A leader may resume early by replying `START`. That resume is also immediate, requires no admin approval, and releases the Starter Message. A relationship resumed early never reaches its pause expiry, so no follow-up item is created for it.
+A leader may resume early by replying `RESUME`. That resume is also immediate, requires no admin approval, and releases the Starter Message. A relationship resumed early never reaches its pause expiry, so no follow-up item is created for it.
+
+A leader selects the duration in a single confirmation exchange rather than in the original message. Discipler replies naming the relationship and the default — *"Pause check-ins with Emily for 2 weeks? Reply YES to confirm, or reply 1, 4, 8, or 12 for a different number of weeks."* — and both written and numeric forms of the reply are accepted. The confirmation exists so that a stray tap never pauses anything, and it means the common case costs a leader two texts.
+
+> **Supersedes:** an earlier settled rule making `START` the early-resume keyword. `START` is now carrier-level re-opt-in only and carries no domain meaning; `RESUME` resumes a paused relationship. See **Settled: Keyword Routing and Eligibility** for the reasoning.
 
 > **Supersedes:** `docs/reference/mentor-experience.md` and `docs/reference/mentee-experience.md`, which describe a fixed four-week pause that resumes automatically when it ends. The duration is now a choice among five values, and expiry no longer resumes anything. Those files are historical evidence and are not edited; the conflict is recorded here.
 
@@ -348,3 +352,137 @@ Receiving a swap request does not end the relationship, remove the leader, remov
 The admin must be able to see which leader requested the swap, which relationship the request concerns, that the leader is asking for a different participant, and that the relationship remains intact while awaiting a decision.
 
 Recording the request never clears the follow-up item. The admin resolves it either by ending the relationship with a recorded reason or by resolving the request and leaving the relationship in place. Reassignment and replacement need no separate action: ending a relationship returns everyone to `Ready to Pair`, and the admin pairs from the roster as usual.
+
+## Settled: Keyword Routing and Eligibility
+
+`PAUSE`, `RESUME`, and `SWAP` act on a single relationship. A leader may hold several, and an inbound message carrying only a keyword does not say which.
+
+Discipler resolves the target by **eligibility for the requested action**:
+
+- If exactly one relationship is eligible, the command applies to it with no further exchange.
+- If more than one is eligible, Discipler replies with a numbered menu of those relationships and waits for a selection.
+- If none is eligible, Discipler replies plainly stating so and does nothing.
+
+Eligibility is defined per command:
+
+| Keyword | Eligible relationships |
+|---|---|
+| `PAUSE` | Active and not already paused |
+| `RESUME` | Paused only |
+| `SWAP` | All live relationships, including `Paused` and including `Awaiting Leader Acceptance` |
+
+Because eligibility is per command, ambiguity is rarer than the raw relationship count suggests: a leader holding three relationships of which one is paused resolves a `RESUME` with no menu at all.
+
+**Discipler must never infer the target relationship from Check-In Sequence position.** The sequence position disambiguates a check-in *answer*; it must not be borrowed to disambiguate a keyword, because `RESUME` and `SWAP` normally arrive with no open sequence and the two cases would then behave differently for no reason a leader could predict.
+
+`SWAP` is eligible on an unaccepted relationship because from that state it reads as a decline. Without it a leader who has been matched with someone they know is wrong has no way to say so — their only option is a silence indistinguishable from being on holiday, which is exactly the ambiguity the five-day follow-up item asks the admin to resolve.
+
+## Settled: `START` Is Carrier-Level Only
+
+`START` is the carrier-level re-opt-in that reverses `STOP` and restores messaging to a person, as `docs/reference/` describes. It carries no relationship-level meaning.
+
+The keyword set is `STOP`, `HELP`, `PAUSE`, `RESUME`, and `SWAP`.
+
+Three reasons the resume keyword was renamed rather than the collision arbitrated. `START` is a carrier-reserved word: carriers and the delivery vendor act on it before Discipler's webhook is consulted, so any domain meaning attached to it is contingent on vendor configuration that may later have to change. Arbitrating by opt-out state — carrier re-opt-in today, relationship resume tomorrow, same word — produces a rule that cannot be explained to a leader in one sentence. And making `START` do both at once would release a Starter Message to third parties as a side effect of someone fixing their own opt-out.
+
+## Settled: One Keyword Exchange, Recency Wins
+
+A keyword prompt and an unanswered check-in question can be outstanding at the same time, and a numbered reply could answer either.
+
+**The most recent prompt owns the next inbound reply.** A keyword exchange opened mid-sequence takes the reply; the check-in question stays unanswered with its next-day reminder clock still running, and the sequence resumes its ordinary handling afterwards.
+
+At most one keyword exchange is open per person at a time; a second keyword replaces the first.
+
+An unanswered keyword exchange expires after twenty-four hours **with no reminder**, and expiry raises nothing and changes nothing. A check-in question is Discipler's question and is worth re-sending once; a keyword exchange is something the leader initiated, and re-prompting someone about a request they abandoned is nagging.
+
+Clarification handling inside a keyword exchange is identical to a check-in: at most two re-prompts, then Discipler stops re-prompting but keeps listening until the exchange expires. A leader who mistypes twice and replies correctly nineteen hours later still gets their pause — they asked for it and never withdrew the request.
+
+A keyword arriving where a relationship's check-in question is currently open **withdraws that pending question** rather than leaving it to age. Otherwise pausing a relationship would contribute to it being flagged `Stalled` on resume, which is precisely what the pause rules exist to prevent.
+
+A bare, exact keyword is still a keyword during the concern detail step. The `C` is already recorded and the badge already raised, so nothing is lost by treating it as one, and the alternative records `PAUSE` as the text of someone's hardest week while ignoring a request to step back. Prose containing the word is unaffected — matching is whole-message.
+
+## Settled: No Inbound Message Falls Through to Silence
+
+A participant has no dashboard and no account, so texting back is the only channel they have. Every inbound message resolves to something.
+
+- A **recognized keyword from a participant** is acknowledged and raised as an admin follow-up item. A participant texting `PAUSE` is most often someone who wants out and has no other route; dropping it is the one outcome that clearly fails them.
+- **Unrecognized free text from a participant** receives one acknowledgement pointing them to their ministry, rate-limited so a participant in a back-and-forth is not auto-replied to repeatedly. It raises no follow-up item. Raising one for every "thanks!" would bury the Care Needed view and train an admin to ignore it.
+- A **keyword with no eligible relationship** receives a plain reply stating the situation.
+
+## Settled: Participants Are Not Told When a Leader Pauses
+
+A pause is between a leader and their ministry. The participant's relationship has not changed, they are not returned to the pool, and they have never received a check-in — so a message saying their check-ins are paused would be explaining the absence of something they never knew existed.
+
+The admin sees the pause on the dashboard and receives a follow-up item when the period expires, so a human is in the loop on the timeline that matters and can decide whether the participant should hear from someone.
+
+This is deliberate silence rather than an oversight, and it is a candidate for pilot feedback rather than settled forever.
+
+## Settled: Every Message Is the Ministry's Voice
+
+A participant should feel they are interacting with their church, not with a software vendor layered between them and their ministry.
+
+Every outbound message is the ministry speaking. Discipler is the delivery mechanism and never the speaker: it does not refer to itself by name in message copy, and no message is phrased as reporting to a third party about the ministry.
+
+Every message carries the ministry name as a prefix — `ABC Church: Hi James! Did you meet with David this week? Reply 1 for yes, 2 for no.` — with no exceptions, including menus, confirmations, reminders, and acknowledgements. A lone next-day reminder is the message most likely to be read out of context and least able to afford being unattributed. Where a prefix would tip a message into a second segment, the message is shortened; the attribution is not dropped.
+
+Each ministry sends from its own number for the pilot. Sending identity is modeled as a property of the Ministry from the first line of code, even while every ministry could resolve to the same number, because retrofitting that touches every message path.
+
+## Settled: The A2P Compliance Prefix Is a Stated Exception
+
+A2P messaging compliance requires identifying that a message is sent through Discipler. This directly contradicts the rule above, and the exception is recorded here so that it is not later removed as a violation of it.
+
+`Discipler:` stacks in front of the ministry prefix — `Discipler: ABC Church: …` — on:
+
+- opt-in messaging
+- the first message Discipler ever sends a person
+- the first message after a silence gap
+- the `HELP` response
+
+The two prefixes stack rather than substitute because they answer different questions — who is speaking, and what service is delivering it — and collapsing them loses one. On the messages where a participant most needs to see their church's name, dropping the ministry prefix would be the worst possible trade.
+
+A Starter Message that runs to two segments is accepted rather than trimming compliance language; carriers reassemble it and the recipient sees one message.
+
+**This has not been reviewed by a lawyer or checked against a live campaign registration.** A2P brand and campaign requirements come from the carriers and the registry, they change, and they are not something to accept on an agent's judgment. Review alongside `docs/consent-language.md` before the first pilot.
+
+## Settled: A Silence Gap Is Thirty Days, Per Person Per Ministry
+
+A silence gap is thirty rolling days since Discipler last sent that person a message.
+
+Two rules key off it: the A2P compliance prefix, and the participant-facing opt-out language. They share one definition rather than being separately maintained.
+
+Rolling days rather than calendar months, because a person messaged on 31 January and again on 1 March has crossed two calendar boundaries with twenty-nine days of contact. Per person per ministry, because every other rule in the product is ministry-scoped and making this one the exception would invite a cross-ministry read of a person's history, which the tenant isolation rule forbids.
+
+## Settled: What Opt-Out Language a Participant Receives
+
+A participant receives opt-out and rate-disclosure language on the Starter Message, and again on the first message following a silence gap — a reassignment, a resumed relationship, anything that breaks thirty days of quiet.
+
+Participants do **not** receive it monthly. The monthly rule — opt-out language on the first check-in of each calendar month — stands unchanged and applies to leaders only, because only leaders receive check-ins.
+
+> **Supersedes:** `docs/reference/mentee-experience.md`, which gives mentees a monthly reminder on a check-in. Participants receive no check-ins in this model, so the rule had no surface to attach to.
+
+## Settled: Replies Are Matched Whole-Message, Not by Substring
+
+Discipler advertises the explicit form — *"Reply 1 for yes, 2 for no"*, *"Reply A for outstanding, B for good, C for concern"* — because digits and letters avoid both typos and an unbounded space of word variants. Behind that, an enumerated list of tokens, synonyms, and known typos is accepted: `yes`, `y`, `yeah`, `nope`, `great`, `good`, `concern`, and misspellings including `gret` and `oncern`.
+
+**Matching is against the whole message**, after stripping punctuation, emoji, and a closed list of leading and trailing pleasantries. It is not a substring search.
+
+> **Supersedes:** the earlier rule that matching "tolerates surrounding text." Under substring matching, *"it wasn't great"* contains `great` and resolves to **outstanding** — silently converting a relationship that needs care into a healthy one, with nobody ever finding out. *"no concerns"* contains both `no` and `concern`. Sentiment is never inferred from free text, and a substring search over a sentence is exactly that inference, made badly.
+
+The closed strippable list must never contain a fragment that inverts meaning when removed. `we didn't` is part of a token, never a wrapper: stripping it from *"yes we didn't"* would produce the opposite of what was said.
+
+A reply containing two answers — *"1 and it was great"* — is unreadable and draws a clarification. Advancing two steps on one message lets a leader skip past the meeting question without being asked it, and recording a satisfaction rating for a meeting nobody confirmed happened breaks the ordering guarantee that a meeting is established before its quality is.
+
+Every unreadable reply is recorded in history. Extending the enumerated list from observed pilot typos is deferred, not rejected, and the data for it accumulates from the first week whether or not it is acted on.
+
+## Settled: Stalled Reports a Duration Matched to Its Reason
+
+A relationship's care item reports how long the condition has held, and the unit follows the reason:
+
+- **Gone silent** reports days since last contact
+- **Responding, not meeting** reports the number of weeks reported as no meeting
+
+The two cannot share a counter. Days since last contact is already fourteen or more when silence fires, and roughly seven when not-meeting fires — a relationship going nowhere for three weeks would read as more recent than one silent for a fortnight.
+
+The relationship state derivation returns state, care reason, **and** the reason's duration. The duration is derived output, never a UI inference, for the same reason the care reason is.
+
+> **Supersedes:** the display rule under **Settled: Two-Week Silence Care Rule**, which shows weeks since the last submitted check-in in all cases. That measure is correct for silence and misleading for responding-but-not-meeting.

@@ -24,7 +24,7 @@ Sessions are long-lived, on the order of a year. A leader whose session dies sig
 
 The leader's list of the relationships they lead, and for each one three things and nothing else: the availability overlay, the material assigned to it, and the name and phone number of everyone in it. No message history, no analytics, no ability to edit anyone else's data.
 
-Each relationship on the list shows its current status. A paused relationship stays on the list, visibly marked `Paused`, for the whole pause — pausing never removes, archives, ends, or hides it, and everyone in it stays where they are. Its weekly check-ins are suppressed until the leader replies `START` or an admin resumes it.
+Each relationship on the list shows its current status. A paused relationship stays on the list, visibly marked `Paused`, for the whole pause — pausing never removes, archives, ends, or hides it, and everyone in it stays where they are. Its weekly check-ins are suppressed until the leader replies `RESUME` or an admin resumes it.
 
 ## The availability overlay
 

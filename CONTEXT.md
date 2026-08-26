@@ -53,7 +53,7 @@ Verb only. The pastor's act of placing people into a discipleship relationship.
 _Avoid_: Using "pair" or "pairing" as a noun for the relationship
 
 **Leader Dashboard**:
-The leader-facing web surface, entered by phone number and one-time code. It carries the availability overlay, assigned materials, and the contact details of the people in the relationship.
+The leader-facing web surface, entered by phone number and password. One-time codes are a post-launch addition. It carries the availability overlay, assigned materials, and the contact details of the people in the relationship.
 
 **Availability Overlay**:
 A single grid on which the availability slots of everyone in a discipleship relationship are drawn together, so a leader can see where meeting times coincide.
@@ -100,6 +100,13 @@ The state of a relationship that its leader has paused for a selected period. Ch
 **Ended**:
 The terminal state of a relationship that has finished, for any reason. Its history is preserved untouched, and the people in it return to the roster as Ready to Pair unless they have opted out.
 
+**Keyword Exchange**:
+The short SMS conversation Discipler opens when an inbound keyword needs something resolved before it can act — which relationship it applies to, or how long a pause should run. At most one is open per person at a time, and it expires after twenty-four hours without a reminder.
+_Avoid_: Menu, prompt (as model terms)
+
+**Silence Gap**:
+Thirty rolling days since Discipler last sent a person a message, measured per person per ministry. It is the trigger for the compliance identification prefix and for re-sending opt-out language to a participant.
+
 **Check-In Sequence**:
 The single conversation in which a leader answers for every relationship they lead, one after another, in one thread on one day.
 
@@ -110,7 +117,7 @@ A person-level status describing where someone stands in the ministry, independe
 The timestamped, versioned record of what a person agreed to at intake. Discipler shares a phone number only where the consent record permits it.
 
 **Swap**:
-A leader's request to be released from a specific discipleship relationship and matched with a different participant. A swap is a recorded request awaiting admin action. It is never itself a change of relationship state, and the relationship remains intact until an admin resolves it.
+A leader's request to be released from a specific discipleship relationship and matched with a different participant. From a relationship the leader has not yet accepted, it reads as a decline. A swap is a recorded request awaiting admin action. It is never itself a change of relationship state, and the relationship remains intact until an admin resolves it.
 
 **Care Needed**:
 The pastor-facing view of people or relationships that currently require pastoral attention.

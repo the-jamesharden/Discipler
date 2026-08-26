@@ -92,7 +92,7 @@ An unaccepted relationship holds its people out of the suggestion pool. The lead
 
 A leader may pause a relationship they lead for 1, 2, 4, 8, or 12 weeks, defaulting to 2. The transition is immediate and needs no admin approval. Check-ins for that relationship stop, nobody moves, and the relationship stays visible and marked `Paused` on both the leader's list and the admin dashboard.
 
-`Paused` masks the state the relationship would otherwise derive rather than rewriting its history. Replying `START` resumes it immediately and releases the Starter Message; the underlying state then resurfaces, so a relationship that was stalled when it was paused is stalled again until an answered check-in clears it. Resuming never sets Healthy on its own.
+`Paused` masks the state the relationship would otherwise derive rather than rewriting its history. Replying `RESUME` resumes it immediately and releases the Starter Message; the underlying state then resurfaces, so a relationship that was stalled when it was paused is stalled again until an answered check-in clears it. Resuming never sets Healthy on its own.
 
 If the pause period elapses instead, nothing happens automatically. The relationship stays `Paused`, no message is sent, and a follow-up item asks the admin to review it. The admin resumes it or ends it.
 

@@ -2,15 +2,22 @@
 
 The original seed list of 78 questions was worked through in the grilling session. Most are now settled and recorded in `docs/product-rules.md`, `CONTEXT.md`, `docs/adr/`, and the surface documents. This file now holds only what genuinely remains.
 
-## The core loop is settled apart from inbound keyword routing
+## The core loop is settled
 
-Every question about intake, suggestion, acceptance, the check-in rhythm, relationship state, care surfacing, and the two dashboards has been resolved and recorded. Two questions about inbound SMS keywords remain, and they are genuine gaps rather than deferred capability.
+Every question about intake, suggestion, acceptance, the check-in rhythm, relationship state, care surfacing, and the two dashboards has been resolved and recorded.
 
-## Open: inbound keyword routing
+## Resolved: inbound keyword routing
 
-- **Which relationship an inbound keyword applies to.** A leader may lead several relationships, and `PAUSE`, `START`, and `SWAP` are each scoped to exactly one of them. An inbound message carrying only a keyword does not identify which, and the sequence position that disambiguates a check-in reply is unavailable — `START` and `SWAP` normally arrive with no open sequence at all. No selection or routing mechanism is defined, and none may be inferred.
-- **How a leader chooses a pause duration over SMS.** A pause is 1, 2, 4, 8, or 12 weeks, defaulting to 2. There is no defined mechanism for expressing that choice in an inbound message, and whether an SMS confirmation step exists is also undefined.
-- **`START` carries two meanings.** `docs/reference/` defines `START` as the carrier-level re-opt-in that reverses `STOP` for a person; it is also the keyword that resumes one paused relationship. For a person who has opted out and also holds a paused relationship, the two readings collide. The carrier behavior is preserved as documented. Note that `docs/consent-language.md` advertises only `STOP` and `HELP`, so the carrier `START` behavior has never been adopted into a canonical document.
+The three inbound-keyword gaps are closed and recorded in `docs/product-rules.md` and `docs/check-in-rhythm.md`:
+
+- **Which relationship a keyword applies to** — resolved by eligibility for the requested action. One eligible relationship applies directly, several draw a numbered menu, none draws a plain reply. The target is never inferred from Check-In Sequence position.
+- **How a leader chooses a pause duration** — a single confirmation exchange carrying the default and the alternatives.
+- **`START` carrying two meanings** — resolved by renaming rather than arbitrating. `START` is carrier-level re-opt-in only; `RESUME` resumes a paused relationship.
+
+## Open: pending review before the first pilot
+
+- **A2P compliance requirements have not been checked against a live campaign registration.** The `Discipler:` identification prefix and its trigger points are a product decision made on an understanding of carrier requirements, not a verified one. Review alongside the consent wording.
+- **`docs/consent-language.md` has not had legal review**, including the `HELP` response content.
 
 ## Deferred with the quarterly report
 
