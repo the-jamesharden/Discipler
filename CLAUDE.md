@@ -2,18 +2,26 @@
 
 This repository is the clean product-definition and rebuild workspace for Discipler.
 
-## Product sources to read before design work
+## Product sources
 
-1. `README.md`
-2. `CONTEXT.md`
-3. `docs/vision.md`
-4. `docs/product-flow.md`
-5. `docs/product-rules.md`
-6. `docs/non-goals.md`
-7. `docs/open-questions.md`
-8. Relevant files in `docs/reference/`
+Read these only for product-definition or design work:
+README.md, CONTEXT.md, docs/vision.md, docs/product-flow.md,
+docs/product-rules.md, docs/non-goals.md, docs/open-questions.md,
+relevant files in docs/reference/.
 
-The approved specification, once produced, becomes the implementation source of truth.
+For implementation work, read the approved spec only. If the spec is
+ambiguous, stop and surface the gap instead of resolving it from the
+source documents. Subagents: your task prompt is your scope, not this list.
+
+## Context discipline
+
+Before implementing, delegate discovery to the Explore subagent and
+implement from its summary. Do not Read files to orient yourself.
+Read directly only files Explore named that you are about to edit.
+
+If a task has needed more than ~5 direct file reads or is clearly
+beyond one verifiable outcome, stop, commit what works on the branch,
+and report what remains as a separate ticket.
 
 ## Working rules
 
