@@ -90,13 +90,72 @@ export const createMinistryWithAdmin = async (name: string): Promise<MinistryFix
   }
 }
 
-export const addPerson = async (ministry: MinistryFixture, fullName: string): Promise<string> => {
+/**
+ * The two facts Intake produces: a submission, and the consents that came with it.
+ * A Person holding neither is on the Roster and nothing more -- they cannot be
+ * paired and they receive nothing, which the database enforces.
+ */
+export const completeIntake = async (
+  ministry: MinistryFixture,
+  personId: string,
+  consents: readonly ('sms' | 'contact_sharing')[] = ['sms', 'contact_sharing'],
+): Promise<void> => {
+  const admin = serviceRoleClient()
+  const submittedAt = new Date().toISOString()
+
+  const { error } = await admin
+    .from('intake_submission')
+    .insert({ ministry_id: ministry.id, person_id: personId, submitted_at: submittedAt })
+  if (error) throw new Error(`Could not record Intake: ${error.message}`)
+
+  if (consents.length === 0) return
+
+  const { error: consentError } = await admin.from('consent_record').insert(
+    consents.map((consent) => ({
+      ministry_id: ministry.id,
+      person_id: personId,
+      consent,
+      version: '2026-09-v1',
+      granted_at: submittedAt,
+    })),
+  )
+  if (consentError) throw new Error(`Could not record consent: ${consentError.message}`)
+}
+
+export const optOut = async (ministry: MinistryFixture, personId: string): Promise<void> => {
+  const { error } = await serviceRoleClient()
+    .from('person_opt_out')
+    .insert({
+      ministry_id: ministry.id,
+      person_id: personId,
+      started_at: new Date().toISOString(),
+    })
+  if (error) throw new Error(`Could not record the opt-out: ${error.message}`)
+}
+
+export interface PersonOptions {
+  /**
+   * Defaults to true. Most tests want somebody who can be paired, and a fixture
+   * that leaves Intake out by accident fails at the pairing rather than saying why.
+   */
+  readonly intake?: boolean
+  readonly phone?: string
+}
+
+export const addPerson = async (
+  ministry: MinistryFixture,
+  fullName: string,
+  options: PersonOptions = {},
+): Promise<string> => {
   const { data, error } = await serviceRoleClient()
     .from('person')
-    .insert({ ministry_id: ministry.id, full_name: fullName })
+    .insert({ ministry_id: ministry.id, full_name: fullName, phone: options.phone ?? null })
     .select('id')
     .single()
   if (error) throw new Error(`Could not add ${fullName} to the Roster: ${error.message}`)
+
+  if (options.intake !== false) await completeIntake(ministry, data.id)
+
   return data.id
 }
 
@@ -135,6 +194,7 @@ export const addPersonWithAccount = async (
   ministry: MinistryFixture,
   fullName: string,
   tier: 'admin' | 'leader',
+  options: PersonOptions = {},
 ): Promise<AccountFixture> => {
   const admin = serviceRoleClient()
   const email = `person-${unique()}@example.test`
@@ -158,6 +218,8 @@ export const addPersonWithAccount = async (
     .single()
   if (personError) throw new Error(`Could not add ${fullName} to the Roster: ${personError.message}`)
 
+  if (options.intake !== false) await completeIntake(ministry, person.id)
+
   return { personId: person.id, userId: user.user.id, email, password: ACCOUNT_PASSWORD, fullName }
 }
 
@@ -165,6 +227,7 @@ export const addPersonWithAccount = async (
 export const addPersonForAdmin = async (
   ministry: MinistryFixture,
   fullName: string,
+  options: PersonOptions = {},
 ): Promise<AccountFixture> => {
   const { data, error } = await serviceRoleClient()
     .from('person')
@@ -172,6 +235,8 @@ export const addPersonForAdmin = async (
     .select('id')
     .single()
   if (error) throw new Error(`Could not add ${fullName} to the Roster: ${error.message}`)
+
+  if (options.intake !== false) await completeIntake(ministry, data.id)
 
   return {
     personId: data.id,

@@ -1,10 +1,11 @@
 import type { PoolClient } from 'pg'
 import pg from 'pg'
 import type { OutboundMessageDraft } from '~/domain/effects'
-import { PairingRefused, type PairingRefusal } from '~/domain/errors'
+import { PairingRefused, RosterImportRefused, type PairingRefusal } from '~/domain/errors'
 import type { HistoryEvent } from '~/domain/history'
 import { eventId, type MinistryId } from '~/domain/ids'
 import type { NewRelationship } from '~/domain/relationships'
+import { rosterKey, type NewPerson } from '~/domain/roster'
 import type { EffectSink, EffectStore } from '~/service/ports'
 
 /**
@@ -19,10 +20,17 @@ const REFUSALS: Record<string, PairingRefusal> = {
   leader_one_open_group: 'relationship.leader_already_leads_a_group',
   participant_one_open_one_to_one: 'relationship.participant_already_in_a_one_to_one',
   relationship_member_person_fk: 'relationship.person_belongs_to_another_ministry',
+  relationship_member_participant_has_completed_intake:
+    'relationship.participant_has_not_completed_intake',
+  relationship_member_participant_has_not_opted_out: 'relationship.participant_has_opted_out',
 }
 
+/** The one place that knows where a driver hides the name of what it violated. */
+const constraintViolated = (error: unknown): string | undefined =>
+  (error as { constraint?: string } | null)?.constraint
+
 const asRefusal = (error: unknown): PairingRefused | undefined => {
-  const constraint = (error as { constraint?: string } | null)?.constraint
+  const constraint = constraintViolated(error)
   const refusal = constraint ? REFUSALS[constraint] : undefined
   return refusal ? new PairingRefused(refusal) : undefined
 }
@@ -36,6 +44,42 @@ const asRefusal = (error: unknown): PairingRefused | undefined => {
  */
 
 const sinkFor = (client: PoolClient): EffectSink => ({
+  async peopleOnRoster() {
+    // Scoped by the policy on `person`, not by a ministry_id in this statement: the
+    // connection has already declared which Ministry it acts for, and the database
+    // refuses to show it any other.
+    const { rows } = await client.query<{ full_name: string; phone: string }>(
+      `select full_name, phone from person where phone is not null`,
+    )
+    return new Set(rows.map((row) => rosterKey({ fullName: row.full_name, phone: row.phone })))
+  },
+
+  async createPeople(people: readonly NewPerson[]) {
+    for (const person of people) {
+      try {
+        await client.query(
+          `insert into person (id, ministry_id, full_name, phone, email, created_at)
+           values ($1, $2, $3, $4, $5, $6)`,
+          [
+            person.id,
+            person.ministryId,
+            person.fullName,
+            person.phone,
+            person.email,
+            person.createdAt,
+          ],
+        )
+      } catch (error) {
+        // A name and a number is unique per Ministry, so this is the read above
+        // having been overtaken by another write. Refused whole, not partly applied.
+        if (constraintViolated(error) === 'person_ministry_identity_uniq') {
+          throw new RosterImportRefused('roster.changed_during_the_import')
+        }
+        throw error
+      }
+    }
+  },
+
   async appendHistory(events) {
     const inserted: HistoryEvent[] = []
 

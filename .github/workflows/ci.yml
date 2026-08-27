@@ -96,8 +96,9 @@ jobs:
           echo "The application did not answer on $APP_URL within 60 seconds."
           exit 1
 
-      # CI=true is already set by GitHub Actions, which is what stops
-      # tests/integration/admin-signs-in.test.ts from skipping itself.
+      # CI=true is already set by GitHub Actions, which is what stops the suites
+      # driving the app over HTTP from skipping themselves. See
+      # `skipUnlessAppIsRunning` in tests/support/app.ts.
       - name: Run the test suite
         run: npm test
 

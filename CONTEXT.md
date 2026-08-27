@@ -17,7 +17,7 @@ The authorized ministry staff member who oversees people, relationships, care ne
 _Avoid_: Pastor (as a model term; it remains correct prose), Super-admin, Coordinator
 
 **Person**:
-Anyone on a ministry's roster, whether or not they have completed intake or entered a relationship.
+Anyone on a ministry's roster, whether or not they have completed intake or entered a relationship. Identified within a ministry by name and phone number together, because a number may reach more than one person.
 
 **Leader**:
 The person who leads a discipleship relationship, whatever its size.

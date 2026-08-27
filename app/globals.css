@@ -72,3 +72,13 @@ button {
 table { width: 100%; border-collapse: collapse; }
 th, td { text-align: left; padding: 0.7rem 0.5rem; border-bottom: 1px solid var(--line); }
 th { color: var(--muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.04em; }
+
+h2 { font-size: 1.05rem; margin: 0 0 0.25rem; }
+
+.panel + .panel { margin-top: 1.5rem; }
+
+.panel ul { margin: 0 0 1rem; padding-left: 1.2rem; }
+
+.panel > .subtle:last-child { margin: 1rem 0 0; }
+
+input[type="file"] { background: transparent; padding: 0.5rem 0; }

@@ -35,3 +35,17 @@ The Roster explanation matters more than it looks. A coordinator seeing a man wh
 leads two relationships listed as `Ready to Pair` will read it as a bug unless the
 screen says what the status is about — that he is not currently being discipled,
 which is exactly the thing the ministry would want to notice.
+
+### Half of the Roster explanation landed with ticket 02
+
+*The Roster shows the derived Participation Status* is done: the column is there and
+the derivation behind it is one SQL function. *With an explanation of why* is there in
+its cheapest form -- one sentence under the table saying that Participation answers
+whether a Person is being discipled, and that someone who leads but is discipled by
+nobody reads `Ready to Pair`. It was written with the status column rather than left
+for this ticket because a status column without it invites exactly the misreading this
+ticket's comment describes.
+
+What remains here is the per-Person version: an Admin looking at one man listed
+`Ready to Pair` who leads two relationships should be able to see *those two
+relationships* from his row, not just the general rule.

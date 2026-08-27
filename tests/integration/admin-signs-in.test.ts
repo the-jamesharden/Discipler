@@ -4,54 +4,22 @@ import {
   createMinistryWithAdmin,
   type MinistryFixture,
 } from '../support/local-supabase'
+import {
+  baseUrl,
+  cookiesFrom,
+  getPage,
+  signIn,
+  skipUnlessAppIsRunning,
+} from '../support/app'
+
+const getRoster = (cookie: string) => getPage('/roster', cookie)
 
 /**
  * The walking skeleton's surface: an Admin signs in and reaches a Roster scoped to
- * their own Ministry, and only their own Ministry. Driven over HTTP against the
- * running app rather than through a browser, so it is repeatable and lives in the
- * suite rather than in someone's memory of having clicked it once.
- *
- * Requires the app to be running (`npm run build && npm start`). Skipped otherwise
- * so a plain `npm test` does not fail for a reason unrelated to the code -- but
- * never skipped under CI, where a silent pass would hide the only proof that an
- * Admin can reach their Roster at all.
+ * their own Ministry, and only their own Ministry.
  */
 
-const baseUrl = process.env.APP_URL ?? 'http://127.0.0.1:3000'
-
-const appIsRunning = await fetch(`${baseUrl}/login`, { redirect: 'manual' })
-  .then((response) => response.ok)
-  .catch(() => false)
-
-const cookiesFrom = (response: Response): string =>
-  response.headers
-    .getSetCookie()
-    .map((cookie) => cookie.split(';', 1)[0])
-    .join('; ')
-
-const signIn = async (ministry: MinistryFixture) => {
-  const response = await fetch(`${baseUrl}/auth/sign-in`, {
-    method: 'POST',
-    redirect: 'manual',
-    headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      email: ministry.adminEmail,
-      password: ministry.adminPassword,
-    }),
-  })
-
-  return { response, cookie: cookiesFrom(response) }
-}
-
-const getRoster = async (cookie: string) => {
-  const response = await fetch(`${baseUrl}/roster`, {
-    redirect: 'manual',
-    headers: { cookie },
-  })
-  return { response, html: await response.text() }
-}
-
-describe.skipIf(!appIsRunning && !process.env.CI)('an Admin signing in', () => {
+describe.skipIf(skipUnlessAppIsRunning)('an Admin signing in', () => {
   let riverside: MinistryFixture
   let northgate: MinistryFixture
 

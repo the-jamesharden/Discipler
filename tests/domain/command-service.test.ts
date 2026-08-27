@@ -43,6 +43,8 @@ describe('applying a command\'s effects', () => {
           return sink.enqueueMessages(messages)
         },
         createRelationship: sink.createRelationship,
+        createPeople: sink.createPeople,
+        peopleOnRoster: sink.peopleOnRoster,
       }),
     )
 
@@ -62,6 +64,12 @@ describe('applying a command\'s effects', () => {
         },
         createRelationship: async () => {
           throw new Error('relationships should not have been touched')
+        },
+        createPeople: async () => {
+          throw new Error('the Roster should not have been touched')
+        },
+        peopleOnRoster: async () => {
+          throw new Error('the Roster should not have been read')
         },
       }).then(() => sink),
     )

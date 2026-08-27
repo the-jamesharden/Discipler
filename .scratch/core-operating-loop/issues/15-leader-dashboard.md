@@ -41,3 +41,12 @@ intact rather than adding a fourth section to it.
 The tier check is what changes. `unique (ministry_id, user_id)` means an Admin who
 leads holds one row and it says `admin`, so a surface gated on `tier = 'leader'`
 would hide their own relationships from them.
+
+### A live gap this ticket closes
+
+Row-level security is row-level, so a Leader reading a Person they lead reads that
+Person's `phone` column along with everything else on the row. Contact-sharing consent
+governs whether a number may be *shown*, and this dashboard is the surface that owes
+that check -- it is checked at the moment of display, never assumed from enrolment.
+Until this ships, the column is readable by a Leader whose Participant did not consent
+to sharing it. Recorded by ticket 02, which added the column.

@@ -2,13 +2,15 @@ import type { OutboundMessageDraft } from '~/domain/effects'
 import { eventId, type MinistryId } from '~/domain/ids'
 import type { HistoryEvent, NewHistoryEvent } from '~/domain/history'
 import type { NewRelationship } from '~/domain/relationships'
+import { rosterKey, type NewPerson } from '~/domain/roster'
 import type { EffectSink, EffectStore } from '~/service/ports'
 
 export interface InMemoryStore extends EffectStore {
   readonly history: readonly HistoryEvent[]
   readonly outbox: readonly OutboundMessageDraft[]
   readonly relationships: readonly NewRelationship[]
-  failOn?: 'appendHistory' | 'enqueueMessages' | 'createRelationship'
+  readonly people: readonly NewPerson[]
+  failOn?: 'appendHistory' | 'enqueueMessages' | 'createRelationship' | 'createPeople'
 }
 
 /**
@@ -19,6 +21,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
   const history: HistoryEvent[] = []
   const outbox: OutboundMessageDraft[] = []
   const relationships: NewRelationship[] = []
+  const people: NewPerson[] = []
   let counter = 0
 
   const store: InMemoryStore = {
@@ -31,12 +34,23 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
     get relationships() {
       return [...relationships]
     },
+    get people() {
+      return [...people]
+    },
     async transact(_ministryId: MinistryId, work) {
       const stagedHistory: HistoryEvent[] = []
       const stagedOutbox: OutboundMessageDraft[] = []
       const stagedRelationships: NewRelationship[] = []
+      const stagedPeople: NewPerson[] = []
 
       const sink: EffectSink = {
+        async peopleOnRoster() {
+          return new Set([...people, ...stagedPeople].map(rosterKey))
+        },
+        async createPeople(imported) {
+          if (store.failOn === 'createPeople') throw new Error('the Roster is unavailable')
+          stagedPeople.push(...imported)
+        },
         async appendHistory(events: readonly NewHistoryEvent[]) {
           if (store.failOn === 'appendHistory') throw new Error('history store unavailable')
           const written = events.map((event) => ({
@@ -59,6 +73,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
 
       const result = await work(sink)
 
+      people.push(...stagedPeople)
       relationships.push(...stagedRelationships)
       history.push(...stagedHistory)
       outbox.push(...stagedOutbox)

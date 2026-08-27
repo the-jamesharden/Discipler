@@ -28,7 +28,7 @@ Manual pairing may override the age band constraint. It may never override gende
 - [x] A leader holds at most one open group membership; one-to-ones are uncapped
 - [x] A participant holds at most one open one-to-one membership; groups are uncapped
 - [ ] Each cap is a database constraint, and a violation surfaces as a user-facing error rather than a silent no-op
-- [ ] Participation Status gains its `Paired` branch here: at least one open participant membership, and leading never sets it
+- [x] Participation Status gains its `Paired` branch here: at least one open participant membership, and leading never sets it
 - [ ] Manual pairing can cross the age band constraint and cannot cross the gender constraint
 - [x] The Roster shows every member of a relationship, not just one
 
@@ -106,3 +106,10 @@ domain is no longer a pure function of its inputs and a test cannot say what it 
   `tests/integration/creating-a-relationship.test.ts`.
 
 128 tests pass, none skipped.
+
+### The `Paired` branch shipped with ticket 02
+
+The derivation is one SQL function over four branches, and ticket 02 wrote it once
+membership existed rather than writing three branches and rewriting them. Proven in
+`tests/integration/participation-status.test.ts`, including the case that reads as a
+bug: a Person leading two relationships and discipled by nobody is `Ready to Pair`.

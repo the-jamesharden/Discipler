@@ -29,3 +29,17 @@ Intake is the only thing that grants consent — importing someone never speaks 
 The outbound queue is the only place the per-phone send checks live, and ticket 20
 adds serialization on top of it. The schema needs the phone key and the prompt
 state now so that serialization is a query change rather than a migration.
+
+### Schema skeletons landed with ticket 02
+
+`intake_submission` and `consent_record` exist, carrying only what Participation
+Status has to read: that a submission exists, and that a consent of a given kind was
+granted with its version and timestamp. What the form captures -- availability, the
+Discipleship Goal, age band, gender, the optional email -- is still this ticket's,
+and so is every rule above.
+
+Two floors are already enforced in the database and this ticket sits on top of them:
+a Person with no SMS consent, or with an open opt-out, cannot be the recipient of an
+outbound message at all. The recipient-level checks named above -- cooldowns, nudge
+limits, contact-sharing consent at send time -- are the sending layer's and are still
+to be built.

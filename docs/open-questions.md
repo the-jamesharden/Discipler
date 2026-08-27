@@ -18,6 +18,23 @@ The three inbound-keyword gaps are closed and recorded in `docs/product-rules.md
 
 **No.** Participation Status describes only whether a person is being discipled, so `Paired` means holding at least one open participant membership and leading never sets it. Role is a property of relationship membership rather than of a person, and a person may lead and be discipled at the same time. Recorded in `docs/product-rules.md` under *Roles Are Relationship Memberships, Not Properties of a Person*.
 
+## Open: what does a Person who is Paired *and* opted out read as?
+
+Both facts can be true at once, and settling one of them settles nothing about the
+other. Opting out does not end a relationship — that is settled, in
+`docs/product-rules.md`, so an opted-out Participant keeps an open participant
+membership. `Paired` means holding at least one open participant membership *and
+nothing else*, also settled. So the Roster has to choose which of the two it shows.
+
+Ticket 02 shipped `Opted Out` ahead of `Paired`, on the reasoning that an Admin
+scanning the Roster needs to see what the Person told the Ministry before they see
+what the Ministry arranged for them. The alternative reading — `Paired` wins, and the
+opt-out shows as a separate mark beside it — is defensible and would keep the
+four values strictly disjoint on what they each describe.
+
+The derivation is one SQL function, so this is a one-line change either way. It needs
+deciding before the Roster is in front of a pilot Admin.
+
 ## Open: pending review before the first pilot
 
 - **A2P compliance requirements have not been checked against a live campaign registration.** The `Discipler:` identification prefix and its trigger points are a product decision made on an understanding of carrier requirements, not a verified one. Review alongside the consent wording.

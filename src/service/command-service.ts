@@ -24,6 +24,9 @@ export const applyEffects = async (
   effects: readonly Effect[],
   sink: EffectSink,
 ): Promise<void> => {
+  const people = effects.flatMap((effect) =>
+    effect.kind === 'person.create' ? [effect.person] : [],
+  )
   const relationships = effects.flatMap((effect) =>
     effect.kind === 'relationship.create' ? [effect.relationship] : [],
   )
@@ -38,6 +41,7 @@ export const applyEffects = async (
   // ordering buys nothing for atomicity -- it buys the error: a pairing the caps
   // refuse fails as a refusal, rather than after history has already said it
   // happened.
+  if (people.length > 0) await sink.createPeople(people)
   for (const relationship of relationships) await sink.createRelationship(relationship)
 
   // History before messages: a message that goes out unrecorded is worse than a
@@ -47,20 +51,35 @@ export const applyEffects = async (
   if (messages.length > 0) await sink.enqueueMessages(messages)
 }
 
+/**
+ * Which commands need state loaded before the domain can decide anything. Naming
+ * them here keeps the load explicit and keeps every other command from paying for a
+ * read it has no use for.
+ */
+const needsTheRoster = (command: Command): boolean => command.type === 'person.import'
+
 export const createCommandService = ({
   clock,
   ids,
   store,
 }: CommandServiceDependencies): CommandService => ({
   async execute(command) {
-    const result = handleCommand(command, {
-      ministryId: command.ministryId,
-      clock,
-      ids,
+    // The whole command -- the state it reads, the decision it makes and the rows it
+    // writes -- happens in one transaction. Deciding an import against a Roster read
+    // outside the transaction would let two concurrent imports both find it empty.
+    return store.transact(command.ministryId, async (sink) => {
+      const result = handleCommand(command, {
+        ministryId: command.ministryId,
+        clock,
+        ids,
+        ...(needsTheRoster(command)
+          ? { roster: { people: await sink.peopleOnRoster() } }
+          : {}),
+      })
+
+      await applyEffects(result.effects, sink)
+
+      return result
     })
-
-    await store.transact(command.ministryId, (sink) => applyEffects(result.effects, sink))
-
-    return result
   },
 })

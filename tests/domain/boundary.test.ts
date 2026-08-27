@@ -15,7 +15,7 @@ describe('the command boundary', () => {
       { ministryId: ministry, clock: clockAt('2026-03-02T09:00:00Z'), ids: ids() },
     )
 
-    expect(result).toEqual({ effects: [] })
+    expect(result).toEqual({ effects: [], rejections: [] })
   })
 
   it('is pure: the same command against the same context yields the same effects', () => {

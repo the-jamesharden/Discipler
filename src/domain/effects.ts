@@ -1,6 +1,7 @@
 import type { NewHistoryEvent } from './history'
 import type { MinistryId, PersonId } from './ids'
 import type { NewRelationship } from './relationships'
+import type { NewPerson } from './roster'
 
 /**
  * Commands return effects; they never perform I/O. The application service is the
@@ -19,6 +20,7 @@ export interface OutboundMessageDraft {
 
 export type Effect =
   | { readonly kind: 'history.append'; readonly event: NewHistoryEvent }
+  | { readonly kind: 'person.create'; readonly person: NewPerson }
   | { readonly kind: 'message.enqueue'; readonly message: OutboundMessageDraft }
   | { readonly kind: 'relationship.create'; readonly relationship: NewRelationship }
 
@@ -35,4 +37,9 @@ export const enqueueMessage = (message: OutboundMessageDraft): Effect => ({
 export const createRelationship = (relationship: NewRelationship): Effect => ({
   kind: 'relationship.create',
   relationship,
+})
+
+export const createPerson = (person: NewPerson): Effect => ({
+  kind: 'person.create',
+  person,
 })
