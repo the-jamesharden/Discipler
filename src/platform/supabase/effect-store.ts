@@ -5,8 +5,8 @@ import { PairingRefused, RosterImportRefused, type PairingRefusal } from '~/doma
 import type { HistoryEvent } from '~/domain/history'
 import { eventId, type MinistryId } from '~/domain/ids'
 import type { NewRelationship } from '~/domain/relationships'
-import { rosterKey, type NewPerson } from '~/domain/roster'
-import type { EffectSink, EffectStore } from '~/service/ports'
+import { phoneNumber, rosterKey, type NewPerson } from '~/domain/roster'
+import type { EffectStore, UnitOfWork } from '~/service/ports'
 
 /**
  * The participation caps live in indexes, because they can only be judged against
@@ -23,6 +23,9 @@ const REFUSALS: Record<string, PairingRefusal> = {
   relationship_member_participant_has_completed_intake:
     'relationship.participant_has_not_completed_intake',
   relationship_member_participant_has_not_opted_out: 'relationship.participant_has_opted_out',
+  relationship_member_leader_has_completed_intake:
+    'relationship.leader_has_not_completed_intake',
+  relationship_member_leader_has_not_opted_out: 'relationship.leader_has_opted_out',
 }
 
 /** The one place that knows where a driver hides the name of what it violated. */
@@ -43,7 +46,7 @@ const asRefusal = (error: unknown): PairingRefused | undefined => {
  * application code asks for.
  */
 
-const sinkFor = (client: PoolClient): EffectSink => ({
+const unitFor = (client: PoolClient): UnitOfWork => ({
   async peopleOnRoster() {
     // Scoped by the policy on `person`, not by a ministry_id in this statement: the
     // connection has already declared which Ministry it acts for, and the database
@@ -51,7 +54,11 @@ const sinkFor = (client: PoolClient): EffectSink => ({
     const { rows } = await client.query<{ full_name: string; phone: string }>(
       `select full_name, phone from person where phone is not null`,
     )
-    return new Set(rows.map((row) => rosterKey({ fullName: row.full_name, phone: row.phone })))
+    return new Set(
+      rows.map((row) =>
+        rosterKey({ fullName: row.full_name, phone: phoneNumber(row.phone) }),
+      ),
+    )
   },
 
   async createPeople(people: readonly NewPerson[]) {
@@ -162,7 +169,7 @@ export const createPostgresEffectStore = (connectionString: string): PostgresEff
   const pool = new pg.Pool({ connectionString })
 
   return {
-    async transact<T>(ministryId: MinistryId, work: (sink: EffectSink) => Promise<T>) {
+    async transact<T>(ministryId: MinistryId, work: (unit: UnitOfWork) => Promise<T>) {
       const client = await pool.connect()
       // A connection that died mid-transaction cannot be rolled back and must not
       // go back into the pool, or the next command to borrow it fails for a reason
@@ -176,7 +183,7 @@ export const createPostgresEffectStore = (connectionString: string): PostgresEff
         await client.query('set local role discipler_command')
         await client.query(`select set_config('discipler.ministry_id', $1, true)`, [ministryId])
 
-        const result = await work(sinkFor(client))
+        const result = await work(unitFor(client))
         await client.query('commit')
         return result
       } catch (error) {

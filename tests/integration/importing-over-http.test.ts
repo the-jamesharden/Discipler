@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 import { createMinistryWithAdmin, type MinistryFixture } from '../support/local-supabase'
 import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app'
+import { file, phoneNumbers } from '../support/roster'
 
 /**
  * The headline of the ticket, driven the way an Admin does it: choose a file, press
@@ -12,10 +13,7 @@ import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app
 describe.skipIf(skipUnlessAppIsRunning)('an Admin importing a spreadsheet', () => {
   let ministry: MinistryFixture
 
-  // Unique per test and per run: the stack outlives a single `npm test`, and a
-  // counter starting from the same place every time collides with yesterday's rows.
-  let nextNumber = 5_000_000_000 + (Date.now() % 4_000_000_00) * 10
-  const number = () => `${nextNumber++}`
+  const number = phoneNumbers()
 
   beforeAll(async () => {
     ministry = await createMinistryWithAdmin('Riverside Chapel')
@@ -40,9 +38,7 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin importing a spreadsheet', () =
 
     const { response, location } = await upload(
       cookie,
-      ['Name,Phone,Email', `Ada Rowe,${number()},ada@example.test`, `Ben Okafor,${number()},`].join(
-        '\n',
-      ),
+      file('Name,Phone,Email', `Ada Rowe,${number()},ada@example.test`, `Ben Okafor,${number()},`),
     )
 
     expect(response.status).toBe(303)
@@ -56,7 +52,7 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin importing a spreadsheet', () =
   it('sees them as No Intake Submitted, not as people it may pair', async () => {
     const { cookie } = await signIn(ministry)
 
-    await upload(cookie, ['Name,Phone', `Cara Nolan,${number()}`].join('\n'))
+    await upload(cookie, file('Name,Phone', `Cara Nolan,${number()}`))
 
     const { html } = await getPage('/roster', cookie)
     expect(html).toContain('No Intake Submitted')
@@ -67,7 +63,7 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin importing a spreadsheet', () =
 
     const { location } = await upload(
       cookie,
-      ['Name,Phone', `,${number()}`, `Dana Price,${number()}`, 'Eli Frank,ask him'].join('\n'),
+      file('Name,Phone', `,${number()}`, `Dana Price,${number()}`, 'Eli Frank,ask him'),
     )
 
     const { html } = await getPage(`/roster?${location.split('?')[1] ?? ''}`, cookie)
@@ -83,7 +79,7 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin importing a spreadsheet', () =
 
     const { location } = await upload(
       cookie,
-      ['Nickname,Number', 'Zebedee Unread,5550169999'].join('\n'),
+      file('Nickname,Number', 'Zebedee Unread,5550169999'),
     )
 
     expect(location).toContain('error=no_name_column')

@@ -2,8 +2,8 @@ import { redirect } from 'next/navigation'
 import { currentAdmin } from '~/platform/supabase/current-admin'
 import { createSupabaseServerClient } from '~/platform/supabase/server-client'
 import { getRosterReader } from '~/service/container'
-import { decodeImportReport, importFailureMessage, rowProblemMessage } from './report'
-import { participationStatusLabel } from './statuses'
+import { importFailureMessage, participationStatusLabel, rowProblemMessage } from './copy'
+import { decodeImportReport } from './report'
 
 export const dynamic = 'force-dynamic'
 

@@ -1,5 +1,11 @@
 import { RosterFileUnreadable } from './errors'
-import { rosterKey, type ImportedPerson, type RowProblem, type RowRejection } from './roster'
+import {
+  rosterKey,
+  type ImportedPerson,
+  type PhoneNumber,
+  type RowProblem,
+  type RowRejection,
+} from './roster'
 
 /**
  * Reading the spreadsheet an Admin exported from wherever they keep their
@@ -111,12 +117,14 @@ const columnFor = (headings: readonly string[], accepted: readonly string[]): nu
  * at -- an Admin correcting `+44...` into the file is a better outcome than
  * Discipler texting a number it invented a country code for.
  */
-const asPhoneNumber = (raw: string): string | null => {
+const asPhoneNumber = (raw: string): PhoneNumber | null => {
   const digits = raw.replace(/\D/g, '')
 
-  if (raw.trim().startsWith('+')) return /^[1-9]\d{7,14}$/.test(digits) ? `+${digits}` : null
-  if (/^[2-9]\d{9}$/.test(digits)) return `+1${digits}`
-  if (/^1[2-9]\d{9}$/.test(digits)) return `+${digits}`
+  if (raw.trim().startsWith('+')) {
+    return /^[1-9]\d{7,14}$/.test(digits) ? (`+${digits}` as PhoneNumber) : null
+  }
+  if (/^[2-9]\d{9}$/.test(digits)) return `+1${digits}` as PhoneNumber
+  if (/^1[2-9]\d{9}$/.test(digits)) return `+${digits}` as PhoneNumber
   return null
 }
 

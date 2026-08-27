@@ -17,9 +17,14 @@ export type PairingRefusal =
   | 'relationship.participant_already_in_a_one_to_one'
   | 'relationship.person_belongs_to_another_ministry'
   // Being on a Roster is not a wish to participate. An imported Person has agreed
-  // to nothing yet, and an opted-out Person has said so plainly.
+  // to nothing yet, and an opted-out Person has said so plainly. Both hold whichever
+  // side of the relationship the Person is on: the flow is import, then Intake, then
+  // pairing, and leading does not make the middle step optional. The two roles are
+  // named separately because the Admin who hits one is being told a different thing.
   | 'relationship.participant_has_not_completed_intake'
   | 'relationship.participant_has_opted_out'
+  | 'relationship.leader_has_not_completed_intake'
+  | 'relationship.leader_has_opted_out'
 
 export class PairingRefused extends Error {
   constructor(readonly refusal: PairingRefusal) {

@@ -3,7 +3,7 @@ import type { Clock } from '~/domain/clock'
 import type { Command } from '~/domain/commands'
 import type { Effect } from '~/domain/effects'
 import type { IdSource } from '~/domain/ids'
-import type { EffectSink, EffectStore } from './ports'
+import type { EffectStore, UnitOfWork } from './ports'
 
 export interface CommandServiceDependencies {
   readonly clock: Clock
@@ -22,7 +22,7 @@ export interface CommandService {
 
 export const applyEffects = async (
   effects: readonly Effect[],
-  sink: EffectSink,
+  unit: UnitOfWork,
 ): Promise<void> => {
   const people = effects.flatMap((effect) =>
     effect.kind === 'person.create' ? [effect.person] : [],
@@ -41,14 +41,14 @@ export const applyEffects = async (
   // ordering buys nothing for atomicity -- it buys the error: a pairing the caps
   // refuse fails as a refusal, rather than after history has already said it
   // happened.
-  if (people.length > 0) await sink.createPeople(people)
-  for (const relationship of relationships) await sink.createRelationship(relationship)
+  if (people.length > 0) await unit.createPeople(people)
+  for (const relationship of relationships) await unit.createRelationship(relationship)
 
   // History before messages: a message that goes out unrecorded is worse than a
   // recorded message that failed to send, because only one of the two can be
   // reconstructed.
-  if (history.length > 0) await sink.appendHistory(history)
-  if (messages.length > 0) await sink.enqueueMessages(messages)
+  if (history.length > 0) await unit.appendHistory(history)
+  if (messages.length > 0) await unit.enqueueMessages(messages)
 }
 
 /**
@@ -67,17 +67,17 @@ export const createCommandService = ({
     // The whole command -- the state it reads, the decision it makes and the rows it
     // writes -- happens in one transaction. Deciding an import against a Roster read
     // outside the transaction would let two concurrent imports both find it empty.
-    return store.transact(command.ministryId, async (sink) => {
+    return store.transact(command.ministryId, async (unit) => {
       const result = handleCommand(command, {
         ministryId: command.ministryId,
         clock,
         ids,
         ...(needsTheRoster(command)
-          ? { roster: { people: await sink.peopleOnRoster() } }
+          ? { roster: { people: await unit.peopleOnRoster() } }
           : {}),
       })
 
-      await applyEffects(result.effects, sink)
+      await applyEffects(result.effects, unit)
 
       return result
     })

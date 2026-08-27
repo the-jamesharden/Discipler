@@ -1,15 +1,14 @@
 import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import {
-  addMembership,
   addPerson,
   addPersonForAdmin,
   addPersonWithAccount,
   completeIntake,
   createMinistryWithAdmin,
-  createRelationship,
   localSupabase,
   optOut,
+  pairOneToOne,
   type MinistryFixture,
 } from '../support/local-supabase'
 
@@ -97,16 +96,8 @@ describe('Participation Status', () => {
   it('reads Paired for an open participant membership', async () => {
     const leader = await addPerson(ministry, 'Their Leader')
     const participant = await addPerson(ministry, 'Being Discipled')
-    const relationship = await createRelationship(ministry, 'one_to_one')
 
-    await addMembership({ ministry, relationshipId: relationship, kind: 'one_to_one', personId: leader, role: 'leader' })
-    await addMembership({
-      ministry,
-      relationshipId: relationship,
-      kind: 'one_to_one',
-      personId: participant,
-      role: 'participant',
-    })
+    await pairOneToOne(ministry, leader, participant)
 
     expect(await statusOf(participant)).toBe('paired')
   })
@@ -117,16 +108,7 @@ describe('Participation Status', () => {
     const leader = await addPerson(ministry, 'Leads Two')
 
     for (const name of ['Led One', 'Led Two']) {
-      const participant = await addPerson(ministry, name)
-      const relationship = await createRelationship(ministry, 'one_to_one')
-      await addMembership({ ministry, relationshipId: relationship, kind: 'one_to_one', personId: leader, role: 'leader' })
-      await addMembership({
-        ministry,
-        relationshipId: relationship,
-        kind: 'one_to_one',
-        personId: participant,
-        role: 'participant',
-      })
+      await pairOneToOne(ministry, leader, await addPerson(ministry, name))
     }
 
     expect(await statusOf(leader)).toBe('ready_to_pair')
@@ -135,15 +117,8 @@ describe('Participation Status', () => {
   it('returns to Ready to Pair when the last participant membership closes', async () => {
     const leader = await addPerson(ministry, 'Finished Leading')
     const participant = await addPerson(ministry, 'Finished Being Discipled')
-    const relationship = await createRelationship(ministry, 'one_to_one')
 
-    await addMembership({ ministry, relationshipId: relationship, kind: 'one_to_one', personId: leader, role: 'leader' })
-    await addMembership({
-      ministry,
-      relationshipId: relationship,
-      kind: 'one_to_one',
-      personId: participant,
-      role: 'participant',
+    await pairOneToOne(ministry, leader, participant, {
       startedAt: new Date('2026-01-05T09:00:00Z'),
       endedAt: new Date('2026-06-05T09:00:00Z'),
     })
@@ -154,16 +129,8 @@ describe('Participation Status', () => {
   it('reads Opted Out ahead of everything else, without ending the relationship', async () => {
     const leader = await addPerson(ministry, 'Still Their Leader')
     const participant = await addPerson(ministry, 'Said Stop')
-    const relationship = await createRelationship(ministry, 'one_to_one')
 
-    await addMembership({ ministry, relationshipId: relationship, kind: 'one_to_one', personId: leader, role: 'leader' })
-    await addMembership({
-      ministry,
-      relationshipId: relationship,
-      kind: 'one_to_one',
-      personId: participant,
-      role: 'participant',
-    })
+    await pairOneToOne(ministry, leader, participant)
     await optOut(ministry, participant)
 
     expect(await statusOf(participant)).toBe('opted_out')
@@ -186,22 +153,8 @@ describe('Participation Status', () => {
   it('tells a Leader the status of the people they lead', async () => {
     const leader = await addPersonWithAccount(ministry, 'Reading Leader', 'leader')
     const participant = await addPerson(ministry, 'Their Participant')
-    const relationship = await createRelationship(ministry, 'one_to_one')
 
-    await addMembership({
-      ministry,
-      relationshipId: relationship,
-      kind: 'one_to_one',
-      personId: leader.personId,
-      role: 'leader',
-    })
-    await addMembership({
-      ministry,
-      relationshipId: relationship,
-      kind: 'one_to_one',
-      personId: participant,
-      role: 'participant',
-    })
+    await pairOneToOne(ministry, leader.personId, participant)
 
     expect(await statusAsSignedIn(leader.userId, participant)).toBe('paired')
   })
@@ -223,27 +176,13 @@ describe('Participation Status', () => {
   })
 
   it('reads Ready to Pair for an Admin who leads and is discipled by nobody', async () => {
-    // The dual-role case: one Person row, one `admin` access tier, two relationships
+    // The dual-role case: one Person row, one `admin` access tier, a relationship
     // led. Being discipled is a separate fact and it is absent.
-    const pastor = await addPersonForAdmin(ministry, 'Pastor Who Leads')
-    const participant = await addPerson(ministry, 'The Pastor Disciples Them')
-    const relationship = await createRelationship(ministry, 'one_to_one')
+    const admin = await addPersonForAdmin(ministry, 'Admin Who Leads')
+    const participant = await addPerson(ministry, 'The Admin Disciples Them')
 
-    await addMembership({
-      ministry,
-      relationshipId: relationship,
-      kind: 'one_to_one',
-      personId: pastor.personId,
-      role: 'leader',
-    })
-    await addMembership({
-      ministry,
-      relationshipId: relationship,
-      kind: 'one_to_one',
-      personId: participant,
-      role: 'participant',
-    })
+    await pairOneToOne(ministry, admin.personId, participant)
 
-    expect(await statusOf(pastor.personId)).toBe('ready_to_pair')
+    expect(await statusOf(admin.personId)).toBe('ready_to_pair')
   })
 })

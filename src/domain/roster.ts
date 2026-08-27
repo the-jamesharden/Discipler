@@ -1,3 +1,4 @@
+import type { Branded } from './branded'
 import type { MinistryId, PersonId } from './ids'
 
 /**
@@ -6,11 +7,27 @@ import type { MinistryId, PersonId } from './ids'
  * are three separate facts, and nothing here collapses them into one flag.
  */
 
+/**
+ * E.164, and it has been through `asPhoneNumber`. Branded because the difference
+ * between what an Admin typed into a spreadsheet and a number Discipler will dial
+ * is the whole of the import's phone handling, and a plain `string` loses it: the
+ * same check is written in `asPhoneNumber`, in the `person_phone_is_e164`
+ * constraint, and in the identity index, and only the brand records which strings
+ * have already been through the first of them.
+ */
+export type PhoneNumber = Branded<string, 'PhoneNumber'>
+
+/** At the platform edge, where the database is the authority on its own column. */
+export const phoneNumber = (value: string): PhoneNumber => value as PhoneNumber
+
+/** The output of `rosterKey`, and the only thing a Roster snapshot is keyed on. */
+export type RosterKey = Branded<string, 'RosterKey'>
+
 export interface NewPerson {
   readonly id: PersonId
   readonly ministryId: MinistryId
   readonly fullName: string
-  readonly phone: string
+  readonly phone: PhoneNumber
   readonly email: string | null
   readonly createdAt: Date
 }
@@ -32,6 +49,25 @@ export type RowProblem =
   | 'repeated_in_this_file'
   | 'already_on_the_roster'
 
+/**
+ * The vocabulary, listed once. What arrives in a query string has to be checked
+ * against the set of real codes before anything is rendered, and that check belongs
+ * beside the type rather than falling out of whichever screen happens to hold the
+ * wording -- the same shape `participation.ts` uses for the four statuses.
+ */
+export const ROW_PROBLEMS: readonly RowProblem[] = [
+  'no_name',
+  'no_phone',
+  'phone_unreadable',
+  'email_unreadable',
+  'too_many_fields',
+  'repeated_in_this_file',
+  'already_on_the_roster',
+]
+
+export const isRowProblem = (value: unknown): value is RowProblem =>
+  ROW_PROBLEMS.includes(value as RowProblem)
+
 export interface RowRejection {
   /** 1-based, counting the header, so it matches what the spreadsheet shows. */
   readonly line: number
@@ -42,20 +78,18 @@ export interface RowRejection {
 export interface ImportedPerson {
   readonly line: number
   readonly fullName: string
-  readonly phone: string
+  readonly phone: PhoneNumber
   readonly email: string | null
 }
 
 /**
  * Who a Person is, for the purpose of recognising them on a second upload: their
- * name *and* their number, never the number alone.
- *
- * A shared phone is ordinary -- a married couple, a parent and a teenager -- and
- * ticket 20 is built on it, serialising prompts so that a number holds one
- * conversation however many people are reachable on it. Keying identity on the
- * number alone would make the second of those people unrepresentable.
- *
- * See docs/adr/0005-a-person-is-a-name-and-a-number.md.
+ * name *and* their number, never the number alone. A shared phone is ordinary, and
+ * keying identity on the number alone would make the second person on one
+ * unrepresentable. The reasoning is in docs/adr/0005-a-person-is-a-name-and-a-number.md.
  */
-export const rosterKey = (person: { fullName: string; phone: string }): string =>
-  `${person.phone} ${person.fullName.trim().toLowerCase().replace(/\s+/g, ' ')}`
+export const rosterKey = (person: {
+  fullName: string
+  phone: PhoneNumber
+}): RosterKey =>
+  `${person.phone} ${person.fullName.trim().toLowerCase().replace(/\s+/g, ' ')}` as RosterKey

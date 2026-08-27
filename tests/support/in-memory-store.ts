@@ -3,7 +3,7 @@ import { eventId, type MinistryId } from '~/domain/ids'
 import type { HistoryEvent, NewHistoryEvent } from '~/domain/history'
 import type { NewRelationship } from '~/domain/relationships'
 import { rosterKey, type NewPerson } from '~/domain/roster'
-import type { EffectSink, EffectStore } from '~/service/ports'
+import type { EffectStore, UnitOfWork } from '~/service/ports'
 
 export interface InMemoryStore extends EffectStore {
   readonly history: readonly HistoryEvent[]
@@ -43,7 +43,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       const stagedRelationships: NewRelationship[] = []
       const stagedPeople: NewPerson[] = []
 
-      const sink: EffectSink = {
+      const unit: UnitOfWork = {
         async peopleOnRoster() {
           return new Set([...people, ...stagedPeople].map(rosterKey))
         },
@@ -71,7 +71,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         },
       }
 
-      const result = await work(sink)
+      const result = await work(unit)
 
       people.push(...stagedPeople)
       relationships.push(...stagedRelationships)

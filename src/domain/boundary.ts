@@ -10,7 +10,7 @@ import {
   type PersonId,
 } from './ids'
 import { kindForParticipantCount, type NewMembership } from './relationships'
-import { rosterKey, type RowRejection } from './roster'
+import { rosterKey, type RosterKey, type RowRejection } from './roster'
 import { readRosterFile } from './roster-csv'
 
 /**
@@ -28,14 +28,16 @@ export interface CommandContext {
   readonly ids: IdSource
   /**
    * Who is already on the Roster, loaded on `person.import`'s behalf. Commands that
-   * need nothing loaded -- the tick, pairing -- leave it out.
+   * need nothing loaded -- the tick, pairing -- leave it out, and `person.import`
+   * refuses to run without it rather than treating its absence as an empty Roster.
+   * The two readings differ by a whole congregation being imported a second time.
    */
   readonly roster?: RosterSnapshot
 }
 
 /** Everyone the Ministry already holds, by `rosterKey` -- their name and number. */
 export interface RosterSnapshot {
-  readonly people: ReadonlySet<string>
+  readonly people: ReadonlySet<RosterKey>
 }
 
 export interface CommandResult {
@@ -70,8 +72,14 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       return { effects: [], rejections: [] }
 
     case 'person.import': {
+      // Absent rather than empty. An empty Roster and an unloaded one are the same
+      // value and opposite facts, and the second one silently re-imports everybody.
+      if (!context.roster) {
+        throw new Error('person.import was handed no Roster to compare against')
+      }
+
       const { people, rejected } = readRosterFile(command.csv)
-      const alreadyOnFile = context.roster?.people ?? new Set<string>()
+      const alreadyOnTheRoster = context.roster.people
       const now = context.clock.now()
 
       const effects: Effect[] = []
@@ -82,7 +90,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         // stale export must not overwrite a name or an email the Person themselves
         // gave at Intake. Recognised by name and number together, so the second
         // person on a shared phone is a person and not a duplicate.
-        if (alreadyOnFile.has(rosterKey(row))) {
+        if (alreadyOnTheRoster.has(rosterKey(row))) {
           rejections.push({ line: row.line, problem: 'already_on_the_roster' })
           continue
         }

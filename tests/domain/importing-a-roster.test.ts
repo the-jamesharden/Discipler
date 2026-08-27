@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { handleCommand } from '~/domain/boundary'
 import { createTestClock } from '~/domain/clock'
 import { createSequentialIds, ministryId } from '~/domain/ids'
-import { rosterKey } from '~/domain/roster'
+import { phoneNumber, rosterKey } from '~/domain/roster'
+import { file } from '../support/roster'
 
 /**
  * Importing a spreadsheet, at the command boundary. Two rules carry the ticket:
@@ -13,8 +14,6 @@ import { rosterKey } from '~/domain/roster'
 const ministry = ministryId('11111111-1111-1111-1111-111111111111')
 const at = new Date('2026-03-02T09:00:00Z')
 
-const file = (...lines: string[]) => lines.join('\n')
-
 const importing = (csv: string, alreadyOnRoster: { fullName: string; phone: string }[] = []) =>
   handleCommand(
     { type: 'person.import', ministryId: ministry, csv },
@@ -22,7 +21,13 @@ const importing = (csv: string, alreadyOnRoster: { fullName: string; phone: stri
       ministryId: ministry,
       clock: createTestClock(at),
       ids: createSequentialIds(),
-      roster: { people: new Set(alreadyOnRoster.map(rosterKey)) },
+      roster: {
+        people: new Set(
+          alreadyOnRoster.map(({ fullName, phone }) =>
+            rosterKey({ fullName, phone: phoneNumber(phone) }),
+          ),
+        ),
+      },
     },
   )
 

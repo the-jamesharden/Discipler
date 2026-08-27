@@ -3,7 +3,7 @@ import type { HistoryEvent, NewHistoryEvent } from '~/domain/history'
 import type { MinistryId, PersonId } from '~/domain/ids'
 import type { ParticipationStatus } from '~/domain/participation'
 import type { NewRelationship } from '~/domain/relationships'
-import type { NewPerson } from '~/domain/roster'
+import type { NewPerson, RosterKey } from '~/domain/roster'
 
 /**
  * Everything the application service needs from the outside world. The domain
@@ -11,16 +11,17 @@ import type { NewPerson } from '~/domain/roster'
  */
 
 /**
- * What a command's unit of work can do: apply its effects, and read the state the
- * command needs on the same connection, inside the same transaction.
+ * One command's unit of work: the reads it needs and the writes it makes, on one
+ * connection inside one transaction.
  *
- * The read belongs here rather than before the transaction because the Roster is
- * read in order to decide what to write to it. Two Admins importing the same
- * spreadsheet at once must not both find the Roster empty.
+ * It reads as well as writes, which is why it is not called a sink. The Roster is
+ * read in order to decide what to write to it, and doing that before the
+ * transaction opens would let two Admins importing the same spreadsheet at once
+ * both find the Roster empty.
  */
-export interface EffectSink {
+export interface UnitOfWork {
   /** Everyone already on this Ministry's Roster, by `rosterKey`. */
-  peopleOnRoster(): Promise<ReadonlySet<string>>
+  peopleOnRoster(): Promise<ReadonlySet<RosterKey>>
   /**
    * Refuses with a `RosterImportRefused` when one of these people is already on the
    * Roster -- the case the read above is meant to catch, left to the database as the
@@ -48,7 +49,7 @@ export interface EffectStore {
    * store can scope the whole unit of work to it and let the database refuse
    * anything that falls outside.
    */
-  transact<T>(ministryId: MinistryId, work: (sink: EffectSink) => Promise<T>): Promise<T>
+  transact<T>(ministryId: MinistryId, work: (unit: UnitOfWork) => Promise<T>): Promise<T>
 }
 
 export interface RosterEntry {

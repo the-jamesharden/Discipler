@@ -1,5 +1,5 @@
 import type { FileProblem } from '~/domain/errors'
-import type { RowProblem, RowRejection } from '~/domain/roster'
+import { isRowProblem, type RowProblem, type RowRejection } from '~/domain/roster'
 
 /**
  * What an import did, carried from the route handler back to the Roster in the
@@ -66,21 +66,6 @@ export const encodeImportReport = (
   return params
 }
 
-const PROBLEMS: Record<RowProblem, string> = {
-  no_name: 'no name',
-  no_phone: 'no phone number',
-  phone_unreadable: 'the phone number could not be read',
-  email_unreadable: 'the email address could not be read',
-  too_many_fields: 'more columns than the header row',
-  // Name and number together, per ADR-0005: two people on one phone are two people.
-  repeated_in_this_file: 'the same person appears earlier in the file',
-  already_on_the_roster: 'already on the Roster',
-}
-
-const isProblem = (value: string): value is RowProblem => value in PROBLEMS
-
-export const rowProblemMessage = (problem: RowProblem): string => PROBLEMS[problem]
-
 const asCount = (value: string | undefined): number => {
   const count = Number(value)
   return Number.isInteger(count) && count >= 0 ? count : 0
@@ -92,7 +77,7 @@ const decodeGroups = (raw: string | undefined): [RowProblem, string[]][] =>
     .split(',')
     .flatMap((group) => {
       const [problem, values] = group.split(':')
-      if (!problem || !isProblem(problem) || !values) return []
+      if (!problem || !isRowProblem(problem) || !values) return []
       return [[problem, values.split('.')] as [RowProblem, string[]]]
     })
 
@@ -130,20 +115,3 @@ export const decodeImportReport = (params: {
  * these by definition -- an unreadable file rejects every row in it.
  */
 export type ImportFailure = FileProblem | 'no_file' | 'too_large' | 'roster_changed'
-
-const FAILURES: Record<ImportFailure, string> = {
-  no_file: 'Choose a CSV file to import.',
-  too_large: 'That file is larger than this import accepts. Split it and try again.',
-  nothing_to_read: 'That file had no rows in it.',
-  no_name_column:
-    'That file has no column of names. Name the column Name or Full Name and try again.',
-  no_phone_column:
-    'That file has no column of phone numbers. Name the column Phone or Mobile and try again.',
-  roster_changed:
-    'The Roster changed while this import was running, so none of it was applied. Try it again.',
-}
-
-export const importFailureMessage = (code: string | undefined): string | undefined => {
-  if (!code) return undefined
-  return FAILURES[code as ImportFailure] ?? 'That file could not be imported.'
-}

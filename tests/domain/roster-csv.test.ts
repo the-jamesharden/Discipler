@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { readRosterFile } from '~/domain/roster-csv'
 import { RosterFileUnreadable } from '~/domain/errors'
+import { file } from '../support/roster'
 
 /**
  * Reading the spreadsheet an Admin exported from wherever they keep their
@@ -9,8 +10,6 @@ import { RosterFileUnreadable } from '~/domain/errors'
  * worse than one that refuses, because nobody finds out until those four are the
  * ones nobody discipled.
  */
-
-const file = (...lines: string[]) => lines.join('\n')
 
 describe('reading a Roster file', () => {
   it('reads a name, a phone number and an email into a Person', () => {

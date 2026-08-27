@@ -90,15 +90,21 @@ export const createMinistryWithAdmin = async (name: string): Promise<MinistryFix
   }
 }
 
+export type ConsentKind = 'sms' | 'contact_sharing'
+
+/** The two ways a Person reaches the Intake form. There is no third. */
+export type ConsentSource = 'pastor_link' | 'qr_code'
+
 /**
  * The two facts Intake produces: a submission, and the consents that came with it.
  * A Person holding neither is on the Roster and nothing more -- they cannot be
- * paired and they receive nothing, which the database enforces.
+ * paired, they cannot lead, and they receive nothing, which the database enforces.
  */
 export const completeIntake = async (
   ministry: MinistryFixture,
   personId: string,
-  consents: readonly ('sms' | 'contact_sharing')[] = ['sms', 'contact_sharing'],
+  consents: readonly ConsentKind[] = ['sms', 'contact_sharing'],
+  source: ConsentSource = 'pastor_link',
 ): Promise<void> => {
   const admin = serviceRoleClient()
   const submittedAt = new Date().toISOString()
@@ -116,6 +122,7 @@ export const completeIntake = async (
       person_id: personId,
       consent,
       version: '2026-09-v1',
+      source,
       granted_at: submittedAt,
     })),
   )
@@ -284,6 +291,33 @@ export const addMembership = async (args: {
     .single()
   if (error) throw new Error(`Could not add the ${args.role} membership: ${error.message}`)
   return data.id
+}
+
+/**
+ * A leader and one participant in a fresh one-to-one, which is the setup almost
+ * every relationship test opens with. Written once so that a rule about who may be
+ * a member -- readiness, the caps -- changes in one place rather than in each suite
+ * that happened to spell the two inserts out.
+ */
+export const pairOneToOne = async (
+  ministry: MinistryFixture,
+  leaderId: string,
+  participantId: string,
+  options: { startedAt?: Date; endedAt?: Date } = {},
+): Promise<string> => {
+  const relationshipId = await createRelationship(ministry, 'one_to_one')
+
+  await addMembership({ ministry, relationshipId, kind: 'one_to_one', personId: leaderId, role: 'leader' })
+  await addMembership({
+    ministry,
+    relationshipId,
+    kind: 'one_to_one',
+    personId: participantId,
+    role: 'participant',
+    ...options,
+  })
+
+  return relationshipId
 }
 
 /** A client carrying a real signed-in session for any account, not just the Admin. */

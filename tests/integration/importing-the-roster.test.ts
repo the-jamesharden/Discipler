@@ -13,6 +13,7 @@ import {
   serviceRoleClient,
   type MinistryFixture,
 } from '../support/local-supabase'
+import { file, phoneNumbers } from '../support/roster'
 
 /**
  * An Admin uploads a spreadsheet instead of typing their congregation in by hand.
@@ -32,15 +33,10 @@ describe('importing a Roster', () => {
   const ids: IdSource = { next: () => crypto.randomUUID() }
   const service = () => createCommandService({ clock, ids, store })
 
-  // Unique per test and per run: the stack outlives a single `npm test`, and a
-  // counter starting from the same place every time collides with yesterday's rows.
-  let nextNumber = 5_000_000_000 + (Date.now() % 4_000_000_00) * 10
-  const number = () => `${nextNumber++}`
+  const number = phoneNumbers()
 
   const importing = (csv: string) =>
     service().execute({ type: 'person.import', ministryId: ministry.id, csv })
-
-  const file = (...lines: string[]) => lines.join('\n')
 
   beforeAll(async () => {
     ministry = await createMinistryWithAdmin('Riverside Chapel')

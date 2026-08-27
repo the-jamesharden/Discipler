@@ -1,5 +1,5 @@
 import { personId } from '~/domain/ids'
-import { isParticipationStatus } from '~/domain/participation'
+import { isParticipationStatus, type ParticipationStatus } from '~/domain/participation'
 import type { RosterEntry, RosterReader } from '~/service/ports'
 import { createSupabaseServerClient } from './server-client'
 
@@ -10,13 +10,41 @@ interface MemberRow {
 
 /**
  * `participation_status` is a function exposed as a column, so the generated types
- * do not know about it and it arrives untyped. Named here once rather than cast at
- * the point of use.
+ * do not know about it and the row arrives untyped. Named here once rather than
+ * cast at the point of use.
  */
 interface PersonRow {
-  id: string
-  full_name: string
-  participation_status: unknown
+  readonly id: string
+  readonly fullName: string
+  readonly participationStatus: ParticipationStatus
+}
+
+/**
+ * Checked rather than asserted, and checked on every field rather than the one that
+ * looked interesting. A cast here is a promise about a shape this file did not
+ * define and cannot see -- the select list, the function, and the generated types
+ * can each drift from the others -- and the Roster is a screen somebody is about to
+ * act on, so a missing name is worth failing over rather than rendering blank.
+ */
+const asPersonRow = (row: unknown): PersonRow => {
+  const { id, full_name: fullName, participation_status: status } = (row ?? {}) as Record<
+    string,
+    unknown
+  >
+
+  if (typeof id !== 'string' || id === '') throw new Error('A Roster row arrived with no id')
+  if (typeof fullName !== 'string' || fullName === '') {
+    throw new Error(`A Roster row arrived with no name for ${id}`)
+  }
+  // The derivation refuses to answer for a Person the caller may not see, and the
+  // policies on `person` refuse to show them that Person at all. The two predicates
+  // are written to mirror each other, so reaching here with no status means they
+  // have drifted apart.
+  if (!isParticipationStatus(status)) {
+    throw new Error(`No Participation Status was derived for ${id}`)
+  }
+
+  return { id, fullName, participationStatus: status }
 }
 
 export const supabaseRosterReader: RosterReader = {
@@ -35,8 +63,8 @@ export const supabaseRosterReader: RosterReader = {
 
     if (error) throw new Error(`Could not read the Roster: ${error.message}`)
 
-    const people = (data ?? []) as unknown as PersonRow[]
-    const nameOf = new Map(people.map((row) => [row.id, row.full_name]))
+    const people = (data ?? []).map(asPersonRow)
+    const nameOf = new Map(people.map((row) => [row.id, row.fullName]))
 
     // Open memberships only: a relationship someone has left says who they were with,
     // not who they are with. Roles are deliberately not read here -- the Roster
@@ -71,22 +99,11 @@ export const supabaseRosterReader: RosterReader = {
       return [...names].sort()
     }
 
-    return people.map((row) => {
-      // The derivation refuses to answer for a Person the caller may not see, and
-      // the policies on `person` refuse to show them that Person at all. The two
-      // predicates are written to mirror each other, so reaching here with no status
-      // means they have drifted apart -- worth failing loudly over rather than
-      // rendering a blank column on a Roster somebody is about to act on.
-      if (!isParticipationStatus(row.participation_status)) {
-        throw new Error(`No Participation Status was derived for ${row.id}`)
-      }
-
-      return {
-        personId: personId(row.id),
-        fullName: row.full_name,
-        withNames: withNamesFor(row.id),
-        participationStatus: row.participation_status,
-      }
-    })
+    return people.map((row) => ({
+      personId: personId(row.id),
+      fullName: row.fullName,
+      withNames: withNamesFor(row.id),
+      participationStatus: row.participationStatus,
+    }))
   },
 }

@@ -1,11 +1,9 @@
+import type { Branded } from './branded'
+
 /**
  * Identifiers are branded so a PersonId cannot be passed where a MinistryId is
  * expected. The brand exists only at compile time; the runtime value is a uuid.
  */
-
-declare const brand: unique symbol
-
-type Branded<T, B extends string> = T & { readonly [brand]: B }
 
 export type MinistryId = Branded<string, 'MinistryId'>
 export type PersonId = Branded<string, 'PersonId'>
