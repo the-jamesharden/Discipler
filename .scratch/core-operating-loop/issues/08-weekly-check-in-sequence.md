@@ -26,4 +26,20 @@ Relationships in `Awaiting Leader Acceptance` and `Paused` send no check-ins and
 - [ ] Participants receive no check-ins and no Participant reply is read as a check-in answer
 - [ ] Relationships awaiting acceptance or paused are skipped and accrue no silence
 - [ ] The first check-in of each calendar month carries opt-out language
+- [ ] Every prompt records the relationship and the role it was sent for, so a dual-role Person's messages are distinguishable in the data despite sharing one phone number
+- [ ] A Person who leads two relationships and is a Participant in a third still receives exactly one sequence, covering the two they lead
 - [ ] The sequence advances only in response to a reply
+
+## Comments
+
+### Amended — dual-role persons
+
+A Person may lead some relationships and be a Participant in others. It changes
+nothing here: Participants receive no check-ins, so the relationship they are
+discipled in is answered for by *its* Leader, and they get one sequence covering
+what they lead. The existing resolution path — phone number to Person to their
+open sequence — was already Person-centric and needed no change.
+
+Recording the role alongside the relationship on each prompt is what keeps
+Participant check-ins addable later without a migration, which is the reason this
+ticket already refuses to key responses to the relationship alone.

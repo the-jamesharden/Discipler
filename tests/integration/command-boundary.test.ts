@@ -1,6 +1,7 @@
 import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createTestClock } from '~/domain/clock'
+import { createSequentialIds } from '~/domain/ids'
 import { createPostgresEffectStore } from '~/platform/supabase/effect-store'
 import { createCommandService } from '~/service/command-service'
 import { applyEffects } from '~/service/command-service'
@@ -33,7 +34,7 @@ describe('driving the command boundary against a real Ministry', () => {
   })
 
   it('a scheduled tick against a Ministry with nothing happening changes nothing', async () => {
-    const service = createCommandService({ clock, store })
+    const service = createCommandService({ clock, ids: createSequentialIds(), store })
 
     const outcome = await service.execute({ type: 'scheduled.tick', ministryId: ministry.id })
 

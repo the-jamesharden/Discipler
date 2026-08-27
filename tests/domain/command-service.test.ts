@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createTestClock } from '~/domain/clock'
 import { appendHistory, enqueueMessage } from '~/domain/effects'
-import { ministryId, personId } from '~/domain/ids'
+import { ministryId, personId, createSequentialIds } from '~/domain/ids'
 import { applyEffects, createCommandService } from '~/service/command-service'
 import { createInMemoryStore } from '../support/in-memory-store'
 
@@ -42,6 +42,7 @@ describe('applying a command\'s effects', () => {
           order.push('outbound')
           return sink.enqueueMessages(messages)
         },
+        createRelationship: sink.createRelationship,
       }),
     )
 
@@ -58,6 +59,9 @@ describe('applying a command\'s effects', () => {
         },
         enqueueMessages: async () => {
           throw new Error('the outbound queue should not have been touched')
+        },
+        createRelationship: async () => {
+          throw new Error('relationships should not have been touched')
         },
       }).then(() => sink),
     )
@@ -85,7 +89,7 @@ describe('applying a command\'s effects', () => {
 describe('the command service', () => {
   it('is the only way in, and applies whatever the boundary returned', async () => {
     const store = createInMemoryStore()
-    const service = createCommandService({ clock: createTestClock(at), store })
+    const service = createCommandService({ clock: createTestClock(at), ids: createSequentialIds(), store })
 
     const outcome = await service.execute({ type: 'scheduled.tick', ministryId: ministry })
 

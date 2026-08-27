@@ -1,4 +1,5 @@
 import { systemClock } from '~/domain/clock'
+import type { IdSource } from '~/domain/ids'
 import { commandDatabaseUrl } from '~/platform/supabase/credentials'
 import {
   createPostgresEffectStore,
@@ -15,13 +16,20 @@ import type { RosterReader } from './ports'
  * an in-memory store.
  */
 
+/** The real source of identifiers, alongside the real clock. */
+const randomIds: IdSource = { next: () => crypto.randomUUID() }
+
 let commandService: CommandService | undefined
 let commandStore: PostgresEffectStore | undefined
 
 export const getCommandService = (): CommandService => {
   if (!commandService) {
     commandStore = createPostgresEffectStore(commandDatabaseUrl())
-    commandService = createCommandService({ clock: systemClock, store: commandStore })
+    commandService = createCommandService({
+      clock: systemClock,
+      ids: randomIds,
+      store: commandStore,
+    })
   }
   return commandService
 }

@@ -1,6 +1,6 @@
 # 06 — Invitation Link and Acceptance
 
-**What to build:** A Leader receives a text telling them they have been matched and inviting them to look — an invitation, not an assignment. Tapping through reveals who they have been matched with and for which Ministry *before* anything is asked of them. Only then do they set a name and a password and accept. Acceptance activates the relationship, releases the Starter Message to everyone in it, and records the timestamp as the durable record that this Leader agreed to this relationship.
+**What to build:** A Leader receives a text telling them they have been matched and inviting them to look — an invitation, not an assignment. Tapping through reveals who they have been matched with and for which Ministry *before* anything is asked of them. Only then do they set a name and a password and accept. Acceptance activates the relationship, releases the Starter Message to everyone in it, and stamps `accepted_at` as the durable record that this Leader agreed to this relationship. That timestamp is the whole of the activation — there is no status column to set.
 
 The Invitation Link is individualized, bound to the Person record rather than to an email address, and resolves without a session — possession of the phone it was sent to is the authentication. It expires in seven to fourteen days and is **consumed on account creation, not on resolution**, so a Leader who opens it and gets interrupted by a phone call can return to the same message rather than needing a re-issue.
 
@@ -23,4 +23,19 @@ Two access tiers only: Admin, who sees everything in their Ministry, and Leader,
 - [ ] Acceptance activates the relationship, releases the Starter Message to everyone in it, and records a timestamp
 - [ ] Participants receive their Leader's name and number where contact-sharing consent permits, and a way to decline the match
 - [ ] No message to a Leader contains a phone number
-- [ ] Exactly two access tiers exist, and a Leader can see only their own relationships
+- [ ] Exactly two access tiers exist, and `tier` governs access only — it never determines who leads a relationship and never gates the Leader surface
+- [ ] Account creation sets `person.user_id`, linking the login to the Person record in that Ministry
+- [ ] A Leader can see only the relationships they hold an open leader membership on
+
+## Comments
+
+### Amended — dual-role persons
+
+The Invitation Link was already bound to the Person record rather than to an email
+address, so the account-to-Person link this adds is the fact the flow already
+assumed. Every Leader who logs in has a Person row in that Ministry; one without
+is an error, not a supported state.
+
+An Admin who also leads holds a single `ministry_member` row with `tier = 'admin'`,
+because `unique (ministry_id, user_id)` permits no second one. The Leader surface
+must therefore never require a `tier = 'leader'` row to exist — see ticket 19.

@@ -27,7 +27,13 @@ Suggested pairings do not remove the pastor's ability to pair people manually.
 
 ## Settled: Suggested Pairing
 
-Suggested one-to-one pairings are based on a simple mathematical comparison of overlapping availability slots among currently eligible, unpaired mentors and mentees.
+Suggested one-to-one pairings are based on a simple mathematical comparison of overlapping availability slots between two independent pools.
+
+The **leader pool** is every person marked eligible to lead, filtered by the kind of relationship being suggested. There is no cap on how many relationships a leader already holds.
+
+The **participant pool** is every person who has completed intake, given consent, and not opted out, ranked so that people holding no open participant membership are offered first.
+
+The same person may appear in one suggestion as a leader and in another as a participant within the same batch. That is correct, and the pools are never deduplicated against each other.
 
 The system should not make the algorithm more complex unless a future approved requirement requires it.
 
@@ -133,11 +139,31 @@ Intake records SMS consent and contact-sharing consent independently, each with 
 
 Discipler includes another person's phone number in a message only where the recipient's consent record permits that sharing. Consent is checked when the message is sent, not assumed from enrollment.
 
+## Settled: Roles Are Relationship Memberships, Not Properties of a Person
+
+Role is a property of relationship membership. **Leader** and **Participant** mean *leader of relationship X* and *participant in relationship Y*, never a type a person is. A person may hold both roles at once across different relationships — leading two relationships while being discipled in a third is an ordinary shape in this domain, not an edge case.
+
+**Participation Status describes only whether a person is being discipled.** Leading a relationship never sets it and never changes it. The four values stand: `No Intake Submitted`, `Ready to Pair`, `Paired`, `Opted Out`. `Paired` means the person holds at least one open participant membership, and nothing else. A person leading two relationships and being discipled by nobody is `Ready to Pair`.
+
+**Participation Status is derived, never stored.** It is computed from intake, consent, and open participant memberships, in the same way relationship state is computed from history.
+
+**`ministry_member.tier` is an access level only.** It does not determine who leads relationships and does not gate leader-facing surfaces. The Leader surface is shown on a live query for open leader memberships. Admin is a superset of Leader for access purposes, so an Admin who also leads holds one `admin` row and reaches both.
+
+**An Admin reads everything in their Ministry, including relationships they are a participant in.** All check-in content, all concerns, the whole history. This is not an exception to Ministry isolation grudgingly allowed — it is the product's core function. The Admin is the pastor, and routing what a relationship reports into pastoral view is the reason the check-in rhythm exists. A Leader-tier account that is a participant in someone else's relationship reads none of it; an Admin who is a participant in one reads all of it, as an Admin. Do not re-raise this as a leak.
+
+**A person appears in a given relationship at most once at a time, in one role.** Pairing someone with themselves is a database error, not a scorer bug.
+
+**Eligibility to lead is an explicit per-person flag** set by an Admin, independent of whether the person has an account and independent of whether they currently lead anything. It is the same field as the intended role an Admin sets before intake: a plan that becomes eligibility, not two separate facts.
+
+**Participation caps.** A leader leads at most one open group and any number of one-to-ones. A participant is in at most one open one-to-one and any number of groups. Both are enforced as database constraints; see `docs/adr/0004-relationship-kind-as-capacity-declaration.md`.
+
 ## Settled: The Relationship Is the Core Primitive
 
 There is no separate group concept. A discipleship relationship is one leader and N participants. A one-to-one relationship is N=1; a group is N>1. Two participants meeting with one leader is not a third kind of thing — it is a relationship with N=2.
 
-This gives the product one state machine, one check-in cadence, and one dispatch path. Check-in copy branches on how many participants a relationship has, never on a group-versus-one-to-one distinction. Any design that reintroduces a separate group entity is a regression against this rule.
+This gives the product one state machine, one check-in cadence, and one dispatch path. Check-in copy and relationship state branch on how many participants a relationship has right now, never on a stored group-versus-one-to-one distinction. There is no group code path, and any design that reintroduces one is a regression against this rule.
+
+A relationship does carry a `kind` of `one_to_one` or `group`, declared when it is formed and immutable afterwards. It is a capacity declaration, readable only by the participation-cap constraints and the pairing scorer, and it is fenced from copy and state derivation by a test. See `docs/adr/0004-relationship-kind-as-capacity-declaration.md` for why the caps could not be enforced without it.
 
 ## Settled: Suggestion Constraints
 
@@ -183,7 +209,7 @@ The cost of this is understood and accepted: until one-time codes ship, a leader
 
 `Ended` is a terminal relationship state carrying a recorded reason: completed, leader exited, participant exited, or closed by an admin.
 
-Ending a relationship preserves its history untouched. Everyone in it returns to the roster as `Ready to Pair` unless they have opted out. Ended relationships leave the dashboard's active counts but remain in longitudinal reporting — a relationship that ran five months and finished well is an outcome, not a deletion.
+Ending a relationship preserves its history untouched. Its participants return to the roster as `Ready to Pair` unless they have opted out, and only once their last open participant membership closes. The leader's Participation Status is unaffected, because leading never set it in the first place. Ended relationships leave the dashboard's active counts but remain in longitudinal reporting — a relationship that ran five months and finished well is an outcome, not a deletion.
 
 ## Settled: Concern Text Is Handled Differently From Every Other Record
 

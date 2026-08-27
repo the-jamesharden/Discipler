@@ -16,3 +16,13 @@ Nudge limits per recipient: one per twelve hours, at most two per day, at most f
 - [ ] A follow-up item exposes contact details, resolve, and send-one-check-in inline
 - [ ] Contact details shown respect the recipient's contact-sharing consent
 - [ ] The Check-In Rhythm is not subject to the nudge ceiling
+- [ ] Nudge caps are counted per recipient Person while the ticket 20 hold is per phone number; a held message consumes no nudge budget and a nudge closes no open prompt
+
+## Comments
+
+### Amended — dual-role persons
+
+Two limiters now sit on the same queue and must not be confused. The nudge caps
+are a ministry-conduct rule counted per Person. The hold in ticket 20 is a
+conversation rule counted per phone number, because a phone can only hold one
+conversation at a time regardless of how many people are reachable on it.

@@ -9,8 +9,31 @@ type Branded<T, B extends string> = T & { readonly [brand]: B }
 
 export type MinistryId = Branded<string, 'MinistryId'>
 export type PersonId = Branded<string, 'PersonId'>
+export type RelationshipId = Branded<string, 'RelationshipId'>
 export type EventId = Branded<string, 'EventId'>
 
 export const ministryId = (value: string): MinistryId => value as MinistryId
 export const personId = (value: string): PersonId => value as PersonId
+export const relationshipId = (value: string): RelationshipId => value as RelationshipId
 export const eventId = (value: string): EventId => value as EventId
+
+/**
+ * Where new identifiers come from. Injected for the same reason the clock is: a
+ * command that mints an id from inside the domain is no longer a pure function of
+ * its inputs, and a test cannot say what it produced.
+ */
+export interface IdSource {
+  next(): string
+}
+
+/**
+ * Deterministic identifiers, in the same spirit as `createTestClock`: a test that
+ * cannot say which id a command produced cannot assert much about what it wrote.
+ * The shape is a valid uuid so the database accepts it unchanged.
+ */
+export const createSequentialIds = (): IdSource => {
+  let issued = 0
+  return {
+    next: () => `00000000-0000-4000-8000-${String(++issued).padStart(12, '0')}`,
+  }
+}

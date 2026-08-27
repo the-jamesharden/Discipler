@@ -48,12 +48,22 @@ export default async function RosterPage() {
             <thead>
               <tr>
                 <th>Name</th>
+                <th>With</th>
               </tr>
             </thead>
             <tbody>
               {roster.map((person) => (
                 <tr key={person.personId}>
                   <td>{person.fullName}</td>
+                  {/* A relationship with several Participants shows everyone in it,
+                      so group membership is visible without opening a record. */}
+                  <td>
+                    {person.withNames.length === 0 ? (
+                      <span className="empty">Not in a relationship</span>
+                    ) : (
+                      person.withNames.join(', ')
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

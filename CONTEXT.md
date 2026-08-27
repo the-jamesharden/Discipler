@@ -25,6 +25,8 @@ The person who leads a discipleship relationship, whatever its size.
 **Participant**:
 A person being discipled within a discipleship relationship.
 
+Leader and Participant are roles held on a relationship, not kinds of person: the same person may lead one relationship and be a participant in another at the same time.
+
 **Mentor** / **Mentee**:
 Participant-facing words for the Leader and Participant of a relationship with one participant. They belong in message copy, not in the model.
 _Avoid_: Using these as model terms, or introducing Group Leader / Group Participant as separate roles
@@ -48,6 +50,13 @@ The pastor-facing set of people in a ministry and their current participation st
 **Suggested Pair**:
 A recommendation that a particular mentor and mentee may be a good one-to-one pairing. Suggested pairs are never produced for groups.
 _Avoid_: Match, assignment, pairing
+
+**Relationship Kind**:
+Whether a discipleship relationship was formed as a one-to-one or as a group. Declared when the relationship is created and immutable afterwards. It is a capacity declaration that exists so the participation caps can be enforced in the database; it is never read by message copy or by state derivation, both of which follow the live participant count.
+_Avoid_: Treating kind as a second entity, or as the answer to "is this a group"
+
+**Eligible to Lead**:
+The per-person flag by which an Admin marks someone as suitable to lead a relationship. It is independent of whether they have an account and of whether they currently lead anything, and it is the same field as the intended role an Admin sets before intake.
 
 **Pairing Constraint**:
 A hard eligibility rule that removes a combination from suggestion entirely. Constraints govern suggestion only; a ministry may always pair manually across them.
@@ -102,7 +111,7 @@ The leader's act of taking responsibility for a relationship, performed on the l
 The state of a relationship that its leader has paused for a selected period. Check-ins for that relationship are suppressed for the duration, membership is unchanged, and nobody returns to the roster as available. The relationship stays visible and visibly marked as paused on both the leader's list of relationships and the admin dashboard. Paused masks the relationship's underlying derived state rather than replacing the history behind it; on resume, that derived state resurfaces.
 
 **Ended**:
-The terminal state of a relationship that has finished, for any reason. Its history is preserved untouched, and the people in it return to the roster as Ready to Pair unless they have opted out.
+The terminal state of a relationship that has finished, for any reason. Its history is preserved untouched, and its participants return to the roster as Ready to Pair unless they have opted out or hold another open participant membership.
 
 **Keyword Exchange**:
 The short SMS conversation Discipler opens when an inbound keyword needs something resolved before it can act — which relationship it applies to, or how long a pause should run. At most one is open per person at a time, and it expires after twenty-four hours without a reminder.
@@ -115,7 +124,7 @@ Thirty rolling days since Discipler last sent a person a message, measured per p
 The single conversation in which a leader answers for every relationship they lead, one after another, in one thread on one day.
 
 **Participation Status**:
-A person-level status describing where someone stands in the ministry, independent of how any one relationship is doing. One of: No Intake Submitted, Ready to Pair, Paired, Opted Out.
+A person-level status describing whether someone is being discipled, independent of how any one relationship is doing. One of: No Intake Submitted, Ready to Pair, Paired, Opted Out. Paired means holding at least one open participant membership; leading a relationship never sets it.
 
 **Consent Record**:
 The timestamped, versioned record of what a person agreed to at intake. Discipler shares a phone number only where the consent record permits it.

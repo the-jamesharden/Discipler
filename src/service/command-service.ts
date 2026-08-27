@@ -2,10 +2,12 @@ import { handleCommand, type CommandResult } from '~/domain/boundary'
 import type { Clock } from '~/domain/clock'
 import type { Command } from '~/domain/commands'
 import type { Effect } from '~/domain/effects'
+import type { IdSource } from '~/domain/ids'
 import type { EffectSink, EffectStore } from './ports'
 
 export interface CommandServiceDependencies {
   readonly clock: Clock
+  readonly ids: IdSource
   readonly store: EffectStore
 }
 
@@ -22,6 +24,9 @@ export const applyEffects = async (
   effects: readonly Effect[],
   sink: EffectSink,
 ): Promise<void> => {
+  const relationships = effects.flatMap((effect) =>
+    effect.kind === 'relationship.create' ? [effect.relationship] : [],
+  )
   const history = effects.flatMap((effect) =>
     effect.kind === 'history.append' ? [effect.event] : [],
   )
@@ -29,20 +34,29 @@ export const applyEffects = async (
     effect.kind === 'message.enqueue' ? [effect.message] : [],
   )
 
-  // History first: a message that goes out unrecorded is worse than a recorded
-  // message that failed to send, because only one of the two can be reconstructed.
+  // Rows before the facts about them. The whole unit of work is one transaction, so
+  // ordering buys nothing for atomicity -- it buys the error: a pairing the caps
+  // refuse fails as a refusal, rather than after history has already said it
+  // happened.
+  for (const relationship of relationships) await sink.createRelationship(relationship)
+
+  // History before messages: a message that goes out unrecorded is worse than a
+  // recorded message that failed to send, because only one of the two can be
+  // reconstructed.
   if (history.length > 0) await sink.appendHistory(history)
   if (messages.length > 0) await sink.enqueueMessages(messages)
 }
 
 export const createCommandService = ({
   clock,
+  ids,
   store,
 }: CommandServiceDependencies): CommandService => ({
   async execute(command) {
     const result = handleCommand(command, {
       ministryId: command.ministryId,
       clock,
+      ids,
     })
 
     await store.transact(command.ministryId, (sink) => applyEffects(result.effects, sink))

@@ -12,10 +12,26 @@ One Participant leaving a relationship does not end it for everyone else. Their 
 
 - [ ] An Admin can end a relationship with a recorded reason
 - [ ] An ended relationship's history is preserved unchanged
-- [ ] People in an ended relationship return to `Ready to Pair` unless opted out
+- [ ] Ending closes every open membership on the relationship in one transaction, through a single function that is the only write path that ends a relationship
+- [ ] No open membership survives on a relationship carrying an `ended_at`
+- [ ] Participants in an ended relationship return to `Ready to Pair` unless opted out, and only once their last open participant membership closes
+- [ ] The Leader's Participation Status is unchanged by ending, because leading never set it
 - [ ] `Ended` is terminal in the derivation
 - [ ] One Participant leaving does not end the relationship for the others
 - [ ] A departed Participant's membership carries an end date rather than being deleted
 - [ ] A departed Participant's past weeks stay attached to the relationship
+- [ ] A Participant who leaves and is readmitted later gets a second membership row, and their first stays closed and intact
 - [ ] Check-in copy follows the remaining Participant count with no group-versus-one-to-one branch
 - [ ] Ending is recorded against the acting Admin
+
+## Comments
+
+### Amended — dual-role persons
+
+Ending returns *participants* to the pool. A Leader was never `Paired` by leading,
+so there is nothing to return them to, and a Participant with another open
+participant membership stays `Paired` — the derivation handles both without a
+special case, which is the point of deriving it.
+
+One function owns ending because the invariant it maintains, that no open
+membership outlives its relationship, cannot be held by a constraint alone.

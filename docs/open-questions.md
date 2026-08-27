@@ -14,6 +14,10 @@ The three inbound-keyword gaps are closed and recorded in `docs/product-rules.md
 - **How a leader chooses a pause duration** — a single confirmation exchange carrying the default and the alternatives.
 - **`START` carrying two meanings** — resolved by renaming rather than arbitrating. `START` is carrier-level re-opt-in only; `RESUME` resumes a paused relationship.
 
+## Resolved: does leading a relationship make a person `Paired`?
+
+**No.** Participation Status describes only whether a person is being discipled, so `Paired` means holding at least one open participant membership and leading never sets it. Role is a property of relationship membership rather than of a person, and a person may lead and be discipled at the same time. Recorded in `docs/product-rules.md` under *Roles Are Relationship Memberships, Not Properties of a Person*.
+
 ## Open: pending review before the first pilot
 
 - **A2P compliance requirements have not been checked against a live campaign registration.** The `Discipler:` identification prefix and its trigger points are a product decision made on an understanding of carrier requirements, not a verified one. Review alongside the consent wording.

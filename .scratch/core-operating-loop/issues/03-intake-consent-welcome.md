@@ -20,3 +20,12 @@ Intake is the only thing that grants consent — importing someone never speaks 
 - [ ] Contact-sharing consent is evaluated at send time
 - [ ] Outbound messages carry the Ministry prefix; first contact also carries the compliance prefix and opt-out language
 - [ ] A Person with no consent record receives nothing
+- [ ] The queue carries a per-recipient-phone key and a prompt state — open, answered, superseded, timed out — so the serialization in ticket 20 can be added without a schema migration
+
+## Comments
+
+### Amended — dual-role persons
+
+The outbound queue is the only place the per-phone send checks live, and ticket 20
+adds serialization on top of it. The schema needs the phone key and the prompt
+state now so that serialization is a query change rather than a migration.

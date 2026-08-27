@@ -1,9 +1,31 @@
 import type { PoolClient } from 'pg'
 import pg from 'pg'
 import type { OutboundMessageDraft } from '~/domain/effects'
+import { PairingRefused, type PairingRefusal } from '~/domain/errors'
 import type { HistoryEvent } from '~/domain/history'
 import { eventId, type MinistryId } from '~/domain/ids'
+import type { NewRelationship } from '~/domain/relationships'
 import type { EffectSink, EffectStore } from '~/service/ports'
+
+/**
+ * The participation caps live in indexes, because they can only be judged against
+ * the Ministry's other relationships and an application-side check would hold only
+ * until the first write path that forgot it. That makes the constraint name the
+ * place the refusal is decided, so it is translated here rather than surfacing as a
+ * Postgres error nobody upstream can read.
+ */
+const REFUSALS: Record<string, PairingRefusal> = {
+  relationship_member_one_open_per_person: 'relationship.person_already_in_this_relationship',
+  leader_one_open_group: 'relationship.leader_already_leads_a_group',
+  participant_one_open_one_to_one: 'relationship.participant_already_in_a_one_to_one',
+  relationship_member_person_fk: 'relationship.person_belongs_to_another_ministry',
+}
+
+const asRefusal = (error: unknown): PairingRefused | undefined => {
+  const constraint = (error as { constraint?: string } | null)?.constraint
+  const refusal = constraint ? REFUSALS[constraint] : undefined
+  return refusal ? new PairingRefused(refusal) : undefined
+}
 
 /**
  * Command-side persistence. Writes run inside a transaction on a connection that
@@ -40,6 +62,34 @@ const sinkFor = (client: PoolClient): EffectSink => ({
     }
 
     return inserted
+  },
+
+  async createRelationship(relationship: NewRelationship) {
+    try {
+      await client.query(
+        `insert into relationship (id, ministry_id, kind, created_at)
+         values ($1, $2, $3, $4)`,
+        [relationship.id, relationship.ministryId, relationship.kind, relationship.createdAt],
+      )
+
+      for (const member of relationship.members) {
+        await client.query(
+          `insert into relationship_member
+             (ministry_id, relationship_id, kind, person_id, role, started_at)
+           values ($1, $2, $3, $4, $5, $6)`,
+          [
+            relationship.ministryId,
+            relationship.id,
+            relationship.kind,
+            member.personId,
+            member.role,
+            member.startedAt,
+          ],
+        )
+      }
+    } catch (error) {
+      throw asRefusal(error) ?? error
+    }
   },
 
   async enqueueMessages(messages: readonly OutboundMessageDraft[]) {
