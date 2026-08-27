@@ -114,9 +114,41 @@ because it means a Ministry holding email-only records cannot import them at all
 **An unreadable email refuses the whole row**, so a Person with a good name and a good
 number is kept off the Roster by one bad cell. That follows *report, never drop* --
 the Admin fixes the cell and re-imports -- but the opposite reading, importing them
-without the email and reporting the cell, is defensible.
+without the email and reporting the cell, is defensible. Now raised as an open question
+in `docs/open-questions.md` rather than left in this file: taking the other reading
+means inventing a third outcome for a row, which changes what the report means.
 
 **`Opted Out` outranks `Paired` in the derivation.** Nothing in the product docs
 decides which of the two a Person who is both should read as, and this ticket had to
 pick one to write the `case`. Raised as an open question in `docs/open-questions.md`
 rather than settled in a migration comment.
+
+### Review — intake is the gate on both sides of a relationship
+
+Two things were wrong here and are fixed, in migration
+`20260827000200_intake_is_the_consent_gate.sql`.
+
+**A Leader was held to nothing.** `reject_unready_participant` opens with
+`if new.role <> 'participant' then return new`, so a Person who had opted out, or who
+had never completed Intake, could still be inserted as the *leader* of a relationship.
+The flow is import, then Intake, then pairing, and leading does not make the middle
+step optional. `reject_unready_leader` is a second trigger rather than a widening of
+the first, because the Admin who hits one is being told a different thing than the
+Admin who hits the other, and a single function answering both would have to
+reconstruct which it was in order to say so. `paired` passes it: a Person being
+discipled by somebody else is free to lead, which is the whole reason it reads the
+derivation rather than the tables under it.
+
+**A consent record could not say how it was obtained.** `consent_record.source` is now
+`pastor_link` or `qr_code` -- the two routes to the Intake form, both producing the
+same record. It is not defaulted, so a write that cannot say how the Person reached
+the form fails rather than guessing. Recorded in `docs/consent-language.md` and
+`docs/product-flow.md`; an Admin attesting on a congregant's behalf is not a route,
+and inbound-keyword opt-in is post-V1.
+
+**Not fixed, and now recorded instead:** nothing enforces *no SMS before pairing
+approval*. `outbound_message` carries no relationship, so the database cannot see
+which approval a message should follow. Raised in `docs/open-questions.md`; it needs
+answering before ticket 06 enqueues anything.
+
+220 tests pass against a local Supabase stack, none skipped.

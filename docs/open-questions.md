@@ -35,6 +35,63 @@ four values strictly disjoint on what they each describe.
 The derivation is one SQL function, so this is a one-line change either way. It needs
 deciding before the Roster is in front of a pilot Admin.
 
+## Open: does the Welcome Message survive *no SMS before pairing approval*?
+
+The messaging order is settled at both ends and disagrees with itself in the middle.
+Settled: nothing is sent at import, and the mentor and mentee reveals are sent after
+an Admin approves a pairing. Also settled, in ticket 03: completing Intake enqueues a
+Welcome Message -- which reaches somebody who has consented and has not been paired
+with anybody.
+
+Both readings are defensible. The Welcome Message goes to a Person who has just given
+SMS consent on the form, which is the thing *no SMS before pairing approval* exists to
+protect, so the rule may simply mean *no relationship SMS before pairing approval*.
+The stricter reading holds too, and under it ticket 03 sends nothing at all.
+
+This decides whether ticket 03 builds a send path, so it needs answering before that
+ticket is picked up rather than during it.
+
+## Open: what would enforce the messaging order?
+
+Separately from which rule holds: nothing enforces the ordering today. What is
+enforced is the consent floor -- `outbound_message` refuses any recipient with no SMS
+consent record, which an imported Person cannot have. Ordering relative to a pairing
+approval is not enforced anywhere, and is presently a property of the fact that no
+code sends anything yet.
+
+The obstacle is that `outbound_message` carries no relationship, so the database
+cannot see which approval a message is supposed to follow. Deciding this means
+deciding whether that link belongs on the message or whether the ordering is the
+sending layer's to keep.
+
+## Open: how does a Ministry import an international leader's number?
+
+International leaders have to work. They do today, on one condition: `asPhoneNumber`
+accepts any E.164 number carrying a leading `+`, so `+447700900123` imports
+unchanged. What it refuses is a *bare* digit string that is not North American --
+`447700900123` with no `+` is rejected as `phone_unreadable`, because nothing
+distinguishes it from a mistyped North American number without inventing a country
+code for somebody.
+
+So the requirement is met wherever the spreadsheet carries `+`. What is undecided is
+whether an Admin exporting from another church-management system can be asked to
+ensure that, or whether the importer should do something else -- a per-Ministry
+default region, a prompt, or something else again. Nothing tests an international
+number today either way.
+
+## Open: does an unreadable email refuse the whole row?
+
+Ticket 02 refuses it, so a Person with a readable name and a readable number is kept
+off the Roster by one bad cell. That follows *report, never drop*: the Admin fixes the
+cell and re-imports, and an address they meant to give is not Discipler's to discard
+on their behalf.
+
+The opposite reading is defensible and is arguably better -- import the Person, report
+the cell -- because email is optional at Intake and the import needs only a name and a
+number. It has not been taken because the report has no way to say *imported, with a
+note*: a row is either added or refused, and inventing a third outcome is a change to
+what the whole report means. Settle it alongside ticket 16's Roster completeness work.
+
 ## Open: pending review before the first pilot
 
 - **A2P compliance requirements have not been checked against a live campaign registration.** The `Discipler:` identification prefix and its trigger points are a product decision made on an understanding of carrier requirements, not a verified one. Review alongside the consent wording.

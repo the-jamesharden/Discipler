@@ -10,6 +10,17 @@ The exact wording a person agrees to at intake. Discipler records each consent i
 
 Changing any wording below requires a new version identifier. Existing consent records keep pointing at the version the person actually saw; they are never migrated forward.
 
+## How a person reaches this form
+
+Consent is obtained through the intake form and through nothing else. There are two routes to it, recorded on each consent record as `source`:
+
+- `pastor_link` — a pastor sends the person the link directly. The primary path.
+- `qr_code` — a QR code opening the same link, for a leaders' meeting where a room can complete it together.
+
+Both put the same wording in front of the same person, so both produce the same record. The route is kept because *how did this congregant come to agree* is a question a compliance review asks, and a column added afterwards cannot answer it retrospectively.
+
+An admin attesting to consent on a congregant's behalf is not a route, at import or anywhere else. Inbound-keyword opt-in is post-V1.
+
 ## Statement 1 — SMS consent
 
 Presented as a required checkbox. Discipler sends nothing to anyone whose record lacks it.

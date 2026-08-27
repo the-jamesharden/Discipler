@@ -9,7 +9,7 @@ ROSTER
    ├── added by CSV upload, or manually by an admin
    └── status: No Intake Submitted
    ↓
-INTAKE  (native Discipler form)
+INTAKE  (native Discipler form; reached by a pastor-sent link or a QR code)
    ├── name, phone, availability
    ├── gender, age range, Discipleship Goal
    ├── email (optional)
@@ -69,6 +69,15 @@ A discipleship relationship is **one leader and N participants**. A relationship
 ## Roster and intake
 
 Roster membership, intake completion, and pairing eligibility are three different facts. A person uploaded by an admin appears as `No Intake Submitted`, cannot be paired, and receives nothing. Only completing intake — where they give both consents themselves — moves them to `Ready to Pair`. Importing a person is never consent.
+
+**Intake is the single consent gate.** Completing the form creates the SMS consent record, and nothing else does. Discipler sends no SMS to anyone who has not completed intake, and pairs nobody who has not completed intake — on either side of the relationship. Finding an intake-less person on a roster is ordinary, because an import puts a whole congregation there at once; it is a fact about the roster, not a licence to pair them or text them.
+
+There are two ways to reach the form, and they produce the same record with a different `source`:
+
+- **A pastor sends the link** — by email, group chat, or however they already reach that person. The primary path.
+- **A QR code** — the same link, and the one that works when a room of leaders can do it together at a meeting.
+
+An admin cannot attest to consent on a congregant's behalf, at import or anywhere else. Inbound-keyword opt-in — where a person texts a join word and the inbound message is the consent — is post-V1; if it ships it becomes a third source here, having been decided rather than assumed.
 
 ## Suggestion
 

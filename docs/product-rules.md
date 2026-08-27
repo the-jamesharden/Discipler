@@ -133,7 +133,18 @@ Roster membership, intake completion, and pairing eligibility are three separate
 
 A person imported from Planning Center or uploaded by an admin appears on the roster with status `No Intake Submitted`. They cannot be paired, cannot receive a check-in, and are not assumed to want to participate. Only completing intake moves a person to `Ready to Pair`.
 
+Pairing requires completed intake on **both sides** of a relationship. A person who has not completed intake cannot be made a participant and cannot be made a leader. Finding people in that state on a roster is ordinary — an import puts a whole congregation there at once — but that is a fact about the roster, not a licence to pair them. Marking a person eligible to lead is a plan an admin may record early; it does not substitute for intake.
+
 ## Settled: Consent Is Recorded, Versioned, and Enforced at Send Time
+
+Intake is the single consent gate. Completing the intake form creates the SMS consent record and nothing else does, and Discipler sends no SMS to anyone who has not completed intake.
+
+There are two routes to the form, recorded on each consent record as its source:
+
+- a link the pastor sends the person directly — by email, group chat, or however they already reach them, and the primary path
+- a QR code opening that same link, for a leaders' meeting where a room can complete it together
+
+An admin cannot attest to consent on a person's behalf, at import or anywhere else. Inbound-keyword opt-in — where a person texts a join word and the inbound message is the consent — is post-V1; if it ships it becomes a third source, having been decided rather than assumed.
 
 Intake records SMS consent and contact-sharing consent independently, each with its own timestamp, alongside the version of the consent language the person actually saw.
 

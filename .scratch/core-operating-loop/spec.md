@@ -26,7 +26,7 @@ From then on Discipler is nearly invisible. Once a week each Leader gets a singl
 
 ### Intake and consent
 
-1. As a Person invited to a Ministry, I want to complete a single short form, so that I can join without creating an account or learning software.
+1. As a Person invited to a Ministry, I want to complete a single short form — reached from a link my pastor sent me, or from a QR code that opens that same link — so that I can join without creating an account or learning software.
 2. As a Person completing Intake, I want to select every time window that could work for me on a grid, so that I am not forced to describe my schedule in prose.
 3. As a Person completing Intake, I want to state what I am hoping to get out of discipleship, so that I am matched with someone who wants the same thing.
 4. As a Person completing Intake, I want to agree to receive text messages as a distinct decision, so that I know exactly what I am opting into.
@@ -279,6 +279,8 @@ Two access tiers only: Admin, who sees everything in their Ministry, and Leader,
 
 Person-level, derived, distinct from Relationship State: `No Intake Submitted` → `Ready to Pair` → `Paired` → `Opted Out`. A paused relationship still counts as `Paired`. Roster membership, Intake completion, and pairing eligibility are three separate facts and must never collapse into one flag.
 
+Pairing requires completed Intake on both sides of a relationship: a Person who has not completed it can be made neither a Participant nor a Leader. Eligibility to lead is a plan an Admin may record early and does not substitute for Intake.
+
 ### Material Assignment
 
 Assigned to the **relationship**, never to a Person. One Material at a time. An assignment has a start date and an open end; assigning a new one closes the previous. Periods never overlap and never leave gaps.
@@ -301,7 +303,7 @@ Current state, the Care Needed view, and future reporting are all derived from t
 
 Scenarios that must be covered at this seam:
 
-- Import a Person, confirm nothing is sent and they cannot be paired; complete Intake, confirm the Welcome Message and the move to `Ready to Pair`.
+- Import a Person, confirm nothing is sent and they can be paired neither as a Participant nor as a Leader; complete Intake, confirm the Welcome Message and the move to `Ready to Pair`.
 - Create a relationship, confirm Participants receive nothing and everyone leaves the suggestion pool; accept, confirm the Starter Message reaches everyone and the state becomes Healthy.
 - A Leader with three relationships receives one sequence; verify ordering, that each relationship's answer attaches to the right relationship, and that the thank-you arrives only after the last.
 - A `2` reply skips the satisfaction question.
