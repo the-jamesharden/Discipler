@@ -63,6 +63,11 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
             [...people, ...stagedPeople].map((person) => [rosterKey(person), person.id]),
           )
         },
+        async peopleWhoCompletedIntake() {
+          return new Set<PersonId>(
+            [...intakes, ...stagedIntakes].map((intake) => intake.personId),
+          )
+        },
         async ministryName() {
           return store.ministryName
         },

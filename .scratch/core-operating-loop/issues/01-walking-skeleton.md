@@ -10,7 +10,7 @@ Record the platform choice as an ADR before writing code — the decision and it
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-human
+**Status:** shipped
 
 - [x] An Admin can sign in and reach a Roster view scoped to their Ministry
 - [x] All state changes flow through a single command boundary that returns effects rather than performing I/O
@@ -128,3 +128,14 @@ data belonging to one Ministry must never be accessible to another Ministry.
 phrasing to avoid; the ADR, `docs/product-rules.md` and `docs/consent-language.md`
 were aligned to it.
 
+
+### Superseded — email sign-in
+
+The sign-in page built here is superseded. The credential is a phone number and a
+password for every user including Admins, because email is optional at Intake and a
+Person may lead a relationship without Discipler ever holding one. Admin account
+provisioning changes with it. See
+`docs/adr/0008-the-phone-number-is-the-sign-in-credential.md` and ticket 15.
+
+Nothing else in this ticket is affected — the boundary, the clock, the append-only
+history, and row-level isolation all stand.

@@ -10,7 +10,7 @@ Intake is the only thing that grants consent — importing someone never speaks 
 
 **Blocked by:** 02
 
-**Status:** ready-for-human
+**Status:** shipped
 
 - [x] A Person can complete Intake from a link with no account, reached either from a link the pastor sent them or from a QR code opening that same link
 - [x] Each consent record states which of those two routes the Person arrived by
@@ -124,7 +124,8 @@ expects.
 
 **Two decisions were taken to the product owner** rather than inferred, because both
 are hard to reverse and neither was written down: the availability grid is seven days
-by four blocks (`docs/adr/0006-the-availability-grid.md`), and the Discipleship Goal
+by five blocks -- four when it was first held, amended to add early morning
+(`docs/adr/0006-the-availability-grid.md`), and the Discipleship Goal
 options belong to each Ministry, seeded with a default list.
 
 270 tests pass against a local Supabase stack with the app running, none skipped.
@@ -160,3 +161,78 @@ and widening it later is a migration.
 **The consent wording still has no legal review.** Unchanged by this ticket and
 called out again because the form is now real and a pilot could put it in front of
 people. `docs/consent-language.md` says the same.
+
+### Review pass — 2026-08-28
+
+Two axes, Standards and Spec. What the review changed:
+
+**The sending layer ran outside Ministry isolation.** `outbound-queue.ts` queried on
+a bare pool as the owner role, setting neither `discipler_command` nor
+`discipler.ministry_id` -- so every policy on `person`, `outbound_message`,
+`person_opt_out` and `consent_record` was inert on the one path where a `person_id`
+arrives with no session behind it to bound it. Every method now names the Ministry
+it acts for and runs in a scoped transaction, one per call rather than one around
+the drain, because `dispatchQueue` hands each message to a transport between calls.
+`mayReceive` reads through `person` for the same reason: `app.current_consent` is
+security definer and would otherwise answer about a Person in another Ministry.
+Two tests in `the-sending-layer.test.ts` prove it.
+
+**A second submission sent a second Welcome Message.** One link serves a whole
+Ministry and nothing stopped a Person opening it twice. The Welcome Message is first
+contact, so it is now enqueued only on a Person's first submission -- `RosterSnapshot`
+carries `whoCompletedIntake`, read inside the unit of work so two submissions racing
+cannot both read *never submitted*. The submission itself is still recorded in full,
+which is what ticket 16's deliberate re-submission path builds on.
+
+**Smaller things.** The sending layer's ports moved to `ports.ts` with every other
+port. `intake-reader.ts` no longer keeps a module-level pool outside the composition
+root -- it is `createPostgresIntakeReader`, wired into `container.ts` and closed by
+`closeCommandService`. `QueuedMessage.id` is a branded `OutboundMessageId` and the
+Discipleship Goal option carries `DiscipleshipGoalId`. `composeMessage` no longer
+defaults `identifyDelivery` and `discloseOptOut` to false: which occasions require
+A2P identification is a compliance question and a caller that did not think about it
+should not be quietly answered *no*.
+
+**Correction to a claim above.** *"so the serialization in ticket 20 can be added
+without a schema migration"* is narrower than it reads. `prompt_key` and
+`prompt_state` are there, but ticket 20 also requires that a keyword command and its
+confirmation are never held and that a held message consumes no nudge budget, and
+nothing on `outbound_message` yet distinguishes a scheduled prompt from a keyword
+reply. Ticket 20 should expect to add a column for that.
+
+283 tests pass against a local Supabase stack with the app running, none skipped.
+
+### Declined in the review
+
+**`applyEffects`'s five `flatMap`s were left as five.** The generic collector that
+would replace them needs a cast to convince the compiler of what the tag already
+proves, which trades five type-safe lines for one unsafe one.
+
+**The seed goal list is repeated in migration `20260827000300`** -- once in
+`app.seed_discipleship_goals()` and once in the backfill. The migration is applied;
+editing it now would be rewriting history for a cosmetic gain.
+
+### Reverted, and open — two questions for the product owner
+
+Both were changed in the first pass of this review and then put back, because
+resolving them is a product decision and the review had inferred an answer rather
+than asking for one.
+
+**Does an Intake email overwrite one the import already placed on the Person?** It
+does today, and the code says so deliberately: *"What the Person typed about
+themselves beats what a spreadsheet said."* Ticket 02 refuses to overwrite in the
+opposite direction, so the two write paths disagree and neither ticket settled it.
+Left as it was, untested, pending an answer.
+
+**Is Statement 2's wording the doc's or the form's?** `docs/consent-language.md`
+quotes *"I agree that my name and phone number may be shared…"*; the form asks *"May
+we share your name and phone number…?"* to pair with its two answers. The doc's own
+rule is that changing any wording requires a new version identifier, and
+`CONSENT_VERSION` is unchanged at `2026-09-v1` -- so one of the two is wrong and
+which one is a decision about consent copy, not a refactor. Left as it was.
+
+### Raised, not fixed
+
+**Nothing hands an Admin the Intake link or a QR code.** Both routes work and are
+tested; the Admin's side of *"a link the pastor sent them"* is a Roster surface
+ticket 03 never built. Raised as ticket 23.

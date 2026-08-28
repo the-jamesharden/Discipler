@@ -125,7 +125,7 @@ Discipler must not pool response, satisfaction, or material data across ministri
 
 Discipler does not perform significance testing and must not present material findings as statistically significant.
 
-At the close of each calendar quarter, Discipler produces a report describing what the ministry's own history shows — response rates, satisfaction distributions, and the observed percentage difference between materials in use during that period. There is one reporting cadence, and it is quarterly; material comparison appears inside the quarterly report and simply says nothing useful until a material has enough weeks behind it. A visible difference between ten relationships reporting `outstanding` and ten reporting `okay` is a real and reportable difference; it is reported as an observation, never as a claim about cause or significance.
+At the close of each calendar quarter, Discipler produces a report describing what the ministry's own history shows — response rates, satisfaction distributions, and the observed percentage difference between materials in use during that period. There is one reporting cadence, and it is quarterly; material comparison appears inside the quarterly report and simply says nothing useful until a material has enough weeks behind it. A visible difference between ten relationships reporting `outstanding` and ten reporting `good` is a real and reportable difference; it is reported as an observation, never as a claim about cause or significance.
 
 ## Settled: Roster Membership Is Not Consent
 
@@ -542,15 +542,15 @@ the ministry prefix, together with the opt-out and rate disclosure.
 Nothing else reaches a congregant before their leader has accepted. The mentor and
 mentee reveals still follow pairing approval, unchanged.
 
-## Settled: The Availability Grid Is Seven Days by Four Blocks
+## Settled: The Availability Grid Is Seven Days by Five Blocks
 
-Twenty-eight slots: each day of the week, divided into early morning, midday,
+Thirty-five slots: each day of the week, divided into early morning, morning, midday,
 afternoon, and evening.
 
 Named blocks rather than clock times, because a person answering *when could you
-meet* is describing the shape of their day rather than committing to an hour. Four
-blocks rather than three, so that an early coffee and a lunch meeting are not the
-same answer.
+meet* is describing the shape of their day rather than committing to an hour. Five
+blocks rather than three, so that an early coffee, a mid-morning and a lunch meeting
+are not the same answer.
 
 The grid is a shared unit, not a display choice. Suggestion ranks on the count of
 shared slots, and a count only means something when both sides answered on the same
@@ -568,3 +568,349 @@ alone until they answer again. The admin surface that edits the list must say so
 before it removes anything.
 
 Goals are never shared or compared across ministries.
+
+## Settled: Suggestion Tiers Are Counts of Shared Cells
+
+The availability grid is seven days by five blocks, so an overlap is a count out of
+thirty-five shared cells. The tiers are that count and nothing else:
+
+- **Excellent fit** — four or more shared cells, spanning at least two distinct days.
+- **Good fit** — two or three shared cells.
+- **Recommended** — exactly one shared cell.
+- **No Schedule Overlap** — zero. A separate section, for visibility only, never
+  presented as a fit.
+
+The two-distinct-days requirement on Excellent fit is what stops four cells that are
+all one Saturday from reading as strongly as four cells across a week. Four blocks on
+one day is most of that day, not four separate chances to meet.
+
+> **Conflicts with `docs/adr/0001-pairing-suggestion-inputs.md`,** which defines
+> **Excellent fit** as meaningful overlap *plus a matching Discipleship Goal* and
+> **Good fit** as meaningful overlap *with differing goals*. Under the cutoffs above
+> the Goal plays no part in which tier a suggestion lands in. What the Goal now does —
+> order candidates within a tier, or gate Excellent as ADR-0001 has it — is open. See
+> `docs/open-questions.md`.
+
+## Settled: A Ministry Owns Its Timezone, Language, Cadence, and Pairing Constraints
+
+There is one settings surface, three sections, one form:
+
+- **Ministry** — display name, timezone, `from_name`. The timezone matters more than
+  it looks: every availability block, the check-in cadence, the ISO week boundary, the
+  nudge day and week windows, and the monthly opt-out rule are all resolved against it.
+- **Language** — `leader_noun` and `participant_noun`, with a live message preview
+  underneath. This is the section that earns the tab: it is where a ministry sees its
+  own words in its own messages.
+- **Pairing** — `suggest_gender_match`, `suggest_max_age_band_gap`, and the check-in
+  day and hour.
+
+**What stays out, deliberately:** message structure, reply tokens, and the opt-out
+footer. Message structure and reply tokens are a state machine, and the opt-out footer
+is a carrier obligation; none of the three is a ministry's to vary. They are not
+rendered as disabled fields either — a greyed-out box invites *can you turn that on
+for us?* They are simply not on the screen.
+
+> **Amends `Settled: Suggestion Constraints`,** which fixed the age constraint at ten
+> years for V1. `suggest_max_age_band_gap` makes it a ministry setting expressed in age
+> bands, which is the unit the constraint is actually evaluated in. Gender matching is
+> unchanged: absolute, and disabled only by deliberately turning the rule off here.
+
+## Settled: The Check-In Cadence Is a Ministry Setting; the Week Is the ISO Week
+
+`checkin_day` (0–6) and `checkin_hour`, against the Ministry timezone, clamped to
+8am–9pm local and enforced in the database rather than only on the form. A church
+small group meets Sunday and wants a Monday morning prompt; campus discipleship
+happens midweek and Thursday evening is the natural ask.
+
+The cadence is read **at enqueue time** and stamped on the outbound row. **An edit
+affects future periods only** and never cancels or reschedules an already-enqueued
+message. A coordinator moving Monday 8pm to Wednesday 7pm on a Tuesday changes next
+week, not this one.
+
+**The week boundary is the ISO week in the Ministry timezone and is defined
+independently of the check-in hour**, so the consecutive-unanswered and
+consecutive-not-meeting counters stay correct however the cadence moves. A week
+defined as *since the last prompt* would make a cadence edit produce one week with two
+prompts and one with none, and the counters would misfire silently.
+
+Nullable `checkin_day` and `checkin_hour` exist on `relationship` and are null on
+every row; the dispatcher reads `coalesce` over them from the first line of code.
+Per-relationship cadence is not surfaced in V1.
+
+See `docs/adr/0007-the-check-in-cadence-and-the-week-boundary.md`.
+
+## Settled: The Discipleship Goal Is a Tiebreaker, Not a Tier Gate
+
+Suggestion tiers are counts of shared availability cells and nothing else. The
+Discipleship Goal orders candidates **within** a tier and never determines which tier
+they land in.
+
+`docs/adr/0001-pairing-suggestion-inputs.md` originally defined Excellent fit as
+meaningful overlap plus a matching goal. That is withdrawn, and the ADR is amended
+rather than superseded. Gating was the reading that contradicted the ADR: it lets a
+pair with six shared cells across four days and a differing goal be capped at Good fit
+beside a pair with two cells and a matching goal, which is the Goal outranking
+availability at the tier boundary — forbidden by *availability overlap is always
+dominant* in the same document.
+
+The reason sentence carries the goal only when it matches. *"Four shared time slots.
+You both selected Career and calling."* where goals agree; *"Four shared time slots."*
+alone where they differ. The card never names a goal mismatch, because saying what two
+people do not have in common is a judgment about them rather than a statement about
+their calendars.
+
+This closes the ADR conflict flagged in the core-operating-loop spec header and in
+ticket 04, and unblocks ticket 04's tier tests.
+
+## Settled: The Age Band Constraint Has a Direction
+
+The age constraint limits how much **older** a Participant may be than their Leader,
+and limits nothing else.
+
+- A Participant may be at most N age bands above their Leader.
+- There is no limit below. A 65+ Leader with an 18–24 Participant is five bands down
+  and permitted — an older person discipling a younger one is the common case.
+
+N is the Ministry setting `suggest_max_age_band_gap`, and its unit is *the number of
+age bands a Participant may be above their Leader*. The default is `1`, which is
+ADR-0001's original rule and permits a 25–34 Leader with a 35–44 Participant. A
+Ministry wanting *never older than their Leader* sets `0`.
+
+The direction is written down because the setting is a single integer, and an integer
+with no stated direction is read as symmetric by whoever implements it next. A
+symmetric reading would exclude most of a ministry's real pairings.
+
+The constraint still governs suggestion only. Manual pairing may cross it; manual
+pairing may never cross gender.
+
+## Settled: What the Satisfaction Tokens Store
+
+`A` is **outstanding**, `B` is **good**, `C` is **concern**. These are the values
+written to history, not only the letters advertised in the message, and `good` is the
+stored value — not `okay`, which appeared once in this document's description of the
+quarterly report and has been corrected.
+
+The accepted synonyms behind them are unchanged: `great`/`gret` for A, `good` for B,
+`concern`/`oncern` for C.
+
+## Settled: A Covered Week Counts, Whether or Not Its Question Was Reached
+
+A relationship-week counts as **unanswered** for the consecutive-unanswered counter
+when the relationship was covered by an open Check-In Sequence that week and no reply
+arrived for it — whether or not its question was ever sent.
+
+This is not a technicality. A question waits twenty-four hours, is re-sent once, and
+waits twenty-four hours again before the sequence advances, so a fully silent Leader
+with four relationships needs eight days to work through one sequence. A new week
+arrives first and abandons it. Under a rule that counted only questions actually sent,
+that Leader's third and fourth relationships would never be asked, would never accrue a
+counter, and would stay `Healthy` indefinitely — which is exactly the invisible failure
+the Stalled thresholds exist to catch, arriving on the Leader most in need of catching.
+
+The test is checkable from history alone: the sequence existed, its ordering covered the
+relationship, no reply landed. Weeks stay genuinely absent only where they are already
+settled as absent — `Paused` and `Awaiting Leader Acceptance` send no check-ins and
+accrue no silence.
+
+The counter remains anchored to the ISO week in the Ministry timezone. See
+`docs/adr/0007-the-check-in-cadence-and-the-week-boundary.md`.
+
+## Settled: Stalled and Needs Care Cannot Co-Occur
+
+No precedence rule exists between `Stalled` and `Needs Care` because the two cannot
+both hold.
+
+`Needs Care` requires a Concern raised this week, which requires the Leader to answer
+`1` and then `C`. That reply establishes a meeting happened and that the week was
+answered, which resets the consecutive-unanswered count to zero and breaks the
+consecutive-not-meeting streak. Both Stalled conditions are cleared by the very reply
+that raises the Concern.
+
+This is asserted as a case in the state derivation's table-driven tests rather than
+written as a precedence rule. A precedence rule would be dead code that becomes
+silently wrong the moment something else can raise a Concern — Participant check-ins,
+or an Admin raising one by hand — whereas the assertion fails loudly at exactly that
+moment.
+
+Concern badges are unaffected and outlive the week. A relationship may be `Stalled`
+weeks later with unresolved Concerns beside it, because a Concern is a badge and never
+a state.
+
+## Settled: An Ending Records an Outcome as Well as a Reason
+
+A relationship ends with two recorded facts: a required free-text `ended_reason`, which
+already exists and is enforced in the database, and a required `ended_outcome` of
+exactly two values — `completed` or `discontinued`.
+
+The free text alone cannot answer the question the ending exists to answer. A ministry
+asking later whether a relationship finished well or broke down is asking for a count,
+and free text cannot be counted or classified retrospectively once a pilot has written
+a hundred sentences.
+
+Two values, deliberately. The question is binary, and a third value invites a taxonomy
+nobody has agreed — after which every row written before it was added is
+unclassifiable.
+
+Ending remains recorded against the acting Admin, and `Ended` remains terminal.
+
+## Settled: A Relationship's First Material Period Is a Real Period With No Material
+
+Material Assignment periods never overlap and never leave gaps, and that includes the
+time before a Ministry has assigned anything.
+
+On acceptance, a relationship opens a Material period with a **null material**, closed
+by its first real assignment. This is a row, not an absence of rows: a report asking
+which Material was in use in a given week gets an answer that says *none*, which is a
+fact, rather than no row at all, which is indistinguishable from a defect.
+
+The period starts at `accepted_at` rather than at creation, because no check-in week
+exists before acceptance and a period covering time no meeting could be reported in is
+noise. A Ministry that assigns a Material immediately gets a zero-length null period,
+which the existing period constraints already permit.
+
+The history must be complete from the first week of the pilot because it cannot be
+reconstructed afterwards.
+
+## Settled: Opted Out Outranks Paired on the Roster
+
+A Person who holds an open participant membership *and* has opted out reads as
+`Opted Out` on the Roster.
+
+An Admin scanning the Roster needs to see what the Person told the Ministry before they
+see what the Ministry arranged for them. Nothing is hidden by this: opting out does not
+end a relationship, and the Roster shows who each Person is in a relationship with in
+its own column, so an opted-out Person's row still shows their relationships. The
+choice is only about which fact the status column carries.
+
+Participation Status values are therefore not strictly disjoint in what they describe,
+and that was already true — `No Intake Submitted` describes a different fact again.
+
+## Settled: The Intake Form Is Not a Withdrawal Route
+
+Re-submitting Intake with the SMS consent box unticked is **refused**, exactly as a
+first submission is. The form grants consent and never withdraws it.
+
+Withdrawal already has a home. `STOP` moves a Person to `Opted Out` at the person
+level, is dated rather than a flag, and is reversible by `START`. A prefilled link an
+Admin sent producing a withdrawal that reads as the Person's own act is the wrong
+shape, and the consent record has no column for it.
+
+The dead end this leaves is closed in copy rather than in schema: the refusal message
+names the real route — *if you no longer want text messages, reply STOP to any message
+from us*.
+
+**Contact-sharing consent is different, and it is a live gap.** It is asked as an
+explicit choice between granted and declined, but only a grant writes a record, and the
+sending layer reads the record's existence. A Person who granted contact sharing and
+later re-submits declining it therefore leaves the earlier grant standing, and their
+Leader keeps seeing their number — which the Leader Dashboard checks at display time
+precisely so that it can be withdrawn.
+
+A consent record must therefore carry the decision, not merely its own existence, and
+the current decision is the latest record for that Person and consent kind. A decline
+that was never recorded cannot be recovered from anywhere, so this is settled before
+ticket 16 builds the re-submission path.
+
+## Settled: What "Timed Out" Means, Per Prompt Kind
+
+A prompt is **timed out** at the moment a reply to it can no longer change anything.
+The per-phone hold released on timeout depends on this, and it spans four tickets, so
+the four cases are stated together:
+
+- **Check-in question** — forty-eight hours after the original send: twenty-four to the
+  reminder, twenty-four more before the sequence advances. Also timed out immediately
+  when a new week's sequence begins.
+- **Concern detail request** — the same forty-eight hours. The `C` and the badge are
+  already recorded, so nothing is lost by passing over it.
+- **Keyword Exchange** — twenty-four hours after it opened, with no reminder.
+- **Messages expecting no reply** — the Welcome Message, the Starter Message, the
+  closing thank-you, and a reminder re-send. These are never open and **never hold the
+  phone at all**. A Starter Message that opened a hold would block its own
+  relationship's first check-in.
+
+Two consequences follow. The longest a scheduled message can wait behind a hold is
+forty-eight hours. And a held message consumes no nudge budget, which is already
+settled and matters most here, where the wait is longest.
+
+## Settled: The Sign-In Credential Is a Phone Number and a Password
+
+One sign-in form, phone number and password, for every user including Admins. Email is
+not a credential; it remains an optional contact detail and nothing else.
+
+Email is optional at Intake by settled decision, so a Person may complete Intake, be
+paired, and lead a relationship without Discipler ever learning an email address for
+them. A credential that half the people who need it may not have is not a credential.
+Everything else about authentication here already rests on the phone: the Invitation
+Link is bound to the Person and delivered by SMS, and possession of that phone is the
+authentication.
+
+Ticket 01's email sign-in page is superseded rather than extended, and Admin account
+provisioning changes with it. One-time codes remain post-launch; recovery is by
+password, and a lost password requires an Admin reset until they ship.
+
+See `docs/adr/0008-the-phone-number-is-the-sign-in-credential.md`.
+
+## Settled: The Follow-Up Item Kinds
+
+Care Needed draws on **three** sources, not one: derived relationship states (`Stalled`,
+`Needs Care`), Concern badges, and Follow-Up Items. Only the third is enumerated here.
+
+A Follow-Up Item is raised by six conditions, named for what happened rather than for
+what to do about it:
+
+| Kind | Raised by | Carries |
+|---|---|---|
+| `relationship_unaccepted` | the tick, five days after creation | how long it has waited |
+| `pause_expired` | the tick, at the end of the selected period | the selected period |
+| `swap_requested` | a Leader texting `SWAP` | — |
+| `participant_keyword` | a Participant texting a recognized keyword | which keyword |
+| `invitation_number_disputed` | *not my number* on the invitation flow | — |
+| `match_declined` | a Participant declining the match on the reveal page | — |
+
+Every one is an act or a condition that no later event undoes, which is what qualifies
+it: a Follow-Up Item is never cleared by the event that raised it and never clears
+itself. Derived states are excluded for the same reason — `Stalled` clears on an
+answered check-in, so it could never satisfy that property.
+
+`match_declined` is the sixth and was previously unrecorded anywhere. Participants are
+given a way to say the match is not right without a conversation; that is a Participant
+on a web page, a different actor and a different surface from a Leader texting `SWAP`,
+and without an item it reaches nobody.
+
+`invitation_number_disputed` is a persistent item and not a transient notification. It
+is the highest-stakes condition on the list — a wrong number means that Leader's
+check-ins reach a stranger indefinitely — and a notification that scrolls out of view is
+the failure the Follow-Up Item exists to prevent.
+
+## Settled: Conditions Dedupe, Events Accumulate
+
+The tick re-evaluates its conditions every time it runs, so `relationship_unaccepted` is
+true on day five, day six, and day seven. At most one **open** item exists per
+relationship for each of the two condition kinds — `relationship_unaccepted` and
+`pause_expired`.
+
+The other four kinds are records that a person did something, and a second occurrence is
+a second fact. A Leader who texts `SWAP` again after nobody answered the first request is
+saying something, and collapsing that into one row makes them indistinguishable from a
+Leader who asked once and waited patiently.
+
+The asymmetry is the real distinction between the two halves of the table: the first two
+describe a state of the world that is either true or not, and the other four record
+events.
+
+## Settled: What Resolving a Follow-Up Item Records
+
+Resolution records when and by whom, and nothing else. No free-text note.
+
+Resolve is one click inline in the Care Needed view alongside contact details and
+send-one-check-in, and a note field adds a writing task to a surface designed not to
+have one. The actions an Admin actually took — resumed, ended, nudged — are already
+recorded as facts of their own.
+
+Recording the acting Admin is consistent with the audit already required for viewing and
+resolving a Concern, and for ending a relationship.
+
+**Raising an item and resolving one each append a history event.** The Follow-Up Item
+table is mutable operational state, so without that append a Ministry cannot ask later
+how many care items it raised or how quickly it closed them — a quarterly-report question
+whose data is unreconstructable if it is not written down as it happens.

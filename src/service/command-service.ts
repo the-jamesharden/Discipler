@@ -2,7 +2,7 @@ import { handleCommand, type CommandResult } from '~/domain/boundary'
 import type { Clock } from '~/domain/clock'
 import type { Command } from '~/domain/commands'
 import type { Effect } from '~/domain/effects'
-import type { IdSource } from '~/domain/ids'
+import type { IdSource, PersonId } from '~/domain/ids'
 import type { EffectStore, UnitOfWork } from './ports'
 
 export interface CommandServiceDependencies {
@@ -24,6 +24,9 @@ export const applyEffects = async (
   effects: readonly Effect[],
   unit: UnitOfWork,
 ): Promise<void> => {
+  // Five separate narrowings rather than one generic collector: each `flatMap`
+  // below is type-safe on its own, and the generic that would replace them needs a
+  // cast to convince the compiler of what the tag already proves.
   const people = effects.flatMap((effect) =>
     effect.kind === 'person.create' ? [effect.person] : [],
   )
@@ -68,8 +71,12 @@ export const applyEffects = async (
 const needsTheRoster = (command: Command): boolean =>
   command.type === 'person.import' || command.type === 'intake.submit'
 
-/** Which commands speak in the Ministry's voice and so need its name. */
-const needsTheMinistryName = (command: Command): boolean => command.type === 'intake.submit'
+/**
+ * Intake needs two things no other command does: the Ministry's name, because every
+ * message it enqueues speaks in that voice, and who has submitted before, because
+ * the Welcome Message is first contact and a re-submission must not repeat it.
+ */
+const isIntakeSubmission = (command: Command): boolean => command.type === 'intake.submit'
 
 export const createCommandService = ({
   clock,
@@ -86,9 +93,18 @@ export const createCommandService = ({
         clock,
         ids,
         ...(needsTheRoster(command)
-          ? { roster: { people: await unit.peopleOnRoster() } }
+          ? {
+              roster: {
+                people: await unit.peopleOnRoster(),
+                // Only Intake asks. An import creates nobody who has submitted, so
+                // paying for the read there would buy an empty set at full price.
+                whoCompletedIntake: isIntakeSubmission(command)
+                  ? await unit.peopleWhoCompletedIntake()
+                  : new Set<PersonId>(),
+              },
+            }
           : {}),
-        ...(needsTheMinistryName(command)
+        ...(isIntakeSubmission(command)
           ? { ministryName: await unit.ministryName() }
           : {}),
       })

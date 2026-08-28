@@ -21,7 +21,7 @@ invalidates every answer already given and every overlap count derived from them
 
 ## Decision
 
-**Seven days by four named blocks: twenty-eight slots.** The blocks are early
+**Seven days by five named blocks: thirty-five slots.** The blocks are early morning,
 morning, midday, afternoon, and evening.
 
 Blocks are named rather than clock times. A person answering *when could you meet* is
@@ -42,6 +42,11 @@ code.
 the fastest to complete. Rejected because it collapses a 6am coffee and a midday
 lunch into one answer, and early morning is the slot that actually distinguishes
 people with day jobs — the population this product mostly serves.
+
+**Seven days by four blocks — early morning, midday, afternoon, evening.** Held
+first, then amended. Rejected on the same argument that rejected three: mid-morning
+is not midday. A person free at 10am and a person free at 1pm gave one answer under
+four blocks, and the overlap count then read them as having found each other a time.
 
 **Hourly, roughly 6am to 10pm.** About 112 slots. Rejected on two grounds: it is a
 long grid to complete on a phone, which is where intake is filled in; and it makes
@@ -64,9 +69,22 @@ every answer already collected, so it is a migration with no correct automatic
 answer — a person who selected "midday Tuesday" cannot be asked retrospectively which
 hour they meant.
 
-The count of shared slots is bounded at twenty-eight, which keeps the reason sentence
+The count of shared slots is bounded at thirty-five, which keeps the reason sentence
 on a suggestion card honest: "Four shared time slots" is a meaningful fraction of a
-week rather than a number nobody can scale.
+week rather than a number nobody can scale. The suggestion tier cutoffs in
+`docs/product-rules.md` are absolute counts against this grid, so the denominator is
+load-bearing: 4 of 35 is a different claim from 4 of 28.
 
 The Availability Overlay on the Leader Dashboard draws this same grid, so the two
 surfaces cannot drift.
+
+## Amended — a fifth block
+
+Four blocks became five: **morning** sits between early morning and midday. The
+argument is the one that rejected three dayparts in the first place, applied one step
+further — a person free mid-morning and a person free at lunch were giving the same
+answer and being counted as an overlap they did not have.
+
+Amended before any pilot collected availability, which is the only window in which
+this is cheap. The *Consequences* section above is unchanged and still binding: after
+a pilot has answers on the grid, a change to it has no correct automatic answer.

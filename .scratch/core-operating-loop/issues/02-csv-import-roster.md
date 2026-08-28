@@ -8,7 +8,7 @@ The Roster shows every Person in the Ministry with their Participation Status. T
 
 **Blocked by:** 01
 
-**Status:** ready-for-human
+**Status:** shipped
 
 - [x] An Admin can upload a spreadsheet and see the imported people on the Roster
 - [x] Imported people carry Participation Status `No Intake Submitted`

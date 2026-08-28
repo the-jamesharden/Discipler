@@ -11,7 +11,7 @@ import { asEmail, asPhoneNumber, type PhoneNumber } from './roster'
  */
 
 /**
- * A week is seven days of four blocks: twenty-eight slots. The blocks are named
+ * A week is seven days of five blocks: thirty-five slots. The blocks are named
  * rather than clock times because a Person selecting *when could work* is answering
  * about the shape of their day, not committing to an hour, and because pairing
  * counts shared slots -- a count only means something when both sides used the same
@@ -27,7 +27,7 @@ export const WEEKDAYS = [
   'sunday',
 ] as const
 
-export const DAY_BLOCKS = ['early_morning', 'midday', 'afternoon', 'evening'] as const
+export const DAY_BLOCKS = ['early_morning', 'morning', 'midday', 'afternoon', 'evening'] as const
 
 export type Weekday = (typeof WEEKDAYS)[number]
 export type DayBlock = (typeof DAY_BLOCKS)[number]

@@ -35,3 +35,17 @@ special case, which is the point of deriving it.
 
 One function owns ending because the invariant it maintains, that no open
 membership outlives its relationship, cannot be held by a constraint alone.
+
+### Settled — an ending records an outcome as well as a reason
+
+`relationship.ended_reason` already exists as required free text, enforced by a check
+constraint from ticket 05's migration. That alone cannot answer the question this ticket
+opens with — *whether it completed or broke down* is asked in counts, and free text
+cannot be classified retrospectively once a pilot has written a hundred sentences.
+
+Add a required `ended_outcome` of exactly two values: `completed` and `discontinued`.
+Two, deliberately — the question is binary, and a third value invites a taxonomy nobody
+has agreed, after which every row written before it was added is unclassifiable.
+
+- [ ] Ending records a required `ended_outcome` of `completed` or `discontinued` alongside the free-text reason
+- [ ] The database refuses an `ended_at` without an outcome, as it already does without a reason

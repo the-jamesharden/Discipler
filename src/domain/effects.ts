@@ -31,6 +31,15 @@ export interface OutboundMessageDraft {
  * consent, and a submission recorded without its consents would read as a Person
  * who filled the form in and agreed to nothing.
  */
+/**
+ * One consent decision as the form captured it. A refusal is a decision and is
+ * recorded; it is not the absence of one.
+ */
+export interface ConsentDecision {
+  readonly consent: 'sms' | 'contact_sharing'
+  readonly granted: boolean
+}
+
 export interface IntakeRecord {
   readonly ministryId: MinistryId
   readonly personId: PersonId
@@ -49,11 +58,16 @@ export interface IntakeRecord {
   readonly consentVersion: string
   readonly source: ConsentSource
   /**
-   * Contact sharing may be declined, and declining is a decision rather than an
-   * omission. Only granted consents become records: absence is what the send-time
-   * check reads, and a record saying `false` would make `exists` the wrong question.
+   * Every consent the form asked about, with what the Person decided. Both are
+   * recorded, including a refusal.
+   *
+   * A declined consent used to write no row at all, and the send-time check asked
+   * whether one existed. That reads a first refusal correctly and a *withdrawal* not
+   * at all: absence cannot distinguish "never asked" from "asked and said no", and it
+   * leaves an earlier grant standing as the only record. The current decision is the
+   * latest record for that Person and kind -- `app.current_consent` in the database.
    */
-  readonly grantedConsents: readonly ('sms' | 'contact_sharing')[]
+  readonly consentDecisions: readonly ConsentDecision[]
 }
 
 export type Effect =

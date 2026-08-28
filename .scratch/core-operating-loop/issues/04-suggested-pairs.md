@@ -4,6 +4,14 @@
 
 Ranking is a pure function: eligible Roster and Ministry constraint configuration in, tiered and ordered Suggested Pairs plus the No Schedule Overlap set out. No I/O and no clock beyond a supplied "now" for tie-breaking.
 
+**Tiers are counts of shared cells, and nothing else.** The grid is seven days by five
+blocks, so an overlap is a count out of thirty-five. Excellent fit is four or more
+shared cells spanning at least two distinct days; Good fit is two or three; Recommended
+is exactly one; zero puts the Person in the No Schedule Overlap section. The
+two-distinct-days requirement is what stops four blocks on one Saturday — most of that
+Saturday, not four separate chances to meet — from reading as strongly as four cells
+across a week.
+
 Constraints filter before anything is ranked and never appear as a reason. Gender must match and is absolute — a Ministry wanting mixed-gender relationships disables the rule deliberately in settings. The age band constraint excludes a Participant more than one band above the Leader and governs suggestion only. Ranking is availability overlap first, Discipleship Goal separating comparable overlaps, ties broken by longest wait since Intake. Because the two constraints differ in whether they can be overridden, they need visibly different treatment in the settings UI; presenting them as a uniform list of toggles would misrepresent one of them.
 
 Implements `docs/adr/0001-pairing-suggestion-inputs.md`. The reason string is a permanent constraint, not a UI preference — enforce it in the type system if possible, so a suggestion without a reason cannot be constructed.
@@ -17,7 +25,11 @@ Two independent pools feed the scorer. The **leader pool** is everyone marked el
 - [ ] Ranking is a pure function, tested directly, with a case for every rule in ADR-0001 including the negative ones
 - [ ] Gender mismatch is filtered before ranking and is not overridable
 - [ ] The age band rule filters suggestions only
+- [ ] Excellent fit requires four or more shared cells spanning at least two distinct days
+- [ ] Four shared cells all falling on one day is Good fit, not Excellent fit
+- [ ] Good fit is two or three shared cells, Recommended is exactly one, and zero is No Schedule Overlap
 - [ ] Tiers are assigned as specified and no numeric score is ever emitted
+- [ ] `suggest_gender_match` and `suggest_max_age_band_gap` are read from Ministry settings, not from constants
 - [ ] Ties are broken by longest wait since Intake, and ordering is stable between visits
 - [ ] Every suggestion carries a one-sentence reason; a suggestion without one is unconstructible
 - [ ] The No Schedule Overlap set is returned separately and never presented as a fit
@@ -53,3 +65,48 @@ Intake*. It is now a filter the pool applies alongside Intake rather than instea
 it. Ticket 02's review pass enforces the same rule in the database
 (`reject_unready_leader`), so a suggestion that ignored this would be refused at the
 membership insert anyway; the pool should not be offering it in the first place.
+
+### Amended — tier cutoffs are locked
+
+*Meaningful overlap* was never defined, so nothing said where Excellent fit stopped and
+Good fit began. It is now a count out of the thirty-five cells the grid
+has: 4+ across 2+ days, 2–3, exactly 1, zero. Recorded in `docs/product-rules.md` under
+*Settled: Suggestion Tiers Are Counts of Shared Cells*.
+
+**This conflicts with ADR-0001 and the conflict is open.** ADR-0001 defines Excellent
+fit as meaningful overlap *plus a matching Discipleship Goal*, and Good fit as
+meaningful overlap *with differing goals*. Under the locked cutoffs the Goal does not
+determine the tier. Whether the Goal now orders candidates within a tier, or still
+gates Excellent, is unresolved and blocks this ticket's tier tests. See
+`docs/open-questions.md`.
+
+The two constraints are now Ministry settings — `suggest_gender_match` and
+`suggest_max_age_band_gap` — built by ticket 22. The age constraint moves from
+*fixed at ten years for V1* to a configurable band gap, which is the unit it was
+already evaluated in.
+
+### Settled — the Goal is a tiebreaker, and the age constraint has a direction
+
+**The ADR conflict above is closed.** The Discipleship Goal orders candidates *within*
+a tier and never gates one. Tiers stay counts of shared cells exactly as written. Every
+tier case still needs a goal-matching and a goal-differing variant, and under this
+reading they assert the *same tier* and a *different order*.
+
+Gating was the reading that contradicted ADR-0001 rather than the one that departed
+from it: capping six cells across four days at Good fit because the goals differ is the
+Goal outranking availability, which the ADR forbids outright.
+
+The reason sentence follows: *"Four shared time slots. You both selected Career and
+calling."* where goals match, *"Four shared time slots."* alone where they differ. The
+card never names a mismatch.
+
+**The age band constraint is directional**, and the ticket text above ("excludes a
+Participant more than one band above the Leader") was already right — it was being read
+as symmetric. `suggest_max_age_band_gap` means *the number of age bands a Participant
+may be above their Leader*, default `1`, no limit below.
+
+- [ ] Goal-matching and goal-differing pairs at the same cell count land in the same tier, and the goal-matching one ranks above
+- [ ] The reason sentence names the goal only when it matches, and never names a mismatch
+- [ ] A 25–34 Leader with a 35–44 Participant is suggested at the default gap of `1`
+- [ ] A 65+ Leader with an 18–24 Participant is suggested, proving the constraint is one-directional
+- [ ] `suggest_max_age_band_gap` of `0` excludes any Participant in a band above their Leader

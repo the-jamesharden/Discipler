@@ -232,7 +232,8 @@ describe('a consent record', () => {
       person_id: person,
       consent: 'sms',
       version: '2026-09-v1',
-      granted_at: new Date().toISOString(),
+      granted: true,
+      decided_at: new Date().toISOString(),
     })
 
     expect(error?.message).toMatch(/source/)

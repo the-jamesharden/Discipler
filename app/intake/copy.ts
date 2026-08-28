@@ -18,6 +18,7 @@ export const weekdayLabel: Record<Weekday, string> = {
 
 export const dayBlockLabel: Record<DayBlock, string> = {
   early_morning: 'Early morning',
+  morning: 'Morning',
   midday: 'Midday',
   afternoon: 'Afternoon',
   evening: 'Evening',

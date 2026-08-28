@@ -1,9 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { IntakeRefused } from '~/domain/errors'
-import { ministryId } from '~/domain/ids'
 import type { IntakeFormFields } from '~/domain/intake'
-import { readIntakePage } from '~/platform/supabase/intake-reader'
-import { getCommandService } from '~/service/container'
+import { getCommandService, getIntakeReader } from '~/service/container'
 
 /** What the form's hidden field means. There is no third route to Intake. */
 const ROUTES: Record<string, string> = { link: 'pastor_link', qr: 'qr_code' }
@@ -20,7 +18,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ mi
 
   // Checked against a real Ministry rather than trusted out of the URL, so a
   // fabricated link cannot enqueue a command against an identifier of its own.
-  const page = await readIntakePage(ministry)
+  const page = await getIntakeReader().readIntakePage(ministry)
   if (!page) return NextResponse.redirect(new URL('/', request.url), { status: 303 })
 
   const submitted = await request.formData()
@@ -53,7 +51,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ mi
   try {
     await getCommandService().execute({
       type: 'intake.submit',
-      ministryId: ministryId(page.ministryId),
+      ministryId: page.ministryId,
       form,
     })
   } catch (error) {

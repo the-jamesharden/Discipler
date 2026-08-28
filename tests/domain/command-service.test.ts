@@ -45,6 +45,7 @@ describe('applying a command\'s effects', () => {
         createRelationship: sink.createRelationship,
         createPeople: sink.createPeople,
         peopleOnRoster: sink.peopleOnRoster,
+        peopleWhoCompletedIntake: sink.peopleWhoCompletedIntake,
         ministryName: sink.ministryName,
         recordIntake: sink.recordIntake,
       }),
@@ -75,6 +76,9 @@ describe('applying a command\'s effects', () => {
         },
         recordIntake: async () => {
           throw new Error('Intake should not have been touched')
+        },
+        peopleWhoCompletedIntake: async () => {
+          throw new Error('Intake should not have been read')
         },
         peopleOnRoster: async () => {
           throw new Error('the Roster should not have been read')

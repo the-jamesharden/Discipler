@@ -19,3 +19,31 @@ When a Material changes mid-week, the week belongs to whichever was assigned **a
 - [ ] A week is attributed to the Material assigned when the check-in was answered
 - [ ] A Material changing mid-week never splits that week across two Materials
 - [ ] No admin assignment UI is built
+
+## Comments
+
+### Settled — the first period is a real period with no material
+
+*Periods never leave gaps* includes the time before a Ministry has assigned anything. On
+acceptance a relationship opens a Material period with a **null material**, closed by
+its first real assignment.
+
+A row, not an absence of rows. A report asking which Material was in use in a given week
+then gets an answer saying *none*, which is a fact, rather than no row at all, which is
+indistinguishable from a defect — and this ticket's whole justification is that the
+history has to be complete from the first week because it cannot be reconstructed
+afterwards.
+
+The period starts at `accepted_at` rather than at creation: no check-in week exists
+before acceptance, and a period covering time no meeting could be reported in is noise. A
+Ministry assigning immediately gets a zero-length null period, which the existing
+constraints already permit.
+
+The glossary entry for Material Assignment was also wrong — it said the association
+between a material and *the person or group* using it, which contradicts this ticket's
+first rule. Corrected in `CONTEXT.md`.
+
+- [ ] Accepting a relationship opens a Material period with a null material
+- [ ] The first real assignment closes the null period rather than starting the history
+- [ ] A week before any assignment attributes to the null period, not to nothing
+- [ ] Assigning a Material at the instant of acceptance yields a zero-length null period rather than an error

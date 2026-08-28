@@ -4,7 +4,7 @@ Status: ready-for-agent
 
 Scope note: this spec covers the operating loop end to end — Intake, Roster, Suggested Pairs, Acceptance, the Check-In Rhythm, and care surfacing. The Admin surface is specified only as far as the loop requires it. The full six-tab admin dashboard with its charts and Quick Stats panel is a follow-up spec, as is Ministry Intelligence.
 
-This spec implements `docs/adr/0001-pairing-suggestion-inputs.md` rather than departing from it. No ADR conflicts.
+This spec implements `docs/adr/0001-pairing-suggestion-inputs.md`, `docs/adr/0007-the-check-in-cadence-and-the-week-boundary.md`, and `docs/adr/0008-the-phone-number-is-the-sign-in-credential.md`. **The ADR-0001 conflict is closed:** suggestion tiers are counts of shared availability cells, and the Discipleship Goal orders candidates within a tier rather than gating one. ADR-0001 is amended accordingly. See *Settled since approval* at the foot of this spec.
 
 ## Problem Statement
 
@@ -182,7 +182,7 @@ This is a hard requirement. Without it none of the care logic is testable.
 
 **Suggestion ranking.** Takes the eligible Roster and the Ministry's constraint configuration; returns tiered, ordered Suggested Pairs plus the No Schedule Overlap set. No I/O, no clock beyond a supplied "now" for tie-breaking.
 
-Constraints filter before anything is ranked. Gender must match and is absolute — it is not overridable by manual pairing, and a Ministry wanting mixed-gender relationships disables the rule in settings. The age band constraint excludes a Participant more than one band above the Leader — a Leader in 25–34 may be suggested for a 35–44 Participant but not a 45–54 one — governs suggestion only, and is overridable manually. Ranking is availability overlap first, Discipleship Goal separating comparable overlaps, ties broken by longest wait since Intake. Output labels: Excellent fit (meaningful overlap, matching Goal), Good fit (meaningful overlap, differing Goals), Recommended (everything else passing constraints).
+Constraints filter before anything is ranked. Gender must match and is absolute — it is not overridable by manual pairing, and a Ministry wanting mixed-gender relationships disables the rule in settings. The age band constraint excludes a Participant more than one band above the Leader — a Leader in 25–34 may be suggested for a 35–44 Participant but not a 45–54 one — governs suggestion only, and is overridable manually. Ranking is availability overlap first, Discipleship Goal separating comparable overlaps, ties broken by longest wait since Intake. Output labels are counts of shared cells out of the grid's thirty-five: **Excellent fit** is four or more shared cells spanning at least two distinct days, **Good fit** is two or three, **Recommended** is exactly one, and zero is the No Schedule Overlap section. *Four blocks on one Saturday is most of that Saturday, not four separate chances to meet* — hence the two-distinct-days requirement. **This supersedes ADR-0001's goal-based tiering, and what the Discipleship Goal now does is open** — see `docs/open-questions.md`. Both constraints are Ministry settings (`suggest_gender_match`, `suggest_max_age_band_gap`), which moves the age rule from *fixed at ten years* to a configurable band gap.
 
 Every suggestion carries a one-sentence reason string. Any future input that cannot be expressed that way is out of scope by construction.
 
@@ -208,6 +208,26 @@ The care reason is part of the output, not a UI inference — "gone silent, 2 we
 `Paused` **masks** the derived state rather than replacing the history behind it. While a relationship is paused the derivation reports `Paused`; on resume it reports whatever the history yields. No new unanswered check-ins accrue during a pause, and the pause does not answer the old ones — so a relationship that was `Stalled` when it was paused is `Stalled` again on resume and stays there until an answered check-in clears the condition. **Resuming never sets `Healthy` on its own.** Setting state to `Healthy` on resume would silently erase a live care signal.
 
 An expired Pause and an open Swap request are **not** states and **not** care conditions derived from check-in history. Like Concerns they are follow-up items that sit beside the relationship, coexist with any state including `Paused`, and clear only by explicit Admin action. Pause expiry changes no state and sends nothing: the relationship remains `Paused` until an Admin resumes or ends it, and the Starter Message is released on resume, never on expiry.
+
+### Ministry settings
+
+One settings surface, three sections, one form. **Ministry** — display name, timezone, `from_name`. **Language** — `leader_noun`, `participant_noun`, with a live message preview beneath. **Pairing** — `suggest_gender_match`, `suggest_max_age_band_gap`, and the check-in day and hour.
+
+The timezone is load-bearing: availability blocks, the check-in cadence, the ISO week boundary, the nudge day and week windows, and the monthly opt-out rule all resolve against it.
+
+Message structure, reply tokens, and the opt-out footer are **not** settings and are not rendered as disabled fields either — a greyed-out box invites a request to enable it. They are not on the screen.
+
+### The check-in cadence and the week boundary
+
+`checkin_day` (0–6) and `checkin_hour`, against the Ministry timezone, **clamped to 8am–9pm local by a database check constraint** rather than by the form alone — pilot settings are written by SQL. A church small group meets Sunday and wants a Monday morning prompt; campus discipleship happens midweek and Thursday evening is the natural ask.
+
+`relationship.checkin_day` and `relationship.checkin_hour` are nullable and null on every row; the dispatcher reads `coalesce(r.checkin_day, ms.checkin_day)` from the first line of code. Per-relationship cadence is not surfaced in V1 and the query never has to be rewritten to surface it.
+
+**The cadence is read at enqueue time and stamped as `scheduled_for` on the outbound row. An edit affects future periods only** — it never cancels and never reschedules an enqueued row. Moving Monday 8pm to Wednesday 7pm on a Tuesday changes next week, not this one.
+
+**A week is the ISO week in the Ministry timezone, defined independently of the check-in hour.** The consecutive-unanswered and consecutive-not-meeting counters derive from history against that anchor. A week meaning *since the last prompt* would let a cadence edit produce one week with two prompts and one with none, and the counters would misfire silently.
+
+See `docs/adr/0007-the-check-in-cadence-and-the-week-boundary.md`.
 
 ### Check-In Sequence
 
@@ -332,6 +352,9 @@ Scenarios that must be covered at this seam:
 - `SWAP` records a request and raises a follow-up item without changing state, moving anyone, or clearing itself, and coexists with `Paused`.
 - An Invitation Link survives being opened and abandoned, and is consumed on account creation.
 - Two Ministries operating concurrently never see each other's data.
+- A cadence edit mid-week leaves this week's enqueued prompt untouched and applies from the next period.
+- A `checkin_hour` outside 8am–9pm is refused by the database, not only by the form.
+- Moving the check-in day does not change the consecutive-unanswered or consecutive-not-meeting counters for weeks already recorded.
 
 **Suggestion ranking, tested directly as a pure function.** Rule-dense and I/O-free: constraint filtering, tier assignment, ordering, tie-breaking by longest wait, and the No Schedule Overlap set. Testing these through the command boundary would require constructing a full Ministry to assert a tie-break. Every rule in ADR-0001 gets a case, including the negative ones — that gender is not overridable, that age is, and that no numeric score is ever emitted.
 
@@ -366,3 +389,53 @@ Scenarios that must be covered at this seam:
 **Do not tighten the care thresholds.** Two weeks of silence and three weeks of not meeting were chosen deliberately, and `docs/non-goals.md` is explicit that a missed meeting is not wrongdoing. These numbers exist to help an Admin help someone, not to score anyone.
 
 **Twilio is a delivery vendor, not a domain concept.** It appears behind the outbound queue and the inbound webhook and nowhere else. It must not reach the glossary, the domain model, or test assertions.
+
+## Settled since approval
+
+Seventeen decisions that write to a table or to history were settled on 2026-08-28,
+after this spec was approved. Each is recorded in full in `docs/product-rules.md` and in
+the ticket that builds it; this list exists so nothing below is implemented from the
+version of the spec that preceded them.
+
+**Suggestion (ticket 04).** The Discipleship Goal is a tiebreaker, ordering candidates
+within a tier and never gating one; the reason sentence names the goal only when it
+matches. The age band constraint is **directional** — `suggest_max_age_band_gap` is the
+number of bands a Participant may be *above* their Leader, default `1`, with no limit
+below. ADR-0001 amended.
+
+**Check-in (ticket 08).** `A` stores `outstanding`, `B` stores `good`, `C` stores
+`concern`.
+
+**State (ticket 10).** A relationship-week counts as unanswered when the relationship was
+covered by an open sequence and no reply arrived, whether or not its question was reached
+— otherwise a silent Leader's later relationships are never asked and never stall.
+`Stalled` and `Needs Care` cannot co-occur, asserted in the state matrix rather than
+ruled. Concerns live in their own table.
+
+**Follow-up items (ticket 07).** Six kinds — `relationship_unaccepted`, `pause_expired`,
+`swap_requested`, `participant_keyword`, `invitation_number_disputed`, `match_declined`.
+Nullable `relationship_id` and `person_id` with at least one present; `jsonb` payload
+constrained per kind; the two condition kinds dedupe while the four event kinds
+accumulate; resolution records who and when with no note, and both raising and resolving
+append a history event. Care Needed unions three sources: derived states, Concerns, and
+follow-up items.
+
+**Ending (ticket 13).** A required `ended_outcome` of `completed` or `discontinued`
+alongside the existing required free-text reason.
+
+**Material (ticket 14).** A relationship opens a Material period with a null material at
+`accepted_at`, closed by its first real assignment, so the periods genuinely leave no
+gaps.
+
+**Roster and consent (ticket 16).** `Opted Out` outranks `Paired`. The Intake form is not
+a withdrawal route and refuses a re-submission with SMS consent unticked, naming `STOP`
+instead. A consent record must carry its decision so a contact-sharing decline can be
+recorded — today only a grant writes a row, and a re-submitted decline silently leaves
+the old grant standing.
+
+**Serialization (ticket 20).** A prompt is timed out when a reply can no longer change
+anything: 48 hours for a check-in question and a Concern detail request, 24 for a Keyword
+Exchange, and never for a message expecting no reply, which opens no hold at all.
+
+**Sign-in (tickets 01, 06, 15).** A phone number and a password, one form, every user.
+ADR-0008.

@@ -1,9 +1,10 @@
 import type { IntakeRecord, OutboundMessageDraft } from '~/domain/effects'
 import type { HistoryEvent, NewHistoryEvent } from '~/domain/history'
-import type { MinistryId, PersonId } from '~/domain/ids'
+import type { DiscipleshipGoalId } from '~/domain/intake'
+import type { MinistryId, OutboundMessageId, PersonId } from '~/domain/ids'
 import type { ParticipationStatus } from '~/domain/participation'
 import type { NewRelationship } from '~/domain/relationships'
-import type { NewPerson, RosterKey } from '~/domain/roster'
+import type { NewPerson, PhoneNumber, RosterKey } from '~/domain/roster'
 
 /**
  * Everything the application service needs from the outside world. The domain
@@ -27,6 +28,13 @@ export interface UnitOfWork {
    * a Roster somebody uploaded.
    */
   peopleOnRoster(): Promise<ReadonlyMap<RosterKey, PersonId>>
+  /**
+   * Everyone in this Ministry with at least one Intake submission already on file.
+   * Read inside the unit of work like the Roster, and for the same reason: two
+   * submissions racing each other must not both read "never submitted" and both
+   * enqueue a Welcome Message.
+   */
+  peopleWhoCompletedIntake(): Promise<ReadonlySet<PersonId>>
   /**
    * The Ministry's name, in whose voice every outbound message speaks. Read inside
    * the unit of work like everything else, so a command cannot compose a message
@@ -87,4 +95,79 @@ export interface RosterEntry {
 export interface RosterReader {
   /** Scoped to one Ministry, and enforced as such in the database, not here. */
   listRoster(ministryId: MinistryId): Promise<readonly RosterEntry[]>
+}
+
+/**
+ * The sending layer's ports. They live here with every other port rather than
+ * beside `dispatchQueue`, so that the one place naming what the application needs
+ * from the outside world stays the one place.
+ */
+
+/** Why the sending layer refused a message. Codes, never prose. */
+export type WithholdingReason =
+  | 'recipient_opted_out'
+  | 'recipient_has_no_sms_consent'
+  | 'recipient_has_no_phone'
+
+export interface QueuedMessage {
+  readonly id: OutboundMessageId
+  readonly personId: PersonId | null
+  readonly toPhone: string | null
+  readonly body: string
+  /**
+   * Whose contact details this message would include. Resolved at send time,
+   * because contact-sharing consent is checked when a message is sent and never
+   * assumed from enrolment -- and a body that already carried the number would
+   * leave nothing to withhold.
+   */
+  readonly disclosesPersonId: PersonId | null
+}
+
+export interface ContactDetails {
+  readonly fullName: string
+  readonly phone: PhoneNumber
+}
+
+/**
+ * Every method names the Ministry it acts for. The queue is drained on a trusted
+ * connection with no session behind it, so nothing else is in a position to say
+ * which Ministry a read belongs to -- and a port that took only a `PersonId` would
+ * be asking the database to answer across all of them.
+ */
+export interface OutboundQueue {
+  /** Everything enqueued for this Ministry and neither sent nor withheld. */
+  due(ministryId: MinistryId): Promise<readonly QueuedMessage[]>
+  /** Whether this Person may be sent to *right now*, not when they were queued. */
+  mayReceive(ministryId: MinistryId, personId: PersonId): Promise<WithholdingReason | null>
+  /** The details to disclose, or null where the Person has not agreed to share. */
+  contactToShare(ministryId: MinistryId, personId: PersonId): Promise<ContactDetails | null>
+  markSent(ministryId: MinistryId, id: OutboundMessageId, at: Date): Promise<void>
+  withhold(
+    ministryId: MinistryId,
+    id: OutboundMessageId,
+    reason: WithholdingReason,
+    at: Date,
+  ): Promise<void>
+}
+
+/** Twilio lives behind this and nowhere else. It is not a domain concept. */
+export interface MessageTransport {
+  deliver(to: string, body: string): Promise<void>
+}
+
+export interface DiscipleshipGoalOption {
+  readonly id: DiscipleshipGoalId
+  readonly label: string
+}
+
+/** What the Intake form needs to render itself, for a visitor with no session. */
+export interface IntakePage {
+  readonly ministryId: MinistryId
+  readonly ministryName: string
+  readonly goals: readonly DiscipleshipGoalOption[]
+}
+
+export interface IntakeReader {
+  /** Null when the link names no Ministry this Discipler holds. */
+  readIntakePage(id: string): Promise<IntakePage | null>
 }

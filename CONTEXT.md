@@ -39,7 +39,7 @@ _Avoid_: Pair, pairing record, pairing (as a noun), group (as a distinct entity)
 The process by which a person provides the information and consent needed to enter a ministry.
 
 **Availability Slot**:
-One of the twenty-eight selectable windows on the intake grid: each day of the week divided into early morning, midday, afternoon, and evening.
+One of the thirty-five selectable windows on the intake grid: each day of the week divided into early morning, morning, midday, afternoon, and evening.
 
 **Discipleship Goal**:
 The single outcome a participant selects at intake to describe what they are seeking from discipleship. The options offered are the ministry's own.
@@ -57,6 +57,10 @@ _Avoid_: Treating kind as a second entity, or as the answer to "is this a group"
 
 **Eligible to Lead**:
 The per-person flag by which an Admin marks someone as suitable to lead a relationship. It is independent of whether they have an account and of whether they currently lead anything, and it is the same field as the intended role an Admin sets before intake.
+
+**Age Band Gap**:
+The number of age bands a participant may be *above* their leader in a suggestion. A ministry setting with a direction: there is no limit below, because an older person discipling a younger one is the ordinary case.
+_Avoid_: Age gap, age difference — both read as symmetric
 
 **Pairing Constraint**:
 A hard eligibility rule that removes a combination from suggestion entirely. Constraints govern suggestion only; a ministry may always pair manually across them.
@@ -76,7 +80,8 @@ A discipleship resource a relationship works through, such as a book of the Bibl
 _Avoid_: Program, curriculum
 
 **Material Assignment**:
-The association between a material and the person or group using it during a particular period.
+The period during which a relationship was working through a particular material. Assigned to the relationship, never to a person: a leader in two relationships may be working through two different things. Periods never overlap and never leave gaps, so a relationship's first period runs from acceptance with no material assigned.
+_Avoid_: Assigning a material to a person
 
 **Check-In Rhythm**:
 Discipler's recurring text-message rhythm for gathering information about whether discipleship meetings are happening and how they are going.
@@ -93,6 +98,10 @@ The individualized, SMS-delivered link that reveals a new relationship to its le
 
 **Response-Required Message**:
 A message in the Check-In Rhythm that expects a reply from its recipient.
+
+**Outstanding Reply**:
+A Response-Required Message that has been sent and whose reply has not yet arrived. At most one is outstanding per phone number at a time, because a number holds one conversation however many people are reachable on it; a later message to the same number takes ownership of the next reply and supersedes the one before it. It resolves as answered, superseded, or timed out after twenty-four hours.
+_Avoid_: prompt. The database columns predate this entry and spell it `prompt_key` and `prompt_state`; they mean this and are not to be read as a Keyword Exchange.
 
 **Meeting Response**:
 A participant's recorded answer to a meeting-related question in the Check-In Rhythm.
@@ -111,11 +120,11 @@ The leader's act of taking responsibility for a relationship, performed on the l
 The state of a relationship that its leader has paused for a selected period. Check-ins for that relationship are suppressed for the duration, membership is unchanged, and nobody returns to the roster as available. The relationship stays visible and visibly marked as paused on both the leader's list of relationships and the admin dashboard. Paused masks the relationship's underlying derived state rather than replacing the history behind it; on resume, that derived state resurfaces.
 
 **Ended**:
-The terminal state of a relationship that has finished, for any reason. Its history is preserved untouched, and its participants return to the roster as Ready to Pair unless they have opted out or hold another open participant membership.
+The terminal state of a relationship that has finished. It records an outcome — completed or discontinued — alongside the reason in the ministry's own words, because whether a relationship finished well or broke down is a question the ministry asks in counts. Its history is preserved untouched, and its participants return to the roster as Ready to Pair unless they have opted out or hold another open participant membership.
 
 **Keyword Exchange**:
 The short SMS conversation Discipler opens when an inbound keyword needs something resolved before it can act — which relationship it applies to, or how long a pause should run. At most one is open per person at a time, and it expires after twenty-four hours without a reminder.
-_Avoid_: Menu, prompt (as model terms)
+_Avoid_: Menu, prompt (as model terms). "Prompt" is doubly unhelpful here: it is a model term, and where it does appear in the schema it names an Outstanding Reply, which is a different thing.
 
 **Silence Gap**:
 Thirty rolling days since Discipler last sent a person a message, measured per person per ministry. It is the trigger for the compliance identification prefix and for re-sending opt-out language to a participant.
@@ -150,3 +159,16 @@ The chronological record of ministry activity associated with a discipleship rel
 
 **Ministry Intelligence**:
 Longer-term ministry insight derived from the ministry's historical activity and participant context.
+
+**Ministry Timezone**:
+The single clock a Ministry's data is interpreted against. Availability blocks, the Check-In Cadence, the week boundary behind the care counters, the nudge day and week windows, and the monthly opt-out rule all resolve against it. A property of the Ministry, never of a Person.
+
+**Check-In Cadence**:
+The day of week and hour at which a Ministry's Check-In Sequences are sent, resolved against the Ministry Timezone and bounded to 8am–9pm local. A Ministry setting, not a product constant: a church small group meets Sunday and is asked Monday morning, while campus discipleship happens midweek and is asked Thursday evening.
+_Avoid_: Schedule, cron time
+
+**Week**:
+The ISO week in the Ministry Timezone. Defined independently of the Check-In Cadence, so that moving the cadence cannot produce one week carrying two check-ins and another carrying none.
+
+**Ministry Language**:
+The nouns a Ministry uses for the two roles in a relationship, applied to every message it sends. Wording a Ministry owns, in the same way it owns its Discipleship Goal options; the structure of a message is not.

@@ -6,6 +6,10 @@ That limit is enforced at the sending layer, not at the button. A disabled butto
 
 Nudge limits per recipient: one per twelve hours, at most two per day, at most four per week. These are pilot starting values, to be tuned from pilot data. They govern nudges specifically — the Check-In Rhythm is self-limiting by construction and needs no separate ceiling.
 
+The daily and weekly caps are resolved against the Ministry timezone, on the same ISO
+week anchor the check-in counters use, so *at most two per day* and *at most four per
+week* mean the same thing on every surface.
+
 **Blocked by:** 10
 
 **Status:** ready-for-agent
@@ -13,6 +17,7 @@ Nudge limits per recipient: one per twelve hours, at most two per day, at most f
 - [ ] Nudge clicked repeatedly enqueues at most one message
 - [ ] The cooldown, daily cap, and weekly cap are enforced at the sending layer
 - [ ] The limits are configuration, not constants scattered through call sites
+- [ ] The daily and weekly windows resolve against the Ministry timezone and the ISO week
 - [ ] A follow-up item exposes contact details, resolve, and send-one-check-in inline
 - [ ] Contact details shown respect the recipient's contact-sharing consent
 - [ ] The Check-In Rhythm is not subject to the nudge ceiling

@@ -29,3 +29,6 @@ pnpm-debug.log*
 # Supabase CLI local state
 supabase/.temp/
 supabase/.branches/
+
+# Agent scratch
+.claude/agent-memory/

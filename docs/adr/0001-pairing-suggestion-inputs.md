@@ -49,3 +49,51 @@ Intake must collect gender, age, and Discipleship Goal, and cannot be backfilled
 The reason card is a hard constraint on future changes: any new input must be expressible in one plain sentence a pastor can read aloud. An input that cannot be explained that way is out of scope by construction, regardless of how predictive it is.
 
 Because gender is absolute and age is not, the two constraints need visibly different treatment in the admin UI. Presenting them as a uniform list of toggles would misrepresent one of them.
+
+## Amended — the Goal is a tiebreaker, and the age constraint has a direction
+
+Two parts of the Decision above are corrected. The four inputs and the two categories
+are unchanged; what changes is how one of them reaches the tier, and which way the
+other one points.
+
+### The Discipleship Goal orders within a tier; it does not gate one
+
+The Decision defines **Excellent fit** as meaningful overlap *plus a matching goal*
+and **Good fit** as meaningful overlap *with differing goals*. That is withdrawn.
+Tiers are counts of shared availability cells and nothing else — 4+ across 2 or more
+distinct days, 2–3, exactly 1, zero — as recorded in `docs/product-rules.md` under
+*Settled: Suggestion Tiers Are Counts of Shared Cells*. The Goal orders candidates
+**within** a tier and never determines which tier they land in.
+
+The gating reading was the one that contradicted this ADR, not the one that departed
+from it. Under gating, a pair with six shared cells across four days but a differing
+goal is capped at Good fit and sits beside a pair with two cells and a matching goal —
+which is the Goal outranking availability at the tier boundary, forbidden three
+paragraphs above by *Availability overlap — always dominant*.
+
+The reason sentence follows. Where goals match it is unchanged: *"Four shared time
+slots. You both selected Career and calling."* Where they differ it is the first
+sentence alone: *"Four shared time slots."* The card never names a goal mismatch.
+Saying what two people do not have in common is a judgment about them rather than a
+statement about their calendars, and it is not one a card can justify.
+
+### The age constraint limits how much older a Participant may be, and nothing else
+
+*A leader is not suggested for a participant more than one age band above them* was
+correct and is retained, but it was read in this project as though it were symmetric,
+and it is not. It is a limit in one direction only:
+
+- A Participant may be at most N age bands **above** their Leader.
+- There is **no limit below**. A 65+ Leader with an 18–24 Participant is five bands
+  down, permitted, and entirely ordinary — an older person discipling a younger one is
+  the common case, not an edge one.
+
+N is `suggest_max_age_band_gap`, a Ministry setting built by ticket 22, and its unit is
+now stated: *the number of age bands a Participant may be above their Leader*. The
+default is `1`, which is this ADR's original rule. A Ministry wanting *never older than
+their Leader* sets `0`. Both readings that were live in this project are therefore
+expressible as configuration, and neither requires overturning the other.
+
+The direction has to be written down because the setting is a single integer and an
+integer with no stated direction is read as symmetric by whoever implements it next.
+A symmetric reading would exclude most of the ministry's real pairings.

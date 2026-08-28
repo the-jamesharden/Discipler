@@ -6,6 +6,8 @@ describe('Every message is the Ministry’s voice', () => {
     const text = composeMessage({
       ministryName: 'Riverside Chapel',
       body: 'You are all set.',
+      identifyDelivery: false,
+      discloseOptOut: false,
     })
 
     expect(text).toBe('Riverside Chapel: You are all set.')
@@ -16,6 +18,7 @@ describe('Every message is the Ministry’s voice', () => {
       ministryName: 'Riverside Chapel',
       body: 'You are all set.',
       identifyDelivery: true,
+      discloseOptOut: false,
     })
 
     expect(text).toBe('Discipler: Riverside Chapel: You are all set.')
@@ -27,6 +30,7 @@ describe('Opt-out and rate disclosure', () => {
     const text = composeMessage({
       ministryName: 'Riverside Chapel',
       body: 'You are all set.',
+      identifyDelivery: false,
       discloseOptOut: true,
     })
 
@@ -36,7 +40,12 @@ describe('Opt-out and rate disclosure', () => {
   })
 
   it('is left off a message that does not have to carry it', () => {
-    const text = composeMessage({ ministryName: 'Riverside Chapel', body: 'You are all set.' })
+    const text = composeMessage({
+      ministryName: 'Riverside Chapel',
+      body: 'You are all set.',
+      identifyDelivery: false,
+      discloseOptOut: false,
+    })
 
     expect(text).not.toContain('STOP')
   })

@@ -1,7 +1,7 @@
 import type { Clock } from '~/domain/clock'
-import type { MinistryId, PersonId } from '~/domain/ids'
+import type { MinistryId } from '~/domain/ids'
 import { withSharedContact } from '~/domain/outbound-copy'
-import type { PhoneNumber } from '~/domain/roster'
+import type { MessageTransport, OutboundQueue } from './ports'
 
 /**
  * The sending layer. **Every message passes a recipient-level check before it
@@ -13,48 +13,9 @@ import type { PhoneNumber } from '~/domain/roster'
  * open opt-out. That is a floor, not this: consent is a fact about *now*, and a
  * Person who opted out between being queued and being sent to must not receive the
  * message that was already waiting for them.
+ *
+ * The ports it works through are in `ports.ts` with every other port.
  */
-
-/** Why the sending layer refused a message. Codes, never prose. */
-export type WithholdingReason =
-  | 'recipient_opted_out'
-  | 'recipient_has_no_sms_consent'
-  | 'recipient_has_no_phone'
-
-export interface QueuedMessage {
-  readonly id: string
-  readonly personId: PersonId | null
-  readonly toPhone: string | null
-  readonly body: string
-  /**
-   * Whose contact details this message would include. Resolved here, at send time,
-   * because contact-sharing consent is checked when a message is sent and never
-   * assumed from enrolment -- and a body that already carried the number would
-   * leave nothing to withhold.
-   */
-  readonly disclosesPersonId: PersonId | null
-}
-
-export interface ContactDetails {
-  readonly fullName: string
-  readonly phone: PhoneNumber
-}
-
-export interface OutboundQueue {
-  /** Everything enqueued for this Ministry and neither sent nor withheld. */
-  due(ministryId: MinistryId): Promise<readonly QueuedMessage[]>
-  /** Whether this Person may be sent to *right now*, not when they were queued. */
-  mayReceive(personId: PersonId): Promise<WithholdingReason | null>
-  /** The details to disclose, or null where the Person has not agreed to share. */
-  contactToShare(personId: PersonId): Promise<ContactDetails | null>
-  markSent(id: string, at: Date): Promise<void>
-  withhold(id: string, reason: WithholdingReason, at: Date): Promise<void>
-}
-
-/** Twilio lives behind this and nowhere else. It is not a domain concept. */
-export interface MessageTransport {
-  deliver(to: string, body: string): Promise<void>
-}
 
 export interface Dispatch {
   readonly queue: OutboundQueue
@@ -82,7 +43,7 @@ export const dispatchQueue = async ({
     const now = clock.now()
 
     if (!message.toPhone) {
-      await queue.withhold(message.id, 'recipient_has_no_phone', now)
+      await queue.withhold(ministryId, message.id, 'recipient_has_no_phone', now)
       withheld++
       continue
     }
@@ -90,9 +51,9 @@ export const dispatchQueue = async ({
     // A message to somebody who is not on the Roster -- an Admin -- is not governed
     // by a congregant's consent record, so there is no recipient to check.
     if (message.personId) {
-      const refusal = await queue.mayReceive(message.personId)
+      const refusal = await queue.mayReceive(ministryId, message.personId)
       if (refusal) {
-        await queue.withhold(message.id, refusal, now)
+        await queue.withhold(ministryId, message.id, refusal, now)
         withheld++
         continue
       }
@@ -103,12 +64,12 @@ export const dispatchQueue = async ({
     // that they did not agree to share.
     let body = message.body
     if (message.disclosesPersonId) {
-      const contact = await queue.contactToShare(message.disclosesPersonId)
+      const contact = await queue.contactToShare(ministryId, message.disclosesPersonId)
       if (contact) body = withSharedContact(body, contact)
     }
 
     await transport.deliver(message.toPhone, body)
-    await queue.markSent(message.id, now)
+    await queue.markSent(ministryId, message.id, now)
     sent++
   }
 

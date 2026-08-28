@@ -1,13 +1,15 @@
 import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createTestClock } from '~/domain/clock'
-import type { IdSource } from '~/domain/ids'
+import { outboundMessageId, personId, type IdSource } from '~/domain/ids'
 import type { IntakeFormFields } from '~/domain/intake'
 import { createPostgresEffectStore } from '~/platform/supabase/effect-store'
 import { createPostgresOutboundQueue } from '~/platform/supabase/outbound-queue'
 import { createCommandService } from '~/service/command-service'
-import { dispatchQueue, type MessageTransport } from '~/service/outbound-dispatch'
+import { dispatchQueue } from '~/service/outbound-dispatch'
+import type { MessageTransport } from '~/service/ports'
 import {
+  addPerson,
   createMinistryWithAdmin,
   localSupabase,
   optOut,
@@ -88,6 +90,52 @@ describe('The sending layer checks every recipient', () => {
     )
     return rows[0]
   }
+
+  it('answers only about its own Ministry, however the Person is named', async () => {
+    // The sending layer drains the queue on a trusted connection with no session
+    // behind it, which is the one place in Discipler a `person_id` arrives with
+    // nothing to bound it. It must therefore declare which Ministry it is acting
+    // for, or Ministry isolation is enforced nowhere on this path.
+    const other = await createMinistryWithAdmin('Northgate Fellowship')
+    const outsider = await addPerson(other, 'Sarah Delgado', { phone: '+15553339001' })
+
+    // Everything about this Person says yes -- consented, not opted out, on a
+    // Roster -- and the only thing wrong with the question is who is asking it.
+    expect(await queue.mayReceive(other.id, personId(outsider))).toBeNull()
+    expect(await queue.mayReceive(ministry.id, personId(outsider))).toBe(
+      'recipient_has_no_sms_consent',
+    )
+    expect(await queue.contactToShare(other.id, personId(outsider))).not.toBeNull()
+    expect(await queue.contactToShare(ministry.id, personId(outsider))).toBeNull()
+  })
+
+  it('does not let one Ministry mark another Ministry’s message sent', async () => {
+    const other = await createMinistryWithAdmin('Eastbrook Chapel')
+    const outsider = await addPerson(other, 'Iris Bantham', { phone: '+15553339002' })
+
+    const { rows } = await pool.query<{ id: string }>(
+      `insert into outbound_message (ministry_id, person_id, to_phone, body, enqueued_at)
+       values ($1, $2, $3, $4, $5) returning id`,
+      [other.id, outsider, '+15553339002', 'Northgate speaking.', clock.now()],
+    )
+    const enqueued = rows[0]?.id
+    if (!enqueued) throw new Error('The message under test was not enqueued')
+    const message = outboundMessageId(enqueued)
+
+    await queue.markSent(ministry.id, message, clock.now())
+    await queue.withhold(ministry.id, message, 'recipient_opted_out', clock.now())
+
+    const { rows: after } = await pool.query(
+      `select sent_at, withheld_at from outbound_message where id = $1`,
+      [message],
+    )
+    expect(after[0].sent_at).toBeNull()
+    expect(after[0].withheld_at).toBeNull()
+
+    // And the queue does not hand another Ministry's message out to be drained.
+    const due = await queue.due(ministry.id)
+    expect(due.map((queued) => queued.id)).not.toContain(message)
+  })
 
   it('sends the Welcome Message that Intake enqueued', async () => {
     const person = await intake({ fullName: 'Emily Johnson', phone: '5553330001' })

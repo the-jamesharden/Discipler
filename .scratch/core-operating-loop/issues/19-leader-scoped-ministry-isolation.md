@@ -12,7 +12,7 @@ The relationship table also needs the invariant that row-level security cannot e
 
 **Blocked by:** 05, 18
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 - [x] Leader-facing policies are expressed through open leader membership and never through `ministry_member.tier`
 - [x] `person_read_own_ministry` no longer grants a Leader the whole Roster
@@ -69,3 +69,12 @@ into pastoral view is why check-ins exist. Recorded in `docs/product-rules.md` u
 *Roles Are Relationship Memberships*; not to be re-raised as a leak.
 
 20 new tests, 85 passing overall against a local Supabase stack, none skipped.
+
+### Shipped
+
+All eight criteria met by `030c2c7`. The status line had been left at
+`ready-for-agent` through implementation and is now terminal.
+
+Its blockers, 05 and 18, are not themselves finished — this ticket needed the
+relationship and membership schema, which landed in the same commit, not the
+Admin-facing flows still open on those tickets.

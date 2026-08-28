@@ -96,6 +96,38 @@ describe('Completing Intake', () => {
     ])
   })
 
+  it('greets a Person once, however many times they submit the form', async () => {
+    // One link serves a whole Ministry and nothing stops a Person opening it twice.
+    // The Welcome Message is *first* contact, so the second submission is recorded
+    // in full and greeted not at all -- a second welcome would be Discipler texting
+    // somebody to welcome them to something they are already in. The deliberate
+    // re-submission path is ticket 16's; this is the floor under it.
+    const person = await addPerson(ministry, 'Noah Whitfield', {
+      intake: false,
+      phone: '+15552340009',
+    })
+
+    const submit = async () =>
+      service().execute({
+        type: 'intake.submit',
+        ministryId: ministry.id,
+        form: await form({ fullName: 'Noah Whitfield', phone: '5552340009' }),
+      })
+
+    await submit()
+    await submit()
+
+    expect(await messagesTo('+15552340009')).toHaveLength(1)
+
+    // The submission itself is not swallowed: a re-submission is a real act and
+    // leaves a real trail, which is what ticket 16 builds on.
+    const { rows } = await pool.query(
+      `select count(*)::int as submissions from intake_submission where person_id = $1`,
+      [person],
+    )
+    expect(rows[0].submissions).toBe(2)
+  })
+
   it('records the two consents separately, each with its own version, time and route', async () => {
     await service().execute({
       type: 'intake.submit',
@@ -104,7 +136,7 @@ describe('Completing Intake', () => {
     })
 
     const { rows } = await pool.query(
-      `select c.consent, c.version, c.source, c.granted_at
+      `select c.consent, c.granted, c.version, c.source, c.decided_at
          from consent_record c join person p on p.id = c.person_id
         where c.ministry_id = $1 and p.full_name = 'Daniel Okafor'
         order by c.consent`,
@@ -114,7 +146,7 @@ describe('Completing Intake', () => {
     expect(rows.map((row) => row.consent)).toEqual(['sms', 'contact_sharing'])
     expect(rows.every((row) => row.version === '2026-09-v1')).toBe(true)
     expect(rows.every((row) => row.source === 'qr_code')).toBe(true)
-    expect(rows.every((row) => row.granted_at instanceof Date)).toBe(true)
+    expect(rows.every((row) => row.decided_at instanceof Date)).toBe(true)
   })
 
   it('lets a Person agree to be texted and refuse to have their number shared', async () => {
@@ -129,14 +161,20 @@ describe('Completing Intake', () => {
     })
 
     const { rows } = await pool.query(
-      `select c.consent from consent_record c join person p on p.id = c.person_id
-        where c.ministry_id = $1 and p.full_name = 'Priya Raman'`,
+      `select c.consent, c.granted from consent_record c join person p on p.id = c.person_id
+        where c.ministry_id = $1 and p.full_name = 'Priya Raman'
+        order by c.consent`,
       [ministry.id],
     )
 
-    // Absence is what the send-time check reads, so a refusal is the missing row
-    // rather than a row saying no.
-    expect(rows.map((row) => row.consent)).toEqual(['sms'])
+    // A refusal is a recorded decision, not a missing row. This test previously
+    // asserted the opposite -- that absence was the refusal -- which reads a first
+    // decline correctly and a later withdrawal not at all, because absence cannot
+    // tell "never asked" from "asked and said no".
+    expect(rows).toEqual([
+      { consent: 'sms', granted: true },
+      { consent: 'contact_sharing', granted: false },
+    ])
     expect(await messagesTo('+15552340003')).toHaveLength(1)
   })
 

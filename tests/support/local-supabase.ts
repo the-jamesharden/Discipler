@@ -167,12 +167,37 @@ export const completeIntake = async (
       ministry_id: ministry.id,
       person_id: personId,
       consent,
+      granted: true,
       version: '2026-09-v1',
       source,
-      granted_at: submittedAt,
+      decided_at: submittedAt,
     })),
   )
   if (consentError) throw new Error(`Could not record consent: ${consentError.message}`)
+}
+
+/**
+ * A later decision on one consent. Separate from `completeIntake` because that helper
+ * models a first submission, where every consent listed was granted; this models a
+ * Person changing their mind, which is a new record and never an edit to the old one.
+ */
+export const recordConsentDecision = async (
+  ministry: MinistryFixture,
+  personId: string,
+  consent: ConsentKind,
+  granted: boolean,
+  decidedAt: Date = new Date(),
+): Promise<void> => {
+  const { error } = await serviceRoleClient().from('consent_record').insert({
+    ministry_id: ministry.id,
+    person_id: personId,
+    consent,
+    granted,
+    version: '2026-09-v1',
+    source: 'pastor_link',
+    decided_at: decidedAt.toISOString(),
+  })
+  if (error) throw new Error(`Could not record the consent decision: ${error.message}`)
 }
 
 export const optOut = async (ministry: MinistryFixture, personId: string): Promise<void> => {

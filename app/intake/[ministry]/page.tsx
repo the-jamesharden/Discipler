@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import { AGE_BANDS, DAY_BLOCKS, WEEKDAYS } from '~/domain/intake'
-import { readIntakePage } from '~/platform/supabase/intake-reader'
 import { dayBlockLabel, refusalMessages, weekdayLabel } from '../copy'
+import { getIntakeReader } from '~/service/container'
 
 /**
  * One form, reached with no account and no software to learn. One link serves the
@@ -21,7 +21,7 @@ export default async function IntakePage({
   const { ministry } = await params
   const { via, refused } = await searchParams
 
-  const page = await readIntakePage(ministry)
+  const page = await getIntakeReader().readIntakePage(ministry)
   if (!page) notFound()
 
   const problems = refusalMessages(refused)

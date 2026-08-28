@@ -27,21 +27,26 @@ export interface MessageComposition {
    * A2P identification. Required on opt-in messaging, on the first message ever
    * sent to a Person, on the first after a thirty-day Silence Gap, and on `HELP`.
    */
-  readonly identifyDelivery?: boolean
+  readonly identifyDelivery: boolean
   /**
    * The opt-out and rate disclosure. A separate decision from `identifyDelivery`
    * because the two are required on overlapping but different occasions: `HELP`
    * identifies delivery without re-disclosing, and a Leader's monthly check-in
    * discloses without identifying.
    */
-  readonly discloseOptOut?: boolean
+  readonly discloseOptOut: boolean
 }
 
+/**
+ * Both flags are stated rather than defaulted. Which occasions require A2P
+ * identification and which require the opt-out disclosure is a compliance question,
+ * and a caller that did not think about it should not be quietly answered `false`.
+ */
 export const composeMessage = ({
   ministryName,
   body,
-  identifyDelivery = false,
-  discloseOptOut = false,
+  identifyDelivery,
+  discloseOptOut,
 }: MessageComposition): string => {
   const spoken = `${ministryName}: ${discloseOptOut ? `${body} ${OPT_OUT_DISCLOSURE}` : body}`
   return identifyDelivery ? `${DELIVERY_PREFIX} ${spoken}` : spoken

@@ -50,3 +50,17 @@ governs whether a number may be *shown*, and this dashboard is the surface that 
 that check -- it is checked at the moment of display, never assumed from enrolment.
 Until this ships, the column is readable by a Leader whose Participant did not consent
 to sharing it. Recorded by ticket 02, which added the column.
+
+### Settled — sign-in is a phone number and a password
+
+*A Leader whose session has expired signs in with their phone number and password* is
+correct and is now the rule for every user including Admins. Ticket 01's email sign-in
+page is superseded. See `docs/adr/0008-the-phone-number-is-the-sign-in-credential.md`.
+
+### Settled — the display-time consent check calls `app.current_consent`
+
+The record behind this check could not express a withdrawal: only a grant wrote a row,
+so the check read *has ever granted*. Fixed ahead of ticket 16 in migration
+`20260828000100`. `app.current_consent(person, kind)` is the one definition of a
+current consent, and this dashboard is its fifth caller — use it rather than writing a
+sixth variant of the query.

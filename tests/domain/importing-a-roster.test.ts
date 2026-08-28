@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { handleCommand } from '~/domain/boundary'
 import { createTestClock } from '~/domain/clock'
-import { createSequentialIds, ministryId, personId } from '~/domain/ids'
+import { createSequentialIds, ministryId, personId, type PersonId } from '~/domain/ids'
 import { phoneNumber, rosterKey } from '~/domain/roster'
 import { file } from '../support/roster'
 
@@ -28,6 +28,8 @@ const importing = (csv: string, alreadyOnRoster: { fullName: string; phone: stri
             personId(`00000000-0000-4000-9000-${String(index + 1).padStart(12, '0')}`),
           ]),
         ),
+        // An import greets nobody, so who has completed Intake does not bear on it.
+        whoCompletedIntake: new Set<PersonId>(),
       },
     },
   )

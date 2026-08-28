@@ -18,6 +18,14 @@ A relationship holds exactly one state. **Concerns are not a state** — they ar
 
 Concern text is the most sensitive data in the product and is treated differently from every other record. It is reached one Person at a time rather than as a list, so reading it takes deliberate effort, and it is cleared by default when resolved, so the Ministry does not accumulate a permanent file of people's hardest weeks. Viewing a Concern and resolving one are both recorded against the Admin who did it.
 
+**Both consecutive counters are anchored to the ISO week in the Ministry timezone**,
+never to the interval since the last prompt. The cadence is a Ministry setting an Admin
+can move (ticket 08), and a week defined as *since the last prompt* would let a cadence
+edit produce one week with two prompts and one with none — the counter would misfire
+with nothing on any screen to show it. The counters derive from relationship history
+against the ISO anchor, so they stay correct however the cadence moves. See
+`docs/adr/0007-the-check-in-cadence-and-the-week-boundary.md`.
+
 Do not tighten the thresholds. Two weeks and three weeks were chosen deliberately, and a missed meeting is not wrongdoing.
 
 **Blocked by:** 09
@@ -34,3 +42,54 @@ Do not tighten the thresholds. Two weeks and three weeks were chosen deliberatel
 - [ ] Concern text is reached one Person at a time and cleared by default on resolution
 - [ ] Viewing and resolving a Concern are recorded against the acting Admin
 - [ ] Care Needed shows relationships needing attention with their reason and duration
+- [ ] Consecutive unanswered check-ins and consecutive not-met weeks are counted over ISO weeks in the Ministry timezone
+- [ ] Moving the Ministry's check-in day or hour does not change either counter for weeks already recorded
+
+## Comments
+
+### Settled — a covered week counts, whether or not its question was reached
+
+A relationship-week counts as **unanswered** when the relationship was covered by an
+open Check-In Sequence that week and no reply arrived for it — whether or not its
+question was ever sent.
+
+The alternative, counting only questions actually sent, has a hole big enough to defeat
+this ticket. A question waits 24 hours, is re-sent once, and waits 24 more before the
+sequence advances (ticket 09), so a fully silent Leader with four relationships needs
+eight days to work through one sequence. A new week arrives first and abandons it. Under
+sent-only counting, that Leader's third and fourth relationships are never asked, never
+accrue a counter, and stay `Healthy` indefinitely — the invisible failure this ticket
+exists to catch, arriving on the Leader most in need of catching.
+
+The test is checkable from history alone: the sequence existed, its ordering covered the
+relationship, no reply landed. Weeks stay genuinely absent only where already settled —
+`Paused` and `Awaiting Leader Acceptance`.
+
+### Settled — Stalled and Needs Care cannot co-occur, and that is asserted rather than ruled
+
+No precedence rule is added, because the two cannot both hold. `Needs Care` requires a
+Concern raised this week, which requires a `1` then a `C`. That reply establishes a
+meeting happened and the week was answered, resetting the consecutive-unanswered count
+and breaking the not-meeting streak. Both Stalled conditions are cleared by the very
+reply that raises the Concern.
+
+A precedence rule would be dead code that becomes silently wrong the moment something
+else can raise a Concern — Participant check-ins, or an Admin raising one by hand —
+whereas an assertion fails loudly at exactly that moment.
+
+Concern badges are unaffected and outlive the week: a relationship may be `Stalled`
+weeks later with unresolved Concerns beside it.
+
+### Settled — Concerns live in their own table
+
+Not in ticket 07's `follow_up_item`. The four properties this ticket gives a Concern —
+text reached one Person at a time, cleared by default on resolution, viewing as well as
+resolving audited, a count when several are outstanding — are shared by nothing else in
+that table, and cleared-by-default is a destructive update sitting beside durable admin
+records. Care Needed unions the two.
+
+- [ ] A relationship covered by an open sequence with no reply counts as unanswered that week, even where its question was never sent
+- [ ] A silent Leader with four relationships accrues counters on all four, proven by a test that runs two abandoned sequences
+- [ ] Paused and Awaiting Leader Acceptance weeks are absent rather than unanswered
+- [ ] The state matrix asserts that Stalled and Needs Care never co-occur, with the reason recorded in the test
+- [ ] Concerns are stored separately from follow-up items and Care Needed unions both

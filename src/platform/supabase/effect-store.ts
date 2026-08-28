@@ -62,6 +62,15 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     )
   },
 
+  async peopleWhoCompletedIntake() {
+    // Scoped by the policy on `intake_submission`, like the Roster read above: the
+    // connection has already declared which Ministry it acts for.
+    const { rows } = await client.query<{ person_id: string }>(
+      `select distinct person_id from intake_submission`,
+    )
+    return new Set<PersonId>(rows.map((row) => personId(row.person_id)))
+  },
+
   async ministryName() {
     // Scoped by the policy on `ministry`, like everything else on this connection.
     const { rows } = await client.query<{ name: string }>(`select name from ministry`)
@@ -153,15 +162,18 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // Each decision is its own row with its own timestamp and the version of the
     // wording the Person actually saw. Nothing here is ever updated: the trigger on
     // this table refuses it, because a consent record migrated forward to newer
-    // wording no longer records what anybody agreed to.
-    for (const consent of intake.grantedConsents) {
+    // wording no longer records what anybody agreed to. A change of mind is therefore
+    // a later row, and `decided_at` is what orders them.
+    for (const decision of intake.consentDecisions) {
       await client.query(
-        `insert into consent_record (ministry_id, person_id, consent, version, granted_at, source)
-         values ($1, $2, $3, $4, $5, $6)`,
+        `insert into consent_record
+           (ministry_id, person_id, consent, granted, version, decided_at, source)
+         values ($1, $2, $3, $4, $5, $6, $7)`,
         [
           intake.ministryId,
           intake.personId,
-          consent,
+          decision.consent,
+          decision.granted,
           intake.consentVersion,
           intake.submittedAt,
           intake.source,

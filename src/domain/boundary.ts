@@ -59,6 +59,15 @@ export interface CommandContext {
  */
 export interface RosterSnapshot {
   readonly people: ReadonlyMap<RosterKey, PersonId>
+  /**
+   * Who has already completed Intake at least once. The Welcome Message is *first*
+   * contact, so it is enqueued against this rather than against the submission: one
+   * link serves a whole Ministry and nothing stops a Person opening it twice, and a
+   * second Welcome would be Discipler texting somebody to welcome them to something
+   * they are already in. Ticket 16 builds the deliberate re-submission path on top
+   * of the same fact.
+   */
+  readonly whoCompletedIntake: ReadonlySet<PersonId>
 }
 
 export interface CommandResult {
@@ -189,6 +198,11 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         )
       }
 
+      // Their first submission, or a repeat. Everything below is recorded either
+      // way -- a re-submission is a real act and leaves a real trail -- but only the
+      // first one is greeted.
+      const isFirstSubmission = !context.roster.whoCompletedIntake.has(id)
+
       effects.push(
         recordIntake({
           ministryId: command.ministryId,
@@ -201,11 +215,17 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           email: submission.email,
           consentVersion: CONSENT_VERSION,
           source: submission.source,
-          // Only what was granted. The send-time check asks whether a consent
-          // exists, so a record standing for a refusal would answer yes.
-          grantedConsents: submission.contactSharingConsent
-            ? ['sms', 'contact_sharing']
-            : ['sms'],
+          // Both decisions, always, including a refusal. What is current is the
+          // latest record for that consent, so a decision that writes no row is a
+          // decision that cannot be seen -- and on a re-submission it silently
+          // leaves the previous answer standing.
+          consentDecisions: [
+            // Always granted: `intake.sms_consent_required` refuses a submission
+            // without it. The form grants consent and never withdraws it; `STOP` is
+            // the withdrawal route.
+            { consent: 'sms', granted: true },
+            { consent: 'contact_sharing', granted: submission.contactSharingConsent },
+          ],
         }),
         appendHistory({
           ministryId: command.ministryId,
@@ -220,21 +240,26 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             availabilitySlots: submission.availability.length,
           },
         }),
-        // The one message that goes out before anybody has been paired. It reaches
-        // a Person who has just given SMS consent on this form, which is the thing
-        // *no SMS before pairing approval* exists to protect -- so that rule governs
-        // relationship messaging and not this. Settled in docs/open-questions.md.
-        enqueueMessage({
-          ministryId: command.ministryId,
-          personId: id,
-          toPhone: submission.phone,
-          body: welcomeMessage({
-            ministryName: context.ministryName,
-            fullName: submission.fullName,
-          }),
-          enqueuedAt: now,
-        }),
       )
+
+      // The one message that goes out before anybody has been paired. It reaches a
+      // Person who has just given SMS consent on this form, which is the thing *no
+      // SMS before pairing approval* exists to protect -- so that rule governs
+      // relationship messaging and not this. Settled in docs/open-questions.md.
+      if (isFirstSubmission) {
+        effects.push(
+          enqueueMessage({
+            ministryId: command.ministryId,
+            personId: id,
+            toPhone: submission.phone,
+            body: welcomeMessage({
+              ministryName: context.ministryName,
+              fullName: submission.fullName,
+            }),
+            enqueuedAt: now,
+          }),
+        )
+      }
 
       return { effects, rejections: [] }
     }

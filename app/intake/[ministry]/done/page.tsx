@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { readIntakePage } from '~/platform/supabase/intake-reader'
+import { getIntakeReader } from '~/service/container'
 
 /**
  * What a Person sees the moment they submit. The Welcome Message is already on its
@@ -12,7 +12,7 @@ export default async function IntakeDonePage({
   params: Promise<{ ministry: string }>
 }) {
   const { ministry } = await params
-  const page = await readIntakePage(ministry)
+  const page = await getIntakeReader().readIntakePage(ministry)
   if (!page) notFound()
 
   return (

@@ -39,3 +39,34 @@ is an error, not a supported state.
 An Admin who also leads holds a single `ministry_member` row with `tier = 'admin'`,
 because `unique (ministry_id, user_id)` permits no second one. The Leader surface
 must therefore never require a `tier = 'leader'` row to exist — see ticket 19.
+
+### Settled — the sign-in credential is a phone number and a password
+
+This ticket asked for "a name and a password" and named no identifier; ticket 01 shipped
+email; ticket 15 said phone. Settled: **phone number and password, one form, everyone
+including Admins.** Email is optional at Intake, so a credential built on it is one half
+the people who need it may not have. See
+`docs/adr/0008-the-phone-number-is-the-sign-in-credential.md`.
+
+The link is already bound to the Person rather than to an email address, so nothing in
+the invitation flow changes — the identifier the Leader signs back in with is the number
+this flow displays and refuses to accept as input.
+
+### Settled — "not my number" is a persistent follow-up item
+
+*Notifies the Admin* means it raises a `invitation_number_disputed` follow-up item, not a
+transient notification. It is the highest-stakes condition in ticket 07's table: a wrong
+number sends that Leader's check-ins to a stranger indefinitely, and a notification that
+scrolls out of view is exactly the failure a Follow-Up Item exists to prevent. It still
+changes nothing else — a forwarded link can never re-point an account.
+
+### Settled — a Participant declining the match raises `match_declined`
+
+*A way to say the match is not right without a conversation* had no recorded destination
+anywhere in the spec or the tickets. It raises a `match_declined` follow-up item. It is a
+Participant on a web page — a different actor and a different surface from a Leader
+texting `SWAP` — and without an item it reaches nobody.
+
+- [ ] The Leader signs in with a phone number and a password, and no email is collected anywhere in this flow
+- [ ] "not my number" raises a persistent `invitation_number_disputed` follow-up item and changes nothing else
+- [ ] A Participant declining the match raises a `match_declined` follow-up item
