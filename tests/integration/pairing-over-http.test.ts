@@ -1,0 +1,198 @@
+import pg from 'pg'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app'
+import {
+  addPerson,
+  createMinistryWithAdmin,
+  localSupabase,
+  type MinistryFixture,
+} from '../support/local-supabase'
+
+/**
+ * The three pairing routes as an Admin drives them: press Pair on a Roster row, or
+ * choose several people together, and get back a relationship that has started
+ * nothing. Driven over HTTP because the ticket's remaining work *is* the surface --
+ * the command underneath it has been done and tested since ticket 19's migration,
+ * and no unit test can say whether an Admin can actually reach it.
+ *
+ * The suggestion route is the same POST with the same body; what it needs is a
+ * suggestion to accept, which is ticket 04's.
+ */
+
+describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () => {
+  let ministry: MinistryFixture
+  let pool: pg.Pool
+  let cookie: string
+
+  beforeAll(async () => {
+    ministry = await createMinistryWithAdmin('Riverside Chapel')
+    pool = new pg.Pool({ connectionString: localSupabase().databaseUrl })
+    cookie = (await signIn(ministry)).cookie
+  })
+
+  afterAll(async () => {
+    await pool.end()
+  })
+
+  const pair = async (leaderId: string, participantIds: string[]) => {
+    const body = new URLSearchParams({ leaderId })
+    for (const id of participantIds) body.append('participantId', id)
+
+    const response = await fetch(`${baseUrl}/roster/pair/create`, {
+      method: 'POST',
+      redirect: 'manual',
+      headers: { 'content-type': 'application/x-www-form-urlencoded', cookie },
+      body,
+    })
+    return { response, location: response.headers.get('location') ?? '' }
+  }
+
+  const woman = (name: string) =>
+    addPerson(ministry, name, { answers: { gender: 'female' } })
+
+  const man = (name: string) => addPerson(ministry, name, { answers: { gender: 'male' } })
+
+  it('offers a Pair action on the row of somebody waiting to be paired', async () => {
+    const nora = await woman('Nora Blake')
+    const { html } = await getPage('/roster', cookie)
+
+    expect(html).toContain('Nora Blake')
+    expect(html).toContain(`/roster/pair?with=${nora}`)
+  })
+
+  it('opens the pairing screen with that Person already chosen', async () => {
+    const olivia = await woman('Olivia Cross')
+    await woman('Paula Dunn')
+
+    const { response, html } = await getPage(`/roster/pair?with=${olivia}`, cookie)
+
+    expect(response.status).toBe(200)
+    expect(html).toContain('Olivia Cross')
+    expect(html).toContain('Paula Dunn')
+    // Said on the form itself: an Admin who expects a text to go out and sees nothing
+    // happen will create the relationship a second time.
+    expect(html).toContain('does not start it')
+  })
+
+  it('pairs two people, and says the relationship is waiting on its leader', async () => {
+    const rachel = await woman('Rachel Ellis')
+    const sarah = await woman('Sarah Frost')
+
+    const { response, location } = await pair(rachel, [sarah])
+
+    expect(response.status).toBe(303)
+    expect(location).toContain('/roster?paired=1')
+
+    const { rows } = await pool.query(
+      `select r.accepted_at, count(*) as members
+         from relationship r
+         join relationship_member m on m.relationship_id = r.id
+        where m.person_id = any($1)
+        group by r.id, r.accepted_at`,
+      [[rachel, sarah]],
+    )
+    expect(rows).toHaveLength(1)
+    expect(rows[0].accepted_at).toBeNull()
+    expect(Number(rows[0].members)).toBe(2)
+
+    // Nothing reaches a Participant before their Leader has agreed to lead them.
+    const { rows: queued } = await pool.query(
+      `select 1 from outbound_message where person_id = any($1)`,
+      [[rachel, sarah]],
+    )
+    expect(queued).toEqual([])
+
+    const { html } = await getPage('/roster?paired=1', cookie)
+    expect(html).toContain('awaiting its leader')
+  })
+
+  it('forms one relationship from several people selected together', async () => {
+    const tara = await woman('Tara Gill')
+    const una = await woman('Una Hart')
+    const vera = await woman('Vera Iles')
+
+    const { location } = await pair(tara, [una, vera])
+    expect(location).toContain('/roster?paired=2')
+
+    // One relationship holding three people, not two relationships. There is no
+    // separate group entity and no group workflow -- this is the same POST.
+    const { rows } = await pool.query(
+      `select r.id, count(*) as members
+         from relationship r
+         join relationship_member m on m.relationship_id = r.id
+        where m.person_id = any($1)
+        group by r.id`,
+      [[tara, una, vera]],
+    )
+    expect(rows).toHaveLength(1)
+    expect(Number(rows[0].members)).toBe(3)
+  })
+
+  it('shows everyone in a group on each of their Roster rows', async () => {
+    const { html } = await getPage('/roster', cookie)
+
+    // Tara leads Una and Vera. Una's row names both of the others, so group
+    // membership is visible without opening a record.
+    expect(html).toContain('Una Hart')
+    expect(html).toMatch(/Tara Gill, Vera Iles|Vera Iles, Tara Gill/)
+  })
+
+  it('shows a refused pairing to the Admin rather than silently doing nothing', async () => {
+    const leader = await man('Wes Jones')
+    const participant = await woman('Xena Kerr')
+
+    const { response, location } = await pair(leader, [participant])
+
+    expect(response.status).toBe(303)
+    expect(location).toContain('/roster/pair?error=relationship.gender_must_match')
+
+    const { html } = await getPage(
+      '/roster/pair?error=relationship.gender_must_match',
+      cookie,
+    )
+    // The alert an Admin reads is the wording, looked up from the code. The code
+    // itself survives in the framework's serialised props, which nobody reads, so
+    // the assertion is scoped to what is actually rendered.
+    const alert = html.match(/role="alert"[^>]*>([^<]*)</)?.[1] ?? ''
+    expect(alert).toMatch(/same gender/i)
+    expect(alert).not.toContain('gender_must_match')
+
+    const { rows } = await pool.query(
+      `select 1 from relationship_member where person_id = any($1)`,
+      [[leader, participant]],
+    )
+    expect(rows).toEqual([])
+  })
+
+  it('refuses a pairing with nobody to disciple, and says which thing to fix', async () => {
+    const yara = await woman('Yara Lowe')
+
+    const { location } = await pair(yara, [])
+    expect(location).toContain('error=relationship.needs_a_participant')
+
+    const { html } = await getPage(`/roster/pair?${new URLSearchParams({
+      error: 'relationship.needs_a_participant',
+    })}`, cookie)
+    expect(html).toMatch(/at least one person/i)
+  })
+
+  it('offers no Pair action to somebody who has not completed Intake', async () => {
+    const zach = await addPerson(ministry, 'Zach Moore', { intake: false })
+    const { html } = await getPage('/roster', cookie)
+
+    expect(html).toContain('Zach Moore')
+    expect(html).not.toContain(`/roster/pair?with=${zach}`)
+  })
+
+  it('turns a signed-out pairing away without creating anything', async () => {
+    const response = await fetch(`${baseUrl}/roster/pair/create`, {
+      method: 'POST',
+      redirect: 'manual',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ leaderId: crypto.randomUUID() }),
+    })
+
+    expect(response.status).toBe(303)
+    expect(response.headers.get('location')).toContain('/roster')
+  })
+})

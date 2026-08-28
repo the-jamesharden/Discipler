@@ -16,7 +16,7 @@ Manual pairing may override the age band constraint. It may never override gende
 
 **Status:** ready-for-agent
 
-- [ ] An Admin can create a relationship from a suggestion, from two people on the Roster, or from several people selected together
+- [~] An Admin can create a relationship from a suggestion, from two people on the Roster, or from several people selected together
 - [x] A created relationship is `Awaiting Leader Acceptance` and enqueues nothing to Participants
 - [ ] Everyone in a created relationship leaves the suggestion pool
 - [x] The relationship is one Leader and N Participants with no separate group entity and no group code path
@@ -27,9 +27,9 @@ Manual pairing may override the age band constraint. It may never override gende
 - [x] `kind` is immutable, copied onto memberships by composite foreign key, and read by no copy or derivation path — proven by a test
 - [x] A leader holds at most one open group membership; one-to-ones are uncapped
 - [x] A participant holds at most one open one-to-one membership; groups are uncapped
-- [ ] Each cap is a database constraint, and a violation surfaces as a user-facing error rather than a silent no-op
+- [x] Each cap is a database constraint, and a violation surfaces as a user-facing error rather than a silent no-op
 - [x] Participation Status gains its `Paired` branch here: at least one open participant membership, and leading never sets it
-- [ ] Manual pairing can cross the age band constraint and cannot cross the gender constraint
+- [x] Manual pairing can cross the age band constraint and cannot cross the gender constraint
 - [x] The Roster shows every member of a relationship, not just one
 
 ## Comments
@@ -113,3 +113,69 @@ The derivation is one SQL function over four branches, and ticket 02 wrote it on
 membership existed rather than writing three branches and rewriting them. Proven in
 `tests/integration/participation-status.test.ts`, including the case that reads as a
 bug: a Person leading two relationships and discipled by nobody is `Ready to Pair`.
+
+### Implemented — the workflow, the screen, and the gender constraint
+
+Two of the three pairing routes are now reachable by an Admin, and the third is the
+same POST waiting on something to accept.
+
+**The Pair action sits on the row, and the screen behind it is one screen.**
+`/roster/pair` takes one Leader and N Participants and posts to `/roster/pair/create`.
+Pressing Pair on a Roster row opens it with that Person preselected as a Participant --
+the action sits on an *unpaired* row, so the common reason to press it is that this is
+somebody waiting to be discipled, and the Admin can move them. Selecting several
+people together is the same form with more boxes ticked, which is what *no group
+workflow* means in practice: there is one form, one POST, one command.
+
+The candidate list is everyone Intake has cleared who has not opted out, and is
+deliberately **not** narrowed to the unpaired. A Person already being discipled may
+lead; a Person in a one-to-one may still join a group. Which combinations are legal
+depends on the Ministry's other relationships, so the database answers it and the list
+does not pre-empt the answer. `eligible_to_lead` is likewise not a filter here: the
+database does not require it to lead, only the suggestion pool does, and filtering on a
+flag nothing sets yet would have made manual pairing impossible while looking like a
+rule.
+
+**Gender is enforced in the database; the age band is enforced nowhere.** That
+asymmetry is the point of the pair of them, and a schema that treated them uniformly
+would misrepresent one. `app.reject_gender_mismatch` refuses any membership insert
+whose gender differs from the relationship's other open members -- written against the
+*other members* rather than against the Leader, so it holds however the rows arrive
+and states the rule honestly for a group, which is people who meet together rather
+than three pairings with the leader. `app.current_gender` reads the latest submission,
+because Intake may be re-submitted and a correction has to be the answer that counts.
+A Person with no Intake yields NULL and passes, so the readiness triggers can refuse
+them with a reason an Admin can act on instead of a misleading one about gender.
+
+The age band appears in no constraint and no migration. `tests/integration/pairing-matches-gender.test.ts`
+proves both directions, including a pairing two bands apart in the direction the
+suggestion rule excludes.
+
+**Ministry settings do not exist yet**, so `suggest_gender_match` is not consulted and
+the rule is simply on. That is the safe default for a safeguarding constraint --
+enforced, never absent -- and ticket 22 is where a Ministry gains the deliberate way to
+disable it.
+
+**Refusals reach the Admin as sentences.** `pairingRefusalMessage` is a
+`Record<PairingRefusal, string>`, so adding a refusal and forgetting to word it fails
+the build rather than falling through to a generic message, which is the silent no-op
+wearing a disguise. Codes arriving in the query string are looked up, never rendered.
+Form-level problems are kept in a separate map so the domain's list stays the domain's.
+
+`tests/integration/pairing-over-http.test.ts` drives all of it the way an Admin does,
+over HTTP against the running app. 305 tests pass, none skipped.
+
+### Still blocked, and on what
+
+Two criteria remain, both on ticket 04, and neither is faked here:
+
+- **The suggestion route.** The POST accepts a Leader and Participants and does not
+  know or care which screen sent them, so accepting a suggestion is this same request
+  with the names filled in. What is missing is a suggestion to accept.
+- **"Everyone in a created relationship leaves the suggestion pool."** There is no pool
+  to leave. When ticket 04 builds it, the pool is derived from open memberships, which
+  this ticket already writes -- so the criterion should fall out of the derivation
+  rather than needing a step that removes people from a list.
+
+The first acceptance criterion is marked `[~]` rather than `[x]` for that reason: two
+of its three routes ship here.

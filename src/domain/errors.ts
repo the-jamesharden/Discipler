@@ -27,6 +27,10 @@ export type PairingRefusal =
   | 'relationship.participant_has_opted_out'
   | 'relationship.leader_has_not_completed_intake'
   | 'relationship.leader_has_opted_out'
+  // Safeguarding, and the one constraint on pairing an Admin cannot decide to cross.
+  // Its sibling, the age band, governs suggestion only and is deliberately absent
+  // from this list: crossing it by hand is a supported thing to do, not a refusal.
+  | 'relationship.gender_must_match'
 
 export class PairingRefused extends Error {
   constructor(readonly refusal: PairingRefusal) {

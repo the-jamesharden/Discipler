@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { currentAdmin } from '~/platform/supabase/current-admin'
 import { createSupabaseServerClient } from '~/platform/supabase/server-client'
@@ -23,7 +24,13 @@ const NotAnAdmin = () => (
 export default async function RosterPage({
   searchParams,
 }: {
-  searchParams: Promise<{ added?: string; refused?: string; hidden?: string; error?: string }>
+  searchParams: Promise<{
+    added?: string
+    refused?: string
+    hidden?: string
+    error?: string
+    paired?: string
+  }>
 }) {
   const admin = await currentAdmin()
 
@@ -43,6 +50,9 @@ export default async function RosterPage({
   const query = await searchParams
   const report = decodeImportReport(query)
   const failure = importFailureMessage(query.error)
+  // How many Participants the relationship just created has, so the confirmation can
+  // say what landed. Read as a count and never echoed as text.
+  const paired = Number.parseInt(query.paired ?? '', 10)
 
   return (
     <main>
@@ -113,6 +123,14 @@ export default async function RosterPage({
       </div>
 
       <div className="panel">
+        {Number.isInteger(paired) && paired > 0 ? (
+          <p role="status">
+            {paired === 1
+              ? 'A relationship was created. It is awaiting its leader\u2019s acceptance, and nobody has been contacted yet.'
+              : `A relationship with ${paired} participants was created. It is awaiting its leader\u2019s acceptance, and nobody has been contacted yet.`}
+          </p>
+        ) : null}
+
         {roster.length === 0 ? (
           <p className="empty">Nobody is on this Roster yet.</p>
         ) : (
@@ -123,6 +141,7 @@ export default async function RosterPage({
                   <th>Name</th>
                   <th>Participation</th>
                   <th>With</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -137,6 +156,18 @@ export default async function RosterPage({
                         <span className="empty">Not in a relationship</span>
                       ) : (
                         person.withNames.join(', ')
+                      )}
+                    </td>
+                    {/* An unpaired Person carries the Pair action on their own row,
+                        so an Admin can act on what they are already looking at. It
+                        opens the one pairing screen with this Person preselected;
+                        somebody who has not completed Intake cannot be paired and is
+                        offered nothing to press. */}
+                    <td>
+                      {person.participationStatus === 'ready_to_pair' ? (
+                        <Link href={`/roster/pair?with=${person.personId}`}>Pair</Link>
+                      ) : (
+                        <span className="empty">—</span>
                       )}
                     </td>
                   </tr>

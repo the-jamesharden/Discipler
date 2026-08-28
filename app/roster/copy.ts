@@ -1,3 +1,4 @@
+import type { PairingRefusal } from '~/domain/errors'
 import type { ParticipationStatus } from '~/domain/participation'
 import type { RowProblem } from '~/domain/roster'
 import type { ImportFailure } from './report'
@@ -47,4 +48,74 @@ const FAILURES: Record<ImportFailure, string> = {
 export const importFailureMessage = (code: string | undefined): string | undefined => {
   if (!code) return undefined
   return FAILURES[code as ImportFailure] ?? 'That file could not be imported.'
+}
+
+/**
+ * Why a pairing was refused, in words an Admin can act on. A `Record` rather than a
+ * lookup with a default, so that adding a refusal to `PairingRefusal` and forgetting
+ * to word it fails the build rather than falling through to "that pairing could not
+ * be created" -- which is the silent no-op again, wearing a message.
+ *
+ * Each sentence names the thing to change. "Emily is already in a one-to-one" sends
+ * the Admin somewhere; "constraint violated" does not.
+ */
+const REFUSALS: Record<PairingRefusal, string> = {
+  'relationship.needs_a_participant':
+    'Choose at least one person to be discipled in this relationship.',
+  'relationship.leader_cannot_be_a_participant':
+    'The leader cannot also be a participant in the same relationship.',
+  'relationship.person_listed_twice':
+    'Somebody was selected twice. Each person can be in this relationship once.',
+  'relationship.person_already_in_this_relationship':
+    'Somebody is already in this relationship.',
+  // Named as a cap rather than as an error: the Admin has not done anything wrong,
+  // they have run into how much this leader is already carrying.
+  'relationship.leader_already_leads_a_group':
+    'This leader already leads a group. A leader leads one group at a time, and any '
+    + 'number of one-to-one relationships.',
+  'relationship.participant_already_in_a_one_to_one':
+    'Somebody selected is already being discipled one-to-one. A person is in one '
+    + 'one-to-one relationship at a time, and any number of groups.',
+  'relationship.person_belongs_to_another_ministry':
+    'Somebody selected is not on this Ministry\u2019s Roster.',
+  'relationship.participant_has_not_completed_intake':
+    'Somebody selected has not completed Intake yet. Being on the Roster is not the '
+    + 'same as asking to take part.',
+  'relationship.participant_has_opted_out':
+    'Somebody selected has opted out, and cannot be paired.',
+  'relationship.leader_has_not_completed_intake':
+    'This leader has not completed Intake yet. Send them the Intake link first.',
+  'relationship.leader_has_opted_out': 'This leader has opted out, and cannot lead.',
+  // The one refusal with no way around it. Said as a policy rather than as a
+  // mistake, because an Admin who reads it as a mistake will go looking for the
+  // setting that turns it off, and there is not one on this screen.
+  'relationship.gender_must_match':
+    'Everyone in a relationship must be of the same gender. This is a safeguarding '
+    + 'rule and pairing by hand does not override it.',
+}
+
+/**
+ * Problems the form itself can see, which never reach the domain. They are kept
+ * apart from `REFUSALS` rather than folded in, because `PairingRefusal` is the
+ * domain's list and a screen adding entries to it would make the exhaustiveness
+ * check above meaningless.
+ */
+const FORM_PROBLEMS: Record<string, string> = {
+  'pairing.no_leader_chosen': 'Choose who will lead this relationship.',
+}
+
+/**
+ * The age band is deliberately not in either list. It governs suggestion only, so
+ * pairing across it by hand is a supported thing to do and produces no refusal at
+ * all -- there is nothing here to say about it.
+ */
+export const pairingRefusalMessage = (code: string | undefined): string | undefined => {
+  if (!code) return undefined
+  // A code arriving from the query string is whatever somebody typed there. It is
+  // looked up, never rendered.
+  return (
+    REFUSALS[code as PairingRefusal] ??
+    FORM_PROBLEMS[code] ??
+    'That relationship could not be created.'
+  )
 }

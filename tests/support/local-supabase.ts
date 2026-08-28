@@ -218,6 +218,12 @@ export interface PersonOptions {
    */
   readonly intake?: boolean
   readonly phone?: string
+  /**
+   * What this Person answered on the form. Only the tests about gender and age band
+   * pass it; everyone else takes the defaults `completeIntake` supplies, which is
+   * why adding a gender constraint does not rewrite every other fixture.
+   */
+  readonly answers?: IntakeAnswers
 }
 
 export const addPerson = async (
@@ -232,7 +238,9 @@ export const addPerson = async (
     .single()
   if (error) throw new Error(`Could not add ${fullName} to the Roster: ${error.message}`)
 
-  if (options.intake !== false) await completeIntake(ministry, data.id)
+  if (options.intake !== false) {
+    await completeIntake(ministry, data.id, ['sms', 'contact_sharing'], 'pastor_link', options.answers ?? {})
+  }
 
   return data.id
 }
@@ -314,7 +322,9 @@ export const addPersonForAdmin = async (
     .single()
   if (error) throw new Error(`Could not add ${fullName} to the Roster: ${error.message}`)
 
-  if (options.intake !== false) await completeIntake(ministry, data.id)
+  if (options.intake !== false) {
+    await completeIntake(ministry, data.id, ['sms', 'contact_sharing'], 'pastor_link', options.answers ?? {})
+  }
 
   return {
     personId: data.id,
