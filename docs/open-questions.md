@@ -35,21 +35,29 @@ four values strictly disjoint on what they each describe.
 The derivation is one SQL function, so this is a one-line change either way. It needs
 deciding before the Roster is in front of a pilot Admin.
 
-## Open: does the Welcome Message survive *no SMS before pairing approval*?
+## Resolved: the Welcome Message survives *no SMS before pairing approval*
 
-The messaging order is settled at both ends and disagrees with itself in the middle.
-Settled: nothing is sent at import, and the mentor and mentee reveals are sent after
-an Admin approves a pairing. Also settled, in ticket 03: completing Intake enqueues a
-Welcome Message -- which reaches somebody who has consented and has not been paired
-with anybody.
+**It sends.** The rule means *no relationship SMS before pairing approval*, and the
+Welcome Message is not relationship messaging: it goes to a Person who has, seconds
+earlier, ticked a box on the Intake form agreeing to be texted, which is the thing
+the rule exists to protect. Nothing about anybody else's pairing is disclosed in it,
+and it names no other congregant.
 
-Both readings are defensible. The Welcome Message goes to a Person who has just given
-SMS consent on the form, which is the thing *no SMS before pairing approval* exists to
-protect, so the rule may simply mean *no relationship SMS before pairing approval*.
-The stricter reading holds too, and under it ticket 03 sends nothing at all.
+The stricter reading was available and was rejected, because under it the SMS consent
+a Person had just given would first be acted on days or weeks later, by a message
+about a stranger they had not been told to expect.
 
-This decides whether ticket 03 builds a send path, so it needs answering before that
-ticket is picked up rather than during it.
+Two things follow, and both are built:
+
+- The Welcome Message is **first-ever contact**, so it carries the A2P compliance
+  prefix stacked in front of the Ministry prefix, and the opt-out and rate
+  disclosure: `Discipler: Riverside Chapel: ... Reply STOP to opt out, HELP for help.`
+- It is the **only** message that precedes a pairing approval. Anything else reaching
+  a congregant before their Leader has accepted is a regression, and the rule holds
+  unchanged for the mentor and mentee reveals.
+
+Settled 2026-08-27 while implementing ticket 03. Recorded in
+`docs/product-rules.md` under *Settled: The Welcome Message Precedes Pairing*.
 
 ## Open: what would enforce the messaging order?
 

@@ -1,8 +1,9 @@
 import { RosterFileUnreadable } from './errors'
 import {
+  asEmail,
+  asPhoneNumber,
   rosterKey,
   type ImportedPerson,
-  type PhoneNumber,
   type RowProblem,
   type RowRejection,
 } from './roster'
@@ -117,19 +118,6 @@ const columnFor = (headings: readonly string[], accepted: readonly string[]): nu
  * at -- an Admin correcting `+44...` into the file is a better outcome than
  * Discipler texting a number it invented a country code for.
  */
-const asPhoneNumber = (raw: string): PhoneNumber | null => {
-  const digits = raw.replace(/\D/g, '')
-
-  if (raw.trim().startsWith('+')) {
-    return /^[1-9]\d{7,14}$/.test(digits) ? (`+${digits}` as PhoneNumber) : null
-  }
-  if (/^[2-9]\d{9}$/.test(digits)) return `+1${digits}` as PhoneNumber
-  if (/^1[2-9]\d{9}$/.test(digits)) return `+${digits}` as PhoneNumber
-  return null
-}
-
-const looksLikeAnEmail = (raw: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(raw)
-
 export const readRosterFile = (text: string): RosterFileReading => {
   const rows = rowsIn(text)
   const header = rows[0]
@@ -177,7 +165,7 @@ export const readRosterFile = (text: string): RosterFileReading => {
     }
 
     const rawEmail = valueIn(emailColumn)
-    if (rawEmail && !looksLikeAnEmail(rawEmail)) {
+    if (rawEmail && asEmail(rawEmail) === null) {
       // The row is refused rather than filed without the email: an address the
       // Admin meant to give is not something to drop on their behalf.
       reject('email_unreadable')

@@ -30,6 +30,9 @@ export const applyEffects = async (
   const relationships = effects.flatMap((effect) =>
     effect.kind === 'relationship.create' ? [effect.relationship] : [],
   )
+  const intakes = effects.flatMap((effect) =>
+    effect.kind === 'intake.record' ? [effect.intake] : [],
+  )
   const history = effects.flatMap((effect) =>
     effect.kind === 'history.append' ? [effect.event] : [],
   )
@@ -44,6 +47,12 @@ export const applyEffects = async (
   if (people.length > 0) await unit.createPeople(people)
   for (const relationship of relationships) await unit.createRelationship(relationship)
 
+  // Before the messages, and not merely inside the same transaction. The outbound
+  // queue refuses a message to anybody with no SMS consent on file, so a Welcome
+  // Message enqueued ahead of the consent that permits it is refused by the
+  // database -- which is the floor working, and the wrong way round to hit it.
+  for (const intake of intakes) await unit.recordIntake(intake)
+
   // History before messages: a message that goes out unrecorded is worse than a
   // recorded message that failed to send, because only one of the two can be
   // reconstructed.
@@ -56,7 +65,11 @@ export const applyEffects = async (
  * them here keeps the load explicit and keeps every other command from paying for a
  * read it has no use for.
  */
-const needsTheRoster = (command: Command): boolean => command.type === 'person.import'
+const needsTheRoster = (command: Command): boolean =>
+  command.type === 'person.import' || command.type === 'intake.submit'
+
+/** Which commands speak in the Ministry's voice and so need its name. */
+const needsTheMinistryName = (command: Command): boolean => command.type === 'intake.submit'
 
 export const createCommandService = ({
   clock,
@@ -74,6 +87,9 @@ export const createCommandService = ({
         ids,
         ...(needsTheRoster(command)
           ? { roster: { people: await unit.peopleOnRoster() } }
+          : {}),
+        ...(needsTheMinistryName(command)
+          ? { ministryName: await unit.ministryName() }
           : {}),
       })
 

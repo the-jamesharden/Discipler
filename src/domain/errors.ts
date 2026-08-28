@@ -1,3 +1,5 @@
+import type { IntakeRefusal } from './intake'
+
 /**
  * Refusals travel as codes, never as prose. The same rule the sign-in page follows:
  * a surface renders its own wording, and nothing a caller supplied is reflected back
@@ -58,5 +60,17 @@ export class RosterFileUnreadable extends Error {
   constructor(readonly problem: FileProblem) {
     super(problem)
     this.name = 'RosterFileUnreadable'
+  }
+}
+
+/**
+ * An Intake form Discipler could not accept. It carries every problem at once
+ * rather than the first, because a Person filling this in on a phone should not
+ * have to discover their mistakes one round trip at a time.
+ */
+export class IntakeRefused extends Error {
+  constructor(readonly refusals: readonly IntakeRefusal[]) {
+    super(refusals.join(', '))
+    this.name = 'IntakeRefused'
   }
 }

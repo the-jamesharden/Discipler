@@ -45,6 +45,8 @@ describe('applying a command\'s effects', () => {
         createRelationship: sink.createRelationship,
         createPeople: sink.createPeople,
         peopleOnRoster: sink.peopleOnRoster,
+        ministryName: sink.ministryName,
+        recordIntake: sink.recordIntake,
       }),
     )
 
@@ -67,6 +69,12 @@ describe('applying a command\'s effects', () => {
         },
         createPeople: async () => {
           throw new Error('the Roster should not have been touched')
+        },
+        ministryName: async () => {
+          throw new Error('the Ministry should not have been read')
+        },
+        recordIntake: async () => {
+          throw new Error('Intake should not have been touched')
         },
         peopleOnRoster: async () => {
           throw new Error('the Roster should not have been read')

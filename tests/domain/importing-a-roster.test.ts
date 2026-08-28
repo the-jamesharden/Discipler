@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { handleCommand } from '~/domain/boundary'
 import { createTestClock } from '~/domain/clock'
-import { createSequentialIds, ministryId } from '~/domain/ids'
+import { createSequentialIds, ministryId, personId } from '~/domain/ids'
 import { phoneNumber, rosterKey } from '~/domain/roster'
 import { file } from '../support/roster'
 
@@ -22,10 +22,11 @@ const importing = (csv: string, alreadyOnRoster: { fullName: string; phone: stri
       clock: createTestClock(at),
       ids: createSequentialIds(),
       roster: {
-        people: new Set(
-          alreadyOnRoster.map(({ fullName, phone }) =>
+        people: new Map(
+          alreadyOnRoster.map(({ fullName, phone }, index) => [
             rosterKey({ fullName, phone: phoneNumber(phone) }),
-          ),
+            personId(`00000000-0000-4000-9000-${String(index + 1).padStart(12, '0')}`),
+          ]),
         ),
       },
     },

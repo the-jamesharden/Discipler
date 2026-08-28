@@ -1,11 +1,11 @@
 import type { PoolClient } from 'pg'
 import pg from 'pg'
-import type { OutboundMessageDraft } from '~/domain/effects'
+import type { IntakeRecord, OutboundMessageDraft } from '~/domain/effects'
 import { PairingRefused, RosterImportRefused, type PairingRefusal } from '~/domain/errors'
 import type { HistoryEvent } from '~/domain/history'
-import { eventId, type MinistryId } from '~/domain/ids'
+import { eventId, personId, type MinistryId, type PersonId } from '~/domain/ids'
 import type { NewRelationship } from '~/domain/relationships'
-import { phoneNumber, rosterKey, type NewPerson } from '~/domain/roster'
+import { phoneNumber, rosterKey, type NewPerson, type RosterKey } from '~/domain/roster'
 import type { EffectStore, UnitOfWork } from '~/service/ports'
 
 /**
@@ -51,14 +51,23 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // Scoped by the policy on `person`, not by a ministry_id in this statement: the
     // connection has already declared which Ministry it acts for, and the database
     // refuses to show it any other.
-    const { rows } = await client.query<{ full_name: string; phone: string }>(
-      `select full_name, phone from person where phone is not null`,
+    const { rows } = await client.query<{ id: string; full_name: string; phone: string }>(
+      `select id, full_name, phone from person where phone is not null`,
     )
-    return new Set(
-      rows.map((row) =>
+    return new Map<RosterKey, PersonId>(
+      rows.map((row) => [
         rosterKey({ fullName: row.full_name, phone: phoneNumber(row.phone) }),
-      ),
+        personId(row.id),
+      ]),
     )
+  },
+
+  async ministryName() {
+    // Scoped by the policy on `ministry`, like everything else on this connection.
+    const { rows } = await client.query<{ name: string }>(`select name from ministry`)
+    const name = rows[0]?.name
+    if (!name) throw new Error('This command has no Ministry to speak for')
+    return name
   },
 
   async createPeople(people: readonly NewPerson[]) {
@@ -115,6 +124,61 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     return inserted
   },
 
+  async recordIntake(intake: IntakeRecord) {
+    const { rows } = await client.query<{ id: string }>(
+      `insert into intake_submission
+         (ministry_id, person_id, submitted_at, age_band, gender, discipleship_goal_id)
+       values ($1, $2, $3, $4, $5, $6)
+       returning id`,
+      [
+        intake.ministryId,
+        intake.personId,
+        intake.submittedAt,
+        intake.ageBand,
+        intake.gender,
+        intake.goalId,
+      ],
+    )
+    const submissionId = rows[0]?.id
+    if (!submissionId) throw new Error('Recording the Intake submission returned no row')
+
+    for (const slot of intake.availability) {
+      await client.query(
+        `insert into intake_availability (ministry_id, intake_submission_id, day, block)
+         values ($1, $2, $3, $4)`,
+        [intake.ministryId, submissionId, slot.day, slot.block],
+      )
+    }
+
+    // Each decision is its own row with its own timestamp and the version of the
+    // wording the Person actually saw. Nothing here is ever updated: the trigger on
+    // this table refuses it, because a consent record migrated forward to newer
+    // wording no longer records what anybody agreed to.
+    for (const consent of intake.grantedConsents) {
+      await client.query(
+        `insert into consent_record (ministry_id, person_id, consent, version, granted_at, source)
+         values ($1, $2, $3, $4, $5, $6)`,
+        [
+          intake.ministryId,
+          intake.personId,
+          consent,
+          intake.consentVersion,
+          intake.submittedAt,
+          intake.source,
+        ],
+      )
+    }
+
+    // What the Person typed about themselves beats what a spreadsheet said, which
+    // is the same direction the import refuses to overwrite in.
+    if (intake.email !== null) {
+      await client.query(`update person set email = $2 where id = $1`, [
+        intake.personId,
+        intake.email,
+      ])
+    }
+  },
+
   async createRelationship(relationship: NewRelationship) {
     try {
       await client.query(
@@ -147,14 +211,22 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     for (const message of messages) {
       await client.query(
         `insert into outbound_message
-           (ministry_id, person_id, to_phone, body, enqueued_at)
-         values ($1, $2, $3, $4, $5)`,
+           (ministry_id, person_id, to_phone, body, enqueued_at, prompt_key, prompt_state)
+         values ($1, $2, $3, $4, $5, $6, $7)`,
         [
           message.ministryId,
           message.personId,
           message.toPhone,
           message.body,
           message.enqueuedAt,
+          // The phone is the unit a conversation is serialised on, so it is the key
+          // whether or not this message expects a reply. A message with no number
+          // -- one bound for an Admin -- serialises against nothing.
+          message.toPhone,
+          // Null until something sends a Response-Required Message. Nothing does
+          // yet: a Welcome Message expects no reply, so it holds up nobody's queue.
+          // Ticket 08 is the first to set this, and the column is already here.
+          null,
         ],
       )
     }

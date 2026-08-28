@@ -39,10 +39,10 @@ _Avoid_: Pair, pairing record, pairing (as a noun), group (as a distinct entity)
 The process by which a person provides the information and consent needed to enter a ministry.
 
 **Availability Slot**:
-A selectable time window representing when a participant is available to meet.
+One of the twenty-eight selectable windows on the intake grid: each day of the week divided into early morning, midday, afternoon, and evening.
 
 **Discipleship Goal**:
-The single outcome a participant selects at intake to describe what they are seeking from discipleship.
+The single outcome a participant selects at intake to describe what they are seeking from discipleship. The options offered are the ministry's own.
 
 **Roster**:
 The pastor-facing set of people in a ministry and their current participation status.

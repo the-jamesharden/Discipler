@@ -1,7 +1,17 @@
 import type { Command } from './commands'
 import type { Clock } from './clock'
-import { appendHistory, createPerson, createRelationship, type Effect } from './effects'
-import { PairingRefused } from './errors'
+import {
+  appendHistory,
+  createPerson,
+  createRelationship,
+  enqueueMessage,
+  recordIntake,
+  type Effect,
+} from './effects'
+import { IntakeRefused, PairingRefused } from './errors'
+import { readIntakeForm } from './intake'
+import { welcomeMessage } from './outbound-copy'
+import { CONSENT_VERSION } from './consent'
 import {
   personId,
   relationshipId,
@@ -33,11 +43,22 @@ export interface CommandContext {
    * The two readings differ by a whole congregation being imported a second time.
    */
   readonly roster?: RosterSnapshot
+  /**
+   * The Ministry in whose voice the command speaks. Loaded on the command's behalf
+   * because every message carries the Ministry name as a prefix, and a domain that
+   * fetched it would no longer be a pure function of its inputs.
+   */
+  readonly ministryName?: string
 }
 
-/** Everyone the Ministry already holds, by `rosterKey` -- their name and number. */
+/**
+ * Everyone the Ministry already holds, by `rosterKey` -- their name and number --
+ * against the identifier that name and number belong to. `person.import` asks only
+ * whether a key is present; Intake needs the Person behind it, because somebody
+ * completing the form is usually already on an imported Roster.
+ */
 export interface RosterSnapshot {
-  readonly people: ReadonlySet<RosterKey>
+  readonly people: ReadonlyMap<RosterKey, PersonId>
 }
 
 export interface CommandResult {
@@ -123,6 +144,99 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         effects,
         rejections: rejections.sort((first, second) => first.line - second.line),
       }
+    }
+
+    case 'intake.submit': {
+      if (!context.roster) {
+        throw new Error('intake.submit was handed no Roster to look the Person up in')
+      }
+      if (!context.ministryName) {
+        throw new Error('intake.submit was handed no Ministry to speak for')
+      }
+
+      const reading = readIntakeForm(command.form)
+      if ('refusals' in reading) throw new IntakeRefused(reading.refusals)
+
+      const { submission } = reading
+      const now = context.clock.now()
+      const effects: Effect[] = []
+
+      // Usually they are already here: an Admin imported the congregation and then
+      // sent the link. A QR code at a leaders' meeting reaches people who are not,
+      // and Intake is a way onto the Roster as much as a way through it.
+      const key = rosterKey(submission)
+      const existing = context.roster.people.get(key)
+      const id = existing ?? personId(context.ids.next())
+
+      if (!existing) {
+        effects.push(
+          createPerson({
+            id,
+            ministryId: command.ministryId,
+            fullName: submission.fullName,
+            phone: submission.phone,
+            email: submission.email,
+            createdAt: now,
+          }),
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'person.joined_at_intake',
+            subjectType: 'person',
+            subjectId: id,
+            payload: { fullName: submission.fullName },
+          }),
+        )
+      }
+
+      effects.push(
+        recordIntake({
+          ministryId: command.ministryId,
+          personId: id,
+          submittedAt: now,
+          ageBand: submission.ageBand,
+          gender: submission.gender,
+          goalId: submission.goalId,
+          availability: submission.availability,
+          email: submission.email,
+          consentVersion: CONSENT_VERSION,
+          source: submission.source,
+          // Only what was granted. The send-time check asks whether a consent
+          // exists, so a record standing for a refusal would answer yes.
+          grantedConsents: submission.contactSharingConsent
+            ? ['sms', 'contact_sharing']
+            : ['sms'],
+        }),
+        appendHistory({
+          ministryId: command.ministryId,
+          occurredAt: now,
+          type: 'intake.submitted',
+          subjectType: 'person',
+          subjectId: id,
+          payload: {
+            source: submission.source,
+            consentVersion: CONSENT_VERSION,
+            contactSharingConsent: submission.contactSharingConsent,
+            availabilitySlots: submission.availability.length,
+          },
+        }),
+        // The one message that goes out before anybody has been paired. It reaches
+        // a Person who has just given SMS consent on this form, which is the thing
+        // *no SMS before pairing approval* exists to protect -- so that rule governs
+        // relationship messaging and not this. Settled in docs/open-questions.md.
+        enqueueMessage({
+          ministryId: command.ministryId,
+          personId: id,
+          toPhone: submission.phone,
+          body: welcomeMessage({
+            ministryName: context.ministryName,
+            fullName: submission.fullName,
+          }),
+          enqueuedAt: now,
+        }),
+      )
+
+      return { effects, rejections: [] }
     }
 
     case 'relationship.create': {

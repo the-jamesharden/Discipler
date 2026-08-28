@@ -1,8 +1,8 @@
-import type { OutboundMessageDraft } from '~/domain/effects'
-import { eventId, type MinistryId } from '~/domain/ids'
+import type { IntakeRecord, OutboundMessageDraft } from '~/domain/effects'
+import { eventId, type MinistryId, type PersonId } from '~/domain/ids'
 import type { HistoryEvent, NewHistoryEvent } from '~/domain/history'
 import type { NewRelationship } from '~/domain/relationships'
-import { rosterKey, type NewPerson } from '~/domain/roster'
+import { rosterKey, type NewPerson, type RosterKey } from '~/domain/roster'
 import type { EffectStore, UnitOfWork } from '~/service/ports'
 
 export interface InMemoryStore extends EffectStore {
@@ -10,7 +10,15 @@ export interface InMemoryStore extends EffectStore {
   readonly outbox: readonly OutboundMessageDraft[]
   readonly relationships: readonly NewRelationship[]
   readonly people: readonly NewPerson[]
-  failOn?: 'appendHistory' | 'enqueueMessages' | 'createRelationship' | 'createPeople'
+  readonly intakes: readonly IntakeRecord[]
+  /** The Ministry every command in this store speaks for. */
+  ministryName: string
+  failOn?:
+    | 'appendHistory'
+    | 'enqueueMessages'
+    | 'createRelationship'
+    | 'createPeople'
+    | 'recordIntake'
 }
 
 /**
@@ -22,6 +30,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
   const outbox: OutboundMessageDraft[] = []
   const relationships: NewRelationship[] = []
   const people: NewPerson[] = []
+  const intakes: IntakeRecord[] = []
   let counter = 0
 
   const store: InMemoryStore = {
@@ -37,15 +46,29 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
     get people() {
       return [...people]
     },
+    get intakes() {
+      return [...intakes]
+    },
+    ministryName: 'Riverside Chapel',
     async transact(_ministryId: MinistryId, work) {
       const stagedHistory: HistoryEvent[] = []
       const stagedOutbox: OutboundMessageDraft[] = []
       const stagedRelationships: NewRelationship[] = []
       const stagedPeople: NewPerson[] = []
+      const stagedIntakes: IntakeRecord[] = []
 
       const unit: UnitOfWork = {
         async peopleOnRoster() {
-          return new Set([...people, ...stagedPeople].map(rosterKey))
+          return new Map<RosterKey, PersonId>(
+            [...people, ...stagedPeople].map((person) => [rosterKey(person), person.id]),
+          )
+        },
+        async ministryName() {
+          return store.ministryName
+        },
+        async recordIntake(intake) {
+          if (store.failOn === 'recordIntake') throw new Error('Intake unavailable')
+          stagedIntakes.push(intake)
         },
         async createPeople(imported) {
           if (store.failOn === 'createPeople') throw new Error('the Roster is unavailable')
@@ -74,6 +97,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       const result = await work(unit)
 
       people.push(...stagedPeople)
+      intakes.push(...stagedIntakes)
       relationships.push(...stagedRelationships)
       history.push(...stagedHistory)
       outbox.push(...stagedOutbox)

@@ -523,3 +523,48 @@ The two cannot share a counter. Days since last contact is already fourteen or m
 The relationship state derivation returns state, care reason, **and** the reason's duration. The duration is derived output, never a UI inference, for the same reason the care reason is.
 
 > **Supersedes:** the display rule under **Settled: Two-Week Silence Care Rule**, which shows weeks since the last submitted check-in in all cases. That measure is correct for silence and misleading for responding-but-not-meeting.
+
+## Settled: The Welcome Message Precedes Pairing
+
+*No SMS before pairing approval* means no **relationship** SMS before pairing
+approval. The Welcome Message is the one message that precedes a pairing, and it
+sends the moment a Person completes intake.
+
+The reasoning is that the rule exists to stop a congregant being contacted about a
+relationship nobody has agreed to. A Welcome Message discloses no other congregant,
+names nobody, and reaches a person who ticked the SMS consent box seconds earlier.
+Withholding it would mean the consent a person had just given was first acted on days
+later, by a message about a stranger.
+
+It is first-ever contact, so it carries the A2P compliance prefix stacked in front of
+the ministry prefix, together with the opt-out and rate disclosure.
+
+Nothing else reaches a congregant before their leader has accepted. The mentor and
+mentee reveals still follow pairing approval, unchanged.
+
+## Settled: The Availability Grid Is Seven Days by Four Blocks
+
+Twenty-eight slots: each day of the week, divided into early morning, midday,
+afternoon, and evening.
+
+Named blocks rather than clock times, because a person answering *when could you
+meet* is describing the shape of their day rather than committing to an hour. Four
+blocks rather than three, so that an early coffee and a lunch meeting are not the
+same answer.
+
+The grid is a shared unit, not a display choice. Suggestion ranks on the count of
+shared slots, and a count only means something when both sides answered on the same
+grid — so changing the granularity invalidates every availability already collected.
+
+## Settled: Each Ministry Owns Its Discipleship Goal Options
+
+The list of Discipleship Goals is the ministry's own, set before a semester begins,
+not a fixed list in the product. A new ministry starts with a default list it can
+edit.
+
+Editing the list mid-semester loses the answers that pointed at a removed option:
+those people keep their intake and their availability, and are ranked on availability
+alone until they answer again. The admin surface that edits the list must say so
+before it removes anything.
+
+Goals are never shared or compared across ministries.

@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { ministryId, type MinistryId } from '~/domain/ids'
+import type { AgeBand, AvailabilitySlot, Gender } from '~/domain/intake'
 
 export interface LocalSupabase {
   readonly apiUrl: string
@@ -92,6 +93,18 @@ export const createMinistryWithAdmin = async (name: string): Promise<MinistryFix
 
 export type ConsentKind = 'sms' | 'contact_sharing'
 
+/**
+ * What the form captured, for the tests that care. Everything has a default,
+ * because most tests want a Person who can be paired and only a few are about the
+ * answers themselves.
+ */
+export interface IntakeAnswers {
+  readonly ageBand?: AgeBand
+  readonly gender?: Gender
+  readonly goalId?: string | null
+  readonly availability?: readonly AvailabilitySlot[]
+}
+
 /** The two ways a Person reaches the Intake form. There is no third. */
 export type ConsentSource = 'pastor_link' | 'qr_code'
 
@@ -105,14 +118,47 @@ export const completeIntake = async (
   personId: string,
   consents: readonly ConsentKind[] = ['sms', 'contact_sharing'],
   source: ConsentSource = 'pastor_link',
+  answers: IntakeAnswers = {},
 ): Promise<void> => {
   const admin = serviceRoleClient()
   const submittedAt = new Date().toISOString()
 
-  const { error } = await admin
+  // The Ministry's own list. A fixture that invented a goal id would be describing
+  // a Ministry that cannot exist, since the option belongs to the congregation.
+  const { data: goal } = await admin
+    .from('discipleship_goal')
+    .select('id')
+    .eq('ministry_id', ministry.id)
+    .order('position')
+    .limit(1)
+    .maybeSingle()
+
+  const { data: submission, error } = await admin
     .from('intake_submission')
-    .insert({ ministry_id: ministry.id, person_id: personId, submitted_at: submittedAt })
+    .insert({
+      ministry_id: ministry.id,
+      person_id: personId,
+      submitted_at: submittedAt,
+      age_band: answers.ageBand ?? '25-34',
+      gender: answers.gender ?? 'female',
+      discipleship_goal_id: answers.goalId ?? goal?.id ?? null,
+    })
+    .select('id')
+    .single()
   if (error) throw new Error(`Could not record Intake: ${error.message}`)
+
+  const availability = answers.availability ?? [{ day: 'monday', block: 'midday' }]
+  if (availability.length > 0) {
+    const { error: slotError } = await admin.from('intake_availability').insert(
+      availability.map((slot) => ({
+        ministry_id: ministry.id,
+        intake_submission_id: submission.id,
+        day: slot.day,
+        block: slot.block,
+      })),
+    )
+    if (slotError) throw new Error(`Could not record availability: ${slotError.message}`)
+  }
 
   if (consents.length === 0) return
 

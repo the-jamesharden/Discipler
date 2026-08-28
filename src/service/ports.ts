@@ -1,4 +1,4 @@
-import type { OutboundMessageDraft } from '~/domain/effects'
+import type { IntakeRecord, OutboundMessageDraft } from '~/domain/effects'
 import type { HistoryEvent, NewHistoryEvent } from '~/domain/history'
 import type { MinistryId, PersonId } from '~/domain/ids'
 import type { ParticipationStatus } from '~/domain/participation'
@@ -20,8 +20,19 @@ import type { NewPerson, RosterKey } from '~/domain/roster'
  * both find the Roster empty.
  */
 export interface UnitOfWork {
-  /** Everyone already on this Ministry's Roster, by `rosterKey`. */
-  peopleOnRoster(): Promise<ReadonlySet<RosterKey>>
+  /**
+   * Everyone already on this Ministry's Roster, by `rosterKey`, against the
+   * identifier behind it. An import asks only whether a key is present; Intake
+   * needs the Person, because whoever is filling the form in is usually already on
+   * a Roster somebody uploaded.
+   */
+  peopleOnRoster(): Promise<ReadonlyMap<RosterKey, PersonId>>
+  /**
+   * The Ministry's name, in whose voice every outbound message speaks. Read inside
+   * the unit of work like everything else, so a command cannot compose a message
+   * for a Ministry the connection is not acting for.
+   */
+  ministryName(): Promise<string>
   /**
    * Refuses with a `RosterImportRefused` when one of these people is already on the
    * Roster -- the case the read above is meant to catch, left to the database as the
@@ -29,6 +40,14 @@ export interface UnitOfWork {
    */
   createPeople(people: readonly NewPerson[]): Promise<void>
   appendHistory(events: readonly NewHistoryEvent[]): Promise<readonly HistoryEvent[]>
+  /**
+   * The submission, its availability, the consents it granted, and the email it
+   * carried. One call because they are one act, and because the outbound queue
+   * refuses a message to anybody with no SMS consent on file -- so the consent has
+   * to be written before the Welcome Message is enqueued, not merely in the same
+   * transaction.
+   */
+  recordIntake(intake: IntakeRecord): Promise<void>
   enqueueMessages(messages: readonly OutboundMessageDraft[]): Promise<void>
   /**
    * Refuses with a `PairingRefused` carrying a code when a participation cap or the

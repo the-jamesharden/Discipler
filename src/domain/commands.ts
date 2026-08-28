@@ -1,4 +1,5 @@
 import type { MinistryId, PersonId } from './ids'
+import type { IntakeFormFields } from './intake'
 
 /**
  * Every external trigger enters through this one boundary, and this union is the
@@ -25,6 +26,21 @@ export type Command =
       readonly type: 'person.import'
       readonly ministryId: MinistryId
       readonly csv: string
+    }
+  /**
+   * The submitted form itself is the payload, unread, for the same reason the
+   * spreadsheet is: what Discipler will accept as a completed Intake -- a name, a
+   * number, a grid with something on it, SMS consent, a decision about contact
+   * sharing -- is a rule, and rules live on the domain side of this boundary.
+   *
+   * One link serves a whole Ministry. The pastor sends it, or a QR code opens the
+   * same one at a leaders' meeting, so the form says who is filling it in rather
+   * than the URL saying on their behalf.
+   */
+  | {
+      readonly type: 'intake.submit'
+      readonly ministryId: MinistryId
+      readonly form: IntakeFormFields
     }
   /**
    * One command for all three pairing routes -- accepting a suggestion, pairing two

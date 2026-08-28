@@ -58,6 +58,8 @@ describe('every ministry-owned table', () => {
   it('is actually discovered by this test', () => {
     expect(tables.map((t) => t.table_name)).toEqual([
       'consent_record',
+      'discipleship_goal',
+      'intake_availability',
       'intake_submission',
       'ministry',
       'ministry_event',

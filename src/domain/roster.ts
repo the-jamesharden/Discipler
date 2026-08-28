@@ -20,6 +20,41 @@ export type PhoneNumber = Branded<string, 'PhoneNumber'>
 /** At the platform edge, where the database is the authority on its own column. */
 export const phoneNumber = (value: string): PhoneNumber => value as PhoneNumber
 
+/**
+ * The one definition of a number Discipler will dial, shared by every way a number
+ * reaches the Roster -- a spreadsheet column, and a Person typing their own into
+ * the Intake form. Two readings of what counts as a phone number would eventually
+ * disagree, and the one that accepted less would silently make somebody
+ * unreachable.
+ *
+ * A bare ten-digit number is read as North American, because that is what a pilot
+ * ministry's spreadsheet holds; anything else has to say `+` and its country code.
+ */
+export const asPhoneNumber = (raw: string): PhoneNumber | null => {
+  const digits = raw.replace(/\D/g, '')
+
+  if (raw.trim().startsWith('+')) {
+    return /^[1-9]\d{7,14}$/.test(digits) ? (`+${digits}` as PhoneNumber) : null
+  }
+  if (/^[2-9]\d{9}$/.test(digits)) return `+1${digits}` as PhoneNumber
+  if (/^1[2-9]\d{9}$/.test(digits)) return `+${digits}` as PhoneNumber
+  return null
+}
+
+/**
+ * The one reading of what counts as an email address, for the same reason
+ * `asPhoneNumber` is: a spreadsheet column and a Person typing their own into the
+ * Intake form must agree, and two regexes drift apart silently -- the one that
+ * accepted less would refuse an address somebody actually has.
+ *
+ * Deliberately loose. Discipler never sends email; the address is a contact detail
+ * a pastor reads, so the check is against a typo rather than against the RFC.
+ */
+export const asEmail = (raw: string): string | null => {
+  const trimmed = raw.trim()
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(trimmed) ? trimmed : null
+}
+
 /** The output of `rosterKey`, and the only thing a Roster snapshot is keyed on. */
 export type RosterKey = Branded<string, 'RosterKey'>
 

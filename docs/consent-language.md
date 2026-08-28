@@ -29,7 +29,11 @@ Presented as a required checkbox. Discipler sends nothing to anyone whose record
 
 ## Statement 2 — Contact sharing consent
 
-Presented as a separate required checkbox. It is checked at send time, not assumed from enrollment: Discipler includes a person's phone number in a message or on a dashboard only where this consent is present.
+Presented as a separate required **decision** — two answers, yes and no, rather than a checkbox that records only agreement. A person must answer it to submit the form, and *no* is one of the two answers: unanswered and declined are different facts, and a checkbox cannot tell them apart.
+
+Declining does not block intake. A person who agrees to be texted and refuses contact sharing completes intake, reaches `Ready to Pair`, and can be paired; what changes is that their number is never included in a message or shown on a dashboard.
+
+It is checked at send time, not assumed from enrollment: Discipler includes a person's phone number in a message or on a dashboard only where this consent is present.
 
 The wording covers relationships of any size, because a relationship is one leader and N participants and the same statement has to hold for both.
 
