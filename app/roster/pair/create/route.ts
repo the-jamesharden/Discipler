@@ -21,11 +21,21 @@ export async function POST(request: NextRequest) {
     .getAll('participantId')
     .filter((value): value is string => typeof value === 'string' && value !== '')
 
-  const refused = (code: string) =>
-    NextResponse.redirect(
-      new URL(`/roster/pair?${new URLSearchParams({ error: code })}`, request.url),
-      { status: 303 },
-    )
+  /**
+   * Back to the form with the selection intact. An Admin who picked five people for a
+   * group and hit a refusal should be correcting one choice, not making all five
+   * again -- and a refusal that costs more than the mistake did teaches people to
+   * avoid the screen.
+   */
+  const refused = (code: string) => {
+    const params = new URLSearchParams({ error: code })
+    if (typeof leaderId === 'string' && leaderId !== '') params.set('leaderId', leaderId)
+    for (const id of participantIds) params.append('with', id)
+
+    return NextResponse.redirect(new URL(`/roster/pair?${params}`, request.url), {
+      status: 303,
+    })
+  }
 
   if (typeof leaderId !== 'string' || leaderId === '') {
     return refused('pairing.no_leader_chosen')
@@ -40,8 +50,8 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     // Every refusal an Admin can act on travels as a code and lands back on the form
-    // they submitted, with their selection still on screen to correct. A refusal
-    // that reached them as nothing at all is the silent no-op this ticket rules out.
+    // they submitted, with their selection still on screen to correct. A refusal that
+    // reached them as nothing at all is the silent no-op this ticket rules out.
     if (error instanceof PairingRefused) return refused(error.refusal)
     throw error
   }

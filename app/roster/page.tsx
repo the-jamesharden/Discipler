@@ -174,6 +174,13 @@ export default async function RosterPage({
                 ))}
               </tbody>
             </table>
+            {/* The way in that does not start from one row. The Pair action opens the
+                same screen with somebody already chosen, but a Person who is already
+                being discipled has no Pair action and may still lead, and several
+                people selected together start from nobody in particular. */}
+            <p>
+              <Link href="/roster/pair">Form a relationship</Link>
+            </p>
             {/* Said plainly, because the alternative is an Admin reading a man who
                 leads two relationships as a bug. Participation answers whether this
                 Person is being discipled, and leading is a different fact. */}

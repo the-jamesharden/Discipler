@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { PairingRefusal } from '~/domain/errors'
-import { pairingRefusalMessage } from '../../app/roster/copy'
+import { REFUSALS, pairingRefusalMessage } from '../../app/roster/copy'
 
 /**
  * A refusal that reaches the Admin as a constraint name, or as nothing at all, is
@@ -22,9 +22,18 @@ const EVERY_REFUSAL: readonly PairingRefusal[] = [
   'relationship.leader_has_not_completed_intake',
   'relationship.leader_has_opted_out',
   'relationship.gender_must_match',
+  'relationship.already_has_a_leader',
 ]
 
 describe('what a refused pairing says to an Admin', () => {
+  it('lists every refusal the domain declares, and no more', () => {
+    // The list above is written by hand, so it can drift from the union it mirrors:
+    // dropping an entry would leave the tests below passing while covering less. The
+    // `Record<PairingRefusal, string>` is the one thing that cannot drift -- omitting a
+    // refusal there fails the build -- so it is what the list is measured against.
+    expect([...EVERY_REFUSAL].sort()).toEqual(Object.keys(REFUSALS).sort())
+  })
+
   it('says something for every refusal the domain and the database can raise', () => {
     for (const refusal of EVERY_REFUSAL) {
       expect(pairingRefusalMessage(refusal), refusal).toBeTruthy()

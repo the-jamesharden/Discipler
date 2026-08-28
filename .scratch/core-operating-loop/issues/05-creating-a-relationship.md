@@ -179,3 +179,52 @@ Two criteria remain, both on ticket 04, and neither is faked here:
 
 The first acceptance criterion is marked `[~]` rather than `[x]` for that reason: two
 of its three routes ship here.
+
+### Review pass — the safeguarding rule was failing open
+
+Four findings, all taken.
+
+**The gender trigger was not `SECURITY DEFINER`.** This was the serious one and it was
+invisible: `app.current_gender` is a definer, but the sibling `exists` read
+`relationship_member` *directly*, so it ran under the inserting role's row-level
+security. A role able to insert a membership without selecting the relationship's other
+rows saw an empty set and passed. A safeguarding rule failing open, silently, is the
+exact inversion of what this ticket asked for -- and no test caught it, because tests
+write as a role that sees everything. The readiness triggers get away with being
+invoker-side only because everything they read sits behind `participation_status`,
+which is itself a definer.
+
+**The first migration cited ADR-0004 backwards.** It claimed the rule went "where the
+participation caps went", but the caps went into partial unique indexes *because*
+ADR-0004 rejected a sibling-reading trigger -- "concurrent inserts see each other's
+uncommitted absence and both pass". That is precisely this trigger's shape. The
+citation is withdrawn in `20260828000300`. The rule cannot be an index: a unique index
+can express "one open group per leader" because that is a property of single rows,
+while "everyone here shares one gender" is a property of a *set*. So the trigger stays
+and takes a row lock on the relationship. ADR-0004 declined locking for the caps
+because their scope is the whole Ministry; this scope is one relationship row, held
+only while somebody joins that relationship, which is a different trade-off and is why
+the answer differs.
+
+**The trigger was insert-only.** Nothing reopens a membership today -- readmission is a
+second row, which is why the primary key is a surrogate -- but the reason this rule is
+in the database at all is that it must not rest on what the write paths currently
+happen to do. It now also fires on reopening a closed membership and on moving one onto
+a different Person, and is deliberately scoped to those two: a blanket update trigger
+would re-check the row somebody is *closing*, leaving a relationship that had somehow
+gone mismatched impossible to even end.
+
+**`relationship_one_open_leader` had no translation.** The box claiming every cap
+surfaces as a user-facing error was ticked while that index would have escaped as a
+Postgres error and a 500. Unreachable from a form offering one Leader, and translated
+anyway: every cap the database holds is now named at the store, not every cap a current
+screen can reach.
+
+Two smaller things came out of the same pass. The refusal redirect dropped the Admin's
+selection while a comment claimed it kept it -- five people chosen for a group had to be
+chosen again -- so the selection now round-trips and a test holds it there. And
+`/roster/pair` was reachable only from an unpaired row, which left no way in for the
+multi-select route or for a Person already being discipled who may still lead; the
+Roster now carries a Form a relationship link.
+
+310 tests pass, none skipped.

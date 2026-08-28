@@ -132,6 +132,49 @@ describe('pairing and the two constraints', () => {
     expect(outcome.effects.map((effect) => effect.kind)).toContain('relationship.create')
   })
 
+  it('refuses a reopened membership that would leave the relationship mismatched', async () => {
+    // Nothing in Discipler reopens a membership -- readmission is a second row, which
+    // is why the primary key is a surrogate. The guarantee is written against the
+    // database rather than against the write paths that exist today, so the rule has
+    // to hold for the update as well as the insert.
+    const leader = await woman('Nadia Peters')
+    const participant = await woman('Orla Quinn')
+    await pair(leader, [participant])
+
+    await pool.query(
+      `update relationship_member set ended_at = now() where person_id = $1`,
+      [participant],
+    )
+
+    // Her Intake is corrected, and now she does not match the Leader she left.
+    await pool.query(`update intake_submission set gender = 'male' where person_id = $1`, [
+      participant,
+    ])
+
+    await expect(
+      pool.query(
+        `update relationship_member set ended_at = null where person_id = $1`,
+        [participant],
+      ),
+    ).rejects.toThrow(/same gender/i)
+  })
+
+  it('reads the latest Intake, because a correction is the answer that counts', async () => {
+    const leader = await man('Peter Rowe')
+    const participant = await woman('Quinn Steele')
+
+    // She corrects what she first submitted. The pairing that follows is legitimate,
+    // and a check reading any submission at all would refuse it.
+    await pool.query(
+      `insert into intake_submission (ministry_id, person_id, submitted_at, age_band, gender)
+       values ($1, $2, now(), '25-34', 'male')`,
+      [ministry.id, participant],
+    )
+
+    const outcome = await pair(leader, [participant])
+    expect(outcome.effects.map((effect) => effect.kind)).toContain('relationship.create')
+  })
+
   it('pairs two people of the same gender', async () => {
     const leader = await man('Liam Carter')
     const participant = await man('Marcus Dean')

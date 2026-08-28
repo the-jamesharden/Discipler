@@ -20,7 +20,11 @@ export const dynamic = 'force-dynamic'
 export default async function PairPage({
   searchParams,
 }: {
-  searchParams: Promise<{ with?: string; error?: string }>
+  searchParams: Promise<{
+    with?: string | string[]
+    leaderId?: string
+    error?: string
+  }>
 }) {
   const admin = await currentAdmin()
   if (!admin) redirect('/login')
@@ -43,10 +47,18 @@ export default async function PairPage({
       person.participationStatus === 'paired',
   )
 
-  // Preselected as a participant rather than as the leader: the Pair action sits on
-  // an unpaired row, and the common reason to press it is that this is somebody
-  // waiting to be discipled. The Admin can move them.
-  const preselected = candidates.find((person) => person.personId === query.with)
+  /**
+   * Who arrives already chosen. One `with` is the Pair action on a Roster row --
+   * preselected as a *participant* rather than as the leader, because that action sits
+   * on an unpaired row and the common reason to press it is that this is somebody
+   * waiting to be discipled. Several `with` are a refused submission coming back, and
+   * then `leaderId` says who was leading it.
+   */
+  const asked = query.with === undefined ? [] : [query.with].flat()
+  const preselected = new Set(
+    candidates.filter((person) => asked.includes(person.personId)).map((p) => p.personId),
+  )
+  const chosenLeader = candidates.find((person) => person.personId === query.leaderId)
 
   return (
     <main>
@@ -87,6 +99,7 @@ export default async function PairPage({
                     type="radio"
                     name="leaderId"
                     value={person.personId}
+                    defaultChecked={person.personId === chosenLeader?.personId}
                     required
                   />
                   {person.fullName}
@@ -106,7 +119,7 @@ export default async function PairPage({
                     type="checkbox"
                     name="participantId"
                     value={person.personId}
-                    defaultChecked={person.personId === preselected?.personId}
+                    defaultChecked={preselected.has(person.personId)}
                   />
                   {person.fullName}
                 </label>

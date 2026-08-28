@@ -31,6 +31,11 @@ export type PairingRefusal =
   // Its sibling, the age band, governs suggestion only and is deliberately absent
   // from this list: crossing it by hand is a supported thing to do, not a refusal.
   | 'relationship.gender_must_match'
+  // Unreachable from a form that offers one Leader, and listed anyway: an index the
+  // store cannot name escapes as a Postgres error and a 500, which is the silent
+  // no-op with the volume turned up. Every cap the database holds is translated here,
+  // not every cap a current screen can reach.
+  | 'relationship.already_has_a_leader'
 
 export class PairingRefused extends Error {
   constructor(readonly refusal: PairingRefusal) {

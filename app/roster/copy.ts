@@ -59,7 +59,7 @@ export const importFailureMessage = (code: string | undefined): string | undefin
  * Each sentence names the thing to change. "Emily is already in a one-to-one" sends
  * the Admin somewhere; "constraint violated" does not.
  */
-const REFUSALS: Record<PairingRefusal, string> = {
+export const REFUSALS: Record<PairingRefusal, string> = {
   'relationship.needs_a_participant':
     'Choose at least one person to be discipled in this relationship.',
   'relationship.leader_cannot_be_a_participant':
@@ -92,6 +92,7 @@ const REFUSALS: Record<PairingRefusal, string> = {
   'relationship.gender_must_match':
     'Everyone in a relationship must be of the same gender. This is a safeguarding '
     + 'rule and pairing by hand does not override it.',
+  'relationship.already_has_a_leader': 'That relationship already has a leader.',
 }
 
 /**

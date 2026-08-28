@@ -164,6 +164,38 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
     expect(rows).toEqual([])
   })
 
+  it('hands a refused selection back intact, so one mistake costs one correction', async () => {
+    const leader = await man('Aaron Vale')
+    const first = await man('Brett Wynn')
+    const mismatched = await woman('Cora Xu')
+
+    const { location } = await pair(leader, [first, mismatched])
+
+    // The whole selection comes back, not just the error.
+    expect(location).toContain(`leaderId=${leader}`)
+    expect(location).toContain(`with=${first}`)
+    expect(location).toContain(`with=${mismatched}`)
+
+    const { html } = await getPage(location.replace(/^[^?]*/, '/roster/pair'), cookie)
+
+    // Checked and selected again, so the Admin corrects the one choice that was wrong.
+    const checkedFor = (id: string) =>
+      new RegExp(`value="${id}"[^>]*checked`).test(html) ||
+      new RegExp(`checked[^>]*value="${id}"`).test(html)
+
+    expect(checkedFor(first)).toBe(true)
+    expect(checkedFor(mismatched)).toBe(true)
+    expect(checkedFor(leader)).toBe(true)
+  })
+
+  it('offers a way into pairing that does not start from one Person', async () => {
+    // Somebody already being discipled has no Pair action and may still lead, and
+    // several people selected together start from nobody in particular.
+    const { html } = await getPage('/roster', cookie)
+    expect(html).toContain('href="/roster/pair"')
+    expect(html).toContain('Form a relationship')
+  })
+
   it('refuses a pairing with nobody to disciple, and says which thing to fix', async () => {
     const yara = await woman('Yara Lowe')
 
