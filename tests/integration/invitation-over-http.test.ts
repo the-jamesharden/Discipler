@@ -239,6 +239,31 @@ describe.skipIf(skipUnlessAppIsRunning)('a Leader opening their Invitation Link'
     expect(rows[0].kind).toBe('match_declined')
   })
 
+  it('lets a Participant decline long after their link would have expired', async () => {
+    const david = await roster('David Late')
+    const emily = await roster('Emily Late')
+    await pair([david], [emily])
+
+    await post(`/invitation/${await tokenFor(david)}/accept`, {
+      fullName: 'David Late',
+      password: 'a-long-enough-password',
+    })
+
+    const token = await tokenFor(emily)
+    await pool.query(
+      `update invitation set expires_at = created_at + interval '1 second' where token = $1`,
+      [token],
+    )
+
+    // An expiry protects a credential that creates an account. Declining creates
+    // nothing, so there is nothing here for it to protect.
+    const { html } = await open(token)
+    expect(html).toContain('isn’t the right match')
+
+    const { location } = await post(`/invitation/${token}/decline`)
+    expect(location).toContain('done=declined')
+  })
+
   it('tells a token nothing answers to apart from one that is real', async () => {
     const response = await fetch(`${baseUrl}/invitation/${crypto.randomUUID()}`, {
       redirect: 'manual',

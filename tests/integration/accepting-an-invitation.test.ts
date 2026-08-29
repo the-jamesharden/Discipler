@@ -311,6 +311,60 @@ describe('the two things a token raises instead of changing', () => {
     return rows
   }
 
+  it('lets the command role enrol a Leader and refuses it anything wider', async () => {
+    // Acceptance is the only act in Discipler that creates a `ministry_member`
+    // row without an Admin, so the privilege it was given is checked here rather
+    // than trusted to the one call site that uses it.
+    const asCommand = async (sql: string, params: unknown[]) => {
+      const client = await pool.connect()
+      try {
+        await client.query('begin')
+        await client.query('set local role discipler_command')
+        await client.query(`select set_config('discipler.ministry_id', $1, true)`, [
+          ministry.id,
+        ])
+        await client.query(sql, params)
+        return null
+      } catch (error) {
+        return (error as Error).message
+      } finally {
+        await client.query('rollback')
+        client.release()
+      }
+    }
+
+    const { data, error } = await serviceRoleClient().auth.admin.createUser({
+      email: `tier-${crypto.randomUUID()}@example.test`,
+      password: 'a-long-enough-password',
+      email_confirm: true,
+    })
+    if (error) throw new Error(error.message)
+    const userId = data.user.id
+
+    // A Leader, in the Ministry it declared: permitted.
+    expect(
+      await asCommand(
+        `insert into ministry_member (ministry_id, user_id, tier) values ($1, $2, 'leader')`,
+        [ministry.id, userId],
+      ),
+    ).toBeNull()
+
+    // An Admin: refused. The tier is written into the policy, not into the caller.
+    expect(
+      await asCommand(
+        `insert into ministry_member (ministry_id, user_id, tier) values ($1, $2, 'admin')`,
+        [ministry.id, userId],
+      ),
+    ).toMatch(/row-level security/i)
+
+    // And no way to promote somebody who is already enrolled.
+    expect(
+      await asCommand(`update ministry_member set tier = 'admin' where ministry_id = $1`, [
+        ministry.id,
+      ]),
+    ).toMatch(/permission denied/i)
+  })
+
   it('raises one item however many times the Leader taps "not my number"', async () => {
     const david = await roster('David Disputes')
     const emily = await roster('Emily Disputes')

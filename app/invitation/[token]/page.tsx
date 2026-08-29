@@ -153,6 +153,13 @@ export default async function InvitationPage({
               arrives. Nothing else is needed from you.
             </p>
 
+            {/*
+              Offered whatever the expiry says, unlike the Leader's form above. An
+              expiry protects a credential that creates an account; declining
+              creates nothing and raises an item, so there is nothing here for it
+              to protect -- and a match that is wrong is wrong in week three as
+              much as in week one.
+            */}
             <form method="post" action={`/invitation/${token}/decline`}>
               <button type="submit">This isn’t the right match</button>
             </form>
