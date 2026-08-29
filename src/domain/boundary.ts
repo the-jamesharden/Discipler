@@ -27,6 +27,7 @@ import {
 } from './errors'
 import {
   advanceCheckIn,
+  checkInDueThisWeek,
   checkInPromptId,
   isStopKeyword,
   checkInSequenceId,
@@ -37,6 +38,7 @@ import {
   type CheckInSequenceId,
   type CheckInSnapshot,
 } from './check-in'
+import { calendarMonthOf } from './week'
 import { readIntakeForm } from './intake'
 import {
   acceptanceReminderMessage,
@@ -138,6 +140,21 @@ export interface CommandContext {
    * database in the room.
    */
   readonly checkIn?: CheckInSnapshot
+  /**
+   * Every Leader in this Ministry the cadence could make due, loaded on the
+   * tick's behalf with their cadence already resolved by
+   * `coalesce(r.checkin_day, ms.checkin_day)`.
+   *
+   * *Could*, not *is*. Which of them a new ISO week has actually come due for is
+   * a rule about time, and every one of those is decided here against the
+   * injected clock rather than in SQL -- otherwise a cadence edit and a week
+   * boundary would be untestable without a database and a fortnight.
+   *
+   * Absent rather than empty, like the Roster and the unaccepted relationships:
+   * an unloaded snapshot and a Ministry with nobody to ask are the same value and
+   * opposite facts, and one of them silently checks in with nobody.
+   */
+  readonly checkInsDue?: readonly CheckInSnapshot[]
 }
 
 /**
@@ -317,21 +334,23 @@ const memberHolding = (invitation: InvitationSnapshot, id: PersonId): InvitedMem
   return member
 }
 
-
 /**
  * The monthly opt-out rule, for Leaders. True on the first check-in of each
  * calendar month, which includes the first check-in a Leader ever receives.
  *
- * Resolved in UTC here. Resolving the month against the *Ministry* timezone is
- * ticket 08b's, alongside the week boundary and the cadence -- 08a carries the
- * language, 08b decides which month a moment falls in.
+ * The month is the Ministry's, not UTC's. A Sydney ministry asked at 9am local on
+ * the 1st is at 23:00 UTC on the last day of the previous month, and resolving in
+ * UTC would put two of their conversations in one month and none in the next --
+ * so one month would carry the opt-out language twice and the following one not
+ * at all. It is the same timezone the week boundary reads, for the same reason.
  */
-const optOutLanguageIsDue = (lastCheckInAt: Date | null, now: Date): boolean => {
+const optOutLanguageIsDue = (
+  lastCheckInAt: Date | null,
+  now: Date,
+  timeZone: string,
+): boolean => {
   if (!lastCheckInAt) return true
-  return (
-    lastCheckInAt.getUTCFullYear() !== now.getUTCFullYear() ||
-    lastCheckInAt.getUTCMonth() !== now.getUTCMonth()
-  )
+  return calendarMonthOf(lastCheckInAt, timeZone) !== calendarMonthOf(now, timeZone)
 }
 
 /** What every question in a conversation needs in order to be sent and recorded. */
@@ -343,6 +362,12 @@ interface Asking {
   readonly phone: string | null
   readonly now: Date
   readonly ids: IdSource
+  /**
+   * The cadence instant that made this conversation due, or null when nothing
+   * scheduled it -- a reply advancing the sequence, or an Admin sending one
+   * additional check-in by hand. Stamped on the message and never rewritten.
+   */
+  readonly scheduledFor: Date | null
 }
 
 /**
@@ -351,6 +376,24 @@ interface Asking {
  * together because a prompt with no message is a question nobody was asked, and a
  * message with no prompt is a reply with nothing to bind to.
  */
+/**
+ * One text to the Leader this conversation belongs to. Every message a check-in
+ * sends is this shape -- the questions and the closing thank-you alike -- so the
+ * envelope is written once and only the body differs.
+ */
+const sayToLeader = (asking: Asking, body: string): Effect =>
+  enqueueMessage({
+    ministryId: asking.ministryId,
+    personId: asking.personId,
+    toPhone: asking.phone,
+    body,
+    enqueuedAt: asking.now,
+    scheduledFor: asking.scheduledFor,
+    // No message to a Leader contains a phone number, and a check-in question
+    // names the people they already meet with.
+    disclosesPersonId: null,
+  })
+
 const ask = (
   asking: Asking,
   prompt: Omit<NewCheckInPrompt, 'id' | 'ministryId' | 'sequenceId' | 'askedAt'>,
@@ -363,16 +406,7 @@ const ask = (
     askedAt: asking.now,
     ...prompt,
   }),
-  enqueueMessage({
-    ministryId: asking.ministryId,
-    personId: asking.personId,
-    toPhone: asking.phone,
-    body,
-    enqueuedAt: asking.now,
-    // No message to a Leader contains a phone number, and a check-in question
-    // names the people they already meet with.
-    disclosesPersonId: null,
-  }),
+  sayToLeader(asking, body),
 ]
 
 /**
@@ -401,7 +435,6 @@ const askWhetherTheyMet = (
     }),
   )
 
-
 /**
  * A reply as it is stored. The three columns are exclusive by question -- a
  * `met` answer has no rating and a rating has no prose -- and the letters the
@@ -414,6 +447,109 @@ const recorded = (reply: CheckInReply) => ({
   detail: reply.kind === 'concern_detail' ? reply.detail : null,
 })
 
+/**
+ * What opening one Leader's conversation comes to, wherever the decision to open
+ * it was made. Two callers: the cadence dispatcher inside the tick, and the
+ * direct trigger an Admin uses to send one additional check-in.
+ *
+ * It is the same conversation either way -- the ticket that owns the cadence does
+ * not get to own a second kind of check-in -- so the only thing the caller varies
+ * is the moment, and whether a cadence is what produced it.
+ */
+const openConversationWith = (
+  checkIn: CheckInSnapshot,
+  opening: {
+    readonly ministryId: MinistryId
+    readonly ministryName: string
+    readonly now: Date
+    readonly ids: IdSource
+    readonly scheduledFor: Date | null
+  },
+): readonly Effect[] => {
+  const { ministryId, ministryName, now, ids, scheduledFor } = opening
+  const effects: Effect[] = []
+
+  // Two sequences never run for one Leader at once. The displaced one's
+  // unanswered questions stay unanswered rather than being tidied away: they
+  // are what ticket 10's Stalled rule reads, and answering them on the
+  // Leader's behalf is the one thing that would hide a Leader going quiet.
+  if (checkIn.openSequence) {
+    effects.push(
+      closeCheckInSequence({
+        ministryId,
+        sequenceId: checkIn.openSequence.sequenceId,
+        closedAt: now,
+        outcome: 'abandoned',
+      }),
+      appendHistory({
+        ministryId,
+        occurredAt: now,
+        type: 'checkin.sequence_abandoned',
+        subjectType: 'person',
+        subjectId: checkIn.personId,
+        payload: { sequenceId: checkIn.openSequence.sequenceId },
+      }),
+    )
+  }
+
+  const covering = relationshipsToAskAbout(checkIn.leads)
+
+  // A Participant leads nothing, and a Leader whose every relationship is
+  // paused has nothing to be asked about. An empty conversation would be one
+  // nobody can finish, and ticket 10 would read its relationship-weeks as
+  // unanswered -- so none is opened.
+  if (covering.length === 0) return effects
+
+  const sequenceId = checkInSequenceId(ids.next())
+  const asking: Asking = {
+    ministryId,
+    ministryName,
+    sequenceId,
+    personId: checkIn.personId,
+    phone: checkIn.phone,
+    now,
+    ids,
+    scheduledFor,
+  }
+
+  effects.push(
+    openCheckInSequence({
+      id: sequenceId,
+      ministryId,
+      personId: checkIn.personId,
+      startedAt: now,
+      covering: covering.map((each) => each.relationshipId),
+    }),
+    appendHistory({
+      ministryId,
+      occurredAt: now,
+      type: 'checkin.sequence_opened',
+      subjectType: 'person',
+      subjectId: checkIn.personId,
+      // What this week's conversation covers, recorded at the moment it
+      // opened. Ticket 10 counts a relationship-week unanswered when it was
+      // covered and no reply arrived -- whether or not its question was ever
+      // reached -- so the coverage has to survive the sequence.
+      payload: {
+        sequenceId,
+        relationshipIds: covering.map((each) => each.relationshipId),
+      },
+    }),
+    // Only the first. The sequence advances in response to a reply and never
+    // otherwise, so a Leader with three relationships is asked one question
+    // and not three.
+    ...askWhetherTheyMet(
+      asking,
+      covering[0]!,
+      1,
+      // The month is the Ministry's, like the week.
+      optOutLanguageIsDue(checkIn.lastCheckInAt, now, checkIn.timeZone),
+    ),
+  )
+
+  return effects
+}
+
 export const handleCommand = (command: Command, context: CommandContext): CommandResult => {
   switch (command.type) {
     case 'scheduled.tick': {
@@ -425,8 +561,9 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       // It carries the Acceptance thresholds today. The rest of the care rules --
       // the twenty-four hour sequence timeout, the next-day reminder, Pause expiry
       // -- land here as their tickets build them.
-      const { unaccepted, ministryName, appBaseUrl } = context
+      const { unaccepted, checkInsDue, ministryName, appBaseUrl } = context
       if (!unaccepted) throw new Error('scheduled.tick was handed no state to evaluate')
+      if (!checkInsDue) throw new Error('scheduled.tick was handed nobody to check in with')
       if (!ministryName) throw new Error('scheduled.tick was handed no Ministry to speak for')
       if (!appBaseUrl) {
         throw new Error('scheduled.tick was handed nowhere for its links to point')
@@ -434,6 +571,33 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
 
       const now = context.clock.now()
       const effects: Effect[] = []
+
+      // The check-in cadence. This is what makes a Leader due -- the direct
+      // trigger 08a was built against is now the Admin's *send one additional
+      // check-in* and nothing else.
+      //
+      // Safe to run as often as the scheduler likes, and safe to miss: a Leader
+      // is due at most once per ISO week and stays due for the rest of the week
+      // once their hour has passed, so an hourly tick asks once and a tick that
+      // never ran on Monday evening asks on Tuesday rather than skipping a week.
+      for (const leader of checkInsDue) {
+        const due = checkInDueThisWeek(leader, now)
+        if (!due) continue
+
+        effects.push(
+          ...openConversationWith(leader, {
+            ministryId: command.ministryId,
+            ministryName,
+            now,
+            ids: context.ids,
+            // The cadence as it was read at this moment, stamped on the message.
+            // Not `now`: the two differ by however long the tick took to reach
+            // this Leader, and it is the cadence that has to be recoverable from
+            // the row -- that is what makes an edit demonstrably future-only.
+            scheduledFor: due,
+          }),
+        )
+      }
 
       for (const relationship of unaccepted) {
         // From creation, not from when any one Leader was invited. Nothing adds a
@@ -462,6 +626,8 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
                   link: invitationLink(appBaseUrl, leader.token),
                 }),
                 enqueuedAt: now,
+                // Nothing scheduled this: it answers an act, not a cadence.
+                scheduledFor: null,
                 // No message to a Leader contains a phone number.
                 disclosesPersonId: null,
               }),
@@ -522,86 +688,21 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         throw new Error('checkin.start was handed no Ministry to speak for')
       }
 
-      const now = context.clock.now()
-      const effects: Effect[] = []
-
-      // Two sequences never run for one Leader at once. The displaced one's
-      // unanswered questions stay unanswered rather than being tidied away: they
-      // are what ticket 10's Stalled rule reads, and answering them on the
-      // Leader's behalf is the one thing that would hide a Leader going quiet.
-      if (checkIn.openSequence) {
-        effects.push(
-          closeCheckInSequence({
-            ministryId: command.ministryId,
-            sequenceId: checkIn.openSequence.sequenceId,
-            closedAt: now,
-            outcome: 'abandoned',
-          }),
-          appendHistory({
-            ministryId: command.ministryId,
-            occurredAt: now,
-            type: 'checkin.sequence_abandoned',
-            subjectType: 'person',
-            subjectId: checkIn.personId,
-            payload: { sequenceId: checkIn.openSequence.sequenceId },
-          }),
-        )
-      }
-
-      const covering = relationshipsToAskAbout(checkIn.leads)
-
-      // A Participant leads nothing, and a Leader whose every relationship is
-      // paused has nothing to be asked about. An empty conversation would be one
-      // nobody can finish, and ticket 10 would read its relationship-weeks as
-      // unanswered -- so none is opened.
-      if (covering.length === 0) return { effects, rejections: [] }
-
-      const sequenceId = checkInSequenceId(context.ids.next())
-      const asking: Asking = {
-        ministryId: command.ministryId,
-        ministryName,
-        sequenceId,
-        personId: checkIn.personId,
-        phone: checkIn.phone,
-        now,
-        ids: context.ids,
-      }
-
-      effects.push(
-        openCheckInSequence({
-          id: sequenceId,
+      // The direct trigger. It asks *now* and does not consult the cadence: this
+      // is the Admin sending one additional check-in, and the whole point of that
+      // button is that it does not wait for Monday. The weekly rhythm arrives
+      // through `scheduled.tick` instead, which is what decides that a week is
+      // due -- so nothing scheduled this one and its message carries no stamp.
+      return {
+        effects: openConversationWith(checkIn, {
           ministryId: command.ministryId,
-          personId: checkIn.personId,
-          startedAt: now,
-          covering: covering.map((each) => each.relationshipId),
+          ministryName,
+          now: context.clock.now(),
+          ids: context.ids,
+          scheduledFor: null,
         }),
-        appendHistory({
-          ministryId: command.ministryId,
-          occurredAt: now,
-          type: 'checkin.sequence_opened',
-          subjectType: 'person',
-          subjectId: checkIn.personId,
-          // What this week's conversation covers, recorded at the moment it
-          // opened. Ticket 10 counts a relationship-week unanswered when it was
-          // covered and no reply arrived -- whether or not its question was ever
-          // reached -- so the coverage has to survive the sequence.
-          payload: {
-            sequenceId,
-            relationshipIds: covering.map((each) => each.relationshipId),
-          },
-        }),
-        // Only the first. The sequence advances in response to a reply and never
-        // otherwise, so a Leader with three relationships is asked one question
-        // and not three.
-        ...askWhetherTheyMet(
-          asking,
-          covering[0]!,
-          1,
-          optOutLanguageIsDue(checkIn.lastCheckInAt, now),
-        ),
-      )
-
-      return { effects, rejections: [] }
+        rejections: [],
+      }
     }
 
     case 'sms.inbound': {
@@ -718,16 +819,23 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
 
       const advance = advanceCheckIn(sequence, awaiting, reply)
 
+      const asking: Asking = {
+        ministryId: command.ministryId,
+        ministryName,
+        sequenceId: sequence.sequenceId,
+        personId: checkIn.personId,
+        phone: checkIn.phone,
+        now,
+        ids: context.ids,
+        // A reply is what produced this, not a cadence. Only the message that
+        // opens a conversation carries the cadence that made it due; the rest of
+        // the thread travels back in seconds and nothing scheduled any of it.
+        scheduledFor: null,
+      }
+
       if (advance.kind === 'finish') {
         effects.push(
-          enqueueMessage({
-            ministryId: command.ministryId,
-            personId: checkIn.personId,
-            toPhone: checkIn.phone,
-            body: checkInThankYou({ ministryName }),
-            enqueuedAt: now,
-            disclosesPersonId: null,
-          }),
+          sayToLeader(asking, checkInThankYou({ ministryName })),
           closeCheckInSequence({
             ministryId: command.ministryId,
             sequenceId: sequence.sequenceId,
@@ -744,16 +852,6 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           }),
         )
         return { effects, rejections: [] }
-      }
-
-      const asking: Asking = {
-        ministryId: command.ministryId,
-        ministryName,
-        sequenceId: sequence.sequenceId,
-        personId: checkIn.personId,
-        phone: checkIn.phone,
-        now,
-        ids: context.ids,
       }
 
       if (advance.question === 'met') {
@@ -1027,6 +1125,8 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
               fullName: submission.fullName,
             }),
             enqueuedAt: now,
+            // Nothing scheduled this: it answers an act, not a cadence.
+            scheduledFor: null,
             // Nothing. There is no relationship yet, so there is nobody to
             // introduce -- and this is the message that reaches them before one
             // exists.
@@ -1123,6 +1223,8 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
               link: invitationLink(baseUrl, invitation.token),
             }),
             enqueuedAt: now,
+            // Nothing scheduled this: it answers an act, not a cadence.
+            scheduledFor: null,
             // No message to a Leader contains a phone number.
             disclosesPersonId: null,
           }),
@@ -1201,6 +1303,8 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             toPhone: leader.phone,
             body: starterMessageToLeader({ ministryName, participantNames }),
             enqueuedAt: now,
+            // Nothing scheduled this: it answers an act, not a cadence.
+            scheduledFor: null,
             disclosesPersonId: null,
           }),
         )
@@ -1234,6 +1338,8 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
                 declineLink: invitationLink(baseUrl, declining.token),
               }),
               enqueuedAt: now,
+              // Nothing scheduled this: it answers an act, not a cadence.
+              scheduledFor: null,
               // Resolved at send time against contact-sharing consent as it stands
               // then. Absent consent removes the number and sends the rest.
               disclosesPersonId: leader.personId,

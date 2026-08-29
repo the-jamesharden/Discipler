@@ -116,7 +116,7 @@ criterion is here.
 far.** The phone is the serialisation unit whether or not a reply is expected. The
 column and all four of its values exist, with the partial index ticket 20 will query,
 so serialisation is a query change and not a migration -- but nothing sets a state
-yet, because nothing sends a Response-Required Message until ticket 08. No domain
+yet, because nothing sends a Response-Required Message until ticket 08a. No domain
 field was added ahead of a producer for it.
 `CONTEXT.md` avoids "prompt" as a name for a Keyword Exchange, which is a different
 usage from ticket 20's -- the column names follow ticket 20 so it finds what it

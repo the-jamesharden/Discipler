@@ -19,6 +19,7 @@ describe('the command boundary', () => {
     ministryName: 'Riverside Chapel',
     appBaseUrl: 'https://discipler.example',
     unaccepted: [],
+    checkInsDue: [],
   } as const
 
   it('returns effects rather than performing them', async () => {

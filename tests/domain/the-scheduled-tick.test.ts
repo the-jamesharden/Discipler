@@ -56,6 +56,10 @@ const tick = (
     ministryName: 'Riverside Chapel',
     appBaseUrl: 'https://discipler.example',
     unaccepted: outstanding,
+    // Nobody due. These tests are about the Acceptance thresholds; the cadence
+    // has its own suite, and an absent snapshot here would be a Ministry whose
+    // check-ins were never loaded rather than one with nobody to ask.
+    checkInsDue: [],
   } satisfies CommandContext)
 
 const after = (elapsed: number) => new Date(createdAt.getTime() + elapsed)

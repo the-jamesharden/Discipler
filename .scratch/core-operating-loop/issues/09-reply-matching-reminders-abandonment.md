@@ -14,7 +14,7 @@ If a new week comes due while a sequence is open, the old sequence is abandoned 
 
 Every unreadable reply is recorded, so the enumerated list can later be extended from typos that actually happened.
 
-**Blocked by:** 08
+**Blocked by:** 08a, 08b
 
 **Status:** ready-for-agent
 

@@ -42,6 +42,7 @@ const covers = (
   participantNames,
   acceptedAt: startedAt,
   paused: false,
+  cadence: { day: 1, hour: 9 },
 })
 
 const emilysTurn = covers(emily, march, ['Emily'])
@@ -69,6 +70,7 @@ const reply = (body: string, openSequence: OpenSequence) =>
     checkIn: {
       personId: james,
       phone: '+15550100001',
+      timeZone: 'UTC',
       leads: [emilysTurn, theGroupsTurn],
       openSequence,
       lastCheckInAt: new Date('2026-10-05T09:00:00Z'),
@@ -199,6 +201,7 @@ describe('a reply with no conversation open', () => {
         checkIn: {
           personId: james,
           phone: '+15550100001',
+      timeZone: 'UTC',
           leads: [emilysTurn],
           openSequence: null,
           lastCheckInAt: null,

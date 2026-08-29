@@ -32,7 +32,7 @@ footer. The first two are a state machine and the third is a carrier obligation.
 not render them as disabled fields** — a greyed-out box invites *can you turn that on
 for us?* They are simply not on the screen.
 
-Implements `docs/adr/0007-the-check-in-cadence-and-the-week-boundary.md`. Ticket 08
+Implements `docs/adr/0007-the-check-in-cadence-and-the-week-boundary.md`. Ticket 08b
 consumes the cadence, ticket 04 consumes the pairing constraints, tickets 10 and 11
 consume the timezone.
 

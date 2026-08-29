@@ -25,6 +25,7 @@ const someMessage = (body: string) =>
     toPhone: '+15550100',
     body,
     enqueuedAt: at,
+    scheduledFor: null,
     disclosesPersonId: null,
   })
 
@@ -99,6 +100,9 @@ describe('applying a command\'s effects', () => {
         },
         unacceptedRelationships: async () => {
           throw new Error('the tick should not have read anything')
+        },
+        leadersDueForCheckIn: async () => {
+          throw new Error('the cadence should not have read anything')
         },
         relationshipFor: async () => {
           throw new Error('no relationship should have been read')

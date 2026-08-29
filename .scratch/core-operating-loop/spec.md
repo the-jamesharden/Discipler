@@ -403,7 +403,7 @@ matches. The age band constraint is **directional** — `suggest_max_age_band_ga
 number of bands a Participant may be *above* their Leader, default `1`, with no limit
 below. ADR-0001 amended.
 
-**Check-in (ticket 08).** `A` stores `outstanding`, `B` stores `good`, `C` stores
+**Check-in (ticket 08a).** `A` stores `outstanding`, `B` stores `good`, `C` stores
 `concern`.
 
 **State (ticket 10).** A relationship-week counts as unanswered when the relationship was

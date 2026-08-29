@@ -1,6 +1,7 @@
 import type { MemberRole } from './relationships'
 import type { PersonId, RelationshipId } from './ids'
 import type { Branded } from './branded'
+import { cadenceInstantOf, isoWeekOf, type Cadence } from './week'
 
 /**
  * The weekly conversation, as a set of rules with no infrastructure in them. One
@@ -112,6 +113,17 @@ export interface CheckInRelationship {
   /** Null while it is Awaiting Leader Acceptance. */
   readonly acceptedAt: Date | null
   readonly paused: boolean
+  /**
+   * When this relationship's check-in falls, already resolved as
+   * `coalesce(r.checkin_day, ms.checkin_day)` by the dispatcher's query.
+   *
+   * Per relationship rather than per Ministry because the override columns exist
+   * and are read from the first line of that query, even though nothing surfaces
+   * them in V1 and every one of them is null. A Leader holds one conversation
+   * covering everything they lead, so the earliest cadence among them is what
+   * makes them due -- with the columns unset that is simply the Ministry's.
+   */
+  readonly cadence: Cadence
 }
 
 /** The question a sequence is currently waiting on, and what it belongs to. */
@@ -142,6 +154,12 @@ export interface OpenSequence {
 export interface CheckInSnapshot {
   readonly personId: PersonId
   readonly phone: string | null
+  /**
+   * The Ministry's IANA timezone. The week boundary and the calendar month are
+   * both resolved against it, and neither is ever a relationship-level fact: a
+   * Leader is in one place, whatever they lead.
+   */
+  readonly timeZone: string
   /**
    * Every live relationship this Person leads, in any order. The rules about
    * which of them are asked about live here rather than in the query, so they can
@@ -207,6 +225,12 @@ export const advanceCheckIn = (
   awaiting: OpenPrompt,
   reply: CheckInReply,
 ): CheckInAdvance => {
+  const askAbout = (
+    question: CheckInQuestion,
+    relationship: CheckInRelationship,
+    position: number,
+  ): CheckInAdvance => ({ kind: 'ask', question, relationship, position })
+
   const current = sequence.covering[awaiting.position - 1]
 
   // The turn continues on the same relationship. A meeting that happened has a
@@ -214,20 +238,10 @@ export const advanceCheckIn = (
   // any other way.
   if (current) {
     if (reply.kind === 'met' && reply.met) {
-      return {
-        kind: 'ask',
-        question: 'satisfaction',
-        relationship: current,
-        position: awaiting.position,
-      }
+      return askAbout('satisfaction', current, awaiting.position)
     }
     if (reply.kind === 'satisfaction' && reply.satisfaction === 'concern') {
-      return {
-        kind: 'ask',
-        question: 'concern_detail',
-        relationship: current,
-        position: awaiting.position,
-      }
+      return askAbout('concern_detail', current, awaiting.position)
     }
   }
 
@@ -236,10 +250,61 @@ export const advanceCheckIn = (
   const next = sequence.covering[awaiting.position]
   if (!next) return { kind: 'finish' }
 
-  return {
-    kind: 'ask',
-    question: 'met',
-    relationship: next,
-    position: awaiting.position + 1,
+  return askAbout('met', next, awaiting.position + 1)
+}
+
+/**
+ * Whether this Leader's check-in is due now, and the cadence instant that made it
+ * so -- or null when it is not. The instant is the return value rather than a
+ * bare `true` because it is what gets stamped on the outbound row, and deriving
+ * it twice would let the stamp and the decision disagree.
+ *
+ * *A new week comes due* means a new ISO week in the Ministry timezone, never
+ * *seven days since the last prompt*. Under that second reading a cadence edit
+ * produces one week carrying two prompts and one carrying none, and ticket 10's
+ * consecutive counters misfire silently. See
+ * `docs/adr/0007-the-check-in-cadence-and-the-week-boundary.md`.
+ *
+ * Three conditions, in the order they are cheapest to disprove:
+ *
+ * - There is something to ask about. A Participant leads nothing, and a Leader
+ *   whose every relationship is paused has an empty conversation nobody can
+ *   finish.
+ * - This ISO week has not already had its prompt. That single test is what makes
+ *   the dispatcher idempotent: it may run every hour, or twice, or miss a day.
+ * - The cadence instant for this ISO week has arrived. Once it has, it stays
+ *   arrived for the rest of the week -- a run that never happened on Monday
+ *   evening sends on Tuesday rather than skipping the week.
+ */
+export const checkInDueThisWeek = (
+  snapshot: CheckInSnapshot,
+  now: Date,
+): Date | null => {
+  const covering = relationshipsToAskAbout(snapshot.leads)
+  if (covering.length === 0) return null
+
+  const week = isoWeekOf(now, snapshot.timeZone)
+
+  // Asked already this week. Not *within seven days*: a cadence moved earlier
+  // shortens the gap between two prompts and moved later lengthens it, and
+  // neither is a second prompt or a missed one.
+  if (
+    snapshot.lastCheckInAt &&
+    isoWeekOf(snapshot.lastCheckInAt, snapshot.timeZone) === week
+  ) {
+    return null
   }
+
+  // The earliest cadence among the relationships this conversation covers. With
+  // the override columns null -- which is every row in V1 -- they all carry the
+  // Ministry's and this is simply that. The day one of them is surfaced, a Leader
+  // is asked as soon as their earliest relationship falls due, and the one
+  // conversation covers the rest.
+  const due = covering
+    .map((relationship) =>
+      cadenceInstantOf(week, snapshot.timeZone, relationship.cadence),
+    )
+    .reduce((earliest, instant) => (instant < earliest ? instant : earliest))
+
+  return due.getTime() <= now.getTime() ? due : null
 }

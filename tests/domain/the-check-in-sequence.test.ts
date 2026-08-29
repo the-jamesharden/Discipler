@@ -33,12 +33,14 @@ const leads = (
   participantNames,
   acceptedAt: startedOn,
   paused: false,
+  cadence: { day: 1, hour: 9 },
   ...over,
 })
 
 const snapshot = (over: Partial<CheckInSnapshot> = {}): CheckInSnapshot => ({
   personId: james,
   phone: '+15550100001',
+  timeZone: 'UTC',
   leads: [
     leads('b2', june, ['Marcus', 'Dan']),
     leads('b1', march, ['Emily']),

@@ -195,6 +195,7 @@ describe('the write side', () => {
             toPhone: '+15550100',
             body: 'Northgate Community Church: hello.',
             enqueuedAt: at,
+            scheduledFor: null,
             disclosesPersonId: null,
           },
         ]),

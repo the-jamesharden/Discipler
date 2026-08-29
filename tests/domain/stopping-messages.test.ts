@@ -29,6 +29,7 @@ const openSequence: OpenSequence = {
       participantNames: ['Emily'],
       acceptedAt: new Date('2026-03-02T09:00:00Z'),
       paused: false,
+      cadence: { day: 1, hour: 9 },
     },
   ],
   awaiting: {
@@ -49,6 +50,7 @@ const send = (body: string, sequence: OpenSequence | null = openSequence) =>
     checkIn: {
       personId: james,
       phone: '+15550100001',
+      timeZone: 'UTC',
       leads: sequence?.covering ?? [],
       openSequence: sequence,
       lastCheckInAt: new Date('2026-10-05T09:00:00Z'),

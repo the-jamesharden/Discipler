@@ -96,6 +96,57 @@ const asRefusal = (error: unknown): PairingRefused | undefined => {
  * application code asks for.
  */
 
+// The Participants of a relationship, oldest membership first. Both queries in
+// `checkInFor` select it, so it is written once -- it reads `r.id`, so it only
+// belongs in a query where the relationship is aliased `r`.
+const participantNamesColumn = `coalesce(
+                (select array_agg(p.full_name order by pm.started_at, p.full_name)
+                   from relationship_member pm
+                   join person p on p.id = pm.person_id
+                  where pm.relationship_id = r.id
+                    and pm.role = 'participant'
+                    and pm.ended_at is null),
+                array[]::text[]
+              ) as participant_names`
+
+/**
+ * The cadence, resolved. Per-relationship override first, Ministry setting
+ * behind it -- from the first line, exactly as ADR-0007 says, even though every
+ * override column is null in V1 and nothing surfaces them.
+ *
+ * Written here so the day one *is* surfaced, no query has to be rewritten: it
+ * already reads the override. Like `participantNamesColumn` it reads `r.`, so it
+ * only belongs in a query where the relationship is aliased `r`.
+ */
+const cadenceColumns = `coalesce(r.checkin_day, ms.checkin_day) as checkin_day,
+              coalesce(r.checkin_hour, ms.checkin_hour) as checkin_hour`
+
+interface CheckInRelationshipRow {
+  relationship_id: string
+  created_at: Date
+  accepted_at: Date | null
+  participant_names: string[]
+  checkin_day: number
+  checkin_hour: number
+}
+
+// `paused` is a parameter rather than a column on the row: only the relationships
+// a Person leads *now* are asked whether they are paused, because only those are
+// candidates for a new question. The ones an open sequence already covers are
+// read back by id and keep the shape the conversation opened with.
+const asCheckInRelationship = (
+  row: CheckInRelationshipRow,
+  paused: boolean,
+): CheckInRelationship => ({
+  relationshipId: relationshipId(row.relationship_id),
+  role: 'leader',
+  startedAt: row.created_at,
+  participantNames: row.participant_names,
+  acceptedAt: row.accepted_at,
+  paused,
+  cadence: { day: row.checkin_day, hour: row.checkin_hour },
+})
+
 const unitFor = (client: PoolClient): UnitOfWork => ({
   async peopleOnRoster() {
     // Scoped by the policy on `person`, not by a ministry_id in this statement: the
@@ -693,8 +744,18 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // queue that waited.
     await client.query(`select pg_advisory_xact_lock(hashtextextended($1, 0))`, [id])
 
-    const { rows: people } = await client.query<{ phone: string | null }>(
-      `select phone from person where id = $1`,
+    // The timezone comes back with the Person because every time question this
+    // snapshot answers -- which ISO week, which calendar month -- is asked
+    // against it, and a snapshot carrying the one without the other would be a
+    // set of dates with no clock to read them by.
+    const { rows: people } = await client.query<{
+      phone: string | null
+      timezone: string
+    }>(
+      `select p.phone, ms.timezone
+         from person p
+         cross join ministry ms
+        where p.id = $1`,
       [id],
     )
     const person = people[0]
@@ -704,13 +765,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // is a rule and lives in the domain, so an unaccepted or paused relationship
     // is loaded here and filtered there -- which is what lets both be proven by a
     // test with no database in it.
-    const { rows: led } = await client.query<{
-      relationship_id: string
-      created_at: Date
-      accepted_at: Date | null
-      paused: boolean
-      participant_names: string[]
-    }>(
+    const { rows: led } = await client.query<CheckInRelationshipRow & { paused: boolean }>(
       `select r.id as relationship_id,
               r.created_at,
               r.accepted_at,
@@ -728,36 +783,19 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
                   limit 1),
                 false
               ) as paused,
-              coalesce(
-                (select array_agg(p.full_name order by pm.started_at, p.full_name)
-                   from relationship_member pm
-                   join person p on p.id = pm.person_id
-                  where pm.relationship_id = r.id
-                    and pm.role = 'participant'
-                    and pm.ended_at is null),
-                array[]::text[]
-              ) as participant_names
+              ${participantNamesColumn},
+              ${cadenceColumns}
          from relationship r
          join relationship_member m on m.relationship_id = r.id
+         -- The Ministry the cadence falls back to. A cross join because the
+         -- policy on the ministry table shows this connection exactly one row:
+         -- the one Ministry it has declared it is acting for.
+         cross join ministry ms
         where m.person_id = $1
           and m.role = 'leader'
           and m.ended_at is null
           and r.ended_at is null`,
       [id],
-    )
-
-    const relationships = new Map<string, CheckInRelationship>(
-      led.map((row) => [
-        row.relationship_id,
-        {
-          relationshipId: relationshipId(row.relationship_id),
-          role: 'leader',
-          startedAt: row.created_at,
-          participantNames: row.participant_names,
-          acceptedAt: row.accepted_at,
-          paused: row.paused,
-        },
-      ]),
     )
 
     const { rows: open } = await client.query<{
@@ -798,25 +836,14 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       // and a relationship that ends mid-week must not shorten it: every question
       // still to come is indexed by the position stored against it, so dropping
       // one entry would bind the next answer to the wrong relationship.
-      const { rows: covered } = await client.query<{
-        relationship_id: string
-        created_at: Date
-        accepted_at: Date | null
-        participant_names: string[]
-      }>(
+      const { rows: covered } = await client.query<CheckInRelationshipRow>(
         `select r.id as relationship_id,
                 r.created_at,
                 r.accepted_at,
-                coalesce(
-                  (select array_agg(p.full_name order by pm.started_at, p.full_name)
-                     from relationship_member pm
-                     join person p on p.id = pm.person_id
-                    where pm.relationship_id = r.id
-                      and pm.role = 'participant'
-                      and pm.ended_at is null),
-                  array[]::text[]
-                ) as participant_names
+                ${participantNamesColumn},
+                ${cadenceColumns}
            from relationship r
+           cross join ministry ms
           where r.id = any($1::uuid[])`,
         [sequence.covering],
       )
@@ -828,18 +855,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
         startedAt: sequence.started_at,
         covering: sequence.covering.flatMap((each) => {
           const row = byId.get(each)
-          return row
-            ? [
-                {
-                  relationshipId: relationshipId(row.relationship_id),
-                  role: 'leader' as const,
-                  startedAt: row.created_at,
-                  participantNames: row.participant_names,
-                  acceptedAt: row.accepted_at,
-                  paused: false,
-                },
-              ]
-            : []
+          return row ? [asCheckInRelationship(row, false)] : []
         }),
         awaiting:
           latest && latest.answered_at === null
@@ -870,10 +886,56 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     return {
       personId: id,
       phone: person.phone,
-      leads: [...relationships.values()],
+      timeZone: person.timezone,
+      leads: led.map((row) => asCheckInRelationship(row, row.paused)),
       openSequence,
       lastCheckInAt: asked[0]?.last_checked_in_at ?? null,
     }
+  },
+
+  async leadersDueForCheckIn(): Promise<readonly CheckInSnapshot[]> {
+    // Who could be due: everybody holding an open leader membership on a live
+    // relationship. Whether a new ISO week has actually come due for them is a
+    // question about time and is answered in the domain against the injected
+    // clock, never here -- which is what lets a cadence edit and a week boundary
+    // be proven by a test that runs in milliseconds.
+    const { rows } = await client.query<{ person_id: string }>(
+      `select distinct m.person_id
+         from relationship_member m
+         join relationship r on r.id = m.relationship_id
+        where m.role = 'leader'
+          and m.ended_at is null
+          and r.ended_at is null
+        order by m.person_id`,
+    )
+
+    // The same read the direct trigger makes, once per Leader, including its
+    // advisory lock. Two reads rather than one join because the conversation
+    // already open with somebody is what says whether a new one displaces it, and
+    // that is a per-Person question either way.
+    //
+    // The lock order is the Ministry's lock and then each Person's, which is the
+    // order every other command takes them in -- an inbound reply holds only the
+    // Person's, so nothing here can close a cycle with it.
+    const snapshots: CheckInSnapshot[] = []
+    for (const row of rows) {
+      const snapshot = await this.checkInFor(personId(row.person_id))
+      // These identifiers came out of a statement on this same transaction a
+      // moment ago, against a foreign key, so a null here is not a Leader who
+      // left -- it is this connection unable to see its own Ministry, and every
+      // other Leader in the run is about to be invisible for the same reason.
+      //
+      // Skipping would turn that into a tick that quietly asked nobody, which is
+      // exactly the silence an absent snapshot was made distinguishable from.
+      if (!snapshot) {
+        throw new Error(
+          `Leader ${row.person_id} is led by this Ministry and cannot be read from it`,
+        )
+      }
+      snapshots.push(snapshot)
+    }
+
+    return snapshots
   },
 
   async openCheckInSequence(sequence) {
@@ -951,15 +1013,19 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     for (const message of messages) {
       await client.query(
         `insert into outbound_message
-           (ministry_id, person_id, to_phone, body, enqueued_at,
+           (ministry_id, person_id, to_phone, body, enqueued_at, scheduled_for,
             discloses_person_id, prompt_key, prompt_state)
-         values ($1, $2, $3, $4, $5, $6, $7, $8)`,
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
         [
           message.ministryId,
           message.personId,
           message.toPhone,
           message.body,
           message.enqueuedAt,
+          // The cadence that made this message due, as it was read at enqueue
+          // time. Null on everything a cadence did not produce. Nothing rewrites
+          // it, which is what makes a cadence edit demonstrably future-only.
+          message.scheduledFor,
           // Never composed into the body. The sending layer resolves it against
           // contact-sharing consent as it stands then, and null on everything
           // bound for a Leader is what "no message to a Leader contains a phone

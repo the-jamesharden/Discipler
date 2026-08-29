@@ -20,7 +20,7 @@ Concern text is the most sensitive data in the product and is treated differentl
 
 **Both consecutive counters are anchored to the ISO week in the Ministry timezone**,
 never to the interval since the last prompt. The cadence is a Ministry setting an Admin
-can move (ticket 08), and a week defined as *since the last prompt* would let a cadence
+can move (ticket 08b), and a week defined as *since the last prompt* would let a cadence
 edit produce one week with two prompts and one with none — the counter would misfire
 with nothing on any screen to show it. The counters derive from relationship history
 against the ISO anchor, so they stay correct however the cadence moves. See

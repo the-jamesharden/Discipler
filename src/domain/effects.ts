@@ -32,6 +32,18 @@ export interface OutboundMessageDraft {
   readonly body: string
   readonly enqueuedAt: Date
   /**
+   * The cadence instant that made this message due, when a cadence is what
+   * produced it. Null on everything else, which is most messages: a reply travels
+   * back in seconds and a Welcome Message answers a form.
+   *
+   * A record of which cadence sent this, never a gate on when it goes out -- the
+   * dispatcher enqueues *because* the instant has arrived. Nothing rewrites it,
+   * which is the whole of *an edit affects future periods only*: a coordinator
+   * moving Monday 8pm to Wednesday 7pm on a Tuesday leaves this week's row
+   * exactly as it was sent.
+   */
+  readonly scheduledFor: Date | null
+  /**
    * Whose contact details this message offers to disclose, resolved at send time
    * against contact-sharing consent as it stands *then*. Null on almost every
    * message, and null without exception on anything bound for a Leader: no message

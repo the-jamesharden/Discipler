@@ -29,12 +29,17 @@ describe('the scheduled tick', () => {
   let pool: pg.Pool
 
   const createdAt = new Date('2026-03-02T09:00:00Z')
-  // One clock per test rather than one for the file. A clock does not run
-  // backwards, so a test that has already advanced a week cannot be followed by
-  // one that starts on the day the relationship was formed.
+  // One clock *and one Ministry* per test rather than one for the file. A clock
+  // does not run backwards, so a test that has already advanced a week cannot be
+  // followed by one that starts on the day the relationship was formed -- and
+  // rewinding it beside state a later instant wrote is the same mistake at the
+  // other end. The tick reaches every live relationship in its Ministry, so a
+  // conversation one test opened in week four is one the next test's tick would
+  // find already open on day two, and abandon before it started.
   let clock = createTestClock(createdAt)
-  const restart = () => {
+  const restart = async () => {
     clock = createTestClock(createdAt)
+    ministry = await createMinistryWithAdmin('Riverside Chapel')
   }
   const ids: IdSource = { next: () => crypto.randomUUID() }
   const service = () =>
@@ -115,7 +120,7 @@ describe('the scheduled tick', () => {
   }
 
   it('reminds a Leader at two days and raises an item at five, each exactly once', async () => {
-    restart()
+    await restart()
     const leader = await roster('David Ellis')
     const participant = await roster('Emily Johnson')
     const relationship = await pair(leader, participant)
@@ -166,7 +171,7 @@ describe('the scheduled tick', () => {
     // it does not make a Leader agree -- so a relationship that could never be
     // raised a second time would be one nobody is told about again, which is the
     // invisibility this whole ticket exists to end.
-    restart()
+    await restart()
     const leader = await roster('Priya Raman')
     const relationship = await pair(leader, await roster('Quinn Barrett'))
 
@@ -198,7 +203,7 @@ describe('the scheduled tick', () => {
   })
 
   it('sends nothing and raises nothing when the Leader accepts in time', async () => {
-    restart()
+    await restart()
     const leader = await roster('Grace Miller')
     const participant = await roster('Hannah Reed')
     const relationship = await pair(leader, participant)
@@ -232,7 +237,7 @@ describe('the scheduled tick', () => {
   })
 
   it('is not brought down for a whole Ministry by one Leader who opted out', async () => {
-    restart()
+    await restart()
     const silent = await roster('Kofi Mensah')
     const reachable = await roster('Leah Osei')
     const withSilent = await pair(silent, await roster('Marcus Webb'))

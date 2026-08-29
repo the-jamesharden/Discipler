@@ -25,7 +25,7 @@ This is what makes reply binding by most-recent-prompt safe for scheduled traffi
 ### Settled — what "timed out" means, per prompt kind
 
 A prompt is **timed out** at the moment a reply to it can no longer change anything. The
-hold above depends on this and it spans tickets 08, 09, 17 and 20, so the four cases are
+hold above depends on this and it spans tickets 08a, 09, 17 and 20, so the four cases are
 fixed here:
 
 - **Check-in question** — 48 hours after the original send (24 to the reminder, 24 more

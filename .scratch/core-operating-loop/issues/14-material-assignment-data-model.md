@@ -8,7 +8,7 @@ When a Material changes mid-week, the week belongs to whichever was assigned **a
 
 **The assignment interface is deferred from V1; the data is not.** This ticket builds the model and the attribution rule with no admin UI. The history must be complete and correct from the first week of the pilot because it cannot be reconstructed afterwards, and getting it wrong silently invalidates every future report. Verified by tests rather than by a screen.
 
-**Blocked by:** 08
+**Blocked by:** 08a, 08b
 
 **Status:** ready-for-agent
 

@@ -169,6 +169,17 @@ export interface UnitOfWork {
    * which relationship a `1` is about.
    */
   checkInFor(id: PersonId): Promise<CheckInSnapshot | null>
+  /**
+   * Every Leader in this Ministry the cadence could make due, with the cadence
+   * already resolved as `coalesce(r.checkin_day, ms.checkin_day)`.
+   *
+   * *Could*, not *is*. Nothing here reads a clock: which of them a new ISO week
+   * has come due for is decided at the command boundary against the injected
+   * one, so the whole cadence -- the day, the hour, the timezone, the week
+   * boundary and what a mid-week edit does to it -- is provable by a test with no
+   * database and no fortnight of waiting.
+   */
+  leadersDueForCheckIn(): Promise<readonly CheckInSnapshot[]>
 
   openCheckInSequence(sequence: NewCheckInSequence): Promise<void>
   askCheckInQuestion(prompt: NewCheckInPrompt): Promise<void>

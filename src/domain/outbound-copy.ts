@@ -301,6 +301,17 @@ export interface CheckInMessage {
 }
 
 /**
+ * The rest of a conversation, after its opening question: one fixed sentence,
+ * naming nobody and carrying no disclosure. Only `meetingQuestion` differs -- it
+ * names a subject and it is where the monthly opt-out language rides -- so
+ * everything downstream of it shares one envelope and varies only in what it says.
+ */
+const checkInSentence =
+  (body: string) =>
+  ({ ministryName }: CheckInMessage): string =>
+    composeMessage({ ministryName, identifyDelivery: false, discloseOptOut: false, body })
+
+/**
  * Asked only after a `1`. A meeting that did not happen has no quality to report,
  * and asking anyway would cost a Leader a second reply to say so again.
  *
@@ -308,35 +319,19 @@ export interface CheckInMessage {
  * `check-in.ts`, so renaming a token here can never silently re-tokenise a
  * Ministry's history.
  */
-export const satisfactionQuestion = ({ ministryName }: CheckInMessage): string =>
-  composeMessage({
-    ministryName,
-    identifyDelivery: false,
-    discloseOptOut: false,
-    body: 'How did the meeting go? Reply A for outstanding, B for good, C for concern.',
-  })
+export const satisfactionQuestion = checkInSentence(
+  'How did the meeting go? Reply A for outstanding, B for good, C for concern.',
+)
 
 /**
  * Asked only after a `C`. The Concern is already recorded by the time this goes
  * out, so an unanswered request for detail loses nothing that was already said.
  */
-export const concernDetailRequest = ({ ministryName }: CheckInMessage): string =>
-  composeMessage({
-    ministryName,
-    identifyDelivery: false,
-    discloseOptOut: false,
-    body: 'Please tell us more about the concern.',
-  })
+export const concernDetailRequest = checkInSentence('Please tell us more about the concern.')
 
 /**
  * Sent after the *final* relationship and nowhere else. Where a thank-you would
  * otherwise fall, the next relationship's opening question is sent instead -- so
  * receiving this is how a Leader knows the conversation is over.
  */
-export const checkInThankYou = ({ ministryName }: CheckInMessage): string =>
-  composeMessage({
-    ministryName,
-    identifyDelivery: false,
-    discloseOptOut: false,
-    body: 'Thank you. We’ll check in with you next week.',
-  })
+export const checkInThankYou = checkInSentence('Thank you. We’ll check in with you next week.')

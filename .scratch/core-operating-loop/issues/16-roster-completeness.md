@@ -8,7 +8,7 @@ An Admin can **send a Person a link that reopens their own Intake form prefilled
 
 A Person who has **opted out** is excluded from pairing and from follow-up, so the Ministry honors what they told them. `STOP` moves a Person to `Opted Out` at the person level. They receive nothing further, appear in no suggestion, and are not surfaced as a care item — an opted-out Person is not a problem to be solved.
 
-**Blocked by:** 04, 08
+**Blocked by:** 04, 08a, 08b
 
 **Status:** ready-for-agent
 

@@ -33,7 +33,7 @@ export const applyEffects = async (
   effects: readonly Effect[],
   unit: UnitOfWork,
 ): Promise<void> => {
-  // Five separate narrowings rather than one generic collector: each `flatMap`
+  // Separate narrowings rather than one generic collector: each `flatMap`
   // below is type-safe on its own, and the generic that would replace them needs a
   // cast to convince the compiler of what the tag already proves.
   const people = effects.flatMap((effect) =>
@@ -265,9 +265,14 @@ export const createCommandService = ({
           ? { invitation: await resolved(unit, command.token) }
           : {}),
         // Read inside the transaction like everything else, so two ticks racing
-        // each other cannot both find the same relationship unreminded.
+        // each other cannot both find the same Leader unasked. The cadence read
+        // rides along: the tick is the one command that decides a week has come
+        // due, and it decides it for every Leader in one pass.
         ...(command.type === 'scheduled.tick'
-          ? { unaccepted: await unit.unacceptedRelationships() }
+          ? {
+              unaccepted: await unit.unacceptedRelationships(),
+              checkInsDue: await unit.leadersDueForCheckIn(),
+            }
           : {}),
         ...(command.type === 'relationship.cancel'
           ? { relationship: await named(unit, command.relationshipId) }
