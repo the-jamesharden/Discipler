@@ -18,7 +18,7 @@ describe('the command boundary', () => {
   const quiet = {
     ministryName: 'Riverside Chapel',
     appBaseUrl: 'https://discipler.example',
-    tick: { unaccepted: [] },
+    unaccepted: [],
   } as const
 
   it('returns effects rather than performing them', async () => {

@@ -2,7 +2,7 @@ import type {
   InvitationSnapshot,
   PersonContact,
   RelationshipSnapshot,
-  TickSnapshot,
+  UnacceptedRelationship,
 } from '~/domain/boundary'
 import type {
   IntakeRecord,
@@ -39,7 +39,7 @@ export interface InMemoryStore extends EffectStore {
   /** What a token resolves to, or null for one nothing answers to. */
   invitation?: InvitationSnapshot
   /** What the tick finds outstanding. Nothing, until a test says otherwise. */
-  tick: TickSnapshot
+  unaccepted: readonly UnacceptedRelationship[]
   /** What `relationship.cancel` finds, or null for one this Ministry does not hold. */
   relationship?: RelationshipSnapshot
   /** The Ministry every command in this store speaks for. */
@@ -100,7 +100,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
     get cancellations() {
       return [...cancellations]
     },
-    tick: { unaccepted: [] },
+    unaccepted: [],
     contacts: new Map<PersonId, PersonContact>(),
     ministryName: 'Riverside Chapel',
     async transact(_ministryId: MinistryId, work) {
@@ -140,7 +140,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
           stagedResolutions.push(resolution)
         },
         async unacceptedRelationships() {
-          return store.tick
+          return store.unaccepted
         },
         async relationshipFor() {
           return store.relationship ?? null

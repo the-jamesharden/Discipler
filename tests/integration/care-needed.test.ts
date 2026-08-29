@@ -72,8 +72,10 @@ describe('Care Needed', () => {
     return { relationship, participant }
   }
 
+  // The same test clock the commands run on, so the wait each item reports is
+  // asserted against a day the test chose rather than the day it is run.
   const careNeededFor = async (fixture: MinistryFixture) =>
-    readOpenFollowUpItems(await signInAs(fixture), fixture.id)
+    readOpenFollowUpItems(await signInAs(fixture), fixture.id, clock)
 
   it('lists open items for the Admin\'s Ministry and no other', async () => {
     const mine = await raiseIn(ministry, 'Emily Johnson')
@@ -82,7 +84,7 @@ describe('Care Needed', () => {
     const items = await careNeededFor(ministry)
 
     expect(items.map((item) => item.personName)).toEqual(['Emily Johnson'])
-    expect(items[0]?.kind).toBe('match_declined')
+    expect(items[0]?.payload.kind).toBe('match_declined')
     expect(items[0]?.relationshipId).toBe(mine.relationship)
     expect(items[0]?.payload).toEqual({ kind: 'match_declined' })
   })
@@ -100,14 +102,50 @@ describe('Care Needed', () => {
     clock.advanceTo(new Date(createdAt.getTime() + days(5)))
     await service().execute({ type: 'scheduled.tick', ministryId: ministry.id })
 
-    const items = await careNeededFor(ministry)
-    const unaccepted = items.find((item) => item.kind === 'relationship_unaccepted')
+    const onDayFive = (await careNeededFor(ministry)).find(
+      (item) => item.payload.kind === 'relationship_unaccepted',
+    )
 
-    // The duration is read off the relationship, not off a number frozen into the
-    // payload -- which is why an item raised on day five still reads correctly on
-    // day twenty.
-    expect(unaccepted?.relationshipCreatedAt).toEqual(createdAt)
-    expect(unaccepted?.raisedAt).toEqual(new Date(createdAt.getTime() + days(5)))
+    // The instant is kept and the number is derived from it.
+    expect(onDayFive?.relationshipCreatedAt).toEqual(createdAt)
+    expect(onDayFive?.raisedAt).toEqual(new Date(createdAt.getTime() + days(5)))
+    expect(onDayFive?.waitedDays).toBe(5)
+
+    // The same item, a fortnight later. This is the whole reason the wait is
+    // computed at the read and not frozen into the payload when it was raised.
+    clock.advanceTo(new Date(createdAt.getTime() + days(20)))
+    const onDayTwenty = (await careNeededFor(ministry)).find(
+      (item) => item.payload.kind === 'relationship_unaccepted',
+    )
+
+    expect(onDayTwenty?.id).toEqual(onDayFive?.id)
+    expect(onDayTwenty?.relationshipCreatedAt).toEqual(createdAt)
+    expect(onDayTwenty?.waitedDays).toBe(20)
+  })
+
+  it('reports no wait for an item about a Person and no relationship', async () => {
+    // A `participant_keyword` item has a Person and no relationship, so there is
+    // nothing that has been waiting -- and the derived number is absent exactly
+    // where the instant it is derived from is.
+    const person = await roster(ministry, 'Liam Okafor')
+    await store.transact(ministry.id, (unit) =>
+      unit.raiseFollowUp({
+        ministryId: ministry.id,
+        kind: 'participant_keyword',
+        keyword: 'HELP',
+        relationshipId: null,
+        personId: person,
+        raisedAt: clock.now(),
+      }),
+    )
+
+    const item = (await careNeededFor(ministry)).find(
+      (row) => row.payload.kind === 'participant_keyword',
+    )
+
+    expect(item?.personName).toBe('Liam Okafor')
+    expect(item?.relationshipCreatedAt).toBeNull()
+    expect(item?.waitedDays).toBeNull()
   })
 
   it('drops an item once an Admin has resolved it', async () => {

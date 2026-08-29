@@ -110,8 +110,5 @@ create unique index follow_up_item_one_open_per_subject
 -- existing index is ordered for reading a Ministry's history as a timeline and
 -- answers this with a sequential scan, so the cost of a tick would climb with the
 -- Ministry's whole history rather than with what is outstanding in it.
---
--- Ticket 10 derives Relationship State from the same shape of question, so this is
--- the access path the history table is about to be read by, not just the tick's.
 create index ministry_event_subject_idx
   on ministry_event (ministry_id, type, subject_id);

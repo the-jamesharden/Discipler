@@ -213,7 +213,7 @@ export const createCommandService = ({
         // Read inside the transaction like everything else, so two ticks racing
         // each other cannot both find the same relationship unreminded.
         ...(command.type === 'scheduled.tick'
-          ? { tick: await unit.unacceptedRelationships() }
+          ? { unaccepted: await unit.unacceptedRelationships() }
           : {}),
         ...(command.type === 'relationship.cancel'
           ? { relationship: await named(unit, command.relationshipId) }

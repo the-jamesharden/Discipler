@@ -126,6 +126,12 @@ export type CancellationRefusal =
   | 'relationship.already_accepted'
   /** Already withdrawn or already ended. Cancelling twice frees nobody twice. */
   | 'relationship.already_ended'
+  /**
+   * The account cancelling is not a member of this Ministry. Holding an account is
+   * not standing to disband somebody else's relationship, and the composite key on
+   * `ended_by` is what says so.
+   */
+  | 'relationship.canceller_is_not_in_this_ministry'
 
 export class CancellationRefused extends Error {
   constructor(readonly refusal: CancellationRefusal) {

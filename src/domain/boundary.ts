@@ -1,5 +1,5 @@
 import type { Command } from './commands'
-import { days, type Clock } from './clock'
+import { days, daysSince, type Clock } from './clock'
 import {
   acceptInvitation,
   appendHistory,
@@ -38,14 +38,18 @@ import {
   type RelationshipId,
 } from './ids'
 import {
-  ACCEPTANCE_ESCALATION_DAYS,
-  ACCEPTANCE_REMINDER_DAYS,
   invitationState,
   invitationToken,
   issueInvitation,
   type InvitationToken,
 } from './invitations'
-import { kindFor, type MemberRole, type NewMembership } from './relationships'
+import {
+  ACCEPTANCE_ESCALATION_DAYS,
+  ACCEPTANCE_REMINDER_DAYS,
+  kindFor,
+  type MemberRole,
+  type NewMembership,
+} from './relationships'
 import { rosterKey, type PhoneNumber, type RosterKey, type RowRejection } from './roster'
 import { readRosterFile } from './roster-csv'
 
@@ -93,7 +97,7 @@ export interface CommandContext {
    * is: an unloaded snapshot and a Ministry with nothing outstanding are the same
    * value and opposite facts, and one of them silently reminds nobody.
    */
-  readonly tick?: TickSnapshot
+  readonly unaccepted?: readonly UnacceptedRelationship[]
   /**
    * The one relationship an Admin command names, as the database holds it now.
    * Absent when the command names none.
@@ -143,17 +147,17 @@ export interface UnacceptedRelationship {
   readonly createdAt: Date
   readonly awaiting: readonly AwaitingLeader[]
   /**
-   * Whether a `relationship_unaccepted` item has *ever* been raised against it,
-   * resolved ones included. The partial unique index refuses a second open row
-   * anyway; this is what keeps the tick from appending a history event a day, and
-   * from re-raising an item an Admin has already dealt with -- which would make
-   * resolving the one action on this surface that does not stick.
+   * Whether a `relationship_unaccepted` item about it is *open* right now. The
+   * partial unique index refuses a second open row anyway; this is what keeps the
+   * tick from appending a history event a day for a condition an Admin is already
+   * looking at.
+   *
+   * Deliberately not "has ever been raised". An Admin who resolves the item
+   * without cancelling has closed a record, not made the relationship accepted --
+   * and a relationship that can never be raised again is one nobody is ever told
+   * about, which is the invisibility this ticket exists to end.
    */
-  readonly alreadyRaised: boolean
-}
-
-export interface TickSnapshot {
-  readonly unaccepted: readonly UnacceptedRelationship[]
+  readonly itemStandsOpen: boolean
 }
 
 /**
@@ -294,15 +298,17 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       // It carries the Acceptance thresholds today. The rest of the care rules --
       // the twenty-four hour sequence timeout, the next-day reminder, Pause expiry
       // -- land here as their tickets build them.
-      const { tick, ministryName, appBaseUrl: baseUrl } = context
-      if (!tick) throw new Error('scheduled.tick was handed no state to evaluate')
+      const { unaccepted, ministryName, appBaseUrl } = context
+      if (!unaccepted) throw new Error('scheduled.tick was handed no state to evaluate')
       if (!ministryName) throw new Error('scheduled.tick was handed no Ministry to speak for')
-      if (!baseUrl) throw new Error('scheduled.tick was handed nowhere for its links to point')
+      if (!appBaseUrl) {
+        throw new Error('scheduled.tick was handed nowhere for its links to point')
+      }
 
       const now = context.clock.now()
       const effects: Effect[] = []
 
-      for (const relationship of tick.unaccepted) {
+      for (const relationship of unaccepted) {
         // From creation, not from when any one Leader was invited. Nothing adds a
         // member to a relationship after it is formed, so the two are the same
         // instant today; measuring from the relationship is what keeps them the
@@ -326,7 +332,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
                 body: acceptanceReminderMessage({
                   ministryName,
                   fullName: leader.fullName,
-                  link: invitationLink(baseUrl, leader.token),
+                  link: invitationLink(appBaseUrl, leader.token),
                 }),
                 enqueuedAt: now,
                 // No message to a Leader contains a phone number.
@@ -344,12 +350,16 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           }
         }
 
-        // It stops being the Leader's to solve and becomes the Admin's. The item
-        // is raised once and then stands: raising it again on days six and seven
-        // would tell the Admin nothing they are not already looking at, and the
-        // history event beside it would become a row a day for a condition nobody
-        // had acted on. The partial unique index refuses the second row regardless.
-        if (waited >= days(ACCEPTANCE_ESCALATION_DAYS) && !relationship.alreadyRaised) {
+        // It stops being the Leader's to solve and becomes the Admin's. One open
+        // item at a time: raising it again on days six and seven would tell the
+        // Admin nothing they are not already looking at, and the history event
+        // beside it would become a row a day for a condition nobody had acted on.
+        // The partial unique index refuses the second open row regardless.
+        //
+        // Once the Admin resolves it and the relationship is *still* unaccepted,
+        // the condition is true again and is raised again. Resolving records that
+        // an Admin acted; it does not make a Leader agree.
+        if (waited >= days(ACCEPTANCE_ESCALATION_DAYS) && !relationship.itemStandsOpen) {
           effects.push(
             raiseFollowUpItem({
               ministryId: command.ministryId,
@@ -369,7 +379,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
               // How long it had waited when it was raised. What the Admin is shown
               // is read live off `created_at`, because this number is true of the
               // moment it was written and stops being true the next day.
-              payload: { waitedDays: Math.floor(waited / days(1)) },
+              payload: { waitedDays: daysSince(relationship.createdAt, now) },
             }),
           )
         }
@@ -408,6 +418,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             ministryId: command.ministryId,
             relationshipId: relationship.relationshipId,
             cancelledAt: now,
+            cancelledBy: command.cancelledBy,
             memberIds: relationship.memberIds,
           }),
           appendHistory({
@@ -418,9 +429,10 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             subjectId: relationship.relationshipId,
             payload: {
               memberIds: [...relationship.memberIds],
-              waitedDays: Math.floor(
-                (now.getTime() - relationship.createdAt.getTime()) / days(1),
-              ),
+              waitedDays: daysSince(relationship.createdAt, now),
+              // Append-only, so this is the record that survives the Admin
+              // leaving the Ministry and `ended_by` being nulled with them.
+              cancelledBy: command.cancelledBy,
             },
           }),
         ],

@@ -13,7 +13,7 @@ import {
   createPostgresInvitationReader,
   type PostgresInvitationReader,
 } from '~/platform/supabase/invitation-reader'
-import { supabaseCareNeededReader } from '~/platform/supabase/care-needed-reader'
+import { createSupabaseCareNeededReader } from '~/platform/supabase/care-needed-reader'
 import { supabaseLeaderAccounts } from '~/platform/supabase/leader-accounts'
 import { supabaseRosterReader } from '~/platform/supabase/roster-reader'
 import { createCommandService, type CommandService } from './command-service'
@@ -99,9 +99,11 @@ export const getRosterReader = (): RosterReader => supabaseRosterReader
 /**
  * Care Needed reads through the signed-in Admin's session, so the policy on
  * `follow_up_item` is what scopes it to their Ministry rather than anything this
- * container passes down.
+ * container passes down. The clock is passed down, because how long each item has
+ * waited is computed at the moment of the read.
  */
-export const getCareNeededReader = (): CareNeededReader => supabaseCareNeededReader
+export const getCareNeededReader = (): CareNeededReader =>
+  createSupabaseCareNeededReader(systemClock)
 
 /**
  * Acceptance is the only surface that mints an account, but it reaches its adapter

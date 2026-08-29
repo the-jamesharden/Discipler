@@ -3,7 +3,6 @@ import {
   handleCommand,
   type AwaitingLeader,
   type CommandContext,
-  type TickSnapshot,
   type UnacceptedRelationship,
 } from '~/domain/boundary'
 import { createTestClock, days } from '~/domain/clock'
@@ -42,18 +41,21 @@ const unaccepted = (over: Partial<UnacceptedRelationship> = {}): UnacceptedRelat
   relationshipId: relationship,
   createdAt,
   awaiting: [awaiting(david, 'David Ellis')],
-  alreadyRaised: false,
+  itemStandsOpen: false,
   ...over,
 })
 
-const tick = (at: Date, snapshot: TickSnapshot = { unaccepted: [unaccepted()] }) =>
+const tick = (
+  at: Date,
+  outstanding: readonly UnacceptedRelationship[] = [unaccepted()],
+) =>
   handleCommand({ type: 'scheduled.tick', ministryId: ministry }, {
     ministryId: ministry,
     clock: createTestClock(at),
     ids: createSequentialIds(),
     ministryName: 'Riverside Chapel',
     appBaseUrl: 'https://discipler.example',
-    tick: snapshot,
+    unaccepted: outstanding,
   } satisfies CommandContext)
 
 const after = (elapsed: number) => new Date(createdAt.getTime() + elapsed)
@@ -80,7 +82,7 @@ describe('the scheduled tick', () => {
   })
 
   it('changes nothing when a Ministry has nothing outstanding', () => {
-    expect(tick(after(days(30)), { unaccepted: [] }).effects).toEqual([])
+    expect(tick(after(days(30)), []).effects).toEqual([])
   })
 
   it('refuses to run against a snapshot it was not handed', () => {
@@ -120,16 +122,16 @@ describe('a relationship nobody has accepted', () => {
       awaiting: [awaiting(david, 'David Ellis', { remindedAt: after(days(2)) })],
     })
 
-    expect(messages(tick(after(days(3)), { unaccepted: [alreadyReminded] }))).toHaveLength(0)
-    expect(messages(tick(after(days(9)), { unaccepted: [alreadyReminded] }))).toHaveLength(0)
+    expect(messages(tick(after(days(3)), [alreadyReminded]))).toHaveLength(0)
+    expect(messages(tick(after(days(9)), [alreadyReminded]))).toHaveLength(0)
   })
 
   it('chases only the Leaders who have not agreed', () => {
     // A co-leader who accepted on day one is not chased for somebody else. Their
     // acceptance closed their own membership's question and nothing more.
-    const result = tick(after(days(2)), {
-      unaccepted: [unaccepted({ awaiting: [awaiting(sarah, 'Sarah Chen')] })],
-    })
+    const result = tick(after(days(2)), [
+      unaccepted({ awaiting: [awaiting(sarah, 'Sarah Chen')] }),
+    ])
 
     expect(messages(result).map((message) => message.personId)).toEqual([sarah])
   })
@@ -152,9 +154,9 @@ describe('a relationship nobody has accepted', () => {
   })
 
   it('raises exactly one item however often the tick runs', () => {
-    const standing = unaccepted({ alreadyRaised: true })
+    const standing = unaccepted({ itemStandsOpen: true })
 
-    const result = tick(after(days(6)), { unaccepted: [standing] })
+    const result = tick(after(days(6)), [standing])
 
     expect(raised(result)).toHaveLength(0)
     // And no history event either. A condition nobody has acted on yet must not
@@ -162,12 +164,18 @@ describe('a relationship nobody has accepted', () => {
     expect(historyOfType(result, 'follow_up.relationship_unaccepted')).toHaveLength(0)
   })
 
-  it('does not raise a second item after an Admin has resolved the first', () => {
-    // `alreadyRaised` counts resolved items too. An Admin who chased the Leader by
-    // phone and closed the item has acted on it; raising an identical one the next
-    // morning would make resolving the one action here that does not stick.
-    expect(raised(tick(after(days(20)), { unaccepted: [unaccepted({ alreadyRaised: true })] })))
-      .toHaveLength(0)
+  it('raises again once an Admin has resolved the first and nobody has accepted', () => {
+    // Deduping is *while the item stands open*, which is the rule the partial
+    // unique index holds too. Resolving records that an Admin acted; it does not
+    // make a Leader agree, and a relationship that could never be raised again is
+    // one nobody is ever told about -- the invisibility this whole ticket exists
+    // to end.
+    const result = tick(after(days(20)), [unaccepted({ itemStandsOpen: false })])
+
+    expect(raised(result)).toHaveLength(1)
+    expect(historyOfType(result, 'follow_up.relationship_unaccepted')[0]?.payload).toEqual({
+      waitedDays: 20,
+    })
   })
 
   it('does not remind a Leader whose link has run out', () => {
@@ -178,15 +186,15 @@ describe('a relationship nobody has accepted', () => {
       awaiting: [awaiting(david, 'David Ellis', { linkExpiresAt: after(days(3)) })],
     })
 
-    expect(messages(tick(after(days(2)), { unaccepted: [expired] }))).toHaveLength(1)
-    expect(messages(tick(after(days(4)), { unaccepted: [expired] }))).toHaveLength(0)
-    expect(raised(tick(after(days(5)), { unaccepted: [expired] }))).toHaveLength(1)
+    expect(messages(tick(after(days(2)), [expired]))).toHaveLength(1)
+    expect(messages(tick(after(days(4)), [expired]))).toHaveLength(0)
+    expect(raised(tick(after(days(5)), [expired]))).toHaveLength(1)
   })
 
   it('does not clear the item it raised', () => {
     // Nothing the tick returns closes anything. An item persists until an Admin
     // acts on it, which is the property that makes Care Needed trustworthy.
-    const result = tick(after(days(20)), { unaccepted: [unaccepted({ alreadyRaised: true })] })
+    const result = tick(after(days(20)), [unaccepted({ itemStandsOpen: true })])
 
     expect(result.effects.filter((effect) => effect.kind === 'followUp.resolve')).toEqual([])
   })
@@ -196,6 +204,6 @@ describe('a relationship accepted before the thresholds', () => {
   it('is not in the snapshot at all, so nothing is sent and nothing is raised', () => {
     // Acceptance stamps the relationship, which is what takes it out of the read
     // the tick evaluates. There is no second rule here to keep in step with it.
-    expect(tick(after(days(30)), { unaccepted: [] }).effects).toEqual([])
+    expect(tick(after(days(30)), []).effects).toEqual([])
   })
 })

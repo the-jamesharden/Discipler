@@ -3,7 +3,7 @@ import type {
   InvitationSnapshot,
   PersonContact,
   RelationshipSnapshot,
-  TickSnapshot,
+  UnacceptedRelationship,
 } from '~/domain/boundary'
 import type {
   IntakeRecord,
@@ -12,7 +12,6 @@ import type {
   RelationshipCancellation,
 } from '~/domain/effects'
 import type {
-  FollowUpKind,
   FollowUpPayload,
   FollowUpResolution,
   NewFollowUpItem,
@@ -141,7 +140,7 @@ export interface UnitOfWork {
    * still to agree and whether each has been reminded. Everything the tick needs to
    * decide anything, read in one place so the domain fetches nothing.
    */
-  unacceptedRelationships(): Promise<TickSnapshot>
+  unacceptedRelationships(): Promise<readonly UnacceptedRelationship[]>
   /**
    * One relationship as the database holds it now, or null when this Ministry has
    * none by that identifier -- which is the same answer for one that belongs to
@@ -331,27 +330,40 @@ export interface InvitationReader {
  */
 export interface CareNeededItem {
   readonly id: FollowUpItemId
-  readonly kind: FollowUpKind
   readonly raisedAt: Date
   readonly relationshipId: RelationshipId | null
   readonly personId: PersonId | null
   /** The Person the item is about, when it is about one. */
   readonly personName: string | null
   /**
-   * When the relationship the item is about was created, so a
-   * `relationship_unaccepted` item can say how long it has waited *now*. Read live
-   * rather than frozen into the payload, because an item raised on day five is
-   * still the same item on day twenty and should not still be saying five.
+   * When the relationship the item is about was created. The underlying fact, kept
+   * alongside the derived one: history and any later question about this item are
+   * answered from the instant, never from a number somebody rounded.
    */
   readonly relationshipCreatedAt: Date | null
-  /** What the kind carries, already narrowed to the kind that carries it. */
+  /**
+   * How long it has waited, in whole days, as of the moment this was read. What
+   * the Care Needed view shows -- computed here off `relationshipCreatedAt` and
+   * the injected clock rather than frozen into the payload, because an item raised
+   * on day five is still the same item on day twenty and must not still say five.
+   *
+   * Null exactly when `relationshipCreatedAt` is: an item about a Person and no
+   * relationship has nothing that has been waiting.
+   */
+  readonly waitedDays: number | null
+  /**
+   * The kind and what it carries, as one value. Not a `kind` field beside a
+   * payload: those are two things that can disagree, and only one of them can be
+   * narrowed by the compiler at the point a screen reads the period out.
+   */
   readonly payload: FollowUpPayload
 }
 
 export interface CareNeededReader {
   /**
    * Open items only, newest first, for one Ministry -- and enforced as such in the
-   * database rather than here. A resolved item leaves the view and stays in the
+   * database rather than here. Each carries how long it has waited as of the read,
+   * which is why an implementation of this needs a clock. A resolved item leaves the view and stays in the
    * table, because how fast a Ministry closes its care items is a question it
    * should be able to ask later.
    */

@@ -94,6 +94,7 @@ describe('cancelling a relationship nobody accepted', () => {
       type: 'relationship.cancel',
       ministryId: ministry.id,
       relationshipId: relationship,
+      cancelledBy: ministry.adminUserId,
     })
 
     // The Participant is pairable again, which is the whole point of the command.
@@ -107,17 +108,57 @@ describe('cancelling a relationship nobody accepted', () => {
     )
     expect(open).toHaveLength(0)
 
-    const { rows: ended } = await pool.query<{ ended_reason: string; ended_at: Date }>(
-      `select ended_reason, ended_at from relationship where id = $1`,
+    // Who decided, as well as when and why. Disbanding a relationship tells nobody
+    // in it, so an unattributed one is the kind of act the product rules require a
+    // record of.
+    const { rows: ended } = await pool.query<{
+      ended_reason: string
+      ended_at: Date
+      ended_by: string
+    }>(
+      `select ended_reason, ended_at, ended_by from relationship where id = $1`,
       [relationship],
     )
     expect(ended[0]?.ended_reason).toBe('cancelled')
+    expect(ended[0]?.ended_by).toBe(ministry.adminUserId)
 
+    // And in history, which is append-only and outlives the membership -- the
+    // column is nulled if the Admin later leaves the Ministry; this is not.
     const { rows: events } = await pool.query<{ payload: Record<string, unknown> }>(
       `select payload from ministry_event where subject_id = $1 and type = 'relationship.cancelled'`,
       [relationship],
     )
-    expect(events[0]?.payload).toMatchObject({ waitedDays: 6 })
+    expect(events[0]?.payload).toMatchObject({
+      waitedDays: 6,
+      cancelledBy: ministry.adminUserId,
+    })
+  })
+
+  it('refuses a canceller who is not in the Ministry', async () => {
+    // Holding an account is not standing to disband somebody else's relationship.
+    // The composite key on `ended_by` is what refuses it, and it reaches the caller
+    // as a refusal code rather than as a Postgres error.
+    restart()
+    const relationship = await pair(await roster('Omar Haddad'), await roster('Petra Lang'))
+    const elsewhere = await createMinistryWithAdmin('Northside Fellowship')
+
+    await expect(
+      service().execute({
+        type: 'relationship.cancel',
+        ministryId: ministry.id,
+        relationshipId: relationship,
+        cancelledBy: elsewhere.adminUserId,
+      }),
+    ).rejects.toThrow(
+      expect.objectContaining({ refusal: 'relationship.canceller_is_not_in_this_ministry' }),
+    )
+
+    // And nothing was half-done: the relationship stands and everyone is still in it.
+    const { rows } = await pool.query<{ ended_at: Date | null }>(
+      `select ended_at from relationship where id = $1`,
+      [relationship],
+    )
+    expect(rows[0]?.ended_at).toBeNull()
   })
 
   it('leaves the follow-up item standing, for an Admin to close deliberately', async () => {
@@ -132,6 +173,7 @@ describe('cancelling a relationship nobody accepted', () => {
       type: 'relationship.cancel',
       ministryId: ministry.id,
       relationshipId: relationship,
+      cancelledBy: ministry.adminUserId,
     })
 
     // Never cleared by the event that raised it and never clears itself. Cancelling
@@ -176,6 +218,7 @@ describe('cancelling a relationship nobody accepted', () => {
         type: 'relationship.cancel',
         ministryId: ministry.id,
         relationshipId: relationship,
+        cancelledBy: ministry.adminUserId,
       }),
     ).rejects.toThrow(CancellationRefused)
   })
@@ -187,6 +230,7 @@ describe('cancelling a relationship nobody accepted', () => {
         type: 'relationship.cancel',
         ministryId: ministry.id,
         relationshipId: relationshipId('00000000-0000-4000-8000-0000000000ff'),
+        cancelledBy: ministry.adminUserId,
       }),
     ).rejects.toThrow(expect.objectContaining({ refusal: 'relationship.not_found' }))
   })

@@ -122,6 +122,12 @@ export interface RelationshipCancellation {
   readonly ministryId: MinistryId
   readonly relationshipId: RelationshipId
   readonly cancelledAt: Date
+  /**
+   * The Admin who decided. Written to `relationship.ended_by`, whose composite key
+   * onto `ministry_member` is what refuses somebody who merely holds an account,
+   * and appended to history, which outlives the membership.
+   */
+  readonly cancelledBy: string
   /** Everyone whose open membership this closes. Recorded, not looked up again. */
   readonly memberIds: readonly PersonId[]
 }

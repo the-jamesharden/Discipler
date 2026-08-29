@@ -1,7 +1,7 @@
 import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createTestClock, days } from '~/domain/clock'
-import { personId, type IdSource, type PersonId } from '~/domain/ids'
+import { followUpItemId, personId, type IdSource, type PersonId } from '~/domain/ids'
 import { invitationToken } from '~/domain/invitations'
 import { createPostgresEffectStore } from '~/platform/supabase/effect-store'
 import { createCommandService } from '~/service/command-service'
@@ -97,6 +97,15 @@ describe('the scheduled tick', () => {
     return rows
   }
 
+  const openItemRowsOn = async (relationship: string) => {
+    const { rows } = await pool.query<{ id: string }>(
+      `select id from follow_up_item
+        where relationship_id = $1 and resolved_at is null`,
+      [relationship],
+    )
+    return rows
+  }
+
   const eventsOn = async (relationship: string, type: string) => {
     const { rows } = await pool.query<{ payload: Record<string, unknown> }>(
       `select payload from ministry_event where subject_id = $1 and type = $2`,
@@ -149,6 +158,43 @@ describe('the scheduled tick', () => {
 
     const raisings = await eventsOn(relationship, 'follow_up.relationship_unaccepted')
     expect(raisings).toEqual([{ payload: { waitedDays: 5 } }])
+  })
+
+  it('raises again after an Admin resolves the item and nobody has accepted', async () => {
+    // Deduping is *while the item stands open*, which is the rule the partial
+    // unique index holds. Resolving records that an Admin acted on the condition;
+    // it does not make a Leader agree -- so a relationship that could never be
+    // raised a second time would be one nobody is told about again, which is the
+    // invisibility this whole ticket exists to end.
+    restart()
+    const leader = await roster('Priya Raman')
+    const relationship = await pair(leader, await roster('Quinn Barrett'))
+
+    on(days(5))
+    await tick()
+    const [item] = await openItemRowsOn(relationship)
+    expect(item).toBeDefined()
+
+    await service().execute({
+      type: 'follow_up.resolve',
+      ministryId: ministry.id,
+      itemId: followUpItemId(item!.id),
+      resolvedBy: ministry.adminUserId,
+    })
+    expect(await openItemsOn(relationship)).toHaveLength(0)
+
+    on(days(6))
+    await tick()
+
+    expect(await openItemsOn(relationship)).toEqual([
+      { kind: 'relationship_unaccepted', payload: {} },
+    ])
+    // Two raisings in the record, and the Admin has one thing to act on. The
+    // history accumulates; the Care Needed list does not.
+    expect(await eventsOn(relationship, 'follow_up.relationship_unaccepted')).toEqual([
+      { payload: { waitedDays: 5 } },
+      { payload: { waitedDays: 6 } },
+    ])
   })
 
   it('sends nothing and raises nothing when the Leader accepts in time', async () => {

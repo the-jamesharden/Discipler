@@ -5,7 +5,7 @@ import type {
   InvitationSnapshot,
   PersonContact,
   RelationshipSnapshot,
-  TickSnapshot,
+  UnacceptedRelationship,
 } from '~/domain/boundary'
 import type {
   IntakeRecord,
@@ -484,7 +484,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     )
   },
 
-  async unacceptedRelationships(): Promise<TickSnapshot> {
+  async unacceptedRelationships(): Promise<readonly UnacceptedRelationship[]> {
     // One tick per Ministry at a time. Without this two overlapping runs each read
     // `reminded_at` as null and each text the same Leader, because a row lock
     // would not help: the reminder is read out of history in a subquery, and a
@@ -502,25 +502,28 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     const { rows: relationships } = await client.query<{
       id: string
       created_at: Date
-      already_raised: boolean
+      item_stands_open: boolean
     }>(
-      // `already_raised` counts resolved items too. An Admin who chased the Leader
-      // by phone and closed the item has acted on it; raising an identical one the
-      // next morning would be Discipler overruling that, and would make resolving
-      // the one thing on this surface that does not stick.
+      // Open items only, which is the same rule the partial unique index holds and
+      // the one the spec settles: every kind dedupes *while it stands open*, and
+      // the history accumulates. Counting resolved items here would have deduped
+      // forever -- an Admin who closed the item without cancelling would have made
+      // that relationship permanently invisible to the surface that exists to stop
+      // exactly that, and no later run would ever mention it again.
       `select r.id,
               r.created_at,
               exists (
                 select 1 from follow_up_item f
                  where f.relationship_id = r.id
                    and f.kind = 'relationship_unaccepted'
-              ) as already_raised
+                   and f.resolved_at is null
+              ) as item_stands_open
          from relationship r
         where r.accepted_at is null and r.ended_at is null
         order by r.created_at`,
     )
 
-    if (relationships.length === 0) return { unaccepted: [] }
+    if (relationships.length === 0) return []
 
     // Only the Leaders a reminder can actually reach: an open leader membership
     // with no acceptance on it, an Invitation Link nothing has spent, and standing
@@ -594,14 +597,12 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       ])
     }
 
-    return {
-      unaccepted: relationships.map((row) => ({
-        relationshipId: relationshipId(row.id),
-        createdAt: row.created_at,
-        awaiting: awaitingBy.get(row.id) ?? [],
-        alreadyRaised: row.already_raised,
-      })),
-    }
+    return relationships.map((row) => ({
+      relationshipId: relationshipId(row.id),
+      createdAt: row.created_at,
+      awaiting: awaitingBy.get(row.id) ?? [],
+      itemStandsOpen: row.item_stands_open,
+    }))
   },
 
   async relationshipFor(id: RelationshipId): Promise<RelationshipSnapshot | null> {
@@ -644,11 +645,24 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // The database has the final say, as it does on activation. The domain decided
     // from a snapshot read under a lock earlier in this transaction; this refuses
     // to stamp anything that has since been accepted or ended.
-    const { rowCount: withdrawn } = await client.query(
-      `update relationship set ended_at = $2, ended_reason = 'cancelled'
-        where id = $1 and ended_at is null and accepted_at is null`,
-      [cancellation.relationshipId, cancellation.cancelledAt],
-    )
+    let withdrawn: number | null
+    try {
+      ;({ rowCount: withdrawn } = await client.query(
+        `update relationship
+            set ended_at = $2, ended_reason = 'cancelled', ended_by = $3
+          where id = $1 and ended_at is null and accepted_at is null`,
+        [cancellation.relationshipId, cancellation.cancelledAt, cancellation.cancelledBy],
+      ))
+    } catch (error) {
+      // The composite key onto `ministry_member` is what says an account is not
+      // enough: the canceller has to belong to this Ministry. Translated here like
+      // every other constraint, so it reaches a surface as a code rather than as a
+      // Postgres error nobody upstream can read.
+      if (constraintViolated(error) === 'relationship_ended_by_fk') {
+        throw new CancellationRefused('relationship.canceller_is_not_in_this_ministry')
+      }
+      throw error
+    }
     if (withdrawn === 0) throw new CancellationRefused('relationship.already_ended')
 
     // Closing every open membership is the whole of returning everyone to the

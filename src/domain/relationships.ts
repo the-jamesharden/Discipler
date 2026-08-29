@@ -40,3 +40,17 @@ export interface NewRelationship {
  */
 export const kindFor = (leaderCount: number, participantCount: number): RelationshipKind =>
   leaderCount === 1 && participantCount === 1 ? 'one_to_one' : 'group'
+
+/**
+ * The two thresholds a relationship nobody has accepted crosses, both measured
+ * from when it was created -- never from when any one Leader was invited -- and
+ * both evaluated by the scheduled tick.
+ *
+ * They are an escalation, not two copies of the same message. At two days the
+ * Leader is reminded, because the likeliest reason nothing has happened is a text
+ * that scrolled away. At five days it stops being their problem to solve and
+ * surfaces to an Admin, who can chase them or cancel it -- and the item stays up
+ * until the Admin acts, which a second text to the Leader would not.
+ */
+export const ACCEPTANCE_REMINDER_DAYS = 2
+export const ACCEPTANCE_ESCALATION_DAYS = 5

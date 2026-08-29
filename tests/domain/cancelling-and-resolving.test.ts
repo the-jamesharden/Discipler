@@ -36,7 +36,12 @@ const context = (over: Partial<CommandContext> = {}): CommandContext => ({
 
 const cancel = (relationshipSnapshot = snapshot()) =>
   handleCommand(
-    { type: 'relationship.cancel', ministryId: ministry, relationshipId: relationship },
+    {
+      type: 'relationship.cancel',
+      ministryId: ministry,
+      relationshipId: relationship,
+      cancelledBy: 'admin-user-1',
+    },
     context({ relationship: relationshipSnapshot }),
   )
 
@@ -57,7 +62,11 @@ describe('cancelling a relationship nobody accepted', () => {
 
     expect(event.event.type).toBe('relationship.cancelled')
     expect(event.event.subjectId).toBe(relationship)
-    expect(event.event.payload).toEqual({ memberIds: [david, emily], waitedDays: 6 })
+    expect(event.event.payload).toEqual({
+      memberIds: [david, emily],
+      waitedDays: 6,
+      cancelledBy: 'admin-user-1',
+    })
   })
 
   it('tells nobody', () => {
@@ -110,9 +119,6 @@ describe('resolving a follow-up item', () => {
       resolvedBy: 'admin-user-1',
       resolvedAt: now,
     })
-    // No note. Resolving is one click, and what the Admin actually did is
-    // recorded as a fact of its own rather than retyped here.
-    expect(Object.keys(effect.resolution)).not.toContain('note')
   })
 
   it('appends a history event', () => {

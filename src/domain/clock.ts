@@ -46,3 +46,12 @@ export const minutes = (n: number): number => seconds(n) * 60
 export const hours = (n: number): number => minutes(n) * 60
 export const days = (n: number): number => hours(n) * 24
 export const weeks = (n: number): number => days(n) * 7
+
+/**
+ * Whole days elapsed, rounded down. Both places that report how long a
+ * relationship has waited -- the escalation event and the cancellation event --
+ * ask this rather than each doing the division, so they can never disagree about
+ * what a day is.
+ */
+export const daysSince = (from: Date, now: Date): number =>
+  Math.floor((now.getTime() - from.getTime()) / days(1))

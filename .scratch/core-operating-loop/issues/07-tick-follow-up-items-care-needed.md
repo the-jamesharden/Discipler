@@ -124,12 +124,27 @@ message twice.
 **`relationship_unaccepted` stores no payload.** The kinds table says its payload is
 "how long it has waited", but the check-constraint criterion names only the two kinds
 that carry data. The duration is derived from `relationship.created_at` when the view is
-drawn: a frozen number would say *five days* on the twentieth day.
+drawn: a frozen number would say *five days* on the twentieth day. `CareNeededItem`
+carries both — `relationshipCreatedAt`, the instant the data and history keep, and
+`waitedDays`, computed off it against the injected clock at the moment of the read,
+which is the number the view shows.
 
 **A `relationship_unaccepted` item is raised at most once per relationship, ever.**
-The tick skips a relationship that has one, resolved ones included. An Admin who chases
-the Leader by phone and closes the item has acted on it; raising an identical one the
-next morning would make resolving the one action on this surface that does not stick.
+*Reverted on review.* It was implemented that way first, on the reasoning that an Admin
+who chases the Leader by phone and closes the item has acted on it. But the spec
+amendment of 2026-08-29 says **every kind dedupes while it stands open**, which is also
+the rule the partial unique index holds — and deduping forever meant an Admin who
+resolved the item without cancelling made that relationship permanently invisible to the
+surface built to stop exactly that. The tick now skips a relationship with an *open*
+item and raises again once one is resolved and nobody has yet accepted.
+
+**Cancelling records the Admin who decided.** `relationship.cancel` carries
+`cancelledBy`, written to a new `relationship.ended_by` column whose composite key onto
+`ministry_member` refuses somebody who merely holds an account, and appended to the
+`relationship.cancelled` history event, which outlives the membership. The column sits
+beside `ended_at` and `ended_reason` rather than waiting for ticket 13, which is the
+second writer of the same three columns — adding it there would leave every cancellation
+before it unattributed.
 
 **Cancelling does not resolve the item.** An item persists until an Admin acts on it,
 and resolving is its own recorded act with its own actor and time. Cancelling a

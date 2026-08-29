@@ -70,6 +70,12 @@ export type Command =
       readonly type: 'relationship.cancel'
       readonly ministryId: MinistryId
       readonly relationshipId: RelationshipId
+      /**
+       * The Admin's account, as the session named it. Cancelling disbands a
+       * relationship and returns everyone in it to the pool with nobody told, so
+       * it is one of the acts the product rules require a named actor for.
+       */
+      readonly cancelledBy: string
     }
   /**
    * An Admin acting on a Follow-Up Item, which is the only thing that closes one.

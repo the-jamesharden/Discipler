@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { daysSince, systemClock, type Clock } from '~/domain/clock'
 import {
   isFollowUpKind,
   readFollowUpPayload,
@@ -70,10 +71,31 @@ const asItemRow = (row: unknown): ItemRow => {
   }
 }
 
-/** Everything a set of rows names, once each, with the nulls dropped. */
-const distinct = (values: readonly (string | null)[]): string[] => [
-  ...new Set(values.flatMap((value) => (value ? [value] : []))),
-]
+/**
+ * One lookup keyed by id, for the two the item rows need: the Person an item is
+ * about, and when its relationship was created. Written once because the two
+ * differ only in the table, the column and what they key -- and a second copy of
+ * a three-step fetch-check-map is where the two quietly stop matching.
+ */
+const lookup = async <T>(
+  supabase: SupabaseClient,
+  table: string,
+  column: string,
+  ids: readonly (string | null)[],
+  read: (value: unknown) => T,
+): Promise<Map<string, T>> => {
+  const wanted = [...new Set(ids.flatMap((id) => (id ? [id] : [])))]
+  if (wanted.length === 0) return new Map()
+
+  const { data, error } = await supabase.from(table).select(`id, ${column}`).in('id', wanted)
+  if (error) throw new Error(`Could not read Care Needed: ${error.message}`)
+
+  return new Map(
+    ((data ?? []) as unknown as Record<string, unknown>[]).flatMap((row) =>
+      typeof row.id === 'string' ? [[row.id, read(row[column])] as const] : [],
+    ),
+  )
+}
 
 /**
  * The query itself, against whichever signed-in client it is handed. Separated
@@ -84,6 +106,7 @@ const distinct = (values: readonly (string | null)[]): string[] => [
 export const readOpenFollowUpItems = async (
   supabase: SupabaseClient,
   ministryId: MinistryId,
+  clock: Clock,
 ): Promise<readonly CareNeededItem[]> => {
   // Open items only. A resolved one leaves the view and stays in the table,
   // because how many care items a Ministry raised and how fast it closed them is
@@ -104,57 +127,64 @@ export const readOpenFollowUpItems = async (
   // composite foreign keys carrying `ministry_id`, and asking PostgREST to resolve
   // those inline makes the select list depend on which of two keys it decides a
   // name should travel along.
-  const nameOf = new Map<string, string>()
-  const subjects = distinct(items.map((item) => item.personId))
-  if (subjects.length > 0) {
-    const { data: people, error: peopleError } = await supabase
-      .from('person')
-      .select('id, full_name')
-      .in('id', subjects)
+  //
+  // The second is when each relationship was created, which is what the wait is
+  // computed from below.
+  const nameOf = await lookup(supabase, 'person', 'full_name', items.map((i) => i.personId), String)
+  const createdAtOf = await lookup(
+    supabase,
+    'relationship',
+    'created_at',
+    items.map((item) => item.relationshipId),
+    (value) => new Date(String(value)),
+  )
 
-    if (peopleError) throw new Error(`Could not read Care Needed: ${peopleError.message}`)
-    for (const row of (people ?? []) as { id: string; full_name: string }[]) {
-      nameOf.set(row.id, row.full_name)
+  // Once for the whole list, so two items read in the same breath cannot disagree
+  // about what day it is -- and from the injected clock, like every other
+  // time-dependent rule in this codebase.
+  const now = clock.now()
+
+  return items.flatMap((item) => {
+    // A payload that has lost its period cannot be rendered, but it is one row.
+    // Throwing here would blank the whole of Care Needed over it, which is the
+    // opposite of what this surface is for: everything still legible is shown, and
+    // the drifted row is left out rather than taking the rest with it.
+    const createdAt = item.relationshipId
+      ? (createdAtOf.get(item.relationshipId) ?? null)
+      : null
+
+    let payload
+    try {
+      payload = readFollowUpPayload(item.kind, item.payload)
+    } catch {
+      return []
     }
-  }
 
-  // When each relationship was created, so a `relationship_unaccepted` item can
-  // say how long it has waited *now*. Read live rather than frozen into the
-  // payload, because an item raised on day five is the same item on day twenty.
-  const createdAtOf = new Map<string, string>()
-  const relationships = distinct(items.map((item) => item.relationshipId))
-  if (relationships.length > 0) {
-    const { data: rows, error: relationshipError } = await supabase
-      .from('relationship')
-      .select('id, created_at')
-      .in('id', relationships)
-
-    if (relationshipError) {
-      throw new Error(`Could not read Care Needed: ${relationshipError.message}`)
-    }
-    for (const row of (rows ?? []) as { id: string; created_at: string }[]) {
-      createdAtOf.set(row.id, row.created_at)
-    }
-  }
-
-  return items.map((item) => {
-    const createdAt = item.relationshipId ? createdAtOf.get(item.relationshipId) : undefined
-
-    return {
-      id: followUpItemId(item.id),
-      kind: item.kind,
-      raisedAt: new Date(item.raisedAt),
-      relationshipId: item.relationshipId ? relationshipId(item.relationshipId) : null,
-      personId: item.personId ? personId(item.personId) : null,
-      personName: item.personId ? (nameOf.get(item.personId) ?? null) : null,
-      relationshipCreatedAt: createdAt ? new Date(createdAt) : null,
-      payload: readFollowUpPayload(item.kind, item.payload),
-    }
+    return [
+      {
+        id: followUpItemId(item.id),
+        raisedAt: new Date(item.raisedAt),
+        relationshipId: item.relationshipId ? relationshipId(item.relationshipId) : null,
+        personId: item.personId ? personId(item.personId) : null,
+        personName: item.personId ? (nameOf.get(item.personId) ?? null) : null,
+        relationshipCreatedAt: createdAt,
+        // The derived number the view shows, beside the instant it came from. The
+        // instant is what the data keeps; freezing this into the payload instead
+        // would have an item raised on day five still saying five on the twentieth.
+        waitedDays: createdAt ? daysSince(createdAt, now) : null,
+        payload,
+      },
+    ]
   })
 }
 
-export const supabaseCareNeededReader: CareNeededReader = {
+/**
+ * Built with a clock rather than reaching for one, because how long an item has
+ * waited is a time-dependent rule like any other and the composition root is what
+ * decides whose clock answers it.
+ */
+export const createSupabaseCareNeededReader = (clock: Clock = systemClock): CareNeededReader => ({
   async listOpenItems(ministryId) {
-    return readOpenFollowUpItems(await createSupabaseServerClient(), ministryId)
+    return readOpenFollowUpItems(await createSupabaseServerClient(), ministryId, clock)
   },
-}
+})

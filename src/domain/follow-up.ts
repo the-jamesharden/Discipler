@@ -12,27 +12,30 @@ import type { FollowUpItemId, MinistryId, PersonId, RelationshipId } from './ids
  * an answered check-in, so it could never satisfy *never clears itself*. A Concern
  * is excluded too, and gets a table of its own in ticket 10.
  */
-export type FollowUpKind =
+export const FOLLOW_UP_KINDS = [
   /** Raised by the tick, five days after a relationship nobody has accepted was created. */
-  | 'relationship_unaccepted'
+  'relationship_unaccepted',
   /** Raised by the tick at the end of a Pause period. Ticket 12 raises it. */
-  | 'pause_expired'
+  'pause_expired',
   /** A Leader texting `SWAP`. Ticket 17 raises it. */
-  | 'swap_requested'
+  'swap_requested',
   /** A Participant texting a recognized keyword. Ticket 17 raises it. */
-  | 'participant_keyword'
+  'participant_keyword',
   /**
    * A Leader said the number Discipler holds is not theirs. The highest-stakes
    * condition in the product: a wrong number sends that Leader's check-ins to a
    * stranger indefinitely, and a notification that scrolls out of view is exactly
    * the failure a Follow-Up Item exists to prevent.
    */
-  | 'invitation_number_disputed'
+  'invitation_number_disputed',
   /**
    * A Participant said the match is not right. A different actor and a different
    * surface from a Leader texting `SWAP`, and without an item it reaches nobody.
    */
-  | 'match_declined'
+  'match_declined',
+] as const
+
+export type FollowUpKind = (typeof FOLLOW_UP_KINDS)[number]
 
 /**
  * How long a Leader may pause their check-ins. Owned by ticket 12, which builds
@@ -98,9 +101,9 @@ export interface FollowUpResolution {
 }
 
 /**
- * What a kind carries, as the row stores it. The two kinds that carry anything are
- * named here and nowhere else, so the check constraint in the database and the
- * union above have exactly one place between them that can drift.
+ * What a kind carries, as the row stores it. Only two kinds carry anything, so
+ * every other one is the default -- adding a kind that carries nothing needs no
+ * edit here, and adding one that does will not compile without a case.
  */
 export const followUpPayload = (
   item: FollowUpPayload,
@@ -123,9 +126,10 @@ const isPausePeriod = (value: unknown): value is PausePeriodWeeks =>
 /**
  * The same rule read back the other way, checked rather than cast. A row is a
  * promise about a shape this module did not write -- the check constraint, a
- * future migration and this union can each drift from the others -- and Care
- * Needed is a surface somebody is about to act on, so a payload that has lost its
- * period is worth failing over rather than rendering as a blank.
+ * future migration and this union can each drift from the others -- so a payload
+ * that has lost its period is refused here rather than rendered as a blank. It
+ * throws for one row; the Care Needed reader catches it and drops that row, so a
+ * drifted item never takes the rest of an Admin's list with it.
  */
 export const readFollowUpPayload = (kind: FollowUpKind, raw: unknown): FollowUpPayload => {
   const payload = (raw ?? {}) as Record<string, unknown>
@@ -152,14 +156,4 @@ export const readFollowUpPayload = (kind: FollowUpKind, raw: unknown): FollowUpP
 
 /** Narrows a string off a database row to a kind, or says plainly that it is not one. */
 export const isFollowUpKind = (value: unknown): value is FollowUpKind =>
-  typeof value === 'string' &&
-  (
-    [
-      'relationship_unaccepted',
-      'pause_expired',
-      'swap_requested',
-      'participant_keyword',
-      'invitation_number_disputed',
-      'match_declined',
-    ] as const
-  ).some((kind) => kind === value)
+  FOLLOW_UP_KINDS.some((kind) => kind === value)
