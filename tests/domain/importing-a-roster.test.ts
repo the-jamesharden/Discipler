@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { handleCommand } from '~/domain/boundary'
 import { createTestClock } from '~/domain/clock'
 import { createSequentialIds, ministryId, personId, type PersonId } from '~/domain/ids'
-import { phoneNumber, rosterKey } from '~/domain/roster'
+import { phoneNumber, rosterKey, type PhoneNumber } from '~/domain/roster'
 import { file } from '../support/roster'
 
 /**
@@ -28,6 +28,10 @@ const importing = (csv: string, alreadyOnRoster: { fullName: string; phone: stri
             personId(`00000000-0000-4000-9000-${String(index + 1).padStart(12, '0')}`),
           ]),
         ),
+        namesByNumber: alreadyOnRoster.reduce((byNumber, { fullName, phone }) => {
+          const number = phoneNumber(phone)
+          return byNumber.set(number, [...(byNumber.get(number) ?? []), fullName])
+        }, new Map<PhoneNumber, string[]>()),
         // An import greets nobody, so who has completed Intake does not bear on it.
         whoCompletedIntake: new Set<PersonId>(),
       },
@@ -105,6 +109,42 @@ describe('importing a Roster', () => {
     ])
 
     expect(result.effects).toEqual([])
+  })
+
+  it('reports a number it already holds under another name, and files nobody', () => {
+    // Two things look like this and Discipler cannot tell them apart: Emily
+    // Johnson renamed, and her husband on the same phone. Guessing either way
+    // loses the other one, so it reports and an Admin says which.
+    const result = importing(file('Name,Phone', 'Em Johnson,5550143020'), [
+      { fullName: 'Emily Johnson', phone: '+15550143020' },
+    ])
+
+    expect(peopleIn(result)).toEqual([])
+    expect(result.rejections).toEqual([{ line: 2, problem: 'same_number_different_name' }])
+  })
+
+  it('tells an exact repeat apart from a number under a new name', () => {
+    const result = importing(
+      file('Name,Phone', 'Emily Johnson,5550143021', 'Em Johnson,5550143021'),
+      [{ fullName: 'Emily Johnson', phone: '+15550143021' }],
+    )
+
+    expect(result.rejections).toEqual([
+      { line: 2, problem: 'already_on_the_roster' },
+      { line: 3, problem: 'same_number_different_name' },
+    ])
+  })
+
+  it('does not file a second Person for somebody the product itself renamed', () => {
+    // Acceptance stores the name a Leader typed, which is often not the name the
+    // spreadsheet had. Re-uploading that same unchanged spreadsheet afterwards
+    // must not quietly produce a second Emily.
+    const result = importing(file('Name,Phone', 'Emily Johnson,5550143022'), [
+      { fullName: 'Emily J Johnson', phone: '+15550143022' },
+    ])
+
+    expect(peopleIn(result)).toEqual([])
+    expect(result.rejections).toEqual([{ line: 2, problem: 'same_number_different_name' }])
   })
 
   it('reports every row it could not read, in the order they appear in the file', () => {

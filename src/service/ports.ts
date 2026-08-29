@@ -26,14 +26,25 @@ import type { NewPerson, PhoneNumber, RosterKey } from '~/domain/roster'
  * transaction opens would let two Admins importing the same spreadsheet at once
  * both find the Roster empty.
  */
+/**
+ * One read of the Roster, answering the two questions anything writing to it has:
+ * have I seen this exact line before, and do I already hold this number.
+ */
+export interface RosterReadback {
+  readonly people: ReadonlyMap<RosterKey, PersonId>
+  readonly namesByNumber: ReadonlyMap<PhoneNumber, readonly string[]>
+}
+
 export interface UnitOfWork {
   /**
-   * Everyone already on this Ministry's Roster, by `rosterKey`, against the
-   * identifier behind it. An import asks only whether a key is present; Intake
-   * needs the Person, because whoever is filling the form in is usually already on
-   * a Roster somebody uploaded.
+   * Everyone already on this Ministry's Roster: by `rosterKey` against the
+   * identifier behind it, and by number against the names it holds. Intake needs
+   * the Person behind a key, because whoever is filling the form in is usually
+   * already on a Roster somebody uploaded; an import needs both, because a number
+   * it already holds under another name is neither a duplicate nor a new Person
+   * until an Admin says which.
    */
-  peopleOnRoster(): Promise<ReadonlyMap<RosterKey, PersonId>>
+  peopleOnRoster(): Promise<RosterReadback>
   /**
    * Everyone in this Ministry with at least one Intake submission already on file.
    * Read inside the unit of work like the Roster, and for the same reason: two

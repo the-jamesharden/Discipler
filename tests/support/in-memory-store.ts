@@ -5,7 +5,12 @@ import type { NewInvitation } from '~/domain/invitations'
 import { eventId, type MinistryId, type PersonId } from '~/domain/ids'
 import type { HistoryEvent, NewHistoryEvent } from '~/domain/history'
 import type { NewRelationship } from '~/domain/relationships'
-import { rosterKey, type NewPerson, type RosterKey } from '~/domain/roster'
+import {
+  rosterKey,
+  type NewPerson,
+  type PhoneNumber,
+  type RosterKey,
+} from '~/domain/roster'
 import type { EffectStore, UnitOfWork } from '~/service/ports'
 
 export interface InMemoryStore extends EffectStore {
@@ -105,9 +110,20 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
           stagedFollowUps.push(item)
         },
         async peopleOnRoster() {
-          return new Map<RosterKey, PersonId>(
-            [...people, ...stagedPeople].map((person) => [rosterKey(person), person.id]),
-          )
+          const everyone = [...people, ...stagedPeople]
+          const namesByNumber = new Map<PhoneNumber, string[]>()
+          for (const person of everyone) {
+            namesByNumber.set(person.phone, [
+              ...(namesByNumber.get(person.phone) ?? []),
+              person.fullName,
+            ])
+          }
+          return {
+            people: new Map<RosterKey, PersonId>(
+              everyone.map((person) => [rosterKey(person), person.id]),
+            ),
+            namesByNumber,
+          }
         },
         async peopleWhoCompletedIntake() {
           return new Set<PersonId>(

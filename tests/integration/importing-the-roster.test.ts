@@ -127,6 +127,23 @@ describe('importing a Roster', () => {
     expect(await personByPhone(good)).toBeDefined()
   })
 
+  it('reports a number the Roster already holds under another name, against the real database', async () => {
+    // The adapter builds the by-number index from the same read as the by-key one,
+    // so this is the half a domain test cannot prove: that the Roster really
+    // answers "I already hold this number" for a name it has never seen.
+    const phone = number()
+    await importing(file('Name,Phone', `Emily Johnson,${phone}`))
+
+    const second = await importing(file('Name,Phone', `Em Johnson,${phone}`))
+    expect(second.rejections).toEqual([{ line: 2, problem: 'same_number_different_name' }])
+
+    const { rows } = await pool.query(
+      `select count(*)::int as people from person where ministry_id = $1 and phone = $2`,
+      [ministry.id, `+1${phone}`],
+    )
+    expect(rows[0].people).toBe(1)
+  })
+
   it('imports nobody twice when the same spreadsheet is uploaded again', async () => {
     const phone = number()
     const twice = file('Name,Phone', `Uploaded Twice,${phone}`)

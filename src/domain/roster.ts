@@ -83,6 +83,15 @@ export type RowProblem =
   | 'too_many_fields'
   | 'repeated_in_this_file'
   | 'already_on_the_roster'
+  /**
+   * The number is on the Roster against a different name. Two things look like
+   * this and Discipler cannot tell them apart: the same Person under a new name,
+   * and the second person on a shared phone. Both are ordinary, and guessing
+   * either way loses somebody -- merging hides a congregant who was never
+   * imported, filing a second row hides a rename. So it is reported and an Admin
+   * says which it is. See docs/adr/0005-a-person-is-a-name-and-a-number.md.
+   */
+  | 'same_number_different_name'
 
 /**
  * The vocabulary, listed once. What arrives in a query string has to be checked
@@ -98,6 +107,7 @@ export const ROW_PROBLEMS: readonly RowProblem[] = [
   'too_many_fields',
   'repeated_in_this_file',
   'already_on_the_roster',
+  'same_number_different_name',
 ]
 
 export const isRowProblem = (value: unknown): value is RowProblem =>
@@ -118,10 +128,11 @@ export interface ImportedPerson {
 }
 
 /**
- * Who a Person is, for the purpose of recognising them on a second upload: their
- * name *and* their number, never the number alone. A shared phone is ordinary, and
- * keying identity on the number alone would make the second person on one
- * unrepresentable. The reasoning is in docs/adr/0005-a-person-is-a-name-and-a-number.md.
+ * An exact match on a second upload: the same name on the same number. It is not
+ * the whole of recognition -- the number alone decides whether Discipler has seen
+ * this line before, and this decides whether it has seen it unchanged. A number
+ * that matches under a different name is `same_number_different_name` and reaches
+ * an Admin. See docs/adr/0005-a-person-is-a-name-and-a-number.md.
  */
 export const rosterKey = (person: {
   fullName: string

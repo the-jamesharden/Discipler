@@ -20,7 +20,13 @@ import {
   type PersonId,
 } from '~/domain/ids'
 import type { NewRelationship } from '~/domain/relationships'
-import { phoneNumber, rosterKey, type NewPerson, type RosterKey } from '~/domain/roster'
+import {
+  phoneNumber,
+  rosterKey,
+  type NewPerson,
+  type PhoneNumber,
+  type RosterKey,
+} from '~/domain/roster'
 import type { EffectStore, UnitOfWork } from '~/service/ports'
 
 /**
@@ -71,12 +77,16 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     const { rows } = await client.query<{ id: string; full_name: string; phone: string }>(
       `select id, full_name, phone from person where phone is not null`,
     )
-    return new Map<RosterKey, PersonId>(
-      rows.map((row) => [
-        rosterKey({ fullName: row.full_name, phone: phoneNumber(row.phone) }),
-        personId(row.id),
-      ]),
-    )
+    const people = new Map<RosterKey, PersonId>()
+    const namesByNumber = new Map<PhoneNumber, string[]>()
+
+    for (const row of rows) {
+      const phone = phoneNumber(row.phone)
+      people.set(rosterKey({ fullName: row.full_name, phone }), personId(row.id))
+      namesByNumber.set(phone, [...(namesByNumber.get(phone) ?? []), row.full_name])
+    }
+
+    return { people, namesByNumber }
   },
 
   async peopleWhoCompletedIntake() {

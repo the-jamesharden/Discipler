@@ -152,7 +152,7 @@ export const createCommandService = ({
         ...(needsTheRoster(command)
           ? {
               roster: {
-                people: await unit.peopleOnRoster(),
+                ...(await unit.peopleOnRoster()),
                 // Only Intake asks. An import creates nobody who has submitted, so
                 // paying for the read there would buy an empty set at full price.
                 whoCompletedIntake: isIntakeSubmission(command)

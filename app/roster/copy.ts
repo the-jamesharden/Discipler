@@ -29,6 +29,8 @@ const PROBLEMS: Record<RowProblem, string> = {
   // Name and number together, per ADR-0005: two people on one phone are two people.
   repeated_in_this_file: 'the same person appears earlier in the file',
   already_on_the_roster: 'already on the Roster',
+  same_number_different_name:
+    'this number is on the Roster under a different name — check whether it is the same person or someone sharing the number',
 }
 
 export const rowProblemMessage = (problem: RowProblem): string => PROBLEMS[problem]

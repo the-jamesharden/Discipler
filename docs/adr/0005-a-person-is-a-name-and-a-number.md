@@ -77,3 +77,36 @@ files the whole congregation again. Rejected.
   this ADR is why that distinction is load-bearing rather than incidental.
 - Ministry isolation is unaffected: the index is scoped to a Ministry, and one human
   belonging to two congregations holds two Person rows that share nothing.
+
+## Amendment — the number recognises, the name confirms
+
+*Accepted after the ticket 06 review.*
+
+The decision above holds: identity is name **and** number, the index is unchanged, and
+two people on a shared phone are two Person rows. What was wrong was leaving *recognition*
+entirely to the pair, because it made an unmatched name mean "new Person" by default —
+and that default is what turns a rename into a duplicate.
+
+Acceptance stores the name a Leader typed, which is often not the name the spreadsheet
+held. Re-uploading that same unchanged spreadsheet then filed a second Emily, silently.
+The product itself had made the near-duplicate, which is not the case this ADR reasoned
+about: it accepted near-duplicates arising from *two exports disagreeing*, not from
+Discipler renaming somebody and then failing to recognise them.
+
+So recognition is now two-stage, and neither stage guesses:
+
+1. **The number decides whether Discipler has seen this line before.** A number already on
+   the Roster is a match, whatever name the row carries.
+2. **The name decides what kind of match it is.** The same name is
+   `already_on_the_roster` and changes nothing, as before. A different name is
+   `same_number_different_name`, which files nobody and reports the row.
+
+`same_number_different_name` is the honest answer to a question with two ordinary
+answers — the same Person renamed, or the second person on a shared phone — and the
+Admin who uploaded the file is the one who knows which. Merging still does not happen
+automatically and still belongs with Roster completeness; what has changed is that the
+ambiguity now reaches somebody instead of being resolved by a default.
+
+The rejected option remains rejected: the number *alone* is still not identity, and two
+people on a shared phone are still two rows. The number is the matching key; the name is
+what the match has to confirm.

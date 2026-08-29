@@ -36,7 +36,7 @@ import {
   type InvitationToken,
 } from './invitations'
 import { kindFor, type MemberRole, type NewMembership } from './relationships'
-import { rosterKey, type RosterKey, type RowRejection } from './roster'
+import { rosterKey, type PhoneNumber, type RosterKey, type RowRejection } from './roster'
 import { readRosterFile } from './roster-csv'
 
 /**
@@ -125,6 +125,13 @@ export interface InvitationSnapshot {
  */
 export interface RosterSnapshot {
   readonly people: ReadonlyMap<RosterKey, PersonId>
+  /**
+   * Every name the Ministry already holds against a number. The number is what
+   * recognises a row; this is what says whether it came back unchanged, and it is
+   * the only way to tell a rename from the second person on a shared phone
+   * without guessing at one of them.
+   */
+  readonly namesByNumber: ReadonlyMap<PhoneNumber, readonly string[]>
   /**
    * Who has already completed Intake at least once. The Welcome Message is *first*
    * contact, so it is enqueued against this rather than against the submission: one
@@ -216,10 +223,18 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       for (const row of people) {
         // A row for someone already on the Roster is reported and left alone: a
         // stale export must not overwrite a name or an email the Person themselves
-        // gave at Intake. Recognised by name and number together, so the second
-        // person on a shared phone is a person and not a duplicate.
+        // gave at Intake.
         if (alreadyOnTheRoster.has(rosterKey(row))) {
           rejections.push({ line: row.line, problem: 'already_on_the_roster' })
+          continue
+        }
+
+        // The number is on the Roster under another name. Discipler will not guess
+        // whether that is a rename or the second person on a shared phone, because
+        // both are ordinary in a congregation and each guess loses the other one.
+        // Reported, never dropped and never silently filed twice.
+        if (context.roster.namesByNumber.has(row.phone)) {
+          rejections.push({ line: row.line, problem: 'same_number_different_name' })
           continue
         }
 

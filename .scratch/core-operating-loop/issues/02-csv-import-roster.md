@@ -152,3 +152,22 @@ which approval a message should follow. Raised in `docs/open-questions.md`; it n
 answering before ticket 06 enqueues anything.
 
 220 tests pass against a local Supabase stack, none skipped.
+
+### Amended — recognition is the number first, the name second
+
+The importer originally recognised a returning row by name and number together, so a
+number already on the Roster under a *different* name read as a new Person and was filed
+as one. Acceptance renames people — it stores the name a Leader typed, which is often not
+the name the spreadsheet held — so re-uploading an unchanged spreadsheet quietly produced
+a second Person.
+
+Recognition is now two-stage: the number decides whether Discipler has seen the line
+before, the name decides what kind of match it is. An exact match is
+`already_on_the_roster` as before; a number under a new name is `same_number_different_name`,
+which files nobody and reports the row. Discipler does not guess whether that is a rename
+or the second person on a shared phone, because both are ordinary and each guess loses
+the other one.
+
+`docs/adr/0005-a-person-is-a-name-and-a-number.md` carries the reasoning as an amendment.
+Ticket 26 builds the Admin's answer to the report; until it ships, the report is a dead
+end an Admin can only resolve by editing their spreadsheet, and that is a known gap.
