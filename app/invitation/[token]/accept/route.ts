@@ -29,15 +29,31 @@ export async function POST(
   const fullName = String(form.get('fullName') ?? '').trim()
   const password = String(form.get('password') ?? '')
 
-  // A name is the one thing this form actually asks for. The number was
-  // displayed, not requested, so there is nothing else here to get wrong.
+  // A name is the one thing this form always asks for. The number was displayed,
+  // not requested, so there is nothing else here to get wrong.
   if (!fullName) return back('invitation.not_found')
 
-  // The number on file, never one that was typed. A Leader cannot mistype their
-  // way out of their own check-ins, and a forwarded link cannot re-point an
-  // account at somebody else's phone.
-  const account = await supabaseLeaderAccounts.create(invitation.phone, password)
-  if ('refusal' in account) return back(account.refusal)
+  /**
+   * There is one account per Person, not one per relationship. A Leader may lead
+   * any number of one-to-ones -- `leader_one_open_group` deliberately leaves that
+   * uncapped -- so a second invitation reaches somebody who already accepted a
+   * first one, and creating unconditionally would refuse them their own second
+   * relationship for the rest of time.
+   *
+   * Possession of the link is the authentication either way. It was sent to the
+   * phone the account signs in with, so a returning Leader is not asked for a
+   * password they already set, and the form does not offer them the field.
+   */
+  let userId = invitation.userId
+
+  if (!userId) {
+    // The number on file, never one that was typed. A Leader cannot mistype their
+    // way out of their own check-ins, and a forwarded link cannot re-point an
+    // account at somebody else's phone.
+    const account = await supabaseLeaderAccounts.create(invitation.phone, password)
+    if ('refusal' in account) return back(account.refusal)
+    userId = account.userId
+  }
 
   try {
     await getCommandService().execute({
@@ -45,11 +61,12 @@ export async function POST(
       ministryId: invitation.ministryId,
       token: invitationToken(token),
       fullName,
-      userId: account.userId,
+      userId,
     })
   } catch (error) {
-    // The account now exists and the acceptance did not land. That is recoverable
-    // -- the same number, the same password, the same link -- and it is not
+    // The account now exists and the acceptance did not land. Opening the same
+    // link again finds `person.user_id` set and reuses it rather than trying to
+    // create a second account, so the retry works -- and the failure is not
     // dressed up as something the Leader did wrong.
     if (error instanceof InvitationRefused) return back(error.refusal)
     throw error

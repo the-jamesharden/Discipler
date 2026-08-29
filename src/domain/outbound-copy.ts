@@ -192,11 +192,12 @@ export interface StarterMessageToParticipant {
  * thing they hear at all after Intake -- nothing reaches them until every Leader
  * has agreed to lead them.
  *
- * It ends where the disclosure begins. The Leader's name and number are appended
- * by the sending layer once contact-sharing consent has been confirmed, so this
- * body names neither: one that already carried them would leave the send-time
- * check nothing to withhold, and a Participant who withdrew consent would be
- * handed the number anyway.
+ * **Every sentence has to stand without the contact details.** The Leader's name
+ * and number are appended by the sending layer, after the opt-out disclosure and
+ * only once contact-sharing consent has been confirmed -- so a body that ended
+ * by promising a number would read as a promise interrupted by compliance text
+ * when consent was there, and as a dangling colon when it was not. It says what
+ * will happen instead, and the details land after it or not at all.
  */
 export const starterMessageToParticipant = ({
   ministryName,
@@ -211,6 +212,7 @@ export const starterMessageToParticipant = ({
     discloseOptOut: true,
     body:
       (firstName ? `Good news, ${firstName} — you’ve been matched.` : 'Good news — you’ve been matched.') +
-      ` Not the right fit? Tell us here: ${declineLink}. You’ll hear from your leader at this number:`,
+      ' Your leader will text you soon to arrange when to meet.' +
+      ` Not the right fit? Tell us here: ${declineLink}`,
   })
 }

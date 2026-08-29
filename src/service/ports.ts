@@ -219,7 +219,20 @@ export interface InvitationPage {
   readonly phone: string | null
   readonly role: MemberRole
   readonly state: InvitationState
-  /** Everyone else in the relationship, whatever their role. */
+  /**
+   * The account this Person already holds, or null. A Leader may lead any number
+   * of one-to-ones, so a second invitation reaches somebody who accepted a first
+   * one -- and there is exactly one account per Person, not one per relationship.
+   */
+  readonly userId: string | null
+  /**
+   * The people on the *other* side of the relationship: the Participants to a
+   * Leader, the Leaders to a Participant. This is the reveal, and it is scoped
+   * because a Participant's membership grants them no sight of anyone -- the
+   * other Participants included -- which is the rule the policies on
+   * `relationship_member` state and which this read, on the trusted connection,
+   * is not policed by.
+   */
   readonly withNames: readonly string[]
   /** How many Participants it holds. Copy branches on this and never on `kind`. */
   readonly participantCount: number

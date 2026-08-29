@@ -41,6 +41,18 @@ describe('what the invitation page says went wrong', () => {
     )
   })
 
+  it('is not fooled by what an object inherits', () => {
+    // `in` would let `__proto__`, `toString` and `constructor` through and hand
+    // back something React cannot render -- a 500 on a page a signed-out Leader
+    // reaches with a real link, from a query string anybody can type.
+    for (const inherited of ['__proto__', 'toString', 'constructor', 'valueOf']) {
+      expect(typeof invitationProblemMessage(inherited)).toBe('string')
+      expect(invitationProblemMessage(inherited)).toBe(
+        invitationProblemMessage('invitation.not_found'),
+      )
+    }
+  })
+
   it('tells a spent link apart from one that has run out', () => {
     // One sends its holder to sign in; the other sends them back to an Admin.
     expect(invitationProblemMessage('invitation.already_used')).toContain('Sign in')

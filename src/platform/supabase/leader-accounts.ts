@@ -53,9 +53,11 @@ export const supabaseLeaderAccounts: LeaderAccounts = {
     })
 
     if (error) {
-      // Supabase reports a taken identity as a conflict. Anything else is a
-      // failure of ours and is not dressed up as the Leader's mistake.
-      if (error.status === 422 || error.status === 409) {
+      // Only a taken identity. `422` alone covers an unparseable number and phone
+      // signups being switched off as well, and answering either of those with
+      // "there is already an account for this number, go and sign in" is advice
+      // that is false, impossible to follow, and swallows the real fault.
+      if (error.code === 'phone_exists' || error.code === 'user_already_exists') {
         return { refusal: 'account.already_exists' }
       }
       throw error

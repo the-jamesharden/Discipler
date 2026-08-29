@@ -5,6 +5,7 @@ import {
   invitationMessage,
   starterMessageToLeader,
   starterMessageToParticipant,
+  withSharedContact,
 } from '~/domain/outbound-copy'
 
 const token = invitationToken('7c3f9a21-4e6b-4d18-9f52-a0b3c8d51e77')
@@ -107,5 +108,25 @@ describe('the Starter Message', () => {
 
   it('gives the Participant a way to say the match is not right', () => {
     expect(toParticipant).toContain(link)
+  })
+
+  it('reads as a whole message when the sending layer appends nothing', () => {
+    // Contact sharing may be declined, and this is what the Participant then
+    // gets. No sentence may depend on details that were withheld.
+    expect(toParticipant.trimEnd().endsWith(':')).toBe(false)
+    expect(toParticipant).toContain('Your leader will text you')
+  })
+
+  it('reads as a whole message when it does append the contact', () => {
+    // The disclosure lands before the contact, because `composeMessage` runs at
+    // enqueue and `withSharedContact` at dispatch. Anything the body promised
+    // about "this number" would be interrupted by compliance text.
+    const dispatched = withSharedContact(toParticipant, {
+      fullName: 'David Ellis',
+      phone: '+15550100',
+    })
+
+    expect(dispatched).toContain('Reply STOP to opt out, HELP for help. David Ellis: +15550100')
+    expect(dispatched).not.toContain('number: Msg')
   })
 })

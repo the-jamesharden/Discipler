@@ -123,6 +123,56 @@ grant is insert-only, policy-scoped to the declared Ministry and to `tier =
 relationship enqueues nothing to anyone" is now "nothing to a Participant" -- the
 Leader is invited, which is the thing they are waiting for.
 
+### Review pass -- seven findings, all real
+
+**A Leader could never have accepted a second relationship.** The route created an
+account unconditionally, so the second invitation to somebody who had already
+accepted one hit a taken phone number and was refused before it reached the
+command. `leader_one_open_group` deliberately leaves leading many one-to-ones
+uncapped, so this was the ordinary second pairing, and it would have left the
+relationship in Awaiting Leader Acceptance permanently. There is one account per
+Person, not one per relationship: the page now hides the password field from
+somebody who already has one, and the route reuses `person.user_id`. That also
+makes the orphan-account note below true rather than hopeful -- retrying the same
+link now works.
+
+**Two co-leaders accepting at once could have left a group activated by nobody.**
+Their acceptances touch disjoint membership rows, so under READ COMMITTED each
+read the other's `accepted_at` as null, each decided it was not the last to agree,
+and both committed with the relationship never stamped and both tokens spent. The
+`not exists` guard did not cover it: it only guards the direction the domain said
+*true*. `resolveInvitation` now takes the relationship row `for update`, which is
+the same answer ticket 05's review reached for the gender check. The test holds
+both transactions open until both have begun, and it fails without the lock.
+
+**A Participant was shown the other Participants.** The reader returned everyone
+else in the relationship and the page rendered them as the holder's Leaders, which
+contradicts the rule the policies state outright -- a Participant's membership
+grants them sight of nobody -- on a page that reads on the trusted connection and
+is not policed by them. `withNames` is now the other side of the relationship.
+
+**The Participant's Starter Message read as a promise interrupted by compliance
+text.** It ended `at this number:`, and the opt-out disclosure is spliced in at
+enqueue while the contact is appended at dispatch -- so the number landed after
+the disclosure, and where consent was absent the message shipped with a dangling
+colon and no number at all. Every sentence now stands without the details, and
+both orderings are tested.
+
+**`code in PROBLEMS` walked the prototype chain**, so `?error=__proto__` on a real
+link returned an object, which React refuses to render: a 500 from a query string
+anybody can type. `Object.hasOwn` now.
+
+**`?done=accepted` was believed over the token**, so a forwarded URL told a Leader
+they had an account they did not have. The screen is drawn from the token's state
+and `done` only chooses the tense.
+
+**Every Supabase 422 was reported as "there is already an account".** That covers
+an unparseable number and phone signups being disabled too, and answering either
+with advice that is false and impossible to follow swallowed the real fault. It
+matches the duplicate-identity codes and lets the rest throw.
+
+408 tests pass, none skipped.
+
 ### Still open
 
 - **Phone-and-password sign-in is half shipped.** The account this flow creates is

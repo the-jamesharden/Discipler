@@ -271,6 +271,17 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     const invitation = found[0]
     if (!invitation) return null
 
+    // Acceptances on one relationship are serialised here, and this is the whole
+    // reason for the lock. Two co-leaders accepting at once touch disjoint
+    // membership rows, so under READ COMMITTED each would read the other's
+    // `accepted_at` as still null, each would decide it was not the last to
+    // agree, and the relationship would stay Awaiting Leader Acceptance with both
+    // tokens spent and no way back. Taking the row the decision is *about* makes
+    // the second one wait and then read the first one's acceptance.
+    await client.query(`select id from relationship where id = $1 for update`, [
+      invitation.relationship_id,
+    ])
+
     // Open memberships only. A token naming a relationship its holder has since
     // left resolves to a set they are not in, and the boundary refuses it.
     const { rows: members } = await client.query<{

@@ -57,6 +57,7 @@ export const createPostgresInvitationReader = (
           full_name: string
           phone: string | null
           role: MemberRole
+          user_id: string | null
           expires_at: Date
           consumed_at: Date | null
           ministry_name: string
@@ -64,6 +65,7 @@ export const createPostgresInvitationReader = (
           `select i.person_id,
                   p.full_name,
                   p.phone,
+                  p.user_id,
                   m.role,
                   i.expires_at,
                   i.consumed_at,
@@ -84,8 +86,9 @@ export const createPostgresInvitationReader = (
         // membership, and there is nothing here for them to act on.
         if (!held) return null
 
-        // Everyone else in it. This is the reveal: who they have been matched with
-        // and for which Ministry, before anything at all is asked of them.
+        // Everyone else in it, with their roles: the reveal is drawn from the
+        // other side of the relationship, and the Participant count from all of
+        // them.
         const { rows: others } = await client.query<{ full_name: string; role: MemberRole }>(
           `select p.full_name, m.role
              from invitation i
@@ -103,11 +106,17 @@ export const createPostgresInvitationReader = (
           fullName: held.full_name,
           phone: held.phone,
           role: held.role,
+          userId: held.user_id,
           state: invitationState(
             { expiresAt: held.expires_at, consumedAt: held.consumed_at },
             now(),
           ),
-          withNames: others.map((row) => row.full_name),
+          // The other side of the relationship, never everybody in it. A
+          // Participant shown their co-Participants would be told who else is
+          // being discipled, which nothing in the product permits.
+          withNames: others
+            .filter((row) => row.role !== held.role)
+            .map((row) => row.full_name),
           // Copy branches on the live Participant count, never on the kind the
           // relationship was formed as. The holder counts themselves when they
           // are one.

@@ -225,6 +225,72 @@ describe('accepting an Invitation Link', () => {
     expect(await messagesTo(emily)).toHaveLength(2)
   })
 
+  it('activates once when two co-leaders accept at the same moment', async () => {
+    const david = await roster('David Races')
+    const sarah = await roster('Sarah Races')
+    const emily = await roster('Emily Races')
+    const { effects } = await pair([david, sarah], [emily])
+    const created = effects.find((effect) => effect.kind === 'relationship.create')
+    if (created?.kind !== 'relationship.create') throw new Error('nothing was created')
+
+    const tokens = [await tokenFor(david), await tokenFor(sarah)]
+    const accounts = [await anAccount(), await anAccount()]
+
+    /**
+     * Both transactions are held open until both have begun, so the overlap is
+     * the one the lock exists for rather than whichever interleaving the event
+     * loop happened to produce. Without the lock both then read the other's
+     * `accepted_at` as still null under READ COMMITTED, both decide they are not
+     * the last to agree, and the relationship stays Awaiting Leader Acceptance
+     * with both tokens spent and no way back.
+     */
+    const bothInside = (() => {
+      let arrived = 0
+      let open = () => {}
+      const gate = new Promise<void>((resolve) => {
+        open = resolve
+      })
+      return async () => {
+        if (++arrived === 2) open()
+        await gate
+      }
+    })()
+
+    const racing = createCommandService({
+      clock,
+      ids,
+      appBaseUrl: 'https://discipler.test',
+      store: {
+        transact: (forMinistry, work) =>
+          store.transact(forMinistry, async (unit) => {
+            await bothInside()
+            return work(unit)
+          }),
+      },
+    })
+
+    await Promise.all(
+      tokens.map((token, index) =>
+        racing.execute({
+          type: 'relationship.accept',
+          ministryId: ministry.id,
+          token,
+          fullName: 'Racing Leader',
+          userId: accounts[index] as string,
+        }),
+      ),
+    )
+
+    const { rows } = await pool.query<{ accepted_at: Date | null }>(
+      `select accepted_at from relationship where id = $1`,
+      [created.relationship.id],
+    )
+    expect(rows[0]?.accepted_at).toEqual(at)
+
+    // And exactly one Starter Message per Leader, not two rounds of them.
+    expect(await messagesTo(emily)).toHaveLength(2)
+  })
+
   it('refuses a token that account creation has already spent', async () => {
     const david = await roster('David Twice')
     const emily = await roster('Emily Twice')

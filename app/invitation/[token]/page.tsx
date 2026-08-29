@@ -28,11 +28,20 @@ export default async function InvitationPage({
   // whether one ever existed.
   if (!invitation) notFound()
 
-  const { ministryName, fullName, phone, role, state, withNames, participantCount } = invitation
+  const { ministryName, fullName, phone, role, state, userId, withNames, participantCount } =
+    invitation
   const problem = invitationProblemMessage(error)
-  const leaders = role === 'participant' ? withNames : []
+  // The reader already scoped this to the other side of the relationship: the
+  // Participants to a Leader, the Leaders to a Participant.
+  const matchedWith = withNames
 
-  if (done === 'accepted') {
+  /**
+   * Drawn from the token, not from the query string. `done` only chooses the
+   * tense: a link carrying `?done=accepted` that has not actually been spent --
+   * forwarded, or bookmarked after somebody else's acceptance -- would otherwise
+   * tell the real Leader they had an account they do not have.
+   */
+  if (state === 'consumed' && done === 'accepted') {
     return (
       <main>
         <h1>You’re all set</h1>
@@ -66,11 +75,7 @@ export default async function InvitationPage({
   return (
     <main>
       {/* The reveal, above everything. Nothing below is asked until this is read. */}
-      <h1>
-        {role === 'leader'
-          ? `You’ve been matched with ${asList(withNames)}`
-          : `You’ve been matched with ${asList(leaders)}`}
-      </h1>
+      <h1>{`You’ve been matched with ${asList(matchedWith)}`}</h1>
       <p className="subtle">{ministryName}</p>
 
       <div className="panel">
@@ -101,15 +106,25 @@ export default async function InvitationPage({
                     autoComplete="name"
                   />
 
-                  <label htmlFor="password">Choose a password</label>
-                  <input
-                    id="password"
-                    name="password"
-                    type="password"
-                    required
-                    minLength={SHORTEST_PASSWORD}
-                    autoComplete="new-password"
-                  />
+                  {/*
+                    Only for somebody who has none. A Leader may lead any number of
+                    one-to-ones, so a second invitation reaches somebody who already
+                    has an account -- and asking them to choose a password again
+                    would be asking for something that cannot be used.
+                  */}
+                  {userId ? null : (
+                    <>
+                      <label htmlFor="password">Choose a password</label>
+                      <input
+                        id="password"
+                        name="password"
+                        type="password"
+                        required
+                        minLength={SHORTEST_PASSWORD}
+                        autoComplete="new-password"
+                      />
+                    </>
+                  )}
 
                   {/*
                     Displayed, never requested. A Leader cannot mistype their way out
@@ -118,7 +133,9 @@ export default async function InvitationPage({
                   */}
                   <p>
                     We’ll text you at <strong>{phone ?? 'a number we don’t have on file'}</strong>.
-                    You’ll sign in with that number and this password.
+                    {userId
+                      ? ' You’ll sign in with that number and the password you already set.'
+                      : ' You’ll sign in with that number and this password.'}
                   </p>
 
                   <button type="submit">Accept and start</button>

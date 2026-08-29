@@ -25,8 +25,18 @@ const PROBLEMS: Record<Problem, string> = {
     'There’s already an account for this number. Sign in with your phone number and password.',
 }
 
-export const invitationProblemMessage = (code?: string): string | null =>
-  code && code in PROBLEMS ? PROBLEMS[code as Problem] : code ? PROBLEMS['invitation.not_found'] : null
+/**
+ * `Object.hasOwn`, not `in`: `in` walks the prototype chain, so `__proto__`,
+ * `toString` and `constructor` all pass it and hand back something that is not a
+ * string -- which React then refuses to render, turning a query string anybody
+ * can type into a 500 on a page a signed-out Leader reaches with a real link.
+ */
+export const invitationProblemMessage = (code?: string): string | null => {
+  if (!code) return null
+  return Object.hasOwn(PROBLEMS, code)
+    ? PROBLEMS[code as Problem]
+    : PROBLEMS['invitation.not_found']
+}
 
 /**
  * Who they are meeting with. One name and four are the same sentence with a

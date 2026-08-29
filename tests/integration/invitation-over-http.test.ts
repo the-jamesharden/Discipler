@@ -264,6 +264,81 @@ describe.skipIf(skipUnlessAppIsRunning)('a Leader opening their Invitation Link'
     expect(location).toContain('done=declined')
   })
 
+  it('lets a Leader who already has an account accept a second relationship', async () => {
+    const david = await roster('David Leads Twice')
+    const first = await roster('First Disciple')
+    const second = await roster('Second Disciple')
+
+    await pair([david], [first])
+    const accepted = await post(`/invitation/${await tokenFor(david)}/accept`, {
+      fullName: 'David Leads Twice',
+      password: 'a-long-enough-password',
+    })
+    expect(accepted.location).toContain('done=accepted')
+
+    // Leading many one-to-ones is deliberately uncapped, so this is the ordinary
+    // second pairing and not an edge case.
+    await pair([david], [second])
+    const token = await tokenFor(david)
+
+    // No password field: there is one account per Person, and asking them to
+    // choose a second one would be asking for something that cannot be used.
+    const { html } = await open(token)
+    expect(html).toContain('Second Disciple')
+    expect(html).not.toContain('name="password"')
+    expect(html).toContain('the password you already set')
+
+    const { location } = await post(`/invitation/${token}/accept`, {
+      fullName: 'David Leads Twice',
+    })
+    expect(location).toContain('done=accepted')
+
+    const { rows } = await pool.query(
+      `select count(*)::int as activated from relationship r
+         join relationship_member m on m.relationship_id = r.id
+        where m.person_id = $1 and m.role = 'leader' and r.accepted_at is not null`,
+      [david],
+    )
+    expect(rows[0].activated).toBe(2)
+  })
+
+  it('does not tell a Leader they have an account because the URL said so', async () => {
+    const david = await roster('David Forwarded')
+    const emily = await roster('Emily Forwarded')
+    await pair([david], [emily])
+
+    // A forwarded or bookmarked URL carrying the parameter must not suppress the
+    // form and claim an account that was never created.
+    const response = await fetch(
+      `${baseUrl}/invitation/${await tokenFor(david)}?done=accepted`,
+      { redirect: 'manual' },
+    )
+    const html = await response.text()
+
+    expect(html).not.toContain('You’re all set')
+    expect(html).toContain('name="password"')
+  })
+
+  it('shows a Participant their Leaders, never the other Participants', async () => {
+    const david = await roster('David Group Lead')
+    const emily = await roster('Emily Sees')
+    const anna = await roster('Anna Hidden')
+    await pair([david], [emily, anna])
+
+    await post(`/invitation/${await tokenFor(david)}/accept`, {
+      fullName: 'David Group Lead',
+      password: 'a-long-enough-password',
+    })
+
+    const { html } = await open(await tokenFor(emily))
+
+    // A Participant's membership grants them no sight of anyone, the other
+    // Participants included -- the rule the policies state, on a page that reads
+    // on the trusted connection and is not policed by them.
+    expect(html).toContain('David Group Lead')
+    expect(html).not.toContain('Anna Hidden')
+  })
+
   it('tells a token nothing answers to apart from one that is real', async () => {
     const response = await fetch(`${baseUrl}/invitation/${crypto.randomUUID()}`, {
       redirect: 'manual',
