@@ -2,8 +2,8 @@ import { handleCommand, type CommandResult } from '~/domain/boundary'
 import type { Clock } from '~/domain/clock'
 import type { Command } from '~/domain/commands'
 import type { Effect } from '~/domain/effects'
-import { InvitationRefused } from '~/domain/errors'
-import type { IdSource, PersonId } from '~/domain/ids'
+import { CancellationRefused, InvitationRefused } from '~/domain/errors'
+import type { IdSource, PersonId, RelationshipId } from '~/domain/ids'
 import type { InvitationToken } from '~/domain/invitations'
 import type { EffectStore, UnitOfWork } from './ports'
 
@@ -60,6 +60,12 @@ export const applyEffects = async (
   const followUps = effects.flatMap((effect) =>
     effect.kind === 'followUp.raise' ? [effect.item] : [],
   )
+  const resolutions = effects.flatMap((effect) =>
+    effect.kind === 'followUp.resolve' ? [effect.resolution] : [],
+  )
+  const cancellations = effects.flatMap((effect) =>
+    effect.kind === 'relationship.cancel' ? [effect.cancellation] : [],
+  )
 
   // Rows before the facts about them. The whole unit of work is one transaction, so
   // ordering buys nothing for atomicity -- it buys the error: a pairing the caps
@@ -82,6 +88,13 @@ export const applyEffects = async (
   for (const invitation of invitations) await unit.issueInvitation(invitation)
   for (const item of followUps) await unit.raiseFollowUp(item)
 
+  // Before the history that says they happened, like every other write here. An
+  // Admin resolving an item somebody else closed a second earlier is refused, and
+  // being refused after history had already recorded the resolution would leave a
+  // Ministry's record claiming a decision nobody made.
+  for (const resolution of resolutions) await unit.resolveFollowUp(resolution)
+  for (const cancellation of cancellations) await unit.cancelRelationship(cancellation)
+
   // History before messages: a message that goes out unrecorded is worse than a
   // recorded message that failed to send, because only one of the two can be
   // reconstructed.
@@ -96,6 +109,18 @@ export const applyEffects = async (
  */
 const needsTheRoster = (command: Command): boolean =>
   command.type === 'person.import' || command.type === 'intake.submit'
+
+/**
+ * The relationship an Admin command names. Absent rather than defaulted, and a
+ * relationship this Ministry does not hold is refused here rather than handed on
+ * as an empty snapshot -- which would read as "this command was called wrong"
+ * instead of "there is no such relationship".
+ */
+const named = async (unit: UnitOfWork, id: RelationshipId) => {
+  const relationship = await unit.relationshipFor(id)
+  if (!relationship) throw new CancellationRefused('relationship.not_found')
+  return relationship
+}
 
 /**
  * Intake needs two things no other command does: the Ministry's name, because every
@@ -120,7 +145,10 @@ const isTokenDriven = (
 
 /** Every message these commands enqueue speaks in the Ministry's voice. */
 const needsTheMinistryName = (command: Command): boolean =>
-  isIntakeSubmission(command) || command.type === 'relationship.create' || isTokenDriven(command)
+  isIntakeSubmission(command) ||
+  command.type === 'relationship.create' ||
+  command.type === 'scheduled.tick' ||
+  isTokenDriven(command)
 
 /**
  * A token nothing answers to is refused here rather than handed to the domain as
@@ -181,6 +209,14 @@ export const createCommandService = ({
           : {}),
         ...(isTokenDriven(command)
           ? { invitation: await resolved(unit, command.token) }
+          : {}),
+        // Read inside the transaction like everything else, so two ticks racing
+        // each other cannot both find the same relationship unreminded.
+        ...(command.type === 'scheduled.tick'
+          ? { tick: await unit.unacceptedRelationships() }
+          : {}),
+        ...(command.type === 'relationship.cancel'
+          ? { relationship: await named(unit, command.relationshipId) }
           : {}),
       })
 

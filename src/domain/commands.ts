@@ -1,4 +1,4 @@
-import type { MinistryId, PersonId } from './ids'
+import type { FollowUpItemId, MinistryId, PersonId, RelationshipId } from './ids'
 import type { IntakeFormFields } from './intake'
 import type { InvitationToken } from './invitations'
 
@@ -55,6 +55,33 @@ export type Command =
       /** One Leader makes a one-to-one possible; several make it a group. */
       readonly leaderIds: readonly PersonId[]
       readonly participantIds: readonly PersonId[]
+    }
+  /**
+   * An Admin cancelling a relationship nobody accepted. It ends every open
+   * membership, which is the whole of *returning everyone to the suggestion pool*:
+   * `participation_status` reads open participant memberships, so closing them is
+   * what makes a Person `Ready to Pair` again.
+   *
+   * Only an unaccepted one. Ending a relationship that has started is a different
+   * act with a required outcome and is ticket 13's, and letting one command do both
+   * would put an ending with no recorded reason inside this one.
+   */
+  | {
+      readonly type: 'relationship.cancel'
+      readonly ministryId: MinistryId
+      readonly relationshipId: RelationshipId
+    }
+  /**
+   * An Admin acting on a Follow-Up Item, which is the only thing that closes one.
+   * Nothing here is a note: resolving is one click, and the actions an Admin took
+   * are recorded as facts of their own rather than retyped into this table.
+   */
+  | {
+      readonly type: 'follow_up.resolve'
+      readonly ministryId: MinistryId
+      readonly itemId: FollowUpItemId
+      /** The Admin's account, as the session named it. */
+      readonly resolvedBy: string
     }
   /**
    * A Leader agreeing to lead. The token is the credential -- possession of the

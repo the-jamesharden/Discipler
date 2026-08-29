@@ -216,3 +216,41 @@ export const starterMessageToParticipant = ({
       ` Not the right fit? Tell us here: ${declineLink}`,
   })
 }
+
+export interface AcceptanceReminderMessage {
+  readonly ministryName: string
+  readonly fullName: string
+  readonly link: string
+}
+
+/**
+ * Two days on, and the Leader has not opened their Invitation Link or has opened
+ * it and not finished. One reminder, carrying the link again, because a reminder
+ * that made them go back and find the first text is a reminder that costs them
+ * more than the thing it is reminding them of.
+ *
+ * It still reveals nobody. The match is on the page, after the Leader has chosen
+ * to open it -- a name here would make the second text say what the first one
+ * deliberately did not.
+ *
+ * **Not framed as a failure.** A Leader who has not answered in two days has a
+ * week, not a character flaw, and Discipler never texts anybody to tell them they
+ * are late. Neither compliance flag is set, for the same reason the invitation
+ * sets neither: this is not first contact and it is not the Starter Message.
+ */
+export const acceptanceReminderMessage = ({
+  ministryName,
+  fullName,
+  link,
+}: AcceptanceReminderMessage): string => {
+  const firstName = firstNameOf(fullName)
+
+  return composeMessage({
+    ministryName,
+    identifyDelivery: false,
+    discloseOptOut: false,
+    body:
+      (firstName ? `${firstName}, there’s still someone waiting to hear from you.` : 'There’s still someone waiting to hear from you.') +
+      ` Have a look when you can: ${link}`,
+  })
+}

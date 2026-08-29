@@ -1,6 +1,16 @@
-import type { InvitationSnapshot, PersonContact } from '~/domain/boundary'
-import type { IntakeRecord, LeaderAcceptance, OutboundMessageDraft } from '~/domain/effects'
-import type { NewFollowUpItem } from '~/domain/follow-up'
+import type {
+  InvitationSnapshot,
+  PersonContact,
+  RelationshipSnapshot,
+  TickSnapshot,
+} from '~/domain/boundary'
+import type {
+  IntakeRecord,
+  LeaderAcceptance,
+  OutboundMessageDraft,
+  RelationshipCancellation,
+} from '~/domain/effects'
+import type { FollowUpResolution, NewFollowUpItem } from '~/domain/follow-up'
 import type { NewInvitation } from '~/domain/invitations'
 import { eventId, type MinistryId, type PersonId } from '~/domain/ids'
 import type { HistoryEvent, NewHistoryEvent } from '~/domain/history'
@@ -22,10 +32,16 @@ export interface InMemoryStore extends EffectStore {
   readonly invitations: readonly NewInvitation[]
   readonly acceptances: readonly LeaderAcceptance[]
   readonly followUps: readonly NewFollowUpItem[]
+  readonly resolutions: readonly FollowUpResolution[]
+  readonly cancellations: readonly RelationshipCancellation[]
   /** Names and numbers this store will answer `contactsFor` with. */
   contacts: Map<PersonId, PersonContact>
   /** What a token resolves to, or null for one nothing answers to. */
   invitation?: InvitationSnapshot
+  /** What the tick finds outstanding. Nothing, until a test says otherwise. */
+  tick: TickSnapshot
+  /** What `relationship.cancel` finds, or null for one this Ministry does not hold. */
+  relationship?: RelationshipSnapshot
   /** The Ministry every command in this store speaks for. */
   ministryName: string
   failOn?:
@@ -49,6 +65,8 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
   const invitations: NewInvitation[] = []
   const acceptances: LeaderAcceptance[] = []
   const followUps: NewFollowUpItem[] = []
+  const resolutions: FollowUpResolution[] = []
+  const cancellations: RelationshipCancellation[] = []
   let counter = 0
 
   const store: InMemoryStore = {
@@ -76,6 +94,13 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
     get followUps() {
       return [...followUps]
     },
+    get resolutions() {
+      return [...resolutions]
+    },
+    get cancellations() {
+      return [...cancellations]
+    },
+    tick: { unaccepted: [] },
     contacts: new Map<PersonId, PersonContact>(),
     ministryName: 'Riverside Chapel',
     async transact(_ministryId: MinistryId, work) {
@@ -87,6 +112,8 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       const stagedInvitations: NewInvitation[] = []
       const stagedAcceptances: LeaderAcceptance[] = []
       const stagedFollowUps: NewFollowUpItem[] = []
+      const stagedResolutions: FollowUpResolution[] = []
+      const stagedCancellations: RelationshipCancellation[] = []
 
       const unit: UnitOfWork = {
         async contactsFor(ids) {
@@ -108,6 +135,18 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         },
         async raiseFollowUp(item) {
           stagedFollowUps.push(item)
+        },
+        async resolveFollowUp(resolution) {
+          stagedResolutions.push(resolution)
+        },
+        async unacceptedRelationships() {
+          return store.tick
+        },
+        async relationshipFor() {
+          return store.relationship ?? null
+        },
+        async cancelRelationship(cancellation) {
+          stagedCancellations.push(cancellation)
         },
         async peopleOnRoster() {
           const everyone = [...people, ...stagedPeople]
@@ -171,6 +210,8 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       invitations.push(...stagedInvitations)
       acceptances.push(...stagedAcceptances)
       followUps.push(...stagedFollowUps)
+      resolutions.push(...stagedResolutions)
+      cancellations.push(...stagedCancellations)
       return result
     },
   }

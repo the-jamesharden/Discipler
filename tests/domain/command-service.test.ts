@@ -76,6 +76,18 @@ describe('applying a command\'s effects', () => {
         raiseFollowUp: async () => {
           throw new Error('nothing should have been raised')
         },
+        resolveFollowUp: async () => {
+          throw new Error('nothing should have been resolved')
+        },
+        unacceptedRelationships: async () => {
+          throw new Error('the tick should not have read anything')
+        },
+        relationshipFor: async () => {
+          throw new Error('no relationship should have been read')
+        },
+        cancelRelationship: async () => {
+          throw new Error('nothing should have been cancelled')
+        },
         createRelationship: async () => {
           throw new Error('relationships should not have been touched')
         },

@@ -7,7 +7,7 @@ import type {
   DiscipleshipGoalId,
   Gender,
 } from './intake'
-import type { NewFollowUpItem } from './follow-up'
+import type { FollowUpResolution, NewFollowUpItem } from './follow-up'
 import type { InvitationToken, NewInvitation } from './invitations'
 import type { NewRelationship } from './relationships'
 import type { NewPerson } from './roster'
@@ -112,6 +112,20 @@ export interface LeaderAcceptance {
   readonly activatesRelationship: boolean
 }
 
+/**
+ * A relationship nobody accepted, withdrawn. One effect rather than a membership
+ * close per Person, because the relationship and everyone in it leave together or
+ * not at all -- a half-cancelled relationship would hold somebody out of the pool
+ * for a decision that had already been reversed.
+ */
+export interface RelationshipCancellation {
+  readonly ministryId: MinistryId
+  readonly relationshipId: RelationshipId
+  readonly cancelledAt: Date
+  /** Everyone whose open membership this closes. Recorded, not looked up again. */
+  readonly memberIds: readonly PersonId[]
+}
+
 export type Effect =
   | { readonly kind: 'history.append'; readonly event: NewHistoryEvent }
   | { readonly kind: 'person.create'; readonly person: NewPerson }
@@ -121,6 +135,11 @@ export type Effect =
   | { readonly kind: 'invitation.issue'; readonly invitation: NewInvitation }
   | { readonly kind: 'invitation.accept'; readonly acceptance: LeaderAcceptance }
   | { readonly kind: 'followUp.raise'; readonly item: NewFollowUpItem }
+  | { readonly kind: 'followUp.resolve'; readonly resolution: FollowUpResolution }
+  | {
+      readonly kind: 'relationship.cancel'
+      readonly cancellation: RelationshipCancellation
+    }
 
 export const appendHistory = (event: NewHistoryEvent): Effect => ({
   kind: 'history.append',
@@ -160,4 +179,14 @@ export const acceptInvitation = (acceptance: LeaderAcceptance): Effect => ({
 export const raiseFollowUpItem = (item: NewFollowUpItem): Effect => ({
   kind: 'followUp.raise',
   item,
+})
+
+export const resolveFollowUpItem = (resolution: FollowUpResolution): Effect => ({
+  kind: 'followUp.resolve',
+  resolution,
+})
+
+export const cancelRelationship = (cancellation: RelationshipCancellation): Effect => ({
+  kind: 'relationship.cancel',
+  cancellation,
 })

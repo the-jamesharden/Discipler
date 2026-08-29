@@ -1,11 +1,32 @@
 import type { AccountRefusal } from '~/domain/accounts'
-import type { InvitationSnapshot, PersonContact } from '~/domain/boundary'
-import type { IntakeRecord, LeaderAcceptance, OutboundMessageDraft } from '~/domain/effects'
-import type { NewFollowUpItem } from '~/domain/follow-up'
+import type {
+  InvitationSnapshot,
+  PersonContact,
+  RelationshipSnapshot,
+  TickSnapshot,
+} from '~/domain/boundary'
+import type {
+  IntakeRecord,
+  LeaderAcceptance,
+  OutboundMessageDraft,
+  RelationshipCancellation,
+} from '~/domain/effects'
+import type {
+  FollowUpKind,
+  FollowUpPayload,
+  FollowUpResolution,
+  NewFollowUpItem,
+} from '~/domain/follow-up'
 import type { InvitationToken, NewInvitation } from '~/domain/invitations'
 import type { HistoryEvent, NewHistoryEvent } from '~/domain/history'
 import type { DiscipleshipGoalId } from '~/domain/intake'
-import type { MinistryId, OutboundMessageId, PersonId } from '~/domain/ids'
+import type {
+  FollowUpItemId,
+  MinistryId,
+  OutboundMessageId,
+  PersonId,
+  RelationshipId,
+} from '~/domain/ids'
 import type { ParticipationStatus } from '~/domain/participation'
 import type { NewRelationship } from '~/domain/relationships'
 import type { InvitationState } from '~/domain/invitations'
@@ -109,6 +130,29 @@ export interface UnitOfWork {
    * number" is one condition, and the Admin sees one thing to act on.
    */
   raiseFollowUp(item: NewFollowUpItem): Promise<void>
+  /**
+   * Refuses with a `FollowUpRefused` when the item is gone or already closed. Two
+   * Admins clicking Resolve on the same row is ordinary, and only the database can
+   * see which of them got there first.
+   */
+  resolveFollowUp(resolution: FollowUpResolution): Promise<void>
+  /**
+   * Every relationship in this Ministry that nobody has accepted, with the Leaders
+   * still to agree and whether each has been reminded. Everything the tick needs to
+   * decide anything, read in one place so the domain fetches nothing.
+   */
+  unacceptedRelationships(): Promise<TickSnapshot>
+  /**
+   * One relationship as the database holds it now, or null when this Ministry has
+   * none by that identifier -- which is the same answer for one that belongs to
+   * another Ministry, because the policy on the connection shows neither.
+   */
+  relationshipFor(id: RelationshipId): Promise<RelationshipSnapshot | null>
+  /**
+   * Withdraws a relationship nobody accepted and closes every open membership on
+   * it, which is the whole of returning everyone to the suggestion pool.
+   */
+  cancelRelationship(cancellation: RelationshipCancellation): Promise<void>
 }
 
 /**
@@ -277,4 +321,39 @@ export interface InvitationReader {
    * tells its holder anything about a Ministry they have not proved they belong to.
    */
   readInvitationPage(token: string): Promise<InvitationPage | null>
+}
+
+/**
+ * One row of the Care Needed view. The view proper is a union of three sources --
+ * derived relationship states, Concerns, and these -- and the other two arrive
+ * with ticket 10, which is why this reader answers for the third alone rather than
+ * pretending to be the whole surface.
+ */
+export interface CareNeededItem {
+  readonly id: FollowUpItemId
+  readonly kind: FollowUpKind
+  readonly raisedAt: Date
+  readonly relationshipId: RelationshipId | null
+  readonly personId: PersonId | null
+  /** The Person the item is about, when it is about one. */
+  readonly personName: string | null
+  /**
+   * When the relationship the item is about was created, so a
+   * `relationship_unaccepted` item can say how long it has waited *now*. Read live
+   * rather than frozen into the payload, because an item raised on day five is
+   * still the same item on day twenty and should not still be saying five.
+   */
+  readonly relationshipCreatedAt: Date | null
+  /** What the kind carries, already narrowed to the kind that carries it. */
+  readonly payload: FollowUpPayload
+}
+
+export interface CareNeededReader {
+  /**
+   * Open items only, newest first, for one Ministry -- and enforced as such in the
+   * database rather than here. A resolved item leaves the view and stays in the
+   * table, because how fast a Ministry closes its care items is a question it
+   * should be able to ask later.
+   */
+  listOpenItems(ministryId: MinistryId): Promise<readonly CareNeededItem[]>
 }

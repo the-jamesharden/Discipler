@@ -26,6 +26,19 @@ export const invitationToken = (value: string): InvitationToken => value as Invi
  */
 export const INVITATION_LIFETIME_DAYS = 14
 
+/**
+ * The two thresholds a relationship nobody has accepted crosses, both measured
+ * from when it was created and both evaluated by the scheduled tick.
+ *
+ * They are an escalation, not two copies of the same message. At two days the
+ * Leader is reminded, because the likeliest reason nothing has happened is a text
+ * that scrolled away. At five days it stops being their problem to solve and
+ * surfaces to an Admin, who can chase them or cancel it -- and the item stays up
+ * until the Admin acts, which a second text to the Leader would not.
+ */
+export const ACCEPTANCE_REMINDER_DAYS = 2
+export const ACCEPTANCE_ESCALATION_DAYS = 5
+
 const DAY_IN_MS = 24 * 60 * 60 * 1000
 
 export interface NewInvitation {

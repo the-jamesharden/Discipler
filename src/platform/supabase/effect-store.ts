@@ -1,11 +1,28 @@
 import type { PoolClient } from 'pg'
 import pg from 'pg'
-import type { InvitationSnapshot, PersonContact } from '~/domain/boundary'
-import type { IntakeRecord, LeaderAcceptance, OutboundMessageDraft } from '~/domain/effects'
-import type { NewFollowUpItem } from '~/domain/follow-up'
-import type { InvitationToken, NewInvitation } from '~/domain/invitations'
+import type {
+  AwaitingLeader,
+  InvitationSnapshot,
+  PersonContact,
+  RelationshipSnapshot,
+  TickSnapshot,
+} from '~/domain/boundary'
+import type {
+  IntakeRecord,
+  LeaderAcceptance,
+  OutboundMessageDraft,
+  RelationshipCancellation,
+} from '~/domain/effects'
+import {
+  followUpPayload,
+  type FollowUpResolution,
+  type NewFollowUpItem,
+} from '~/domain/follow-up'
+import { invitationToken, type InvitationToken, type NewInvitation } from '~/domain/invitations'
 import type { MemberRole } from '~/domain/relationships'
 import {
+  CancellationRefused,
+  FollowUpRefused,
   InvitationRefused,
   PairingRefused,
   RosterImportRefused,
@@ -18,6 +35,7 @@ import {
   relationshipId,
   type MinistryId,
   type PersonId,
+  type RelationshipId,
 } from '~/domain/ids'
 import type { NewRelationship } from '~/domain/relationships'
 import {
@@ -414,12 +432,232 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // swallow a collision on any constraint on the table and turn a real fault into
     // a silent no-op.
     await client.query(
-      `insert into follow_up_item (ministry_id, kind, person_id, relationship_id, raised_at)
-       values ($1, $2, $3, $4, $5)
+      `insert into follow_up_item
+         (ministry_id, kind, person_id, relationship_id, raised_at, payload)
+       values ($1, $2, $3, $4, $5, $6)
        on conflict (ministry_id, kind, person_id, relationship_id)
          where resolved_at is null
        do nothing`,
-      [item.ministryId, item.kind, item.personId, item.relationshipId, item.raisedAt],
+      [
+        item.ministryId,
+        item.kind,
+        item.personId,
+        item.relationshipId,
+        item.raisedAt,
+        // Composed from the discriminated union rather than passed through, so the
+        // only shape that can reach the check constraint is one the union permits.
+        followUpPayload(item),
+      ],
+    )
+  },
+
+  async resolveFollowUp(resolution: FollowUpResolution) {
+    // `where resolved_at is null` is what makes two Admins clicking Resolve on the
+    // same row close it once. The second updates nothing and is told so, rather
+    // than overwriting the first Admin's name with their own.
+    let closed: number | null = null
+    try {
+      ;({ rowCount: closed } = await client.query(
+        `update follow_up_item set resolved_at = $2, resolved_by = $3
+          where id = $1 and resolved_at is null`,
+        [resolution.itemId, resolution.resolvedAt, resolution.resolvedBy],
+      ))
+    } catch (error) {
+      // The composite key onto `ministry_member` is what says an account is not
+      // enough: the resolver has to belong to this Ministry. Translated here like
+      // every other constraint, so it reaches a surface as a code rather than as a
+      // Postgres error nobody upstream can read.
+      if (constraintViolated(error) === 'follow_up_item_resolved_by_fk') {
+        throw new FollowUpRefused('follow_up.resolver_is_not_in_this_ministry')
+      }
+      throw error
+    }
+    if (closed === 1) return
+
+    // Two different things for the Admin to be told, and only the database can
+    // tell them apart: an item that is gone, and one somebody else has just closed.
+    const { rows } = await client.query(`select 1 from follow_up_item where id = $1`, [
+      resolution.itemId,
+    ])
+    throw new FollowUpRefused(
+      rows.length > 0 ? 'follow_up.already_resolved' : 'follow_up.not_found',
+    )
+  },
+
+  async unacceptedRelationships(): Promise<TickSnapshot> {
+    // One tick per Ministry at a time. Without this two overlapping runs each read
+    // `reminded_at` as null and each text the same Leader, because a row lock
+    // would not help: the reminder is read out of history in a subquery, and a
+    // blocked statement resumes on the snapshot it started with rather than a
+    // fresh one. An advisory lock taken *first* makes the second run wait, and
+    // every statement it takes afterwards sees what the first one committed.
+    await client.query(
+      `select pg_advisory_xact_lock(hashtextextended(app.command_ministry_id()::text, 0))`,
+    )
+
+    // Scoped by the policies on this connection, like every other read here. Two
+    // statements rather than one join, because a relationship with no Leader left
+    // to chase is still a relationship nobody accepted -- and a join would drop it
+    // out of the escalation entirely.
+    const { rows: relationships } = await client.query<{
+      id: string
+      created_at: Date
+      already_raised: boolean
+    }>(
+      // `already_raised` counts resolved items too. An Admin who chased the Leader
+      // by phone and closed the item has acted on it; raising an identical one the
+      // next morning would be Discipler overruling that, and would make resolving
+      // the one thing on this surface that does not stick.
+      `select r.id,
+              r.created_at,
+              exists (
+                select 1 from follow_up_item f
+                 where f.relationship_id = r.id
+                   and f.kind = 'relationship_unaccepted'
+              ) as already_raised
+         from relationship r
+        where r.accepted_at is null and r.ended_at is null
+        order by r.created_at`,
+    )
+
+    if (relationships.length === 0) return { unaccepted: [] }
+
+    // Only the Leaders a reminder can actually reach: an open leader membership
+    // with no acceptance on it, an Invitation Link nothing has spent, and standing
+    // permission to be texted at all.
+    //
+    // The consent test is not belt-and-braces. `outbound_message` refuses a row for
+    // anybody who has opted out or withdrawn SMS consent, and the whole tick is one
+    // transaction -- so one Leader who texted STOP after being invited would roll
+    // back every reminder and every escalation for the entire Ministry, on this run
+    // and on every run after it, with nothing to say why. They are left out here,
+    // and the five-day item raises for their relationship regardless, which is
+    // exactly the surface an Admin needs for somebody Discipler can no longer text.
+    //
+    // `remindedAt` is read back from history rather than stamped on a column,
+    // because the tick re-evaluates every run and history is already the record of
+    // what Discipler has said to whom.
+    const { rows: leaders } = await client.query<{
+      relationship_id: string
+      person_id: string
+      full_name: string
+      phone: string | null
+      token: string
+      expires_at: Date
+      reminded_at: Date | null
+    }>(
+      `select m.relationship_id,
+              m.person_id,
+              p.full_name,
+              p.phone,
+              i.token,
+              i.expires_at,
+              (select max(e.occurred_at)
+                 from ministry_event e
+                where e.type = 'relationship.acceptance_reminded'
+                  and e.subject_id = m.relationship_id
+                  and e.payload ->> 'personId' = m.person_id::text) as reminded_at
+         from relationship_member m
+         join person p on p.id = m.person_id
+         join invitation i
+           on i.relationship_id = m.relationship_id
+          and i.person_id = m.person_id
+          and i.consumed_at is null
+        where m.relationship_id = any($1::uuid[])
+          and m.role = 'leader'
+          and m.ended_at is null
+          and m.accepted_at is null
+          and not exists (
+            select 1 from person_opt_out o
+             where o.person_id = m.person_id and o.ended_at is null
+          )
+          and app.current_consent(m.person_id, 'sms') is true
+        order by m.started_at`,
+      [relationships.map((row) => row.id)],
+    )
+
+    const awaitingBy = new Map<string, AwaitingLeader[]>()
+    for (const row of leaders) {
+      awaitingBy.set(row.relationship_id, [
+        ...(awaitingBy.get(row.relationship_id) ?? []),
+        {
+          personId: personId(row.person_id),
+          fullName: row.full_name,
+          phone: row.phone,
+          token: invitationToken(row.token),
+          // Whether the link has run out is a question about time, so it is
+          // answered against the injected clock at the boundary and never by
+          // `now()` in here.
+          linkExpiresAt: row.expires_at,
+          remindedAt: row.reminded_at,
+        },
+      ])
+    }
+
+    return {
+      unaccepted: relationships.map((row) => ({
+        relationshipId: relationshipId(row.id),
+        createdAt: row.created_at,
+        awaiting: awaitingBy.get(row.id) ?? [],
+        alreadyRaised: row.already_raised,
+      })),
+    }
+  },
+
+  async relationshipFor(id: RelationshipId): Promise<RelationshipSnapshot | null> {
+    // Locked, for the same reason acceptance locks it: the domain decides from
+    // what it reads here, and two Admins cancelling at once would otherwise both
+    // read `ended_at` as null and both write an ending date.
+    const { rows } = await client.query<{
+      id: string
+      created_at: Date
+      accepted_at: Date | null
+      ended_at: Date | null
+    }>(
+      `select id, created_at, accepted_at, ended_at
+         from relationship where id = $1 for update`,
+      [id],
+    )
+
+    const relationship = rows[0]
+    if (!relationship) return null
+
+    // Open memberships only. Whoever already left is not somebody this returns to
+    // the pool -- they are already in it.
+    const { rows: members } = await client.query<{ person_id: string }>(
+      `select person_id from relationship_member
+        where relationship_id = $1 and ended_at is null
+        order by role, started_at`,
+      [id],
+    )
+
+    return {
+      relationshipId: relationshipId(relationship.id),
+      createdAt: relationship.created_at,
+      acceptedAt: relationship.accepted_at,
+      endedAt: relationship.ended_at,
+      memberIds: members.map((row) => personId(row.person_id)),
+    }
+  },
+
+  async cancelRelationship(cancellation: RelationshipCancellation) {
+    // The database has the final say, as it does on activation. The domain decided
+    // from a snapshot read under a lock earlier in this transaction; this refuses
+    // to stamp anything that has since been accepted or ended.
+    const { rowCount: withdrawn } = await client.query(
+      `update relationship set ended_at = $2, ended_reason = 'cancelled'
+        where id = $1 and ended_at is null and accepted_at is null`,
+      [cancellation.relationshipId, cancellation.cancelledAt],
+    )
+    if (withdrawn === 0) throw new CancellationRefused('relationship.already_ended')
+
+    // Closing every open membership is the whole of returning everyone to the
+    // suggestion pool: `participation_status` reads open participant memberships,
+    // and the participation caps read open memberships of either role.
+    await client.query(
+      `update relationship_member set ended_at = $2
+        where relationship_id = $1 and ended_at is null`,
+      [cancellation.relationshipId, cancellation.cancelledAt],
     )
   },
 

@@ -110,3 +110,49 @@ export class IntakeRefused extends Error {
     this.name = 'IntakeRefused'
   }
 }
+
+/**
+ * Why a relationship could not be cancelled. Cancelling withdraws something nobody
+ * agreed to; it is not a way of ending something that has started, and the two are
+ * kept apart here rather than collapsed into one permissive command.
+ */
+export type CancellationRefusal =
+  /** Nothing in this Ministry answers to that relationship. */
+  | 'relationship.not_found'
+  /**
+   * Every Leader has agreed and the Starter Message has gone out. Ending it is a
+   * different act, carries a required outcome, and is ticket 13's.
+   */
+  | 'relationship.already_accepted'
+  /** Already withdrawn or already ended. Cancelling twice frees nobody twice. */
+  | 'relationship.already_ended'
+
+export class CancellationRefused extends Error {
+  constructor(readonly refusal: CancellationRefusal) {
+    super(refusal)
+    this.name = 'CancellationRefused'
+  }
+}
+
+/**
+ * Why a Follow-Up Item could not be resolved. Both are decided by the database,
+ * which is the only thing that can see whether the row is still open by the time
+ * the update lands -- two Admins clicking Resolve on the same item is ordinary.
+ */
+export type FollowUpRefusal =
+  | 'follow_up.not_found'
+  /** Somebody else got there first. It is closed, which is what was wanted. */
+  | 'follow_up.already_resolved'
+  /**
+   * A real account, in another Ministry. Holding a login is not standing to close
+   * somebody else's care item, and the composite key onto `ministry_member` is
+   * what says so.
+   */
+  | 'follow_up.resolver_is_not_in_this_ministry'
+
+export class FollowUpRefused extends Error {
+  constructor(readonly refusal: FollowUpRefusal) {
+    super(refusal)
+    this.name = 'FollowUpRefused'
+  }
+}

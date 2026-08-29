@@ -13,10 +13,17 @@ import {
   createPostgresInvitationReader,
   type PostgresInvitationReader,
 } from '~/platform/supabase/invitation-reader'
+import { supabaseCareNeededReader } from '~/platform/supabase/care-needed-reader'
 import { supabaseLeaderAccounts } from '~/platform/supabase/leader-accounts'
 import { supabaseRosterReader } from '~/platform/supabase/roster-reader'
 import { createCommandService, type CommandService } from './command-service'
-import type { IntakeReader, InvitationReader, LeaderAccounts, RosterReader } from './ports'
+import type {
+  CareNeededReader,
+  IntakeReader,
+  InvitationReader,
+  LeaderAccounts,
+  RosterReader,
+} from './ports'
 
 /**
  * The composition root: the one place that decides which real implementations sit
@@ -88,6 +95,13 @@ export const closeCommandService = async (): Promise<void> => {
 }
 
 export const getRosterReader = (): RosterReader => supabaseRosterReader
+
+/**
+ * Care Needed reads through the signed-in Admin's session, so the policy on
+ * `follow_up_item` is what scopes it to their Ministry rather than anything this
+ * container passes down.
+ */
+export const getCareNeededReader = (): CareNeededReader => supabaseCareNeededReader
 
 /**
  * Acceptance is the only surface that mints an account, but it reaches its adapter

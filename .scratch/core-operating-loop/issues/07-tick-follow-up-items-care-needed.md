@@ -97,3 +97,54 @@ items it raised or how fast it closed them, and that is unreconstructable.
 - [ ] Raising and resolving each append a history event
 - [ ] A Concern is not stored in this table
 - [ ] Care Needed unions derived states, Concerns, and follow-up items
+
+### Superseded — two SWAP requests do not produce two items
+
+The acceptance criterion *Two `SWAP` requests on one relationship produce two items*,
+and the paragraph above it dividing kinds into conditions that dedupe and events that
+accumulate, were settled on 2026-08-28. The spec was amended on 2026-08-29 (commit
+`f08f2fe`) to the opposite rule: **every kind dedupes while it stands open, and the
+history accumulates** — an Admin sees one thing to act on however many times it was
+raised, and the count of raisings survives in the Week-by-Week History rather than in
+the Care Needed list.
+
+The later decision was implemented. The partial unique index covers all six kinds, and
+`tests/integration/follow-up-items.test.ts` asserts that a second `SWAP` files one open
+item and two history events. The criterion above is left in place as the record of what
+was decided first.
+
+### Judgment calls made during implementation
+
+**Who is reminded at two days.** The ticket says the Leader; spec story 44 is phrased
+from the Admin's point of view ("I want to be reminded when a Leader has not accepted
+after two days"). The ticket was followed — Leader at two days, Admin at five — because
+that is an escalation, whereas two Admin notifications three days apart is the same
+message twice.
+
+**`relationship_unaccepted` stores no payload.** The kinds table says its payload is
+"how long it has waited", but the check-constraint criterion names only the two kinds
+that carry data. The duration is derived from `relationship.created_at` when the view is
+drawn: a frozen number would say *five days* on the twentieth day.
+
+**A `relationship_unaccepted` item is raised at most once per relationship, ever.**
+The tick skips a relationship that has one, resolved ones included. An Admin who chases
+the Leader by phone and closes the item has acted on it; raising an identical one the
+next morning would make resolving the one action on this surface that does not stick.
+
+**Cancelling does not resolve the item.** An item persists until an Admin acts on it,
+and resolving is its own recorded act with its own actor and time. Cancelling a
+relationship therefore leaves any `relationship_unaccepted` item standing for the Admin
+to close, which `tests/integration/cancelling-a-relationship.test.ts` asserts. If the
+intent was that Care Needed should never list an item about a cancelled relationship,
+that is a one-line change to the cancel command and worth saying so.
+
+### Not built here
+
+**Nothing invokes the tick in production.** It enters through the command boundary and
+is driven by tests and by `CommandService.execute`, but there is no scheduler, cron
+entry or HTTP route calling it — authenticating an unattended trigger is a decision this
+ticket does not make. A separate ticket should give it a caller.
+
+**Care Needed is a reader, not a screen.** `CareNeededReader` answers for the Follow-Up
+Item source only. The union with derived relationship states and Concerns needs ticket
+10, and the inline resolve button is ticket 11's.

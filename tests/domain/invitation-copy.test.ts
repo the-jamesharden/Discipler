@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { invitationToken } from '~/domain/invitations'
 import {
+  acceptanceReminderMessage,
   invitationLink,
   invitationMessage,
   starterMessageToLeader,
@@ -128,5 +129,45 @@ describe('the Starter Message', () => {
 
     expect(dispatched).toContain('Reply STOP to opt out, HELP for help. David Ellis: +15550100')
     expect(dispatched).not.toContain('number: Msg')
+  })
+})
+
+describe('the reminder a Leader gets at two days', () => {
+  const body = acceptanceReminderMessage({
+    ministryName: 'Riverside Chapel',
+    fullName: 'David Ellis',
+    link,
+  })
+
+  it('speaks in the Ministry\'s voice and carries the link again', () => {
+    expect(body.startsWith('Riverside Chapel: ')).toBe(true)
+    // A reminder that made them go back and find the first text would cost more
+    // than the thing it is reminding them of.
+    expect(body).toContain(link)
+  })
+
+  it('still reveals nobody', () => {
+    // The match is on the page, after the Leader chooses to open it. A name here
+    // would say what the invitation deliberately did not.
+    expect(body).not.toContain('Emily')
+    expect(carriesAPhoneNumber(body)).toBe(false)
+  })
+
+  it('does not frame it as a failure', () => {
+    for (const scolding of ['late', 'overdue', 'failed', 'still waiting for you']) {
+      expect(body.toLowerCase()).not.toContain(scolding)
+    }
+  })
+
+  it('re-discloses nothing, because it is neither first contact nor the Starter Message', () => {
+    expect(body).not.toContain('Discipler:')
+    expect(body).not.toContain('Reply STOP to opt out')
+  })
+
+  it('greets by first name, and manages without one', () => {
+    expect(body).toContain('David,')
+    expect(
+      acceptanceReminderMessage({ ministryName: 'Riverside Chapel', fullName: '', link }),
+    ).toContain('There’s still someone waiting')
   })
 })

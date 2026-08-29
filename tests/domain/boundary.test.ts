@@ -9,10 +9,22 @@ describe('the command boundary', () => {
   const clockAt = (iso: string) => createTestClock(new Date(iso))
   const ids = () => createSequentialIds()
 
+  /**
+   * The tick stands in for any command here: what is being asserted is that the
+   * boundary returns effects rather than performing them, and reads its time from
+   * the context. It is handed a Ministry with nothing outstanding, which is what
+   * a tick against a quiet Ministry actually gets.
+   */
+  const quiet = {
+    ministryName: 'Riverside Chapel',
+    appBaseUrl: 'https://discipler.example',
+    tick: { unaccepted: [] },
+  } as const
+
   it('returns effects rather than performing them', async () => {
     const result = handleCommand(
       { type: 'scheduled.tick', ministryId: ministry },
-      { ministryId: ministry, clock: clockAt('2026-03-02T09:00:00Z'), ids: ids() },
+      { ministryId: ministry, clock: clockAt('2026-03-02T09:00:00Z'), ids: ids(), ...quiet },
     )
 
     expect(result).toEqual({ effects: [], rejections: [] })
@@ -20,7 +32,12 @@ describe('the command boundary', () => {
 
   it('is pure: the same command against the same context yields the same effects', () => {
     const command = { type: 'scheduled.tick', ministryId: ministry } as const
-    const context = { ministryId: ministry, clock: clockAt('2026-03-02T09:00:00Z'), ids: ids() }
+    const context = {
+      ministryId: ministry,
+      clock: clockAt('2026-03-02T09:00:00Z'),
+      ids: ids(),
+      ...quiet,
+    }
 
     expect(handleCommand(command, context)).toEqual(handleCommand(command, context))
   })
@@ -31,6 +48,8 @@ describe('the command boundary', () => {
 
     clock.advanceBy(weeks(3))
 
-    expect(handleCommand(command, { ministryId: ministry, clock, ids: ids() }).effects).toEqual([])
+    expect(
+      handleCommand(command, { ministryId: ministry, clock, ids: ids(), ...quiet }).effects,
+    ).toEqual([])
   })
 })

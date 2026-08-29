@@ -1,19 +1,27 @@
 import type { Command } from './commands'
-import type { Clock } from './clock'
+import { days, type Clock } from './clock'
 import {
   acceptInvitation,
   appendHistory,
+  cancelRelationship,
   createPerson,
   createRelationship,
   enqueueMessage,
   issueInvitationLink,
   raiseFollowUpItem,
   recordIntake,
+  resolveFollowUpItem,
   type Effect,
 } from './effects'
-import { IntakeRefused, InvitationRefused, PairingRefused } from './errors'
+import {
+  CancellationRefused,
+  IntakeRefused,
+  InvitationRefused,
+  PairingRefused,
+} from './errors'
 import { readIntakeForm } from './intake'
 import {
+  acceptanceReminderMessage,
   invitationLink,
   invitationMessage,
   starterMessageToLeader,
@@ -30,6 +38,8 @@ import {
   type RelationshipId,
 } from './ids'
 import {
+  ACCEPTANCE_ESCALATION_DAYS,
+  ACCEPTANCE_REMINDER_DAYS,
   invitationState,
   invitationToken,
   issueInvitation,
@@ -78,10 +88,86 @@ export interface CommandContext {
    */
   readonly invitation?: InvitationSnapshot
   /**
+   * Every relationship in this Ministry that nobody has accepted yet, loaded on
+   * the tick's behalf. Absent rather than empty, for the same reason the Roster
+   * is: an unloaded snapshot and a Ministry with nothing outstanding are the same
+   * value and opposite facts, and one of them silently reminds nobody.
+   */
+  readonly tick?: TickSnapshot
+  /**
+   * The one relationship an Admin command names, as the database holds it now.
+   * Absent when the command names none.
+   */
+  readonly relationship?: RelationshipSnapshot
+  /**
    * Where a link points. The shape of the path is a copy decision and lives in
    * `outbound-copy`; the host it hangs off is configuration and arrives here.
    */
   readonly appBaseUrl?: string
+}
+
+/**
+ * A Leader who has not yet agreed to lead, and whom a reminder can actually
+ * reach: an open leader membership with no `accepted_at`, an Invitation Link
+ * nothing has spent, and standing permission to be texted at all.
+ *
+ * A Leader who has opted out or withdrawn SMS consent is not here. Texting them
+ * is refused by the outbound queue, and the tick is one transaction -- so one
+ * such Leader would roll back every reminder and every escalation in the
+ * Ministry, on every run. The five-day item is raised from the relationship's own
+ * age and surfaces them to an Admin regardless, which is the right remedy for
+ * somebody Discipler can no longer reach.
+ */
+export interface AwaitingLeader {
+  readonly personId: PersonId
+  readonly fullName: string
+  readonly phone: string | null
+  readonly token: InvitationToken
+  /**
+   * When their link stops working. Carried here rather than filtered in SQL
+   * because whether it has run out is a question about time, and every one of
+   * those is answered against the injected clock.
+   */
+  readonly linkExpiresAt: Date
+  /**
+   * When this Leader was last reminded about this relationship, read back from
+   * history. The tick re-evaluates every run, so without it a relationship that
+   * has waited a fortnight would be four days of reminders and then ten more.
+   */
+  readonly remindedAt: Date | null
+}
+
+export interface UnacceptedRelationship {
+  readonly relationshipId: RelationshipId
+  /** Both thresholds are measured from here, never from when a Leader was invited. */
+  readonly createdAt: Date
+  readonly awaiting: readonly AwaitingLeader[]
+  /**
+   * Whether a `relationship_unaccepted` item has *ever* been raised against it,
+   * resolved ones included. The partial unique index refuses a second open row
+   * anyway; this is what keeps the tick from appending a history event a day, and
+   * from re-raising an item an Admin has already dealt with -- which would make
+   * resolving the one action on this surface that does not stick.
+   */
+  readonly alreadyRaised: boolean
+}
+
+export interface TickSnapshot {
+  readonly unaccepted: readonly UnacceptedRelationship[]
+}
+
+/**
+ * A relationship as the database holds it now. `acceptedAt` is activation and
+ * `endedAt` is the end of its life; between them they say which of the three
+ * things an Admin may do to it is still available.
+ */
+export interface RelationshipSnapshot {
+  readonly relationshipId: RelationshipId
+  readonly createdAt: Date
+  readonly acceptedAt: Date | null
+  readonly endedAt: Date | null
+  /** Everyone holding an open membership, whatever their role. */
+  readonly memberIds: readonly PersonId[]
 }
 
 export interface PersonContact {
@@ -199,12 +285,174 @@ const memberHolding = (invitation: InvitationSnapshot, id: PersonId): InvitedMem
 
 export const handleCommand = (command: Command, context: CommandContext): CommandResult => {
   switch (command.type) {
-    case 'scheduled.tick':
-      // The tick is the seam the care rules land on: Acceptance reminders, the
-      // twenty-four hour sequence timeout, the next-day reminder, Pause expiry.
-      // Every one of those reads context.clock rather than system time. None of
-      // them exists yet, so a tick presently changes nothing.
-      return { effects: [], rejections: [] }
+    case 'scheduled.tick': {
+      // The tick is a command like any other: it enters through this boundary, it
+      // reads the injected clock, and it returns effects. It never reads system
+      // time, which is the only reason a fortnight of waiting can be tested in a
+      // few milliseconds.
+      //
+      // It carries the Acceptance thresholds today. The rest of the care rules --
+      // the twenty-four hour sequence timeout, the next-day reminder, Pause expiry
+      // -- land here as their tickets build them.
+      const { tick, ministryName, appBaseUrl: baseUrl } = context
+      if (!tick) throw new Error('scheduled.tick was handed no state to evaluate')
+      if (!ministryName) throw new Error('scheduled.tick was handed no Ministry to speak for')
+      if (!baseUrl) throw new Error('scheduled.tick was handed nowhere for its links to point')
+
+      const now = context.clock.now()
+      const effects: Effect[] = []
+
+      for (const relationship of tick.unaccepted) {
+        // From creation, not from when any one Leader was invited. Nothing adds a
+        // member to a relationship after it is formed, so the two are the same
+        // instant today; measuring from the relationship is what keeps them the
+        // same when something does.
+        const waited = now.getTime() - relationship.createdAt.getTime()
+
+        // One reminder each, and only to the Leaders who have not agreed yet. A
+        // co-leader who accepted on day one is not chased for somebody else.
+        if (waited >= days(ACCEPTANCE_REMINDER_DAYS)) {
+          for (const leader of relationship.awaiting) {
+            if (leader.remindedAt !== null) continue
+            // A reminder whose link has run out sends them to a page telling them
+            // to find an Admin, which is worse than the text they never got.
+            if (leader.linkExpiresAt.getTime() <= now.getTime()) continue
+
+            effects.push(
+              enqueueMessage({
+                ministryId: command.ministryId,
+                personId: leader.personId,
+                toPhone: leader.phone,
+                body: acceptanceReminderMessage({
+                  ministryName,
+                  fullName: leader.fullName,
+                  link: invitationLink(baseUrl, leader.token),
+                }),
+                enqueuedAt: now,
+                // No message to a Leader contains a phone number.
+                disclosesPersonId: null,
+              }),
+              appendHistory({
+                ministryId: command.ministryId,
+                occurredAt: now,
+                type: 'relationship.acceptance_reminded',
+                subjectType: 'relationship',
+                subjectId: relationship.relationshipId,
+                payload: { personId: leader.personId },
+              }),
+            )
+          }
+        }
+
+        // It stops being the Leader's to solve and becomes the Admin's. The item
+        // is raised once and then stands: raising it again on days six and seven
+        // would tell the Admin nothing they are not already looking at, and the
+        // history event beside it would become a row a day for a condition nobody
+        // had acted on. The partial unique index refuses the second row regardless.
+        if (waited >= days(ACCEPTANCE_ESCALATION_DAYS) && !relationship.alreadyRaised) {
+          effects.push(
+            raiseFollowUpItem({
+              ministryId: command.ministryId,
+              kind: 'relationship_unaccepted',
+              relationshipId: relationship.relationshipId,
+              // The condition is the relationship's, not any one Leader's: a group
+              // waiting on two of them is one thing for an Admin to act on.
+              personId: null,
+              raisedAt: now,
+            }),
+            appendHistory({
+              ministryId: command.ministryId,
+              occurredAt: now,
+              type: 'follow_up.relationship_unaccepted',
+              subjectType: 'relationship',
+              subjectId: relationship.relationshipId,
+              // How long it had waited when it was raised. What the Admin is shown
+              // is read live off `created_at`, because this number is true of the
+              // moment it was written and stops being true the next day.
+              payload: { waitedDays: Math.floor(waited / days(1)) },
+            }),
+          )
+        }
+      }
+
+      return { effects, rejections: [] }
+    }
+
+    case 'relationship.cancel': {
+      const relationship = context.relationship
+      if (!relationship) {
+        throw new Error('relationship.cancel was handed no relationship to act on')
+      }
+
+      const now = context.clock.now()
+
+      // Cancelling twice frees nobody twice, and the second one would overwrite the
+      // date the first one recorded.
+      if (relationship.endedAt !== null) {
+        throw new CancellationRefused('relationship.already_ended')
+      }
+      // Every Leader agreed and the Starter Message has gone out. Stopping it now is
+      // an *ending*, it carries a required outcome, and it is ticket 13's -- so this
+      // refuses rather than quietly doing two thirds of it.
+      if (relationship.acceptedAt !== null) {
+        throw new CancellationRefused('relationship.already_accepted')
+      }
+
+      // Nobody is told. A Leader who never answered is not chased about a decision
+      // that has been reversed, and no Participant has heard anything at all --
+      // nothing reaches them until every Leader has agreed.
+      return {
+        rejections: [],
+        effects: [
+          cancelRelationship({
+            ministryId: command.ministryId,
+            relationshipId: relationship.relationshipId,
+            cancelledAt: now,
+            memberIds: relationship.memberIds,
+          }),
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'relationship.cancelled',
+            subjectType: 'relationship',
+            subjectId: relationship.relationshipId,
+            payload: {
+              memberIds: [...relationship.memberIds],
+              waitedDays: Math.floor(
+                (now.getTime() - relationship.createdAt.getTime()) / days(1),
+              ),
+            },
+          }),
+        ],
+      }
+    }
+
+    case 'follow_up.resolve': {
+      const now = context.clock.now()
+
+      // No note, deliberately. Resolving is one click on a surface designed not to
+      // have a writing task on it, and what the Admin actually did -- cancelled,
+      // nudged, ended -- is recorded as a fact of its own rather than retyped here.
+      return {
+        rejections: [],
+        effects: [
+          resolveFollowUpItem({
+            ministryId: command.ministryId,
+            itemId: command.itemId,
+            resolvedBy: command.resolvedBy,
+            resolvedAt: now,
+          }),
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'follow_up.resolved',
+            subjectType: 'follow_up_item',
+            subjectId: command.itemId,
+            payload: { resolvedBy: command.resolvedBy },
+          }),
+        ],
+      }
+    }
 
     case 'person.import': {
       // Absent rather than empty. An empty Roster and an unloaded one are the same
