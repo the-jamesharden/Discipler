@@ -28,7 +28,7 @@ const context = (): CommandContext => ({
   // Creating a relationship texts every Leader an Invitation Link, so the names
   // and numbers travel with the request now. Nothing here is a Participant's
   // concern: they are told nothing until a Leader has agreed.
-  pairing: {
+  contacts: {
     people: new Map([
       [leader, { fullName: 'David Ellis', phone: '+15550100' }],
       [emily, { fullName: 'Emily Johnson', phone: '+15550102' }],

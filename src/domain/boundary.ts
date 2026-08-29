@@ -71,7 +71,7 @@ export interface CommandContext {
    * behalf like the Roster, because a message needs a name and a recipient and a
    * domain that fetched either would no longer be a pure function of its inputs.
    */
-  readonly pairing?: PairingSnapshot
+  readonly contacts?: ContactsSnapshot
   /**
    * The token as the database found it, with everyone in the relationship it
    * names. Absent when the command is not one a token drives.
@@ -90,7 +90,7 @@ export interface PersonContact {
   readonly phone: string | null
 }
 
-export interface PairingSnapshot {
+export interface ContactsSnapshot {
   readonly people: ReadonlyMap<PersonId, PersonContact>
 }
 
@@ -160,7 +160,7 @@ const membersOf = (
 
 /** A Person the command was handed, or a loud failure rather than a blank name. */
 const whoIs = (context: CommandContext, id: PersonId): PersonContact => {
-  const person = context.pairing?.people.get(id)
+  const person = context.contacts?.people.get(id)
   if (!person) throw new Error(`No name or number was loaded for person ${id}`)
   return person
 }

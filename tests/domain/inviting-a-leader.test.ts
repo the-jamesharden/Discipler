@@ -18,7 +18,7 @@ const context = (): CommandContext => ({
   ids: createSequentialIds(),
   ministryName: 'Riverside Chapel',
   appBaseUrl: 'https://discipler.example',
-  pairing: {
+  contacts: {
     people: new Map([
       [david, { fullName: 'David Ellis', phone: '+15550100' }],
       [sarah, { fullName: 'Sarah Kim', phone: '+15550101' }],

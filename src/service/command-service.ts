@@ -171,7 +171,7 @@ export const createCommandService = ({
         // is not acting for.
         ...(command.type === 'relationship.create'
           ? {
-              pairing: {
+              contacts: {
                 people: await unit.contactsFor([
                   ...command.leaderIds,
                   ...command.participantIds,

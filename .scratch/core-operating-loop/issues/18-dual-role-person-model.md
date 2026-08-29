@@ -20,6 +20,8 @@ Nothing here stores a role. Role lives on relationship membership, and Participa
 - [x] Eligibility is independent of account, of Intake, and of relationships currently led
 - [x] No role is stored on the Person, and `ministry_member.tier` is unchanged
 - [x] A fixture builds the canonical dual-role case: an Admin who leads two relationships and is a Participant in a third
+- [ ] One human holds one `auth.users` row: an Admin who accepts an Invitation Link gains no second account and no second `ministry_member` row — ticket 24
+- [ ] The dual-role case is built through the product's own flows, not by hand-linking `person.user_id` through the service role
 
 ## Comments
 
@@ -33,3 +35,20 @@ control that sets it is ticket 16's, and the box stays unchecked until that ship
 "An account may not exist without a Person in that Ministry" is a flow rule rather
 than a constraint -- nothing in the database can see that an `auth.users` row was
 created for a Ministry -- so it is ticket 06's to hold, at the point of Acceptance.
+
+### The account invariant, and why the fixture hides it
+
+`docs/adr/0009-one-account-per-human.md` makes explicit what line 7 above only implies:
+a human holds one login, Admin access is derived from `ministry_member`, leading is
+derived from `relationship_member`, and no derivation may imply a second account.
+
+The product does not hold that invariant today. An Admin's Person row is never linked to
+their login — the row comes from import or Intake with a name and a phone, the login was
+provisioned against an email — so acceptance sees a null `person.user_id`, mints a second
+account, and the `on conflict (ministry_id, user_id)` guard misses because the user_id is
+new. The Admin ends up with two logins.
+
+The suite does not catch it. `addPersonForAdmin` sets `person.user_id` through the service
+role, which is a path no product flow has, so the canonical dual-role case is asserted
+against a state the product cannot reach. Ticket 24 owns the fix, because the fix is to
+how an Admin comes into existence; the fixture is replaced there too.

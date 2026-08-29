@@ -10,7 +10,7 @@ The relationship also declares a `kind` — one-to-one or group — when it is c
 
 This ticket introduces the core primitive: **M Leaders and N Participants**. A relationship with one Participant is one-to-one; with more than one it is a group. A one-to-one holds exactly one Leader; a group may hold several. There is no separate group entity, no participant-id column on the relationship, and no group-specific code path. Membership is a dated join — each Participant's involvement carries a start date and a nullable end date. Message copy branches on Participant count, never on a group-versus-one-to-one flag. Any design reintroducing that distinction is a regression.
 
-Manual pairing may override the age band constraint. In a one-to-one it may never override gender; in a group gender is not constrained at all.
+Manual pairing may override the age band constraint. It may never override gender: in a one-to-one gender must match, and in a group that declares a gender every member must be of it. A group declared mixed is unconstrained. Ticket 25 builds the declaration; until it ships, a group is unconstrained and that is a known gap rather than the settled rule.
 
 **Blocked by:** 04
 
@@ -30,6 +30,7 @@ Manual pairing may override the age band constraint. In a one-to-one it may neve
 - [x] Each cap is a database constraint, and a violation surfaces as a user-facing error rather than a silent no-op
 - [x] Participation Status gains its `Paired` branch here: at least one open participant membership, and leading never sets it
 - [x] Manual pairing can cross the age band constraint, and cannot cross the gender constraint in a one-to-one
+- [ ] Manual pairing cannot cross the gender constraint in a group that declares a gender — ticket 25
 - [x] The Roster shows every member of a relationship, not just one
 
 ## Comments
@@ -327,3 +328,16 @@ load-bearing for safeguarding rather than only for capacity.
   `intake_submission` and `discipler_command` holds INSERT on it. Narrower than it was --
   groups are unaffected -- but it is the same "must not rest on what the write paths
   currently happen to do" argument left half-applied, and it wants its own ticket.
+
+### Amended again — gender binds a declared group too
+
+The amendment below scoped the gender triggers to `one_to_one` on the reasoning that a
+group may hold several Leaders and so has no pair to match. That is true of a *mixed*
+group and false of a men's or women's group, which is the ordinary case in a ministry
+and the one where the safeguarding rule matters most. Scoping by `kind` answered the
+wrong question: the question is not how many Leaders a relationship holds but whether it
+declares itself single-gender.
+
+The rule is three-way — one-to-one matches absolutely, a declared single-gender group
+matches absolutely, a declared mixed group is unconstrained — and it is spec'd at
+`spec.md` under Suggestion ranking. Ticket 25 carries the declaration and the trigger.

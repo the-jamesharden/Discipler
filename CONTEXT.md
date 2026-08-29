@@ -66,7 +66,8 @@ _Avoid_: Age gap, age difference — both read as symmetric
 A hard eligibility rule that removes a combination from suggestion entirely. Constraints govern suggestion only and a ministry may always pair manually across them — with one exception, the Gender Rule, which also binds pairing.
 
 **Gender Rule**:
-A one-to-one relationship is between two people of the same gender. A safeguarding rule rather than a suggestion preference: it is enforced in the database and manual pairing cannot cross it. It does not apply to a group, which may hold leaders and participants of any gender.
+A one-to-one relationship is between two people of the same gender, and a group that declares a gender holds only people of that gender. A group declared mixed is unconstrained. A safeguarding rule rather than a suggestion preference: it is enforced in the database and manual pairing cannot cross it.
+_Avoid_: "gender does not apply to groups" — it applies to any relationship that declared a gender
 
 **Pair**:
 Verb only. The pastor's act of placing people into a discipleship relationship.

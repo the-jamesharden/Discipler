@@ -28,6 +28,10 @@ credential and nothing signs in with it.
 - [ ] One sign-in form, taking a phone number and a password, for Admins and Leaders alike
 - [ ] `app/login` and `app/auth/sign-in` no longer accept an email address
 - [ ] Admin provisioning creates a phone identity, and no account is created against an email
+- [ ] Admin provisioning creates the Admin's Person row and links `person.user_id` to it, so the Admin is a Person like everybody else
+- [ ] An Admin who accepts an Invitation Link reuses their existing account: no second `auth.users` row, no second `ministry_member` row, no second password
+- [ ] From one signed-in account, an Admin who leads reaches both the Admin surface and their own relationships
+- [ ] `addPersonForAdmin` is gone, and the dual-role case is built through the real provisioning flow
 - [ ] Every test fixture that signs somebody in does so by phone number
 - [ ] A Leader who accepted an Invitation Link can sign back in with the number that flow displayed
 - [ ] A lost password still requires an Admin reset; one-time codes remain post-launch
@@ -48,3 +52,15 @@ routable in the local stack's test environment, and the fixtures have to agree o
 where those numbers come from without colliding across runs. Ticket 06's
 integration suites hit exactly that and solved it locally; this ticket should
 solve it once, in `tests/support/local-supabase.ts`.
+
+### This ticket also carries the account invariant
+
+`docs/adr/0009-one-account-per-human.md` decides that a human holds one login and that
+their roles are derived from what they are part of. The reason it lands here rather than
+on ticket 18 is that the missing piece is the link between an Admin's login and their
+Person row, and that link can only be made where the Admin comes into existence — which
+this ticket already rewrites.
+
+Ticket 06's acceptance flow needs no change beyond what it already does: it reuses
+`person.user_id` when it is set. Setting it for an Admin is what is missing, and once
+provisioning does that, acceptance is already correct.
