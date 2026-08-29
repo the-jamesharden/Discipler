@@ -2,15 +2,15 @@
 
 **What to build:** An Admin pairs people three ways from the same workflow: accepting a suggestion, pairing any two eligible people manually from the Roster without using a suggestion, or selecting several people together to form one relationship. An unpaired Person carries a Pair action directly on their Roster row.
 
-Creating a relationship does not activate it. Its lifecycle is derived from two timestamps — `accepted_at` and `ended_at` — and no status column exists anywhere. It reads as `Awaiting Leader Acceptance`, everyone in it leaves the suggestion pool, and Participants receive nothing at all — nothing reaches them before their Leader has agreed to lead them. The Roster shows who each Person is in a relationship with, and a relationship with several participants shows everyone in it.
+Creating a relationship does not activate it. Its lifecycle is derived from two timestamps — `accepted_at` and `ended_at` — and no status column exists anywhere. It reads as `Awaiting Leader Acceptance`, everyone in it leaves the suggestion pool, and Participants receive nothing at all — nothing reaches them until every Leader has agreed to lead them. The Roster shows who each Person is in a relationship with, and a relationship with several participants shows everyone in it.
 
 Membership is where role lives. A `relationship_member` row carries a role of leader or participant, a `started_at`, and a nullable `ended_at`; the same person may hold a leader membership on one relationship and a participant membership on another at the same time. Nothing about a role is stored on the Person.
 
 The relationship also declares a `kind` — one-to-one or group — when it is created, immutable afterwards, copied onto every membership by composite foreign key. It exists so the participation caps can be partial unique indexes and is read by nothing else: copy and state derivation continue to follow the live participant count. `docs/adr/0004-relationship-kind-as-capacity-declaration.md` records why, and the fence is a test, not a convention.
 
-This ticket introduces the core primitive: **one Leader and N Participants**. A relationship with one Participant is one-to-one; with more than one it is a group. There is no separate group entity, no participant-id column on the relationship, and no group-specific code path. Membership is a dated join — each Participant's involvement carries a start date and a nullable end date. Message copy branches on Participant count, never on a group-versus-one-to-one flag. Any design reintroducing that distinction is a regression.
+This ticket introduces the core primitive: **M Leaders and N Participants**. A relationship with one Participant is one-to-one; with more than one it is a group. A one-to-one holds exactly one Leader; a group may hold several. There is no separate group entity, no participant-id column on the relationship, and no group-specific code path. Membership is a dated join — each Participant's involvement carries a start date and a nullable end date. Message copy branches on Participant count, never on a group-versus-one-to-one flag. Any design reintroducing that distinction is a regression.
 
-Manual pairing may override the age band constraint. It may never override gender.
+Manual pairing may override the age band constraint. In a one-to-one it may never override gender; in a group gender is not constrained at all.
 
 **Blocked by:** 04
 
@@ -19,17 +19,17 @@ Manual pairing may override the age band constraint. It may never override gende
 - [~] An Admin can create a relationship from a suggestion, from two people on the Roster, or from several people selected together
 - [x] A created relationship is `Awaiting Leader Acceptance` and enqueues nothing to Participants
 - [ ] Everyone in a created relationship leaves the suggestion pool
-- [x] The relationship is one Leader and N Participants with no separate group entity and no group code path
+- [x] The relationship is M Leaders and N Participants with no separate group entity and no group code path
 - [x] Every membership carries a role, a start date, and a nullable end date, for leaders as well as participants
 - [x] A person holds at most one open membership per relationship, in one role, and cannot be paired with themselves
 - [x] A person who left a relationship can be readmitted later as a second membership row, leaving the first closed and intact
-- [x] A relationship has at most one open leader membership
+- [x] A one-to-one has at most one open leader membership; a group may hold several
 - [x] `kind` is immutable, copied onto memberships by composite foreign key, and read by no copy or derivation path — proven by a test
 - [x] A leader holds at most one open group membership; one-to-ones are uncapped
 - [x] A participant holds at most one open one-to-one membership; groups are uncapped
 - [x] Each cap is a database constraint, and a violation surfaces as a user-facing error rather than a silent no-op
 - [x] Participation Status gains its `Paired` branch here: at least one open participant membership, and leading never sets it
-- [x] Manual pairing can cross the age band constraint and cannot cross the gender constraint
+- [x] Manual pairing can cross the age band constraint, and cannot cross the gender constraint in a one-to-one
 - [x] The Roster shows every member of a relationship, not just one
 
 ## Comments
@@ -228,3 +228,102 @@ multi-select route or for a Person already being discipled who may still lead; t
 Roster now carries a Form a relationship link.
 
 310 tests pass, none skipped.
+
+### Amended — gender is a one-to-one rule, and a group may hold several Leaders
+
+The rule this ticket shipped was wrong in both directions, and the migration comments
+argue for it at length, which makes the correction worth stating rather than quietly
+replacing.
+
+**Gender binds a one-to-one and does not bind a group.** Men with men and women with
+women, for the pilot, in a one-to-one. A group is people who meet together, and it may
+hold Leaders and Participants of any gender. `app.reject_gender_mismatch` compared the
+joiner against every other open member regardless of `kind`, so mixed-gender groups
+were refused; its own comment defended that as stating the rule "honestly for a group",
+which was the honest statement of the wrong rule.
+
+**A group may hold several Leaders; a one-to-one holds exactly one.**
+`relationship_one_open_leader` was unique on `(relationship_id)` for every kind.
+
+Both corrections condition on `kind`, and that is the cost worth naming: the gender
+rule becomes `kind`'s second kind of reader. ADR-0004 scoped the column to the
+participation caps, and a safeguarding rule is not a participation cap, so the ADR is
+amended rather than stretched in silence. The alternative -- branching on the live
+Participant count, the way copy and derivation must -- is the wrong shape for a
+constraint and would not merely be untidy: the first two rows of a nascent group read
+as N=1, so insert order would decide whether a mixed-gender group were legal at all.
+`kind` is stable at write time because it is frozen at formation, which is the case the
+ADR exists for.
+
+The consequence, stated so it is not discovered later: a group that drops to one
+Participant keeps `kind = 'group'` and stays gender-free, while a relationship formed
+as a one-to-one is bound. That is what a declaration means, and it is the side of the
+trade this ticket already took for the caps.
+
+**"Every Leader has accepted" is the activation rule.** A relationship leaves
+`Awaiting Leader Acceptance` only when every open leader membership has accepted --
+nobody co-leads something they did not agree to. The rule is settled here; building it
+belongs to ticket 06, which owns acceptance, and nothing in this ticket writes
+`accepted_at`.
+
+The age band is unchanged: constrained nowhere, crossable everywhere.
+
+Three boxes are unticked above rather than reworded and left ticked, because the
+wording is corrected and the code is not yet.
+
+### Implemented — the corrected rules
+
+`20260828000400_gender_binds_a_one_to_one.sql` carries both. The gender triggers gain
+`when (new.kind = 'one_to_one')`, which costs no lookup because the composite foreign
+key already puts the kind on the membership row. `relationship_one_open_leader` is
+dropped and recreated as `one_to_one_one_open_leader`, rescoped and renamed together --
+leaving a name that says "one open leader per relationship" over an index that means
+"per one-to-one" is the stale comment this pass exists to correct. `leader_one_open_group`
+is untouched: a person still leads at most one open group, which is a statement about
+how much one Leader carries and is unaffected.
+
+**A one-to-one is one Leader and one Participant, and every other shape is a group.**
+This was forced rather than chosen, and it is the one inference in this pass worth
+challenging. `kindFor` previously read the Participant count alone, which would have
+called two Leaders over one Participant a one-to-one -- and a one-to-one holds exactly
+one Leader, so the database would then have refused the very shape the Admin had been
+invited to form. Three people meeting is a group whichever side the third stands on.
+`tests/domain/relationships.test.ts` and `pairing-matches-gender.test.ts` both pin it.
+
+**The Leader field is a checkbox set, and the empty case moved into the domain.** A
+radio carried `required`; a checkbox set cannot express "at least one of these", so
+half-enforcing it in the browser would have left the real rule in two places. The route
+had been checking for a missing leader itself, which made that one refusal a bare string
+while every other one was a `PairingRefusal` -- a typo in either the code or its wording
+fell through to the generic message rather than failing the build. It is now
+`relationship.needs_a_leader`, the fourth domain-decided refusal, and `FORM_PROBLEMS` is
+gone with it.
+
+**The gender refusal names the one-to-one.** The Admin it stops has a real alternative --
+the same people in a group are not refused -- and a sentence saying "a relationship"
+would have been true of the case in front of them while hiding the way out of it.
+
+`CONTEXT.md` said constraints govern suggestion only and a ministry may always pair
+manually across them, which the shipped rule contradicted and this pass makes honest: a
+Gender Rule entry now names the exception, and the Discipleship Relationship and
+Relationship Kind entries are corrected. ADR-0004 gains an amendment: its letter already
+allowed any database constraint to read `kind`, but its Context frames the column
+entirely around the participation caps, and the immutability guarantee is now
+load-bearing for safeguarding rather than only for capacity.
+
+322 tests pass, none skipped.
+
+### Still open
+
+- **Acceptance is ticket 06's.** Every open leader membership must accept before the
+  relationship leaves `Awaiting Leader Acceptance` -- nobody co-leads something they did
+  not agree to. The rule is settled; nothing here writes `accepted_at`, and the
+  Roster's `Awaiting Leader Acceptance` is still hardcoded rather than derived.
+- **The suggester.** ADR-0001 has gender matching as a suggestion rule with a settings
+  toggle. Whether ticket 04 should still decline to *suggest* mixed-gender groups now
+  that the database permits them is not decided here.
+- **Gender binds membership writes, not Intake.** A re-submission that changes a gender
+  can still leave a live one-to-one mismatched, because nothing guards
+  `intake_submission` and `discipler_command` holds INSERT on it. Narrower than it was --
+  groups are unaffected -- but it is the same "must not rest on what the write paths
+  currently happen to do" argument left half-applied, and it wants its own ticket.

@@ -32,7 +32,7 @@ Participant-facing words for the Leader and Participant of a relationship with o
 _Avoid_: Using these as model terms, or introducing Group Leader / Group Participant as separate roles
 
 **Discipleship Relationship**:
-The ministry relationship Discipler supports and follows over time: one leader and N participants. A relationship with one participant is one-to-one; a relationship with more than one is a group. There is no separate group concept.
+The ministry relationship Discipler supports and follows over time: M leaders and N participants. A one-to-one is one leader and one participant; every other shape is a group, and a group may be led by more than one person. There is no separate group concept.
 _Avoid_: Pair, pairing record, pairing (as a noun), group (as a distinct entity)
 
 **Intake**:
@@ -52,7 +52,7 @@ A recommendation that a particular mentor and mentee may be a good one-to-one pa
 _Avoid_: Match, assignment, pairing
 
 **Relationship Kind**:
-Whether a discipleship relationship was formed as a one-to-one or as a group. Declared when the relationship is created and immutable afterwards. It is a capacity declaration that exists so the participation caps can be enforced in the database; it is never read by message copy or by state derivation, both of which follow the live participant count.
+Whether a discipleship relationship was formed as a one-to-one or as a group. Declared when the relationship is created and immutable afterwards. It is a capacity declaration that exists so the participation caps and the Gender Rule can be enforced in the database; it is never read by message copy or by state derivation, both of which follow the live participant count.
 _Avoid_: Treating kind as a second entity, or as the answer to "is this a group"
 
 **Eligible to Lead**:
@@ -63,7 +63,10 @@ The number of age bands a participant may be *above* their leader in a suggestio
 _Avoid_: Age gap, age difference — both read as symmetric
 
 **Pairing Constraint**:
-A hard eligibility rule that removes a combination from suggestion entirely. Constraints govern suggestion only; a ministry may always pair manually across them.
+A hard eligibility rule that removes a combination from suggestion entirely. Constraints govern suggestion only and a ministry may always pair manually across them — with one exception, the Gender Rule, which also binds pairing.
+
+**Gender Rule**:
+A one-to-one relationship is between two people of the same gender. A safeguarding rule rather than a suggestion preference: it is enforced in the database and manual pairing cannot cross it. It does not apply to a group, which may hold leaders and participants of any gender.
 
 **Pair**:
 Verb only. The pastor's act of placing people into a discipleship relationship.

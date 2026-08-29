@@ -51,6 +51,7 @@ export type Command =
   | {
       readonly type: 'relationship.create'
       readonly ministryId: MinistryId
-      readonly leaderId: PersonId
+      /** One Leader makes a one-to-one possible; several make it a group. */
+      readonly leaderIds: readonly PersonId[]
       readonly participantIds: readonly PersonId[]
     }

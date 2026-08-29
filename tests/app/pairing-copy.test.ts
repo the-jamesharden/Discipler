@@ -10,6 +10,7 @@ import { REFUSALS, pairingRefusalMessage } from '../../app/roster/copy'
  */
 
 const EVERY_REFUSAL: readonly PairingRefusal[] = [
+  'relationship.needs_a_leader',
   'relationship.needs_a_participant',
   'relationship.leader_cannot_be_a_participant',
   'relationship.person_listed_twice',
@@ -59,6 +60,15 @@ describe('what a refused pairing says to an Admin', () => {
 
   it('names gender plainly, because that refusal is the one an Admin cannot work around', () => {
     expect(pairingRefusalMessage('relationship.gender_must_match')).toMatch(/gender/i)
+  })
+
+  it('says gender binds the one-to-one, because the Admin it stops has an alternative', () => {
+    // The same people in a group are not refused. A sentence that said "a
+    // relationship" would be true of the case in front of them and would hide the
+    // way out of it.
+    const said = pairingRefusalMessage('relationship.gender_must_match') ?? ''
+    expect(said).toMatch(/one-to-one/i)
+    expect(said).toMatch(/group/i)
   })
 
   it('distinguishes the two roles, because they send the Admin to different people', () => {

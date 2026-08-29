@@ -50,7 +50,7 @@ describe('creating a relationship', () => {
     service().execute({
       type: 'relationship.create',
       ministryId: ministry.id,
-      leaderId,
+      leaderIds: [leaderId],
       participantIds,
     })
 
@@ -183,6 +183,6 @@ describe('creating a relationship', () => {
     )
 
     expect(rows[0]).toMatchObject({ type: 'relationship.created', subject_type: 'relationship' })
-    expect(rows[0].payload).toMatchObject({ leaderId: leader, participantCount: 1 })
+    expect(rows[0].payload).toMatchObject({ leaderIds: [leader], participantCount: 1 })
   })
 })

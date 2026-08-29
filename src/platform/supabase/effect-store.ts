@@ -27,7 +27,7 @@ const REFUSALS: Record<string, PairingRefusal> = {
     'relationship.leader_has_not_completed_intake',
   relationship_member_leader_has_not_opted_out: 'relationship.leader_has_opted_out',
   relationship_member_gender_matches: 'relationship.gender_must_match',
-  relationship_one_open_leader: 'relationship.already_has_a_leader',
+  one_to_one_one_open_leader: 'relationship.already_has_a_leader',
 }
 
 /** The one place that knows where a driver hides the name of what it violated. */

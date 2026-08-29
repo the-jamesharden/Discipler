@@ -5,12 +5,13 @@ import type { IntakeRefusal } from './intake'
  * a surface renders its own wording, and nothing a caller supplied is reflected back
  * into the page.
  *
- * Three of these are decided in the domain, which can see the whole request. The
+ * Four of these are decided in the domain, which can see the whole request. The
  * rest are decided by the database, which is the only thing that can see the
  * Ministry's other relationships and each Person's derived status, and are
  * translated where the constraint is caught.
  */
 export type PairingRefusal =
+  | 'relationship.needs_a_leader'
   | 'relationship.needs_a_participant'
   | 'relationship.leader_cannot_be_a_participant'
   | 'relationship.person_listed_twice'
@@ -28,13 +29,15 @@ export type PairingRefusal =
   | 'relationship.leader_has_not_completed_intake'
   | 'relationship.leader_has_opted_out'
   // Safeguarding, and the one constraint on pairing an Admin cannot decide to cross.
+  // It binds a one-to-one only: a group is people who meet together and may be mixed.
   // Its sibling, the age band, governs suggestion only and is deliberately absent
   // from this list: crossing it by hand is a supported thing to do, not a refusal.
   | 'relationship.gender_must_match'
-  // Unreachable from a form that offers one Leader, and listed anyway: an index the
-  // store cannot name escapes as a Postgres error and a 500, which is the silent
-  // no-op with the volume turned up. Every cap the database holds is translated here,
-  // not every cap a current screen can reach.
+  // A one-to-one is two people and holds exactly one Leader. Reachable now that the
+  // form offers several: an Admin who ticks two Leaders and one Participant has
+  // formed a group, but one who reopens a closed leader membership on a one-to-one
+  // has not, and an index the store cannot name escapes as a Postgres error and a
+  // 500 -- the silent no-op with the volume turned up.
   | 'relationship.already_has_a_leader'
 
 export class PairingRefused extends Error {

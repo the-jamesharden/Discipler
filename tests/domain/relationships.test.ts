@@ -3,10 +3,10 @@ import { handleCommand, type CommandContext } from '~/domain/boundary'
 import { createTestClock } from '~/domain/clock'
 import { PairingRefused } from '~/domain/errors'
 import { createSequentialIds, ministryId, personId } from '~/domain/ids'
-import { kindForParticipantCount } from '~/domain/relationships'
+import { kindFor } from '~/domain/relationships'
 
 /**
- * One Leader and N Participants, formed but not activated. The rules that can be
+ * M Leaders and N Participants, formed but not activated. The rules that can be
  * judged from the request alone are judged here; the participation caps cannot be,
  * because they depend on the Ministry's other relationships, and they are refused by
  * the database instead.
@@ -25,9 +25,12 @@ const context = (): CommandContext => ({
   ids: createSequentialIds(),
 })
 
-const create = (participantIds: ReturnType<typeof personId>[]) =>
+const create = (
+  participantIds: ReturnType<typeof personId>[],
+  leaderIds: ReturnType<typeof personId>[] = [leader],
+) =>
   handleCommand(
-    { type: 'relationship.create', ministryId: ministry, leaderId: leader, participantIds },
+    { type: 'relationship.create', ministryId: ministry, leaderIds, participantIds },
     context(),
   )
 
@@ -38,15 +41,24 @@ const relationshipIn = (result: ReturnType<typeof create>) => {
 }
 
 describe('the kind of a relationship', () => {
-  it('is one-to-one for a single Participant and a group for more', () => {
-    expect(kindForParticipantCount(1)).toBe('one_to_one')
-    expect(kindForParticipantCount(2)).toBe('group')
-    expect(kindForParticipantCount(5)).toBe('group')
+  it('is one-to-one for one Leader and one Participant, and a group for anything else', () => {
+    expect(kindFor(1, 1)).toBe('one_to_one')
+    expect(kindFor(1, 2)).toBe('group')
+    expect(kindFor(1, 5)).toBe('group')
+  })
+
+  it('is a group when several Leaders share one Participant', () => {
+    // Three people meeting is a group whichever side the third stands on. Deriving
+    // the kind from the Participant count alone would have called this a one-to-one,
+    // and a one-to-one holds exactly one Leader -- so the database would then have
+    // refused the very shape the Admin was told to form.
+    expect(kindFor(2, 1)).toBe('group')
+    expect(relationshipIn(create([emily], [leader, ada])).kind).toBe('group')
   })
 })
 
 describe('creating a relationship', () => {
-  it('is one Leader and N Participants, with no separate group', () => {
+  it('is M Leaders and N Participants, with no separate group', () => {
     const oneToOne = relationshipIn(create([emily]))
     const group = relationshipIn(create([emily, ada]))
 
@@ -84,10 +96,18 @@ describe('creating a relationship', () => {
     expect(event.event.type).toBe('relationship.created')
     expect(event.event.subjectType).toBe('relationship')
     expect(event.event.payload).toMatchObject({
-      leaderId: leader,
+      leaderIds: [leader],
       participantIds: [emily, ada],
       participantCount: 2,
     })
+  })
+
+  it('refuses a relationship with no Leader', () => {
+    // The form offers checkboxes and cannot say "at least one of these", so an empty
+    // selection reaches the domain rather than being stopped in the browser.
+    expect(() => create([emily], [])).toThrow(
+      new PairingRefused('relationship.needs_a_leader'),
+    )
   })
 
   it('refuses a relationship with no Participant', () => {
@@ -108,11 +128,35 @@ describe('creating a relationship', () => {
     )
   })
 
+  it('refuses the same Person leading twice', () => {
+    expect(() => create([emily], [leader, leader])).toThrow(
+      new PairingRefused('relationship.person_listed_twice'),
+    )
+  })
+
+  it('refuses a Person who is leading and being discipled in the same relationship', () => {
+    expect(() => create([emily], [leader, emily])).toThrow(
+      new PairingRefused('relationship.leader_cannot_be_a_participant'),
+    )
+  })
+
+  it('gives several Leaders a leader membership each', () => {
+    const group = relationshipIn(create([emily], [leader, ada]))
+
+    expect(group.members.filter((m) => m.role === 'leader').map((m) => m.personId)).toEqual([
+      leader,
+      ada,
+    ])
+    // Role lives on the membership, so a second Leader is a second row and nothing
+    // about the relationship changes shape to hold them.
+    expect(group.members).toHaveLength(3)
+  })
+
   it('is pure: the same request against the same context yields the same effects', () => {
     const command = {
       type: 'relationship.create',
       ministryId: ministry,
-      leaderId: leader,
+      leaderIds: [leader],
       participantIds: [emily],
     } as const
 

@@ -22,7 +22,7 @@ export default async function PairPage({
 }: {
   searchParams: Promise<{
     with?: string | string[]
-    leaderId?: string
+    leaderId?: string | string[]
     error?: string
   }>
 }) {
@@ -49,16 +49,19 @@ export default async function PairPage({
 
   /**
    * Who arrives already chosen. One `with` is the Pair action on a Roster row --
-   * preselected as a *participant* rather than as the leader, because that action sits
+   * preselected as a *participant* rather than as a leader, because that action sits
    * on an unpaired row and the common reason to press it is that this is somebody
    * waiting to be discipled. Several `with` are a refused submission coming back, and
    * then `leaderId` says who was leading it.
    */
-  const asked = query.with === undefined ? [] : [query.with].flat()
-  const preselected = new Set(
-    candidates.filter((person) => asked.includes(person.personId)).map((p) => p.personId),
-  )
-  const chosenLeader = candidates.find((person) => person.personId === query.leaderId)
+  const onlyKnownPeople = (ids: string | string[] | undefined): Set<string> => {
+    const asked = ids === undefined ? [] : [ids].flat()
+    return new Set(
+      candidates.filter((person) => asked.includes(person.personId)).map((p) => p.personId),
+    )
+  }
+  const preselectedParticipants = onlyKnownPeople(query.with)
+  const preselectedLeaders = onlyKnownPeople(query.leaderId)
 
   return (
     <main>
@@ -84,23 +87,30 @@ export default async function PairPage({
           ) : null}
 
           <p className="subtle">
-            Choose one leader and everyone they will disciple. One participant makes a
-            one-to-one relationship; several make a group. Creating it does not start
-            it — nothing reaches anybody until the leader accepts.
+            Choose who will lead and everyone they will disciple. One leader and one
+            participant makes a one-to-one relationship; anything else is a group, and
+            a group can have several leaders. Creating it does not start it —
+            nothing reaches anybody until every leader accepts.
           </p>
 
           <form method="post" action="/roster/pair/create">
+            {/*
+              Checkboxes rather than a radio, because a group may be led by several
+              people. The `required` a radio carried is gone with it: a checkbox set
+              cannot express "at least one of these", and half-enforcing it here would
+              leave the real rule in two places. The domain refuses an empty selection
+              and the refusal comes back to this form.
+            */}
             <fieldset>
-              <legend>Leader</legend>
+              <legend>Leading</legend>
               {candidates.map((person) => (
                 <label key={`leader:${person.personId}`} htmlFor={`leader:${person.personId}`}>
                   <input
                     id={`leader:${person.personId}`}
-                    type="radio"
+                    type="checkbox"
                     name="leaderId"
                     value={person.personId}
-                    defaultChecked={person.personId === chosenLeader?.personId}
-                    required
+                    defaultChecked={preselectedLeaders.has(person.personId)}
                   />
                   {person.fullName}
                 </label>
@@ -119,7 +129,7 @@ export default async function PairPage({
                     type="checkbox"
                     name="participantId"
                     value={person.personId}
-                    defaultChecked={preselected.has(person.personId)}
+                    defaultChecked={preselectedParticipants.has(person.personId)}
                   />
                   {person.fullName}
                 </label>

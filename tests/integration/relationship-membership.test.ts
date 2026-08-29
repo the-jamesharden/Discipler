@@ -83,16 +83,33 @@ describe('relationship membership', () => {
     ).rejects.toThrow(/relationship_member_one_open_per_person/)
   })
 
-  it('refuses a second open Leader on one relationship', async () => {
-    const relationshipId = await createRelationship(ministry, 'group')
+  it('refuses a second open Leader on a one-to-one', async () => {
+    const relationshipId = await createRelationship(ministry, 'one_to_one')
     const first = await addPerson(ministry, 'Clara Nwosu')
     const second = await addPerson(ministry, 'Dan Levy')
 
-    await join({ relationshipId, kind: 'group', personId: first, role: 'leader' })
+    await join({ relationshipId, kind: 'one_to_one', personId: first, role: 'leader' })
 
     await expect(
-      join({ relationshipId, kind: 'group', personId: second, role: 'leader' }),
-    ).rejects.toThrow(/relationship_one_open_leader/)
+      join({ relationshipId, kind: 'one_to_one', personId: second, role: 'leader' }),
+    ).rejects.toThrow(/one_to_one_one_open_leader/)
+  })
+
+  it('lets a group be led by several people', async () => {
+    // The cap is on the two-person case, not on leading. A group may be led by more
+    // than one person, so the index is excluded on kind rather than raised to a
+    // higher number -- there is no number of leaders a group is capped at.
+    const relationshipId = await createRelationship(ministry, 'group')
+    const first = await addPerson(ministry, 'Ife Okonjo')
+    const second = await addPerson(ministry, 'Jonas Roth')
+    const third = await addPerson(ministry, 'Kiran Mehta')
+
+    await join({ relationshipId, kind: 'group', personId: first, role: 'leader' })
+    await join({ relationshipId, kind: 'group', personId: second, role: 'leader' })
+
+    await expect(
+      join({ relationshipId, kind: 'group', personId: third, role: 'leader' }),
+    ).resolves.toBeDefined()
   })
 
   it('lets a Leader hold any number of one-to-ones', async () => {

@@ -60,6 +60,7 @@ export const importFailureMessage = (code: string | undefined): string | undefin
  * the Admin somewhere; "constraint violated" does not.
  */
 export const REFUSALS: Record<PairingRefusal, string> = {
+  'relationship.needs_a_leader': 'Choose who will lead this relationship.',
   'relationship.needs_a_participant':
     'Choose at least one person to be discipled in this relationship.',
   'relationship.leader_cannot_be_a_participant':
@@ -88,25 +89,21 @@ export const REFUSALS: Record<PairingRefusal, string> = {
   'relationship.leader_has_opted_out': 'This leader has opted out, and cannot lead.',
   // The one refusal with no way around it. Said as a policy rather than as a
   // mistake, because an Admin who reads it as a mistake will go looking for the
-  // setting that turns it off, and there is not one on this screen.
+  // setting that turns it off, and there is not one on this screen. It names the
+  // one-to-one, because the Admin it stops has a real alternative -- the same people
+  // in a group are not refused -- and a sentence that said "a relationship" would
+  // hide that from them.
   'relationship.gender_must_match':
-    'Everyone in a relationship must be of the same gender. This is a safeguarding '
-    + 'rule and pairing by hand does not override it.',
-  'relationship.already_has_a_leader': 'That relationship already has a leader.',
+    'A one-to-one relationship must be between two people of the same gender. This is '
+    + 'a safeguarding rule and pairing by hand does not override it. A group can be '
+    + 'mixed.',
+  'relationship.already_has_a_leader':
+    'A one-to-one relationship has one leader. Add another person to be discipled to '
+    + 'make it a group, and it can then have several.',
 }
 
 /**
- * Problems the form itself can see, which never reach the domain. They are kept
- * apart from `REFUSALS` rather than folded in, because `PairingRefusal` is the
- * domain's list and a screen adding entries to it would make the exhaustiveness
- * check above meaningless.
- */
-const FORM_PROBLEMS: Record<string, string> = {
-  'pairing.no_leader_chosen': 'Choose who will lead this relationship.',
-}
-
-/**
- * The age band is deliberately not in either list. It governs suggestion only, so
+ * The age band is deliberately not in the list. It governs suggestion only, so
  * pairing across it by hand is a supported thing to do and produces no refusal at
  * all -- there is nothing here to say about it.
  */
@@ -114,9 +111,5 @@ export const pairingRefusalMessage = (code: string | undefined): string | undefi
   if (!code) return undefined
   // A code arriving from the query string is whatever somebody typed there. It is
   // looked up, never rendered.
-  return (
-    REFUSALS[code as PairingRefusal] ??
-    FORM_PROBLEMS[code] ??
-    'That relationship could not be created.'
-  )
+  return REFUSALS[code as PairingRefusal] ?? 'That relationship could not be created.'
 }

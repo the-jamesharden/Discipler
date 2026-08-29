@@ -16,10 +16,11 @@ export async function POST(request: NextRequest) {
   if (!admin) return NextResponse.redirect(new URL('/roster', request.url), { status: 303 })
 
   const form = await request.formData()
-  const leaderId = form.get('leaderId')
-  const participantIds = form
-    .getAll('participantId')
-    .filter((value): value is string => typeof value === 'string' && value !== '')
+  const chosen = (field: string): string[] =>
+    form.getAll(field).filter((value): value is string => typeof value === 'string' && value !== '')
+
+  const leaderIds = chosen('leaderId')
+  const participantIds = chosen('participantId')
 
   /**
    * Back to the form with the selection intact. An Admin who picked five people for a
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
    */
   const refused = (code: string) => {
     const params = new URLSearchParams({ error: code })
-    if (typeof leaderId === 'string' && leaderId !== '') params.set('leaderId', leaderId)
+    for (const id of leaderIds) params.append('leaderId', id)
     for (const id of participantIds) params.append('with', id)
 
     return NextResponse.redirect(new URL(`/roster/pair?${params}`, request.url), {
@@ -37,15 +38,16 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  if (typeof leaderId !== 'string' || leaderId === '') {
-    return refused('pairing.no_leader_chosen')
-  }
-
+  // An empty selection is refused by the domain rather than here. The route once
+  // checked for a missing leader itself, which made one refusal a bare string on this
+  // side of the boundary while every other one was a `PairingRefusal` -- so a typo in
+  // either the code or its wording fell through to the generic message instead of
+  // failing the build.
   try {
     await getCommandService().execute({
       type: 'relationship.create',
       ministryId: admin.ministryId,
-      leaderId: personId(leaderId),
+      leaderIds: leaderIds.map(personId),
       participantIds: participantIds.map(personId),
     })
   } catch (error) {

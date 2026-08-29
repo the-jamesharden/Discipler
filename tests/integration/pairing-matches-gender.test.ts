@@ -13,11 +13,18 @@ import {
 } from '../support/local-supabase'
 
 /**
- * The two constraints on pairing differ in a way that is easy to lose: gender is a
- * safeguarding policy and manual pairing may never cross it, while the age band
- * governs *suggestion only* and an Admin pairing by hand may cross it freely. A
- * design that treated them uniformly -- as two toggles, or as two filters on the
- * same list -- would misrepresent one of them, so both directions are asserted here.
+ * Three rules that are easy to collapse into one, so all three directions are
+ * asserted here.
+ *
+ * **Gender binds a one-to-one.** Men with men and women with women, for the pilot,
+ * and manual pairing may never cross it.
+ *
+ * **Gender does not bind a group.** A group is people who meet together, and may hold
+ * Leaders and Participants of any gender. A check that read "everyone in a
+ * relationship shares a gender" would be a coherent rule and the wrong one.
+ *
+ * **The age band binds nothing.** It governs *suggestion only*, so an Admin pairing by
+ * hand crosses it freely and gets no refusal at all.
  *
  * Gender is enforced in the database for the reason the participation caps are: an
  * application-side check holds only until the first write path that forgets it, and
@@ -46,10 +53,13 @@ describe('pairing and the two constraints', () => {
   })
 
   const pair = (leaderId: PersonId, participantIds: PersonId[]) =>
+    pairLed([leaderId], participantIds)
+
+  const pairLed = (leaderIds: PersonId[], participantIds: PersonId[]) =>
     service().execute({
       type: 'relationship.create',
       ministryId: ministry.id,
-      leaderId,
+      leaderIds,
       participantIds,
     })
 
@@ -87,14 +97,41 @@ describe('pairing and the two constraints', () => {
     )
   })
 
-  it('refuses a group where one Participant does not match the rest', async () => {
+  it('lets a group hold Participants of more than one gender', async () => {
+    // The same three people the one-to-one rule would refuse two at a time. A group
+    // is people who meet together, not several pairings with the leader, and the
+    // safeguarding rule Discipler has is about the two-person case.
     const leader = await man('Evan Turner')
     const first = await man('Frank Usher')
-    const odd = await woman('Grace Vine')
+    const second = await woman('Grace Vine')
 
-    expect(await refusalFrom(pair(leader, [first, odd]))).toBe(
-      'relationship.gender_must_match',
-    )
+    const outcome = await pairLed([leader], [first, second])
+
+    expect(outcome.effects.map((effect) => effect.kind)).toContain('relationship.create')
+  })
+
+  it('lets a group be led by a man and a woman together', async () => {
+    const first = await man('Isaac Moss')
+    const second = await woman('Jane Nolan')
+    const participant = await woman('Kate Oyelaran')
+    const other = await man('Luke Pike')
+
+    const outcome = await pairLed([first, second], [participant, other])
+
+    expect(outcome.effects.map((effect) => effect.kind)).toContain('relationship.create')
+  })
+
+  it('binds two Leaders over one Participant, because that is a group and not a pair', async () => {
+    // Three people, so the kind is a group and gender does not apply -- the case that
+    // would have been called a one-to-one had the kind come from the Participant
+    // count alone, and would then have been refused by the one-leader cap instead.
+    const first = await man('Micah Quaye')
+    const second = await woman('Nia Roberts')
+    const participant = await man('Owen Sands')
+
+    const outcome = await pairLed([first, second], [participant])
+
+    expect(outcome.effects.map((effect) => effect.kind)).toContain('relationship.create')
   })
 
   it('leaves no relationship and no history behind when it refuses', async () => {
@@ -115,7 +152,7 @@ describe('pairing and the two constraints', () => {
     const { rows: events } = await pool.query(
       `select 1 from ministry_event
         where ministry_id = $1 and type = 'relationship.created'
-          and payload->>'leaderId' = $2`,
+          and payload->'leaderIds' ? $2`,
       [ministry.id, leader],
     )
     expect(events).toEqual([])

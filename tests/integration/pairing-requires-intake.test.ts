@@ -129,7 +129,7 @@ describe('pairing somebody who has not completed Intake', () => {
       service().execute({
         type: 'relationship.create',
         ministryId: ministry.id,
-        leaderId: personId(leaderId),
+        leaderIds: [personId(leaderId)],
         participantIds: [personId(participantId)],
       })
 

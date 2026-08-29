@@ -19,7 +19,7 @@ import {
   type MinistryId,
   type PersonId,
 } from './ids'
-import { kindForParticipantCount, type NewMembership } from './relationships'
+import { kindFor, type NewMembership } from './relationships'
 import { rosterKey, type RosterKey, type RowRejection } from './roster'
 import { readRosterFile } from './roster-csv'
 
@@ -82,11 +82,11 @@ export interface CommandResult {
 }
 
 const membersOf = (
-  leaderId: PersonId,
+  leaderIds: readonly PersonId[],
   participantIds: readonly PersonId[],
   startedAt: Date,
 ): readonly NewMembership[] => [
-  { personId: leaderId, role: 'leader', startedAt },
+  ...leaderIds.map((personId): NewMembership => ({ personId, role: 'leader', startedAt })),
   ...participantIds.map(
     (personId): NewMembership => ({ personId, role: 'participant', startedAt }),
   ),
@@ -265,15 +265,21 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
     }
 
     case 'relationship.create': {
-      const { leaderId, participantIds } = command
+      const { leaderIds, participantIds } = command
 
+      if (leaderIds.length === 0) {
+        throw new PairingRefused('relationship.needs_a_leader')
+      }
       if (participantIds.length === 0) {
         throw new PairingRefused('relationship.needs_a_participant')
       }
-      if (participantIds.includes(leaderId)) {
+      if (participantIds.some((id) => leaderIds.includes(id))) {
         throw new PairingRefused('relationship.leader_cannot_be_a_participant')
       }
-      if (new Set(participantIds).size !== participantIds.length) {
+      // Both roles, in one check: a person named twice is named twice whether it
+      // happened on one side of the relationship or on both.
+      const everyone = [...leaderIds, ...participantIds]
+      if (new Set(everyone).size !== everyone.length) {
         throw new PairingRefused('relationship.person_listed_twice')
       }
 
@@ -281,18 +287,19 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       const relationship = {
         id: relationshipId(context.ids.next()),
         ministryId: command.ministryId,
-        // Derived once, from how many Participants are being paired, and frozen. The
-        // count is the fact; the kind is a record of what that count was at
-        // formation, kept only so the participation caps can be indexed.
-        kind: kindForParticipantCount(participantIds.length),
+        // Derived once, from the shape being paired, and frozen. The counts are the
+        // fact; the kind is a record of what they were at formation, kept so the
+        // participation caps and the gender rule can be expressed in the database.
+        kind: kindFor(leaderIds.length, participantIds.length),
         createdAt: now,
-        members: membersOf(leaderId, participantIds, now),
+        members: membersOf(leaderIds, participantIds, now),
       }
 
       // Creating a relationship does not activate it: `accepted_at` stays null, so
       // it reads as Awaiting Leader Acceptance, and nothing is enqueued to anybody.
-      // Nothing reaches a Participant before their Leader has agreed to lead them,
-      // and the Leader's Invitation Link is ticket 06's to send.
+      // Nothing reaches a Participant until *every* Leader has agreed to lead them --
+      // nobody co-leads something they did not agree to -- and both the Invitation
+      // Links and the rule that counts the acceptances are ticket 06's to send.
       return {
         rejections: [],
         effects: [
@@ -304,7 +311,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             subjectType: 'relationship',
             subjectId: relationship.id,
             payload: {
-              leaderId,
+              leaderIds: [...leaderIds],
               participantIds: [...participantIds],
               participantCount: participantIds.length,
             },

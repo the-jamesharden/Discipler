@@ -108,3 +108,45 @@ holding an open group is out of the pool for group suggestions and still in it f
 one-to-ones. This is the one place outside the constraints where `kind` is read, and
 it is read about the relationship being *proposed*, not about a relationship that
 exists.
+
+## Amendment — the Gender Rule reads `kind`
+
+*2026-08-28, with ticket 05.*
+
+The decision is unchanged and the fence holds: copy and state derivation still may not
+read `kind`. What has changed is the set of constraints that do.
+
+A safeguarding rule was settled after this ADR was written: **a one-to-one is between
+two people of the same gender, and a group may be mixed.** `app.reject_gender_mismatch`
+is therefore conditioned on `kind`, and so is the one-open-leader index, which now
+applies to one-to-ones only because a group may be led by several people.
+
+The letter of this ADR already permitted that — "its only readers are database
+constraints and the pairing scorer" — but the Context above frames the column entirely
+around the two participation caps, and a reader reasoning from that framing would
+conclude the gender rule had no business here. It does, for the same reason the caps
+do, and the reason is worth stating in the place it will be looked for.
+
+**Why the count would not have served.** The rejected option above, *a trigger that
+counts participants*, fails harder for gender than it does for the caps. A group is
+assembled row by row, so its first two members read as N=1 — a one-to-one — and the
+gender rule would refuse a mixed group depending on the order the rows arrived in.
+`kind` is frozen at formation and is therefore the same answer before the first member
+is written as after the last. That is precisely the property this ADR bought.
+
+**What it costs.** The immutability guarantee is now load-bearing for safeguarding, not
+only for capacity. A `kind` that could be edited would turn a bound relationship into an
+unbound one silently, which is a different order of consequence from a participation cap
+being wrong. The trigger enforcing immutability was already here; this records that it
+now has a second reason to exist.
+
+**The consequence, restated for gender.** A group that drops to one participant keeps
+`kind = 'group'` and stays unbound by the rule, while a relationship formed as a
+one-to-one is bound. That is the same trade the caps already took — capacity was
+declared when the relationship was formed — and it is the right way round: a group
+losing a member is not a decision to place two people alone together.
+
+**The fence does not cover SQL.** `tests/domain/relationship-kind-fence.test.ts` walks
+`src/` and `app/` only, so a migration reading `kind` trips nothing. That is correct —
+constraints are exactly who may read it — but it means the honest record of which
+constraints do is this document, not a test.

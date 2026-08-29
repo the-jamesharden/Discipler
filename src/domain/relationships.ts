@@ -1,10 +1,10 @@
 import type { MinistryId, PersonId, RelationshipId } from './ids'
 
 /**
- * One Leader and N Participants. A relationship with one Participant is one-to-one;
- * with more than one it is a group. There is no separate group entity and no group
- * code path -- message copy and state derivation both read how many Participants a
- * relationship has *now*, never the kind recorded when it was formed.
+ * M Leaders and N Participants. A one-to-one is two people -- one Leader, one
+ * Participant -- and anything else is a group. There is no separate group entity and
+ * no group code path: message copy and state derivation both read how many
+ * Participants a relationship has *now*, never the kind recorded when it was formed.
  */
 
 export type RelationshipKind = 'one_to_one' | 'group'
@@ -22,7 +22,8 @@ export interface NewRelationship {
   readonly ministryId: MinistryId
   /**
    * A capacity declaration, fixed at formation and immutable afterwards. Read by the
-   * participation-cap constraints and by the pairing scorer, and by nothing else.
+   * participation-cap constraints, by the gender constraint -- which binds a
+   * one-to-one and not a group -- by the pairing scorer, and by nothing else.
    * See docs/adr/0004-relationship-kind-as-capacity-declaration.md.
    */
   readonly kind: RelationshipKind
@@ -30,8 +31,15 @@ export interface NewRelationship {
   readonly members: readonly NewMembership[]
 }
 
-export const kindForParticipantCount = (count: number): RelationshipKind =>
-  count > 1 ? 'group' : 'one_to_one'
+/**
+ * Derived once, at formation, and frozen. A one-to-one is one Leader and one
+ * Participant; every other shape is a group, including two Leaders over a single
+ * Participant. Deriving it from the Participant count alone would have called that
+ * shape a one-to-one, and a one-to-one holds exactly one Leader -- so the
+ * relationship would have been refused by the cap that describes it.
+ */
+export const kindFor = (leaderCount: number, participantCount: number): RelationshipKind =>
+  leaderCount === 1 && participantCount === 1 ? 'one_to_one' : 'group'
 
 /** Everyone in the relationship, whatever their role. Copy and state read this. */
 export const participantCount = (relationship: NewRelationship): number =>

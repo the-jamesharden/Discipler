@@ -200,7 +200,7 @@ describe('importing a Roster', () => {
       service().execute({
         type: 'relationship.create',
         ministryId: ministry.id,
-        leaderId: personId(leader),
+        leaderIds: [personId(leader)],
         participantIds: [personId(imported.id)],
       }),
     ).rejects.toThrow(new PairingRefused('relationship.participant_has_not_completed_intake'))

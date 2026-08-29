@@ -34,8 +34,12 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
     await pool.end()
   })
 
-  const pair = async (leaderId: string, participantIds: string[]) => {
-    const body = new URLSearchParams({ leaderId })
+  const pair = (leaderId: string, participantIds: string[]) =>
+    pairLed([leaderId], participantIds)
+
+  const pairLed = async (leaderIds: string[], participantIds: string[]) => {
+    const body = new URLSearchParams()
+    for (const id of leaderIds) body.append('leaderId', id)
     for (const id of participantIds) body.append('participantId', id)
 
     const response = await fetch(`${baseUrl}/roster/pair/create`, {
@@ -167,14 +171,19 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
   it('hands a refused selection back intact, so one mistake costs one correction', async () => {
     const leader = await man('Aaron Vale')
     const first = await man('Brett Wynn')
-    const mismatched = await woman('Cora Xu')
+    const second = await woman('Cora Xu')
 
-    const { location } = await pair(leader, [first, mismatched])
+    // A leader already leading a group, so the refusal is one a *group* can hit: the
+    // mismatched gender this test used to rely on is no longer refused here.
+    await pair(leader, [await man('Existing One'), await woman('Existing Two')])
+
+    const { location } = await pair(leader, [first, second])
+    expect(location).toContain('error=relationship.leader_already_leads_a_group')
 
     // The whole selection comes back, not just the error.
     expect(location).toContain(`leaderId=${leader}`)
     expect(location).toContain(`with=${first}`)
-    expect(location).toContain(`with=${mismatched}`)
+    expect(location).toContain(`with=${second}`)
 
     const { html } = await getPage(location.replace(/^[^?]*/, '/roster/pair'), cookie)
 
@@ -184,8 +193,51 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
       new RegExp(`checked[^>]*value="${id}"`).test(html)
 
     expect(checkedFor(first)).toBe(true)
-    expect(checkedFor(mismatched)).toBe(true)
+    expect(checkedFor(second)).toBe(true)
     expect(checkedFor(leader)).toBe(true)
+  })
+
+  it('creates a mixed-gender group, and refuses the same two people as a one-to-one', async () => {
+    // The pair of them in one test, because the rule is the difference between them
+    // and a suite that asserted each alone would still pass if the kind were ignored.
+    const man1 = await man('Dev Ahmed')
+    const woman1 = await woman('Elena Brandt')
+    const third = await woman('Farrah Cole')
+
+    const asGroup = await pairLed([man1], [woman1, third])
+    expect(asGroup.location).toContain('/roster?')
+
+    const { location } = await pair(await man('Gus Deering'), [await woman('Hana Ellis')])
+    expect(location).toContain('error=relationship.gender_must_match')
+  })
+
+  it('creates a group led by two people', async () => {
+    const first = await woman('Isla Fenn')
+    const second = await man('Jed Garrow')
+    const participant = await woman('Kai Hollis')
+
+    const { location } = await pairLed([first, second], [participant])
+    expect(location).toContain('/roster?')
+
+    const { rows } = await pool.query(
+      `select count(*)::int as leaders from relationship_member
+        where person_id = any($1) and role = 'leader' and ended_at is null`,
+      [[first, second]],
+    )
+    expect(rows[0].leaders).toBe(2)
+  })
+
+  it('refuses a pairing with nobody leading, and says which thing to fix', async () => {
+    // The leader field is a checkbox set now, which cannot say "at least one of
+    // these", so an empty selection reaches the domain and comes back as a refusal.
+    const { location } = await pairLed([], [await woman('Lena Ives')])
+    expect(location).toContain('error=relationship.needs_a_leader')
+
+    const { html } = await getPage(
+      `/roster/pair?${new URLSearchParams({ error: 'relationship.needs_a_leader' })}`,
+      cookie,
+    )
+    expect(html).toMatch(/who will lead/i)
   })
 
   it('offers a way into pairing that does not start from one Person', async () => {
