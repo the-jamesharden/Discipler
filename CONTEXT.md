@@ -108,7 +108,10 @@ A Response-Required Message that has been sent and whose reply has not yet arriv
 _Avoid_: prompt. The database columns predate this entry and spell it `prompt_key` and `prompt_state`; they mean this and are not to be read as a Keyword Exchange.
 
 **Meeting Response**:
-A participant's recorded answer to a meeting-related question in the Check-In Rhythm.
+A recorded answer to a meeting-related question in the Check-In Rhythm, held against the question it answers and the person who sent it. Only leaders are asked today, so only leaders answer; a response is never keyed to the relationship alone, because a ministry may later ask participants too and a relationship is not assumed to have one respondent.
+
+**Satisfaction**:
+How a leader reported a meeting that happened: outstanding, good, or concern. The stored value is the word, never the letter the message offered — a token could be renumbered, and a pilot's recorded history cannot be.
 
 **Relationship State**:
 Discipler's current interpretation of how a discipleship relationship is doing based on its recorded ministry history. One of: Awaiting Leader Acceptance, Healthy, Stalled, Needs Care, Paused, Ended. A relationship holds exactly one state at a time.
@@ -134,7 +137,7 @@ _Avoid_: Menu, prompt (as model terms). "Prompt" is doubly unhelpful here: it is
 Thirty rolling days since Discipler last sent a person a message, measured per person per ministry. It is the trigger for the compliance identification prefix and for re-sending opt-out language to a participant.
 
 **Check-In Sequence**:
-The single conversation in which a leader answers for every relationship they lead, one after another, in one thread on one day.
+The single conversation in which a leader answers for every relationship they lead, one after another, in one thread on one day. Relationships are asked about earliest-started first, and the shape of the conversation is fixed when it opens. It advances only in response to a reply, and at most one runs against a leader at a time. A relationship awaiting leader acceptance or paused is not covered by it and accrues no silence.
 
 **Participation Status**:
 A person-level status describing whether someone is being discipled, independent of how any one relationship is doing. One of: No Intake Submitted, Ready to Pair, Paired, Opted Out. Paired means holding at least one open participant membership; leading a relationship never sets it.

@@ -4,10 +4,16 @@ import type {
   RelationshipSnapshot,
   UnacceptedRelationship,
 } from '~/domain/boundary'
+import type { CheckInSnapshot } from '~/domain/check-in'
 import type {
+  CheckInAnswer,
+  CheckInSequenceClosure,
   IntakeRecord,
   LeaderAcceptance,
+  NewCheckInPrompt,
+  NewCheckInSequence,
   OutboundMessageDraft,
+  PersonOptOut,
   RelationshipCancellation,
 } from '~/domain/effects'
 import type { FollowUpResolution, NewFollowUpItem } from '~/domain/follow-up'
@@ -34,6 +40,13 @@ export interface InMemoryStore extends EffectStore {
   readonly followUps: readonly NewFollowUpItem[]
   readonly resolutions: readonly FollowUpResolution[]
   readonly cancellations: readonly RelationshipCancellation[]
+  readonly sequences: readonly NewCheckInSequence[]
+  readonly prompts: readonly NewCheckInPrompt[]
+  readonly checkInAnswers: readonly CheckInAnswer[]
+  readonly closures: readonly CheckInSequenceClosure[]
+  readonly optOuts: readonly PersonOptOut[]
+  /** What a check-in command finds about the Person it names, or null for nobody. */
+  checkIn?: CheckInSnapshot
   /** Names and numbers this store will answer `contactsFor` with. */
   contacts: Map<PersonId, PersonContact>
   /** What a token resolves to, or null for one nothing answers to. */
@@ -65,6 +78,11 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
   const invitations: NewInvitation[] = []
   const acceptances: LeaderAcceptance[] = []
   const followUps: NewFollowUpItem[] = []
+  const sequences: NewCheckInSequence[] = []
+  const prompts: NewCheckInPrompt[] = []
+  const checkInAnswers: CheckInAnswer[] = []
+  const closures: CheckInSequenceClosure[] = []
+  const optOuts: PersonOptOut[] = []
   const resolutions: FollowUpResolution[] = []
   const cancellations: RelationshipCancellation[] = []
   let counter = 0
@@ -100,6 +118,21 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
     get cancellations() {
       return [...cancellations]
     },
+    get sequences() {
+      return [...sequences]
+    },
+    get prompts() {
+      return [...prompts]
+    },
+    get checkInAnswers() {
+      return [...checkInAnswers]
+    },
+    get closures() {
+      return [...closures]
+    },
+    get optOuts() {
+      return [...optOuts]
+    },
     unaccepted: [],
     contacts: new Map<PersonId, PersonContact>(),
     ministryName: 'Riverside Chapel',
@@ -114,8 +147,31 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       const stagedFollowUps: NewFollowUpItem[] = []
       const stagedResolutions: FollowUpResolution[] = []
       const stagedCancellations: RelationshipCancellation[] = []
+      const stagedSequences: NewCheckInSequence[] = []
+      const stagedPrompts: NewCheckInPrompt[] = []
+      const stagedCheckInAnswers: CheckInAnswer[] = []
+      const stagedClosures: CheckInSequenceClosure[] = []
+      const stagedOptOuts: PersonOptOut[] = []
 
       const unit: UnitOfWork = {
+        async checkInFor() {
+          return store.checkIn ?? null
+        },
+        async openCheckInSequence(sequence) {
+          stagedSequences.push(sequence)
+        },
+        async askCheckInQuestion(prompt) {
+          stagedPrompts.push(prompt)
+        },
+        async recordCheckInAnswer(answer) {
+          stagedCheckInAnswers.push(answer)
+        },
+        async closeCheckInSequence(closure) {
+          stagedClosures.push(closure)
+        },
+        async optPersonOut(optOut) {
+          stagedOptOuts.push(optOut)
+        },
         async contactsFor(ids) {
           return new Map(
             ids.flatMap((id) => {
@@ -212,6 +268,11 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       followUps.push(...stagedFollowUps)
       resolutions.push(...stagedResolutions)
       cancellations.push(...stagedCancellations)
+      sequences.push(...stagedSequences)
+      prompts.push(...stagedPrompts)
+      checkInAnswers.push(...stagedCheckInAnswers)
+      closures.push(...stagedClosures)
+      optOuts.push(...stagedOptOuts)
       return result
     },
   }

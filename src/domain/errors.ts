@@ -162,3 +162,21 @@ export class FollowUpRefused extends Error {
     this.name = 'FollowUpRefused'
   }
 }
+
+/**
+ * Why a check-in command could not act. There is one reason: the Person it named
+ * is not on this Ministry's Roster.
+ *
+ * It is a refusal rather than an empty snapshot because the two mean different
+ * things and would otherwise reach a surface as the same silence -- *nobody by
+ * that name here* is a fault in whatever called, while *nothing to ask about* is
+ * an ordinary week for a Leader whose relationships are all paused.
+ */
+export type CheckInRefusal = 'checkin.person_not_found'
+
+export class CheckInRefused extends Error {
+  constructor(readonly refusal: CheckInRefusal) {
+    super(refusal)
+    this.name = 'CheckInRefused'
+  }
+}

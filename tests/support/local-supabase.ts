@@ -335,13 +335,30 @@ export const addPersonForAdmin = async (
   }
 }
 
+export interface RelationshipOptions {
+  /**
+   * When the relationship was formed. It is the order a Leader is asked about
+   * their relationships in, so a check-in test has to be able to say.
+   */
+  createdAt?: Date
+  /** Null leaves it Awaiting Leader Acceptance, which sends no check-ins. */
+  acceptedAt?: Date | null
+}
+
 export const createRelationship = async (
   ministry: MinistryFixture,
   kind: 'one_to_one' | 'group',
+  options: RelationshipOptions = {},
 ): Promise<string> => {
+  const acceptedAt = options.acceptedAt === undefined ? new Date() : options.acceptedAt
   const { data, error } = await serviceRoleClient()
     .from('relationship')
-    .insert({ ministry_id: ministry.id, kind, accepted_at: new Date().toISOString() })
+    .insert({
+      ministry_id: ministry.id,
+      kind,
+      accepted_at: acceptedAt?.toISOString() ?? null,
+      ...(options.createdAt ? { created_at: options.createdAt.toISOString() } : {}),
+    })
     .select('id')
     .single()
   if (error) throw new Error(`Could not create a ${kind} relationship: ${error.message}`)
@@ -384,9 +401,9 @@ export const pairOneToOne = async (
   ministry: MinistryFixture,
   leaderId: string,
   participantId: string,
-  options: { startedAt?: Date; endedAt?: Date } = {},
+  options: { startedAt?: Date; endedAt?: Date } & RelationshipOptions = {},
 ): Promise<string> => {
-  const relationshipId = await createRelationship(ministry, 'one_to_one')
+  const relationshipId = await createRelationship(ministry, 'one_to_one', options)
 
   await addMembership({ ministry, relationshipId, kind: 'one_to_one', personId: leaderId, role: 'leader' })
   await addMembership({
@@ -395,7 +412,8 @@ export const pairOneToOne = async (
     kind: 'one_to_one',
     personId: participantId,
     role: 'participant',
-    ...options,
+    ...(options.startedAt ? { startedAt: options.startedAt } : {}),
+    ...(options.endedAt ? { endedAt: options.endedAt } : {}),
   })
 
   return relationshipId

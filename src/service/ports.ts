@@ -5,10 +5,16 @@ import type {
   RelationshipSnapshot,
   UnacceptedRelationship,
 } from '~/domain/boundary'
+import type { CheckInSnapshot } from '~/domain/check-in'
 import type {
+  CheckInAnswer,
+  CheckInSequenceClosure,
   IntakeRecord,
   LeaderAcceptance,
+  NewCheckInPrompt,
+  NewCheckInSequence,
   OutboundMessageDraft,
+  PersonOptOut,
   RelationshipCancellation,
 } from '~/domain/effects'
 import type {
@@ -152,6 +158,25 @@ export interface UnitOfWork {
    * it, which is the whole of returning everyone to the suggestion pool.
    */
   cancelRelationship(cancellation: RelationshipCancellation): Promise<void>
+
+  /**
+   * Everything a check-in command needs about one Person: the live relationships
+   * they lead, the conversation already open with them if there is one, and when
+   * they were last asked anything.
+   *
+   * Read for the Person and never for a relationship. A Leader holding three of
+   * them has one conversation, and the position in it is the only thing that says
+   * which relationship a `1` is about.
+   */
+  checkInFor(id: PersonId): Promise<CheckInSnapshot | null>
+
+  openCheckInSequence(sequence: NewCheckInSequence): Promise<void>
+  askCheckInQuestion(prompt: NewCheckInPrompt): Promise<void>
+  recordCheckInAnswer(answer: CheckInAnswer): Promise<void>
+  closeCheckInSequence(closure: CheckInSequenceClosure): Promise<void>
+
+  /** The carrier opt-out, at the level the carrier applies it: the Person. */
+  optPersonOut(optOut: PersonOptOut): Promise<void>
 }
 
 /**
@@ -169,6 +194,25 @@ export interface LeaderAccounts {
     phone: string | null,
     password: string,
   ): Promise<{ readonly userId: string } | { readonly refusal: AccountRefusal }>
+}
+
+/**
+ * Which Ministry an inbound text belongs to, and who on it sent it. The one
+ * question that cannot be answered inside a Ministry-scoped unit of work, because
+ * a text message arrives with a phone number and no session, no URL and no token.
+ *
+ * A number held by more than one Person resolves to nobody rather than to a
+ * guess: filing one congregant's answer against another's relationship is worse
+ * than not reading the message. Ticket 26 is what makes a shared number
+ * resolvable.
+ */
+export interface InboundSender {
+  readonly ministryId: MinistryId
+  readonly personId: PersonId
+}
+
+export interface InboundReader {
+  resolveSender(fromPhone: string): Promise<InboundSender | null>
 }
 
 export interface EffectStore {

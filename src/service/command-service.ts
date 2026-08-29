@@ -2,7 +2,7 @@ import { handleCommand, type CommandResult } from '~/domain/boundary'
 import type { Clock } from '~/domain/clock'
 import type { Command } from '~/domain/commands'
 import type { Effect } from '~/domain/effects'
-import { CancellationRefused, InvitationRefused } from '~/domain/errors'
+import { CancellationRefused, CheckInRefused, InvitationRefused } from '~/domain/errors'
 import type { IdSource, PersonId, RelationshipId } from '~/domain/ids'
 import type { InvitationToken } from '~/domain/invitations'
 import type { EffectStore, UnitOfWork } from './ports'
@@ -66,6 +66,21 @@ export const applyEffects = async (
   const cancellations = effects.flatMap((effect) =>
     effect.kind === 'relationship.cancel' ? [effect.cancellation] : [],
   )
+  const checkInAnswers = effects.flatMap((effect) =>
+    effect.kind === 'checkin.answer' ? [effect.answer] : [],
+  )
+  const closures = effects.flatMap((effect) =>
+    effect.kind === 'checkin.close' ? [effect.closure] : [],
+  )
+  const sequences = effects.flatMap((effect) =>
+    effect.kind === 'checkin.open' ? [effect.sequence] : [],
+  )
+  const prompts = effects.flatMap((effect) =>
+    effect.kind === 'checkin.ask' ? [effect.prompt] : [],
+  )
+  const optOuts = effects.flatMap((effect) =>
+    effect.kind === 'person.opt_out' ? [effect.optOut] : [],
+  )
 
   // Rows before the facts about them. The whole unit of work is one transaction, so
   // ordering buys nothing for atomicity -- it buys the error: a pairing the caps
@@ -95,11 +110,27 @@ export const applyEffects = async (
   for (const resolution of resolutions) await unit.resolveFollowUp(resolution)
   for (const cancellation of cancellations) await unit.cancelRelationship(cancellation)
 
+  // The answer to the question that was open, then the conversation it finished,
+  // then the one that replaces it, then its first question. In that order because
+  // a Leader has one conversation at a time: the partial unique index refuses a
+  // second open sequence, so the one being displaced has to close before the new
+  // one can open.
+  for (const answer of checkInAnswers) await unit.recordCheckInAnswer(answer)
+  for (const closure of closures) await unit.closeCheckInSequence(closure)
+  for (const sequence of sequences) await unit.openCheckInSequence(sequence)
+  for (const prompt of prompts) await unit.askCheckInQuestion(prompt)
+
   // History before messages: a message that goes out unrecorded is worse than a
   // recorded message that failed to send, because only one of the two can be
   // reconstructed.
   if (history.length > 0) await unit.appendHistory(history)
   if (messages.length > 0) await unit.enqueueMessages(messages)
+
+  // Last of all. The outbound queue refuses a message to anybody with an open
+  // opt-out, so a `STOP` applied ahead of a message enqueued by the same command
+  // would have the database refuse a message that was composed before the Person
+  // asked to be left alone.
+  for (const optOut of optOuts) await unit.optPersonOut(optOut)
 }
 
 /**
@@ -148,7 +179,30 @@ const needsTheMinistryName = (command: Command): boolean =>
   isIntakeSubmission(command) ||
   command.type === 'relationship.create' ||
   command.type === 'scheduled.tick' ||
+  isCheckIn(command) ||
   isTokenDriven(command)
+
+/**
+ * The two commands that read one Person's check-in state: the conversation being
+ * opened, and a text arriving in reply to one. Both are addressed to a Person and
+ * neither to a relationship, which is the whole of how an inbound reply is
+ * resolved.
+ */
+const isCheckIn = (
+  command: Command,
+): command is Extract<Command, { type: 'checkin.start' | 'sms.inbound' }> =>
+  command.type === 'checkin.start' || command.type === 'sms.inbound'
+
+/**
+ * The Person a check-in command names. Absent rather than defaulted: a Person
+ * this Ministry does not hold would otherwise reach the domain as an empty
+ * snapshot and read as *nothing to ask about* rather than as *no such Person*.
+ */
+const checkingInWith = async (unit: UnitOfWork, id: PersonId) => {
+  const snapshot = await unit.checkInFor(id)
+  if (!snapshot) throw new CheckInRefused('checkin.person_not_found')
+  return snapshot
+}
 
 /**
  * A token nothing answers to is refused here rather than handed to the domain as
@@ -217,6 +271,12 @@ export const createCommandService = ({
           : {}),
         ...(command.type === 'relationship.cancel'
           ? { relationship: await named(unit, command.relationshipId) }
+          : {}),
+        // Read inside the transaction, behind the same advisory lock the read
+        // itself takes, so a reply and a newly-due sequence cannot both find no
+        // conversation open and each try to start one.
+        ...(isCheckIn(command)
+          ? { checkIn: await checkingInWith(unit, command.personId) }
           : {}),
       })
 

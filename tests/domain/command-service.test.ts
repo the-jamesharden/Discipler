@@ -73,6 +73,24 @@ describe('applying a command\'s effects', () => {
         acceptInvitation: async () => {
           throw new Error('nothing should have been accepted')
         },
+        checkInFor: async () => {
+          throw new Error('nobody should have been checked in with')
+        },
+        openCheckInSequence: async () => {
+          throw new Error('no conversation should have been opened')
+        },
+        askCheckInQuestion: async () => {
+          throw new Error('nothing should have been asked')
+        },
+        recordCheckInAnswer: async () => {
+          throw new Error('nothing should have been answered')
+        },
+        closeCheckInSequence: async () => {
+          throw new Error('no conversation should have been closed')
+        },
+        optPersonOut: async () => {
+          throw new Error('nobody should have been opted out')
+        },
         raiseFollowUp: async () => {
           throw new Error('nothing should have been raised')
         },

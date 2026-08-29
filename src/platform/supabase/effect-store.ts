@@ -31,6 +31,7 @@ import {
 import type { HistoryEvent } from '~/domain/history'
 import {
   eventId,
+  ministryId,
   personId,
   relationshipId,
   type MinistryId,
@@ -45,7 +46,15 @@ import {
   type PhoneNumber,
   type RosterKey,
 } from '~/domain/roster'
-import type { EffectStore, UnitOfWork } from '~/service/ports'
+import {
+  checkInPromptId,
+  checkInSequenceId,
+  type CheckInRelationship,
+  type CheckInSnapshot,
+  type OpenPrompt,
+  type OpenSequence,
+} from '~/domain/check-in'
+import type { EffectStore, InboundReader, InboundSender, UnitOfWork } from '~/service/ports'
 
 /**
  * The participation caps live in indexes, because they can only be judged against
@@ -675,6 +684,227 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     )
   },
 
+
+  async checkInFor(id: PersonId): Promise<CheckInSnapshot | null> {
+    // One conversation per Leader at a time, and the lock is what keeps it that
+    // way when a reply and a newly-due sequence race each other. Without it both
+    // read *no sequence open* and the partial unique index refuses the second
+    // insert at commit, which reaches the Leader as a lost reply rather than as a
+    // queue that waited.
+    await client.query(`select pg_advisory_xact_lock(hashtextextended($1, 0))`, [id])
+
+    const { rows: people } = await client.query<{ phone: string | null }>(
+      `select phone from person where id = $1`,
+      [id],
+    )
+    const person = people[0]
+    if (!person) return null
+
+    // Every live relationship this Person leads. Whether each one is asked about
+    // is a rule and lives in the domain, so an unaccepted or paused relationship
+    // is loaded here and filtered there -- which is what lets both be proven by a
+    // test with no database in it.
+    const { rows: led } = await client.query<{
+      relationship_id: string
+      created_at: Date
+      accepted_at: Date | null
+      paused: boolean
+      participant_names: string[]
+    }>(
+      `select r.id as relationship_id,
+              r.created_at,
+              r.accepted_at,
+              -- Paused lives in history rather than in a column, like every other
+              -- relationship state here. Ticket 12 writes these events; until it
+              -- does, no relationship is paused and the rule is proven by
+              -- appending one.
+              coalesce(
+                (select e.type = 'relationship.paused'
+                   from ministry_event e
+                  where e.subject_type = 'relationship'
+                    and e.subject_id = r.id
+                    and e.type in ('relationship.paused', 'relationship.resumed')
+                  order by e.occurred_at desc, e.recorded_at desc
+                  limit 1),
+                false
+              ) as paused,
+              coalesce(
+                (select array_agg(p.full_name order by pm.started_at, p.full_name)
+                   from relationship_member pm
+                   join person p on p.id = pm.person_id
+                  where pm.relationship_id = r.id
+                    and pm.role = 'participant'
+                    and pm.ended_at is null),
+                array[]::text[]
+              ) as participant_names
+         from relationship r
+         join relationship_member m on m.relationship_id = r.id
+        where m.person_id = $1
+          and m.role = 'leader'
+          and m.ended_at is null
+          and r.ended_at is null`,
+      [id],
+    )
+
+    const relationships = new Map<string, CheckInRelationship>(
+      led.map((row) => [
+        row.relationship_id,
+        {
+          relationshipId: relationshipId(row.relationship_id),
+          role: 'leader',
+          startedAt: row.created_at,
+          participantNames: row.participant_names,
+          acceptedAt: row.accepted_at,
+          paused: row.paused,
+        },
+      ]),
+    )
+
+    const { rows: open } = await client.query<{
+      id: string
+      started_at: Date
+      covering: string[]
+    }>(
+      `select id, started_at, covering
+         from checkin_sequence
+        where person_id = $1 and closed_at is null`,
+      [id],
+    )
+
+    const sequence = open[0]
+    let openSequence: OpenSequence | null = null
+
+    if (sequence) {
+      // The most recent prompt owns the next reply, so it is read newest-first --
+      // and it is *awaiting* one only while it is unanswered.
+      const { rows: prompts } = await client.query<{
+        id: string
+        relationship_id: string
+        position: number
+        question: OpenPrompt['question']
+        answered_at: Date | null
+      }>(
+        `select id, relationship_id, position, question, answered_at
+           from checkin_prompt
+          where sequence_id = $1
+          order by step desc
+          limit 1`,
+        [sequence.id],
+      )
+      const latest = prompts[0]
+
+      openSequence = {
+        sequenceId: checkInSequenceId(sequence.id),
+        startedAt: sequence.started_at,
+        // In the order the conversation opened with. A relationship that has since
+        // ended is dropped rather than left as a hole, because the position of
+        // every later one is what the next question is indexed by.
+        covering: sequence.covering.flatMap((each) => {
+          const relationship = relationships.get(each)
+          return relationship ? [relationship] : []
+        }),
+        awaiting:
+          latest && latest.answered_at === null
+            ? {
+                promptId: checkInPromptId(latest.id),
+                relationshipId: relationshipId(latest.relationship_id),
+                position: latest.position,
+                question: latest.question,
+              }
+            : null,
+      }
+    }
+
+    // For the monthly opt-out rule: the last check-in question this Person was
+    // sent, whatever conversation it belonged to.
+    const { rows: asked } = await client.query<{ last_asked_at: Date | null }>(
+      `select max(p.asked_at) as last_asked_at
+         from checkin_prompt p
+         join checkin_sequence s on s.id = p.sequence_id
+        where s.person_id = $1`,
+      [id],
+    )
+
+    return {
+      personId: id,
+      phone: person.phone,
+      leads: [...relationships.values()],
+      openSequence,
+      lastAskedAt: asked[0]?.last_asked_at ?? null,
+    }
+  },
+
+  async openCheckInSequence(sequence) {
+    await client.query(
+      `insert into checkin_sequence (id, ministry_id, person_id, started_at, covering)
+       values ($1, $2, $3, $4, $5)`,
+      [
+        sequence.id,
+        sequence.ministryId,
+        sequence.personId,
+        sequence.startedAt,
+        sequence.covering,
+      ],
+    )
+  },
+
+  async askCheckInQuestion(prompt) {
+    await client.query(
+      `insert into checkin_prompt
+         (id, ministry_id, sequence_id, relationship_id, role, position, question, asked_at)
+       values ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        prompt.id,
+        prompt.ministryId,
+        prompt.sequenceId,
+        prompt.relationshipId,
+        prompt.role,
+        prompt.position,
+        prompt.question,
+        prompt.askedAt,
+      ],
+    )
+  },
+
+  async recordCheckInAnswer(answer) {
+    // `where answered_at is null` is what makes a second reply to a question
+    // already answered land on nothing rather than overwrite what the Leader
+    // first said. History is not rewritten by a later message.
+    await client.query(
+      `update checkin_prompt
+          set answered_at = $2, answered_by = $3, met = $4, satisfaction = $5, detail = $6
+        where id = $1 and answered_at is null`,
+      [
+        answer.promptId,
+        answer.answeredAt,
+        answer.personId,
+        answer.met,
+        answer.satisfaction,
+        answer.detail,
+      ],
+    )
+  },
+
+  async closeCheckInSequence(closure) {
+    await client.query(
+      `update checkin_sequence set closed_at = $2, outcome = $3
+        where id = $1 and closed_at is null`,
+      [closure.sequenceId, closure.closedAt, closure.outcome],
+    )
+  },
+
+  async optPersonOut(optOut) {
+    // `STOP` twice is one opt-out. The partial unique index is named rather than
+    // left to a bare `do nothing`, which would swallow a collision on any
+    // constraint on the table.
+    await client.query(
+      `insert into person_opt_out (ministry_id, person_id, started_at)
+       values ($1, $2, $3)
+       on conflict (person_id) where ended_at is null do nothing`,
+      [optOut.ministryId, optOut.personId, optOut.startedAt],
+    )
+  },
+
   async enqueueMessages(messages: readonly OutboundMessageDraft[]) {
     for (const message of messages) {
       await client.query(
@@ -744,6 +974,42 @@ export const createPostgresEffectStore = (connectionString: string): PostgresEff
         throw error
       } finally {
         client.release(connectionIsSuspect)
+      }
+    },
+    close: () => pool.end(),
+  }
+}
+
+/**
+ * The one read that cannot name its Ministry up front. A text arrives with a
+ * phone number and nothing else, so this answers which Ministry the connection
+ * should scope itself to and who on it sent the message -- and everything after
+ * that runs inside an ordinary Ministry-scoped unit of work.
+ */
+export interface PostgresInboundReader extends InboundReader {
+  close(): Promise<void>
+}
+
+export const createPostgresInboundReader = (
+  connectionString: string,
+): PostgresInboundReader => {
+  const pool = new pg.Pool({ connectionString })
+
+  return {
+    async resolveSender(fromPhone: string): Promise<InboundSender | null> {
+      const client = await pool.connect()
+      try {
+        await client.query('set local role discipler_command')
+        const { rows } = await client.query<{ ministry_id: string; person_id: string }>(
+          `select ministry_id, person_id from app.sender_of_inbound($1)`,
+          [fromPhone],
+        )
+        const sender = rows[0]
+        return sender
+          ? { ministryId: ministryId(sender.ministry_id), personId: personId(sender.person_id) }
+          : null
+      } finally {
+        client.release()
       }
     },
     close: () => pool.end(),

@@ -3,7 +3,9 @@ import type { IdSource } from '~/domain/ids'
 import { appBaseUrl, commandDatabaseUrl } from '~/platform/supabase/credentials'
 import {
   createPostgresEffectStore,
+  createPostgresInboundReader,
   type PostgresEffectStore,
+  type PostgresInboundReader,
 } from '~/platform/supabase/effect-store'
 import {
   createPostgresIntakeReader,
@@ -19,6 +21,7 @@ import { supabaseRosterReader } from '~/platform/supabase/roster-reader'
 import { createCommandService, type CommandService } from './command-service'
 import type {
   CareNeededReader,
+  InboundReader,
   IntakeReader,
   InvitationReader,
   LeaderAccounts,
@@ -39,6 +42,7 @@ let commandService: CommandService | undefined
 let commandStore: PostgresEffectStore | undefined
 let intakeReader: PostgresIntakeReader | undefined
 let invitationReader: PostgresInvitationReader | undefined
+let inboundReader: PostgresInboundReader | undefined
 
 export const getCommandService = (): CommandService => {
   if (!commandService) {
@@ -77,6 +81,17 @@ export const getInvitationReader = (): InvitationReader => {
 }
 
 /**
+ * An inbound text carries a phone number and no session, so the webhook reads on
+ * the same trusted connection the Intake form and the Invitation Link do -- and
+ * for the same reason: it is answering which Ministry the connection should scope
+ * itself to, before anything is scoped at all.
+ */
+export const getInboundReader = (): InboundReader => {
+  if (!inboundReader) inboundReader = createPostgresInboundReader(commandDatabaseUrl())
+  return inboundReader
+}
+
+/**
  * Gives back the connection pool the store holds. The running app never calls this
  * -- it keeps the pool for its whole lifetime -- but a test that assembles the real
  * container has no other way to let go of it when the suite ends.
@@ -85,13 +100,16 @@ export const closeCommandService = async (): Promise<void> => {
   const store = commandStore
   const reader = intakeReader
   const invitations = invitationReader
+  const inbound = inboundReader
   commandService = undefined
   commandStore = undefined
   intakeReader = undefined
   invitationReader = undefined
+  inboundReader = undefined
   await store?.close()
   await reader?.close()
   await invitations?.close()
+  await inbound?.close()
 }
 
 export const getRosterReader = (): RosterReader => supabaseRosterReader

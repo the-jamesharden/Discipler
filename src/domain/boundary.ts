@@ -3,15 +3,21 @@ import { days, daysSince, type Clock } from './clock'
 import {
   acceptInvitation,
   appendHistory,
+  askCheckInQuestion,
+  closeCheckInSequence,
+  openCheckInSequence,
+  optPersonOut,
   cancelRelationship,
   createPerson,
   createRelationship,
   enqueueMessage,
   issueInvitationLink,
   raiseFollowUpItem,
+  recordCheckInAnswer,
   recordIntake,
   resolveFollowUpItem,
   type Effect,
+  type NewCheckInPrompt,
 } from './effects'
 import {
   CancellationRefused,
@@ -19,10 +25,27 @@ import {
   InvitationRefused,
   PairingRefused,
 } from './errors'
+import {
+  advanceCheckIn,
+  checkInPromptId,
+  isStopKeyword,
+  checkInSequenceId,
+  readCheckInReply,
+  relationshipsToAskAbout,
+  type CheckInReply,
+  type CheckInRelationship,
+  type CheckInSequenceId,
+  type CheckInSnapshot,
+} from './check-in'
 import { readIntakeForm } from './intake'
 import {
   acceptanceReminderMessage,
+  checkInSubject,
+  checkInThankYou,
+  concernDetailRequest,
   invitationLink,
+  meetingQuestion,
+  satisfactionQuestion,
   invitationMessage,
   starterMessageToLeader,
   starterMessageToParticipant,
@@ -108,6 +131,13 @@ export interface CommandContext {
    * `outbound-copy`; the host it hangs off is configuration and arrives here.
    */
   readonly appBaseUrl?: string
+  /**
+   * The Person a check-in command acts on: what they lead, whether a conversation
+   * is already open with them, and when they were last asked. Loaded around the
+   * command like every other snapshot here, so the rules stay drivable with no
+   * database in the room.
+   */
+  readonly checkIn?: CheckInSnapshot
 }
 
 /**
@@ -287,6 +317,103 @@ const memberHolding = (invitation: InvitationSnapshot, id: PersonId): InvitedMem
   return member
 }
 
+
+/**
+ * The monthly opt-out rule, for Leaders. True on the first check-in of each
+ * calendar month, which includes the first check-in a Leader ever receives.
+ *
+ * Resolved in UTC here. Resolving the month against the *Ministry* timezone is
+ * ticket 08b's, alongside the week boundary and the cadence -- 08a carries the
+ * language, 08b decides which month a moment falls in.
+ */
+const optOutLanguageIsDue = (lastAskedAt: Date | null, now: Date): boolean => {
+  if (!lastAskedAt) return true
+  return (
+    lastAskedAt.getUTCFullYear() !== now.getUTCFullYear() ||
+    lastAskedAt.getUTCMonth() !== now.getUTCMonth()
+  )
+}
+
+/** What every question in a conversation needs in order to be sent and recorded. */
+interface Asking {
+  readonly ministryId: MinistryId
+  readonly ministryName: string
+  readonly sequenceId: CheckInSequenceId
+  readonly personId: PersonId
+  readonly phone: string | null
+  readonly now: Date
+  readonly ids: IdSource
+}
+
+/**
+ * One question, as the two things it always is: a text to the Leader and a row
+ * saying what was asked, of which relationship, in which role. They are produced
+ * together because a prompt with no message is a question nobody was asked, and a
+ * message with no prompt is a reply with nothing to bind to.
+ */
+const ask = (
+  asking: Asking,
+  prompt: Omit<NewCheckInPrompt, 'id' | 'ministryId' | 'sequenceId' | 'askedAt'>,
+  body: string,
+): readonly Effect[] => [
+  askCheckInQuestion({
+    id: checkInPromptId(asking.ids.next()),
+    ministryId: asking.ministryId,
+    sequenceId: asking.sequenceId,
+    askedAt: asking.now,
+    ...prompt,
+  }),
+  enqueueMessage({
+    ministryId: asking.ministryId,
+    personId: asking.personId,
+    toPhone: asking.phone,
+    body,
+    enqueuedAt: asking.now,
+    // No message to a Leader contains a phone number, and a check-in question
+    // names the people they already meet with.
+    disclosesPersonId: null,
+  }),
+]
+
+/**
+ * The opening question of one relationship's turn. Where a closing thank-you
+ * would otherwise fall, this is what is sent instead -- which is why it is the
+ * one step reached from both the start of a conversation and the middle of one.
+ */
+const askWhetherTheyMet = (
+  asking: Asking,
+  relationship: CheckInRelationship,
+  position: number,
+  discloseOptOut: boolean,
+): readonly Effect[] =>
+  ask(
+    asking,
+    {
+      relationshipId: relationship.relationshipId,
+      role: relationship.role,
+      position,
+      question: 'met',
+    },
+    meetingQuestion({
+      ministryName: asking.ministryName,
+      subject: checkInSubject(relationship.participantNames),
+      discloseOptOut,
+    }),
+  )
+
+
+/**
+ * A reply as it is stored. The three columns are exclusive by question -- a
+ * `met` answer has no rating and a rating has no prose -- and the letters the
+ * message advertised are nowhere in it: `C` is stored as `concern`, so renaming a
+ * token in copy can never re-tokenise a Ministry's history.
+ */
+const recorded = (reply: CheckInReply) => ({
+  met: reply.kind === 'met' ? reply.met : null,
+  satisfaction: reply.kind === 'satisfaction' ? reply.satisfaction : null,
+  detail: reply.kind === 'concern_detail' ? reply.detail : null,
+})
+
 export const handleCommand = (command: Command, context: CommandContext): CommandResult => {
   switch (command.type) {
     case 'scheduled.tick': {
@@ -384,6 +511,276 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           )
         }
       }
+
+      return { effects, rejections: [] }
+    }
+
+    case 'checkin.start': {
+      const { checkIn, ministryName } = context
+      if (!checkIn) throw new Error('checkin.start was handed nobody to check in with')
+      if (!ministryName) {
+        throw new Error('checkin.start was handed no Ministry to speak for')
+      }
+
+      const now = context.clock.now()
+      const effects: Effect[] = []
+
+      // Two sequences never run for one Leader at once. The displaced one's
+      // unanswered questions stay unanswered rather than being tidied away: they
+      // are what ticket 10's Stalled rule reads, and answering them on the
+      // Leader's behalf is the one thing that would hide a Leader going quiet.
+      if (checkIn.openSequence) {
+        effects.push(
+          closeCheckInSequence({
+            ministryId: command.ministryId,
+            sequenceId: checkIn.openSequence.sequenceId,
+            closedAt: now,
+            outcome: 'abandoned',
+          }),
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'checkin.sequence_abandoned',
+            subjectType: 'person',
+            subjectId: checkIn.personId,
+            payload: { sequenceId: checkIn.openSequence.sequenceId },
+          }),
+        )
+      }
+
+      const covering = relationshipsToAskAbout(checkIn.leads)
+
+      // A Participant leads nothing, and a Leader whose every relationship is
+      // paused has nothing to be asked about. An empty conversation would be one
+      // nobody can finish, and ticket 10 would read its relationship-weeks as
+      // unanswered -- so none is opened.
+      if (covering.length === 0) return { effects, rejections: [] }
+
+      const sequenceId = checkInSequenceId(context.ids.next())
+      const asking: Asking = {
+        ministryId: command.ministryId,
+        ministryName,
+        sequenceId,
+        personId: checkIn.personId,
+        phone: checkIn.phone,
+        now,
+        ids: context.ids,
+      }
+
+      effects.push(
+        openCheckInSequence({
+          id: sequenceId,
+          ministryId: command.ministryId,
+          personId: checkIn.personId,
+          startedAt: now,
+          covering: covering.map((each) => each.relationshipId),
+        }),
+        appendHistory({
+          ministryId: command.ministryId,
+          occurredAt: now,
+          type: 'checkin.sequence_opened',
+          subjectType: 'person',
+          subjectId: checkIn.personId,
+          // What this week's conversation covers, recorded at the moment it
+          // opened. Ticket 10 counts a relationship-week unanswered when it was
+          // covered and no reply arrived -- whether or not its question was ever
+          // reached -- so the coverage has to survive the sequence.
+          payload: {
+            sequenceId,
+            relationshipIds: covering.map((each) => each.relationshipId),
+          },
+        }),
+        // Only the first. The sequence advances in response to a reply and never
+        // otherwise, so a Leader with three relationships is asked one question
+        // and not three.
+        ...askWhetherTheyMet(
+          asking,
+          covering[0]!,
+          1,
+          optOutLanguageIsDue(checkIn.lastAskedAt, now),
+        ),
+      )
+
+      return { effects, rejections: [] }
+    }
+
+    case 'sms.inbound': {
+      const { checkIn, ministryName } = context
+      if (!checkIn) throw new Error('sms.inbound was handed nobody it could be from')
+      if (!ministryName) {
+        throw new Error('sms.inbound was handed no Ministry to speak for')
+      }
+
+      const now = context.clock.now()
+
+      // Keywords are read before a reply is interpreted as a check-in answer.
+      // A `STOP` arriving while the satisfaction question is open is somebody
+      // asking to be left alone, and reading it as an unreadable rating would
+      // keep texting them.
+      //
+      // It opts out the Person and not one of their relationships: that is the
+      // level a carrier applies it at, and it is what stops every message rather
+      // than the ones about one relationship.
+      //
+      // Any open conversation ends with it, as abandoned. Not a second rule: a
+      // Person Discipler may no longer text has no conversation left to have, and
+      // leaving one open would mean the next question it tried to send was
+      // refused by the outbound queue -- a reply from them failing outright
+      // rather than being heard. Abandoned rather than completed, because its
+      // unanswered questions stay unanswered: they are what ticket 10 reads, and
+      // an opt-out is not an answer.
+      if (isStopKeyword(command.body)) {
+        const effects: Effect[] = [
+          optPersonOut({
+            ministryId: command.ministryId,
+            personId: checkIn.personId,
+            startedAt: now,
+          }),
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'person.opted_out',
+            subjectType: 'person',
+            subjectId: checkIn.personId,
+            payload: { keyword: 'STOP' },
+          }),
+        ]
+
+        if (checkIn.openSequence) {
+          effects.push(
+            closeCheckInSequence({
+              ministryId: command.ministryId,
+              sequenceId: checkIn.openSequence.sequenceId,
+              closedAt: now,
+              outcome: 'abandoned',
+            }),
+            appendHistory({
+              ministryId: command.ministryId,
+              occurredAt: now,
+              type: 'checkin.sequence_abandoned',
+              subjectType: 'person',
+              subjectId: checkIn.personId,
+              payload: {
+                sequenceId: checkIn.openSequence.sequenceId,
+                reason: 'opted_out',
+              },
+            }),
+          )
+        }
+
+        return { effects, rejections: [] }
+      }
+
+      // Resolution stops here when there is no open conversation. Nothing falls
+      // back to *the Person's relationship*: a Leader may hold several, and the
+      // position in the sequence is the only thing that says which one a `1` is
+      // about.
+      const sequence = checkIn.openSequence
+      const awaiting = sequence?.awaiting
+      if (!sequence || !awaiting) return { effects: [], rejections: [] }
+
+      const reply = readCheckInReply(awaiting.question, command.body)
+
+      // Strict tokens in this ticket. An unreadable reply leaves the question
+      // open and the conversation exactly where it was -- the clarifying
+      // re-prompt and its cap are ticket 09's, along with the synonyms and typos
+      // that would have made this readable.
+      if (reply.kind === 'unreadable') return { effects: [], rejections: [] }
+
+      const answered = sequence.covering[awaiting.position - 1]
+
+      const effects: Effect[] = [
+        recordCheckInAnswer({
+          ministryId: command.ministryId,
+          promptId: awaiting.promptId,
+          // The Person who sent it, never the relationship alone. A relationship
+          // is not assumed to have one respondent, which is what lets Participant
+          // check-ins be added without migrating what a Leader already answered.
+          personId: checkIn.personId,
+          answeredAt: now,
+          ...recorded(reply),
+        }),
+        appendHistory({
+          ministryId: command.ministryId,
+          occurredAt: now,
+          type: 'checkin.answered',
+          subjectType: 'relationship',
+          subjectId: answered?.relationshipId ?? null,
+          payload: {
+            sequenceId: sequence.sequenceId,
+            personId: checkIn.personId,
+            role: answered?.role ?? null,
+            question: awaiting.question,
+            ...recorded(reply),
+          },
+        }),
+      ]
+
+      const advance = advanceCheckIn(sequence, awaiting, reply)
+
+      if (advance.kind === 'finish') {
+        effects.push(
+          enqueueMessage({
+            ministryId: command.ministryId,
+            personId: checkIn.personId,
+            toPhone: checkIn.phone,
+            body: checkInThankYou({ ministryName }),
+            enqueuedAt: now,
+            disclosesPersonId: null,
+          }),
+          closeCheckInSequence({
+            ministryId: command.ministryId,
+            sequenceId: sequence.sequenceId,
+            closedAt: now,
+            outcome: 'completed',
+          }),
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'checkin.sequence_completed',
+            subjectType: 'person',
+            subjectId: checkIn.personId,
+            payload: { sequenceId: sequence.sequenceId },
+          }),
+        )
+        return { effects, rejections: [] }
+      }
+
+      const asking: Asking = {
+        ministryId: command.ministryId,
+        ministryName,
+        sequenceId: sequence.sequenceId,
+        personId: checkIn.personId,
+        phone: checkIn.phone,
+        now,
+        ids: context.ids,
+      }
+
+      if (advance.question === 'met') {
+        // The next relationship's opening question, sent where a closing
+        // thank-you would otherwise have fallen. The monthly language is not
+        // repeated here: it went out on the message that opened this
+        // conversation, and this is the same conversation.
+        effects.push(
+          ...askWhetherTheyMet(asking, advance.relationship, advance.position, false),
+        )
+        return { effects, rejections: [] }
+      }
+
+      effects.push(
+        ...ask(
+          asking,
+          {
+            relationshipId: advance.relationship.relationshipId,
+            role: advance.relationship.role,
+            position: advance.position,
+            question: advance.question,
+          },
+          advance.question === 'satisfaction'
+            ? satisfactionQuestion({ ministryName })
+            : concernDetailRequest({ ministryName }),
+        ),
+      )
 
       return { effects, rejections: [] }
     }

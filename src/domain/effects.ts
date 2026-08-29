@@ -1,3 +1,9 @@
+import type {
+  CheckInPromptId,
+  CheckInQuestion,
+  CheckInSequenceId,
+  Satisfaction,
+} from './check-in'
 import type { NewHistoryEvent } from './history'
 import type { MinistryId, PersonId, RelationshipId } from './ids'
 import type {
@@ -9,7 +15,7 @@ import type {
 } from './intake'
 import type { FollowUpResolution, NewFollowUpItem } from './follow-up'
 import type { InvitationToken, NewInvitation } from './invitations'
-import type { NewRelationship } from './relationships'
+import type { MemberRole, NewRelationship } from './relationships'
 import type { NewPerson } from './roster'
 
 /**
@@ -132,6 +138,89 @@ export interface RelationshipCancellation {
   readonly memberIds: readonly PersonId[]
 }
 
+/**
+ * One Leader's weekly conversation, opened. The relationships it covers are fixed
+ * at this moment rather than re-read as it advances, so a pause halfway through
+ * does not renumber the questions still to come.
+ */
+export interface NewCheckInSequence {
+  readonly id: CheckInSequenceId
+  readonly ministryId: MinistryId
+  /** Whom the conversation is with. A Leader today; the row does not say so. */
+  readonly personId: PersonId
+  readonly startedAt: Date
+  /**
+   * What this week's conversation covers, in the order it asks. Recorded on the
+   * sequence because the shape of a conversation is fixed when it opens -- a
+   * relationship paused halfway through does not renumber the questions still to
+   * come, and a relationship covered but never reached is still a
+   * relationship-week that went unanswered.
+   */
+  readonly covering: readonly RelationshipId[]
+}
+
+/**
+ * One question, sent. It carries the relationship it is about *and* the role it
+ * was sent for, which is what keeps a dual-role Person's messages apart in the
+ * data when they share one phone number -- and what makes Participant check-ins
+ * addable later without migrating anything.
+ */
+export interface NewCheckInPrompt {
+  readonly id: CheckInPromptId
+  readonly ministryId: MinistryId
+  readonly sequenceId: CheckInSequenceId
+  readonly relationshipId: RelationshipId
+  readonly role: MemberRole
+  /** Position in the conversation, so history reads back in the order it happened. */
+  readonly position: number
+  readonly question: CheckInQuestion
+  readonly askedAt: Date
+}
+
+/**
+ * One reply, bound to the question it answers and to the Person who sent it.
+ *
+ * `personId` is not decoration: nothing may assume one respondent per
+ * relationship, so an answer keyed to the relationship alone would have to be
+ * rewritten the day a Ministry asks for Participant check-ins.
+ */
+export interface CheckInAnswer {
+  readonly ministryId: MinistryId
+  readonly promptId: CheckInPromptId
+  readonly personId: PersonId
+  readonly answeredAt: Date
+  /** Set by a `met` answer, null on every other question. */
+  readonly met: boolean | null
+  /** `outstanding`, `good` or `concern` -- the word, never the letter. */
+  readonly satisfaction: Satisfaction | null
+  /** The Concern in the Leader's own words. Prose, unparsed. */
+  readonly detail: string | null
+}
+
+export interface CheckInSequenceClosure {
+  readonly ministryId: MinistryId
+  readonly sequenceId: CheckInSequenceId
+  readonly closedAt: Date
+  /**
+   * `completed` once the final relationship has been answered for and the
+   * thank-you sent. `abandoned` when a new one displaced it -- two sequences
+   * never run for one Leader at once, and the questions it left open stay
+   * unanswered in history rather than being tidied away.
+   */
+  readonly outcome: 'completed' | 'abandoned'
+}
+
+/**
+ * The carrier-level opt-out, at the level the carrier applies it: the Person, not
+ * any one relationship. Dated rather than flagged, because `STOP` today and a
+ * re-opt-in in six weeks are two facts.
+ */
+export interface PersonOptOut {
+  readonly ministryId: MinistryId
+  readonly personId: PersonId
+  readonly startedAt: Date
+}
+
 export type Effect =
   | { readonly kind: 'history.append'; readonly event: NewHistoryEvent }
   | { readonly kind: 'person.create'; readonly person: NewPerson }
@@ -146,6 +235,11 @@ export type Effect =
       readonly kind: 'relationship.cancel'
       readonly cancellation: RelationshipCancellation
     }
+  | { readonly kind: 'checkin.open'; readonly sequence: NewCheckInSequence }
+  | { readonly kind: 'checkin.ask'; readonly prompt: NewCheckInPrompt }
+  | { readonly kind: 'checkin.answer'; readonly answer: CheckInAnswer }
+  | { readonly kind: 'checkin.close'; readonly closure: CheckInSequenceClosure }
+  | { readonly kind: 'person.opt_out'; readonly optOut: PersonOptOut }
 
 export const appendHistory = (event: NewHistoryEvent): Effect => ({
   kind: 'history.append',
@@ -195,4 +289,29 @@ export const resolveFollowUpItem = (resolution: FollowUpResolution): Effect => (
 export const cancelRelationship = (cancellation: RelationshipCancellation): Effect => ({
   kind: 'relationship.cancel',
   cancellation,
+})
+
+export const openCheckInSequence = (sequence: NewCheckInSequence): Effect => ({
+  kind: 'checkin.open',
+  sequence,
+})
+
+export const askCheckInQuestion = (prompt: NewCheckInPrompt): Effect => ({
+  kind: 'checkin.ask',
+  prompt,
+})
+
+export const recordCheckInAnswer = (answer: CheckInAnswer): Effect => ({
+  kind: 'checkin.answer',
+  answer,
+})
+
+export const closeCheckInSequence = (closure: CheckInSequenceClosure): Effect => ({
+  kind: 'checkin.close',
+  closure,
+})
+
+export const optPersonOut = (optOut: PersonOptOut): Effect => ({
+  kind: 'person.opt_out',
+  optOut,
 })

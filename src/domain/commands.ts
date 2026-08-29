@@ -106,6 +106,37 @@ export type Command =
       readonly userId: string
     }
   /**
+   * One Leader's weekly conversation, opened. It covers every relationship they
+   * lead, so it names the Person and never a relationship -- a Leader holding
+   * three of them gets one conversation, not three.
+   *
+   * *What makes a Leader due* is ticket 08b's. Until it lands this is triggered
+   * directly, which is exactly the seam that lets the conversation be proven with
+   * no scheduler anywhere near it.
+   */
+  | {
+      readonly type: 'checkin.start'
+      readonly ministryId: MinistryId
+      readonly personId: PersonId
+    }
+  /**
+   * One inbound text, from one phone. Resolution is the sender's number to a
+   * Person to their open Check-In Sequence to the question awaiting a reply --
+   * never to *the Person's relationship*, because a Leader may hold several and
+   * the position in the sequence is what disambiguates them.
+   *
+   * The number is resolved to a Person before this command is built, because the
+   * unit of work is scoped to one Ministry and the webhook has no session telling
+   * it which. Everything after that is a rule and lives on the domain side.
+   */
+  | {
+      readonly type: 'sms.inbound'
+      readonly ministryId: MinistryId
+      readonly personId: PersonId
+      /** Exactly as it arrived. Reading it is the domain's job, not the route's. */
+      readonly body: string
+    }
+  /**
    * *Not my number.* It changes nothing -- a forwarded link can never re-point an
    * account -- and raises a persistent item for an Admin, because the alternative
    * is that Leader's check-ins reaching a stranger indefinitely.

@@ -254,3 +254,89 @@ export const acceptanceReminderMessage = ({
       ` Have a look when you can: ${link}`,
   })
 }
+
+/**
+ * Whom this relationship's turn is about, in a sentence. A Participant's name
+ * when there is one, and everyone's when there are more -- the copy branches on
+ * how many Participants a relationship has now, never on the kind it was formed
+ * as, which is why there is no group question set.
+ */
+export const checkInSubject = (participantNames: readonly string[]): string =>
+  asList([...participantNames])
+
+export interface MeetingQuestion {
+  readonly ministryName: string
+  /** As `checkInSubject` composed it. */
+  readonly subject: string
+  /**
+   * The monthly rule -- opt-out language on the first check-in of each calendar
+   * month, Leaders only. It rides on the opening question because that is the
+   * first check-in message of the month, and it is stated rather than defaulted
+   * for the same reason `composeMessage` states both of its flags.
+   */
+  readonly discloseOptOut: boolean
+}
+
+/**
+ * The opening question of one relationship's turn, and the only one of the four
+ * that names anybody. It offers two tokens and no third option: a Leader who did
+ * not meet answers in one character, and nothing here frames that as a failure.
+ */
+export const meetingQuestion = ({
+  ministryName,
+  subject,
+  discloseOptOut,
+}: MeetingQuestion): string =>
+  composeMessage({
+    ministryName,
+    // A Leader is never first contact -- they completed Intake and accepted an
+    // invitation to get here -- so the A2P prefix has no occasion to appear.
+    identifyDelivery: false,
+    discloseOptOut,
+    body: `Did you meet with ${subject} this week? Reply 1 for yes, 2 for no.`,
+  })
+
+export interface CheckInMessage {
+  readonly ministryName: string
+}
+
+/**
+ * Asked only after a `1`. A meeting that did not happen has no quality to report,
+ * and asking anyway would cost a Leader a second reply to say so again.
+ *
+ * The letters are copy. What a `C` is *stored* as is `concern`, decided in
+ * `check-in.ts`, so renaming a token here can never silently re-tokenise a
+ * Ministry's history.
+ */
+export const satisfactionQuestion = ({ ministryName }: CheckInMessage): string =>
+  composeMessage({
+    ministryName,
+    identifyDelivery: false,
+    discloseOptOut: false,
+    body: 'How did the meeting go? Reply A for outstanding, B for good, C for concern.',
+  })
+
+/**
+ * Asked only after a `C`. The Concern is already recorded by the time this goes
+ * out, so an unanswered request for detail loses nothing that was already said.
+ */
+export const concernDetailRequest = ({ ministryName }: CheckInMessage): string =>
+  composeMessage({
+    ministryName,
+    identifyDelivery: false,
+    discloseOptOut: false,
+    body: 'Please tell us more about the concern.',
+  })
+
+/**
+ * Sent after the *final* relationship and nowhere else. Where a thank-you would
+ * otherwise fall, the next relationship's opening question is sent instead -- so
+ * receiving this is how a Leader knows the conversation is over.
+ */
+export const checkInThankYou = ({ ministryName }: CheckInMessage): string =>
+  composeMessage({
+    ministryName,
+    identifyDelivery: false,
+    discloseOptOut: false,
+    body: 'Thank you. We’ll check in with you next week.',
+  })
