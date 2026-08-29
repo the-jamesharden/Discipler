@@ -87,6 +87,16 @@ export const welcomeMessage = ({ ministryName, fullName }: WelcomeMessage): stri
   })
 }
 
+/**
+ * Names in a sentence. Copy branches on how many Participants there are and never
+ * on the kind a relationship was formed as, so this is the only place the
+ * difference between a one-to-one and a group shows up in wording at all.
+ */
+const asList = (names: readonly string[]): string => {
+  if (names.length <= 1) return names[0] ?? 'them'
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+}
+
 export interface SharedContact {
   readonly fullName: string
   readonly phone: string
@@ -102,3 +112,105 @@ export interface SharedContact {
  */
 export const withSharedContact = (body: string, contact: SharedContact): string =>
   `${body} ${contact.fullName}: ${contact.phone}`
+
+/**
+ * Where a token becomes something a Person can tap. The shape of the URL is a
+ * copy decision -- it is read off a phone and occasionally typed -- so it lives
+ * here with the wording, and the host it hangs off is configuration.
+ */
+export const invitationLink = (baseUrl: string, token: string): string =>
+  `${baseUrl.replace(/\/+$/, '')}/invitation/${token}`
+
+export interface InvitationMessage {
+  readonly ministryName: string
+  readonly fullName: string
+  readonly link: string
+}
+
+/**
+ * **An invitation, not an assignment.** It says there is something to look at and
+ * stops there: who the match is, and which Ministry, are revealed on the page,
+ * after the Leader has chosen to open it and before anything is asked of them. A
+ * name in the text would have made the reveal a formality.
+ *
+ * Neither compliance flag is set. This is not first contact -- the Welcome
+ * Message was -- and it is not the Starter Message, and those are the occasions
+ * the two disclosures name. Sending them on every message is its own kind of spam.
+ */
+export const invitationMessage = ({
+  ministryName,
+  fullName,
+  link,
+}: InvitationMessage): string => {
+  const firstName = firstNameOf(fullName)
+
+  return composeMessage({
+    ministryName,
+    identifyDelivery: false,
+    discloseOptOut: false,
+    body:
+      (firstName ? `${firstName}, you’ve been matched with someone to disciple.` : 'You’ve been matched with someone to disciple.') +
+      ` Have a look and let us know: ${link}`,
+  })
+}
+
+export interface StarterMessageToLeader {
+  readonly ministryName: string
+  /** Everyone they are now meeting with. One name is a one-to-one; several a group. */
+  readonly participantNames: readonly string[]
+}
+
+/**
+ * Reads the live Participant count, never a group-versus-one-to-one flag. One
+ * name and four names are the same sentence with a different list in it.
+ *
+ * It carries no phone number and never will. The Leader has the Roster surface
+ * and the relationship in front of them; a number in a text to them is the thing
+ * `disclosesPersonId` exists to keep out, and the draft this composes leaves it
+ * null.
+ */
+export const starterMessageToLeader = ({
+  ministryName,
+  participantNames,
+}: StarterMessageToLeader): string =>
+  composeMessage({
+    ministryName,
+    identifyDelivery: false,
+    discloseOptOut: true,
+    body: `You’re now meeting with ${asList(participantNames)}. We’ll check in with you each week to see how it’s going.`,
+  })
+
+export interface StarterMessageToParticipant {
+  readonly ministryName: string
+  readonly fullName: string
+  /** Their own Invitation Link, which for a Participant leads to declining. */
+  readonly declineLink: string
+}
+
+/**
+ * The first thing a Participant hears about the match, and deliberately the first
+ * thing they hear at all after Intake -- nothing reaches them until every Leader
+ * has agreed to lead them.
+ *
+ * It ends where the disclosure begins. The Leader's name and number are appended
+ * by the sending layer once contact-sharing consent has been confirmed, so this
+ * body names neither: one that already carried them would leave the send-time
+ * check nothing to withhold, and a Participant who withdrew consent would be
+ * handed the number anyway.
+ */
+export const starterMessageToParticipant = ({
+  ministryName,
+  fullName,
+  declineLink,
+}: StarterMessageToParticipant): string => {
+  const firstName = firstNameOf(fullName)
+
+  return composeMessage({
+    ministryName,
+    identifyDelivery: false,
+    discloseOptOut: true,
+    body:
+      (firstName ? `Good news, ${firstName} — you’ve been matched.` : 'Good news — you’ve been matched.') +
+      ` Not the right fit? Tell us here: ${declineLink}. You’ll hear from your leader at this number:`,
+  })
+}

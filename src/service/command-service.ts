@@ -2,13 +2,22 @@ import { handleCommand, type CommandResult } from '~/domain/boundary'
 import type { Clock } from '~/domain/clock'
 import type { Command } from '~/domain/commands'
 import type { Effect } from '~/domain/effects'
+import { InvitationRefused } from '~/domain/errors'
 import type { IdSource, PersonId } from '~/domain/ids'
+import type { InvitationToken } from '~/domain/invitations'
 import type { EffectStore, UnitOfWork } from './ports'
 
 export interface CommandServiceDependencies {
   readonly clock: Clock
   readonly ids: IdSource
   readonly store: EffectStore
+  /**
+   * Where the links Discipler texts point. Configuration, injected here rather
+   * than read from the environment inside the domain, for the same reason the
+   * clock is: a boundary that reached for `process.env` would stop being a pure
+   * function of its inputs.
+   */
+  readonly appBaseUrl: string
 }
 
 /**
@@ -42,6 +51,15 @@ export const applyEffects = async (
   const messages = effects.flatMap((effect) =>
     effect.kind === 'message.enqueue' ? [effect.message] : [],
   )
+  const invitations = effects.flatMap((effect) =>
+    effect.kind === 'invitation.issue' ? [effect.invitation] : [],
+  )
+  const acceptances = effects.flatMap((effect) =>
+    effect.kind === 'invitation.accept' ? [effect.acceptance] : [],
+  )
+  const followUps = effects.flatMap((effect) =>
+    effect.kind === 'followUp.raise' ? [effect.item] : [],
+  )
 
   // Rows before the facts about them. The whole unit of work is one transaction, so
   // ordering buys nothing for atomicity -- it buys the error: a pairing the caps
@@ -55,6 +73,14 @@ export const applyEffects = async (
   // Message enqueued ahead of the consent that permits it is refused by the
   // database -- which is the floor working, and the wrong way round to hit it.
   for (const intake of intakes) await unit.recordIntake(intake)
+
+  // After the relationship, which an invitation points at, and after the
+  // acceptance that spends the Leader's token -- a Participant's link is issued by
+  // the same act that consumes the Leader's, and the one live token per person per
+  // relationship index is what would catch the two in the wrong order.
+  for (const acceptance of acceptances) await unit.acceptInvitation(acceptance)
+  for (const invitation of invitations) await unit.issueInvitation(invitation)
+  for (const item of followUps) await unit.raiseFollowUp(item)
 
   // History before messages: a message that goes out unrecorded is worse than a
   // recorded message that failed to send, because only one of the two can be
@@ -78,10 +104,41 @@ const needsTheRoster = (command: Command): boolean =>
  */
 const isIntakeSubmission = (command: Command): boolean => command.type === 'intake.submit'
 
+/**
+ * The commands a token drives. None of them consults a session: possession of the
+ * phone the link was sent to is the whole of the authentication.
+ */
+const isTokenDriven = (
+  command: Command,
+): command is Extract<
+  Command,
+  { type: 'relationship.accept' | 'invitation.dispute_number' | 'match.decline' }
+> =>
+  command.type === 'relationship.accept' ||
+  command.type === 'invitation.dispute_number' ||
+  command.type === 'match.decline'
+
+/** Every message these commands enqueue speaks in the Ministry's voice. */
+const needsTheMinistryName = (command: Command): boolean =>
+  isIntakeSubmission(command) || command.type === 'relationship.create' || isTokenDriven(command)
+
+/**
+ * A token nothing answers to is refused here rather than handed to the domain as
+ * an absent snapshot. Absence would read as "this command was called wrong",
+ * which is a different thing from "that link is not real" and reaches the holder
+ * as a different page.
+ */
+const resolved = async (unit: UnitOfWork, token: InvitationToken) => {
+  const invitation = await unit.resolveInvitation(token)
+  if (!invitation) throw new InvitationRefused('invitation.not_found')
+  return invitation
+}
+
 export const createCommandService = ({
   clock,
   ids,
   store,
+  appBaseUrl,
 }: CommandServiceDependencies): CommandService => ({
   async execute(command) {
     // The whole command -- the state it reads, the decision it makes and the rows it
@@ -104,8 +161,26 @@ export const createCommandService = ({
               },
             }
           : {}),
-        ...(isIntakeSubmission(command)
+        ...(needsTheMinistryName(command)
           ? { ministryName: await unit.ministryName() }
+          : {}),
+        appBaseUrl,
+        // Pairing texts every Leader an Invitation Link, so it needs their names
+        // and the numbers to send to. Read inside the unit of work like everything
+        // else, so a command cannot compose a message for somebody the connection
+        // is not acting for.
+        ...(command.type === 'relationship.create'
+          ? {
+              pairing: {
+                people: await unit.contactsFor([
+                  ...command.leaderIds,
+                  ...command.participantIds,
+                ]),
+              },
+            }
+          : {}),
+        ...(isTokenDriven(command)
+          ? { invitation: await resolved(unit, command.token) }
           : {}),
       })
 

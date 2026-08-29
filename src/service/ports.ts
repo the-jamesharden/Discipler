@@ -1,9 +1,14 @@
-import type { IntakeRecord, OutboundMessageDraft } from '~/domain/effects'
+import type { InvitationSnapshot, PersonContact } from '~/domain/boundary'
+import type { IntakeRecord, LeaderAcceptance, OutboundMessageDraft } from '~/domain/effects'
+import type { NewFollowUpItem } from '~/domain/follow-up'
+import type { InvitationToken, NewInvitation } from '~/domain/invitations'
 import type { HistoryEvent, NewHistoryEvent } from '~/domain/history'
 import type { DiscipleshipGoalId } from '~/domain/intake'
 import type { MinistryId, OutboundMessageId, PersonId } from '~/domain/ids'
 import type { ParticipationStatus } from '~/domain/participation'
 import type { NewRelationship } from '~/domain/relationships'
+import type { InvitationState } from '~/domain/invitations'
+import type { MemberRole } from '~/domain/relationships'
 import type { NewPerson, PhoneNumber, RosterKey } from '~/domain/roster'
 
 /**
@@ -64,6 +69,34 @@ export interface UnitOfWork {
    * position to judge them -- and it must not do so silently.
    */
   createRelationship(relationship: NewRelationship): Promise<void>
+  /**
+   * The names and numbers of the people a command names. Pairing needs them
+   * because it texts every Leader an Invitation Link, and a message needs a
+   * recipient and a greeting.
+   */
+  contactsFor(ids: readonly PersonId[]): Promise<ReadonlyMap<PersonId, PersonContact>>
+  /**
+   * The token as the database holds it, with everyone holding an open membership
+   * on the relationship it names. Null when nothing answers to it.
+   *
+   * An expired or consumed token still resolves. The page has to tell the
+   * difference between a link that has run out and one that was never real, and
+   * refusing to resolve either would make those the same screen.
+   */
+  resolveInvitation(token: InvitationToken): Promise<InvitationSnapshot | null>
+  issueInvitation(invitation: NewInvitation): Promise<void>
+  /**
+   * One Leader agreeing to lead, as one write. The token is spent, the name is
+   * stored as given, the account is linked to the Person record, the membership is
+   * stamped -- and the relationship itself is stamped when this was the last open
+   * leader membership left to agree.
+   */
+  acceptInvitation(acceptance: LeaderAcceptance): Promise<void>
+  /**
+   * Raising an item that already stands changes nothing. Twenty taps on "not my
+   * number" is one condition, and the Admin sees one thing to act on.
+   */
+  raiseFollowUp(item: NewFollowUpItem): Promise<void>
 }
 
 export interface EffectStore {
@@ -170,4 +203,36 @@ export interface IntakePage {
 export interface IntakeReader {
   /** Null when the link names no Ministry this Discipler holds. */
   readIntakePage(id: string): Promise<IntakePage | null>
+}
+
+/**
+ * What the Invitation Link's page shows before anything is asked of its holder:
+ * who they have been matched with, for which Ministry, and the number Discipler
+ * will text them -- displayed, never requested.
+ */
+export interface InvitationPage {
+  readonly ministryId: MinistryId
+  readonly ministryName: string
+  readonly personId: PersonId
+  readonly fullName: string
+  /** Displayed so a Leader cannot mistype their way out of their own check-ins. */
+  readonly phone: string | null
+  readonly role: MemberRole
+  readonly state: InvitationState
+  /** Everyone else in the relationship, whatever their role. */
+  readonly withNames: readonly string[]
+  /** How many Participants it holds. Copy branches on this and never on `kind`. */
+  readonly participantCount: number
+}
+
+export interface InvitationReader {
+  /**
+   * Resolving does not consume. A Leader who opens the link and is interrupted by
+   * a phone call returns to the same message rather than needing a re-issue.
+   *
+   * Null when nothing answers to the token, which is the same answer for a token
+   * that was never real and one whose relationship has been deleted -- neither
+   * tells its holder anything about a Ministry they have not proved they belong to.
+   */
+  readInvitationPage(token: string): Promise<InvitationPage | null>
 }

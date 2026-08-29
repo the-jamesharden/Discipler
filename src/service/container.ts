@@ -1,6 +1,6 @@
 import { systemClock } from '~/domain/clock'
 import type { IdSource } from '~/domain/ids'
-import { commandDatabaseUrl } from '~/platform/supabase/credentials'
+import { appBaseUrl, commandDatabaseUrl } from '~/platform/supabase/credentials'
 import {
   createPostgresEffectStore,
   type PostgresEffectStore,
@@ -34,6 +34,7 @@ export const getCommandService = (): CommandService => {
       clock: systemClock,
       ids: randomIds,
       store: commandStore,
+      appBaseUrl: appBaseUrl(),
     })
   }
   return commandService

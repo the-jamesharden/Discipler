@@ -38,7 +38,7 @@ describe('pairing somebody who has not completed Intake', () => {
   // Real identifiers: these rows outlive the test file, so a second run against the
   // same stack would collide with the first on a deterministic id.
   const ids: IdSource = { next: () => crypto.randomUUID() }
-  const service = () => createCommandService({ clock, ids, store })
+  const service = () => createCommandService({ clock, ids, store,   appBaseUrl: 'https://discipler.test', })
 
   beforeAll(async () => {
     ministry = await createMinistryWithAdmin('Riverside Chapel')

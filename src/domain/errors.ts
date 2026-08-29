@@ -48,6 +48,30 @@ export class PairingRefused extends Error {
 }
 
 /**
+ * Why a token could not do what its holder asked of it. The page renders its own
+ * wording from these, like every other refusal, and none of them says anything
+ * about a relationship the holder has not proved they belong to.
+ */
+export type InvitationRefusal =
+  /** Nothing in this Ministry answers to that token. */
+  | 'invitation.not_found'
+  /** Seven to fourteen days have passed. An Admin re-issues; nobody self-serves. */
+  | 'invitation.expired'
+  /** Already consumed by account creation. Their way back in is to sign in. */
+  | 'invitation.already_used'
+  /** Only a Leader accepts. A Participant is told about a match, not asked to ratify it. */
+  | 'invitation.not_a_leader'
+  /** Only a Participant declines. A Leader who will not lead is ticket 13's, not this. */
+  | 'invitation.not_a_participant'
+
+export class InvitationRefused extends Error {
+  constructor(readonly refusal: InvitationRefusal) {
+    super(refusal)
+    this.name = 'InvitationRefused'
+  }
+}
+
+/**
  * The import read the Roster and the database disagreed with what it read, which
  * can only happen when something else wrote between the two. The import is refused
  * whole rather than partly applied, so the Admin re-uploads the same file and gets

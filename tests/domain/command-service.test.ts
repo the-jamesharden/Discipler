@@ -25,6 +25,7 @@ const someMessage = (body: string) =>
     toPhone: '+15550100',
     body,
     enqueuedAt: at,
+    disclosesPersonId: null,
   })
 
 describe('applying a command\'s effects', () => {
@@ -34,6 +35,7 @@ describe('applying a command\'s effects', () => {
 
     await store.transact(ministry, (sink) =>
       applyEffects([someMessage('hello'), someEvent('person.imported')], {
+        ...sink,
         appendHistory: async (events) => {
           order.push('history')
           return sink.appendHistory(events)
@@ -42,12 +44,6 @@ describe('applying a command\'s effects', () => {
           order.push('outbound')
           return sink.enqueueMessages(messages)
         },
-        createRelationship: sink.createRelationship,
-        createPeople: sink.createPeople,
-        peopleOnRoster: sink.peopleOnRoster,
-        peopleWhoCompletedIntake: sink.peopleWhoCompletedIntake,
-        ministryName: sink.ministryName,
-        recordIntake: sink.recordIntake,
       }),
     )
 
@@ -64,6 +60,21 @@ describe('applying a command\'s effects', () => {
         },
         enqueueMessages: async () => {
           throw new Error('the outbound queue should not have been touched')
+        },
+        contactsFor: async () => {
+          throw new Error('nobody should have been looked up')
+        },
+        resolveInvitation: async () => {
+          throw new Error('no token should have been resolved')
+        },
+        issueInvitation: async () => {
+          throw new Error('no invitation should have been issued')
+        },
+        acceptInvitation: async () => {
+          throw new Error('nothing should have been accepted')
+        },
+        raiseFollowUp: async () => {
+          throw new Error('nothing should have been raised')
         },
         createRelationship: async () => {
           throw new Error('relationships should not have been touched')
@@ -109,7 +120,7 @@ describe('applying a command\'s effects', () => {
 describe('the command service', () => {
   it('is the only way in, and applies whatever the boundary returned', async () => {
     const store = createInMemoryStore()
-    const service = createCommandService({ clock: createTestClock(at), ids: createSequentialIds(), store })
+    const service = createCommandService({ clock: createTestClock(at), ids: createSequentialIds(), store,   appBaseUrl: 'https://discipler.test', })
 
     const outcome = await service.execute({ type: 'scheduled.tick', ministryId: ministry })
 

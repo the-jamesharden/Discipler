@@ -17,6 +17,9 @@ describe('the wired-up command service', () => {
     ministry = await createMinistryWithAdmin('Riverside Chapel')
 
     process.env.DATABASE_URL = localSupabase().databaseUrl
+    // Where the links it texts point. The container reads this the same way the
+    // running app does, so leaving it unset is the failure it is supposed to be.
+    process.env.NEXT_PUBLIC_APP_URL = 'https://discipler.test'
     // Imported after the environment is set, because the container reads it when
     // it first builds the store.
     container = await import('~/service/container')

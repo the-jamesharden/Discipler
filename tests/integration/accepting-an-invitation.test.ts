@@ -1,0 +1,340 @@
+import pg from 'pg'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { createTestClock } from '~/domain/clock'
+import { InvitationRefused } from '~/domain/errors'
+import { personId, type IdSource, type PersonId } from '~/domain/ids'
+import { invitationToken } from '~/domain/invitations'
+import { createCommandService } from '~/service/command-service'
+import { createPostgresEffectStore } from '~/platform/supabase/effect-store'
+import {
+  addPerson,
+  createMinistryWithAdmin,
+  localSupabase,
+  serviceRoleClient,
+  type MinistryFixture,
+} from '../support/local-supabase'
+
+/**
+ * The whole of activation, against the real database: the link a Leader is texted
+ * on pairing, the acceptance that spends it, and the Starter Message that only
+ * then reaches anybody.
+ */
+
+describe('accepting an Invitation Link', () => {
+  let ministry: MinistryFixture
+  let store: ReturnType<typeof createPostgresEffectStore>
+  let pool: pg.Pool
+
+  const at = new Date('2026-03-02T09:00:00Z')
+  const clock = createTestClock(at)
+  const ids: IdSource = { next: () => crypto.randomUUID() }
+  const service = () =>
+    createCommandService({ clock, ids, store, appBaseUrl: 'https://discipler.test' })
+
+  beforeAll(async () => {
+    ministry = await createMinistryWithAdmin('Riverside Chapel')
+    store = createPostgresEffectStore(localSupabase().databaseUrl)
+    pool = new pg.Pool({ connectionString: localSupabase().databaseUrl })
+  })
+
+  afterAll(async () => {
+    await store.close()
+    await pool.end()
+  })
+
+  let numbered = 0
+  const roster = async (fullName: string) =>
+    personId(await addPerson(ministry, fullName, { phone: `+1555${String(++numbered).padStart(6, '0')}` }))
+
+  const pair = (leaderIds: PersonId[], participantIds: PersonId[]) =>
+    service().execute({
+      type: 'relationship.create',
+      ministryId: ministry.id,
+      leaderIds,
+      participantIds,
+    })
+
+  const tokenFor = async (person: PersonId) => {
+    const { rows } = await pool.query<{ token: string }>(
+      `select token from invitation where person_id = $1 and consumed_at is null`,
+      [person],
+    )
+    const token = rows[0]?.token
+    if (!token) throw new Error('no live invitation was issued')
+    return invitationToken(token)
+  }
+
+  /** A real auth account, because `person.user_id` is a foreign key onto one. */
+  const anAccount = async () => {
+    const { data, error } = await serviceRoleClient().auth.admin.createUser({
+      email: `leader-${crypto.randomUUID()}@example.test`,
+      password: 'a-long-enough-password',
+      email_confirm: true,
+    })
+    if (error) throw new Error(error.message)
+    return data.user.id
+  }
+
+  const messagesTo = async (person: PersonId) => {
+    const { rows } = await pool.query<{ body: string; discloses_person_id: string | null }>(
+      `select body, discloses_person_id from outbound_message
+        where person_id = $1 order by enqueued_at`,
+      [person],
+    )
+    return rows
+  }
+
+  it('texts each Leader a link on creation, and consumes it only on acceptance', async () => {
+    const david = await roster('David Accept')
+    const emily = await roster('Emily Accept')
+    await pair([david], [emily])
+
+    const token = await tokenFor(david)
+    const invited = await messagesTo(david)
+
+    // Resolving does not consume: the link survives being opened and abandoned.
+    expect(invited[0]?.body).toContain(`https://discipler.test/invitation/${token}`)
+    expect(invited[0]?.discloses_person_id).toBeNull()
+
+    await service().execute({
+      type: 'relationship.accept',
+      ministryId: ministry.id,
+      token,
+      fullName: 'Dave Accept',
+      userId: await anAccount(),
+    })
+
+    const { rows } = await pool.query<{ consumed_at: Date | null }>(
+      `select consumed_at from invitation where token = $1`,
+      [token],
+    )
+    expect(rows[0]?.consumed_at).toEqual(at)
+  })
+
+  it('activates the relationship, links the account, and stores the name as given', async () => {
+    const david = await roster('David Named')
+    const emily = await roster('Emily Named')
+    const { effects } = await pair([david], [emily])
+    const created = effects.find((effect) => effect.kind === 'relationship.create')
+    if (created?.kind !== 'relationship.create') throw new Error('nothing was created')
+
+    const userId = await anAccount()
+    await service().execute({
+      type: 'relationship.accept',
+      ministryId: ministry.id,
+      token: await tokenFor(david),
+      fullName: 'Dave Named',
+      userId,
+    })
+
+    const { rows } = await pool.query(
+      `select r.accepted_at,
+              m.accepted_at as member_accepted_at,
+              p.full_name,
+              p.user_id,
+              mm.tier
+         from relationship r
+         join relationship_member m
+           on m.relationship_id = r.id and m.person_id = $2
+         join person p on p.id = m.person_id
+         join ministry_member mm on mm.user_id = p.user_id and mm.ministry_id = r.ministry_id
+        where r.id = $1`,
+      [created.relationship.id, david],
+    )
+
+    expect(rows[0]).toMatchObject({
+      accepted_at: at,
+      member_accepted_at: at,
+      // A spelling difference from Intake is not an error and raises nothing.
+      full_name: 'Dave Named',
+      user_id: userId,
+      tier: 'leader',
+    })
+  })
+
+  it('releases the Starter Message to everyone, and no number to the Leader', async () => {
+    const david = await roster('David Starter')
+    const emily = await roster('Emily Starter')
+    await pair([david], [emily])
+
+    await service().execute({
+      type: 'relationship.accept',
+      ministryId: ministry.id,
+      token: await tokenFor(david),
+      fullName: 'David Starter',
+      userId: await anAccount(),
+    })
+
+    const toLeader = await messagesTo(david)
+    const toParticipant = await messagesTo(emily)
+
+    // Two to the Leader: the invitation, then the Starter Message. Neither offers
+    // to disclose anybody -- no message to a Leader contains a phone number.
+    expect(toLeader).toHaveLength(2)
+    expect(toLeader.every((row) => row.discloses_person_id === null)).toBe(true)
+    expect(toLeader[1]?.body).toContain('Emily Starter')
+
+    // One to the Participant, their first word of any of it, offering to disclose
+    // the Leader -- and resolved at send time against contact-sharing consent.
+    expect(toParticipant).toHaveLength(1)
+    expect(toParticipant[0]?.discloses_person_id).toBe(david)
+  })
+
+  it('holds a group closed until every Leader has agreed', async () => {
+    const david = await roster('David Group')
+    const sarah = await roster('Sarah Group')
+    const emily = await roster('Emily Group')
+    const { effects } = await pair([david, sarah], [emily])
+    const created = effects.find((effect) => effect.kind === 'relationship.create')
+    if (created?.kind !== 'relationship.create') throw new Error('nothing was created')
+
+    const activated = async () => {
+      const { rows } = await pool.query<{ accepted_at: Date | null }>(
+        `select accepted_at from relationship where id = $1`,
+        [created.relationship.id],
+      )
+      return rows[0]?.accepted_at
+    }
+
+    await service().execute({
+      type: 'relationship.accept',
+      ministryId: ministry.id,
+      token: await tokenFor(david),
+      fullName: 'David Group',
+      userId: await anAccount(),
+    })
+
+    // Nobody co-leads something they did not agree to, and nothing reaches the
+    // Participant while one Leader is still to answer.
+    expect(await activated()).toBeNull()
+    expect(await messagesTo(emily)).toHaveLength(0)
+
+    await service().execute({
+      type: 'relationship.accept',
+      ministryId: ministry.id,
+      token: await tokenFor(sarah),
+      fullName: 'Sarah Group',
+      userId: await anAccount(),
+    })
+
+    expect(await activated()).toEqual(at)
+    expect(await messagesTo(emily)).toHaveLength(2)
+  })
+
+  it('refuses a token that account creation has already spent', async () => {
+    const david = await roster('David Twice')
+    const emily = await roster('Emily Twice')
+    await pair([david], [emily])
+    const token = await tokenFor(david)
+
+    await service().execute({
+      type: 'relationship.accept',
+      ministryId: ministry.id,
+      token,
+      fullName: 'David Twice',
+      userId: await anAccount(),
+    })
+
+    await expect(
+      service().execute({
+        type: 'relationship.accept',
+        ministryId: ministry.id,
+        token,
+        fullName: 'David Twice',
+        userId: await anAccount(),
+      }),
+    ).rejects.toThrow(new InvitationRefused('invitation.already_used'))
+  })
+
+  it('refuses a token nothing answers to', async () => {
+    await expect(
+      service().execute({
+        type: 'relationship.accept',
+        ministryId: ministry.id,
+        token: invitationToken('nothing-answers-to-this'),
+        fullName: 'Nobody',
+        userId: await anAccount(),
+      }),
+    ).rejects.toThrow(new InvitationRefused('invitation.not_found'))
+  })
+})
+
+describe('the two things a token raises instead of changing', () => {
+  let ministry: MinistryFixture
+  let store: ReturnType<typeof createPostgresEffectStore>
+  let pool: pg.Pool
+
+  const at = new Date('2026-03-02T09:00:00Z')
+  const service = () =>
+    createCommandService({
+      clock: createTestClock(at),
+      ids: { next: () => crypto.randomUUID() },
+      store,
+      appBaseUrl: 'https://discipler.test',
+    })
+
+  beforeAll(async () => {
+    ministry = await createMinistryWithAdmin('Northside Fellowship')
+    store = createPostgresEffectStore(localSupabase().databaseUrl)
+    pool = new pg.Pool({ connectionString: localSupabase().databaseUrl })
+  })
+
+  afterAll(async () => {
+    await store.close()
+    await pool.end()
+  })
+
+  let numbered = 0
+  const roster = async (fullName: string) =>
+    personId(await addPerson(ministry, fullName, { phone: `+1556${String(++numbered).padStart(6, '0')}` }))
+
+  const tokenFor = async (person: PersonId) => {
+    const { rows } = await pool.query<{ token: string }>(
+      `select token from invitation where person_id = $1 and consumed_at is null`,
+      [person],
+    )
+    return invitationToken(rows[0]?.token ?? '')
+  }
+
+  const openItems = async () => {
+    const { rows } = await pool.query<{ kind: string; person_id: string }>(
+      `select kind, person_id from follow_up_item
+        where ministry_id = $1 and resolved_at is null`,
+      [ministry.id],
+    )
+    return rows
+  }
+
+  it('raises one item however many times the Leader taps "not my number"', async () => {
+    const david = await roster('David Disputes')
+    const emily = await roster('Emily Disputes')
+    await service().execute({
+      type: 'relationship.create',
+      ministryId: ministry.id,
+      leaderIds: [david],
+      participantIds: [emily],
+    })
+
+    const token = await tokenFor(david)
+    const dispute = () =>
+      service().execute({ type: 'invitation.dispute_number', ministryId: ministry.id, token })
+
+    await dispute()
+    await dispute()
+    await dispute()
+
+    expect(await openItems()).toEqual([
+      { kind: 'invitation_number_disputed', person_id: david },
+    ])
+
+    // It changes nothing else: the number stands, and the link is not spent.
+    const { rows } = await pool.query<{ phone: string; consumed_at: Date | null }>(
+      `select p.phone, i.consumed_at from person p
+         join invitation i on i.person_id = p.id
+        where p.id = $1`,
+      [david],
+    )
+    expect(rows[0]?.phone).toBe('+1556000001')
+    expect(rows[0]?.consumed_at).toBeNull()
+  })
+})

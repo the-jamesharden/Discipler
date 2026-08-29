@@ -1,5 +1,5 @@
 import type { NewHistoryEvent } from './history'
-import type { MinistryId, PersonId } from './ids'
+import type { MinistryId, PersonId, RelationshipId } from './ids'
 import type {
   AgeBand,
   AvailabilitySlot,
@@ -7,6 +7,8 @@ import type {
   DiscipleshipGoalId,
   Gender,
 } from './intake'
+import type { NewFollowUpItem } from './follow-up'
+import type { InvitationToken, NewInvitation } from './invitations'
 import type { NewRelationship } from './relationships'
 import type { NewPerson } from './roster'
 
@@ -23,6 +25,16 @@ export interface OutboundMessageDraft {
   readonly toPhone: string | null
   readonly body: string
   readonly enqueuedAt: Date
+  /**
+   * Whose contact details this message offers to disclose, resolved at send time
+   * against contact-sharing consent as it stands *then*. Null on almost every
+   * message, and null without exception on anything bound for a Leader: no message
+   * to a Leader contains a phone number.
+   *
+   * The body never carries the number itself. One that did would leave the
+   * send-time check nothing to withhold.
+   */
+  readonly disclosesPersonId: PersonId | null
 }
 
 /**
@@ -70,12 +82,45 @@ export interface IntakeRecord {
   readonly consentDecisions: readonly ConsentDecision[]
 }
 
+/**
+ * One Leader agreeing to lead one relationship, which is several facts that are
+ * only true together: the token is spent, the name they typed is theirs, the
+ * account they just made is linked to their Person record, and the membership
+ * carries the moment they agreed. Split across effects, a failure between any two
+ * would leave an account with no Person or a spent token with no acceptance.
+ */
+export interface LeaderAcceptance {
+  readonly ministryId: MinistryId
+  readonly relationshipId: RelationshipId
+  readonly personId: PersonId
+  readonly token: InvitationToken
+  /**
+   * As the Leader typed it. A spelling difference from Intake is not an error and
+   * raises nothing -- somebody correcting `Dave` to `David` is telling Discipler
+   * something true, not failing a check.
+   */
+  readonly fullName: string
+  /** The account just created. Linking it is what `person.user_id` is for. */
+  readonly userId: string
+  readonly acceptedAt: Date
+  /**
+   * Whether this was the last open leader membership left to accept. Only then
+   * does the relationship leave Awaiting Leader Acceptance -- nobody co-leads
+   * something they did not agree to -- and only then does anything reach a
+   * Participant.
+   */
+  readonly activatesRelationship: boolean
+}
+
 export type Effect =
   | { readonly kind: 'history.append'; readonly event: NewHistoryEvent }
   | { readonly kind: 'person.create'; readonly person: NewPerson }
   | { readonly kind: 'intake.record'; readonly intake: IntakeRecord }
   | { readonly kind: 'message.enqueue'; readonly message: OutboundMessageDraft }
   | { readonly kind: 'relationship.create'; readonly relationship: NewRelationship }
+  | { readonly kind: 'invitation.issue'; readonly invitation: NewInvitation }
+  | { readonly kind: 'invitation.accept'; readonly acceptance: LeaderAcceptance }
+  | { readonly kind: 'followUp.raise'; readonly item: NewFollowUpItem }
 
 export const appendHistory = (event: NewHistoryEvent): Effect => ({
   kind: 'history.append',
@@ -100,4 +145,19 @@ export const createRelationship = (relationship: NewRelationship): Effect => ({
 export const createPerson = (person: NewPerson): Effect => ({
   kind: 'person.create',
   person,
+})
+
+export const issueInvitationLink = (invitation: NewInvitation): Effect => ({
+  kind: 'invitation.issue',
+  invitation,
+})
+
+export const acceptInvitation = (acceptance: LeaderAcceptance): Effect => ({
+  kind: 'invitation.accept',
+  acceptance,
+})
+
+export const raiseFollowUpItem = (item: NewFollowUpItem): Effect => ({
+  kind: 'followUp.raise',
+  item,
 })

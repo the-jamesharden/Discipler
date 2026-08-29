@@ -51,7 +51,7 @@ describe('A Person can change their mind about a consent', () => {
   }
 
   const intake = async (overrides: Partial<IntakeFormFields>): Promise<string> => {
-    const service = createCommandService({ clock, ids, store })
+    const service = createCommandService({ clock, ids, store,   appBaseUrl: 'https://discipler.test', })
     await service.execute({
       type: 'intake.submit',
       ministryId: ministry.id,

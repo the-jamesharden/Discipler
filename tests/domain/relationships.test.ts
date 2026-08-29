@@ -23,6 +23,18 @@ const context = (): CommandContext => ({
   ministryId: ministry,
   clock: createTestClock(at),
   ids: createSequentialIds(),
+  ministryName: 'Riverside Chapel',
+  appBaseUrl: 'https://discipler.example',
+  // Creating a relationship texts every Leader an Invitation Link, so the names
+  // and numbers travel with the request now. Nothing here is a Participant's
+  // concern: they are told nothing until a Leader has agreed.
+  pairing: {
+    people: new Map([
+      [leader, { fullName: 'David Ellis', phone: '+15550100' }],
+      [emily, { fullName: 'Emily Johnson', phone: '+15550102' }],
+      [ada, { fullName: 'Ada Lovelace', phone: '+15550103' }],
+    ]),
+  },
 })
 
 const create = (
@@ -76,15 +88,21 @@ describe('creating a relationship', () => {
     expect(relationship.members.every((m) => m.startedAt.getTime() === at.getTime())).toBe(true)
   })
 
-  it('does not activate the relationship, and enqueues nothing to anyone', () => {
+  it('does not activate the relationship, and enqueues nothing to a Participant', () => {
     const result = create([emily])
 
     // Nothing reaches a Participant before their Leader has agreed to lead them, and
     // the relationship stays Awaiting Leader Acceptance until Acceptance stamps it.
-    expect(result.effects.filter((e) => e.kind === 'message.enqueue')).toEqual([])
+    // The Leader hears now, because being invited is what they are waiting for.
+    const enqueued = result.effects.flatMap((e) =>
+      e.kind === 'message.enqueue' ? [e.message] : [],
+    )
+    expect(enqueued.map((m) => m.personId)).toEqual([leader])
     expect(result.effects.map((e) => e.kind)).toEqual([
       'relationship.create',
       'history.append',
+      'invitation.issue',
+      'message.enqueue',
     ])
   })
 

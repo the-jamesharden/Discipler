@@ -39,7 +39,7 @@ describe('pairing and the two constraints', () => {
 
   const clock = createTestClock(new Date('2026-03-09T09:00:00Z'))
   const ids: IdSource = { next: () => crypto.randomUUID() }
-  const service = () => createCommandService({ clock, ids, store })
+  const service = () => createCommandService({ clock, ids, store,   appBaseUrl: 'https://discipler.test', })
 
   beforeAll(async () => {
     ministry = await createMinistryWithAdmin('Riverside Chapel')

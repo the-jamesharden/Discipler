@@ -34,7 +34,7 @@ describe('driving the command boundary against a real Ministry', () => {
   })
 
   it('a scheduled tick against a Ministry with nothing happening changes nothing', async () => {
-    const service = createCommandService({ clock, ids: createSequentialIds(), store })
+    const service = createCommandService({ clock, ids: createSequentialIds(), store,   appBaseUrl: 'https://discipler.test', })
 
     const outcome = await service.execute({ type: 'scheduled.tick', ministryId: ministry.id })
 
@@ -61,6 +61,7 @@ describe('driving the command boundary against a real Ministry', () => {
             toPhone: '+15550100',
             body: 'Riverside Chapel: you have been paired.',
             enqueuedAt: clock.now(),
+            disclosesPersonId: null,
           }),
         ],
         sink,
@@ -95,6 +96,7 @@ describe('driving the command boundary against a real Ministry', () => {
               toPhone: '+15550100',
               body: '   ',
               enqueuedAt: clock.now(),
+              disclosesPersonId: null,
             }),
           ],
           sink,

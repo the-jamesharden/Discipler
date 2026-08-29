@@ -1,5 +1,6 @@
 import type { MinistryId, PersonId } from './ids'
 import type { IntakeFormFields } from './intake'
+import type { InvitationToken } from './invitations'
 
 /**
  * Every external trigger enters through this one boundary, and this union is the
@@ -54,4 +55,40 @@ export type Command =
       /** One Leader makes a one-to-one possible; several make it a group. */
       readonly leaderIds: readonly PersonId[]
       readonly participantIds: readonly PersonId[]
+    }
+  /**
+   * A Leader agreeing to lead. The token is the credential -- possession of the
+   * phone it was sent to is the whole of the authentication -- so no session is
+   * required and none is consulted.
+   *
+   * The account exists by the time this arrives. Creating it is Supabase Auth's,
+   * not the domain's, and `userId` is the identifier it handed back.
+   */
+  | {
+      readonly type: 'relationship.accept'
+      readonly ministryId: MinistryId
+      readonly token: InvitationToken
+      /** As typed. A spelling difference from Intake is not an error. */
+      readonly fullName: string
+      readonly userId: string
+    }
+  /**
+   * *Not my number.* It changes nothing -- a forwarded link can never re-point an
+   * account -- and raises a persistent item for an Admin, because the alternative
+   * is that Leader's check-ins reaching a stranger indefinitely.
+   */
+  | {
+      readonly type: 'invitation.dispute_number'
+      readonly ministryId: MinistryId
+      readonly token: InvitationToken
+    }
+  /**
+   * A Participant saying the match is not right, without having to have a
+   * conversation about it. It raises an item and changes nothing else: unpairing
+   * is a pastoral decision and stays with the Admin.
+   */
+  | {
+      readonly type: 'match.decline'
+      readonly ministryId: MinistryId
+      readonly token: InvitationToken
     }

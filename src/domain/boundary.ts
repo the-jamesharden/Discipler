@@ -1,16 +1,25 @@
 import type { Command } from './commands'
 import type { Clock } from './clock'
 import {
+  acceptInvitation,
   appendHistory,
   createPerson,
   createRelationship,
   enqueueMessage,
+  issueInvitationLink,
+  raiseFollowUpItem,
   recordIntake,
   type Effect,
 } from './effects'
-import { IntakeRefused, PairingRefused } from './errors'
+import { IntakeRefused, InvitationRefused, PairingRefused } from './errors'
 import { readIntakeForm } from './intake'
-import { welcomeMessage } from './outbound-copy'
+import {
+  invitationLink,
+  invitationMessage,
+  starterMessageToLeader,
+  starterMessageToParticipant,
+  welcomeMessage,
+} from './outbound-copy'
 import { CONSENT_VERSION } from './consent'
 import {
   personId,
@@ -18,8 +27,15 @@ import {
   type IdSource,
   type MinistryId,
   type PersonId,
+  type RelationshipId,
 } from './ids'
-import { kindFor, type NewMembership } from './relationships'
+import {
+  invitationState,
+  invitationToken,
+  issueInvitation,
+  type InvitationToken,
+} from './invitations'
+import { kindFor, type MemberRole, type NewMembership } from './relationships'
 import { rosterKey, type RosterKey, type RowRejection } from './roster'
 import { readRosterFile } from './roster-csv'
 
@@ -49,6 +65,56 @@ export interface CommandContext {
    * fetched it would no longer be a pure function of its inputs.
    */
   readonly ministryName?: string
+  /**
+   * Who is being paired, or who is already in the relationship being accepted --
+   * their names and the numbers Discipler would text. Loaded on the command's
+   * behalf like the Roster, because a message needs a name and a recipient and a
+   * domain that fetched either would no longer be a pure function of its inputs.
+   */
+  readonly pairing?: PairingSnapshot
+  /**
+   * The token as the database found it, with everyone in the relationship it
+   * names. Absent when the command is not one a token drives.
+   */
+  readonly invitation?: InvitationSnapshot
+  /**
+   * Where a link points. The shape of the path is a copy decision and lives in
+   * `outbound-copy`; the host it hangs off is configuration and arrives here.
+   */
+  readonly appBaseUrl?: string
+}
+
+export interface PersonContact {
+  readonly fullName: string
+  /** Null for a Person no number was ever recorded for. */
+  readonly phone: string | null
+}
+
+export interface PairingSnapshot {
+  readonly people: ReadonlyMap<PersonId, PersonContact>
+}
+
+/**
+ * One member of the relationship a token names, as the database holds them now.
+ * `acceptedAt` is each Leader's own agreement; the relationship's own timestamp is
+ * activation, and is stamped when the last of these is filled in.
+ */
+export interface InvitedMember {
+  readonly personId: PersonId
+  readonly role: MemberRole
+  readonly fullName: string
+  readonly phone: string | null
+  readonly acceptedAt: Date | null
+}
+
+export interface InvitationSnapshot {
+  readonly relationshipId: RelationshipId
+  /** Whose link it is. Their role is read off `members`, never off the token. */
+  readonly personId: PersonId
+  readonly expiresAt: Date
+  readonly consumedAt: Date | null
+  /** Everyone holding an open membership, whatever their role. */
+  readonly members: readonly InvitedMember[]
 }
 
 /**
@@ -91,6 +157,38 @@ const membersOf = (
     (personId): NewMembership => ({ personId, role: 'participant', startedAt }),
   ),
 ]
+
+/** A Person the command was handed, or a loud failure rather than a blank name. */
+const whoIs = (context: CommandContext, id: PersonId): PersonContact => {
+  const person = context.pairing?.people.get(id)
+  if (!person) throw new Error(`No name or number was loaded for person ${id}`)
+  return person
+}
+
+/**
+ * What every token-driven command needs before it can decide anything. Absent
+ * rather than defaulted, for the same reason the Roster is: a missing Ministry
+ * name would compose a message in nobody's voice, and a missing invitation would
+ * make an unresolved token look like a valid one.
+ */
+const tokenContext = (context: CommandContext) => {
+  const { invitation, ministryName, appBaseUrl } = context
+  if (!invitation) throw new Error('This command was handed no invitation to act on')
+  if (!ministryName) throw new Error('This command was handed no Ministry to speak for')
+  if (!appBaseUrl) throw new Error('This command was handed nowhere for its links to point')
+  return { invitation, ministryName, baseUrl: appBaseUrl }
+}
+
+/**
+ * The membership the token's holder actually has. A token that names somebody who
+ * holds no open membership is a link to a relationship they have left, and there
+ * is nothing here for them to act on.
+ */
+const memberHolding = (invitation: InvitationSnapshot, id: PersonId): InvitedMember => {
+  const member = invitation.members.find((candidate) => candidate.personId === id)
+  if (!member) throw new InvitationRefused('invitation.not_found')
+  return member
+}
 
 export const handleCommand = (command: Command, context: CommandContext): CommandResult => {
   switch (command.type) {
@@ -257,6 +355,10 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
               fullName: submission.fullName,
             }),
             enqueuedAt: now,
+            // Nothing. There is no relationship yet, so there is nobody to
+            // introduce -- and this is the message that reaches them before one
+            // exists.
+            disclosesPersonId: null,
           }),
         )
       }
@@ -266,6 +368,14 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
 
     case 'relationship.create': {
       const { leaderIds, participantIds } = command
+      const ministryName = context.ministryName
+      const baseUrl = context.appBaseUrl
+      if (!ministryName) {
+        throw new Error('relationship.create was handed no Ministry to speak for')
+      }
+      if (!baseUrl) {
+        throw new Error('relationship.create was handed nowhere for its links to point')
+      }
 
       if (leaderIds.length === 0) {
         throw new PairingRefused('relationship.needs_a_leader')
@@ -295,26 +405,218 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         members: membersOf(leaderIds, participantIds, now),
       }
 
-      // Creating a relationship does not activate it: `accepted_at` stays null, so
-      // it reads as Awaiting Leader Acceptance, and nothing is enqueued to anybody.
-      // Nothing reaches a Participant until *every* Leader has agreed to lead them --
-      // nobody co-leads something they did not agree to -- and both the Invitation
-      // Links and the rule that counts the acceptances are ticket 06's to send.
+      // Creating a relationship does not activate it: `accepted_at` stays null and
+      // it reads as Awaiting Leader Acceptance. Every Leader is invited, and
+      // nothing at all reaches a Participant -- they hear nothing until *every*
+      // Leader has agreed to lead them, because nobody co-leads something they did
+      // not agree to.
+      const effects: Effect[] = [
+        createRelationship(relationship),
+        appendHistory({
+          ministryId: command.ministryId,
+          occurredAt: now,
+          type: 'relationship.created',
+          subjectType: 'relationship',
+          subjectId: relationship.id,
+          payload: {
+            leaderIds: [...leaderIds],
+            participantIds: [...participantIds],
+            participantCount: participantIds.length,
+          },
+        }),
+      ]
+
+      for (const leaderId of leaderIds) {
+        const leader = whoIs(context, leaderId)
+
+        // Individualised: one token per Leader, so a co-leader's link is not a way
+        // into anybody else's acceptance.
+        const invitation = issueInvitation({
+          ministryId: command.ministryId,
+          relationshipId: relationship.id,
+          personId: leaderId,
+          token: invitationToken(context.ids.next()),
+          at: now,
+        })
+
+        effects.push(
+          issueInvitationLink(invitation),
+          enqueueMessage({
+            ministryId: command.ministryId,
+            personId: leaderId,
+            toPhone: leader.phone,
+            body: invitationMessage({
+              ministryName,
+              fullName: leader.fullName,
+              link: invitationLink(baseUrl, invitation.token),
+            }),
+            enqueuedAt: now,
+            // No message to a Leader contains a phone number.
+            disclosesPersonId: null,
+          }),
+        )
+      }
+
+      return { rejections: [], effects }
+    }
+
+    case 'relationship.accept': {
+      const { invitation, ministryName, baseUrl } = tokenContext(context)
+      const now = context.clock.now()
+
+      const state = invitationState(invitation, now)
+      if (state === 'expired') throw new InvitationRefused('invitation.expired')
+      if (state === 'consumed') throw new InvitationRefused('invitation.already_used')
+
+      const me = memberHolding(invitation, invitation.personId)
+      // Read off their membership, never off the token. A Participant's link opens
+      // the same page and leads somewhere else entirely.
+      if (me.role !== 'leader') throw new InvitationRefused('invitation.not_a_leader')
+
+      const leaders = invitation.members.filter((member) => member.role === 'leader')
+      const participants = invitation.members.filter((member) => member.role === 'participant')
+
+      // Every other open leader membership has already accepted, so this one is the
+      // last. Activation is the whole set agreeing, not the first of them.
+      const activatesRelationship = leaders.every(
+        (leader) => leader.personId === me.personId || leader.acceptedAt !== null,
+      )
+
+      const effects: Effect[] = [
+        acceptInvitation({
+          ministryId: command.ministryId,
+          relationshipId: invitation.relationshipId,
+          personId: me.personId,
+          token: command.token,
+          fullName: command.fullName,
+          userId: command.userId,
+          acceptedAt: now,
+          activatesRelationship,
+        }),
+        appendHistory({
+          ministryId: command.ministryId,
+          occurredAt: now,
+          type: 'relationship.leader_accepted',
+          subjectType: 'relationship',
+          subjectId: invitation.relationshipId,
+          payload: { personId: me.personId, activated: activatesRelationship },
+        }),
+      ]
+
+      if (!activatesRelationship) return { rejections: [], effects }
+
+      effects.push(
+        appendHistory({
+          ministryId: command.ministryId,
+          occurredAt: now,
+          type: 'relationship.activated',
+          subjectType: 'relationship',
+          subjectId: invitation.relationshipId,
+          payload: { participantCount: participants.length },
+        }),
+      )
+
+      // The Starter Message, to everyone in the relationship. The Leaders'
+      // carries no number and offers to disclose nobody.
+      const participantNames = participants.map((participant) => participant.fullName)
+      for (const leader of leaders) {
+        effects.push(
+          enqueueMessage({
+            ministryId: command.ministryId,
+            personId: leader.personId,
+            // The Leader who just accepted typed a name, not a number: the number
+            // was displayed and refused as input, so it is still the one on file.
+            toPhone: leader.phone,
+            body: starterMessageToLeader({ ministryName, participantNames }),
+            enqueuedAt: now,
+            disclosesPersonId: null,
+          }),
+        )
+      }
+
+      // A Participant gets a link of their own -- the same mechanism, leading to
+      // declining rather than accepting -- and one Starter Message per Leader,
+      // each offering to disclose that Leader. Contact sharing is one Person's
+      // decision, so it cannot be answered for a group of Leaders at once, and the
+      // pilot's one-to-one makes this exactly one message.
+      for (const participant of participants) {
+        const declining = issueInvitation({
+          ministryId: command.ministryId,
+          relationshipId: invitation.relationshipId,
+          personId: participant.personId,
+          token: invitationToken(context.ids.next()),
+          at: now,
+        })
+
+        effects.push(issueInvitationLink(declining))
+
+        for (const leader of leaders) {
+          effects.push(
+            enqueueMessage({
+              ministryId: command.ministryId,
+              personId: participant.personId,
+              toPhone: participant.phone,
+              body: starterMessageToParticipant({
+                ministryName,
+                fullName: participant.fullName,
+                declineLink: invitationLink(baseUrl, declining.token),
+              }),
+              enqueuedAt: now,
+              // Resolved at send time against contact-sharing consent as it stands
+              // then. Absent consent removes the number and sends the rest.
+              disclosesPersonId: leader.personId,
+            }),
+          )
+        }
+      }
+
+      return { rejections: [], effects }
+    }
+
+    case 'invitation.dispute_number':
+    case 'match.decline': {
+      const invitation = context.invitation
+      if (!invitation) {
+        throw new Error(`${command.type} was handed no invitation to act on`)
+      }
+
+      const me = memberHolding(invitation, invitation.personId)
+      const now = context.clock.now()
+
+      // A Leader disputes the number Discipler holds for them; a Participant says
+      // the match is not right. Neither is the other's, and a link forwarded to
+      // somebody else cannot become one.
+      if (command.type === 'invitation.dispute_number' && me.role !== 'leader') {
+        throw new InvitationRefused('invitation.not_a_leader')
+      }
+      if (command.type === 'match.decline' && me.role !== 'participant') {
+        throw new InvitationRefused('invitation.not_a_participant')
+      }
+
+      const kind =
+        command.type === 'invitation.dispute_number'
+          ? 'invitation_number_disputed'
+          : 'match_declined'
+
+      // It changes nothing else. A forwarded link can never re-point an account,
+      // and unpairing stays a pastoral decision an Admin makes.
       return {
         rejections: [],
         effects: [
-          createRelationship(relationship),
+          raiseFollowUpItem({
+            ministryId: command.ministryId,
+            kind,
+            personId: me.personId,
+            relationshipId: invitation.relationshipId,
+            raisedAt: now,
+          }),
           appendHistory({
             ministryId: command.ministryId,
             occurredAt: now,
-            type: 'relationship.created',
+            type: `follow_up.${kind}`,
             subjectType: 'relationship',
-            subjectId: relationship.id,
-            payload: {
-              leaderIds: [...leaderIds],
-              participantIds: [...participantIds],
-              participantCount: participantIds.length,
-            },
+            subjectId: invitation.relationshipId,
+            payload: { personId: me.personId },
           }),
         ],
       }

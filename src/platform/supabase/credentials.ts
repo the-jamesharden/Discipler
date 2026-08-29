@@ -19,3 +19,10 @@ export const supabaseCredentials = (): SupabaseCredentials => ({
 })
 
 export const commandDatabaseUrl = (): string => required('DATABASE_URL')
+
+/**
+ * Where the links Discipler texts point. It has to be absolute and it has to be
+ * right: an Invitation Link is read off a phone with no browser history behind it,
+ * so there is no relative path that could work and no wrong host that fails safe.
+ */
+export const appBaseUrl = (): string => required('NEXT_PUBLIC_APP_URL')

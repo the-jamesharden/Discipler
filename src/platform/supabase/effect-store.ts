@@ -1,9 +1,24 @@
 import type { PoolClient } from 'pg'
 import pg from 'pg'
-import type { IntakeRecord, OutboundMessageDraft } from '~/domain/effects'
-import { PairingRefused, RosterImportRefused, type PairingRefusal } from '~/domain/errors'
+import type { InvitationSnapshot, PersonContact } from '~/domain/boundary'
+import type { IntakeRecord, LeaderAcceptance, OutboundMessageDraft } from '~/domain/effects'
+import type { NewFollowUpItem } from '~/domain/follow-up'
+import type { InvitationToken, NewInvitation } from '~/domain/invitations'
+import type { MemberRole } from '~/domain/relationships'
+import {
+  InvitationRefused,
+  PairingRefused,
+  RosterImportRefused,
+  type PairingRefusal,
+} from '~/domain/errors'
 import type { HistoryEvent } from '~/domain/history'
-import { eventId, personId, type MinistryId, type PersonId } from '~/domain/ids'
+import {
+  eventId,
+  personId,
+  relationshipId,
+  type MinistryId,
+  type PersonId,
+} from '~/domain/ids'
 import type { NewRelationship } from '~/domain/relationships'
 import { phoneNumber, rosterKey, type NewPerson, type RosterKey } from '~/domain/roster'
 import type { EffectStore, UnitOfWork } from '~/service/ports'
@@ -221,18 +236,182 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     }
   },
 
+  async contactsFor(ids: readonly PersonId[]) {
+    if (ids.length === 0) return new Map<PersonId, PersonContact>()
+
+    // Scoped by the policy on `person`, like every other read on this connection.
+    // An id belonging to another Ministry simply comes back missing, and the
+    // boundary refuses to compose a message it has no name for.
+    const { rows } = await client.query<{
+      id: string
+      full_name: string
+      phone: string | null
+    }>(`select id, full_name, phone from person where id = any($1::uuid[])`, [[...ids]])
+
+    return new Map<PersonId, PersonContact>(
+      rows.map((row) => [
+        personId(row.id),
+        { fullName: row.full_name, phone: row.phone },
+      ]),
+    )
+  },
+
+  async resolveInvitation(token: InvitationToken): Promise<InvitationSnapshot | null> {
+    const { rows: found } = await client.query<{
+      relationship_id: string
+      person_id: string
+      expires_at: Date
+      consumed_at: Date | null
+    }>(
+      `select relationship_id, person_id, expires_at, consumed_at
+         from invitation where token = $1`,
+      [token],
+    )
+
+    const invitation = found[0]
+    if (!invitation) return null
+
+    // Open memberships only. A token naming a relationship its holder has since
+    // left resolves to a set they are not in, and the boundary refuses it.
+    const { rows: members } = await client.query<{
+      person_id: string
+      role: MemberRole
+      full_name: string
+      phone: string | null
+      accepted_at: Date | null
+    }>(
+      `select m.person_id, m.role, p.full_name, p.phone, m.accepted_at
+         from relationship_member m
+         join person p on p.id = m.person_id
+        where m.relationship_id = $1 and m.ended_at is null
+        order by m.role, m.started_at`,
+      [invitation.relationship_id],
+    )
+
+    return {
+      relationshipId: relationshipId(invitation.relationship_id),
+      personId: personId(invitation.person_id),
+      expiresAt: invitation.expires_at,
+      consumedAt: invitation.consumed_at,
+      members: members.map((row) => ({
+        personId: personId(row.person_id),
+        role: row.role,
+        fullName: row.full_name,
+        phone: row.phone,
+        acceptedAt: row.accepted_at,
+      })),
+    }
+  },
+
+  async issueInvitation(invitation: NewInvitation) {
+    await client.query(
+      `insert into invitation
+         (ministry_id, relationship_id, person_id, token, created_at, expires_at)
+       values ($1, $2, $3, $4, $5, $6)`,
+      [
+        invitation.ministryId,
+        invitation.relationshipId,
+        invitation.personId,
+        invitation.token,
+        invitation.createdAt,
+        invitation.expiresAt,
+      ],
+    )
+  },
+
+  async acceptInvitation(acceptance: LeaderAcceptance) {
+    // Consumed on account creation, not on resolution -- and consumed exactly once.
+    // The `where consumed_at is null` is what makes two submissions of the same
+    // form spend one token: the second updates no row and is refused here rather
+    // than accepting twice.
+    const { rowCount: spent } = await client.query(
+      `update invitation set consumed_at = $2
+        where token = $1 and consumed_at is null`,
+      [acceptance.token, acceptance.acceptedAt],
+    )
+    if (spent === 0) throw new InvitationRefused('invitation.already_used')
+
+    // The name as they typed it, and the account they just made. `person.user_id`
+    // is the link between a login and the Person record in that Ministry; a Leader
+    // who logs in without one is an error, not a supported state.
+    await client.query(
+      `update person set full_name = $2, user_id = $3 where id = $1`,
+      [acceptance.personId, acceptance.fullName, acceptance.userId],
+    )
+
+    // `tier` governs access only. An Admin who also leads holds one row and it says
+    // `admin`, because unique (ministry_id, user_id) permits no second one -- so
+    // this must not overwrite it, and the Leader surface must never require a
+    // `leader` row to exist.
+    await client.query(
+      `insert into ministry_member (ministry_id, user_id, tier)
+       values ($1, $2, 'leader')
+       on conflict (ministry_id, user_id) do nothing`,
+      [acceptance.ministryId, acceptance.userId],
+    )
+
+    const { rowCount: agreed } = await client.query(
+      `update relationship_member set accepted_at = $3
+        where relationship_id = $1
+          and person_id = $2
+          and role = 'leader'
+          and ended_at is null
+          and accepted_at is null`,
+      [acceptance.relationshipId, acceptance.personId, acceptance.acceptedAt],
+    )
+    if (agreed === 0) throw new InvitationRefused('invitation.already_used')
+
+    if (!acceptance.activatesRelationship) return
+
+    // Activation, and the database has the final say on it. The domain decided
+    // from a snapshot read earlier in this transaction; this refuses to stamp
+    // unless every open leader membership really does carry an acceptance, so a
+    // co-leader whose acceptance was rolled back cannot leave a relationship
+    // activated on their behalf.
+    await client.query(
+      `update relationship set accepted_at = $2
+        where id = $1
+          and accepted_at is null
+          and not exists (
+            select 1 from relationship_member m
+             where m.relationship_id = relationship.id
+               and m.role = 'leader'
+               and m.ended_at is null
+               and m.accepted_at is null
+          )`,
+      [acceptance.relationshipId, acceptance.acceptedAt],
+    )
+  },
+
+  async raiseFollowUp(item: NewFollowUpItem) {
+    // Raising an item that already stands changes nothing. Twenty taps on "not my
+    // number" is one condition, and an Admin sees one thing to act on.
+    await client.query(
+      `insert into follow_up_item (ministry_id, kind, person_id, relationship_id, raised_at)
+       values ($1, $2, $3, $4, $5)
+       on conflict do nothing`,
+      [item.ministryId, item.kind, item.personId, item.relationshipId, item.raisedAt],
+    )
+  },
+
   async enqueueMessages(messages: readonly OutboundMessageDraft[]) {
     for (const message of messages) {
       await client.query(
         `insert into outbound_message
-           (ministry_id, person_id, to_phone, body, enqueued_at, prompt_key, prompt_state)
-         values ($1, $2, $3, $4, $5, $6, $7)`,
+           (ministry_id, person_id, to_phone, body, enqueued_at,
+            discloses_person_id, prompt_key, prompt_state)
+         values ($1, $2, $3, $4, $5, $6, $7, $8)`,
         [
           message.ministryId,
           message.personId,
           message.toPhone,
           message.body,
           message.enqueuedAt,
+          // Never composed into the body. The sending layer resolves it against
+          // contact-sharing consent as it stands then, and null on everything
+          // bound for a Leader is what "no message to a Leader contains a phone
+          // number" comes to in the queue.
+          message.disclosesPersonId,
           // The phone is the unit a conversation is serialised on, so it is the key
           // whether or not this message expects a reply. A message with no number
           // -- one bound for an Admin -- serialises against nothing.

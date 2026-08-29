@@ -31,7 +31,7 @@ describe('importing a Roster', () => {
   // Real identifiers: these rows outlive the test file, so a second run of the suite
   // against the same stack would collide with the first on a deterministic id.
   const ids: IdSource = { next: () => crypto.randomUUID() }
-  const service = () => createCommandService({ clock, ids, store })
+  const service = () => createCommandService({ clock, ids, store,   appBaseUrl: 'https://discipler.test', })
 
   const number = phoneNumbers()
 
@@ -229,7 +229,7 @@ describe('importing a Roster', () => {
     const northgate = await createMinistryWithAdmin('Northgate Community Church')
 
     await importing(file('Name,Phone', `Two Congregations,${shared}`))
-    await createCommandService({ clock, ids, store }).execute({
+    await createCommandService({ clock, ids, store,   appBaseUrl: 'https://discipler.test', }).execute({
       type: 'person.import',
       ministryId: northgate.id,
       csv: file('Name,Phone', `Two Congregations,${shared}`),

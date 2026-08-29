@@ -21,7 +21,7 @@ describe('Completing Intake', () => {
   // Real identifiers, as the other integration tests use: the database is shared
   // across test files, so a sequential source would collide with another file's.
   const ids: IdSource = { next: () => crypto.randomUUID() }
-  const service = () => createCommandService({ clock, ids, store })
+  const service = () => createCommandService({ clock, ids, store,   appBaseUrl: 'https://discipler.test', })
 
   beforeAll(async () => {
     ministry = await createMinistryWithAdmin('Riverside Chapel')

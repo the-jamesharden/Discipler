@@ -30,7 +30,7 @@ describe('creating a relationship', () => {
   // test file, so a second run of the suite against the same stack would collide with
   // the first on a deterministic id.
   const ids: IdSource = { next: () => crypto.randomUUID() }
-  const service = () => createCommandService({ clock, ids, store })
+  const service = () => createCommandService({ clock, ids, store,   appBaseUrl: 'https://discipler.test', })
 
   beforeAll(async () => {
     ministry = await createMinistryWithAdmin('Riverside Chapel')
@@ -81,18 +81,24 @@ describe('creating a relationship', () => {
     expect(await membersOf(created.relationship.id)).toHaveLength(2)
   })
 
-  it('sends nothing to anyone, because the Leader has not agreed yet', async () => {
+  it('sends nothing to a Participant, because the Leader has not agreed yet', async () => {
     const david = await roster('David Two')
     const emily = await roster('Emily Two')
 
     await pair(david, [emily])
 
-    // Scoped to this Ministry: other suites share the stack and run alongside this one.
+    // Scoped to these two: other suites share the stack and run alongside this one.
     const { rows } = await pool.query(
-      `select count(*)::int as sent from outbound_message where ministry_id = $1`,
-      [ministry.id],
+      `select person_id, discloses_person_id from outbound_message
+        where ministry_id = $1 and person_id = any($2::uuid[])`,
+      [ministry.id, [david, emily]],
     )
-    expect(rows[0].sent).toBe(0)
+
+    // The Leader is invited; the Participant hears nothing at all until every
+    // Leader has agreed to lead them.
+    expect(rows.map((row) => row.person_id)).toEqual([david])
+    // And nothing bound for a Leader offers to disclose anybody's number.
+    expect(rows[0].discloses_person_id).toBeNull()
   })
 
   it('forms a group from several people selected together, with no group entity', async () => {
