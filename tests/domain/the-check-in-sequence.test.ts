@@ -47,7 +47,7 @@ const snapshot = (over: Partial<CheckInSnapshot> = {}): CheckInSnapshot => ({
   openSequence: null,
   // Asked earlier the same month, so the monthly opt-out language is not due.
   // The rule has its own tests below.
-  lastAskedAt: new Date('2026-10-01T09:00:00Z'),
+  lastCheckInAt: new Date('2026-10-01T09:00:00Z'),
   ...over,
 })
 
@@ -141,20 +141,20 @@ describe('the monthly opt-out language', () => {
   const opening = (checkIn: CheckInSnapshot) => bodies(start(checkIn).effects)[0] ?? ''
 
   it('rides on the first check-in of a calendar month', () => {
-    const lastMonth = snapshot({ lastAskedAt: new Date('2026-09-28T09:00:00Z') })
+    const lastMonth = snapshot({ lastCheckInAt: new Date('2026-09-28T09:00:00Z') })
     expect(opening(lastMonth)).toContain('Reply STOP to opt out')
   })
 
   it('rides on the first check-in a Leader ever receives', () => {
-    expect(opening(snapshot({ lastAskedAt: null }))).toContain('Reply STOP to opt out')
+    expect(opening(snapshot({ lastCheckInAt: null }))).toContain('Reply STOP to opt out')
   })
 
   it('is not repeated later in the same month', () => {
-    const earlierThisMonth = snapshot({ lastAskedAt: new Date('2026-10-01T09:00:00Z') })
+    const earlierThisMonth = snapshot({ lastCheckInAt: new Date('2026-10-01T09:00:00Z') })
     expect(opening(earlierThisMonth)).not.toContain('Reply STOP to opt out')
   })
 
   it('does not identify the delivery brand, because a Leader is not first contact', () => {
-    expect(opening(snapshot({ lastAskedAt: null }))).not.toContain('Discipler:')
+    expect(opening(snapshot({ lastCheckInAt: null }))).not.toContain('Discipler:')
   })
 })

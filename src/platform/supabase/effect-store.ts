@@ -793,15 +793,53 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       )
       const latest = prompts[0]
 
+      // Resolved by the ids the sequence opened with, and not from what this
+      // Person leads *now*. The shape of a conversation is fixed when it opens,
+      // and a relationship that ends mid-week must not shorten it: every question
+      // still to come is indexed by the position stored against it, so dropping
+      // one entry would bind the next answer to the wrong relationship.
+      const { rows: covered } = await client.query<{
+        relationship_id: string
+        created_at: Date
+        accepted_at: Date | null
+        participant_names: string[]
+      }>(
+        `select r.id as relationship_id,
+                r.created_at,
+                r.accepted_at,
+                coalesce(
+                  (select array_agg(p.full_name order by pm.started_at, p.full_name)
+                     from relationship_member pm
+                     join person p on p.id = pm.person_id
+                    where pm.relationship_id = r.id
+                      and pm.role = 'participant'
+                      and pm.ended_at is null),
+                  array[]::text[]
+                ) as participant_names
+           from relationship r
+          where r.id = any($1::uuid[])`,
+        [sequence.covering],
+      )
+
+      const byId = new Map(covered.map((row) => [row.relationship_id, row]))
+
       openSequence = {
         sequenceId: checkInSequenceId(sequence.id),
         startedAt: sequence.started_at,
-        // In the order the conversation opened with. A relationship that has since
-        // ended is dropped rather than left as a hole, because the position of
-        // every later one is what the next question is indexed by.
         covering: sequence.covering.flatMap((each) => {
-          const relationship = relationships.get(each)
-          return relationship ? [relationship] : []
+          const row = byId.get(each)
+          return row
+            ? [
+                {
+                  relationshipId: relationshipId(row.relationship_id),
+                  role: 'leader' as const,
+                  startedAt: row.created_at,
+                  participantNames: row.participant_names,
+                  acceptedAt: row.accepted_at,
+                  paused: false,
+                },
+              ]
+            : []
         }),
         awaiting:
           latest && latest.answered_at === null
@@ -815,13 +853,17 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       }
     }
 
-    // For the monthly opt-out rule: the last check-in question this Person was
-    // sent, whatever conversation it belonged to.
-    const { rows: asked } = await client.query<{ last_asked_at: Date | null }>(
-      `select max(p.asked_at) as last_asked_at
-         from checkin_prompt p
-         join checkin_sequence s on s.id = p.sequence_id
-        where s.person_id = $1`,
+    // For the monthly opt-out rule: when this Person's last check-in *conversation*
+    // opened.
+    //
+    // The sequence and not the last question asked. A Leader who answers on the
+    // 1st is sent the next question of September's conversation on the 1st, and
+    // measuring from that would make October's opening question look like the
+    // second check-in of the month -- so October would carry no opt-out language
+    // at all.
+    const { rows: asked } = await client.query<{ last_checked_in_at: Date | null }>(
+      `select max(started_at) as last_checked_in_at
+         from checkin_sequence where person_id = $1`,
       [id],
     )
 
@@ -830,7 +872,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       phone: person.phone,
       leads: [...relationships.values()],
       openSequence,
-      lastAskedAt: asked[0]?.last_asked_at ?? null,
+      lastCheckInAt: asked[0]?.last_checked_in_at ?? null,
     }
   },
 
@@ -999,11 +1041,19 @@ export const createPostgresInboundReader = (
     async resolveSender(fromPhone: string): Promise<InboundSender | null> {
       const client = await pool.connect()
       try {
+        // Inside a transaction, like every other read here. `set local` outside
+        // one is a no-op: the function would run as the login role and the
+        // connection would go back to the pool unreset.
+        await client.query('begin')
         await client.query('set local role discipler_command')
         const { rows } = await client.query<{ ministry_id: string; person_id: string }>(
           `select ministry_id, person_id from app.sender_of_inbound($1)`,
           [fromPhone],
         )
+        // Rolled back rather than committed: this reads and writes nothing, and a
+        // rollback is what resets the role.
+        await client.query('rollback')
+
         const sender = rows[0]
         return sender
           ? { ministryId: ministryId(sender.ministry_id), personId: personId(sender.person_id) }

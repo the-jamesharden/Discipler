@@ -326,11 +326,11 @@ const memberHolding = (invitation: InvitationSnapshot, id: PersonId): InvitedMem
  * ticket 08b's, alongside the week boundary and the cadence -- 08a carries the
  * language, 08b decides which month a moment falls in.
  */
-const optOutLanguageIsDue = (lastAskedAt: Date | null, now: Date): boolean => {
-  if (!lastAskedAt) return true
+const optOutLanguageIsDue = (lastCheckInAt: Date | null, now: Date): boolean => {
+  if (!lastCheckInAt) return true
   return (
-    lastAskedAt.getUTCFullYear() !== now.getUTCFullYear() ||
-    lastAskedAt.getUTCMonth() !== now.getUTCMonth()
+    lastCheckInAt.getUTCFullYear() !== now.getUTCFullYear() ||
+    lastCheckInAt.getUTCMonth() !== now.getUTCMonth()
   )
 }
 
@@ -597,7 +597,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           asking,
           covering[0]!,
           1,
-          optOutLanguageIsDue(checkIn.lastAskedAt, now),
+          optOutLanguageIsDue(checkIn.lastCheckInAt, now),
         ),
       )
 

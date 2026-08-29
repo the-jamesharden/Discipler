@@ -16,7 +16,7 @@ Relationships in `Awaiting Leader Acceptance` and `Paused` send no check-ins and
 
 **Blocked by:** 07
 
-**Status:** in-review
+**Status:** ready-for-agent
 
 - [x] A Leader with three relationships receives one sequence covering all three, ordered by start date
 - [x] Each answer attaches to the right relationship and to the Person who sent it
@@ -77,6 +77,20 @@ replaces that trigger with the real one.
 The *first check-in of each calendar month* rule straddles the seam. The language is
 here; resolving the calendar month against the Ministry timezone is 08b's.
 
+### Surfaced — the glossary and this ticket disagree about "prompt"
+
+`CONTEXT.md` marks *prompt* as a term to avoid, noting that `outbound_message`'s
+`prompt_key` and `prompt_state` "predate this entry". This ticket's own criteria use
+the word as the model term — *"Every prompt records the relationship and the role it
+was sent for"* — as does `spec.md`, and ticket 20 is named for it.
+
+The code follows the ticket, so the new table is `checkin_prompt`, consistent with
+the columns already in the schema. The conflict is real and is not resolved here:
+either the glossary's *Avoid* note needs narrowing to say it bars *prompt* only as a
+synonym for Keyword Exchange, or the ticket and `spec.md` need retermIng onto
+*Response-Required Message* and *Outstanding Reply*. That is a domain-modelling
+decision, not an implementation one.
+
 ### Built — 2026-08-29
 
 Every criterion above is proven by a test. The conversation and its ladder are
@@ -100,9 +114,37 @@ injected clock, so both prompts carry the same instant and *the most recent prom
 became whichever row the planner returned first. `checkin_prompt.step` is an
 identity column and settles it.
 
+**Two defects were found by review and are fixed with regression tests that fail
+without the fix.** The monthly opt-out language keyed off the last *question* sent
+rather than the last *conversation* opened, so a Leader who answered on the 1st lost
+that month's disclosure entirely. And the open sequence's covered relationships were
+rebuilt from what the Leader leads *now*, so a relationship ending mid-week shortened
+the list and bound every later answer to the wrong relationship — the sequence is now
+resolved from the ids it opened with, which is what fixing the shape at open was for.
+
 **Paused is derived from a `relationship.paused` history event.** Relationship state
 lives in history throughout this codebase and pause has no column; ticket 12 is what
 writes the event, and this ticket only reads it.
+
+### OPEN — what a group check-in calls the group
+
+**This was resolved by inference during implementation and should not have been.**
+It is recorded here, and in `docs/open-questions.md`, for a human to decide.
+
+`spec.md` says the question names *"a Participant's name when the relationship has one
+participant, **the relationship's name** when it has more"*, and
+`docs/check-in-rhythm.md` shows the intended message: *"Did you meet with Tuesday
+Men's Group this week?"*. **`relationship` has no name column**, and nothing in this
+repo has ever given a relationship a name.
+
+What is built lists the Participants instead — *"Did you meet with Marcus and Dan this
+week?"* — which is a real answer to *whom is this about* but is **not** what the spec
+asked for, and it degrades as a group grows. The alternatives are a `name` column
+filled at pairing, or an Admin-set label; both are schema and surface decisions
+beyond this ticket.
+
+Two tests currently lock the listing behaviour in. Whichever way this is decided,
+they are the tests to change.
 
 ### Deferred — named here so nothing is implemented by inference
 

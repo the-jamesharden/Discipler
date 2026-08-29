@@ -198,6 +198,7 @@ Settled 2026-08-27.
 
 - **A2P compliance requirements have not been checked against a live campaign registration.** The `Discipler:` identification prefix and its trigger points are a product decision made on an understanding of carrier requirements, not a verified one. Review alongside the consent wording.
 - **`docs/consent-language.md` has not had legal review**, including the `HELP` response content.
+- **What a group check-in calls the group.** `docs/product-flow.md` and the check-in rhythm both say the question names the relationship when it has several Participants — *"Did you meet with Tuesday Men's Group this week?"* — but a relationship has never had a name, and nothing in the product creates one. Ticket 08a ships the question listing the Participants instead, which reads correctly for a group of two or three and poorly for a group of eight. Deciding it means deciding who names a group and when: a column filled at pairing, or a label an Admin sets afterwards.
 
 ## Deferred with the quarterly report
 

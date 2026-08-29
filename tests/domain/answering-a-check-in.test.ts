@@ -71,7 +71,7 @@ const reply = (body: string, openSequence: OpenSequence) =>
       phone: '+15550100001',
       leads: [emilysTurn, theGroupsTurn],
       openSequence,
-      lastAskedAt: new Date('2026-10-05T09:00:00Z'),
+      lastCheckInAt: new Date('2026-10-05T09:00:00Z'),
     } satisfies CheckInSnapshot,
   } satisfies CommandContext)
 
@@ -201,7 +201,7 @@ describe('a reply with no conversation open', () => {
           phone: '+15550100001',
           leads: [emilysTurn],
           openSequence: null,
-          lastAskedAt: null,
+          lastCheckInAt: null,
         },
       } satisfies CommandContext,
     )

@@ -150,10 +150,15 @@ export interface CheckInSnapshot {
   readonly leads: readonly CheckInRelationship[]
   readonly openSequence: OpenSequence | null
   /**
-   * When this Person was last sent a check-in question, for the monthly opt-out
-   * rule. Null for a Leader who has never been asked.
+   * When this Person's last check-in conversation opened, for the monthly
+   * opt-out rule. Null for a Leader who has never been asked.
+   *
+   * The conversation and not the last question in it: a Leader answering on the
+   * 1st is sent the next question of *last month's* conversation on the 1st, and
+   * measuring from that would make the new month's opening question look like the
+   * month's second check-in -- so the month would carry no opt-out language at all.
    */
-  readonly lastAskedAt: Date | null
+  readonly lastCheckInAt: Date | null
 }
 
 /**

@@ -51,7 +51,7 @@ const send = (body: string, sequence: OpenSequence | null = openSequence) =>
       phone: '+15550100001',
       leads: sequence?.covering ?? [],
       openSequence: sequence,
-      lastAskedAt: new Date('2026-10-05T09:00:00Z'),
+      lastCheckInAt: new Date('2026-10-05T09:00:00Z'),
     },
   } satisfies CommandContext)
 

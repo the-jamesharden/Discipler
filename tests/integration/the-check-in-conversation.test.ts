@@ -298,6 +298,79 @@ describe('the check-in conversation', () => {
     expect(await inbox(leader)).toHaveLength(1)
   })
 
+  it('carries the month’s opt-out language even when last month’s reply came in this one', async () => {
+    // The conversation opened on 28 September; the Leader answered on 1 October,
+    // which sent September's *next* question in October. October's own check-in is
+    // still the first check-in of October and still carries the language.
+    const leader = await congregant('Cara Wynn')
+    const first = await congregant('Otis Bramble')
+    const second = await congregant('Faye Underwood')
+    await pairOneToOne(ministry, leader, first, { createdAt: new Date('2026-01-01T09:00:00Z') })
+    await pairOneToOne(ministry, leader, second, { createdAt: new Date('2026-02-01T09:00:00Z') })
+
+    const september = createTestClock(new Date('2026-09-28T09:00:00Z'))
+    const on = (at: Date) => {
+      september.advanceTo(at)
+      return createCommandService({ clock: september, ids, store, appBaseUrl: 'https://discipler.test' })
+    }
+
+    await on(new Date('2026-09-28T09:00:00Z')).execute({
+      type: 'checkin.start', ministryId: ministry.id, personId: leader,
+    })
+    // Answered on the 1st, which sends September's second question in October.
+    await on(new Date('2026-10-01T09:00:00Z')).execute({
+      type: 'sms.inbound', ministryId: ministry.id, personId: leader, body: '2',
+    })
+    await on(new Date('2026-10-05T09:00:00Z')).execute({
+      type: 'checkin.start', ministryId: ministry.id, personId: leader,
+    })
+
+    expect((await inbox(leader)).at(-1)).toContain('Reply STOP to opt out')
+  })
+
+  it('binds an answer to the right relationship after an earlier one has ended', async () => {
+    // The shape of a conversation is fixed when it opens. A relationship ending
+    // mid-week must not shorten it: every question still to come is indexed by the
+    // position stored against it, so a shortened list would file the next answer
+    // against the wrong relationship.
+    const leader = await congregant('Dev Anand')
+    const leaving = await congregant('Tess Moreau')
+    const staying = await congregant('Hugo Marsh')
+
+    const ending = await pairOneToOne(ministry, leader, leaving, {
+      createdAt: new Date('2026-01-01T09:00:00Z'),
+    })
+    const kept = await pairOneToOne(ministry, leader, staying, {
+      createdAt: new Date('2026-02-01T09:00:00Z'),
+    })
+
+    await start(leader)
+
+    // Tess's relationship ends between the question and the reply.
+    const { error } = await serviceRoleClient()
+      .from('relationship')
+      .update({ ended_at: new Date().toISOString(), ended_reason: 'moved away' })
+      .eq('id', ending)
+    if (error) throw new Error(`Could not end the relationship: ${error.message}`)
+
+    await texts(leader, '2')
+
+    expect((await inbox(leader)).at(-1)).toBe(
+      'ABC Church: Did you meet with Hugo Marsh this week? Reply 1 for yes, 2 for no.',
+    )
+
+    const { rows } = await pool.query<{ relationship_id: string; question: string }>(
+      `select c.relationship_id, c.question from checkin_prompt c
+         join checkin_sequence s on s.id = c.sequence_id
+        where s.person_id = $1 order by c.step`,
+      [leader],
+    )
+    expect(rows).toEqual([
+      { relationship_id: ending, question: 'met' },
+      { relationship_id: kept, question: 'met' },
+    ])
+  })
+
   it('runs one conversation at a time, and leaves the displaced one’s questions unanswered', async () => {
     const leader = await congregant('Ella Vance')
     const participant = await congregant('Josh Reid')
