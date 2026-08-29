@@ -100,11 +100,12 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
     expect(Number(rows[0].members)).toBe(2)
 
     // Nothing reaches a Participant before their Leader has agreed to lead them.
+    // The Leader is invited here, which is the thing they are waiting for.
     const { rows: queued } = await pool.query(
-      `select 1 from outbound_message where person_id = any($1)`,
+      `select person_id from outbound_message where person_id = any($1)`,
       [[rachel, sarah]],
     )
-    expect(queued).toEqual([])
+    expect(queued.map((row) => row.person_id)).toEqual([rachel])
 
     const { html } = await getPage('/roster?paired=1', cookie)
     expect(html).toContain('awaiting its leader')

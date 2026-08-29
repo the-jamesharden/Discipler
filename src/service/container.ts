@@ -9,9 +9,13 @@ import {
   createPostgresIntakeReader,
   type PostgresIntakeReader,
 } from '~/platform/supabase/intake-reader'
+import {
+  createPostgresInvitationReader,
+  type PostgresInvitationReader,
+} from '~/platform/supabase/invitation-reader'
 import { supabaseRosterReader } from '~/platform/supabase/roster-reader'
 import { createCommandService, type CommandService } from './command-service'
-import type { IntakeReader, RosterReader } from './ports'
+import type { IntakeReader, InvitationReader, RosterReader } from './ports'
 
 /**
  * The composition root: the one place that decides which real implementations sit
@@ -26,6 +30,7 @@ const randomIds: IdSource = { next: () => crypto.randomUUID() }
 let commandService: CommandService | undefined
 let commandStore: PostgresEffectStore | undefined
 let intakeReader: PostgresIntakeReader | undefined
+let invitationReader: PostgresInvitationReader | undefined
 
 export const getCommandService = (): CommandService => {
   if (!commandService) {
@@ -56,14 +61,29 @@ export const getIntakeReader = (): IntakeReader => {
  * -- it keeps the pool for its whole lifetime -- but a test that assembles the real
  * container has no other way to let go of it when the suite ends.
  */
+/**
+ * The Invitation Link's page is served to a Leader with no account and no
+ * session, so it reads on the same trusted connection the Intake form does, and
+ * for the same reason.
+ */
+export const getInvitationReader = (): InvitationReader => {
+  if (!invitationReader) {
+    invitationReader = createPostgresInvitationReader(commandDatabaseUrl())
+  }
+  return invitationReader
+}
+
 export const closeCommandService = async (): Promise<void> => {
   const store = commandStore
   const reader = intakeReader
+  const invitations = invitationReader
   commandService = undefined
   commandStore = undefined
   intakeReader = undefined
+  invitationReader = undefined
   await store?.close()
   await reader?.close()
+  await invitations?.close()
 }
 
 export const getRosterReader = (): RosterReader => supabaseRosterReader

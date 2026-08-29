@@ -26,3 +26,11 @@ export const commandDatabaseUrl = (): string => required('DATABASE_URL')
  * so there is no relative path that could work and no wrong host that fails safe.
  */
 export const appBaseUrl = (): string => required('NEXT_PUBLIC_APP_URL')
+
+/**
+ * The key that can create an account. It is needed in exactly one place -- a
+ * Leader accepting an invitation, who has no session and cannot be asked to sign
+ * in to make one -- and it is deliberately not `NEXT_PUBLIC_`, so it never
+ * reaches a browser.
+ */
+export const serviceRoleKey = (): string => required('SUPABASE_SERVICE_ROLE_KEY')

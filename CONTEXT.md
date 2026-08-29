@@ -97,7 +97,7 @@ The message a person receives on completing intake, before any relationship exis
 The message that opens a discipleship relationship, sent when the relationship becomes active and again when it resumes from a pause. It always carries the ministry's required opt-out and rate disclosure language. It never carries anyone's phone number.
 
 **Invitation Link**:
-The individualized, SMS-delivered link that reveals a new relationship to its leader and carries them into the leader dashboard to accept it. Possession of the phone it was sent to is the authentication; it expires after a fixed window and is consumed when the leader creates their account.
+The individualized, SMS-delivered link that reveals a new relationship to a person in it, with no session. It resolves on its own page rather than in the leader dashboard, because a leader has no account until they accept. Possession of the phone it was sent to is the authentication; it expires after a fixed window and is consumed when the leader creates their account, not when it is opened. A participant holds one too, issued on activation, which leads to declining the match rather than accepting it.
 
 **Response-Required Message**:
 A message in the Check-In Rhythm that expects a reply from its recipient.
@@ -114,10 +114,10 @@ Discipler's current interpretation of how a discipleship relationship is doing b
 _Avoid_: Pairing status, Pending
 
 **Awaiting Leader Acceptance**:
-The state of a relationship that an admin has created but whose leader has not yet accepted. The relationship exists and is visible to the admin; it sends nothing to participants and accrues no silence against the leader.
+The state of a relationship an admin has created that not all of its leaders have accepted. The relationship exists and is visible to the admin; every leader has been sent an Invitation Link, it sends nothing to participants, and it accrues no silence against anyone.
 
 **Acceptance**:
-The leader's act of taking responsibility for a relationship, performed on the leader dashboard after seeing who they have been matched with. It activates the relationship and is the timestamped record that the leader agreed to it.
+One leader's act of taking responsibility for a relationship, performed on their Invitation Link's page after seeing who they have been matched with. It is the timestamped record that *that* leader agreed, held on their membership. The relationship activates when every open leader membership carries one, because nobody co-leads something they did not agree to.
 
 **Paused**:
 The state of a relationship that its leader has paused for a selected period. Check-ins for that relationship are suppressed for the duration, membership is unchanged, and nobody returns to the roster as available. The relationship stays visible and visibly marked as paused on both the leader's list of relationships and the admin dashboard. Paused masks the relationship's underlying derived state rather than replacing the history behind it; on resume, that derived state resurfaces.

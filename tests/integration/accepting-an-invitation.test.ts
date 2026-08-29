@@ -42,9 +42,13 @@ describe('accepting an Invitation Link', () => {
     await pool.end()
   })
 
+  // Unique across runs, not merely within one: acceptance creates an auth
+  // account against the number, and the database keeps it after the suite ends.
   let numbered = 0
+  const aNumber = () =>
+    `+1${String((Date.now() % 1_000_000) * 1_000 + ++numbered).padStart(10, '0')}`
   const roster = async (fullName: string) =>
-    personId(await addPerson(ministry, fullName, { phone: `+1555${String(++numbered).padStart(6, '0')}` }))
+    personId(await addPerson(ministry, fullName, { phone: aNumber() }))
 
   const pair = (leaderIds: PersonId[], participantIds: PersonId[]) =>
     service().execute({
@@ -285,8 +289,10 @@ describe('the two things a token raises instead of changing', () => {
   })
 
   let numbered = 0
+  const aNumber = () =>
+    `+1${String((Date.now() % 1_000_000) * 1_000 + ++numbered).padStart(10, '0')}`
   const roster = async (fullName: string) =>
-    personId(await addPerson(ministry, fullName, { phone: `+1556${String(++numbered).padStart(6, '0')}` }))
+    personId(await addPerson(ministry, fullName, { phone: aNumber() }))
 
   const tokenFor = async (person: PersonId) => {
     const { rows } = await pool.query<{ token: string }>(
@@ -308,6 +314,10 @@ describe('the two things a token raises instead of changing', () => {
   it('raises one item however many times the Leader taps "not my number"', async () => {
     const david = await roster('David Disputes')
     const emily = await roster('Emily Disputes')
+    const { rows: before } = await pool.query<{ phone: string }>(
+      `select phone from person where id = $1`,
+      [david],
+    )
     await service().execute({
       type: 'relationship.create',
       ministryId: ministry.id,
@@ -334,7 +344,7 @@ describe('the two things a token raises instead of changing', () => {
         where p.id = $1`,
       [david],
     )
-    expect(rows[0]?.phone).toBe('+1556000001')
+    expect(rows[0]?.phone).toBe(before[0]?.phone)
     expect(rows[0]?.consumed_at).toBeNull()
   })
 })
