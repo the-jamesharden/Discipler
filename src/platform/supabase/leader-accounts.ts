@@ -1,4 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
+import { SHORTEST_PASSWORD } from '~/domain/accounts'
+import type { LeaderAccounts } from '~/service/ports'
 import { serviceRoleKey, supabaseCredentials } from './credentials'
 
 /**
@@ -7,32 +9,10 @@ import { serviceRoleKey, supabaseCredentials } from './credentials'
  * at all, holding a link, so it is the only place that needs the key that can
  * create a user -- and it does nothing else with it.
  *
- * The credential is a phone number and a password, for every user, on one form.
- * Email is optional at Intake, so a credential built on it is one half the people
- * who need it may not have. See
- * `docs/adr/0008-the-phone-number-is-the-sign-in-credential.md`.
+ * The port it satisfies is declared in `src/service/ports.ts`, and the password
+ * rule and refusal codes in `src/domain/accounts.ts`, so a page can render a
+ * refusal without importing an adapter.
  */
-
-/** Codes, never prose. The page renders its own wording, like every refusal. */
-export type AccountRefusal =
-  | 'account.password_too_short'
-  /**
-   * Discipler holds no number for this Person, so there is nothing to sign in
-   * with -- and nothing to text them either. It is an Admin's to fix.
-   */
-  | 'account.no_number_on_file'
-  /** A number already signs somebody in. Their way forward is to sign in with it. */
-  | 'account.already_exists'
-
-/** Short enough to type on a phone, long enough to be worth having. */
-export const SHORTEST_PASSWORD = 8
-
-export interface LeaderAccounts {
-  create(
-    phone: string | null,
-    password: string,
-  ): Promise<{ readonly userId: string } | { readonly refusal: AccountRefusal }>
-}
 
 export const supabaseLeaderAccounts: LeaderAccounts = {
   async create(phone, password) {

@@ -396,11 +396,19 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
 
   async raiseFollowUp(item: NewFollowUpItem) {
     // Raising an item that already stands changes nothing. Twenty taps on "not my
-    // number" is one condition, and an Admin sees one thing to act on.
+    // number" is one condition, and an Admin sees one thing to act on -- while the
+    // history event the domain appends alongside this lands every time, so how
+    // often it was raised survives even though the item does not multiply.
+    //
+    // The index is named rather than left to `on conflict do nothing`, which would
+    // swallow a collision on any constraint on the table and turn a real fault into
+    // a silent no-op.
     await client.query(
       `insert into follow_up_item (ministry_id, kind, person_id, relationship_id, raised_at)
        values ($1, $2, $3, $4, $5)
-       on conflict do nothing`,
+       on conflict (ministry_id, kind, person_id, relationship_id)
+         where resolved_at is null
+       do nothing`,
       [item.ministryId, item.kind, item.personId, item.relationshipId, item.raisedAt],
     )
   },

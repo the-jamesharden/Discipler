@@ -415,8 +415,10 @@ ruled. Concerns live in their own table.
 **Follow-up items (ticket 07).** Six kinds — `relationship_unaccepted`, `pause_expired`,
 `swap_requested`, `participant_keyword`, `invitation_number_disputed`, `match_declined`.
 Nullable `relationship_id` and `person_id` with at least one present; `jsonb` payload
-constrained per kind; the two condition kinds dedupe while the four event kinds
-accumulate; resolution records who and when with no note, and both raising and resolving
+constrained per kind; **every kind dedupes while it stands open, and the history
+accumulates** — an Admin sees one thing to act on however many times it was raised, and
+the count of raisings survives in the Week-by-Week History rather than in the Care
+Needed list; resolution records who and when with no note, and both raising and resolving
 append a history event. Care Needed unions three sources: derived states, Concerns, and
 follow-up items.
 

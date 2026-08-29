@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { SHORTEST_PASSWORD } from '~/platform/supabase/leader-accounts'
+import { SHORTEST_PASSWORD } from '~/domain/accounts'
 import { getInvitationReader } from '~/service/container'
 import { asList, invitationProblemMessage } from '../copy'
 

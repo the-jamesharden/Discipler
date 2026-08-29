@@ -29,5 +29,3 @@ export interface NewFollowUpItem {
   readonly relationshipId: RelationshipId
   readonly raisedAt: Date
 }
-
-export const raiseFollowUp = (item: NewFollowUpItem): NewFollowUpItem => item

@@ -1,3 +1,4 @@
+import type { AccountRefusal } from '~/domain/accounts'
 import type { InvitationSnapshot, PersonContact } from '~/domain/boundary'
 import type { IntakeRecord, LeaderAcceptance, OutboundMessageDraft } from '~/domain/effects'
 import type { NewFollowUpItem } from '~/domain/follow-up'
@@ -97,6 +98,23 @@ export interface UnitOfWork {
    * number" is one condition, and the Admin sees one thing to act on.
    */
   raiseFollowUp(item: NewFollowUpItem): Promise<void>
+}
+
+/**
+ * Minting the account a Leader signs in with. It is the one thing the application
+ * needs from the outside world that creates a user rather than reading or writing
+ * a row, which is why it is a port of its own rather than part of the unit of work:
+ * it happens before the transaction and it cannot be rolled back with it.
+ */
+export interface LeaderAccounts {
+  /**
+   * The number is the one on file, never one that was typed -- a forwarded link
+   * must not be able to re-point an account at somebody else's phone.
+   */
+  create(
+    phone: string | null,
+    password: string,
+  ): Promise<{ readonly userId: string } | { readonly refusal: AccountRefusal }>
 }
 
 export interface EffectStore {

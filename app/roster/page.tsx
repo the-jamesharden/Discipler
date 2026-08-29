@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { currentAdmin } from '~/platform/supabase/current-admin'
-import { createSupabaseServerClient } from '~/platform/supabase/server-client'
+import { resolveAdmin } from '~/platform/supabase/current-admin'
 import { getRosterReader } from '~/service/container'
 import { importFailureMessage, participationStatusLabel, rowProblemMessage } from './copy'
 import { decodeImportReport } from './report'
@@ -32,19 +31,13 @@ export default async function RosterPage({
     paired?: string
   }>
 }) {
-  const admin = await currentAdmin()
+  const resolution = await resolveAdmin()
 
-  if (!admin) {
-    const supabase = await createSupabaseServerClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+  // Signed in but not an Admin. Sending them back to sign in would only loop.
+  if (resolution.status === 'not-an-admin') return <NotAnAdmin />
+  if (resolution.status === 'signed-out') redirect('/login')
 
-    // Signed in but not an Admin. Sending them back to sign in would only loop.
-    if (user) return <NotAnAdmin />
-
-    redirect('/login')
-  }
+  const admin = resolution.admin
 
   const roster = await getRosterReader().listRoster(admin.ministryId)
   const query = await searchParams

@@ -1,4 +1,4 @@
-import type { AccountRefusal } from '~/platform/supabase/leader-accounts'
+import type { AccountRefusal } from '~/domain/accounts'
 import type { InvitationRefusal } from '~/domain/errors'
 
 /**

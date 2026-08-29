@@ -13,9 +13,10 @@ import {
   createPostgresInvitationReader,
   type PostgresInvitationReader,
 } from '~/platform/supabase/invitation-reader'
+import { supabaseLeaderAccounts } from '~/platform/supabase/leader-accounts'
 import { supabaseRosterReader } from '~/platform/supabase/roster-reader'
 import { createCommandService, type CommandService } from './command-service'
-import type { IntakeReader, InvitationReader, RosterReader } from './ports'
+import type { IntakeReader, InvitationReader, LeaderAccounts, RosterReader } from './ports'
 
 /**
  * The composition root: the one place that decides which real implementations sit
@@ -57,11 +58,6 @@ export const getIntakeReader = (): IntakeReader => {
 }
 
 /**
- * Gives back the connection pool the store holds. The running app never calls this
- * -- it keeps the pool for its whole lifetime -- but a test that assembles the real
- * container has no other way to let go of it when the suite ends.
- */
-/**
  * The Invitation Link's page is served to a Leader with no account and no
  * session, so it reads on the same trusted connection the Intake form does, and
  * for the same reason.
@@ -73,6 +69,11 @@ export const getInvitationReader = (): InvitationReader => {
   return invitationReader
 }
 
+/**
+ * Gives back the connection pool the store holds. The running app never calls this
+ * -- it keeps the pool for its whole lifetime -- but a test that assembles the real
+ * container has no other way to let go of it when the suite ends.
+ */
 export const closeCommandService = async (): Promise<void> => {
   const store = commandStore
   const reader = intakeReader
@@ -87,3 +88,10 @@ export const closeCommandService = async (): Promise<void> => {
 }
 
 export const getRosterReader = (): RosterReader => supabaseRosterReader
+
+/**
+ * Acceptance is the only surface that mints an account, but it reaches its adapter
+ * the same way every other surface does. A route holding a concrete adapter is how
+ * a composition root stops being one.
+ */
+export const getLeaderAccounts = (): LeaderAccounts => supabaseLeaderAccounts

@@ -1,8 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { InvitationRefused } from '~/domain/errors'
 import { invitationToken } from '~/domain/invitations'
-import { supabaseLeaderAccounts } from '~/platform/supabase/leader-accounts'
-import { getCommandService, getInvitationReader } from '~/service/container'
+import { getCommandService, getInvitationReader, getLeaderAccounts } from '~/service/container'
 
 /**
  * An ordinary form POST, so acceptance works before JavaScript has loaded. There
@@ -50,7 +49,7 @@ export async function POST(
     // The number on file, never one that was typed. A Leader cannot mistype their
     // way out of their own check-ins, and a forwarded link cannot re-point an
     // account at somebody else's phone.
-    const account = await supabaseLeaderAccounts.create(invitation.phone, password)
+    const account = await getLeaderAccounts().create(invitation.phone, password)
     if ('refusal' in account) return back(account.refusal)
     userId = account.userId
   }

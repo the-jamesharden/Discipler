@@ -457,6 +457,16 @@ describe('the two things a token raises instead of changing', () => {
       { kind: 'invitation_number_disputed', person_id: david },
     ])
 
+    // One thing for an Admin to act on, and three facts about what happened. The
+    // item is the condition; the history is the record of it being raised, and
+    // collapsing those two into one loses how many times a Leader had to say it.
+    const { rows: appended } = await pool.query<{ count: string }>(
+      `select count(*) from ministry_event
+       where ministry_id = $1 and type = 'follow_up.invitation_number_disputed'`,
+      [ministry.id],
+    )
+    expect(appended[0]?.count).toBe('3')
+
     // It changes nothing else: the number stands, and the link is not spent.
     const { rows } = await pool.query<{ phone: string; consumed_at: Date | null }>(
       `select p.phone, i.consumed_at from person p

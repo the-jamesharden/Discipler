@@ -40,7 +40,3 @@ export interface NewRelationship {
  */
 export const kindFor = (leaderCount: number, participantCount: number): RelationshipKind =>
   leaderCount === 1 && participantCount === 1 ? 'one_to_one' : 'group'
-
-/** Everyone in the relationship, whatever their role. Copy and state read this. */
-export const participantCount = (relationship: NewRelationship): number =>
-  relationship.members.filter((member) => member.role === 'participant').length

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { asList, invitationProblemMessage } from '../../app/invitation/copy'
 import type { InvitationRefusal } from '~/domain/errors'
-import type { AccountRefusal } from '~/platform/supabase/leader-accounts'
+import type { AccountRefusal } from '~/domain/accounts'
 
 /**
  * A refusal that reaches its holder as nothing at all is the silent no-op this
