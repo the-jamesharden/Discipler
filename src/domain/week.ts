@@ -25,10 +25,11 @@ import type { Branded } from './branded'
 export type IsoWeek = Branded<string, 'IsoWeek'>
 
 /**
- * The one way to make an `IsoWeek` from a string, and the only place the format
- * is parsed. It validates rather than casting because the arithmetic downstream
- * cannot: `Number('')` is `0`, which is an integer, so a check for integers
- * accepts `-W35` and hands `Date.UTC` a year of zero -- which it reads as 1900.
+ * The one way an `IsoWeek` is made -- `isoWeekOf` included, so a week read from
+ * an instant and one written by hand cannot disagree about the format. It
+ * validates rather than casting because the arithmetic downstream cannot:
+ * `Number('')` is `0`, which is an integer, so a check for integers accepts
+ * `-W35` and hands `Date.UTC` a year of zero -- which it reads as 1900.
  */
 export const isoWeek = (value: string): IsoWeek => {
   const match = /^(\d{4})-W(\d{2})$/.exec(value)
@@ -143,7 +144,7 @@ const isoWeekdayOf = (calendarPoint: number): number =>
  * corrected afterwards. Both directions of the conversion go through here, so
  * reading a week and constructing one can never disagree about where it starts.
  */
-const mondayOpening = (isoYear: number, week = 1): number => {
+const mondayOpening = (isoYear: number, week: number): number => {
   const fourthOfJanuary = Date.UTC(isoYear, 0, 4)
   const firstMonday = fourthOfJanuary - (isoWeekdayOf(fourthOfJanuary) - 1) * DAY
   return firstMonday + (week - 1) * 7 * DAY
@@ -203,9 +204,9 @@ export const isoWeekOf = (instant: Date, timeZone: string): IsoWeek => {
   const thursday = point + (4 - isoWeekdayOf(point)) * DAY
   const isoYear = new Date(thursday).getUTCFullYear()
 
-  const week = Math.round((thursday - mondayOpening(isoYear)) / DAY / 7) + 1
+  const week = Math.round((thursday - mondayOpening(isoYear, 1)) / DAY / 7) + 1
 
-  return `${isoYear}-W${String(week).padStart(2, '0')}` as IsoWeek
+  return isoWeek(`${isoYear}-W${String(week).padStart(2, '0')}`)
 }
 
 export const calendarMonthOf = (instant: Date, timeZone: string): CalendarMonth => {

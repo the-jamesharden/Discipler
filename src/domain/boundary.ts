@@ -626,8 +626,6 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
                   link: invitationLink(appBaseUrl, leader.token),
                 }),
                 enqueuedAt: now,
-                // Nothing scheduled this: it answers an act, not a cadence.
-                scheduledFor: null,
                 // No message to a Leader contains a phone number.
                 disclosesPersonId: null,
               }),
@@ -1125,8 +1123,6 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
               fullName: submission.fullName,
             }),
             enqueuedAt: now,
-            // Nothing scheduled this: it answers an act, not a cadence.
-            scheduledFor: null,
             // Nothing. There is no relationship yet, so there is nobody to
             // introduce -- and this is the message that reaches them before one
             // exists.
@@ -1223,8 +1219,6 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
               link: invitationLink(baseUrl, invitation.token),
             }),
             enqueuedAt: now,
-            // Nothing scheduled this: it answers an act, not a cadence.
-            scheduledFor: null,
             // No message to a Leader contains a phone number.
             disclosesPersonId: null,
           }),
@@ -1303,8 +1297,6 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             toPhone: leader.phone,
             body: starterMessageToLeader({ ministryName, participantNames }),
             enqueuedAt: now,
-            // Nothing scheduled this: it answers an act, not a cadence.
-            scheduledFor: null,
             disclosesPersonId: null,
           }),
         )
@@ -1338,8 +1330,6 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
                 declineLink: invitationLink(baseUrl, declining.token),
               }),
               enqueuedAt: now,
-              // Nothing scheduled this: it answers an act, not a cadence.
-              scheduledFor: null,
               // Resolved at send time against contact-sharing consent as it stands
               // then. Absent consent removes the number and sends the rest.
               disclosesPersonId: leader.personId,

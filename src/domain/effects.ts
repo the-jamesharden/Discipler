@@ -263,9 +263,16 @@ export const recordIntake = (intake: IntakeRecord): Effect => ({
   intake,
 })
 
-export const enqueueMessage = (message: OutboundMessageDraft): Effect => ({
+export const enqueueMessage = (
+  message: Omit<OutboundMessageDraft, 'scheduledFor'> & {
+    readonly scheduledFor?: Date | null
+  },
+): Effect => ({
   kind: 'message.enqueue',
-  message,
+  // Null unless the caller names a cadence, because almost nothing has one: a
+  // message answers an act, and only the dispatcher enqueues *because* a cadence
+  // instant arrived. Stated once here rather than on every call that has none.
+  message: { ...message, scheduledFor: message.scheduledFor ?? null },
 })
 
 export const createRelationship = (relationship: NewRelationship): Effect => ({

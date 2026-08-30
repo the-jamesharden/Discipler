@@ -28,7 +28,7 @@ Implements `docs/adr/0007-the-check-in-cadence-and-the-week-boundary.md`.
 
 **Blocked by:** 07, 08a, 22
 
-**Status:** in-review
+**Status:** ready-for-agent
 
 - [x] The send time comes from the Ministry's `checkin_day` and `checkin_hour`, resolved against the Ministry timezone
 - [x] The database refuses a `checkin_hour` outside 8am–9pm, not only the form
