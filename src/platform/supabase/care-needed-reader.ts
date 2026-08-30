@@ -504,10 +504,9 @@ export const readCareNeeded = async (
  * What `Nudge` reveals: the number, where the Person currently agrees to share it.
  *
  * The whole rule is inside `public.contact_to_share`, which is the only path to a
- * number a browser session has that consults consent at all. It checks Ministry
- * membership itself, so `ministryId` here is not what scopes the read -- it is the
- * Ministry the caller believes it is acting for, and a Person outside it comes back
- * empty from the function's own check rather than from this comparison.
+ * number a browser session has that consults consent at all. Both arguments are
+ * load-bearing there: it answers about a Person in the named Ministry, and only for
+ * a caller who belongs to it.
  */
 export const readContactToShare = async (
   client: SupabaseClient,
@@ -515,6 +514,7 @@ export const readContactToShare = async (
   person: PersonId,
 ): Promise<ContactDetails | null> => {
   const { data, error } = await client.rpc('contact_to_share', {
+    target_ministry_id: ministryId,
     target_person_id: person,
   })
 
@@ -524,15 +524,25 @@ export const readContactToShare = async (
   if (error) throw new Error(`Could not read contact details in ${ministryId}: ${error.message}`)
 
   const row = rows(data)[0]
+
+  // No row is the answer, not a failure: the Person has not agreed to share, or has
+  // no number, or is not somebody this caller may ask about. The function does not
+  // distinguish them and neither may this -- an Admin who could tell "withheld" from
+  // "no such Person" would be reading consent by inference.
   if (!row) return null
 
   const fullName = text(row.full_name)
   const phone = text(row.phone)
 
-  // The function already refuses a null number, so both being present is the shape
-  // every returned row has. Narrowed rather than asserted, because the alternative
-  // is a non-null assertion standing where the compiler cannot see the constraint.
-  return fullName && phone ? { fullName, phone: phoneNumber(phone) } : null
+  // A row that came back malformed is a broken read like any other, and is thrown
+  // rather than folded into the null above. Both mean "no number" to a caller that
+  // cannot tell them apart, and the one that means a rule has stopped holding must
+  // not hide inside the one that means the Person said no.
+  if (!fullName || !phone) {
+    throw new Error(`Contact details for ${person} came back without a name or a number`)
+  }
+
+  return { fullName, phone: phoneNumber(phone) }
 }
 
 /**

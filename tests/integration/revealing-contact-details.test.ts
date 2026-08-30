@@ -137,6 +137,19 @@ describe('Revealing contact details', () => {
     expect(after.rows[0].count).toBe(before.rows[0].count)
   })
 
+  it('reveals nothing when asked for a Ministry the Person is not in', async () => {
+    // The Person is on this Admin's own Roster and the Admin may see their number --
+    // but not in answer to a question about a different Ministry. `app.is_member_of`
+    // alone would have allowed this, since the Admin does belong to Riverside; it is
+    // the Ministry argument being consulted that refuses it. Asserted because a
+    // parameter that is carried and never read looks identical from the outside until
+    // something like this asks.
+    const person = await addPerson(ministry, 'Selah Nkemdi', { phone: '+15554440107' })
+    expect(await reveal(person)).not.toBeNull()
+
+    expect(await reveal(person, elsewhere)).toBeNull()
+  })
+
   it('reveals nothing about a Person in another Ministry', async () => {
     // The function runs as its owner, so no policy is between the caller and the
     // row. `app.is_member_of` is the whole of the boundary here, which is why this

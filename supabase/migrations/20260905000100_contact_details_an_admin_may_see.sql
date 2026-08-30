@@ -31,7 +31,14 @@
 -- Ministry membership, not relationship leadership. An Admin is ministry-wide and the
 -- Care Needed view is an Admin surface; a narrower check would be inventing a rule
 -- this ticket does not state.
-create function public.contact_to_share(target_person_id uuid)
+--
+-- It takes the Ministry as well as the Person, and checks the Person is in it. The
+-- membership test alone would be enough to stop an Admin reaching a Ministry they do
+-- not belong to, but it would not stop a caller asking for one Ministry and being
+-- answered about another it happens to also belong to. Every other read in Discipler
+-- names the Ministry it acts for and is bounded by it; a parameter that was carried
+-- and not consulted would be the one place that promise is not kept.
+create function public.contact_to_share(target_ministry_id uuid, target_person_id uuid)
 returns table (full_name text, phone text)
 language sql
 stable
@@ -41,7 +48,8 @@ as $$
   select p.full_name, p.phone
     from public.person p
    where p.id = target_person_id
-     and app.is_member_of(p.ministry_id)
+     and p.ministry_id = target_ministry_id
+     and app.is_member_of(target_ministry_id)
      -- A number that is not there is not a number withheld, but the caller cannot
      -- tell the difference and does not need to: both mean "you cannot call them".
      and p.phone is not null
@@ -51,10 +59,10 @@ as $$
      and app.current_consent(p.id, 'contact_sharing') is true
 $$;
 
-comment on function public.contact_to_share(uuid) is
+comment on function public.contact_to_share(uuid, uuid) is
   'The contact details an Admin in this Person''s Ministry may see, or no row where '
   'the Person has not currently agreed to share them. The only consent-respecting '
   'path to a number from a browser session.';
 
-revoke execute on function public.contact_to_share(uuid) from public;
-grant execute on function public.contact_to_share(uuid) to authenticated;
+revoke execute on function public.contact_to_share(uuid, uuid) from public;
+grant execute on function public.contact_to_share(uuid, uuid) to authenticated;
