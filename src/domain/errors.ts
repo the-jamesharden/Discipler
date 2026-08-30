@@ -164,6 +164,29 @@ export class FollowUpRefused extends Error {
 }
 
 /**
+ * Why a Concern command could not act. The same shape as a Follow-Up refusal and
+ * for the same reason: only the database can see whether the row is still open by
+ * the time the update lands.
+ */
+export type ConcernRefusal =
+  | 'concern.not_found'
+  /** Somebody else got there first. It is closed, which is what was wanted. */
+  | 'concern.already_resolved'
+  /**
+   * A real account, in another Ministry. Holding a login is not standing to read
+   * or close what a Leader said about somebody's marriage, and the composite key
+   * onto `ministry_member` is what says so.
+   */
+  | 'concern.admin_is_not_in_this_ministry'
+
+export class ConcernRefused extends Error {
+  constructor(readonly refusal: ConcernRefusal) {
+    super(refusal)
+    this.name = 'ConcernRefused'
+  }
+}
+
+/**
  * Why a check-in command could not act. There is one reason: the Person it named
  * is not on this Ministry's Roster.
  *

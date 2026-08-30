@@ -27,6 +27,21 @@ export interface CommandServiceDependencies {
  */
 export interface CommandService {
   execute(command: Command): Promise<CommandResult>
+  /**
+   * An Admin opening one Concern's text.
+   *
+   * Separate from `execute` because it is the one act in Discipler that both
+   * writes and answers: the viewing is recorded and the Leader's words come back
+   * from the *same* transaction. Two calls -- record, then read -- would be a pair
+   * a caller could take half of, and the half worth skipping is the audit.
+   *
+   * Null when the Concern is gone, or has been resolved and cleared. The
+   * authenticated role holds no grant on that column, so this is the only path to
+   * it that exists.
+   */
+  openConcern(
+    command: Extract<Command, { readonly type: 'concern.view' }>,
+  ): Promise<string | null>
 }
 
 export const applyEffects = async (
@@ -87,6 +102,15 @@ export const applyEffects = async (
   const optOuts = effects.flatMap((effect) =>
     effect.kind === 'person.opt_out' ? [effect.optOut] : [],
   )
+  const concerns = effects.flatMap((effect) =>
+    effect.kind === 'concern.raise' ? [effect.concern] : [],
+  )
+  const viewings = effects.flatMap((effect) =>
+    effect.kind === 'concern.view' ? [effect.viewing] : [],
+  )
+  const concernResolutions = effects.flatMap((effect) =>
+    effect.kind === 'concern.resolve' ? [effect.resolution] : [],
+  )
 
   // Rows before the facts about them. The whole unit of work is one transaction, so
   // ordering buys nothing for atomicity -- it buys the error: a pairing the caps
@@ -129,6 +153,19 @@ export const applyEffects = async (
   // question they are about stays unanswered either way.
   for (const clarification of clarifications) await unit.clarifyCheckInQuestion(clarification)
   for (const reminder of reminders) await unit.remindCheckInQuestion(reminder)
+
+  // After the answer that produced it, so the prompt holding the raw reply and the
+  // Concern standing beside it land in that order -- and before the history saying
+  // it was raised, like every other write here.
+  for (const concern of concerns) await unit.raiseConcern(concern)
+
+  // Before the history that says they happened. An Admin resolving a Concern
+  // somebody else closed a second earlier is refused, and being refused after
+  // history had already recorded it would leave a Ministry's record claiming a
+  // decision nobody made -- and, worse here, claiming words were cleared that are
+  // still on the row.
+  for (const viewing of viewings) await unit.recordConcernViewing(viewing)
+  for (const resolution of concernResolutions) await unit.resolveConcern(resolution)
 
   for (const closure of closures) await unit.closeCheckInSequence(closure)
   for (const sequence of sequences) await unit.openCheckInSequence(sequence)
@@ -302,6 +339,20 @@ export const createCommandService = ({
       await applyEffects(result.effects, unit)
 
       return result
+    })
+  },
+
+  async openConcern(command) {
+    return store.transact(command.ministryId, async (unit) => {
+      const result = handleCommand(command, { ministryId: command.ministryId, clock, ids })
+
+      // The audit first, and in the same transaction as the read. A failure
+      // anywhere after this rolls the viewing back along with everything else,
+      // which is right: a read that did not complete is a read that did not
+      // happen. What must never happen is the other order.
+      await applyEffects(result.effects, unit)
+
+      return unit.concernDetailFor(command.concernId)
     })
   },
 })

@@ -98,6 +98,18 @@ describe('applying a command\'s effects', () => {
         optPersonOut: async () => {
           throw new Error('nobody should have been opted out')
         },
+        raiseConcern: async () => {
+          throw new Error('no Concern should have been raised')
+        },
+        recordConcernViewing: async () => {
+          throw new Error('no Concern should have been opened')
+        },
+        resolveConcern: async () => {
+          throw new Error('no Concern should have been resolved')
+        },
+        concernDetailFor: async () => {
+          throw new Error('no Concern should have been read')
+        },
         raiseFollowUp: async () => {
           throw new Error('nothing should have been raised')
         },

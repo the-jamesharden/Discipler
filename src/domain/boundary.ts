@@ -18,6 +18,9 @@ import {
   recordIntake,
   remindCheckInQuestion,
   resolveFollowUpItem,
+  raiseConcern,
+  recordConcernViewing,
+  resolveConcern,
   type Effect,
   type NewCheckInPrompt,
 } from './effects'
@@ -63,6 +66,7 @@ import {
 } from './outbound-copy'
 import { CONSENT_VERSION } from './consent'
 import {
+  concernId,
   personId,
   relationshipId,
   type IdSource,
@@ -1063,6 +1067,35 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         }),
       ]
 
+      // The Leader's words become a Concern of their own, beside the prompt row
+      // that holds the raw reply. Not the same record: this one is reached one
+      // Person at a time, audited when it is *read*, cleared by default when it is
+      // resolved, and counted when several stand open -- none of which the reply
+      // it came from is or does.
+      if (reply.kind === 'concern_detail' && answered) {
+        effects.push(
+          raiseConcern({
+            id: concernId(context.ids.next()),
+            ministryId: command.ministryId,
+            relationshipId: answered.relationshipId,
+            raisedBy: checkIn.personId,
+            raisedAt: now,
+            detail: reply.detail,
+          }),
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'concern.raised',
+            subjectType: 'relationship',
+            subjectId: answered.relationshipId,
+            // The prose is deliberately absent. History is append-only, so a
+            // payload carrying the text would survive the resolution that cleared
+            // it -- which would make clear-on-resolve a gesture rather than a rule.
+            payload: { sequenceId: sequence.sequenceId, raisedBy: checkIn.personId },
+          }),
+        )
+      }
+
       const advance = advanceCheckIn(sequence, awaiting, reply)
 
       if (advance.kind === 'finish') {
@@ -1167,6 +1200,68 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             subjectType: 'follow_up_item',
             subjectId: command.itemId,
             payload: { resolvedBy: command.resolvedBy },
+          }),
+        ],
+      }
+    }
+
+    case 'concern.view': {
+      const now = context.clock.now()
+
+      // Reading it is the act being recorded, and it is recorded per viewing
+      // rather than as a flag: the second Admin to open a Concern is a fact as
+      // much as the first was. The text itself is nowhere in here -- the unit of
+      // work returns it to the caller, and history keeps only that it was read.
+      return {
+        rejections: [],
+        effects: [
+          recordConcernViewing({
+            ministryId: command.ministryId,
+            concernId: command.concernId,
+            viewedBy: command.viewedBy,
+            viewedAt: now,
+          }),
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'concern.viewed',
+            subjectType: 'concern',
+            subjectId: command.concernId,
+            payload: { viewedBy: command.viewedBy },
+          }),
+        ],
+      }
+    }
+
+    case 'concern.resolve': {
+      const now = context.clock.now()
+
+      // Clearing the Leader's words is what resolving does unless the Admin says
+      // otherwise, and the default lives here rather than in a caller: a route
+      // that forgot the field would keep a Ministry's most sensitive text forever,
+      // which is the failure this rule exists to prevent.
+      const keepDetail = command.keepDetail ?? false
+
+      return {
+        rejections: [],
+        effects: [
+          resolveConcern({
+            ministryId: command.ministryId,
+            concernId: command.concernId,
+            resolvedBy: command.resolvedBy,
+            resolvedAt: now,
+            keepDetail,
+          }),
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'concern.resolved',
+            subjectType: 'concern',
+            subjectId: command.concernId,
+            // Whether the words were kept is itself a fact worth keeping: it is
+            // the only record that the exception was taken, and the row it was
+            // taken on no longer says so once the text is gone.
+            payload: { resolvedBy: command.resolvedBy, keptDetail: keepDetail },
           }),
         ],
       }

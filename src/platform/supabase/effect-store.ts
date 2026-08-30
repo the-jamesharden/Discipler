@@ -20,8 +20,10 @@ import {
 } from '~/domain/follow-up'
 import { invitationToken, type InvitationToken, type NewInvitation } from '~/domain/invitations'
 import type { MemberRole } from '~/domain/relationships'
+import type { ConcernResolution, ConcernViewing, NewConcern } from '~/domain/concerns'
 import {
   CancellationRefused,
+  ConcernRefused,
   FollowUpRefused,
   InvitationRefused,
   PairingRefused,
@@ -1042,6 +1044,93 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
        on conflict (person_id) where ended_at is null do nothing`,
       [optOut.ministryId, optOut.personId, optOut.startedAt],
     )
+  },
+
+  async raiseConcern(concern: NewConcern) {
+    // No dedupe and no `on conflict`, unlike a Follow-Up Item. Two Concerns raised
+    // a fortnight apart are two things a Leader said, and collapsing them would
+    // lose the second -- which is the count the badge exists to show.
+    await client.query(
+      `insert into concern
+         (id, ministry_id, relationship_id, raised_by, raised_at, detail)
+       values ($1, $2, $3, $4, $5, $6)`,
+      [
+        concern.id,
+        concern.ministryId,
+        concern.relationshipId,
+        concern.raisedBy,
+        concern.raisedAt,
+        concern.detail,
+      ],
+    )
+  },
+
+  async recordConcernViewing(viewing: ConcernViewing) {
+    try {
+      await client.query(
+        `insert into concern_viewing (ministry_id, concern_id, viewed_by, viewed_at)
+         values ($1, $2, $3, $4)`,
+        [viewing.ministryId, viewing.concernId, viewing.viewedBy, viewing.viewedAt],
+      )
+    } catch (error) {
+      if (constraintViolated(error) === 'concern_viewing_viewer_fk') {
+        throw new ConcernRefused('concern.admin_is_not_in_this_ministry')
+      }
+      if (constraintViolated(error) === 'concern_viewing_concern_fk') {
+        throw new ConcernRefused('concern.not_found')
+      }
+      throw error
+    }
+  },
+
+  async resolveConcern(resolution: ConcernResolution) {
+    // `where resolved_at is null` is what makes two Admins clicking Resolve on the
+    // same Concern close it once. The second updates nothing and is told so,
+    // rather than overwriting the first Admin's name -- and, here, rather than
+    // clearing words the first Admin deliberately kept.
+    let closed: number | null = null
+    try {
+      ;({ rowCount: closed } = await client.query(
+        `update concern
+            set resolved_at = $2,
+                resolved_by = $3,
+                detail_kept = $4,
+                -- The clearing itself, in the same statement as the resolution.
+                -- Two statements would leave a window in which a Concern is closed
+                -- and its words are still there.
+                detail = case when $4 then detail else null end
+          where id = $1 and resolved_at is null`,
+        [
+          resolution.concernId,
+          resolution.resolvedAt,
+          resolution.resolvedBy,
+          resolution.keepDetail,
+        ],
+      ))
+    } catch (error) {
+      if (constraintViolated(error) === 'concern_resolved_by_fk') {
+        throw new ConcernRefused('concern.admin_is_not_in_this_ministry')
+      }
+      throw error
+    }
+    if (closed === 1) return
+
+    // Two different things for the Admin to be told, and only the database can
+    // tell them apart: a Concern that is gone, and one somebody else just closed.
+    const { rows } = await client.query(`select 1 from concern where id = $1`, [
+      resolution.concernId,
+    ])
+    throw new ConcernRefused(
+      rows.length > 0 ? 'concern.already_resolved' : 'concern.not_found',
+    )
+  },
+
+  async concernDetailFor(id) {
+    const { rows } = await client.query<{ detail: string | null }>(
+      `select detail from concern where id = $1`,
+      [id],
+    )
+    return rows[0]?.detail ?? null
   },
 
   async enqueueMessages(messages: readonly OutboundMessageDraft[]) {

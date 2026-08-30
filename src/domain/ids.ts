@@ -11,6 +11,7 @@ export type RelationshipId = Branded<string, 'RelationshipId'>
 export type EventId = Branded<string, 'EventId'>
 export type OutboundMessageId = Branded<string, 'OutboundMessageId'>
 export type FollowUpItemId = Branded<string, 'FollowUpItemId'>
+export type ConcernId = Branded<string, 'ConcernId'>
 
 export const ministryId = (value: string): MinistryId => value as MinistryId
 export const personId = (value: string): PersonId => value as PersonId
@@ -19,6 +20,7 @@ export const eventId = (value: string): EventId => value as EventId
 export const outboundMessageId = (value: string): OutboundMessageId =>
   value as OutboundMessageId
 export const followUpItemId = (value: string): FollowUpItemId => value as FollowUpItemId
+export const concernId = (value: string): ConcernId => value as ConcernId
 
 /**
  * Where new identifiers come from. Injected for the same reason the clock is: a

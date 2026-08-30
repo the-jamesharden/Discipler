@@ -4,6 +4,7 @@ import type {
   CheckInSequenceId,
   Satisfaction,
 } from './check-in'
+import type { ConcernResolution, ConcernViewing, NewConcern } from './concerns'
 import type { NewHistoryEvent } from './history'
 import type { MinistryId, PersonId, RelationshipId } from './ids'
 import type {
@@ -288,6 +289,9 @@ export type Effect =
   | { readonly kind: 'checkin.remind'; readonly reminder: CheckInReminder }
   | { readonly kind: 'checkin.close'; readonly closure: CheckInSequenceClosure }
   | { readonly kind: 'person.opt_out'; readonly optOut: PersonOptOut }
+  | { readonly kind: 'concern.raise'; readonly concern: NewConcern }
+  | { readonly kind: 'concern.view'; readonly viewing: ConcernViewing }
+  | { readonly kind: 'concern.resolve'; readonly resolution: ConcernResolution }
 
 export const appendHistory = (event: NewHistoryEvent): Effect => ({
   kind: 'history.append',
@@ -379,4 +383,19 @@ export const closeCheckInSequence = (closure: CheckInSequenceClosure): Effect =>
 export const optPersonOut = (optOut: PersonOptOut): Effect => ({
   kind: 'person.opt_out',
   optOut,
+})
+
+export const raiseConcern = (concern: NewConcern): Effect => ({
+  kind: 'concern.raise',
+  concern,
+})
+
+export const recordConcernViewing = (viewing: ConcernViewing): Effect => ({
+  kind: 'concern.view',
+  viewing,
+})
+
+export const resolveConcern = (resolution: ConcernResolution): Effect => ({
+  kind: 'concern.resolve',
+  resolution,
 })

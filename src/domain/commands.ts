@@ -1,4 +1,4 @@
-import type { FollowUpItemId, MinistryId, PersonId, RelationshipId } from './ids'
+import type { ConcernId, FollowUpItemId, MinistryId, PersonId, RelationshipId } from './ids'
 import type { IntakeFormFields } from './intake'
 import type { InvitationToken } from './invitations'
 
@@ -88,6 +88,39 @@ export type Command =
       readonly itemId: FollowUpItemId
       /** The Admin's account, as the session named it. */
       readonly resolvedBy: string
+    }
+  /**
+   * An Admin opening one Concern's text.
+   *
+   * A command rather than a read, because opening one writes: the viewing is
+   * recorded against the Admin who did it. The text comes back from the same unit
+   * of work that records the viewing, which is what makes reading a Concern
+   * without leaving a trace unrepresentable rather than merely discouraged.
+   */
+  | {
+      readonly type: 'concern.view'
+      readonly ministryId: MinistryId
+      readonly concernId: ConcernId
+      /** The Admin's account, as the session named it. */
+      readonly viewedBy: string
+    }
+  /**
+   * An Admin resolving a Concern, which is the only thing that closes one. No
+   * answered check-in clears it and it never clears itself -- that is the whole
+   * difference between a Concern and the Stalled state beside it.
+   */
+  | {
+      readonly type: 'concern.resolve'
+      readonly ministryId: MinistryId
+      readonly concernId: ConcernId
+      /** The Admin's account, as the session named it. */
+      readonly resolvedBy: string
+      /**
+       * Clearing the Leader's words is what resolving does unless somebody says
+       * otherwise. Optional here and defaulted at the boundary, so a caller that
+       * forgets it clears rather than keeps.
+       */
+      readonly keepDetail?: boolean
     }
   /**
    * A Leader agreeing to lead. The token is the credential -- possession of the

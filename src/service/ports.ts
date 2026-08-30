@@ -6,6 +6,7 @@ import type {
   UnacceptedRelationship,
 } from '~/domain/boundary'
 import type { CheckInSnapshot } from '~/domain/check-in'
+import type { ConcernResolution, ConcernViewing, NewConcern } from '~/domain/concerns'
 import type {
   CheckInAnswer,
   CheckInClarification,
@@ -28,6 +29,7 @@ import type { InvitationToken, NewInvitation } from '~/domain/invitations'
 import type { HistoryEvent, NewHistoryEvent } from '~/domain/history'
 import type { DiscipleshipGoalId } from '~/domain/intake'
 import type {
+  ConcernId,
   FollowUpItemId,
   MinistryId,
   OutboundMessageId,
@@ -36,6 +38,11 @@ import type {
 } from '~/domain/ids'
 import type { ParticipationStatus } from '~/domain/participation'
 import type { NewRelationship } from '~/domain/relationships'
+import type {
+  CareReason,
+  RelationshipState,
+  RelationshipWeek,
+} from '~/domain/relationship-state'
 import type { InvitationState } from '~/domain/invitations'
 import type { MemberRole } from '~/domain/relationships'
 import type { NewPerson, PhoneNumber, RosterKey } from '~/domain/roster'
@@ -194,6 +201,27 @@ export interface UnitOfWork {
 
   /** The carrier opt-out, at the level the carrier applies it: the Person. */
   optPersonOut(optOut: PersonOptOut): Promise<void>
+
+  raiseConcern(concern: NewConcern): Promise<void>
+  /** One Admin opening one Concern's text, recorded before the text is handed over. */
+  recordConcernViewing(viewing: ConcernViewing): Promise<void>
+  /**
+   * Refuses with a `ConcernRefused` when the Concern is gone or somebody else has
+   * already closed it -- the second Admin's click must not overwrite the first
+   * Admin's name with their own.
+   */
+  resolveConcern(resolution: ConcernResolution): Promise<void>
+  /**
+   * The Leader's words, or null when the Concern is gone or has been resolved and
+   * cleared.
+   *
+   * Read through the command connection and nowhere else. The authenticated role
+   * holds no grant on that column at all, so this read is only reachable from
+   * inside a transaction that has just recorded who did it -- which is what makes
+   * reading a Concern without leaving a trace unrepresentable rather than merely
+   * discouraged.
+   */
+  concernDetailFor(id: ConcernId): Promise<string | null>
 }
 
 /**

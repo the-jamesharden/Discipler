@@ -5,6 +5,7 @@ import type {
   UnacceptedRelationship,
 } from '~/domain/boundary'
 import type { CheckInSnapshot } from '~/domain/check-in'
+import type { ConcernResolution, ConcernViewing, NewConcern } from '~/domain/concerns'
 import type {
   CheckInAnswer,
   CheckInClarification,
@@ -49,6 +50,9 @@ export interface InMemoryStore extends EffectStore {
   readonly reminders: readonly CheckInReminder[]
   readonly closures: readonly CheckInSequenceClosure[]
   readonly optOuts: readonly PersonOptOut[]
+  readonly concerns: readonly NewConcern[]
+  readonly concernViewings: readonly ConcernViewing[]
+  readonly concernResolutions: readonly ConcernResolution[]
   /** What a check-in command finds about the Person it names, or null for nobody. */
   checkIn?: CheckInSnapshot
   /** Names and numbers this store will answer `contactsFor` with. */
@@ -96,6 +100,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
   const optOuts: PersonOptOut[] = []
   const resolutions: FollowUpResolution[] = []
   const cancellations: RelationshipCancellation[] = []
+  const concerns: NewConcern[] = []
+  const viewings: ConcernViewing[] = []
+  const concernResolutions: ConcernResolution[] = []
   let counter = 0
 
   const store: InMemoryStore = {
@@ -150,6 +157,15 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
     get optOuts() {
       return [...optOuts]
     },
+    get concerns() {
+      return [...concerns]
+    },
+    get concernViewings() {
+      return [...viewings]
+    },
+    get concernResolutions() {
+      return [...concernResolutions]
+    },
     unaccepted: [],
     checkInsDue: [],
     contacts: new Map<PersonId, PersonContact>(),
@@ -172,6 +188,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       const stagedReminders: CheckInReminder[] = []
       const stagedClosures: CheckInSequenceClosure[] = []
       const stagedOptOuts: PersonOptOut[] = []
+      const stagedConcerns: NewConcern[] = []
+      const stagedViewings: ConcernViewing[] = []
+      const stagedConcernResolutions: ConcernResolution[] = []
 
       const unit: UnitOfWork = {
         async checkInFor() {
@@ -220,6 +239,21 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         },
         async resolveFollowUp(resolution) {
           stagedResolutions.push(resolution)
+        },
+        async raiseConcern(concern) {
+          stagedConcerns.push(concern)
+        },
+        async recordConcernViewing(viewing) {
+          stagedViewings.push(viewing)
+        },
+        async resolveConcern(resolution) {
+          stagedConcernResolutions.push(resolution)
+        },
+        async concernDetailFor(id) {
+          return (
+            [...concerns, ...stagedConcerns].find((concern) => concern.id === id)?.detail ??
+            null
+          )
         },
         async unacceptedRelationships() {
           return store.unaccepted
@@ -296,6 +330,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       acceptances.push(...stagedAcceptances)
       followUps.push(...stagedFollowUps)
       resolutions.push(...stagedResolutions)
+      concerns.push(...stagedConcerns)
+      viewings.push(...stagedViewings)
+      concernResolutions.push(...stagedConcernResolutions)
       cancellations.push(...stagedCancellations)
       sequences.push(...stagedSequences)
       prompts.push(...stagedPrompts)
