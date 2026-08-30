@@ -52,9 +52,9 @@ a plain select, and both the command connection and the Care Needed view use it.
 message, so the same two bodies are composed once in `starterMessages` and used by
 both callers. The Leader's reads well on a resume — *you're now meeting with
 Emily; we'll check in each week*. The Participant's opens *good news, you've been
-matched*, which reads oddly a fortnight later. **Worth a product decision:** either
-that is fine, or a resume wants its own sentence. No copy was invented here
-because inventing it would be a product decision made in an implementation ticket.
+matched*, which reads oddly a fortnight later. No copy was invented here, because
+inventing it would be a product decision made in an implementation ticket: it is
+parked in `docs/open-questions.md` instead.
 
 A resume reuses the live Invitation Link a Participant already holds rather than
 minting one, because a Person holds at most one live link per relationship and
@@ -72,16 +72,23 @@ is true again and the next tick raises it again. That is exactly what the
 acceptance escalation does, and the dedupe index makes it one item however many
 times it is raised while the history accumulates.
 
-**One gap surfaced rather than resolved.** An Admin pausing a relationship whose
-check-in question is currently open does not withdraw that question. The spec
-states the withdrawal rule only in the Keyword Exchange section — *a keyword
-resolving to the relationship whose check-in question is currently open withdraws
-that pending question, so a pause never accrues silence against itself* — and the
-ticket that builds it is 17. So an Admin pause taken mid-conversation lets that
-one in-flight week age into an unanswered one, which is invisible while the
-relationship is masked as `Paused` and shows up on resume as one week closer to
-`Stalled`. Whether the principle is general or belongs to the keyword route is a
-product question; implementing it here would have been inferring the answer.
+**One gap surfaced rather than resolved, and parked.** An Admin pausing a
+relationship whose check-in question is currently open does not withdraw that
+question. The spec states the withdrawal rule only in the Keyword Exchange section
+— *a keyword resolving to the relationship whose check-in question is currently
+open withdraws that pending question, so a pause never accrues silence against
+itself* — and the ticket that builds it is 17. So an Admin pause taken
+mid-conversation still draws that question's next-day reminder, and lets the week
+age into an unanswered one: invisible while the relationship is masked as
+`Paused`, and one week closer to `Stalled` when it resumes. Whether the principle
+is general or belongs to the keyword route is in `docs/open-questions.md`;
+implementing it here would have been inferring the answer.
+
+**One checkbox is ticked on partial evidence, deliberately.** *Stays visible and
+marked `Paused` to both its Leader and the Admin* is proven on the Admin side —
+Care Needed drops it, and the derivation reports `paused` — and on the membership
+that keeps it on the Leader's list at all. There is no Leader Dashboard to read it
+from yet; that is ticket 15, and it renders from the same derivation.
 
 **Not built, because nothing asks for it yet.** There is no screen. Pause, resume
 and the expiry item are reachable through `CommandService.execute` and the Care
@@ -89,3 +96,42 @@ Needed reader, which is where tickets 07, 10 and 11 also stop — the six-tab Ad
 dashboard is a follow-up spec.
 
 `npm test`: 771 passing, 63 files. `tsc --noEmit` clean.
+
+### Review pass
+
+Two axes, `7802866...HEAD`. Four findings acted on.
+
+**One bad row had two answers.** `care-needed-reader.pausesOf` dropped a pause
+whose period had drifted out of the five — silently un-masking the relationship
+back into the care queue — while `effect-store.pausedRelationships` threw and took
+the whole Ministry's tick with it. Both now go through one `readStandingPause` in
+`src/domain/pause.ts`, which throws and names the row. Dropping it is the wrong
+answer given confidently on the surface that exists to prevent exactly that, and
+the row cannot be written through the command boundary at all, so reaching it
+means somebody wrote SQL.
+
+**`pause.ts` claimed a check constraint it does not have.** The constraint is on
+the `pause_expired` *item* payload; nothing constrains the `ministry_event` a Pause
+is. The comment now says which is which, and points at the read-side check.
+
+**The expiry-item test proved less than its name.** *"Only by an Admin resolving
+it"* asserted an empty queue immediately after resolving and never ran another
+tick. It now runs two, and a second test covers the case the ticket comments
+claimed but had not proven: an Admin who resolves *without* resuming has closed a
+record rather than restarted anybody's check-ins, so the next tick raises it again
+and the history accumulates while the list still shows one thing to act on.
+
+**Two non-null assertions, the only ones in `src/`.** Both were map lookups over a
+list the same expression had just built. `starterMessages` now takes each
+Participant already carrying their decline link, which is the only thing its two
+callers differ on, and both assertions are gone.
+
+A pre-existing flake surfaced while re-running the suite and is fixed alongside:
+`the-check-in-conversation` read one conversation's prompts back `order by
+c.position, c.asked_at`, and the three questions about one relationship are asked
+by one command against one injected clock — so they share an instant to the
+millisecond and Postgres was free to return them in any order. It now orders by
+`step`, the identity column the conversation is already read back by everywhere
+else. Not caused by this ticket, and it reproduces at `7802866`.
+
+`npm test`: 774 passing, 63 files. `tsc --noEmit` clean.

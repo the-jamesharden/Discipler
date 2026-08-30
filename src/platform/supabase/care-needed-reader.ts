@@ -13,7 +13,7 @@ import {
   type MinistryId,
   type PersonId,
 } from '~/domain/ids'
-import { isPausePeriod, type StandingPause } from '~/domain/pause'
+import { readStandingPause, type StandingPause } from '~/domain/pause'
 import { phoneNumber } from '~/domain/roster'
 import {
   deriveRelationshipState,
@@ -340,6 +340,14 @@ const weeksOf = async (
  * the derivation reads the weeks *before* the pause and reports a relationship
  * that was Stalled when it was paused as Stalled today -- which is the whole
  * condition the ticket exists to mask.
+ *
+ * Which is also why a drifted period is not quietly dropped here. `readStandingPause`
+ * throws, exactly as it does on the command connection the tick runs on, so the two
+ * cannot answer one bad row differently -- and the answer dropping it would give,
+ * *this relationship is not paused*, is the wrong one shown confidently on the
+ * surface that exists to stop exactly that. Compare the Follow-Up payload above,
+ * which *is* dropped: an unrenderable item is one row, not a rule that has stopped
+ * being true.
  */
 const pausesOf = async (
   supabase: SupabaseClient,
@@ -355,13 +363,12 @@ const pausesOf = async (
   for (const row of rows(data)) {
     const relationship = text(row.relationship_id)
     const pausedAt = instant(row.paused_at)
-    // A period that has drifted out of the five is dropped rather than guessed
-    // at. The relationship reads as whatever its history says, which is the
-    // conservative failure: an Admin sees a care item they may not need, rather
-    // than a masked one they will never be shown.
-    if (!relationship || !pausedAt || !isPausePeriod(row.period_weeks)) continue
+    if (!relationship || !pausedAt) continue
 
-    byRelationship.set(relationship, { pausedAt, periodWeeks: row.period_weeks })
+    byRelationship.set(
+      relationship,
+      readStandingPause({ relationshipId: relationship, pausedAt, periodWeeks: row.period_weeks }),
+    )
   }
 
   return byRelationship

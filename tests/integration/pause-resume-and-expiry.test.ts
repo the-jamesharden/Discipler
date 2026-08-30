@@ -360,23 +360,33 @@ describe('pausing, resuming, and a period running out', () => {
       expect(events[0]?.count).toBe('1')
     })
 
-    it('is not cleared by resuming, only by an Admin resolving it', async () => {
+    /** The one open item this Ministry has, or a loud failure rather than a guess. */
+    const theItem = async (church: Awaited<ReturnType<typeof aMinistry>>, now: Date) => {
+      const items = (await church.careAt(now)).filter((each) => each.source === 'follow_up')
+      const [item] = items
+      if (items.length !== 1 || item?.source !== 'follow_up') {
+        throw new Error(`Expected exactly one open item, found ${items.length}`)
+      }
+      return item
+    }
+
+    const openItems = async (church: Awaited<ReturnType<typeof aMinistry>>, now: Date) =>
+      (await church.careAt(now)).filter((each) => each.source === 'follow_up')
+
+    it('is not cleared by resuming, and stays closed once resolved', async () => {
       const church = await aMinistry('Deciding Chapel')
       const { relationship } = await church.aRelationship('Deciding', 'Their Participant')
 
       await church.pauseAt(at(0), relationship, 1)
       await church.tickAt(at(2))
 
-      const [item] = await church.careAt(at(2))
-      if (item?.source !== 'follow_up') throw new Error('nothing was raised')
+      const item = await theItem(church, at(2))
 
       // Resuming decides what happens to the relationship. Closing the record is
       // a second act, exactly as it is when an Admin cancels a relationship the
       // acceptance escalation raised.
       await church.resumeAt(at(2), relationship)
-      expect(
-        (await church.careAt(at(2))).filter((each) => each.source === 'follow_up'),
-      ).toHaveLength(1)
+      expect(await openItems(church, at(2))).toHaveLength(1)
 
       await church.serviceAt(at(2)).execute({
         type: 'follow_up.resolve',
@@ -385,9 +395,47 @@ describe('pausing, resuming, and a period running out', () => {
         resolvedBy: church.ministry.adminUserId,
       })
 
-      expect(
-        (await church.careAt(at(2))).filter((each) => each.source === 'follow_up'),
-      ).toEqual([])
+      expect(await openItems(church, at(2))).toEqual([])
+
+      // And it stays closed. The pause is over, so no later run has a condition to
+      // raise -- which is what makes resolving-after-resuming terminal.
+      await church.tickAt(at(3))
+      await church.tickAt(at(6))
+      expect(await openItems(church, at(6))).toEqual([])
+    })
+
+    it('comes back when an Admin resolves it without deciding anything', async () => {
+      const church = await aMinistry('Undecided Chapel')
+      const { relationship } = await church.aRelationship('Undecided', 'Their Participant')
+
+      await church.pauseAt(at(0), relationship, 1)
+      await church.tickAt(at(2))
+
+      await church.serviceAt(at(2)).execute({
+        type: 'follow_up.resolve',
+        ministryId: church.ministry.id,
+        itemId: (await theItem(church, at(2))).id,
+        resolvedBy: church.ministry.adminUserId,
+      })
+      expect(await openItems(church, at(2))).toEqual([])
+
+      // Resolving records that an Admin acted; it does not resume anybody's
+      // check-ins. The relationship is still paused and the period is still spent,
+      // so the condition is true again and is raised again -- the same reading the
+      // acceptance escalation takes, and the reason a relationship nobody has
+      // decided about cannot become permanently invisible.
+      await church.tickAt(at(3))
+      expect(await openItems(church, at(3))).toMatchObject([
+        { relationshipId: relationship, payload: { kind: 'pause_expired', periodWeeks: 1 } },
+      ])
+
+      // Still one thing to act on, however many times it was raised.
+      const { rows } = await pool.query<{ count: string }>(
+        `select count(*) from ministry_event
+          where subject_id = $1 and type = 'follow_up.pause_expired'`,
+        [relationship],
+      )
+      expect(rows[0]?.count).toBe('2')
     })
 
     it('never raises one for a pause an Admin lifted in time', async () => {

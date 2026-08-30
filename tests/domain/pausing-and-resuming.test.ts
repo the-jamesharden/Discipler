@@ -14,6 +14,7 @@ import {
   DEFAULT_PAUSE_PERIOD_WEEKS,
   PAUSE_PERIODS,
   pauseExpiresAt,
+  readStandingPause,
   type PausePeriodWeeks,
 } from '~/domain/pause'
 
@@ -172,6 +173,29 @@ describe('an Admin pausing a relationship', () => {
     expect(() => pause({ pause: { pausedAt: createdAt, periodWeeks: 2 } })).toThrow(
       new PauseRefused('pause.already_paused'),
     )
+  })
+})
+
+describe('reading a stored pause back', () => {
+  it('accepts each of the five periods', () => {
+    for (const periodWeeks of PAUSE_PERIODS) {
+      expect(
+        readStandingPause({ relationshipId: relationship, pausedAt: now, periodWeeks }),
+      ).toEqual({ pausedAt: now, periodWeeks })
+    }
+  })
+
+  it('refuses a period nobody could have selected, naming the row', () => {
+    // Nothing constrains a history event's payload -- `ministry_event` takes any
+    // `jsonb` because it holds facts of every shape -- so a hand-written row can
+    // carry three weeks. Reading it as *not paused* would put a Leader on holiday
+    // back in the care queue and defaulting it to two would restart somebody's
+    // review on a date nobody chose, so it says which row instead.
+    for (const periodWeeks of [3, 0, 1.5, null, '2', undefined]) {
+      expect(() =>
+        readStandingPause({ relationshipId: relationship, pausedAt: now, periodWeeks }),
+      ).toThrow(relationship)
+    }
   })
 })
 

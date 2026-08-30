@@ -20,7 +20,7 @@ import {
   type NewFollowUpItem,
 } from '~/domain/follow-up'
 import { invitationToken, type InvitationToken, type NewInvitation } from '~/domain/invitations'
-import { isPausePeriod, type StandingPause } from '~/domain/pause'
+import { readStandingPause, type StandingPause } from '~/domain/pause'
 import type { MemberRole } from '~/domain/relationships'
 import type { ConcernResolution, ConcernViewing, NewConcern } from '~/domain/concerns'
 import {
@@ -136,18 +136,14 @@ interface PauseRow {
   period_weeks: number
 }
 
-/**
- * The pause a row describes, or null where there is no row or its period is not
- * one of the five.
- *
- * Checked rather than cast. Nothing constrains the payload of a history event --
- * `ministry_event` takes any `jsonb` by design, because it holds facts of every
- * shape -- so a period that has drifted must not be handed to the expiry
- * arithmetic as a number it will happily multiply.
- */
+/** The pause a row describes, or null where there is no row. */
 const standingPause = (row: PauseRow | undefined): StandingPause | null =>
-  row && isPausePeriod(row.period_weeks)
-    ? { pausedAt: row.paused_at, periodWeeks: row.period_weeks }
+  row
+    ? readStandingPause({
+        relationshipId: row.relationship_id,
+        pausedAt: row.paused_at,
+        periodWeeks: row.period_weeks,
+      })
     : null
 
 interface CheckInRelationshipRow {
@@ -825,25 +821,15 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
         order by p.paused_at`,
     )
 
-    return rows.map((row) => {
-      const pause = standingPause(row)
-      if (!pause) {
-        // The check constraint refuses a `pause_expired` payload with no period,
-        // but nothing constrains the history event this reads. A pause whose
-        // period cannot be read is one the tick has no way to expire, and
-        // guessing two weeks would restart somebody's review on a date nobody
-        // chose.
-        throw new Error(
-          `The pause on relationship ${row.relationship_id} carries no readable period`,
-        )
-      }
-
-      return {
-        relationshipId: relationshipId(row.relationship_id),
-        ...pause,
-        itemStandsOpen: row.item_stands_open,
-      }
-    })
+    return rows.map((row) => ({
+      relationshipId: relationshipId(row.relationship_id),
+      ...readStandingPause({
+        relationshipId: row.relationship_id,
+        pausedAt: row.paused_at,
+        periodWeeks: row.period_weeks,
+      }),
+      itemStandsOpen: row.item_stands_open,
+    }))
   },
 
   async cancelRelationship(cancellation: RelationshipCancellation) {

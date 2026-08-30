@@ -199,6 +199,22 @@ Settled 2026-08-27.
 - **A2P compliance requirements have not been checked against a live campaign registration.** The `Discipler:` identification prefix and its trigger points are a product decision made on an understanding of carrier requirements, not a verified one. Review alongside the consent wording.
 - **`docs/consent-language.md` has not had legal review**, including the `HELP` response content.
 - **What a group check-in calls the group.** `docs/product-flow.md` and the check-in rhythm both say the question names the relationship when it has several Participants — *"Did you meet with Tuesday Men's Group this week?"* — but a relationship has never had a name, and nothing in the product creates one. Ticket 08a ships the question listing the Participants instead, which reads correctly for a group of two or three and poorly for a group of eight. Deciding it means deciding who names a group and when: a column filled at pairing, or a label an Admin sets afterwards.
+- **What the Starter Message says when an Admin resumes a paused relationship.** The
+  spec says a resume *releases the Starter Message* and never describes a second
+  message, so ticket 12 releases the same one activation sends. The Leader's copy
+  reads correctly either way — *you're now meeting with Emily; we'll check in each
+  week*. The Participant's opens *Good news, Emily — you've been matched*, which is
+  true on the day the match is made and reads oddly a fortnight after a holiday.
+  Deciding it means deciding whether a resume is the same announcement or its own.
+- **Whether pausing withdraws a check-in question that is already open.** The spec
+  states the rule only for the Keyword Exchange — *a keyword resolving to the
+  relationship whose check-in question is currently open withdraws that pending
+  question, so a pause never accrues silence against itself* — and ticket 17 builds
+  it. Ticket 12's Admin pause does not, so a pause taken mid-conversation lets that
+  one in-flight week age into an unanswered one: invisible while the relationship
+  is masked as `Paused`, and one week closer to `Stalled` when it resumes. Deciding
+  it means deciding whether *a pause never accrues silence against itself* is a
+  property of the Pause or of the keyword that asked for one.
 
 ## Deferred with the quarterly report
 

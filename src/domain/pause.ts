@@ -20,9 +20,11 @@ import { weeks } from './clock'
  * Admin has to compute in their head from a screen that already knows it.
  *
  * A union rather than a number, so a three-week pause is not a value TypeScript
- * will construct. The database repeats the rule as a check constraint on the
- * `pause_expired` payload, because a future writer that bypasses this boundary
- * must still be refused.
+ * will construct. That is the whole of the guard on the way in -- a Pause is a
+ * `ministry_event`, and that table takes any `jsonb` by design because it holds
+ * facts of every shape. The `pause_expired` *item* carries a check constraint
+ * repeating the rule, but no constraint stands over the event itself, so the way
+ * back is `readStandingPause` below, which checks rather than casts.
  */
 export type PausePeriodWeeks = 1 | 2 | 4 | 8 | 12
 
@@ -69,3 +71,35 @@ export const pauseExpiresAt = (pause: StandingPause): Date =>
  */
 export const pauseHasExpired = (pause: StandingPause, now: Date): boolean =>
   now.getTime() >= pauseExpiresAt(pause).getTime()
+
+/**
+ * One stored pause, read back and checked rather than cast.
+ *
+ * Both readers go through here -- the command connection the tick expires pauses
+ * on, and the signed-in session Care Needed is drawn from -- so the two cannot
+ * answer a drifted row differently. They did, briefly, and the pair of answers was
+ * the worst of both: one path masked the relationship and the other refused to
+ * run.
+ *
+ * It **throws**, and the alternative was considered and rejected. A period that is
+ * not one of the five leaves nothing to guess at: reading it as no pause at all
+ * puts a Leader who is on holiday back in the care queue, and defaulting it to two
+ * weeks restarts somebody's review on a date nobody chose. Both are wrong answers
+ * given confidently, which is the one failure this codebase spends everywhere to
+ * avoid -- and the row cannot be written through the command boundary at all, so
+ * reaching here means somebody wrote SQL and the message says which row.
+ */
+export const readStandingPause = (pause: {
+  readonly relationshipId: string
+  readonly pausedAt: Date
+  readonly periodWeeks: unknown
+}): StandingPause => {
+  if (!isPausePeriod(pause.periodWeeks)) {
+    throw new Error(
+      `The pause on relationship ${pause.relationshipId} carries no period anybody ` +
+        `could have selected: ${String(pause.periodWeeks)}`,
+    )
+  }
+
+  return { pausedAt: pause.pausedAt, periodWeeks: pause.periodWeeks }
+}

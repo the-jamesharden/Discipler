@@ -445,8 +445,13 @@ const starterMessages = (release: {
   readonly ministryId: MinistryId
   readonly ministryName: string
   readonly leaders: readonly InRelationship[]
-  readonly participants: readonly InRelationship[]
-  readonly declineLinkFor: (participant: InRelationship) => string
+  /**
+   * Each Participant already carrying the link their message needs. Paired by the
+   * caller rather than looked up here, because where the link comes from is the
+   * only thing the two callers differ on -- and a lookup would be a map read this
+   * side could not prove was there.
+   */
+  readonly participants: readonly (InRelationship & { readonly declineLink: string })[]
   readonly at: Date
 }): readonly Effect[] => {
   const participantNames = release.participants.map((participant) => participant.fullName)
@@ -474,7 +479,7 @@ const starterMessages = (release: {
           body: starterMessageToParticipant({
             ministryName: release.ministryName,
             fullName: participant.fullName,
-            declineLink: release.declineLinkFor(participant),
+            declineLink: participant.declineLink,
           }),
           enqueuedAt: release.at,
           // Resolved at send time against contact-sharing consent as it stands
@@ -1464,23 +1469,24 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       // minting a second on every resume would be refused by the index that says
       // so.
       const issued: NewInvitation[] = []
-      const declineLinks = new Map<PersonId, string>(
-        participants.map((participant) => {
-          if (participant.liveToken) {
-            return [participant.personId, invitationLink(appBaseUrl, participant.liveToken)]
+      const declining = participants.map((participant) => {
+        if (participant.liveToken) {
+          return {
+            ...participant,
+            declineLink: invitationLink(appBaseUrl, participant.liveToken),
           }
+        }
 
-          const minted = issueInvitation({
-            ministryId: command.ministryId,
-            relationshipId: relationship.relationshipId,
-            personId: participant.personId,
-            token: invitationToken(context.ids.next()),
-            at: now,
-          })
-          issued.push(minted)
-          return [participant.personId, invitationLink(appBaseUrl, minted.token)]
-        }),
-      )
+        const minted = issueInvitation({
+          ministryId: command.ministryId,
+          relationshipId: relationship.relationshipId,
+          personId: participant.personId,
+          token: invitationToken(context.ids.next()),
+          at: now,
+        })
+        issued.push(minted)
+        return { ...participant, declineLink: invitationLink(appBaseUrl, minted.token) }
+      })
 
       // Resuming restores nothing by itself: it removes the mask, and the state
       // underneath is whatever the history yields. **It never sets `Healthy`** --
@@ -1518,8 +1524,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             ministryId: command.ministryId,
             ministryName,
             leaders,
-            participants,
-            declineLinkFor: (participant) => declineLinks.get(participant.personId)!,
+            participants: declining,
             at: now,
           }),
         ],
@@ -1933,20 +1938,18 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       // A Participant gets a link of their own -- the same mechanism as the
       // Leader's, leading to declining rather than accepting -- minted here
       // because activation is the first moment there is one to mint.
-      const declining = new Map<PersonId, NewInvitation>(
-        participants.map((participant) => [
-          participant.personId,
-          issueInvitation({
-            ministryId: command.ministryId,
-            relationshipId: invitation.relationshipId,
-            personId: participant.personId,
-            token: invitationToken(context.ids.next()),
-            at: now,
-          }),
-        ]),
-      )
+      const declining = participants.map((participant) => ({
+        ...participant,
+        invitation: issueInvitation({
+          ministryId: command.ministryId,
+          relationshipId: invitation.relationshipId,
+          personId: participant.personId,
+          token: invitationToken(context.ids.next()),
+          at: now,
+        }),
+      }))
 
-      effects.push(...[...declining.values()].map(issueInvitationLink))
+      effects.push(...declining.map((each) => issueInvitationLink(each.invitation)))
 
       // The Leader who just accepted typed a name, not a number: the number was
       // displayed and refused as input, so `phone` is still the one on file.
@@ -1955,9 +1958,10 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           ministryId: command.ministryId,
           ministryName,
           leaders,
-          participants,
-          declineLinkFor: (participant) =>
-            invitationLink(baseUrl, declining.get(participant.personId)!.token),
+          participants: declining.map((each) => ({
+            ...each,
+            declineLink: invitationLink(baseUrl, each.invitation.token),
+          })),
           at: now,
         }),
       )

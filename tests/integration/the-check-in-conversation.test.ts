@@ -128,7 +128,12 @@ describe('the check-in conversation', () => {
            on m.relationship_id = c.relationship_id and m.role = 'participant'
          join person p on p.id = m.person_id
         where s.person_id = $1
-        order by c.position, c.asked_at`,
+        -- step, and not asked_at. The three questions about one relationship are
+        -- asked by one command against one injected clock, so they share an
+        -- instant to the millisecond, and ordering by it leaves Postgres free to
+        -- return them in any order at all -- which it does, intermittently. step
+        -- is the identity column the conversation is already read back by.
+        order by c.position, c.step`,
       [james],
     )
 
