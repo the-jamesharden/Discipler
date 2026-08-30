@@ -512,5 +512,5 @@ export interface CareNeededReader {
    * because how fast a Ministry closes its care items is a question it should be
    * able to ask later.
    */
-  listOpenItems(ministryId: MinistryId): Promise<readonly CareNeededItem[]>
+  listCareNeeded(ministryId: MinistryId): Promise<readonly CareNeededItem[]>
 }

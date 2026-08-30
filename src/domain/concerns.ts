@@ -1,3 +1,4 @@
+import type { CheckInPromptId } from './check-in'
 import type { ConcernId, MinistryId, PersonId, RelationshipId } from './ids'
 
 /**
@@ -7,8 +8,8 @@ import type { ConcernId, MinistryId, PersonId, RelationshipId } from './ids'
  *
  * Four properties, and no other record in Discipler has them: the text is reached
  * one Person at a time rather than in a list, so reading it takes deliberate
- * effort; it is cleared by default when resolved, so a Ministry does not
- * accumulate a permanent file of people's hardest weeks; *viewing* is audited as
+ * effort; it is cleared when resolved, with no way to keep it, so a Ministry
+ * does not accumulate a permanent file of people's hardest weeks; *viewing* is audited as
  * well as resolving; and several outstanding on one relationship show as a count.
  *
  * Which is why this is not a `follow_up_item`. Nothing in that table shares any of
@@ -30,6 +31,13 @@ export interface NewConcern {
    */
   readonly raisedBy: PersonId
   readonly raisedAt: Date
+  /**
+   * The reply that carried the words. Recorded because the prompt row keeps the
+   * raw reply as it arrived, so it holds a second copy of the same prose -- and
+   * clearing one while the other stands is a gesture rather than a rule. This is
+   * how the resolution finds it.
+   */
+  readonly promptId: CheckInPromptId
   /** The Leader's own words, unparsed. Never in a history payload. */
   readonly detail: string
 }
@@ -55,6 +63,12 @@ export interface ConcernViewing {
  * An Admin closing one, which is the only thing that closes one. A Concern never
  * clears itself and no answered check-in clears it -- that is the whole difference
  * between a badge and the derived Stalled state beside it.
+ *
+ * Resolving clears the Leader's words. There is no field for keeping them and no
+ * caller that may ask: a Ministry does not accumulate a permanent file of people's
+ * hardest weeks, and an exception nobody can take is the only kind that cannot be
+ * taken by habit. The Concern itself is never deleted -- how many were raised and
+ * how fast they closed stay answerable. What goes is the prose, and nothing else.
  */
 export interface ConcernResolution {
   readonly ministryId: MinistryId
@@ -62,15 +76,4 @@ export interface ConcernResolution {
   /** The Admin's account, as the session named it. */
   readonly resolvedBy: string
   readonly resolvedAt: Date
-  /**
-   * Whether the text survives being resolved. Clearing is the default and keeping
-   * it is the deliberate exception, which is why this is `keepDetail` and not
-   * `clearDetail`: the field that has to be set to do the retaining is the one
-   * somebody has to mean.
-   *
-   * The Concern itself is never deleted. How many a Ministry raised and how fast
-   * it closed them is a question it should be able to ask later; what is cleared
-   * is the prose, and nothing else.
-   */
-  readonly keepDetail: boolean
 }

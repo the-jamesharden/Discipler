@@ -226,7 +226,7 @@ Ending a relationship preserves its history untouched. Its participants return t
 
 Raw concern text is never presented as a browsable list, never exported, and never quoted in a report. Reports count concerns; they do not reproduce them.
 
-An admin reaches concern text one person at a time, from the Follow-Up tab or that relationship's own history. Resolving a concern clears its text by default, so a ministry does not accumulate a permanent file of people's most difficult weeks through inaction alone.
+An admin reaches concern text one person at a time, from the Follow-Up tab or that relationship's own history. Resolving a concern clears its text. There is no option to keep it, so a ministry does not accumulate a permanent file of people's most difficult weeks — not through inaction, and not by decision either.
 
 ## Settled: No Launch Modes, No Kickoff in the Product
 

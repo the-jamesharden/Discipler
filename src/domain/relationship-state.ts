@@ -40,7 +40,8 @@ export const NOT_MEETING_WEEKS_BEFORE_STALLED = 3
  * be asked, never accrue a counter, and stay Healthy forever.
  *
  * Weeks that are genuinely absent -- Paused, and Awaiting Leader Acceptance --
- * produce no entry at all, because no sequence covers them.
+ * produce no entry at all, because no sequence covers them. A week whose sequence
+ * is still running produces one, but not a countable one: see `isDetermined`.
  */
 export type RelationshipWeekOutcome = 'met' | 'did_not_meet' | 'unanswered'
 
@@ -52,6 +53,11 @@ export interface RelationshipWeek {
    */
   readonly openedAt: Date
   readonly outcome: RelationshipWeekOutcome
+  /**
+   * When that conversation ended, and null while it is still running. A week is
+   * only countable once this is set, which is what `isDetermined` is for.
+   */
+  readonly closedAt: Date | null
   /**
    * When the Leader answered about this relationship, on a week they did, and null
    * on one they did not. The silence duration is measured from the latest of
@@ -113,6 +119,22 @@ export interface DerivedRelationshipState {
   /** Outstanding Concerns, which is what the badge shows a count of. */
   readonly openConcerns: number
 }
+
+/**
+ * Whether this week has an answer yet, one way or the other.
+ *
+ * *No reply arrived* is a fact about a finished conversation. While the sequence
+ * covering a week is still open the Leader has not gone silent for it -- they have
+ * not answered *yet*, which is a different thing, and reading the two as one
+ * counts a week the moment it opens. That is how two weeks of silence arrived
+ * after seven days: the week just opened and the week before it made two, and the
+ * ticket is explicit that these thresholds are not to be tightened.
+ *
+ * An answer already given counts whether or not the sequence has closed. The
+ * Leader has spoken, and nothing later in that week unsays it.
+ */
+const isDetermined = (week: RelationshipWeek): boolean =>
+  week.closedAt !== null || week.answeredAt !== null
 
 /**
  * How many *consecutive* weeks the most recent run of one outcome goes back.
@@ -202,7 +224,7 @@ export const deriveRelationshipState = (
   if (history.acceptedAt === null) return settled('awaiting_leader_acceptance')
   if (history.pausedAt !== null) return settled('paused')
 
-  const weeks = oneEntryPerWeek(history.weeks, history.timeZone)
+  const weeks = oneEntryPerWeek(history.weeks.filter(isDetermined), history.timeZone)
 
   const silentWeeks = trailingRunOf('unanswered', weeks)
   const notMeetingWeeks = trailingRunOf('did_not_meet', weeks)

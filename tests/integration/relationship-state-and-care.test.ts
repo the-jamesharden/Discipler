@@ -130,14 +130,21 @@ describe('Relationship State and the Care Needed view', () => {
     await church.tickAt(at(0))
     await church.tickAt(at(1))
 
-    expect(about(await church.careAt(at(1)), relationships[0]!)).toMatchObject([
+    // Not yet. Two weeks have been *covered*, but the second one's conversation
+    // has only just opened and the Leader still has it in front of them. Reading
+    // this as two weeks of silence would stall them seven days in.
+    expect(about(await church.careAt(at(1)), relationships[0]!)).toEqual([])
+
+    await church.tickAt(at(2))
+
+    expect(about(await church.careAt(at(2)), relationships[0]!)).toMatchObject([
       {
         source: 'relationship',
         state: 'stalled',
-        // Seven days: the Leader has never answered anything, so the silence is
-        // measured from the first week Discipler asked -- not from the acceptance a
-        // week earlier, which Discipler was not yet asking about.
-        reasons: [{ kind: 'gone_silent', days: 7 }],
+        // Fourteen days: two whole weeks ended with nothing said. Measured from
+        // the first week Discipler asked -- not from the acceptance a week
+        // earlier, which Discipler was not yet asking about.
+        reasons: [{ kind: 'gone_silent', days: 14 }],
         leaderNames: ['Quiet Leader'],
         participantNames: ['Quiet Leader Participant 1'],
       },
@@ -251,9 +258,9 @@ describe('Relationship State and the Care Needed view', () => {
 
     await church.tickAt(at(0))
     await church.tickAt(at(1))
-    expect(about(await church.careAt(at(1)), relationships[0]!)).toHaveLength(1)
-
     await church.tickAt(at(2))
+    expect(about(await church.careAt(at(2)), relationships[0]!)).toHaveLength(1)
+
     const answering = new Date(at(2).getTime() + 60_000)
     await church.replyAt(answering, leader, '1')
     await church.replyAt(new Date(answering.getTime() + 60_000), leader, 'A')
@@ -421,14 +428,27 @@ describe('Relationship State and the Care Needed view', () => {
         resolvedBy: church.ministry.adminUserId,
       })
 
+      // Both copies. The prompt row holds the raw reply the words arrived in, and
+      // a sentence still sitting there would make clearing the Concern a gesture
+      // -- that table is granted to every Admin, with no viewing audit on it.
       const { rows: after } = await pool.query<{
-        detail: string | null
-        detail_kept: boolean
+        concern_detail: string | null
+        prompt_detail: string | null
         resolved_by: string
-      }>(`select detail, detail_kept, resolved_by from concern where id = $1`, [concern])
+      }>(
+        `select c.detail as concern_detail, p.detail as prompt_detail, c.resolved_by
+           from concern c
+           join checkin_prompt p on p.id = c.prompt_id
+          where c.id = $1`,
+        [concern],
+      )
 
       expect(after).toMatchObject([
-        { detail: null, detail_kept: false, resolved_by: church.ministry.adminUserId },
+        {
+          concern_detail: null,
+          prompt_detail: null,
+          resolved_by: church.ministry.adminUserId,
+        },
       ])
 
       // Gone from the badge, still in the table: how many a Ministry raised and
@@ -440,23 +460,15 @@ describe('Relationship State and the Care Needed view', () => {
       ).toEqual([])
     })
 
-    it('keeps its words only when an Admin deliberately says so', async () => {
-      const { church, concern } = await raisedIn('Kept')
+    it('cannot be closed with its words still on it, and the table is what refuses', async () => {
+      const { concern } = await raisedIn('Refused')
 
-      await church.serviceAt(at(1)).execute({
-        type: 'concern.resolve',
-        ministryId: church.ministry.id,
-        concernId: concern,
-        resolvedBy: church.ministry.adminUserId,
-        keepDetail: true,
-      })
-
-      const { rows } = await pool.query<{ detail: string | null; detail_kept: boolean }>(
-        `select detail, detail_kept from concern where id = $1`,
-        [concern],
-      )
-      expect(rows[0]).toMatchObject({ detail_kept: true })
-      expect(rows[0]?.detail).toContain('lost his job')
+      // There is no way to keep them and this is where that is true. Not a
+      // default the application applies -- a direct write cannot leave a resolved
+      // Concern carrying the Leader's words either.
+      await expect(
+        pool.query(`update concern set resolved_at = now() where id = $1`, [concern]),
+      ).rejects.toThrow(/concern_resolution_clears_its_words/)
     })
 
     it('does not clear itself the way a stall does', async () => {

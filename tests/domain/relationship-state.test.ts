@@ -27,19 +27,33 @@ const at = (week: number): Date => new Date(OPENED.getTime() + weeks(week))
 
 const met = (week: number): RelationshipWeek => ({
   openedAt: at(week),
+  closedAt: at(week),
   outcome: 'met',
   answeredAt: at(week),
 })
 
 const didNotMeet = (week: number): RelationshipWeek => ({
   openedAt: at(week),
+  closedAt: at(week),
   outcome: 'did_not_meet',
   answeredAt: at(week),
 })
 
-/** Covered by a sequence, no reply. */
+/** Covered by a sequence that has since ended, with no reply: a settled silence. */
 const unanswered = (week: number): RelationshipWeek => ({
   openedAt: at(week),
+  closedAt: at(week + 1),
+  outcome: 'unanswered',
+  answeredAt: null,
+})
+
+/**
+ * Covered by the sequence that is still running. No reply *yet* -- which is not
+ * the same fact as no reply, and must not be counted as one.
+ */
+const inFlight = (week: number): RelationshipWeek => ({
+  openedAt: at(week),
+  closedAt: null,
   outcome: 'unanswered',
   answeredAt: null,
 })
@@ -221,6 +235,46 @@ describe('two weeks of silence', () => {
     expect(derived.reasons).toEqual([])
   })
 
+  it('does not count the week whose conversation is still running', () => {
+    // The moment the second week's sequence opens there are two covered weeks and
+    // one settled silence. Counting the open one would report two weeks of silence
+    // seven days in, which is the threshold the ticket says not to tighten.
+    const derived = deriveRelationshipState(
+      history({ weeks: [unanswered(1), inFlight(2)] }),
+      at(2),
+    )
+
+    expect(derived.state).toBe('healthy')
+    expect(derived.reasons).toEqual([])
+  })
+
+  it('reaches two weeks once the second conversation has ended', () => {
+    const derived = deriveRelationshipState(
+      history({ weeks: [unanswered(1), unanswered(2), inFlight(3)] }),
+      at(3),
+    )
+
+    expect(derived.state).toBe('stalled')
+    // Fourteen days, not seven: two whole weeks went by unanswered before this
+    // reached an Admin.
+    expect(derived.reasons).toEqual([{ kind: 'gone_silent', days: 14 }])
+  })
+
+  it('still counts a week the Leader answered while its conversation runs', () => {
+    // Determined by the answer rather than by the closing. The Leader has spoken
+    // and nothing later in the week unsays it.
+    const answeredButOpen: RelationshipWeek = {
+      openedAt: at(2),
+      closedAt: null,
+      outcome: 'met',
+      answeredAt: at(2),
+    }
+
+    expect(
+      deriveRelationshipState(history({ weeks: [unanswered(1), answeredButOpen] }), at(2)).state,
+    ).toBe('healthy')
+  })
+
   it('takes two weeks and no fewer', () => {
     expect(UNANSWERED_WEEKS_BEFORE_STALLED).toBe(2)
   })
@@ -379,8 +433,8 @@ describe('the ISO week anchor', () => {
     const derived = deriveRelationshipState(
       history({
         weeks: [
-          { openedAt: monday, outcome: 'unanswered', answeredAt: null },
-          { openedAt: friday, outcome: 'unanswered', answeredAt: null },
+          { openedAt: monday, closedAt: at(1), outcome: 'unanswered', answeredAt: null },
+          { openedAt: friday, closedAt: at(1), outcome: 'unanswered', answeredAt: null },
         ],
       }),
       friday,
@@ -400,7 +454,7 @@ describe('the ISO week anchor', () => {
         weeks: [
           unanswered(1),
           unanswered(2),
-          { openedAt: laterInTheSameWeek, outcome: 'met', answeredAt: laterInTheSameWeek },
+          { openedAt: laterInTheSameWeek, closedAt: laterInTheSameWeek, outcome: 'met', answeredAt: laterInTheSameWeek },
         ],
       }),
       laterInTheSameWeek,

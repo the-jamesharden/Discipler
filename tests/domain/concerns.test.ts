@@ -157,42 +157,40 @@ describe('an Admin opening a Concern', () => {
 })
 
 describe('an Admin resolving a Concern', () => {
-  const resolving = (keepDetail?: boolean) =>
+  const resolving = () =>
     handleCommand(
       {
         type: 'concern.resolve',
         ministryId: ministry,
         concernId: raised,
         resolvedBy: admin,
-        ...(keepDetail === undefined ? {} : { keepDetail }),
       },
       context(asked) satisfies CommandContext,
     )
 
-  it('clears the words by default, so nothing accumulates a file of hard weeks', () => {
+  it('resolves it, so nothing accumulates a file of hard weeks', () => {
     expect(
       resolving().effects.flatMap((effect) =>
         effect.kind === 'concern.resolve' ? [effect.resolution] : [],
       ),
-    ).toMatchObject([{ concernId: raised, resolvedBy: admin, keepDetail: false }])
+    ).toMatchObject([{ concernId: raised, resolvedBy: admin }])
   })
 
-  it('keeps them only when the Admin deliberately says so', () => {
-    expect(
-      resolving(true).effects.flatMap((effect) =>
-        effect.kind === 'concern.resolve' ? [effect.resolution] : [],
-      ),
-    ).toMatchObject([{ keepDetail: true }])
+  it('offers no way to keep the words, because there is no exception to take', () => {
+    // Not a default that a caller may override. The resolution carries no field
+    // for it, so a route cannot ask and a route cannot forget.
+    const [resolution] = resolving().effects.flatMap((effect) =>
+      effect.kind === 'concern.resolve' ? [effect.resolution] : [],
+    )
+
+    expect(resolution).not.toHaveProperty('keepDetail')
   })
 
-  it('records which of the two happened, because the row will no longer say', () => {
-    expect(eventOf(resolving(true).effects, 'concern.resolved')).toMatchObject({
+  it('records who closed it', () => {
+    expect(eventOf(resolving().effects, 'concern.resolved')).toMatchObject({
       subjectType: 'concern',
       subjectId: raised,
-      payload: { resolvedBy: admin, keptDetail: true },
-    })
-    expect(eventOf(resolving().effects, 'concern.resolved')?.payload).toMatchObject({
-      keptDetail: false,
+      payload: { resolvedBy: admin },
     })
   })
 })

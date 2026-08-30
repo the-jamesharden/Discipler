@@ -104,7 +104,9 @@ create table checkin_prompt (
   satisfaction    checkin_satisfaction,
   -- The Concern in the Leader's own words. The most sensitive text in the
   -- product; ticket 10 gives Concerns their own table with the viewing audit and
-  -- the clear-on-resolve rule, and this is the raw reply as it arrived.
+  -- the clear-on-resolve rule, and this is the raw reply as it arrived. Cleared
+  -- by that same resolution: a second copy nothing ever emptied would make
+  -- clear-on-resolve a gesture, and this table is granted to every Admin.
   detail          text,
 
   constraint checkin_prompt_sequence_fk
@@ -136,7 +138,13 @@ create table checkin_prompt (
           and (answered_at is null) = (satisfaction is null)
         when 'concern_detail' then
           met is null and satisfaction is null
-          and (answered_at is null) = (detail is null)
+          -- One direction only, unlike the two above. Unanswered means no words.
+          -- Answered means there *were* words -- and resolving the Concern they
+          -- became clears them from here as well as from `concern`, so an answered
+          -- prompt may hold them or may not. Requiring both directions would make
+          -- the row that carried a Concern the one place its text could not be
+          -- cleared from.
+          and (answered_at is not null or detail is null)
       end
     )
 );

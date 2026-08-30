@@ -16,7 +16,7 @@ Ended                       → terminal, with a reason (ticket 13)
 
 A relationship holds exactly one state. **Concerns are not a state** — they are badges that persist beside the relationship until an Admin resolves them, so a relationship can be Healthy with unresolved Concerns outstanding. Stalled clears automatically on any answered check-in; a Concern clears only by explicit resolution. A Concern surfaces the week it is raised, and multiple Concerns on one relationship show a count.
 
-Concern text is the most sensitive data in the product and is treated differently from every other record. It is reached one Person at a time rather than as a list, so reading it takes deliberate effort, and it is cleared by default when resolved, so the Ministry does not accumulate a permanent file of people's hardest weeks. Viewing a Concern and resolving one are both recorded against the Admin who did it.
+Concern text is the most sensitive data in the product and is treated differently from every other record. It is reached one Person at a time rather than as a list, so reading it takes deliberate effort, and it is cleared when resolved, with no way to keep it, so the Ministry does not accumulate a permanent file of people's hardest weeks. Viewing a Concern and resolving one are both recorded against the Admin who did it.
 
 **Both consecutive counters are anchored to the ISO week in the Ministry timezone**,
 never to the interval since the last prompt. The cadence is a Ministry setting an Admin
@@ -39,7 +39,7 @@ Do not tighten the thresholds. Two weeks and three weeks were chosen deliberatel
 - [x] A Concern sets Needs Care that week and returns to Healthy the following week while the badge persists
 - [x] Stalled clears automatically on an answered check-in; a Concern does not
 - [x] Multiple Concerns on one relationship show a count
-- [x] Concern text is reached one Person at a time and cleared by default on resolution
+- [x] Concern text is reached one Person at a time and cleared on resolution, with no exception
 - [x] Viewing and resolving a Concern are recorded against the acting Admin
 - [x] Care Needed shows relationships needing attention with their reason and duration
 - [x] Consecutive unanswered check-ins and consecutive not-met weeks are counted over ISO weeks in the Ministry timezone
@@ -115,6 +115,22 @@ the opposite of what resolving means. So the state follows the *unresolved*
 Concerns raised this week. The badge is unaffected either way -- it is gone,
 because it was resolved.
 
+**A week is not countable until its conversation has ended.** The view walked
+`checkin_sequence` without regard to whether a sequence had closed, so the week
+that opened *this minute* already read as `unanswered`. With the week before it
+also unanswered that made two, and the relationship went `Stalled` the instant the
+second week's tick ran -- seven days in, on a threshold the ticket says twice is
+not to be tightened. The integration test asserted the seven days as though it
+were the intent.
+
+*No reply arrived* is a fact about a finished conversation; while one is open the
+Leader has not answered *yet*, which is a different thing. So
+`public.relationship_weeks` now emits `closed_at` as one more fact, and
+`isDetermined` in the domain decides what it means -- the same seam the view's own
+comment draws, with the counting kept where a test can drive it. A week already
+answered still counts, open or not: the Leader has spoken. Two weeks of silence
+now reaches an Admin at fourteen days.
+
 **A gap ends a run; *consecutive* means consecutive in the calendar.** No entry
 exists for a week nothing covered -- a Pause, a relationship not yet accepted, a
 Ministry whose cadence was off for a term -- and the first implementation stepped
@@ -151,11 +167,31 @@ shipped domain and persistence with no UI, and ticket 15 is the Leader dashboard
 `CareNeededReader.listOpenItems` returns the union as a tagged list -- one tag per
 source -- and no page renders it yet.
 
-**`keepDetail` is an escape hatch the ticket implies rather than names.** It says
-Concern text is *cleared by default* on resolution, and a default with no
-exception is not a default. Clearing is what happens unless an Admin deliberately
-says otherwise; `detail_kept` records which of the two it was, because once the
-words are gone the row can no longer say.
+**Resolving clears the words, and nothing can keep them.** The first pass read
+*cleared by default* as implying an exception and built one: a `keepDetail` flag
+on the command, with `detail_kept` recording which way it went. Settled the other
+way on review -- there is no exception. The flag, the column and its constraints
+are gone, and `concern_resolution_clears_its_words` makes a resolved Concern
+carrying text unrepresentable, so the guarantee is the table's rather than the
+application's. `docs/product-rules.md` and `docs/pastor-dashboard.md` are updated
+to say so: not through inaction, and not by decision either.
+
+Clearing one copy turned out not to be clearing. The same prose stood in two
+other places, both written by ticket 08a and neither ever emptied:
+
+- `checkin_prompt.detail`, the raw reply as it arrived. That table is granted
+  wholesale to `authenticated`, so the sentence was readable there by any Admin
+  with no viewing audit and nothing that cleared it. A Concern now carries the
+  `prompt_id` it came from -- `not null`, because a Concern that cannot say where
+  its other copy is cannot promise to clear it -- and `resolveConcern` closes the
+  Concern and empties the prompt in one data-modifying CTE, so no window exists in
+  which one is gone and the other is not. `checkin_prompt_answer_matches_its_question`
+  is relaxed on its `concern_detail` branch to one direction, since an answered
+  prompt may now legitimately hold no words.
+- The `checkin.answered` history payload, which spread the reply wholesale and so
+  carried the prose into append-only storage -- the very thing the `concern.raised`
+  payload already refuses by name, for the stated reason that history outlives the
+  resolution. It now records `raisedConcern: true` and not the words.
 
 Two things this ticket did not close. `Paused` weeks are absent in the derivation
 and covered by the state matrix, but the reader passes `pausedAt: null` because

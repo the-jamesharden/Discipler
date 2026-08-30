@@ -98,6 +98,15 @@ const asItemRow = (row: unknown): ItemRow => {
  * differ only in the table, the column and what they key -- and a second copy of
  * a three-step fetch-check-map is where the two quietly stop matching.
  */
+/**
+ * How every read in this file fails. From a screen's point of view the seven
+ * queries below are one read -- Care Needed either came back or it did not -- and
+ * which of them fell over is a server-log question rather than a screen one. The
+ * message was written out at each site until one of them drifted.
+ */
+const couldNotRead = (error: { readonly message: string }): Error =>
+  new Error(`Could not read Care Needed: ${error.message}`)
+
 const lookup = async <T>(
   supabase: SupabaseClient,
   table: string,
@@ -109,10 +118,10 @@ const lookup = async <T>(
   if (wanted.length === 0) return new Map()
 
   const { data, error } = await supabase.from(table).select(`id, ${column}`).in('id', wanted)
-  if (error) throw new Error(`Could not read Care Needed: ${error.message}`)
+  if (error) throw couldNotRead(error)
 
   return new Map(
-    ((data ?? []) as unknown as Record<string, unknown>[]).flatMap((row) =>
+    rows(data).flatMap((row) =>
       typeof row.id === 'string' ? [[row.id, read(row[column])] as const] : [],
     ),
   )
@@ -139,7 +148,7 @@ export const readOpenFollowUpItems = async (
     .is('resolved_at', null)
     .order('raised_at', { ascending: false })
 
-  if (error) throw new Error(`Could not read Care Needed: ${error.message}`)
+  if (error) throw couldNotRead(error)
 
   const items = (data ?? []).map(asItemRow)
   if (items.length === 0) return []
@@ -239,7 +248,7 @@ const membersOf = async (
     .eq('ministry_id', ministryId)
     .is('ended_at', null)
 
-  if (error) throw new Error(`Could not read Care Needed: ${error.message}`)
+  if (error) throw couldNotRead(error)
 
   const memberships = rows(data)
   const nameOf = await namesOf(
@@ -282,7 +291,7 @@ const weeksOf = async (
     target_ministry_id: ministryId,
   })
 
-  if (error) throw new Error(`Could not read Care Needed: ${error.message}`)
+  if (error) throw couldNotRead(error)
 
   const byRelationship = new Map<string, RelationshipWeek[]>()
   for (const row of rows(data)) {
@@ -298,6 +307,9 @@ const weeksOf = async (
       // relationship accrues its counter on the week it was covered in, not on
       // the week its question would have arrived had the sequence got that far.
       openedAt,
+      // Null while the conversation is still running, which is what stops a week
+      // being counted as silence the moment it opens.
+      closedAt: instant(row.closed_at),
       outcome:
         row.reported_not_meeting === true
           ? 'did_not_meet'
@@ -334,7 +346,7 @@ const concernsOf = async (
     .eq('ministry_id', ministryId)
     .order('raised_at', { ascending: false })
 
-  if (error) throw new Error(`Could not read Care Needed: ${error.message}`)
+  if (error) throw couldNotRead(error)
 
   const found = rows(data)
   const nameOf = await namesOf(
@@ -384,7 +396,7 @@ export const readCareNeeded = async (
     .eq('id', ministryId)
     .maybeSingle()
 
-  if (error) throw new Error(`Could not read Care Needed: ${error.message}`)
+  if (error) throw couldNotRead(error)
 
   // A Ministry an Admin does not belong to comes back empty from the policy, and
   // there is nothing to derive a week against. Empty rather than a guessed zone:
@@ -400,7 +412,7 @@ export const readCareNeeded = async (
     .eq('ministry_id', ministryId)
 
   if (relationshipError) {
-    throw new Error(`Could not read Care Needed: ${relationshipError.message}`)
+    throw couldNotRead(relationshipError)
   }
 
   const [followUps, members, weeks, concerns] = await Promise.all([
@@ -413,7 +425,7 @@ export const readCareNeeded = async (
   const namesFor = (relationship: string) =>
     members.get(relationship) ?? { leaders: [], participants: [] }
 
-  const derived: CareNeededItem[] = []
+  const needingAttention: CareNeededItem[] = []
 
   for (const row of rows(relationshipRows)) {
     const id = text(row.id)
@@ -427,7 +439,7 @@ export const readCareNeeded = async (
     // A dropped row would be exactly that. Compare the Follow-Up payload below,
     // which *is* dropped -- a drifted payload is one unrenderable item, not a rule
     // that has stopped being true.
-    const state = deriveRelationshipState(
+    const derived = deriveRelationshipState(
       {
         acceptedAt: instant(row.accepted_at),
         endedAt: instant(row.ended_at),
@@ -443,20 +455,24 @@ export const readCareNeeded = async (
     )
 
     // Healthy, Awaiting, Paused and Ended are not things to act on. Only the two
-    // states that ask for attention reach the list -- and they reach it saying
-    // which condition fired and for how long, because *gone silent, 23 days* and
-    // *responding, not meeting, 3 weeks* are different phone calls.
-    if (state.state !== 'stalled' && state.state !== 'needs_care') continue
+    // states that ask for attention reach the list.
+    //
+    // A Stalled one says which condition fired and for how long, because *gone
+    // silent, 23 days* and *responding, not meeting, 3 weeks* are different phone
+    // calls. A Needs Care one carries no reason and is not missing one: the state
+    // is itself the condition -- a Concern was raised this week -- and
+    // `openConcerns` is what it is a count of.
+    if (derived.state !== 'stalled' && derived.state !== 'needs_care') continue
 
     const { leaders, participants } = namesFor(id)
-    derived.push({
+    needingAttention.push({
       source: 'relationship',
       relationshipId: relationshipId(id),
-      state: state.state,
-      reasons: state.reasons,
+      state: derived.state,
+      reasons: derived.reasons,
       leaderNames: leaders,
       participantNames: participants,
-      openConcerns: state.openConcerns,
+      openConcerns: derived.openConcerns,
     })
   }
 
@@ -474,7 +490,11 @@ export const readCareNeeded = async (
     }),
   )
 
-  return [...followUps.map((item) => ({ source: 'follow_up' as const, ...item })), ...derived, ...badges]
+  return [
+    ...followUps.map((item) => ({ source: 'follow_up' as const, ...item })),
+    ...needingAttention,
+    ...badges,
+  ]
 }
 
 /**
@@ -484,7 +504,7 @@ export const readCareNeeded = async (
  * whose clock answers them.
  */
 export const createSupabaseCareNeededReader = (clock: Clock = systemClock): CareNeededReader => ({
-  async listOpenItems(ministryId) {
+  async listCareNeeded(ministryId) {
     return readCareNeeded(await createSupabaseServerClient(), ministryId, clock)
   },
 })

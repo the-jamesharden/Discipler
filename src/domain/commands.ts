@@ -115,12 +115,6 @@ export type Command =
       readonly concernId: ConcernId
       /** The Admin's account, as the session named it. */
       readonly resolvedBy: string
-      /**
-       * Clearing the Leader's words is what resolving does unless somebody says
-       * otherwise. Optional here and defaulted at the boundary, so a caller that
-       * forgets it clears rather than keeps.
-       */
-      readonly keepDetail?: boolean
     }
   /**
    * A Leader agreeing to lead. The token is the credential -- possession of the

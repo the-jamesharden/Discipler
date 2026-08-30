@@ -165,8 +165,11 @@ const asCheckInRelationship = (
 const closeOnce = async (closing: {
   readonly client: PoolClient
   /**
-   * Its `where` must end `id = $1 and resolved_at is null`, because `$1` is the
-   * identifier this re-reads with and the null check is what makes it close once.
+   * The closing update's `where` must end `id = $1 and resolved_at is null`,
+   * because `$1` is the identifier this re-reads with and the null check is what
+   * makes it close once. Where the statement is a data-modifying CTE, that is the
+   * CTE's `where`, and the outer statement must affect exactly one row per row the
+   * CTE closed -- `rowCount` is what tells closing from already-closed.
    */
   readonly update: string
   readonly parameters: readonly unknown[]
@@ -1083,14 +1086,15 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // lose the second -- which is the count the badge exists to show.
     await client.query(
       `insert into concern
-         (id, ministry_id, relationship_id, raised_by, raised_at, detail)
-       values ($1, $2, $3, $4, $5, $6)`,
+         (id, ministry_id, relationship_id, raised_by, raised_at, prompt_id, detail)
+       values ($1, $2, $3, $4, $5, $6, $7)`,
       [
         concern.id,
         concern.ministryId,
         concern.relationshipId,
         concern.raisedBy,
         concern.raisedAt,
+        concern.promptId,
         concern.detail,
       ],
     )
@@ -1118,21 +1122,26 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     await closeOnce({
       client,
       table: 'concern',
-      update: `update concern
-                  set resolved_at = $2,
-                      resolved_by = $3,
-                      detail_kept = $4,
-                      -- The clearing itself, in the same statement as the
-                      -- resolution. Two statements would leave a window in which a
-                      -- Concern is closed and its words are still there.
-                      detail = case when $4 then detail else null end
-                where id = $1 and resolved_at is null`,
-      parameters: [
-        resolution.concernId,
-        resolution.resolvedAt,
-        resolution.resolvedBy,
-        resolution.keepDetail,
-      ],
+      // Both copies of the prose, in one statement. The Concern holds the words
+      // and the prompt row holds the raw reply they arrived in, so clearing only
+      // the first would leave the sentence sitting in a table granted wholesale to
+      // every Admin -- with no viewing audit on it and nothing that ever empties
+      // it. Two statements would leave a window in which one is gone and the other
+      // is not; a data-modifying CTE closes the Concern and follows its `prompt_id`
+      // in the same trip.
+      update: `with closed as (
+                 update concern
+                    set resolved_at = $2,
+                        resolved_by = $3,
+                        detail = null
+                  where id = $1 and resolved_at is null
+                 returning prompt_id
+               )
+               update checkin_prompt
+                  set detail = null
+                 from closed
+                where checkin_prompt.id = closed.prompt_id`,
+      parameters: [resolution.concernId, resolution.resolvedAt, resolution.resolvedBy],
       resolverKey: 'concern_resolved_by_fk',
       refuse: (why) => new ConcernRefused(`concern.${why}`),
     })

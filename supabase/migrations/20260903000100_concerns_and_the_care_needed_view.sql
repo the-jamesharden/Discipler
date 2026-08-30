@@ -27,6 +27,13 @@ create table concern (
   -- without reading the prose to find out.
   raised_by       uuid not null,
   raised_at       timestamptz not null,
+  -- The reply that carried the words. `checkin_prompt` keeps the raw reply as it
+  -- arrived, which is a second copy of the same prose, and clearing one while the
+  -- other stands would make clear-on-resolve a gesture. Not null: a Concern that
+  -- cannot say where its other copy is cannot promise to clear it, and the day
+  -- something raises one without a reply is the day to answer that rather than
+  -- the day to discover it.
+  prompt_id       uuid not null references checkin_prompt (id) on delete cascade,
 
   -- The Leader's own words. Nullable because resolving clears them -- this is the
   -- one column in the schema that exists in order to be emptied.
@@ -34,11 +41,6 @@ create table concern (
 
   resolved_at     timestamptz,
   resolved_by     uuid,
-  -- Whether the words survived the resolution. Null while it is open. Kept because
-  -- once `detail` is gone the row can no longer say whether it was cleared or
-  -- simply never carried anything, and *the exception was taken* is a fact a
-  -- Ministry should be able to answer for.
-  detail_kept     boolean,
 
   constraint concern_relationship_fk
     foreign key (relationship_id, ministry_id) references relationship (id, ministry_id)
@@ -67,17 +69,11 @@ create table concern (
   constraint concern_resolution_is_dated
     check (resolved_by is null or resolved_at is not null),
 
-  -- A resolution says which of the two it did, and an open one has not done
-  -- either. The two are the same fact written from both sides.
-  constraint concern_resolution_says_what_it_did
-    check ((resolved_at is null) = (detail_kept is null)),
-
-  -- Cleared means cleared, and kept means there is something to have kept. Written
-  -- as two negatives so that `null` -- an open Concern -- passes both.
-  constraint concern_cleared_means_cleared
-    check (detail_kept is not false or detail is null),
-  constraint concern_kept_means_kept
-    check (detail_kept is not true or detail is not null),
+  -- Resolving clears the words, with no exception and nothing to set. A Ministry
+  -- does not accumulate a permanent file of people's hardest weeks, and this is
+  -- the schema refusing to hold one rather than the application promising not to.
+  constraint concern_resolution_clears_its_words
+    check (resolved_at is null or detail is null),
 
   constraint concern_resolves_after_it_is_raised
     check (resolved_at is null or resolved_at >= raised_at)
@@ -147,7 +143,7 @@ revoke all on concern, concern_viewing from anon, authenticated, service_role;
 -- Reading a Concern without leaving a trace is not discouraged here. It is
 -- unrepresentable.
 grant select (id, ministry_id, relationship_id, raised_by, raised_at,
-              resolved_at, resolved_by, detail_kept) on concern to authenticated;
+              resolved_at, resolved_by) on concern to authenticated;
 grant select on concern_viewing to authenticated;
 
 -- An Admin sees their Ministry's Concerns. A Leader does not -- including the one
@@ -204,6 +200,13 @@ comment on column concern.detail is
 -- Healthy forever. Which is the invisible failure this ticket exists to catch,
 -- arriving on the Leader most in need of catching.
 --
+-- `closed_at` rides along because *no reply arrived* is not a fact until the
+-- conversation is over. While a sequence is still open the Leader has not been
+-- silent for that week -- they have not answered *yet*, which is a different thing
+-- and one the counting must not read as silence. Emitted rather than filtered
+-- here, because which weeks are countable is a rule and the rules live in
+-- `deriveRelationshipState`.
+--
 -- In `public` rather than `app` because this one is called by a screen rather than
 -- by a policy: PostgREST exposes `public`, and every other `app.` function here is
 -- reached from inside SQL. Security invoker either way -- the policies on
@@ -213,6 +216,7 @@ create function public.relationship_weeks(target_ministry_id uuid)
 returns table (
   relationship_id uuid,
   opened_at timestamptz,
+  closed_at timestamptz,
   answered_at timestamptz,
   reported_not_meeting boolean
 )
@@ -222,6 +226,7 @@ set search_path = ''
 as $$
   select covered.relationship_id,
          s.started_at,
+         s.closed_at,
          max(p.answered_at),
          coalesce(bool_or(p.question = 'met' and p.met is false), false)
     from public.checkin_sequence s
@@ -231,7 +236,7 @@ as $$
      and p.relationship_id = covered.relationship_id
      and p.answered_at is not null
    where s.ministry_id = target_ministry_id
-   group by covered.relationship_id, s.id, s.started_at;
+   group by covered.relationship_id, s.id, s.started_at, s.closed_at;
 $$;
 
 revoke execute on function public.relationship_weeks(uuid) from public, anon;

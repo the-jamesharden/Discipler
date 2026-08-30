@@ -16,7 +16,7 @@ Two metrics carry the operational picture and must not be conflated: **Response 
 
 The Check-Ins tab is the week's raw operational picture. It shows how many check-ins have been completed, how many are still pending, and how many concerns were raised, with the completed responses broken down at the top into A (outstanding), B (good), and C (concern). The A and B headings expand into the threads behind them. The C heading does not. Concerns are never presented as a browsable list, never exported, and never quoted in a report — an admin reading "four concerns this week" opens each person individually to see what was said. Raw concern text is the most sensitive data in the product, and the extra click is deliberate friction, not an oversight.
 
-Resolving a concern clears its text by default. A ministry should not accumulate a permanent file of people's worst weeks simply by never deciding to.
+Resolving a concern clears its text, and nothing offers to keep it. A ministry should not accumulate a permanent file of people's worst weeks — not by never deciding to, and not by deciding to either.
 
 ## Suggested Pairs
 

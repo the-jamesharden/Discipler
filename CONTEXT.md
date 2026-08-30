@@ -121,7 +121,7 @@ _Avoid_: Pairing status, Pending
 The state of an accepted relationship that nothing in its history says otherwise about. The default, not an achievement.
 
 **Stalled**:
-The state of a relationship whose leader has gone silent, or who is answering to say no meeting is happening. It clears automatically on any answered check-in, which is why it is a derived state and never a Follow-Up Item. Silence and not meeting are distinct conditions with distinct units and are never merged into one count. A missed meeting is not wrongdoing and is never framed as one.
+The state of a relationship whose leader has gone silent, or who is answering to say no meeting is happening. It clears automatically on any answered check-in, which is why it is a derived state and never a Follow-Up Item.
 
 **Needs Care**:
 The state of a relationship carrying an unresolved concern raised this week. It lasts that week; the concern badge outlives it.
@@ -162,14 +162,14 @@ The timestamped, versioned record of what a person agreed to at intake. Disciple
 A leader's request to be released from a specific discipleship relationship and matched with a different participant. From a relationship the leader has not yet accepted, it reads as a decline. A swap is a recorded request awaiting admin action. It is never itself a change of relationship state, and the relationship remains intact until an admin resolves it.
 
 **Care Needed**:
-The pastor-facing view of people or relationships that currently require pastoral attention. It unions three sources that are deliberately not stored together: open Follow-Up Items, relationships whose derived state asks for attention, and unresolved concerns.
+The pastor-facing view of people or relationships that currently require pastoral attention. It gathers three things: open Follow-Up Items, relationships whose derived state asks for attention, and unresolved concerns.
 _Avoid_: Failure queue
 
 **Follow-Up Item**:
 A condition on a relationship or person that requires admin review, gathered in the Care Needed view. A follow-up item is never cleared by the event that raised it and never clears itself; it persists until an admin acts on it.
 
 **Concern**:
-A qualitative issue raised through the discipleship check-in process for pastoral awareness or follow-up. A concern persists until an admin resolves it, independently of how the relationship is currently doing. It is a badge on the relationship, never a state of it, and several outstanding on one relationship show as a count. Its text is the most sensitive data in the product: it is reached one person at a time, reading it is recorded, and resolving clears it by default.
+A qualitative issue raised through the discipleship check-in process for pastoral awareness or follow-up. A concern persists until an admin resolves it, independently of how the relationship is currently doing. It is a badge on the relationship, never a state of it.
 
 **Concern Aggregation**:
 A ministry-level summary of recurring concern themes across multiple individual concerns.

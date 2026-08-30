@@ -508,6 +508,19 @@ const recorded = (reply: CheckInReply) => ({
 })
 
 /**
+ * The same reply as history records it, which is the same three facts minus the
+ * prose. `ministry_event` is append-only, so a payload carrying the Leader's words
+ * would outlive the resolution that cleared them -- exactly what `concern.raised`
+ * already refuses, and for the same reason. That a Concern was raised is the fact
+ * worth keeping; the words live in `concern` and are cleared from there.
+ */
+const withoutTheProse = (reply: CheckInReply) => ({
+  met: reply.kind === 'met' ? reply.met : null,
+  satisfaction: reply.kind === 'satisfaction' ? reply.satisfaction : null,
+  raisedConcern: reply.kind === 'concern_detail',
+})
+
+/**
  * Ending a conversation the Leader did not finish. Three things end one -- a new
  * week displacing it, a `STOP`, and its last question reminded once and given up
  * on -- and all three close it `abandoned`, because they are one fact.
@@ -1062,16 +1075,16 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             personId: checkIn.personId,
             role: answered?.role ?? null,
             question: awaiting.question,
-            ...recorded(reply),
+            ...withoutTheProse(reply),
           },
         }),
       ]
 
-      // The Leader's words become a Concern of their own, beside the prompt row
-      // that holds the raw reply. Not the same record: this one is reached one
-      // Person at a time, audited when it is *read*, cleared by default when it is
-      // resolved, and counted when several stand open -- none of which the reply
-      // it came from is or does.
+      // The Leader's words become a Concern of their own. Not the same record as
+      // the reply they arrived in: this one is reached one Person at a time,
+      // audited when it is *read*, cleared when it is resolved, and counted when
+      // several stand open -- none of which the prompt row is or does. It carries
+      // that row's id so the resolution can clear both copies at once.
       if (reply.kind === 'concern_detail' && answered) {
         effects.push(
           raiseConcern({
@@ -1080,6 +1093,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             relationshipId: answered.relationshipId,
             raisedBy: checkIn.personId,
             raisedAt: now,
+            promptId: awaiting.promptId,
             detail: reply.detail,
           }),
           appendHistory({
@@ -1236,12 +1250,6 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
     case 'concern.resolve': {
       const now = context.clock.now()
 
-      // Clearing the Leader's words is what resolving does unless the Admin says
-      // otherwise, and the default lives here rather than in a caller: a route
-      // that forgot the field would keep a Ministry's most sensitive text forever,
-      // which is the failure this rule exists to prevent.
-      const keepDetail = command.keepDetail ?? false
-
       return {
         rejections: [],
         effects: [
@@ -1250,7 +1258,6 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             concernId: command.concernId,
             resolvedBy: command.resolvedBy,
             resolvedAt: now,
-            keepDetail,
           }),
           appendHistory({
             ministryId: command.ministryId,
@@ -1258,10 +1265,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             type: 'concern.resolved',
             subjectType: 'concern',
             subjectId: command.concernId,
-            // Whether the words were kept is itself a fact worth keeping: it is
-            // the only record that the exception was taken, and the row it was
-            // taken on no longer says so once the text is gone.
-            payload: { resolvedBy: command.resolvedBy, keptDetail: keepDetail },
+            payload: { resolvedBy: command.resolvedBy },
           }),
         ],
       }
