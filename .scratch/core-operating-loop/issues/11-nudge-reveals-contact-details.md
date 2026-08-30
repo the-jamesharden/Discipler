@@ -11,10 +11,51 @@ The contact details shown respect the recipient's contact-sharing consent, which
 **Status:** ready-for-agent
 
 - [ ] A follow-up item exposes contact details and resolve inline
-- [ ] Contact details shown respect the recipient's contact-sharing consent
-- [ ] Nudge enqueues nothing and sends nothing
+- [x] Contact details shown respect the recipient's contact-sharing consent
+- [x] Nudge enqueues nothing and sends nothing
 
 ## Comments
+
+### Built — the reveal, but not the surface it is inline in — 2026-08-30
+
+Two of the three criteria are met and the first is half-met. What was missing was
+never `resolve`, which ticket 07 built and `CommandService.execute` already
+reaches; it was the *reveal*, and the reason it was missing is worth recording.
+
+Contact-sharing consent was resolved in exactly one place — `contactToShare` on
+`OutboundQueue`, on the trusted connection the queue is drained on. An Admin is
+not that connection. `app.current_consent` is deliberately not granted to
+`authenticated` (migration `20260828000100`, and the comment there gives the
+reason: a browser session calling it directly would be probing any Person's
+consent in any Ministry). So the signed-in Admin had no consent-respecting path to
+a number at all.
+
+`public.contact_to_share(uuid)` is that path — SECURITY DEFINER, checking
+`app.is_member_of` before it answers, granted to `authenticated` — reached through
+`CareNeededReader.contactToShare`. Two paths to one rule, deliberately not shared,
+because the sending layer and a browser session are not the same principal and the
+rule lives in SQL where both already meet.
+
+**Left open: `authenticated` holds `select on person`, phone column included.** A
+signed-in Admin can still read a number without consulting consent, so the new
+function is the consent-respecting path rather than the only one. Revoking that
+column grant is not this ticket's call: ticket 15 has the Leader Dashboard showing
+"the name and phone number of everyone in" a relationship, so which surfaces may
+read the column unmediated is a question those two tickets settle together. Named
+in the migration as well, so it is not rediscovered.
+
+**Left open: there is no view for anything to be inline in.** Ticket 07 said "Care
+Needed is a reader, not a screen"; ticket 10 shipped `listCareNeeded` and it still
+has no caller; `app/` holds roster, intake, invitation, login and sms and no
+Admin care surface. Ticket 15 is the *Leader* dashboard, a different surface. No
+ticket in 01–26 builds the Admin's Care Needed screen, and this ticket's first
+criterion cannot be closed until one does. Not invented here — what that screen
+lists, how it orders, what it shows when empty and how it is scoped are product
+decisions, not implementation ones.
+
+`Nudge enqueues nothing` is asserted against the reveal itself rather than left as
+a property of absent code, so the day somebody adds a send to it the assertion
+fails. 724 tests pass against a local Supabase stack, none skipped.
 
 ### Amended — Nudge does not send, and 11a is withdrawn — 2026-08-30
 

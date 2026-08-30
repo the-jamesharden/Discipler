@@ -513,4 +513,19 @@ export interface CareNeededReader {
    * able to ask later.
    */
   listCareNeeded(ministryId: MinistryId): Promise<readonly CareNeededItem[]>
+  /**
+   * The details behind `Nudge`: the Participant's number, so the Admin can make the
+   * call themselves. Null where the Person has not currently agreed to share them.
+   *
+   * One Person at a time rather than a column on every care item. The list is read
+   * to decide who needs a call; a number on every row would disclose the whole
+   * Ministry's contact details to answer a question nobody asked of most of them.
+   *
+   * Named like `OutboundQueue.contactToShare` and deliberately not shared with it.
+   * That one runs on the trusted connection the queue is drained on; this one runs
+   * as the signed-in Admin, where the consent rule is reachable only through the
+   * definer function that checks Ministry membership first. Same rule, two paths to
+   * it, because the two callers are not the same principal.
+   */
+  contactToShare(ministryId: MinistryId, personId: PersonId): Promise<ContactDetails | null>
 }

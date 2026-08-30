@@ -11,7 +11,9 @@ import {
   personId,
   relationshipId,
   type MinistryId,
+  type PersonId,
 } from '~/domain/ids'
+import { phoneNumber } from '~/domain/roster'
 import {
   deriveRelationshipState,
   type RaisedConcern,
@@ -20,6 +22,7 @@ import {
 import type {
   CareNeededItem,
   CareNeededReader,
+  ContactDetails,
   FollowUpCareItem,
   OutstandingConcern,
 } from '~/service/ports'
@@ -498,6 +501,41 @@ export const readCareNeeded = async (
 }
 
 /**
+ * What `Nudge` reveals: the number, where the Person currently agrees to share it.
+ *
+ * The whole rule is inside `public.contact_to_share`, which is the only path to a
+ * number a browser session has that consults consent at all. It checks Ministry
+ * membership itself, so `ministryId` here is not what scopes the read -- it is the
+ * Ministry the caller believes it is acting for, and a Person outside it comes back
+ * empty from the function's own check rather than from this comparison.
+ */
+export const readContactToShare = async (
+  client: SupabaseClient,
+  ministryId: MinistryId,
+  person: PersonId,
+): Promise<ContactDetails | null> => {
+  const { data, error } = await client.rpc('contact_to_share', {
+    target_person_id: person,
+  })
+
+  // A refusal to answer is not an answer of "no". Withholding a number the Person
+  // agreed to share is the same failure as disclosing one they did not, so a broken
+  // read says so rather than resolving quietly to null.
+  if (error) throw new Error(`Could not read contact details in ${ministryId}: ${error.message}`)
+
+  const row = rows(data)[0]
+  if (!row) return null
+
+  const fullName = text(row.full_name)
+  const phone = text(row.phone)
+
+  // The function already refuses a null number, so both being present is the shape
+  // every returned row has. Narrowed rather than asserted, because the alternative
+  // is a non-null assertion standing where the compiler cannot see the constraint.
+  return fullName && phone ? { fullName, phone: phoneNumber(phone) } : null
+}
+
+/**
  * Built with a clock rather than reaching for one, because how long an item has
  * waited is a time-dependent rule like any other -- as is which ISO week it is,
  * which both counters are anchored to -- and the composition root is what decides
@@ -506,5 +544,9 @@ export const readCareNeeded = async (
 export const createSupabaseCareNeededReader = (clock: Clock = systemClock): CareNeededReader => ({
   async listCareNeeded(ministryId) {
     return readCareNeeded(await createSupabaseServerClient(), ministryId, clock)
+  },
+
+  async contactToShare(ministryId, person) {
+    return readContactToShare(await createSupabaseServerClient(), ministryId, person)
   },
 })
