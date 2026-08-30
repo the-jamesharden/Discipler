@@ -124,10 +124,8 @@ describe('Revealing contact details', () => {
 
   it('sends nothing and enqueues nothing when it reveals a number', async () => {
     // The whole of ticket 11's third criterion, asserted against the only code that
-    // now implements `Nudge`. There is no admin-initiated send in Discipler, which is
-    // why there are no per-recipient ceilings to enforce -- ticket 11a built some and
-    // was withdrawn when it turned out they had no subject. A reveal that quietly
-    // queued a message would put that subject back without anyone deciding to.
+    // now implements `Nudge`. There is no admin-initiated send in Discipler, so a
+    // reveal that quietly queued a message would be the only one there is.
     const person = await addPerson(ministry, 'Miriam Vale', { phone: '+15554440106' })
 
     const before = await pool.query('select count(*) from outbound_message')

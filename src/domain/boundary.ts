@@ -376,8 +376,8 @@ interface Asking {
   readonly ids: IdSource
   /**
    * The cadence instant that made this conversation due, or null when nothing
-   * scheduled it -- a reply advancing the sequence, or an Admin sending one
-   * additional check-in by hand. Stamped on the message and never rewritten.
+   * scheduled it -- a reply advancing the sequence, or `checkin.start` opening
+   * one directly. Stamped on the message and never rewritten.
    */
   readonly scheduledFor: Date | null
 }
@@ -552,8 +552,9 @@ const abandonSequence = (abandonment: {
 
 /**
  * What opening one Leader's conversation comes to, wherever the decision to open
- * it was made. Two callers: the cadence dispatcher inside the tick, and the
- * direct trigger an Admin uses to send one additional check-in.
+ * it was made. Two callers: the cadence dispatcher inside the tick, and
+ * `checkin.start`, the direct trigger 08a was built against and which nothing in
+ * production routes to.
  *
  * It is the same conversation either way -- the ticket that owns the cadence does
  * not get to own a second kind of check-in -- so the only thing the caller varies
@@ -905,11 +906,10 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         throw new Error('checkin.start was handed no Ministry to speak for')
       }
 
-      // The direct trigger. It asks *now* and does not consult the cadence: this
-      // is the Admin sending one additional check-in, and the whole point of that
-      // button is that it does not wait for Monday. The weekly rhythm arrives
-      // through `scheduled.tick` instead, which is what decides that a week is
-      // due -- so nothing scheduled this one and its message carries no stamp.
+      // The direct trigger. It asks *now* and does not consult the cadence,
+      // which is what lets 08a prove the conversation with no scheduler near it.
+      // In production `scheduled.tick` is the only thing that opens one -- and
+      // nothing scheduled this one, so its message carries no stamp.
       return {
         effects: openConversationWith(checkIn, {
           ministryId: command.ministryId,

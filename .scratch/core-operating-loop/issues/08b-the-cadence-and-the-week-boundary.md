@@ -149,15 +149,22 @@ asked to choose properly.
 
 The ticket says this one replaces *"the direct trigger 08a was built against"*, and
 it does — for the weekly rhythm, which now arrives only through `scheduled.tick`.
-The `checkin.start` command itself still exists, carrying no cadence check, as the
-Admin action the spec asks for at line 124: *"send one additional check-in"*.
+The `checkin.start` command itself still exists, carrying no cadence check.
 
-Two things follow that are worth someone's deliberate attention:
+Its original justification is gone. It was kept as the Admin action the spec then
+asked for at line 124 — *"send one additional check-in"* — and ticket 11 withdrew
+that action along with the rest of the admin-initiated sending. See
+`docs/adr/0010-nudge-reveals-a-number-and-sends-nothing.md`.
 
-- It can open a second sequence inside one ISO week, which is the point of an
-  *additional* check-in but sits against *"One sequence per Leader per week."*
-- Nothing routes to it yet. It is reachable only from tests until the Care Needed
-  surface is built.
+It survives instead as 08a's test seam: the way the conversation is proven with no
+scheduler near it. That is a smaller claim, and it carries a cost worth someone's
+deliberate attention:
+
+- It can open a second sequence inside one ISO week, which sits against *"One
+  sequence per Leader per week."* Nothing now justifies that, so the rule holds
+  only because nothing routes to the command.
+- Nothing routes to it, and on the current reading nothing will: no interface
+  action sends a message, so the Care Needed surface will not reach it either.
 
 ### Known cost — the dispatcher is N+1, under one lock each
 

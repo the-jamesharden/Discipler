@@ -8,10 +8,6 @@ import type { MessageTransport, OutboundQueue } from './ports'
  * sends, and the check lives here rather than at the button** -- so no future write
  * path can enqueue its way around a rule by forgetting to ask.
  *
- * There is nothing here to rate-limit. No interface action sends a message: Nudge
- * reveals a number so an Admin can make the call themselves, and the Check-In
- * Rhythm is the only participant-facing traffic there is.
- *
  * The database refuses to enqueue anything for a Person with no SMS consent or an
  * open opt-out. That is a floor, not this: consent is a fact about *now*, and a
  * Person who opted out between being queued and being sent to must not receive the

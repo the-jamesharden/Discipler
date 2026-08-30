@@ -86,3 +86,45 @@ picks up the phone.
 The cost is named in ADR 0010 and is not hidden here: a conversation held outside
 Discipler does not land in the week-by-week history, so the history is thinner
 than it would have been. That was the trade the product owner made deliberately.
+
+### Swept — the last of 11a — 2026-08-30
+
+*"What survives from 11a is nothing in the codebase"* was written above before it
+was true. A review of `ea6d559...HEAD` found four places the withdrawn premise had
+been left standing, and they are cleared:
+
+- `.gitignore` carried a second `.claude/agent-memory/` block that 11a added and
+  the reversal missed.
+- `spec.md` story 72 still asked for *"see contact details, resolve an item, send
+  one additional check-in, …"* — both halves of the old reading, the separate
+  contact-details action and the send. Story 73 beside it had already been
+  rewritten; this one was a miss. It now names Nudge as the one action it is.
+- `boundary.ts` described `checkin.start` in three places as the Admin sending an
+  additional check-in — on `scheduledFor`, on `openConversationWith`, and in the
+  case itself. `commands.ts` still said 08b had not landed.
+- Ticket 08b's *"`checkin.start` was kept, not deleted"* note justified the
+  command by that Admin action and by this ticket's line 124.
+
+The product owner's ruling: there is no Nudge send and no admin-initiated send of
+any kind. The only reminder is the automated one the rhythm already sends a day
+after an unanswered question — `checkin.remind`, driven by `scheduled.tick`.
+
+`checkin.start` itself stays, deliberately, as 08a's test seam rather than as an
+Admin action; 08b's note now records that, and records that its once-a-week hole
+is held shut only by nothing routing to it. Comments and docs only — no behaviour
+changed, and `tsc --noEmit` is clean.
+
+A second pass removed the comments that only narrated the withdrawn thing rather
+than describing what is there. `outbound-dispatch.ts` had gained a whole paragraph
+—*"There is nothing here to rate-limit…"*— explaining an absence that ticket 11
+itself created; the file's real rule, the recipient-level check, was already
+stated above it. `clock.ts` was reflowed where the nudge cooldown was cut out of
+its list. The rest were denials this sweep had written into `boundary.ts`,
+`commands.ts` and the reveal test — *there is no admin-initiated send* — which
+said nothing about the code they sat on. `tsc --noEmit` is clean; a grep for
+cooldowns, ceilings, budgets and rate limits finds nothing left in `src/`,
+`tests/` or `app/`.
+
+Two stale mentions are left alone on purpose: `20260827000100` and
+`20260901000100` name nudge limits and nudge windows in their comments, and
+applied migrations are history, not documentation to keep current.

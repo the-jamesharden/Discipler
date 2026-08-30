@@ -137,9 +137,10 @@ export type Command =
    * lead, so it names the Person and never a relationship -- a Leader holding
    * three of them gets one conversation, not three.
    *
-   * *What makes a Leader due* is ticket 08b's. Until it lands this is triggered
-   * directly, which is exactly the seam that lets the conversation be proven with
-   * no scheduler anywhere near it.
+   * *What makes a Leader due* is ticket 08b's, and in production `scheduled.tick`
+   * is the only thing that opens one. This trigger consults no cadence and is
+   * routed to by nothing: it survives as the seam that lets the conversation be
+   * proven with no scheduler anywhere near it.
    */
   | {
       readonly type: 'checkin.start'

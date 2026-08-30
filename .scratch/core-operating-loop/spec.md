@@ -121,7 +121,7 @@ From then on Discipler is nearly invisible. Once a week each Leader gets a singl
 69. As an Admin, I want multiple Concerns on one relationship shown with a count, so that I can see there is more than one.
 70. As an Admin, I want to reach Concern text one Person at a time rather than as a list, so that the most sensitive data in the product takes deliberate effort to read.
 71. As an Admin, I want Concern text cleared when I resolve it by default, so that we do not accumulate a permanent file of people's hardest weeks.
-72. As an Admin, I want to see contact details, resolve an item, send one additional check-in, resume a paused relationship, or end the relationship from a follow-up item, so that the view is actionable.
+72. As an Admin, I want to nudge a follow-up item — which reveals the participant's contact details and sends nothing — resolve the item, resume a paused relationship, or end the relationship, so that the view is actionable.
 73. As a Ministry, I want no interface action to send a message at all, so that the only thing we ever text our congregation is the check-in rhythm they agreed to.
 74. As a Leader, I want a missed meeting never framed as a failure, so that answering honestly is safe.
 

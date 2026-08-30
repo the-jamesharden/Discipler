@@ -13,16 +13,6 @@ For implementation work, read the approved spec only. If the spec is
 ambiguous, stop and surface the gap instead of resolving it from the
 source documents. Subagents: your task prompt is your scope, not this list.
 
-## Context discipline
-
-Before implementing, delegate discovery to the Explore subagent and
-implement from its summary. Do not Read files to orient yourself.
-Read directly only files Explore named that you are about to edit.
-
-If a task has needed more than ~5 direct file reads or is clearly
-beyond one verifiable outcome, stop, commit what works on the branch,
-and report what remains as a separate ticket.
-
 ## Working rules
 
 - Do not assume behavior from a previous Discipler prototype unless it is explicitly adopted into this repository.
