@@ -1,3 +1,5 @@
+import type { CheckInQuestion } from './check-in'
+
 /**
  * Every message Discipler sends is the Ministry's voice. Discipler is delivery and
  * never the speaker: it does not name itself in copy, and no message is phrased as
@@ -264,6 +266,20 @@ export const acceptanceReminderMessage = ({
 export const checkInSubject = (participantNames: readonly string[]): string =>
   asList([...participantNames])
 
+/**
+ * The valid replies to each of the two token questions, written once.
+ *
+ * Once because the clarification is these sentences said again: a Leader whose
+ * reply could not be read is told exactly what the question already offered, and
+ * a token renamed in one place and not the other would leave a clarification
+ * advertising a reply that no longer works.
+ */
+const MEETING_REPLIES = 'Reply 1 for yes, 2 for no.'
+const SATISFACTION_REPLIES = 'Reply A for outstanding, B for good, C for concern.'
+
+/** The Concern step names no tokens, because it takes prose. */
+const CONCERN_DETAIL_REQUEST = 'Please tell us more about the concern.'
+
 export interface MeetingQuestion {
   readonly ministryName: string
   /** As `checkInSubject` composed it. */
@@ -293,7 +309,7 @@ export const meetingQuestion = ({
     // invitation to get here -- so the A2P prefix has no occasion to appear.
     identifyDelivery: false,
     discloseOptOut,
-    body: `Did you meet with ${subject} this week? Reply 1 for yes, 2 for no.`,
+    body: `Did you meet with ${subject} this week? ${MEETING_REPLIES}`,
   })
 
 export interface CheckInMessage {
@@ -320,14 +336,42 @@ const checkInSentence =
  * Ministry's history.
  */
 export const satisfactionQuestion = checkInSentence(
-  'How did the meeting go? Reply A for outstanding, B for good, C for concern.',
+  `How did the meeting go? ${SATISFACTION_REPLIES}`,
 )
 
 /**
  * Asked only after a `C`. The Concern is already recorded by the time this goes
  * out, so an unanswered request for detail loses nothing that was already said.
  */
-export const concernDetailRequest = checkInSentence('Please tell us more about the concern.')
+export const concernDetailRequest = checkInSentence(CONCERN_DETAIL_REQUEST)
+
+export interface CheckInClarification extends CheckInMessage {
+  readonly question: CheckInQuestion
+}
+
+/**
+ * What Discipler says when it could not read a reply: that it could not, and then
+ * the valid replies again.
+ *
+ * It names the replies to the question that is *open*, never the whole set. A
+ * Leader who typed prose at the rating question is offered A, B and C, because
+ * offering them `1` as well would invite an answer to a question that has already
+ * been answered.
+ *
+ * It does not repeat the question itself. The Leader has it -- they replied to it
+ * moments ago -- and re-asking would read as though Discipler had lost the thread
+ * rather than one message.
+ */
+export const checkInClarification = ({ ministryName, question }: CheckInClarification): string =>
+  checkInSentence(
+    `Sorry, we didn’t catch that. ${
+      question === 'met'
+        ? MEETING_REPLIES
+        : question === 'satisfaction'
+          ? SATISFACTION_REPLIES
+          : CONCERN_DETAIL_REQUEST
+    }`,
+  )({ ministryName })
 
 /**
  * Sent after the *final* relationship and nowhere else. Where a thank-you would

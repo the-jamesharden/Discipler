@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  checkInClarification,
   checkInThankYou,
   concernDetailRequest,
   meetingQuestion,
@@ -50,6 +51,33 @@ describe('the check-in conversation', () => {
     expect(checkInThankYou({ ministryName })).toBe(
       'ABC Church: Thank you. We’ll check in with you next week.',
     )
+  })
+
+  /**
+   * The clarification says the valid replies again and does not re-ask the
+   * question. The Leader has the question -- they replied to it moments ago -- and
+   * re-asking would read as though Discipler had lost the thread rather than one
+   * message.
+   */
+  it('offers the open question’s replies again, and only that question’s', () => {
+    expect(checkInClarification({ ministryName, question: 'met' })).toBe(
+      'ABC Church: Sorry, we didn’t catch that. Reply 1 for yes, 2 for no.',
+    )
+    expect(checkInClarification({ ministryName, question: 'satisfaction' })).toBe(
+      'ABC Church: Sorry, we didn’t catch that. ' +
+        'Reply A for outstanding, B for good, C for concern.',
+    )
+    expect(checkInClarification({ ministryName, question: 'concern_detail' })).toBe(
+      'ABC Church: Sorry, we didn’t catch that. Please tell us more about the concern.',
+    )
+  })
+
+  it('never re-discloses the opt-out, whichever question was misread', () => {
+    // The monthly language rode on the message that opened the conversation. A
+    // clarification is not a new month and not a new conversation.
+    for (const question of ['met', 'satisfaction', 'concern_detail'] as const) {
+      expect(checkInClarification({ ministryName, question })).not.toContain('STOP')
+    }
   })
 
   /**

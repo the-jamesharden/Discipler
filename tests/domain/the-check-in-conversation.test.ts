@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { readCheckInReply } from '~/domain/check-in'
 
 /**
- * The tokens a check-in answer is read from. Strict in this ticket: `1`, `2`, `A`,
- * `B`, `C` and nothing else. Synonyms, known typos, case folding and pleasantry
- * stripping are ticket 09's, and a reply that resolves to none of these is
- * unreadable rather than guessed at.
+ * The tokens a check-in answer is read from, as the message advertises them:
+ * `1`, `2`, `A`, `B`, `C`. The synonyms, the known typos, the case folding and
+ * the closed strippable list live in `generous-replies.test.ts` alongside the
+ * negations they must never be read backwards as.
  */
 
 describe('reading a check-in reply', () => {
@@ -41,9 +41,11 @@ describe('reading a check-in reply', () => {
     })
   })
 
-  it('leaves generous matching to ticket 09', () => {
-    for (const body of ['yes', 'y', 'nope', 'great', 'gret', '1 and it was great']) {
-      expect(readCheckInReply('met', body)).toEqual({ kind: 'unreadable' })
-    }
+  it('reads the words a Leader is as likely to type as the tokens', () => {
+    expect(readCheckInReply('met', 'yes')).toEqual({ kind: 'met', met: true })
+    expect(readCheckInReply('satisfaction', 'gret')).toEqual({
+      kind: 'satisfaction',
+      satisfaction: 'outstanding',
+    })
   })
 })

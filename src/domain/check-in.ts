@@ -1,6 +1,7 @@
 import type { MemberRole } from './relationships'
 import type { PersonId, RelationshipId } from './ids'
 import type { Branded } from './branded'
+import { hours } from './clock'
 import { cadenceInstantOf, isoWeekOf, type Cadence } from './week'
 
 /**
@@ -31,10 +32,119 @@ export type CheckInQuestion = 'met' | 'satisfaction' | 'concern_detail'
  */
 export type Satisfaction = 'outstanding' | 'good' | 'concern'
 
+/**
+ * The enumerated list, and the only place a reply becomes a fact.
+ *
+ * A list rather than a rule. Bounded edit distance was considered and rejected:
+ * at distance two, `no` reaches `not`, `now`, `know` and `so`, so nearly every
+ * short English word becomes a neighbour of the two-character tokens. What is
+ * here is what Leaders have actually typed, and it grows from the unreadable
+ * replies history records -- never from typos somebody imagined.
+ *
+ * Multi-word entries are tokens and not phrases with a wrapper around them.
+ * `we did` and `we didnt` carry polarity, so neither can be stripped as though
+ * it were decoration: `no we did` would strip to `no` and record the opposite of
+ * what the Leader said. The rule that keeps that from ever happening is
+ * structural rather than remembered -- polarity lives here, and PLEASANTRIES
+ * holds nothing that has any.
+ */
+const MET_TOKENS: Readonly<Record<string, boolean>> = {
+  '1': true,
+  yes: true,
+  y: true,
+  yeah: true,
+  'we did': true,
+  'yes we did': true,
+  '2': false,
+  no: false,
+  n: false,
+  nope: false,
+  'we didnt': false,
+  'no we didnt': false,
+}
+
 const SATISFACTION_TOKENS: Readonly<Record<string, Satisfaction>> = {
-  A: 'outstanding',
-  B: 'good',
-  C: 'concern',
+  a: 'outstanding',
+  great: 'outstanding',
+  // A typo that happened. `gret` is one edit from `great` and one from `greet`,
+  // which is exactly why the list is enumerated instead of computed.
+  gret: 'outstanding',
+  b: 'good',
+  good: 'good',
+  c: 'concern',
+  concern: 'concern',
+  oncern: 'concern',
+}
+
+/**
+ * The closed list, and the one invariant it has to keep: **nothing here carries
+ * polarity**. Every entry is a greeting or a courtesy, so removing it cannot
+ * change what the message said -- which is what makes the ADR's warning about
+ * fragments that invert meaning something the list cannot express rather than
+ * something a reviewer has to catch.
+ *
+ * Anything that does mean yes or no is a token in the tables above. That is the
+ * same treatment the ADR gives `we didn't`: part of a token, never a wrapper.
+ */
+const PLEASANTRIES: readonly string[] = [
+  'hi',
+  'hey',
+  'hello',
+  'ok',
+  'okay',
+  'thanks',
+  'thank you',
+  'please',
+  'sorry',
+]
+
+/**
+ * Down to words and nothing else: lower case, no punctuation, no emoji, single
+ * spaces. An emoji is removed rather than read, because sentiment is never
+ * inferred from free text and a thumbs-up on its own is free text with the words
+ * taken out.
+ *
+ * Apostrophes are removed rather than turned into a space, straight and curly
+ * alike: `didn't` and `didn’t` both have to reach the one token `didnt`, and a
+ * phone's autocorrect must not decide whether a Leader was understood. Every
+ * other punctuation mark becomes a space, because it separates words rather than
+ * sitting inside one.
+ */
+const wordsOf = (body: string): string =>
+  body
+    .toLowerCase()
+    .replace(/['’ʼ]/g, '')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim()
+
+/**
+ * The pleasantries off both ends, longest first so `thank you` is taken as one
+ * courtesy rather than leaving `you` behind.
+ *
+ * Never down to nothing: a message that is only a greeting answered no question,
+ * and stripping it to the empty string and then matching would make whichever
+ * token the empty string happened to reach the answer to every `hi` ever sent.
+ */
+const withoutPleasantries = (words: string): string => {
+  const ordered = [...PLEASANTRIES].sort((a, b) => b.length - a.length)
+  let remaining = words
+
+  for (let taken = true; taken; ) {
+    taken = false
+    for (const pleasantry of ordered) {
+      const lead = `${pleasantry} `
+      const trail = ` ${pleasantry}`
+      if (remaining.startsWith(lead)) {
+        remaining = remaining.slice(lead.length)
+        taken = true
+      } else if (remaining.endsWith(trail)) {
+        remaining = remaining.slice(0, -trail.length)
+        taken = true
+      }
+    }
+  }
+
+  return remaining
 }
 
 /**
@@ -58,10 +168,22 @@ export type CheckInReply =
 const UNREADABLE: CheckInReply = { kind: 'unreadable' }
 
 /**
- * Strict tokens only: `1`, `2`, `A`, `B`, `C`, exactly, once the transport's
- * surrounding whitespace is gone. Synonyms, known typos, case folding and the
- * closed list of strippable pleasantries are ticket 09's, and until they land a
- * reply that is not one of these is unreadable rather than guessed at.
+ * What a Leader typed, as a fact or as nothing at all.
+ *
+ * Whole-message, never substring. `it wasn't great` *contains* `great`, and
+ * reading it as an outstanding week would convert a relationship that needs care
+ * into a healthy one, clear nothing anybody would notice and produce no signal
+ * that it happened. The Leader answered honestly, Discipler recorded the
+ * opposite, and the Admin never finds out. See
+ * `docs/adr/0003-whole-message-reply-matching.md`.
+ *
+ * So: punctuation and emoji off, case folded, the closed list of pleasantries
+ * taken from both ends, and what is left must *be* a token. Anything else is
+ * unreadable, which costs one clarifying message. That is the trade being made
+ * deliberately -- the failure mode is visible rather than silent -- and it is why
+ * a reply carrying two answers is refused as well: accepting `1 and it was great`
+ * would advance two steps on one message and record a rating for a meeting
+ * nobody confirmed happened.
  *
  * A token is read against the question that is open, never against the whole set.
  * `1` answering *how did it go* is unreadable, because a satisfaction rating is
@@ -71,18 +193,17 @@ const UNREADABLE: CheckInReply = { kind: 'unreadable' }
 export const readCheckInReply = (question: CheckInQuestion, body: string): CheckInReply => {
   // Prose is the point here, so nothing is matched at all -- including the
   // tokens. Trimmed only, because leading whitespace is the transport's and not
-  // something the Leader typed.
+  // something the Leader typed, and everything else is the Leader's own words.
   if (question === 'concern_detail') {
     const detail = body.trim()
     return detail.length > 0 ? { kind: 'concern_detail', detail } : UNREADABLE
   }
 
-  const token = body.trim()
+  const token = withoutPleasantries(wordsOf(body))
 
   if (question === 'met') {
-    if (token === '1') return { kind: 'met', met: true }
-    if (token === '2') return { kind: 'met', met: false }
-    return UNREADABLE
+    const met = MET_TOKENS[token]
+    return met === undefined ? UNREADABLE : { kind: 'met', met }
   }
 
   const satisfaction = SATISFACTION_TOKENS[token]
@@ -132,6 +253,71 @@ export interface OpenPrompt {
   readonly relationshipId: RelationshipId
   readonly position: number
   readonly question: CheckInQuestion
+  /** When it was sent. The twenty-four hours to the reminder are measured here. */
+  readonly askedAt: Date
+  /**
+   * When it was re-sent, or null while it has not been. One reminder per
+   * question: this is what says which of the two clocks is running, and a second
+   * tick an hour later has to find the same answer as the first.
+   */
+  readonly remindedAt: Date | null
+  /**
+   * How many clarifications Discipler has already spent on this question, capped
+   * at `CLARIFICATIONS_PER_QUESTION`.
+   *
+   * Kept against the question and not the conversation. A Leader who mistypes the
+   * meeting question twice has spent nothing against the rating question that
+   * follows it -- they are different questions with different valid replies, and
+   * a Leader who has just been told which ones are valid is the one most likely to
+   * get the next one right.
+   */
+  readonly clarificationsSent: number
+}
+
+/**
+ * How often Discipler will say *those were the valid replies* before it stops
+ * saying anything. Two, and then silence.
+ *
+ * It caps Discipler's side and nothing else. The question stays open, a valid
+ * reply is still accepted right up until the sequence advances past it, and the
+ * Leader is never locked out -- a third unreadable message is still recorded,
+ * because that is where the enumerated list grows from.
+ */
+export const CLARIFICATIONS_PER_QUESTION = 2
+
+/**
+ * How long an unanswered question waits before it is re-sent, and how long the
+ * reminder waits before the conversation moves on without it.
+ *
+ * The same twenty-four hours both times. A forgotten text is recoverable once;
+ * after that, chasing further would be Discipler asking a Leader for something
+ * they have now not given twice, and the silence is itself the answer ticket 10
+ * reads.
+ */
+export const REMINDER_AFTER_HOURS = 24
+
+/**
+ * What the passage of time has done to the question a conversation is waiting on:
+ * re-send it, give up on it, or neither.
+ *
+ * A function of the prompt and the clock alone, so *twenty-four hours* is
+ * provable in a millisecond and the tick can run as often or as rarely as the
+ * scheduler likes without changing the answer.
+ */
+export type CheckInLapse = 'remind' | 'pass_over' | null
+
+export const lapseOfOpenQuestion = (awaiting: OpenPrompt, now: Date): CheckInLapse => {
+  const elapsedSince = (moment: Date) => now.getTime() - moment.getTime()
+  const waited = hours(REMINDER_AFTER_HOURS)
+
+  // Measured from the reminder rather than from the question, so a tick that ran
+  // late does not spend both clocks at once and pass over a question the Leader
+  // was never actually reminded about.
+  if (awaiting.remindedAt) {
+    return elapsedSince(awaiting.remindedAt) >= waited ? 'pass_over' : null
+  }
+
+  return elapsedSince(awaiting.askedAt) >= waited ? 'remind' : null
 }
 
 export interface OpenSequence {
@@ -211,6 +397,20 @@ export type CheckInAdvance =
   | { readonly kind: 'finish' }
 
 /**
+ * A question given up on: reminded once, unanswered twice, and now behind the
+ * conversation rather than in front of it.
+ *
+ * It moves the sequence exactly as far as an answer of *no* would, and that is
+ * the whole point -- abandonment becomes an ordinary unanswered question with no
+ * special case anywhere downstream. Nothing is recorded as answered, so what
+ * ticket 10 reads is silence, which is what it was.
+ */
+export const PASSED_OVER = { kind: 'passed_over' } as const
+
+/** What ends a question's turn: a reply that was read, or nobody replying at all. */
+export type CheckInResolution = CheckInReply | typeof PASSED_OVER
+
+/**
  * The question ladder, and the only place it is written down.
  *
  * Per relationship: *did you meet* first, *how did it go* only on a yes, *what
@@ -223,7 +423,7 @@ export type CheckInAdvance =
 export const advanceCheckIn = (
   sequence: OpenSequence,
   awaiting: OpenPrompt,
-  reply: CheckInReply,
+  reply: CheckInResolution,
 ): CheckInAdvance => {
   const askAbout = (
     question: CheckInQuestion,

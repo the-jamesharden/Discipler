@@ -820,9 +820,13 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
         relationship_id: string
         position: number
         question: OpenPrompt['question']
+        asked_at: Date
+        reminded_at: Date | null
+        clarifications_sent: number
         answered_at: Date | null
       }>(
-        `select id, relationship_id, position, question, answered_at
+        `select id, relationship_id, position, question,
+                asked_at, reminded_at, clarifications_sent, answered_at
            from checkin_prompt
           where sequence_id = $1
           order by step desc
@@ -864,6 +868,13 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
                 relationshipId: relationshipId(latest.relationship_id),
                 position: latest.position,
                 question: latest.question,
+                // The two clocks and the cap, read from the row rather than
+                // counted from history: what Discipler said is a different number
+                // from what the Leader typed, and it is Discipler's side that is
+                // capped.
+                askedAt: latest.asked_at,
+                remindedAt: latest.reminded_at,
+                clarificationsSent: latest.clarifications_sent,
               }
             : null,
       }
@@ -986,6 +997,29 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
         answer.satisfaction,
         answer.detail,
       ],
+    )
+  },
+
+  async clarifyCheckInQuestion(clarification) {
+    // The cap in the `where`, not only in the command. Two commands racing on one
+    // question would each read `clarifications_sent` as 1 and each send a
+    // clarification; this makes the third increment land on nothing, so the row
+    // can never claim Discipler said more than it is allowed to.
+    await client.query(
+      `update checkin_prompt
+          set clarifications_sent = clarifications_sent + 1
+        where id = $1 and clarifications_sent < 2`,
+      [clarification.promptId],
+    )
+  },
+
+  async remindCheckInQuestion(reminder) {
+    // `where reminded_at is null` is what makes the reminder happen once. A tick
+    // that runs twice in the same minute finds the second update matching nothing
+    // rather than re-stamping the row and restarting the clock to pass it over.
+    await client.query(
+      `update checkin_prompt set reminded_at = $2 where id = $1 and reminded_at is null`,
+      [reminder.promptId, reminder.remindedAt],
     )
   },
 

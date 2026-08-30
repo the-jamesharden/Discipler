@@ -18,12 +18,54 @@ Every unreadable reply is recorded, so the enumerated list can later be extended
 
 **Status:** ready-for-agent
 
-- [ ] Matching is a pure function tested against a table including `yes`, `Yes we did!`, `y`, `nope`, `gret`, and emoji
-- [ ] That table proves `it wasn't great`, `no concerns`, `we didn't meet`, and `1 and it was great` are all unreadable
-- [ ] At most two clarifications per question, after which a valid reply is still accepted until the sequence advances
-- [ ] An unanswered question is re-sent once at twenty-four hours and the reminder does not count as unanswered
-- [ ] An unanswered reminder advances the sequence to the next relationship
-- [ ] An unanswered Concern detail request is reminded once then passed over, leaving the concern and badge intact
-- [ ] A new week abandons an open sequence without rewriting its history
-- [ ] A late reply attaches to the question it answers
-- [ ] Unreadable replies are recorded in history
+- [x] Matching is a pure function tested against a table including `yes`, `Yes we did!`, `y`, `nope`, `gret`, and emoji
+- [x] That table proves `it wasn't great`, `no concerns`, `we didn't meet`, and `1 and it was great` are all unreadable
+- [x] At most two clarifications per question, after which a valid reply is still accepted until the sequence advances
+- [x] An unanswered question is re-sent once at twenty-four hours and the reminder does not count as unanswered
+- [x] An unanswered reminder advances the sequence to the next relationship
+- [x] An unanswered Concern detail request is reminded once then passed over, leaving the concern and badge intact
+- [x] A new week abandons an open sequence without rewriting its history
+- [x] A late reply attaches to the question it answers
+- [x] Unreadable replies are recorded in history
+
+## Comments
+
+Implemented. Domain in `src/domain/check-in.ts` and `src/domain/boundary.ts`, copy in
+`src/domain/outbound-copy.ts`, migration
+`supabase/migrations/20260902000100_generous_replies_reminders_and_abandonment.sql`.
+Tests: `tests/domain/generous-replies.test.ts` (the matching table),
+`tests/domain/reminders-and-abandonment.test.ts` (the cap, the reminder, the
+pass-over), plus integration coverage in `tests/integration/the-check-in-conversation.test.ts`
+and `tests/integration/the-cadence.test.ts`.
+
+Three things the ticket left open, resolved as follows.
+
+**`Yes we did!` is a token, not a wrapper.** The ticket says pleasantries are
+stripped and requires `Yes we did!` to be readable, which implies `we did` in the
+strippable list. That fragment carries polarity: `no we did` would strip to `no`
+and record the opposite of what the Leader said -- exactly the failure ADR-0003
+exists to prevent. So `we did`, `yes we did`, `we didnt` and `no we didnt` are
+entries in the token table instead, and the strippable list holds only
+polarity-free courtesies (`hi`, `hey`, `hello`, `ok`, `okay`, `thanks`,
+`thank you`, `please`, `sorry`). This makes "must never contain a fragment that
+inverts meaning when removed" an invariant of the list rather than a rule a
+reviewer has to remember, and it is the same treatment ADR-0003 gives
+`we didn't`: part of a token, never a wrapper.
+
+**How long after the reminder before the sequence moves on.** The ticket names
+twenty-four hours once. The same twenty-four hours is used again, measured from
+the reminder rather than from the question, so a tick that runs late cannot spend
+both clocks at once and pass over a question the Leader was never reminded about.
+
+**Passing over the *last* relationship.** The ticket says the sequence advances to
+the next relationship; it does not say what happens when there is none. The
+sequence closes as `abandoned` with no thank-you. `completed` would be false --
+the Leader did not answer -- and the thank-you is how a Leader knows they finished
+a conversation they did not finish. `abandoned` is the existing outcome for a
+sequence whose unanswered questions stay unanswered, which is what this is; its
+history event carries `reason: 'unanswered'`, distinguishing it from the
+displaced-by-a-new-week and opted-out cases.
+
+The strippable list and the token list are both deliberately minimal. The ticket's
+own mechanism for growing them is the `checkin.reply_unreadable` history event,
+which records the body verbatim.

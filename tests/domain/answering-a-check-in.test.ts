@@ -57,6 +57,11 @@ const open = (question: CheckInQuestion, position = 1, covering = [emilysTurn, t
     relationshipId: covering[position - 1]!.relationshipId,
     position,
     question,
+    // Asked a moment ago and answered straight away. The reminder, the cap and
+    // the giving-up are `reminders-and-abandonment.test.ts`.
+    askedAt: new Date('2026-10-05T09:00:00Z'),
+    remindedAt: null,
+    clarificationsSent: 0,
   },
 })
 
@@ -181,10 +186,12 @@ describe('finishing the conversation', () => {
 
 describe('a reply that cannot be read', () => {
   it('advances nothing, so the question stays open for a valid reply', () => {
-    // Strict tokens in this ticket. Clarifying re-prompts and generous matching
-    // are ticket 09's; until then an unreadable reply leaves the conversation
-    // exactly where it was rather than guessing at what was meant.
-    expect(reply('yes we did!', open('met')).effects).toEqual([])
+    // The conversation stays exactly where it was: nothing answered, nothing
+    // asked. What Discipler says back, how often it says it, and what is recorded
+    // about the reply are `reminders-and-abandonment.test.ts`.
+    const effects = reply('sort of, yes', open('met')).effects
+    expect(effects.filter((effect) => effect.kind === 'checkin.answer')).toEqual([])
+    expect(effects.filter((effect) => effect.kind === 'checkin.ask')).toEqual([])
   })
 })
 

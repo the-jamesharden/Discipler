@@ -200,10 +200,31 @@ describe('the check-in cadence', () => {
       // The cadence, stamped at enqueue time.
       expect(sent[0]!.scheduled_for).toEqual(mondayEightPm)
 
-      // However often the tick runs, one ISO week is one conversation.
+      // However often the tick runs, one ISO week is one conversation. Later in
+      // the same week the cadence has nothing left to do, so nothing carries its
+      // stamp again.
       await tickAt(new Date('2026-08-25T09:00:00Z'))
-      await tickAt(new Date('2026-08-27T20:00:00Z'))
       expect(await inbox(leader)).toHaveLength(1)
+
+      // Thursday. The Leader never answered, so the tick re-sends the question
+      // they were asked -- once, and as itself. It is the same conversation, not
+      // a second one, which is why it carries no cadence.
+      await tickAt(new Date('2026-08-27T20:00:00Z'))
+      const chased = await inbox(leader)
+      expect(chased).toHaveLength(2)
+      // The same question, word for word -- minus the monthly opt-out language,
+      // which rode on the message that opened the conversation. A reminder is
+      // neither a new month nor a new conversation.
+      expect(chased[1]!.body).toBe(
+        'ABC Church: Did you meet with Sam Doyle this week? Reply 1 for yes, 2 for no.',
+      )
+      expect(chased[1]!.scheduled_for).toBeNull()
+
+      const { rows: conversations } = await pool.query(
+        `select id from checkin_sequence where person_id = $1`,
+        [leader],
+      )
+      expect(conversations).toHaveLength(1)
     })
   })
 
@@ -224,23 +245,30 @@ describe('the check-in cadence', () => {
       )
 
       // Wednesday evening, under the new cadence. This ISO week has had its
-      // conversation, so nothing is sent -- and nothing touched the row that was.
+      // conversation, so the edit opens nothing -- and nothing touched the row
+      // that was already sent. The second message is Monday's question re-sent
+      // after a day of silence, which carries no cadence at all: the edit is
+      // demonstrably not what produced it.
       await tickAt(new Date('2026-08-26T18:00:00Z'))
       const afterEdit = await inbox(leader)
-      expect(afterEdit).toHaveLength(1)
+      expect(afterEdit).toHaveLength(2)
       expect(afterEdit[0]!.scheduled_for).toEqual(mondayEightPm)
       expect(afterEdit[0]!.enqueued_at).toEqual(asSent!.enqueued_at)
+      expect(afterEdit[1]!.scheduled_for).toBeNull()
 
       // The following ISO week fires on the new cadence and not the old one.
+      // Monday is no longer the day, so nothing new goes out -- the reminder has
+      // now itself gone unanswered, and the conversation is given up on in
+      // silence rather than chased a third time.
       const nextMonday = new Date('2026-08-31T19:00:00Z')
       await tickAt(nextMonday)
-      expect(await inbox(leader)).toHaveLength(1)
+      expect(await inbox(leader)).toHaveLength(2)
 
       const nextWednesday = new Date('2026-09-02T18:00:00Z')
       await tickAt(nextWednesday)
       const nextWeek = await inbox(leader)
-      expect(nextWeek).toHaveLength(2)
-      expect(nextWeek[1]!.scheduled_for).toEqual(nextWednesday)
+      expect(nextWeek).toHaveLength(3)
+      expect(nextWeek[2]!.scheduled_for).toEqual(nextWednesday)
 
       // Restore, so the ordering of this suite does not leak into another file.
       await pool.query(

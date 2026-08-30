@@ -78,6 +78,12 @@ export const applyEffects = async (
   const prompts = effects.flatMap((effect) =>
     effect.kind === 'checkin.ask' ? [effect.prompt] : [],
   )
+  const clarifications = effects.flatMap((effect) =>
+    effect.kind === 'checkin.clarify' ? [effect.clarification] : [],
+  )
+  const reminders = effects.flatMap((effect) =>
+    effect.kind === 'checkin.remind' ? [effect.reminder] : [],
+  )
   const optOuts = effects.flatMap((effect) =>
     effect.kind === 'person.opt_out' ? [effect.optOut] : [],
   )
@@ -116,6 +122,14 @@ export const applyEffects = async (
   // second open sequence, so the one being displaced has to close before the new
   // one can open.
   for (const answer of checkInAnswers) await unit.recordCheckInAnswer(answer)
+
+  // Against the prompt that is still open, so both land before anything can close
+  // the conversation they belong to. Neither answers a question: a clarification
+  // is Discipler speaking and a reminder is Discipler speaking again, and the
+  // question they are about stays unanswered either way.
+  for (const clarification of clarifications) await unit.clarifyCheckInQuestion(clarification)
+  for (const reminder of reminders) await unit.remindCheckInQuestion(reminder)
+
   for (const closure of closures) await unit.closeCheckInSequence(closure)
   for (const sequence of sequences) await unit.openCheckInSequence(sequence)
   for (const prompt of prompts) await unit.askCheckInQuestion(prompt)

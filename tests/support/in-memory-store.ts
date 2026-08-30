@@ -7,6 +7,8 @@ import type {
 import type { CheckInSnapshot } from '~/domain/check-in'
 import type {
   CheckInAnswer,
+  CheckInClarification,
+  CheckInReminder,
   CheckInSequenceClosure,
   IntakeRecord,
   LeaderAcceptance,
@@ -43,6 +45,8 @@ export interface InMemoryStore extends EffectStore {
   readonly sequences: readonly NewCheckInSequence[]
   readonly prompts: readonly NewCheckInPrompt[]
   readonly checkInAnswers: readonly CheckInAnswer[]
+  readonly clarifications: readonly CheckInClarification[]
+  readonly reminders: readonly CheckInReminder[]
   readonly closures: readonly CheckInSequenceClosure[]
   readonly optOuts: readonly PersonOptOut[]
   /** What a check-in command finds about the Person it names, or null for nobody. */
@@ -86,6 +90,8 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
   const sequences: NewCheckInSequence[] = []
   const prompts: NewCheckInPrompt[] = []
   const checkInAnswers: CheckInAnswer[] = []
+  const clarifications: CheckInClarification[] = []
+  const reminders: CheckInReminder[] = []
   const closures: CheckInSequenceClosure[] = []
   const optOuts: PersonOptOut[] = []
   const resolutions: FollowUpResolution[] = []
@@ -132,6 +138,12 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
     get checkInAnswers() {
       return [...checkInAnswers]
     },
+    get clarifications() {
+      return [...clarifications]
+    },
+    get reminders() {
+      return [...reminders]
+    },
     get closures() {
       return [...closures]
     },
@@ -156,6 +168,8 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       const stagedSequences: NewCheckInSequence[] = []
       const stagedPrompts: NewCheckInPrompt[] = []
       const stagedCheckInAnswers: CheckInAnswer[] = []
+      const stagedClarifications: CheckInClarification[] = []
+      const stagedReminders: CheckInReminder[] = []
       const stagedClosures: CheckInSequenceClosure[] = []
       const stagedOptOuts: PersonOptOut[] = []
 
@@ -171,6 +185,12 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         },
         async recordCheckInAnswer(answer) {
           stagedCheckInAnswers.push(answer)
+        },
+        async clarifyCheckInQuestion(clarification) {
+          stagedClarifications.push(clarification)
+        },
+        async remindCheckInQuestion(reminder) {
+          stagedReminders.push(reminder)
         },
         async closeCheckInSequence(closure) {
           stagedClosures.push(closure)
@@ -280,6 +300,8 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       sequences.push(...stagedSequences)
       prompts.push(...stagedPrompts)
       checkInAnswers.push(...stagedCheckInAnswers)
+      clarifications.push(...stagedClarifications)
+      reminders.push(...stagedReminders)
       closures.push(...stagedClosures)
       optOuts.push(...stagedOptOuts)
       return result

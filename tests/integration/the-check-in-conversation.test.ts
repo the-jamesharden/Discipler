@@ -148,6 +148,68 @@ describe('the check-in conversation', () => {
     expect(sequences).toEqual([{ outcome: 'completed' }])
   })
 
+  it('clarifies twice, then keeps listening -- against the real cap', async () => {
+    const leader = await congregant('Ivan Petrov')
+    const participant = await congregant('Lena Vogt')
+    await pairOneToOne(ministry, leader, participant)
+
+    await start(leader)
+
+    // Three replies Discipler cannot read. The third draws no clarification: the
+    // cap is on what Discipler says, and both the command and the column enforce
+    // it -- an increment past two lands on nothing rather than on a row claiming
+    // Discipler spoke a third time.
+    for (const body of ["it wasn't great", 'no concerns', '?']) {
+      await texts(leader, body)
+    }
+
+    const clarification =
+      'ABC Church: Sorry, we didn’t catch that. Reply 1 for yes, 2 for no.'
+    expect(await inbox(leader)).toEqual([
+      expect.stringContaining('Did you meet with Lena Vogt this week?'),
+      clarification,
+      clarification,
+    ])
+
+    const { rows: prompts } = await pool.query<{
+      clarifications_sent: number
+      answered_at: Date | null
+    }>(
+      `select p.clarifications_sent, p.answered_at
+         from checkin_prompt p
+         join checkin_sequence s on s.id = p.sequence_id
+        where s.person_id = $1`,
+      [leader],
+    )
+    expect(prompts).toEqual([{ clarifications_sent: 2, answered_at: null }])
+
+    // Still listening. The question never closed, so the reply that finally makes
+    // sense is heard and the conversation moves on.
+    await texts(leader, 'Yes we did!')
+
+    const { rows: answered } = await pool.query<{ met: boolean | null }>(
+      `select p.met from checkin_prompt p
+         join checkin_sequence s on s.id = p.sequence_id
+        where s.person_id = $1 and p.question = 'met'`,
+      [leader],
+    )
+    expect(answered).toEqual([{ met: true }])
+
+    // And every unreadable reply is in history, verbatim, which is where the
+    // enumerated list of synonyms and typos grows from.
+    const { rows: unreadable } = await pool.query<{ body: string }>(
+      `select payload->>'body' as body from ministry_event
+        where type = 'checkin.reply_unreadable' and ministry_id = $1
+        order by recorded_at`,
+      [ministry.id],
+    )
+    expect(unreadable.map((row) => row.body)).toEqual([
+      "it wasn't great",
+      'no concerns',
+      '?',
+    ])
+  })
+
   it('gives a Person who both leads and is discipled one sequence, covering what they lead', async () => {
     const priya = await congregant('Priya Raman')
     const one = await congregant('Nina Adeyemi')

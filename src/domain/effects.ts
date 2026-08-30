@@ -209,15 +209,49 @@ export interface CheckInAnswer {
   readonly detail: string | null
 }
 
+/**
+ * One clarification spent on the question that is open, against the cap of
+ * `CLARIFICATIONS_PER_QUESTION`.
+ *
+ * Counted on the prompt rather than derived by counting unreadable replies in
+ * history, because they are different numbers: the third unreadable reply is
+ * recorded and answered with nothing, so a Leader who mistypes five times has
+ * five events and two clarifications. The cap is over what Discipler said.
+ */
+export interface CheckInClarification {
+  readonly ministryId: MinistryId
+  readonly promptId: CheckInPromptId
+  readonly clarifiedAt: Date
+}
+
+/**
+ * The one re-send an unanswered question gets, stamped on the prompt it re-sent.
+ *
+ * Deliberately not a second prompt row. A reminder that created one would be
+ * counted as a second question the Leader failed to answer, which would advance
+ * ticket 10's stall threshold twice for one silence -- so the question keeps its
+ * identity and only gains the date it was chased on.
+ */
+export interface CheckInReminder {
+  readonly ministryId: MinistryId
+  readonly promptId: CheckInPromptId
+  readonly remindedAt: Date
+}
+
 export interface CheckInSequenceClosure {
   readonly ministryId: MinistryId
   readonly sequenceId: CheckInSequenceId
   readonly closedAt: Date
   /**
    * `completed` once the final relationship has been answered for and the
-   * thank-you sent. `abandoned` when a new one displaced it -- two sequences
-   * never run for one Leader at once, and the questions it left open stay
-   * unanswered in history rather than being tidied away.
+   * thank-you sent, and only then.
+   *
+   * `abandoned` every other way a conversation ends: a new week displaced it, a
+   * `STOP` ended it, or its last question was reminded once and given up on. The
+   * three are one outcome because they are one fact -- the Leader did not finish
+   * it -- and the questions it left open stay unanswered in history rather than
+   * being tidied away. Which of the three it was is on the history event beside
+   * it, where a reason belongs.
    */
   readonly outcome: 'completed' | 'abandoned'
 }
@@ -250,6 +284,8 @@ export type Effect =
   | { readonly kind: 'checkin.open'; readonly sequence: NewCheckInSequence }
   | { readonly kind: 'checkin.ask'; readonly prompt: NewCheckInPrompt }
   | { readonly kind: 'checkin.answer'; readonly answer: CheckInAnswer }
+  | { readonly kind: 'checkin.clarify'; readonly clarification: CheckInClarification }
+  | { readonly kind: 'checkin.remind'; readonly reminder: CheckInReminder }
   | { readonly kind: 'checkin.close'; readonly closure: CheckInSequenceClosure }
   | { readonly kind: 'person.opt_out'; readonly optOut: PersonOptOut }
 
@@ -323,6 +359,16 @@ export const askCheckInQuestion = (prompt: NewCheckInPrompt): Effect => ({
 export const recordCheckInAnswer = (answer: CheckInAnswer): Effect => ({
   kind: 'checkin.answer',
   answer,
+})
+
+export const clarifyCheckInQuestion = (clarification: CheckInClarification): Effect => ({
+  kind: 'checkin.clarify',
+  clarification,
+})
+
+export const remindCheckInQuestion = (reminder: CheckInReminder): Effect => ({
+  kind: 'checkin.remind',
+  reminder,
 })
 
 export const closeCheckInSequence = (closure: CheckInSequenceClosure): Effect => ({

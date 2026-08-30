@@ -86,6 +86,12 @@ describe('applying a command\'s effects', () => {
         recordCheckInAnswer: async () => {
           throw new Error('nothing should have been answered')
         },
+        clarifyCheckInQuestion: async () => {
+          throw new Error('nothing should have been clarified')
+        },
+        remindCheckInQuestion: async () => {
+          throw new Error('nobody should have been reminded')
+        },
         closeCheckInSequence: async () => {
           throw new Error('no conversation should have been closed')
         },

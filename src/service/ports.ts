@@ -8,6 +8,8 @@ import type {
 import type { CheckInSnapshot } from '~/domain/check-in'
 import type {
   CheckInAnswer,
+  CheckInClarification,
+  CheckInReminder,
   CheckInSequenceClosure,
   IntakeRecord,
   LeaderAcceptance,
@@ -184,6 +186,10 @@ export interface UnitOfWork {
   openCheckInSequence(sequence: NewCheckInSequence): Promise<void>
   askCheckInQuestion(prompt: NewCheckInPrompt): Promise<void>
   recordCheckInAnswer(answer: CheckInAnswer): Promise<void>
+  /** One clarification spent on the open question, against a cap of two. */
+  clarifyCheckInQuestion(clarification: CheckInClarification): Promise<void>
+  /** The one re-send an unanswered question gets, stamped on that same prompt. */
+  remindCheckInQuestion(reminder: CheckInReminder): Promise<void>
   closeCheckInSequence(closure: CheckInSequenceClosure): Promise<void>
 
   /** The carrier opt-out, at the level the carrier applies it: the Person. */

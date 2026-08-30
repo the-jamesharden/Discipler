@@ -4,6 +4,7 @@ import {
   acceptInvitation,
   appendHistory,
   askCheckInQuestion,
+  clarifyCheckInQuestion,
   closeCheckInSequence,
   openCheckInSequence,
   optPersonOut,
@@ -15,6 +16,7 @@ import {
   raiseFollowUpItem,
   recordCheckInAnswer,
   recordIntake,
+  remindCheckInQuestion,
   resolveFollowUpItem,
   type Effect,
   type NewCheckInPrompt,
@@ -26,13 +28,18 @@ import {
   PairingRefused,
 } from './errors'
 import {
+  CLARIFICATIONS_PER_QUESTION,
+  PASSED_OVER,
   advanceCheckIn,
   checkInDueThisWeek,
   checkInPromptId,
   isStopKeyword,
   checkInSequenceId,
+  lapseOfOpenQuestion,
   readCheckInReply,
   relationshipsToAskAbout,
+  type CheckInAdvance,
+  type CheckInQuestion,
   type CheckInReply,
   type CheckInRelationship,
   type CheckInSequenceId,
@@ -42,6 +49,7 @@ import { calendarMonthOf } from './week'
 import { readIntakeForm } from './intake'
 import {
   acceptanceReminderMessage,
+  checkInClarification,
   checkInSubject,
   checkInThankYou,
   concernDetailRequest,
@@ -410,6 +418,34 @@ const ask = (
 ]
 
 /**
+ * The words of one question, wherever it is being sent from -- asked the first
+ * time, or the same question re-sent as a reminder a day later. One place, so a
+ * reminder cannot drift into being a differently-worded second question.
+ *
+ * `discloseOptOut` is only ever true on the message that opens a conversation.
+ * The monthly language rides on the first check-in of the calendar month, and a
+ * reminder is not one: it is that same message again.
+ */
+const bodyOfQuestion = (
+  asking: Asking,
+  question: CheckInQuestion,
+  relationship: CheckInRelationship,
+  discloseOptOut: boolean,
+): string => {
+  const { ministryName } = asking
+  if (question === 'met') {
+    return meetingQuestion({
+      ministryName,
+      subject: checkInSubject(relationship.participantNames),
+      discloseOptOut,
+    })
+  }
+  return question === 'satisfaction'
+    ? satisfactionQuestion({ ministryName })
+    : concernDetailRequest({ ministryName })
+}
+
+/**
  * The opening question of one relationship's turn. Where a closing thank-you
  * would otherwise fall, this is what is sent instead -- which is why it is the
  * one step reached from both the start of a conversation and the middle of one.
@@ -428,11 +464,31 @@ const askWhetherTheyMet = (
       position,
       question: 'met',
     },
-    meetingQuestion({
-      ministryName: asking.ministryName,
-      subject: checkInSubject(relationship.participantNames),
-      discloseOptOut,
-    }),
+    bodyOfQuestion(asking, 'met', relationship, discloseOptOut),
+  )
+
+/**
+ * Whatever the ladder said comes next, sent. Reached from a reply that advanced
+ * the conversation and from a question given up on, which move it identically --
+ * that identity is what *converting abandonment into ordinary unanswered
+ * questions with no special case* actually means in code.
+ *
+ * Never carries the monthly opt-out language: it went out on the message that
+ * opened this conversation, and this is the same conversation.
+ */
+const askNext = (
+  asking: Asking,
+  advance: Extract<CheckInAdvance, { kind: 'ask' }>,
+): readonly Effect[] =>
+  ask(
+    asking,
+    {
+      relationshipId: advance.relationship.relationshipId,
+      role: advance.relationship.role,
+      position: advance.position,
+      question: advance.question,
+    },
+    bodyOfQuestion(asking, advance.question, advance.relationship, false),
   )
 
 /**
@@ -550,6 +606,119 @@ const openConversationWith = (
   return effects
 }
 
+/**
+ * What the tick does about a question that has been sitting unanswered.
+ *
+ * The whole rule, in the order it happens: nothing for a day, then the question
+ * again, then nothing for another day, then the conversation moves on without it.
+ * After that this Leader has no open question and there is nothing left to chase
+ * -- the sequence either has another relationship to ask about or is closed.
+ *
+ * Called only when the cadence has *not* opened a new conversation this run. A
+ * new week abandons the old sequence outright, and chasing a question that no
+ * longer belongs to anything would send a Leader last week's question and this
+ * week's in the same minute.
+ */
+const chaseTheOpenQuestion = (
+  checkIn: CheckInSnapshot,
+  chasing: {
+    readonly ministryId: MinistryId
+    readonly ministryName: string
+    readonly now: Date
+    readonly ids: IdSource
+  },
+): readonly Effect[] => {
+  const { ministryId, ministryName, now, ids } = chasing
+
+  const sequence = checkIn.openSequence
+  const awaiting = sequence?.awaiting
+  if (!sequence || !awaiting) return []
+
+  const lapse = lapseOfOpenQuestion(awaiting, now)
+  if (!lapse) return []
+
+  const relationship = sequence.covering[awaiting.position - 1]
+  if (!relationship) return []
+
+  const asking: Asking = {
+    ministryId,
+    ministryName,
+    sequenceId: sequence.sequenceId,
+    personId: checkIn.personId,
+    phone: checkIn.phone,
+    now,
+    ids,
+    // A lapse produced this, not a cadence. The stamp records which Monday sent a
+    // conversation's opening message, and no Monday sent this.
+    scheduledFor: null,
+  }
+
+  if (lapse === 'remind') {
+    return [
+      remindCheckInQuestion({ ministryId, promptId: awaiting.promptId, remindedAt: now }),
+      appendHistory({
+        ministryId,
+        occurredAt: now,
+        type: 'checkin.question_reminded',
+        subjectType: 'relationship',
+        subjectId: relationship.relationshipId,
+        payload: {
+          sequenceId: sequence.sequenceId,
+          promptId: awaiting.promptId,
+          question: awaiting.question,
+        },
+      }),
+      // The same question, not a new one. No prompt row is created, so nothing
+      // downstream can read one silence as two unanswered questions.
+      sayToLeader(asking, bodyOfQuestion(asking, awaiting.question, relationship, false)),
+    ]
+  }
+
+  const passedOver = appendHistory({
+    ministryId,
+    occurredAt: now,
+    type: 'checkin.question_passed_over',
+    subjectType: 'relationship',
+    subjectId: relationship.relationshipId,
+    payload: {
+      sequenceId: sequence.sequenceId,
+      promptId: awaiting.promptId,
+      question: awaiting.question,
+    },
+  })
+
+  const advance = advanceCheckIn(sequence, awaiting, PASSED_OVER)
+
+  // The last relationship, given up on. There is nothing left to ask and no
+  // thank-you to send: the Leader did not finish this conversation, and thanking
+  // them for it would be Discipler telling them they had.
+  //
+  // `abandoned` rather than `completed`, which is the same distinction a new week
+  // displacing a sequence makes -- and for the same reason. Its unanswered
+  // questions stay unanswered, because that silence is what ticket 10 reads.
+  if (advance.kind === 'finish') {
+    return [
+      passedOver,
+      closeCheckInSequence({
+        ministryId,
+        sequenceId: sequence.sequenceId,
+        closedAt: now,
+        outcome: 'abandoned',
+      }),
+      appendHistory({
+        ministryId,
+        occurredAt: now,
+        type: 'checkin.sequence_abandoned',
+        subjectType: 'person',
+        subjectId: checkIn.personId,
+        payload: { sequenceId: sequence.sequenceId, reason: 'unanswered' },
+      }),
+    ]
+  }
+
+  return [passedOver, ...askNext(asking, advance)]
+}
+
 export const handleCommand = (command: Command, context: CommandContext): CommandResult => {
   switch (command.type) {
     case 'scheduled.tick': {
@@ -582,19 +751,36 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       // never ran on Monday evening asks on Tuesday rather than skipping a week.
       for (const leader of checkInsDue) {
         const due = checkInDueThisWeek(leader, now)
-        if (!due) continue
 
+        if (due) {
+          effects.push(
+            ...openConversationWith(leader, {
+              ministryId: command.ministryId,
+              ministryName,
+              now,
+              ids: context.ids,
+              // The cadence as it was read at this moment, stamped on the message.
+              // Not `now`: the two differ by however long the tick took to reach
+              // this Leader, and it is the cadence that has to be recoverable from
+              // the row -- that is what makes an edit demonstrably future-only.
+              scheduledFor: due,
+            }),
+          )
+          // A new week has just abandoned whatever was open and asked its first
+          // question. There is nothing of last week's left to chase.
+          continue
+        }
+
+        // Mid-week, with a question already out. The reminder and the giving-up
+        // live here rather than in their own tick because they are the same
+        // clock the cadence is read against, and two schedulers would be two
+        // answers to *what time is it*.
         effects.push(
-          ...openConversationWith(leader, {
+          ...chaseTheOpenQuestion(leader, {
             ministryId: command.ministryId,
             ministryName,
             now,
             ids: context.ids,
-            // The cadence as it was read at this moment, stamped on the message.
-            // Not `now`: the two differ by however long the tick took to reach
-            // this Leader, and it is the cadence that has to be recoverable from
-            // the row -- that is what makes an edit demonstrably future-only.
-            scheduledFor: due,
           }),
         )
       }
@@ -779,14 +965,70 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       if (!sequence || !awaiting) return { effects: [], rejections: [] }
 
       const reply = readCheckInReply(awaiting.question, command.body)
-
-      // Strict tokens in this ticket. An unreadable reply leaves the question
-      // open and the conversation exactly where it was -- the clarifying
-      // re-prompt and its cap are ticket 09's, along with the synonyms and typos
-      // that would have made this readable.
-      if (reply.kind === 'unreadable') return { effects: [], rejections: [] }
-
       const answered = sequence.covering[awaiting.position - 1]
+
+      const asking: Asking = {
+        ministryId: command.ministryId,
+        ministryName,
+        sequenceId: sequence.sequenceId,
+        personId: checkIn.personId,
+        phone: checkIn.phone,
+        now,
+        ids: context.ids,
+        // A reply is what produced this, not a cadence. Only the message that
+        // opens a conversation carries the cadence that made it due; the rest of
+        // the thread travels back in seconds and nothing scheduled any of it.
+        scheduledFor: null,
+      }
+
+      // A reply that resolves to no token, or to two. The question stays open and
+      // the conversation stays exactly where it was: nothing is recorded as
+      // answered, because a guess here is the one failure the whole matching rule
+      // exists to prevent.
+      if (reply.kind === 'unreadable') {
+        const clarifying = awaiting.clarificationsSent < CLARIFICATIONS_PER_QUESTION
+
+        const effects: Effect[] = [
+          // Recorded whether or not it is answered, including the ones past the
+          // cap. This is the record the enumerated list of synonyms and typos
+          // grows from -- from what Leaders actually typed, never from what
+          // somebody imagined they might.
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'checkin.reply_unreadable',
+            subjectType: 'relationship',
+            subjectId: answered?.relationshipId ?? null,
+            payload: {
+              sequenceId: sequence.sequenceId,
+              promptId: awaiting.promptId,
+              personId: checkIn.personId,
+              question: awaiting.question,
+              body: command.body,
+              clarified: clarifying,
+            },
+          }),
+        ]
+
+        // Two, and then Discipler stops talking -- not listening. The question is
+        // still open, and a valid reply is still accepted right up until the
+        // sequence advances past it. Only Discipler's side is capped.
+        if (clarifying) {
+          effects.push(
+            clarifyCheckInQuestion({
+              ministryId: command.ministryId,
+              promptId: awaiting.promptId,
+              clarifiedAt: now,
+            }),
+            sayToLeader(
+              asking,
+              checkInClarification({ ministryName, question: awaiting.question }),
+            ),
+          )
+        }
+
+        return { effects, rejections: [] }
+      }
 
       const effects: Effect[] = [
         recordCheckInAnswer({
@@ -817,20 +1059,6 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
 
       const advance = advanceCheckIn(sequence, awaiting, reply)
 
-      const asking: Asking = {
-        ministryId: command.ministryId,
-        ministryName,
-        sequenceId: sequence.sequenceId,
-        personId: checkIn.personId,
-        phone: checkIn.phone,
-        now,
-        ids: context.ids,
-        // A reply is what produced this, not a cadence. Only the message that
-        // opens a conversation carries the cadence that made it due; the rest of
-        // the thread travels back in seconds and nothing scheduled any of it.
-        scheduledFor: null,
-      }
-
       if (advance.kind === 'finish') {
         effects.push(
           sayToLeader(asking, checkInThankYou({ ministryName })),
@@ -852,31 +1080,10 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         return { effects, rejections: [] }
       }
 
-      if (advance.question === 'met') {
-        // The next relationship's opening question, sent where a closing
-        // thank-you would otherwise have fallen. The monthly language is not
-        // repeated here: it went out on the message that opened this
-        // conversation, and this is the same conversation.
-        effects.push(
-          ...askWhetherTheyMet(asking, advance.relationship, advance.position, false),
-        )
-        return { effects, rejections: [] }
-      }
-
-      effects.push(
-        ...ask(
-          asking,
-          {
-            relationshipId: advance.relationship.relationshipId,
-            role: advance.relationship.role,
-            position: advance.position,
-            question: advance.question,
-          },
-          advance.question === 'satisfaction'
-            ? satisfactionQuestion({ ministryName })
-            : concernDetailRequest({ ministryName }),
-        ),
-      )
+      // Whatever the ladder said comes next: the rest of this relationship's
+      // turn, or the next relationship's opening question sent where a closing
+      // thank-you would otherwise have fallen.
+      effects.push(...askNext(asking, advance))
 
       return { effects, rejections: [] }
     }
