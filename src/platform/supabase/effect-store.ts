@@ -1167,8 +1167,8 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       await client.query(
         `insert into outbound_message
            (ministry_id, person_id, to_phone, body, enqueued_at, scheduled_for,
-            discloses_person_id, prompt_key, prompt_state, kind)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+            discloses_person_id, prompt_key, prompt_state)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
         [
           message.ministryId,
           message.personId,
@@ -1192,10 +1192,6 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
           // yet: a Welcome Message expects no reply, so it holds up nobody's queue.
           // Ticket 08 is the first to set this, and the column is already here.
           null,
-          // What the sending layer meters on. `'other'` on everything but a nudge,
-          // which is almost everything: the Check-In Rhythm is self-limiting by
-          // construction and needs no separate ceiling.
-          message.kind,
         ],
       )
     }

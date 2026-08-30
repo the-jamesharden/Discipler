@@ -41,7 +41,9 @@ The last two are review conditions, not care flags. A pause and a swap request a
 
 No follow-up item clears itself. An expired pause is not resolved by expiring, and a swap request is not resolved by being recorded; each waits for an admin to act.
 
-Five actions are available from a follow-up item and no others. **See contact details**, always. **Resolve**, which clears the item — on a concern-based item it clears the concern text by default; on a swap request it records that the admin reviewed the request and left the relationship in place. **Nudge**, which sends one additional check-in and only when that recipient is eligible under the messaging limits. **Resume relationship**, on a paused relationship, which lifts the pause, releases the Starter Message, and lets the relationship's underlying derived state resurface — a relationship that was stalled when it was paused is stalled again until an answered check-in clears it. **End relationship**, always, with a recorded reason.
+Four actions are available from a follow-up item and no others. **Nudge**, always, which reveals the participant's contact details so the admin can reach them directly — it sends nothing. **Resolve**, which clears the item — on a concern-based item it clears the concern text by default; on a swap request it records that the admin reviewed the request and left the relationship in place. **Resume relationship**, on a paused relationship, which lifts the pause, releases the Starter Message, and lets the relationship's underlying derived state resurface — a relationship that was stalled when it was paused is stalled again until an answered check-in clears it. **End relationship**, always, with a recorded reason.
+
+Nudge and *see contact details* were listed here as two separate actions, one of which sent an additional check-in. They are one action, and it sends nothing. See `docs/adr/0010-nudge-reveals-a-number-and-sends-nothing.md`.
 
 Reassigning or replacing somebody needs no separate action. Ending a relationship returns everyone in it to `Ready to Pair`, and the admin pairs them from the Roster in the usual way.
 

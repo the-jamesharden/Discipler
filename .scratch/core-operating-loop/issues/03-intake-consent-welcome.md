@@ -41,9 +41,8 @@ and so is every rule above.
 
 Two floors are already enforced in the database and this ticket sits on top of them:
 a Person with no SMS consent, or with an open opt-out, cannot be the recipient of an
-outbound message at all. The recipient-level checks named above -- cooldowns, nudge
-limits, contact-sharing consent at send time -- are the sending layer's and are still
-to be built.
+outbound message at all. The recipient-level check named above -- contact-sharing
+consent at send time -- is the sending layer's and is still to be built.
 
 ### Settled — how a Person reaches Intake
 
@@ -132,12 +131,13 @@ options belong to each Ministry, seeded with a default list.
 
 ### Deliberately left for later tickets
 
-- **Cooldowns and nudge limits are not built.** The criterion above is *a
-  recipient-level check at the sending layer*, and that check exists and refuses.
-  The limits it will eventually also enforce -- one nudge per recipient per twelve
-  hours, two a day, four a week -- are ticket 11a's, and `dispatchQueue` is the place
-  they land. Spelled out here because ticket 02's comment listed them alongside
-  contact-sharing consent, and only the latter is done.
+- **Cooldowns and nudge limits are not built, and will not be.** The criterion above
+  is *a recipient-level check at the sending layer*, and that check exists and
+  refuses. The limits it was once expected to also enforce -- one nudge per recipient
+  per twelve hours, two a day, four a week -- have no subject: Nudge sends nothing, so
+  there is no admin-initiated send to govern. Withdrawn by ADR 0010. Spelled out here
+  because ticket 02's comment listed them alongside contact-sharing consent, and it is
+  the latter that is still owed.
 - **The Admin surface that edits the Discipleship Goal list.** The data model is here
   and a new Ministry is seeded with a starting list, so Intake renders. Editing it --
   and the warning that removing an option loses the answers pointing at it -- needs a
@@ -196,9 +196,9 @@ should not be quietly answered *no*.
 **Correction to a claim above.** *"so the serialization in ticket 20 can be added
 without a schema migration"* is narrower than it reads. `prompt_key` and
 `prompt_state` are there, but ticket 20 also requires that a keyword command and its
-confirmation are never held and that a held message consumes no nudge budget, and
-nothing on `outbound_message` yet distinguishes a scheduled prompt from a keyword
-reply. Ticket 20 should expect to add a column for that.
+confirmation are never held, and nothing on `outbound_message` yet distinguishes a
+scheduled prompt from a keyword reply. Ticket 20 should expect to add a column for
+that.
 
 283 tests pass against a local Supabase stack with the app running, none skipped.
 

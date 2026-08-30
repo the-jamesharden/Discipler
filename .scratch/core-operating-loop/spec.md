@@ -122,7 +122,7 @@ From then on Discipler is nearly invisible. Once a week each Leader gets a singl
 70. As an Admin, I want to reach Concern text one Person at a time rather than as a list, so that the most sensitive data in the product takes deliberate effort to read.
 71. As an Admin, I want Concern text cleared when I resolve it by default, so that we do not accumulate a permanent file of people's hardest weeks.
 72. As an Admin, I want to see contact details, resolve an item, send one additional check-in, resume a paused relationship, or end the relationship from a follow-up item, so that the view is actionable.
-73. As a Ministry, I want an Admin clicking Nudge repeatedly to send at most one message, so that no interface action can over-message our congregation.
+73. As a Ministry, I want no interface action to send a message at all, so that the only thing we ever text our congregation is the check-in rhythm they agreed to.
 74. As a Leader, I want a missed meeting never framed as a failure, so that answering honestly is safe.
 
 ### Pause, swap, and ending
@@ -168,13 +168,13 @@ Message copy branches on Participant count — a Participant's name when there i
 
 ### Single command boundary
 
-Every external trigger enters through one application-service boundary. The commands are: Intake submitted, Person imported, relationship created, relationship cancelled, Leader accepted, inbound SMS received, Admin action taken (resolve, nudge, pause, resume, end), and a scheduled tick.
+Every external trigger enters through one application-service boundary. The commands are: Intake submitted, Person imported, relationship created, relationship cancelled, Leader accepted, inbound SMS received, Admin action taken (resolve, pause, resume, end), and a scheduled tick. Nudge is not among them: it reveals contact details and changes nothing.
 
 Each command returns effects rather than performing I/O directly: outbound messages to enqueue, and history events to append. This is the seam the test suite drives, and it is the only way into the domain.
 
 ### Injected clock
 
-Every time-dependent rule reads from an injected clock, never from system time directly. The rules that depend on it: two-week silence, three-week non-meeting, twenty-four-hour sequence timeout, next-day reminder, twelve-hour nudge cooldown, two- and five-day Acceptance reminders, seven-to-fourteen-day Invitation Link expiry, Pause duration, and Pause expiry — the last evaluated as a distinct condition that raises a follow-up item without changing state.
+Every time-dependent rule reads from an injected clock, never from system time directly. The rules that depend on it: two-week silence, three-week non-meeting, twenty-four-hour sequence timeout, next-day reminder, two- and five-day Acceptance reminders, seven-to-fourteen-day Invitation Link expiry, Pause duration, and Pause expiry — the last evaluated as a distinct condition that raises a follow-up item without changing state.
 
 This is a hard requirement. Without it none of the care logic is testable.
 
@@ -213,7 +213,7 @@ An expired Pause and an open Swap request are **not** states and **not** care co
 
 One settings surface, three sections, one form. **Ministry** — display name, timezone, `from_name`. **Language** — `leader_noun`, `participant_noun`, with a live message preview beneath. **Pairing** — `suggest_gender_match`, `suggest_max_age_band_gap`, and the check-in day and hour.
 
-The timezone is load-bearing: availability blocks, the check-in cadence, the ISO week boundary, the nudge day and week windows, and the monthly opt-out rule all resolve against it.
+The timezone is load-bearing: availability blocks, the check-in cadence, the ISO week boundary, and the monthly opt-out rule all resolve against it.
 
 Message structure, reply tokens, and the opt-out footer are **not** settings and are not rendered as disabled fields either — a greyed-out box invites a request to enable it. They are not on the screen.
 
@@ -269,9 +269,9 @@ A keyword resolving to the relationship whose check-in question is currently ope
 
 ### Outbound messages and limits
 
-All outbound messages go through one queue. **Every message passes a recipient-level check before it sends** — this is enforced at the sending layer, not at the button. An Admin clicking Nudge twenty times causes at most one message.
+All outbound messages go through one queue. **Every message passes a recipient-level check before it sends** — consent, an open opt-out, a number to send to — and this is enforced at the sending layer, not at the button, so no future write path can enqueue its way around it.
 
-Nudge limits, per recipient: one per twelve hours, at most two per day, at most four per week. These are pilot starting values. They govern nudges specifically; the Check-In Rhythm is self-limiting by construction and needs no separate ceiling.
+No interface action sends a message. The Check-In Rhythm is the only thing that generates participant-facing traffic, and it is self-limiting by construction, so there are no per-recipient rate limits. Nudge reveals contact details and sends nothing; see `docs/adr/0010-nudge-reveals-a-number-and-sends-nothing.md`.
 
 Contact-sharing consent is checked **at send time**, never assumed from enrollment. A message that would include a phone number is not sent with the number if consent is absent.
 
@@ -331,7 +331,7 @@ Scenarios that must be covered at this seam:
 - Abandonment mid-sequence: the reminder fires at twenty-four hours, then the sequence advances; the abandoned questions age into Stalled.
 - Two weeks of silence produces Stalled with the silence reason and a duration in days since last contact; three `2` replies produce Stalled with the not-meeting reason and a duration in weeks. **The reasons and their units must be distinguishable.**
 - A new week arriving mid-sequence abandons the old one without rewriting its history.
-- Nudge clicked repeatedly sends once.
+- Nudge reveals contact details and sends nothing.
 - Contact-sharing consent absent means no phone number is sent.
 - Every outbound message carries the Ministry prefix; the compliance prefix appears on first contact, after a thirty-day Silence Gap, and on `HELP`, and not otherwise.
 - A Participant messaged after a thirty-day gap receives opt-out language again; a Participant messaged within it does not.

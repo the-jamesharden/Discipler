@@ -17,7 +17,6 @@ import type {
   NewCheckInPrompt,
   NewCheckInSequence,
   OutboundMessageDraft,
-  OutboundMessageKind,
   PersonOptOut,
   RelationshipCancellation,
 } from '~/domain/effects'
@@ -27,7 +26,6 @@ import type {
   NewFollowUpItem,
 } from '~/domain/follow-up'
 import type { InvitationToken, NewInvitation } from '~/domain/invitations'
-import type { NudgeRefusal } from '~/domain/nudge-limits'
 import type { HistoryEvent, NewHistoryEvent } from '~/domain/history'
 import type { DiscipleshipGoalId } from '~/domain/intake'
 import type {
@@ -300,10 +298,6 @@ export type WithholdingReason =
   | 'recipient_opted_out'
   | 'recipient_has_no_sms_consent'
   | 'recipient_has_no_phone'
-  // The nudge ceilings, which refuse for a different kind of reason than the three
-  // above: those are facts about the recipient, these are facts about how much
-  // this Ministry has already said to them.
-  | NudgeRefusal
 
 export interface QueuedMessage {
   readonly id: OutboundMessageId
@@ -317,11 +311,6 @@ export interface QueuedMessage {
    * leave nothing to withhold.
    */
   readonly disclosesPersonId: PersonId | null
-  /**
-   * Whether the nudge ceiling governs this message. Only nudges are metered: the
-   * Check-In Rhythm is self-limiting by construction and needs no separate ceiling.
-   */
-  readonly kind: OutboundMessageKind
 }
 
 export interface ContactDetails {
@@ -340,26 +329,6 @@ export interface OutboundQueue {
   due(ministryId: MinistryId): Promise<readonly QueuedMessage[]>
   /** Whether this Person may be sent to *right now*, not when they were queued. */
   mayReceive(ministryId: MinistryId, personId: PersonId): Promise<WithholdingReason | null>
-  /**
-   * The Ministry's own timezone, which is what its day and its week resolve
-   * against. Read here rather than passed in, for the same reason every other
-   * method names its Ministry: the queue is drained on a trusted connection with
-   * no session behind it, so nothing else is in a position to say whose day it is.
-   */
-  timeZoneOf(ministryId: MinistryId): Promise<string>
-  /**
-   * When each nudge that actually reached this Person was sent, no earlier than
-   * `since`.
-   *
-   * Sent ones only. A message the sending layer withheld never arrived and one
-   * ticket 20 is holding behind an open conversation has not arrived yet, so
-   * neither spent any of the recipient's nudge budget.
-   */
-  nudgesSentTo(
-    ministryId: MinistryId,
-    personId: PersonId,
-    since: Date,
-  ): Promise<readonly Date[]>
   /** The details to disclose, or null where the Person has not agreed to share. */
   contactToShare(ministryId: MinistryId, personId: PersonId): Promise<ContactDetails | null>
   markSent(ministryId: MinistryId, id: OutboundMessageId, at: Date): Promise<void>

@@ -181,7 +181,10 @@ The chronological record of ministry activity associated with a discipleship rel
 Longer-term ministry insight derived from the ministry's historical activity and participant context.
 
 **Ministry Timezone**:
-The single clock a Ministry's data is interpreted against. Availability blocks, the Check-In Cadence, the week boundary behind the care counters, the nudge day and week windows, and the monthly opt-out rule all resolve against it. A property of the Ministry, never of a Person.
+The single clock a Ministry's data is interpreted against. Availability blocks, the Check-In Cadence, the week boundary behind the care counters, and the monthly opt-out rule all resolve against it. A property of the Ministry, never of a Person.
+
+**Nudge**:
+The action that reveals a Participant's contact details on a Follow-Up Item so an Admin can reach them directly. It sends nothing. Discipler says who needs a call; the Admin makes it.
 
 **Check-In Cadence**:
 The day of week and hour at which a Ministry's Check-In Sequences are sent, resolved against the Ministry Timezone and bounded to 8am–9pm local. A Ministry setting, not a product constant: a church small group meets Sunday and is asked Monday morning, while campus discipleship happens midweek and is asked Thursday evening.

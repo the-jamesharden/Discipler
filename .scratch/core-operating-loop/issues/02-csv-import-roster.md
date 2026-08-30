@@ -79,8 +79,10 @@ have bought nothing but a rewrite.
 `no_intake_submitted` or `opted_out` cannot hold a membership, and a Person with no
 SMS consent or an open opt-out cannot be the recipient of an outbound message. Both
 are triggers translated into refusal codes at the store, the same way the caps are.
-The second is a floor under ticket 03's send-time checks, not a replacement: cooldowns,
-nudge limits and contact-sharing consent still belong to the sending layer.
+The second is a floor under ticket 03's send-time checks, not a replacement:
+contact-sharing consent still belongs to the sending layer. Cooldowns and nudge limits
+were listed here too and are withdrawn -- Nudge sends nothing, so there is no
+admin-initiated send for a ceiling to govern. See ADR 0010.
 
 **Fixtures now describe reality.** `addPerson` completes Intake by default, because a
 Person who has not is unpairable and a test that forgot would fail at the pairing

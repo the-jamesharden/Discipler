@@ -81,7 +81,7 @@ fact — a Leader texting `SWAP` again after being ignored is saying something, 
 deduping makes them indistinguishable from one who asked once and waited.
 
 **Resolution records `resolved_at` and `resolved_by`, and no free-text note.** Resolve
-is one click inline (ticket 11b); a note field adds a writing task to a surface designed
+is one click inline (ticket 11); a note field adds a writing task to a surface designed
 not to have one, and the actions an Admin took are recorded as facts of their own.
 **Raising and resolving each append a `ministry_event`** — this table is mutable
 operational state, so without that append a Ministry cannot ask later how many care
@@ -162,4 +162,4 @@ ticket does not make. A separate ticket should give it a caller.
 
 **Care Needed is a reader, not a screen.** `CareNeededReader` answers for the Follow-Up
 Item source only. The union with derived relationship states and Concerns needs ticket
-10, and the inline resolve button is ticket 11b's.
+10, and the inline resolve button is ticket 11's.

@@ -1197,7 +1197,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
 
       // No note, deliberately. Resolving is one click on a surface designed not to
       // have a writing task on it, and what the Admin actually did -- cancelled,
-      // nudged, ended -- is recorded as a fact of its own rather than retyped here.
+      // ended -- is recorded as a fact of its own rather than retyped here.
       return {
         rejections: [],
         effects: [

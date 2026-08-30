@@ -244,13 +244,13 @@ Three capabilities are deliberately deferred. The **Planning Center API** — V1
 
 Deferring the report defers the *interface*, never the data. The week-by-week history that a report will one day read must be complete and correct from the first week of the pilot, because it cannot be reconstructed later.
 
-## Settled: No Interface Action Bypasses Messaging Limits
+## Settled: No Interface Action Sends a Message
 
-Every outbound message passes a recipient-level check before it sends. Cooldowns and per-recipient rate limits are enforced at the sending layer, not at the button.
+Every outbound message passes a recipient-level check before it sends — consent, an open opt-out, a number to send to — and that check is enforced at the sending layer, not at the button. Any future feature that sends a message inherits it without exception.
 
-An admin who clicks `Nudge` twenty times causes at most one message. This is not a UI concern to be solved with a disabled button — a disabled button is a courtesy, and the limit is the rule. Any future feature that sends a message inherits this without exception.
+No admin action sends one. The only participant-facing traffic Discipler generates is the check-in rhythm and the reminders belonging to it, and an admin who wants to reach somebody picks up the phone. This is why the product needs no per-recipient rate limits: it is not a ceiling on admin sending, it is the absence of admin sending.
 
-The reason is that Discipler's entire participant-facing surface is SMS. A ministry that over-messages its own congregation gets its number carrier-flagged, and every relationship in that ministry goes dark at once.
+The reason is that Discipler's entire participant-facing surface is SMS. A ministry that over-messages its own congregation gets its number carrier-flagged, and every relationship in that ministry goes dark at once. The check stays at the sending layer regardless, so that a feature added later cannot cross the line by forgetting to ask.
 
 ## Settled: Clarification Attempts Are Capped, Listening Is Not
 
@@ -289,17 +289,13 @@ An assignment has a start date and an open end. Assigning a new material closes 
 
 When a material changes mid-week, the week belongs to whichever material was assigned **at the moment the check-in was answered**, because that is the meeting being reported on. A week is never split across two materials.
 
-## Settled: Nudge Limits
+## Settled: Nudge Reveals a Number and Sends Nothing
 
-Three limits govern admin-initiated nudges, enforced per recipient at the sending layer:
+`Nudge` shows an admin the participant's contact details on a follow-up item so that the admin can reach them directly. It sends no message and enqueues nothing.
 
-1. a cooldown between nudges to the same person
-2. a daily cap
-3. a weekly ceiling as an absolute backstop
+There are therefore no nudge limits. A cooldown, a daily cap and a weekly ceiling would govern admin-initiated sends, and there are none. The check-in rhythm is self-limiting by construction — one sequence per week, advancing only on reply, one reminder per question, and at most two clarifications — so it needs no ceiling either.
 
-Starting values for the pilot: one nudge per recipient per 12 hours, at most 2 per day, at most 4 per week. Tune from pilot data.
-
-These govern nudges specifically, not all messaging. The check-in rhythm is self-limiting by construction — one sequence per week, advancing only on reply, one reminder per question, and at most two clarifications — so it needs no separate ceiling.
+This reverses an earlier reading of this file, which had `Nudge` sending one additional check-in under three per-recipient limits, and which had `See contact details` as a separate action beside it. The two were one action all along. See `docs/adr/0010-nudge-reveals-a-number-and-sends-nothing.md`.
 
 ## Settled: Required Intake Fields
 
@@ -596,8 +592,8 @@ one day is most of that day, not four separate chances to meet.
 There is one settings surface, three sections, one form:
 
 - **Ministry** — display name, timezone, `from_name`. The timezone matters more than
-  it looks: every availability block, the check-in cadence, the ISO week boundary, the
-  nudge day and week windows, and the monthly opt-out rule are all resolved against it.
+  it looks: every availability block, the check-in cadence, the ISO week boundary, and
+  the monthly opt-out rule are all resolved against it.
 - **Language** — `leader_noun` and `participant_noun`, with a live message preview
   underneath. This is the section that earns the tab: it is where a ministry sees its
   own words in its own messages.
@@ -828,9 +824,12 @@ the four cases are stated together:
   phone at all**. A Starter Message that opened a hold would block its own
   relationship's first check-in.
 
-Two consequences follow. The longest a scheduled message can wait behind a hold is
-forty-eight hours. And a held message consumes no nudge budget, which is already
-settled and matters most here, where the wait is longest.
+One consequence follows: the longest a scheduled message can wait behind a hold is
+forty-eight hours.
+
+This once carried a second consequence — that a held message consumes no nudge budget
+— which no longer says anything, because there is no nudge budget for it to spend. A
+hold delays a check-in and nothing else.
 
 ## Settled: The Sign-In Credential Is a Phone Number and a Password
 
@@ -902,10 +901,9 @@ events.
 
 Resolution records when and by whom, and nothing else. No free-text note.
 
-Resolve is one click inline in the Care Needed view alongside contact details and
-send-one-check-in, and a note field adds a writing task to a surface designed not to
-have one. The actions an Admin actually took — resumed, ended, nudged — are already
-recorded as facts of their own.
+Resolve is one click inline in the Care Needed view alongside the contact details, and
+a note field adds a writing task to a surface designed not to have one. The actions an
+Admin actually took — resumed, ended — are already recorded as facts of their own.
 
 Recording the acting Admin is consistent with the audit already required for viewing and
 resolving a Concern, and for ending a relationship.

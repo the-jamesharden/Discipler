@@ -4,7 +4,7 @@
 
 A phone number, not a Person, is the unit — a phone can only hold one thread regardless of how many people are reachable on it. Before a scheduled prompt is dispatched, the queue looks for an open prompt on that number: sent, unanswered, not superseded, not timed out. If one exists the new prompt is held rather than sent, and released when the open one closes by answer, supersession, or timeout. The check runs inside the queue worker's existing row lock so two workers cannot both decide the number is free.
 
-**Keyword commands and their prompts always preempt.** `docs/check-in-rhythm.md` settles that the most recent prompt owns the next reply and that a keyword exchange opened mid-sequence takes it while the check-in question stays unanswered with its reminder clock running. Serialization must not quietly reverse that: a Leader who texts `PAUSE` gets the confirmation immediately, not after answering the check-in they are trying to pause. Serialization governs scheduled sends — nudges and Participant-facing messages — and never a reply to something the Person just sent.
+**Keyword commands and their prompts always preempt.** `docs/check-in-rhythm.md` settles that the most recent prompt owns the next reply and that a keyword exchange opened mid-sequence takes it while the check-in question stays unanswered with its reminder clock running. Serialization must not quietly reverse that: a Leader who texts `PAUSE` gets the confirmation immediately, not after answering the check-in they are trying to pause. Serialization governs scheduled sends — the check-in rhythm and the Participant-facing messages around it — and never a reply to something the Person just sent.
 
 This is what makes reply binding by most-recent-prompt safe for scheduled traffic, and the two rules have to be read together. The sequence diagram in `docs/check-in-rhythm.md` should show the hold and the preemption.
 
@@ -17,7 +17,6 @@ This is what makes reply binding by most-recent-prompt safe for scheduled traffi
 - [ ] The timeout sweep releases the hold, proven by a test that advances the injected clock
 - [ ] The open-prompt check runs inside the worker's row lock, so concurrent workers cannot both send
 - [ ] A keyword command and its confirmation are never held behind an open check-in question
-- [ ] A held message consumes no nudge budget
 - [ ] The check-in rhythm's sequence diagram shows both the hold and the keyword preemption
 
 ## Comments
@@ -38,9 +37,11 @@ fixed here:
   re-send. These are never open and **never hold the phone at all.** A Starter Message
   that opened a hold would block its own relationship's first check-in.
 
-Two consequences: the longest a scheduled message can wait behind a hold is 48 hours, and
-that is also the longest window over which a held message must consume no nudge budget —
-already required above, and this is where it bites hardest.
+One consequence: the longest a scheduled message can wait behind a hold is 48 hours.
+
+This once carried a second — that a held message consumes no nudge budget over that same
+window — which no longer says anything. There is no nudge budget: Nudge sends nothing, so
+nothing admin-initiated is metered. Withdrawn by ADR 0010.
 
 - [ ] A check-in question times out at 48 hours or at the start of a new week, whichever is first
 - [ ] A Keyword Exchange times out at 24 hours with no reminder
@@ -55,8 +56,8 @@ migration. That claim is narrower than it read, and the ticket 03 review correct
 it.
 
 The rules above need `outbound_message` to say what *kind* of message a row is: a
-keyword command and its confirmation are never held, a message expecting no reply
-opens no hold, and a held message consumes no nudge budget. Nothing on the table
+keyword command and its confirmation are never held, and a message expecting no reply
+opens no hold. Nothing on the table
 distinguishes a scheduled prompt from a keyword reply today. `prompt_state` is null
 on every row so far, so nullness cannot stand in for it -- a Welcome Message and an
 unsent check-in question are both null and are governed by opposite rules.

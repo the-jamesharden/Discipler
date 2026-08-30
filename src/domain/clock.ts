@@ -2,8 +2,8 @@
  * Every time-dependent rule reads from an injected clock, never from system time.
  *
  * The care rules -- two-week silence, three-week non-meeting, the twenty-four hour
- * sequence timeout, the next-day reminder, the twelve-hour nudge cooldown, the
- * Acceptance reminders, Invitation Link expiry, and Pause expiry -- are all
+ * sequence timeout, the next-day reminder, the Acceptance reminders, Invitation
+ * Link expiry, and Pause expiry -- are all
  * untestable without this seam, because each one needs weeks to pass in a test that
  * runs in milliseconds.
  */

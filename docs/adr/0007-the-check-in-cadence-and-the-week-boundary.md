@@ -95,5 +95,5 @@ The 8am–9pm clamp means a ministry cannot ask for a 6:30am prompt even when it
 one. The compliance exposure is Discipler's, so the ceiling is Discipler's to set.
 
 The Ministry timezone becomes load-bearing well beyond the cadence: the ISO week
-anchor, the nudge day and week windows in ticket 11a, and the *first check-in of each
-calendar month* rule in ticket 08 are all resolved against it.
+anchor and the *first check-in of each calendar month* rule in ticket 08 are both
+resolved against it.

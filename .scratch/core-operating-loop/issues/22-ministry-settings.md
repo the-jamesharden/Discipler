@@ -5,8 +5,8 @@ Ministry is allowed to vary about how Discipler runs for them, and nothing else.
 
 **Ministry** — display name, timezone, `from_name`. The timezone matters far more than
 it looks. Every availability block is interpreted against it, and so are the check-in
-cadence, the ISO week boundary behind the care counters, the nudge day and week
-windows, and the *first check-in of each calendar month* rule. Until this ships there
+cadence, the ISO week boundary behind the care counters, and the *first check-in of
+each calendar month* rule. Until this ships there
 is no timezone anywhere in the product and those rules resolve against nothing.
 
 **Language** — `leader_noun` and `participant_noun`, with a live message preview

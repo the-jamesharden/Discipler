@@ -57,7 +57,7 @@ WEEK-BY-WEEK HISTORY
    ├── admin dashboard: Overview, Check-Ins, Suggested Pairs,
    │                    Follow-Up, Materials, Roster
    ├── Follow-Up: stalled · unresolved concern · expired pause · swap request
-   │              see contact · resolve · nudge · resume · end
+   │              nudge (reveals contact details) · resolve · resume · end
    └── Ministry Intelligence (reporting interface deferred past V1;
                               the history it reads must be complete now)
 ```
