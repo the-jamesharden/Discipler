@@ -120,22 +120,54 @@ describe('the Starter Message acceptance releases', () => {
     expect(new Set(enqueued(result).map((m) => m.personId))).toEqual(new Set([david, emily]))
   })
 
-  it('offers to disclose the Leader to the Participant and nobody to the Leader', () => {
-    const toLeader = enqueued(result).find((m) => m.personId === david)
-    const toParticipant = enqueued(result).find((m) => m.personId === emily)
+  it('discloses nobody, in either direction', () => {
+    // Each side is told the other side's names in the body, and no number is
+    // sent to anyone. A Participant has never needed their Leader's number --
+    // the Leader is the one who reaches out -- and no message to a Leader has
+    // ever carried one.
+    for (const message of enqueued(result)) {
+      expect(message.disclosesPersonId).toBeNull()
+    }
+  })
 
-    expect(toLeader?.disclosesPersonId).toBeNull()
-    expect(toParticipant?.disclosesPersonId).toBe(david)
+  it('names the Leader to the Participant, and the Participant to the Leader', () => {
+    expect(enqueued(result).find((m) => m.personId === david)?.body).toContain('Emily Johnson')
+    expect(enqueued(result).find((m) => m.personId === emily)?.body).toContain('David Ellis')
+  })
+
+  it('sends one message per Participant, however many Leaders there are', () => {
+    // It used to be one per Leader, because each carried that Leader's contact
+    // details and contact sharing is one Person's decision. No message carries
+    // them now, so there is nothing left that has to be answered per Leader.
+    const coLed = accept(
+      snapshot({
+        members: [
+          leader(david, 'David Ellis'),
+          // Already agreed, so David's is the acceptance that activates it.
+          leader(sarah, 'Sarah Kim', new Date('2026-03-01T09:00:00Z')),
+          participant(emily, 'Emily Johnson'),
+        ],
+      }),
+    )
+
+    const toParticipant = enqueued(coLed).filter((m) => m.personId === emily)
+
+    expect(toParticipant).toHaveLength(1)
+    expect(toParticipant[0]?.body).toContain('David Ellis and Sarah Kim')
   })
 
   it('gives the Participant a link of their own, which is not the Leader’s', () => {
+    // Minted, and no longer texted to them: the Starter Message named it until
+    // the copy was settled. It is what makes `match.decline` answerable at all,
+    // and whether a Participant should have a self-serve route to it is in
+    // `docs/open-questions.md`.
     const issued = result.effects.flatMap((e) =>
       e.kind === 'invitation.issue' ? [e.invitation] : [],
     )
 
     expect(issued.map((i) => i.personId)).toEqual([emily])
     expect(issued[0]?.token).not.toBe(token)
-    expect(enqueued(result).find((m) => m.personId === emily)?.body).toContain(
+    expect(enqueued(result).find((m) => m.personId === emily)?.body).not.toContain(
       issued[0]?.token,
     )
   })

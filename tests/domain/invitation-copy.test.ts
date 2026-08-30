@@ -4,9 +4,9 @@ import {
   acceptanceReminderMessage,
   invitationLink,
   invitationMessage,
+  resumedMessage,
   starterMessageToLeader,
   starterMessageToParticipant,
-  withSharedContact,
 } from '~/domain/outbound-copy'
 
 const token = invitationToken('7c3f9a21-4e6b-4d18-9f52-a0b3c8d51e77')
@@ -72,8 +72,7 @@ describe('the Starter Message', () => {
 
   const toParticipant = starterMessageToParticipant({
     ministryName: 'Riverside Chapel',
-    fullName: 'Emily Johnson',
-    declineLink: link,
+    leaderNames: ['David Ellis'],
   })
 
   it('carries the opt-out and rate disclosure to everyone in the relationship', () => {
@@ -100,35 +99,69 @@ describe('the Starter Message', () => {
     expect(carriesAPhoneNumber(toLeader)).toBe(false)
   })
 
-  it('leaves the Leader’s name and number to the sending layer', () => {
-    // Contact sharing is checked at send time and appended there. A body that
-    // already carried the number would leave the check nothing to withhold, so
-    // this one ends where the disclosure begins.
+  it('names whoever is going to reach out', () => {
+    // Somebody about to be contacted by a stranger is owed the stranger's name.
+    // Without it a Participant cannot tell a discipleship leader from a wrong
+    // number when the text arrives.
+    expect(toParticipant).toContain('David Ellis')
+  })
+
+  it('names every Leader when the relationship is a group', () => {
+    const group = starterMessageToParticipant({
+      ministryName: 'Riverside Chapel',
+      leaderNames: ['David Ellis', 'Ruth Adeyemi'],
+    })
+
+    expect(group).toContain('David Ellis and Ruth Adeyemi')
+  })
+
+  it('sends a Participant no phone number either', () => {
+    // The Leader reaches out, so a Participant has never needed one. The way an
+    // Admin reaches a Participant is Nudge, which reveals a number to a person
+    // rather than texting it to one.
     expect(carriesAPhoneNumber(toParticipant)).toBe(false)
   })
 
-  it('gives the Participant a way to say the match is not right', () => {
-    expect(toParticipant).toContain(link)
-  })
-
-  it('reads as a whole message when the sending layer appends nothing', () => {
-    // Contact sharing may be declined, and this is what the Participant then
-    // gets. No sentence may depend on details that were withheld.
+  it('reads as a whole message on its own', () => {
+    // Nothing is appended to it at dispatch -- it discloses nobody -- so every
+    // sentence in it has to stand as sent.
     expect(toParticipant.trimEnd().endsWith(':')).toBe(false)
-    expect(toParticipant).toContain('Your leader will text you')
+    expect(toParticipant).toContain('they will reach out to you soon')
+  })
+})
+
+describe('the message a resumed relationship sends', () => {
+  const resumed = resumedMessage({
+    ministryName: 'Riverside Chapel',
+    withNames: ['David Ellis'],
   })
 
-  it('reads as a whole message when it does append the contact', () => {
-    // The disclosure lands before the contact, because `composeMessage` runs at
-    // enqueue and `withSharedContact` at dispatch. Anything the body promised
-    // about "this number" would be interrupted by compliance text.
-    const dispatched = withSharedContact(toParticipant, {
-      fullName: 'David Ellis',
-      phone: '+15550100',
-    })
+  it('says what actually happened, and not that they have been matched', () => {
+    // *You have been paired* is true on the day the match is made. Sending it
+    // again after a fortnight away would tell somebody they had been matched to
+    // the person they have been meeting all year.
+    expect(resumed).toContain('Your discipleship with David Ellis has been resumed!')
+    expect(resumed).not.toContain('paired')
+  })
 
-    expect(dispatched).toContain('Reply STOP to opt out, HELP for help. David Ellis: +15550100')
-    expect(dispatched).not.toContain('number: Msg')
+  it('names the people on the other side of the relationship', () => {
+    expect(
+      resumedMessage({
+        ministryName: 'Riverside Chapel',
+        withNames: ['Emily Johnson', 'Sarah Kim'],
+      }),
+    ).toContain('Emily Johnson and Sarah Kim')
+  })
+
+  it('carries the opt-out disclosure, because a Pause can run twelve weeks', () => {
+    // Longer than the thirty-day Silence Gap the disclosure exists for. Carried
+    // on every resume rather than only the long ones: re-disclosing early is not
+    // a compliance failure, and not disclosing late is.
+    expect(resumed).toContain('Reply STOP to opt out')
+  })
+
+  it('carries no phone number', () => {
+    expect(carriesAPhoneNumber(resumed)).toBe(false)
   })
 })
 

@@ -88,3 +88,77 @@ create index ministry_event_relationship_pause_idx
   on ministry_event (ministry_id, subject_id, occurred_at desc, recorded_at desc)
   where subject_type = 'relationship'
     and type in ('relationship.paused', 'relationship.resumed');
+
+-- ---------------------------------------------------------------------------
+-- A question a Pause withdrew is not a silence
+-- ---------------------------------------------------------------------------
+
+-- `relationship_weeks` emits one row per relationship per Check-In Sequence that
+-- covered it, and a row with no reply is what ticket 10 counts as silence. A Pause
+-- taken mid-conversation withdraws the question that was open -- no reminder goes
+-- out, and the conversation moves on -- so the week it belonged to must stop being
+-- one of those rows. Otherwise a Leader who stepped back on Tuesday comes back from
+-- a fortnight away one week closer to `Stalled` for a question Discipler took back.
+--
+-- That is the spec's rule, stated for the Keyword Exchange and settled as general:
+-- *a pause never accrues silence against itself*, and the withdrawn question
+-- *never ages into Stalled*.
+--
+-- Only the unanswered ones. A Leader who answered about a relationship and was
+-- paused an hour later said something true, and a Pause does not unsay it -- so the
+-- `having` keeps every week a reply landed for, whatever happened afterwards.
+--
+-- Bounded to the conversation, not to "is paused now". A relationship paused in
+-- March and resumed in April must not have its March silence erased retroactively
+-- when it is paused again in June; the pause has to have fallen inside the very
+-- sequence whose week is being dropped. A sequence still open takes every pause
+-- since it started, because it has not finished asking yet.
+--
+-- The upper bound is exclusive, and that is not a detail. `closed_at` is the
+-- instant a conversation stopped being the open one, and a new week closes last
+-- week's sequence and opens this one's at the very same instant -- so a Pause taken
+-- then belongs to the week that is starting and not to the week that just ended.
+-- Written inclusive, an Admin pausing at the cadence hour would erase the silence
+-- of the week before the one they paused.
+create or replace function public.relationship_weeks(target_ministry_id uuid)
+returns table (
+  relationship_id uuid,
+  opened_at timestamptz,
+  closed_at timestamptz,
+  answered_at timestamptz,
+  reported_not_meeting boolean
+)
+language sql
+stable
+set search_path = ''
+as $$
+  select covered.relationship_id,
+         s.started_at,
+         s.closed_at,
+         max(p.answered_at),
+         coalesce(bool_or(p.question = 'met' and p.met is false), false)
+    from public.checkin_sequence s
+    cross join lateral unnest(s.covering) as covered(relationship_id)
+    left join public.checkin_prompt p
+      on p.sequence_id = s.id
+     and p.relationship_id = covered.relationship_id
+     and p.answered_at is not null
+   where s.ministry_id = target_ministry_id
+   group by covered.relationship_id, s.id, s.started_at, s.closed_at
+  having max(p.answered_at) is not null
+      or not exists (
+           select 1
+             from public.ministry_event e
+            where e.ministry_id = target_ministry_id
+              and e.subject_type = 'relationship'
+              and e.type = 'relationship.paused'
+              and e.subject_id = covered.relationship_id
+              and e.occurred_at >= s.started_at
+              and (s.closed_at is null or e.occurred_at < s.closed_at)
+         );
+$$;
+
+comment on function public.relationship_weeks(uuid) is
+  'One row per relationship per Check-In Sequence that covered it, minus the weeks '
+  'a Pause withdrew the question from. Facts only: the counting is '
+  'deriveRelationshipState''s, and no rule about how many weeks make a stall is here.';

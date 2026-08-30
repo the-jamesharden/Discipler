@@ -135,3 +135,56 @@ millisecond and Postgres was free to return them in any order. It now orders by
 else. Not caused by this ticket, and it reproduces at `7802866`.
 
 `npm test`: 774 passing, 63 files. `tsc --noEmit` clean.
+
+### Product rulings, and what they changed
+
+Both questions this ticket parked came back answered, along with a third the copy
+settled. `docs/open-questions.md` records them; here is what moved in the code.
+
+**The Starter Message names the Leader and sends nobody's number.** *"Great news!
+You have been paired with [Leader] for discipleship, they will reach out to you
+soon to set up a time to meet and kick things off!"* The old body deliberately
+withheld the name so the sending layer could append name-and-number together
+behind contact-sharing consent; the ruling splits those, and the number is simply
+not sent. So `disclosesPersonId` is null on every message the product composes,
+and a Participant in a group gets **one** message naming every Leader rather than
+one per Leader — the per-Leader split existed only because contact sharing is one
+Person's decision, and nothing in the message is that any more.
+
+That leaves the whole send-time disclosure path — `disclosesPersonId`,
+`withSharedContact`, `OutboundQueue.contactToShare`, the `discloses_person_id`
+column — reached by no product write path. It is kept and still tested against a
+forged row. **It should be given a use or removed deliberately**; left alone it is
+a compliance-shaped mechanism nothing exercises.
+
+**The decline link comes out of that message.** `match.decline` and its
+`match_declined` item are now reachable only by somebody handed the link. The
+Participant's Invitation Link is still minted at acceptance so the route exists
+the moment a surface offers it, and whether a Participant should have a self-serve
+way to decline is reopened against ticket 06 in `docs/open-questions.md`.
+
+**A resume sends its own message**, not the Starter Message: *"Your discipleship
+with [Leader] has been resumed!"*, to both sides with the other side's names. The
+acceptance criterion *an Admin resuming releases the Starter Message* is met in
+substance — everyone in the relationship hears it is running again, and expiry
+still sends nothing — but the words are no longer the Starter Message's, which
+supersedes that line of the spec.
+
+**A Pause takes back a question already out.** No next-day reminder for a paused
+pair, withdrawn on the first tick that notices rather than at the lapse, and the
+conversation moves on to the relationships still running — skipping in silence any
+paused alongside it, exactly as `relationshipsToAskAbout` skips them when a
+conversation opens.
+
+Withdrawn, not passed over: `relationship_weeks` drops the week entirely, so the
+question never ages into `Stalled`. The bound is the sequence that was open when
+the Pause landed, and its upper edge is **exclusive** — a new week closes last
+week's sequence and opens this one's at the same instant, so a Pause taken at the
+cadence hour would otherwise erase the silence of the week before the one it
+paused. That cost a red test before it cost a pilot.
+
+This settles the spec's *a pause never accrues silence against itself* as general
+rather than the Keyword Exchange's. Ticket 17 inherits the rule rather than
+building it.
+
+`npm test`: 788 passing, 63 files. `tsc --noEmit` clean.

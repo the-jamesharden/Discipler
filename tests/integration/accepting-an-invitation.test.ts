@@ -156,7 +156,7 @@ describe('accepting an Invitation Link', () => {
     })
   })
 
-  it('releases the Starter Message to everyone, and no number to the Leader', async () => {
+  it('releases the Starter Message to everyone, and no number to anybody', async () => {
     const david = await roster('David Starter')
     const emily = await roster('Emily Starter')
     await pair([david], [emily])
@@ -178,10 +178,12 @@ describe('accepting an Invitation Link', () => {
     expect(toLeader.every((row) => row.discloses_person_id === null)).toBe(true)
     expect(toLeader[1]?.body).toContain('Emily Starter')
 
-    // One to the Participant, their first word of any of it, offering to disclose
-    // the Leader -- and resolved at send time against contact-sharing consent.
+    // One to the Participant, their first word of any of it. It names the Leader
+    // who will be reaching out and discloses nobody: no number is sent to either
+    // side, so the send-time contact-sharing check has nothing to withhold.
     expect(toParticipant).toHaveLength(1)
-    expect(toParticipant[0]?.discloses_person_id).toBe(david)
+    expect(toParticipant[0]?.discloses_person_id).toBeNull()
+    expect(toParticipant[0]?.body).toContain('David Starter')
   })
 
   it('holds a group closed until every Leader has agreed', async () => {
@@ -222,7 +224,13 @@ describe('accepting an Invitation Link', () => {
     })
 
     expect(await activated()).toEqual(at)
-    expect(await messagesTo(emily)).toHaveLength(2)
+
+    // One message, naming both Leaders. It used to be one per Leader, because
+    // each carried that Leader's contact details and contact sharing is one
+    // Person's decision -- no message carries them now.
+    const toParticipant = await messagesTo(emily)
+    expect(toParticipant).toHaveLength(1)
+    expect(toParticipant[0]?.body).toContain('David Group and Sarah Group')
   })
 
   it('activates once when two co-leaders accept at the same moment', async () => {
@@ -287,8 +295,8 @@ describe('accepting an Invitation Link', () => {
     )
     expect(rows[0]?.accepted_at).toEqual(at)
 
-    // And exactly one Starter Message per Leader, not two rounds of them.
-    expect(await messagesTo(emily)).toHaveLength(2)
+    // And exactly one Starter Message, not two rounds of them.
+    expect(await messagesTo(emily)).toHaveLength(1)
   })
 
   it('refuses a token that account creation has already spent', async () => {

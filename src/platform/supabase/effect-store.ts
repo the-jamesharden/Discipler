@@ -155,20 +155,33 @@ interface CheckInRelationshipRow {
   checkin_hour: number
 }
 
-// `paused` is a parameter rather than a column on the row: only the relationships
-// a Person leads *now* are asked whether they are paused, because only those are
-// candidates for a new question. The ones an open sequence already covers are
-// read back by id and keep the shape the conversation opened with.
+// Whether a Pause stands on the relationship aliased `r`, read the way every
+// caller reads one: the later of `relationship.paused` and `relationship.resumed`.
+//
+// Both check-in queries select it. The relationships a Person leads *now* need it
+// because a paused one is not asked about; the ones an open sequence already
+// covers need it because a Pause taken mid-conversation withdraws the question it
+// is waiting on -- which used to be hardcoded false here, and was the reason a
+// Leader who stepped back on Tuesday still got Wednesday's reminder.
+const pausedColumn = `coalesce(
+                (select e.type = 'relationship.paused'
+                   from ministry_event e
+                  where e.subject_type = 'relationship'
+                    and e.subject_id = r.id
+                    and e.type in ('relationship.paused', 'relationship.resumed')
+                  order by e.occurred_at desc, e.recorded_at desc
+                  limit 1),
+                false
+              ) as paused`
 const asCheckInRelationship = (
-  row: CheckInRelationshipRow,
-  paused: boolean,
+  row: CheckInRelationshipRow & { paused: boolean },
 ): CheckInRelationship => ({
   relationshipId: relationshipId(row.relationship_id),
   role: 'leader',
   startedAt: row.created_at,
   participantNames: row.participant_names,
   acceptedAt: row.accepted_at,
-  paused,
+  paused: row.paused,
   cadence: { day: row.checkin_day, hour: row.checkin_hour },
 })
 
@@ -745,25 +758,18 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // Open memberships only. Whoever already left is not somebody this returns to
     // the pool -- they are already in it.
     //
-    // The name, the number and the live link ride along because a resume releases
-    // the Starter Message to everybody here, and that message needs a greeting, a
-    // recipient, and the decline route the Participant already holds. The join to
-    // `invitation` is left because a Leader who has accepted has spent theirs and
-    // a Participant may never have been issued one.
+    // The name and the number ride along because a resume tells everybody here
+    // that the relationship is running again, and that message needs a recipient
+    // and the names on the other side of the relationship.
     const { rows: members } = await client.query<{
       person_id: string
       role: MemberRole
       full_name: string
       phone: string | null
-      token: string | null
     }>(
-      `select m.person_id, m.role, p.full_name, p.phone, i.token
+      `select m.person_id, m.role, p.full_name, p.phone
          from relationship_member m
          join person p on p.id = m.person_id
-         left join invitation i
-           on i.relationship_id = m.relationship_id
-          and i.person_id = m.person_id
-          and i.consumed_at is null
         where m.relationship_id = $1 and m.ended_at is null
         order by m.role, m.started_at`,
       [id],
@@ -791,7 +797,6 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
         role: row.role,
         fullName: row.full_name,
         phone: row.phone,
-        liveToken: row.token === null ? null : invitationToken(row.token),
       })),
     }
   },
@@ -900,20 +905,9 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       `select r.id as relationship_id,
               r.created_at,
               r.accepted_at,
-              -- Paused lives in history rather than in a column, like every other
-              -- relationship state here. Ticket 12 writes these events; until it
-              -- does, no relationship is paused and the rule is proven by
-              -- appending one.
-              coalesce(
-                (select e.type = 'relationship.paused'
-                   from ministry_event e
-                  where e.subject_type = 'relationship'
-                    and e.subject_id = r.id
-                    and e.type in ('relationship.paused', 'relationship.resumed')
-                  order by e.occurred_at desc, e.recorded_at desc
-                  limit 1),
-                false
-              ) as paused,
+              -- Paused lives in history rather than in a column, like every
+              -- other relationship state here.
+              ${pausedColumn},
               ${participantNamesColumn},
               ${cadenceColumns}
          from relationship r
@@ -971,10 +965,17 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       // and a relationship that ends mid-week must not shorten it: every question
       // still to come is indexed by the position stored against it, so dropping
       // one entry would bind the next answer to the wrong relationship.
-      const { rows: covered } = await client.query<CheckInRelationshipRow>(
+      //
+      // The entries stay; what they say about themselves is read fresh. A Pause
+      // taken since the conversation opened is exactly the fact the withdrawal
+      // rule turns on, so `paused` is selected here rather than assumed false.
+      const { rows: covered } = await client.query<
+        CheckInRelationshipRow & { paused: boolean }
+      >(
         `select r.id as relationship_id,
                 r.created_at,
                 r.accepted_at,
+                ${pausedColumn},
                 ${participantNamesColumn},
                 ${cadenceColumns}
            from relationship r
@@ -990,7 +991,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
         startedAt: sequence.started_at,
         covering: sequence.covering.flatMap((each) => {
           const row = byId.get(each)
-          return row ? [asCheckInRelationship(row, false)] : []
+          return row ? [asCheckInRelationship(row)] : []
         }),
         awaiting:
           latest && latest.answered_at === null
@@ -1029,7 +1030,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       personId: id,
       phone: person.phone,
       timeZone: person.timezone,
-      leads: led.map((row) => asCheckInRelationship(row, row.paused)),
+      leads: led.map(asCheckInRelationship),
       openSequence,
       lastCheckInAt: asked[0]?.last_checked_in_at ?? null,
     }

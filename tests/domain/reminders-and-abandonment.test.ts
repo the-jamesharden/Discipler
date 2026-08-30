@@ -368,3 +368,91 @@ describe('a late reply', () => {
     ])
   })
 })
+
+/**
+ * A Pause taken while a question is out.
+ *
+ * The rule the product settled: **a paused pair gets no next-day reminder.**
+ * Discipler does not chase a Leader who has just stepped back, and the question
+ * it had out is taken back rather than left to age into a silence the Leader
+ * never owned.
+ */
+describe('a Pause taken while a question is waiting on an answer', () => {
+  /** The same conversation, with one or both relationships now paused. */
+  const withPaused = (...ids: readonly (typeof emily)[]) => {
+    const relationships = covering.map((relationship) => ({
+      ...relationship,
+      paused: ids.includes(relationship.relationshipId),
+    }))
+
+    return snapshot({
+      leads: relationships,
+      openSequence: openSequence({ covering: relationships }),
+    })
+  }
+
+  it('sends no reminder, however long the question has been out', () => {
+    // The reminder is the one message a Pause exists to stop: a text to somebody
+    // who has just told their Admin they are stepping back.
+    expect(bodies(ticking(after(hours(24)), withPaused(emily)).effects)).not.toContain(
+      MEETING_QUESTION,
+    )
+    expect(historyTypes(ticking(after(hours(24)), withPaused(emily)).effects)).not.toContain(
+      'checkin.question_reminded',
+    )
+  })
+
+  it('takes the question back the moment it notices, not at the next lapse', () => {
+    // An hour in, well short of the twenty-four the reminder waits. Waiting for
+    // the lapse would leave the conversation stuck on a relationship nobody is
+    // being asked about for a day.
+    const withdrawn = eventOf(
+      ticking(after(hours(1)), withPaused(emily)).effects,
+      'checkin.question_withdrawn',
+    )
+
+    expect(withdrawn).toMatchObject({
+      subjectId: emily,
+      payload: { sequenceId, promptId, question: 'met', reason: 'paused' },
+    })
+  })
+
+  it('is withdrawn rather than passed over, so it is nobody’s silence', () => {
+    // A passed-over question is a silence the Leader owns and ticket 10 counts.
+    // This one is Discipler's to take back.
+    expect(historyTypes(ticking(after(hours(48)), withPaused(emily)).effects)).not.toContain(
+      'checkin.question_passed_over',
+    )
+  })
+
+  it('moves the conversation on to the relationships still running', () => {
+    expect(bodies(ticking(after(hours(1)), withPaused(emily)).effects)).toEqual([
+      'ABC Church: Did you meet with Marcus and Dan this week? Reply 1 for yes, 2 for no.',
+    ])
+  })
+
+  it('skips past any other relationship paused alongside it, in silence', () => {
+    // A relationship nobody was asked about has no question to withdraw and no
+    // event to record -- the same silence `relationshipsToAskAbout` keeps when a
+    // conversation opens without it.
+    const both = ticking(after(hours(1)), withPaused(emily, marcus))
+
+    expect(bodies(both.effects)).toEqual([])
+    expect(historyTypes(both.effects)).toEqual([
+      'checkin.question_withdrawn',
+      'checkin.sequence_abandoned',
+    ])
+    expect(eventOf(both.effects, 'checkin.sequence_abandoned')?.payload).toMatchObject({
+      sequenceId,
+      reason: 'paused',
+    })
+  })
+
+  it('leaves a running relationship’s question alone', () => {
+    // The Pause is the relationship's, not the Leader's. One paused relationship
+    // does not stop Discipler chasing a question about another.
+    expect(bodies(ticking(after(hours(24)), withPaused(marcus)).effects)).toEqual([
+      MEETING_QUESTION,
+    ])
+  })
+})

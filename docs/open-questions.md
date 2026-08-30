@@ -199,22 +199,55 @@ Settled 2026-08-27.
 - **A2P compliance requirements have not been checked against a live campaign registration.** The `Discipler:` identification prefix and its trigger points are a product decision made on an understanding of carrier requirements, not a verified one. Review alongside the consent wording.
 - **`docs/consent-language.md` has not had legal review**, including the `HELP` response content.
 - **What a group check-in calls the group.** `docs/product-flow.md` and the check-in rhythm both say the question names the relationship when it has several Participants — *"Did you meet with Tuesday Men's Group this week?"* — but a relationship has never had a name, and nothing in the product creates one. Ticket 08a ships the question listing the Participants instead, which reads correctly for a group of two or three and poorly for a group of eight. Deciding it means deciding who names a group and when: a column filled at pairing, or a label an Admin sets afterwards.
-- **What the Starter Message says when an Admin resumes a paused relationship.** The
-  spec says a resume *releases the Starter Message* and never describes a second
-  message, so ticket 12 releases the same one activation sends. The Leader's copy
-  reads correctly either way — *you're now meeting with Emily; we'll check in each
-  week*. The Participant's opens *Good news, Emily — you've been matched*, which is
-  true on the day the match is made and reads oddly a fortnight after a holiday.
-  Deciding it means deciding whether a resume is the same announcement or its own.
-- **Whether pausing withdraws a check-in question that is already open.** The spec
-  states the rule only for the Keyword Exchange — *a keyword resolving to the
-  relationship whose check-in question is currently open withdraws that pending
-  question, so a pause never accrues silence against itself* — and ticket 17 builds
-  it. Ticket 12's Admin pause does not, so a pause taken mid-conversation lets that
-  one in-flight week age into an unanswered one: invisible while the relationship
-  is masked as `Paused`, and one week closer to `Stalled` when it resumes. Deciding
-  it means deciding whether *a pause never accrues silence against itself* is a
-  property of the Pause or of the keyword that asked for one.
+## Resolved: what the Starter Message says, and what a Pause does to a question already out
+
+Three decisions, taken together because the copy settled the first two.
+
+**The Starter Message names the Leader and sends nobody's number.** *"[Church]: Great
+news! You have been paired with [Leader] for discipleship, they will reach out to you
+soon to set up a time to meet and kick things off!"* Somebody about to be contacted by
+a stranger is owed the stranger's name; the number is a different thing and is not
+sent at all, because the Leader is the one who reaches out. No outbound message in the
+product now discloses a phone number, so contact-sharing consent governs one surface
+only — Nudge, which reveals a number to an Admin rather than texting it to anyone.
+
+The consequence worth naming: the send-time disclosure path — `disclosesPersonId`,
+`withSharedContact`, `OutboundQueue.contactToShare` and the `discloses_person_id`
+column — is now reached by no product write path. It is kept, still tested against a
+forged row, and should be either given a use or removed deliberately rather than left
+to rot.
+
+**The decline link comes out of that message.** It was the Participant's only
+self-serve route to say the match is not right, so `match.decline` and the
+`match_declined` follow-up item are no longer reachable by anybody who has not been
+handed the link by an Admin. The Participant's Invitation Link is still minted at
+acceptance, so the route exists the moment something surfaces it. **Reopened against
+ticket 06:** whether a Participant should have a self-serve way to decline at all.
+
+**A resume gets its own sentence**, not the Starter Message: *"Your discipleship with
+[Leader] has been resumed!"*, to both sides with the other side's names in it. *You
+have been paired* is true on the day the match is made, and a Ministry that sent it
+after a fortnight away would be telling somebody they had been matched to the person
+they have been meeting all year.
+
+Settled 2026-08-30. Recorded in ticket 12.
+
+## Resolved: a Pause takes back a question that is already out
+
+A paused pair gets **no next-day reminder**. The reminder is a text to somebody who has
+just told their Admin they are stepping back, which is the one message a Pause exists
+to stop — so the question Discipler had out is withdrawn on the first tick that notices,
+rather than at the lapse a day later, and the conversation moves on to the
+relationships still running.
+
+Withdrawn, not passed over. A passed-over question is a silence the Leader owns and
+`Stalled` counts; this one is Discipler's to take back, so the relationship-week it
+belonged to is dropped from `relationship_weeks` entirely. That settles the spec's
+*a pause never accrues silence against itself* as general rather than belonging to the
+Keyword Exchange route it was written for — ticket 17 inherits the rule rather than
+building it.
+
+Settled 2026-08-30. Recorded in ticket 12.
 
 ## Deferred with the quarterly report
 

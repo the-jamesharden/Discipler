@@ -1,6 +1,6 @@
 import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { createTestClock, weeks } from '~/domain/clock'
+import { createTestClock, days, weeks } from '~/domain/clock'
 import { PauseRefused } from '~/domain/errors'
 import { personId, relationshipId, type IdSource, type PersonId } from '~/domain/ids'
 import { readCareNeeded } from '~/platform/supabase/care-needed-reader'
@@ -13,7 +13,6 @@ import {
   createMinistryWithAdmin,
   localSupabase,
   pairOneToOne,
-  serviceRoleClient,
   signInAs,
   type MinistryFixture,
 } from '../support/local-supabase'
@@ -230,55 +229,41 @@ describe('pausing, resuming, and a period running out', () => {
     expect(about(await church.careAt(at(4)), relationship)).toEqual([])
   })
 
-  it('releases the Starter Message to everyone when an Admin resumes', async () => {
+  it('tells everyone the relationship is running again when an Admin resumes', async () => {
     const church = await aMinistry('Returning Chapel')
     const { leader, participant, relationship } = await church.aRelationship(
       'Back Leader',
       'Waiting Participant',
     )
 
-    // The link the Participant already holds, as acceptance would have left it.
-    // A token is unique across every Ministry, not within one, so this cannot be
-    // a fixed string: the local database is not reset between runs.
-    const held = `already-held-${crypto.randomUUID()}`
-    const { error } = await serviceRoleClient().from('invitation').insert({
-      ministry_id: church.ministry.id,
-      relationship_id: relationship,
-      person_id: participant,
-      token: held,
-      created_at: at(0).toISOString(),
-      expires_at: at(2).toISOString(),
-    })
-    if (error) throw new Error(`Could not issue the decline link: ${error.message}`)
-
     await church.pauseAt(at(0), relationship)
     await church.resumeAt(at(1), relationship)
 
+    // Each side is told the other side's names, and the message says what
+    // actually happened. *You have been paired* is true on the day the match is
+    // made and would be a Ministry telling somebody they had been matched to the
+    // person they have been meeting all year.
     expect(await inbox(church.ministry, leader)).toEqual([
-      // First contact for this Leader, so it carries the compliance prefix -- the
-      // same message activation would have sent had the relationship not been
-      // paused before it ever asked them anything.
-      'Returning Chapel: You’re now meeting with Waiting Participant. ' +
-        'We’ll check in with you each week to see how it’s going. ' +
+      'Returning Chapel: Your discipleship with Waiting Participant has been resumed! ' +
         'Msg & data rates may apply. Reply STOP to opt out, HELP for help.',
     ])
-    expect((await inbox(church.ministry, participant))[0]).toContain(
-      'you’ve been matched',
-    )
+    expect(await inbox(church.ministry, participant)).toEqual([
+      'Returning Chapel: Your discipleship with Back Leader has been resumed! ' +
+        'Msg & data rates may apply. Reply STOP to opt out, HELP for help.',
+    ])
 
-    // And the decline link in it is the one they already hold. A Person holds at
-    // most one live invitation per relationship -- there is a unique index saying
-    // so -- and a resume that minted a second would be refused by it.
-    expect((await inbox(church.ministry, participant))[0]).toContain(
-      `https://discipler.test/invitation/${held}`,
+    // Nobody's number travelled with either message, and nothing was minted.
+    const { rows: sent } = await pool.query<{ discloses_person_id: string | null }>(
+      `select discloses_person_id from outbound_message where ministry_id = $1`,
+      [church.ministry.id],
     )
+    expect(sent.map((row) => row.discloses_person_id)).toEqual([null, null])
 
-    const { rows: live } = await pool.query<{ token: string }>(
-      `select token from invitation
-        where relationship_id = $1 and person_id = $2 and consumed_at is null`,
-      [relationship, participant],
+    const { rows: live } = await pool.query(
+      `select 1 from invitation where relationship_id = $1`,
+      [relationship],
     )
-    expect(live.map((row) => row.token)).toEqual([held])
+    expect(live).toEqual([])
   })
 
   it('checks in again the week after a resume', async () => {
@@ -296,6 +281,66 @@ describe('pausing, resuming, and a period running out', () => {
     )
     expect(asked.map((row) => row.relationship_id)).toEqual([relationship])
     expect(await inbox(church.ministry, leader)).toHaveLength(2)
+  })
+
+  it('takes back a question it had out, and chases nobody about it', async () => {
+    const church = await aMinistry('Mid-Week Chapel')
+    const { leader, relationship } = await church.aRelationship('Stepped Back', 'Their Participant')
+
+    // Monday's question goes out; the Admin pauses on Tuesday.
+    await church.tickAt(at(0))
+    expect(await inbox(church.ministry, leader)).toHaveLength(1)
+
+    const tuesday = new Date(at(0).getTime() + days(1))
+    await church.pauseAt(tuesday, relationship)
+
+    // Wednesday is when the reminder would have fired. It does not: Discipler
+    // does not chase a Leader who has just stepped back.
+    await church.tickAt(new Date(at(0).getTime() + days(2)))
+    await church.tickAt(new Date(at(0).getTime() + days(3)))
+    expect(await inbox(church.ministry, leader)).toHaveLength(1)
+
+    const { rows: events } = await pool.query<{ type: string }>(
+      `select type from ministry_event
+        where subject_id = $1 and type like 'checkin.question%'
+        order by occurred_at`,
+      [relationship],
+    )
+    expect(events.map((row) => row.type)).toEqual(['checkin.question_withdrawn'])
+  })
+
+  it('never counts a withdrawn question as a week of silence', async () => {
+    const church = await aMinistry('Unpenalised Chapel')
+    const { leader, relationship } = await church.aRelationship('Unpenalised', 'Their Participant')
+
+    // Week zero: asked, and nothing came back. A silence the Leader owns.
+    await church.tickAt(at(0))
+
+    // Week one: asked, then paused a day later, so the question is taken back.
+    await church.tickAt(at(1))
+    await church.pauseAt(new Date(at(1).getTime() + days(1)), relationship)
+    await church.tickAt(new Date(at(1).getTime() + days(2)))
+    await church.resumeAt(new Date(at(1).getTime() + days(3)), relationship)
+
+    // Week two: asked again, and again nothing came back.
+    await church.tickAt(at(2))
+    await church.tickAt(at(3))
+
+    // Weeks zero and two are two silences, but they are not *consecutive* --
+    // week one is not on the record at all, because Discipler took its question
+    // back. Counted, the three would have been a stall a week ago.
+    expect(about(await church.careAt(at(3)), relationship)).toEqual([])
+
+    // And the rule still bites on silences the Leader actually owns: weeks two
+    // and three run consecutively, which is two.
+    await church.tickAt(at(4))
+    expect(about(await church.careAt(at(4)), relationship)).toMatchObject([
+      { source: 'relationship', state: 'stalled', reasons: [{ kind: 'gone_silent' }] },
+    ])
+
+    // No reminder ever went out for the withdrawn question -- one message per
+    // week asked, and nothing else.
+    expect(await inbox(church.ministry, leader)).toHaveLength(6)
   })
 
   describe('when the period runs out', () => {

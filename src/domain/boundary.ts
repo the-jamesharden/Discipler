@@ -61,6 +61,7 @@ import {
   meetingQuestion,
   satisfactionQuestion,
   invitationMessage,
+  resumedMessage,
   starterMessageToLeader,
   starterMessageToParticipant,
   welcomeMessage,
@@ -247,16 +248,6 @@ export interface RelationshipMember {
   readonly role: MemberRole
   readonly fullName: string
   readonly phone: string | null
-  /**
-   * The Invitation Link this Person still holds for this relationship, or null
-   * where nothing has issued one or the one they had has been spent.
-   *
-   * Carried so a resume can put the Participant's decline route back in the
-   * Starter Message without minting a second link. A Person holds at most one
-   * live invitation per relationship -- there is a unique index saying so -- and
-   * issuing another on every resume would be refused by it.
-   */
-  readonly liveToken: InvitationToken | null
 }
 
 /**
@@ -411,84 +402,6 @@ const memberHolding = (invitation: InvitationSnapshot, id: PersonId): InvitedMem
   const member = invitation.members.find((candidate) => candidate.personId === id)
   if (!member) throw new InvitationRefused('invitation.not_found')
   return member
-}
-
-/**
- * Somebody in a relationship, as much of them as a Starter Message needs: who to
- * greet, who to text, and which side of the relationship they stand on. Both
- * snapshots that carry members satisfy it, which is what lets the release below
- * be written once.
- */
-interface InRelationship {
-  readonly personId: PersonId
-  readonly role: MemberRole
-  readonly fullName: string
-  readonly phone: string | null
-}
-
-/**
- * The Starter Message, to everyone in one relationship.
- *
- * Released twice in a relationship's life: when the last Leader accepts and the
- * relationship activates, and when an Admin resumes it from a Pause. It is the
- * same message both times -- *here is who you are meeting and here is what
- * happens next* -- so it is composed once rather than twice, and the two callers
- * differ only in where a Participant's decline link comes from. Acceptance mints
- * one; a resume hands back the live one they already hold.
- *
- * The Leaders' copy carries no number and offers to disclose nobody: no message
- * to a Leader contains a phone number. Each Participant gets one message per
- * Leader, each offering to disclose that Leader, because contact sharing is one
- * Person's decision and cannot be answered for a group of Leaders at once.
- */
-const starterMessages = (release: {
-  readonly ministryId: MinistryId
-  readonly ministryName: string
-  readonly leaders: readonly InRelationship[]
-  /**
-   * Each Participant already carrying the link their message needs. Paired by the
-   * caller rather than looked up here, because where the link comes from is the
-   * only thing the two callers differ on -- and a lookup would be a map read this
-   * side could not prove was there.
-   */
-  readonly participants: readonly (InRelationship & { readonly declineLink: string })[]
-  readonly at: Date
-}): readonly Effect[] => {
-  const participantNames = release.participants.map((participant) => participant.fullName)
-
-  return [
-    ...release.leaders.map((leader) =>
-      enqueueMessage({
-        ministryId: release.ministryId,
-        personId: leader.personId,
-        toPhone: leader.phone,
-        body: starterMessageToLeader({
-          ministryName: release.ministryName,
-          participantNames,
-        }),
-        enqueuedAt: release.at,
-        disclosesPersonId: null,
-      }),
-    ),
-    ...release.participants.flatMap((participant) =>
-      release.leaders.map((leader) =>
-        enqueueMessage({
-          ministryId: release.ministryId,
-          personId: participant.personId,
-          toPhone: participant.phone,
-          body: starterMessageToParticipant({
-            ministryName: release.ministryName,
-            fullName: participant.fullName,
-            declineLink: participant.declineLink,
-          }),
-          enqueuedAt: release.at,
-          // Resolved at send time against contact-sharing consent as it stands
-          // then. Absent consent removes the number and sends the rest.
-          disclosesPersonId: leader.personId,
-        }),
-      ),
-    ),
-  ]
 }
 
 /**
@@ -666,9 +579,10 @@ const withoutTheProse = (reply: CheckInReply) => ({
 })
 
 /**
- * Ending a conversation the Leader did not finish. Three things end one -- a new
- * week displacing it, a `STOP`, and its last question reminded once and given up
- * on -- and all three close it `abandoned`, because they are one fact.
+ * Ending a conversation the Leader did not finish. Four things end one -- a new
+ * week displacing it, a `STOP`, a Pause withdrawing the last question it had left
+ * to ask, and its last question reminded once and given up on -- and all four
+ * close it `abandoned`, because they are one fact.
  *
  * The reason is a parameter rather than a caller's choice to include: it lives
  * only on the history event, so an ending that omitted it would be unreadable to
@@ -679,7 +593,7 @@ const abandonSequence = (abandonment: {
   readonly personId: PersonId
   readonly sequenceId: CheckInSequenceId
   readonly at: Date
-  readonly reason: 'displaced' | 'unanswered' | 'opted_out'
+  readonly reason: 'displaced' | 'unanswered' | 'opted_out' | 'paused'
 }): readonly Effect[] => {
   const { ministryId, personId, sequenceId, at, reason } = abandonment
   return [
@@ -820,9 +734,6 @@ const chaseTheOpenQuestion = (
   const awaiting = sequence?.awaiting
   if (!sequence || !awaiting) return []
 
-  const lapse = lapseOfOpenQuestion(awaiting, now)
-  if (!lapse) return []
-
   const relationship = sequence.covering[awaiting.position - 1]
   if (!relationship) return []
 
@@ -838,6 +749,60 @@ const chaseTheOpenQuestion = (
     // conversation's opening message, and no Monday sent this.
     scheduledFor: null,
   }
+
+  // A Pause taken since this question went out withdraws it, and withdraws it
+  // *now* rather than at the next lapse: the reminder is a text to a Leader who
+  // has just stepped back, which is the one message a Pause exists to stop.
+  //
+  // Withdrawn, not passed over. A passed-over question is a silence the Leader
+  // owns and ticket 10 counts; this one is Discipler's to take back, so nothing
+  // about the relationship-week it belongs to may read as unanswered --
+  // `relationship_weeks` drops it, which is what *a pause never accrues silence
+  // against itself* comes to in the data.
+  //
+  // The conversation then moves to the next relationship there is any point
+  // asking about. Ones paused alongside it are skipped in silence, exactly as
+  // `relationshipsToAskAbout` skips them when a conversation opens and for the
+  // same reason: a relationship nobody was asked about has no question to
+  // withdraw and no event to record.
+  if (relationship.paused) {
+    const withdrawn = appendHistory({
+      ministryId,
+      occurredAt: now,
+      type: 'checkin.question_withdrawn',
+      subjectType: 'relationship',
+      subjectId: relationship.relationshipId,
+      payload: {
+        sequenceId: sequence.sequenceId,
+        promptId: awaiting.promptId,
+        question: awaiting.question,
+        reason: 'paused',
+      },
+    })
+
+    let onward = advanceCheckIn(sequence, awaiting, PASSED_OVER)
+    while (onward.kind === 'ask' && onward.relationship.paused) {
+      onward = advanceCheckIn(sequence, { ...awaiting, position: onward.position }, PASSED_OVER)
+    }
+
+    if (onward.kind === 'finish') {
+      return [
+        withdrawn,
+        ...abandonSequence({
+          ministryId,
+          personId: checkIn.personId,
+          sequenceId: sequence.sequenceId,
+          at: now,
+          reason: 'paused',
+        }),
+      ]
+    }
+
+    return [withdrawn, ...askNext(asking, onward)]
+  }
+
+  const lapse = lapseOfOpenQuestion(awaiting, now)
+  if (!lapse) return []
 
   if (lapse === 'remind') {
     return [
@@ -1443,12 +1408,9 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       if (!relationship) {
         throw new Error('relationship.resume was handed no relationship to act on')
       }
-      const { ministryName, appBaseUrl } = context
+      const { ministryName } = context
       if (!ministryName) {
         throw new Error('relationship.resume was handed no Ministry to speak for')
-      }
-      if (!appBaseUrl) {
-        throw new Error('relationship.resume was handed nowhere for its links to point')
       }
 
       const now = context.clock.now()
@@ -1462,31 +1424,6 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       const participants = relationship.members.filter(
         (member) => member.role === 'participant',
       )
-
-      // A Participant who has no live link gets one now, so the decline route the
-      // Starter Message names still leads somewhere. Everyone else keeps the one
-      // they hold: at most one live invitation per Person per relationship, and
-      // minting a second on every resume would be refused by the index that says
-      // so.
-      const issued: NewInvitation[] = []
-      const declining = participants.map((participant) => {
-        if (participant.liveToken) {
-          return {
-            ...participant,
-            declineLink: invitationLink(appBaseUrl, participant.liveToken),
-          }
-        }
-
-        const minted = issueInvitation({
-          ministryId: command.ministryId,
-          relationshipId: relationship.relationshipId,
-          personId: participant.personId,
-          token: invitationToken(context.ids.next()),
-          at: now,
-        })
-        issued.push(minted)
-        return { ...participant, declineLink: invitationLink(appBaseUrl, minted.token) }
-      })
 
       // Resuming restores nothing by itself: it removes the mask, and the state
       // underneath is whatever the history yields. **It never sets `Healthy`** --
@@ -1515,18 +1452,30 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
               expired: pauseHasExpired(pause, now),
             },
           }),
-          ...issued.map(issueInvitationLink),
-          // The Starter Message, released again -- to everyone in the
-          // relationship, exactly as activation released it. Expiry never does
-          // this, which is the whole difference between a period running out and
-          // somebody deciding it has.
-          ...starterMessages({
-            ministryId: command.ministryId,
-            ministryName,
-            leaders,
-            participants: declining,
-            at: now,
-          }),
+          // Everyone in the relationship hears that it is running again --
+          // which is what *releases the Starter Message* comes to, and expiry
+          // never does it. Not the Starter Message itself: *you have been
+          // paired* is true on the day the match is made and would be a Ministry
+          // telling somebody they had been matched to the person they have been
+          // meeting all year.
+          //
+          // Each side is told the other side's names, like the Starter Message,
+          // and neither carries a number.
+          ...relationship.members.map((member) =>
+            enqueueMessage({
+              ministryId: command.ministryId,
+              personId: member.personId,
+              toPhone: member.phone,
+              body: resumedMessage({
+                ministryName,
+                withNames: (member.role === 'leader' ? participants : leaders).map(
+                  (other) => other.fullName,
+                ),
+              }),
+              enqueuedAt: now,
+              disclosesPersonId: null,
+            }),
+          ),
         ],
       }
     }
@@ -1880,7 +1829,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
     }
 
     case 'relationship.accept': {
-      const { invitation, ministryName, baseUrl } = tokenContext(context)
+      const { invitation, ministryName } = tokenContext(context)
       const now = context.clock.now()
 
       const state = invitationState(invitation, now)
@@ -1938,33 +1887,62 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       // A Participant gets a link of their own -- the same mechanism as the
       // Leader's, leading to declining rather than accepting -- minted here
       // because activation is the first moment there is one to mint.
-      const declining = participants.map((participant) => ({
-        ...participant,
-        invitation: issueInvitation({
-          ministryId: command.ministryId,
-          relationshipId: invitation.relationshipId,
-          personId: participant.personId,
-          token: invitationToken(context.ids.next()),
-          at: now,
-        }),
-      }))
+      //
+      // **Nothing texts it to them.** The Starter Message named it until the copy
+      // was settled and no longer does, so today the only way a Participant
+      // reaches their own page is an Admin handing them the link. Minting it
+      // anyway keeps that possible and keeps `match.decline` answerable; whether
+      // a Participant should have a self-serve way to say the match is wrong is
+      // ticket 06's question, reopened in `docs/open-questions.md`.
+      for (const participant of participants) {
+        effects.push(
+          issueInvitationLink(
+            issueInvitation({
+              ministryId: command.ministryId,
+              relationshipId: invitation.relationshipId,
+              personId: participant.personId,
+              token: invitationToken(context.ids.next()),
+              at: now,
+            }),
+          ),
+        )
+      }
 
-      effects.push(...declining.map((each) => issueInvitationLink(each.invitation)))
-
+      // The Starter Message. The Leaders' names the Participants; the
+      // Participants' names the Leaders, and neither carries a number -- so this
+      // message discloses nobody and one goes to each Participant however many
+      // Leaders a group has.
+      //
       // The Leader who just accepted typed a name, not a number: the number was
       // displayed and refused as input, so `phone` is still the one on file.
-      effects.push(
-        ...starterMessages({
-          ministryId: command.ministryId,
-          ministryName,
-          leaders,
-          participants: declining.map((each) => ({
-            ...each,
-            declineLink: invitationLink(baseUrl, each.invitation.token),
-          })),
-          at: now,
-        }),
-      )
+      const participantNames = participants.map((participant) => participant.fullName)
+      const leaderNames = leaders.map((leader) => leader.fullName)
+
+      for (const leader of leaders) {
+        effects.push(
+          enqueueMessage({
+            ministryId: command.ministryId,
+            personId: leader.personId,
+            toPhone: leader.phone,
+            body: starterMessageToLeader({ ministryName, participantNames }),
+            enqueuedAt: now,
+            disclosesPersonId: null,
+          }),
+        )
+      }
+
+      for (const participant of participants) {
+        effects.push(
+          enqueueMessage({
+            ministryId: command.ministryId,
+            personId: participant.personId,
+            toPhone: participant.phone,
+            body: starterMessageToParticipant({ ministryName, leaderNames }),
+            enqueuedAt: now,
+            disclosesPersonId: null,
+          }),
+        )
+      }
 
       return { rejections: [], effects }
     }

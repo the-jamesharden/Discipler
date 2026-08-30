@@ -9,7 +9,6 @@ import {
 import { createTestClock, weeks } from '~/domain/clock'
 import { PauseRefused } from '~/domain/errors'
 import { createSequentialIds, ministryId, personId, relationshipId } from '~/domain/ids'
-import { invitationToken } from '~/domain/invitations'
 import {
   DEFAULT_PAUSE_PERIOD_WEEKS,
   PAUSE_PERIODS,
@@ -38,7 +37,6 @@ const leader: RelationshipMember = {
   role: 'leader',
   fullName: 'David Ellis',
   phone: '+15550101',
-  liveToken: null,
 }
 
 const participant: RelationshipMember = {
@@ -46,7 +44,6 @@ const participant: RelationshipMember = {
   role: 'participant',
   fullName: 'Emily Johnson',
   phone: '+15550200',
-  liveToken: invitationToken('emily-token'),
 }
 
 const snapshot = (over: Partial<RelationshipSnapshot> = {}): RelationshipSnapshot => ({
@@ -233,39 +230,34 @@ describe('an Admin resuming a paused relationship', () => {
     expect(event?.payload).toMatchObject({ expired: true })
   })
 
-  it('releases the Starter Message to everyone in the relationship', () => {
+  it('tells everyone in the relationship that it is running again', () => {
     const released = messages(resume({}, later))
 
+    // Each side is told the other side's names, and neither message discloses
+    // anybody -- so the send-time contact-sharing check has nothing to withhold
+    // and no number reaches either of them.
     expect(released).toMatchObject([
       { personId: david, toPhone: '+15550101', disclosesPersonId: null },
-      { personId: emily, toPhone: '+15550200', disclosesPersonId: david },
+      { personId: emily, toPhone: '+15550200', disclosesPersonId: null },
     ])
-    expect(released[0]?.body).toContain('Emily Johnson')
-    expect(released[1]?.body).toContain('https://discipler.example/invitation/emily-token')
+    expect(released[0]?.body).toContain('Your discipleship with Emily Johnson has been resumed!')
+    expect(released[1]?.body).toContain('Your discipleship with David Ellis has been resumed!')
     expect(released.every((message) => message.enqueuedAt.getTime() === later.getTime())).toBe(true)
   })
 
-  it('reuses the decline link the Participant already holds', () => {
-    // A Participant holds at most one live Invitation Link per relationship, and
-    // minting a second one on every resume would be refused by the index that
-    // says so.
+  it('does not send the Starter Message', () => {
+    // *You have been paired* is true on the day the match is made. A Ministry
+    // that sent it again after a fortnight away would be telling somebody they
+    // had been matched to the person they have been meeting all year.
+    expect(messages(resume({}, later)).map((message) => message.body).join(' ')).not.toContain(
+      'paired',
+    )
+  })
+
+  it('mints nothing and issues no link', () => {
     expect(
       resume({}, later).effects.filter((effect) => effect.kind === 'invitation.issue'),
     ).toEqual([])
-  })
-
-  it('issues a decline link for a Participant holding none', () => {
-    const withoutOne = resume(
-      { members: [leader, { ...participant, liveToken: null }] },
-      later,
-    )
-
-    const issued = withoutOne.effects.flatMap((effect) =>
-      effect.kind === 'invitation.issue' ? [effect.invitation] : [],
-    )
-
-    expect(issued).toMatchObject([{ personId: emily, relationshipId: relationship }])
-    expect(messages(withoutOne)[1]?.body).toContain(issued[0]!.token)
   })
 
   it('refuses a relationship that is not paused', () => {

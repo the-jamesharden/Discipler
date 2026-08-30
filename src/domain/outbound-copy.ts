@@ -184,9 +184,8 @@ export const starterMessageToLeader = ({
 
 export interface StarterMessageToParticipant {
   readonly ministryName: string
-  readonly fullName: string
-  /** Their own Invitation Link, which for a Participant leads to declining. */
-  readonly declineLink: string
+  /** Who will be reaching out. Named in the body; their number never is. */
+  readonly leaderNames: readonly string[]
 }
 
 /**
@@ -194,30 +193,64 @@ export interface StarterMessageToParticipant {
  * thing they hear at all after Intake -- nothing reaches them until every Leader
  * has agreed to lead them.
  *
- * **Every sentence has to stand without the contact details.** The Leader's name
- * and number are appended by the sending layer, after the opt-out disclosure and
- * only once contact-sharing consent has been confirmed -- so a body that ended
- * by promising a number would read as a promise interrupted by compliance text
- * when consent was there, and as a dangling colon when it was not. It says what
- * will happen instead, and the details land after it or not at all.
+ * **It names the Leader and never their number.** Somebody about to be contacted
+ * by a stranger is owed the stranger's name, and a Participant who does not have
+ * it cannot tell a discipleship leader from a wrong number when the text arrives.
+ * The number is a different thing and is not sent at all: the Leader reaches out,
+ * so the Participant has never needed one, and the way an Admin reaches a
+ * Participant is Nudge, which reveals a number to a person rather than texting it
+ * to one. This message therefore discloses nobody -- `disclosesPersonId` is null
+ * on it -- and the send-time contact-sharing check has nothing to withhold.
+ *
+ * One message per Participant however many Leaders a group has, because the body
+ * names them all and nothing in it is one Leader's decision to make.
  */
 export const starterMessageToParticipant = ({
   ministryName,
-  fullName,
-  declineLink,
-}: StarterMessageToParticipant): string => {
-  const firstName = firstNameOf(fullName)
-
-  return composeMessage({
+  leaderNames,
+}: StarterMessageToParticipant): string =>
+  composeMessage({
     ministryName,
     identifyDelivery: false,
     discloseOptOut: true,
     body:
-      (firstName ? `Good news, ${firstName} — you’ve been matched.` : 'Good news — you’ve been matched.') +
-      ' Your leader will text you soon to arrange when to meet.' +
-      ` Not the right fit? Tell us here: ${declineLink}`,
+      `Great news! You have been paired with ${asList(leaderNames)} for discipleship, ` +
+      'they will reach out to you soon to set up a time to meet and kick things off!',
   })
+
+export interface ResumedMessage {
+  readonly ministryName: string
+  /** The people on the other side of the relationship, from the reader's side. */
+  readonly withNames: readonly string[]
 }
+
+/**
+ * What a resumed relationship says, to everyone in it.
+ *
+ * Deliberately not the Starter Message. *Great news, you have been paired* is
+ * true on the day the match is made and false a fortnight later, and a Ministry
+ * that said it twice would be telling somebody they had been matched to the
+ * person they have been meeting all year. What a resume is, is the thing that
+ * ended: the Pause.
+ *
+ * The same sentence to both sides with the other side's names in it, like the
+ * Starter Message it replaces here. Nothing announces the Pause itself -- an
+ * Admin pauses on something they were told offline, and Discipler stops asking
+ * rather than announcing that it has.
+ *
+ * The opt-out disclosure rides along because a Pause can run twelve weeks, and a
+ * Participant reached after that long has not heard from their church inside the
+ * thirty-day Silence Gap the disclosure exists for. Carried on every resume
+ * rather than only the long ones: re-disclosing early is not a compliance
+ * failure, and not disclosing late is.
+ */
+export const resumedMessage = ({ ministryName, withNames }: ResumedMessage): string =>
+  composeMessage({
+    ministryName,
+    identifyDelivery: false,
+    discloseOptOut: true,
+    body: `Your discipleship with ${asList(withNames)} has been resumed!`,
+  })
 
 export interface AcceptanceReminderMessage {
   readonly ministryName: string
