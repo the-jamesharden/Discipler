@@ -6,6 +6,7 @@ import {
   type OutboundMessageId,
   type PersonId,
 } from '~/domain/ids'
+import type { OutboundMessageKind } from '~/domain/effects'
 import { phoneNumber } from '~/domain/roster'
 import type {
   ContactDetails,
@@ -77,8 +78,9 @@ export const createPostgresOutboundQueue = (
           to_phone: string | null
           body: string
           discloses_person_id: string | null
+          kind: OutboundMessageKind
         }>(
-          `select id, person_id, to_phone, body, discloses_person_id
+          `select id, person_id, to_phone, body, discloses_person_id, kind
              from outbound_message
             where ministry_id = $1 and sent_at is null and withheld_at is null
             order by enqueued_at`,
@@ -94,6 +96,7 @@ export const createPostgresOutboundQueue = (
             disclosesPersonId: row.discloses_person_id
               ? personId(row.discloses_person_id)
               : null,
+            kind: row.kind,
           }),
         )
       })
@@ -130,6 +133,48 @@ export const createPostgresOutboundQueue = (
         if (state.opted_out) return 'recipient_opted_out'
         if (!state.consented) return 'recipient_has_no_sms_consent'
         return null
+      })
+    },
+
+    async timeZoneOf(ministryId: MinistryId): Promise<string> {
+      return inMinistry(ministryId, async (client) => {
+        const { rows } = await client.query<{ timezone: string }>(
+          `select timezone from ministry where id = $1`,
+          [ministryId],
+        )
+
+        // The queue is drained for a Ministry the caller has already named, so no
+        // row here means the drain was asked about a Ministry that is not there --
+        // which is a caller bug, not a message to withhold.
+        const zone = rows[0]?.timezone
+        if (!zone) throw new Error(`No Ministry ${ministryId} to read a timezone from`)
+        return zone
+      })
+    },
+
+    async nudgesSentTo(
+      ministryId: MinistryId,
+      person: PersonId,
+      since: Date,
+    ): Promise<readonly Date[]> {
+      return inMinistry(ministryId, async (client) => {
+        // Sent only, and nudges only. A withheld message never arrived and a held
+        // one has not arrived yet, so neither spent any of this Person's budget.
+        // Bounded by `since` because the caller knows how far back its own widest
+        // window reaches and the index is built for exactly this predicate.
+        const { rows } = await client.query<{ sent_at: Date }>(
+          `select sent_at
+             from outbound_message
+            where ministry_id = $1
+              and person_id = $2
+              and kind = 'nudge'
+              and sent_at is not null
+              and sent_at >= $3
+            order by sent_at desc`,
+          [ministryId, person, since],
+        )
+
+        return rows.map((row) => row.sent_at)
       })
     },
 

@@ -238,6 +238,23 @@ export const calendarMonthOf = (instant: Date, timeZone: string): CalendarMonth 
   return `${year}-${String(month).padStart(2, '0')}` as CalendarMonth
 }
 
+/** A civil date, as `2026-08-30`. The unit the daily nudge cap counts in. */
+export type CalendarDay = Branded<string, 'CalendarDay'>
+
+/**
+ * Which day a Ministry was having when this instant happened.
+ *
+ * *At most two per day* is two on the Ministry's own wall clock, not two per UTC
+ * day. It reads through the same `zonedTime` the week and the month do, so a
+ * Ministry six hours behind UTC cannot find its day boundary and its week boundary
+ * falling in different places.
+ */
+export const calendarDayOf = (instant: Date, timeZone: string): CalendarDay => {
+  const { year, month, day } = zonedTime(instant, timeZone)
+  const twoDigits = (value: number) => String(value).padStart(2, '0')
+  return `${year}-${twoDigits(month)}-${twoDigits(day)}` as CalendarDay
+}
+
 /**
  * When this week's check-in comes due for a Ministry on this cadence.
  *

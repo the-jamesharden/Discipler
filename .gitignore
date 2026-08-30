@@ -32,3 +32,6 @@ supabase/.branches/
 
 # Agent scratch
 .claude/agent-memory/
+
+# Agent memory (per-agent, not shared history)
+.claude/agent-memory/

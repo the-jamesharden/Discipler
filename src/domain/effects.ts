@@ -25,6 +25,14 @@ import type { NewPerson } from './roster'
  * is what makes the whole domain drivable from a test with no infrastructure.
  */
 
+/**
+ * Whether the nudge ceiling governs a message. Two values because the rule needs
+ * exactly two: the caps govern nudges specifically, and the Check-In Rhythm is
+ * self-limiting by construction and needs no separate ceiling. A later ticket that
+ * has to tell a Welcome Message from a reminder widens this.
+ */
+export type OutboundMessageKind = 'nudge' | 'other'
+
 export interface OutboundMessageDraft {
   readonly ministryId: MinistryId
   /** Null when the recipient is not a Person on the Roster -- an Admin, say. */
@@ -54,6 +62,18 @@ export interface OutboundMessageDraft {
    * send-time check nothing to withhold.
    */
   readonly disclosesPersonId: PersonId | null
+  /**
+   * Whether the nudge ceiling governs this one. `'other'` on everything but a
+   * nudge, and defaulted so that no existing path had to be changed to keep
+   * meaning what it already meant -- only a caller that means to send a nudge
+   * says so.
+   *
+   * The kind is what the sending layer meters on. It is not a hint the sender may
+   * omit to get around the ceiling: a nudge enqueued as `'other'` is a bug, and
+   * the database refuses the one shape that would make it undetectable by
+   * requiring a nudge to name the Person it is counted against.
+   */
+  readonly kind: OutboundMessageKind
 }
 
 /**
@@ -304,15 +324,23 @@ export const recordIntake = (intake: IntakeRecord): Effect => ({
 })
 
 export const enqueueMessage = (
-  message: Omit<OutboundMessageDraft, 'scheduledFor'> & {
+  message: Omit<OutboundMessageDraft, 'scheduledFor' | 'kind'> & {
     readonly scheduledFor?: Date | null
+    readonly kind?: OutboundMessageKind
   },
 ): Effect => ({
   kind: 'message.enqueue',
-  // Null unless the caller names a cadence, because almost nothing has one: a
-  // message answers an act, and only the dispatcher enqueues *because* a cadence
-  // instant arrived. Stated once here rather than on every call that has none.
-  message: { ...message, scheduledFor: message.scheduledFor ?? null },
+  message: {
+    ...message,
+    // Null unless the caller names a cadence, because almost nothing has one: a
+    // message answers an act, and only the dispatcher enqueues *because* a cadence
+    // instant arrived. Stated once here rather than on every call that has none.
+    scheduledFor: message.scheduledFor ?? null,
+    // Unmetered unless the caller says it is a nudge. Defaulting the other way
+    // would meter the Check-In Rhythm, which the rule exempts, and would make
+    // every existing send subject to a ceiling nobody asked it to obey.
+    kind: message.kind ?? 'other',
+  },
 })
 
 export const createRelationship = (relationship: NewRelationship): Effect => ({

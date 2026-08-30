@@ -135,7 +135,7 @@ options belong to each Ministry, seeded with a default list.
 - **Cooldowns and nudge limits are not built.** The criterion above is *a
   recipient-level check at the sending layer*, and that check exists and refuses.
   The limits it will eventually also enforce -- one nudge per recipient per twelve
-  hours, two a day, four a week -- are ticket 11's, and `dispatchQueue` is the place
+  hours, two a day, four a week -- are ticket 11a's, and `dispatchQueue` is the place
   they land. Spelled out here because ticket 02's comment listed them alongside
   contact-sharing consent, and only the latter is done.
 - **The Admin surface that edits the Discipleship Goal list.** The data model is here

@@ -197,6 +197,7 @@ describe('the write side', () => {
             enqueuedAt: at,
             scheduledFor: null,
             disclosesPersonId: null,
+            kind: 'other',
           },
         ]),
       ),
