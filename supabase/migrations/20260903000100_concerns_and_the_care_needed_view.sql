@@ -204,9 +204,12 @@ comment on column concern.detail is
 -- Healthy forever. Which is the invisible failure this ticket exists to catch,
 -- arriving on the Leader most in need of catching.
 --
--- Security invoker: the policies on `checkin_sequence` and `checkin_prompt` are what
--- scope this to an Admin's own Ministry, exactly as they would a direct select.
-create function app.relationship_weeks(target_ministry_id uuid)
+-- In `public` rather than `app` because this one is called by a screen rather than
+-- by a policy: PostgREST exposes `public`, and every other `app.` function here is
+-- reached from inside SQL. Security invoker either way -- the policies on
+-- `checkin_sequence` and `checkin_prompt` are what scope it to an Admin's own
+-- Ministry, exactly as they would a direct select.
+create function public.relationship_weeks(target_ministry_id uuid)
 returns table (
   relationship_id uuid,
   opened_at timestamptz,
@@ -231,4 +234,5 @@ as $$
    group by covered.relationship_id, s.id, s.started_at;
 $$;
 
-grant execute on function app.relationship_weeks(uuid) to authenticated;
+revoke execute on function public.relationship_weeks(uuid) from public, anon;
+grant execute on function public.relationship_weeks(uuid) to authenticated;

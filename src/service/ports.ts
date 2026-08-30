@@ -38,11 +38,7 @@ import type {
 } from '~/domain/ids'
 import type { ParticipationStatus } from '~/domain/participation'
 import type { NewRelationship } from '~/domain/relationships'
-import type {
-  CareReason,
-  RelationshipState,
-  RelationshipWeek,
-} from '~/domain/relationship-state'
+import type { CareReason, RelationshipState } from '~/domain/relationship-state'
 import type { InvitationState } from '~/domain/invitations'
 import type { MemberRole } from '~/domain/relationships'
 import type { NewPerson, PhoneNumber, RosterKey } from '~/domain/roster'
@@ -417,7 +413,11 @@ export interface InvitationReader {
  * with ticket 10, which is why this reader answers for the third alone rather than
  * pretending to be the whole surface.
  */
-export interface CareNeededItem {
+/**
+ * One Follow-Up Item, as Care Needed shows it. The oldest of the three sources and
+ * the only one that is a stored row an Admin closes by hand.
+ */
+export interface FollowUpCareItem {
   readonly id: FollowUpItemId
   readonly raisedAt: Date
   readonly relationshipId: RelationshipId | null
@@ -448,13 +448,75 @@ export interface CareNeededItem {
   readonly payload: FollowUpPayload
 }
 
+/**
+ * One relationship whose *derived* state asks for attention -- today, a Stalled
+ * one. Not a stored row and nothing to close: it clears itself the moment the
+ * Leader answers, which is exactly why it could never have been a Follow-Up Item.
+ */
+export interface RelationshipCareItem {
+  readonly relationshipId: RelationshipId
+  readonly state: RelationshipState
+  /**
+   * Which condition fired, with its own unit. *Gone silent, 23 days* and
+   * *responding, not meeting, 3 weeks* are different conversations, and an Admin
+   * has to know which one they are walking into before they pick up the phone.
+   */
+  readonly reasons: readonly CareReason[]
+  /** Who to call, and who the relationship is for. */
+  readonly leaderNames: readonly string[]
+  readonly participantNames: readonly string[]
+  /** Unresolved Concerns standing beside it. A Stalled relationship may have some. */
+  readonly openConcerns: number
+}
+
+/** One outstanding Concern, without the words. Opening those is a command. */
+export interface OutstandingConcern {
+  readonly id: ConcernId
+  readonly raisedAt: Date
+  readonly raisedBy: PersonId
+  readonly raisedByName: string | null
+}
+
+/**
+ * The Concerns outstanding on one relationship, gathered into a single item so
+ * that several show as a count rather than as several rows an Admin has to notice
+ * are about the same people.
+ *
+ * The text is deliberately absent. It is reached one Person at a time through
+ * `CommandService.openConcern`, which records the viewing in the same transaction
+ * that returns it -- and the authenticated role holds no grant on that column, so
+ * no other path to it exists.
+ */
+export interface ConcernCareItem {
+  readonly relationshipId: RelationshipId
+  /** Newest first. The count the badge shows is this length. */
+  readonly concerns: readonly OutstandingConcern[]
+  readonly participantNames: readonly string[]
+}
+
+/**
+ * One thing for an Admin to look at, from whichever of the three sources raised
+ * it. A tagged union rather than three lists, because Care Needed is one surface
+ * and the sources are a fact about where an item came from, not about how urgent
+ * it is.
+ */
+export type CareNeededItem =
+  | ({ readonly source: 'follow_up' } & FollowUpCareItem)
+  | ({ readonly source: 'relationship' } & RelationshipCareItem)
+  | ({ readonly source: 'concern' } & ConcernCareItem)
+
 export interface CareNeededReader {
   /**
-   * Open items only, newest first, for one Ministry -- and enforced as such in the
-   * database rather than here. Each carries how long it has waited as of the read,
-   * which is why an implementation of this needs a clock. A resolved item leaves the view and stays in the
-   * table, because how fast a Ministry closes its care items is a question it
-   * should be able to ask later.
+   * Everything outstanding in one Ministry, from all three sources: open Follow-Up
+   * Items, relationships whose derived state asks for attention, and unresolved
+   * Concerns.
+   *
+   * Open items only, and enforced as such in the database rather than here. Each
+   * follow-up item carries how long it has waited as of the read, which is why an
+   * implementation of this needs a clock -- as does the state derivation, which
+   * asks what week it is. A resolved item leaves the view and stays in the table,
+   * because how fast a Ministry closes its care items is a question it should be
+   * able to ask later.
    */
   listOpenItems(ministryId: MinistryId): Promise<readonly CareNeededItem[]>
 }

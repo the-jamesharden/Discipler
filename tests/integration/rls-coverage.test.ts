@@ -59,6 +59,8 @@ describe('every ministry-owned table', () => {
     expect(tables.map((t) => t.table_name)).toEqual([
       'checkin_prompt',
       'checkin_sequence',
+      'concern',
+      'concern_viewing',
       'consent_record',
       'discipleship_goal',
       'follow_up_item',

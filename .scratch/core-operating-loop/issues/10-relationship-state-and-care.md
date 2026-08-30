@@ -30,20 +30,20 @@ Do not tighten the thresholds. Two weeks and three weeks were chosen deliberatel
 
 **Blocked by:** 09
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] State derivation is a pure function, tested table-driven over the state matrix
-- [ ] Two weeks of silence yields Stalled with the silence reason and a duration in days
-- [ ] Three not-met replies yield Stalled with the not-meeting reason and a duration in weeks
-- [ ] The two reasons and their units are distinguishable by the caller
-- [ ] A Concern sets Needs Care that week and returns to Healthy the following week while the badge persists
-- [ ] Stalled clears automatically on an answered check-in; a Concern does not
-- [ ] Multiple Concerns on one relationship show a count
-- [ ] Concern text is reached one Person at a time and cleared by default on resolution
-- [ ] Viewing and resolving a Concern are recorded against the acting Admin
-- [ ] Care Needed shows relationships needing attention with their reason and duration
-- [ ] Consecutive unanswered check-ins and consecutive not-met weeks are counted over ISO weeks in the Ministry timezone
-- [ ] Moving the Ministry's check-in day or hour does not change either counter for weeks already recorded
+- [x] State derivation is a pure function, tested table-driven over the state matrix
+- [x] Two weeks of silence yields Stalled with the silence reason and a duration in days
+- [x] Three not-met replies yield Stalled with the not-meeting reason and a duration in weeks
+- [x] The two reasons and their units are distinguishable by the caller
+- [x] A Concern sets Needs Care that week and returns to Healthy the following week while the badge persists
+- [x] Stalled clears automatically on an answered check-in; a Concern does not
+- [x] Multiple Concerns on one relationship show a count
+- [x] Concern text is reached one Person at a time and cleared by default on resolution
+- [x] Viewing and resolving a Concern are recorded against the acting Admin
+- [x] Care Needed shows relationships needing attention with their reason and duration
+- [x] Consecutive unanswered check-ins and consecutive not-met weeks are counted over ISO weeks in the Ministry timezone
+- [x] Moving the Ministry's check-in day or hour does not change either counter for weeks already recorded
 
 ## Comments
 
@@ -88,8 +88,55 @@ resolving audited, a count when several are outstanding — are shared by nothin
 that table, and cleared-by-default is a destructive update sitting beside durable admin
 records. Care Needed unions the two.
 
-- [ ] A relationship covered by an open sequence with no reply counts as unanswered that week, even where its question was never sent
-- [ ] A silent Leader with four relationships accrues counters on all four, proven by a test that runs two abandoned sequences
-- [ ] Paused and Awaiting Leader Acceptance weeks are absent rather than unanswered
-- [ ] The state matrix asserts that Stalled and Needs Care never co-occur, with the reason recorded in the test
-- [ ] Concerns are stored separately from follow-up items and Care Needed unions both
+- [x] A relationship covered by an open sequence with no reply counts as unanswered that week, even where its question was never sent
+- [x] A silent Leader with four relationships accrues counters on all four, proven by a test that runs two abandoned sequences
+- [x] Paused and Awaiting Leader Acceptance weeks are absent rather than unanswered
+- [x] The state matrix asserts that Stalled and Needs Care never co-occur, with the reason recorded in the test
+- [x] Concerns are stored separately from follow-up items and Care Needed unions both
+
+### Implemented
+
+Domain in `src/domain/relationship-state.ts` (the derivation) and
+`src/domain/concerns.ts` (what a Concern is), wired through
+`src/domain/boundary.ts`; migration
+`supabase/migrations/20260903000100_concerns_and_the_care_needed_view.sql`; the
+union in `src/platform/supabase/care-needed-reader.ts`. Tests:
+`tests/domain/relationship-state.test.ts` (the state matrix, table-driven),
+`tests/domain/concerns.test.ts`, and
+`tests/integration/relationship-state-and-care.test.ts`.
+
+Four things the ticket left open, resolved as follows.
+
+**A Concern resolved inside its own week stops setting `Needs Care`.** The ticket
+says a Concern raised this week sets the state and says nothing about one an Admin
+resolves on the Tuesday. Reading it as *raised this week* alone would leave the
+relationship in `Needs Care` until Monday with nothing outstanding on it, which is
+the opposite of what resolving means. So the state follows the *unresolved*
+Concerns raised this week. The badge is unaffected either way -- it is gone,
+because it was resolved.
+
+**Absent weeks join a run rather than breaking it.** No entry exists for a week no
+sequence covered, so a relationship silent in week 1, paused for weeks 2-4 and
+silent again in week 5 reads as two consecutive unanswered weeks. This follows
+from the settled reading rather than being chosen: unanswered means *covered and
+no reply*, so weeks nothing covered are not in the list to break anything. Worth
+revisiting when ticket 12 builds the Pause, because that is when it becomes
+observable.
+
+**Two prompts inside one ISO week count once.** Not stated, and it is the failure
+the ISO anchor exists to prevent -- a cadence edit from late Sunday to early Monday
+puts two prompts inside seven days. Relationship-weeks are collapsed one-per-week
+on the way into the derivation, and a week anything was answered in is an answered
+week. The first implementation counted both and a test caught it.
+
+**The Care Needed *view* is a reader, not a page.** Every ticket so far has
+shipped domain and persistence with no UI, and ticket 15 is the Leader dashboard.
+`CareNeededReader.listOpenItems` returns the union as a tagged list -- one tag per
+source -- and no page renders it yet.
+
+The audit on Concern text is enforced by a grant rather than by discipline:
+`concern.detail` is not in the authenticated role's column grant, so the only path
+to a Leader's words is `CommandService.openConcern`, which records the viewing in
+the same transaction that returns them. An Admin selecting the column directly is
+refused by Postgres, which
+`tests/integration/relationship-state-and-care.test.ts` asserts.
