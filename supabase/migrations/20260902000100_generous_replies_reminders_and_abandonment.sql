@@ -44,10 +44,3 @@ comment on column checkin_prompt.clarifications_sent is
   'How many times Discipler answered an unreadable reply with the valid replies. '
   'Capped at two, after which it stops re-prompting but keeps listening: the question '
   'stays open and a valid reply is still accepted until the sequence advances past it.';
-
--- The tick's read: which open conversations have a question that has been sitting
--- long enough to chase. Partial, because an answered prompt is never chased and
--- the great majority of this table is answered.
-create index checkin_prompt_unanswered_idx
-  on checkin_prompt (asked_at)
-  where answered_at is null;

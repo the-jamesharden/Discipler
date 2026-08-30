@@ -137,7 +137,11 @@ _Avoid_: Menu, prompt (as model terms). "Prompt" is doubly unhelpful here: it is
 Thirty rolling days since Discipler last sent a person a message, measured per person per ministry. It is the trigger for the compliance identification prefix and for re-sending opt-out language to a participant.
 
 **Check-In Sequence**:
-The single conversation in which a leader answers for every relationship they lead, one after another, in one thread on one day. Relationships are asked about earliest-started first, and the shape of the conversation is fixed when it opens. It advances only in response to a reply, and at most one runs against a leader at a time. A relationship awaiting leader acceptance or paused is not covered by it and accrues no silence.
+The single conversation in which a leader answers for every relationship they lead, one after another, in one thread on one day. Relationships are asked about earliest-started first, and the shape of the conversation is fixed when it opens. It advances on a reply, or when a question it asked has been reminded once and still gone unanswered; at most one runs against a leader at a time. A relationship awaiting leader acceptance or paused is not covered by it and accrues no silence.
+
+**Clarification**:
+What Discipler sends when it cannot read a reply: the valid replies to the question that is open, said again. At most two per question, after which Discipler stops re-prompting but keeps listening — the question stays open and a valid reply is still accepted until the sequence advances past it. The cap is on what Discipler says, never on what a leader may send.
+_Avoid_: Retry, error message
 
 **Participation Status**:
 A person-level status describing whether someone is being discipled, independent of how any one relationship is doing. One of: No Intake Submitted, Ready to Pair, Paired, Opted Out. Paired means holding at least one open participant membership; leading a relationship never sets it.

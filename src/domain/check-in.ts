@@ -47,34 +47,40 @@ export type Satisfaction = 'outstanding' | 'good' | 'concern'
  * what the Leader said. The rule that keeps that from ever happening is
  * structural rather than remembered -- polarity lives here, and PLEASANTRIES
  * holds nothing that has any.
+ *
+ * A `Map` rather than an object, because an object answers for keys nobody put in
+ * it: `{}['constructor']` is a function, not `undefined`, so a Leader texting
+ * `constructor` would be read as having answered. Typescript cannot see that --
+ * an index signature types the lookup as though the miss were total -- and an
+ * enumerated list whose membership test is not exact is not enumerated.
  */
-const MET_TOKENS: Readonly<Record<string, boolean>> = {
-  '1': true,
-  yes: true,
-  y: true,
-  yeah: true,
-  'we did': true,
-  'yes we did': true,
-  '2': false,
-  no: false,
-  n: false,
-  nope: false,
-  'we didnt': false,
-  'no we didnt': false,
-}
+const MET_TOKENS: ReadonlyMap<string, boolean> = new Map([
+  ['1', true],
+  ['yes', true],
+  ['y', true],
+  ['yeah', true],
+  ['we did', true],
+  ['yes we did', true],
+  ['2', false],
+  ['no', false],
+  ['n', false],
+  ['nope', false],
+  ['we didnt', false],
+  ['no we didnt', false],
+])
 
-const SATISFACTION_TOKENS: Readonly<Record<string, Satisfaction>> = {
-  a: 'outstanding',
-  great: 'outstanding',
+const SATISFACTION_TOKENS: ReadonlyMap<string, Satisfaction> = new Map([
+  ['a', 'outstanding'],
+  ['great', 'outstanding'],
   // A typo that happened. `gret` is one edit from `great` and one from `greet`,
   // which is exactly why the list is enumerated instead of computed.
-  gret: 'outstanding',
-  b: 'good',
-  good: 'good',
-  c: 'concern',
-  concern: 'concern',
-  oncern: 'concern',
-}
+  ['gret', 'outstanding'],
+  ['b', 'good'],
+  ['good', 'good'],
+  ['c', 'concern'],
+  ['concern', 'concern'],
+  ['oncern', 'concern'],
+])
 
 /**
  * The closed list, and the one invariant it has to keep: **nothing here carries
@@ -99,6 +105,12 @@ const PLEASANTRIES: readonly string[] = [
 ]
 
 /**
+ * Longest first, so `thank you` is taken as one courtesy rather than matching
+ * `you` and leaving `thank` behind. Ordered once here rather than on every reply.
+ */
+const STRIPPABLE = [...PLEASANTRIES].sort((a, b) => b.length - a.length)
+
+/**
  * Down to words and nothing else: lower case, no punctuation, no emoji, single
  * spaces. An emoji is removed rather than read, because sentiment is never
  * inferred from free text and a thumbs-up on its own is free text with the words
@@ -118,20 +130,18 @@ const wordsOf = (body: string): string =>
     .trim()
 
 /**
- * The pleasantries off both ends, longest first so `thank you` is taken as one
- * courtesy rather than leaving `you` behind.
+ * The pleasantries off both ends, repeatedly, so `hi yes please` reaches `yes`.
  *
  * Never down to nothing: a message that is only a greeting answered no question,
  * and stripping it to the empty string and then matching would make whichever
  * token the empty string happened to reach the answer to every `hi` ever sent.
  */
 const withoutPleasantries = (words: string): string => {
-  const ordered = [...PLEASANTRIES].sort((a, b) => b.length - a.length)
   let remaining = words
 
   for (let taken = true; taken; ) {
     taken = false
-    for (const pleasantry of ordered) {
+    for (const pleasantry of STRIPPABLE) {
       const lead = `${pleasantry} `
       const trail = ` ${pleasantry}`
       if (remaining.startsWith(lead)) {
@@ -202,11 +212,11 @@ export const readCheckInReply = (question: CheckInQuestion, body: string): Check
   const token = withoutPleasantries(wordsOf(body))
 
   if (question === 'met') {
-    const met = MET_TOKENS[token]
+    const met = MET_TOKENS.get(token)
     return met === undefined ? UNREADABLE : { kind: 'met', met }
   }
 
-  const satisfaction = SATISFACTION_TOKENS[token]
+  const satisfaction = SATISFACTION_TOKENS.get(token)
   return satisfaction ? { kind: 'satisfaction', satisfaction } : UNREADABLE
 }
 

@@ -157,6 +157,19 @@ describe('the closed list of strippable pleasantries', () => {
     expect(reads('met', "yes we didn't")).toEqual({ kind: 'unreadable' })
   })
 
+  /**
+   * The enumerated list has to be exactly as long as it looks. An object literal
+   * answers for keys nobody put in it -- `{}['constructor']` is a function, not
+   * `undefined` -- so a Leader texting `constructor` was read as having answered,
+   * and the sequence advanced on a reply that said nothing.
+   */
+  it('holds only the tokens it was given, and nothing inherited', () => {
+    for (const body of ['constructor', 'toString', 'valueOf', 'hasOwnProperty']) {
+      expect(reads('met', body)).toEqual({ kind: 'unreadable' })
+      expect(reads('satisfaction', body)).toEqual({ kind: 'unreadable' })
+    }
+  })
+
   it('leaves a message that is nothing but a pleasantry unreadable', () => {
     for (const body of ['thanks', 'hi', 'ok', 'sorry']) {
       expect(reads('met', body)).toEqual({ kind: 'unreadable' })

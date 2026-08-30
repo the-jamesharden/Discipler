@@ -267,18 +267,23 @@ export const checkInSubject = (participantNames: readonly string[]): string =>
   asList([...participantNames])
 
 /**
- * The valid replies to each of the two token questions, written once.
+ * What each question tells the Leader they may reply, written once and keyed by
+ * the question itself.
  *
- * Once because the clarification is these sentences said again: a Leader whose
- * reply could not be read is told exactly what the question already offered, and
- * a token renamed in one place and not the other would leave a clarification
- * advertising a reply that no longer works.
+ * Once, and as a map rather than a branch, because the clarification is these
+ * sentences said again: a Leader whose reply could not be read is told exactly
+ * what the question already offered. A token renamed in one place and not the
+ * other would leave a clarification advertising a reply that no longer works, and
+ * a question added to `CheckInQuestion` fails to compile here until it says what
+ * it accepts.
  */
-const MEETING_REPLIES = 'Reply 1 for yes, 2 for no.'
-const SATISFACTION_REPLIES = 'Reply A for outstanding, B for good, C for concern.'
-
-/** The Concern step names no tokens, because it takes prose. */
-const CONCERN_DETAIL_REQUEST = 'Please tell us more about the concern.'
+const VALID_REPLIES_TO: Readonly<Record<CheckInQuestion, string>> = {
+  met: 'Reply 1 for yes, 2 for no.',
+  satisfaction: 'Reply A for outstanding, B for good, C for concern.',
+  // The Concern step names no tokens, because it takes prose. What it offers
+  // instead is the whole of what it wants.
+  concern_detail: 'Please tell us more about the concern.',
+}
 
 export interface MeetingQuestion {
   readonly ministryName: string
@@ -309,7 +314,7 @@ export const meetingQuestion = ({
     // invitation to get here -- so the A2P prefix has no occasion to appear.
     identifyDelivery: false,
     discloseOptOut,
-    body: `Did you meet with ${subject} this week? ${MEETING_REPLIES}`,
+    body: `Did you meet with ${subject} this week? ${VALID_REPLIES_TO.met}`,
   })
 
 export interface CheckInMessage {
@@ -336,16 +341,16 @@ const checkInSentence =
  * Ministry's history.
  */
 export const satisfactionQuestion = checkInSentence(
-  `How did the meeting go? ${SATISFACTION_REPLIES}`,
+  `How did the meeting go? ${VALID_REPLIES_TO.satisfaction}`,
 )
 
 /**
  * Asked only after a `C`. The Concern is already recorded by the time this goes
  * out, so an unanswered request for detail loses nothing that was already said.
  */
-export const concernDetailRequest = checkInSentence(CONCERN_DETAIL_REQUEST)
+export const concernDetailRequest = checkInSentence(VALID_REPLIES_TO.concern_detail)
 
-export interface CheckInClarification extends CheckInMessage {
+export interface ClarificationMessage extends CheckInMessage {
   readonly question: CheckInQuestion
 }
 
@@ -362,16 +367,8 @@ export interface CheckInClarification extends CheckInMessage {
  * moments ago -- and re-asking would read as though Discipler had lost the thread
  * rather than one message.
  */
-export const checkInClarification = ({ ministryName, question }: CheckInClarification): string =>
-  checkInSentence(
-    `Sorry, we didn’t catch that. ${
-      question === 'met'
-        ? MEETING_REPLIES
-        : question === 'satisfaction'
-          ? SATISFACTION_REPLIES
-          : CONCERN_DETAIL_REQUEST
-    }`,
-  )({ ministryName })
+export const checkInClarification = ({ ministryName, question }: ClarificationMessage): string =>
+  checkInSentence(`Sorry, we didn’t catch that. ${VALID_REPLIES_TO[question]}`)({ ministryName })
 
 /**
  * Sent after the *final* relationship and nowhere else. Where a thank-you would

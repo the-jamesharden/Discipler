@@ -322,9 +322,11 @@ describe('a new week arriving while a conversation is open', () => {
 
 describe('a late reply', () => {
   it('attaches to the question it answers and to nothing earlier', () => {
-    // Last week's conversation was abandoned when this week's opened, so the
-    // question this reply lands on is the one that is open now -- never the one
-    // it was probably typed in answer to.
+    // A reply binds to the question that is open, which is the question the
+    // Leader was last sent. Nothing reaches back into the abandoned conversation
+    // to mark last week's silence as answered -- that is the half of the rule
+    // that can be got wrong, and getting it wrong would rewrite a week the
+    // Ministry has already read.
     const thisWeek = snapshot({
       openSequence: openSequence({
         sequenceId: checkInSequenceId('00000000-0000-4000-8000-0000000000e2'),

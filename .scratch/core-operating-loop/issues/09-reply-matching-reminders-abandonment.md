@@ -38,7 +38,7 @@ Tests: `tests/domain/generous-replies.test.ts` (the matching table),
 pass-over), plus integration coverage in `tests/integration/the-check-in-conversation.test.ts`
 and `tests/integration/the-cadence.test.ts`.
 
-Three things the ticket left open, resolved as follows.
+Two things the ticket left open, resolved as follows.
 
 **`Yes we did!` is a token, not a wrapper.** The ticket says pleasantries are
 stripped and requires `Yes we did!` to be readable, which implies `we did` in the
@@ -52,11 +52,6 @@ inverts meaning when removed" an invariant of the list rather than a rule a
 reviewer has to remember, and it is the same treatment ADR-0003 gives
 `we didn't`: part of a token, never a wrapper.
 
-**How long after the reminder before the sequence moves on.** The ticket names
-twenty-four hours once. The same twenty-four hours is used again, measured from
-the reminder rather than from the question, so a tick that runs late cannot spend
-both clocks at once and pass over a question the Leader was never reminded about.
-
 **Passing over the *last* relationship.** The ticket says the sequence advances to
 the next relationship; it does not say what happens when there is none. The
 sequence closes as `abandoned` with no thank-you. `completed` would be false --
@@ -65,6 +60,15 @@ a conversation they did not finish. `abandoned` is the existing outcome for a
 sequence whose unanswered questions stay unanswered, which is what this is; its
 history event carries `reason: 'unanswered'`, distinguishing it from the
 displaced-by-a-new-week and opted-out cases.
+
+**How long after the reminder before the sequence moves on** was not open after
+all: `docs/product-rules.md` ("Settled: What *Timed Out* Means, Per Prompt Kind")
+states forty-eight hours from the original send -- twenty-four to the reminder,
+twenty-four more before the sequence advances -- for a check-in question and for a
+Concern detail request alike, and timed out immediately when a new week's sequence
+begins. The implementation matches, measuring the second interval from the
+reminder rather than from the question so that a tick which runs late cannot spend
+both clocks at once and pass over a question the Leader was never reminded about.
 
 The strippable list and the token list are both deliberately minimal. The ticket's
 own mechanism for growing them is the `checkin.reply_unreadable` history event,
