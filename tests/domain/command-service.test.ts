@@ -119,6 +119,9 @@ describe('applying a command\'s effects', () => {
         unacceptedRelationships: async () => {
           throw new Error('the tick should not have read anything')
         },
+        pausedRelationships: async () => {
+          throw new Error('the tick should not have read anything')
+        },
         leadersDueForCheckIn: async () => {
           throw new Error('the cadence should not have read anything')
         },

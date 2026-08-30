@@ -1,6 +1,7 @@
 import type { ConcernId, FollowUpItemId, MinistryId, PersonId, RelationshipId } from './ids'
 import type { IntakeFormFields } from './intake'
 import type { InvitationToken } from './invitations'
+import type { PausePeriodWeeks } from './pause'
 
 /**
  * Every external trigger enters through this one boundary, and this union is the
@@ -76,6 +77,52 @@ export type Command =
        * it is one of the acts the product rules require a named actor for.
        */
       readonly cancelledBy: string
+    }
+  /**
+   * An Admin pausing a relationship, so they can act on something they have been
+   * told offline and a holiday does not put a Leader in the care queue.
+   *
+   * It suspends that relationship's check-ins and nothing else: membership is
+   * untouched, nobody returns to the suggestion pool, and the relationship stays
+   * on the Leader's list marked `Paused`. Stepping back never costs a Leader the
+   * people they lead.
+   *
+   * Leader-initiated pause over SMS is ticket 17's, and reaches the same rules
+   * through the same command.
+   */
+  | {
+      readonly type: 'relationship.pause'
+      readonly ministryId: MinistryId
+      readonly relationshipId: RelationshipId
+      /**
+       * One of five periods. Omitted means two weeks -- the default lives in the
+       * domain rather than on each screen, so the Admin surface and the Keyword
+       * Exchange cannot default differently.
+       */
+      readonly periodWeeks?: PausePeriodWeeks
+      /**
+       * The Admin's account, as the session named it. A pause suspends a
+       * Ministry's contact with a Leader, so it is one of the acts the product
+       * rules require a named actor for.
+       */
+      readonly pausedBy: string
+    }
+  /**
+   * An Admin resuming a paused relationship, which is the only thing besides
+   * ending it that takes a relationship out of `Paused`. A period running out
+   * does not: it raises an item and leaves the state alone, because nobody's
+   * check-ins should restart on a date they have forgotten.
+   *
+   * Resuming restores whatever the history yields and never sets `Healthy` on its
+   * own -- a relationship that was `Stalled` when it was paused is `Stalled`
+   * again, and clears only on an answered check-in.
+   */
+  | {
+      readonly type: 'relationship.resume'
+      readonly ministryId: MinistryId
+      readonly relationshipId: RelationshipId
+      /** The Admin's account, as the session named it. */
+      readonly resumedBy: string
     }
   /**
    * An Admin acting on a Follow-Up Item, which is the only thing that closes one.

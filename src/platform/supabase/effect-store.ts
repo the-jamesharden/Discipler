@@ -3,6 +3,7 @@ import pg from 'pg'
 import type {
   AwaitingLeader,
   InvitationSnapshot,
+  PausedRelationship,
   PersonContact,
   RelationshipSnapshot,
   UnacceptedRelationship,
@@ -19,6 +20,7 @@ import {
   type NewFollowUpItem,
 } from '~/domain/follow-up'
 import { invitationToken, type InvitationToken, type NewInvitation } from '~/domain/invitations'
+import { isPausePeriod, type StandingPause } from '~/domain/pause'
 import type { MemberRole } from '~/domain/relationships'
 import type { ConcernResolution, ConcernViewing, NewConcern } from '~/domain/concerns'
 import {
@@ -123,6 +125,30 @@ const participantNamesColumn = `coalesce(
  */
 const cadenceColumns = `coalesce(r.checkin_day, ms.checkin_day) as checkin_day,
               coalesce(r.checkin_hour, ms.checkin_hour) as checkin_hour`
+
+/**
+ * One row of `relationship_pauses`. Its period is `integer` in SQL and one of five
+ * numbers in the domain, and the narrowing below is what joins the two.
+ */
+interface PauseRow {
+  relationship_id: string
+  paused_at: Date
+  period_weeks: number
+}
+
+/**
+ * The pause a row describes, or null where there is no row or its period is not
+ * one of the five.
+ *
+ * Checked rather than cast. Nothing constrains the payload of a history event --
+ * `ministry_event` takes any `jsonb` by design, because it holds facts of every
+ * shape -- so a period that has drifted must not be handed to the expiry
+ * arithmetic as a number it will happily multiply.
+ */
+const standingPause = (row: PauseRow | undefined): StandingPause | null =>
+  row && isPausePeriod(row.period_weeks)
+    ? { pausedAt: row.paused_at, periodWeeks: row.period_weeks }
+    : null
 
 interface CheckInRelationshipRow {
   relationship_id: string
@@ -704,8 +730,8 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
 
   async relationshipFor(id: RelationshipId): Promise<RelationshipSnapshot | null> {
     // Locked, for the same reason acceptance locks it: the domain decides from
-    // what it reads here, and two Admins cancelling at once would otherwise both
-    // read `ended_at` as null and both write an ending date.
+    // what it reads here, and two Admins cancelling -- or pausing -- at once would
+    // otherwise both read the row as untouched and both write to it.
     const { rows } = await client.query<{
       id: string
       created_at: Date
@@ -722,10 +748,39 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
 
     // Open memberships only. Whoever already left is not somebody this returns to
     // the pool -- they are already in it.
-    const { rows: members } = await client.query<{ person_id: string }>(
-      `select person_id from relationship_member
-        where relationship_id = $1 and ended_at is null
-        order by role, started_at`,
+    //
+    // The name, the number and the live link ride along because a resume releases
+    // the Starter Message to everybody here, and that message needs a greeting, a
+    // recipient, and the decline route the Participant already holds. The join to
+    // `invitation` is left because a Leader who has accepted has spent theirs and
+    // a Participant may never have been issued one.
+    const { rows: members } = await client.query<{
+      person_id: string
+      role: MemberRole
+      full_name: string
+      phone: string | null
+      token: string | null
+    }>(
+      `select m.person_id, m.role, p.full_name, p.phone, i.token
+         from relationship_member m
+         join person p on p.id = m.person_id
+         left join invitation i
+           on i.relationship_id = m.relationship_id
+          and i.person_id = m.person_id
+          and i.consumed_at is null
+        where m.relationship_id = $1 and m.ended_at is null
+        order by m.role, m.started_at`,
+      [id],
+    )
+
+    // The Pause standing on it right now, read the same way every other caller
+    // reads one: the later of `relationship.paused` and `relationship.resumed`.
+    // Whether the period has run out is not asked here -- that is decided at the
+    // command boundary against the injected clock.
+    const { rows: pauses } = await client.query<PauseRow>(
+      `select relationship_id, paused_at, period_weeks
+         from relationship_pauses(app.command_ministry_id())
+        where relationship_id = $1`,
       [id],
     )
 
@@ -734,8 +789,61 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       createdAt: relationship.created_at,
       acceptedAt: relationship.accepted_at,
       endedAt: relationship.ended_at,
-      memberIds: members.map((row) => personId(row.person_id)),
+      pause: standingPause(pauses[0]),
+      members: members.map((row) => ({
+        personId: personId(row.person_id),
+        role: row.role,
+        fullName: row.full_name,
+        phone: row.phone,
+        liveToken: row.token === null ? null : invitationToken(row.token),
+      })),
     }
+  },
+
+  async pausedRelationships(): Promise<readonly PausedRelationship[]> {
+    // Everything paused right now, with whether an Admin is already looking at an
+    // expiry item for it. Open items only, which is the rule the partial unique
+    // index holds: an Admin who resolved the item without resuming has closed a
+    // record, not restarted anybody's check-ins, so the condition is true again
+    // and is raised again -- the same reading the acceptance escalation takes.
+    const { rows } = await client.query<PauseRow & { item_stands_open: boolean }>(
+      `select p.relationship_id,
+              p.paused_at,
+              p.period_weeks,
+              exists (
+                select 1 from follow_up_item f
+                 where f.relationship_id = p.relationship_id
+                   and f.kind = 'pause_expired'
+                   and f.resolved_at is null
+              ) as item_stands_open
+         from relationship_pauses(app.command_ministry_id()) p
+         join relationship r on r.id = p.relationship_id
+        -- A relationship that has ended is nobody's to resume, so a period
+        -- running out on one raises nothing. Ending is the decision the item
+        -- exists to prompt, already made.
+        where r.ended_at is null
+        order by p.paused_at`,
+    )
+
+    return rows.map((row) => {
+      const pause = standingPause(row)
+      if (!pause) {
+        // The check constraint refuses a `pause_expired` payload with no period,
+        // but nothing constrains the history event this reads. A pause whose
+        // period cannot be read is one the tick has no way to expire, and
+        // guessing two weeks would restart somebody's review on a date nobody
+        // chose.
+        throw new Error(
+          `The pause on relationship ${row.relationship_id} carries no readable period`,
+        )
+      }
+
+      return {
+        relationshipId: relationshipId(row.relationship_id),
+        ...pause,
+        itemStandsOpen: row.item_stands_open,
+      }
+    })
   },
 
   async cancelRelationship(cancellation: RelationshipCancellation) {

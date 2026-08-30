@@ -1,5 +1,6 @@
 import type {
   InvitationSnapshot,
+  PausedRelationship,
   PersonContact,
   RelationshipSnapshot,
   UnacceptedRelationship,
@@ -61,6 +62,8 @@ export interface InMemoryStore extends EffectStore {
   invitation?: InvitationSnapshot
   /** What the tick finds outstanding. Nothing, until a test says otherwise. */
   unaccepted: readonly UnacceptedRelationship[]
+  /** What the tick finds paused. Nothing, until a test says otherwise. */
+  paused: readonly PausedRelationship[]
   /**
    * The Leaders the tick considers for a check-in. Empty until a test says
    * otherwise -- a Ministry with nobody to ask, which is what most tests are.
@@ -167,6 +170,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       return [...concernResolutions]
     },
     unaccepted: [],
+    paused: [],
     checkInsDue: [],
     contacts: new Map<PersonId, PersonContact>(),
     ministryName: 'Riverside Chapel',
@@ -257,6 +261,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         },
         async unacceptedRelationships() {
           return store.unaccepted
+        },
+        async pausedRelationships() {
+          return store.paused
         },
         async leadersDueForCheckIn() {
           return store.checkInsDue

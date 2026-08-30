@@ -1,6 +1,7 @@
 import type { AccountRefusal } from '~/domain/accounts'
 import type {
   InvitationSnapshot,
+  PausedRelationship,
   PersonContact,
   RelationshipSnapshot,
   UnacceptedRelationship,
@@ -152,6 +153,18 @@ export interface UnitOfWork {
    * decide anything, read in one place so the domain fetches nothing.
    */
   unacceptedRelationships(): Promise<readonly UnacceptedRelationship[]>
+  /**
+   * Every relationship in this Ministry a Pause currently stands on, with the
+   * period it was taken for and whether an Admin already has an expiry item open
+   * on it. Everything the tick needs to decide a Pause has run out, read in one
+   * place so the domain fetches nothing.
+   *
+   * Whether it *has* run out is not answered here. That is a question about time,
+   * and every one of those is decided at the command boundary against the
+   * injected clock -- which is what lets a twelve-week pause be proven by a test
+   * that runs in milliseconds.
+   */
+  pausedRelationships(): Promise<readonly PausedRelationship[]>
   /**
    * One relationship as the database holds it now, or null when this Ministry has
    * none by that identifier -- which is the same answer for one that belongs to

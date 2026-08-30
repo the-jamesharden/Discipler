@@ -166,6 +166,7 @@ const tick = (due: readonly CheckInSnapshot[], at: Date) =>
     ministryName: 'Riverside Chapel',
     appBaseUrl: 'https://discipler.example',
     unaccepted: [],
+    paused: [],
     checkInsDue: due,
   } satisfies CommandContext)
 

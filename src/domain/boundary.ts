@@ -29,6 +29,7 @@ import {
   IntakeRefused,
   InvitationRefused,
   PairingRefused,
+  PauseRefused,
 } from './errors'
 import {
   CLARIFICATIONS_PER_QUESTION,
@@ -79,6 +80,7 @@ import {
   invitationToken,
   issueInvitation,
   type InvitationToken,
+  type NewInvitation,
 } from './invitations'
 import {
   ACCEPTANCE_ESCALATION_DAYS,
@@ -87,6 +89,13 @@ import {
   type MemberRole,
   type NewMembership,
 } from './relationships'
+import {
+  DEFAULT_PAUSE_PERIOD_WEEKS,
+  pauseExpiresAt,
+  pauseHasExpired,
+  type PausePeriodWeeks,
+  type StandingPause,
+} from './pause'
 import { rosterKey, type PhoneNumber, type RosterKey, type RowRejection } from './roster'
 import { readRosterFile } from './roster-csv'
 
@@ -135,6 +144,14 @@ export interface CommandContext {
    * value and opposite facts, and one of them silently reminds nobody.
    */
   readonly unaccepted?: readonly UnacceptedRelationship[]
+  /**
+   * Every relationship in this Ministry a Pause currently stands on, loaded on
+   * the tick's behalf. Absent rather than empty, for the same reason the Roster
+   * and the unaccepted relationships are: an unloaded snapshot and a Ministry
+   * with nothing paused are the same value and opposite facts, and one of them
+   * silently lets every pause run out unnoticed.
+   */
+  readonly paused?: readonly PausedRelationship[]
   /**
    * The one relationship an Admin command names, as the database holds it now.
    * Absent when the command names none.
@@ -220,17 +237,67 @@ export interface UnacceptedRelationship {
 }
 
 /**
+ * One member of the relationship an Admin command names, as the database holds
+ * them now. The same four facts an `InvitedMember` carries, minus the acceptance
+ * -- a command that names a relationship has already been handed the
+ * relationship's own activation date -- plus the link the Participant is holding.
+ */
+export interface RelationshipMember {
+  readonly personId: PersonId
+  readonly role: MemberRole
+  readonly fullName: string
+  readonly phone: string | null
+  /**
+   * The Invitation Link this Person still holds for this relationship, or null
+   * where nothing has issued one or the one they had has been spent.
+   *
+   * Carried so a resume can put the Participant's decline route back in the
+   * Starter Message without minting a second link. A Person holds at most one
+   * live invitation per relationship -- there is a unique index saying so -- and
+   * issuing another on every resume would be refused by it.
+   */
+  readonly liveToken: InvitationToken | null
+}
+
+/**
+ * One paused relationship, as the tick needs it: when the Pause was taken, for
+ * how long, and whether an Admin is already looking at an item saying it has run
+ * out.
+ *
+ * `itemStandsOpen` is *open right now*, deliberately not *has ever been raised*.
+ * The partial unique index refuses a second open row anyway; this is what keeps
+ * the tick from appending a history event a day for a condition nobody has acted
+ * on. An Admin who resolves the item without resuming has closed a record, not
+ * restarted anybody's check-ins -- so the condition is true again and is raised
+ * again, exactly as an unaccepted relationship's is.
+ */
+export interface PausedRelationship {
+  readonly relationshipId: RelationshipId
+  readonly pausedAt: Date
+  readonly periodWeeks: PausePeriodWeeks
+  readonly itemStandsOpen: boolean
+}
+
+/**
  * A relationship as the database holds it now. `acceptedAt` is activation and
- * `endedAt` is the end of its life; between them they say which of the three
- * things an Admin may do to it is still available.
+ * `endedAt` is the end of its life; between them they say which of the things an
+ * Admin may do to it are still available, and `pause` says whether it is
+ * currently stopped.
  */
 export interface RelationshipSnapshot {
   readonly relationshipId: RelationshipId
   readonly createdAt: Date
   readonly acceptedAt: Date | null
   readonly endedAt: Date | null
+  /**
+   * The Pause standing on it right now, or null. Read back from the
+   * `relationship.paused` and `relationship.resumed` events rather than from a
+   * column, because a Pause is a dated fact like every other thing that happens
+   * to a relationship and history is the one source they are all derived from.
+   */
+  readonly pause: StandingPause | null
   /** Everyone holding an open membership, whatever their role. */
-  readonly memberIds: readonly PersonId[]
+  readonly members: readonly RelationshipMember[]
 }
 
 export interface PersonContact {
@@ -344,6 +411,79 @@ const memberHolding = (invitation: InvitationSnapshot, id: PersonId): InvitedMem
   const member = invitation.members.find((candidate) => candidate.personId === id)
   if (!member) throw new InvitationRefused('invitation.not_found')
   return member
+}
+
+/**
+ * Somebody in a relationship, as much of them as a Starter Message needs: who to
+ * greet, who to text, and which side of the relationship they stand on. Both
+ * snapshots that carry members satisfy it, which is what lets the release below
+ * be written once.
+ */
+interface InRelationship {
+  readonly personId: PersonId
+  readonly role: MemberRole
+  readonly fullName: string
+  readonly phone: string | null
+}
+
+/**
+ * The Starter Message, to everyone in one relationship.
+ *
+ * Released twice in a relationship's life: when the last Leader accepts and the
+ * relationship activates, and when an Admin resumes it from a Pause. It is the
+ * same message both times -- *here is who you are meeting and here is what
+ * happens next* -- so it is composed once rather than twice, and the two callers
+ * differ only in where a Participant's decline link comes from. Acceptance mints
+ * one; a resume hands back the live one they already hold.
+ *
+ * The Leaders' copy carries no number and offers to disclose nobody: no message
+ * to a Leader contains a phone number. Each Participant gets one message per
+ * Leader, each offering to disclose that Leader, because contact sharing is one
+ * Person's decision and cannot be answered for a group of Leaders at once.
+ */
+const starterMessages = (release: {
+  readonly ministryId: MinistryId
+  readonly ministryName: string
+  readonly leaders: readonly InRelationship[]
+  readonly participants: readonly InRelationship[]
+  readonly declineLinkFor: (participant: InRelationship) => string
+  readonly at: Date
+}): readonly Effect[] => {
+  const participantNames = release.participants.map((participant) => participant.fullName)
+
+  return [
+    ...release.leaders.map((leader) =>
+      enqueueMessage({
+        ministryId: release.ministryId,
+        personId: leader.personId,
+        toPhone: leader.phone,
+        body: starterMessageToLeader({
+          ministryName: release.ministryName,
+          participantNames,
+        }),
+        enqueuedAt: release.at,
+        disclosesPersonId: null,
+      }),
+    ),
+    ...release.participants.flatMap((participant) =>
+      release.leaders.map((leader) =>
+        enqueueMessage({
+          ministryId: release.ministryId,
+          personId: participant.personId,
+          toPhone: participant.phone,
+          body: starterMessageToParticipant({
+            ministryName: release.ministryName,
+            fullName: participant.fullName,
+            declineLink: release.declineLinkFor(participant),
+          }),
+          enqueuedAt: release.at,
+          // Resolved at send time against contact-sharing consent as it stands
+          // then. Absent consent removes the number and sends the rest.
+          disclosesPersonId: leader.personId,
+        }),
+      ),
+    ),
+  ]
 }
 
 /**
@@ -761,12 +901,14 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       // time, which is the only reason a fortnight of waiting can be tested in a
       // few milliseconds.
       //
-      // It carries the Acceptance thresholds today. The rest of the care rules --
-      // the twenty-four hour sequence timeout, the next-day reminder, Pause expiry
-      // -- land here as their tickets build them.
-      const { unaccepted, checkInsDue, ministryName, appBaseUrl } = context
+      // It carries the Acceptance thresholds, the cadence, the twenty-four hour
+      // sequence timeout, the next-day reminder, and Pause expiry. Every one of
+      // them reads the same clock, because two schedulers would be two answers to
+      // *what time is it*.
+      const { unaccepted, checkInsDue, paused, ministryName, appBaseUrl } = context
       if (!unaccepted) throw new Error('scheduled.tick was handed no state to evaluate')
       if (!checkInsDue) throw new Error('scheduled.tick was handed nobody to check in with')
+      if (!paused) throw new Error('scheduled.tick was handed no pauses to evaluate')
       if (!ministryName) throw new Error('scheduled.tick was handed no Ministry to speak for')
       if (!appBaseUrl) {
         throw new Error('scheduled.tick was handed nowhere for its links to point')
@@ -894,6 +1036,54 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             }),
           )
         }
+      }
+
+      // A Pause running out. **It resumes nothing.** It changes no state, sends
+      // nothing, and raises an item saying which period was selected, that it has
+      // run out, and that the relationship has not resumed -- because nobody's
+      // check-ins should restart on a date they have forgotten. The relationship
+      // stays `Paused` until an Admin resumes or ends it.
+      //
+      // Which is why this is not a state and not a care condition derived from
+      // check-in history. Like a Concern it sits beside the relationship,
+      // coexists with any state including `Paused`, and clears only when an Admin
+      // resolves it.
+      for (const pause of paused) {
+        if (!pauseHasExpired(pause, now)) continue
+        // One open item at a time. Raising it again tomorrow would tell the Admin
+        // nothing they are not already looking at, and the history event beside it
+        // would become a row a day for a condition nobody had acted on.
+        if (pause.itemStandsOpen) continue
+
+        effects.push(
+          raiseFollowUpItem({
+            ministryId: command.ministryId,
+            kind: 'pause_expired',
+            relationshipId: pause.relationshipId,
+            // The condition is the relationship's. A group whose Pause has run out
+            // is one thing for an Admin to act on, not one per Leader in it.
+            personId: null,
+            // The period is carried because the Admin is being asked to review a
+            // decision somebody made, and *a fortnight has run out* and *a summer
+            // has run out* are different reviews.
+            periodWeeks: pause.periodWeeks,
+            raisedAt: now,
+          }),
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'follow_up.pause_expired',
+            subjectType: 'relationship',
+            subjectId: pause.relationshipId,
+            payload: {
+              periodWeeks: pause.periodWeeks,
+              // When it ran out, which is not when this ran: a tick that fires
+              // hourly raises this on the first run after the instant, and a
+              // Ministry whose scheduler was down for a day raises it late.
+              expiredAt: pauseExpiresAt(pause).toISOString(),
+            },
+          }),
+        )
       }
 
       return { effects, rejections: [] }
@@ -1161,6 +1351,8 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         throw new CancellationRefused('relationship.already_accepted')
       }
 
+      const memberIds = relationship.members.map((member) => member.personId)
+
       // Nobody is told. A Leader who never answered is not chased about a decision
       // that has been reversed, and no Participant has heard anything at all --
       // nothing reaches them until every Leader has agreed.
@@ -1172,7 +1364,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             relationshipId: relationship.relationshipId,
             cancelledAt: now,
             cancelledBy: command.cancelledBy,
-            memberIds: relationship.memberIds,
+            memberIds,
           }),
           appendHistory({
             ministryId: command.ministryId,
@@ -1181,12 +1373,154 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             subjectType: 'relationship',
             subjectId: relationship.relationshipId,
             payload: {
-              memberIds: [...relationship.memberIds],
+              memberIds,
               waitedDays: daysSince(relationship.createdAt, now),
               // Append-only, so this is the record that survives the Admin
               // leaving the Ministry and `ended_by` being nulled with them.
               cancelledBy: command.cancelledBy,
             },
+          }),
+        ],
+      }
+    }
+
+    case 'relationship.pause': {
+      const relationship = context.relationship
+      if (!relationship) {
+        throw new Error('relationship.pause was handed no relationship to act on')
+      }
+
+      const now = context.clock.now()
+
+      // Terminal first. Ending is the one thing a Pause is not a lighter version
+      // of, and pausing something that has ended would append a fact about a
+      // relationship that no longer has a present tense.
+      if (relationship.endedAt !== null) throw new PauseRefused('pause.relationship_ended')
+      // Nothing has been sent and no week has been covered, so there is nothing to
+      // suspend. `Awaiting Leader Acceptance` is what it should still read as, and
+      // `Paused` masking it would hide a relationship the acceptance escalation is
+      // still counting the days on.
+      if (relationship.acceptedAt === null) {
+        throw new PauseRefused('pause.relationship_not_accepted')
+      }
+      // A second pause would silently move the first one's expiry, so a fortnight
+      // away would become a fortnight from whenever somebody last clicked.
+      if (relationship.pause !== null) throw new PauseRefused('pause.already_paused')
+
+      const periodWeeks: PausePeriodWeeks =
+        command.periodWeeks ?? DEFAULT_PAUSE_PERIOD_WEEKS
+
+      // One event and nothing else. Membership is untouched -- which is the whole
+      // of *nobody returns to the suggestion pool*, because `participation_status`
+      // and the participation caps both read open memberships -- and nobody is
+      // told: Discipler stops asking, it does not announce that it has stopped.
+      //
+      // The expiry date is deliberately not in the payload. It is
+      // `pauseExpiresAt` of the two facts that are, and a third copy of the same
+      // number is a second answer waiting to disagree with them.
+      return {
+        rejections: [],
+        effects: [
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'relationship.paused',
+            subjectType: 'relationship',
+            subjectId: relationship.relationshipId,
+            payload: { periodWeeks, pausedBy: command.pausedBy },
+          }),
+        ],
+      }
+    }
+
+    case 'relationship.resume': {
+      const relationship = context.relationship
+      if (!relationship) {
+        throw new Error('relationship.resume was handed no relationship to act on')
+      }
+      const { ministryName, appBaseUrl } = context
+      if (!ministryName) {
+        throw new Error('relationship.resume was handed no Ministry to speak for')
+      }
+      if (!appBaseUrl) {
+        throw new Error('relationship.resume was handed nowhere for its links to point')
+      }
+
+      const now = context.clock.now()
+
+      if (relationship.endedAt !== null) throw new PauseRefused('pause.relationship_ended')
+
+      const pause = relationship.pause
+      if (!pause) throw new PauseRefused('pause.not_paused')
+
+      const leaders = relationship.members.filter((member) => member.role === 'leader')
+      const participants = relationship.members.filter(
+        (member) => member.role === 'participant',
+      )
+
+      // A Participant who has no live link gets one now, so the decline route the
+      // Starter Message names still leads somewhere. Everyone else keeps the one
+      // they hold: at most one live invitation per Person per relationship, and
+      // minting a second on every resume would be refused by the index that says
+      // so.
+      const issued: NewInvitation[] = []
+      const declineLinks = new Map<PersonId, string>(
+        participants.map((participant) => {
+          if (participant.liveToken) {
+            return [participant.personId, invitationLink(appBaseUrl, participant.liveToken)]
+          }
+
+          const minted = issueInvitation({
+            ministryId: command.ministryId,
+            relationshipId: relationship.relationshipId,
+            personId: participant.personId,
+            token: invitationToken(context.ids.next()),
+            at: now,
+          })
+          issued.push(minted)
+          return [participant.personId, invitationLink(appBaseUrl, minted.token)]
+        }),
+      )
+
+      // Resuming restores nothing by itself: it removes the mask, and the state
+      // underneath is whatever the history yields. **It never sets `Healthy`** --
+      // a relationship that was `Stalled` when it was paused is `Stalled` again
+      // and clears only on an answered check-in, because setting `Healthy` here
+      // would silently erase a live care signal.
+      //
+      // Nor does it close the `pause_expired` item, if one stands. A Follow-Up
+      // Item closes when an Admin resolves it and at no other time, exactly as
+      // cancelling a relationship does not close the item that surfaced it.
+      return {
+        rejections: [],
+        effects: [
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'relationship.resumed',
+            subjectType: 'relationship',
+            subjectId: relationship.relationshipId,
+            payload: {
+              periodWeeks: pause.periodWeeks,
+              resumedBy: command.resumedBy,
+              // Whether the Admin was acting on an expiry item or coming back
+              // early. Both are ordinary; the Week-by-Week History is where the
+              // difference is worth keeping.
+              expired: pauseHasExpired(pause, now),
+            },
+          }),
+          ...issued.map(issueInvitationLink),
+          // The Starter Message, released again -- to everyone in the
+          // relationship, exactly as activation released it. Expiry never does
+          // this, which is the whole difference between a period running out and
+          // somebody deciding it has.
+          ...starterMessages({
+            ministryId: command.ministryId,
+            ministryName,
+            leaders,
+            participants,
+            declineLinkFor: (participant) => declineLinks.get(participant.personId)!,
+            at: now,
           }),
         ],
       }
@@ -1596,59 +1930,37 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         }),
       )
 
-      // The Starter Message, to everyone in the relationship. The Leaders'
-      // carries no number and offers to disclose nobody.
-      const participantNames = participants.map((participant) => participant.fullName)
-      for (const leader of leaders) {
-        effects.push(
-          enqueueMessage({
+      // A Participant gets a link of their own -- the same mechanism as the
+      // Leader's, leading to declining rather than accepting -- minted here
+      // because activation is the first moment there is one to mint.
+      const declining = new Map<PersonId, NewInvitation>(
+        participants.map((participant) => [
+          participant.personId,
+          issueInvitation({
             ministryId: command.ministryId,
-            personId: leader.personId,
-            // The Leader who just accepted typed a name, not a number: the number
-            // was displayed and refused as input, so it is still the one on file.
-            toPhone: leader.phone,
-            body: starterMessageToLeader({ ministryName, participantNames }),
-            enqueuedAt: now,
-            disclosesPersonId: null,
+            relationshipId: invitation.relationshipId,
+            personId: participant.personId,
+            token: invitationToken(context.ids.next()),
+            at: now,
           }),
-        )
-      }
+        ]),
+      )
 
-      // A Participant gets a link of their own -- the same mechanism, leading to
-      // declining rather than accepting -- and one Starter Message per Leader,
-      // each offering to disclose that Leader. Contact sharing is one Person's
-      // decision, so it cannot be answered for a group of Leaders at once, and the
-      // pilot's one-to-one makes this exactly one message.
-      for (const participant of participants) {
-        const declining = issueInvitation({
+      effects.push(...[...declining.values()].map(issueInvitationLink))
+
+      // The Leader who just accepted typed a name, not a number: the number was
+      // displayed and refused as input, so `phone` is still the one on file.
+      effects.push(
+        ...starterMessages({
           ministryId: command.ministryId,
-          relationshipId: invitation.relationshipId,
-          personId: participant.personId,
-          token: invitationToken(context.ids.next()),
+          ministryName,
+          leaders,
+          participants,
+          declineLinkFor: (participant) =>
+            invitationLink(baseUrl, declining.get(participant.personId)!.token),
           at: now,
-        })
-
-        effects.push(issueInvitationLink(declining))
-
-        for (const leader of leaders) {
-          effects.push(
-            enqueueMessage({
-              ministryId: command.ministryId,
-              personId: participant.personId,
-              toPhone: participant.phone,
-              body: starterMessageToParticipant({
-                ministryName,
-                fullName: participant.fullName,
-                declineLink: invitationLink(baseUrl, declining.token),
-              }),
-              enqueuedAt: now,
-              // Resolved at send time against contact-sharing consent as it stands
-              // then. Absent consent removes the number and sends the rest.
-              disclosesPersonId: leader.personId,
-            }),
-          )
-        }
-      }
+        }),
+      )
 
       return { rejections: [], effects }
     }

@@ -19,6 +19,7 @@ describe('the command boundary', () => {
     ministryName: 'Riverside Chapel',
     appBaseUrl: 'https://discipler.example',
     unaccepted: [],
+    paused: [],
     checkInsDue: [],
   } as const
 

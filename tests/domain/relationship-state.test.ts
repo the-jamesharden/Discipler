@@ -488,6 +488,67 @@ describe('the ISO week anchor', () => {
  * counted -- and they are not stepped over either, because *consecutive* means
  * consecutive in the calendar.
  */
+describe('what a Pause masks, and what resurfaces after it', () => {
+  /**
+   * The property the whole of ticket 12 rests on: `Paused` **masks** the derived
+   * state rather than replacing the history behind it. The same history, twice,
+   * with nothing between the two but whether a Pause stands.
+   */
+  const stalledHistory = { weeks: [met(1), unanswered(2), unanswered(3)] }
+
+  it('reports Paused while one stands, over a history that says Stalled', () => {
+    expect(deriveRelationshipState(history({ ...stalledHistory, pausedAt: at(3) }), at(3)))
+      .toMatchObject({ state: 'paused', reasons: [] })
+  })
+
+  it('is Stalled again the moment the Pause is lifted, with its reason intact', () => {
+    // **Resume must not set Healthy.** Nothing about a resume touches the weeks,
+    // so the same history that read Stalled before the pause reads Stalled after
+    // it -- which is the difference between masking a care signal and erasing one.
+    expect(deriveRelationshipState(history(stalledHistory), at(3))).toMatchObject({
+      state: 'stalled',
+      reasons: [{ kind: 'gone_silent' }],
+    })
+  })
+
+  it('clears only on an answered check-in, and not on the resume itself', () => {
+    // A week the Leader answered ends the run. That -- and nothing an Admin
+    // clicks -- is what makes it Healthy again.
+    expect(
+      deriveRelationshipState(
+        history({ weeks: [...stalledHistory.weeks, met(4)] }),
+        at(4),
+      ),
+    ).toMatchObject({ state: 'healthy', reasons: [] })
+  })
+
+  it('accrues no silence across the weeks a Pause covered', () => {
+    // A paused relationship is covered by no sequence, so it produces no week at
+    // all -- and a gap ends a run. A fortnight of silence either side of a summer
+    // away is not four consecutive silent weeks.
+    expect(
+      deriveRelationshipState(
+        history({ weeks: [unanswered(1), unanswered(2), unanswered(14), unanswered(15)] }),
+        at(15),
+      ),
+    ).toMatchObject({ state: 'stalled' })
+
+    expect(
+      deriveRelationshipState(history({ weeks: [unanswered(2), unanswered(14)] }), at(14)),
+    ).toMatchObject({ state: 'healthy' })
+  })
+
+  it('keeps Concerns standing beside it, paused or not', () => {
+    // A Concern is a badge, not a state. Pausing does not resolve one.
+    const paused = deriveRelationshipState(
+      history({ pausedAt: at(3), concerns: [concern(1)] }),
+      at(3),
+    )
+
+    expect(paused).toMatchObject({ state: 'paused', openConcerns: 1 })
+  })
+})
+
 describe('weeks that are absent rather than unanswered', () => {
   it('does not stall a relationship that was never covered by a sequence', () => {
     const derived = deriveRelationshipState(history({ weeks: [] }), at(6))

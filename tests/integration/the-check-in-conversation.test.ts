@@ -285,15 +285,17 @@ describe('the check-in conversation', () => {
       createdAt: new Date('2026-03-01T09:00:00Z'),
     })
 
-    // Pause lives in history rather than in a column. Ticket 12 is what writes
-    // this event; appending it here is what lets the rule be proven before then.
+    // Pause lives in history rather than in a column, and `relationship.pause` is
+    // what writes this event. Appended by hand here because what is being proven
+    // is what the conversation does with a paused relationship, not how one got
+    // that way -- which has a suite of its own.
     const { error } = await serviceRoleClient().from('ministry_event').insert({
       ministry_id: ministry.id,
       occurred_at: new Date('2026-09-01T09:00:00Z').toISOString(),
       type: 'relationship.paused',
       subject_type: 'relationship',
       subject_id: pausedRelationship,
-      payload: {},
+      payload: { periodWeeks: 2, pausedBy: 'an-admin' },
     })
     if (error) throw new Error(`Could not pause the relationship: ${error.message}`)
 

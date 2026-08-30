@@ -141,6 +141,37 @@ export class CancellationRefused extends Error {
 }
 
 /**
+ * Why a relationship could not be paused or resumed. One type for both, because
+ * they are the two halves of one act and three of the five codes belong to
+ * neither half in particular.
+ *
+ * A pause suspends a relationship that is running, so a relationship nobody has
+ * accepted and one that has ended are both outside it -- neither is sending
+ * check-ins for a pause to suspend. And the two symmetric refusals are what keep
+ * the dates honest: a second pause would silently reset the first one's clock, so
+ * a fortnight away would become a fortnight from whenever somebody last clicked,
+ * and a resume with nothing to resume would append a fact that never happened.
+ */
+export type PauseRefusal =
+  /** Nothing in this Ministry answers to that relationship. */
+  | 'pause.relationship_not_found'
+  /** Nobody has accepted it. It sends no check-ins, so there is nothing to suspend. */
+  | 'pause.relationship_not_accepted'
+  /** Terminal. Ending is the one thing a pause is not a lighter version of. */
+  | 'pause.relationship_ended'
+  /** A pause already stands. A second would reset the first one's period. */
+  | 'pause.already_paused'
+  /** No pause stands, so there is nothing to resume. */
+  | 'pause.not_paused'
+
+export class PauseRefused extends Error {
+  constructor(readonly refusal: PauseRefusal) {
+    super(refusal)
+    this.name = 'PauseRefused'
+  }
+}
+
+/**
  * Why a Follow-Up Item could not be resolved. Both are decided by the database,
  * which is the only thing that can see whether the row is still open by the time
  * the update lands -- two Admins clicking Resolve on the same item is ordinary.

@@ -106,6 +106,7 @@ const ticking = (at: Date, checkIn: CheckInSnapshot = snapshot()) =>
     ministryName: 'ABC Church',
     appBaseUrl: 'https://discipler.example',
     unaccepted: [],
+    paused: [],
     checkInsDue: [checkIn],
   } satisfies CommandContext)
 

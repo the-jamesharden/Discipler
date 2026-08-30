@@ -1,4 +1,5 @@
 import type { FollowUpItemId, MinistryId, PersonId, RelationshipId } from './ids'
+import { isPausePeriod, type PausePeriodWeeks } from './pause'
 
 /**
  * A condition an Admin has to act on, gathered in the Care Needed view. It is
@@ -36,14 +37,6 @@ export const FOLLOW_UP_KINDS = [
 ] as const
 
 export type FollowUpKind = (typeof FOLLOW_UP_KINDS)[number]
-
-/**
- * How long a Leader may pause their check-ins. Owned by ticket 12, which builds
- * the Pause itself; it is named here because `pause_expired` carries the period it
- * expired from, and a payload that could not say which period would be the thing
- * the check constraint below exists to refuse.
- */
-export type PausePeriodWeeks = 1 | 2 | 4 | 8 | 12
 
 /**
  * The kind and what it carries, as one discriminated union, so a `pause_expired`
@@ -117,11 +110,6 @@ export const followUpPayload = (
       return {}
   }
 }
-
-const PAUSE_PERIODS: readonly PausePeriodWeeks[] = [1, 2, 4, 8, 12]
-
-const isPausePeriod = (value: unknown): value is PausePeriodWeeks =>
-  PAUSE_PERIODS.some((period) => period === value)
 
 /**
  * The same rule read back the other way, checked rather than cast. A row is a

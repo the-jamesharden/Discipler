@@ -2,8 +2,13 @@ import { handleCommand, type CommandResult } from '~/domain/boundary'
 import type { Clock } from '~/domain/clock'
 import type { Command } from '~/domain/commands'
 import type { Effect } from '~/domain/effects'
-import { CancellationRefused, CheckInRefused, InvitationRefused } from '~/domain/errors'
-import type { IdSource, PersonId, RelationshipId } from '~/domain/ids'
+import {
+  CancellationRefused,
+  CheckInRefused,
+  InvitationRefused,
+  PauseRefused,
+} from '~/domain/errors'
+import type { IdSource, PersonId } from '~/domain/ids'
 import type { InvitationToken } from '~/domain/invitations'
 import type { EffectStore, UnitOfWork } from './ports'
 
@@ -193,15 +198,41 @@ const needsTheRoster = (command: Command): boolean =>
   command.type === 'person.import' || command.type === 'intake.submit'
 
 /**
+ * The three commands that name one relationship an Admin is acting on. Each needs
+ * the same snapshot, read under the same lock.
+ */
+const isAboutOneRelationship = (
+  command: Command,
+): command is Extract<
+  Command,
+  { type: 'relationship.cancel' | 'relationship.pause' | 'relationship.resume' }
+> =>
+  command.type === 'relationship.cancel' ||
+  command.type === 'relationship.pause' ||
+  command.type === 'relationship.resume'
+
+/**
  * The relationship an Admin command names. Absent rather than defaulted, and a
  * relationship this Ministry does not hold is refused here rather than handed on
  * as an empty snapshot -- which would read as "this command was called wrong"
  * instead of "there is no such relationship".
+ *
+ * The refusal follows the command, because the three that reach here are three
+ * different acts and a surface renders its own wording from the code it is given.
  */
-const named = async (unit: UnitOfWork, id: RelationshipId) => {
-  const relationship = await unit.relationshipFor(id)
-  if (!relationship) throw new CancellationRefused('relationship.not_found')
-  return relationship
+const named = async (
+  unit: UnitOfWork,
+  command: Extract<
+    Command,
+    { type: 'relationship.cancel' | 'relationship.pause' | 'relationship.resume' }
+  >,
+) => {
+  const relationship = await unit.relationshipFor(command.relationshipId)
+  if (relationship) return relationship
+
+  throw command.type === 'relationship.cancel'
+    ? new CancellationRefused('relationship.not_found')
+    : new PauseRefused('pause.relationship_not_found')
 }
 
 /**
@@ -229,6 +260,7 @@ const isTokenDriven = (
 const needsTheMinistryName = (command: Command): boolean =>
   isIntakeSubmission(command) ||
   command.type === 'relationship.create' ||
+  command.type === 'relationship.resume' ||
   command.type === 'scheduled.tick' ||
   isCheckIn(command) ||
   isTokenDriven(command)
@@ -323,10 +355,11 @@ export const createCommandService = ({
           ? {
               unaccepted: await unit.unacceptedRelationships(),
               checkInsDue: await unit.leadersDueForCheckIn(),
+              paused: await unit.pausedRelationships(),
             }
           : {}),
-        ...(command.type === 'relationship.cancel'
-          ? { relationship: await named(unit, command.relationshipId) }
+        ...(isAboutOneRelationship(command)
+          ? { relationship: await named(unit, command) }
           : {}),
         // Read inside the transaction, behind the same advisory lock the read
         // itself takes, so a reply and a newly-due sequence cannot both find no

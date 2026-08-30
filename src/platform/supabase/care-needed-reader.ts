@@ -13,6 +13,7 @@ import {
   type MinistryId,
   type PersonId,
 } from '~/domain/ids'
+import { isPausePeriod, type StandingPause } from '~/domain/pause'
 import { phoneNumber } from '~/domain/roster'
 import {
   deriveRelationshipState,
@@ -327,6 +328,46 @@ const weeksOf = async (
 }
 
 /**
+ * The Pause standing on each relationship right now, by relationship.
+ *
+ * A Pause is two events -- `relationship.paused` and `relationship.resumed` -- and
+ * what stands is the later of them, which is a `distinct on` and not something
+ * PostgREST can be asked for. So it comes through the same kind of function
+ * `relationship_weeks` does, and the rule it feeds stays in
+ * `deriveRelationshipState`.
+ *
+ * This read is what keeps a Leader on holiday out of the care queue. Without it
+ * the derivation reads the weeks *before* the pause and reports a relationship
+ * that was Stalled when it was paused as Stalled today -- which is the whole
+ * condition the ticket exists to mask.
+ */
+const pausesOf = async (
+  supabase: SupabaseClient,
+  ministryId: MinistryId,
+): Promise<Map<string, StandingPause>> => {
+  const { data, error } = await supabase.rpc('relationship_pauses', {
+    target_ministry_id: ministryId,
+  })
+
+  if (error) throw couldNotRead(error)
+
+  const byRelationship = new Map<string, StandingPause>()
+  for (const row of rows(data)) {
+    const relationship = text(row.relationship_id)
+    const pausedAt = instant(row.paused_at)
+    // A period that has drifted out of the five is dropped rather than guessed
+    // at. The relationship reads as whatever its history says, which is the
+    // conservative failure: an Admin sees a care item they may not need, rather
+    // than a masked one they will never be shown.
+    if (!relationship || !pausedAt || !isPausePeriod(row.period_weeks)) continue
+
+    byRelationship.set(relationship, { pausedAt, periodWeeks: row.period_weeks })
+  }
+
+  return byRelationship
+}
+
+/**
  * Every Concern this Ministry holds, resolved ones included: the derivation needs
  * the resolved ones to know they are no longer outstanding, and the unresolved
  * ones to know whether one was raised this week.
@@ -418,11 +459,12 @@ export const readCareNeeded = async (
     throw couldNotRead(relationshipError)
   }
 
-  const [followUps, members, weeks, concerns] = await Promise.all([
+  const [followUps, members, weeks, concerns, pauses] = await Promise.all([
     readOpenFollowUpItems(supabase, ministryId, clock),
     membersOf(supabase, ministryId),
     weeksOf(supabase, ministryId),
     concernsOf(supabase, ministryId),
+    pausesOf(supabase, ministryId),
   ])
 
   const namesFor = (relationship: string) =>
@@ -446,10 +488,11 @@ export const readCareNeeded = async (
       {
         acceptedAt: instant(row.accepted_at),
         endedAt: instant(row.ended_at),
-        // Ticket 12 builds the Pause. Until it does there is nothing on the row
-        // that could say a relationship is paused, and reading one as paused
-        // would be inventing a fact.
-        pausedAt: null,
+        // `Paused` masks whatever the history would otherwise derive, which is
+        // what keeps a Leader on holiday out of the care queue -- and it masks
+        // rather than replaces, so the state underneath resurfaces on resume
+        // exactly as it was.
+        pausedAt: pauses.get(id)?.pausedAt ?? null,
         timeZone,
         weeks: weeks.get(id) ?? [],
         concerns: concerns.raised.get(id) ?? [],
