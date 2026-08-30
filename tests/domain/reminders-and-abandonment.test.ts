@@ -283,6 +283,11 @@ describe('a reminder nobody answered', () => {
     expect(result.effects.filter((effect) => effect.kind === 'checkin.close')).toMatchObject([
       { closure: { sequenceId, outcome: 'abandoned' } },
     ])
+    // `abandoned` is the one outcome all three endings share, so the reason is
+    // the only thing that says which this was.
+    expect(eventOf(result.effects, 'checkin.sequence_abandoned')?.payload).toMatchObject({
+      reason: 'unanswered',
+    })
   })
 })
 
@@ -297,6 +302,9 @@ describe('a new week arriving while a conversation is open', () => {
       { closure: { sequenceId, outcome: 'abandoned' } },
     ])
     expect(result.effects.filter((effect) => effect.kind === 'checkin.open')).toHaveLength(1)
+    expect(eventOf(result.effects, 'checkin.sequence_abandoned')?.payload).toMatchObject({
+      reason: 'displaced',
+    })
   })
 
   it('does not chase the question it abandoned', () => {

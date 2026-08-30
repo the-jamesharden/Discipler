@@ -38,7 +38,7 @@ Tests: `tests/domain/generous-replies.test.ts` (the matching table),
 pass-over), plus integration coverage in `tests/integration/the-check-in-conversation.test.ts`
 and `tests/integration/the-cadence.test.ts`.
 
-Two things the ticket left open, resolved as follows.
+Three things the ticket left open, resolved as follows.
 
 **`Yes we did!` is a token, not a wrapper.** The ticket says pleasantries are
 stripped and requires `Yes we did!` to be readable, which implies `we did` in the
@@ -60,6 +60,19 @@ a conversation they did not finish. `abandoned` is the existing outcome for a
 sequence whose unanswered questions stay unanswered, which is what this is; its
 history event carries `reason: 'unanswered'`, distinguishing it from the
 displaced-by-a-new-week and opted-out cases.
+
+**An emoji on its own is unreadable.** The ticket names `emoji` in the same
+sentence as `yes`, `y` and `nope`, which reads as a requirement that one be
+readable; it is the only item in that list with no polarity of its own. Confirmed
+unreadable. ADR-0003 already strips emoji before matching, and reading a bare 👍
+as a yes would be inferring sentiment from free text -- the one thing the
+enumerated list exists to avoid. So `yes 👍` is readable because `yes` survives
+the strip, and `👍` alone strips to nothing and stays nothing. Both are rows in
+the table in `tests/domain/generous-replies.test.ts`.
+
+A Leader who sends only 👍 gets a clarification while one is left under the cap,
+and a `checkin.reply_unreadable` event either way -- which is the ticket's own
+mechanism for revisiting this if 👍 turns out to be what Leaders actually send.
 
 **How long after the reminder before the sequence moves on** was not open after
 all: `docs/product-rules.md` ("Settled: What *Timed Out* Means, Per Prompt Kind")

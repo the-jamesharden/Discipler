@@ -47,6 +47,7 @@ import {
   type RosterKey,
 } from '~/domain/roster'
 import {
+  CLARIFICATIONS_PER_QUESTION,
   checkInPromptId,
   checkInSequenceId,
   type CheckInRelationship,
@@ -1008,8 +1009,8 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     await client.query(
       `update checkin_prompt
           set clarifications_sent = clarifications_sent + 1
-        where id = $1 and clarifications_sent < 2`,
-      [clarification.promptId],
+        where id = $1 and clarifications_sent < $2`,
+      [clarification.promptId, CLARIFICATIONS_PER_QUESTION],
     )
   },
 

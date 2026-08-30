@@ -504,6 +504,36 @@ const recorded = (reply: CheckInReply) => ({
 })
 
 /**
+ * Ending a conversation the Leader did not finish. Three things end one -- a new
+ * week displacing it, a `STOP`, and its last question reminded once and given up
+ * on -- and all three close it `abandoned`, because they are one fact.
+ *
+ * The reason is a parameter rather than a caller's choice to include: it lives
+ * only on the history event, so an ending that omitted it would be unreadable to
+ * ticket 10, and going through here is the only way to write one.
+ */
+const abandonSequence = (abandonment: {
+  readonly ministryId: MinistryId
+  readonly personId: PersonId
+  readonly sequenceId: CheckInSequenceId
+  readonly at: Date
+  readonly reason: 'displaced' | 'unanswered' | 'opted_out'
+}): readonly Effect[] => {
+  const { ministryId, personId, sequenceId, at, reason } = abandonment
+  return [
+    closeCheckInSequence({ ministryId, sequenceId, closedAt: at, outcome: 'abandoned' }),
+    appendHistory({
+      ministryId,
+      occurredAt: at,
+      type: 'checkin.sequence_abandoned',
+      subjectType: 'person',
+      subjectId: personId,
+      payload: { sequenceId, reason },
+    }),
+  ]
+}
+
+/**
  * What opening one Leader's conversation comes to, wherever the decision to open
  * it was made. Two callers: the cadence dispatcher inside the tick, and the
  * direct trigger an Admin uses to send one additional check-in.
@@ -531,19 +561,12 @@ const openConversationWith = (
   // Leader's behalf is the one thing that would hide a Leader going quiet.
   if (checkIn.openSequence) {
     effects.push(
-      closeCheckInSequence({
+      ...abandonSequence({
         ministryId,
+        personId: checkIn.personId,
         sequenceId: checkIn.openSequence.sequenceId,
-        closedAt: now,
-        outcome: 'abandoned',
-      }),
-      appendHistory({
-        ministryId,
-        occurredAt: now,
-        type: 'checkin.sequence_abandoned',
-        subjectType: 'person',
-        subjectId: checkIn.personId,
-        payload: { sequenceId: checkIn.openSequence.sequenceId },
+        at: now,
+        reason: 'displaced',
       }),
     )
   }
@@ -699,19 +722,12 @@ const chaseTheOpenQuestion = (
   if (advance.kind === 'finish') {
     return [
       passedOver,
-      closeCheckInSequence({
+      ...abandonSequence({
         ministryId,
+        personId: checkIn.personId,
         sequenceId: sequence.sequenceId,
-        closedAt: now,
-        outcome: 'abandoned',
-      }),
-      appendHistory({
-        ministryId,
-        occurredAt: now,
-        type: 'checkin.sequence_abandoned',
-        subjectType: 'person',
-        subjectId: checkIn.personId,
-        payload: { sequenceId: sequence.sequenceId, reason: 'unanswered' },
+        at: now,
+        reason: 'unanswered',
       }),
     ]
   }
@@ -933,22 +949,12 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
 
         if (checkIn.openSequence) {
           effects.push(
-            closeCheckInSequence({
+            ...abandonSequence({
               ministryId: command.ministryId,
+              personId: checkIn.personId,
               sequenceId: checkIn.openSequence.sequenceId,
-              closedAt: now,
-              outcome: 'abandoned',
-            }),
-            appendHistory({
-              ministryId: command.ministryId,
-              occurredAt: now,
-              type: 'checkin.sequence_abandoned',
-              subjectType: 'person',
-              subjectId: checkIn.personId,
-              payload: {
-                sequenceId: checkIn.openSequence.sequenceId,
-                reason: 'opted_out',
-              },
+              at: now,
+              reason: 'opted_out',
             }),
           )
         }
