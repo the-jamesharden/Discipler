@@ -118,13 +118,13 @@ Discipler's current interpretation of how a discipleship relationship is doing b
 _Avoid_: Pairing status, Pending
 
 **Healthy**:
-The state of an accepted relationship that nothing in its history says otherwise about. The default, not an achievement: a relationship reads Healthy the week it activates and again the week after a stall clears.
+The state of an accepted relationship that nothing in its history says otherwise about. The default, not an achievement.
 
 **Stalled**:
-The state of a relationship whose leader has left two consecutive check-ins unanswered, or reported three consecutive weeks of not meeting. It clears automatically on any answered check-in, which is why it is a derived state and never a Follow-Up Item. The two conditions are reported separately and in different units — silence in days since anyone last heard from the leader, not meeting in weeks reported as no meeting — because they are different conversations for an admin to have. A missed meeting is not wrongdoing and is never framed as one.
+The state of a relationship whose leader has gone silent, or who is answering to say no meeting is happening. It clears automatically on any answered check-in, which is why it is a derived state and never a Follow-Up Item. Silence and not meeting are distinct conditions with distinct units and are never merged into one count. A missed meeting is not wrongdoing and is never framed as one.
 
 **Needs Care**:
-The state of a relationship a concern was raised on this week. It lasts that week; the concern badge outlives it.
+The state of a relationship carrying an unresolved concern raised this week. It lasts that week; the concern badge outlives it.
 
 **Awaiting Leader Acceptance**:
 The state of a relationship an admin has created that not all of its leaders have accepted. The relationship exists and is visible to the admin; every leader has been sent an Invitation Link, it sends nothing to participants, and it accrues no silence against anyone.
@@ -169,9 +169,7 @@ _Avoid_: Failure queue
 A condition on a relationship or person that requires admin review, gathered in the Care Needed view. A follow-up item is never cleared by the event that raised it and never clears itself; it persists until an admin acts on it.
 
 **Concern**:
-A qualitative issue raised through the discipleship check-in process for pastoral awareness or follow-up. A concern persists until an admin resolves it, independently of how the relationship is currently doing. It is a badge on the relationship, never a state of it, and several outstanding on one relationship show as a count.
-
-Its text is the most sensitive data in the product and is handled unlike any other record: it is reached one person at a time rather than in a list, reading it is recorded against the admin who did it, and resolving clears it unless an admin deliberately keeps it — so a ministry does not accumulate a permanent file of people's hardest weeks.
+A qualitative issue raised through the discipleship check-in process for pastoral awareness or follow-up. A concern persists until an admin resolves it, independently of how the relationship is currently doing. It is a badge on the relationship, never a state of it, and several outstanding on one relationship show as a count. Its text is the most sensitive data in the product: it is reached one person at a time, reading it is recorded, and resolving clears it by default.
 
 **Concern Aggregation**:
 A ministry-level summary of recurring concern themes across multiple individual concerns.

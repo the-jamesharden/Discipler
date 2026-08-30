@@ -26,20 +26,20 @@ const OPENED = new Date('2026-08-31T14:00:00Z')
 const at = (week: number): Date => new Date(OPENED.getTime() + weeks(week))
 
 const met = (week: number): RelationshipWeek => ({
-  week: isoWeekOf(at(week), timeZone),
+  openedAt: at(week),
   outcome: 'met',
   answeredAt: at(week),
 })
 
 const didNotMeet = (week: number): RelationshipWeek => ({
-  week: isoWeekOf(at(week), timeZone),
+  openedAt: at(week),
   outcome: 'did_not_meet',
   answeredAt: at(week),
 })
 
-/** Covered by a sequence, no reply. The instant names the week and nothing else. */
+/** Covered by a sequence, no reply. */
 const unanswered = (week: number): RelationshipWeek => ({
-  week: isoWeekOf(at(week), timeZone),
+  openedAt: at(week),
   outcome: 'unanswered',
   answeredAt: null,
 })
@@ -187,13 +187,28 @@ describe('two weeks of silence', () => {
     expect(derived.reasons).toEqual([{ kind: 'gone_silent', days: 16 }])
   })
 
-  it('counts from acceptance when the Leader has never answered anything', () => {
+  it('counts from the first week it asked when the Leader has never answered', () => {
+    // Not from acceptance, which can precede the first check-in by months: a
+    // Leader who agreed in March on a Ministry whose cadence started in September
+    // would otherwise be reported as two hundred days silent after exactly two
+    // unanswered weeks. Discipler can only count from when it started asking.
     const derived = deriveRelationshipState(
       history({ weeks: [unanswered(1), unanswered(2)] }),
       at(2),
     )
 
-    expect(derived.reasons).toEqual([{ kind: 'gone_silent', days: 14 }])
+    expect(derived.reasons).toEqual([{ kind: 'gone_silent', days: 7 }])
+  })
+
+  it('does not report a silence longer than it has been asking', () => {
+    const acceptedLongBefore = history({
+      acceptedAt: new Date(OPENED.getTime() - days(200)),
+      weeks: [unanswered(1), unanswered(2)],
+    })
+
+    expect(deriveRelationshipState(acceptedLongBefore, at(2)).reasons).toEqual([
+      { kind: 'gone_silent', days: 7 },
+    ])
   })
 
   it('clears on an answered check-in', () => {
@@ -364,8 +379,8 @@ describe('the ISO week anchor', () => {
     const derived = deriveRelationshipState(
       history({
         weeks: [
-          { week: isoWeekOf(monday, timeZone), outcome: 'unanswered', answeredAt: null },
-          { week: isoWeekOf(friday, timeZone), outcome: 'unanswered', answeredAt: null },
+          { openedAt: monday, outcome: 'unanswered', answeredAt: null },
+          { openedAt: friday, outcome: 'unanswered', answeredAt: null },
         ],
       }),
       friday,
@@ -376,19 +391,22 @@ describe('the ISO week anchor', () => {
   })
 
   it('lets an answer settle a week another prompt in it went unanswered', () => {
-    const week = isoWeekOf(at(2), timeZone)
+    // Two prompts inside one ISO week, one of them answered. A cadence edit is
+    // what puts them there, and the week is answered.
+    const laterInTheSameWeek = new Date(at(2).getTime() + days(3))
 
     const derived = deriveRelationshipState(
       history({
         weeks: [
           unanswered(1),
-          { week, outcome: 'unanswered', answeredAt: null },
-          { week, outcome: 'met', answeredAt: at(2) },
+          unanswered(2),
+          { openedAt: laterInTheSameWeek, outcome: 'met', answeredAt: laterInTheSameWeek },
         ],
       }),
-      at(2),
+      laterInTheSameWeek,
     )
 
+    expect(isoWeekOf(at(2), timeZone)).toBe(isoWeekOf(laterInTheSameWeek, timeZone))
     expect(derived.state).toBe('healthy')
   })
 
@@ -412,9 +430,9 @@ describe('the ISO week anchor', () => {
 
 /**
  * Paused and Awaiting Leader Acceptance weeks are genuinely absent: no sequence
- * covers them, so no relationship-week exists to be unanswered. They are skipped
- * rather than counted, and they do not break a run either -- an absent week is
- * evidence of nothing in both directions.
+ * covers them, so no relationship-week exists to be unanswered. They are not
+ * counted -- and they are not stepped over either, because *consecutive* means
+ * consecutive in the calendar.
  */
 describe('weeks that are absent rather than unanswered', () => {
   it('does not stall a relationship that was never covered by a sequence', () => {
@@ -424,12 +442,33 @@ describe('weeks that are absent rather than unanswered', () => {
     expect(derived.reasons).toEqual([])
   })
 
-  it('joins the runs either side of the gap rather than restarting the count', () => {
+  it('does not weld the weeks either side of a gap into one run', () => {
+    // Silent in week one, nothing covering weeks two to four, silent again in
+    // week five. Two entries, and not two consecutive weeks: welding them would
+    // accrue silence across a Pause the product promises accrues none.
     const derived = deriveRelationshipState(
       history({ weeks: [unanswered(1), unanswered(5)] }),
       at(5),
     )
 
+    expect(derived.state).toBe('healthy')
+  })
+
+  it('stalls once the weeks either side of a gap are themselves consecutive', () => {
+    const derived = deriveRelationshipState(
+      history({ weeks: [unanswered(1), unanswered(5), unanswered(6)] }),
+      at(6),
+    )
+
     expect(derived.state).toBe('stalled')
+  })
+
+  it('does not weld a not-meeting run across a gap either', () => {
+    const derived = deriveRelationshipState(
+      history({ weeks: [didNotMeet(1), didNotMeet(2), didNotMeet(6)] }),
+      at(6),
+    )
+
+    expect(derived.state).toBe('healthy')
   })
 })

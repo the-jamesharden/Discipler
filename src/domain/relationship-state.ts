@@ -1,5 +1,5 @@
 import { daysSince } from './clock'
-import { isoWeekOf, type IsoWeek } from './week'
+import { isoWeekOf, weeksApart, type IsoWeek } from './week'
 
 /**
  * What a relationship reads as right now, derived from its history and nothing
@@ -45,15 +45,24 @@ export const NOT_MEETING_WEEKS_BEFORE_STALLED = 3
 export type RelationshipWeekOutcome = 'met' | 'did_not_meet' | 'unanswered'
 
 export interface RelationshipWeek {
-  /** The ISO week in the Ministry's timezone, never the interval since a prompt. */
-  readonly week: IsoWeek
+  /**
+   * When the conversation covering this relationship opened. Which ISO week that
+   * falls in is worked out here rather than by the caller, so the anchor the whole
+   * ticket rests on is decided once, in the function the tests drive.
+   */
+  readonly openedAt: Date
   readonly outcome: RelationshipWeekOutcome
   /**
-   * When the Leader answered, on a week they did, and null on one they did not.
-   * The silence duration is measured from the latest of these, so it says days
-   * since anybody last heard from them rather than weeks multiplied by seven.
+   * When the Leader answered about this relationship, on a week they did, and null
+   * on one they did not. The silence duration is measured from the latest of
+   * these, so it reports days rather than weeks multiplied by seven.
    */
   readonly answeredAt: Date | null
+}
+
+/** One relationship-week with its ISO week resolved, which is how runs are counted. */
+interface AnchoredWeek extends RelationshipWeek {
+  readonly week: IsoWeek
 }
 
 /**
@@ -106,25 +115,38 @@ export interface DerivedRelationshipState {
 }
 
 /**
- * How many weeks the most recent run of one outcome goes back, over the weeks that
- * exist. Absent weeks are not in the list at all, so a run either side of a Pause
- * joins rather than restarting: an absent week is evidence of nothing, in both
- * directions.
+ * How many *consecutive* weeks the most recent run of one outcome goes back.
+ *
+ * Consecutive in the calendar and not merely in the list. A week nothing covered
+ * produces no entry at all -- a Pause, a relationship not yet accepted, a Ministry
+ * whose cadence was switched off for a term -- and treating the entries either
+ * side of that hole as adjacent would weld a silent week in March to a silent week
+ * in June and call the pair two consecutive weeks of silence.
+ *
+ * So a gap ends the run. That is also what the product already promises about a
+ * Pause: a paused relationship accrues no silence against anyone, and a run that
+ * survived one would be accruing it after the fact.
  */
 const trailingRunOf = (
   outcome: RelationshipWeekOutcome,
-  weeks: readonly RelationshipWeek[],
+  weeks: readonly AnchoredWeek[],
 ): number => {
   let run = 0
   for (let index = weeks.length - 1; index >= 0; index -= 1) {
-    if (weeks[index]?.outcome !== outcome) break
+    const week = weeks[index]
+    if (week?.outcome !== outcome) break
+
+    const next = weeks[index + 1]
+    if (next && weeksApart(week.week, next.week) !== 1) break
+
     run += 1
   }
   return run
 }
 
 /**
- * One entry per ISO week, in order.
+ * One entry per ISO week, in order, with its week resolved against the Ministry's
+ * timezone.
  *
  * The collapse is the ISO anchor doing its job rather than a defensive tidy-up. A
  * coordinator moving the cadence from late Sunday to early Monday puts two prompts
@@ -137,18 +159,22 @@ const trailingRunOf = (
  * `2026-W35` sorts chronologically -- the ISO year leads, which is why it is
  * carried at all.
  */
-const inOrder = (weeks: readonly RelationshipWeek[]): readonly RelationshipWeek[] => {
-  const byWeek = new Map<IsoWeek, RelationshipWeek>()
+const oneEntryPerWeek = (
+  weeks: readonly RelationshipWeek[],
+  timeZone: string,
+): readonly AnchoredWeek[] => {
+  const byWeek = new Map<IsoWeek, AnchoredWeek>()
 
   for (const week of weeks) {
-    const standing = byWeek.get(week.week)
+    const anchored: AnchoredWeek = { ...week, week: isoWeekOf(week.openedAt, timeZone) }
+    const standing = byWeek.get(anchored.week)
     const beatsIt =
       !standing ||
-      (week.answeredAt !== null &&
+      (anchored.answeredAt !== null &&
         (standing.answeredAt === null ||
-          week.answeredAt.getTime() >= standing.answeredAt.getTime()))
+          anchored.answeredAt.getTime() >= standing.answeredAt.getTime()))
 
-    if (beatsIt) byWeek.set(week.week, week)
+    if (beatsIt) byWeek.set(anchored.week, anchored)
   }
 
   return [...byWeek.values()].sort((a, b) => a.week.localeCompare(b.week))
@@ -176,19 +202,25 @@ export const deriveRelationshipState = (
   if (history.acceptedAt === null) return settled('awaiting_leader_acceptance')
   if (history.pausedAt !== null) return settled('paused')
 
-  const weeks = inOrder(history.weeks)
+  const weeks = oneEntryPerWeek(history.weeks, history.timeZone)
 
   const silentWeeks = trailingRunOf('unanswered', weeks)
   const notMeetingWeeks = trailingRunOf('did_not_meet', weeks)
 
-  // Days since the Leader last said anything, and since they agreed to lead when
-  // they never have. Not the silent weeks multiplied by seven: an Admin reading
-  // *gone silent, 23 days* is being told when contact actually stopped.
+  // When anybody was last in contact about *this relationship* -- the latest week
+  // it was answered for, or the first week it was ever asked about when it never
+  // has been. Not the silent weeks multiplied by seven: an Admin reading *gone
+  // silent, 23 days* is being told when contact actually stopped.
+  //
+  // The first covering week and not the acceptance, which can precede it by
+  // months -- a Leader who agreed in March on a Ministry whose cadence started in
+  // September would otherwise be reported as two hundred days silent after
+  // exactly two unanswered weeks. Discipler can only count from when it started
+  // asking.
   const lastHeardFrom =
-    weeks.reduce<Date | null>(
-      (latest, week) => week.answeredAt ?? latest,
-      null,
-    ) ?? history.acceptedAt
+    weeks.reduce<Date | null>((latest, week) => week.answeredAt ?? latest, null) ??
+    weeks[0]?.openedAt ??
+    history.acceptedAt
 
   const reasons: readonly CareReason[] =
     silentWeeks >= UNANSWERED_WEEKS_BEFORE_STALLED

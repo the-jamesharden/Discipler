@@ -150,6 +150,58 @@ const asCheckInRelationship = (
   cadence: { day: row.checkin_day, hour: row.checkin_hour },
 })
 
+/**
+ * Closing a care record exactly once, and telling an Admin which of the three
+ * things happened when it does not close.
+ *
+ * Shared by Follow-Up Items and Concerns because it is one rule and not two that
+ * happen to resemble each other. `where resolved_at is null` is what makes two
+ * Admins clicking Resolve close it once; the second updates nothing and has to be
+ * told whether the record is gone or whether somebody beat them to it, which only
+ * the database can tell apart. Written once so the two cannot drift into
+ * answering that differently -- and, on a Concern, so the second click cannot
+ * clear words the first Admin deliberately kept.
+ */
+const closeOnce = async (closing: {
+  readonly client: PoolClient
+  /**
+   * Its `where` must end `id = $1 and resolved_at is null`, because `$1` is the
+   * identifier this re-reads with and the null check is what makes it close once.
+   */
+  readonly update: string
+  readonly parameters: readonly unknown[]
+  /** A literal union, never a caller's string: it is interpolated into SQL below. */
+  readonly table: 'follow_up_item' | 'concern'
+  /**
+   * The composite key onto `ministry_member`, which is what says an account is not
+   * enough -- whoever is closing this has to belong to the Ministry. Translated
+   * here like every other constraint, so it reaches a surface as a code rather
+   * than as a Postgres error nobody upstream can read.
+   */
+  readonly resolverKey: string
+  readonly refuse: (
+    why: 'resolver_is_not_in_this_ministry' | 'already_resolved' | 'not_found',
+  ) => Error
+}): Promise<void> => {
+  const { client, update, parameters, table, resolverKey, refuse } = closing
+
+  let closed: number | null = null
+  try {
+    ;({ rowCount: closed } = await client.query(update, [...parameters]))
+  } catch (error) {
+    if (constraintViolated(error) === resolverKey) {
+      throw refuse('resolver_is_not_in_this_ministry')
+    }
+    throw error
+  }
+  if (closed === 1) return
+
+  const { rows } = await client.query(`select 1 from ${table} where id = $1`, [
+    parameters[0],
+  ])
+  throw refuse(rows.length > 0 ? 'already_resolved' : 'not_found')
+}
+
 const unitFor = (client: PoolClient): UnitOfWork => ({
   async peopleOnRoster() {
     // Scoped by the policy on `person`, not by a ministry_id in this statement: the
@@ -515,36 +567,15 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
   },
 
   async resolveFollowUp(resolution: FollowUpResolution) {
-    // `where resolved_at is null` is what makes two Admins clicking Resolve on the
-    // same row close it once. The second updates nothing and is told so, rather
-    // than overwriting the first Admin's name with their own.
-    let closed: number | null = null
-    try {
-      ;({ rowCount: closed } = await client.query(
-        `update follow_up_item set resolved_at = $2, resolved_by = $3
-          where id = $1 and resolved_at is null`,
-        [resolution.itemId, resolution.resolvedAt, resolution.resolvedBy],
-      ))
-    } catch (error) {
-      // The composite key onto `ministry_member` is what says an account is not
-      // enough: the resolver has to belong to this Ministry. Translated here like
-      // every other constraint, so it reaches a surface as a code rather than as a
-      // Postgres error nobody upstream can read.
-      if (constraintViolated(error) === 'follow_up_item_resolved_by_fk') {
-        throw new FollowUpRefused('follow_up.resolver_is_not_in_this_ministry')
-      }
-      throw error
-    }
-    if (closed === 1) return
-
-    // Two different things for the Admin to be told, and only the database can
-    // tell them apart: an item that is gone, and one somebody else has just closed.
-    const { rows } = await client.query(`select 1 from follow_up_item where id = $1`, [
-      resolution.itemId,
-    ])
-    throw new FollowUpRefused(
-      rows.length > 0 ? 'follow_up.already_resolved' : 'follow_up.not_found',
-    )
+    await closeOnce({
+      client,
+      table: 'follow_up_item',
+      update: `update follow_up_item set resolved_at = $2, resolved_by = $3
+                where id = $1 and resolved_at is null`,
+      parameters: [resolution.itemId, resolution.resolvedAt, resolution.resolvedBy],
+      resolverKey: 'follow_up_item_resolved_by_fk',
+      refuse: (why) => new FollowUpRefused(`follow_up.${why}`),
+    })
   },
 
   async unacceptedRelationships(): Promise<readonly UnacceptedRelationship[]> {
@@ -1074,7 +1105,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       )
     } catch (error) {
       if (constraintViolated(error) === 'concern_viewing_viewer_fk') {
-        throw new ConcernRefused('concern.admin_is_not_in_this_ministry')
+        throw new ConcernRefused('concern.viewer_is_not_in_this_ministry')
       }
       if (constraintViolated(error) === 'concern_viewing_concern_fk') {
         throw new ConcernRefused('concern.not_found')
@@ -1084,50 +1115,39 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
   },
 
   async resolveConcern(resolution: ConcernResolution) {
-    // `where resolved_at is null` is what makes two Admins clicking Resolve on the
-    // same Concern close it once. The second updates nothing and is told so,
-    // rather than overwriting the first Admin's name -- and, here, rather than
-    // clearing words the first Admin deliberately kept.
-    let closed: number | null = null
-    try {
-      ;({ rowCount: closed } = await client.query(
-        `update concern
-            set resolved_at = $2,
-                resolved_by = $3,
-                detail_kept = $4,
-                -- The clearing itself, in the same statement as the resolution.
-                -- Two statements would leave a window in which a Concern is closed
-                -- and its words are still there.
-                detail = case when $4 then detail else null end
-          where id = $1 and resolved_at is null`,
-        [
-          resolution.concernId,
-          resolution.resolvedAt,
-          resolution.resolvedBy,
-          resolution.keepDetail,
-        ],
-      ))
-    } catch (error) {
-      if (constraintViolated(error) === 'concern_resolved_by_fk') {
-        throw new ConcernRefused('concern.admin_is_not_in_this_ministry')
-      }
-      throw error
-    }
-    if (closed === 1) return
-
-    // Two different things for the Admin to be told, and only the database can
-    // tell them apart: a Concern that is gone, and one somebody else just closed.
-    const { rows } = await client.query(`select 1 from concern where id = $1`, [
-      resolution.concernId,
-    ])
-    throw new ConcernRefused(
-      rows.length > 0 ? 'concern.already_resolved' : 'concern.not_found',
-    )
+    await closeOnce({
+      client,
+      table: 'concern',
+      update: `update concern
+                  set resolved_at = $2,
+                      resolved_by = $3,
+                      detail_kept = $4,
+                      -- The clearing itself, in the same statement as the
+                      -- resolution. Two statements would leave a window in which a
+                      -- Concern is closed and its words are still there.
+                      detail = case when $4 then detail else null end
+                where id = $1 and resolved_at is null`,
+      parameters: [
+        resolution.concernId,
+        resolution.resolvedAt,
+        resolution.resolvedBy,
+        resolution.keepDetail,
+      ],
+      resolverKey: 'concern_resolved_by_fk',
+      refuse: (why) => new ConcernRefused(`concern.${why}`),
+    })
   },
 
   async concernDetailFor(id) {
+    // The Ministry predicate is stated as well as enforced. The `concern_command`
+    // policy scopes this connection already -- `transact` sets the Ministry before
+    // any statement runs -- but the most sensitive read in the product should not
+    // depend on a policy holding somewhere else in the file, and a query that says
+    // which Ministry it is asking about is the one somebody reviewing this can
+    // check without leaving it.
     const { rows } = await client.query<{ detail: string | null }>(
-      `select detail from concern where id = $1`,
+      `select detail from concern
+        where id = $1 and ministry_id = app.command_ministry_id()`,
       [id],
     )
     return rows[0]?.detail ?? null

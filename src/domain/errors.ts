@@ -174,10 +174,14 @@ export type ConcernRefusal =
   | 'concern.already_resolved'
   /**
    * A real account, in another Ministry. Holding a login is not standing to read
-   * or close what a Leader said about somebody's marriage, and the composite key
-   * onto `ministry_member` is what says so.
+   * or to close what a Leader said about somebody's marriage, and the composite
+   * key onto `ministry_member` is what says so.
+   *
+   * Two codes rather than one because they are two acts, and an Admin who cannot
+   * open a Concern is being told a different thing from one who cannot close it.
    */
-  | 'concern.admin_is_not_in_this_ministry'
+  | 'concern.resolver_is_not_in_this_ministry'
+  | 'concern.viewer_is_not_in_this_ministry'
 
 export class ConcernRefused extends Error {
   constructor(readonly refusal: ConcernRefusal) {

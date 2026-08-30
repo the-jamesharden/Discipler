@@ -209,6 +209,30 @@ export const isoWeekOf = (instant: Date, timeZone: string): IsoWeek => {
   return isoWeek(`${isoYear}-W${String(week).padStart(2, '0')}`)
 }
 
+/**
+ * How many ISO weeks separate two of them: `0` for the same week, `1` for
+ * adjacent ones, and a negative number when the later argument is the earlier
+ * week.
+ *
+ * It exists so that *consecutive* can be checked rather than assumed. Two
+ * relationship-weeks sitting next to each other in a list are not necessarily
+ * next to each other in the calendar, and a stall counter that treated them as
+ * adjacent would weld a silent week in March to a silent week in June and call
+ * the pair two consecutive weeks of silence.
+ *
+ * Both weeks go through `mondayOpening`, so this cannot disagree with `isoWeekOf`
+ * about where a week starts -- including across a year boundary, where `2026-W53`
+ * and `2027-W01` are adjacent despite sharing no digits.
+ */
+export const weeksApart = (earlier: IsoWeek, later: IsoWeek): number => {
+  const mondayOf = (week: IsoWeek) => {
+    const [year, number] = week.split('-W')
+    return mondayOpening(Number(year), Number(number))
+  }
+
+  return Math.round((mondayOf(later) - mondayOf(earlier)) / DAY / 7)
+}
+
 export const calendarMonthOf = (instant: Date, timeZone: string): CalendarMonth => {
   const { year, month } = zonedTime(instant, timeZone)
   return `${year}-${String(month).padStart(2, '0')}` as CalendarMonth

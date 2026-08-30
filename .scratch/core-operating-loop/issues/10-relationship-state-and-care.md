@@ -30,7 +30,7 @@ Do not tighten the thresholds. Two weeks and three weeks were chosen deliberatel
 
 **Blocked by:** 09
 
-**Status:** done
+**Status:** shipped
 
 - [x] State derivation is a pure function, tested table-driven over the state matrix
 - [x] Two weeks of silence yields Stalled with the silence reason and a duration in days
@@ -115,13 +115,30 @@ the opposite of what resolving means. So the state follows the *unresolved*
 Concerns raised this week. The badge is unaffected either way -- it is gone,
 because it was resolved.
 
-**Absent weeks join a run rather than breaking it.** No entry exists for a week no
-sequence covered, so a relationship silent in week 1, paused for weeks 2-4 and
-silent again in week 5 reads as two consecutive unanswered weeks. This follows
-from the settled reading rather than being chosen: unanswered means *covered and
-no reply*, so weeks nothing covered are not in the list to break anything. Worth
-revisiting when ticket 12 builds the Pause, because that is when it becomes
-observable.
+**A gap ends a run; *consecutive* means consecutive in the calendar.** No entry
+exists for a week nothing covered -- a Pause, a relationship not yet accepted, a
+Ministry whose cadence was off for a term -- and the first implementation stepped
+over those and joined the entries either side. That welds a silent week in March
+to a silent week in June and calls the pair two consecutive weeks of silence, and
+it would accrue silence across a Pause the product promises accrues none. Runs now
+check adjacency with `weeksApart`.
+
+**Silence is counted from the first week Discipler asked, not from acceptance.**
+The ticket says *days since last contact*, and for a Leader who has never replied
+the first implementation counted from `accepted_at`. That can precede the first
+covering sequence by months -- a Leader who agreed in March on a Ministry whose
+cadence started in September would have been reported two hundred days silent
+after exactly two unanswered weeks. Discipler can only count from when it started
+asking.
+
+**`gone_silent` is per relationship, not per Leader.** A Leader who answers about
+their first two relationships every week and is never reached about the third and
+fourth accrues silence on the third and fourth -- which is the settled reading
+working as intended, and the invisible failure this ticket exists to catch. The
+duration is days since anyone was last in contact *about that relationship*, and
+the reason names no more than that. A separate reason distinguishing *covered but
+never reached* from *asked and ignored* would be a third care reason, which the
+ticket does not have and which is left for a ticket that wants one.
 
 **Two prompts inside one ISO week count once.** Not stated, and it is the failure
 the ISO anchor exists to prevent -- a cadence edit from late Sunday to early Monday
@@ -133,6 +150,23 @@ week. The first implementation counted both and a test caught it.
 shipped domain and persistence with no UI, and ticket 15 is the Leader dashboard.
 `CareNeededReader.listOpenItems` returns the union as a tagged list -- one tag per
 source -- and no page renders it yet.
+
+**`keepDetail` is an escape hatch the ticket implies rather than names.** It says
+Concern text is *cleared by default* on resolution, and a default with no
+exception is not a default. Clearing is what happens unless an Admin deliberately
+says otherwise; `detail_kept` records which of the two it was, because once the
+words are gone the row can no longer say.
+
+Two things this ticket did not close. `Paused` weeks are absent in the derivation
+and covered by the state matrix, but the reader passes `pausedAt: null` because
+nothing sets a pause until ticket 12 -- so that half of the *absent rather than
+unanswered* criterion is proven in the domain and not end to end. And the
+derivation's Stalled/Needs-Care assertion throws uncaught inside the reader's
+loop, so the day it fires it takes the whole Care Needed view down for that
+Ministry rather than one row. That is deliberate and commented where it happens:
+the condition means a rule has stopped being true, and a surface whose purpose is
+catching what would otherwise be invisible must not quietly drop the row that
+proves it.
 
 The audit on Concern text is enforced by a grant rather than by discipline:
 `concern.detail` is not in the authenticated role's column grant, so the only path

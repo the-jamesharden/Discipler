@@ -17,7 +17,6 @@ import {
   type RaisedConcern,
   type RelationshipWeek,
 } from '~/domain/relationship-state'
-import { isoWeekOf } from '~/domain/week'
 import type {
   CareNeededItem,
   CareNeededReader,
@@ -203,6 +202,22 @@ export const readOpenFollowUpItems = async (
 const rows = (data: unknown): readonly Record<string, unknown>[] =>
   (data ?? []) as Record<string, unknown>[]
 
+/**
+ * Append one value to the list a key holds, making the list if it has none.
+ * Written once because the alternative -- `map.set(k, [...(map.get(k) ?? []), v])`
+ * -- was appearing at every grouping site and rebuilding the whole array each
+ * time round the loop.
+ */
+const gather = <T>(into: Map<string, T[]>, key: string, value: T): void => {
+  const standing = into.get(key)
+  if (standing) standing.push(value)
+  else into.set(key, [value])
+}
+
+/** The one lookup both grouping reads want: a Person's name, by id. */
+const namesOf = (supabase: SupabaseClient, ids: readonly (string | null)[]) =>
+  lookup(supabase, 'person', 'full_name', ids, String)
+
 const text = (value: unknown): string | null =>
   typeof value === 'string' && value !== '' ? value : null
 
@@ -227,12 +242,9 @@ const membersOf = async (
   if (error) throw new Error(`Could not read Care Needed: ${error.message}`)
 
   const memberships = rows(data)
-  const nameOf = await lookup(
+  const nameOf = await namesOf(
     supabase,
-    'person',
-    'full_name',
     memberships.map((row) => text(row.person_id)),
-    String,
   )
 
   const byRelationship = new Map<string, { leaders: string[]; participants: string[] }>()
@@ -265,7 +277,6 @@ const membersOf = async (
 const weeksOf = async (
   supabase: SupabaseClient,
   ministryId: MinistryId,
-  timeZone: string,
 ): Promise<Map<string, RelationshipWeek[]>> => {
   const { data, error } = await supabase.rpc('relationship_weeks', {
     target_ministry_id: ministryId,
@@ -281,23 +292,20 @@ const weeksOf = async (
 
     const answeredAt = instant(row.answered_at)
 
-    byRelationship.set(relationship, [
-      ...(byRelationship.get(relationship) ?? []),
-      {
-        // The week the conversation opened, for every relationship it covered --
-        // including the ones it never reached. A silent Leader's fourth
-        // relationship accrues its counter on the week it was covered in, not on
-        // the week its question would have arrived had the sequence got that far.
-        week: isoWeekOf(openedAt, timeZone),
-        outcome:
-          row.reported_not_meeting === true
-            ? 'did_not_meet'
-            : answeredAt
-              ? 'met'
-              : 'unanswered',
-        answeredAt,
-      },
-    ])
+    gather(byRelationship, relationship, {
+      // When the conversation opened, for every relationship it covered --
+      // including the ones it never reached. A silent Leader's fourth
+      // relationship accrues its counter on the week it was covered in, not on
+      // the week its question would have arrived had the sequence got that far.
+      openedAt,
+      outcome:
+        row.reported_not_meeting === true
+          ? 'did_not_meet'
+          : answeredAt
+            ? 'met'
+            : 'unanswered',
+      answeredAt,
+    })
   }
 
   return byRelationship
@@ -329,12 +337,9 @@ const concernsOf = async (
   if (error) throw new Error(`Could not read Care Needed: ${error.message}`)
 
   const found = rows(data)
-  const nameOf = await lookup(
+  const nameOf = await namesOf(
     supabase,
-    'person',
-    'full_name',
     found.map((row) => text(row.raised_by)),
-    String,
   )
 
   const raised = new Map<string, RaisedConcern[]>()
@@ -348,18 +353,15 @@ const concernsOf = async (
     if (!relationship || !raisedAt || !id || !raisedBy) continue
 
     const resolvedAt = instant(row.resolved_at)
-    raised.set(relationship, [...(raised.get(relationship) ?? []), { raisedAt, resolvedAt }])
+    gather(raised, relationship, { raisedAt, resolvedAt })
 
     if (resolvedAt === null) {
-      outstanding.set(relationship, [
-        ...(outstanding.get(relationship) ?? []),
-        {
-          id: concernId(id),
-          raisedAt,
-          raisedBy: personId(raisedBy),
-          raisedByName: nameOf.get(raisedBy) ?? null,
-        },
-      ])
+      gather(outstanding, relationship, {
+        id: concernId(id),
+        raisedAt,
+        raisedBy: personId(raisedBy),
+        raisedByName: nameOf.get(raisedBy) ?? null,
+      })
     }
   }
 
@@ -404,7 +406,7 @@ export const readCareNeeded = async (
   const [followUps, members, weeks, concerns] = await Promise.all([
     readOpenFollowUpItems(supabase, ministryId, clock),
     membersOf(supabase, ministryId),
-    weeksOf(supabase, ministryId, timeZone),
+    weeksOf(supabase, ministryId),
     concernsOf(supabase, ministryId),
   ])
 
@@ -417,6 +419,14 @@ export const readCareNeeded = async (
     const id = text(row.id)
     if (!id) continue
 
+    // The derivation throws when Stalled and Needs Care both hold, and that throw
+    // is deliberately not caught. It would take the whole Care Needed view down
+    // for this Ministry, which is the point: the condition is unreachable unless
+    // something has started raising Concerns without answering the week, and the
+    // failure this surface exists to prevent is a wrong answer shown confidently.
+    // A dropped row would be exactly that. Compare the Follow-Up payload below,
+    // which *is* dropped -- a drifted payload is one unrenderable item, not a rule
+    // that has stopped being true.
     const state = deriveRelationshipState(
       {
         acceptedAt: instant(row.accepted_at),

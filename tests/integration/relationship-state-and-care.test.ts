@@ -134,10 +134,10 @@ describe('Relationship State and the Care Needed view', () => {
       {
         source: 'relationship',
         state: 'stalled',
-        // Fourteen days: the Leader has never answered anything, so the silence is
-        // measured from the moment they agreed to lead -- a week before week zero,
-        // and a week before the week being read.
-        reasons: [{ kind: 'gone_silent', days: 14 }],
+        // Seven days: the Leader has never answered anything, so the silence is
+        // measured from the first week Discipler asked -- not from the acceptance a
+        // week earlier, which Discipler was not yet asking about.
+        reasons: [{ kind: 'gone_silent', days: 7 }],
         leaderNames: ['Quiet Leader'],
         participantNames: ['Quiet Leader Participant 1'],
       },

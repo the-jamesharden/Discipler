@@ -408,12 +408,6 @@ export interface InvitationReader {
 }
 
 /**
- * One row of the Care Needed view. The view proper is a union of three sources --
- * derived relationship states, Concerns, and these -- and the other two arrive
- * with ticket 10, which is why this reader answers for the third alone rather than
- * pretending to be the whole surface.
- */
-/**
  * One Follow-Up Item, as Care Needed shows it. The oldest of the three sources and
  * the only one that is a stored row an Admin closes by hand.
  */
