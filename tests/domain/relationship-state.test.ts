@@ -140,6 +140,19 @@ describe('the state matrix', () => {
       now: at(3),
       state: 'ended',
     },
+    {
+      // Ended is terminal, and a Pause standing on it changes nothing. Ending is
+      // the decision a Pause exists to defer, and a Ministry that has made it does
+      // not have to resume a relationship for a moment in order to finish it.
+      name: 'ended while it was paused',
+      history: history({
+        endedAt: at(3),
+        pausedAt: at(2),
+        weeks: [unanswered(1)],
+      }),
+      now: at(3),
+      state: 'ended',
+    },
   ]
 
   for (const row of rows) {

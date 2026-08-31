@@ -12,7 +12,9 @@ import type {
   IntakeRecord,
   LeaderAcceptance,
   OutboundMessageDraft,
+  ParticipantDeparture,
   RelationshipCancellation,
+  RelationshipEnding,
 } from '~/domain/effects'
 import {
   followUpPayload,
@@ -21,15 +23,19 @@ import {
 } from '~/domain/follow-up'
 import { invitationToken, type InvitationToken, type NewInvitation } from '~/domain/invitations'
 import { readStandingPause, type StandingPause } from '~/domain/pause'
-import type { MemberRole } from '~/domain/relationships'
+import type { MemberRole, RelationshipOutcome } from '~/domain/relationships'
 import type { ConcernResolution, ConcernViewing, NewConcern } from '~/domain/concerns'
 import {
   CancellationRefused,
   ConcernRefused,
+  DepartureRefused,
+  EndingRefused,
   FollowUpRefused,
   InvitationRefused,
   PairingRefused,
   RosterImportRefused,
+  type CancellationRefusal,
+  type EndingRefusal,
   type PairingRefusal,
 } from '~/domain/errors'
 import type { HistoryEvent } from '~/domain/history'
@@ -260,6 +266,107 @@ const closeOnce = async (closing: {
     parameters[0],
   ])
   throw refuse(rows.length > 0 ? 'already_resolved' : 'not_found')
+}
+
+/**
+ * The one call that ends a relationship, wherever the ending came from.
+ *
+ * Both callers go through `app.end_relationship`, which stamps the relationship and
+ * closes every open membership on it in one transaction. That function is the only
+ * write path that ends a relationship, and the invariant it holds -- no open
+ * membership outlives the relationship it belongs to -- is a fact about two tables
+ * that no check constraint can state.
+ *
+ * What is left here is the translation. The function answers with a refusal code or
+ * with null, because ending a relationship somebody else ended a second earlier is
+ * ordinary and reaches an Admin as a sentence; the constraint on `ended_by` is the
+ * one refusal it cannot answer with, because a stranger's identifier fails as a
+ * foreign key rather than as a decision.
+ */
+type DatabaseEndingRefusal =
+  | 'relationship_not_found'
+  | 'relationship_already_ended'
+  | 'relationship_already_accepted'
+  | 'relationship_not_accepted'
+
+const endInTheDatabase = async (
+  client: PoolClient,
+  ending: {
+    readonly relationshipId: RelationshipId
+    readonly at: Date
+    readonly actor: string
+    readonly reason: string
+    readonly outcome: RelationshipOutcome
+    /** True for an ending, false for a cancellation. The one thing they differ in. */
+    readonly expectsAccepted: boolean
+    readonly notInThisMinistry: () => Error
+  },
+): Promise<DatabaseEndingRefusal | null> => {
+  try {
+    const { rows } = await client.query<{ refusal: DatabaseEndingRefusal | null }>(
+      `select app.end_relationship($1, $2, $3, $4, $5, $6) as refusal`,
+      [
+        ending.relationshipId,
+        ending.at,
+        ending.actor,
+        ending.reason,
+        ending.outcome,
+        ending.expectsAccepted,
+      ],
+    )
+    return rows[0]?.refusal ?? null
+  } catch (error) {
+    // Translated here like every other constraint, so it reaches a surface as a
+    // code rather than as a Postgres error nobody upstream can read.
+    if (constraintViolated(error) === 'relationship_ended_by_fk') {
+      throw ending.notInThisMinistry()
+    }
+    throw error
+  }
+}
+
+/**
+ * What each act calls each answer the function can give.
+ *
+ * Tables rather than a chain of ternaries, so a sixth answer added to
+ * `DatabaseEndingRefusal` fails to compile here until both acts say what they call
+ * it -- where a chain would silently inherit whichever branch happened to be last.
+ *
+ * `null` marks an answer this act cannot receive, and the two nulls are opposites:
+ * a cancellation declares it expects an unaccepted relationship, so it is never
+ * told one is unaccepted, and an ending declares the reverse. Null rather than a
+ * plausible-looking code, because mapping an impossible answer to a real refusal
+ * would put a wrong sentence on a screen the day the impossible happens.
+ */
+const CANCELLATION_REFUSALS: Readonly<
+  Record<DatabaseEndingRefusal, CancellationRefusal | null>
+> = {
+  relationship_not_found: 'relationship.not_found',
+  relationship_already_ended: 'relationship.already_ended',
+  relationship_already_accepted: 'relationship.already_accepted',
+  relationship_not_accepted: null,
+}
+
+const ENDING_REFUSALS: Readonly<Record<DatabaseEndingRefusal, EndingRefusal | null>> = {
+  relationship_not_found: 'ending.relationship_not_found',
+  relationship_already_ended: 'ending.already_ended',
+  relationship_not_accepted: 'ending.relationship_not_accepted',
+  relationship_already_accepted: null,
+}
+
+const refused = <Refusal extends string>(
+  answer: DatabaseEndingRefusal,
+  refusals: Readonly<Record<DatabaseEndingRefusal, Refusal | null>>,
+  refusal: new (why: Refusal) => Error,
+): Error => {
+  const why = refusals[answer]
+  // Not a refusal anybody can act on: the function answered something this act
+  // told it could not arise. Louder than a refusal on purpose -- it means the
+  // argument and the answer disagree, which is a defect and not a decision.
+  if (why === null) {
+    throw new Error(`app.end_relationship answered ${answer}, which this act cannot receive`)
+  }
+  return new refusal(why)
 }
 
 const unitFor = (client: PoolClient): UnitOfWork => ({
@@ -845,37 +952,118 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
   },
 
   async cancelRelationship(cancellation: RelationshipCancellation) {
-    // The database has the final say, as it does on activation. The domain decided
-    // from a snapshot read under a lock earlier in this transaction; this refuses
-    // to stamp anything that has since been accepted or ended.
-    let withdrawn: number | null
+    // A cancellation is an ending in the data -- an `ended_at`, an actor, a reason
+    // and an outcome -- so it goes through the one function that ends a
+    // relationship rather than writing the columns itself. That function is what
+    // holds *no open membership outlives its relationship*, and a second write path
+    // that did its own update would be exactly the drift the single owner exists to
+    // prevent.
+    //
+    // `discontinued`, because nothing was completed: nobody had accepted it. And
+    // `expects_accepted` is false, which is what makes the database refuse a
+    // cancellation of a relationship that has since been accepted -- the domain
+    // decided from a snapshot read under a lock earlier in this transaction, and
+    // this is the final say on what has happened since.
+    const refusal = await endInTheDatabase(client, {
+      relationshipId: cancellation.relationshipId,
+      at: cancellation.cancelledAt,
+      actor: cancellation.cancelledBy,
+      reason: 'cancelled',
+      outcome: 'discontinued',
+      expectsAccepted: false,
+      // The composite key onto `ministry_member` is what says an account is not
+      // enough: the canceller has to belong to this Ministry.
+      notInThisMinistry: () =>
+        new CancellationRefused('relationship.canceller_is_not_in_this_ministry'),
+    })
+
+    if (refusal === null) return
+    throw refused(refusal, CANCELLATION_REFUSALS, CancellationRefused)
+  },
+
+  async endRelationship(ending: RelationshipEnding) {
+    const refusal = await endInTheDatabase(client, {
+      relationshipId: ending.relationshipId,
+      at: ending.endedAt,
+      actor: ending.endedBy,
+      reason: ending.reason,
+      outcome: ending.outcome,
+      // An ending is of a relationship that ran. One nobody accepted is refused
+      // here as well as at the boundary, because the boundary decided from a
+      // snapshot and an acceptance can land between the two.
+      expectsAccepted: true,
+      notInThisMinistry: () => new EndingRefused('ending.ender_is_not_in_this_ministry'),
+    })
+
+    if (refusal === null) return
+    throw refused(refusal, ENDING_REFUSALS, EndingRefused)
+  },
+
+  async departFromRelationship(departure: ParticipantDeparture) {
+    // The relationship row first, and `for update`, exactly as `app.end_relationship`
+    // takes it. A departure and an ending racing each other is ordinary, and the lock
+    // is what makes the answer below the database's final say rather than a second
+    // snapshot -- the domain already decided from the first one.
+    //
+    // Asking here also keeps the three ways this can fail apart. Reading them off the
+    // membership update's `rowCount` cannot: an ending that landed a moment ago closed
+    // every membership on the relationship, so the update finds nothing and the Admin
+    // is told this Person was never in a relationship they were in until a second ago.
+    // Every refusal below is the true one, which is the whole reason the ending path
+    // has an exhaustive table rather than a single default.
+    const { rows: standing } = await client.query<{ ended: boolean }>(
+      `select ended_at is not null as ended
+         from relationship
+        where id = $1
+          for update`,
+      [departure.relationshipId],
+    )
+    const relationship = standing[0]
+    // Not found is also what another Ministry's relationship looks like from here,
+    // because the policy shows this connection neither.
+    if (!relationship) throw new DepartureRefused('departure.relationship_not_found')
+    if (relationship.ended) throw new DepartureRefused('departure.relationship_ended')
+
+    // One membership, dated rather than deleted. Their past weeks stay attached to
+    // the relationship because nothing about them is touched here, and a
+    // readmission later inserts a second row -- which the surrogate primary key on
+    // `relationship_member` exists to permit.
+    //
+    // `role = 'participant'` is not decoration: a Leader's membership is not a
+    // departure's to close, and the boundary refusing it is a sentence for an Admin
+    // rather than a guard on this statement.
+    let left: number | null = null
     try {
-      ;({ rowCount: withdrawn } = await client.query(
-        `update relationship
-            set ended_at = $2, ended_reason = 'cancelled', ended_by = $3
-          where id = $1 and ended_at is null and accepted_at is null`,
-        [cancellation.relationshipId, cancellation.cancelledAt, cancellation.cancelledBy],
+      ;({ rowCount: left } = await client.query(
+        `update relationship_member set ended_at = $3, departed_by = $4
+          where relationship_id = $1
+            and person_id = $2
+            and role = 'participant'
+            and ended_at is null`,
+        [
+          departure.relationshipId,
+          departure.personId,
+          departure.departedAt,
+          departure.departedBy,
+        ],
       ))
     } catch (error) {
       // The composite key onto `ministry_member` is what says an account is not
-      // enough: the canceller has to belong to this Ministry. Translated here like
-      // every other constraint, so it reaches a surface as a code rather than as a
-      // Postgres error nobody upstream can read.
-      if (constraintViolated(error) === 'relationship_ended_by_fk') {
-        throw new CancellationRefused('relationship.canceller_is_not_in_this_ministry')
+      // enough: whoever removes somebody from a relationship has to belong to this
+      // Ministry. Translated here like every other constraint, so it reaches a
+      // surface as a code rather than as a Postgres error nobody upstream can read.
+      if (constraintViolated(error) === 'relationship_member_departed_by_fk') {
+        throw new DepartureRefused('departure.departer_is_not_in_this_ministry')
       }
       throw error
     }
-    if (withdrawn === 0) throw new CancellationRefused('relationship.already_ended')
 
-    // Closing every open membership is the whole of returning everyone to the
-    // suggestion pool: `participation_status` reads open participant memberships,
-    // and the participation caps read open memberships of either role.
-    await client.query(
-      `update relationship_member set ended_at = $2
-        where relationship_id = $1 and ended_at is null`,
-      [cancellation.relationshipId, cancellation.cancelledAt],
-    )
+    // The relationship is live and this Person holds no open participant membership
+    // on it -- they left already, or they were never in it. With the two states above
+    // ruled out under the lock, that is the only thing left for this to mean.
+    if (left === 0) {
+      throw new DepartureRefused('departure.person_is_not_in_this_relationship')
+    }
   },
 
   async checkInFor(id: PersonId): Promise<CheckInSnapshot | null> {

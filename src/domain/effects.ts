@@ -16,7 +16,7 @@ import type {
 } from './intake'
 import type { FollowUpResolution, NewFollowUpItem } from './follow-up'
 import type { InvitationToken, NewInvitation } from './invitations'
-import type { MemberRole, NewRelationship } from './relationships'
+import type { MemberRole, NewRelationship, RelationshipOutcome } from './relationships'
 import type { NewPerson } from './roster'
 
 /**
@@ -152,6 +152,59 @@ export interface RelationshipCancellation {
 }
 
 /**
+ * A relationship that ran, finished. One effect rather than a membership close per
+ * Person, for the reason a cancellation is one: the relationship and everyone in
+ * it leave together or not at all, and a half-ended relationship would hold
+ * somebody out of the pool for a relationship that no longer exists.
+ *
+ * The store applies it through the one database function that ends a
+ * relationship, which is what keeps *no open membership outlives its
+ * relationship* true of every write path rather than of this one.
+ */
+export interface RelationshipEnding {
+  readonly ministryId: MinistryId
+  readonly relationshipId: RelationshipId
+  readonly endedAt: Date
+  /**
+   * The Admin who decided. Written to `relationship.ended_by`, whose composite key
+   * onto `ministry_member` refuses somebody who merely holds an account, and
+   * appended to history, which outlives the membership.
+   */
+  readonly endedBy: string
+  /** What happened, in the Ministry's own words. */
+  readonly reason: string
+  /** The part a Ministry can count. */
+  readonly outcome: RelationshipOutcome
+  /** Everyone whose open membership this closes. Recorded, not looked up again. */
+  readonly memberIds: readonly PersonId[]
+}
+
+/**
+ * One Participant leaving a relationship that continues. Their membership gains an
+ * end date; it is never deleted, so the weeks they were present for stay attached
+ * to the relationship exactly as they were recorded.
+ *
+ * A readmission later is a second membership row rather than this one reopened,
+ * which is why `relationship_member` has a surrogate key: reopening would rewrite
+ * the months they were away as months they were present.
+ */
+export interface ParticipantDeparture {
+  readonly ministryId: MinistryId
+  readonly relationshipId: RelationshipId
+  readonly personId: PersonId
+  readonly departedAt: Date
+  /**
+   * The Admin who decided, checked the way every other Admin act's actor is
+   * checked: written to `relationship_member.departed_by`, whose composite key
+   * onto `ministry_member` refuses somebody who merely holds an account. It also
+   * marks *how* this membership closed -- a membership closed by the relationship
+   * ending carries no departer -- and it is appended to history, which outlives
+   * the membership.
+   */
+  readonly departedBy: string
+}
+
+/**
  * One Leader's weekly conversation, opened. The relationships it covers are fixed
  * at this moment rather than re-read as it advances, so a pause halfway through
  * does not renumber the questions still to come.
@@ -282,6 +335,8 @@ export type Effect =
       readonly kind: 'relationship.cancel'
       readonly cancellation: RelationshipCancellation
     }
+  | { readonly kind: 'relationship.end'; readonly ending: RelationshipEnding }
+  | { readonly kind: 'relationship.depart'; readonly departure: ParticipantDeparture }
   | { readonly kind: 'checkin.open'; readonly sequence: NewCheckInSequence }
   | { readonly kind: 'checkin.ask'; readonly prompt: NewCheckInPrompt }
   | { readonly kind: 'checkin.answer'; readonly answer: CheckInAnswer }
@@ -348,6 +403,16 @@ export const resolveFollowUpItem = (resolution: FollowUpResolution): Effect => (
 export const cancelRelationship = (cancellation: RelationshipCancellation): Effect => ({
   kind: 'relationship.cancel',
   cancellation,
+})
+
+export const endRelationship = (ending: RelationshipEnding): Effect => ({
+  kind: 'relationship.end',
+  ending,
+})
+
+export const departFromRelationship = (departure: ParticipantDeparture): Effect => ({
+  kind: 'relationship.depart',
+  departure,
 })
 
 export const openCheckInSequence = (sequence: NewCheckInSequence): Effect => ({

@@ -141,6 +141,92 @@ export class CancellationRefused extends Error {
 }
 
 /**
+ * Why a relationship could not be ended.
+ *
+ * Ending and cancelling are two acts with two refusal sets, kept apart for the
+ * same reason the commands are: an Admin who is told *this one has already been
+ * accepted* is being told to end it, and one told *nobody has accepted this yet*
+ * is being told to cancel it. One permissive command would have neither sentence
+ * to say.
+ */
+export type EndingRefusal =
+  /** Nothing in this Ministry answers to that relationship. */
+  | 'ending.relationship_not_found'
+  /**
+   * Nobody has accepted it, so it never ran. Withdrawing one is
+   * `relationship.cancel`, which records no outcome -- a relationship that never
+   * started cannot have completed.
+   */
+  | 'ending.relationship_not_accepted'
+  /** `Ended` is terminal. A second ending would overwrite the first one's record. */
+  | 'ending.already_ended'
+  /**
+   * No reason was given. The database refuses it too; this is the same rule said
+   * where a surface can render it, because a command is built from a request body.
+   */
+  | 'ending.reason_is_required'
+  /**
+   * An outcome that is neither `completed` nor `discontinued`. The union says so
+   * at compile time, and nothing between a request body and here has looked at
+   * the word.
+   */
+  | 'ending.outcome_not_recognised'
+  /**
+   * The account ending it is not a member of this Ministry. Holding an account is
+   * not standing to end somebody else's relationship, and the composite key on
+   * `ended_by` is what says so.
+   */
+  | 'ending.ender_is_not_in_this_ministry'
+
+export class EndingRefused extends Error {
+  constructor(readonly refusal: EndingRefusal) {
+    super(refusal)
+    this.name = 'EndingRefused'
+  }
+}
+
+/**
+ * Why one Participant could not leave a relationship.
+ *
+ * Two of these say the same thing in different words: *what you are describing is
+ * an ending*. A relationship with no Leader, or with nobody being discipled, is
+ * finished -- and finishing one records whether it completed or broke down, which
+ * a departure has no place to put.
+ */
+export type DepartureRefusal =
+  /** Nothing in this Ministry answers to that relationship. */
+  | 'departure.relationship_not_found'
+  /** It is already over. Nobody leaves a relationship that has ended. */
+  | 'departure.relationship_ended'
+  /** They hold no open membership on it -- they have already left, or never were in it. */
+  | 'departure.person_is_not_in_this_relationship'
+  /** Removing the Leader does not leave a relationship that continues. */
+  | 'departure.person_is_a_leader'
+  /** The last Participant leaving is a relationship that is over. */
+  | 'departure.would_leave_no_participants'
+  /**
+   * Nobody has accepted it. Nothing has reached a Participant, so there is no
+   * relationship to leave -- withdrawing one nobody agreed to is
+   * `relationship.cancel`, which takes everybody out of it at once. The same
+   * refusal a Pause carries for the same state, and for the same reason.
+   */
+  | 'departure.relationship_not_accepted'
+  /**
+   * The account recording it is not a member of this Ministry. Removing somebody
+   * from a relationship is an Admin act on other people's ministry, and holding an
+   * account is not standing to perform one -- the same rule an ending carries, and
+   * the composite key on `relationship_member.departed_by` is what says so.
+   */
+  | 'departure.departer_is_not_in_this_ministry'
+
+export class DepartureRefused extends Error {
+  constructor(readonly refusal: DepartureRefusal) {
+    super(refusal)
+    this.name = 'DepartureRefused'
+  }
+}
+
+/**
  * Why a relationship could not be paused or resumed. One type for both, because
  * they are the two halves of one act and three of the five codes belong to
  * neither half in particular.

@@ -131,6 +131,12 @@ describe('applying a command\'s effects', () => {
         cancelRelationship: async () => {
           throw new Error('nothing should have been cancelled')
         },
+        endRelationship: async () => {
+          throw new Error('nothing should have been ended')
+        },
+        departFromRelationship: async () => {
+          throw new Error('nobody should have left anything')
+        },
         createRelationship: async () => {
           throw new Error('relationships should not have been touched')
         },

@@ -10,6 +10,8 @@ import {
   optPersonOut,
   cancelRelationship,
   createPerson,
+  departFromRelationship,
+  endRelationship,
   createRelationship,
   enqueueMessage,
   issueInvitationLink,
@@ -26,6 +28,8 @@ import {
 } from './effects'
 import {
   CancellationRefused,
+  DepartureRefused,
+  EndingRefused,
   IntakeRefused,
   InvitationRefused,
   PairingRefused,
@@ -88,6 +92,7 @@ import {
 import {
   ACCEPTANCE_ESCALATION_DAYS,
   ACCEPTANCE_REMINDER_DAYS,
+  isRelationshipOutcome,
   kindFor,
   type MemberRole,
   type NewMembership,
@@ -1426,6 +1431,153 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
               // leaving the Ministry and `ended_by` being nulled with them.
               cancelledBy: command.cancelledBy,
             },
+          }),
+        ],
+      }
+    }
+
+    case 'relationship.end': {
+      const relationship = context.relationship
+      if (!relationship) {
+        throw new Error('relationship.end was handed no relationship to act on')
+      }
+
+      const now = context.clock.now()
+
+      // Terminal, and the first thing checked. A second ending would overwrite the
+      // outcome and the reason the first one recorded, which is the one part of an
+      // ending that cannot be reconstructed afterwards.
+      if (relationship.endedAt !== null) throw new EndingRefused('ending.already_ended')
+      // Nobody agreed to it, so it never ran and cannot have completed. Withdrawing
+      // one is `relationship.cancel`, and letting this command do both would put an
+      // outcome on a relationship that never had one.
+      if (relationship.acceptedAt === null) {
+        throw new EndingRefused('ending.relationship_not_accepted')
+      }
+
+      const reason = command.reason.trim()
+      // Both checked rather than trusted, for the reason the pause period is: this
+      // command is built from a request body. The database refuses each of these
+      // too -- a check constraint on the reason, an enum on the outcome -- and
+      // hitting either of those is a Postgres error where a surface needs a code.
+      if (reason.length === 0) throw new EndingRefused('ending.reason_is_required')
+      if (!isRelationshipOutcome(command.outcome)) {
+        throw new EndingRefused('ending.outcome_not_recognised')
+      }
+
+      const memberIds = relationship.members.map((member) => member.personId)
+
+      // Nobody is told. No Admin action sends a message, and an Admin who wants to
+      // say something to the people in a relationship they have just ended picks up
+      // the phone -- which is the whole of Discipler's position on admin sending.
+      //
+      // A Pause standing on it is not resumed first and is not cleared. `Ended`
+      // outranks `Paused` in the derivation, and ending is the decision the Pause
+      // existed to defer.
+      return {
+        rejections: [],
+        effects: [
+          endRelationship({
+            ministryId: command.ministryId,
+            relationshipId: relationship.relationshipId,
+            endedAt: now,
+            endedBy: command.endedBy,
+            reason,
+            outcome: command.outcome,
+            memberIds,
+          }),
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'relationship.ended',
+            subjectType: 'relationship',
+            subjectId: relationship.relationshipId,
+            payload: {
+              memberIds,
+              reason,
+              outcome: command.outcome,
+              // Append-only, so this is the record that survives the Admin leaving
+              // the Ministry and `ended_by` being nulled with them.
+              endedBy: command.endedBy,
+              // How long it ran is deliberately absent. It is `accepted_at` to
+              // `ended_at`, both of them stored, and a third copy of the same
+              // number is a second answer waiting to disagree with them.
+            },
+          }),
+        ],
+      }
+    }
+
+    case 'relationship.depart': {
+      const relationship = context.relationship
+      if (!relationship) {
+        throw new Error('relationship.depart was handed no relationship to act on')
+      }
+
+      const now = context.clock.now()
+
+      if (relationship.endedAt !== null) {
+        throw new DepartureRefused('departure.relationship_ended')
+      }
+      // Nothing has reached a Participant yet, so there is no relationship for one
+      // to leave. Withdrawing one nobody agreed to is `relationship.cancel`, which
+      // takes everybody out of it at once -- and leaving a Participant out of a
+      // relationship still awaiting its Leader would shorten a Starter Message
+      // nobody has sent yet. The same refusal a Pause carries for this state.
+      if (relationship.acceptedAt === null) {
+        throw new DepartureRefused('departure.relationship_not_accepted')
+      }
+
+      // Open memberships only, which is what the snapshot holds: somebody who has
+      // already left is not in this relationship to leave it a second time.
+      const leaving = relationship.members.find(
+        (member) => member.personId === command.personId,
+      )
+      if (!leaving) {
+        throw new DepartureRefused('departure.person_is_not_in_this_relationship')
+      }
+      // A relationship without its Leader does not continue with whoever remains.
+      // That is a relationship that is over, and ending one records an outcome --
+      // which a departure has nowhere to put.
+      if (leaving.role === 'leader') {
+        throw new DepartureRefused('departure.person_is_a_leader')
+      }
+
+      const remaining = relationship.members.filter(
+        (member) => member.role === 'participant' && member.personId !== command.personId,
+      )
+      // The same refusal in its other shape. Three Participants becoming one is a
+      // relationship carrying on with fewer people in it; one becoming none is a
+      // relationship with nobody being discipled, and there is no check-in question
+      // to ask about nobody.
+      if (remaining.length === 0) {
+        throw new DepartureRefused('departure.would_leave_no_participants')
+      }
+
+      // One membership closed, and nothing else. The relationship is untouched, the
+      // weeks this Participant was present for stay attached to it exactly as they
+      // were recorded, and the check-in copy follows the Participants who remain
+      // without anything here telling it to -- `checkInSubject` reads the open
+      // memberships, so there is no group-versus-one-to-one branch to keep in step.
+      //
+      // Nobody is told, for the reason an ending tells nobody.
+      return {
+        rejections: [],
+        effects: [
+          departFromRelationship({
+            ministryId: command.ministryId,
+            relationshipId: relationship.relationshipId,
+            personId: command.personId,
+            departedAt: now,
+            departedBy: command.departedBy,
+          }),
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'relationship.participant_departed',
+            subjectType: 'relationship',
+            subjectId: relationship.relationshipId,
+            payload: { personId: command.personId, departedBy: command.departedBy },
           }),
         ],
       }

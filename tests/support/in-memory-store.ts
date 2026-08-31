@@ -18,7 +18,9 @@ import type {
   NewCheckInSequence,
   OutboundMessageDraft,
   PersonOptOut,
+  ParticipantDeparture,
   RelationshipCancellation,
+  RelationshipEnding,
 } from '~/domain/effects'
 import type { FollowUpResolution, NewFollowUpItem } from '~/domain/follow-up'
 import type { NewInvitation } from '~/domain/invitations'
@@ -44,6 +46,8 @@ export interface InMemoryStore extends EffectStore {
   readonly followUps: readonly NewFollowUpItem[]
   readonly resolutions: readonly FollowUpResolution[]
   readonly cancellations: readonly RelationshipCancellation[]
+  readonly endings: readonly RelationshipEnding[]
+  readonly departures: readonly ParticipantDeparture[]
   readonly sequences: readonly NewCheckInSequence[]
   readonly prompts: readonly NewCheckInPrompt[]
   readonly checkInAnswers: readonly CheckInAnswer[]
@@ -103,6 +107,8 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
   const optOuts: PersonOptOut[] = []
   const resolutions: FollowUpResolution[] = []
   const cancellations: RelationshipCancellation[] = []
+  const endings: RelationshipEnding[] = []
+  const departures: ParticipantDeparture[] = []
   const concerns: NewConcern[] = []
   const viewings: ConcernViewing[] = []
   const concernResolutions: ConcernResolution[] = []
@@ -138,6 +144,12 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
     },
     get cancellations() {
       return [...cancellations]
+    },
+    get endings() {
+      return [...endings]
+    },
+    get departures() {
+      return [...departures]
     },
     get sequences() {
       return [...sequences]
@@ -185,6 +197,8 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       const stagedFollowUps: NewFollowUpItem[] = []
       const stagedResolutions: FollowUpResolution[] = []
       const stagedCancellations: RelationshipCancellation[] = []
+      const stagedEndings: RelationshipEnding[] = []
+      const stagedDepartures: ParticipantDeparture[] = []
       const stagedSequences: NewCheckInSequence[] = []
       const stagedPrompts: NewCheckInPrompt[] = []
       const stagedCheckInAnswers: CheckInAnswer[] = []
@@ -274,6 +288,12 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         async cancelRelationship(cancellation) {
           stagedCancellations.push(cancellation)
         },
+        async endRelationship(ending) {
+          stagedEndings.push(ending)
+        },
+        async departFromRelationship(departure) {
+          stagedDepartures.push(departure)
+        },
         async peopleOnRoster() {
           const everyone = [...people, ...stagedPeople]
           const namesByNumber = new Map<PhoneNumber, string[]>()
@@ -341,6 +361,8 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       viewings.push(...stagedViewings)
       concernResolutions.push(...stagedConcernResolutions)
       cancellations.push(...stagedCancellations)
+      endings.push(...stagedEndings)
+      departures.push(...stagedDepartures)
       sequences.push(...stagedSequences)
       prompts.push(...stagedPrompts)
       checkInAnswers.push(...stagedCheckInAnswers)

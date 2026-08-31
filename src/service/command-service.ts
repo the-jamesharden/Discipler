@@ -5,6 +5,8 @@ import type { Effect } from '~/domain/effects'
 import {
   CancellationRefused,
   CheckInRefused,
+  DepartureRefused,
+  EndingRefused,
   InvitationRefused,
   PauseRefused,
 } from '~/domain/errors'
@@ -86,6 +88,12 @@ export const applyEffects = async (
   const cancellations = effects.flatMap((effect) =>
     effect.kind === 'relationship.cancel' ? [effect.cancellation] : [],
   )
+  const endings = effects.flatMap((effect) =>
+    effect.kind === 'relationship.end' ? [effect.ending] : [],
+  )
+  const departures = effects.flatMap((effect) =>
+    effect.kind === 'relationship.depart' ? [effect.departure] : [],
+  )
   const checkInAnswers = effects.flatMap((effect) =>
     effect.kind === 'checkin.answer' ? [effect.answer] : [],
   )
@@ -144,6 +152,8 @@ export const applyEffects = async (
   // Ministry's record claiming a decision nobody made.
   for (const resolution of resolutions) await unit.resolveFollowUp(resolution)
   for (const cancellation of cancellations) await unit.cancelRelationship(cancellation)
+  for (const ending of endings) await unit.endRelationship(ending)
+  for (const departure of departures) await unit.departFromRelationship(departure)
 
   // The answer to the question that was open, then the conversation it finished,
   // then the one that replaces it, then its first question. In that order because
@@ -197,19 +207,43 @@ export const applyEffects = async (
 const needsTheRoster = (command: Command): boolean =>
   command.type === 'person.import' || command.type === 'intake.submit'
 
+/** The commands an Admin performs on one named relationship. */
+type AboutOneRelationship = Extract<
+  Command,
+  {
+    type:
+      | 'relationship.cancel'
+      | 'relationship.depart'
+      | 'relationship.end'
+      | 'relationship.pause'
+      | 'relationship.resume'
+  }
+>
+
 /**
- * The three commands that name one relationship an Admin is acting on. Each needs
+ * The five commands that name one relationship an Admin is acting on. Each needs
  * the same snapshot, read under the same lock.
  */
-const isAboutOneRelationship = (
-  command: Command,
-): command is Extract<
-  Command,
-  { type: 'relationship.cancel' | 'relationship.pause' | 'relationship.resume' }
-> =>
+const isAboutOneRelationship = (command: Command): command is AboutOneRelationship =>
   command.type === 'relationship.cancel' ||
+  command.type === 'relationship.depart' ||
+  command.type === 'relationship.end' ||
   command.type === 'relationship.pause' ||
   command.type === 'relationship.resume'
+
+/**
+ * What each of them calls *there is no such relationship*. One map rather than a
+ * chain of ternaries, so a sixth command added to the union above fails to compile
+ * here until it says which refusal it carries -- rather than silently inheriting
+ * whichever branch happened to be last.
+ */
+const NOT_FOUND: Readonly<Record<AboutOneRelationship['type'], () => Error>> = {
+  'relationship.cancel': () => new CancellationRefused('relationship.not_found'),
+  'relationship.depart': () => new DepartureRefused('departure.relationship_not_found'),
+  'relationship.end': () => new EndingRefused('ending.relationship_not_found'),
+  'relationship.pause': () => new PauseRefused('pause.relationship_not_found'),
+  'relationship.resume': () => new PauseRefused('pause.relationship_not_found'),
+}
 
 /**
  * The relationship an Admin command names. Absent rather than defaulted, and a
@@ -217,22 +251,14 @@ const isAboutOneRelationship = (
  * as an empty snapshot -- which would read as "this command was called wrong"
  * instead of "there is no such relationship".
  *
- * The refusal follows the command, because the three that reach here are three
- * different acts and a surface renders its own wording from the code it is given.
+ * The refusal follows the command, because the ones that reach here are separate
+ * acts and a surface renders its own wording from the code it is given.
  */
-const named = async (
-  unit: UnitOfWork,
-  command: Extract<
-    Command,
-    { type: 'relationship.cancel' | 'relationship.pause' | 'relationship.resume' }
-  >,
-) => {
+const named = async (unit: UnitOfWork, command: AboutOneRelationship) => {
   const relationship = await unit.relationshipFor(command.relationshipId)
   if (relationship) return relationship
 
-  throw command.type === 'relationship.cancel'
-    ? new CancellationRefused('relationship.not_found')
-    : new PauseRefused('pause.relationship_not_found')
+  throw NOT_FOUND[command.type]()
 }
 
 /**

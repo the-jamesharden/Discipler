@@ -1,7 +1,7 @@
 import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createTestClock } from '~/domain/clock'
-import { personId, type IdSource, type PersonId } from '~/domain/ids'
+import { personId, relationshipId, type IdSource, type PersonId } from '~/domain/ids'
 import { createPostgresEffectStore } from '~/platform/supabase/effect-store'
 import { createCommandService } from '~/service/command-service'
 import {
@@ -415,12 +415,17 @@ describe('the check-in conversation', () => {
 
     await start(leader)
 
-    // Tess's relationship ends between the question and the reply.
-    const { error } = await serviceRoleClient()
-      .from('relationship')
-      .update({ ended_at: new Date().toISOString(), ended_reason: 'moved away' })
-      .eq('id', ending)
-    if (error) throw new Error(`Could not end the relationship: ${error.message}`)
+    // Tess's relationship ends between the question and the reply -- through the
+    // command that ends one, which also closes every membership on it. A direct
+    // update would leave those open, which the database refuses.
+    await service().execute({
+      type: 'relationship.end',
+      ministryId: ministry.id,
+      relationshipId: relationshipId(ending),
+      reason: 'moved away',
+      outcome: 'discontinued',
+      endedBy: ministry.adminUserId,
+    })
 
     await texts(leader, '2')
 

@@ -18,8 +18,10 @@ import type {
   NewCheckInPrompt,
   NewCheckInSequence,
   OutboundMessageDraft,
+  ParticipantDeparture,
   PersonOptOut,
   RelationshipCancellation,
+  RelationshipEnding,
 } from '~/domain/effects'
 import type {
   FollowUpPayload,
@@ -176,6 +178,24 @@ export interface UnitOfWork {
    * it, which is the whole of returning everyone to the suggestion pool.
    */
   cancelRelationship(cancellation: RelationshipCancellation): Promise<void>
+  /**
+   * Ends a relationship that ran and closes every open membership on it, in one
+   * transaction and through the one database function that ends a relationship --
+   * which is what keeps *no open membership outlives its relationship* true of
+   * every write path rather than of this one.
+   *
+   * Refuses with an `EndingRefused` when the database disagrees with the snapshot
+   * the domain decided from: two Admins clicking End is ordinary, and only the
+   * second one is wrong.
+   */
+  endRelationship(ending: RelationshipEnding): Promise<void>
+  /**
+   * Closes one Participant's open membership and nothing else. The row is dated,
+   * never deleted, so the weeks they were present for stay attached to the
+   * relationship -- and a readmission later is a second row rather than this one
+   * reopened.
+   */
+  departFromRelationship(departure: ParticipantDeparture): Promise<void>
 
   /**
    * Everything a check-in command needs about one Person: the live relationships

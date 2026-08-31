@@ -54,3 +54,29 @@ export const kindFor = (leaderCount: number, participantCount: number): Relation
  */
 export const ACCEPTANCE_REMINDER_DAYS = 2
 export const ACCEPTANCE_ESCALATION_DAYS = 5
+
+/**
+ * How a relationship finished. Exactly two values, deliberately: *did this
+ * complete or break down* is a binary question a Ministry asks in counts, and a
+ * third value invites a taxonomy nobody has agreed -- after which every row
+ * written before it was added is unclassifiable.
+ *
+ * It stands beside the free-text reason rather than replacing it. The reason is
+ * what happened in the Ministry's own words; this is the part that can be counted.
+ */
+export type RelationshipOutcome = 'completed' | 'discontinued'
+
+export const RELATIONSHIP_OUTCOMES: readonly RelationshipOutcome[] = [
+  'completed',
+  'discontinued',
+]
+
+/**
+ * Checked, not trusted. The union above is a compile-time guard and an ending
+ * command is built from a request body, so nothing between the two has actually
+ * looked at the word -- and the database, which holds this as an enum, would
+ * refuse a stranger as a Postgres error rather than as a refusal a surface can
+ * render.
+ */
+export const isRelationshipOutcome = (value: unknown): value is RelationshipOutcome =>
+  RELATIONSHIP_OUTCOMES.includes(value as RelationshipOutcome)

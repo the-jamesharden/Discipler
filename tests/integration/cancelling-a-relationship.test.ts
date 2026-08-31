@@ -212,15 +212,20 @@ describe('cancelling a relationship nobody accepted', () => {
     })
 
     // Stopping one that has started is an *ending*, carries a required outcome,
-    // and is a different command.
-    await expect(
-      service().execute({
-        type: 'relationship.cancel',
-        ministryId: ministry.id,
-        relationshipId: relationship,
-        cancelledBy: ministry.adminUserId,
-      }),
-    ).rejects.toThrow(CancellationRefused)
+    // and is a different command. Refused by the database, which is the only
+    // thing that can see an acceptance that landed after the snapshot was read --
+    // and it says which of the two it is rather than reporting every refusal as
+    // *already ended*.
+    const cancelling = service().execute({
+      type: 'relationship.cancel',
+      ministryId: ministry.id,
+      relationshipId: relationship,
+      cancelledBy: ministry.adminUserId,
+    })
+    await expect(cancelling).rejects.toThrow(CancellationRefused)
+    await expect(cancelling).rejects.toThrow(
+      expect.objectContaining({ refusal: 'relationship.already_accepted' }),
+    )
   })
 
   it('refuses a relationship this Ministry does not hold', async () => {

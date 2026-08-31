@@ -224,12 +224,28 @@ describe('relationship membership', () => {
     ).rejects.toThrow(/relationship_member_person_fk/)
   })
 
-  it('refuses to end a relationship without a recorded reason', async () => {
+  it('refuses to end a relationship without a recorded reason and outcome', async () => {
     const relationshipId = await createRelationship(ministry, 'one_to_one')
 
+    // An ending carries both or the row is not an ending. The reason is what
+    // happened in the Ministry's own words; the outcome is the part it can count,
+    // and free text cannot be classified retrospectively once a pilot has written
+    // a hundred sentences.
     await expect(
-      pool.query(`update relationship set ended_at = now() where id = $1`, [relationshipId]),
+      pool.query(
+        `update relationship set ended_at = now(), ended_outcome = 'completed'
+          where id = $1`,
+        [relationshipId],
+      ),
     ).rejects.toThrow(/relationship_ended_carries_reason/)
+
+    await expect(
+      pool.query(
+        `update relationship set ended_at = now(), ended_reason = 'moved away'
+          where id = $1`,
+        [relationshipId],
+      ),
+    ).rejects.toThrow(/relationship_ended_carries_an_outcome/)
   })
 
   it('lets one Person lead two relationships while being a Participant in a third', async () => {

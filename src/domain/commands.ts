@@ -2,6 +2,7 @@ import type { ConcernId, FollowUpItemId, MinistryId, PersonId, RelationshipId } 
 import type { IntakeFormFields } from './intake'
 import type { InvitationToken } from './invitations'
 import type { PausePeriodWeeks } from './pause'
+import type { RelationshipOutcome } from './relationships'
 
 /**
  * Every external trigger enters through this one boundary, and this union is the
@@ -77,6 +78,60 @@ export type Command =
        * it is one of the acts the product rules require a named actor for.
        */
       readonly cancelledBy: string
+    }
+  /**
+   * An Admin ending a relationship that has run, with an outcome and a reason.
+   *
+   * A relationship that ran well and finished is an outcome, not a deletion: the
+   * history is preserved exactly, and closing every open membership is what
+   * returns its Participants to the Roster as `Ready to Pair` -- unless they have
+   * opted out, or hold another open participant membership, both of which the
+   * derivation handles without a special case.
+   *
+   * `Ended` is terminal, so this happens once. Cancelling a relationship nobody
+   * accepted is the other command: that one carries no outcome, because a
+   * relationship that never started cannot have completed.
+   */
+  | {
+      readonly type: 'relationship.end'
+      readonly ministryId: MinistryId
+      readonly relationshipId: RelationshipId
+      /** What happened, in the Ministry's own words. Required, and free text. */
+      readonly reason: string
+      /**
+       * The part that can be counted. Free text cannot answer *did this complete
+       * or break down* retrospectively, which is the question an ending exists to
+       * make answerable.
+       */
+      readonly outcome: RelationshipOutcome
+      /**
+       * The Admin's account, as the session named it. Ending is one of the acts
+       * the product rules require a named actor for.
+       */
+      readonly endedBy: string
+    }
+  /**
+   * One Participant leaving a relationship that continues without them.
+   *
+   * Their membership receives an end date rather than being deleted, and their
+   * past check-in weeks stay attached to the relationship exactly as recorded --
+   * history is not rewritten by somebody leaving. A relationship dropping from
+   * three Participants to one changes nothing structurally: it is still one
+   * relationship, and the check-in copy follows the remaining Participants on its
+   * own.
+   *
+   * Leaving is not ending. A Leader stepping out, or the last Participant leaving,
+   * is a relationship that is over, and ending one records an outcome -- so both
+   * are refused here rather than quietly performed as a departure.
+   */
+  | {
+      readonly type: 'relationship.depart'
+      readonly ministryId: MinistryId
+      readonly relationshipId: RelationshipId
+      /** Whose open participant membership this closes. */
+      readonly personId: PersonId
+      /** The Admin's account, as the session named it. */
+      readonly departedBy: string
     }
   /**
    * An Admin pausing a relationship, so they can act on something they have been

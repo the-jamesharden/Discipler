@@ -144,6 +144,10 @@ The state of a relationship that its leader has paused for a selected period. Ch
 **Ended**:
 The terminal state of a relationship that has finished. It records an outcome — completed or discontinued — alongside the reason in the ministry's own words, because whether a relationship finished well or broke down is a question the ministry asks in counts. Its history is preserved untouched, and its participants return to the roster as Ready to Pair unless they have opted out or hold another open participant membership.
 
+**Departure**:
+One participant leaving a discipleship relationship that continues without them. Their membership receives an end date rather than being deleted, so the weeks they were present for stay attached to the relationship, and a readmission later is a second membership rather than the first one reopened. A relationship losing its leader or its last participant is not a departure but an ending, because it records an outcome.
+_Avoid_: Removal, unpairing, dropping out
+
 **Keyword Exchange**:
 The short SMS conversation Discipler opens when an inbound keyword needs something resolved before it can act — which relationship it applies to, or how long a pause should run. At most one is open per person at a time, and it expires after twenty-four hours without a reminder.
 _Avoid_: Menu, prompt (as model terms). "Prompt" is doubly unhelpful here: it is a model term, and where it does appear in the schema it names an Outstanding Reply, which is a different thing.
