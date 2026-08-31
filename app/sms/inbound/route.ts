@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { calledUrl, signatureMatches } from '~/platform/twilio/inbound-signature'
 import { getCommandService, getInboundReader } from '~/service/container'
 
 /**
@@ -13,8 +14,48 @@ import { getCommandService, getInboundReader } from '~/service/container'
  * this route does the first, because a text carries no session and the unit of
  * work has to name its Ministry before it opens.
  */
+/**
+ * Only Twilio may speak here.
+ *
+ * A number is public, and this route acts on the say-so of one: `STOP` opts a
+ * congregant out of their Ministry, `PAUSE` suspends a relationship, `C` raises a
+ * Concern against somebody's name. Unverified, anybody who knows a mobile number
+ * can do all three as that person.
+ *
+ * **An unset token is a closed door**, exactly as `CRON_SECRET` is at `/cron/tick`
+ * and for the same reason: a deployment that forgot to configure it must not be one
+ * where anybody can drive the webhook. The tests sign their requests rather than
+ * being let past.
+ */
+const fromTwilio = (request: NextRequest, parameters: Readonly<Record<string, string>>) => {
+  const authToken = process.env.TWILIO_AUTH_TOKEN
+  if (!authToken) return false
+
+  return signatureMatches(
+    authToken,
+    request.headers.get('x-twilio-signature'),
+    calledUrl(request.url, request.headers),
+    parameters,
+  )
+}
+
 export async function POST(request: NextRequest) {
   const form = await request.formData()
+
+  // Every form field is signed, not only the two read below -- Twilio signs what it
+  // sent, so a subset would never match.
+  const parameters = Object.fromEntries(
+    [...form.entries()].flatMap(([key, value]) => (typeof value === 'string' ? [[key, value]] : [])),
+  )
+
+  // Refused outright rather than acknowledged. A malformed callback is answered with
+  // an empty TwiML below because a retry cannot help it; an unsigned one is a caller
+  // with no business here, and telling it `200 OK` would be telling it the forgery
+  // worked.
+  if (!fromTwilio(request, parameters)) {
+    return new NextResponse(null, { status: 403 })
+  }
+
   const from = form.get('From')
   const body = form.get('Body')
 

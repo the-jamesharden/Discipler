@@ -32,7 +32,7 @@ Participants are told nothing when their Leader pauses. This is deliberate silen
 - [x] At most one Keyword Exchange is open per Person; a second keyword replaces the first
 - [x] An unanswered exchange expires at twenty-four hours with no reminder and raises nothing
 - [x] After two clarifications a valid reply is still honored until expiry
-- [x] A keyword withdraws the pending check-in question on the relationship it resolves to, which never ages into Stalled — *ticket 12 settled this as general rather than the Keyword Exchange's and built it for `relationship.pause`; a keyword route inherits it rather than rebuilding it*
+- [x] A keyword withdraws the pending check-in question on the relationship it resolves to, which never ages into Stalled — *ticket 12 settled the rule as general rather than the Keyword Exchange's; both routes share one implementation, reached by event rather than by command — see* **Corrected 2026-08-31** *below*
 - [x] A bare keyword during the Concern detail step is treated as a keyword, leaving the concern and badge intact
 - [x] `RESUME` resumes immediately, releases the Resume Message, and raises no expiry item
 - [x] `SWAP` raises a follow-up item showing Leader, relationship, and the request, changing no state and coexisting with `Paused`
@@ -111,6 +111,42 @@ without the fix:
   defect and is not fixed here* — it needs the same field on a snapshot five commands
   share, and that is ticket 12's to close.
 
+### Settled 2026-08-31 — `SWAP` with nothing live raises no item
+
+Two rules meet on one case and point opposite ways: a Person with **no live
+relationship at all** texts `SWAP`. *A recognized keyword from a Participant raises
+an Admin follow-up item* argues for one; *no eligible relationship draws a plain
+reply and changes nothing* argues against.
+
+**The plain reply wins, which is what the code does.** There is no relationship for
+an Admin to act on, and an item naming none is a Care Needed row nothing can resolve.
+`PAUSE` and `RESUME` from the same Person *do* raise an item, because those are a
+Leader's keywords reaching a non-Leader — somebody asking for something they cannot
+have. `SWAP` is nobody's exclusively, so it has no such signal to carry.
+
+Recorded so it reads as a decision rather than an oversight.
+
+### Corrected 2026-08-31 — the pause rule is reached by event, not by command
+
+The amendment below, written the day before the work, says a `PAUSE` keyword gets
+*a pause takes back the question that was out* **by going through
+`relationship.pause`**. It does not.
+
+`relationship.pause` and `relationship.resume` take a named admin account, and an
+inbound text has none. So the keyword route reaches the same **events** —
+`relationship.paused` and `relationship.resumed`, read back by `relationship_pauses`
+— rather than the commands. `docs/product-rules.md` states this accurately; it was
+the amendment below and the checkbox above that were stale.
+
+**The rule itself is shared, not duplicated.** Reaching it by a different route
+briefly meant a second orchestration of `withdrawQuestion` / `advancePastPaused` /
+the abandonment that follows, standing beside the tick's. That is now one function,
+`takeBackTheQuestion`, which both routes call. What stays with each caller is only
+what it alone can establish: *when* it notices, and *which covering list to walk* —
+the tick's snapshot already reads the relationship as paused, and the keyword route's
+predates the Pause and has to patch one that does. So the routes still differ only in
+who asked, as `docs/product-rules.md` says.
+
 ### Amended 2026-08-30 — a Participant may swap
 
 Settled while reviewing ticket 12. A Participant is sent no Invitation Link and does
@@ -135,6 +171,8 @@ them:
 - **A Pause takes back the question that was out**, and that is general rather
   than the Keyword Exchange's. It is built in the domain for every route into a
   Pause, so a `PAUSE` keyword gets it by going through `relationship.pause`.
+  *Written before the work and wrong on the second half — the keyword route does
+  not go through that command. See* **Corrected 2026-08-31** *below.*
 
 And one this ticket still owns: **a Leader cannot pause anything today.** *A
 leader may pause a relationship they lead* is settled in `docs/product-rules.md`

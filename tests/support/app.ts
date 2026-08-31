@@ -24,20 +24,32 @@ export const baseUrl = process.env.APP_URL ?? 'http://127.0.0.1:3000'
  * `.env.local`; then the file, because a developer's server read it from there and
  * the test runner does not load it.
  */
-export const cronSecret = ((): string | undefined => {
-  if (process.env.CRON_SECRET) return process.env.CRON_SECRET
+const fromEnvironment = (name: string): string | undefined => {
+  if (process.env[name]) return process.env[name]
 
   try {
     const line = readFileSync(new URL('../../.env.local', import.meta.url), 'utf8')
       .split('\n')
-      .find((row) => row.trimStart().startsWith('CRON_SECRET='))
+      .find((row) => row.trimStart().startsWith(`${name}=`))
 
     return line?.slice(line.indexOf('=') + 1).trim() || undefined
   } catch {
     // No file is an ordinary state, not a failure: CI has none.
     return undefined
   }
-})()
+}
+
+export const cronSecret = fromEnvironment('CRON_SECRET')
+
+/**
+ * The same discovery, for the same reason, for the webhook's own credential.
+ *
+ * The inbound route verifies `X-Twilio-Signature` and refuses anything unsigned, so
+ * a test that posts to it has to sign the way the vendor would. It signs rather than
+ * being given a way round the guard: a test route past it is a guard that can be off
+ * in production and green in CI.
+ */
+export const twilioAuthToken = fromEnvironment('TWILIO_AUTH_TOKEN')
 
 export const appIsRunning = await fetch(`${baseUrl}/login`, { redirect: 'manual' })
   .then((response) => response.ok)

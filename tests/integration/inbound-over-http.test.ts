@@ -4,7 +4,8 @@ import { createTestClock } from '~/domain/clock'
 import { personId, type PersonId } from '~/domain/ids'
 import { createPostgresEffectStore } from '~/platform/supabase/effect-store'
 import { createCommandService } from '~/service/command-service'
-import { baseUrl, skipUnlessAppIsRunning } from '../support/app'
+import { twilioSignature } from '~/platform/twilio/inbound-signature'
+import { baseUrl, skipUnlessAppIsRunning, twilioAuthToken } from '../support/app'
 import {
   addPerson,
   completeIntake,
@@ -47,12 +48,57 @@ describe.skipIf(skipUnlessAppIsRunning)('the inbound webhook', () => {
     return { id, phone }
   }
 
-  const texts = (from: string, body: string) =>
-    fetch(`${baseUrl}/sms/inbound`, {
+  // Signed the way the vendor signs, because the route refuses anything else. The
+  // token is the running app's, discovered rather than chosen, for the reason
+  // `cronSecret` gives -- a test that picked its own would prove the route agrees
+  // with itself and nothing about whether Twilio can reach it.
+  const texts = (from: string, body: string) => {
+    if (!twilioAuthToken) {
+      throw new Error('TWILIO_AUTH_TOKEN is not set, so the webhook cannot be exercised')
+    }
+
+    const url = `${baseUrl}/sms/inbound`
+    const parameters = { From: from, Body: body }
+
+    return fetch(url, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/x-www-form-urlencoded',
+        'x-twilio-signature': twilioSignature(twilioAuthToken, url, parameters),
+      },
+      body: new URLSearchParams(parameters),
+    })
+  }
+
+  it('refuses a caller who did not sign, which is anybody who knows a number', async () => {
+    // The state this route was in until the signature check landed: a number is
+    // public, and `STOP`, `PAUSE` and a forged Concern were all reachable with it.
+    const response = await fetch(`${baseUrl}/sms/inbound`, {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ From: from, Body: body }),
+      body: new URLSearchParams({ From: '+15550100001', Body: 'STOP' }),
     })
+
+    expect(response.status).toBe(403)
+  })
+
+  it('refuses a body edited after it was signed', async () => {
+    // A genuine callback replayed with `STOP` in it. The signature is over the form
+    // Twilio sent, so the edit is what breaks it.
+    const url = `${baseUrl}/sms/inbound`
+    const signed = { From: '+15550100001', Body: 'hello' }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/x-www-form-urlencoded',
+        'x-twilio-signature': twilioSignature(twilioAuthToken!, url, signed),
+      },
+      body: new URLSearchParams({ ...signed, Body: 'STOP' }),
+    })
+
+    expect(response.status).toBe(403)
+  })
 
   const inbox = async (person: PersonId): Promise<string[]> => {
     const { rows } = await pool.query<{ body: string }>(

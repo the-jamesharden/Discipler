@@ -770,6 +770,62 @@ const advancePastPaused = (
 }
 
 /**
+ * *A pause takes back the question that was out*, and wherever the conversation goes
+ * next.
+ *
+ * **One rule, written once.** Ticket 12 settled it as general -- it belongs to the
+ * Pause rather than to the route the Pause arrived by -- and two routes reach it: the
+ * tick noticing a Pause it was handed, and a keyword applying one this instant. They
+ * differ only in what the caller establishes before calling, which is why that is
+ * left to the caller and nothing here asks how the Pause happened:
+ *
+ * - **When.** The tick notices at its next run; a keyword takes the question back
+ *   immediately, because the Leader is holding their phone and Discipler must not
+ *   ask about a relationship it has just been told to stop asking about.
+ * - **Which covering list to walk.** The tick is handed a snapshot that already knows
+ *   the relationship is paused. A keyword's snapshot was loaded before the Pause
+ *   existed, so its caller patches one that knows -- without which the walk would
+ *   step straight back onto the relationship it is stepping over.
+ *
+ * Withdrawn rather than passed over is `withdrawQuestion`'s, and the walk is
+ * `advancePastPaused`'s. What is here is only the shape the two share: take the
+ * question back, then either ask the next thing or close a conversation with nothing
+ * left in it.
+ */
+const takeBackTheQuestion = (
+  asking: Asking,
+  /** The covering list to walk, which must already read the relationship as paused. */
+  walking: OpenSequence,
+  awaiting: OpenPrompt,
+  paused: RelationshipId,
+): readonly Effect[] => {
+  const withdrawn = withdrawQuestion({
+    ministryId: asking.ministryId,
+    at: asking.now,
+    sequenceId: asking.sequenceId,
+    relationshipId: paused,
+    awaiting,
+  })
+
+  const onward = advancePastPaused(walking, awaiting, PASSED_OVER)
+
+  if (onward.kind === 'finish') {
+    return [
+      withdrawn,
+      ...abandonSequence({
+        ministryId: asking.ministryId,
+        personId: asking.personId,
+        sequenceId: asking.sequenceId,
+        at: asking.now,
+        reason: 'paused',
+      }),
+    ]
+  }
+
+  return [withdrawn, ...askNext(asking, onward)]
+}
+
+/**
  * What opening one Leader's conversation comes to, wherever the decision to open
  * it was made. Two callers: the cadence dispatcher inside the tick, and
  * `checkin.start`, the direct trigger 08a was built against and which nothing in
@@ -938,33 +994,11 @@ const chaseTheOpenQuestion = (
   // A Pause taken since this question went out withdraws it, and withdraws it
   // *now* rather than at the next lapse: the reminder is a text to a Leader who
   // has just stepped back, which is the one message a Pause exists to stop.
-  // Why withdrawn rather than passed over is `withdrawQuestion`'s, and where the
-  // conversation goes next is `advancePastPaused`'s.
+  //
+  // The snapshot this was handed already reads the relationship as paused -- the
+  // tick loaded it after the fact -- so `sequence` is walked as it stands.
   if (relationship.paused) {
-    const withdrawn = withdrawQuestion({
-      ministryId,
-      at: now,
-      sequenceId: sequence.sequenceId,
-      relationshipId: relationship.relationshipId,
-      awaiting,
-    })
-
-    const onward = advancePastPaused(sequence, awaiting, PASSED_OVER)
-
-    if (onward.kind === 'finish') {
-      return [
-        withdrawn,
-        ...abandonSequence({
-          ministryId,
-          personId: checkIn.personId,
-          sequenceId: sequence.sequenceId,
-          at: now,
-          reason: 'paused',
-        }),
-      ]
-    }
-
-    return [withdrawn, ...askNext(asking, onward)]
+    return takeBackTheQuestion(asking, sequence, awaiting, relationship.relationshipId)
   }
 
   const lapse = lapseOfOpenQuestion(awaiting, now)
@@ -1154,6 +1188,17 @@ const openPauseConfirmation = (
     target,
     openedAt: keywording.now,
   }),
+  askHowLongToPause(keywording, target),
+]
+
+/**
+ * *Pause check-ins with Emily for 2 weeks?* -- composed in one place.
+ *
+ * Two routes reach it: a `PAUSE` resolving straight to one relationship, and a menu
+ * answered for a pause, where naming the target is only half the request. Both ask
+ * the identical question, so both ask it from here.
+ */
+const askHowLongToPause = (keywording: Keywording, target: KeywordRelationship): Effect =>
   sayToSender(
     keywording,
     pauseConfirmation({
@@ -1162,23 +1207,15 @@ const openPauseConfirmation = (
       periodWeeks: DEFAULT_PAUSE_PERIOD_WEEKS,
       otherPeriods: [...otherPeriodsThan(DEFAULT_PAUSE_PERIOD_WEEKS)],
     }),
-  ),
-]
+  )
 
 /**
- * A question a Pause took back, and wherever the conversation goes next.
+ * The keyword route into *a pause takes back the question that was out*.
  *
- * **Inherited rather than rebuilt.** *A pause takes back the question that was out*
- * is general and belongs to the Pause rather than to the route it arrived by;
- * ticket 12 settled it and built it for the tick, and this reaches the same three
- * pieces -- `withdrawQuestion`, `advancePastPaused`, and the abandonment that
- * follows a conversation with nothing left to ask.
- *
- * Immediately rather than at the next tick, which is where the Admin route notices
- * it. The Leader is holding their phone: leaving the question out until tomorrow
- * would have Discipler ask about a relationship it has just been told to stop
- * asking about, and the withdrawal event is what stops that week reading as their
- * silence.
+ * All this establishes is what `takeBackTheQuestion` needs and cannot work out for
+ * itself: that the question currently out is about the relationship just paused, and
+ * a covering list that knows about a Pause taken a moment ago. The rule itself is
+ * shared with the tick and lives there.
  *
  * Empty when the open question is about something else. That relationship's turn
  * has not come round, so there is nothing to withdraw -- `advancePastPaused` steps
@@ -1208,47 +1245,23 @@ const pauseTakesBackTheOpenQuestion = (
     ),
   }
 
-  const withdrawn = withdrawQuestion({
-    ministryId: keywording.ministryId,
-    at: keywording.now,
-    sequenceId: sequence.sequenceId,
-    relationshipId: paused,
+  return takeBackTheQuestion(
+    {
+      ministryId: keywording.ministryId,
+      ministryName: keywording.ministryName,
+      sequenceId: sequence.sequenceId,
+      personId: checkIn.personId,
+      phone: keywording.phone,
+      now: keywording.now,
+      ids: keywording.ids,
+      // A keyword produced this, not a cadence. The stamp records which Monday
+      // sent a conversation's opening message, and no Monday sent this.
+      scheduledFor: null,
+    },
+    withThePause,
     awaiting,
-  })
-
-  const onward = advancePastPaused(withThePause, awaiting, PASSED_OVER)
-
-  if (onward.kind === 'finish') {
-    return [
-      withdrawn,
-      ...abandonSequence({
-        ministryId: keywording.ministryId,
-        personId: checkIn.personId,
-        sequenceId: sequence.sequenceId,
-        at: keywording.now,
-        reason: 'paused',
-      }),
-    ]
-  }
-
-  return [
-    withdrawn,
-    ...askNext(
-      {
-        ministryId: keywording.ministryId,
-        ministryName: keywording.ministryName,
-        sequenceId: sequence.sequenceId,
-        personId: checkIn.personId,
-        phone: keywording.phone,
-        now: keywording.now,
-        ids: keywording.ids,
-        // A keyword produced this, not a cadence. The stamp records which Monday
-        // sent a conversation's opening message, and no Monday sent this.
-        scheduledFor: null,
-      },
-      onward,
-    ),
-  ]
+    paused,
+  )
 }
 
 /**
@@ -1579,15 +1592,7 @@ const replyInsideExchange = (
         relationshipId: target.relationshipId,
         promptedAt: keywording.now,
       }),
-      sayToSender(
-        keywording,
-        pauseConfirmation({
-          ministryName: keywording.ministryName,
-          subject: otherSideNamed(target),
-          periodWeeks: DEFAULT_PAUSE_PERIOD_WEEKS,
-          otherPeriods: [...otherPeriodsThan(DEFAULT_PAUSE_PERIOD_WEEKS)],
-        }),
-      ),
+      askHowLongToPause(keywording, target),
     ]
   }
 

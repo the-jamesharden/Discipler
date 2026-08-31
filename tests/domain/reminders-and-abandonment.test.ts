@@ -460,6 +460,34 @@ describe('a Pause taken while a question is waiting on an answer', () => {
 })
 
 /**
+ * The other half of *a keyword mid-sequence takes the next reply*.
+ *
+ * Ticket 17 settles that an exchange opened mid-sequence takes the reply **while the
+ * check-in question stays unanswered with its reminder clock running.** The keyword
+ * tests prove the first half -- opening an exchange touches no prompt. This is the
+ * half that says the clock kept running, and it is asserted positively rather than
+ * inferred from the absence of a `checkin.remind` at keyword time.
+ *
+ * A request to pause is not a Pause. Only the confirmation applies one, and the
+ * describe above is what changes once it has.
+ */
+describe('a question whose reply a keyword took', () => {
+  it('is still reminded at twenty-four hours', () => {
+    // The Leader texted `PAUSE` an hour in and has not confirmed, so nothing is
+    // paused and Emily's question is still out. It is chased on time.
+    //
+    // This holds for every keyword rather than for `PAUSE` alone, and structurally:
+    // `scheduled.tick` is handed no `InboundSnapshot`, so an open Keyword Exchange
+    // is not in reach of the code that decides to remind. The snapshot below is the
+    // whole of what the tick knows, and an exchange cannot be expressed in it.
+    expect(bodies(ticking(after(hours(24))).effects)).toEqual([MEETING_QUESTION])
+    expect(historyTypes(ticking(after(hours(24))).effects)).toEqual([
+      'checkin.question_reminded',
+    ])
+  })
+})
+
+/**
  * The rest of *pausing suppresses that relationship's check-ins*.
  *
  * `covering` is fixed when the conversation opens so that a Pause halfway

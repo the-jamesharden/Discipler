@@ -44,9 +44,6 @@ export const RELATIONSHIP_KEYWORDS = ['PAUSE', 'RESUME', 'SWAP'] as const
 
 export type RelationshipKeyword = (typeof RELATIONSHIP_KEYWORDS)[number]
 
-export const isRelationshipKeyword = (keyword: Keyword): keyword is RelationshipKeyword =>
-  RELATIONSHIP_KEYWORDS.some((each) => each === keyword)
-
 /**
  * What one inbound message is, as a keyword or as nothing at all.
  *

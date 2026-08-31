@@ -471,14 +471,22 @@ const MENU_ASKS: Readonly<Record<RelationshipKeyword, string>> = {
  * conversation they started; this is not first contact and it is not the Starter
  * Message.
  */
+/**
+ * The printed menu, one place.
+ *
+ * A clarification's whole job is re-printing the menu the Leader did not answer, so
+ * the two must render identically or a `2` means one thing in the first message and
+ * another in the second. Composed once so they cannot drift.
+ */
+const numbered = (options: readonly string[]): string =>
+  options.map((option, index) => `${index + 1}. ${option}`).join(' ')
+
 export const keywordMenu = ({ ministryName, keyword, options }: KeywordMenu): string =>
   composeMessage({
     ministryName,
     identifyDelivery: false,
     discloseOptOut: false,
-    body: `${MENU_ASKS[keyword]} ${options
-      .map((option, index) => `${index + 1}. ${option}`)
-      .join(' ')}`,
+    body: `${MENU_ASKS[keyword]} ${numbered(options)}`,
   })
 
 export interface PauseConfirmation {
@@ -629,9 +637,7 @@ export const keywordClarification = ({
     identifyDelivery: false,
     discloseOptOut: false,
     body: options
-      ? `Sorry, we didn't catch that. ${options
-          .map((option, index) => `${index + 1}. ${option}`)
-          .join(' ')}`
+      ? `Sorry, we didn't catch that. ${numbered(options)}`
       : "Sorry, we didn't catch that. Reply YES to confirm, or a number of weeks.",
   })
 

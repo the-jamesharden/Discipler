@@ -239,10 +239,12 @@ interface KeywordExchangeRow {
  * theirs rather than this query's.
  *
  * The inner select must yield `id` and `held_as`, and nothing else is read from it.
+ * That contract is the parameter's name rather than only this sentence, because it
+ * arrives as interpolated SQL and nothing downstream can check it.
  */
 const keywordRelationships = async (
   client: PoolClient,
-  namingTheSet: string,
+  selectingIdAndHeldAs: string,
   parameters: readonly unknown[],
 ): Promise<readonly KeywordRelationship[]> => {
   const { rows } = await client.query<{
@@ -253,7 +255,7 @@ const keywordRelationships = async (
     ended_at: Date | null
     paused: boolean
   }>(
-    `with held as (${namingTheSet})
+    `with held as (${selectingIdAndHeldAs})
      select r.id as relationship_id,
             held.held_as,
             r.created_at,
@@ -1839,11 +1841,19 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // already out rather than asking a new one, exactly as a check-in reminder
     // re-sends rather than re-asks -- and it must not move the deadline the Leader
     // is answering against either.
+    //
+    // The cap in the `where`, not only in the command, exactly as
+    // `clarifyCheckInQuestion` does it. Two replies racing on one exchange would each
+    // read `clarifications_sent` as 1 and each send a clarification; this makes the
+    // third increment land on nothing. Nothing serializes a phone's inbound texts
+    // today -- that is ticket 20, which comes after this one -- and a delivery vendor
+    // retrying a rolled-back callback is the ordinary way the same reply arrives
+    // twice.
     await client.query(
       `update keyword_exchange
           set clarifications_sent = clarifications_sent + 1
-        where id = $1 and closed_at is null`,
-      [clarification.exchangeId],
+        where id = $1 and closed_at is null and clarifications_sent < $2`,
+      [clarification.exchangeId, CLARIFICATIONS_PER_QUESTION],
     )
   },
 
