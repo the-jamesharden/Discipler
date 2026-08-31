@@ -47,9 +47,10 @@ const Overlay = ({ relationship }: { relationship: RelationshipLed }) => {
   const otherCount = overlay.people.length - 1
   const colourOf = new Map(overlay.people.map((person, index) => [person.personId, index]))
 
-  // Green and yellow are the one-Participant reading and are drawn as fills; a group
-  // is drawn as one dot per person. The two never appear together, because the
-  // overlay only ever shades a grid with exactly one Participant on it.
+  // Green and yellow are the one-Participant reading and are drawn as fills; every
+  // cell also carries one dot per person available in it. On a co-led group with a
+  // single Participant both appear at once, which is the point: the fill answers
+  // *can you and Ruth meet*, and the dots say who else marked the slot.
   const shadeOf = (shading: string) =>
     shading === 'mutual' ? '#cfe8d8' : shading === 'participant_only' ? '#f7e6b5' : undefined
 

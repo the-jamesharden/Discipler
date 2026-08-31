@@ -2,7 +2,7 @@ import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { personId, type MinistryId } from '~/domain/ids'
-import { readContactToShare } from '~/platform/supabase/care-needed-reader'
+import { readContactToShare } from '~/platform/supabase/contact-to-share'
 import {
   addPerson,
   createMinistryWithAdmin,

@@ -114,9 +114,9 @@ describe('the availability overlay', () => {
       member('Marcus Webb', 'monday:midday'),
     ])
 
-    // Green and yellow are a two-person reading and do not generalise: with three
-    // people on the grid, the question is which slot gathers the most of them, and
-    // that is answered by who is drawn in each cell.
+    // Green and yellow are a two-person reading and do not generalise: with two
+    // Participants on the grid, the question is which slot gathers the most of
+    // them, and that is answered by who is drawn in each cell.
     expect(overlay.slots.every((slot) => slot.shading === 'unshaded')).toBe(true)
     expect(at(overlay, 'monday:midday').available).toHaveLength(3)
   })
@@ -305,12 +305,29 @@ describe('the availability overlay', () => {
       expect(overlay.everyoneCanMeet).toBe(false)
     })
 
-    it('shades nothing, because one Participant and a co-Leader is three people', () => {
+    it('still shades, because one Participant and a co-Leader is one Participant', () => {
       const overlay = drawOverlay(me, [coLeader, ruth])
 
-      // Green and yellow answer *can we two meet*. With a third person on the grid
-      // they would be answering about two of them while drawing three.
-      expect(overlay.slots.every((slot) => slot.shading === 'unshaded')).toBe(true)
+      // Green and yellow answer *can we two meet*, and the two are the reading
+      // Leader and the person they are discipling. A co-Leader standing alongside
+      // does not take that question away -- they carry their own colour in the cell
+      // and the shading is a second signal over the top.
+      expect(at(overlay, 'monday:midday').shading).toBe('mutual')
+    })
+
+    it('shades on the Participant and not on whoever else marked the slot', () => {
+      // Friday is the co-Leader alone: one other person marked it, and it is not a
+      // slot the reading Leader and Ruth can meet in.
+      const overlay = drawOverlay(me, [leader('Priya Raman', 'friday:evening'), ruth])
+
+      expect(at(overlay, 'friday:evening').others).toBe(1)
+      expect(at(overlay, 'friday:evening').shading).toBe('unshaded')
+    })
+
+    it('shades a slot the Participant marked and the reading Leader did not', () => {
+      const overlay = drawOverlay(me, [coLeader, member('Ruth Adeyemi', 'thursday:morning')])
+
+      expect(at(overlay, 'thursday:morning').shading).toBe('participant_only')
     })
   })
 })

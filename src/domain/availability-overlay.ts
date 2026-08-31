@@ -51,18 +51,20 @@ export interface OverlayPerson {
 /**
  * Green and yellow, and the absence of both.
  *
- * A two-person reading, and deliberately not generalised. Where one other person is
+ * A two-person reading, and deliberately not generalised. Where one Participant is
  * on the grid the question is *can we two meet*, which has an asymmetric answer
- * worth a colour: `participant_only` is where the other person can meet and the
+ * worth a colour: `participant_only` is where the Participant can meet and the
  * Leader said they could not, which is where a Leader may choose to move something.
- * Where several are, the question is *which slot gathers the most people*, and that
- * is answered by who is drawn in the cell rather than by shading it -- so every cell
- * is `unshaded` and each person carries their own colour instead.
+ * Where several Participants are, the question is *which slot gathers the most
+ * people*, and that is answered by who is drawn in the cell rather than by shading
+ * it -- so every cell is `unshaded` and each person carries their own colour.
  *
- * Keyed on *how many other people are on the grid* rather than on the Participant
- * count, and the two come apart on exactly one shape: a group holding a second
- * Leader. One Participant and a co-Leader is three people, and green-and-yellow
- * would be answering a question about two of them while drawing three.
+ * Keyed on the **Participant** count and not on how many other people are drawn, so
+ * a group holding a second Leader still shades: one Participant and a co-Leader is
+ * three people, but the question green and yellow answer is still the two-person one
+ * the reading Leader has to act on. The co-Leader is not lost by that -- they carry
+ * their own colour in the cell like anybody else, and the shading is a second signal
+ * over the top rather than the only one.
  */
 export type SlotShading = 'mutual' | 'participant_only' | 'unshaded'
 
@@ -182,11 +184,18 @@ export const drawOverlay = (
   const isRecommended = (cell: (typeof cells)[number]) =>
     best !== null && cell.day === best.day && cell.block === best.block
 
+  // Who green and yellow are a reading about, where the grid holds exactly one
+  // Participant. A co-Leader is neither what opens the shading nor what it speaks
+  // for: `others` may hold them, and the answer *they can meet and you said you
+  // could not* has to be about the person being discipled or it is about nobody.
+  const participants = others.filter((person) => person.role === 'participant')
+  const soleParticipant = participants.length === 1 ? participants[0]!.personId : null
+
   return {
     people,
     slots: cells.map((cell) => ({
       ...cell,
-      shading: shadingFor(cell, others.length),
+      shading: shadingFor(cell, soleParticipant),
       recommended: isRecommended(cell),
     })),
     recommended: best ? { day: best.day, block: best.block } : null,
@@ -194,11 +203,17 @@ export const drawOverlay = (
   }
 }
 
+/**
+ * Read off `available` rather than off the count of who marked the cell, because
+ * with a co-Leader on the grid those are different questions: a slot the co-Leader
+ * marked and the Participant did not has an `others` of one and is not a slot the
+ * two of them can meet in.
+ */
 const shadingFor = (
-  cell: { readonly leaderIsAvailable: boolean; readonly others: number },
-  otherCount: number,
+  cell: { readonly leaderIsAvailable: boolean; readonly available: readonly PersonId[] },
+  soleParticipant: PersonId | null,
 ): SlotShading => {
-  if (otherCount !== 1) return 'unshaded'
-  if (cell.others === 0) return 'unshaded'
+  if (soleParticipant === null) return 'unshaded'
+  if (!cell.available.includes(soleParticipant)) return 'unshaded'
   return cell.leaderIsAvailable ? 'mutual' : 'participant_only'
 }

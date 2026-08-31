@@ -17,7 +17,8 @@ import type {
   RelationshipContact,
   RelationshipLed,
 } from '~/service/ports'
-import { readContactToShare } from './care-needed-reader'
+import { readContactToShare } from './contact-to-share'
+import { lookup, rows, text } from './rows'
 import { createSupabaseServerClient } from './server-client'
 
 /**
@@ -36,12 +37,6 @@ import { createSupabaseServerClient } from './server-client'
  */
 
 const HOW_LONG_A_PDF_LINK_LIVES = 60 * 10
-
-const rows = (data: unknown): readonly Record<string, unknown>[] =>
-  (data ?? []) as Record<string, unknown>[]
-
-const text = (value: unknown): string | null =>
-  typeof value === 'string' && value !== '' ? value : null
 
 /**
  * How every read in this file fails. From the screen's point of view these queries
@@ -120,49 +115,12 @@ const membersOf = async (
   return byRelationship
 }
 
-const namesOf = async (
-  supabase: SupabaseClient,
-  people: readonly string[],
-): Promise<Map<string, string>> => {
-  if (people.length === 0) return new Map()
+/** The two id-to-name reads this screen needs, both through the shared lookup. */
+const namesOf = (supabase: SupabaseClient, people: readonly string[]) =>
+  lookup(supabase, 'person', 'full_name', people, text, couldNotRead)
 
-  const { data, error } = await supabase
-    .from('person')
-    .select('id, full_name')
-    .in('id', [...new Set(people)])
-
-  if (error) throw couldNotRead(error)
-
-  return new Map(
-    rows(data).flatMap((row) => {
-      const id = text(row.id)
-      const name = text(row.full_name)
-      return id && name ? [[id, name] as const] : []
-    }),
-  )
-}
-
-const ministryNames = async (
-  supabase: SupabaseClient,
-  ministries: readonly string[],
-): Promise<Map<string, string>> => {
-  if (ministries.length === 0) return new Map()
-
-  const { data, error } = await supabase
-    .from('ministry')
-    .select('id, name')
-    .in('id', [...new Set(ministries)])
-
-  if (error) throw couldNotRead(error)
-
-  return new Map(
-    rows(data).flatMap((row) => {
-      const id = text(row.id)
-      const name = text(row.name)
-      return id && name ? [[id, name] as const] : []
-    }),
-  )
-}
+const ministryNames = (supabase: SupabaseClient, ministries: readonly string[]) =>
+  lookup(supabase, 'ministry', 'name', ministries, text, couldNotRead)
 
 /**
  * Everyone's availability for one relationship, keyed by Person.
