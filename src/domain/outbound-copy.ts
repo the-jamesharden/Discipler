@@ -459,6 +459,16 @@ const MENU_ASKS: Readonly<Record<RelationshipKeyword, string>> = {
 }
 
 /**
+ * The printed menu, one place.
+ *
+ * A clarification's whole job is re-printing the menu the Leader did not answer, so
+ * the two must render identically or a `2` means one thing in the first message and
+ * another in the second. Composed once so they cannot drift.
+ */
+const printedMenu = (options: readonly string[]): string =>
+  options.map((option, index) => `${index + 1}. ${option}`).join(' ')
+
+/**
  * The numbered menu, sent when more than one relationship is eligible.
  *
  * Numbered from one and never from zero, because it is read off a phone by somebody
@@ -471,22 +481,12 @@ const MENU_ASKS: Readonly<Record<RelationshipKeyword, string>> = {
  * conversation they started; this is not first contact and it is not the Starter
  * Message.
  */
-/**
- * The printed menu, one place.
- *
- * A clarification's whole job is re-printing the menu the Leader did not answer, so
- * the two must render identically or a `2` means one thing in the first message and
- * another in the second. Composed once so they cannot drift.
- */
-const numbered = (options: readonly string[]): string =>
-  options.map((option, index) => `${index + 1}. ${option}`).join(' ')
-
 export const keywordMenu = ({ ministryName, keyword, options }: KeywordMenu): string =>
   composeMessage({
     ministryName,
     identifyDelivery: false,
     discloseOptOut: false,
-    body: `${MENU_ASKS[keyword]} ${numbered(options)}`,
+    body: `${MENU_ASKS[keyword]} ${printedMenu(options)}`,
   })
 
 export interface PauseConfirmation {
@@ -637,7 +637,7 @@ export const keywordClarification = ({
     identifyDelivery: false,
     discloseOptOut: false,
     body: options
-      ? `Sorry, we didn't catch that. ${numbered(options)}`
+      ? `Sorry, we didn't catch that. ${printedMenu(options)}`
       : "Sorry, we didn't catch that. Reply YES to confirm, or a number of weeks.",
   })
 

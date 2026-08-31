@@ -38,7 +38,7 @@ Participants are told nothing when their Leader pauses. This is deliberate silen
 - [x] `SWAP` raises a follow-up item showing Leader, relationship, and the request, changing no state and coexisting with `Paused`
 - [x] `SWAP` is accepted on an unaccepted relationship and reads as a decline
 - [x] `START` from an opted-out Person restores messaging and resumes no relationship
-- [x] A recognized keyword from a Participant raises a follow-up item; unrecognized free text does not and is acknowledged at most once per window
+- [x] A recognized keyword from a Participant raises a follow-up item; unrecognized free text does not and is acknowledged at most once per window — *except `SWAP` from a Person with no live relationship, which draws a plain reply and raises nothing, because an item naming no relationship is a Care Needed row nothing can resolve — see* **Settled 2026-08-31** *below*
 - [x] No message is sent to Participants when their Leader pauses
 
 ## Comments
@@ -84,6 +84,37 @@ where somebody who wants out and has no other route is heard.
   acknowledgement composed for them rolls the whole transaction back — their text
   fails outright rather than reaching nobody quietly. Every route below `START` needs
   an answer Discipler is not allowed to send.
+
+### Settled 2026-08-31 — the webhook is now signed, and no ticket asked for it
+
+Recorded because it is a deployment behaviour change nothing in `01-26` owns, and a
+review caught that it had shipped unwritten while every other unasked-for decision
+here got an entry above.
+
+**Why it was done inside this ticket.** This ticket is what made the webhook worth
+forging. Before it, an inbound text could file a check-in answer against the sender's
+own relationship. After it, a text can opt a congregant out of their Ministry
+(`STOP`), suspend a relationship (`PAUSE`), or raise a Concern against somebody's
+name (`C`) — and the only thing the route had to say who was speaking was the `From`
+number, which is public. Three of this ticket's own criteria are unsafe without it,
+so it is this ticket's to carry rather than a later one's.
+
+**What it costs a deployment.** `TWILIO_AUTH_TOKEN` stops being needed only where
+Discipler sends and becomes needed anywhere it receives. Unset is a closed door, not
+an open one — the same way round as `CRON_SECRET` at `/cron/tick`, and for the same
+reason: a deployment that forgot to configure it must not be the one where anybody
+can drive the webhook. `.env.example` says so at the variable.
+
+**What was deliberately not done.** `calledUrl` prefers `x-forwarded-host` and
+`x-forwarded-proto` with no allowlist, because a proxy that terminates TLS makes
+`request.url` the internal address and signing over that mismatches every genuine
+callback — which is the failure that gets a signature check switched off rather than
+fixed. A forged header is not a way in: an attacker still needs the auth token to
+produce a matching HMAC. The residual is a false *negative*, not a false positive —
+the URL is re-serialized through `new URL`, so a console-configured callback URL that
+differs in encoding would refuse genuine traffic. Left as is, and written down here,
+because the encoding a deployment actually uses is the thing to check before
+hardening against a shape nobody has seen.
 
 ### Fixed 2026-08-31 — three defects the review caught
 

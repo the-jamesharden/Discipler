@@ -10,7 +10,7 @@ A Person is the human. An account is optional and belongs to the Person, not bes
 
 Nothing here stores a role. Role lives on relationship membership, and Participation Status is derived.
 
-**Blocked by:** 02, and 24 for the two criteria still open
+**Blocked by:** 02, 24
 
 **Status:** ready-for-agent
 
@@ -64,7 +64,7 @@ The column and its comment are in `20260826000100_relationships_roles_and_leader
 defaulting false. It is set by `person.set_lead_eligibility` through the command
 service, recorded as a `person.lead_eligibility_set` history event either way round,
 and reached by an Admin from the control on every Roster row
-(`app/roster/page.tsx:209`). `tests/integration/eligible-to-lead.test.ts` covers the
+(`app/roster/page.tsx:203-215`). `tests/integration/eligible-to-lead.test.ts` covers the
 default, both directions, the pair of events in order, and all three independences —
 account, Intake, relationships already led — which is why the criterion below it was
 already ticked while this one was not.
@@ -72,8 +72,11 @@ already ticked while this one was not.
 **Nothing gates a Leader-facing surface on `tier = 'leader'`.** The warning in line 7
 is honoured everywhere it could have been broken: `src/platform/supabase/leader-dashboard.ts:262-269`
 asks for open leader memberships, and the RLS predicate `app.leads_relationship` does
-the same. `tier` is read only where access is the question
-(`20260826000100_relationships_roles_and_leader_access.sql:180`).
+the same. Every site that reads `tier` reads it where access is the question and
+nowhere else: `20260826000100_relationships_roles_and_leader_access.sql:180`,
+`src/platform/supabase/current-admin.ts:39`, and the insert guard at
+`20260829000100_the_invitation_link.sql:213` that lets the command role make a
+`leader` row and no other.
 
 **"An account may not exist without a Person" already holds on every path but one.**
 The Leader path cannot break it: acceptance is reached through an invitation that
@@ -88,8 +91,10 @@ So both open criteria reduce to one missing fact — the link between an Admin's
 and their Person row — and ADR-0009 and ticket 24's own acceptance criteria both place
 it there, because it can only be made where an Admin comes into existence. Carving it
 out to close this ticket early would have split the provisioning rewrite across two
-commits and made neither reviewable as a whole. `Blocked by` above now says 24, so a
-frontier scan passes over this ticket rather than walking the same search again.
+commits and made neither reviewable as a whole. `Blocked by` above now lists 24 as
+well as 02 -- the two open criteria are 24's, and nothing else here is waiting on
+anything -- so a frontier scan passes over this ticket rather than walking the same
+search again.
 
 The canonical dual-role fixture the ticket asks for does exist and is honest about its
 one flaw: `tests/integration/leader-access.test.ts:61-88` builds Greaves leading two

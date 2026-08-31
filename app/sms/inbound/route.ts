@@ -3,18 +3,6 @@ import { calledUrl, signatureMatches } from '~/platform/twilio/inbound-signature
 import { getCommandService, getInboundReader } from '~/service/container'
 
 /**
- * The one webhook. Every inbound text arrives here -- a check-in answer, a
- * keyword, a message to nobody in particular -- because a phone has one number to
- * reply to and the delivery vendor has one place to send it.
- *
- * Resolution is the sender's number to a Person, and then their open Check-In
- * Sequence to the question awaiting a reply. Nothing here resolves to *the
- * Person's relationship*: a Leader may hold several, and only the position in
- * their sequence says which one a `1` is about. That second half is the domain's;
- * this route does the first, because a text carries no session and the unit of
- * work has to name its Ministry before it opens.
- */
-/**
  * Only Twilio may speak here.
  *
  * A number is public, and this route acts on the say-so of one: `STOP` opts a
@@ -39,6 +27,18 @@ const fromTwilio = (request: NextRequest, parameters: Readonly<Record<string, st
   )
 }
 
+/**
+ * The one webhook. Every inbound text arrives here -- a check-in answer, a
+ * keyword, a message to nobody in particular -- because a phone has one number to
+ * reply to and the delivery vendor has one place to send it.
+ *
+ * Resolution is the sender's number to a Person, and then their open Check-In
+ * Sequence to the question awaiting a reply. Nothing here resolves to *the
+ * Person's relationship*: a Leader may hold several, and only the position in
+ * their sequence says which one a `1` is about. That second half is the domain's;
+ * this route does the first, because a text carries no session and the unit of
+ * work has to name its Ministry before it opens.
+ */
 export async function POST(request: NextRequest) {
   const form = await request.formData()
 
