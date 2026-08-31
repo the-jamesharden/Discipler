@@ -390,7 +390,20 @@ export const relationshipsToAskAbout = (
   leads
     .filter((relationship) => relationship.acceptedAt !== null && !relationship.paused)
     .slice()
-    .sort((a, b) => a.startedAt.getTime() - b.startedAt.getTime())
+    .sort(
+      (a, b) =>
+        a.startedAt.getTime() - b.startedAt.getTime() ||
+        // Two relationships formed in the same instant is ordinary -- an Admin
+        // pairing a Leader with three people does it in one sitting, and a
+        // fixture does it in one transaction. `sort` is stable, so a tie here
+        // fell through to whatever order the rows arrived in, which is the order
+        // of a scan and not a fact about the Ministry. The conversation's
+        // `covering` is fixed when it opens and every later reply is matched by
+        // position in it, so an order that is not a function of the data is a
+        // sequence that cannot be reproduced. The identifier is arbitrary and
+        // that is the point: it is arbitrary the same way twice.
+        a.relationshipId.localeCompare(b.relationshipId),
+    )
 
 /**
  * What a reply does to the conversation: the next question to send, or the fact

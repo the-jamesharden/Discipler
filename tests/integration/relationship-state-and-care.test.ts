@@ -107,10 +107,15 @@ describe('Relationship State and the Care Needed view', () => {
         const relationships: string[] = []
         for (let n = 0; n < count; n += 1) {
           const participant = await congregant(`${leaderName} Participant ${n + 1}`)
+          // A minute apart, all inside the same week. The order a Leader is asked
+          // about their relationships in is oldest first, and four of them formed
+          // at the very same instant leaves that order resting on a tiebreak
+          // instead of on the fact the test is about -- which one is *first*.
+          const formedAt = new Date(firstWeek.getTime() - weeks(1) + n * 60_000)
           relationships.push(
             await pairOneToOne(ministry, leader, participant, {
-              createdAt: new Date(firstWeek.getTime() - weeks(1)),
-              acceptedAt: new Date(firstWeek.getTime() - weeks(1)),
+              createdAt: formedAt,
+              acceptedAt: formedAt,
             }),
           )
         }

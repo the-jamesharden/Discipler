@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { handleCommand, type CommandContext } from '~/domain/boundary'
 import { createTestClock } from '~/domain/clock'
-import type { CheckInRelationship, CheckInSnapshot } from '~/domain/check-in'
+import {
+  relationshipsToAskAbout,
+  type CheckInRelationship,
+  type CheckInSnapshot,
+} from '~/domain/check-in'
 import type { Effect } from '~/domain/effects'
 import { createSequentialIds, ministryId, personId, relationshipId } from '~/domain/ids'
 
@@ -158,5 +162,40 @@ describe('the monthly opt-out language', () => {
 
   it('does not identify the delivery brand, because a Leader is not first contact', () => {
     expect(opening(snapshot({ lastCheckInAt: null }))).not.toContain('Discipler:')
+  })
+
+  it('asks about relationships formed in the same instant in a reproducible order', () => {
+    // An Admin pairing one Leader with three people does it in one sitting, so an
+    // identical `startedAt` across several relationships is ordinary rather than
+    // contrived. `sort` is stable, so a tie fell through to whatever order the rows
+    // arrived in -- which is the order of a database scan and not a fact about the
+    // Ministry. `covering` is fixed when the conversation opens and every later
+    // reply is matched by position in it, so an order that is not a function of the
+    // data is a conversation that cannot be reproduced.
+    const together = new Date('2026-10-05T09:00:00Z')
+    const one = leads('c1', together, ['Ada Rowe'])
+    const two = leads('c2', together, ['Ben Okafor'])
+    const three = leads('c3', together, ['Cara Mensah'])
+
+    const forwards = relationshipsToAskAbout([one, two, three])
+    const backwards = relationshipsToAskAbout([three, two, one])
+
+    expect(forwards.map((each) => each.relationshipId)).toEqual(
+      backwards.map((each) => each.relationshipId),
+    )
+    expect(forwards.map((each) => each.participantNames[0])).toEqual([
+      'Ada Rowe',
+      'Ben Okafor',
+      'Cara Mensah',
+    ])
+  })
+
+  it('still puts an older relationship first, whatever its identifier is', () => {
+    const older = leads('f9', new Date('2026-01-05T09:00:00Z'), ['Ada Rowe'])
+    const newer = leads('a1', new Date('2026-10-05T09:00:00Z'), ['Ben Okafor'])
+
+    expect(
+      relationshipsToAskAbout([newer, older]).map((each) => each.participantNames[0]),
+    ).toEqual(['Ada Rowe', 'Ben Okafor'])
   })
 })
