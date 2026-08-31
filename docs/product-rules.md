@@ -150,6 +150,8 @@ Intake records SMS consent and contact-sharing consent independently, each with 
 
 Discipler includes another person's phone number in a message only where the recipient's consent record permits that sharing. Consent is checked when the message is sent, not assumed from enrollment.
 
+> **No message discloses a number today.** The Starter Message was the one that would have, and it now names the leader instead of carrying their number — a participant is owed the name of the stranger about to contact them, and the leader is the one who reaches out, so the number was never the thing the participant needed. Contact-sharing consent therefore governs one surface only: **Nudge**, which reveals a number to an admin on a screen rather than texting it to anybody. The send-time disclosure check is kept and still enforced, but nothing in the product now composes a message it has to withhold anything from. It should be given a use or removed deliberately rather than left as a compliance-shaped mechanism nothing exercises.
+
 ## Settled: Roles Are Relationship Memberships, Not Properties of a Person
 
 Role is a property of relationship membership. **Leader** and **Participant** mean *leader of relationship X* and *participant in relationship Y*, never a type a person is. A person may hold both roles at once across different relationships — leading two relationships while being discipled in a third is an ordinary shape in this domain, not an edge case.
@@ -193,6 +195,10 @@ A leader may lead more than one discipleship relationship at a time. Nothing in 
 An admin creating a relationship does not activate it. The relationship enters `Awaiting Leader Acceptance` and stays there until its leader accepts.
 
 The leader receives an SMS invitation link, sees on the leader dashboard who they have been matched with, sets a password, and accepts. Acceptance activates the relationship, releases the Starter Message to everyone in it, and is the timestamped record that the leader agreed to take it on.
+
+The Starter Message names people and no numbers. A leader's names the participants they are now meeting with; a participant's names the leader who will reach out to them, and a participant in a group receives **one** message naming every leader rather than one message per leader — the body is nobody's individual decision to make. Where it names several people it names them in the order they joined the relationship, and alphabetically among those who joined in the same action, so the same group reads the same way every time.
+
+**Only a leader is sent an Invitation Link.** A link asks somebody a question they have not yet answered, and a participant answered theirs at intake by consenting to be paired. The leader's acceptance is the other half of that agreement, and it is the half that was still outstanding. Nothing is minted for a participant, because there is nothing for one to do. This reverses an earlier reading of this file, under which a participant held a link of their own leading to a decline; see `docs/adr/0011-only-a-leader-is-sent-a-link.md`.
 
 A relationship awaiting acceptance sends nothing to participants and accrues no silence against the leader. If it is still unaccepted after two days, Discipler reminds the leader; after five days, the admin dashboard surfaces it along with how long it has been waiting.
 
@@ -348,7 +354,9 @@ This is coarser than the ten-year gap it replaces, and deliberately so — Disci
 
 ## Settled: Pause Is Leader-Controlled, Bounded, and Visible
 
-A leader may pause a relationship they lead. The transition to `Paused` is immediate and requires no admin approval.
+A leader may pause a relationship they lead. The transition to `Paused` is immediate and requires no admin approval. An admin may pause a relationship in their ministry on the same terms and through the same rules — a pause is one act however it was asked for, and the two routes differ only in who asked.
+
+> **Not yet built:** only the admin route exists. `relationship.pause` and `relationship.resume` take a named admin account and there is no keyword route into them; a leader cannot pause anything today. The `RESUME` and pause keywords described here are ticket 17, which reaches these same rules through these same commands. Until it ships, this settled rule is met on the admin half only.
 
 A pause runs for exactly one of five periods: 1 week, 2 weeks, 4 weeks, 8 weeks, or 12 weeks. The default is 2 weeks and the maximum is 12. No other duration is permitted.
 
@@ -358,9 +366,17 @@ Pausing never removes, archives, ends, or hides a relationship. Membership is un
 
 `Paused` masks the relationship's underlying derived state; it does not rewrite the history behind it. No new unanswered check-ins accrue during a pause, and the pause does not answer the old ones. On resume the underlying state resurfaces, so a relationship that was `Stalled` when it was paused is `Stalled` again on resume and stays there until an answered check-in clears that condition. **Resuming never sets `Healthy` on its own.**
 
-A leader may resume early by replying `RESUME`. That resume is also immediate, requires no admin approval, and releases the Starter Message. A relationship resumed early never reaches its pause expiry, so no follow-up item is created for it.
+A pause taken while that relationship's check-in question is open **withdraws** the question. No next-day reminder goes out — the reminder is a text to somebody who has just stepped back, which is the one message a pause exists to stop — and the conversation moves on to the relationships still running, skipping in silence any paused alongside it.
+
+Withdrawn is not passed over. A passed-over question is a silence the leader owns and the Stalled rule counts; a withdrawn one is Discipler's to take back, so the relationship-week it belonged to accrues no silence at all and never ages into `Stalled`. Only the question that was actually open is withdrawn: a question already asked and already lapsed before the pause was taken is a silence that had accrued before anybody stepped back, and the pause does not unsay it.
+
+> This rule was first written for the keyword exchange — *a keyword resolving to the relationship whose check-in question is currently open withdraws that pending question, so a pause never accrues silence against itself*. It is settled here as general: it belongs to the pause, not to the route the pause arrived by. Ticket 17 inherits it rather than building it.
+
+A leader may resume early by replying `RESUME`. That resume is also immediate, requires no admin approval, and releases the Resume Message. A relationship resumed early never reaches its pause expiry, so no follow-up item is created for it.
 
 A leader selects the duration in a single confirmation exchange rather than in the original message. Discipler replies naming the relationship and the default — *"Pause check-ins with Emily for 2 weeks? Reply YES to confirm, or reply 1, 4, 8, or 12 for a different number of weeks."* — and both written and numeric forms of the reply are accepted. The confirmation exists so that a stray tap never pauses anything, and it means the common case costs a leader two texts.
+
+> **Supersedes:** an earlier settled rule releasing the **Starter Message** on resume. A resume now sends its own message — *"Your discipleship with [name] has been resumed!"*, to everyone in the relationship, each side named the other side — because *you have been paired* is true on the day the match is made and false a fortnight later, and a ministry that said it twice would be telling somebody they had been matched to the person they have been meeting all year. What the old rule was reaching for is unchanged and still holds: everyone in a resumed relationship hears that it is running again, and expiry still sends nothing. See **Resume Message** in `CONTEXT.md`.
 
 > **Supersedes:** an earlier settled rule making `START` the early-resume keyword. `START` is now carrier-level re-opt-in only and carries no domain meaning; `RESUME` resumes a paused relationship. See **Settled: Keyword Routing and Eligibility** for the reasoning.
 
@@ -372,9 +388,9 @@ When the selected pause period expires, the relationship does not return to Acti
 
 The admin must be able to see that the relationship was paused, which period was selected, that the period has expired, that the relationship has not resumed, and that admin review is required.
 
-Expiry is not equivalent to Resolved, Active, or Ended, and it sends nothing. The Starter Message is released on resume, never on expiry.
+Expiry is not equivalent to Resolved, Active, or Ended, and it sends nothing. The Resume Message is released on resume, never on expiry.
 
-The admin decides what happens next: resuming the relationship, which releases the Starter Message and lets the underlying derived state resurface, or ending it with a recorded reason. The follow-up item clears only when the admin acts.
+The admin decides what happens next: resuming the relationship, which releases the Resume Message and lets the underlying derived state resurface, or ending it with a recorded reason. The follow-up item clears only when the admin acts.
 
 ## Settled: A Swap Request Is a Request, Not a State Transition
 
@@ -875,6 +891,22 @@ answered check-in, so it could never satisfy that property.
 given a way to say the match is not right without a conversation; that is a Participant
 on a web page, a different actor and a different surface from a Leader texting `SWAP`,
 and without an item it reaches nobody.
+
+> **Settled: a participant does not decline, and `match_declined` is withdrawn.** A participant
+> consented to be paired at intake, and declining is asking them the question again on a page.
+> What a participant may ask for instead is a **swap** — the same request a leader makes, reaching
+> an admin as a request rather than a state change — and somebody who simply stops meeting or stops
+> replying says so through the silence the care rules already read. Either way the admin unpairs and
+> re-pairs, which is a pastoral decision and stays one.
+>
+> Nothing mints a participant link any more, so the reveal page and `match.decline` are already
+> unreachable. **Removing them is not done here:** the command, its HTTP route and the
+> `match_declined` value are ticket 06's, the enum value must survive whatever history already
+> carries it, and a participant-initiated swap is a capability nothing has built — `swap_requested`
+> is raised by nobody today and ticket 17 still frames `SWAP` as a leader's keyword. Both belong in
+> tickets of their own.
+>
+> See `docs/adr/0011-only-a-leader-is-sent-a-link.md`.
 
 `invitation_number_disputed` is a persistent item and not a transient notification. It
 is the highest-stakes condition on the list — a wrong number means that Leader's

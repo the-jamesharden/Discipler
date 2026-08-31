@@ -62,6 +62,12 @@ changes nothing else — a forwarded link can never re-point an account.
 
 ### Settled — a Participant declining the match raises `match_declined`
 
+> **Superseded 2026-08-30.** A Participant is sent no link and does not decline. The
+> reasoning and what is left to withdraw are in *Amended — a Participant is sent no
+> link, and does not decline* at the bottom of this file, and the decision is recorded
+> in `docs/adr/0011-only-a-leader-is-sent-a-link.md`. What follows is kept because it
+> is the argument the reversal answers, not because it still holds.
+
 *A way to say the match is not right without a conversation* had no recorded destination
 anywhere in the spec or the tickets. It raises a `match_declined` follow-up item. It is a
 Participant on a web page — a different actor and a different surface from a Leader
@@ -69,7 +75,7 @@ texting `SWAP` — and without an item it reaches nobody.
 
 - [~] The Leader signs in with a phone number and a password, and no email is collected anywhere in this flow
 - [x] "not my number" raises a persistent `invitation_number_disputed` follow-up item and changes nothing else
-- [x] A Participant declining the match raises a `match_declined` follow-up item
+- [~] ~~A Participant declining the match raises a `match_declined` follow-up item~~ — withdrawn, see above
 
 ### Shipped -- the link, the reveal, and acceptance as the whole of activation
 
@@ -193,3 +199,29 @@ matches the duplicate-identity codes and lets the rest throw.
   pass rather than a redesign.
 - **Re-issuing an expired link.** Nothing does it. An Admin has no way to send a
   Leader a fresh invitation, which is the instruction the expiry page gives them.
+
+### Amended 2026-08-30 — a Participant is sent no link, and does not decline
+
+Settled while reviewing ticket 12, and recorded in `docs/product-rules.md` under
+*Settled: Leader Acceptance Activates a Relationship* and in `docs/open-questions.md`.
+
+A link asks somebody a question they have not yet answered. A Participant answered
+theirs at Intake by consenting to be paired; the Leader's acceptance was the half
+still outstanding. So **only a Leader is ever sent one**, and ticket 12 stopped
+minting the Participant's.
+
+That leaves this ticket's decline mechanism unreachable and unwanted: a Participant
+does not decline. A match that is not working reaches an Admin as a **swap**, and a
+Participant who stops meeting or stops replying says so through the silence the care
+rules already read — an Admin unpairs and re-pairs either way, which is a pastoral
+decision and stays one.
+
+Recorded as `docs/adr/0011-only-a-leader-is-sent-a-link.md`, because it removes a
+capability the product had shipped and reverses two settled sections.
+
+**Still to withdraw, and not done here:** the `match.decline` command
+(`src/domain/commands.ts`), its handler (`src/domain/boundary.ts`), the
+`app/invitation/[token]/decline` route, the `match_declined` follow-up kind in
+`src/domain/follow-up.ts`, and the tests that cover them. The `match_declined`
+value in the `follow_up_kind` enum **must stay** — history that already carries it
+has to read back, and this repo does not overwrite past facts.

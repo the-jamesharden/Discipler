@@ -32,11 +32,42 @@ Participants are told nothing when their Leader pauses. This is deliberate silen
 - [ ] At most one Keyword Exchange is open per Person; a second keyword replaces the first
 - [ ] An unanswered exchange expires at twenty-four hours with no reminder and raises nothing
 - [ ] After two clarifications a valid reply is still honored until expiry
-- [ ] A keyword withdraws the pending check-in question on the relationship it resolves to, which never ages into Stalled
+- [ ] A keyword withdraws the pending check-in question on the relationship it resolves to, which never ages into Stalled — *ticket 12 settled this as general rather than the Keyword Exchange's and built it for `relationship.pause`; a keyword route inherits it rather than rebuilding it*
 - [ ] A bare keyword during the Concern detail step is treated as a keyword, leaving the concern and badge intact
-- [ ] `RESUME` resumes immediately, releases the Starter Message, and raises no expiry item
+- [ ] `RESUME` resumes immediately, releases the Resume Message, and raises no expiry item
 - [ ] `SWAP` raises a follow-up item showing Leader, relationship, and the request, changing no state and coexisting with `Paused`
 - [ ] `SWAP` is accepted on an unaccepted relationship and reads as a decline
 - [ ] `START` from an opted-out Person restores messaging and resumes no relationship
 - [ ] A recognized keyword from a Participant raises a follow-up item; unrecognized free text does not and is acknowledged at most once per window
 - [ ] No message is sent to Participants when their Leader pauses
+
+## Comments
+
+### Amended 2026-08-30 — a Participant may swap
+
+Settled while reviewing ticket 12. A Participant is sent no Invitation Link and does
+not decline a match (see ticket 06's amendment); what they may ask for instead is a
+**swap**. This ticket currently frames `SWAP` as a Leader's keyword throughout, and
+`swap_requested` is raised by nobody today.
+
+Two things to settle when this is picked up: whether a Participant reaches `SWAP`
+through the same keyword on the same inbound route — they receive no check-ins, so
+nothing in the Check-In Rhythm is holding a conversation with them — and whether the
+`swap_requested` item needs to say which side asked, since the Admin's next move
+differs: unpair and re-pair the Participant, or release the Leader from the
+relationship. Neither is inferred here.
+
+### Amended 2026-08-30 — two rules this ticket inherits rather than builds
+
+Ticket 12 settled both, so they are recorded here to stop this ticket re-deciding
+them:
+
+- **A resume sends the Resume Message**, not the Starter Message. The checkbox
+  above is corrected; `docs/product-rules.md` and `CONTEXT.md` carry the rule.
+- **A Pause takes back the question that was out**, and that is general rather
+  than the Keyword Exchange's. It is built in the domain for every route into a
+  Pause, so a `PAUSE` keyword gets it by going through `relationship.pause`.
+
+And one this ticket still owns: **a Leader cannot pause anything today.** *A
+leader may pause a relationship they lead* is settled in `docs/product-rules.md`
+and only the Admin route exists.

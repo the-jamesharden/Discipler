@@ -88,6 +88,19 @@ const snapshot = (over: Partial<CheckInSnapshot> = {}): CheckInSnapshot => ({
   ...over,
 })
 
+/** The same conversation, with one or both of its relationships now paused. */
+const withPaused = (...ids: readonly (typeof emily)[]) => {
+  const relationships = covering.map((relationship) => ({
+    ...relationship,
+    paused: ids.includes(relationship.relationshipId),
+  }))
+
+  return snapshot({
+    leads: relationships,
+    openSequence: openSequence({ covering: relationships }),
+  })
+}
+
 const replying = (body: string, checkIn: CheckInSnapshot = snapshot(), at: Date = after(hours(1))) =>
   handleCommand({ type: 'sms.inbound', ministryId: ministry, personId: james, body }, {
     ministryId: ministry,
@@ -378,19 +391,6 @@ describe('a late reply', () => {
  * never owned.
  */
 describe('a Pause taken while a question is waiting on an answer', () => {
-  /** The same conversation, with one or both relationships now paused. */
-  const withPaused = (...ids: readonly (typeof emily)[]) => {
-    const relationships = covering.map((relationship) => ({
-      ...relationship,
-      paused: ids.includes(relationship.relationshipId),
-    }))
-
-    return snapshot({
-      leads: relationships,
-      openSequence: openSequence({ covering: relationships }),
-    })
-  }
-
   it('sends no reminder, however long the question has been out', () => {
     // The reminder is the one message a Pause exists to stop: a text to somebody
     // who has just told their Admin they are stepping back.
@@ -453,6 +453,113 @@ describe('a Pause taken while a question is waiting on an answer', () => {
     // does not stop Discipler chasing a question about another.
     expect(bodies(ticking(after(hours(24)), withPaused(marcus)).effects)).toEqual([
       MEETING_QUESTION,
+    ])
+  })
+})
+
+/**
+ * The rest of *pausing suppresses that relationship's check-ins*.
+ *
+ * `covering` is fixed when the conversation opens so that a Pause halfway
+ * through does not renumber the questions still to come -- which means a Pause
+ * taken since is in nobody's list, and every route that moves the conversation
+ * forward has to step over it. Withdrawing the one question that happened to be
+ * out is not the rule; it is one of three places the rule applies.
+ */
+describe('a Pause reaching a relationship before its turn in the conversation did', () => {
+  const MARCUS_QUESTION =
+    'ABC Church: Did you meet with Marcus and Dan this week? Reply 1 for yes, 2 for no.'
+  const RATING_QUESTION =
+    'ABC Church: How would you rate how it went? Reply 1 for great, 2 for okay, 3 for I have a concern.'
+
+  it('asks nothing about it when a reply moves the conversation on', () => {
+    // Emily's question answered, Marcus paused since. The next question in the
+    // ladder is Marcus's, and sending it would be a check-in about a
+    // relationship that is not being checked in on.
+    const result = replying('2', withPaused(marcus))
+
+    expect(bodies(result.effects)).not.toContain(MARCUS_QUESTION)
+  })
+
+  it('thanks the Leader instead, because the conversation is over', () => {
+    // Marcus was the last relationship left. Skipped in silence, this
+    // conversation has nothing else to ask -- so it finishes properly rather
+    // than hanging on a question nobody will be sent.
+    const result = replying('2', withPaused(marcus))
+
+    expect(historyTypes(result.effects)).toContain('checkin.sequence_completed')
+    expect(result.effects.filter((effect) => effect.kind === 'checkin.close')).toMatchObject([
+      { closure: { sequenceId, outcome: 'completed' } },
+    ])
+  })
+
+  it('asks no follow-up about the relationship the answer was about', () => {
+    // *Yes we met*, about a relationship paused an hour ago. The answer stands
+    // -- a Pause does not unsay it -- but the rating question is a new question,
+    // and no new question is asked about a paused relationship.
+    const result = replying('1', withPaused(emily))
+
+    expect(bodies(result.effects)).not.toContain(RATING_QUESTION)
+    expect(result.effects.filter((effect) => effect.kind === 'checkin.answer')).toHaveLength(1)
+    expect(bodies(result.effects)).toEqual([MARCUS_QUESTION])
+  })
+
+  it('asks nothing about it when the question ahead of it is given up on', () => {
+    // Emily's question reminded and now passed over -- a silence the Leader
+    // owns. What follows it is still Marcus's turn, and Marcus is paused.
+    const reminded = withPaused(marcus)
+    const stale = {
+      ...reminded,
+      openSequence: { ...reminded.openSequence!, awaiting: awaiting({ remindedAt: after(hours(24)) }) },
+    }
+    const result = ticking(after(hours(48)), stale)
+
+    expect(bodies(result.effects)).toEqual([])
+    expect(historyTypes(result.effects)).toEqual([
+      'checkin.question_passed_over',
+      'checkin.sequence_abandoned',
+    ])
+  })
+
+  it('records nothing about the turn it stepped over', () => {
+    // Nothing was asked, so there is no question to withdraw. `relationship_weeks`
+    // reads a covered relationship with no prompt as nothing having been asked,
+    // and a withdrawal event here would be a record of something that never
+    // happened.
+    expect(historyTypes(replying('2', withPaused(marcus)).effects)).not.toContain(
+      'checkin.question_withdrawn',
+    )
+  })
+})
+
+describe('a new week displacing a question a Pause had already taken back', () => {
+  it('withdraws it on the way past rather than leaving it as silence', () => {
+    // The one Admin whose Pause is displaced before any tick notices it: they
+    // paused between the last tick and the cadence hour. Without the withdrawal
+    // the week reads as the Leader's silence -- one week closer to `Stalled` for
+    // a question Discipler had already stopped asking.
+    const result = ticking(nextWeek, withPaused(emily))
+
+    expect(eventOf(result.effects, 'checkin.question_withdrawn')).toMatchObject({
+      subjectId: emily,
+      payload: { sequenceId, promptId, question: 'met', reason: 'paused' },
+    })
+    expect(historyTypes(result.effects)).toEqual([
+      'checkin.question_withdrawn',
+      'checkin.sequence_abandoned',
+      'checkin.sequence_opened',
+    ])
+  })
+
+  it('leaves a running relationship’s unanswered question exactly as it was', () => {
+    // *The pause does not answer the old ones.* A question nobody paused is a
+    // silence the Leader owns, and a new week displacing it does not take it back.
+    expect(historyTypes(ticking(nextWeek).effects)).not.toContain('checkin.question_withdrawn')
+  })
+
+  it('opens the new conversation about the relationships still running', () => {
+    expect(bodies(ticking(nextWeek, withPaused(emily)).effects)).toEqual([
+      'ABC Church: Did you meet with Marcus and Dan this week? Reply 1 for yes, 2 for no.',
     ])
   })
 })

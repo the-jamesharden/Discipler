@@ -309,6 +309,191 @@ describe('pausing, resuming, and a period running out', () => {
     expect(events.map((row) => row.type)).toEqual(['checkin.question_withdrawn'])
   })
 
+  it('refuses a period nobody could have selected, at the table itself', async () => {
+    // The guard at the command boundary is the one an Admin meets. This is the one
+    // a hand-written `insert` meets, and it is the reason `readStandingPause` may
+    // go on throwing: a period outside the five leaves nothing to guess at, but
+    // both readers go through it -- the tick and Care Needed -- so a single drifted
+    // row would otherwise take down a whole Ministry's tick and its whole care
+    // queue. Stopped here, it costs one statement.
+    const church = await aMinistry('Hand-Written Chapel')
+    const { relationship } = await church.aRelationship('Constrained', 'Their Participant')
+
+    const forge = (periodWeeks: string) =>
+      pool.query(
+        `insert into ministry_event (ministry_id, occurred_at, type, subject_type, subject_id, payload)
+         values ($1, now(), 'relationship.paused', 'relationship', $2, $3::jsonb)`,
+        [church.ministry.id, relationship, periodWeeks],
+      )
+
+    // A number outside the five, a number that is not one at all, and no period
+    // at all -- the last of which a check constraint passes by default, because
+    // SQL NULL is not false. Each has to be refused by name.
+    for (const payload of [
+      '{"periodWeeks": 3}',
+      '{"periodWeeks": 0}',
+      '{"periodWeeks": "2"}',
+      '{"periodWeeks": null}',
+      '{}',
+    ]) {
+      await expect(forge(payload)).rejects.toThrow(
+        /ministry_event_pause_carries_a_selectable_period/,
+      )
+    }
+
+    // And the five still go in, so the constraint guards rather than forbids.
+    for (const period of [1, 2, 4, 8, 12]) {
+      await expect(forge(`{"periodWeeks": ${period}}`)).resolves.toBeDefined()
+    }
+  })
+
+  it('keeps a silence that had already accrued before the Pause was taken', async () => {
+    // The other half of *withdrawn, not passed over*, and the one a Pause must not
+    // reach. A question asked on Monday, reminded on Tuesday and passed over on
+    // Wednesday is a silence the Leader owns by the time an Admin pauses on
+    // Wednesday afternoon. Nothing was taken back -- the conversation had already
+    // given up on it and moved to the next relationship -- so the week stands.
+    //
+    // *A Pause fell somewhere inside this conversation* cannot tell the two apart,
+    // and a Leader coming back from a fortnight away would find a week of their own
+    // silence quietly forgiven. The spec is explicit: **the pause does not answer
+    // the old ones**.
+    //
+    // Two relationships on one Leader, because that is the only shape where a
+    // question can lapse while the conversation it belongs to is still open. With
+    // one, the sequence closes on the pass-over and there is no window left to
+    // pause inside.
+    const church = await aMinistry('Already Silent Chapel')
+    const leader = await church.congregant('Leads Two')
+    const firstParticipant = await church.congregant('First Participant')
+    const secondParticipant = await church.congregant('Second Participant')
+
+    const before = new Date(firstWeek.getTime() - weeks(1))
+    for (const participant of [firstParticipant, secondParticipant]) {
+      await pairOneToOne(church.ministry, leader, participant, {
+        createdAt: before,
+        acceptedAt: before,
+      })
+    }
+
+    // Monday asks about the first of them. Tuesday reminds. Wednesday gives up on
+    // it and moves the conversation on to the second.
+    await church.tickAt(at(0))
+    await church.tickAt(new Date(at(0).getTime() + days(1)))
+    await church.tickAt(new Date(at(0).getTime() + days(2)))
+
+    const { rows: asked } = await pool.query<{ relationship_id: string }>(
+      `select distinct on (relationship_id) relationship_id
+         from checkin_prompt where ministry_id = $1 order by relationship_id, step`,
+      [church.ministry.id],
+    )
+    expect(asked).toHaveLength(2)
+
+    const { rows: order } = await pool.query<{ relationship_id: string }>(
+      `select relationship_id from checkin_prompt
+        where ministry_id = $1 order by step limit 1`,
+      [church.ministry.id],
+    )
+    const lapsed = order[0]?.relationship_id
+    expect(lapsed).toBeDefined()
+
+    // Wednesday afternoon: the Admin pauses the relationship whose question had
+    // already been given up on. The conversation is still open -- it is waiting on
+    // the other one -- so this pause falls squarely inside the same sequence.
+    await church.pauseAt(
+      new Date(at(0).getTime() + days(2) + 60_000),
+      lapsed as string,
+    )
+
+    // Nothing was withdrawn. There was no open question of theirs to withdraw.
+    const { rows: withdrawals } = await pool.query<{ type: string }>(
+      `select type from ministry_event
+        where subject_id = $1 and type = 'checkin.question_withdrawn'`,
+      [lapsed],
+    )
+    expect(withdrawals).toEqual([])
+
+    // And the week is still on the record, still unanswered. This is the
+    // assertion the old bound failed: it dropped the row because *a* pause
+    // landed in the sequence, without asking whether it had taken anything back.
+    const { rows: weeksOnRecord } = await pool.query<{
+      relationship_id: string
+      answered_at: Date | null
+    }>(
+      `select relationship_id, answered_at from relationship_weeks($1)
+        where relationship_id = $2`,
+      [church.ministry.id, lapsed],
+    )
+    expect(weeksOnRecord).toHaveLength(1)
+    expect(weeksOnRecord[0]?.answered_at).toBeNull()
+  })
+
+  it('takes back a question a new week displaces before any tick noticed the Pause', async () => {
+    // The narrow window, and the one the domain tests cannot reach on their own:
+    // an Admin who pauses between the last tick and the cadence hour. The very
+    // next tick opens a new week, and a new week abandons the old conversation
+    // outright -- so the tick that would have withdrawn the question never gets
+    // to look at it.
+    //
+    // Left there, the week reads as the Leader's silence: a prompt with no reply,
+    // no withdrawal event, and nothing in `relationship_weeks` to say Discipler
+    // had stopped asking. One week closer to `Stalled` for a question nobody was
+    // owed an answer to.
+    //
+    // Two relationships on one Leader again, and for a related reason: with one,
+    // pausing it leaves the Leader with nothing to be asked about, no new week
+    // comes due, and the ordinary mid-week withdrawal handles it. The displacement
+    // only happens when something else is still running.
+    const church = await aMinistry('Displaced Chapel')
+    const leader = await church.congregant('Leads Two More')
+    const firstParticipant = await church.congregant('Paused Participant')
+    const secondParticipant = await church.congregant('Running Participant')
+
+    const before = new Date(firstWeek.getTime() - weeks(1))
+    for (const participant of [firstParticipant, secondParticipant]) {
+      await pairOneToOne(church.ministry, leader, participant, {
+        createdAt: before,
+        acceptedAt: before,
+      })
+    }
+
+    // Week zero asks about the first of them, and nothing comes back.
+    await church.tickAt(at(0))
+
+    const { rows: order } = await pool.query<{ relationship_id: string }>(
+      `select relationship_id from checkin_prompt
+        where ministry_id = $1 order by step limit 1`,
+      [church.ministry.id],
+    )
+    const asked = order[0]?.relationship_id
+    expect(asked).toBeDefined()
+
+    // A minute before the next cadence hour -- after every tick that could have
+    // withdrawn it, and before the one that displaces it.
+    await church.pauseAt(new Date(at(1).getTime() - 60_000), asked as string)
+    await church.tickAt(at(1))
+
+    const { rows: withdrawals } = await pool.query<{ reason: string }>(
+      `select payload ->> 'reason' as reason from ministry_event
+        where subject_id = $1 and type = 'checkin.question_withdrawn'`,
+      [asked],
+    )
+    expect(withdrawals).toMatchObject([{ reason: 'paused' }])
+
+    // And the week is off the record rather than standing as an unanswered one.
+    // This is the assertion that fails without the withdrawal: the prompt is
+    // still there, unanswered, and nothing else says it was taken back.
+    const { rows: weeksOnRecord } = await pool.query(
+      `select relationship_id from relationship_weeks($1) where relationship_id = $2`,
+      [church.ministry.id, asked],
+    )
+    expect(weeksOnRecord).toEqual([])
+
+    // The Leader is still asked about the one still running, and told nothing
+    // about the one that is paused.
+    expect(await inbox(church.ministry, leader)).toHaveLength(2)
+  })
+
   it('never counts a withdrawn question as a week of silence', async () => {
     const church = await aMinistry('Unpenalised Chapel')
     const { leader, relationship } = await church.aRelationship('Unpenalised', 'Their Participant')

@@ -156,20 +156,22 @@ describe('the Starter Message acceptance releases', () => {
     expect(toParticipant[0]?.body).toContain('David Ellis and Sarah Kim')
   })
 
-  it('gives the Participant a link of their own, which is not the Leader’s', () => {
-    // Minted, and no longer texted to them: the Starter Message named it until
-    // the copy was settled. It is what makes `match.decline` answerable at all,
-    // and whether a Participant should have a self-serve route to it is in
-    // `docs/open-questions.md`.
+  it('mints no link for the Participant, because there is nothing for one to do', () => {
+    // A link asks somebody a question they have not answered. A Participant
+    // answered theirs at Intake, by consenting to be paired -- so only the Leader
+    // is sent one, and a Participant never declines. A match that is not working
+    // is a swap an Admin makes, not a refusal on a web page.
     const issued = result.effects.flatMap((e) =>
       e.kind === 'invitation.issue' ? [e.invitation] : [],
     )
 
-    expect(issued.map((i) => i.personId)).toEqual([emily])
-    expect(issued[0]?.token).not.toBe(token)
-    expect(enqueued(result).find((m) => m.personId === emily)?.body).not.toContain(
-      issued[0]?.token,
-    )
+    expect(issued).toEqual([])
+  })
+
+  it('still tells the Participant the relationship has started', () => {
+    // Sent no link is not the same as told nothing. The Starter Message goes to
+    // them exactly as before -- it is only what it used to carry that is gone.
+    expect(enqueued(result).find((message) => message.personId === emily)).toBeDefined()
   })
 })
 

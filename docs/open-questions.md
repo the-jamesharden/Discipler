@@ -217,12 +217,24 @@ column — is now reached by no product write path. It is kept, still tested aga
 forged row, and should be either given a use or removed deliberately rather than left
 to rot.
 
-**The decline link comes out of that message.** It was the Participant's only
-self-serve route to say the match is not right, so `match.decline` and the
-`match_declined` follow-up item are no longer reachable by anybody who has not been
-handed the link by an Admin. The Participant's Invitation Link is still minted at
-acceptance, so the route exists the moment something surfaces it. **Reopened against
-ticket 06:** whether a Participant should have a self-serve way to decline at all.
+**The decline link comes out of that message — and then so does the link.** It was
+the Participant's only self-serve route to say the match is not right, which
+reopened ticket 06's question of whether they should have one at all.
+
+**Settled 2026-08-30: they should not.** A Participant consented to be paired at
+Intake, and declining is asking them the same question again on a web page. What
+they may ask for instead is a **swap**, which reaches an Admin as a request rather
+than a state change — and a Participant who simply stops meeting or stops replying
+has said so through the silence the care rules already read. Either way an Admin
+unpairs and re-pairs, which is a pastoral decision and stays one.
+
+So nothing mints a Participant link any more, and `match.decline` is unreachable.
+Two consequences are **deliberately not** taken here, because neither is this
+ticket's: withdrawing `match.decline`, its route and the `match_declined` kind is
+ticket 06's work and has to leave the enum value intact for whatever history
+already carries it; and a Participant-initiated swap is a capability nothing has
+built — `swap_requested` is raised by nobody today, and ticket 17 still frames
+`SWAP` as a Leader's keyword.
 
 **A resume gets its own sentence**, not the Starter Message: *"Your discipleship with
 [Leader] has been resumed!"*, to both sides with the other side's names in it. *You
@@ -230,7 +242,7 @@ have been paired* is true on the day the match is made, and a Ministry that sent
 after a fortnight away would be telling somebody they had been matched to the person
 they have been meeting all year.
 
-Settled 2026-08-30. Recorded in ticket 12.
+Settled 2026-08-30. Recorded in ticket 12, and in `docs/product-rules.md`: the copy under *Settled: Leader Acceptance Activates a Relationship*, the resume message as a **Supersedes** note under *Settled: Pause Is Leader-Controlled, Bounded, and Visible*, and the disclosure consequence under *Settled: Consent Is Recorded, Versioned, and Enforced at Send Time*. `CONTEXT.md` gains **Resume Message** and no longer says the Starter Message is sent twice.
 
 ## Resolved: a Pause takes back a question that is already out
 
@@ -247,7 +259,7 @@ belonged to is dropped from `relationship_weeks` entirely. That settles the spec
 Keyword Exchange route it was written for — ticket 17 inherits the rule rather than
 building it.
 
-Settled 2026-08-30. Recorded in ticket 12.
+Settled 2026-08-30. Recorded in ticket 12, and in `docs/product-rules.md` under *Settled: Pause Is Leader-Controlled, Bounded, and Visible*, which now states the withdrawal rule as the Pause's rather than the keyword exchange's — including the half a Pause must **not** reach: a question already asked and already lapsed is a silence that had accrued before anybody stepped back.
 
 ## Deferred with the quarterly report
 

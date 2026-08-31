@@ -19,6 +19,38 @@
 -- by tickets 07 and 10 and is used unchanged.
 
 -- ---------------------------------------------------------------------------
+-- A Pause carries a period somebody could have selected
+-- ---------------------------------------------------------------------------
+
+-- The five periods, said in the one place a Pause is actually written. The union in
+-- `pause.ts` is a compile-time guard and the command boundary now checks the value
+-- it was handed, but `ministry_event` takes any `jsonb` by design -- it holds facts
+-- of every shape -- so neither of those stands between a hand-written `insert` and
+-- a row nothing can read back.
+--
+-- And a row nothing can read back is expensive out of all proportion to itself.
+-- `readStandingPause` throws on a period that is not one of the five, deliberately:
+-- reading it as no pause at all puts a Leader who is on holiday back in the care
+-- queue, and defaulting it to two weeks restarts somebody's review on a date nobody
+-- chose. But both readers go through it -- the tick and the Care Needed view -- so
+-- one drifted row takes down a whole Ministry's tick and its whole care queue. The
+-- guard belongs on the way in, where it costs one row.
+--
+-- `jsonb` equality rather than a cast to integer: `'"soon"'::jsonb` compares false
+-- here and would raise on `::integer`, and a check constraint that can itself throw
+-- is a second failure mode rather than a guard against the first. The `coalesce`
+-- is what closes the gap a missing key would otherwise open -- `payload ->
+-- 'periodWeeks'` is SQL NULL when the key is absent, and a check constraint passes
+-- on NULL, so a `relationship.paused` carrying no period at all would slip past.
+alter table ministry_event
+  add constraint ministry_event_pause_carries_a_selectable_period
+  check (
+    type <> 'relationship.paused'
+    or coalesce(payload -> 'periodWeeks', 'null'::jsonb)
+         in ('1'::jsonb, '2'::jsonb, '4'::jsonb, '8'::jsonb, '12'::jsonb)
+  );
+
+-- ---------------------------------------------------------------------------
 -- The pause that stands right now
 -- ---------------------------------------------------------------------------
 
@@ -108,11 +140,31 @@ create index ministry_event_relationship_pause_idx
 -- paused an hour later said something true, and a Pause does not unsay it -- so the
 -- `having` keeps every week a reply landed for, whatever happened afterwards.
 --
--- Bounded to the conversation, not to "is paused now". A relationship paused in
--- March and resumed in April must not have its March silence erased retroactively
--- when it is paused again in June; the pause has to have fallen inside the very
--- sequence whose week is being dropped. A sequence still open takes every pause
--- since it started, because it has not finished asking yet.
+-- **Only the question the Pause actually took back.** *A Pause taken during this
+-- conversation* is too broad a test, and it erases silence that had already
+-- accrued: a question asked on Monday, reminded on Tuesday and passed over on
+-- Wednesday is a silence the Leader owns by the time an Admin pauses on Thursday,
+-- and the spec says in as many words that *the pause does not answer the old ones*.
+-- Dropping that week would be answering one.
+--
+-- So the test is the withdrawal itself, in two shapes, and there is no third:
+--
+--   1. **The question that was open.** The domain writes `checkin.question_withdrawn`
+--      at the moment it takes a question back, naming the sequence it belonged to.
+--      That event *is* the withdrawal -- reading it here is not an inference about
+--      one, and a lapsed question has none because nothing withdrew it.
+--
+--   2. **A turn this conversation never reached.** A relationship paused before its
+--      question came round is skipped in silence: nothing was asked of the Leader,
+--      so there is no question to withdraw and no event to write, and no silence to
+--      count either. Recognised by the absence of any prompt for it in the sequence,
+--      which is the only shape that has one.
+--
+-- Shape 2 is still bounded to the conversation rather than to "is paused now". A
+-- relationship paused in March and resumed in April must not have its March silence
+-- erased retroactively when it is paused again in June; the pause has to have fallen
+-- inside the very sequence whose week is being dropped. A sequence still open takes
+-- every pause since it started, because it has not finished asking yet.
 --
 -- The upper bound is exclusive, and that is not a detail. `closed_at` is the
 -- instant a conversation stopped being the open one, and a new week closes last
@@ -146,15 +198,38 @@ as $$
    where s.ministry_id = target_ministry_id
    group by covered.relationship_id, s.id, s.started_at, s.closed_at
   having max(p.answered_at) is not null
-      or not exists (
-           select 1
-             from public.ministry_event e
-            where e.ministry_id = target_ministry_id
-              and e.subject_type = 'relationship'
-              and e.type = 'relationship.paused'
-              and e.subject_id = covered.relationship_id
-              and e.occurred_at >= s.started_at
-              and (s.closed_at is null or e.occurred_at < s.closed_at)
+      or not (
+           -- 1. The open question, taken back.
+           exists (
+             select 1
+               from public.ministry_event e
+              where e.ministry_id = target_ministry_id
+                and e.subject_type = 'relationship'
+                and e.type = 'checkin.question_withdrawn'
+                and e.subject_id = covered.relationship_id
+                and e.payload ->> 'reason' = 'paused'
+                and e.payload ->> 'sequenceId' = s.id::text
+           )
+           -- 2. A turn nothing was ever asked about, because a Pause landed first.
+           or (
+             not exists (
+               select 1
+                 from public.checkin_prompt asked
+                where asked.ministry_id = target_ministry_id
+                  and asked.sequence_id = s.id
+                  and asked.relationship_id = covered.relationship_id
+             )
+             and exists (
+               select 1
+                 from public.ministry_event e
+                where e.ministry_id = target_ministry_id
+                  and e.subject_type = 'relationship'
+                  and e.type = 'relationship.paused'
+                  and e.subject_id = covered.relationship_id
+                  and e.occurred_at >= s.started_at
+                  and (s.closed_at is null or e.occurred_at < s.closed_at)
+             )
+           )
          );
 $$;
 

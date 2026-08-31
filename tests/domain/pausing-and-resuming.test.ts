@@ -130,6 +130,37 @@ describe('an Admin pausing a relationship', () => {
       expect(events(pause({}, period))[0]?.payload).toMatchObject({ periodWeeks: period })
     }
     expect(PAUSE_PERIODS).toEqual([1, 2, 4, 8, 12])
+
+    // And refuses everything else, which is the half of the name the union cannot
+    // prove. `PausePeriodWeeks` is erased at runtime and this command is built from
+    // a request body, so the cast below is exactly what a POST of `{"periodWeeks":
+    // 3}` would hand the boundary.
+    for (const notAPeriod of [0, 3, 6, 13, 52, -2, 2.5, Number.NaN]) {
+      expect(() => pause({}, notAPeriod as PausePeriodWeeks)).toThrow(
+        new PauseRefused('pause.period_not_selectable'),
+      )
+    }
+  })
+
+  it('refuses a period that arrived as something other than a number', () => {
+    // The same door, and the shapes a JSON body most easily comes through it as.
+    for (const notANumber of ['2', {}, [2], true]) {
+      expect(() => pause({}, notANumber as unknown as PausePeriodWeeks)).toThrow(
+        new PauseRefused('pause.period_not_selectable'),
+      )
+    }
+  })
+
+  it('reads an absent period as the Admin not choosing, and never as a bad one', () => {
+    // Both spellings of *not chosen* mean two weeks. `null` is what a JSON body
+    // carries for a select nobody touched, and refusing it would turn the default
+    // this ticket exists to have into a validation error on the ordinary case.
+    // The guard therefore runs after the default is applied, never before.
+    for (const unchosen of [undefined, null]) {
+      expect(events(pause({}, unchosen as undefined))[0]?.payload).toMatchObject({
+        periodWeeks: DEFAULT_PAUSE_PERIOD_WEEKS,
+      })
+    }
   })
 
   it('tells nobody', () => {

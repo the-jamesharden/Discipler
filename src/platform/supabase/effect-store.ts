@@ -173,6 +173,28 @@ const pausedColumn = `coalesce(
                   limit 1),
                 false
               ) as paused`
+
+// The open members of the relationship `$1`, in a stable order.
+//
+// Two messages *list* these names in a sentence -- the Starter Message tells a
+// group's Participant who their Leaders are, and the Resume Message names the
+// other side -- and two members paired in one action share a `started_at` to the
+// millisecond, which leaves the tie to the planner. The same group could be read
+// *David and Sarah* on one send and *Sarah and David* on the next.
+//
+// `full_name` is the tiebreak because it is the only part of the ordering that
+// means anything to the person reading the message; `person_id` settles two people
+// who share a name, and settles it the same way every time. One ordering rule, so
+// the two readers cannot drift apart and put two messages in two different orders.
+//
+// Open memberships only. Whoever has left is not in the set a token resolves to
+// and is not somebody a resume writes to.
+const openMembersOfRelationship = `select m.person_id, m.role, p.full_name, p.phone, m.accepted_at
+     from relationship_member m
+     join person p on p.id = m.person_id
+    where m.relationship_id = $1 and m.ended_at is null
+    order by m.role, m.started_at, p.full_name, m.person_id`
+
 const asCheckInRelationship = (
   row: CheckInRelationshipRow & { paused: boolean },
 ): CheckInRelationship => ({
@@ -463,22 +485,15 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       invitation.relationship_id,
     ])
 
-    // Open memberships only. A token naming a relationship its holder has since
-    // left resolves to a set they are not in, and the boundary refuses it.
+    // A token naming a relationship its holder has since left resolves to a set
+    // they are not in, and the boundary refuses it.
     const { rows: members } = await client.query<{
       person_id: string
       role: MemberRole
       full_name: string
       phone: string | null
       accepted_at: Date | null
-    }>(
-      `select m.person_id, m.role, p.full_name, p.phone, m.accepted_at
-         from relationship_member m
-         join person p on p.id = m.person_id
-        where m.relationship_id = $1 and m.ended_at is null
-        order by m.role, m.started_at`,
-      [invitation.relationship_id],
-    )
+    }>(openMembersOfRelationship, [invitation.relationship_id])
 
     return {
       relationshipId: relationshipId(invitation.relationship_id),
@@ -755,25 +770,17 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     const relationship = rows[0]
     if (!relationship) return null
 
-    // Open memberships only. Whoever already left is not somebody this returns to
-    // the pool -- they are already in it.
-    //
-    // The name and the number ride along because a resume tells everybody here
-    // that the relationship is running again, and that message needs a recipient
-    // and the names on the other side of the relationship.
+    // Whoever already left is not somebody this returns to the pool -- they are
+    // already in it. The name and the number ride along because a resume tells
+    // everybody here that the relationship is running again, and that message
+    // needs a recipient and the names on the other side of it. `accepted_at`
+    // comes back too and is not read; one ordering rule is worth one column.
     const { rows: members } = await client.query<{
       person_id: string
       role: MemberRole
       full_name: string
       phone: string | null
-    }>(
-      `select m.person_id, m.role, p.full_name, p.phone
-         from relationship_member m
-         join person p on p.id = m.person_id
-        where m.relationship_id = $1 and m.ended_at is null
-        order by m.role, m.started_at`,
-      [id],
-    )
+    }>(openMembersOfRelationship, [id])
 
     // The Pause standing on it right now, read the same way every other caller
     // reads one: the later of `relationship.paused` and `relationship.resumed`.
@@ -870,7 +877,6 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       [cancellation.relationshipId, cancellation.cancelledAt],
     )
   },
-
 
   async checkInFor(id: PersonId): Promise<CheckInSnapshot | null> {
     // One conversation per Leader at a time, and the lock is what keeps it that

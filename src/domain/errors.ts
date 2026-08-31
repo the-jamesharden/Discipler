@@ -163,6 +163,13 @@ export type PauseRefusal =
   | 'pause.already_paused'
   /** No pause stands, so there is nothing to resume. */
   | 'pause.not_paused'
+  /**
+   * A period that is not one of the five. The `PausePeriodWeeks` union says so at
+   * compile time, but a command is built from a request body, and a number that
+   * reached here unchecked would be written into history as a Pause nothing can
+   * read back.
+   */
+  | 'pause.period_not_selectable'
 
 export class PauseRefused extends Error {
   constructor(readonly refusal: PauseRefusal) {

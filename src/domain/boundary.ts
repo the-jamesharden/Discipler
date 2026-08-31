@@ -46,8 +46,11 @@ import {
   type CheckInQuestion,
   type CheckInReply,
   type CheckInRelationship,
+  type CheckInResolution,
   type CheckInSequenceId,
   type CheckInSnapshot,
+  type OpenPrompt,
+  type OpenSequence,
 } from './check-in'
 import { calendarMonthOf } from './week'
 import { readIntakeForm } from './intake'
@@ -81,7 +84,6 @@ import {
   invitationToken,
   issueInvitation,
   type InvitationToken,
-  type NewInvitation,
 } from './invitations'
 import {
   ACCEPTANCE_ESCALATION_DAYS,
@@ -92,6 +94,7 @@ import {
 } from './relationships'
 import {
   DEFAULT_PAUSE_PERIOD_WEEKS,
+  isPausePeriod,
   pauseExpiresAt,
   pauseHasExpired,
   type PausePeriodWeeks,
@@ -239,9 +242,11 @@ export interface UnacceptedRelationship {
 
 /**
  * One member of the relationship an Admin command names, as the database holds
- * them now. The same four facts an `InvitedMember` carries, minus the acceptance
- * -- a command that names a relationship has already been handed the
- * relationship's own activation date -- plus the link the Participant is holding.
+ * them now: who they are, which side of the relationship they are on, and how to
+ * reach them. No acceptance date, because a command that names a relationship has
+ * already been handed the relationship's own. No invitation link either -- the
+ * Participant still holds one, but nothing a command composes puts it in a
+ * message, so nothing here needs to read it.
  */
 export interface RelationshipMember {
   readonly personId: PersonId
@@ -610,6 +615,72 @@ const abandonSequence = (abandonment: {
 }
 
 /**
+ * A question a Pause took back, as history records it.
+ *
+ * Withdrawn is not passed over. A passed-over question is a silence the Leader
+ * owns and ticket 10 counts; this one is Discipler's to take back, so nothing
+ * about the relationship-week it belongs to may read as unanswered --
+ * `relationship_weeks` drops that week on the strength of this event and nothing
+ * else. Which is why every route that stops asking a question because of a Pause
+ * comes through here, and there are two of them: the tick that notices mid-week,
+ * and a new week displacing the conversation before any tick did.
+ */
+const withdrawQuestion = (withdrawal: {
+  readonly ministryId: MinistryId
+  readonly at: Date
+  readonly sequenceId: CheckInSequenceId
+  readonly relationshipId: RelationshipId
+  readonly awaiting: OpenPrompt
+}): Effect =>
+  appendHistory({
+    ministryId: withdrawal.ministryId,
+    occurredAt: withdrawal.at,
+    type: 'checkin.question_withdrawn',
+    subjectType: 'relationship',
+    subjectId: withdrawal.relationshipId,
+    payload: {
+      sequenceId: withdrawal.sequenceId,
+      promptId: withdrawal.awaiting.promptId,
+      question: withdrawal.awaiting.question,
+      reason: 'paused',
+    },
+  })
+
+/**
+ * The ladder, minus every relationship a Pause reached before its turn did.
+ *
+ * `covering` is fixed when the conversation opens, so that a Pause halfway
+ * through does not renumber the questions still to come -- which means a Pause
+ * taken since is in nobody's list, and every place the conversation moves
+ * forward has to step over it. There are three, and together they are the whole
+ * of *pausing suppresses that relationship's check-ins*: a reply, a question
+ * given up on, and a question a Pause took back. A rule that held only for the
+ * question which happened to be open would send the next one a minute later.
+ *
+ * Nothing is recorded for the ones stepped over. Their turn was never reached,
+ * so there is no question to withdraw, and `relationship_weeks` already reads a
+ * covered relationship with no prompt as nothing having been asked.
+ */
+const advancePastPaused = (
+  sequence: OpenSequence,
+  awaiting: OpenPrompt,
+  resolution: CheckInResolution,
+): CheckInAdvance => {
+  let advance = advanceCheckIn(sequence, awaiting, resolution)
+
+  // `PASSED_OVER` from the position reached, which is what moves the ladder on
+  // without recording anything. It always advances, so the walk terminates even
+  // where the first step was a follow-up question on the relationship just
+  // paused -- a Leader who answered *yes we met* an hour before the Pause is not
+  // then asked how it went.
+  while (advance.kind === 'ask' && advance.relationship.paused) {
+    advance = advanceCheckIn(sequence, { ...awaiting, position: advance.position }, PASSED_OVER)
+  }
+
+  return advance
+}
+
+/**
  * What opening one Leader's conversation comes to, wherever the decision to open
  * it was made. Two callers: the cadence dispatcher inside the tick, and
  * `checkin.start`, the direct trigger 08a was built against and which nothing in
@@ -636,12 +707,37 @@ const openConversationWith = (
   // unanswered questions stay unanswered rather than being tidied away: they
   // are what ticket 10's Stalled rule reads, and answering them on the
   // Leader's behalf is the one thing that would hide a Leader going quiet.
-  if (checkIn.openSequence) {
+  //
+  // All but one. A question whose relationship was paused while it was out is a
+  // question Discipler has stopped asking, and a new week displacing the
+  // conversation is not the Leader answering it -- so it is withdrawn here on
+  // the way past, exactly as the tick would have withdrawn it. Narrow, and real:
+  // an Admin who pauses between the last tick and the cadence hour is the one
+  // Admin whose Pause is displaced before any tick notices it, and without this
+  // the week Discipler stopped asking about still reads as their Leader's
+  // silence -- one week closer to `Stalled` for a question nobody was owed.
+  const displaced = checkIn.openSequence
+  if (displaced) {
+    const awaiting = displaced.awaiting
+    const askedAbout = awaiting ? displaced.covering[awaiting.position - 1] : undefined
+
+    if (awaiting && askedAbout?.paused) {
+      effects.push(
+        withdrawQuestion({
+          ministryId,
+          at: now,
+          sequenceId: displaced.sequenceId,
+          relationshipId: askedAbout.relationshipId,
+          awaiting,
+        }),
+      )
+    }
+
     effects.push(
       ...abandonSequence({
         ministryId,
         personId: checkIn.personId,
-        sequenceId: checkIn.openSequence.sequenceId,
+        sequenceId: displaced.sequenceId,
         at: now,
         reason: 'displaced',
       }),
@@ -753,37 +849,18 @@ const chaseTheOpenQuestion = (
   // A Pause taken since this question went out withdraws it, and withdraws it
   // *now* rather than at the next lapse: the reminder is a text to a Leader who
   // has just stepped back, which is the one message a Pause exists to stop.
-  //
-  // Withdrawn, not passed over. A passed-over question is a silence the Leader
-  // owns and ticket 10 counts; this one is Discipler's to take back, so nothing
-  // about the relationship-week it belongs to may read as unanswered --
-  // `relationship_weeks` drops it, which is what *a pause never accrues silence
-  // against itself* comes to in the data.
-  //
-  // The conversation then moves to the next relationship there is any point
-  // asking about. Ones paused alongside it are skipped in silence, exactly as
-  // `relationshipsToAskAbout` skips them when a conversation opens and for the
-  // same reason: a relationship nobody was asked about has no question to
-  // withdraw and no event to record.
+  // Why withdrawn rather than passed over is `withdrawQuestion`'s, and where the
+  // conversation goes next is `advancePastPaused`'s.
   if (relationship.paused) {
-    const withdrawn = appendHistory({
+    const withdrawn = withdrawQuestion({
       ministryId,
-      occurredAt: now,
-      type: 'checkin.question_withdrawn',
-      subjectType: 'relationship',
-      subjectId: relationship.relationshipId,
-      payload: {
-        sequenceId: sequence.sequenceId,
-        promptId: awaiting.promptId,
-        question: awaiting.question,
-        reason: 'paused',
-      },
+      at: now,
+      sequenceId: sequence.sequenceId,
+      relationshipId: relationship.relationshipId,
+      awaiting,
     })
 
-    let onward = advanceCheckIn(sequence, awaiting, PASSED_OVER)
-    while (onward.kind === 'ask' && onward.relationship.paused) {
-      onward = advanceCheckIn(sequence, { ...awaiting, position: onward.position }, PASSED_OVER)
-    }
+    const onward = advancePastPaused(sequence, awaiting, PASSED_OVER)
 
     if (onward.kind === 'finish') {
       return [
@@ -838,7 +915,7 @@ const chaseTheOpenQuestion = (
     },
   })
 
-  const advance = advanceCheckIn(sequence, awaiting, PASSED_OVER)
+  const advance = advancePastPaused(sequence, awaiting, PASSED_OVER)
 
   // The last relationship, given up on. There is nothing left to ask and no
   // thank-you to send: the Leader did not finish this conversation, and thanking
@@ -1270,7 +1347,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         )
       }
 
-      const advance = advanceCheckIn(sequence, awaiting, reply)
+      const advance = advancePastPaused(sequence, awaiting, reply)
 
       if (advance.kind === 'finish') {
         effects.push(
@@ -1379,6 +1456,15 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
 
       const periodWeeks: PausePeriodWeeks =
         command.periodWeeks ?? DEFAULT_PAUSE_PERIOD_WEEKS
+
+      // Checked, not trusted. `PausePeriodWeeks` is a compile-time union and this
+      // command is built from a request body, so nothing between the two has
+      // actually looked at the number. A three-week pause written into history is
+      // a row `readStandingPause` refuses -- on the tick and on Care Needed both --
+      // so the cheapest place to stop it is here, before it is a fact.
+      if (!isPausePeriod(periodWeeks)) {
+        throw new PauseRefused('pause.period_not_selectable')
+      }
 
       // One event and nothing else. Membership is untouched -- which is the whole
       // of *nobody returns to the suggestion pool*, because `participation_status`
@@ -1884,29 +1970,17 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         }),
       )
 
-      // A Participant gets a link of their own -- the same mechanism as the
-      // Leader's, leading to declining rather than accepting -- minted here
-      // because activation is the first moment there is one to mint.
+      // **No link for a Participant, and there is nothing for one to do.** An
+      // Invitation Link is how somebody is asked a question they have not yet
+      // answered, and a Participant has already answered theirs: they completed
+      // Intake and consented to be paired, which is the agreement a Leader's
+      // acceptance is the other half of. Only the Leader is sent one.
       //
-      // **Nothing texts it to them.** The Starter Message named it until the copy
-      // was settled and no longer does, so today the only way a Participant
-      // reaches their own page is an Admin handing them the link. Minting it
-      // anyway keeps that possible and keeps `match.decline` answerable; whether
-      // a Participant should have a self-serve way to say the match is wrong is
-      // ticket 06's question, reopened in `docs/open-questions.md`.
-      for (const participant of participants) {
-        effects.push(
-          issueInvitationLink(
-            issueInvitation({
-              ministryId: command.ministryId,
-              relationshipId: invitation.relationshipId,
-              personId: participant.personId,
-              token: invitationToken(context.ids.next()),
-              at: now,
-            }),
-          ),
-        )
-      }
+      // So a Participant does not decline. A match that is not working is a
+      // pastoral matter and reaches Discipler as a swap -- the Admin unpairs and
+      // re-pairs -- rather than as a Participant refusing the relationship on a
+      // web page. Somebody who stops meeting or stops replying says so by the
+      // silence the care rules already read, and an Admin acts on that.
 
       // The Starter Message. The Leaders' names the Participants; the
       // Participants' names the Leaders, and neither carries a number -- so this

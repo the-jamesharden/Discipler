@@ -95,10 +95,16 @@ _Avoid_: Twilio Rhythm (Twilio is a delivery vendor, not a domain concept)
 The message a person receives on completing intake, before any relationship exists.
 
 **Starter Message**:
-The message that opens a discipleship relationship, sent when the relationship becomes active and again when it resumes from a pause. It always carries the ministry's required opt-out and rate disclosure language. It never carries anyone's phone number.
+The message that opens a discipleship relationship, sent once, when it becomes active. A Participant's names the Leader who will reach out to them; a Leader's names the Participants they are now meeting with. It always carries the ministry's required opt-out and rate disclosure language. It never carries anyone's phone number.
+_Avoid_: sending it again on resume (that is the Resume Message)
+
+**Resume Message**:
+The message sent to everyone in a relationship when an Admin resumes it from a Pause, each side named the other side. It carries the ministry's opt-out and rate disclosure language. A Pause running out releases nothing.
+_Avoid_: Starter Message (its words are true on the day a match is made, not after a fortnight away)
 
 **Invitation Link**:
-The individualized, SMS-delivered link that reveals a new relationship to a person in it, with no session. It resolves on its own page rather than in the leader dashboard, because a leader has no account until they accept. Possession of the phone it was sent to is the authentication; it expires after a fixed window and is consumed when the leader creates their account, not when it is opened. A participant holds one too, issued on activation, which leads to declining the match rather than accepting it.
+The individualized, SMS-delivered link that reveals a new relationship to a person in it, with no session. Only a Leader is ever sent one. It resolves on its own page rather than in the leader dashboard, because a leader has no account until they accept. Possession of the phone it was sent to is the authentication; it expires after a fixed window and is consumed when the leader creates their account, not when it is opened.
+_Avoid_: a Participant's link (a Participant answers at Intake and is asked nothing further)
 
 **Response-Required Message**:
 A message in the Check-In Rhythm that expects a reply from its recipient.
