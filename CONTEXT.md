@@ -80,7 +80,7 @@ The leader-facing web surface, entered by phone number and password. One-time co
 A single grid on which the availability slots of everyone in a discipleship relationship are drawn together, so a leader can see where meeting times coincide.
 
 **Material**:
-A discipleship resource a relationship works through, such as a book of the Bible or a published discipleship manual.
+A discipleship resource a relationship works through, such as a book of the Bible or a published discipleship manual. Each is a Ministry's own writing, a document it holds, or both. The list of them belongs to the Ministry, in the same way its Discipleship Goal options do.
 _Avoid_: Program, curriculum
 
 **Material Assignment**:

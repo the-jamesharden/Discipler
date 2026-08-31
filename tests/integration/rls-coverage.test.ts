@@ -67,6 +67,8 @@ describe('every ministry-owned table', () => {
       'intake_availability',
       'intake_submission',
       'invitation',
+      'material',
+      'material_assignment',
       'ministry',
       'ministry_event',
       'ministry_member',

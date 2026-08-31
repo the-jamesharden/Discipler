@@ -4,6 +4,7 @@ import {
   acceptInvitation,
   appendHistory,
   askCheckInQuestion,
+  assignMaterial,
   clarifyCheckInQuestion,
   closeCheckInSequence,
   openCheckInSequence,
@@ -32,6 +33,7 @@ import {
   EndingRefused,
   IntakeRefused,
   InvitationRefused,
+  MaterialAssignmentRefused,
   PairingRefused,
   PauseRefused,
 } from './errors'
@@ -1583,6 +1585,66 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       }
     }
 
+    case 'relationship.assign_material': {
+      const relationship = context.relationship
+      if (!relationship) {
+        throw new Error('relationship.assign_material was handed no relationship to act on')
+      }
+
+      const now = context.clock.now()
+
+      // Terminal first, as everywhere else. A relationship that is over has no
+      // further week to attribute, and a period opened after its ending would be
+      // one no report could ever ask about.
+      if (relationship.endedAt !== null) {
+        throw new MaterialAssignmentRefused('material.relationship_ended')
+      }
+      // The period with no Material starts at acceptance. Before that there is
+      // nothing to close, and a period opened now would start after the one
+      // acceptance is about to open -- which is the gap the opening period exists
+      // to prevent, written by the very act that was supposed to fill it.
+      if (relationship.acceptedAt === null) {
+        throw new MaterialAssignmentRefused('material.relationship_not_accepted')
+      }
+
+      // A Pause is not checked, deliberately. It suspends this relationship's
+      // check-ins and nothing else, and deciding what a Leader will pick up when
+      // they come back is exactly the sort of thing an Admin does during one. The
+      // weeks a Pause covers are dropped from `relationship_weeks` anyway, so the
+      // period spanning it attributes nothing either way.
+      //
+      // Nor is the Material this relationship is already on. Assigning the same
+      // one again is a dated fact like any other -- it closes one period and opens
+      // another with the same Material in it, which leaves every report that sums
+      // by Material with the same answer and leaves the record saying truthfully
+      // that somebody decided this on that day.
+      return {
+        rejections: [],
+        effects: [
+          assignMaterial({
+            ministryId: command.ministryId,
+            relationshipId: relationship.relationshipId,
+            materialId: command.materialId,
+            assignedAt: now,
+            assignedBy: command.assignedBy,
+          }),
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'relationship.material_assigned',
+            subjectType: 'relationship',
+            subjectId: relationship.relationshipId,
+            // Append-only, so this is the record that survives the Admin leaving
+            // the Ministry and `assigned_by` being nulled with them. The period
+            // that ended is deliberately absent: it is a row with a date on it,
+            // and a second copy of that date here would be an answer waiting to
+            // disagree with the first.
+            payload: { materialId: command.materialId, assignedBy: command.assignedBy },
+          }),
+        ],
+      }
+    }
+
     case 'relationship.pause': {
       const relationship = context.relationship
       if (!relationship) {
@@ -2119,6 +2181,24 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           subjectType: 'relationship',
           subjectId: invitation.relationshipId,
           payload: { participantCount: participants.length },
+        }),
+        // The Material history opens here, with a period that has no Material in
+        // it. *Periods never leave gaps* includes the time before a Ministry has
+        // assigned anything, and a row saying *none* is a fact a later report can
+        // answer with -- where no row at all is indistinguishable from a defect,
+        // in exactly the history this ticket exists because nobody can
+        // reconstruct.
+        //
+        // At activation rather than at creation, and at this instant rather than
+        // `createdAt`: no check-in week exists before every Leader has agreed, so
+        // a period covering time no meeting could be reported in is noise. It
+        // carries no Admin, because no Admin performed it.
+        assignMaterial({
+          ministryId: command.ministryId,
+          relationshipId: invitation.relationshipId,
+          materialId: null,
+          assignedAt: now,
+          assignedBy: null,
         }),
       )
 

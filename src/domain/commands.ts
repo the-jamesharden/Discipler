@@ -1,4 +1,11 @@
-import type { ConcernId, FollowUpItemId, MinistryId, PersonId, RelationshipId } from './ids'
+import type {
+  ConcernId,
+  FollowUpItemId,
+  MaterialId,
+  MinistryId,
+  PersonId,
+  RelationshipId,
+} from './ids'
 import type { IntakeFormFields } from './intake'
 import type { InvitationToken } from './invitations'
 import type { PausePeriodWeeks } from './pause'
@@ -132,6 +139,32 @@ export type Command =
       readonly personId: PersonId
       /** The Admin's account, as the session named it. */
       readonly departedBy: string
+    }
+  /**
+   * An Admin putting a relationship onto a Material.
+   *
+   * The screen that does this is deferred from V1 and the data is not, so this
+   * command exists with nothing routing to it -- the seam the assignment rules
+   * are proven against, in the same way `checkin.start` is the seam the
+   * conversation was proven against before a cadence existed to open one.
+   *
+   * It closes whatever period was running and opens a new one at the same instant,
+   * because *periods never overlap and never leave gaps* is a fact about the pair.
+   * There is no un-assign: one Material at a time means the history moves from one
+   * to the next, and the only period with no Material in it is the one acceptance
+   * opened.
+   */
+  | {
+      readonly type: 'relationship.assign_material'
+      readonly ministryId: MinistryId
+      readonly relationshipId: RelationshipId
+      readonly materialId: MaterialId
+      /**
+       * The Admin's account, as the session named it. What a relationship is
+       * working through is a pastoral decision recorded against a Ministry's
+       * history, so it names who made it like every other Admin act.
+       */
+      readonly assignedBy: string
     }
   /**
    * An Admin pausing a relationship, so they can act on something they have been

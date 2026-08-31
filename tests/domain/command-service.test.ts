@@ -134,6 +134,9 @@ describe('applying a command\'s effects', () => {
         endRelationship: async () => {
           throw new Error('nothing should have been ended')
         },
+        assignMaterial: async () => {
+          throw new Error('no Material should have been assigned')
+        },
         departFromRelationship: async () => {
           throw new Error('nobody should have left anything')
         },

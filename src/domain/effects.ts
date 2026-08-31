@@ -6,7 +6,7 @@ import type {
 } from './check-in'
 import type { ConcernResolution, ConcernViewing, NewConcern } from './concerns'
 import type { NewHistoryEvent } from './history'
-import type { MinistryId, PersonId, RelationshipId } from './ids'
+import type { MaterialId, MinistryId, PersonId, RelationshipId } from './ids'
 import type {
   AgeBand,
   AvailabilitySlot,
@@ -205,6 +205,42 @@ export interface ParticipantDeparture {
 }
 
 /**
+ * One period a relationship spends on one Material, opened -- and, where one was
+ * already running, the previous period closed at the same instant. One effect
+ * rather than a close and an open, because *periods never leave gaps* is a fact
+ * about the pair of them: a close applied without its open, or an open with a
+ * different instant on it, would put a hole in a history that cannot be
+ * reconstructed afterwards.
+ *
+ * Two things emit it, and they differ only in what is in the period. Acceptance
+ * opens the one with no Material and no Admin behind it; an Admin assigning opens
+ * one with both.
+ */
+export interface MaterialAssignment {
+  readonly ministryId: MinistryId
+  readonly relationshipId: RelationshipId
+  /**
+   * Null on exactly one period per relationship: the one acceptance opens, before
+   * the Ministry has assigned anything. A row saying *no Material*, rather than no
+   * row -- a report asking what was in use that week gets a fact instead of a
+   * silence indistinguishable from a defect.
+   */
+  readonly materialId: MaterialId | null
+  /**
+   * When this period begins, and when the previous one ends. One instant for both
+   * halves, which is the whole of *never overlap and never leave gaps*.
+   */
+  readonly assignedAt: Date
+  /**
+   * The Admin who decided, checked the way every other Admin act's actor is
+   * checked: the composite key onto `ministry_member` refuses somebody who merely
+   * holds an account. Null on the opening period, which no Admin performed --
+   * acceptance opened it.
+   */
+  readonly assignedBy: string | null
+}
+
+/**
  * One Leader's weekly conversation, opened. The relationships it covers are fixed
  * at this moment rather than re-read as it advances, so a pause halfway through
  * does not renumber the questions still to come.
@@ -337,6 +373,7 @@ export type Effect =
     }
   | { readonly kind: 'relationship.end'; readonly ending: RelationshipEnding }
   | { readonly kind: 'relationship.depart'; readonly departure: ParticipantDeparture }
+  | { readonly kind: 'material.assign'; readonly assignment: MaterialAssignment }
   | { readonly kind: 'checkin.open'; readonly sequence: NewCheckInSequence }
   | { readonly kind: 'checkin.ask'; readonly prompt: NewCheckInPrompt }
   | { readonly kind: 'checkin.answer'; readonly answer: CheckInAnswer }
@@ -413,6 +450,11 @@ export const endRelationship = (ending: RelationshipEnding): Effect => ({
 export const departFromRelationship = (departure: ParticipantDeparture): Effect => ({
   kind: 'relationship.depart',
   departure,
+})
+
+export const assignMaterial = (assignment: MaterialAssignment): Effect => ({
+  kind: 'material.assign',
+  assignment,
 })
 
 export const openCheckInSequence = (sequence: NewCheckInSequence): Effect => ({

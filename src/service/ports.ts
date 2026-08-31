@@ -15,6 +15,7 @@ import type {
   CheckInSequenceClosure,
   IntakeRecord,
   LeaderAcceptance,
+  MaterialAssignment,
   NewCheckInPrompt,
   NewCheckInSequence,
   OutboundMessageDraft,
@@ -196,6 +197,17 @@ export interface UnitOfWork {
    * reopened.
    */
   departFromRelationship(departure: ParticipantDeparture): Promise<void>
+  /**
+   * Closes the Material period that was running and opens a new one at the same
+   * instant, through the one database function that writes either -- which is what
+   * keeps *periods never overlap and never leave gaps* true of every write path
+   * rather than of the one that happens to be careful.
+   *
+   * Refuses with a `MaterialAssignmentRefused` when the database disagrees with the
+   * snapshot the domain decided from, or when the Material or the Admin belongs to
+   * another Ministry.
+   */
+  assignMaterial(assignment: MaterialAssignment): Promise<void>
 
   /**
    * Everything a check-in command needs about one Person: the live relationships

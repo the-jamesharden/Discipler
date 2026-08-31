@@ -362,6 +362,75 @@ export const createRelationship = async (
     .select('id')
     .single()
   if (error) throw new Error(`Could not create a ${kind} relationship: ${error.message}`)
+
+  // Accepting a relationship opens its Material history, so a fixture that lands an
+  // accepted relationship straight into the table has to open one too -- otherwise
+  // every suite seeded this way holds relationships the real acceptance path could
+  // never produce, and the first assignment against one is refused for a reason
+  // nothing in production can reach.
+  if (acceptedAt) await openMaterialHistory(ministry, data.id, acceptedAt)
+
+  return data.id
+}
+
+/**
+ * The period a relationship opens with: a real period, with no Material in it,
+ * running from acceptance. In production `relationship.accept` writes this; here it
+ * is written directly, because these fixtures seed accepted relationships without
+ * going through the acceptance they came from -- exactly as they seed the
+ * relationship and its memberships directly.
+ *
+ * The shape is not restated here in the sense that would matter. What makes a set of
+ * periods legal is the constraint trigger on `material_assignment`, and it judges
+ * this row like every other -- so a fixture that wrote the wrong thing would fail at
+ * commit rather than quietly seeding a history the product could never produce.
+ */
+export const openMaterialHistory = async (
+  ministry: MinistryFixture,
+  relationshipId: string,
+  acceptedAt: Date,
+): Promise<void> => {
+  const { error } = await serviceRoleClient()
+    .from('material_assignment')
+    .insert({
+      ministry_id: ministry.id,
+      relationship_id: relationshipId,
+      material_id: null,
+      started_at: acceptedAt.toISOString(),
+    })
+  if (error) throw new Error(`Could not open the Material history: ${error.message}`)
+}
+
+export interface MaterialOptions {
+  /** Typed content. One of this and a PDF has to be present; both may be. */
+  body?: string | null
+  pdfPath?: string | null
+  pdfFilename?: string | null
+}
+
+/** One Material on a Ministry's own list. */
+export const addMaterial = async (
+  ministry: MinistryFixture,
+  title: string,
+  options: MaterialOptions = {},
+): Promise<string> => {
+  const body =
+    options.body === undefined && options.pdfPath === undefined
+      ? `The text of ${title}.`
+      : (options.body ?? null)
+
+  const { data, error } = await serviceRoleClient()
+    .from('material')
+    .insert({
+      ministry_id: ministry.id,
+      title,
+      body,
+      pdf_path: options.pdfPath ?? null,
+      pdf_filename: options.pdfFilename ?? null,
+    })
+    .select('id')
+    .single()
+  if (error) throw new Error(`Could not add the Material ${title}: ${error.message}`)
   return data.id
 }
 

@@ -11,6 +11,7 @@ import type {
 import type {
   IntakeRecord,
   LeaderAcceptance,
+  MaterialAssignment,
   OutboundMessageDraft,
   ParticipantDeparture,
   RelationshipCancellation,
@@ -32,10 +33,12 @@ import {
   EndingRefused,
   FollowUpRefused,
   InvitationRefused,
+  MaterialAssignmentRefused,
   PairingRefused,
   RosterImportRefused,
   type CancellationRefusal,
   type EndingRefusal,
+  type MaterialAssignmentRefusal,
   type PairingRefusal,
 } from '~/domain/errors'
 import type { HistoryEvent } from '~/domain/history'
@@ -354,17 +357,55 @@ const ENDING_REFUSALS: Readonly<Record<DatabaseEndingRefusal, EndingRefusal | nu
   relationship_already_accepted: null,
 }
 
-const refused = <Refusal extends string>(
-  answer: DatabaseEndingRefusal,
-  refusals: Readonly<Record<DatabaseEndingRefusal, Refusal | null>>,
+/**
+ * What `app.assign_material` can answer with.
+ *
+ * Three of these are states an Admin can genuinely be in, and each reaches a screen
+ * as a sentence: the relationship is not theirs, it has ended, or nobody has
+ * accepted it.
+ *
+ * The other three are defects rather than decisions, and every one of them says the
+ * Material history has broken in a way no production path can produce -- a
+ * relationship that activated without opening its history, an acceptance that tried
+ * to open one twice, and an assignment dated before the period it would have to
+ * follow. Mapping any of them to a plausible-looking refusal would put a wrong
+ * sentence in front of somebody on the one day the record is actually wrong, so they
+ * map to null and `refused` raises instead.
+ */
+type DatabaseAssignmentRefusal =
+  | 'relationship_not_found'
+  | 'relationship_ended'
+  | 'relationship_not_accepted'
+  | 'material_history_already_open'
+  | 'material_history_not_open'
+  | 'assignment_precedes_acceptance'
+
+const ASSIGNMENT_REFUSALS: Readonly<
+  Record<DatabaseAssignmentRefusal, MaterialAssignmentRefusal | null>
+> = {
+  relationship_not_found: 'material.relationship_not_found',
+  relationship_ended: 'material.relationship_ended',
+  relationship_not_accepted: 'material.relationship_not_accepted',
+  material_history_already_open: null,
+  material_history_not_open: null,
+  assignment_precedes_acceptance: null,
+}
+
+const refused = <Answer extends string, Refusal extends string>(
+  answer: Answer,
+  refusals: Readonly<Record<Answer, Refusal | null>>,
   refusal: new (why: Refusal) => Error,
+  // Named rather than defaulted. The message this raises is read on the day
+  // something is genuinely wrong, and a default would quietly attribute a third
+  // caller's defect to whichever function happened to be the first one written.
+  fn: string,
 ): Error => {
   const why = refusals[answer]
   // Not a refusal anybody can act on: the function answered something this act
   // told it could not arise. Louder than a refusal on purpose -- it means the
   // argument and the answer disagree, which is a defect and not a decision.
   if (why === null) {
-    throw new Error(`app.end_relationship answered ${answer}, which this act cannot receive`)
+    throw new Error(`${fn} answered ${answer}, which this act cannot receive`)
   }
   return new refusal(why)
 }
@@ -978,7 +1019,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     })
 
     if (refusal === null) return
-    throw refused(refusal, CANCELLATION_REFUSALS, CancellationRefused)
+    throw refused(refusal, CANCELLATION_REFUSALS, CancellationRefused, 'app.end_relationship')
   },
 
   async endRelationship(ending: RelationshipEnding) {
@@ -996,7 +1037,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     })
 
     if (refusal === null) return
-    throw refused(refusal, ENDING_REFUSALS, EndingRefused)
+    throw refused(refusal, ENDING_REFUSALS, EndingRefused, 'app.end_relationship')
   },
 
   async departFromRelationship(departure: ParticipantDeparture) {
@@ -1064,6 +1105,48 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     if (left === 0) {
       throw new DepartureRefused('departure.person_is_not_in_this_relationship')
     }
+  },
+
+  async assignMaterial(assignment: MaterialAssignment) {
+    // Through `app.assign_material`, which closes the running period and opens its
+    // successor at one instant. That function is the only write path that opens a
+    // period, and the invariant it holds -- the periods never overlap and never
+    // leave gaps -- is a fact about a whole relationship's rows that no single-row
+    // check constraint can state.
+    //
+    // Both acts come through here and differ in one argument. Acceptance passes a
+    // null Material, which opens the history; an Admin passes a real one, which
+    // requires it to have been opened already.
+    let answer: DatabaseAssignmentRefusal | null = null
+    try {
+      const { rows } = await client.query<{ refusal: DatabaseAssignmentRefusal | null }>(
+        `select app.assign_material($1, $2, $3, $4) as refusal`,
+        [
+          assignment.relationshipId,
+          assignment.materialId,
+          assignment.assignedAt,
+          assignment.assignedBy,
+        ],
+      )
+      answer = rows[0]?.refusal ?? null
+    } catch (error) {
+      // Two constraints answer with an identifier rather than with a decision, so
+      // they arrive as errors and are translated here like every other one -- a
+      // surface needs a code, not a Postgres message.
+      const constraint = constraintViolated(error)
+      if (constraint === 'material_assignment_assigned_by_fk') {
+        throw new MaterialAssignmentRefused('material.assigner_is_not_in_this_ministry')
+      }
+      // A Material of another Ministry looks exactly like one that does not exist,
+      // because the composite key is what refuses both.
+      if (constraint === 'material_assignment_material_fk') {
+        throw new MaterialAssignmentRefused('material.not_found')
+      }
+      throw error
+    }
+
+    if (answer === null) return
+    throw refused(answer, ASSIGNMENT_REFUSALS, MaterialAssignmentRefused, 'app.assign_material')
   },
 
   async checkInFor(id: PersonId): Promise<CheckInSnapshot | null> {

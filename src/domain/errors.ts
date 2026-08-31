@@ -227,6 +227,44 @@ export class DepartureRefused extends Error {
 }
 
 /**
+ * Why a Material could not be assigned to a relationship.
+ *
+ * Every one of these is a state in which the relationship has no period for a new
+ * one to follow. The opening period runs from acceptance, so a relationship that
+ * nobody has accepted has no history to add to -- and one that has ended has no
+ * further week to attribute.
+ */
+export type MaterialAssignmentRefusal =
+  /** Nothing in this Ministry answers to that relationship. */
+  | 'material.relationship_not_found'
+  /**
+   * Nobody has accepted it. The period with no Material starts at acceptance, so
+   * there is nothing here to close -- and an assignment dated before it would open
+   * the gap that period exists to prevent.
+   */
+  | 'material.relationship_not_accepted'
+  /** Terminal. A relationship that is over has no week left to attribute. */
+  | 'material.relationship_ended'
+  /**
+   * No Material in this Ministry answers to that identifier. Decided by the
+   * database, which is the only thing that can see the Ministry's own list.
+   */
+  | 'material.not_found'
+  /**
+   * The account assigning is not a member of this Ministry. Holding an account is
+   * not standing to decide what somebody else's relationship works through, and
+   * the composite key on `material_assignment.assigned_by` is what says so.
+   */
+  | 'material.assigner_is_not_in_this_ministry'
+
+export class MaterialAssignmentRefused extends Error {
+  constructor(readonly refusal: MaterialAssignmentRefusal) {
+    super(refusal)
+    this.name = 'MaterialAssignmentRefused'
+  }
+}
+
+/**
  * Why a relationship could not be paused or resumed. One type for both, because
  * they are the two halves of one act and three of the five codes belong to
  * neither half in particular.

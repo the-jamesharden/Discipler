@@ -14,6 +14,7 @@ import type {
   CheckInSequenceClosure,
   IntakeRecord,
   LeaderAcceptance,
+  MaterialAssignment,
   NewCheckInPrompt,
   NewCheckInSequence,
   OutboundMessageDraft,
@@ -48,6 +49,8 @@ export interface InMemoryStore extends EffectStore {
   readonly cancellations: readonly RelationshipCancellation[]
   readonly endings: readonly RelationshipEnding[]
   readonly departures: readonly ParticipantDeparture[]
+  /** Every Material period opened, in the order the effects opened them. */
+  readonly materialAssignments: readonly MaterialAssignment[]
   readonly sequences: readonly NewCheckInSequence[]
   readonly prompts: readonly NewCheckInPrompt[]
   readonly checkInAnswers: readonly CheckInAnswer[]
@@ -109,6 +112,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
   const cancellations: RelationshipCancellation[] = []
   const endings: RelationshipEnding[] = []
   const departures: ParticipantDeparture[] = []
+  const materialAssignments: MaterialAssignment[] = []
   const concerns: NewConcern[] = []
   const viewings: ConcernViewing[] = []
   const concernResolutions: ConcernResolution[] = []
@@ -150,6 +154,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
     },
     get departures() {
       return [...departures]
+    },
+    get materialAssignments() {
+      return [...materialAssignments]
     },
     get sequences() {
       return [...sequences]
@@ -199,6 +206,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       const stagedCancellations: RelationshipCancellation[] = []
       const stagedEndings: RelationshipEnding[] = []
       const stagedDepartures: ParticipantDeparture[] = []
+      const stagedMaterialAssignments: MaterialAssignment[] = []
       const stagedSequences: NewCheckInSequence[] = []
       const stagedPrompts: NewCheckInPrompt[] = []
       const stagedCheckInAnswers: CheckInAnswer[] = []
@@ -294,6 +302,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         async departFromRelationship(departure) {
           stagedDepartures.push(departure)
         },
+        async assignMaterial(assignment) {
+          stagedMaterialAssignments.push(assignment)
+        },
         async peopleOnRoster() {
           const everyone = [...people, ...stagedPeople]
           const namesByNumber = new Map<PhoneNumber, string[]>()
@@ -363,6 +374,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       cancellations.push(...stagedCancellations)
       endings.push(...stagedEndings)
       departures.push(...stagedDepartures)
+      materialAssignments.push(...stagedMaterialAssignments)
       sequences.push(...stagedSequences)
       prompts.push(...stagedPrompts)
       checkInAnswers.push(...stagedCheckInAnswers)

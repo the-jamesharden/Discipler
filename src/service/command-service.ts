@@ -8,6 +8,7 @@ import {
   DepartureRefused,
   EndingRefused,
   InvitationRefused,
+  MaterialAssignmentRefused,
   PauseRefused,
 } from '~/domain/errors'
 import type { IdSource, PersonId } from '~/domain/ids'
@@ -94,6 +95,9 @@ export const applyEffects = async (
   const departures = effects.flatMap((effect) =>
     effect.kind === 'relationship.depart' ? [effect.departure] : [],
   )
+  const materialAssignments = effects.flatMap((effect) =>
+    effect.kind === 'material.assign' ? [effect.assignment] : [],
+  )
   const checkInAnswers = effects.flatMap((effect) =>
     effect.kind === 'checkin.answer' ? [effect.answer] : [],
   )
@@ -155,6 +159,11 @@ export const applyEffects = async (
   for (const ending of endings) await unit.endRelationship(ending)
   for (const departure of departures) await unit.departFromRelationship(departure)
 
+  // After the acceptance that stamps `accepted_at`, because that is the instant the
+  // period with no Material starts from and the row has to exist for it to start.
+  // Before the history saying it happened, like every other write here.
+  for (const assignment of materialAssignments) await unit.assignMaterial(assignment)
+
   // The answer to the question that was open, then the conversation it finished,
   // then the one that replaces it, then its first question. In that order because
   // a Leader has one conversation at a time: the partial unique index refuses a
@@ -212,6 +221,7 @@ type AboutOneRelationship = Extract<
   Command,
   {
     type:
+      | 'relationship.assign_material'
       | 'relationship.cancel'
       | 'relationship.depart'
       | 'relationship.end'
@@ -221,10 +231,11 @@ type AboutOneRelationship = Extract<
 >
 
 /**
- * The five commands that name one relationship an Admin is acting on. Each needs
+ * The six commands that name one relationship an Admin is acting on. Each needs
  * the same snapshot, read under the same lock.
  */
 const isAboutOneRelationship = (command: Command): command is AboutOneRelationship =>
+  command.type === 'relationship.assign_material' ||
   command.type === 'relationship.cancel' ||
   command.type === 'relationship.depart' ||
   command.type === 'relationship.end' ||
@@ -233,11 +244,13 @@ const isAboutOneRelationship = (command: Command): command is AboutOneRelationsh
 
 /**
  * What each of them calls *there is no such relationship*. One map rather than a
- * chain of ternaries, so a sixth command added to the union above fails to compile
- * here until it says which refusal it carries -- rather than silently inheriting
- * whichever branch happened to be last.
+ * chain of ternaries, so a seventh command added to the union above fails to
+ * compile here until it says which refusal it carries -- rather than silently
+ * inheriting whichever branch happened to be last.
  */
 const NOT_FOUND: Readonly<Record<AboutOneRelationship['type'], () => Error>> = {
+  'relationship.assign_material': () =>
+    new MaterialAssignmentRefused('material.relationship_not_found'),
   'relationship.cancel': () => new CancellationRefused('relationship.not_found'),
   'relationship.depart': () => new DepartureRefused('departure.relationship_not_found'),
   'relationship.end': () => new EndingRefused('ending.relationship_not_found'),
