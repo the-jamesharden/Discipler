@@ -9,7 +9,7 @@ interface MemberRow {
 }
 
 /**
- * `participation_status` is a function exposed as a column, so the generated types
+ * `public.roster` returns a derivation beside two columns, so the generated types
  * do not know about it and the row arrives untyped. Named here once rather than
  * cast at the point of use.
  */
@@ -27,10 +27,11 @@ interface PersonRow {
  * act on, so a missing name is worth failing over rather than rendering blank.
  */
 const asPersonRow = (row: unknown): PersonRow => {
-  const { id, full_name: fullName, participation_status: status } = (row ?? {}) as Record<
-    string,
-    unknown
-  >
+  const {
+    person_id: id,
+    full_name: fullName,
+    participation_status: status,
+  } = (row ?? {}) as Record<string, unknown>
 
   if (typeof id !== 'string' || id === '') throw new Error('A Roster row arrived with no id')
   if (typeof fullName !== 'string' || fullName === '') {
@@ -51,19 +52,19 @@ export const supabaseRosterReader: RosterReader = {
   async listRoster(ministryId): Promise<readonly RosterEntry[]> {
     const supabase = await createSupabaseServerClient()
 
-    // `participation_status` is a derivation, not a column: one SQL function over
-    // Intake, consent and open participant memberships, asked for in the same
-    // statement that reads the people so that no caller can read a Roster and
-    // forget to ask what each row's status is.
-    const { data, error } = await supabase
-      .from('person')
-      .select('id, full_name, participation_status')
-      .eq('ministry_id', ministryId)
-      .order('full_name')
+    // A function rather than a table read with a computed column. Two facts drove
+    // it there and only one is about tidiness. `participation_status` is a
+    // derivation, not a column -- one SQL function over Intake, consent and open
+    // participant memberships -- and asking for it in the same statement that reads
+    // the people is what stops a caller reading a Roster and forgetting to ask what
+    // each row's status is. Asking PostgREST for it as a computed column made that
+    // a whole-row reference, and since ticket 15 no browser session holds SELECT on
+    // every column of `person`: the number is not one a Roster may read.
+    const { data, error } = await supabase.rpc('roster', { target_ministry_id: ministryId })
 
     if (error) throw new Error(`Could not read the Roster: ${error.message}`)
 
-    const people = (data ?? []).map(asPersonRow)
+    const people = ((data ?? []) as unknown[]).map(asPersonRow)
     const nameOf = new Map(people.map((row) => [row.id, row.fullName]))
 
     // Open memberships only: a relationship someone has left says who they were with,

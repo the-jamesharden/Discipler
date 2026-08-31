@@ -1,4 +1,5 @@
 import type { AccountRefusal } from '~/domain/accounts'
+import type { AvailabilityOverlay } from '~/domain/availability-overlay'
 import type {
   InvitationSnapshot,
   PausedRelationship,
@@ -35,6 +36,7 @@ import type { DiscipleshipGoalId } from '~/domain/intake'
 import type {
   ConcernId,
   FollowUpItemId,
+  MaterialId,
   MinistryId,
   OutboundMessageId,
   PersonId,
@@ -329,6 +331,84 @@ export interface EffectStore {
  */
 export interface MinistryDirectory {
   everyMinistry(): Promise<readonly MinistryId[]>
+}
+
+/**
+ * The Leader Dashboard's ports.
+ *
+ * One relationship as the Leader who leads it sees it: the availability overlay,
+ * the Material assigned to it, and the name and number of everyone in it. Three
+ * things and nothing else -- no message history, no analytics, and nothing about
+ * anybody the Leader does not lead.
+ */
+
+/** The Material a relationship is working through, or null where none is assigned. */
+export interface AssignedMaterial {
+  readonly materialId: MaterialId
+  readonly title: string
+  /** The Ministry's own typed content. Null where the Material is a PDF alone. */
+  readonly body: string | null
+  /** What the Admin's file was called, kept so a link can carry its own name. */
+  readonly pdfFilename: string | null
+  /**
+   * A short-lived link to the PDF, or null where there is none to link to. Minted
+   * per render rather than stored: a URL that outlived the assignment would be a
+   * Material readable by a Leader it was taken away from.
+   */
+  readonly pdfUrl: string | null
+}
+
+/**
+ * One person in the relationship, as the Leader's screen shows them.
+ *
+ * The name is always there and the number is not. Contact-sharing consent is
+ * checked at the moment of display, never assumed from enrolment, so `phone` is
+ * null for a Person who declined it, withdrew it, was never asked, or has no number
+ * on file -- four states the screen deliberately cannot tell apart, because a
+ * Leader who could would be reading a consent decision by inference.
+ */
+export interface RelationshipContact {
+  readonly personId: PersonId
+  readonly fullName: string
+  readonly role: MemberRole
+  /**
+   * Whether this is the Leader reading the page. Not the same question as `role`:
+   * a group may hold several Leaders, and only one of them is signed in.
+   */
+  readonly isYou: boolean
+  readonly phone: PhoneNumber | null
+}
+
+export interface RelationshipLed {
+  readonly relationshipId: RelationshipId
+  readonly ministryId: MinistryId
+  readonly ministryName: string
+  /**
+   * Whether a Pause currently stands on it. The one thing about a relationship's
+   * condition this surface carries: a Pause is the Leader's own act and the reason
+   * their weekly check-ins have stopped arriving. How a relationship is *doing* --
+   * Healthy, Stalled, Needs Care -- is the Admin's reading and lives on Care Needed.
+   */
+  readonly paused: boolean
+  readonly overlay: AvailabilityOverlay
+  readonly material: AssignedMaterial | null
+  /** Everyone in it, in the order the overlay draws them: the reader, then the rest. */
+  readonly contacts: readonly RelationshipContact[]
+}
+
+export interface LeaderDashboardReader {
+  /**
+   * Every relationship the signed-in user currently holds an open leader membership
+   * on, across every Ministry they hold a Person record in.
+   *
+   * No Ministry argument, and that is the point rather than an omission. Every other
+   * reader here names the Ministry it acts for because an Admin surface is scoped by
+   * a tier the session already carries; this list is a live query for open leader
+   * memberships and nothing else, so an Admin who leads two relationships sees them
+   * without a second account, and a Leader whose last relationship ends stops seeing
+   * the surface without anybody revoking anything.
+   */
+  listRelationshipsLed(): Promise<readonly RelationshipLed[]>
 }
 
 export interface RosterEntry {

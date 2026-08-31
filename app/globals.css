@@ -82,3 +82,52 @@ h2 { font-size: 1.05rem; margin: 0 0 0.25rem; }
 .panel > .subtle:last-child { margin: 1rem 0 0; }
 
 input[type="file"] { background: transparent; padding: 0.5rem 0; }
+
+/* The Leader Dashboard's availability overlay: days down, blocks across. */
+.grid-scroll { overflow-x: auto; }
+
+table.overlay { min-width: 32rem; }
+table.overlay caption { text-align: left; padding-bottom: 0.6rem; font-size: 0.9rem; }
+table.overlay th[scope="row"] { font-weight: 600; color: var(--ink); white-space: nowrap; }
+table.overlay td.slot { height: 2.4rem; border: 1px solid var(--line); }
+/* The highlight is an outline rather than a fill, so it can sit on top of the
+   green or yellow a one-participant grid already shades the cell with. */
+table.overlay td.recommended { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.dots { display: flex; gap: 3px; flex-wrap: wrap; }
+.dot {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+ul.legend { list-style: none; margin: 0.75rem 0; padding: 0; display: flex; flex-wrap: wrap; gap: 1rem; }
+ul.legend li { display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; }
+
+.badge {
+  display: inline-block;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.25rem 0.8rem;
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+h3 { font-size: 0.95rem; margin: 1.5rem 0 0.5rem; }
+
+.material-body { white-space: pre-wrap; }
+
+/* Present to a screen reader, absent to everybody else. The overlay's colours are
+   how the grid reads at a glance and never the only way it can be read. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

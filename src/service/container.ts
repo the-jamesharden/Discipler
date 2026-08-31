@@ -16,6 +16,7 @@ import {
   type PostgresInvitationReader,
 } from '~/platform/supabase/invitation-reader'
 import { createSupabaseCareNeededReader } from '~/platform/supabase/care-needed-reader'
+import { supabaseLeaderDashboardReader } from '~/platform/supabase/leader-dashboard'
 import {
   createPostgresMinistryDirectory,
   type PostgresMinistryDirectory,
@@ -30,6 +31,7 @@ import { supabaseRosterReader } from '~/platform/supabase/roster-reader'
 import { createCommandService, type CommandService } from './command-service'
 import type {
   CareNeededReader,
+  LeaderDashboardReader,
   InboundReader,
   IntakeReader,
   InvitationReader,
@@ -182,6 +184,14 @@ export const getRosterReader = (): RosterReader => supabaseRosterReader
  */
 export const getCareNeededReader = (): CareNeededReader =>
   createSupabaseCareNeededReader(systemClock)
+
+/**
+ * The Leader Dashboard reads through the signed-in user's session and takes no
+ * Ministry, because the session is what names it: the list is a live query for open
+ * leader memberships, and an Admin who leads is the same person on both surfaces.
+ */
+export const getLeaderDashboardReader = (): LeaderDashboardReader =>
+  supabaseLeaderDashboardReader
 
 /**
  * Acceptance is the only surface that mints an account, but it reaches its adapter

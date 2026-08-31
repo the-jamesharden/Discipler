@@ -262,7 +262,13 @@ otp_expiry = 3600
 
 [auth.sms]
 # Allow/disallow new user signups via SMS to your project.
-enable_signup = false
+# Left on for the same reason [auth.email] below it is: this key controls the phone
+# provider as a whole, so turning it off disables signing *in* by phone as well as
+# signing up -- and since ticket 15 a phone number and a password is the credential
+# for every user, Admins included. Self-registration is refused by `enable_signup`
+# under [auth] above, which is the setting that means what it says. See
+# docs/adr/0008-the-phone-number-is-the-sign-in-credential.md.
+enable_signup = true
 # If enabled, users need to confirm their phone number before signing in.
 enable_confirmations = false
 # Template for sending OTP to users
@@ -292,10 +298,22 @@ max_frequency = "5s"
 # uri = "pg-functions://<database>/<schema>/<hook_name>"
 
 # Configure one of the supported SMS providers: `twilio`, `twilio_verify`, `messagebird`, `textlocal`, `vonage`.
+#
+# Enabled, and Discipler never asks it to send anything. The credential is a phone
+# number and a password -- one-time codes are post-launch -- but the phone provider
+# is one switch: with no SMS provider configured the CLI turns phone login off
+# entirely, and every user in Discipler signs in with a number. So a provider is
+# named here to keep the door open, and nothing in the product walks through it.
+#
+# The values are substituted from the environment and are empty in local
+# development, where no code is ever requested. Discipler's own outbound SMS does
+# not come through here at all: it goes through `MessageTransport` and sends as
+# `ministry.sending_number`, which is a property of the Ministry and not of the
+# deployment.
 [auth.sms.twilio]
-enabled = false
-account_sid = ""
-message_service_sid = ""
+enabled = true
+account_sid = "env(SUPABASE_AUTH_SMS_TWILIO_ACCOUNT_SID)"
+message_service_sid = "env(SUPABASE_AUTH_SMS_TWILIO_MESSAGE_SERVICE_SID)"
 # DO NOT commit your Twilio auth token to git. Use environment variable substitution instead:
 auth_token = "env(SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN)"
 

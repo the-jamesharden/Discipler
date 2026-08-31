@@ -51,19 +51,26 @@ export const cookiesFrom = (response: Response): string =>
     .map((cookie) => cookie.split(';', 1)[0])
     .join('; ')
 
-export const signIn = async (ministry: MinistryFixture) => {
+/**
+ * A phone number and a password, which is the credential for every user. See
+ * `docs/adr/0008-the-phone-number-is-the-sign-in-credential.md`.
+ */
+export const signInAs = async (credential: {
+  readonly phone: string
+  readonly password: string
+}) => {
   const response = await fetch(`${baseUrl}/auth/sign-in`, {
     method: 'POST',
     redirect: 'manual',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      email: ministry.adminEmail,
-      password: ministry.adminPassword,
-    }),
+    body: new URLSearchParams({ phone: credential.phone, password: credential.password }),
   })
 
   return { response, cookie: cookiesFrom(response) }
 }
+
+export const signIn = async (ministry: MinistryFixture) =>
+  signInAs({ phone: ministry.adminPhone, password: ministry.adminPassword })
 
 export const getPage = async (path: string, cookie: string) => {
   const response = await fetch(`${baseUrl}${path}`, { redirect: 'manual', headers: { cookie } })

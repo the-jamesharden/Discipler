@@ -106,16 +106,21 @@ describe('ending a relationship, and a Participant leaving one', () => {
       departedBy: by,
     })
 
-  /** As the Roster shows it, derived rather than stored. */
+  /**
+   * As the Roster shows it, derived rather than stored -- and read the way the
+   * Roster reads it, through `public.roster`. Since ticket 15 no browser session
+   * holds SELECT on every column of `person`, so the derivation cannot be asked for
+   * as a computed column on the row.
+   */
   const statusOf = async (person: PersonId) => {
     const client = await signInAs(ministry)
-    const { data, error } = await client
-      .from('person')
-      .select('participation_status')
-      .eq('id', person)
-      .single()
+    const { data, error } = await client.rpc('roster', { target_ministry_id: ministry.id })
     if (error) throw new Error(error.message)
-    return (data as { participation_status: string }).participation_status
+    const row = (data as { person_id: string; participation_status: string }[]).find(
+      (entry) => entry.person_id === person,
+    )
+    if (!row) throw new Error(`${person} is not on the Roster`)
+    return row.participation_status
   }
 
   const membershipsOf = async (relationship: string) =>

@@ -52,6 +52,14 @@ export default async function RosterPage({
       <h1>Roster</h1>
       <p className="subtle">{admin.ministryName}</p>
 
+      {/* Both surfaces, in one session, from one `ministry_member` row that says
+          `admin`. An Admin who also leads is the same person on both, and the
+          Leader surface is a live query for open leader memberships -- so this link
+          is offered unconditionally and answers honestly when they lead nothing. */}
+      <p>
+        <Link href="/relationships">The relationships you lead</Link>
+      </p>
+
       <div className="panel">
         <h2>Import from a spreadsheet</h2>
         <p className="subtle">

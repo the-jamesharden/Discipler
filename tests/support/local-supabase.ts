@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import pg from 'pg'
 import { ministryId, type MinistryId } from '~/domain/ids'
 import type { AgeBand, AvailabilitySlot, Gender } from '~/domain/intake'
 
@@ -49,6 +50,11 @@ export const serviceRoleClient = (): SupabaseClient => {
 export interface MinistryFixture {
   readonly id: MinistryId
   readonly name: string
+  /**
+   * The credential. A phone number and a password, for every user including
+   * Admins -- see docs/adr/0008-the-phone-number-is-the-sign-in-credential.md.
+   */
+  readonly adminPhone: string
   readonly adminEmail: string
   readonly adminPassword: string
   readonly adminUserId: string
@@ -60,6 +66,15 @@ export interface MinistryFixture {
 
 let uniqueSuffix = 0
 const unique = () => `${Date.now()}-${uniqueSuffix++}`
+
+/**
+ * A number no two fixtures share. E.164 with a US country code, because that is
+ * what `asPhoneNumber` produces from a ten-digit spreadsheet column and the sign-in
+ * form reads a typed number through the same function.
+ */
+let numberSuffix = 0
+const aTestNumber = () =>
+  `+1555${String((Date.now() + numberSuffix++) % 10_000_000).padStart(7, '0')}`
 
 export const createMinistryWithAdmin = async (name: string): Promise<MinistryFixture> => {
   const admin = serviceRoleClient()
@@ -76,12 +91,19 @@ export const createMinistryWithAdmin = async (name: string): Promise<MinistryFix
   if (ministryError) throw new Error(`Could not create Ministry: ${ministryError.message}`)
 
   const adminEmail = `admin-${unique()}@example.test`
+  const adminPhone = aTestNumber()
   const adminPassword = 'correct-horse-battery-staple'
 
+  // Both identities on one account. The phone is the credential and the email is a
+  // contact detail the account happens to carry, which is the shape a Ministry
+  // provisioned before ticket 15 is left in -- so the suite proves sign-in against
+  // an account that has an email rather than against one that conveniently does not.
   const { data: user, error: userError } = await admin.auth.admin.createUser({
     email: adminEmail,
+    phone: adminPhone,
     password: adminPassword,
     email_confirm: true,
+    phone_confirm: true,
   })
   if (userError) throw new Error(`Could not create Admin user: ${userError.message}`)
 
@@ -93,6 +115,7 @@ export const createMinistryWithAdmin = async (name: string): Promise<MinistryFix
   return {
     id: ministryId(ministry.id),
     name,
+    adminPhone,
     adminEmail,
     adminPassword,
     adminUserId: user.user.id,
@@ -273,6 +296,8 @@ export const signInAs = async (ministry: MinistryFixture): Promise<SupabaseClien
 export interface AccountFixture {
   readonly personId: string
   readonly userId: string
+  /** What they sign in with, and the number on their Person record: one fact. */
+  readonly phone: string
   readonly email: string
   readonly password: string
   readonly fullName: string
@@ -293,11 +318,14 @@ export const addPersonWithAccount = async (
 ): Promise<AccountFixture> => {
   const admin = serviceRoleClient()
   const email = `person-${unique()}@example.test`
+  const phone = options.phone ?? aTestNumber()
 
   const { data: user, error: userError } = await admin.auth.admin.createUser({
     email,
+    phone,
     password: ACCOUNT_PASSWORD,
     email_confirm: true,
+    phone_confirm: true,
   })
   if (userError) throw new Error(`Could not create an account for ${fullName}: ${userError.message}`)
 
@@ -306,16 +334,38 @@ export const addPersonWithAccount = async (
     .insert({ ministry_id: ministry.id, user_id: user.user.id, tier })
   if (memberError) throw new Error(`Could not enrol ${fullName}: ${memberError.message}`)
 
+  // The same number on both. Acceptance mints the account from the number on the
+  // Person record and never from one somebody typed, so a fixture where the two
+  // differ is a state the product cannot produce.
   const { data: person, error: personError } = await admin
     .from('person')
-    .insert({ ministry_id: ministry.id, full_name: fullName, user_id: user.user.id })
+    .insert({ ministry_id: ministry.id, full_name: fullName, phone, user_id: user.user.id })
     .select('id')
     .single()
   if (personError) throw new Error(`Could not add ${fullName} to the Roster: ${personError.message}`)
 
-  if (options.intake !== false) await completeIntake(ministry, person.id)
+  // `options.answers` reaches Intake here exactly as it does in `addPerson`. It was
+  // dropped on the floor until ticket 15 needed a Leader with availability of their
+  // own, and a fixture that silently ignores what it was handed is worse than one
+  // that does not take it: every caller reads as though it worked.
+  if (options.intake !== false) {
+    await completeIntake(
+      ministry,
+      person.id,
+      ['sms', 'contact_sharing'],
+      'pastor_link',
+      options.answers ?? {},
+    )
+  }
 
-  return { personId: person.id, userId: user.user.id, email, password: ACCOUNT_PASSWORD, fullName }
+  return {
+    personId: person.id,
+    userId: user.user.id,
+    phone,
+    email,
+    password: ACCOUNT_PASSWORD,
+    fullName,
+  }
 }
 
 /** Gives the Ministry's existing Admin a Person row, so they can lead and be discipled. */
@@ -326,7 +376,12 @@ export const addPersonForAdmin = async (
 ): Promise<AccountFixture> => {
   const { data, error } = await serviceRoleClient()
     .from('person')
-    .insert({ ministry_id: ministry.id, full_name: fullName, user_id: ministry.adminUserId })
+    .insert({
+      ministry_id: ministry.id,
+      full_name: fullName,
+      phone: options.phone ?? ministry.adminPhone,
+      user_id: ministry.adminUserId,
+    })
     .select('id')
     .single()
   if (error) throw new Error(`Could not add ${fullName} to the Roster: ${error.message}`)
@@ -338,6 +393,7 @@ export const addPersonForAdmin = async (
   return {
     personId: data.id,
     userId: ministry.adminUserId,
+    phone: ministry.adminPhone,
     email: ministry.adminEmail,
     password: ministry.adminPassword,
     fullName,
@@ -441,6 +497,56 @@ export const addMaterial = async (
     .single()
   if (error) throw new Error(`Could not add the Material ${title}: ${error.message}`)
   return data.id
+}
+
+/**
+ * One Material period, opened through the one function that opens one. A pair of
+ * hand-written rows would pass the deferred constraint trigger just as well and
+ * would say nothing about whether the write path keeps the invariant -- so a
+ * fixture that wanted a relationship working through something goes the way the
+ * command goes.
+ */
+export const assignMaterial = async (
+  relationshipId: string,
+  materialId: string,
+  assignedBy: string,
+  at: Date = new Date(),
+): Promise<void> => {
+  const client = new pg.Client({ connectionString: localSupabase().databaseUrl })
+  await client.connect()
+  try {
+    const { rows } = await client.query<{ assign_material: string | null }>(
+      `select app.assign_material($1::uuid, $2::uuid, $3::timestamptz, $4::uuid)`,
+      [relationshipId, materialId, at.toISOString(), assignedBy],
+    )
+    const refusal = rows[0]?.assign_material
+    if (refusal) throw new Error(`Could not assign the Material: ${refusal}`)
+  } finally {
+    await client.end()
+  }
+}
+
+/**
+ * A Pause standing on a relationship, written as `relationship.pause` writes one:
+ * an event, because a Pause is two of them and what stands is the later.
+ */
+export const pauseRelationship = async (
+  ministry: MinistryFixture,
+  relationshipId: string,
+  periodWeeks: 1 | 2 | 4 | 8 | 12 = 2,
+  pausedAt: Date = new Date(),
+): Promise<void> => {
+  const { error } = await serviceRoleClient()
+    .from('ministry_event')
+    .insert({
+      ministry_id: ministry.id,
+      occurred_at: pausedAt.toISOString(),
+      type: 'relationship.paused',
+      subject_type: 'relationship',
+      subject_id: relationshipId,
+      payload: { periodWeeks },
+    })
+  if (error) throw new Error(`Could not pause the relationship: ${error.message}`)
 }
 
 export const addMembership = async (args: {
