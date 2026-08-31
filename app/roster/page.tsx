@@ -98,6 +98,13 @@ export default async function RosterPage({
         <Link href="/relationships">The relationships you lead</Link>
       </p>
 
+      {/* The Ministry's own Intake options, which are set before a semester begins
+          rather than while somebody is filling the form in. It is a settings screen
+          and not a Roster one, so it is linked from here rather than folded in. */}
+      <p>
+        <Link href="/settings/goals">Discipleship Goal options</Link>
+      </p>
+
       <div className="panel">
         <h2>Import from a spreadsheet</h2>
         <p className="subtle">

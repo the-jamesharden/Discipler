@@ -461,6 +461,60 @@ export interface LeadEligibility {
 }
 
 /**
+ * One Discipleship Goal option, added to the end of the Ministry's list.
+ *
+ * The id is minted at the boundary rather than by the database, like every other
+ * identifier in this product: the history event beside it names the option, and a
+ * default the insert generated would not be knowable until after the row landed.
+ */
+export interface NewDiscipleshipGoal {
+  readonly id: DiscipleshipGoalId
+  readonly ministryId: MinistryId
+  readonly label: string
+  readonly position: number
+  readonly createdAt: Date
+}
+
+/**
+ * One option, reworded. The id does not change, and that is the whole of what
+ * this effect is for: every answer pointing at this option goes on pointing at
+ * it, because a reworded option is the same option.
+ */
+export interface DiscipleshipGoalRenaming {
+  readonly ministryId: MinistryId
+  readonly goalId: DiscipleshipGoalId
+  readonly label: string
+}
+
+/**
+ * The Ministry's whole list, in the order it will now be shown.
+ *
+ * Every option rather than the two that swapped. Positions are rewritten from
+ * this list, so a list that had drifted -- gaps a removal left, a position two
+ * options once shared -- comes out contiguous rather than carrying the drift
+ * forward one swap at a time.
+ */
+export interface DiscipleshipGoalOrder {
+  readonly ministryId: MinistryId
+  readonly order: readonly DiscipleshipGoalId[]
+}
+
+/**
+ * One option, gone, and what it cost.
+ *
+ * `chosenBy` is carried for the history event beside it and for nothing else. It
+ * is the only record that will survive: the answers themselves are blanked by the
+ * database, and nothing anywhere can say afterwards how many people had chosen
+ * this option unless the removal wrote it down.
+ */
+export interface DiscipleshipGoalRemoval {
+  readonly ministryId: MinistryId
+  readonly goalId: DiscipleshipGoalId
+  readonly label: string
+  readonly chosenBy: number
+}
+
+/**
  * A Keyword Exchange, opened. The eligible relationships travel with it in the
  * order the menu numbered them, because a menu that renumbered itself between the
  * message and the reply would apply the keyword to whichever relationship happened
@@ -589,6 +643,10 @@ export type Effect =
       readonly kind: 'person.lead_eligibility'
       readonly eligibility: LeadEligibility
     }
+  | { readonly kind: 'goal.add'; readonly goal: NewDiscipleshipGoal }
+  | { readonly kind: 'goal.rename'; readonly renaming: DiscipleshipGoalRenaming }
+  | { readonly kind: 'goal.reorder'; readonly order: DiscipleshipGoalOrder }
+  | { readonly kind: 'goal.remove'; readonly removal: DiscipleshipGoalRemoval }
   | { readonly kind: 'concern.raise'; readonly concern: NewConcern }
   | { readonly kind: 'concern.view'; readonly viewing: ConcernViewing }
   | { readonly kind: 'concern.resolve'; readonly resolution: ConcernResolution }
@@ -606,6 +664,26 @@ export const recordIntakeLink = (link: NewIntakeLink): Effect => ({
 export const setLeadEligibility = (eligibility: LeadEligibility): Effect => ({
   kind: 'person.lead_eligibility',
   eligibility,
+})
+
+export const addDiscipleshipGoal = (goal: NewDiscipleshipGoal): Effect => ({
+  kind: 'goal.add',
+  goal,
+})
+
+export const renameDiscipleshipGoal = (renaming: DiscipleshipGoalRenaming): Effect => ({
+  kind: 'goal.rename',
+  renaming,
+})
+
+export const reorderDiscipleshipGoals = (order: DiscipleshipGoalOrder): Effect => ({
+  kind: 'goal.reorder',
+  order,
+})
+
+export const removeDiscipleshipGoal = (removal: DiscipleshipGoalRemoval): Effect => ({
+  kind: 'goal.remove',
+  removal,
 })
 
 export const recordIntake = (intake: IntakeRecord): Effect => ({

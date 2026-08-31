@@ -16,6 +16,7 @@ import {
   type PostgresInvitationReader,
 } from '~/platform/supabase/invitation-reader'
 import { createSupabaseCareNeededReader } from '~/platform/supabase/care-needed-reader'
+import { supabaseDiscipleshipGoalReader } from '~/platform/supabase/discipleship-goals'
 import { supabaseLeaderDashboardReader } from '~/platform/supabase/leader-dashboard'
 import {
   createPostgresMinistryDirectory,
@@ -31,6 +32,7 @@ import { supabaseRosterReader } from '~/platform/supabase/roster-reader'
 import { createCommandService, type CommandService } from './command-service'
 import type {
   CareNeededReader,
+  DiscipleshipGoalReader,
   LeaderDashboardReader,
   InboundReader,
   IntakeReader,
@@ -175,6 +177,14 @@ export const closeCommandService = async (): Promise<void> => {
 }
 
 export const getRosterReader = (): RosterReader => supabaseRosterReader
+
+/**
+ * The Ministry's own list of Discipleship Goal options, read through the
+ * signed-in Admin's session -- so the policies say which Ministry's list it is,
+ * and the settings surface never has to.
+ */
+export const getDiscipleshipGoalReader = (): DiscipleshipGoalReader =>
+  supabaseDiscipleshipGoalReader
 
 /**
  * Care Needed reads through the signed-in Admin's session, so the policy on

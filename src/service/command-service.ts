@@ -150,6 +150,18 @@ export const applyEffects = async (
   const eligibilities = effects.flatMap((effect) =>
     effect.kind === 'person.lead_eligibility' ? [effect.eligibility] : [],
   )
+  const addedGoals = effects.flatMap((effect) =>
+    effect.kind === 'goal.add' ? [effect.goal] : [],
+  )
+  const renamedGoals = effects.flatMap((effect) =>
+    effect.kind === 'goal.rename' ? [effect.renaming] : [],
+  )
+  const goalOrders = effects.flatMap((effect) =>
+    effect.kind === 'goal.reorder' ? [effect.order] : [],
+  )
+  const removedGoals = effects.flatMap((effect) =>
+    effect.kind === 'goal.remove' ? [effect.removal] : [],
+  )
   const concerns = effects.flatMap((effect) =>
     effect.kind === 'concern.raise' ? [effect.concern] : [],
   )
@@ -247,6 +259,20 @@ export const applyEffects = async (
   for (const eligibility of eligibilities) await unit.setLeadEligibility(eligibility)
   for (const link of intakeLinks) await unit.issueIntakeLink(link)
 
+  // The option, then the list it belongs to. An addition lands before the
+  // renumbering that would place it, and a removal before the renumbering that
+  // closes the gap it left -- so the order written is always the order of the
+  // list as it now stands rather than as it stood a statement ago.
+  //
+  // Before the history saying they happened, like every other write here: the
+  // database refuses to delete a Ministry's last option, and being refused after
+  // history had already recorded the loss would leave a Ministry's record
+  // claiming answers were destroyed that are still on the rows.
+  for (const goal of addedGoals) await unit.addDiscipleshipGoal(goal)
+  for (const renaming of renamedGoals) await unit.renameDiscipleshipGoal(renaming)
+  for (const removal of removedGoals) await unit.removeDiscipleshipGoal(removal)
+  for (const order of goalOrders) await unit.reorderDiscipleshipGoals(order)
+
   // Before the messages, and that ordering is the whole of what `START` does. The
   // outbound queue refuses anything bound for a Person with an open opt-out, so a
   // re-opt-in applied after the messages it permits would have the database refuse
@@ -339,6 +365,22 @@ const named = async (unit: UnitOfWork, command: AboutOneRelationship) => {
 
   throw NOT_FOUND[command.type]()
 }
+
+/**
+ * The four ways an Admin edits the Ministry's Discipleship Goal options. Each of
+ * them decides against the whole list -- whether an option is a duplicate, where
+ * a new one goes, whether this is the last one left -- so each of them loads it.
+ */
+const editsTheGoalList = (
+  command: Command,
+): command is Extract<
+  Command,
+  { type: 'goal.add' | 'goal.rename' | 'goal.move' | 'goal.remove' }
+> =>
+  command.type === 'goal.add' ||
+  command.type === 'goal.rename' ||
+  command.type === 'goal.move' ||
+  command.type === 'goal.remove'
 
 /**
  * Intake needs two things no other command does: the Ministry's name, because every
@@ -520,6 +562,13 @@ export const createCommandService = ({
           : {}),
         ...(isAboutOneRelationship(command)
           ? { relationship: await named(unit, command) }
+          : {}),
+        // Read inside the transaction like everything else, so two Admins editing
+        // the list at once cannot both decide against a version of it that no
+        // longer stands -- and so the count an Admin was warned with is the count
+        // history records.
+        ...(editsTheGoalList(command)
+          ? { goals: await unit.discipleshipGoals() }
           : {}),
         // Read inside the transaction, behind the same advisory lock the read
         // itself takes, so a reply and a newly-due sequence cannot both find no

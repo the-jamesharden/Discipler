@@ -7,6 +7,7 @@ import type {
   UnacceptedRelationship,
 } from '~/domain/boundary'
 import type { CheckInSnapshot } from '~/domain/check-in'
+import type { OfferedGoal } from '~/domain/discipleship-goals'
 import type { InboundSnapshot } from '~/domain/keywords'
 import type { ConcernResolution, ConcernViewing, NewConcern } from '~/domain/concerns'
 import type {
@@ -14,6 +15,9 @@ import type {
   CheckInClarification,
   CheckInReminder,
   CheckInSequenceClosure,
+  DiscipleshipGoalOrder,
+  DiscipleshipGoalRemoval,
+  DiscipleshipGoalRenaming,
   IntakeRecord,
   LeadEligibility,
   LeaderAcceptance,
@@ -23,6 +27,7 @@ import type {
   KeywordExchangeTarget,
   NewCheckInPrompt,
   NewCheckInSequence,
+  NewDiscipleshipGoal,
   NewKeywordExchange,
   OutboundMessageDraft,
   OutstandingReplyClosure,
@@ -76,6 +81,11 @@ export interface InMemoryStore extends EffectStore {
   readonly keywordClarifications: readonly KeywordExchangeClarification[]
   readonly keywordClosures: readonly KeywordExchangeClosure[]
   readonly leadEligibilities: readonly LeadEligibility[]
+  /** Every option added, reworded, reordered or removed, in the order it happened. */
+  readonly addedGoals: readonly NewDiscipleshipGoal[]
+  readonly renamedGoals: readonly DiscipleshipGoalRenaming[]
+  readonly goalOrders: readonly DiscipleshipGoalOrder[]
+  readonly removedGoals: readonly DiscipleshipGoalRemoval[]
   /** Every number whose conversation an effect closed, in order. */
   readonly outstandingReplyClosures: readonly OutstandingReplyClosure[]
   readonly outstandingReplySweeps: readonly OutstandingReplySweep[]
@@ -107,6 +117,12 @@ export interface InMemoryStore extends EffectStore {
   checkInsDue: readonly CheckInSnapshot[]
   /** What `relationship.cancel` finds, or null for one this Ministry does not hold. */
   relationship?: RelationshipSnapshot
+  /**
+   * The Discipleship Goal options this store answers with. Empty until a test says
+   * otherwise -- which is a Ministry the database could not produce, so the tests
+   * that edit the list set it.
+   */
+  goals: readonly OfferedGoal[]
   /** The Ministry every command in this store speaks for. */
   ministryName: string
   failOn?:
@@ -145,6 +161,10 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
   const keywordClarifications: KeywordExchangeClarification[] = []
   const keywordClosures: KeywordExchangeClosure[] = []
   const leadEligibilities: LeadEligibility[] = []
+  const addedGoals: NewDiscipleshipGoal[] = []
+  const renamedGoals: DiscipleshipGoalRenaming[] = []
+  const goalOrders: DiscipleshipGoalOrder[] = []
+  const removedGoals: DiscipleshipGoalRemoval[] = []
   const intakeLinks: NewIntakeLink[] = []
   const resolutions: FollowUpResolution[] = []
   const cancellations: RelationshipCancellation[] = []
@@ -241,6 +261,18 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
     get leadEligibilities() {
       return [...leadEligibilities]
     },
+    get addedGoals() {
+      return [...addedGoals]
+    },
+    get renamedGoals() {
+      return [...renamedGoals]
+    },
+    get goalOrders() {
+      return [...goalOrders]
+    },
+    get removedGoals() {
+      return [...removedGoals]
+    },
     get intakeLinks() {
       return [...intakeLinks]
     },
@@ -254,6 +286,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       return [...concernResolutions]
     },
     intakeLink: null,
+    goals: [],
     unaccepted: [],
     paused: [],
     checkInsDue: [],
@@ -288,6 +321,10 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       const stagedKeywordClarifications: KeywordExchangeClarification[] = []
       const stagedKeywordClosures: KeywordExchangeClosure[] = []
       const stagedLeadEligibilities: LeadEligibility[] = []
+      const stagedAddedGoals: NewDiscipleshipGoal[] = []
+      const stagedRenamedGoals: DiscipleshipGoalRenaming[] = []
+      const stagedGoalOrders: DiscipleshipGoalOrder[] = []
+      const stagedRemovedGoals: DiscipleshipGoalRemoval[] = []
       const stagedIntakeLinks: NewIntakeLink[] = []
       const stagedConcerns: NewConcern[] = []
       const stagedViewings: ConcernViewing[] = []
@@ -338,6 +375,21 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         },
         async setLeadEligibility(eligibility) {
           stagedLeadEligibilities.push(eligibility)
+        },
+        async discipleshipGoals() {
+          return store.goals
+        },
+        async addDiscipleshipGoal(goal) {
+          stagedAddedGoals.push(goal)
+        },
+        async renameDiscipleshipGoal(renaming) {
+          stagedRenamedGoals.push(renaming)
+        },
+        async reorderDiscipleshipGoals(order) {
+          stagedGoalOrders.push(order)
+        },
+        async removeDiscipleshipGoal(removal) {
+          stagedRemovedGoals.push(removal)
         },
         async issueIntakeLink(link) {
           stagedIntakeLinks.push(link)
@@ -515,6 +567,10 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       keywordClarifications.push(...stagedKeywordClarifications)
       keywordClosures.push(...stagedKeywordClosures)
       leadEligibilities.push(...stagedLeadEligibilities)
+      addedGoals.push(...stagedAddedGoals)
+      renamedGoals.push(...stagedRenamedGoals)
+      goalOrders.push(...stagedGoalOrders)
+      removedGoals.push(...stagedRemovedGoals)
       intakeLinks.push(...stagedIntakeLinks)
       return result
     },

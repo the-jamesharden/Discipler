@@ -6,7 +6,8 @@ import type {
   PersonId,
   RelationshipId,
 } from './ids'
-import type { IntakeFormFields } from './intake'
+import type { GoalDirection } from './discipleship-goals'
+import type { DiscipleshipGoalId, IntakeFormFields } from './intake'
 import type { IntakeLinkToken } from './intake-link'
 import type { InvitationToken } from './invitations'
 import type { PausePeriodWeeks } from './pause'
@@ -362,6 +363,55 @@ export type Command =
       readonly personId: PersonId
       /** Exactly as it arrived. Reading it is the domain's job, not the route's. */
       readonly body: string
+    }
+  /**
+   * The four ways an Admin changes the list of Discipleship Goals their Ministry
+   * offers at Intake. Four commands and not one, because they are four acts an
+   * Admin performs separately and only one of them costs anybody their answer.
+   *
+   * Renaming is deliberately not remove-then-add. The option is a row and the
+   * answers point at the row, so a reworded option is the same option and every
+   * Person who chose it still has -- which is the whole reason the wording is a
+   * column rather than the value on the submission.
+   */
+  | {
+      readonly type: 'goal.add'
+      readonly ministryId: MinistryId
+      /** As typed. What counts as wording at all is decided at the boundary. */
+      readonly label: string
+    }
+  | {
+      readonly type: 'goal.rename'
+      readonly ministryId: MinistryId
+      readonly goalId: DiscipleshipGoalId
+      readonly label: string
+    }
+  /**
+   * One option, one place along the list. Up and down rather than a whole order,
+   * because that is the control an Admin presses and the list it produces is the
+   * boundary's to work out -- a surface that computed the new order would be
+   * deciding a Ministry's own ordering on its behalf.
+   */
+  | {
+      readonly type: 'goal.move'
+      readonly ministryId: MinistryId
+      readonly goalId: DiscipleshipGoalId
+      readonly direction: GoalDirection
+    }
+  /**
+   * The one edit that costs somebody something. Every Person whose current answer
+   * pointed at this option loses it: they keep their Intake and their
+   * availability and stay pairable, ranked on availability alone until they
+   * answer again, and their stated goal is gone for good.
+   *
+   * Nothing here says the Admin was warned. The warning is a screen's -- it needs
+   * a page and a second press to exist at all -- and what this records is that
+   * the removal happened and what it cost.
+   */
+  | {
+      readonly type: 'goal.remove'
+      readonly ministryId: MinistryId
+      readonly goalId: DiscipleshipGoalId
     }
   /**
    * *Not my number.* It changes nothing -- a forwarded link can never re-point an

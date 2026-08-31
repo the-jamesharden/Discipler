@@ -15,6 +15,9 @@ import type {
   CheckInClarification,
   CheckInReminder,
   CheckInSequenceClosure,
+  DiscipleshipGoalOrder,
+  DiscipleshipGoalRemoval,
+  DiscipleshipGoalRenaming,
   IntakeRecord,
   LeadEligibility,
   LeaderAcceptance,
@@ -24,6 +27,7 @@ import type {
   KeywordExchangeTarget,
   NewCheckInPrompt,
   NewCheckInSequence,
+  NewDiscipleshipGoal,
   NewKeywordExchange,
   OutboundMessageDraft,
   OutstandingReplyClosure,
@@ -39,6 +43,7 @@ import type {
   FollowUpResolution,
   NewFollowUpItem,
 } from '~/domain/follow-up'
+import type { OfferedGoal } from '~/domain/discipleship-goals'
 import type { IntakeLinkState, IntakeLinkToken, NewIntakeLink } from '~/domain/intake-link'
 import type { InboundSnapshot } from '~/domain/keywords'
 import type {
@@ -325,6 +330,34 @@ export interface UnitOfWork {
   setLeadEligibility(eligibility: LeadEligibility): Promise<void>
 
   /**
+   * Every Discipleship Goal option this Ministry offers, in the order the form
+   * shows them, each with how many people's current Intake answer points at it.
+   *
+   * The count comes back with the options rather than being asked for separately,
+   * because the one edit that needs it is the one that destroys it: after the
+   * removal there is nothing left to count.
+   */
+  discipleshipGoals(): Promise<readonly OfferedGoal[]>
+
+  /** One option, appended to the Ministry's list at the position it was given. */
+  addDiscipleshipGoal(goal: NewDiscipleshipGoal): Promise<void>
+
+  /**
+   * One option, reworded. The row is updated rather than replaced, which is what
+   * keeps every answer pointing at it: a reworded option is the same option.
+   */
+  renameDiscipleshipGoal(renaming: DiscipleshipGoalRenaming): Promise<void>
+
+  /** The Ministry's whole list, renumbered into the order it was handed. */
+  reorderDiscipleshipGoals(order: DiscipleshipGoalOrder): Promise<void>
+
+  /**
+   * One option, deleted. The database blanks it on every submission that chose
+   * it, and refuses to delete the last option a Ministry has.
+   */
+  removeDiscipleshipGoal(removal: DiscipleshipGoalRemoval): Promise<void>
+
+  /**
    * The link that reopens one Person's Intake. Replaces whatever link that Person
    * held: one live link each is what an Admin means by *send them a new one*.
    */
@@ -605,9 +638,13 @@ export interface RosterReader {
  * from the outside world stays the one place.
  */
 
-/** Why the sending layer refused a message. Codes, never prose. */
+/**
+ * Whether the queue may send this row on this drain. `held` is not a failure and
+ * not a refusal: `claim` says what each of its causes is.
+ */
 export type ClaimOutcome = 'claimed' | 'held'
 
+/** Why the sending layer refused a message. Codes, never prose. */
 export type WithholdingReason =
   | 'recipient_opted_out'
   | 'recipient_has_no_sms_consent'
@@ -770,6 +807,33 @@ export interface IntakePrefill {
    * because that is what the form has to let them change back.
    */
   readonly contactSharing: 'granted' | 'declined' | null
+}
+
+/**
+ * One option as the settings surface shows it: what it says, and what removing it
+ * would cost.
+ *
+ * The same count the command boundary decides against, and from the same
+ * definition in the database -- so the number an Admin was warned with and the
+ * number history records cannot disagree.
+ */
+export interface DiscipleshipGoalListing {
+  readonly id: DiscipleshipGoalId
+  readonly label: string
+  /** How many people's current Intake answer points at this option. */
+  readonly chosenBy: number
+}
+
+/**
+ * What the settings surface needs to show a Ministry its own list. Read through
+ * the signed-in Admin's session, so the policies are what scope it -- an Admin
+ * sees their Ministry's options and no other Ministry's, and goals are never
+ * shared or compared across Ministries.
+ */
+export interface DiscipleshipGoalReader {
+  listDiscipleshipGoals(
+    ministryId: MinistryId,
+  ): Promise<readonly DiscipleshipGoalListing[]>
 }
 
 export interface IntakeReader {

@@ -129,6 +129,21 @@ describe('applying a command\'s effects', () => {
         setLeadEligibility: async () => {
           throw new Error('nobody should have been marked eligible to lead')
         },
+        discipleshipGoals: async () => {
+          throw new Error('the goal options should not have been read')
+        },
+        addDiscipleshipGoal: async () => {
+          throw new Error('no goal option should have been added')
+        },
+        renameDiscipleshipGoal: async () => {
+          throw new Error('no goal option should have been renamed')
+        },
+        reorderDiscipleshipGoals: async () => {
+          throw new Error('the goal options should not have been reordered')
+        },
+        removeDiscipleshipGoal: async () => {
+          throw new Error('no goal option should have been removed')
+        },
         issueIntakeLink: async () => {
           throw new Error('no Intake link should have been issued')
         },

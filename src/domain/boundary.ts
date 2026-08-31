@@ -2,6 +2,7 @@ import type { Command } from './commands'
 import { days, daysSince, type Clock } from './clock'
 import {
   acceptInvitation,
+  addDiscipleshipGoal,
   appendHistory,
   askCheckInQuestion,
   assignMaterial,
@@ -30,6 +31,9 @@ import {
   resolveFollowUpItem,
   raiseConcern,
   recordConcernViewing,
+  removeDiscipleshipGoal,
+  renameDiscipleshipGoal,
+  reorderDiscipleshipGoals,
   resolveConcern,
   setKeywordExchangeTarget,
   setLeadEligibility,
@@ -48,6 +52,7 @@ import {
   CancellationRefused,
   DepartureRefused,
   EndingRefused,
+  GoalRefused,
   IntakeRefused,
   InvitationRefused,
   MaterialAssignmentRefused,
@@ -93,7 +98,15 @@ import {
   type RelationshipKeyword,
 } from './keywords'
 import { calendarMonthOf } from './week'
-import { readIntakeForm } from './intake'
+import {
+  alreadyOffered,
+  nextPosition,
+  offeredGoal,
+  orderAfterMoving,
+  readGoalWording,
+  type OfferedGoal,
+} from './discipleship-goals'
+import { discipleshipGoalId, readIntakeForm, type DiscipleshipGoalId } from './intake'
 import {
   intakeLinkState,
   intakeLinkToken,
@@ -263,6 +276,17 @@ export interface CommandContext {
    * opposite facts, and one of them silently checks in with nobody.
    */
   readonly checkInsDue?: readonly CheckInSnapshot[]
+  /**
+   * Every Discipleship Goal option this Ministry currently offers, with how many
+   * people's answer each one holds. Loaded on the four `goal.*` commands' behalf.
+   *
+   * Absent rather than empty, for the reason the Roster is: a list that did not
+   * load and a Ministry offering nothing are the same value and opposite facts,
+   * and here one of them would wave a duplicate through and refuse a removal that
+   * was perfectly safe. A Ministry offering nothing cannot exist -- the database
+   * seeds every new one and refuses the removal that would empty it.
+   */
+  readonly goals?: readonly OfferedGoal[]
   /**
    * What the Person an inbound text came from holds, what they last asked for, and
    * whether Discipler may still text them. Loaded on `sms.inbound`'s behalf,
@@ -474,6 +498,49 @@ const membersOf = (
     (personId): NewMembership => ({ personId, role: 'participant', startedAt }),
   ),
 ]
+
+/**
+ * The Ministry's own list of Discipleship Goal options, or a loud failure rather
+ * than an empty one. See `CommandContext.goals`: absent and empty are opposite
+ * facts, and a read that silently became *this Ministry offers nothing* would
+ * change what every rule below decides.
+ */
+const theOptionsOnOffer = (context: CommandContext): readonly OfferedGoal[] => {
+  if (!context.goals) {
+    throw new Error('No list of Discipleship Goal options was loaded for this edit')
+  }
+  return context.goals
+}
+
+/**
+ * The option an edit names, or a refusal. A refusal rather than a failure,
+ * because an Admin acting from a page somebody else has since edited is an
+ * ordinary thing to happen rather than a defect.
+ */
+const theOptionNamed = (
+  goals: readonly OfferedGoal[],
+  id: DiscipleshipGoalId,
+): OfferedGoal => {
+  const goal = offeredGoal(goals, id)
+  if (!goal) throw new GoalRefused('goal.not_found')
+  return goal
+}
+
+/**
+ * The wording an option will carry, checked against the two things that make a
+ * list unusable: an option with nothing on it, and two options a Person reading
+ * the form could not tell apart.
+ */
+const theWordingFor = (
+  goals: readonly OfferedGoal[],
+  raw: string,
+  except?: DiscipleshipGoalId,
+): string => {
+  const wording = readGoalWording(raw)
+  if (!wording) throw new GoalRefused('goal.needs_wording')
+  if (alreadyOffered(goals, wording, except)) throw new GoalRefused('goal.already_offered')
+  return wording
+}
 
 /** A Person the command was handed, or a loud failure rather than a blank name. */
 const whoIs = (context: CommandContext, id: PersonId): PersonContact => {
@@ -3221,6 +3288,131 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             subjectType: 'person',
             subjectId: command.personId,
             payload: { eligible: command.eligible },
+          }),
+        ],
+        rejections: [],
+      }
+    }
+
+    case 'goal.add': {
+      const goals = theOptionsOnOffer(context)
+      const label = theWordingFor(goals, command.label)
+      const now = context.clock.now()
+      const id = discipleshipGoalId(context.ids.next())
+
+      return {
+        effects: [
+          addDiscipleshipGoal({
+            id,
+            ministryId: command.ministryId,
+            label,
+            position: nextPosition(goals),
+            createdAt: now,
+          }),
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'discipleship_goal.added',
+            subjectType: 'discipleship_goal',
+            subjectId: id,
+            payload: { label },
+          }),
+        ],
+        rejections: [],
+      }
+    }
+
+    case 'goal.rename': {
+      const goals = theOptionsOnOffer(context)
+      const goal = theOptionNamed(goals, command.goalId)
+      // Compared against every other option and never against itself, which is
+      // what lets an Admin correct an option's own capitalisation.
+      const label = theWordingFor(goals, command.label, goal.id)
+      const now = context.clock.now()
+
+      return {
+        effects: [
+          renameDiscipleshipGoal({
+            ministryId: command.ministryId,
+            goalId: goal.id,
+            label,
+          }),
+          // The wording it used to carry, which the update is about to overwrite
+          // and which nothing else keeps. A Ministry that reworded an option
+          // mid-semester can otherwise no longer read its own older reports.
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'discipleship_goal.renamed',
+            subjectType: 'discipleship_goal',
+            subjectId: goal.id,
+            payload: { from: goal.label, to: label },
+          }),
+        ],
+        rejections: [],
+      }
+    }
+
+    case 'goal.move': {
+      const goals = theOptionsOnOffer(context)
+      const goal = theOptionNamed(goals, command.goalId)
+      const order = orderAfterMoving(goals, goal.id, command.direction)
+
+      // Already where it was asked to go: the top option, sent up. Nothing
+      // happened, so nothing is written and history says nothing -- an Admin has
+      // asked for the list they are already looking at, which is not an error to
+      // invent a refusal for.
+      if (!order) return { effects: [], rejections: [] }
+
+      const now = context.clock.now()
+
+      return {
+        effects: [
+          reorderDiscipleshipGoals({ ministryId: command.ministryId, order }),
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'discipleship_goal.moved',
+            subjectType: 'discipleship_goal',
+            subjectId: goal.id,
+            payload: { direction: command.direction, order: [...order] },
+          }),
+        ],
+        rejections: [],
+      }
+    }
+
+    case 'goal.remove': {
+      const goals = theOptionsOnOffer(context)
+      const goal = theOptionNamed(goals, command.goalId)
+
+      // The rule, and not the screen's restraint: a Ministry with no options
+      // cannot serve an Intake form at all. The database refuses this a second
+      // time, because a pilot's settings get written by SQL as often as by a
+      // button.
+      if (goals.length <= 1) throw new GoalRefused('goal.last_one')
+
+      const now = context.clock.now()
+
+      return {
+        effects: [
+          removeDiscipleshipGoal({
+            ministryId: command.ministryId,
+            goalId: goal.id,
+            label: goal.label,
+            chosenBy: goal.chosenBy,
+          }),
+          // What it cost, written down at the moment it is spent. The answers
+          // themselves are blanked by the database and no undo recovers them, so
+          // this event is the only thing that will ever be able to say how many
+          // people had chosen this option, or what it said.
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'discipleship_goal.removed',
+            subjectType: 'discipleship_goal',
+            subjectId: goal.id,
+            payload: { label: goal.label, answersLost: goal.chosenBy },
           }),
         ],
         rejections: [],

@@ -10,8 +10,12 @@ import type {
   UnacceptedRelationship,
 } from '~/domain/boundary'
 import type {
+  DiscipleshipGoalOrder,
+  DiscipleshipGoalRemoval,
+  DiscipleshipGoalRenaming,
   IntakeRecord,
   LeadEligibility,
+  NewDiscipleshipGoal,
   LeaderAcceptance,
   MaterialAssignment,
   OutboundMessageDraft,
@@ -36,6 +40,8 @@ import {
   type OpenKeywordExchange,
   type RelationshipKeyword,
 } from '~/domain/keywords'
+import type { OfferedGoal } from '~/domain/discipleship-goals'
+import { discipleshipGoalId } from '~/domain/intake'
 import { readStandingPause, type StandingPause } from '~/domain/pause'
 import type { MemberRole, RelationshipOutcome } from '~/domain/relationships'
 import type { ConcernResolution, ConcernViewing, NewConcern } from '~/domain/concerns'
@@ -45,6 +51,7 @@ import {
   DepartureRefused,
   EndingRefused,
   FollowUpRefused,
+  GoalRefused,
   IntakeRefused,
   InvitationRefused,
   MaterialAssignmentRefused,
@@ -109,6 +116,26 @@ const REFUSALS: Record<string, PairingRefusal> = {
 /** The one place that knows where a driver hides the name of what it violated. */
 const constraintViolated = (error: unknown): string | undefined =>
   (error as { constraint?: string } | null)?.constraint
+
+/**
+ * A wording this Ministry already offers, as the database sees it.
+ *
+ * The boundary refuses a duplicate against the list it read, so reaching here means
+ * somebody else wrote between that read and the write -- and the losing Admin
+ * should be told the same true thing as the one who saw it on screen.
+ */
+const asGoalRefusal = (error: unknown): GoalRefused | undefined =>
+  constraintViolated(error) === 'discipleship_goal_ministry_id_label_key'
+    ? new GoalRefused('goal.already_offered')
+    : undefined
+
+/**
+ * The floor that stops a Ministry being left with no options, as the delete sees
+ * it. `restrict_violation` is what `app.ministry_keeps_a_discipleship_goal` raises,
+ * and a delete on this table can reach no other trigger that raises it.
+ */
+const isTheLastOption = (error: unknown): boolean =>
+  (error as { code?: string } | null)?.code === '23001'
 
 const asRefusal = (error: unknown): PairingRefused | undefined => {
   const constraint = constraintViolated(error)
@@ -1922,6 +1949,127 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // control on a row and a silent no-op reads to them as *it did not take*.
     if (rowCount === 0) {
       throw new Error(`No Person ${eligibility.personId} to mark eligible to lead`)
+    }
+  },
+
+  async discipleshipGoals(): Promise<readonly OfferedGoal[]> {
+    // The same function the settings surface reads, so the count an Admin was
+    // warned with and the count history records come from one definition rather
+    // than from two queries waiting to disagree. It gates on the Ministry this
+    // connection declared it is acting for.
+    const { rows } = await client.query<{
+      id: string
+      label: string
+      list_position: number
+      chosen_by: string
+    }>(
+      `select id, label, list_position, chosen_by
+         from discipleship_goal_options(app.command_ministry_id())`,
+    )
+
+    return rows.map((row) => ({
+      id: discipleshipGoalId(row.id),
+      label: row.label,
+      position: Number(row.list_position),
+      // `count(*)` is a bigint and `pg` hands those back as strings, because most
+      // of their range does not survive a JavaScript number. A congregation's
+      // worth of answers does, so it is converted here rather than carried as text
+      // into arithmetic that would silently concatenate.
+      chosenBy: Number(row.chosen_by),
+    }))
+  },
+
+  async addDiscipleshipGoal(goal: NewDiscipleshipGoal) {
+    try {
+      await client.query(
+        `insert into discipleship_goal (id, ministry_id, label, position, created_at)
+         values ($1, $2, $3, $4, $5)`,
+        [goal.id, goal.ministryId, goal.label, goal.position, goal.createdAt],
+      )
+    } catch (error) {
+      // The boundary already refused a duplicate against the list it read. This is
+      // the other Admin, adding the same wording in the second between that read
+      // and this insert -- and the loser of that race is being told the same true
+      // thing as the Admin who saw it on screen, rather than a 500.
+      throw asGoalRefusal(error) ?? error
+    }
+  },
+
+  async renameDiscipleshipGoal(renaming: DiscipleshipGoalRenaming) {
+    // An update to the row, never a delete and an insert. The id is what every
+    // answer points at, so rewording an option here is what keeps the people who
+    // chose it -- and what makes *a reworded option is the same option* a property
+    // of the data rather than of whoever wrote the surface.
+    let renamed: number | null = null
+    try {
+      ;({ rowCount: renamed } = await client.query(
+        `update discipleship_goal set label = $2 where id = $1`,
+        [renaming.goalId, renaming.label],
+      ))
+    } catch (error) {
+      // The same race the insert has, and the same answer: somebody else reworded
+      // another option into this wording between the read and here.
+      throw asGoalRefusal(error) ?? error
+    }
+
+    // Nobody was updated, which on this connection means no such option in this
+    // Ministry. Failing rather than passing quietly: the Admin retyped an option's
+    // wording and a silent no-op reads to them as *it did not save*.
+    if (renamed === 0) {
+      throw new Error(`No Discipleship Goal ${renaming.goalId} to rename`)
+    }
+  },
+
+  async reorderDiscipleshipGoals(order: DiscipleshipGoalOrder) {
+    // One statement, and the whole list. `unique (ministry_id, position)` is
+    // deferrable initially deferred, so the positions two options swap through
+    // mid-statement are checked at commit rather than as they are written -- which
+    // is what makes a swap possible at all without a temporary position nobody
+    // wanted.
+    const { rowCount } = await client.query(
+      `update discipleship_goal g
+          set position = placed.ordinality
+         from unnest($1::uuid[]) with ordinality as placed (id, ordinality)
+        where g.id = placed.id`,
+      [[...order.order]],
+    )
+
+    // Every option the boundary was handed, or the list it decided against is not
+    // the list in the database -- something wrote between the read and here, and
+    // renumbering part of a list would leave an order nobody chose.
+    if (rowCount !== order.order.length) {
+      throw new Error(
+        `Reordering the Discipleship Goals moved ${rowCount} of ${order.order.length} options`,
+      )
+    }
+  },
+
+  async removeDiscipleshipGoal(removal: DiscipleshipGoalRemoval) {
+    // `on delete set null` on `intake_submission.discipleship_goal_id` is what
+    // makes this the one edit that costs anybody anything: every submission that
+    // chose this option is blanked. Those people keep their Intake and their
+    // availability and stay pairable -- ranked on availability alone until they
+    // answer again -- and their stated goal is gone.
+    //
+    // A trigger refuses this when it is the Ministry's last option. That refusal
+    // is the database's rather than this statement's, so it holds for a pilot's
+    // settings written by SQL as much as for an Admin pressing a button.
+    let deleted: number | null = null
+    try {
+      ;({ rowCount: deleted } = await client.query(
+        `delete from discipleship_goal where id = $1`,
+        [removal.goalId],
+      ))
+    } catch (error) {
+      // The trigger, reached by the race the boundary cannot see: two Admins each
+      // removing one of the last two options, both having read a list of two. The
+      // second one is told what the first would have been told on screen.
+      if (isTheLastOption(error)) throw new GoalRefused('goal.last_one')
+      throw error
+    }
+
+    if (deleted === 0) {
+      throw new Error(`No Discipleship Goal ${removal.goalId} to remove`)
     }
   },
 

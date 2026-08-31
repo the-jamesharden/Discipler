@@ -367,3 +367,28 @@ export class CheckInRefused extends Error {
     this.name = 'CheckInRefused'
   }
 }
+
+/**
+ * Why an edit to the Ministry's Discipleship Goal options could not be made.
+ *
+ * The last of them is the one worth stating as a rule rather than as a screen's
+ * restraint: a Ministry with no options cannot serve an Intake form at all, so
+ * the removal that would empty the list is refused here and again by the
+ * database, and never merely by a button that was not rendered.
+ */
+export type GoalRefusal =
+  /** No option of this Ministry's answers to that id. */
+  | 'goal.not_found'
+  /** An option with nothing written on it is not an option. */
+  | 'goal.needs_wording'
+  /** This Ministry already offers one worded like that. */
+  | 'goal.already_offered'
+  /** It is the only option left, and Intake could not then be served. */
+  | 'goal.last_one'
+
+export class GoalRefused extends Error {
+  constructor(readonly refusal: GoalRefusal) {
+    super(refusal)
+    this.name = 'GoalRefused'
+  }
+}
