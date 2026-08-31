@@ -10,18 +10,18 @@ A Person is the human. An account is optional and belongs to the Person, not bes
 
 Nothing here stores a role. Role lives on relationship membership, and Participation Status is derived.
 
-**Blocked by:** 02
+**Blocked by:** 02, and 24 for the two criteria still open
 
 **Status:** ready-for-agent
 
 - [x] `person.user_id` is nullable, references `auth.users`, and is unique per Ministry where set
-- [ ] A Person may exist with no account, and an account may not exist without a Person in that Ministry
-- [ ] `eligible_to_lead` is a Person-level flag, defaulting to false, settable by an Admin
+- [ ] A Person may exist with no account, and an account may not exist without a Person in that Ministry — *the first half holds and is covered; the second is broken by Admin provisioning alone, which is ticket 24's*
+- [x] `eligible_to_lead` is a Person-level flag, defaulting to false, settable by an Admin
 - [x] Eligibility is independent of account, of Intake, and of relationships currently led
 - [x] No role is stored on the Person, and `ministry_member.tier` is unchanged
 - [x] A fixture builds the canonical dual-role case: an Admin who leads two relationships and is a Participant in a third
 - [ ] One human holds one `auth.users` row: an Admin who accepts an Invitation Link gains no second account and no second `ministry_member` row — ticket 24
-- [ ] The dual-role case is built through the product's own flows, not by hand-linking `person.user_id` through the service role
+- [ ] The dual-role case is built through the product's own flows, not by hand-linking `person.user_id` through the service role — ticket 24
 
 ## Comments
 
@@ -52,3 +52,46 @@ The suite does not catch it. `addPersonForAdmin` sets `person.user_id` through t
 role, which is a path no product flow has, so the canonical dual-role case is asserted
 against a state the product cannot reach. Ticket 24 owns the fix, because the fix is to
 how an Admin comes into existence; the fixture is replaced there too.
+
+### Verified 2026-08-31 — nothing left here that ticket 24 does not own
+
+Picked up for implementation and found to have no implementable remainder of its own.
+Read against the code rather than against the checkboxes, which had drifted in both
+directions. What was actually found, so the next person does not repeat the search:
+
+**`eligible_to_lead` shipped with ticket 16, and the box was simply never ticked.**
+The column and its comment are in `20260826000100_relationships_roles_and_leader_access.sql:23-37`,
+defaulting false. It is set by `person.set_lead_eligibility` through the command
+service, recorded as a `person.lead_eligibility_set` history event either way round,
+and reached by an Admin from the control on every Roster row
+(`app/roster/page.tsx:209`). `tests/integration/eligible-to-lead.test.ts` covers the
+default, both directions, the pair of events in order, and all three independences —
+account, Intake, relationships already led — which is why the criterion below it was
+already ticked while this one was not.
+
+**Nothing gates a Leader-facing surface on `tier = 'leader'`.** The warning in line 7
+is honoured everywhere it could have been broken: `src/platform/supabase/leader-dashboard.ts:262-269`
+asks for open leader memberships, and the RLS predicate `app.leads_relationship` does
+the same. `tier` is read only where access is the question
+(`20260826000100_relationships_roles_and_leader_access.sql:180`).
+
+**"An account may not exist without a Person" already holds on every path but one.**
+The Leader path cannot break it: acceptance is reached through an invitation that
+carries `person_id`, and `acceptInvitation` links the account to that existing row
+(`src/platform/supabase/effect-store.ts:891`). Acceptance also already does the half
+of `docs/adr/0009-one-account-per-human.md` that the ADR credits it with — it reuses
+`person.user_id` where it is set and mints only where it is null
+(`app/invitation/[token]/accept/route.ts:46-54`). The single path that breaks the rule
+is Admin provisioning, which mints against an email and creates no Person row at all.
+
+So both open criteria reduce to one missing fact — the link between an Admin's login
+and their Person row — and ADR-0009 and ticket 24's own acceptance criteria both place
+it there, because it can only be made where an Admin comes into existence. Carving it
+out to close this ticket early would have split the provisioning rewrite across two
+commits and made neither reviewable as a whole. `Blocked by` above now says 24, so a
+frontier scan passes over this ticket rather than walking the same search again.
+
+The canonical dual-role fixture the ticket asks for does exist and is honest about its
+one flaw: `tests/integration/leader-access.test.ts:61-88` builds Greaves leading two
+relationships and being discipled in a third, via `addPersonForAdmin`, which is the
+service-role hand-link the last criterion is waiting to be rid of.
