@@ -112,8 +112,13 @@ describe('the scheduled tick', () => {
   }
 
   const eventsOn = async (relationship: string, type: string) => {
+    // Ordered, because the assertions below are about a sequence -- what the tick
+    // recorded on the fifth day and then on the sixth. Unordered, Postgres may
+    // return either row first and the test fails on roughly half its runs.
     const { rows } = await pool.query<{ payload: Record<string, unknown> }>(
-      `select payload from ministry_event where subject_id = $1 and type = $2`,
+      `select payload from ministry_event
+        where subject_id = $1 and type = $2
+        order by occurred_at, recorded_at`,
       [relationship, type],
     )
     return rows
