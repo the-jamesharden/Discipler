@@ -15,6 +15,11 @@ import type {
   Gender,
 } from './intake'
 import type { FollowUpResolution, NewFollowUpItem } from './follow-up'
+import type {
+  KeywordExchangeId,
+  KeywordRelationship,
+  RelationshipKeyword,
+} from './keywords'
 import type { NewIntakeLink } from './intake-link'
 import type { InvitationToken, NewInvitation } from './invitations'
 import type { MemberRole, NewRelationship, RelationshipOutcome } from './relationships'
@@ -395,6 +400,92 @@ export interface LeadEligibility {
   readonly decidedAt: Date
 }
 
+/**
+ * A Keyword Exchange, opened. The eligible relationships travel with it in the
+ * order the menu numbered them, because a menu that renumbered itself between the
+ * message and the reply would apply the keyword to whichever relationship happened
+ * to sort first today.
+ *
+ * `target` is set at the moment of opening only where there was nothing to choose:
+ * a `PAUSE` with exactly one eligible relationship goes straight to its
+ * confirmation. Everything else opens on the menu with no target at all.
+ */
+export interface NewKeywordExchange {
+  readonly id: KeywordExchangeId
+  readonly ministryId: MinistryId
+  readonly personId: PersonId
+  readonly keyword: RelationshipKeyword
+  readonly options: readonly KeywordRelationship[]
+  readonly target: KeywordRelationship | null
+  readonly openedAt: Date
+}
+
+/**
+ * A menu answered: the relationship this exchange has settled on, and the moment it
+ * put its next question. Only a `PAUSE` writes one -- the other two apply on the
+ * selection and close in the same breath, so there is no state between choosing and
+ * acting for them to be in.
+ *
+ * The clarification count goes back to nothing here, because the confirmation is a
+ * new question. A Leader who mistyped the menu twice has spent nothing against it.
+ */
+export interface KeywordExchangeTarget {
+  readonly ministryId: MinistryId
+  readonly exchangeId: KeywordExchangeId
+  readonly relationshipId: RelationshipId
+  readonly promptedAt: Date
+}
+
+/**
+ * One of the two clarifications Discipler will spend on an exchange's question.
+ * Counted rather than inferred, for the same reason a check-in's is: what Discipler
+ * said is a different number from what the Leader typed, and it is Discipler's side
+ * that is capped.
+ */
+export interface KeywordExchangeClarification {
+  readonly ministryId: MinistryId
+  readonly exchangeId: KeywordExchangeId
+  readonly clarifiedAt: Date
+}
+
+/**
+ * An exchange that is no longer open, and why.
+ *
+ * `applied` -- the request went through. `replaced` -- a second keyword arrived, and
+ * the most recent request is the one that stands. `expired` -- twenty-four hours ran
+ * out, which raises nothing and changes nothing and is recorded here only so the row
+ * stops occupying the one open slot a Person has. `overtaken` -- the Leader answered,
+ * and by then there was nothing left to answer about: an Admin paused the same
+ * relationship an hour ago, or ended it.
+ *
+ * `overtaken` exists rather than being folded into `applied` because they are
+ * opposite facts about the same Leader's evening. One of them means their pause is
+ * running.
+ */
+export type KeywordExchangeOutcome = 'applied' | 'replaced' | 'expired' | 'overtaken'
+
+export interface KeywordExchangeClosure {
+  readonly ministryId: MinistryId
+  readonly exchangeId: KeywordExchangeId
+  readonly closedAt: Date
+  readonly outcome: KeywordExchangeOutcome
+}
+
+/**
+ * The carrier-level re-opt-in, `START`, which reverses a `STOP` and restores
+ * messaging to a Person. Dated on the opt-out it ends rather than deleting the row:
+ * `STOP` in March and `START` in April are two facts, and a deletion is neither of
+ * them.
+ *
+ * It resumes no relationship. Whatever was paused is still paused and whatever
+ * ended is still ended -- this restores permission to be texted and nothing else.
+ */
+export interface PersonOptIn {
+  readonly ministryId: MinistryId
+  readonly personId: PersonId
+  readonly endedAt: Date
+}
+
 export type Effect =
   | { readonly kind: 'history.append'; readonly event: NewHistoryEvent }
   | { readonly kind: 'person.create'; readonly person: NewPerson }
@@ -420,6 +511,14 @@ export type Effect =
   | { readonly kind: 'checkin.remind'; readonly reminder: CheckInReminder }
   | { readonly kind: 'checkin.close'; readonly closure: CheckInSequenceClosure }
   | { readonly kind: 'person.opt_out'; readonly optOut: PersonOptOut }
+  | { readonly kind: 'person.opt_in'; readonly optIn: PersonOptIn }
+  | { readonly kind: 'keyword.open'; readonly exchange: NewKeywordExchange }
+  | { readonly kind: 'keyword.target'; readonly target: KeywordExchangeTarget }
+  | {
+      readonly kind: 'keyword.clarify'
+      readonly clarification: KeywordExchangeClarification
+    }
+  | { readonly kind: 'keyword.close'; readonly closure: KeywordExchangeClosure }
   | {
       readonly kind: 'person.lead_eligibility'
       readonly eligibility: LeadEligibility
@@ -538,6 +637,30 @@ export const remindCheckInQuestion = (reminder: CheckInReminder): Effect => ({
 export const closeCheckInSequence = (closure: CheckInSequenceClosure): Effect => ({
   kind: 'checkin.close',
   closure,
+})
+
+export const openKeywordExchange = (exchange: NewKeywordExchange): Effect => ({
+  kind: 'keyword.open',
+  exchange,
+})
+
+export const setKeywordExchangeTarget = (target: KeywordExchangeTarget): Effect => ({
+  kind: 'keyword.target',
+  target,
+})
+
+export const clarifyKeywordExchange = (
+  clarification: KeywordExchangeClarification,
+): Effect => ({ kind: 'keyword.clarify', clarification })
+
+export const closeKeywordExchange = (closure: KeywordExchangeClosure): Effect => ({
+  kind: 'keyword.close',
+  closure,
+})
+
+export const optPersonIn = (optIn: PersonOptIn): Effect => ({
+  kind: 'person.opt_in',
+  optIn,
 })
 
 export const optPersonOut = (optOut: PersonOptOut): Effect => ({

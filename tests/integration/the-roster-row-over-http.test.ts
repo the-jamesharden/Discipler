@@ -158,4 +158,44 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
     )
     expect(rows[0]?.person_id).toBe(person)
   })
+
+  it('offers no link once the one on file has run out', async () => {
+    // `intake_link` is replaced on re-issue rather than deleted, so the row an
+    // expired link left behind is still the row this Person holds. Reading it as a
+    // live link would put *works until* a date already past in front of an Admin and
+    // send the Person to the page that tells them to ask for a link they were just
+    // given.
+    //
+    // Reachable because the Person is in the query string and the token is not: the
+    // Admin who bookmarks the confirmation, or comes back to the tab a fortnight
+    // later, asks this page for the link again without going through the act that
+    // mints one.
+    const { cookie } = await signIn(ministry)
+
+    const person = await addPerson(ministry, 'Yusuf Kaya', { phone: number() })
+
+    const { location } = await post('/roster/intake-link', cookie, { personId: person })
+    const query = location.split('?')[1] ?? ''
+
+    const live = await getPage(`/roster?${query}`, cookie)
+    expect(live.html).toContain('Send this to')
+
+    // The same row, a fortnight and a day older. Aged in place rather than deleted,
+    // because a deleted row would prove the null and not the expiry.
+    await pool.query(
+      `update intake_link
+          set created_at = now() - interval '15 days',
+              expires_at = now() - interval '1 day'
+        where person_id = $1`,
+      [person],
+    )
+
+    const expired = await getPage(`/roster?${query}`, cookie)
+    expect(expired.html).not.toContain('Send this to')
+    expect(expired.html).not.toContain('/intake/reopen/')
+
+    // And the control that mints a replacement is still on the row, which is what
+    // makes the absence recoverable rather than a dead end.
+    expect(expired.html).toContain('Intake link')
+  })
 })

@@ -4,6 +4,7 @@ import { createTestClock } from '~/domain/clock'
 import { checkInPromptId, checkInSequenceId, type OpenSequence } from '~/domain/check-in'
 import type { Effect } from '~/domain/effects'
 import { createSequentialIds, ministryId, personId, relationshipId } from '~/domain/ids'
+import { anInboundSnapshot } from '../support/inbound'
 
 /**
  * `STOP` is the carrier opt-out, and it is the Person's rather than any one
@@ -58,6 +59,7 @@ const send = (body: string, sequence: OpenSequence | null = openSequence) =>
       openSequence: sequence,
       lastCheckInAt: new Date('2026-10-05T09:00:00Z'),
     },
+    inbound: anInboundSnapshot({ personId: james }),
   } satisfies CommandContext)
 
 const optOuts = (effects: readonly Effect[]) =>

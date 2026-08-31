@@ -1,5 +1,6 @@
 import type { FollowUpItemId, MinistryId, PersonId, RelationshipId } from './ids'
 import { isPausePeriod, type PausePeriodWeeks } from './pause'
+import { isMemberRole, type MemberRole } from './relationships'
 
 /**
  * A condition an Admin has to act on, gathered in the Care Needed view. It is
@@ -18,7 +19,11 @@ export const FOLLOW_UP_KINDS = [
   'relationship_unaccepted',
   /** Raised by the tick at the end of a Pause period. Ticket 12 raises it. */
   'pause_expired',
-  /** A Leader texting `SWAP`. Ticket 17 raises it. */
+  /**
+   * A Leader or a Participant texting `SWAP`. Ticket 17 raises it, and it carries
+   * which side asked -- the Admin's next move differs: unpair and re-pair the
+   * Participant, or release the Leader from the relationship.
+   */
   'swap_requested',
   /** A Participant texting a recognized keyword. Ticket 17 raises it. */
   'participant_keyword',
@@ -41,8 +46,8 @@ export type FollowUpKind = (typeof FOLLOW_UP_KINDS)[number]
 /**
  * The kind and what it carries, as one discriminated union, so a `pause_expired`
  * without its period is not a value TypeScript will construct. The database
- * repeats the rule as a check constraint: only two of six kinds carry anything,
- * and a future writer that bypasses this boundary must still be refused.
+ * repeats the rule as a check constraint: three of six kinds carry anything, and a
+ * future writer that bypasses this boundary must still be refused.
  *
  * `relationship_unaccepted` carries nothing, though the Admin is shown how long it
  * has waited. That duration is read from the relationship's `created_at` at the
@@ -52,7 +57,14 @@ export type FollowUpKind = (typeof FOLLOW_UP_KINDS)[number]
 export type FollowUpPayload =
   | { readonly kind: 'relationship_unaccepted' }
   | { readonly kind: 'pause_expired'; readonly periodWeeks: PausePeriodWeeks }
-  | { readonly kind: 'swap_requested' }
+  /**
+   * `requestedBy` is the role the asker holds *in the relationship they named*, not
+   * a fact about the Person: a dual-role Person asking to swap out of the
+   * relationship they are discipled in is a Participant here whatever else they
+   * lead. Which is exactly the distinction the Admin needs, and the one a
+   * person-level flag could not have made.
+   */
+  | { readonly kind: 'swap_requested'; readonly requestedBy: MemberRole }
   | { readonly kind: 'participant_keyword'; readonly keyword: string }
   | { readonly kind: 'invitation_number_disputed' }
   | { readonly kind: 'match_declined' }
@@ -94,7 +106,7 @@ export interface FollowUpResolution {
 }
 
 /**
- * What a kind carries, as the row stores it. Only two kinds carry anything, so
+ * What a kind carries, as the row stores it. Three of the six carry anything, so
  * every other one is the default -- adding a kind that carries nothing needs no
  * edit here, and adding one that does will not compile without a case.
  */
@@ -104,6 +116,8 @@ export const followUpPayload = (
   switch (item.kind) {
     case 'pause_expired':
       return { periodWeeks: item.periodWeeks }
+    case 'swap_requested':
+      return { requestedBy: item.requestedBy }
     case 'participant_keyword':
       return { keyword: item.keyword }
     default:
@@ -129,6 +143,13 @@ export const readFollowUpPayload = (kind: FollowUpKind, raw: unknown): FollowUpP
         throw new Error('A pause_expired follow-up item arrived without its period')
       }
       return { kind, periodWeeks }
+    }
+    case 'swap_requested': {
+      const requestedBy = payload.requestedBy
+      if (!isMemberRole(requestedBy)) {
+        throw new Error('A swap_requested follow-up item arrived without the side that asked')
+      }
+      return { kind, requestedBy }
     }
     case 'participant_keyword': {
       const keyword = payload.keyword

@@ -1,7 +1,7 @@
 import { personId } from '~/domain/ids'
 import { isParticipationStatus, type ParticipationStatus } from '~/domain/participation'
 import { isMemberRole, type MemberRole } from '~/domain/relationships'
-import { intakeLinkToken } from '~/domain/intake-link'
+import { intakeLinkState, intakeLinkToken } from '~/domain/intake-link'
 import type {
   IssuedIntakeLink,
   RosterEntry,
@@ -172,6 +172,19 @@ export const supabaseRosterReader: RosterReader = {
     if (!token || !expiresAt) {
       throw new Error(`The Intake link for ${person} came back without a token or a date`)
     }
+
+    // A row is not a live link. `intake_link` holds one row per Person and is
+    // replaced rather than deleted on re-issue, so the row an expired link left
+    // behind is still there -- and this port promises the link they *hold*, which
+    // an Admin is about to send. Handing back a dead token would put *works until*
+    // a date already past on the Roster and send a Person to a page telling them to
+    // ask for a link they were just given.
+    //
+    // Decided here against the clock rather than filtered in SQL, which is where
+    // every other expiry question in this codebase is answered: `intakeLinkState`
+    // is the one definition of when a link has run out, and a `where expires_at >
+    // now()` beside it would be a second one for the same fact.
+    if (intakeLinkState(expiresAt, new Date()) === 'expired') return null
 
     return { token: intakeLinkToken(token), expiresAt }
   },

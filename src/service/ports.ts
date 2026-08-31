@@ -19,10 +19,15 @@ import type {
   LeadEligibility,
   LeaderAcceptance,
   MaterialAssignment,
+  KeywordExchangeClarification,
+  KeywordExchangeClosure,
+  KeywordExchangeTarget,
   NewCheckInPrompt,
   NewCheckInSequence,
+  NewKeywordExchange,
   OutboundMessageDraft,
   ParticipantDeparture,
+  PersonOptIn,
   PersonOptOut,
   RelationshipCancellation,
   RelationshipEnding,
@@ -33,6 +38,7 @@ import type {
   NewFollowUpItem,
 } from '~/domain/follow-up'
 import type { IntakeLinkState, IntakeLinkToken, NewIntakeLink } from '~/domain/intake-link'
+import type { InboundSnapshot } from '~/domain/keywords'
 import type { InvitationToken, NewInvitation } from '~/domain/invitations'
 import type { HistoryEvent, NewHistoryEvent } from '~/domain/history'
 import type { AgeBand, DiscipleshipGoalId, Gender } from '~/domain/intake'
@@ -247,6 +253,43 @@ export interface UnitOfWork {
 
   /** The carrier opt-out, at the level the carrier applies it: the Person. */
   optPersonOut(optOut: PersonOptOut): Promise<void>
+
+  /**
+   * The carrier re-opt-in, `START`, which dates the standing opt-out rather than
+   * deleting it. `STOP` in March and `START` in April are two facts.
+   */
+  optPersonIn(optIn: PersonOptIn): Promise<void>
+
+  /**
+   * What the Person an inbound text came from holds, what they last asked for, and
+   * whether Discipler may still text them.
+   *
+   * Read alongside `checkInFor` and behind the same advisory lock it takes, so a
+   * keyword and a newly-due conversation cannot both find nothing outstanding. Two
+   * reads rather than one because they answer different questions: this one serves
+   * a Participant, who has no check-in state at all.
+   */
+  inboundFor(id: PersonId): Promise<InboundSnapshot | null>
+
+  /**
+   * A Keyword Exchange, opened. Refused by a partial unique index if one already
+   * stands for this Person, which is what makes *at most one open per Person* a
+   * property of the data rather than of whichever path happened to write it.
+   */
+  openKeywordExchange(exchange: NewKeywordExchange): Promise<void>
+
+  /**
+   * A menu answered: the relationship the exchange has settled on, and the moment
+   * it put its next question. Resets the clarification count, because the
+   * confirmation is a new question.
+   */
+  setKeywordExchangeTarget(target: KeywordExchangeTarget): Promise<void>
+
+  /** One of the two clarifications Discipler will spend on an exchange's question. */
+  clarifyKeywordExchange(clarification: KeywordExchangeClarification): Promise<void>
+
+  /** An exchange that is no longer open, and why. */
+  closeKeywordExchange(closure: KeywordExchangeClosure): Promise<void>
 
   /**
    * An Admin's plan that this Person may lead. Set either way round -- withdrawing
@@ -488,7 +531,10 @@ export interface RosterReader {
   listRoster(ministryId: MinistryId): Promise<readonly RosterEntry[]>
 
   /**
-   * The link this Person currently holds, or null where they hold none.
+   * The link this Person currently holds, or null where they hold none and where
+   * the one on file has run out. Live is the whole of what this promises: the
+   * caller is an Admin about to send it, and a token that no longer opens anything
+   * is worse to them than no token at all.
    *
    * Read one at a time and never with the Roster. Every Person's token on one page
    * would be a page full of credentials, most of them for rows nobody is acting on;

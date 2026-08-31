@@ -98,6 +98,24 @@ describe('applying a command\'s effects', () => {
         optPersonOut: async () => {
           throw new Error('nobody should have been opted out')
         },
+        optPersonIn: async () => {
+          throw new Error('nobody should have been opted back in')
+        },
+        inboundFor: async () => {
+          throw new Error('nobody should have been looked up')
+        },
+        openKeywordExchange: async () => {
+          throw new Error('no keyword exchange should have been opened')
+        },
+        setKeywordExchangeTarget: async () => {
+          throw new Error('no keyword exchange should have been advanced')
+        },
+        clarifyKeywordExchange: async () => {
+          throw new Error('no keyword exchange should have been clarified')
+        },
+        closeKeywordExchange: async () => {
+          throw new Error('no keyword exchange should have been closed')
+        },
         setLeadEligibility: async () => {
           throw new Error('nobody should have been marked eligible to lead')
         },

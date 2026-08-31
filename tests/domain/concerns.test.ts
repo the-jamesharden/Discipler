@@ -10,6 +10,7 @@ import {
   type OpenSequence,
 } from '~/domain/check-in'
 import type { Effect } from '~/domain/effects'
+import { anInboundSnapshot } from '../support/inbound'
 import {
   concernId,
   createSequentialIds,
@@ -82,6 +83,7 @@ const context = (at: Date): Omit<CommandContext, 'checkIn'> => ({
   ids: createSequentialIds(),
   ministryName: 'ABC Church',
   appBaseUrl: 'https://discipler.example',
+  inbound: anInboundSnapshot({ personId: james }),
 })
 
 const replying = (body: string, at: Date = new Date(asked.getTime() + hours(1))) =>

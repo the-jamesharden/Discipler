@@ -356,7 +356,7 @@ This is coarser than the ten-year gap it replaces, and deliberately so — Disci
 
 A leader may pause a relationship they lead. The transition to `Paused` is immediate and requires no admin approval. An admin may pause a relationship in their ministry on the same terms and through the same rules — a pause is one act however it was asked for, and the two routes differ only in who asked.
 
-> **Not yet built:** only the admin route exists. `relationship.pause` and `relationship.resume` take a named admin account and there is no keyword route into them; a leader cannot pause anything today. The `RESUME` and pause keywords described here are ticket 17, which reaches these same rules through these same commands. Until it ships, this settled rule is met on the admin half only.
+> **Built (ticket 17).** Both routes exist. The keyword route reaches the same rules through the same events — `relationship.paused` and `relationship.resumed`, read back by `relationship_pauses` — rather than through the `relationship.pause` and `relationship.resume` commands themselves, which take a named admin account an inbound text does not have. The events carry `route` (`admin` or `keyword`) and a null `pausedBy`/`resumedBy` on the keyword side, so the record says who asked without putting an account id and a person id in one field.
 
 A pause runs for exactly one of five periods: 1 week, 2 weeks, 4 weeks, 8 weeks, or 12 weeks. The default is 2 weeks and the maximum is 12. No other duration is permitted.
 
@@ -394,7 +394,21 @@ The admin decides what happens next: resuming the relationship, which releases t
 
 ## Settled: A Swap Request Is a Request, Not a State Transition
 
-`SWAP` is a leader's request to be released from a specific relationship and matched with a different participant. Discipler records the request against that relationship and creates a follow-up item for the admin.
+`SWAP` is a request to be released from a specific relationship and matched with somebody different. Discipler records the request against that relationship and creates a follow-up item for the admin.
+
+> **Settled 2026-08-31, while building ticket 17: either side may text `SWAP`.** A participant
+> is sent no invitation link and does not decline a match, so `SWAP` is the one way they can say
+> the pairing is wrong without going silent — and going silent is the ambiguity the care rules
+> already struggle to read. The `swap_requested` item therefore carries **which side asked**,
+> because the admin's next move differs by it: unpair and re-pair the participant, or release
+> the leader from the relationship. It is the role held *in the relationship named*, not a
+> property of the person — a dual-role person asking to swap out of the relationship they are
+> discipled in is a participant here whatever else they lead.
+>
+> Every other relationship keyword stays a leader's. A participant receives no check-ins, so
+> `PAUSE` and `RESUME` have nothing of theirs to act on; those reach an admin as a
+> `participant_keyword` item instead, which is where somebody who wants out and has no other
+> route is heard.
 
 Receiving a swap request does not end the relationship, remove the leader, remove the participant, return anyone to the pairing pool, create a replacement relationship, reassign anybody, or set the relationship to `Ended`. It is not a relationship-state transition. The relationship holds its existing state — including `Paused` — and remains intact until an admin acts.
 
@@ -877,7 +891,7 @@ what to do about it:
 |---|---|---|
 | `relationship_unaccepted` | the tick, five days after creation | how long it has waited |
 | `pause_expired` | the tick, at the end of the selected period | the selected period |
-| `swap_requested` | a Leader texting `SWAP` | — |
+| `swap_requested` | a Leader or Participant texting `SWAP` | which side asked |
 | `participant_keyword` | a Participant texting a recognized keyword | which keyword |
 | `invitation_number_disputed` | *not my number* on the invitation flow | — |
 | `match_declined` | a Participant declining the match on the reveal page | — |
@@ -901,10 +915,12 @@ and without an item it reaches nobody.
 >
 > Nothing mints a participant link any more, so the reveal page and `match.decline` are already
 > unreachable. **Removing them is not done here:** the command, its HTTP route and the
-> `match_declined` value are ticket 06's, the enum value must survive whatever history already
-> carries it, and a participant-initiated swap is a capability nothing has built — `swap_requested`
-> is raised by nobody today and ticket 17 still frames `SWAP` as a leader's keyword. Both belong in
-> tickets of their own.
+> `match_declined` value are ticket 06's, and the enum value must survive whatever history already
+> carries it.
+>
+> The participant-initiated swap this note left unbuilt **is built**, by ticket 17: `SWAP` is one
+> keyword either side may text, and `swap_requested` carries which side asked. See **Settled: A
+> Swap Request Is a Request, Not a State Transition**.
 >
 > See `docs/adr/0011-only-a-leader-is-sent-a-link.md`.
 

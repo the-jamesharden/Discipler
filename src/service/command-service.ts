@@ -120,6 +120,21 @@ export const applyEffects = async (
   const optOuts = effects.flatMap((effect) =>
     effect.kind === 'person.opt_out' ? [effect.optOut] : [],
   )
+  const optIns = effects.flatMap((effect) =>
+    effect.kind === 'person.opt_in' ? [effect.optIn] : [],
+  )
+  const exchanges = effects.flatMap((effect) =>
+    effect.kind === 'keyword.open' ? [effect.exchange] : [],
+  )
+  const exchangeTargets = effects.flatMap((effect) =>
+    effect.kind === 'keyword.target' ? [effect.target] : [],
+  )
+  const exchangeClarifications = effects.flatMap((effect) =>
+    effect.kind === 'keyword.clarify' ? [effect.clarification] : [],
+  )
+  const exchangeClosures = effects.flatMap((effect) =>
+    effect.kind === 'keyword.close' ? [effect.closure] : [],
+  )
   const intakeLinks = effects.flatMap((effect) =>
     effect.kind === 'intake_link.issue' ? [effect.link] : [],
   )
@@ -198,6 +213,18 @@ export const applyEffects = async (
   for (const viewing of viewings) await unit.recordConcernViewing(viewing)
   for (const resolution of concernResolutions) await unit.resolveConcern(resolution)
 
+  // The exchange that is ending, then the one that replaces it, then the moves
+  // inside whichever is now open. In that order because a Person holds one exchange
+  // at a time: the partial unique index refuses a second open row, so the one being
+  // replaced has to close before the new one can open -- exactly as a Check-In
+  // Sequence does.
+  for (const closure of exchangeClosures) await unit.closeKeywordExchange(closure)
+  for (const exchange of exchanges) await unit.openKeywordExchange(exchange)
+  for (const target of exchangeTargets) await unit.setKeywordExchangeTarget(target)
+  for (const clarification of exchangeClarifications) {
+    await unit.clarifyKeywordExchange(clarification)
+  }
+
   for (const closure of closures) await unit.closeCheckInSequence(closure)
   for (const sequence of sequences) await unit.openCheckInSequence(sequence)
   for (const prompt of prompts) await unit.askCheckInQuestion(prompt)
@@ -205,6 +232,12 @@ export const applyEffects = async (
   // Before the history that says it happened, like every other write here.
   for (const eligibility of eligibilities) await unit.setLeadEligibility(eligibility)
   for (const link of intakeLinks) await unit.issueIntakeLink(link)
+
+  // Before the messages, and that ordering is the whole of what `START` does. The
+  // outbound queue refuses anything bound for a Person with an open opt-out, so a
+  // re-opt-in applied after the messages it permits would have the database refuse
+  // a message the Person had just asked to start receiving again.
+  for (const optIn of optIns) await unit.optPersonIn(optIn)
 
   // History before messages: a message that goes out unrecorded is worse than a
   // recorded message that failed to send, because only one of the two can be
@@ -337,6 +370,22 @@ const checkingInWith = async (unit: UnitOfWork, id: PersonId) => {
 }
 
 /**
+ * What the Person an inbound text came from holds. Absent rather than defaulted for
+ * the same reason their check-in state is: a Person this Ministry does not hold
+ * would otherwise reach the domain as an empty snapshot and read as *they hold
+ * nothing* rather than as *no such Person*.
+ *
+ * It carries the same refusal as the check-in read beside it, because it is the
+ * same fact about the same Person and one of the two answering differently would be
+ * a bug nobody could see from either.
+ */
+const whatTheSenderHolds = async (unit: UnitOfWork, id: PersonId) => {
+  const snapshot = await unit.inboundFor(id)
+  if (!snapshot) throw new CheckInRefused('checkin.person_not_found')
+  return snapshot
+}
+
+/**
  * A token nothing answers to is refused here rather than handed to the domain as
  * an absent snapshot. Absence would read as "this command was called wrong",
  * which is a different thing from "that link is not real" and reaches the holder
@@ -445,6 +494,13 @@ export const createCommandService = ({
         // conversation open and each try to start one.
         ...(isCheckIn(command)
           ? { checkIn: await checkingInWith(unit, command.personId) }
+          : {}),
+        // Read behind the same lock, for the same reason and about the same Person.
+        // Only an inbound text needs it: `checkin.start` opens a conversation and
+        // reads no keyword, so paying for this there would buy a snapshot nothing
+        // consults.
+        ...(command.type === 'sms.inbound'
+          ? { inbound: await whatTheSenderHolds(unit, command.personId) }
           : {}),
       })
 

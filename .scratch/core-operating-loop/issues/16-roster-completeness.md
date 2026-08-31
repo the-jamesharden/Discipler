@@ -143,10 +143,13 @@ commonest reason to reopen somebody's Intake is that the number on file is wrong
 Q settled in the implementation. `intake.submit` gains an optional token, and that
 token is what makes a correction possible: without it a Person is recognised by the
 name and number they typed, which is exactly what somebody changing their number
-cannot be. `IntakeRecord` now carries the name and number on *every* submission, so
-there is one path rather than a branch; a correction that collides with somebody
-already on the Roster is refused as `intake.details_belong_to_someone_else`, the
-same collision an import reports.
+cannot be. `IntakeRecord` carries the name and number as `corrections`, set only
+where the token named the Person -- a branch rather than one path, and deliberately
+so: on the Ministry-wide form that pair is *how* they were just recognised, and
+writing it back could only overwrite it with a differently-cased copy of itself.
+Through a link an Admin sent it is the thing they came to change. A correction that
+collides with somebody already on the Roster is refused as
+`intake.details_belong_to_someone_else`, the same collision an import reports.
 
 **One live bug, found under *receives no further messages*.** `leadersDueForCheckIn`
 did not exclude an opted-out Leader. Opting out ends no relationship, so the cadence

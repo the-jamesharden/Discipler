@@ -2,6 +2,7 @@ import type { MemberRole } from './relationships'
 import type { PersonId, RelationshipId } from './ids'
 import type { Branded } from './branded'
 import { hours } from './clock'
+import { plainWords, withoutPleasantries } from './inbound-text'
 import { cadenceInstantOf, isoWeekOf, type Cadence } from './week'
 
 /**
@@ -83,91 +84,10 @@ const SATISFACTION_TOKENS: ReadonlyMap<string, Satisfaction> = new Map([
 ])
 
 /**
- * The closed list, and the one invariant it has to keep: **nothing here carries
- * polarity**. Every entry is a greeting or a courtesy, so removing it cannot
- * change what the message said -- which is what makes the ADR's warning about
- * fragments that invert meaning something the list cannot express rather than
- * something a reviewer has to catch.
- *
- * Anything that does mean yes or no is a token in the tables above. That is the
- * same treatment the ADR gives `we didn't`: part of a token, never a wrapper.
+ * The carrier opt-out and the rest of the keyword set are `keywords.ts`'s. They are
+ * read before a reply reaches this module at all, which is why nothing here has to
+ * know that `STOP` is a word: a keyword never gets as far as being an answer.
  */
-const PLEASANTRIES: readonly string[] = [
-  'hi',
-  'hey',
-  'hello',
-  'ok',
-  'okay',
-  'thanks',
-  'thank you',
-  'please',
-  'sorry',
-]
-
-/**
- * Longest first, so `thank you` is taken as one courtesy rather than matching
- * `you` and leaving `thank` behind. Ordered once here rather than on every reply.
- */
-const STRIPPABLE = [...PLEASANTRIES].sort((a, b) => b.length - a.length)
-
-/**
- * Down to words and nothing else: lower case, no punctuation, no emoji, single
- * spaces. An emoji is removed rather than read, because sentiment is never
- * inferred from free text and a thumbs-up on its own is free text with the words
- * taken out.
- *
- * Apostrophes are removed rather than turned into a space, straight and curly
- * alike: `didn't` and `didn’t` both have to reach the one token `didnt`, and a
- * phone's autocorrect must not decide whether a Leader was understood. Every
- * other punctuation mark becomes a space, because it separates words rather than
- * sitting inside one.
- */
-const wordsOf = (body: string): string =>
-  body
-    .toLowerCase()
-    .replace(/['’ʼ]/g, '')
-    .replace(/[^\p{L}\p{N}]+/gu, ' ')
-    .trim()
-
-/**
- * The pleasantries off both ends, repeatedly, so `hi yes please` reaches `yes`.
- *
- * Never down to nothing: a message that is only a greeting answered no question,
- * and stripping it to the empty string and then matching would make whichever
- * token the empty string happened to reach the answer to every `hi` ever sent.
- */
-const withoutPleasantries = (words: string): string => {
-  let remaining = words
-
-  for (let taken = true; taken; ) {
-    taken = false
-    for (const pleasantry of STRIPPABLE) {
-      const lead = `${pleasantry} `
-      const trail = ` ${pleasantry}`
-      if (remaining.startsWith(lead)) {
-        remaining = remaining.slice(lead.length)
-        taken = true
-      } else if (remaining.endsWith(trail)) {
-        remaining = remaining.slice(0, -trail.length)
-        taken = true
-      }
-    }
-  }
-
-  return remaining
-}
-
-/**
- * The carrier opt-out, and the only keyword this ticket handles. The rest of the
- * set -- `HELP`, `PAUSE`, `RESUME`, `SWAP` -- is ticket 17's.
- *
- * Whole-message and case-insensitive: carriers treat the word that way, and a
- * Leader typing `stop` means what a Leader typing `STOP` means. Prose that merely
- * contains it is prose, because reading *please stop asking me this* as an
- * opt-out would stop a Ministry texting somebody who asked for nothing of the
- * kind.
- */
-export const isStopKeyword = (body: string): boolean => body.trim().toUpperCase() === 'STOP'
 
 export type CheckInReply =
   | { readonly kind: 'met'; readonly met: boolean }
@@ -209,7 +129,7 @@ export const readCheckInReply = (question: CheckInQuestion, body: string): Check
     return detail.length > 0 ? { kind: 'concern_detail', detail } : UNREADABLE
   }
 
-  const token = withoutPleasantries(wordsOf(body))
+  const token = withoutPleasantries(plainWords(body))
 
   if (question === 'met') {
     const met = MET_TOKENS.get(token)

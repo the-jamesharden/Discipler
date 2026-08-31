@@ -11,6 +11,7 @@ import {
 } from '~/domain/check-in'
 import type { Effect } from '~/domain/effects'
 import { createSequentialIds, ministryId, personId, relationshipId } from '~/domain/ids'
+import { anInboundSnapshot } from '../support/inbound'
 
 /**
  * The question ladder, one relationship at a time. `did you meet` first, `how did
@@ -80,6 +81,7 @@ const reply = (body: string, openSequence: OpenSequence) =>
       openSequence,
       lastCheckInAt: new Date('2026-10-05T09:00:00Z'),
     } satisfies CheckInSnapshot,
+    inbound: anInboundSnapshot({ personId: james }),
   } satisfies CommandContext)
 
 const bodies = (effects: readonly Effect[]): string[] =>
@@ -196,7 +198,14 @@ describe('a reply that cannot be read', () => {
 })
 
 describe('a reply with no conversation open', () => {
-  it('changes nothing', () => {
+  // It records no answer and asks nothing, which is the rule this file is about:
+  // nothing falls back to *the Person's relationship*, because a Leader may hold
+  // several and only the position in a sequence says which one a `1` is about.
+  //
+  // What it does do is answer. Ticket 17 settled that no inbound message falls
+  // through to silence, and the acknowledgement that closes that hole is proven in
+  // `inbound-keywords.test.ts` alongside the rate limit on it.
+  it('binds the reply to nothing and records no answer', () => {
     const { effects } = handleCommand(
       { type: 'sms.inbound', ministryId: ministry, personId: james, body: '1' },
       {
@@ -213,8 +222,10 @@ describe('a reply with no conversation open', () => {
           openSequence: null,
           lastCheckInAt: null,
         },
+        inbound: anInboundSnapshot({ personId: james }),
       } satisfies CommandContext,
     )
-    expect(effects).toEqual([])
+    expect(effects.filter((effect) => effect.kind === 'checkin.answer')).toEqual([])
+    expect(effects.filter((effect) => effect.kind === 'checkin.ask')).toEqual([])
   })
 })

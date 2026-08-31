@@ -7,6 +7,7 @@ import type {
   UnacceptedRelationship,
 } from '~/domain/boundary'
 import type { CheckInSnapshot } from '~/domain/check-in'
+import type { InboundSnapshot } from '~/domain/keywords'
 import type { ConcernResolution, ConcernViewing, NewConcern } from '~/domain/concerns'
 import type {
   CheckInAnswer,
@@ -17,9 +18,14 @@ import type {
   LeadEligibility,
   LeaderAcceptance,
   MaterialAssignment,
+  KeywordExchangeClarification,
+  KeywordExchangeClosure,
+  KeywordExchangeTarget,
   NewCheckInPrompt,
   NewCheckInSequence,
+  NewKeywordExchange,
   OutboundMessageDraft,
+  PersonOptIn,
   PersonOptOut,
   ParticipantDeparture,
   RelationshipCancellation,
@@ -61,6 +67,12 @@ export interface InMemoryStore extends EffectStore {
   readonly reminders: readonly CheckInReminder[]
   readonly closures: readonly CheckInSequenceClosure[]
   readonly optOuts: readonly PersonOptOut[]
+  readonly optIns: readonly PersonOptIn[]
+  /** Every Keyword Exchange opened, in the order the effects opened them. */
+  readonly keywordExchanges: readonly NewKeywordExchange[]
+  readonly keywordTargets: readonly KeywordExchangeTarget[]
+  readonly keywordClarifications: readonly KeywordExchangeClarification[]
+  readonly keywordClosures: readonly KeywordExchangeClosure[]
   readonly leadEligibilities: readonly LeadEligibility[]
   readonly intakeLinks: readonly NewIntakeLink[]
   /**
@@ -73,6 +85,8 @@ export interface InMemoryStore extends EffectStore {
   readonly concernResolutions: readonly ConcernResolution[]
   /** What a check-in command finds about the Person it names, or null for nobody. */
   checkIn?: CheckInSnapshot
+  /** What an inbound text finds about its sender, or null for nobody. */
+  inbound?: InboundSnapshot
   /** Names and numbers this store will answer `contactsFor` with. */
   contacts: Map<PersonId, PersonContact>
   /** What a token resolves to, or null for one nothing answers to. */
@@ -118,6 +132,11 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
   const reminders: CheckInReminder[] = []
   const closures: CheckInSequenceClosure[] = []
   const optOuts: PersonOptOut[] = []
+  const optIns: PersonOptIn[] = []
+  const keywordExchanges: NewKeywordExchange[] = []
+  const keywordTargets: KeywordExchangeTarget[] = []
+  const keywordClarifications: KeywordExchangeClarification[] = []
+  const keywordClosures: KeywordExchangeClosure[] = []
   const leadEligibilities: LeadEligibility[] = []
   const intakeLinks: NewIntakeLink[] = []
   const resolutions: FollowUpResolution[] = []
@@ -191,6 +210,21 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
     get optOuts() {
       return [...optOuts]
     },
+    get optIns() {
+      return [...optIns]
+    },
+    get keywordExchanges() {
+      return [...keywordExchanges]
+    },
+    get keywordTargets() {
+      return [...keywordTargets]
+    },
+    get keywordClarifications() {
+      return [...keywordClarifications]
+    },
+    get keywordClosures() {
+      return [...keywordClosures]
+    },
     get leadEligibilities() {
       return [...leadEligibilities]
     },
@@ -233,6 +267,11 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       const stagedReminders: CheckInReminder[] = []
       const stagedClosures: CheckInSequenceClosure[] = []
       const stagedOptOuts: PersonOptOut[] = []
+      const stagedOptIns: PersonOptIn[] = []
+      const stagedKeywordExchanges: NewKeywordExchange[] = []
+      const stagedKeywordTargets: KeywordExchangeTarget[] = []
+      const stagedKeywordClarifications: KeywordExchangeClarification[] = []
+      const stagedKeywordClosures: KeywordExchangeClosure[] = []
       const stagedLeadEligibilities: LeadEligibility[] = []
       const stagedIntakeLinks: NewIntakeLink[] = []
       const stagedConcerns: NewConcern[] = []
@@ -263,6 +302,24 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         },
         async optPersonOut(optOut) {
           stagedOptOuts.push(optOut)
+        },
+        async optPersonIn(optIn) {
+          stagedOptIns.push(optIn)
+        },
+        async inboundFor() {
+          return store.inbound ?? null
+        },
+        async openKeywordExchange(exchange) {
+          stagedKeywordExchanges.push(exchange)
+        },
+        async setKeywordExchangeTarget(target) {
+          stagedKeywordTargets.push(target)
+        },
+        async clarifyKeywordExchange(clarification) {
+          stagedKeywordClarifications.push(clarification)
+        },
+        async closeKeywordExchange(closure) {
+          stagedKeywordClosures.push(closure)
         },
         async setLeadEligibility(eligibility) {
           stagedLeadEligibilities.push(eligibility)
@@ -415,6 +472,11 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       reminders.push(...stagedReminders)
       closures.push(...stagedClosures)
       optOuts.push(...stagedOptOuts)
+      optIns.push(...stagedOptIns)
+      keywordExchanges.push(...stagedKeywordExchanges)
+      keywordTargets.push(...stagedKeywordTargets)
+      keywordClarifications.push(...stagedKeywordClarifications)
+      keywordClosures.push(...stagedKeywordClosures)
       leadEligibilities.push(...stagedLeadEligibilities)
       intakeLinks.push(...stagedIntakeLinks)
       return result

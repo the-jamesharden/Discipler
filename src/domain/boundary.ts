@@ -6,8 +6,12 @@ import {
   askCheckInQuestion,
   assignMaterial,
   clarifyCheckInQuestion,
+  clarifyKeywordExchange,
   closeCheckInSequence,
+  closeKeywordExchange,
   openCheckInSequence,
+  openKeywordExchange,
+  optPersonIn,
   optPersonOut,
   cancelRelationship,
   createPerson,
@@ -25,8 +29,10 @@ import {
   raiseConcern,
   recordConcernViewing,
   resolveConcern,
+  setKeywordExchangeTarget,
   setLeadEligibility,
   type Effect,
+  type KeywordExchangeOutcome,
   type NewCheckInPrompt,
 } from './effects'
 import {
@@ -45,7 +51,6 @@ import {
   advanceCheckIn,
   checkInDueThisWeek,
   checkInPromptId,
-  isStopKeyword,
   checkInSequenceId,
   lapseOfOpenQuestion,
   readCheckInReply,
@@ -60,6 +65,24 @@ import {
   type OpenPrompt,
   type OpenSequence,
 } from './check-in'
+import {
+  eligibleFor,
+  exchangeHasExpired,
+  exchangeIsLive,
+  keywordExchangeId,
+  leadsAnything,
+  mayAcknowledge,
+  mayClarify,
+  otherPeriodsThan,
+  otherSideOf,
+  readExchangeReply,
+  readKeyword,
+  type InboundSnapshot,
+  type Keyword,
+  type KeywordRelationship,
+  type OpenKeywordExchange,
+  type RelationshipKeyword,
+} from './keywords'
 import { calendarMonthOf } from './week'
 import { readIntakeForm } from './intake'
 import {
@@ -70,6 +93,7 @@ import {
 } from './intake-link'
 import {
   acceptanceReminderMessage,
+  acknowledgedMessage,
   checkInClarification,
   checkInSubject,
   checkInThankYou,
@@ -77,8 +101,16 @@ import {
   invitationLink,
   meetingQuestion,
   satisfactionQuestion,
+  helpMessage,
   invitationMessage,
+  keywordClarification,
+  keywordMenu,
+  keywordPassedOn,
+  nothingEligible,
+  pauseApplied,
+  pauseConfirmation,
   resumedMessage,
+  swapRecorded,
   starterMessageToLeader,
   starterMessageToParticipant,
   welcomeMessage,
@@ -222,6 +254,13 @@ export interface CommandContext {
    * opposite facts, and one of them silently checks in with nobody.
    */
   readonly checkInsDue?: readonly CheckInSnapshot[]
+  /**
+   * What the Person an inbound text came from holds, what they last asked for, and
+   * whether Discipler may still text them. Loaded on `sms.inbound`'s behalf,
+   * alongside `checkIn` and not inside it: the two answer different questions, and a
+   * Participant has this one and never that one.
+   */
+  readonly inbound?: InboundSnapshot
 }
 
 /**
@@ -990,6 +1029,602 @@ const chaseTheOpenQuestion = (
   return [passedOver, ...askNext(asking, advance)]
 }
 
+/**
+ * The keyword routes, and everything they need in order to speak and to write.
+ *
+ * One inbound message consults two snapshots, and the split is not arbitrary: the
+ * check-in snapshot answers *which question is this Person's conversation waiting
+ * on*, and the inbound snapshot answers *what do they hold, and what did they ask
+ * for*. A Participant has the second and never the first.
+ */
+interface Keywording {
+  readonly ministryId: MinistryId
+  readonly ministryName: string
+  readonly personId: PersonId
+  readonly phone: string | null
+  readonly now: Date
+  readonly ids: IdSource
+}
+
+/**
+ * One text to the Person a keyword arrived from. Nothing a keyword route sends
+ * discloses anybody's number: a menu names the people on the other side of a
+ * relationship the reader is already in, and the confirmation names the same ones
+ * back. `disclosesPersonId` is null on every one of them, so the send-time
+ * contact-sharing check has nothing to withhold.
+ *
+ * No cadence produced any of this, so nothing carries a `scheduledFor`. A keyword
+ * reply travels back in seconds.
+ */
+const sayToSender = (keywording: Keywording, body: string): Effect =>
+  enqueueMessage({
+    ministryId: keywording.ministryId,
+    personId: keywording.personId,
+    toPhone: keywording.phone,
+    body,
+    enqueuedAt: keywording.now,
+    scheduledFor: null,
+    disclosesPersonId: null,
+  })
+
+/** Who a menu line and a confirmation name: the other side, as a sentence. */
+const otherSideNamed = (relationship: KeywordRelationship): string =>
+  checkInSubject(otherSideOf(relationship, relationship.role))
+
+/**
+ * The exchange a Person is holding, closed, because something has happened that
+ * ends it. Empty where they hold none, so every route can call it unconditionally
+ * rather than each remembering to.
+ *
+ * Nothing is appended to history for an expiry and nothing is sent. *Expiry raises
+ * and changes nothing* -- this closes the row so it stops occupying the one open
+ * slot a Person has, and that is the whole of it.
+ */
+const closeStandingExchange = (
+  keywording: Keywording,
+  exchange: OpenKeywordExchange | null,
+  outcome: KeywordExchangeOutcome,
+): readonly Effect[] =>
+  exchange
+    ? [
+        closeKeywordExchange({
+          ministryId: keywording.ministryId,
+          exchangeId: exchange.exchangeId,
+          closedAt: keywording.now,
+          // A second keyword replaces the first, but one that had already run out
+          // was replaced by nothing -- it was over before this message arrived, and
+          // recording it as replaced would date the end of it wrongly.
+          outcome: exchangeHasExpired(exchange, keywording.now) ? 'expired' : outcome,
+        }),
+      ]
+    : []
+
+/**
+ * A numbered menu, opened and sent. Reached only where more than one relationship
+ * is eligible: one applies directly, and none is answered plainly.
+ *
+ * The options are stored in the order they were printed, which is what makes the
+ * numbers mean the same thing when the reply lands tomorrow. A menu re-derived at
+ * reply time would renumber itself the moment a fourth relationship was formed.
+ */
+const openMenu = (
+  keywording: Keywording,
+  keyword: RelationshipKeyword,
+  options: readonly KeywordRelationship[],
+): readonly Effect[] => [
+  openKeywordExchange({
+    id: keywordExchangeId(keywording.ids.next()),
+    ministryId: keywording.ministryId,
+    personId: keywording.personId,
+    keyword,
+    options,
+    // Nothing is chosen yet, which is the whole reason this menu exists.
+    target: null,
+    openedAt: keywording.now,
+  }),
+  sayToSender(
+    keywording,
+    keywordMenu({
+      ministryName: keywording.ministryName,
+      keyword,
+      options: options.map(otherSideNamed),
+    }),
+  ),
+]
+
+/**
+ * The `PAUSE` confirmation: target and duration in one message, which is the
+ * accidental-tap protection and the only thing standing between a pocket and a
+ * fortnight of silence.
+ *
+ * The default period is the domain's own constant rather than a number written into
+ * copy, so the Admin surface and this exchange cannot default differently.
+ */
+const openPauseConfirmation = (
+  keywording: Keywording,
+  target: KeywordRelationship,
+  options: readonly KeywordRelationship[],
+): readonly Effect[] => [
+  openKeywordExchange({
+    id: keywordExchangeId(keywording.ids.next()),
+    ministryId: keywording.ministryId,
+    personId: keywording.personId,
+    keyword: 'PAUSE',
+    options,
+    target,
+    openedAt: keywording.now,
+  }),
+  sayToSender(
+    keywording,
+    pauseConfirmation({
+      ministryName: keywording.ministryName,
+      subject: otherSideNamed(target),
+      periodWeeks: DEFAULT_PAUSE_PERIOD_WEEKS,
+      otherPeriods: [...otherPeriodsThan(DEFAULT_PAUSE_PERIOD_WEEKS)],
+    }),
+  ),
+]
+
+/**
+ * A question a Pause took back, and wherever the conversation goes next.
+ *
+ * **Inherited rather than rebuilt.** *A pause takes back the question that was out*
+ * is general and belongs to the Pause rather than to the route it arrived by;
+ * ticket 12 settled it and built it for the tick, and this reaches the same three
+ * pieces -- `withdrawQuestion`, `advancePastPaused`, and the abandonment that
+ * follows a conversation with nothing left to ask.
+ *
+ * Immediately rather than at the next tick, which is where the Admin route notices
+ * it. The Leader is holding their phone: leaving the question out until tomorrow
+ * would have Discipler ask about a relationship it has just been told to stop
+ * asking about, and the withdrawal event is what stops that week reading as their
+ * silence.
+ *
+ * Empty when the open question is about something else. That relationship's turn
+ * has not come round, so there is nothing to withdraw -- `advancePastPaused` steps
+ * over it when it does, and `relationship_weeks` already reads a covered
+ * relationship with no prompt as nothing having been asked.
+ */
+const pauseTakesBackTheOpenQuestion = (
+  checkIn: CheckInSnapshot,
+  paused: RelationshipId,
+  keywording: Keywording,
+): readonly Effect[] => {
+  const sequence = checkIn.openSequence
+  const awaiting = sequence?.awaiting
+  if (!sequence || !awaiting) return []
+
+  const askedAbout = sequence.covering[awaiting.position - 1]
+  if (!askedAbout || askedAbout.relationshipId !== paused) return []
+
+  // The Pause this command has just taken is not in the snapshot the command was
+  // handed -- it was loaded before the pause existed -- so the conversation is
+  // advanced against a covering list that knows about it. Without this the walk
+  // would step straight back onto the relationship it is stepping over.
+  const withThePause: OpenSequence = {
+    ...sequence,
+    covering: sequence.covering.map((each) =>
+      each.relationshipId === paused ? { ...each, paused: true } : each,
+    ),
+  }
+
+  const withdrawn = withdrawQuestion({
+    ministryId: keywording.ministryId,
+    at: keywording.now,
+    sequenceId: sequence.sequenceId,
+    relationshipId: paused,
+    awaiting,
+  })
+
+  const onward = advancePastPaused(withThePause, awaiting, PASSED_OVER)
+
+  if (onward.kind === 'finish') {
+    return [
+      withdrawn,
+      ...abandonSequence({
+        ministryId: keywording.ministryId,
+        personId: checkIn.personId,
+        sequenceId: sequence.sequenceId,
+        at: keywording.now,
+        reason: 'paused',
+      }),
+    ]
+  }
+
+  return [
+    withdrawn,
+    ...askNext(
+      {
+        ministryId: keywording.ministryId,
+        ministryName: keywording.ministryName,
+        sequenceId: sequence.sequenceId,
+        personId: checkIn.personId,
+        phone: keywording.phone,
+        now: keywording.now,
+        ids: keywording.ids,
+        // A keyword produced this, not a cadence. The stamp records which Monday
+        // sent a conversation's opening message, and no Monday sent this.
+        scheduledFor: null,
+      },
+      onward,
+    ),
+  ]
+}
+
+/**
+ * A Leader's pause, applied.
+ *
+ * The same fact the Admin route writes and through the same rules -- eligibility
+ * has already established that the relationship is accepted, live and not already
+ * paused, which is exactly what `relationship.pause` refuses on. What differs is
+ * `route`, and `pausedBy` being null: there was no Admin, and putting the Leader's
+ * own identifier in a field that means *an Admin account* would be two id spaces in
+ * one column waiting to be read as one.
+ *
+ * **The Participant is told nothing.** Their relationship has not changed, they have
+ * never received a check-in, and a message explaining the absence of something they
+ * never knew existed is worse than the silence. That is deliberate, and it is why
+ * only one message comes out of here.
+ */
+const applyPause = (
+  keywording: Keywording,
+  checkIn: CheckInSnapshot,
+  target: KeywordRelationship,
+  periodWeeks: PausePeriodWeeks,
+): readonly Effect[] => [
+  appendHistory({
+    ministryId: keywording.ministryId,
+    occurredAt: keywording.now,
+    type: 'relationship.paused',
+    subjectType: 'relationship',
+    subjectId: target.relationshipId,
+    payload: { periodWeeks, pausedBy: null, route: 'keyword' },
+  }),
+  ...pauseTakesBackTheOpenQuestion(checkIn, target.relationshipId, keywording),
+  sayToSender(
+    keywording,
+    pauseApplied({
+      ministryName: keywording.ministryName,
+      subject: otherSideNamed(target),
+      periodWeeks,
+    }),
+  ),
+]
+
+/**
+ * A Leader's resume, applied immediately.
+ *
+ * Everyone in the relationship hears that it is running again, which is what
+ * *releases the Resume Message* comes to -- including the Leader who asked, so no
+ * separate acknowledgement is composed. Two messages saying the same thing to the
+ * same phone would be Discipler talking over itself.
+ *
+ * Nothing here reaches expiry. A relationship resumed early has no standing pause
+ * for the tick to find, so no `pause_expired` item is ever raised for it -- which is
+ * the rule falling out of the model rather than being enforced by a second check.
+ */
+const applyResume = (
+  keywording: Keywording,
+  target: KeywordRelationship,
+): readonly Effect[] => {
+  const leaders = target.members.filter((member) => member.role === 'leader')
+  const participants = target.members.filter((member) => member.role === 'participant')
+
+  return [
+    appendHistory({
+      ministryId: keywording.ministryId,
+      occurredAt: keywording.now,
+      type: 'relationship.resumed',
+      subjectType: 'relationship',
+      subjectId: target.relationshipId,
+      payload: {
+        resumedBy: null,
+        route: 'keyword',
+        // A Leader coming back early is the ordinary case for this route, and it is
+        // the fact worth keeping: the Week-by-Week History is where the difference
+        // between coming back early and acting on an expiry item lives.
+        expired: false,
+      },
+    }),
+    // Everyone the Ministry may still text. Somebody who replied `STOP` is
+    // deliberately still a member -- opting out ends no relationship -- so they are
+    // named in the other side's message and sent none of their own. Composing one
+    // for them would be refused by the outbound queue, and the refusal would take
+    // the resume down with it.
+    ...target.members
+      .filter((member) => member.reachable)
+      .map((member) =>
+      enqueueMessage({
+        ministryId: keywording.ministryId,
+        personId: member.personId,
+        toPhone: member.phone,
+        body: resumedMessage({
+          ministryName: keywording.ministryName,
+          withNames: (member.role === 'leader' ? participants : leaders).map(
+            (other) => other.fullName,
+          ),
+        }),
+        enqueuedAt: keywording.now,
+        disclosesPersonId: null,
+      }),
+    ),
+  ]
+}
+
+/**
+ * A swap request, recorded.
+ *
+ * **It changes no state.** Nobody moves, nothing ends, and it coexists with
+ * `Paused` -- a Leader who stepped back in March and asked for a different
+ * Participant in April has said two things, and neither cancels the other. The
+ * relationship stays exactly as it was until an Admin decides otherwise, and the
+ * item never clears itself.
+ *
+ * `requestedBy` is the role the asker holds in *this* relationship, because the
+ * Admin's next move differs: unpair and re-pair the Participant, or release the
+ * Leader from the relationship. A Leader asking is not the same request as the
+ * person they disciple asking.
+ */
+const applySwap = (
+  keywording: Keywording,
+  target: KeywordRelationship,
+): readonly Effect[] => [
+  raiseFollowUpItem({
+    ministryId: keywording.ministryId,
+    kind: 'swap_requested',
+    relationshipId: target.relationshipId,
+    personId: keywording.personId,
+    raisedAt: keywording.now,
+    requestedBy: target.role,
+  }),
+  appendHistory({
+    ministryId: keywording.ministryId,
+    occurredAt: keywording.now,
+    type: 'relationship.swap_requested',
+    subjectType: 'relationship',
+    subjectId: target.relationshipId,
+    // The item dedupes while it stands open and this does not, so how many times a
+    // Leader asked survives even though the Admin sees one thing to act on.
+    payload: { requestedBy: target.role, personId: keywording.personId },
+  }),
+  sayToSender(
+    keywording,
+    swapRecorded({
+      ministryName: keywording.ministryName,
+      subject: otherSideNamed(target),
+    }),
+  ),
+]
+
+/**
+ * A recognized keyword from somebody who leads nothing, put in front of an Admin.
+ *
+ * `PAUSE` and `RESUME` are a Leader's to use -- a Participant receives no check-ins,
+ * so there is nothing of theirs to suspend -- but dropping the message is the one
+ * outcome that clearly fails them. Somebody texting `PAUSE` with no relationship
+ * they lead is most often somebody who wants out and has no other route, and this is
+ * where they reach a human.
+ *
+ * The item names the Person and no relationship. Which of theirs they meant is
+ * exactly what nobody knows, and guessing it here would be the inference the whole
+ * eligibility rule exists to avoid.
+ */
+const passKeywordToAnAdmin = (
+  keywording: Keywording,
+  keyword: Keyword,
+): readonly Effect[] => [
+  raiseFollowUpItem({
+    ministryId: keywording.ministryId,
+    kind: 'participant_keyword',
+    relationshipId: null,
+    personId: keywording.personId,
+    raisedAt: keywording.now,
+    keyword,
+  }),
+  appendHistory({
+    ministryId: keywording.ministryId,
+    occurredAt: keywording.now,
+    type: 'inbound.keyword_passed_on',
+    subjectType: 'person',
+    subjectId: keywording.personId,
+    payload: { keyword },
+  }),
+]
+
+/**
+ * What a relationship keyword comes to, from the word to the effects.
+ *
+ * The order is the whole rule: whatever exchange was standing is replaced, then the
+ * eligible set is computed for *this* keyword, and then one of three things happens
+ * -- apply, ask which, or say there is nothing.
+ */
+const routeRelationshipKeyword = (
+  keyword: RelationshipKeyword,
+  keywording: Keywording,
+  inbound: InboundSnapshot,
+  checkIn: CheckInSnapshot,
+): readonly Effect[] => {
+  const effects: Effect[] = [
+    ...closeStandingExchange(keywording, inbound.exchange, 'replaced'),
+  ]
+
+  // Somebody who leads nothing cannot pause or resume anything, and is not told to
+  // go away: their text reaches an Admin. `SWAP` is not here, because either side
+  // may ask for one -- a Participant asking to be matched with somebody else is the
+  // same request a Leader makes, reaching an Admin as a request rather than a state
+  // change.
+  if (keyword !== 'SWAP' && !leadsAnything(inbound.holds)) {
+    return [
+      ...effects,
+      ...passKeywordToAnAdmin(keywording, keyword),
+      sayToSender(keywording, keywordPassedOn({ ministryName: keywording.ministryName })),
+    ]
+  }
+
+  const eligible = eligibleFor(keyword, inbound.holds)
+
+  // Nothing to act on, said plainly and changing nothing. Not an item: a Leader
+  // texting `RESUME` with nothing paused has made a mistake, not raised a concern.
+  if (eligible.length === 0) {
+    return [
+      ...effects,
+      sayToSender(
+        keywording,
+        nothingEligible({ ministryName: keywording.ministryName, keyword }),
+      ),
+    ]
+  }
+
+  if (eligible.length > 1) return [...effects, ...openMenu(keywording, keyword, eligible)]
+
+  const only = eligible[0]!
+
+  // One eligible relationship applies directly, with no menu -- **except a pause**,
+  // which always confirms. The confirmation is not disambiguation, so having nothing
+  // to disambiguate does not remove it: it is what stands between a pocket and a
+  // fortnight of silence, and a Leader with one relationship has the same pocket.
+  if (keyword === 'PAUSE') return [...effects, ...openPauseConfirmation(keywording, only, eligible)]
+  if (keyword === 'RESUME') return [...effects, ...applyResume(keywording, only)]
+  return [...effects, ...applySwap(keywording, only)]
+}
+
+/**
+ * A reply inside a live Keyword Exchange, which owns it because it is the most
+ * recent thing Discipler asked.
+ *
+ * The check-in question it may have arrived alongside is left exactly where it was:
+ * still unanswered, with its next-day reminder clock still running. That is what
+ * *the most recent prompt owns the next reply* costs, and it costs nothing else --
+ * the sequence resumes its ordinary handling the moment this exchange is done.
+ */
+const replyInsideExchange = (
+  exchange: OpenKeywordExchange,
+  body: string,
+  keywording: Keywording,
+  checkIn: CheckInSnapshot,
+): readonly Effect[] => {
+  const reply = readExchangeReply(exchange, body)
+
+  if (reply.kind === 'unreadable') {
+    const effects: Effect[] = [
+      // Recorded whether or not Discipler answers it, including past the cap. This
+      // is the record the enumerated forms grow from -- from what Leaders actually
+      // typed, never from what somebody imagined they might.
+      appendHistory({
+        ministryId: keywording.ministryId,
+        occurredAt: keywording.now,
+        type: 'keyword.reply_unreadable',
+        subjectType: 'person',
+        subjectId: keywording.personId,
+        payload: {
+          exchangeId: exchange.exchangeId,
+          keyword: exchange.keyword,
+          body,
+          clarified: mayClarify(exchange),
+        },
+      }),
+    ]
+
+    // Two, and then Discipler stops talking -- not listening. The exchange stays
+    // open and a correct reply nineteen hours later still gets the Leader their
+    // pause: they asked for it and never withdrew the request.
+    if (mayClarify(exchange)) {
+      effects.push(
+        clarifyKeywordExchange({
+          ministryId: keywording.ministryId,
+          exchangeId: exchange.exchangeId,
+          clarifiedAt: keywording.now,
+        }),
+        sayToSender(
+          keywording,
+          keywordClarification({
+            ministryName: keywording.ministryName,
+            // The replies the step that is open offered, never the whole set, for
+            // the reason the check-in clarification names them one question at a
+            // time: offering a menu number at the confirmation would invite an
+            // answer to a question already settled.
+            options: exchange.target ? null : exchange.options.map(otherSideNamed),
+          }),
+        ),
+      )
+    }
+
+    return effects
+  }
+
+  const target = reply.kind === 'select' ? reply.relationship : exchange.target!
+
+  // The world may have moved while this exchange sat unanswered: an Admin pausing
+  // the same relationship, or ending it. Re-checked against the one eligibility rule
+  // rather than a second copy of it, so the answer here and the answer that opened
+  // the exchange cannot drift.
+  if (eligibleFor(exchange.keyword, [target]).length === 0) {
+    return [
+      ...closeStandingExchange(keywording, exchange, 'overtaken'),
+      sayToSender(
+        keywording,
+        nothingEligible({ ministryName: keywording.ministryName, keyword: exchange.keyword }),
+      ),
+    ]
+  }
+
+  // A menu answered for a pause is only half the request. The other half -- how long
+  // -- is the confirmation, which is a new question and so a fresh clarification
+  // budget.
+  if (reply.kind === 'select' && exchange.keyword === 'PAUSE') {
+    return [
+      setKeywordExchangeTarget({
+        ministryId: keywording.ministryId,
+        exchangeId: exchange.exchangeId,
+        relationshipId: target.relationshipId,
+        promptedAt: keywording.now,
+      }),
+      sayToSender(
+        keywording,
+        pauseConfirmation({
+          ministryName: keywording.ministryName,
+          subject: otherSideNamed(target),
+          periodWeeks: DEFAULT_PAUSE_PERIOD_WEEKS,
+          otherPeriods: [...otherPeriodsThan(DEFAULT_PAUSE_PERIOD_WEEKS)],
+        }),
+      ),
+    ]
+  }
+
+  const applied: readonly Effect[] =
+    reply.kind === 'confirm'
+      ? applyPause(keywording, checkIn, target, reply.periodWeeks)
+      : exchange.keyword === 'RESUME'
+        ? applyResume(keywording, target)
+        : applySwap(keywording, target)
+
+  return [
+    ...closeStandingExchange(keywording, exchange, 'applied'),
+    ...applied,
+  ]
+}
+
+/**
+ * Which of two outstanding prompts owns the next reply: the exchange, or the
+ * check-in question.
+ *
+ * **The most recent one.** A numbered reply could answer either, and the Leader is
+ * answering whichever they were last asked -- which is usually the exchange, because
+ * they opened it seconds ago mid-sequence, and is sometimes the check-in question,
+ * because a tick re-sent it after the exchange went out.
+ *
+ * A reminder counts as the check-in question having been asked again, since that is
+ * exactly what a reminder is: the same question, put again, and the Leader is
+ * looking at it. A clarification inside an exchange does not count, for the mirror
+ * reason -- it restates the question already out rather than asking a new one.
+ */
+const exchangeOwnsTheReply = (
+  exchange: OpenKeywordExchange,
+  awaiting: OpenPrompt | null,
+): boolean =>
+  !awaiting ||
+  exchange.promptedAt.getTime() >= (awaiting.remindedAt ?? awaiting.askedAt).getTime()
+
 export const handleCommand = (command: Command, context: CommandContext): CommandResult => {
   switch (command.type) {
     case 'scheduled.tick': {
@@ -1210,31 +1845,48 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
     }
 
     case 'sms.inbound': {
-      const { checkIn, ministryName } = context
+      const { checkIn, inbound, ministryName } = context
       if (!checkIn) throw new Error('sms.inbound was handed nobody it could be from')
+      if (!inbound) {
+        throw new Error('sms.inbound was handed nothing about what its sender holds')
+      }
       if (!ministryName) {
         throw new Error('sms.inbound was handed no Ministry to speak for')
       }
 
       const now = context.clock.now()
 
-      // Keywords are read before a reply is interpreted as a check-in answer.
-      // A `STOP` arriving while the satisfaction question is open is somebody
-      // asking to be left alone, and reading it as an unreadable rating would
-      // keep texting them.
-      //
-      // It opts out the Person and not one of their relationships: that is the
-      // level a carrier applies it at, and it is what stops every message rather
-      // than the ones about one relationship.
+      const keywording: Keywording = {
+        ministryId: command.ministryId,
+        ministryName,
+        personId: checkIn.personId,
+        phone: checkIn.phone,
+        now,
+        ids: context.ids,
+      }
+
+      // Keywords are read before a reply is interpreted as anything else. A `STOP`
+      // arriving while the satisfaction question is open is somebody asking to be
+      // left alone, and reading it as an unreadable rating would keep texting them
+      // -- and a `PAUSE` arriving during the Concern detail step is a request to
+      // step back, not the text of somebody's hardest week. The Concern and its
+      // badge are already recorded by then, so nothing is lost by treating it as
+      // the keyword it plainly is; the detail request ages out normally.
+      const keyword = readKeyword(command.body)
+
+      // The carrier opt-out. It opts the Person out and not one of their
+      // relationships: that is the level a carrier applies it at, and it is what
+      // stops every message rather than the ones about one relationship.
       //
       // Any open conversation ends with it, as abandoned. Not a second rule: a
       // Person Discipler may no longer text has no conversation left to have, and
-      // leaving one open would mean the next question it tried to send was
-      // refused by the outbound queue -- a reply from them failing outright
-      // rather than being heard. Abandoned rather than completed, because its
-      // unanswered questions stay unanswered: they are what ticket 10 reads, and
-      // an opt-out is not an answer.
-      if (isStopKeyword(command.body)) {
+      // leaving one open would mean the next question it tried to send was refused
+      // by the outbound queue -- a reply from them failing outright rather than
+      // being heard. Abandoned rather than completed, because its unanswered
+      // questions stay unanswered: they are what ticket 10 reads, and an opt-out is
+      // not an answer. An open Keyword Exchange goes the same way, and for the same
+      // reason: it has nothing left to say to them.
+      if (keyword === 'STOP') {
         const effects: Effect[] = [
           optPersonOut({
             ministryId: command.ministryId,
@@ -1249,6 +1901,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             subjectId: checkIn.personId,
             payload: { keyword: 'STOP' },
           }),
+          ...closeStandingExchange(keywording, inbound.exchange, 'replaced'),
         ]
 
         if (checkIn.openSequence) {
@@ -1266,13 +1919,151 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         return { effects, rejections: [] }
       }
 
+      // The carrier-level re-opt-in, and **nothing else**. It restores permission to
+      // be texted; it resumes no relationship, releases no Resume Message, and
+      // reaches nobody but the Person who sent it. A `START` that resumed a
+      // relationship would tell third parties they were meeting again as a side
+      // effect of somebody fixing their own opt-out.
+      //
+      // Nothing is sent back. The carrier answers `START` itself, before this
+      // webhook is consulted, and a second confirmation from the Ministry would be
+      // Discipler talking over the network it depends on.
+      //
+      // From somebody who never opted out it is a word with nothing to reverse, so
+      // it changes nothing rather than writing a re-opt-in nobody asked for.
+      if (keyword === 'START') {
+        return {
+          rejections: [],
+          effects: inbound.optedOut
+            ? [
+                optPersonIn({
+                  ministryId: command.ministryId,
+                  personId: checkIn.personId,
+                  endedAt: now,
+                }),
+                appendHistory({
+                  ministryId: command.ministryId,
+                  occurredAt: now,
+                  type: 'person.opted_in',
+                  subjectType: 'person',
+                  subjectId: checkIn.personId,
+                  payload: { keyword: 'START' },
+                }),
+              ]
+            : [],
+        }
+      }
+
+      // **Discipler may not text everybody who can text Discipler.** A text arrives
+      // with no session and no consent test in front of it -- `app.sender_of_inbound`
+      // resolves any Person by their number -- so this webhook is reachable by
+      // somebody with a standing opt-out and by somebody imported onto the Roster who
+      // never completed Intake. The outbound queue refuses a message to either at the
+      // floor, and the whole command is one transaction: a reply composed for them
+      // would abort it, their message would fail outright rather than reach nobody
+      // quietly, and the delivery vendor would retry the identical failure.
+      //
+      // Nothing is lost by stopping here. `STOP` and `START` above are the two things
+      // such a Person can say that Discipler can act on, and both send nothing; every
+      // route below needs an answer it is not allowed to give -- a menu nobody would
+      // receive, a confirmation that could never be confirmed, an acknowledgement to
+      // somebody who asked not to be acknowledged.
+      if (!inbound.mayBeTexted) return { effects: [], rejections: [] }
+
+      // `HELP` answers itself and changes nothing, so it replaces no exchange and
+      // withdraws no question -- a Leader who asks what the words are in the middle
+      // of choosing a relationship has not abandoned the choosing.
+      //
+      // From somebody who leads nothing it also reaches an Admin. A Participant
+      // asking for help is asking a human for something, and the words Discipler can
+      // send back are not it.
+      if (keyword === 'HELP') {
+        return {
+          rejections: [],
+          effects: [
+            sayToSender(keywording, helpMessage({ ministryName })),
+            ...(leadsAnything(inbound.holds)
+              ? []
+              : passKeywordToAnAdmin(keywording, keyword)),
+          ],
+        }
+      }
+
+      if (keyword) {
+        return {
+          rejections: [],
+          effects: routeRelationshipKeyword(keyword, keywording, inbound, checkIn),
+        }
+      }
+
+      // Not a keyword, so it is an answer to whatever was last asked. **The most
+      // recent prompt owns it**: an exchange opened mid-sequence takes the reply,
+      // and the check-in question stays unanswered with its reminder clock still
+      // running.
+      //
+      // An exchange whose twenty-four hours have run out owns nothing. It is closed
+      // here rather than by a scheduled sweep, because expiry raises nothing and
+      // changes nothing -- there is no condition for anybody to be told about, only
+      // a row that should stop occupying this Person's one open slot.
+      if (exchangeIsLive(inbound.exchange, now)) {
+        if (exchangeOwnsTheReply(inbound.exchange, checkIn.openSequence?.awaiting ?? null)) {
+          return {
+            rejections: [],
+            effects: replyInsideExchange(inbound.exchange, command.body, keywording, checkIn),
+          }
+        }
+      }
+
+      const expired = inbound.exchange && exchangeHasExpired(inbound.exchange, now)
+      const tidied: readonly Effect[] = expired
+        ? closeStandingExchange(keywording, inbound.exchange, 'expired')
+        : []
+
       // Resolution stops here when there is no open conversation. Nothing falls
       // back to *the Person's relationship*: a Leader may hold several, and the
       // position in the sequence is the only thing that says which one a `1` is
       // about.
+      //
+      // **No inbound message falls through to silence.** A Participant has no
+      // dashboard and no account, so texting back is the only channel they have, and
+      // a message that reached nobody and was answered by nobody is the one outcome
+      // that clearly fails them. It raises nothing -- an item for every *thanks!*
+      // would bury the Care Needed view and train an Admin to ignore it -- and it is
+      // rate-limited, so a Participant in a back-and-forth with their Leader is not
+      // auto-replied to on every message.
+      //
+      // A Leader with no open question is answered the same way, though the spec
+      // names only a Participant. The rule it is under is *no inbound message falls
+      // through to silence*, and a Leader texting their Ministry's number is as
+      // unheard as anybody else.
       const sequence = checkIn.openSequence
       const awaiting = sequence?.awaiting
-      if (!sequence || !awaiting) return { effects: [], rejections: [] }
+      if (!sequence || !awaiting) {
+        return {
+          rejections: [],
+          effects: mayAcknowledge(inbound.lastAcknowledgedAt, now)
+            ? [
+                ...tidied,
+                sayToSender(keywording, acknowledgedMessage({ ministryName })),
+                appendHistory({
+                  ministryId: command.ministryId,
+                  occurredAt: now,
+                  type: 'inbound.acknowledged',
+                  subjectType: 'person',
+                  subjectId: checkIn.personId,
+                  // **The message itself is deliberately absent.** All this event
+                  // is for is the rate limit, which needs an instant and nothing
+                  // else -- and what a congregant texts a number that cannot
+                  // answer them is as likely to be *my dad is in hospital* as
+                  // *thanks!*. `ministry_event` is append-only, so prose written
+                  // here could never be cleared, which is exactly what
+                  // `concern.raised` refuses to write for the same reason.
+                  payload: {},
+                }),
+              ]
+            : [...tidied],
+        }
+      }
 
       const reply = readCheckInReply(awaiting.question, command.body)
       const answered = sequence.covering[awaiting.position - 1]
@@ -1299,6 +2090,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         const clarifying = awaiting.clarificationsSent < CLARIFICATIONS_PER_QUESTION
 
         const effects: Effect[] = [
+          ...tidied,
           // Recorded whether or not it is answered, including the ones past the
           // cap. This is the record the enumerated list of synonyms and typos
           // grows from -- from what Leaders actually typed, never from what
@@ -1341,6 +2133,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       }
 
       const effects: Effect[] = [
+        ...tidied,
         recordCheckInAnswer({
           ministryId: command.ministryId,
           promptId: awaiting.promptId,
@@ -1978,11 +2771,18 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       // on the form. A link that has run out is refused on its own, so the Person
       // is told to ask for a new one rather than being handed a list of fields to
       // check that would not have helped.
+      //
+      // Bound here rather than re-read below, so the Person the token names and the
+      // check that it still opens anything are the same narrowing. Reaching for
+      // `context.intakeLink` again further down would have to assert what this
+      // block already proved, across enough lines that the assertion is a claim
+      // about code out of sight rather than about the guard above it.
+      const link = command.token ? context.intakeLink : null
       if (command.token) {
-        if (!context.intakeLink) {
+        if (!link) {
           throw new Error('intake.submit was handed a token and no link to resolve it')
         }
-        if (intakeLinkState(context.intakeLink.expiresAt, now) === 'expired') {
+        if (intakeLinkState(link.expiresAt, now) === 'expired') {
           throw new IntakeRefused(['intake.link_expired'])
         }
       }
@@ -2007,9 +2807,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       // matches the key they were recognised by, so recognising them that way would
       // file a second Person rather than fix the first.
       const key = rosterKey(submission)
-      const existing = command.token
-        ? context.intakeLink!.personId
-        : context.roster.people.get(key)
+      const existing = link ? link.personId : context.roster.people.get(key)
       const id = existing ?? personId(context.ids.next())
 
       if (!existing) {

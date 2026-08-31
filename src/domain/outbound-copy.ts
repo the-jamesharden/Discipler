@@ -1,4 +1,5 @@
 import type { CheckInQuestion } from './check-in'
+import type { RelationshipKeyword } from './keywords'
 
 /**
  * Every message Discipler sends is the Ministry's voice. Discipler is delivery and
@@ -97,6 +98,20 @@ export const welcomeMessage = ({ ministryName, fullName }: WelcomeMessage): stri
 const asList = (names: readonly string[]): string => {
   if (names.length <= 1) return names[0] ?? 'them'
   return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+}
+
+/**
+ * The same shape with `or` instead of `and`, for a list the reader is being asked
+ * to pick **one** of. *Reply 1, 4, 8 and 12* asks for four replies; the pause
+ * confirmation is asking for one.
+ *
+ * The Oxford comma is there because the spec's own wording has it -- *reply 1, 4,
+ * 8, or 12* -- and a confirmation is the one message where the numbers offered have
+ * to be scannable at a glance.
+ */
+const asChoices = (options: readonly string[]): string => {
+  if (options.length <= 1) return options[0] ?? ''
+  return `${options.slice(0, -1).join(', ')}, or ${options[options.length - 1]}`
 }
 
 export interface SharedContact {
@@ -421,3 +436,271 @@ export const checkInClarification = ({ ministryName, question }: ClarificationMe
  * receiving this is how a Leader knows the conversation is over.
  */
 export const checkInThankYou = checkInSentence('Thank you. We’ll check in with you next week.')
+
+export interface KeywordMenu {
+  readonly ministryName: string
+  readonly keyword: RelationshipKeyword
+  /** One line per eligible relationship, in the order the exchange stored them. */
+  readonly options: readonly string[]
+}
+
+/**
+ * What each keyword is asking about, in the one sentence that opens its menu.
+ *
+ * A map rather than a branch, and keyed by the keyword itself, so a fourth
+ * relationship keyword fails to compile here until it says what its menu asks. The
+ * question is phrased as the Leader's own request read back to them -- they texted
+ * one word, and the menu is Discipler asking which of several they meant.
+ */
+const MENU_ASKS: Readonly<Record<RelationshipKeyword, string>> = {
+  PAUSE: 'Which check-ins would you like to pause?',
+  RESUME: 'Which check-ins would you like to restart?',
+  SWAP: 'Which one would you like us to look at?',
+}
+
+/**
+ * The numbered menu, sent when more than one relationship is eligible.
+ *
+ * Numbered from one and never from zero, because it is read off a phone by somebody
+ * who has never seen an array. The numbers are positions in this message and in
+ * nothing else -- the exchange stores the same order it printed, so a `2` means the
+ * second line here even if a fourth relationship is formed before the Leader
+ * replies.
+ *
+ * Neither compliance flag is set. A Leader in a keyword exchange is deep inside a
+ * conversation they started; this is not first contact and it is not the Starter
+ * Message.
+ */
+export const keywordMenu = ({ ministryName, keyword, options }: KeywordMenu): string =>
+  composeMessage({
+    ministryName,
+    identifyDelivery: false,
+    discloseOptOut: false,
+    body: `${MENU_ASKS[keyword]} ${options
+      .map((option, index) => `${index + 1}. ${option}`)
+      .join(' ')}`,
+  })
+
+export interface PauseConfirmation {
+  readonly ministryName: string
+  /** Who the check-ins being paused are about, as `checkInSubject` composed them. */
+  readonly subject: string
+  readonly periodWeeks: number
+  /** The other four periods, in the order `PAUSE_PERIODS` holds them. */
+  readonly otherPeriods: readonly number[]
+}
+
+/**
+ * Target and duration in **one** confirmation, which is the whole of the
+ * accidental-tap protection: a Leader who meant it says yes, and a Leader whose
+ * pocket sent `PAUSE` says nothing and the request ages out.
+ *
+ * It offers a default rather than asking twice. Two exchanges -- which relationship,
+ * then how long -- would be two chances to abandon a request somebody actually
+ * wanted, and the ordinary case is a fortnight away.
+ *
+ * The alternatives are the four periods it did not propose, so the Leader is never
+ * invited to change their mind to what the message already says.
+ */
+export const pauseConfirmation = ({
+  ministryName,
+  subject,
+  periodWeeks,
+  otherPeriods,
+}: PauseConfirmation): string =>
+  composeMessage({
+    ministryName,
+    identifyDelivery: false,
+    discloseOptOut: false,
+    body:
+      `Pause check-ins with ${subject} for ${periodWeeks} ${weekOrWeeks(periodWeeks)}? ` +
+      `Reply YES to confirm, or reply ${asChoices(otherPeriods.map(String))} ` +
+      'for a different number of weeks.',
+  })
+
+/** One week, and every other number of them. */
+const weekOrWeeks = (weeks: number): string => (weeks === 1 ? 'week' : 'weeks')
+
+export interface PauseApplied {
+  readonly ministryName: string
+  readonly subject: string
+  readonly periodWeeks: number
+}
+
+/**
+ * The pause, done. Sent to the Leader who asked and to nobody else -- **the
+ * Participant is told nothing**, deliberately: their relationship has not changed,
+ * they have never received a check-in, and a message explaining the absence of
+ * something they never knew existed would be worse than the silence.
+ *
+ * It says when Discipler will be back rather than only that it has stopped, because
+ * the thing a Leader stepping back most needs to know is that nobody is going to
+ * have to remember to restart it.
+ */
+export const pauseApplied = ({ ministryName, subject, periodWeeks }: PauseApplied): string =>
+  composeMessage({
+    ministryName,
+    identifyDelivery: false,
+    discloseOptOut: false,
+    body:
+      `Done — your check-ins about ${subject} are paused for ${periodWeeks} ` +
+      `${weekOrWeeks(periodWeeks)}. Reply RESUME any time to start them again sooner.`,
+  })
+
+export interface SwapRecorded {
+  readonly ministryName: string
+  readonly subject: string
+}
+
+/**
+ * A swap request, received. It promises a conversation and never an outcome: the
+ * decision is pastoral, it stays with the Admin, and nothing about the relationship
+ * has changed by the time this arrives.
+ *
+ * Saying so plainly matters more here than anywhere else in the product. A Leader
+ * who texts `SWAP` has just done the hard thing instead of going silent, and a
+ * reply that read as though it had been actioned would have them stop meeting
+ * somebody who has not been told.
+ */
+export const swapRecorded = ({ ministryName, subject }: SwapRecorded): string =>
+  composeMessage({
+    ministryName,
+    identifyDelivery: false,
+    discloseOptOut: false,
+    body:
+      `Thanks for letting us know about ${subject}. We've passed this on and someone ` +
+      'will be in touch. Nothing changes in the meantime.',
+  })
+
+export interface NothingEligible {
+  readonly ministryName: string
+  readonly keyword: RelationshipKeyword
+}
+
+/**
+ * A keyword with nothing to act on, answered plainly.
+ *
+ * It states the situation and stops. Offering a route -- *reply PAUSE instead* --
+ * would be Discipler guessing at what somebody meant, and the one thing a keyword
+ * route must never do is act on a relationship nobody named.
+ */
+const NOTHING_ELIGIBLE: Readonly<Record<RelationshipKeyword, string>> = {
+  PAUSE: 'There are no check-ins to pause at the moment.',
+  RESUME: 'You have no paused check-ins to restart at the moment.',
+  SWAP: 'You have no current discipleship for us to look at.',
+}
+
+export const nothingEligible = ({ ministryName, keyword }: NothingEligible): string =>
+  composeMessage({
+    ministryName,
+    identifyDelivery: false,
+    discloseOptOut: false,
+    body: NOTHING_ELIGIBLE[keyword],
+  })
+
+export interface KeywordClarification {
+  readonly ministryName: string
+  /**
+   * What the exchange is currently asking. Null while it is on its numbered menu,
+   * which is the same shape the check-in clarification has: it names the replies the
+   * open question offered and never the whole set.
+   */
+  readonly options: readonly string[] | null
+}
+
+/**
+ * What Discipler says inside an exchange when it could not read a reply: that it
+ * could not, and then the valid replies again.
+ *
+ * Twice at most, and then it stops talking -- not listening. The exchange stays
+ * open and a correct reply nineteen hours later still gets the Leader their pause:
+ * they asked for it and never withdrew the request.
+ *
+ * It re-prints the menu rather than saying *reply with a number*, because a Leader
+ * whose reply was not read is the one least likely to still have the first message
+ * in front of them.
+ */
+export const keywordClarification = ({
+  ministryName,
+  options,
+}: KeywordClarification): string =>
+  composeMessage({
+    ministryName,
+    identifyDelivery: false,
+    discloseOptOut: false,
+    body: options
+      ? `Sorry, we didn't catch that. ${options
+          .map((option, index) => `${index + 1}. ${option}`)
+          .join(' ')}`
+      : "Sorry, we didn't catch that. Reply YES to confirm, or a number of weeks.",
+  })
+
+export interface HelpMessage {
+  readonly ministryName: string
+}
+
+/**
+ * The `HELP` response, which changes nothing and is owed to everybody.
+ *
+ * **It identifies delivery.** A2P compliance names the `HELP` response as one of
+ * the four occasions the `Discipler:` prefix is required, and it is the one message
+ * whose whole purpose is telling somebody what they are receiving and how to make
+ * it stop. See `docs/product-rules.md`, *Settled: The A2P Compliance Prefix Is a
+ * Stated Exception*.
+ *
+ * It names the keywords and then it names a human. Somebody texting `HELP` may want
+ * the word list, and may want their pastor -- and only one of those is something
+ * Discipler can give them, so the other is pointed at rather than answered.
+ */
+export const helpMessage = ({ ministryName }: HelpMessage): string =>
+  composeMessage({
+    ministryName,
+    identifyDelivery: true,
+    discloseOptOut: true,
+    body:
+      'Reply PAUSE to pause your check-ins, RESUME to start them again, or SWAP to ' +
+      `ask about a different match. For anything else, please contact ${ministryName} directly.`,
+  })
+
+export interface AcknowledgedMessage {
+  readonly ministryName: string
+}
+
+/**
+ * What answers a message Discipler could make nothing of.
+ *
+ * It points at the Ministry rather than trying to help, because there is nothing
+ * here that can. A Participant has no dashboard and no account, and texting back is
+ * the only channel they have -- so the one thing this must not do is nothing.
+ *
+ * Rate-limited by its caller, not by itself: a Participant in a back-and-forth with
+ * their Leader must not be auto-replied to on every message, and the window that
+ * decides is a rule about time and lives with the other rules about time.
+ */
+export const acknowledgedMessage = ({ ministryName }: AcknowledgedMessage): string =>
+  composeMessage({
+    ministryName,
+    identifyDelivery: false,
+    discloseOptOut: false,
+    body:
+      `Thanks for your message. We can't reply to texts here — please contact ` +
+      `${ministryName} directly and someone will get back to you.`,
+  })
+
+/**
+ * What a Participant hears when they text a keyword that is a Leader's to use.
+ *
+ * They are told a person will see it, and they are told the truth: nothing has
+ * happened yet. A Participant texting `PAUSE` is most often somebody who wants out
+ * and has no other route, and the item raised beside this message is what puts them
+ * in front of an Admin.
+ */
+export const keywordPassedOn = ({ ministryName }: AcknowledgedMessage): string =>
+  composeMessage({
+    ministryName,
+    identifyDelivery: false,
+    discloseOptOut: false,
+    body:
+      `Thanks — we've passed this on to ${ministryName} and someone will be in touch. ` +
+      'Nothing changes in the meantime.',
+  })

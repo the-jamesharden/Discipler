@@ -40,13 +40,25 @@ describe('a Person who has opted out', () => {
   const mondayEightPm = new Date('2026-08-24T19:00:00Z')
   const ids: IdSource = { next: () => crypto.randomUUID() }
 
-  const tickAt = (at: Date) =>
+  const serviceAt = (at: Date) =>
     createCommandService({
       clock: createTestClock(at),
       ids,
       store,
       appBaseUrl: 'https://discipler.test',
-    }).execute({ type: 'scheduled.tick', ministryId: ministry.id })
+    })
+
+  const tickAt = (at: Date) =>
+    serviceAt(at).execute({ type: 'scheduled.tick', ministryId: ministry.id })
+
+  /**
+   * `STOP` as a Person actually sends it, rather than the fixture's direct write.
+   * The two are not the same act: the fixture records the opt-out and nothing else,
+   * which is every other test here, and the keyword is what a Leader mid-conversation
+   * has to go through.
+   */
+  const texts = (at: Date, person: PersonId, body: string) =>
+    serviceAt(at).execute({ type: 'sms.inbound', ministryId: ministry.id, personId: person, body })
 
   beforeAll(async () => {
     ministry = await createMinistryWithAdmin('Riverside Chapel')
@@ -132,6 +144,54 @@ describe('a Person who has opted out', () => {
 
     expect(await inbox(withdrawn)).toHaveLength(0)
     expect(await inbox(reachable)).toHaveLength(1)
+  })
+
+  it('leaves no conversation open when the STOP arrives mid-week', async () => {
+    // The one ordering the fixture's direct write cannot reach, and the one the
+    // cadence exclusion depends on. Every other test here opts somebody out before a
+    // sequence exists; this Leader is already holding an unanswered question when
+    // they text.
+    //
+    // It matters because the exclusion sits on the list the tick iterates, so an
+    // opted-out Leader is not reached by the chase either -- no reminder, no passing
+    // over, no abandonment. Were the keyword not to close the conversation itself,
+    // the row would stay open with nothing left that could ever close it, and ticket
+    // 10 would read its unanswered week as a relationship needing care: a care item
+    // raised by the act that was supposed to stop them.
+    const leaving = await congregant('Rafael Ortiz')
+    await pairOneToOne(ministry, leaving, await congregant('Sofia Marchetti'))
+
+    await tickAt(mondayEightPm)
+    expect(await inbox(leaving)).toHaveLength(1)
+
+    const { rows: opened } = await pool.query(
+      `select id from checkin_sequence where person_id = $1 and closed_at is null`,
+      [leaving],
+    )
+    expect(opened).toHaveLength(1)
+
+    // Wednesday, with the question still unanswered.
+    await texts(new Date('2026-08-26T10:00:00Z'), leaving, 'STOP')
+
+    const { rows: stillOpen } = await pool.query(
+      `select id from checkin_sequence where person_id = $1 and closed_at is null`,
+      [leaving],
+    )
+    expect(stillOpen).toHaveLength(0)
+
+    // Abandoned rather than completed: the question they never answered stays
+    // unanswered, because an opt-out is not an answer.
+    const { rows: closed } = await pool.query<{ outcome: string }>(
+      `select outcome from checkin_sequence where person_id = $1`,
+      [leaving],
+    )
+    expect(closed.map((row) => row.outcome)).toEqual(['abandoned'])
+
+    // Nothing reopens it, and no further tick runs here to prove that: the tick is
+    // the whole Ministry's, and these tests share one, so a tick into a later week
+    // would move every other Leader in this file forward and leave the tests below
+    // ticking backwards into their own sequences. That the weeks after stay quiet is
+    // already `raises no care item of their own, however many ticks run`.
   })
 
   it('raises no care item of their own, however many ticks run', async () => {

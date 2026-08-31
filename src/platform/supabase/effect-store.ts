@@ -2,6 +2,7 @@ import type { PoolClient } from 'pg'
 import pg from 'pg'
 import type {
   AwaitingLeader,
+  IntakeLinkSnapshot,
   InvitationSnapshot,
   PausedRelationship,
   PersonContact,
@@ -25,6 +26,14 @@ import {
 } from '~/domain/follow-up'
 import { intakeLinkToken, type IntakeLinkToken, type NewIntakeLink } from '~/domain/intake-link'
 import { invitationToken, type InvitationToken, type NewInvitation } from '~/domain/invitations'
+import {
+  keywordExchangeId,
+  type InboundSnapshot,
+  type KeywordMember,
+  type KeywordRelationship,
+  type OpenKeywordExchange,
+  type RelationshipKeyword,
+} from '~/domain/keywords'
 import { readStandingPause, type StandingPause } from '~/domain/pause'
 import type { MemberRole, RelationshipOutcome } from '~/domain/relationships'
 import type { ConcernResolution, ConcernViewing, NewConcern } from '~/domain/concerns'
@@ -72,7 +81,6 @@ import {
   type OpenSequence,
 } from '~/domain/check-in'
 import type { EffectStore, InboundReader, InboundSender, UnitOfWork } from '~/service/ports'
-import type { IntakeLinkSnapshot } from '~/domain/boundary'
 
 /**
  * The participation caps live in indexes, because they can only be judged against
@@ -207,6 +215,132 @@ const openMembersOfRelationship = `select m.person_id, m.role, p.full_name, p.ph
      join person p on p.id = m.person_id
     where m.relationship_id = $1 and m.ended_at is null
     order by m.role, m.started_at, p.full_name, m.person_id`
+
+
+/** One open Keyword Exchange, as the row holds it. */
+interface KeywordExchangeRow {
+  id: string
+  keyword: RelationshipKeyword
+  options: string[]
+  target_id: string | null
+  opened_at: Date
+  prompted_at: Date
+  clarifications_sent: number
+}
+
+/**
+ * The relationships a keyword may act on, with every open member and the three
+ * conditions eligibility turns on -- accepted, ended, paused.
+ *
+ * Two callers hand it different ways of naming the set: *what this Person holds
+ * right now*, and *the identifiers an exchange printed a menu from*. Both need
+ * exactly the same facts back, and the second must not silently return fewer rows
+ * than it asked about -- which is why the caller reorders and the ordering rule is
+ * theirs rather than this query's.
+ *
+ * The inner select must yield `id` and `held_as`, and nothing else is read from it.
+ */
+const keywordRelationships = async (
+  client: PoolClient,
+  namingTheSet: string,
+  parameters: readonly unknown[],
+): Promise<readonly KeywordRelationship[]> => {
+  const { rows } = await client.query<{
+    relationship_id: string
+    held_as: MemberRole
+    created_at: Date
+    accepted_at: Date | null
+    ended_at: Date | null
+    paused: boolean
+  }>(
+    `with held as (${namingTheSet})
+     select r.id as relationship_id,
+            held.held_as,
+            r.created_at,
+            r.accepted_at,
+            r.ended_at,
+            -- Paused lives in history rather than in a column, like every other
+            -- relationship state here.
+            ${pausedColumn}
+       from held
+       join relationship r on r.id = held.id`,
+    [...parameters],
+  )
+
+  if (rows.length === 0) return []
+
+  // Every member of every one of them, in one round trip and in the one ordering
+  // this codebase names people in. Two members paired in a single action share a
+  // `started_at` to the millisecond, so `full_name` is the tiebreak that means
+  // something to the person reading the message and `person_id` settles two people
+  // who share a name -- the same rule `openMembersOfRelationship` uses, because a
+  // menu and a Resume Message listing the same group in two orders would be one
+  // Ministry with two memories.
+  const { rows: members } = await client.query<{
+    relationship_id: string
+    person_id: string
+    role: MemberRole
+    full_name: string
+    phone: string | null
+    still_open: boolean
+    reachable: boolean
+  }>(
+    // Closed memberships come back too, and are dropped below only where the
+    // relationship still has open ones. A relationship that has ended has closed
+    // *every* membership, so filtering in SQL would leave it with no names at all --
+    // and a menu line reading "them" is a worse answer than the name of the person
+    // it was always about.
+    //
+    // `reachable` is the outbound queue's own floor, asked here rather than
+    // discovered by the insert being refused: no opt-out standing, and SMS consent
+    // that currently holds. Opting out ends no relationship, so a member who texted
+    // `STOP` is still here and must simply not be written to.
+    `select m.relationship_id, m.person_id, m.role, p.full_name, p.phone,
+            m.ended_at is null as still_open,
+            (not exists (
+               select 1 from person_opt_out o
+                where o.person_id = m.person_id and o.ended_at is null
+             ) and app.current_consent(m.person_id, 'sms') is true) as reachable
+       from relationship_member m
+       join person p on p.id = m.person_id
+      where m.relationship_id = any($1::uuid[])
+      order by m.role, m.started_at, p.full_name, m.person_id`,
+    [rows.map((row) => row.relationship_id)],
+  )
+
+  const membersOf = new Map<string, KeywordMember[]>()
+  const openOf = new Map<string, KeywordMember[]>()
+  for (const member of members) {
+    const held: KeywordMember = {
+      personId: personId(member.person_id),
+      role: member.role,
+      fullName: member.full_name,
+      phone: member.phone,
+      reachable: member.reachable,
+    }
+    membersOf.set(member.relationship_id, [
+      ...(membersOf.get(member.relationship_id) ?? []),
+      held,
+    ])
+    if (member.still_open) {
+      openOf.set(member.relationship_id, [...(openOf.get(member.relationship_id) ?? []), held])
+    }
+  }
+
+  return rows.map((row) => ({
+    relationshipId: relationshipId(row.relationship_id),
+    role: row.held_as,
+    startedAt: row.created_at,
+    acceptedAt: row.accepted_at,
+    endedAt: row.ended_at,
+    paused: row.paused,
+    // The open members where there are any. Every message a keyword route composes
+    // is for a relationship that passed the eligibility rule, and an ended one never
+    // does -- so what these carry for a live relationship is exactly its open
+    // members, and the fallback only ever shows up in a menu line.
+    members: openOf.get(row.relationship_id) ?? membersOf.get(row.relationship_id) ?? [],
+  }))
+}
 
 const asCheckInRelationship = (
   row: CheckInRelationshipRow & { paused: boolean },
@@ -1530,6 +1664,197 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
        values ($1, $2, $3)
        on conflict (person_id) where ended_at is null do nothing`,
       [optOut.ministryId, optOut.personId, optOut.startedAt],
+    )
+  },
+
+  async optPersonIn(optIn) {
+    // The standing opt-out, dated. Not a delete: `STOP` in March and `START` in
+    // April are two facts, and only one of them survives a row being removed.
+    //
+    // `where ended_at is null` is what makes a second `START` a no-op rather than
+    // moving the date the first one recorded. The Ministry is not in the clause and
+    // does not need to be -- the policy on this table scopes the connection to the
+    // one Ministry it declared it is acting for.
+    await client.query(
+      `update person_opt_out set ended_at = $2
+        where person_id = $1 and ended_at is null`,
+      [optIn.personId, optIn.endedAt],
+    )
+  },
+
+  async inboundFor(id: PersonId): Promise<InboundSnapshot | null> {
+    // No advisory lock of its own. `checkInFor` takes one on the same Person and
+    // every caller of this reads that first, inside the same transaction -- a
+    // second lock on the same key would buy nothing and a lock on a different key
+    // would be a second ordering for two transactions to deadlock over.
+    // Both halves of *may Discipler text this Person*, asked up front rather than
+    // discovered by an insert being refused. They are separate answers because
+    // `START` acts on the opt-out alone: somebody who never consented has nothing for
+    // it to reverse, and somebody who opted out has exactly one thing.
+    const { rows: people } = await client.query<{
+      opted_out: boolean
+      may_be_texted: boolean
+    }>(
+      `select exists (
+                select 1 from person_opt_out o
+                 where o.person_id = p.id and o.ended_at is null
+              ) as opted_out,
+              (not exists (
+                 select 1 from person_opt_out o
+                  where o.person_id = p.id and o.ended_at is null
+               ) and app.current_consent(p.id, 'sms') is true) as may_be_texted
+         from person p
+        where p.id = $1`,
+      [id],
+    )
+    const person = people[0]
+    if (!person) return null
+
+    // Every live relationship this Person holds, on **either side**. A Leader's
+    // check-in reads leader memberships only; a keyword does not, because either
+    // side may text `SWAP` and a Participant holds nothing else.
+    const holds = await keywordRelationships(
+      client,
+      `select m.relationship_id as id, m.role as held_as
+         from relationship_member m
+         join relationship r on r.id = m.relationship_id
+        where m.person_id = $1
+          and m.ended_at is null
+          and r.ended_at is null`,
+      [id],
+    )
+
+    const { rows: open } = await client.query<KeywordExchangeRow>(
+      `select id, keyword, options, target_id, opened_at, prompted_at,
+              clarifications_sent
+         from keyword_exchange
+        where person_id = $1 and closed_at is null`,
+      [id],
+    )
+    const standing = open[0]
+
+    let exchange: OpenKeywordExchange | null = null
+
+    if (standing) {
+      // Read back by the identifiers the menu printed, in that order, and **kept
+      // even where a relationship has ended since**. Dropping an entry would
+      // renumber every line below it, and the Leader's `2` would select the one
+      // their message meant to leave alone. What each entry says about itself is
+      // read fresh, which is what lets the eligibility rule refuse a relationship
+      // an Admin paused an hour ago.
+      const options = await keywordRelationships(
+        client,
+        // **No `ended_at is null` on the membership**, and that is the whole point.
+        // Ending a relationship closes every membership in it, so a filtered join
+        // would return nothing for one that ended while this exchange waited -- and
+        // the entry would vanish from `inOrder` below, renumbering every line under
+        // it. A Leader shown `1. Alice 2. Bob 3. Carol`, whose Alice relationship an
+        // Admin then ended, would reply `2` meaning Bob and swap Carol.
+        //
+        // `distinct on` because a Person may hold a closed membership and an open one
+        // in the same relationship. The open one wins, and the most recent closed one
+        // stands in where there is none -- either way the role is what a menu needs,
+        // and the eligibility rule is what refuses to act on the relationship.
+        `select distinct on (r.id) r.id as id, m.role as held_as
+           from relationship r
+           join relationship_member m
+             on m.relationship_id = r.id and m.person_id = $2
+          where r.id = any($1::uuid[])
+          order by r.id, (m.ended_at is null) desc, m.started_at desc`,
+        [standing.options, id],
+      )
+
+      const byId = new Map(options.map((each) => [String(each.relationshipId), each]))
+      const inOrder = standing.options.flatMap((each) => {
+        const relationship = byId.get(each)
+        return relationship ? [relationship] : []
+      })
+
+      exchange = {
+        exchangeId: keywordExchangeId(standing.id),
+        keyword: standing.keyword,
+        openedAt: standing.opened_at,
+        promptedAt: standing.prompted_at,
+        options: inOrder,
+        target: standing.target_id
+          ? (byId.get(standing.target_id) ?? null)
+          : null,
+        clarificationsSent: standing.clarifications_sent,
+      }
+    }
+
+    // When Discipler last answered a message from this Person that it could make
+    // nothing of. Read from history rather than from the outbound queue: the queue
+    // holds every message ever sent them, and picking this one out of it would mean
+    // matching on its wording.
+    const { rows: acknowledged } = await client.query<{ last_at: Date | null }>(
+      `select max(occurred_at) as last_at
+         from ministry_event
+        where subject_type = 'person'
+          and subject_id = $1
+          and type = 'inbound.acknowledged'`,
+      [id],
+    )
+
+    return {
+      personId: id,
+      holds,
+      exchange,
+      lastAcknowledgedAt: acknowledged[0]?.last_at ?? null,
+      optedOut: person.opted_out,
+      mayBeTexted: person.may_be_texted,
+    }
+  },
+
+  async openKeywordExchange(exchange) {
+    await client.query(
+      `insert into keyword_exchange
+         (ministry_id, person_id, keyword, options, target_id, opened_at, prompted_at)
+       values ($1, $2, $3, $4, $5, $6, $6)`,
+      [
+        exchange.ministryId,
+        exchange.personId,
+        exchange.keyword,
+        exchange.options.map((option) => option.relationshipId),
+        exchange.target?.relationshipId ?? null,
+        exchange.openedAt,
+      ],
+    )
+  },
+
+  async setKeywordExchangeTarget(target) {
+    // The clarification count goes back to nothing, because the confirmation is a
+    // new question: a Leader who mistyped the menu twice has spent nothing against
+    // it, and is the one most likely to get the next one right.
+    await client.query(
+      `update keyword_exchange
+          set target_id = $2, prompted_at = $3, clarifications_sent = 0
+        where id = $1 and closed_at is null`,
+      [target.exchangeId, target.relationshipId, target.promptedAt],
+    )
+  },
+
+  async clarifyKeywordExchange(clarification) {
+    // `prompted_at` is deliberately untouched. A clarification restates the question
+    // already out rather than asking a new one, exactly as a check-in reminder
+    // re-sends rather than re-asks -- and it must not move the deadline the Leader
+    // is answering against either.
+    await client.query(
+      `update keyword_exchange
+          set clarifications_sent = clarifications_sent + 1
+        where id = $1 and closed_at is null`,
+      [clarification.exchangeId],
+    )
+  },
+
+  async closeKeywordExchange(closure) {
+    // `where closed_at is null`, so closing one twice records the first ending
+    // rather than overwriting it with the second. Nothing is refused on a miss: an
+    // exchange that is already closed is the state the caller wanted.
+    await client.query(
+      `update keyword_exchange set closed_at = $2, outcome = $3
+        where id = $1 and closed_at is null`,
+      [closure.exchangeId, closure.closedAt, closure.outcome],
     )
   },
 

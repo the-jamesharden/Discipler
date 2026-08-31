@@ -70,10 +70,17 @@ export default async function ReopenIntakePage({
         ) : null}
 
         {/*
-          `pastor_link`, because that is what this is: a link a pastor sent. The
-          route is recorded on every consent record the submission writes, and there
-          is no third value for it -- a Person reopening their own form has not
-          arrived by some new road, they have been sent the link again.
+          `link` rather than `qr`, and it decides nothing. The shared form posts the
+          route as a hidden field because the Ministry-wide page cannot know it any
+          other way, and that page's route reads it back; this one does not. It
+          names `pastor_link` itself, because a token already says how the Person
+          arrived -- an Admin sent them their own form -- and a value the visitor
+          could edit must not be what a consent record says about how they agreed.
+
+          So the prop is here to satisfy the shared form, and `link` is the honest
+          answer to what it asks. What the consent record ends up saying is
+          `submit/route.ts`'s, and there is no third value for it either way: a
+          Person reopening their own form has not arrived by some new road.
         */}
         <IntakeForm
           action={`/intake/reopen/${token}/submit`}

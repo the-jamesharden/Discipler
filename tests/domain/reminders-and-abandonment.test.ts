@@ -11,6 +11,7 @@ import {
 } from '~/domain/check-in'
 import type { Effect } from '~/domain/effects'
 import { createSequentialIds, ministryId, personId, relationshipId } from '~/domain/ids'
+import { anInboundSnapshot } from '../support/inbound'
 
 /**
  * What happens when a Leader does not answer, and what happens when they answer
@@ -109,6 +110,7 @@ const replying = (body: string, checkIn: CheckInSnapshot = snapshot(), at: Date 
     ministryName: 'ABC Church',
     appBaseUrl: 'https://discipler.example',
     checkIn,
+    inbound: anInboundSnapshot({ personId: james }),
   } satisfies CommandContext)
 
 const ticking = (at: Date, checkIn: CheckInSnapshot = snapshot()) =>

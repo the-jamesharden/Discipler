@@ -20,28 +20,96 @@ Participants are told nothing when their Leader pauses. This is deliberate silen
 
 **Blocked by:** 12
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] One eligible relationship applies the keyword directly with no menu
-- [ ] Several eligible relationships open a numbered menu and apply only after selection
-- [ ] No eligible relationship draws a plain reply and changes nothing
-- [ ] Eligibility is per command, proven by a Leader with one paused and two active relationships resolving `RESUME` without a menu
-- [ ] The target is never resolved from Check-In Sequence position
-- [ ] `PAUSE` confirms target and duration in one exchange, accepting written and numeric forms
-- [ ] A keyword mid-sequence takes the next reply; the check-in question stays unanswered and its reminder still fires
-- [ ] At most one Keyword Exchange is open per Person; a second keyword replaces the first
-- [ ] An unanswered exchange expires at twenty-four hours with no reminder and raises nothing
-- [ ] After two clarifications a valid reply is still honored until expiry
-- [ ] A keyword withdraws the pending check-in question on the relationship it resolves to, which never ages into Stalled — *ticket 12 settled this as general rather than the Keyword Exchange's and built it for `relationship.pause`; a keyword route inherits it rather than rebuilding it*
-- [ ] A bare keyword during the Concern detail step is treated as a keyword, leaving the concern and badge intact
-- [ ] `RESUME` resumes immediately, releases the Resume Message, and raises no expiry item
-- [ ] `SWAP` raises a follow-up item showing Leader, relationship, and the request, changing no state and coexisting with `Paused`
-- [ ] `SWAP` is accepted on an unaccepted relationship and reads as a decline
-- [ ] `START` from an opted-out Person restores messaging and resumes no relationship
-- [ ] A recognized keyword from a Participant raises a follow-up item; unrecognized free text does not and is acknowledged at most once per window
-- [ ] No message is sent to Participants when their Leader pauses
+- [x] One eligible relationship applies the keyword directly with no menu
+- [x] Several eligible relationships open a numbered menu and apply only after selection
+- [x] No eligible relationship draws a plain reply and changes nothing
+- [x] Eligibility is per command, proven by a Leader with one paused and two active relationships resolving `RESUME` without a menu
+- [x] The target is never resolved from Check-In Sequence position
+- [x] `PAUSE` confirms target and duration in one exchange, accepting written and numeric forms
+- [x] A keyword mid-sequence takes the next reply; the check-in question stays unanswered and its reminder still fires
+- [x] At most one Keyword Exchange is open per Person; a second keyword replaces the first
+- [x] An unanswered exchange expires at twenty-four hours with no reminder and raises nothing
+- [x] After two clarifications a valid reply is still honored until expiry
+- [x] A keyword withdraws the pending check-in question on the relationship it resolves to, which never ages into Stalled — *ticket 12 settled this as general rather than the Keyword Exchange's and built it for `relationship.pause`; a keyword route inherits it rather than rebuilding it*
+- [x] A bare keyword during the Concern detail step is treated as a keyword, leaving the concern and badge intact
+- [x] `RESUME` resumes immediately, releases the Resume Message, and raises no expiry item
+- [x] `SWAP` raises a follow-up item showing Leader, relationship, and the request, changing no state and coexisting with `Paused`
+- [x] `SWAP` is accepted on an unaccepted relationship and reads as a decline
+- [x] `START` from an opted-out Person restores messaging and resumes no relationship
+- [x] A recognized keyword from a Participant raises a follow-up item; unrecognized free text does not and is acknowledged at most once per window
+- [x] No message is sent to Participants when their Leader pauses
 
 ## Comments
+
+### Settled 2026-08-31 — both open questions, answered while building
+
+**A Participant reaches `SWAP` through the same keyword on the same inbound route.**
+One word, either side, one command. A Participant is sent no Invitation Link and does
+not decline a match, so `SWAP` is the only way they can say the pairing is wrong
+without going silent — and silence is the ambiguity the care rules already struggle
+to read. Eligibility for `SWAP` was already *all live relationships*, so a
+Participant's holds needed no new rule, only a snapshot that reads both sides of a
+membership rather than the leader side alone.
+
+**The `swap_requested` item says which side asked**, in `payload.requestedBy`, with a
+check constraint repeating it. The Admin's next move differs: unpair and re-pair the
+Participant, or release the Leader from the relationship. It is the role held *in the
+relationship named* rather than a property of the Person — a dual-role Person asking
+to swap out of the relationship they are discipled in is a Participant here whatever
+else they lead.
+
+`PAUSE` and `RESUME` stay a Leader's. A Participant receives no check-ins, so there is
+nothing of theirs to suspend; theirs reach an Admin as `participant_keyword`, which is
+where somebody who wants out and has no other route is heard.
+
+### Settled 2026-08-31 — four things the ticket did not state
+
+- **`HELP` replies and changes nothing.** The ticket names it in the keyword set and
+  gives it no behaviour. It answers with the keyword list and a pointer to the
+  Ministry, carrying the `Discipler:` A2P prefix that `docs/product-rules.md` requires
+  on the `HELP` response. It replaces no exchange and withdraws no question — asking
+  what the words are abandons nothing.
+- **The acknowledgement window is twenty-four hours.** The ticket says *rate-limited*
+  and no more. Twenty-four hours matches the reminder and the exchange rather than
+  introducing a third duration.
+- **The acknowledgement answers a Leader too, not only a Participant.** The bullets
+  name a Participant; the rule they sit under is *no inbound message falls through to
+  silence*, and a Leader with no open question texting their Ministry's number is as
+  unheard as anybody else. Widened deliberately, and cheap to narrow again — it is one
+  condition in one place. Flagged rather than assumed.
+- **A Person with a standing opt-out is answered by nothing but `START`.** Found while
+  building: the outbound queue refuses a message to somebody who has opted out, so an
+  acknowledgement composed for them rolls the whole transaction back — their text
+  fails outright rather than reaching nobody quietly. Every route below `START` needs
+  an answer Discipler is not allowed to send.
+
+### Fixed 2026-08-31 — three defects the review caught
+
+All three were in this ticket's own code, all three are covered by tests that fail
+without the fix:
+
+- **A menu renumbered itself when one of its relationships ended.** The re-read of an
+  exchange's printed options inner-joined open memberships, and ending a relationship
+  closes every membership in it — so the entry vanished and every line below it moved
+  up. A Leader shown `1. Emily 2. Sarah 3. David` whose Emily relationship an Admin
+  then ended would reply `2` meaning Sarah and swap David. The join no longer filters
+  on the membership being open, and takes the open one where there is one.
+- **A reply from somebody with no SMS consent aborted the whole command.** The guard
+  tested the opt-out only, but the outbound queue's floor is both halves — and
+  `app.sender_of_inbound` resolves any Person by number, so somebody imported onto
+  the Roster who never completed Intake can reach the webhook. Every reply composed
+  for them was refused, which rolled the transaction back and would have had the
+  delivery vendor retry the identical failure. `InboundSnapshot.mayBeTexted` now
+  carries both halves.
+- **A resume died when anyone in the relationship had opted out.** Opting out ends no
+  relationship, so a Participant who texted `STOP` is still an open member; the
+  Resume Message composed for them was refused and took the Leader's resume with it.
+  Members carry `reachable`, and the message is sent to the ones Discipler may reach
+  while still naming everybody. *The Admin's `relationship.resume` route has the same
+  defect and is not fixed here* — it needs the same field on a snapshot five commands
+  share, and that is ticket 12's to close.
 
 ### Amended 2026-08-30 — a Participant may swap
 

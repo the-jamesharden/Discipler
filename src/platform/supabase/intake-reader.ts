@@ -50,10 +50,18 @@ const prefillFor = async (
     gender: Gender
     discipleship_goal_id: string | null
   }>(
+    // The same tiebreak the database's own latest-submission reads use, down to
+    // the last term: `public.relationship_availability` and the pairing gender
+    // read both order by `submitted_at desc, created_at desc, id desc`. Two
+    // submissions can share both timestamps -- a correction sent twice in the same
+    // second, or a backfill that stamped a batch alike -- and without the id the
+    // tiebreak is the planner's, so this form could prefill one submission while
+    // the Leader dashboard read the other. A Person would then be shown answers
+    // that are not the ones standing against them.
     `select id, age_band, gender, discipleship_goal_id
        from intake_submission
       where person_id = $1
-      order by submitted_at desc, created_at desc
+      order by submitted_at desc, created_at desc, id desc
       limit 1`,
     [person],
   )

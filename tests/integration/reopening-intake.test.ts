@@ -12,9 +12,12 @@ import { createPostgresIntakeReader } from '~/platform/supabase/intake-reader'
 import { createCommandService } from '~/service/command-service'
 import {
   addPerson,
+  addPersonWithAccount,
   createMinistryWithAdmin,
   localSupabase,
+  pairOneToOne,
   signInAs,
+  signInWith,
   type MinistryFixture,
 } from '../support/local-supabase'
 
@@ -133,7 +136,7 @@ describe('reopening a Person’s Intake', () => {
         where a.intake_submission_id = (
           select s.id from intake_submission s
            where s.person_id = $1
-           order by s.submitted_at desc, s.created_at desc
+           order by s.submitted_at desc, s.created_at desc, s.id desc
            limit 1
         )
         order by a.day, a.block`,
@@ -160,6 +163,52 @@ describe('reopening a Person’s Intake', () => {
       // changing rather than being asked as if for the first time.
       contactSharing: 'granted',
     })
+  })
+
+  it('prefills the same submission the rest of the product reads as the latest', async () => {
+    // Two submissions can share both timestamps -- a correction sent twice in the
+    // same second, or a backfill that stamped a batch alike -- and then the ordering
+    // is settled by the last term or by nothing at all.
+    //
+    // It has to be the same last term everywhere. `public.relationship_availability`
+    // and the pairing gender read both break the tie on `id desc`; a form that broke
+    // it differently would show a Person answers that are not the ones standing
+    // against them, and they would correct the wrong ones.
+    const person = await addPerson(ministry, 'Ines Duarte', { phone: aNumber() })
+    await resubmit(await linkFor(person), { fullName: 'Ines Duarte', ageBand: '55-64' })
+
+    const { rows: both } = await pool.query<{ id: string; age_band: string }>(
+      `select id, age_band from intake_submission where person_id = $1`,
+      [person],
+    )
+    expect(both).toHaveLength(2)
+    // Two age bands, so which row was chosen is visible in the answer.
+    expect(new Set(both.map((row) => row.age_band)).size).toBe(2)
+
+    // The tie, made in place. Both rows now agree on every column the ordering
+    // reads except the one that has to settle it.
+    await pool.query(
+      `update intake_submission
+          set submitted_at = timestamptz '2026-08-20T09:00:00Z',
+              created_at   = timestamptz '2026-08-20T09:00:00Z'
+        where person_id = $1`,
+      [person],
+    )
+
+    const canonical = [...both].sort((a, b) => (a.id < b.id ? 1 : -1))[0]!
+
+    // The tie has to be *decided*, not merely present. With the timestamps equal,
+    // an incomplete `order by` falls through to whatever order the scan hands up,
+    // and on two rows that is physical order -- which an update rewrites. Touching
+    // the row that should win moves it to the end, so the row that should lose is
+    // read first and a query missing the last term returns it.
+    await pool.query(
+      `update intake_submission set submitted_at = submitted_at where id = $1`,
+      [canonical.id],
+    )
+
+    const page = await reader.readReopenedIntakePage(await linkFor(person))
+    expect(page?.prefill.ageBand).toBe(canonical.age_band)
   })
 
   it('corrects the number on the Person rather than filing a second one', async () => {
@@ -230,6 +279,79 @@ describe('reopening a Person’s Intake', () => {
     await resubmit(token, { fullName: 'Hana Ito', contactSharing: 'declined' })
 
     expect(await revealed()).toBeNull()
+  })
+
+  it('stops the Leader who leads them seeing the number, from their own form', async () => {
+    // The criterion end to end, on the surface it is about. The test above proves
+    // the consent gate flips; it asks as the *Admin*, about a Person in no
+    // relationship, so no Leader and no Leader-facing read is exercised by it at
+    // all -- and `contact_to_share` gates on `app.is_member_of`, which an Admin
+    // passes for a different reason than a Leader does.
+    //
+    // What has to hold is the whole chain: a Person opens the link an Admin sent
+    // them, unticks one box on their own form, and the number stops appearing on
+    // their Leader's dashboard. Every link in it is a different mechanism -- the
+    // token names them, the submission writes a second consent record, and the
+    // dashboard resolves the latest decision at the moment it draws the row.
+    const leader = await addPersonWithAccount(ministry, 'Karen Whitfield', 'leader', {
+      phone: aNumber(),
+    })
+    const asLeader = await signInWith(leader)
+
+    try {
+      const person = await addPerson(ministry, 'Jonah Mbeki', { phone: aNumber() })
+      await pairOneToOne(ministry, leader.personId, person)
+
+      const seenByTheLeader = async () => {
+        const { data, error } = await asLeader.rpc('contact_to_share', {
+          target_ministry_id: ministry.id,
+          target_person_id: person,
+        })
+        if (error) throw new Error(error.message)
+        return (data ?? []) as { full_name: string; phone: string }[]
+      }
+
+      // Granted at Intake, and his Leader can see it. Asserted rather than assumed,
+      // because a test whose "before" was already empty would pass on a decline that
+      // did nothing.
+      const before = await seenByTheLeader()
+      expect(before).toHaveLength(1)
+      expect(before[0]?.full_name).toBe('Jonah Mbeki')
+      const number = before[0]!.phone
+
+      // His own form, through the link, with the one box unticked. Nothing else
+      // about the relationship changes: he is still in it, and still a Participant
+      // his Leader is responsible for.
+      await resubmit(await linkFor(person), {
+        fullName: 'Jonah Mbeki',
+        phone: number,
+        contactSharing: 'declined',
+      })
+
+      expect(await seenByTheLeader()).toEqual([])
+
+      // He is withheld, not removed. A Person who takes their number back is still
+      // somebody their Leader leads, and a dashboard that dropped him would have
+      // answered a different question than the one that was asked.
+      const { rows: still } = await pool.query(
+        `select 1 from relationship_member m
+           join relationship r on r.id = m.relationship_id
+          where m.person_id = $1 and m.ended_at is null and r.ended_at is null`,
+        [person],
+      )
+      expect(still).toHaveLength(1)
+
+      // And the decline is a record rather than an erasure: both decisions stand,
+      // which is what makes it reversible and what the append-only table is for.
+      const { rows: decisions } = await pool.query<{ granted: boolean }>(
+        `select granted from consent_record
+          where person_id = $1 and consent = 'contact_sharing' order by decided_at`,
+        [person],
+      )
+      expect(decisions.map((row) => row.granted)).toEqual([true, false])
+    } finally {
+      await asLeader.auth.signOut()
+    }
   })
 
   it('refuses a re-submission with SMS consent unticked, naming STOP', async () => {

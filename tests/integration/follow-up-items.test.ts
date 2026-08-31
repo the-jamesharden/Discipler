@@ -197,6 +197,7 @@ describe('the Follow-Up Item table', () => {
           kind: 'swap_requested',
           relationshipId: relationshipId(id),
           personId: leader,
+          requestedBy: 'leader',
           raisedAt: new Date(at.getTime() + run),
         })
         await unit.appendHistory([
@@ -212,7 +213,9 @@ describe('the Follow-Up Item table', () => {
       })
     }
 
-    expect(await openItems(id)).toEqual([{ kind: 'swap_requested', payload: {} }])
+    expect(await openItems(id)).toEqual([
+      { kind: 'swap_requested', payload: { requestedBy: 'leader' } },
+    ])
 
     const { rows } = await pool.query(
       `select 1 from ministry_event where subject_id = $1 and type = 'follow_up.swap_requested'`,

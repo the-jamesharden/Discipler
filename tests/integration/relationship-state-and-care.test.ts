@@ -510,6 +510,7 @@ describe('Relationship State and the Care Needed view', () => {
           kind: 'swap_requested',
           relationshipId: relationshipId(relationship),
           personId: null,
+          requestedBy: 'leader',
           raisedAt: at(1),
         }),
       )

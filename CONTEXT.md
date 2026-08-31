@@ -173,7 +173,7 @@ A person-level status describing whether someone is being discipled, independent
 The timestamped, versioned record of what a person agreed to at intake. Discipler shares a phone number only where the consent record permits it.
 
 **Swap**:
-A leader's request to be released from a specific discipleship relationship and matched with a different participant. From a relationship the leader has not yet accepted, it reads as a decline. A swap is a recorded request awaiting admin action. It is never itself a change of relationship state, and the relationship remains intact until an admin resolves it.
+A request to be released from a specific discipleship relationship and matched with somebody different. Either side may make one: a leader asking for a different participant, or a participant asking for a different leader — the recorded request says which side asked, because an admin acts differently on each. From a relationship the leader has not yet accepted, it reads as a decline. A swap is a recorded request awaiting admin action. It is never itself a change of relationship state, and the relationship remains intact until an admin resolves it.
 
 **Care Needed**:
 The pastor-facing view of people or relationships that currently require pastoral attention. It gathers three things: open Follow-Up Items, relationships whose derived state asks for attention, and unresolved concerns.
