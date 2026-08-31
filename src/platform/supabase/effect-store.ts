@@ -15,6 +15,8 @@ import type {
   LeaderAcceptance,
   MaterialAssignment,
   OutboundMessageDraft,
+  OutstandingReplyClosure,
+  OutstandingReplySweep,
   ParticipantDeparture,
   RelationshipCancellation,
   RelationshipEnding,
@@ -2037,13 +2039,61 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     return rows[0]?.detail ?? null
   },
 
+  async closeOutstandingReply({
+    ministryId,
+    promptKey,
+    as,
+    closing,
+  }: OutstandingReplyClosure) {
+    // A Person with no number holds no conversation, and the null is carried this
+    // far rather than filtered out by the caller so that *this Person has no
+    // number* stays one thing said in one place.
+    if (!promptKey) return
+
+    await client.query(
+      `update outbound_message
+          set prompt_state = $3
+        where ministry_id = $1 and prompt_key = $2 and prompt_state = 'open'
+          and message_kind = any($4::outbound_message_kind[])`,
+      [ministryId, promptKey, as, closing],
+    )
+  },
+
+  async sweepOutstandingReplies({ ministryId, cutoffs }: OutstandingReplySweep) {
+    // A list of instants and no rule. Which window belongs to which kind is the
+    // Check-In Rhythm's, worked out against the injected clock before this was
+    // called, so nothing here reads a clock or knows what forty-eight hours means
+    // -- which is the only reason a fortnight of waiting is provable in a
+    // millisecond. A fourth kind changes this statement not at all.
+    //
+    // Measured from `reply_opened_at` and never from `sent_at`. The number is taken
+    // before the vendor is called, so a worker killed between the two leaves a row
+    // that is open with no send against it -- and a sweep reading `sent_at` would
+    // step over exactly the hold nobody else can release.
+    await client.query(
+      `update outbound_message m
+          set prompt_state = 'timed_out'
+         from unnest($2::outbound_message_kind[], $3::timestamptz[])
+                as cutoff (kind, opened_no_later_than)
+        where m.ministry_id = $1
+          and m.prompt_state = 'open'
+          and m.message_kind = cutoff.kind
+          and m.reply_opened_at <= cutoff.opened_no_later_than`,
+      [
+        ministryId,
+        cutoffs.map((cutoff) => cutoff.kind),
+        cutoffs.map((cutoff) => cutoff.openedNoLaterThan),
+      ],
+    )
+  },
+
   async enqueueMessages(messages: readonly OutboundMessageDraft[]) {
     for (const message of messages) {
       await client.query(
         `insert into outbound_message
            (ministry_id, person_id, to_phone, body, enqueued_at, scheduled_for,
-            discloses_person_id, prompt_key, prompt_state)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            discloses_person_id, prompt_key, prompt_state, message_kind)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
         [
           message.ministryId,
           message.personId,
@@ -2063,10 +2113,15 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
           // whether or not this message expects a reply. A message with no number
           // -- one bound for an Admin -- serialises against nothing.
           message.toPhone,
-          // Null until something sends a Response-Required Message. Nothing does
-          // yet: a Welcome Message expects no reply, so it holds up nobody's queue.
-          // Ticket 08 is the first to set this, and the column is already here.
+          // Null until this message is actually sent. `open` means *sent and
+          // awaiting a reply*, and the queue worker sets it in the same locked
+          // statement that takes the recipient's number -- so nothing enqueued and
+          // never delivered can hold up somebody's conversation.
           null,
+          // Whether this row takes the recipient's number, and whether it waits for
+          // it. Required by the draft, so no message reaches the queue without
+          // saying which of the two it is.
+          message.kind,
         ],
       )
     }

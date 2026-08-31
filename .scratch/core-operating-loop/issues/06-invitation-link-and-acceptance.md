@@ -392,3 +392,32 @@ Extracting one now would join two acts that differ in what they loop over and wh
 they record.
 
 `tsc --noEmit` clean. 1138 passing across 84 files, 1 skipped.
+
+### Settled — re-issuing a link replaces it, and that is the revocation — 2026-08-31
+
+The first of the four inferences above is no longer one. Asked directly, and answered
+the other way: **every re-issue mints over the old token, expired or not.**
+
+The inference was `intake.reopen`'s rule — re-send a live link, because the commonest
+reason to ask is a Leader who lost the text and minting breaks the message already on
+their phone. It does not carry across. An Intake link is handed to an Admin to pass on;
+an Invitation Link is texted to one number, and this ticket says possession of that
+number is the whole of the authentication.
+
+That makes the wrong number this flow's highest-stakes condition, which this ticket also
+says: *a wrong number sends that Leader's check-ins to a stranger indefinitely*.
+`invitation.dispute_number` raises the item and changes nothing else, by design. So the
+product could record that a stranger held a live credential and had no act anywhere that
+ended it — the one command touching invitations refused to replace a live one. Re-issuing
+is now that act.
+
+`replacedTheLink` is gone from the `invitation.reissued` payload; it distinguished a
+re-send from a mint and every re-issue is a mint. Rows already carrying it keep it, and a
+`false` there is the record of a link that was re-sent — a past fact, not a defect.
+
+Recorded in `docs/adr/0012-re-issuing-a-link-replaces-it.md`, in `docs/product-rules.md`
+under *Settled: Leader Acceptance Activates a Relationship*, and as resolved in
+`docs/open-questions.md`, where the remaining three inferences are restated as three.
+
+**Not decided here:** whether an Admin can revoke a link *without* sending a replacement.
+Today the two acts are one.

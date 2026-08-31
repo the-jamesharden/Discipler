@@ -27,6 +27,7 @@ const someMessage = (body: string) =>
     enqueuedAt: at,
     scheduledFor: null,
     disclosesPersonId: null,
+    kind: 'no_reply',
   })
 
 describe('applying a command\'s effects', () => {
@@ -61,6 +62,12 @@ describe('applying a command\'s effects', () => {
         },
         enqueueMessages: async () => {
           throw new Error('the outbound queue should not have been touched')
+        },
+        closeOutstandingReply: async () => {
+          throw new Error('no conversation should have been closed')
+        },
+        sweepOutstandingReplies: async () => {
+          throw new Error('no conversation should have been swept')
         },
         contactsFor: async () => {
           throw new Error('nobody should have been looked up')
@@ -221,7 +228,11 @@ describe('the command service', () => {
 
     const outcome = await service.execute({ type: 'scheduled.tick', ministryId: ministry })
 
-    expect(outcome.effects).toEqual([])
+    // The tick against a quiet Ministry sweeps and does nothing else. The sweep is
+    // unconditional -- the boundary has no cheaper way to learn whether any
+    // conversation is still open than to close whatever the cutoffs catch.
+    expect(outcome.effects.map((effect) => effect.kind)).toEqual(['outstandingReply.sweep'])
+    expect(store.outstandingReplySweeps).toHaveLength(1)
     expect(store.history).toEqual([])
     expect(store.outbox).toEqual([])
   })

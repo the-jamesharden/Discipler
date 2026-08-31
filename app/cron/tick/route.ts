@@ -59,12 +59,19 @@ interface MinistryOutcome {
   readonly ministryId: MinistryId
   readonly sent: number
   readonly withheld: number
+  /**
+   * Messages left for the next run because the recipient's number was still holding
+   * a conversation. Reported beside the others rather than folded into them: a
+   * Monday evening with holds on it is the serialisation working, and a Monday
+   * evening with withholdings on it is not.
+   */
+  readonly held: number
   readonly failed: number
   readonly error: string | null
 }
 
 const runOneMinistry = async (ministryId: MinistryId): Promise<MinistryOutcome> => {
-  const nothing = { sent: 0, withheld: 0, failed: 0 }
+  const nothing = { sent: 0, withheld: 0, held: 0, failed: 0 }
 
   try {
     // The tick first, then the drain, in that order and in the same run: the tick is
@@ -112,6 +119,7 @@ export async function GET(request: NextRequest) {
     ministries: ran.length,
     sent: ran.reduce((total, one) => total + one.sent, 0),
     withheld: ran.reduce((total, one) => total + one.withheld, 0),
+    held: ran.reduce((total, one) => total + one.held, 0),
     failed: ran.reduce((total, one) => total + one.failed, 0),
     errors: ran.filter((one) => one.error !== null).map((one) => ({
       ministryId: one.ministryId,

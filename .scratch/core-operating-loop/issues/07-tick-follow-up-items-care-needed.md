@@ -12,15 +12,15 @@ Cancelling an unaccepted relationship returns everyone in it to the suggestion p
 
 **Blocked by:** 06
 
-**Status:** ready-for-agent
+**Status:** shipped
 
-- [ ] A scheduled tick enters through the command boundary and reads the injected clock
-- [ ] An unaccepted relationship reminds its Leader at two days
-- [ ] An unaccepted relationship raises a follow-up item at five days showing how long it has waited
-- [ ] A follow-up item never clears itself and is not cleared by the event that raised it
-- [ ] An Admin can cancel an unaccepted relationship, returning everyone to the suggestion pool
-- [ ] Accepting before the thresholds means no reminder and no follow-up item
-- [ ] Care Needed lists open follow-up items for the Admin's Ministry only
+- [x] A scheduled tick enters through the command boundary and reads the injected clock
+- [x] An unaccepted relationship reminds its Leader at two days
+- [x] An unaccepted relationship raises a follow-up item at five days showing how long it has waited
+- [x] A follow-up item never clears itself and is not cleared by the event that raised it
+- [x] An Admin can cancel an unaccepted relationship, returning everyone to the suggestion pool
+- [x] Accepting before the thresholds means no reminder and no follow-up item
+- [x] Care Needed lists open follow-up items for the Admin's Ministry only
 
 ## Comments
 
@@ -87,16 +87,16 @@ not to have one, and the actions an Admin took are recorded as facts of their ow
 operational state, so without that append a Ministry cannot ask later how many care
 items it raised or how fast it closed them, and that is unreconstructable.
 
-- [ ] The six kinds exist as an enum and nothing derived is among them
-- [ ] An item carries a nullable `relationship_id` and a nullable `person_id`, each composite-keyed to its Ministry, with at least one present
-- [ ] A `pause_expired` without its period, and a `participant_keyword` without its keyword, are refused by the database as well as unconstructible in the domain
-- [ ] The tick run repeatedly against a five-day-old unaccepted relationship produces exactly one open item
-- [ ] A pause expiring produces exactly one open item however often the tick runs
-- [ ] Two `SWAP` requests on one relationship produce two items
-- [ ] Resolving records the acting Admin and the time, and offers no note field
-- [ ] Raising and resolving each append a history event
-- [ ] A Concern is not stored in this table
-- [ ] Care Needed unions derived states, Concerns, and follow-up items
+- [x] The six kinds exist as an enum and nothing derived is among them
+- [x] An item carries a nullable `relationship_id` and a nullable `person_id`, each composite-keyed to its Ministry, with at least one present
+- [x] A `pause_expired` without its period, and a `participant_keyword` without its keyword, are refused by the database as well as unconstructible in the domain
+- [x] The tick run repeatedly against a five-day-old unaccepted relationship produces exactly one open item
+- [x] A pause expiring produces exactly one open item however often the tick runs
+- [~] ~~Two `SWAP` requests on one relationship produce two items~~ — superseded by the spec amendment of 2026-08-29 and *not* implemented; see *Superseded — two SWAP requests do not produce two items* below
+- [x] Resolving records the acting Admin and the time, and offers no note field
+- [x] Raising and resolving each append a history event
+- [x] A Concern is not stored in this table
+- [x] Care Needed unions derived states, Concerns, and follow-up items
 
 ### Superseded — two SWAP requests do not produce two items
 
@@ -163,3 +163,46 @@ ticket does not make. A separate ticket should give it a caller.
 **Care Needed is a reader, not a screen.** `CareNeededReader` answers for the Follow-Up
 Item source only. The union with derived relationship states and Concerns needs ticket
 10, and the inline resolve button is ticket 11's.
+
+### Closed out — 2026-08-31
+
+The checkboxes above were never ticked and the ticket read as unstarted while every
+criterion it names was built and covered. Read back against the code rather than against
+the list, and ticked on that basis:
+
+- **The tick** — `scheduled.tick` in `boundary.ts`, entered through the boundary and
+  deciding against the injected clock. `tests/domain/the-scheduled-tick.test.ts` holds
+  *reads the clock it was handed and nothing else*, the two-day reminder, the five-day
+  item, the four-day silence, the raise-once, the raise-again-after-resolution, and
+  *does not clear the item it raised*.
+- **The table** — `follow_up_item` in `20260829000100`, the four remaining kinds in
+  `20260830000100`, and payload, `resolved_by`, `follow_up_item_has_a_subject` and
+  `follow_up_item_payload_matches_kind` in `20260830000200`. Covered end to end by
+  `tests/integration/follow-up-items.test.ts`, including the two refusals the database
+  makes and the resolution recording its actor with no note field.
+- **Cancelling** — `relationship.cancel`, `tests/integration/cancelling-a-relationship.test.ts`,
+  including *returns everyone in it to the suggestion pool*.
+- **Care Needed** — `listCareNeeded` unions all three sources in
+  `care-needed-reader.ts`, and `tests/integration/care-needed.test.ts` proves the
+  Ministry scoping and the live wait.
+
+**Both items in *Not built here* are closed.** The tick has its caller:
+`app/cron/tick/route.ts`, authenticated against `CRON_SECRET` in constant time and run
+per Ministry in its own transaction — the decision the ticket declined to make, made by
+whoever built that route. And the union the second item was waiting on landed with
+ticket 10; the *screen* it also names was never this ticket's criterion, and the inline
+resolve is still ticket 11's open first criterion.
+
+**One criterion is withdrawn rather than met** — two `SWAP` requests filing two items,
+reversed by the spec amendment of 2026-08-29 and marked `[~]` above.
+
+**One question is parked rather than answered.** *Cancelling does not resolve the item*
+asked for a ruling and never got one; it is now in `docs/open-questions.md` under
+*Open: pending review before the first pilot*, which is where parking it stops it holding
+this ticket open.
+
+**What this ticket built is reachable only by the cron route and by
+`CommandService.execute`.** `relationship.cancel` and `follow_up.resolve` have no HTTP
+route, and `listCareNeeded` has no caller in `app/`. That is the Admin surface tickets
+07, 10, 11, 12 and 13 each separately recorded as absent, and it is not a criterion any
+of them carries.

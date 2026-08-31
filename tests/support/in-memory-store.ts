@@ -25,6 +25,8 @@ import type {
   NewCheckInSequence,
   NewKeywordExchange,
   OutboundMessageDraft,
+  OutstandingReplyClosure,
+  OutstandingReplySweep,
   PersonOptIn,
   PersonOptOut,
   ParticipantDeparture,
@@ -74,6 +76,9 @@ export interface InMemoryStore extends EffectStore {
   readonly keywordClarifications: readonly KeywordExchangeClarification[]
   readonly keywordClosures: readonly KeywordExchangeClosure[]
   readonly leadEligibilities: readonly LeadEligibility[]
+  /** Every number whose conversation an effect closed, in order. */
+  readonly outstandingReplyClosures: readonly OutstandingReplyClosure[]
+  readonly outstandingReplySweeps: readonly OutstandingReplySweep[]
   readonly intakeLinks: readonly NewIntakeLink[]
   /**
    * The link both Intake-link reads answer with: the one a re-submission came in
@@ -128,6 +133,8 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
   const sequences: NewCheckInSequence[] = []
   const prompts: NewCheckInPrompt[] = []
   const checkInAnswers: CheckInAnswer[] = []
+  const outstandingReplyClosures: OutstandingReplyClosure[] = []
+  const outstandingReplySweeps: OutstandingReplySweep[] = []
   const clarifications: CheckInClarification[] = []
   const reminders: CheckInReminder[] = []
   const closures: CheckInSequenceClosure[] = []
@@ -198,6 +205,12 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
     get checkInAnswers() {
       return [...checkInAnswers]
     },
+    get outstandingReplyClosures() {
+      return [...outstandingReplyClosures]
+    },
+    get outstandingReplySweeps() {
+      return [...outstandingReplySweeps]
+    },
     get clarifications() {
       return [...clarifications]
     },
@@ -263,6 +276,8 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       const stagedSequences: NewCheckInSequence[] = []
       const stagedPrompts: NewCheckInPrompt[] = []
       const stagedCheckInAnswers: CheckInAnswer[] = []
+      const stagedOutstandingReplyClosures: OutstandingReplyClosure[] = []
+      const stagedOutstandingReplySweeps: OutstandingReplySweep[] = []
       const stagedClarifications: CheckInClarification[] = []
       const stagedReminders: CheckInReminder[] = []
       const stagedClosures: CheckInSequenceClosure[] = []
@@ -459,6 +474,12 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
           if (store.failOn === 'enqueueMessages') throw new Error('outbound queue unavailable')
           stagedOutbox.push(...messages)
         },
+        async closeOutstandingReply(closure) {
+          stagedOutstandingReplyClosures.push(closure)
+        },
+        async sweepOutstandingReplies(sweep) {
+          stagedOutstandingReplySweeps.push(sweep)
+        },
       }
 
       const result = await work(unit)
@@ -482,6 +503,8 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       sequences.push(...stagedSequences)
       prompts.push(...stagedPrompts)
       checkInAnswers.push(...stagedCheckInAnswers)
+      outstandingReplyClosures.push(...stagedOutstandingReplyClosures)
+      outstandingReplySweeps.push(...stagedOutstandingReplySweeps)
       clarifications.push(...stagedClarifications)
       reminders.push(...stagedReminders)
       closures.push(...stagedClosures)

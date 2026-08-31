@@ -20,7 +20,7 @@ Participants are told nothing when their Leader pauses. This is deliberate silen
 
 **Blocked by:** 12
 
-**Status:** done
+**Status:** shipped
 
 - [x] One eligible relationship applies the keyword directly with no menu
 - [x] Several eligible relationships open a numbered menu and apply only after selection

@@ -174,9 +174,9 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
     const { cookie } = await signIn(ministry)
 
     // Paired through the real route rather than seeded, because the act under test
-    // re-sends a link: a fixture that writes the membership rows directly issues no
-    // invitation, and there would be nothing to send again. Same gender, since a
-    // one-to-one that crosses it is refused.
+    // replaces a link: a fixture that writes the membership rows directly issues no
+    // invitation, and the command reads the Leader out of a snapshot that has none.
+    // Same gender, since a one-to-one that crosses it is refused.
     const leader = await addPerson(ministry, 'Malachi Reinvite', {
       phone: number(),
       answers: { gender: 'male' },

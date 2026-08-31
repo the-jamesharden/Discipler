@@ -18,6 +18,7 @@ import {
   departFromRelationship,
   endRelationship,
   createRelationship,
+  closeOutstandingReply,
   enqueueMessage,
   issueInvitationLink,
   reissueInvitationLink,
@@ -32,10 +33,17 @@ import {
   resolveConcern,
   setKeywordExchangeTarget,
   setLeadEligibility,
+  sweepOutstandingReplies,
   type Effect,
   type KeywordExchangeOutcome,
   type NewCheckInPrompt,
 } from './effects'
+import {
+  LAST_WEEKS_QUESTION,
+  outstandingReplyCutoffs,
+  WHATEVER_WAS_ASKED,
+  type OutboundMessageKind,
+} from './outstanding-reply'
 import {
   CancellationRefused,
   DepartureRefused,
@@ -546,7 +554,11 @@ interface Asking {
  * sends is this shape -- the questions and the closing thank-you alike -- so the
  * envelope is written once and only the body differs.
  */
-const sayToLeader = (asking: Asking, body: string): Effect =>
+const sayToLeader = (
+  asking: Asking,
+  body: string,
+  kind: OutboundMessageKind,
+): Effect =>
   enqueueMessage({
     ministryId: asking.ministryId,
     personId: asking.personId,
@@ -557,6 +569,11 @@ const sayToLeader = (asking: Asking, body: string): Effect =>
     // No message to a Leader contains a phone number, and a check-in question
     // names the people they already meet with.
     disclosesPersonId: null,
+    // Named at every call rather than defaulted here, because the four messages
+    // this composes are not all the same kind: a question takes the Leader's
+    // number, and the reminder that re-sends it, the clarification that restates
+    // it and the thank-you that ends the conversation do not.
+    kind,
   })
 
 const ask = (
@@ -571,7 +588,9 @@ const ask = (
     askedAt: asking.now,
     ...prompt,
   }),
-  sayToLeader(asking, body),
+  // The one message in the rhythm that takes the Leader's number: it is a
+  // question, and the reply it is owed is what the next one waits for.
+  sayToLeader(asking, body, 'scheduled_question'),
 ]
 
 /**
@@ -898,6 +917,25 @@ const openConversationWith = (
   // unanswered -- so none is opened.
   if (covering.length === 0) return effects
 
+  // Last week's question stops being worth answering the moment this week's
+  // conversation opens, and it has to stop *here* rather than at forty-eight hours:
+  // the first question below is a scheduled question, and a Leader asked late on
+  // Saturday still holds their number when Monday's cadence comes round. Held
+  // behind it, the new week would wait on a question the new week has already
+  // replaced.
+  //
+  // After the empty-conversation guard, deliberately. A Leader whose every
+  // relationship is paused opens no sequence, so there is no new question to make
+  // room for and nothing that would go unanswered by making it.
+  effects.push(
+    closeOutstandingReply({
+      ministryId,
+      promptKey: checkIn.phone,
+      as: 'timed_out',
+      closing: LAST_WEEKS_QUESTION,
+    }),
+  )
+
   const sequenceId = checkInSequenceId(ids.next())
   const asking: Asking = {
     ministryId,
@@ -1022,7 +1060,15 @@ const chaseTheOpenQuestion = (
       }),
       // The same question, not a new one. No prompt row is created, so nothing
       // downstream can read one silence as two unanswered questions.
-      sayToLeader(asking, bodyOfQuestion(asking, awaiting.question, relationship, false)),
+      // The same question again, and not a second one -- so it takes nothing. The
+      // number is already held by the question this re-sends, and a reminder that
+      // waited for it could only ever be released by the timeout that makes it
+      // pointless.
+      sayToLeader(
+        asking,
+        bodyOfQuestion(asking, awaiting.question, relationship, false),
+        'no_reply',
+      ),
     ]
   }
 
@@ -1091,7 +1137,11 @@ interface Keywording {
  * No cadence produced any of this, so nothing carries a `scheduledFor`. A keyword
  * reply travels back in seconds.
  */
-const sayToSender = (keywording: Keywording, body: string): Effect =>
+const sayToSender = (
+  keywording: Keywording,
+  body: string,
+  kind: OutboundMessageKind,
+): Effect =>
   enqueueMessage({
     ministryId: keywording.ministryId,
     personId: keywording.personId,
@@ -1100,6 +1150,11 @@ const sayToSender = (keywording: Keywording, body: string): Effect =>
     enqueuedAt: keywording.now,
     scheduledFor: null,
     disclosesPersonId: null,
+    // A keyword route sends two kinds of message: the menu and the confirmation,
+    // which are questions, and everything else, which is an answer. Neither ever
+    // waits -- see `waitsForAnOpenReply` -- so a Leader who texts `PAUSE` is
+    // answered now rather than after the check-in they are trying to pause.
+    kind,
   })
 
 /** Who a menu line and a confirmation name: the other side, as a sentence. */
@@ -1164,6 +1219,7 @@ const openMenu = (
       keyword,
       options: options.map(otherSideNamed),
     }),
+    'keyword_question',
   ),
 ]
 
@@ -1208,6 +1264,7 @@ const askHowLongToPause = (keywording: Keywording, target: KeywordRelationship):
       periodWeeks: DEFAULT_PAUSE_PERIOD_WEEKS,
       otherPeriods: [...otherPeriodsThan(DEFAULT_PAUSE_PERIOD_WEEKS)],
     }),
+    'keyword_question',
   )
 
 /**
@@ -1302,6 +1359,7 @@ const applyPause = (
       subject: otherSideNamed(target),
       periodWeeks,
     }),
+    'no_reply',
   ),
 ]
 
@@ -1360,6 +1418,7 @@ const applyResume = (
         }),
         enqueuedAt: keywording.now,
         disclosesPersonId: null,
+        kind: 'no_reply',
       }),
     ),
   ]
@@ -1407,6 +1466,7 @@ const applySwap = (
       ministryName: keywording.ministryName,
       subject: otherSideNamed(target),
     }),
+    'no_reply',
   ),
 ]
 
@@ -1471,7 +1531,11 @@ const routeRelationshipKeyword = (
     return [
       ...effects,
       ...passKeywordToAnAdmin(keywording, keyword),
-      sayToSender(keywording, keywordPassedOn({ ministryName: keywording.ministryName })),
+      sayToSender(
+        keywording,
+        keywordPassedOn({ ministryName: keywording.ministryName }),
+        'no_reply',
+      ),
     ]
   }
 
@@ -1485,6 +1549,7 @@ const routeRelationshipKeyword = (
       sayToSender(
         keywording,
         nothingEligible({ ministryName: keywording.ministryName, keyword }),
+        'no_reply',
       ),
     ]
   }
@@ -1559,6 +1624,10 @@ const replyInsideExchange = (
             // answer to a question already settled.
             options: exchange.target ? null : exchange.options.map(otherSideNamed),
           }),
+          // A clarification restates the question already out, exactly as a
+          // check-in reminder re-sends rather than re-asks. The exchange is still
+          // the thing holding the number.
+          'no_reply',
         ),
       )
     }
@@ -1568,16 +1637,29 @@ const replyInsideExchange = (
 
   const target = reply.kind === 'select' ? reply.relationship : exchange.target!
 
+  // Readable, so the question this exchange had out is answered and the number is
+  // free again -- on every route below, including the two that then ask something
+  // else on it. A `RESUME` that left it held would keep this Leader's next check-in
+  // waiting on an exchange that finished the moment they replied.
+  const numberIsFree = closeOutstandingReply({
+    ministryId: keywording.ministryId,
+    promptKey: keywording.phone,
+    as: 'answered',
+    closing: WHATEVER_WAS_ASKED,
+  })
+
   // The world may have moved while this exchange sat unanswered: an Admin pausing
   // the same relationship, or ending it. Re-checked against the one eligibility rule
   // rather than a second copy of it, so the answer here and the answer that opened
   // the exchange cannot drift.
   if (eligibleFor(exchange.keyword, [target]).length === 0) {
     return [
+      numberIsFree,
       ...closeStandingExchange(keywording, exchange, 'overtaken'),
       sayToSender(
         keywording,
         nothingEligible({ ministryName: keywording.ministryName, keyword: exchange.keyword }),
+        'no_reply',
       ),
     ]
   }
@@ -1587,6 +1669,7 @@ const replyInsideExchange = (
   // budget.
   if (reply.kind === 'select' && exchange.keyword === 'PAUSE') {
     return [
+      numberIsFree,
       setKeywordExchangeTarget({
         ministryId: keywording.ministryId,
         exchangeId: exchange.exchangeId,
@@ -1605,6 +1688,7 @@ const replyInsideExchange = (
         : applySwap(keywording, target)
 
   return [
+    numberIsFree,
     ...closeStandingExchange(keywording, exchange, 'applied'),
     ...applied,
   ]
@@ -1654,6 +1738,17 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
 
       const now = context.clock.now()
       const effects: Effect[] = []
+
+      // Every number still holding a conversation nobody can change any more. It
+      // runs first, and before the cadence below, so that a question whose
+      // forty-eight hours ran out overnight is not still holding the number when
+      // this week's is composed.
+      effects.push(
+        sweepOutstandingReplies({
+          ministryId: command.ministryId,
+          cutoffs: outstandingReplyCutoffs(now),
+        }),
+      )
 
       // The check-in cadence. This is what makes a Leader due -- the direct
       // trigger 08a was built against is now the Admin's *send one additional
@@ -1728,6 +1823,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
                 enqueuedAt: now,
                 // No message to a Leader contains a phone number.
                 disclosesPersonId: null,
+                kind: 'no_reply',
               }),
               appendHistory({
                 ministryId: command.ministryId,
@@ -1987,7 +2083,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         return {
           rejections: [],
           effects: [
-            sayToSender(keywording, helpMessage({ ministryName })),
+            sayToSender(keywording, helpMessage({ ministryName }), 'no_reply'),
             ...(leadsAnything(inbound.holds)
               ? []
               : passKeywordToAnAdmin(keywording, keyword)),
@@ -2050,7 +2146,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           effects: mayAcknowledge(inbound.lastAcknowledgedAt, now)
             ? [
                 ...tidied,
-                sayToSender(keywording, acknowledgedMessage({ ministryName })),
+                sayToSender(keywording, acknowledgedMessage({ ministryName }), 'no_reply'),
                 appendHistory({
                   ministryId: command.ministryId,
                   occurredAt: now,
@@ -2131,6 +2227,9 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             sayToLeader(
               asking,
               checkInClarification({ ministryName, question: awaiting.question }),
+              // The valid replies to the question already out, said again. It asks
+              // nothing new, so the question it restates keeps the number.
+              'no_reply',
             ),
           )
         }
@@ -2140,6 +2239,16 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
 
       const effects: Effect[] = [
         ...tidied,
+        // The reply arrived, so the number is free -- and it has to be freed here
+        // rather than at the timeout, because the very next thing this command does
+        // is ask the next question on the same number. Left open, a conversation
+        // would advance one question every forty-eight hours.
+        closeOutstandingReply({
+          ministryId: command.ministryId,
+          promptKey: checkIn.phone,
+          as: 'answered',
+          closing: WHATEVER_WAS_ASKED,
+        }),
         recordCheckInAnswer({
           ministryId: command.ministryId,
           promptId: awaiting.promptId,
@@ -2200,7 +2309,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
 
       if (advance.kind === 'finish') {
         effects.push(
-          sayToLeader(asking, checkInThankYou({ ministryName })),
+          sayToLeader(asking, checkInThankYou({ ministryName }), 'no_reply'),
           closeCheckInSequence({
             ministryId: command.ministryId,
             sequenceId: sequence.sequenceId,
@@ -2616,6 +2725,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
               }),
               enqueuedAt: now,
               disclosesPersonId: null,
+              kind: 'no_reply',
             }),
           ),
         ],
@@ -2917,6 +3027,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             // introduce -- and this is the message that reaches them before one
             // exists.
             disclosesPersonId: null,
+            kind: 'no_reply',
           }),
         )
       }
@@ -3003,27 +3114,29 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       // phone number.
       if (!leader.phone) return { effects: [], rejections: [] }
 
-      // A live link is re-sent, never replaced. `intake.reopen` settles this for the
-      // same reason: the commonest reason to ask is a Leader who lost the text, and
-      // minting a second token there stops the one already on their phone from
-      // working -- turning a lost message into a broken link.
-      const stillLive = leader.linkExpiresAt.getTime() > now.getTime()
-
-      const invitation = stillLive
-        ? null
-        : issueInvitation({
-            ministryId: command.ministryId,
-            relationshipId: command.relationshipId,
-            personId: command.personId,
-            token: invitationToken(context.ids.next()),
-            at: now,
-          })
-
-      const token = invitation?.token ?? leader.token
+      // Every re-issue mints, and the link it replaces stops opening the door.
+      //
+      // This read `intake.reopen`'s rule first -- re-send a link that is still live,
+      // because the commonest reason to ask is a Leader who lost the text and a
+      // second token would break the one already on their phone. That reasoning
+      // holds for the lost text and fails the condition this ticket calls its
+      // highest-stakes: a link sent to the wrong number. An Invitation Link
+      // authenticates by possession alone, `invitation.dispute_number` records that
+      // a stranger holds a live one and changes nothing else, and with no mint here
+      // nothing in the product could ever take it back. So re-issuing is also the
+      // revocation, and the cost is carried by the lost-text case instead: the
+      // newest text is the one that works, which is a thing an Admin can say.
+      const invitation = issueInvitation({
+        ministryId: command.ministryId,
+        relationshipId: command.relationshipId,
+        personId: command.personId,
+        token: invitationToken(context.ids.next()),
+        at: now,
+      })
 
       return {
         effects: [
-          ...(invitation ? [reissueInvitationLink(invitation)] : []),
+          reissueInvitationLink(invitation),
           enqueueMessage({
             ministryId: command.ministryId,
             personId: command.personId,
@@ -3035,11 +3148,12 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             body: acceptanceReminderMessage({
               ministryName,
               fullName: leader.fullName,
-              link: invitationLink(appBaseUrl, token),
+              link: invitationLink(appBaseUrl, invitation.token),
             }),
             enqueuedAt: now,
             // No message to a Leader contains a phone number.
             disclosesPersonId: null,
+            kind: 'no_reply',
           }),
           appendHistory({
             ministryId: command.ministryId,
@@ -3047,17 +3161,22 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             type: 'invitation.reissued',
             subjectType: 'relationship',
             subjectId: command.relationshipId,
-            // Which Leader, whether they were given a new link, and both ends of
-            // the window that was replaced -- `reissueInvitation` overwrites the
-            // row in place, so without them the issuance this superseded is gone
-            // rather than recorded. The windows and never the token: history is
-            // read on an Admin surface, and writing the credential there keeps a
-            // way into somebody's acceptance in the Ministry's permanent record.
+            // Which Leader, and both ends of the window that was replaced --
+            // `reissueInvitation` overwrites the row in place, so without them the
+            // issuance this superseded is gone rather than recorded. The windows and
+            // never the token: history is read on an Admin surface, and writing the
+            // credential there keeps a way into somebody's acceptance in the
+            // Ministry's permanent record.
+            //
+            // `replacedTheLink` is not written any more. It distinguished a re-send
+            // from a mint and every re-issue is now a mint, so it could only ever say
+            // `true`. Rows written before this carry it and keep it: a `false` there
+            // is the record of a link that was re-sent rather than replaced, which is
+            // a past fact and not a defect to correct.
             payload: {
               personId: command.personId,
-              replacedTheLink: invitation !== null,
               supersededExpiresAt: leader.linkExpiresAt.toISOString(),
-              expiresAt: (invitation?.expiresAt ?? leader.linkExpiresAt).toISOString(),
+              expiresAt: invitation.expiresAt.toISOString(),
             },
           }),
           // The tick counts *this* as the one reminder that Leader gets. Without
@@ -3195,6 +3314,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             enqueuedAt: now,
             // No message to a Leader contains a phone number.
             disclosesPersonId: null,
+            kind: 'no_reply',
           }),
         )
       }
@@ -3307,6 +3427,10 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             body: starterMessageToLeader({ ministryName, participantNames }),
             enqueuedAt: now,
             disclosesPersonId: null,
+            // *You have been paired* asks nothing, so it takes nobody's number --
+            // and a Starter Message that did would block its own relationship's
+            // first check-in.
+            kind: 'no_reply',
           }),
         )
       }
@@ -3320,6 +3444,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             body: starterMessageToParticipant({ ministryName, leaderNames }),
             enqueuedAt: now,
             disclosesPersonId: null,
+            kind: 'no_reply',
           }),
         )
       }

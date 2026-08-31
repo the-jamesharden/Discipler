@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { handleCommand } from '~/domain/boundary'
 import { createTestClock, weeks } from '~/domain/clock'
 import { createSequentialIds, ministryId } from '~/domain/ids'
+import { withoutTheSweep } from '../support/effects'
 
 const ministry = ministryId('11111111-1111-1111-1111-111111111111')
 
@@ -29,7 +30,8 @@ describe('the command boundary', () => {
       { ministryId: ministry, clock: clockAt('2026-03-02T09:00:00Z'), ids: ids(), ...quiet },
     )
 
-    expect(result).toEqual({ effects: [], rejections: [] })
+    expect(result.rejections).toEqual([])
+    expect(withoutTheSweep(result.effects)).toEqual([])
   })
 
   it('is pure: the same command against the same context yields the same effects', () => {
@@ -51,7 +53,9 @@ describe('the command boundary', () => {
     clock.advanceBy(weeks(3))
 
     expect(
-      handleCommand(command, { ministryId: ministry, clock, ids: ids(), ...quiet }).effects,
+      withoutTheSweep(
+        handleCommand(command, { ministryId: ministry, clock, ids: ids(), ...quiet }).effects,
+      ),
     ).toEqual([])
   })
 })

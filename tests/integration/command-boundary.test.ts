@@ -6,6 +6,7 @@ import { createPostgresEffectStore } from '~/platform/supabase/effect-store'
 import { createCommandService } from '~/service/command-service'
 import { applyEffects } from '~/service/command-service'
 import { appendHistory, enqueueMessage } from '~/domain/effects'
+import { withoutTheSweep } from '../support/effects'
 import { createMinistryWithAdmin, localSupabase, type MinistryFixture } from '../support/local-supabase'
 
 describe('driving the command boundary against a real Ministry', () => {
@@ -38,7 +39,9 @@ describe('driving the command boundary against a real Ministry', () => {
 
     const outcome = await service.execute({ type: 'scheduled.tick', ministryId: ministry.id })
 
-    expect(outcome.effects).toEqual([])
+    // The sweep is what every tick does regardless of what it finds, and against
+    // a Ministry with no conversation open it closes nothing. Nothing else happens.
+    expect(withoutTheSweep(outcome.effects)).toEqual([])
     expect(await countRows('ministry_event')).toBe(0)
     expect(await countRows('outbound_message')).toBe(0)
   })
@@ -63,6 +66,7 @@ describe('driving the command boundary against a real Ministry', () => {
             enqueuedAt: clock.now(),
             scheduledFor: null,
             disclosesPersonId: null,
+            kind: 'no_reply',
           }),
         ],
         sink,
@@ -99,6 +103,7 @@ describe('driving the command boundary against a real Ministry', () => {
               enqueuedAt: clock.now(),
               scheduledFor: null,
               disclosesPersonId: null,
+              kind: 'no_reply',
             }),
           ],
           sink,

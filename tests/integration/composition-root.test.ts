@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createMinistryWithAdmin, localSupabase, type MinistryFixture } from '../support/local-supabase'
+import { withoutTheSweep } from '../support/effects'
 
 /**
  * The composition root is where the ports meet their real implementations. The
@@ -37,7 +38,9 @@ describe('the wired-up command service', () => {
       ministryId: ministry.id,
     })
 
-    expect(result.effects).toEqual([])
+    // Nothing but the sweep every tick does. What is under test is that a command
+    // reached a real database and came back, not what the tick decided.
+    expect(withoutTheSweep(result.effects)).toEqual([])
   })
 
   it('hands back the same service rather than opening a pool per call', () => {

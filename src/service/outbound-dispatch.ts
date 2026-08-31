@@ -1,6 +1,7 @@
 import type { Clock } from '~/domain/clock'
 import type { MinistryId } from '~/domain/ids'
 import { withSharedContact } from '~/domain/outbound-copy'
+import { serialisationOf } from '~/domain/outstanding-reply'
 import type { MessageTransport, OutboundQueue } from './ports'
 
 /**
@@ -26,6 +27,24 @@ export interface Dispatch {
 export interface DispatchOutcome {
   readonly sent: number
   readonly withheld: number
+  /**
+   * Messages left on the queue because the recipient's number is holding a
+   * conversation. **A phone holds one thread at a time**, so a second question is
+   * not sent alongside the first; it waits for the answer, the supersession or the
+   * timeout that closes the one already out, and the next drain sends it.
+   *
+   * Its own count, and not folded into `withheld`. A withholding is Discipler
+   * keeping a promise to a Person and is permanent; a hold is a queue waiting its
+   * turn, and reporting the two together would make an ordinary Monday evening read
+   * as a congregation that had all opted out.
+   *
+   * A message waits at most forty-eight hours behind any *one* conversation --
+   * the same span the question it is waiting on can stand for, because a hold that
+   * outlived what it waits for would never end. Several queued on one number wait
+   * behind each other, so a third can exceed that; the new week that times out
+   * every open question is what ends the queue in practice.
+   */
+  readonly held: number
   /**
    * Messages the vendor refused. Distinct from `withheld`, and the distinction is
    * the point: a withheld message is Discipler keeping a promise to a Person, and a
@@ -64,6 +83,7 @@ export const dispatchQueue = async ({
   let sent = 0
   let withheld = 0
   let failed = 0
+  let held = 0
 
   for (const message of messages) {
     const now = clock.now()
@@ -94,6 +114,30 @@ export const dispatchQueue = async ({
       if (contact) body = withSharedContact(body, contact)
     }
 
+    // Last of the checks and immediately before the vendor, because the claim is
+    // what takes the recipient's number -- and a message that is about to be
+    // withheld must not take it. **Asking and taking happen in one transaction in
+    // the database**, because *is this number free* is the one question two
+    // concurrent workers must not both answer yes to, and a check made anywhere
+    // else is a check both of them pass.
+    //
+    // A held message is left neither sent nor withheld, exactly as a refused one
+    // is, so the next drain reconsiders it with no bookkeeping of its own.
+    const claim = await queue.claim(
+      ministryId,
+      message.id,
+      serialisationOf(message.kind),
+      // The moment the conversation opens, and what its timeout is measured from.
+      // The same reading of the clock the send is stamped with, so the two cannot
+      // drift by however long the vendor takes to answer.
+      now,
+    )
+
+    if (claim === 'held') {
+      held++
+      continue
+    }
+
     // One refusal does not end the drain. The alternative -- letting it throw --
     // means a single unroutable number holds up every message behind it in the
     // queue, including the ones to people who are reachable, and the Leader whose
@@ -109,6 +153,10 @@ export const dispatchQueue = async ({
       await transport.deliver(from as string, message.toPhone, body)
     } catch (error) {
       failed++
+      // The number back, before anything else. A message the vendor never accepted
+      // has no reply coming, and one that kept the number would hold its recipient's
+      // conversation for two days over a message that does not exist.
+      await queue.release(ministryId, message.id)
       console.error(
         `Could not deliver message ${message.id} in ministry ${ministryId}`,
         error,
@@ -120,5 +168,5 @@ export const dispatchQueue = async ({
     sent++
   }
 
-  return { sent, withheld, failed }
+  return { sent, withheld, failed, held }
 }

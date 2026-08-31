@@ -8,6 +8,7 @@ import {
 import { createTestClock, days } from '~/domain/clock'
 import { createSequentialIds, ministryId, personId, relationshipId } from '~/domain/ids'
 import { INVITATION_LIFETIME_DAYS, invitationToken } from '~/domain/invitations'
+import { withoutTheSweep } from '../support/effects'
 
 /**
  * The tick is a command like any other. Everything below advances a test clock
@@ -88,7 +89,7 @@ describe('the scheduled tick', () => {
   })
 
   it('changes nothing when a Ministry has nothing outstanding', () => {
-    expect(tick(after(days(30)), []).effects).toEqual([])
+    expect(withoutTheSweep(tick(after(days(30)), []).effects)).toEqual([])
   })
 
   it('refuses to run against a snapshot it was not handed', () => {
@@ -210,6 +211,6 @@ describe('a relationship accepted before the thresholds', () => {
   it('is not in the snapshot at all, so nothing is sent and nothing is raised', () => {
     // Acceptance stamps the relationship, which is what takes it out of the read
     // the tick evaluates. There is no second rule here to keep in step with it.
-    expect(tick(after(days(30)), []).effects).toEqual([])
+    expect(withoutTheSweep(tick(after(days(30)), []).effects)).toEqual([])
   })
 })

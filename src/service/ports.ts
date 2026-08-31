@@ -26,6 +26,8 @@ import type {
   NewCheckInSequence,
   NewKeywordExchange,
   OutboundMessageDraft,
+  OutstandingReplyClosure,
+  OutstandingReplySweep,
   ParticipantDeparture,
   PersonOptIn,
   PersonOptOut,
@@ -39,6 +41,10 @@ import type {
 } from '~/domain/follow-up'
 import type { IntakeLinkState, IntakeLinkToken, NewIntakeLink } from '~/domain/intake-link'
 import type { InboundSnapshot } from '~/domain/keywords'
+import type {
+  OutboundMessageKind,
+  SerialisationOfAMessage,
+} from '~/domain/outstanding-reply'
 import type { InvitationToken, NewInvitation } from '~/domain/invitations'
 import type { HistoryEvent, NewHistoryEvent } from '~/domain/history'
 import type { AgeBand, DiscipleshipGoalId, Gender } from '~/domain/intake'
@@ -120,6 +126,19 @@ export interface UnitOfWork {
    */
   recordIntake(intake: IntakeRecord): Promise<void>
   enqueueMessages(messages: readonly OutboundMessageDraft[]): Promise<void>
+  /**
+   * Closes whatever conversation this number is holding, so the next scheduled
+   * message to it may go out. Does nothing where the number holds none, and
+   * nothing at all where the Person has no number.
+   */
+  closeOutstandingReply(closure: OutstandingReplyClosure): Promise<void>
+  /**
+   * Closes every conversation the clock has run out on, in one statement. The
+   * cutoffs arrive already worked out -- the windows are the Check-In Rhythm's and
+   * are read against the injected clock, so nothing here has to know what
+   * forty-eight hours means.
+   */
+  sweepOutstandingReplies(sweep: OutstandingReplySweep): Promise<void>
   /**
    * Refuses with a `PairingRefused` carrying a code when a participation cap or the
    * one-role-per-relationship rule is broken. The caps can only be judged against
@@ -587,6 +606,8 @@ export interface RosterReader {
  */
 
 /** Why the sending layer refused a message. Codes, never prose. */
+export type ClaimOutcome = 'claimed' | 'held'
+
 export type WithholdingReason =
   | 'recipient_opted_out'
   | 'recipient_has_no_sms_consent'
@@ -597,6 +618,12 @@ export interface QueuedMessage {
   readonly personId: PersonId | null
   readonly toPhone: string | null
   readonly body: string
+  /**
+   * What serialisation reads, and the only thing that says whether this message
+   * takes the recipient's number or waits for it. The rules are
+   * `~/domain/outstanding-reply`'s; the queue holds none of them.
+   */
+  readonly kind: OutboundMessageKind
   /**
    * Whose contact details this message would include. Resolved at send time,
    * because contact-sharing consent is checked when a message is sent and never
@@ -633,6 +660,39 @@ export interface OutboundQueue {
   mayReceive(ministryId: MinistryId, personId: PersonId): Promise<WithholdingReason | null>
   /** The details to disclose, or null where the Person has not agreed to share. */
   contactToShare(ministryId: MinistryId, personId: PersonId): Promise<ContactDetails | null>
+  /**
+   * Takes the row and, where the message expects a reply, the recipient's number
+   * with it. **Asking and taking are one transaction**, because the question two
+   * workers must not both answer yes to is *is this number free* -- and a check
+   * made before the write is a check both of them pass.
+   *
+   * The row lock stops two workers picking up the same row. It cannot stop them
+   * taking the same *number*, because there they hold two different rows and share
+   * nothing but the key: what refuses the second of them is the unique index on
+   * `(ministry_id, prompt_key) where prompt_state = 'open'`. See ADR 0013.
+   *
+   * `claimed` -- send it. `held` -- not on this drain: the number is holding a
+   * conversation, or another worker has the row, or another worker took the number
+   * between the check and the write. All three come back the same way because all
+   * three mean the same thing to a dispatcher: leave the row alone and let the next
+   * drain try it.
+   *
+   * A claim that takes the number takes it *before* the vendor is called rather
+   * than after. That is the only ordering in which two workers cannot both decide
+   * the number is free, and it is paid for by `release`.
+   */
+  claim(
+    ministryId: MinistryId,
+    id: OutboundMessageId,
+    message: SerialisationOfAMessage,
+    at: Date,
+  ): Promise<ClaimOutcome>
+  /**
+   * Gives the number back after the vendor refused the message. Without it a
+   * message Twilio could not deliver would hold its recipient's conversation for
+   * two days over nothing.
+   */
+  release(ministryId: MinistryId, id: OutboundMessageId): Promise<void>
   markSent(ministryId: MinistryId, id: OutboundMessageId, at: Date): Promise<void>
   withhold(
     ministryId: MinistryId,

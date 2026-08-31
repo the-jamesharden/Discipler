@@ -11,6 +11,7 @@ import {
 } from '~/domain/check-in'
 import type { Effect } from '~/domain/effects'
 import { createSequentialIds, ministryId, personId, relationshipId } from '~/domain/ids'
+import { withoutTheSweep } from '../support/effects'
 import { anInboundSnapshot } from '../support/inbound'
 
 /**
@@ -219,7 +220,7 @@ describe('a reply Discipler cannot read', () => {
 
 describe('a question nobody answered', () => {
   it('is left alone before twenty-four hours have passed', () => {
-    expect(ticking(after(hours(23))).effects).toEqual([])
+    expect(withoutTheSweep(ticking(after(hours(23))).effects)).toEqual([])
   })
 
   it('is re-sent once at twenty-four hours', () => {
@@ -242,7 +243,7 @@ describe('a question nobody answered', () => {
     const reminded = snapshot({
       openSequence: openSequence({ awaiting: awaiting({ remindedAt: after(hours(24)) }) }),
     })
-    expect(ticking(after(hours(30)), reminded).effects).toEqual([])
+    expect(withoutTheSweep(ticking(after(hours(30)), reminded).effects)).toEqual([])
   })
 
   it('carries no cadence stamp: a lapse produced it, not a Monday', () => {

@@ -75,6 +75,12 @@ export const applyEffects = async (
   const messages = effects.flatMap((effect) =>
     effect.kind === 'message.enqueue' ? [effect.message] : [],
   )
+  const replyClosures = effects.flatMap((effect) =>
+    effect.kind === 'outstandingReply.close' ? [effect.closure] : [],
+  )
+  const replySweeps = effects.flatMap((effect) =>
+    effect.kind === 'outstandingReply.sweep' ? [effect.sweep] : [],
+  )
   const invitations = effects.flatMap((effect) =>
     effect.kind === 'invitation.issue' ? [effect.invitation] : [],
   )
@@ -246,6 +252,14 @@ export const applyEffects = async (
   // re-opt-in applied after the messages it permits would have the database refuse
   // a message the Person had just asked to start receiving again.
   for (const optIn of optIns) await unit.optPersonIn(optIn)
+
+  // Before the messages, and that ordering is the whole of *a reply releases what
+  // was waiting*. A command that answers a question and asks the next one on the
+  // same number does both here, and a closure applied after the message it makes
+  // room for would leave the new question waiting on the one the Leader just
+  // answered.
+  for (const sweep of replySweeps) await unit.sweepOutstandingReplies(sweep)
+  for (const closure of replyClosures) await unit.closeOutstandingReply(closure)
 
   // History before messages: a message that goes out unrecorded is worse than a
   // recorded message that failed to send, because only one of the two can be

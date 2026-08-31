@@ -22,6 +22,7 @@ import type {
 } from './keywords'
 import type { NewIntakeLink } from './intake-link'
 import type { InvitationToken, NewInvitation } from './invitations'
+import type { OutboundMessageKind, OutstandingReplyCutoff } from './outstanding-reply'
 import type { MemberRole, NewRelationship, RelationshipOutcome } from './relationships'
 import type { NewPerson, PhoneNumber } from './roster'
 
@@ -60,6 +61,65 @@ export interface OutboundMessageDraft {
    * send-time check nothing to withhold.
    */
   readonly disclosesPersonId: PersonId | null
+  /**
+   * What kind of message this is, which is the only thing serialisation reads. A
+   * phone holds one conversation at a time, and nothing else on the row tells a
+   * scheduled question apart from a Starter Message: both carry a number, a body
+   * and no reply yet.
+   *
+   * Required rather than defaulted. A default would be a quiet answer to *does
+   * this take the recipient's number*, and the two wrong answers are a Welcome
+   * Message that blocks a first check-in and a check-in question that lets a
+   * second one land on top of it.
+   */
+  readonly kind: OutboundMessageKind
+}
+
+/**
+ * One phone's conversation, closed, so whatever was waiting behind it may go out.
+ *
+ * The number is the key and the Person is not, which is the whole of the rule: a
+ * number holds one conversation however many people are reachable on it.
+ *
+ * Null on a Person with no number. There is nothing to close -- a message with no
+ * `to_phone` is withheld before it can ever open anything -- and the effect carries
+ * the null rather than the caller filtering it out, so that *this Person has no
+ * number* stays one thing said in one place.
+ */
+export interface OutstandingReplyClosure {
+  readonly ministryId: MinistryId
+  readonly promptKey: string | null
+  /**
+   * `answered` -- the reply arrived and bound to it. `timed_out` -- a reply can no
+   * longer change anything, which a new week's sequence makes true of last week's
+   * question the moment it opens.
+   *
+   * `superseded` is deliberately absent. Nothing decides it: it is what happens to
+   * whatever was open when a later question takes the number, and the queue writes it
+   * in the same statement that takes it.
+   */
+  readonly as: 'answered' | 'timed_out'
+  /**
+   * Which kinds of question this closes. `WHATEVER_WAS_ASKED` where a reply
+   * arrived and settled it; `LAST_WEEKS_QUESTION` where a new week replaced it and
+   * a Keyword Exchange running on its own clock must survive.
+   *
+   * A list rather than a mode, so the rule stays where the rest of it is: nothing
+   * downstream has to know which kinds exist in order to apply this.
+   */
+  readonly closing: readonly OutboundMessageKind[]
+}
+
+/**
+ * Every outstanding reply the clock has run out on, in one statement.
+ *
+ * Cutoffs rather than a rule, for the reason `outstandingReplyCutoffs` gives: the
+ * windows belong to the Check-In Rhythm and are read against the injected clock,
+ * so what reaches the database is two instants and no product knowledge.
+ */
+export interface OutstandingReplySweep {
+  readonly ministryId: MinistryId
+  readonly cutoffs: readonly OutstandingReplyCutoff[]
 }
 
 /**
@@ -491,6 +551,11 @@ export type Effect =
   | { readonly kind: 'person.create'; readonly person: NewPerson }
   | { readonly kind: 'intake.record'; readonly intake: IntakeRecord }
   | { readonly kind: 'message.enqueue'; readonly message: OutboundMessageDraft }
+  | {
+      readonly kind: 'outstandingReply.close'
+      readonly closure: OutstandingReplyClosure
+    }
+  | { readonly kind: 'outstandingReply.sweep'; readonly sweep: OutstandingReplySweep }
   | { readonly kind: 'relationship.create'; readonly relationship: NewRelationship }
   | { readonly kind: 'invitation.issue'; readonly invitation: NewInvitation }
   | { readonly kind: 'invitation.reissue'; readonly invitation: NewInvitation }
@@ -558,6 +623,20 @@ export const enqueueMessage = (
   // message answers an act, and only the dispatcher enqueues *because* a cadence
   // instant arrived. Stated once here rather than on every call that has none.
   message: { ...message, scheduledFor: message.scheduledFor ?? null },
+})
+
+/**
+ * The number is free again. Emitted where a reply binds to what was asked, and
+ * where a new week's sequence makes last week's question no longer worth answering.
+ */
+export const closeOutstandingReply = (closure: OutstandingReplyClosure): Effect => ({
+  kind: 'outstandingReply.close',
+  closure,
+})
+
+export const sweepOutstandingReplies = (sweep: OutstandingReplySweep): Effect => ({
+  kind: 'outstandingReply.sweep',
+  sweep,
 })
 
 export const createRelationship = (relationship: NewRelationship): Effect => ({

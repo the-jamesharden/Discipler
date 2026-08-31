@@ -139,6 +139,50 @@ A keyword that resolves to the relationship whose check-in question is currently
 
 A bare, exact keyword is still a keyword during the concern detail request. The `C` is already recorded and the badge already raised, so nothing is lost, and the alternative files `PAUSE` as the text of someone's hardest week while ignoring a request to step back. Prose containing the word is unaffected, because matching is whole-message.
 
+## One conversation per phone
+
+A phone number holds one conversation at a time. The unit is the **number**, not the person: a shared handset — a married couple, a parent and a teenager — is still one thread, and two questions landing on it would make *the most recent prompt owns the next reply* file one person's answer against another's question.
+
+Before a scheduled question is sent, Discipler looks for a **response-required message already out on that number and still unanswered**. If one exists the new question waits and is sent when the open one closes — by answer, by supersession, or by timing out. Nothing is dropped and nothing is queued twice; the message stays where it is until the number is free.
+
+```text
+Ruth and her daughter Naomi lead one relationship each. One handset.
+
+Mon 09:00  → Ruth   "Did you meet with Tom this week? Reply 1 for yes, 2 for no."
+Mon 09:00  ⏸ Naomi  "Did you meet with Iris this week?"        HELD — the number is busy
+Mon 18:40  Ruth → 2
+Mon 18:40  → Naomi  "Did you meet with Iris this week? …"      released by Ruth's answer
+```
+
+Serialization governs scheduled traffic — the check-in rhythm and the participant-facing messages around it. It never governs a reply to something the person just sent.
+
+**A message expecting no reply holds nothing.** The welcome message, the starter message, the closing thank-you, a clarification and a next-day reminder are never open and never make a number busy. A starter message that opened a conversation would block its own relationship's first check-in, and a reminder held behind the very question it re-sends could only be released by the timeout that makes it pointless.
+
+**Keywords preempt.** A keyword command and its prompt are never held. A leader who texts `PAUSE` is asking to step back from the check-in that is out; answering it first is not a condition anybody agreed to.
+
+```text
+Mon 09:00  → Ada    "Did you meet with Joel this week? Reply 1 for yes, 2 for no."
+Mon 21:10  Ada → PAUSE
+Mon 21:10  → Ada    "Pause check-ins with Joel for 2 weeks? Reply YES…"   sent at once
+                    the check-in question is superseded — still unanswered,
+                    no longer the thing a reply binds to
+```
+
+The reverse is also true, and follows from the same rule: a week's first question waits behind a keyword exchange that is still open, for at most the twenty-four hours that exchange has left.
+
+### When a prompt stops being worth waiting for
+
+A prompt is **timed out** at the moment a reply to it can no longer change anything.
+
+| Prompt | Times out |
+|---|---|
+| Check-in opening or satisfaction question | 48 hours after it was sent — 24 to the reminder, 24 more before the sequence advances — or when a new week's sequence begins, whichever is first |
+| Concern detail request | The same 48 hours. The `C` and the badge are already recorded, so nothing is lost by passing over it |
+| Keyword exchange | 24 hours after it opened, with no reminder |
+| Anything expecting no reply | Never open, so never timed out |
+
+A scheduled message therefore waits at most 48 hours behind any one open conversation. Where several are queued on one number — three leaders on one handset — each waits behind the one in front of it, so the total can exceed that; in practice the new week that replaces every open question ends the queue first.
+
 ### Inbound messages from participants
 
 Participants have no dashboard and no account, so texting back is their only channel. A recognized keyword from a participant is acknowledged and raised as an admin follow-up item. Unrecognized free text draws one acknowledgement pointing them to their ministry, rate-limited, raising no item — an item for every "thanks!" would bury the Care Needed view.
@@ -146,3 +190,5 @@ Participants have no dashboard and no account, so texting back is their only cha
 ## Open questions
 
 **OPEN** — Retention and visibility rules for raw concern text.
+
+**OPEN** — When the next-day reminder clock starts on a question that was held. The clock runs from when a question is composed, and a question waiting behind another conversation on the same number has not been sent yet. It is therefore reminded twenty-four hours after composition, and the reminder — which expects no reply and so is never held — reaches the leader before the question it re-sends. The leader gets the question once, as a reminder, and again when the number frees. Either the clock starts at send, or a held question suppresses its own reminder. Bounded by the forty-eight hour ceiling on a hold either way.

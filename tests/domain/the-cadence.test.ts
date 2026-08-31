@@ -155,6 +155,7 @@ import { handleCommand, type CommandContext } from '~/domain/boundary'
 import { createTestClock } from '~/domain/clock'
 import type { Effect, OutboundMessageDraft } from '~/domain/effects'
 import { createSequentialIds, ministryId } from '~/domain/ids'
+import { withoutTheSweep } from '../support/effects'
 
 const ministry = ministryId('00000000-0000-4000-8000-0000000000aa')
 
@@ -271,7 +272,7 @@ describe('an edit mid-week', () => {
     // value already returned cannot change, so an assertion about it could not
     // fail and would prove nothing. The database-level proof that the row itself
     // is untouched belongs to `tests/integration/the-cadence.test.ts`.
-    expect(wednesday.effects).toEqual([])
+    expect(withoutTheSweep(wednesday.effects)).toEqual([])
     expect(sent!.scheduledFor).toEqual(mondayEightPm)
   })
 

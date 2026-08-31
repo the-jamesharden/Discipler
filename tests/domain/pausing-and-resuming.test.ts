@@ -9,6 +9,7 @@ import {
 import { createTestClock, weeks } from '~/domain/clock'
 import { PauseRefused } from '~/domain/errors'
 import { createSequentialIds, ministryId, personId, relationshipId } from '~/domain/ids'
+import { withoutTheSweep } from '../support/effects'
 import {
   DEFAULT_PAUSE_PERIOD_WEEKS,
   PAUSE_PERIODS,
@@ -397,11 +398,13 @@ describe('a pause period running out', () => {
   it('says nothing further while the Admin already has the item open', () => {
     // Raising it again tomorrow tells them nothing they are not already looking
     // at, and the history event beside it would become a row a day.
-    expect(tick(elapsed, [standing({ itemStandsOpen: true })]).effects).toEqual([])
+    expect(withoutTheSweep(tick(elapsed, [standing({ itemStandsOpen: true })]).effects)).toEqual(
+      [],
+    )
   })
 
   it('raises nothing for a Ministry with nothing paused', () => {
-    expect(tick(elapsed, []).effects).toEqual([])
+    expect(withoutTheSweep(tick(elapsed, []).effects)).toEqual([])
   })
 
   it('refuses to run against a Ministry whose pauses were never loaded', () => {

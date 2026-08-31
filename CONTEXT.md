@@ -114,7 +114,7 @@ _Avoid_: an account (nothing about it gives anyone one), and the Intake form as 
 A message in the Check-In Rhythm that expects a reply from its recipient.
 
 **Outstanding Reply**:
-A Response-Required Message that has been sent and whose reply has not yet arrived. At most one is outstanding per phone number at a time, because a number holds one conversation however many people are reachable on it; a later message to the same number takes ownership of the next reply and supersedes the one before it. It resolves as answered, superseded, or timed out after twenty-four hours.
+A Response-Required Message that has been sent and whose reply has not yet arrived. At most one is outstanding per phone number at a time, because a number holds one conversation however many people are reachable on it; a later message to the same number takes ownership of the next reply and supersedes the one before it. It resolves as answered, superseded, or timed out — after 48 hours for a check-in question or a concern detail request, or at the start of a new week if that comes first, and after 24 hours for a Keyword Exchange. A message expecting no reply is never outstanding and never makes a number busy.
 _Avoid_: prompt. The database columns predate this entry and spell it `prompt_key` and `prompt_state`; they mean this and are not to be read as a Keyword Exchange.
 
 **Meeting Response**:

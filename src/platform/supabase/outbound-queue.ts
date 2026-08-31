@@ -8,11 +8,16 @@ import {
 } from '~/domain/ids'
 import { phoneNumber } from '~/domain/roster'
 import type {
+  ClaimOutcome,
   ContactDetails,
   OutboundQueue,
   QueuedMessage,
   WithholdingReason,
 } from '~/service/ports'
+import type {
+  OutboundMessageKind,
+  SerialisationOfAMessage,
+} from '~/domain/outstanding-reply'
 
 /**
  * The queue as the sending layer sees it. It reads and writes on the same trusted
@@ -22,6 +27,18 @@ import type {
 export interface PostgresOutboundQueue extends OutboundQueue {
   close(): Promise<void>
 }
+
+/**
+ * The unique partial index refusing a second open conversation on one number. Read
+ * by name rather than by error class, because `23505` alone would also match an
+ * index this queue has no business swallowing.
+ */
+const isDuplicateOpenReply = (error: unknown): boolean =>
+  typeof error === 'object' &&
+  error !== null &&
+  (error as { code?: string }).code === '23505' &&
+  (error as { constraint?: string }).constraint ===
+    'outbound_message_one_open_reply_per_number'
 
 export const createPostgresOutboundQueue = (
   connectionString: string,
@@ -77,11 +94,16 @@ export const createPostgresOutboundQueue = (
           to_phone: string | null
           body: string
           discloses_person_id: string | null
+          message_kind: OutboundMessageKind
         }>(
-          `select id, person_id, to_phone, body, discloses_person_id
+          `select id, person_id, to_phone, body, discloses_person_id, message_kind
              from outbound_message
             where ministry_id = $1 and sent_at is null and withheld_at is null
-            order by enqueued_at`,
+            -- Insertion order breaks the tie, and the tie is the ordinary case:
+            -- one command reads the clock once and enqueues everything it produces
+            -- at that instant. Left to the planner, two questions to one number
+            -- would be held in whichever order the rows happened to come back.
+            order by enqueued_at, created_at`,
           [ministryId],
         )
 
@@ -94,6 +116,7 @@ export const createPostgresOutboundQueue = (
             disclosesPersonId: row.discloses_person_id
               ? personId(row.discloses_person_id)
               : null,
+            kind: row.message_kind,
           }),
         )
       })
@@ -170,6 +193,100 @@ export const createPostgresOutboundQueue = (
           ? { fullName: row.full_name, phone: phoneNumber(row.phone) }
           : null
       })
+    },
+
+    async claim(
+      ministryId: MinistryId,
+      id: OutboundMessageId,
+      message: SerialisationOfAMessage,
+      at: Date,
+    ): Promise<ClaimOutcome> {
+      // Which messages take a number and which wait for one is the domain's answer,
+      // arrived at before this was called. Nothing here reads `message_kind`: the
+      // transaction's whole job is to make the decision atomic, not to make it.
+      try {
+        return await inMinistry(ministryId, async (client): Promise<ClaimOutcome> => {
+          // The row this worker is about to send, locked. `skip locked` rather than
+          // a wait, because a row another worker already holds is that worker's to
+          // send and blocking on it would serialise two drains that never needed to
+          // meet.
+          const { rows } = await client.query<{ prompt_key: string | null }>(
+            `select prompt_key
+               from outbound_message
+              where id = $1 and ministry_id = $2
+                and sent_at is null and withheld_at is null
+              for update skip locked`,
+            [id, ministryId],
+          )
+
+          const row = rows[0]
+          if (!row) return 'held'
+
+          // Nothing to serialise on. A message with no number is bound for an
+          // Admin, or is about to be withheld for having no recipient.
+          const key = row.prompt_key
+          if (!key) return 'claimed'
+
+          if (message.waitsForAnOpenReply) {
+            // `id <> $1` because a message can be here twice: the vendor refused it
+            // on an earlier drain and it is being retried. Its own conversation is
+            // not one it should be waiting behind.
+            const { rows: busy } = await client.query(
+              `select 1 from outbound_message
+                where ministry_id = $2 and prompt_key = $3
+                  and prompt_state = 'open' and id <> $1
+                limit 1`,
+              [id, ministryId, key],
+            )
+            if (busy.length > 0) return 'held'
+          }
+
+          if (message.opensAnOutstandingReply) {
+            // The later prompt owns the next reply, so whatever was open on this
+            // number stops owning it. Only a keyword question ever reaches this with
+            // something to supersede: a scheduled one would have waited above.
+            await client.query(
+              `update outbound_message set prompt_state = 'superseded'
+                where ministry_id = $2 and prompt_key = $3
+                  and prompt_state = 'open' and id <> $1`,
+              [id, ministryId, key],
+            )
+            await client.query(
+              `update outbound_message
+                  set prompt_state = 'open', reply_opened_at = $2
+                where id = $1`,
+              [id, at],
+            )
+          }
+
+          return 'claimed'
+        })
+      } catch (error) {
+        // Another worker took this number between the read above and the write. The
+        // unique index is what caught it -- the row locks could not, because two
+        // workers holding two different rows share nothing but the key -- and the
+        // answer is the same one a busy number gets: leave it for the next drain.
+        if (isDuplicateOpenReply(error)) return 'held'
+        throw error
+      }
+    },
+
+    async release(ministryId: MinistryId, id: OutboundMessageId) {
+      // The vendor refused it, so it never reached anybody and has no reply coming.
+      // Without this, a number Twilio cannot deliver to would hold its owner's
+      // conversation for two days over a message that does not exist.
+      //
+      // What it does not undo is the supersession this claim may have caused. The
+      // question that lost the number does not get it back: a Leader mid-keyword is
+      // mid-keyword whether or not the confirmation reached them, and re-opening a
+      // question they have moved on from would be the worse of the two wrongs.
+      await inMinistry(ministryId, (client) =>
+        client.query(
+          `update outbound_message set prompt_state = null, reply_opened_at = null
+            where id = $1 and ministry_id = $2 and prompt_state = 'open'`,
+          [id, ministryId],
+        ),
+      )
     },
 
     async markSent(ministryId: MinistryId, id: OutboundMessageId, at: Date) {

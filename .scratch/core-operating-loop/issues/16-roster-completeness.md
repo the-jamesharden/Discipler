@@ -10,7 +10,7 @@ A Person who has **opted out** is excluded from pairing and from follow-up, so t
 
 **Blocked by:** 04, 08a, 08b
 
-**Status:** done
+**Status:** shipped
 
 - [x] An Admin can mark a Person eligible to lead before they have completed Intake
 - [x] Eligibility to lead does not make a Person pairable and does not substitute for Intake

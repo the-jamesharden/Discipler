@@ -129,11 +129,13 @@ describe('re-issuing an Invitation Link', () => {
     expect(texts[1]).toContain(`https://discipler.test/invitation/${after!.token}`)
   })
 
-  it('sends the link they already hold rather than minting a second', async () => {
-    // The Admin who re-invites somebody whose link is still live is the ordinary
-    // case -- a Leader who lost the text. Minting a second token there would stop
-    // the one already on their phone from working, which is the failure the intake
-    // link avoids for the same reason.
+  it('replaces a link that is still live, and the superseded one opens nothing', async () => {
+    // Re-issuing is the only revocation an Invitation Link has. It authenticates by
+    // possession of the phone it was texted to and nothing else, so a link that
+    // reached the wrong number -- the condition `invitation.dispute_number` records
+    // and deliberately does not act on -- can be taken back in exactly one way:
+    // minting over it. The Leader who merely lost the text pays for that by having
+    // to use the newest message, which is a thing an Admin can tell them.
     const leader = await roster('Hana Live')
     const relationship = await pair(leader, await roster('Sara Live'))
 
@@ -141,12 +143,20 @@ describe('re-issuing an Invitation Link', () => {
     await reissue(relationship, leader)
     const after = await invitationFor(leader)
 
-    expect(after!.token).toEqual(before!.token)
-    expect(after!.expires_at).toEqual(before!.expires_at)
+    expect(after!.token).not.toEqual(before!.token)
+    expect(after!.expires_at.getTime()).toEqual(at.getTime() + INVITATION_LIFETIME_DAYS * day)
+
+    // Not merely superseded: gone. `reissueInvitation` writes the new token over the
+    // same row, so the old one names nothing -- neither a live invitation nor a
+    // spent one that a resolve could still report on.
+    const { rows } = await pool.query(`select 1 from invitation where token = $1`, [
+      before!.token,
+    ])
+    expect(rows).toHaveLength(0)
 
     const texts = await messagesTo(leader)
     expect(texts).toHaveLength(2)
-    expect(texts[1]).toContain(`https://discipler.test/invitation/${before!.token}`)
+    expect(texts[1]).toContain(`https://discipler.test/invitation/${after!.token}`)
   })
 
   it('records that a link was re-issued, and never the token', async () => {
