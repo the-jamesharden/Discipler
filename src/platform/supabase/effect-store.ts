@@ -10,6 +10,7 @@ import type {
 } from '~/domain/boundary'
 import type {
   IntakeRecord,
+  LeadEligibility,
   LeaderAcceptance,
   MaterialAssignment,
   OutboundMessageDraft,
@@ -22,6 +23,7 @@ import {
   type FollowUpResolution,
   type NewFollowUpItem,
 } from '~/domain/follow-up'
+import { intakeLinkToken, type IntakeLinkToken, type NewIntakeLink } from '~/domain/intake-link'
 import { invitationToken, type InvitationToken, type NewInvitation } from '~/domain/invitations'
 import { readStandingPause, type StandingPause } from '~/domain/pause'
 import type { MemberRole, RelationshipOutcome } from '~/domain/relationships'
@@ -32,6 +34,7 @@ import {
   DepartureRefused,
   EndingRefused,
   FollowUpRefused,
+  IntakeRefused,
   InvitationRefused,
   MaterialAssignmentRefused,
   PairingRefused,
@@ -69,6 +72,7 @@ import {
   type OpenSequence,
 } from '~/domain/check-in'
 import type { EffectStore, InboundReader, InboundSender, UnitOfWork } from '~/service/ports'
+import type { IntakeLinkSnapshot } from '~/domain/boundary'
 
 /**
  * The participation caps live in indexes, because they can only be judged against
@@ -412,6 +416,34 @@ const refused = <Answer extends string, Refusal extends string>(
   return new refusal(why)
 }
 
+/**
+ * One `intake_link` row, by whichever of its two unique columns the caller has.
+ * Written once because the two reads differ only in the predicate, and a second
+ * copy of a fetch-and-shape is where the two quietly stop agreeing about what an
+ * expired row means.
+ */
+const intakeLinkWhere = async (
+  client: PoolClient,
+  where: string,
+  values: readonly unknown[],
+): Promise<IntakeLinkSnapshot | null> => {
+  const { rows } = await client.query<{
+    person_id: string
+    token: string
+    expires_at: Date
+  }>(`select l.person_id, l.token, l.expires_at from intake_link l where ${where}`, [
+    ...values,
+  ])
+  const row = rows[0]
+  return row
+    ? {
+        personId: personId(row.person_id),
+        token: intakeLinkToken(row.token),
+        expiresAt: row.expires_at,
+      }
+    : null
+}
+
 const unitFor = (client: PoolClient): UnitOfWork => ({
   async peopleOnRoster() {
     // Scoped by the policy on `person`, not by a ministry_id in this statement: the
@@ -553,11 +585,39 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
 
     // What the Person typed about themselves beats what a spreadsheet said, which
     // is the same direction the import refuses to overwrite in.
+    //
+    // The email always follows its own rule: written when one was given, left alone
+    // when the field came back empty. An empty field is not something the Person
+    // typed, and treating it as one would let a submission that skipped the optional
+    // question wipe an address the Ministry has.
     if (intake.email !== null) {
       await client.query(`update person set email = $2 where id = $1`, [
         intake.personId,
         intake.email,
       ])
+    }
+
+    // The name and the number move only where the submission named this Person by
+    // token. That *is* the correction: the number Discipler dials lives on `person`,
+    // and a change recorded only on the submission would leave every message going
+    // to the old one.
+    if (intake.corrections === null) return
+
+    try {
+      await client.query(`update person set full_name = $2, phone = $3 where id = $1`, [
+        intake.personId,
+        intake.corrections.fullName,
+        intake.corrections.phone,
+      ])
+    } catch (error) {
+      // A name and a number together are who a Person is within a Ministry, so this
+      // is a correction that collides with somebody already on the Roster. Refused
+      // as a refusal the Person can act on rather than as a broken write: they are
+      // looking at a form with both fields on it.
+      if (constraintViolated(error) === 'person_ministry_identity_uniq') {
+        throw new IntakeRefused(['intake.details_belong_to_someone_else'])
+      }
+      throw error
     }
   },
 
@@ -1322,12 +1382,31 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // clock, never here -- which is what lets a cadence edit and a week boundary
     // be proven by a test that runs in milliseconds.
     const { rows } = await client.query<{ person_id: string }>(
+      // Only the Leaders a question can actually reach: standing permission to be
+      // texted at all, which is both halves of it -- no open opt-out, and SMS
+      // consent that currently stands. The same pair `unacceptedRelationships`
+      // tests, and the same reason.
+      //
+      // Opting out ends no relationship -- that is the point of it being
+      // person-level -- so the cadence still finds them due, and the outbound queue
+      // refuses the question. The tick is one transaction, so composing it would
+      // roll back every conversation in the Ministry, this week and every week
+      // after it, with nothing on any screen to say why.
+      //
+      // Nothing is lost by leaving them out. A Leader Discipler may no longer text
+      // has no conversation to have, and their relationship is still on the Roster
+      // and still on Care Needed for an Admin to act on.
       `select distinct m.person_id
          from relationship_member m
          join relationship r on r.id = m.relationship_id
         where m.role = 'leader'
           and m.ended_at is null
           and r.ended_at is null
+          and not exists (
+            select 1 from person_opt_out o
+             where o.person_id = m.person_id and o.ended_at is null
+          )
+          and app.current_consent(m.person_id, 'sms') is true
         order by m.person_id`,
     )
 
@@ -1452,6 +1531,60 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
        on conflict (person_id) where ended_at is null do nothing`,
       [optOut.ministryId, optOut.personId, optOut.startedAt],
     )
+  },
+
+  async setLeadEligibility(eligibility: LeadEligibility) {
+    // A plain update, and the whole of it. Eligibility is one field because the
+    // intended role *is* the leader-pool flag, so setting it neither reads nor
+    // touches Intake, an account, or a membership -- and withdrawing it is this
+    // same statement with the other value.
+    //
+    // The Ministry is not in the `where` clause and does not need to be: the
+    // policy on `person` scopes this connection to the one Ministry it declared it
+    // is acting for, and a Person of another's is not visible to update.
+    const { rowCount } = await client.query(
+      `update person set eligible_to_lead = $2 where id = $1`,
+      [eligibility.personId, eligibility.eligible],
+    )
+
+    // Nobody was updated, which on this connection means no such Person in this
+    // Ministry. Failing rather than passing quietly, because the Admin pressed a
+    // control on a row and a silent no-op reads to them as *it did not take*.
+    if (rowCount === 0) {
+      throw new Error(`No Person ${eligibility.personId} to mark eligible to lead`)
+    }
+  },
+
+  async issueIntakeLink(link: NewIntakeLink) {
+    // One row per Person, replaced. Re-issuing is not a second link -- it is the
+    // link, re-cut -- so the one the Admin sent last week stops working the moment
+    // they hand over a new one, which is the only way *send them a new one* can
+    // mean anything.
+    await client.query(
+      `insert into intake_link (ministry_id, person_id, token, created_at, expires_at)
+       values ($1, $2, $3, $4, $5)
+       on conflict (person_id)
+         do update set token = excluded.token,
+                       created_at = excluded.created_at,
+                       expires_at = excluded.expires_at`,
+      [link.ministryId, link.personId, link.token, link.createdAt, link.expiresAt],
+    )
+  },
+
+  async resolveIntakeLink(token: IntakeLinkToken): Promise<IntakeLinkSnapshot | null> {
+    // Scoped by the policy on `intake_link`, like every other read on this
+    // connection. An expired row still comes back: whether it has run out is
+    // decided in the domain against the injected clock, and answering nothing here
+    // would make a link that expired indistinguishable from one that never existed.
+    return intakeLinkWhere(client, `l.token = $1`, [token])
+  },
+
+  async intakeLinkFor(person: PersonId): Promise<IntakeLinkSnapshot | null> {
+    // An expired row comes back here too, and the domain decides. Answering null
+    // for one that has run out would be the same as answering null for a Person who
+    // has never held a link -- which is right, since both mint a new one, but it
+    // would put the *why* in this file instead of beside the clock.
+    return intakeLinkWhere(client, `l.person_id = $1`, [person])
   },
 
   async raiseConcern(concern: NewConcern) {

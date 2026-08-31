@@ -9,7 +9,17 @@ import type { MinistryId, PersonId, RelationshipId } from './ids'
 
 export type RelationshipKind = 'one_to_one' | 'group'
 
-export type MemberRole = 'leader' | 'participant'
+export const MEMBER_ROLES = ['leader', 'participant'] as const
+export type MemberRole = (typeof MEMBER_ROLES)[number]
+
+/**
+ * The check an adapter makes before it believes a role that came out of a query.
+ * Beside the type rather than in whichever file happened to need it first, the same
+ * shape `participation.ts` uses for the four statuses: a role this product does not
+ * recognise must not be rendered as one it does.
+ */
+export const isMemberRole = (value: unknown): value is MemberRole =>
+  MEMBER_ROLES.includes(value as MemberRole)
 
 export interface NewMembership {
   readonly personId: PersonId

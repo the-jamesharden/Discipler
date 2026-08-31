@@ -12,6 +12,7 @@ import {
   PauseRefused,
 } from '~/domain/errors'
 import type { IdSource, PersonId } from '~/domain/ids'
+import type { IntakeLinkToken } from '~/domain/intake-link'
 import type { InvitationToken } from '~/domain/invitations'
 import type { EffectStore, UnitOfWork } from './ports'
 
@@ -119,6 +120,12 @@ export const applyEffects = async (
   const optOuts = effects.flatMap((effect) =>
     effect.kind === 'person.opt_out' ? [effect.optOut] : [],
   )
+  const intakeLinks = effects.flatMap((effect) =>
+    effect.kind === 'intake_link.issue' ? [effect.link] : [],
+  )
+  const eligibilities = effects.flatMap((effect) =>
+    effect.kind === 'person.lead_eligibility' ? [effect.eligibility] : [],
+  )
   const concerns = effects.flatMap((effect) =>
     effect.kind === 'concern.raise' ? [effect.concern] : [],
   )
@@ -194,6 +201,10 @@ export const applyEffects = async (
   for (const closure of closures) await unit.closeCheckInSequence(closure)
   for (const sequence of sequences) await unit.openCheckInSequence(sequence)
   for (const prompt of prompts) await unit.askCheckInQuestion(prompt)
+
+  // Before the history that says it happened, like every other write here.
+  for (const eligibility of eligibilities) await unit.setLeadEligibility(eligibility)
+  for (const link of intakeLinks) await unit.issueIntakeLink(link)
 
   // History before messages: a message that goes out unrecorded is worse than a
   // recorded message that failed to send, because only one of the two can be
@@ -337,6 +348,26 @@ const resolved = async (unit: UnitOfWork, token: InvitationToken) => {
   return invitation
 }
 
+/**
+ * A token nothing answers to never gets this far: the route resolves the page
+ * before it composes a command, and serves a 404 for a URL that names nobody. So
+ * reaching here means the link was deleted between those two reads, or that a
+ * caller composed the command without checking -- a defect either way, and not a
+ * refusal anybody holding the form could act on.
+ *
+ * Deliberately not `intake.link_expired`. That is the one distinction this whole
+ * path is built to keep: a link that has run out sends its holder back to whoever
+ * issued it, and a token that was never real has nobody to send them to.
+ *
+ * An expired link is likewise not this function's to refuse. It resolves, and the
+ * domain decides against the injected clock.
+ */
+const resolvedIntakeLink = async (unit: UnitOfWork, token: IntakeLinkToken) => {
+  const link = await unit.resolveIntakeLink(token)
+  if (!link) throw new Error('intake.submit was handed a token that names no link')
+  return link
+}
+
 export const createCommandService = ({
   clock,
   ids,
@@ -384,6 +415,16 @@ export const createCommandService = ({
           : {}),
         ...(isTokenDriven(command)
           ? { invitation: await resolved(unit, command.token) }
+          : {}),
+        // Read inside the transaction like everything else, so the link cannot be
+        // re-issued out from under the submission it is authenticating.
+        ...(command.type === 'intake.submit' && command.token
+          ? { intakeLink: await resolvedIntakeLink(unit, command.token) }
+          : {}),
+        // Loaded so that asking for a link somebody already holds gives them that
+        // one back rather than minting a second and stopping the first from working.
+        ...(command.type === 'intake.reopen'
+          ? { intakeLinkHeld: await unit.intakeLinkFor(command.personId) }
           : {}),
         // Read inside the transaction like everything else, so two ticks racing
         // each other cannot both find the same Leader unasked. The cadence read

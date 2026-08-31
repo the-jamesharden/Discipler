@@ -1,4 +1,5 @@
 import type {
+  IntakeLinkSnapshot,
   InvitationSnapshot,
   PausedRelationship,
   PersonContact,
@@ -13,6 +14,7 @@ import type {
   CheckInReminder,
   CheckInSequenceClosure,
   IntakeRecord,
+  LeadEligibility,
   LeaderAcceptance,
   MaterialAssignment,
   NewCheckInPrompt,
@@ -24,6 +26,7 @@ import type {
   RelationshipEnding,
 } from '~/domain/effects'
 import type { FollowUpResolution, NewFollowUpItem } from '~/domain/follow-up'
+import type { NewIntakeLink } from '~/domain/intake-link'
 import type { NewInvitation } from '~/domain/invitations'
 import { eventId, type MinistryId, type PersonId } from '~/domain/ids'
 import type { HistoryEvent, NewHistoryEvent } from '~/domain/history'
@@ -58,6 +61,13 @@ export interface InMemoryStore extends EffectStore {
   readonly reminders: readonly CheckInReminder[]
   readonly closures: readonly CheckInSequenceClosure[]
   readonly optOuts: readonly PersonOptOut[]
+  readonly leadEligibilities: readonly LeadEligibility[]
+  readonly intakeLinks: readonly NewIntakeLink[]
+  /**
+   * The link both Intake-link reads answer with: the one a re-submission came in
+   * on, and the one a Person already holds when an Admin asks for theirs.
+   */
+  intakeLink: IntakeLinkSnapshot | null
   readonly concerns: readonly NewConcern[]
   readonly concernViewings: readonly ConcernViewing[]
   readonly concernResolutions: readonly ConcernResolution[]
@@ -108,6 +118,8 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
   const reminders: CheckInReminder[] = []
   const closures: CheckInSequenceClosure[] = []
   const optOuts: PersonOptOut[] = []
+  const leadEligibilities: LeadEligibility[] = []
+  const intakeLinks: NewIntakeLink[] = []
   const resolutions: FollowUpResolution[] = []
   const cancellations: RelationshipCancellation[] = []
   const endings: RelationshipEnding[] = []
@@ -179,6 +191,12 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
     get optOuts() {
       return [...optOuts]
     },
+    get leadEligibilities() {
+      return [...leadEligibilities]
+    },
+    get intakeLinks() {
+      return [...intakeLinks]
+    },
     get concerns() {
       return [...concerns]
     },
@@ -188,6 +206,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
     get concernResolutions() {
       return [...concernResolutions]
     },
+    intakeLink: null,
     unaccepted: [],
     paused: [],
     checkInsDue: [],
@@ -214,6 +233,8 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       const stagedReminders: CheckInReminder[] = []
       const stagedClosures: CheckInSequenceClosure[] = []
       const stagedOptOuts: PersonOptOut[] = []
+      const stagedLeadEligibilities: LeadEligibility[] = []
+      const stagedIntakeLinks: NewIntakeLink[] = []
       const stagedConcerns: NewConcern[] = []
       const stagedViewings: ConcernViewing[] = []
       const stagedConcernResolutions: ConcernResolution[] = []
@@ -242,6 +263,18 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         },
         async optPersonOut(optOut) {
           stagedOptOuts.push(optOut)
+        },
+        async setLeadEligibility(eligibility) {
+          stagedLeadEligibilities.push(eligibility)
+        },
+        async issueIntakeLink(link) {
+          stagedIntakeLinks.push(link)
+        },
+        async resolveIntakeLink() {
+          return store.intakeLink ?? null
+        },
+        async intakeLinkFor() {
+          return store.intakeLink ?? null
         },
         async contactsFor(ids) {
           return new Map(
@@ -382,6 +415,8 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       reminders.push(...stagedReminders)
       closures.push(...stagedClosures)
       optOuts.push(...stagedOptOuts)
+      leadEligibilities.push(...stagedLeadEligibilities)
+      intakeLinks.push(...stagedIntakeLinks)
       return result
     },
   }

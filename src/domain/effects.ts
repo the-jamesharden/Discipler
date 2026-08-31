@@ -15,9 +15,10 @@ import type {
   Gender,
 } from './intake'
 import type { FollowUpResolution, NewFollowUpItem } from './follow-up'
+import type { NewIntakeLink } from './intake-link'
 import type { InvitationToken, NewInvitation } from './invitations'
 import type { MemberRole, NewRelationship, RelationshipOutcome } from './relationships'
-import type { NewPerson } from './roster'
+import type { NewPerson, PhoneNumber } from './roster'
 
 /**
  * Commands return effects; they never perform I/O. The application service is the
@@ -71,10 +72,31 @@ export interface ConsentDecision {
   readonly granted: boolean
 }
 
+/** What a Person changed about themselves, on a form that already knew who they were. */
+export interface ContactCorrection {
+  readonly fullName: string
+  readonly phone: PhoneNumber
+}
+
 export interface IntakeRecord {
   readonly ministryId: MinistryId
   readonly personId: PersonId
   readonly submittedAt: Date
+  /**
+   * The name and number as the Person just typed them, landing on the Person
+   * record -- and null on the Ministry-wide form, where nothing may land.
+   *
+   * The two routes differ in who they name, and that is what decides this. On the
+   * Ministry-wide form a Person *is* the name and number they typed: they were
+   * recognised by that pair, so writing it back could only ever overwrite what they
+   * were matched against with a differently-cased copy of itself. Through a link an
+   * Admin sent, the token names them -- so the pair is no longer how they are
+   * recognised, and is instead exactly what they came to change.
+   *
+   * Without this write, a correction would be recorded on the submission and never
+   * reach the number Discipler dials.
+   */
+  readonly corrections: ContactCorrection | null
   readonly ageBand: AgeBand
   readonly gender: Gender
   readonly goalId: DiscipleshipGoalId
@@ -357,6 +379,22 @@ export interface PersonOptOut {
   readonly startedAt: Date
 }
 
+/**
+ * An Admin's plan that this Person may lead. Dated on the decision rather than
+ * flagged silently, and recorded either way round: withdrawing eligibility is the
+ * same fact with the other answer, not the absence of one.
+ *
+ * The Person, never a relationship. It is independent of whether they hold an
+ * account, of whether they have completed Intake, and of how many relationships
+ * they already lead -- which is why nothing here names any of those.
+ */
+export interface LeadEligibility {
+  readonly ministryId: MinistryId
+  readonly personId: PersonId
+  readonly eligible: boolean
+  readonly decidedAt: Date
+}
+
 export type Effect =
   | { readonly kind: 'history.append'; readonly event: NewHistoryEvent }
   | { readonly kind: 'person.create'; readonly person: NewPerson }
@@ -364,6 +402,7 @@ export type Effect =
   | { readonly kind: 'message.enqueue'; readonly message: OutboundMessageDraft }
   | { readonly kind: 'relationship.create'; readonly relationship: NewRelationship }
   | { readonly kind: 'invitation.issue'; readonly invitation: NewInvitation }
+  | { readonly kind: 'intake_link.issue'; readonly link: NewIntakeLink }
   | { readonly kind: 'invitation.accept'; readonly acceptance: LeaderAcceptance }
   | { readonly kind: 'followUp.raise'; readonly item: NewFollowUpItem }
   | { readonly kind: 'followUp.resolve'; readonly resolution: FollowUpResolution }
@@ -381,6 +420,10 @@ export type Effect =
   | { readonly kind: 'checkin.remind'; readonly reminder: CheckInReminder }
   | { readonly kind: 'checkin.close'; readonly closure: CheckInSequenceClosure }
   | { readonly kind: 'person.opt_out'; readonly optOut: PersonOptOut }
+  | {
+      readonly kind: 'person.lead_eligibility'
+      readonly eligibility: LeadEligibility
+    }
   | { readonly kind: 'concern.raise'; readonly concern: NewConcern }
   | { readonly kind: 'concern.view'; readonly viewing: ConcernViewing }
   | { readonly kind: 'concern.resolve'; readonly resolution: ConcernResolution }
@@ -388,6 +431,16 @@ export type Effect =
 export const appendHistory = (event: NewHistoryEvent): Effect => ({
   kind: 'history.append',
   event,
+})
+
+export const recordIntakeLink = (link: NewIntakeLink): Effect => ({
+  kind: 'intake_link.issue',
+  link,
+})
+
+export const setLeadEligibility = (eligibility: LeadEligibility): Effect => ({
+  kind: 'person.lead_eligibility',
+  eligibility,
 })
 
 export const recordIntake = (intake: IntakeRecord): Effect => ({

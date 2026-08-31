@@ -123,6 +123,18 @@ export const withSharedContact = (body: string, contact: SharedContact): string 
 export const invitationLink = (baseUrl: string, token: string): string =>
   `${baseUrl.replace(/\/+$/, '')}/invitation/${token}`
 
+/**
+ * Where an Intake link becomes something a Person can tap. The same shape as an
+ * Invitation Link and for the same reason -- it is read off a phone and
+ * occasionally typed -- and it hangs off the same configured host.
+ *
+ * Nothing composes this one into a message. An Admin copies it and sends it
+ * themselves, because the thing it most often exists to correct is the number
+ * Discipler would have texted it to.
+ */
+export const intakeReopenLink = (baseUrl: string, token: string): string =>
+  `${baseUrl.replace(/\/+$/, '')}/intake/reopen/${token}`
+
 export interface InvitationMessage {
   readonly ministryName: string
   readonly fullName: string

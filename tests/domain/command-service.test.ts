@@ -98,6 +98,18 @@ describe('applying a command\'s effects', () => {
         optPersonOut: async () => {
           throw new Error('nobody should have been opted out')
         },
+        setLeadEligibility: async () => {
+          throw new Error('nobody should have been marked eligible to lead')
+        },
+        issueIntakeLink: async () => {
+          throw new Error('no Intake link should have been issued')
+        },
+        resolveIntakeLink: async () => {
+          throw new Error('no Intake link should have been resolved')
+        },
+        intakeLinkFor: async () => {
+          throw new Error('nobody\u2019s Intake link should have been looked up')
+        },
         raiseConcern: async () => {
           throw new Error('no Concern should have been raised')
         },

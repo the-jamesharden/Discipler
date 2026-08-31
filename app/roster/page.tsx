@@ -2,7 +2,15 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { resolveAdmin } from '~/platform/supabase/current-admin'
 import { getRosterReader } from '~/service/container'
-import { importFailureMessage, participationStatusLabel, rowProblemMessage } from './copy'
+import { personId } from '~/domain/ids'
+import { intakeReopenLink } from '~/domain/outbound-copy'
+import { appBaseUrl } from '~/platform/supabase/credentials'
+import {
+  importFailureMessage,
+  participationStatusLabel,
+  rosterRoleLabel,
+  rowProblemMessage,
+} from './copy'
 import { decodeImportReport } from './report'
 
 export const dynamic = 'force-dynamic'
@@ -29,6 +37,8 @@ export default async function RosterPage({
     hidden?: string
     error?: string
     paired?: string
+    /** The Person whose Intake link was just issued, so this page shows that one. */
+    intakeLinkFor?: string
   }>
 }) {
   const resolution = await resolveAdmin()
@@ -41,6 +51,22 @@ export default async function RosterPage({
 
   const roster = await getRosterReader().listRoster(admin.ministryId)
   const query = await searchParams
+
+  // One Person's link, and only when an Admin has just asked for theirs. Reading
+  // every row's token would put a page full of credentials on screen, nearly all of
+  // them for rows nobody is acting on -- and the query string carries the Person,
+  // never the token, so the credential stays out of browser history and server logs.
+  const askedAbout = query.intakeLinkFor
+  const issuedFor =
+    askedAbout && roster.some((person) => person.personId === askedAbout)
+      ? personId(askedAbout)
+      : null
+  const issued = issuedFor
+    ? await getRosterReader().liveIntakeLink(admin.ministryId, issuedFor)
+    : null
+  const issuedLink = issued
+    ? { url: intakeReopenLink(appBaseUrl(), issued.token), expiresAt: issued.expiresAt }
+    : null
   const report = decodeImportReport(query)
   const failure = importFailureMessage(query.error)
   // How many Participants the relationship just created has, so the confirmation can
@@ -141,7 +167,8 @@ export default async function RosterPage({
                 <tr>
                   <th>Name</th>
                   <th>Participation</th>
-                  <th>With</th>
+                  <th>Relationships</th>
+                  <th>Eligible to lead</th>
                   <th>Action</th>
                 </tr>
               </thead>
@@ -150,26 +177,76 @@ export default async function RosterPage({
                   <tr key={person.personId}>
                     <td>{person.fullName}</td>
                     <td>{participationStatusLabel[person.participationStatus]}</td>
-                    {/* A relationship with several Participants shows everyone in it,
-                        so group membership is visible without opening a record. */}
+                    {/* One line per relationship, each saying what this Person is in
+                        it. The role is what makes the status beside it legible: a
+                        man leading two relationships and a man being discipled in
+                        two are the same names and opposite situations, and it is the
+                        first of them who reads Ready to Pair. A relationship with
+                        several Participants still shows everyone in it. */}
                     <td>
-                      {person.withNames.length === 0 ? (
+                      {person.relationships.length === 0 ? (
                         <span className="empty">Not in a relationship</span>
                       ) : (
-                        person.withNames.join(', ')
+                        <ul className="bare">
+                          {person.relationships.map((relationship, index) => (
+                            <li key={`${relationship.role}:${index}`}>
+                              {`${rosterRoleLabel[relationship.role]} ${relationship.withNames.join(', ')}`}
+                            </li>
+                          ))}
+                        </ul>
                       )}
+                    </td>
+                    {/* A plan an Admin records, and never a fact about the Person.
+                        Offered on every row, including somebody who has not
+                        completed Intake -- planning while waiting on them is the
+                        whole reason it is here -- and it makes nobody pairable. */}
+                    <td>
+                      <form method="post" action="/roster/eligibility">
+                        <input type="hidden" name="personId" value={person.personId} />
+                        <input
+                          type="hidden"
+                          name="eligible"
+                          value={person.eligibleToLead ? 'no' : 'yes'}
+                        />
+                        <button type="submit">
+                          {person.eligibleToLead ? 'Yes — withdraw' : 'No — mark eligible'}
+                        </button>
+                      </form>
                     </td>
                     {/* An unpaired Person carries the Pair action on their own row,
                         so an Admin can act on what they are already looking at. It
                         opens the one pairing screen with this Person preselected;
                         somebody who has not completed Intake cannot be paired and is
-                        offered nothing to press. */}
+                        offered nothing to press.
+
+                        Beside it, the link that reopens their own Intake. Offered on
+                        every row, because the two things it corrects -- a wrong
+                        number and an availability that has changed -- are as likely
+                        before Intake as after it. */}
                     <td>
                       {person.participationStatus === 'ready_to_pair' ? (
                         <Link href={`/roster/pair?with=${person.personId}`}>Pair</Link>
                       ) : (
                         <span className="empty">—</span>
                       )}
+                      <form method="post" action="/roster/intake-link">
+                        <input type="hidden" name="personId" value={person.personId} />
+                        <button type="submit">Intake link</button>
+                      </form>
+                      {issuedFor === person.personId && issuedLink ? (
+                        <div role="status">
+                          {/* Shown rather than sent. The Admin passes it on however
+                              they are already in touch with this Person, which is
+                              the point: texting it to the number on file would reach
+                              whoever holds the number being corrected. */}
+                          <p className="subtle">
+                            Send this to {person.fullName}. It opens their own Intake
+                            form with their answers already in it, and works until{' '}
+                            {issuedLink.expiresAt.toISOString().slice(0, 10)}.
+                          </p>
+                          <input type="text" readOnly value={issuedLink.url} />
+                        </div>
+                      ) : null}
                     </td>
                   </tr>
                 ))}

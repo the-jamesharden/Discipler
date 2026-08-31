@@ -1,5 +1,6 @@
 import type { PairingRefusal } from '~/domain/errors'
 import type { ParticipationStatus } from '~/domain/participation'
+import type { MemberRole } from '~/domain/relationships'
 import type { RowProblem } from '~/domain/roster'
 import type { ImportFailure } from './report'
 
@@ -18,6 +19,23 @@ export const participationStatusLabel: Record<ParticipationStatus, string> = {
   ready_to_pair: 'Ready to Pair',
   paired: 'Paired',
   opted_out: 'Opted Out',
+}
+
+/**
+ * What this Person is in each of their relationships, said as a sentence opener
+ * rather than as the word `leader`.
+ *
+ * It is the half of the row that makes the status beside it legible. A man leading
+ * two relationships and discipled by nobody reads `Ready to Pair`, and a column of
+ * bare names cannot say which of the two he is -- so the row says *leads* and the
+ * Admin reads a fact rather than a bug.
+ */
+export const rosterRoleLabel: Record<MemberRole, string> = {
+  leader: 'Leads',
+  // Not "discipled by", because the names beside it are everyone else in the
+  // relationship, and in a group that includes people being discipled alongside
+  // them rather than doing the discipling.
+  participant: 'In a relationship with',
 }
 
 const PROBLEMS: Record<RowProblem, string> = {

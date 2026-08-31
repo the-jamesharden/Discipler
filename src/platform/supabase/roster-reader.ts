@@ -1,15 +1,23 @@
 import { personId } from '~/domain/ids'
 import { isParticipationStatus, type ParticipationStatus } from '~/domain/participation'
-import type { RosterEntry, RosterReader } from '~/service/ports'
+import { isMemberRole, type MemberRole } from '~/domain/relationships'
+import { intakeLinkToken } from '~/domain/intake-link'
+import type {
+  IssuedIntakeLink,
+  RosterEntry,
+  RosterReader,
+  RosterRelationship,
+} from '~/service/ports'
 import { createSupabaseServerClient } from './server-client'
 
 interface MemberRow {
   person_id: string
   relationship_id: string
+  role: MemberRole
 }
 
 /**
- * `public.roster` returns a derivation beside two columns, so the generated types
+ * `public.roster` returns a derivation beside three columns, so the generated types
  * do not know about it and the row arrives untyped. Named here once rather than
  * cast at the point of use.
  */
@@ -17,6 +25,7 @@ interface PersonRow {
   readonly id: string
   readonly fullName: string
   readonly participationStatus: ParticipationStatus
+  readonly eligibleToLead: boolean
 }
 
 /**
@@ -31,6 +40,7 @@ const asPersonRow = (row: unknown): PersonRow => {
     person_id: id,
     full_name: fullName,
     participation_status: status,
+    eligible_to_lead: eligible,
   } = (row ?? {}) as Record<string, unknown>
 
   if (typeof id !== 'string' || id === '') throw new Error('A Roster row arrived with no id')
@@ -44,8 +54,14 @@ const asPersonRow = (row: unknown): PersonRow => {
   if (!isParticipationStatus(status)) {
     throw new Error(`No Participation Status was derived for ${id}`)
   }
+  // The column is `not null default false`, so a missing answer is not "nobody has
+  // decided yet" -- it is the select list and this reader having drifted apart, and
+  // rendering it as *not eligible* would quietly empty a Ministry's leader pool.
+  if (typeof eligible !== 'boolean') {
+    throw new Error(`A Roster row arrived with no lead eligibility for ${id}`)
+  }
 
-  return { id, fullName, participationStatus: status }
+  return { id, fullName, participationStatus: status, eligibleToLead: eligible }
 }
 
 export const supabaseRosterReader: RosterReader = {
@@ -68,43 +84,95 @@ export const supabaseRosterReader: RosterReader = {
     const nameOf = new Map(people.map((row) => [row.id, row.fullName]))
 
     // Open memberships only: a relationship someone has left says who they were with,
-    // not who they are with. Roles are deliberately not read here -- the Roster
-    // answers "who is this person with", and a relationship with several
-    // Participants shows everyone in it, which is the same question either way.
+    // not who they are with. The role comes back with them, because a Person leading
+    // two relationships and a Person being discipled in two are the same list of
+    // names and opposite situations -- and telling them apart on the row is what
+    // makes `Ready to Pair` beside two names read as a fact rather than a bug.
     const { data: members, error: memberError } = await supabase
       .from('relationship_member')
-      .select('person_id, relationship_id')
+      .select('person_id, relationship_id, role')
       .eq('ministry_id', ministryId)
       .is('ended_at', null)
 
     if (memberError) throw new Error(`Could not read relationships: ${memberError.message}`)
 
-    const byRelationship = new Map<string, string[]>()
-    for (const row of (members ?? []) as MemberRow[]) {
+    // A role this reader does not recognise is dropped rather than guessed at. The
+    // enum has two values and the policies scope the read, so reaching one means the
+    // schema has moved on -- and calling an unknown role `participant` on a Roster
+    // would say a Person is being discipled by somebody they lead.
+    const memberships = ((members ?? []) as MemberRow[]).filter((row) => isMemberRole(row.role))
+
+    const byRelationship = new Map<string, MemberRow[]>()
+    for (const row of memberships) {
       byRelationship.set(row.relationship_id, [
         ...(byRelationship.get(row.relationship_id) ?? []),
-        row.person_id,
+        row,
       ])
     }
 
-    const withNamesFor = (id: string): string[] => {
-      const names = new Set<string>()
-      for (const row of (members ?? []) as MemberRow[]) {
-        if (row.person_id !== id) continue
-        for (const other of byRelationship.get(row.relationship_id) ?? []) {
-          if (other === id) continue
-          const name = nameOf.get(other)
-          if (name) names.add(name)
-        }
-      }
-      return [...names].sort()
-    }
+    /**
+     * One entry per open relationship this Person holds a membership in, each
+     * saying what they are in it and who else is. A group shows everyone in it,
+     * which is the same question either way round.
+     */
+    const relationshipsFor = (id: string): RosterRelationship[] =>
+      memberships
+        .filter((row) => row.person_id === id)
+        .map((membership) => ({
+          role: membership.role,
+          withNames: [
+            ...new Set(
+              (byRelationship.get(membership.relationship_id) ?? []).flatMap((other) =>
+                other.person_id === id ? [] : (nameOf.get(other.person_id) ?? []),
+              ),
+            ),
+          ].sort(),
+        }))
+        // Led relationships first, then the ones they are in as a Participant, and
+        // alphabetically within each. A stable order, so a Roster read twice reads
+        // the same way -- `relationship_member` has no order of its own.
+        .sort(
+          (a, b) =>
+            Number(a.role === 'participant') - Number(b.role === 'participant') ||
+            a.withNames.join(', ').localeCompare(b.withNames.join(', ')),
+        )
 
     return people.map((row) => ({
       personId: personId(row.id),
       fullName: row.fullName,
-      withNames: withNamesFor(row.id),
+      relationships: relationshipsFor(row.id),
       participationStatus: row.participationStatus,
+      eligibleToLead: row.eligibleToLead,
     }))
+  },
+
+  async liveIntakeLink(ministryId, person): Promise<IssuedIntakeLink | null> {
+    const supabase = await createSupabaseServerClient()
+
+    // Through the signed-in session, so the policy on `intake_link` is what decides
+    // whether this caller may see it -- an Admin of that Ministry and nobody else.
+    // The `eq` restates the same fact and is not what enforces it.
+    const { data, error } = await supabase
+      .from('intake_link')
+      .select('token, expires_at')
+      .eq('ministry_id', ministryId)
+      .eq('person_id', person)
+      .maybeSingle()
+
+    if (error) throw new Error(`Could not read the Intake link: ${error.message}`)
+    if (!data) return null
+
+    const token = typeof data.token === 'string' ? data.token : null
+    const expiresAt = typeof data.expires_at === 'string' ? new Date(data.expires_at) : null
+
+    // A row that came back malformed is a broken read and is thrown rather than
+    // folded into the null above. Both reach the Admin as *there is no link*, and
+    // the one that means a rule has stopped holding must not hide inside the one
+    // that means nobody has issued one.
+    if (!token || !expiresAt) {
+      throw new Error(`The Intake link for ${person} came back without a token or a date`)
+    }
+
+    return { token: intakeLinkToken(token), expiresAt }
   },
 }

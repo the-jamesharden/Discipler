@@ -7,6 +7,7 @@ import type {
   RelationshipId,
 } from './ids'
 import type { IntakeFormFields } from './intake'
+import type { IntakeLinkToken } from './intake-link'
 import type { InvitationToken } from './invitations'
 import type { PausePeriodWeeks } from './pause'
 import type { RelationshipOutcome } from './relationships'
@@ -51,6 +52,50 @@ export type Command =
       readonly type: 'intake.submit'
       readonly ministryId: MinistryId
       readonly form: IntakeFormFields
+      /**
+       * Present when the Person reached the form through a link an Admin issued
+       * them, and absent on the Ministry-wide link.
+       *
+       * It changes who the form is about and nothing else about what the form
+       * means. Without it a Person is recognised by the name and number they typed,
+       * which is exactly what a Person correcting their number cannot be: the token
+       * names them, so the correction lands on their own record instead of filing a
+       * second one.
+       */
+      readonly token?: IntakeLinkToken
+    }
+  /**
+   * An Admin issuing a Person the link that reopens their own Intake form,
+   * prefilled. It sends nothing: the Admin copies the link and passes it on, which
+   * is what a Person correcting a wrong phone number needs -- texting it to the
+   * number already on file would reach whoever holds the wrong one.
+   *
+   * Issuing again replaces the link issued before. One live link per Person is what
+   * an Admin means by *send them a new one*, and two would both open the door with
+   * neither able to revoke the other.
+   */
+  | {
+      readonly type: 'intake.reopen'
+      readonly ministryId: MinistryId
+      readonly personId: PersonId
+    }
+  /**
+   * An Admin's plan that this Person may lead, recorded before Intake and kept up
+   * to date afterwards. One field and not two: the intended role *is* the
+   * leader-pool flag, because a Person marked intended-leader but not eligible
+   * would be a state nobody could say the meaning of.
+   *
+   * It carries no Admin identity, unlike a pause or an ending. Those suspend or
+   * terminate a Ministry's contact with somebody and the product rules require a
+   * named actor for them; this records an intention that changes nothing about
+   * what reaches anybody, and the history event beside it is the record that it
+   * was set.
+   */
+  | {
+      readonly type: 'person.set_lead_eligibility'
+      readonly ministryId: MinistryId
+      readonly personId: PersonId
+      readonly eligible: boolean
     }
   /**
    * One command for all three pairing routes -- accepting a suggestion, pairing two

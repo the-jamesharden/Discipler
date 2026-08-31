@@ -1,6 +1,7 @@
 import type { AccountRefusal } from '~/domain/accounts'
 import type { AvailabilityOverlay } from '~/domain/availability-overlay'
 import type {
+  IntakeLinkSnapshot,
   InvitationSnapshot,
   PausedRelationship,
   PersonContact,
@@ -15,6 +16,7 @@ import type {
   CheckInReminder,
   CheckInSequenceClosure,
   IntakeRecord,
+  LeadEligibility,
   LeaderAcceptance,
   MaterialAssignment,
   NewCheckInPrompt,
@@ -30,9 +32,10 @@ import type {
   FollowUpResolution,
   NewFollowUpItem,
 } from '~/domain/follow-up'
+import type { IntakeLinkState, IntakeLinkToken, NewIntakeLink } from '~/domain/intake-link'
 import type { InvitationToken, NewInvitation } from '~/domain/invitations'
 import type { HistoryEvent, NewHistoryEvent } from '~/domain/history'
-import type { DiscipleshipGoalId } from '~/domain/intake'
+import type { AgeBand, DiscipleshipGoalId, Gender } from '~/domain/intake'
 import type {
   ConcernId,
   FollowUpItemId,
@@ -245,6 +248,34 @@ export interface UnitOfWork {
   /** The carrier opt-out, at the level the carrier applies it: the Person. */
   optPersonOut(optOut: PersonOptOut): Promise<void>
 
+  /**
+   * An Admin's plan that this Person may lead. Set either way round -- withdrawing
+   * it is the same write with the other answer -- and it stands alone: it neither
+   * reads nor changes Intake, an account, or any membership.
+   */
+  setLeadEligibility(eligibility: LeadEligibility): Promise<void>
+
+  /**
+   * The link that reopens one Person's Intake. Replaces whatever link that Person
+   * held: one live link each is what an Admin means by *send them a new one*.
+   */
+  issueIntakeLink(link: NewIntakeLink): Promise<void>
+
+  /**
+   * The link a re-submission arrived on, or null where the token names nothing.
+   * Answers for an expired link too: whether it has run out is decided against the
+   * injected clock, and a read that refused to resolve one would make *this link
+   * has expired* and *this link was never real* the same page.
+   */
+  resolveIntakeLink(token: IntakeLinkToken): Promise<IntakeLinkSnapshot | null>
+
+  /**
+   * The link this Person already holds, or null where they hold none. Read on
+   * `intake.reopen`'s behalf so that asking for a link somebody already has does
+   * not mint a second one and stop the first from working.
+   */
+  intakeLinkFor(person: PersonId): Promise<IntakeLinkSnapshot | null>
+
   raiseConcern(concern: NewConcern): Promise<void>
   /** One Admin opening one Concern's text, recorded before the text is handed over. */
   recordConcernViewing(viewing: ConcernViewing): Promise<void>
@@ -411,6 +442,21 @@ export interface LeaderDashboardReader {
   listRelationshipsLed(): Promise<readonly RelationshipLed[]>
 }
 
+/**
+ * One open relationship a Person holds a membership in, from that Person's side:
+ * what they are in it, and who else is.
+ *
+ * The role is what makes the row legible. A Person leading two relationships and a
+ * Person being discipled in two are the same list of names and opposite situations,
+ * and it is the first of them that reads `Ready to Pair` -- the status an Admin
+ * takes for a bug unless the row says why.
+ */
+export interface RosterRelationship {
+  readonly role: MemberRole
+  /** Everyone else in it, whatever their role. A group shows all of them. */
+  readonly withNames: readonly string[]
+}
+
 export interface RosterEntry {
   readonly personId: PersonId
   readonly fullName: string
@@ -420,13 +466,38 @@ export interface RosterEntry {
    * over Intake, consent and open participant memberships.
    */
   readonly participationStatus: ParticipationStatus
-  /** Everyone this Person is currently in a relationship with, whatever their role. */
-  readonly withNames: readonly string[]
+  /** Every open relationship they are in, each with their role in it. */
+  readonly relationships: readonly RosterRelationship[]
+  /**
+   * An Admin's plan that this Person may lead, recorded before Intake and kept
+   * afterwards. Stored, unlike the status beside it, and deliberately independent
+   * of it: it does not make them pairable, does not stand in for Intake, and says
+   * nothing about what they already lead.
+   */
+  readonly eligibleToLead: boolean
+}
+
+/** The live Intake link one Person holds, for the Admin who is about to send it. */
+export interface IssuedIntakeLink {
+  readonly token: IntakeLinkToken
+  readonly expiresAt: Date
 }
 
 export interface RosterReader {
   /** Scoped to one Ministry, and enforced as such in the database, not here. */
   listRoster(ministryId: MinistryId): Promise<readonly RosterEntry[]>
+
+  /**
+   * The link this Person currently holds, or null where they hold none.
+   *
+   * Read one at a time and never with the Roster. Every Person's token on one page
+   * would be a page full of credentials, most of them for rows nobody is acting on;
+   * this answers for the one an Admin has just asked about.
+   */
+  liveIntakeLink(
+    ministryId: MinistryId,
+    person: PersonId,
+  ): Promise<IssuedIntakeLink | null>
 }
 
 /**
@@ -518,9 +589,55 @@ export interface IntakePage {
   readonly goals: readonly DiscipleshipGoalOption[]
 }
 
+/**
+ * The same page, reopened by the one Person a token names, with what they last
+ * told this Ministry already in it.
+ *
+ * The link state travels with it rather than being resolved into a refusal here.
+ * A link that has run out and a token that was never real reach their holder as
+ * different pages: one sends them back to whoever issued it, the other is a URL
+ * that means nothing.
+ */
+export interface ReopenedIntakePage extends IntakePage {
+  readonly personId: PersonId
+  readonly state: IntakeLinkState
+  readonly prefill: IntakePrefill
+}
+
+/**
+ * What a Person already told this Ministry, as the form takes it back. Every field
+ * is nullable: an Admin may send the link to somebody who has never submitted, and
+ * a blank form is the right thing to show them.
+ */
+export interface IntakePrefill {
+  readonly fullName: string | null
+  readonly phone: string | null
+  readonly email: string | null
+  readonly ageBand: AgeBand | null
+  readonly gender: Gender | null
+  readonly goalId: DiscipleshipGoalId | null
+  /**
+   * Slot keys as the grid submits them -- `monday:midday`. Deliberately the form's
+   * own wire shape rather than `AvailabilitySlot`, because this is what the form
+   * takes back: `IntakeFormFields.availability` is the same list of strings, and a
+   * prefill in a different shape would be parsed on the way in and re-encoded on
+   * the way out for no reader's benefit.
+   */
+  readonly availability: readonly string[]
+  /**
+   * The decision that currently stands, never merely the last one recorded. A
+   * Person who granted contact sharing and later declined it sees `declined`,
+   * because that is what the form has to let them change back.
+   */
+  readonly contactSharing: 'granted' | 'declined' | null
+}
+
 export interface IntakeReader {
   /** Null when the link names no Ministry this Discipler holds. */
   readIntakePage(id: string): Promise<IntakePage | null>
+
+  /** Null when the token names nobody. Expired links still answer. */
+  readReopenedIntakePage(token: string): Promise<ReopenedIntakePage | null>
 }
 
 /**

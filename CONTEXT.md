@@ -104,7 +104,11 @@ _Avoid_: Starter Message (its words are true on the day a match is made, not aft
 
 **Invitation Link**:
 The individualized, SMS-delivered link that reveals a new relationship to a person in it, with no session. Only a Leader is ever sent one. It resolves on its own page rather than in the leader dashboard, because a leader has no account until they accept. Possession of the phone it was sent to is the authentication; it expires after a fixed window and is consumed when the leader creates their account, not when it is opened.
-_Avoid_: a Participant's link (a Participant answers at Intake and is asked nothing further)
+_Avoid_: a Participant's Invitation Link (a Participant answers at Intake and is asked nothing further). The Intake Link below is not one: it asks a Person nothing new and reveals nobody else to them.
+
+**Intake Link**:
+The link an Admin hands one Person so they can reopen their own intake form, prefilled, and correct what it says. It is the only route by which a Participant's availability changes: there is no participant dashboard and no SMS path for it. The Admin is shown the link and passes it on themselves — Discipler never texts it, because the commonest reason to reopen somebody's intake is that the number on file is wrong. Possession of it is the authentication, as with an Invitation Link, and it expires after a fixed window. One live link per person: asking for it again gives back the one they hold, and a new one is minted only once that has run out. It is never consumed — correcting a number today and availability next week is the thing it exists for.
+_Avoid_: an account (nothing about it gives anyone one), and the Intake form as a withdrawal route (that is `STOP`)
 
 **Response-Required Message**:
 A message in the Check-In Rhythm that expects a reply from its recipient.

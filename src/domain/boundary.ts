@@ -16,6 +16,7 @@ import {
   createRelationship,
   enqueueMessage,
   issueInvitationLink,
+  recordIntakeLink,
   raiseFollowUpItem,
   recordCheckInAnswer,
   recordIntake,
@@ -24,6 +25,7 @@ import {
   raiseConcern,
   recordConcernViewing,
   resolveConcern,
+  setLeadEligibility,
   type Effect,
   type NewCheckInPrompt,
 } from './effects'
@@ -60,6 +62,12 @@ import {
 } from './check-in'
 import { calendarMonthOf } from './week'
 import { readIntakeForm } from './intake'
+import {
+  intakeLinkState,
+  intakeLinkToken,
+  issueIntakeLink,
+  type IntakeLinkToken,
+} from './intake-link'
 import {
   acceptanceReminderMessage,
   checkInClarification,
@@ -149,6 +157,25 @@ export interface CommandContext {
    */
   readonly invitation?: InvitationSnapshot
   /**
+   * The Intake link a re-submission arrived through, as the database found it.
+   * Absent on the Ministry-wide link, which names nobody.
+   *
+   * It carries the Person and the window rather than a *live* flag, because
+   * whether a link has run out is a question about time and every one of those is
+   * answered here against the injected clock.
+   */
+  readonly intakeLink?: IntakeLinkSnapshot
+  /**
+   * The link this Person already holds, loaded on `intake.reopen`'s behalf, or
+   * `null` where they hold none.
+   *
+   * Null rather than absent for *none*, and absent rather than null for *not
+   * loaded*. The two are the same value and opposite facts here: a Person holding
+   * no link and a read that never happened would both mint a second one, and one of
+   * those quietly stops the link the Admin sent last week from working.
+   */
+  readonly intakeLinkHeld?: IntakeLinkSnapshot | null
+  /**
    * Every relationship in this Ministry that nobody has accepted yet, loaded on
    * the tick's behalf. Absent rather than empty, for the same reason the Roster
    * is: an unloaded snapshot and a Ministry with nothing outstanding are the same
@@ -226,6 +253,22 @@ export interface AwaitingLeader {
    * has waited a fortnight would be four days of reminders and then ten more.
    */
   readonly remindedAt: Date | null
+}
+
+/**
+ * An Intake link as the database holds it. Possession of it is the whole of the
+ * authentication, exactly as it is for an Invitation Link -- so what it names is
+ * who a submission is about, and the name and number on the form are what that
+ * Person is correcting rather than how they are recognised.
+ *
+ * It carries the window rather than a *live* flag, because whether a link has run
+ * out is a question about time and every one of those is answered against the
+ * injected clock.
+ */
+export interface IntakeLinkSnapshot {
+  readonly personId: PersonId
+  readonly token: IntakeLinkToken
+  readonly expiresAt: Date
 }
 
 export interface UnacceptedRelationship {
@@ -1929,18 +1972,44 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         throw new Error('intake.submit was handed no Ministry to speak for')
       }
 
+      const now = context.clock.now()
+
+      // Before the form is read at all, because it is not a problem with anything
+      // on the form. A link that has run out is refused on its own, so the Person
+      // is told to ask for a new one rather than being handed a list of fields to
+      // check that would not have helped.
+      if (command.token) {
+        if (!context.intakeLink) {
+          throw new Error('intake.submit was handed a token and no link to resolve it')
+        }
+        if (intakeLinkState(context.intakeLink.expiresAt, now) === 'expired') {
+          throw new IntakeRefused(['intake.link_expired'])
+        }
+      }
+
       const reading = readIntakeForm(command.form)
       if ('refusals' in reading) throw new IntakeRefused(reading.refusals)
 
       const { submission } = reading
-      const now = context.clock.now()
       const effects: Effect[] = []
 
-      // Usually they are already here: an Admin imported the congregation and then
-      // sent the link. A QR code at a leaders' meeting reaches people who are not,
-      // and Intake is a way onto the Roster as much as a way through it.
+      // Two ways of knowing who this is, and the link is the stronger of them.
+      //
+      // Without one, a Person is recognised by the name and number they typed --
+      // which is right for a Ministry-wide link, where the form has to ask who is
+      // filling it in because the URL cannot say. Usually they are already here: an
+      // Admin imported the congregation and then sent the link. A QR code at a
+      // leaders' meeting reaches people who are not, and Intake is a way onto the
+      // Roster as much as a way through it.
+      //
+      // With one, the token names them. That is the whole of what makes a
+      // correction possible: a Person changing the number Discipler holds no longer
+      // matches the key they were recognised by, so recognising them that way would
+      // file a second Person rather than fix the first.
       const key = rosterKey(submission)
-      const existing = context.roster.people.get(key)
+      const existing = command.token
+        ? context.intakeLink!.personId
+        : context.roster.people.get(key)
       const id = existing ?? personId(context.ids.next())
 
       if (!existing) {
@@ -1974,6 +2043,14 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           ministryId: command.ministryId,
           personId: id,
           submittedAt: now,
+          // Only where the token named them. On the Ministry-wide form the name and
+          // number are how this Person was recognised a few lines above, so writing
+          // them back could only overwrite the pair with a differently-cased copy
+          // of itself; through a link an Admin sent, they are what the Person came
+          // to change.
+          corrections: command.token
+            ? { fullName: submission.fullName, phone: submission.phone }
+            : null,
           ageBand: submission.ageBand,
           gender: submission.gender,
           goalId: submission.goalId,
@@ -2004,6 +2081,15 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             consentVersion: CONSENT_VERSION,
             contactSharingConsent: submission.contactSharingConsent,
             availabilitySlots: submission.availability.length,
+            // The name they gave on this submission, the same way
+            // `person.joined_at_intake` records the one they joined under. A
+            // correction overwrites `person.full_name`, and without this the name
+            // they had before would be gone from the whole system.
+            //
+            // The number is deliberately not here. History is a ministry-wide
+            // record an Admin surface reads, and the numbers Discipler actually
+            // used are already recoverable from `outbound_message.to_phone`.
+            fullName: submission.fullName,
           },
         }),
       )
@@ -2032,6 +2118,84 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       }
 
       return { effects, rejections: [] }
+    }
+
+    case 'intake.reopen': {
+      // Nothing about the Person is consulted. A link reveals their own answers to
+      // whoever holds it; whether they have completed Intake, whether they are
+      // paired, whether they have opted out are all questions the form answers when
+      // it is opened, and none of them is a reason to refuse an Admin the link. A
+      // Person who has opted out is the clearest case: they still have a number that
+      // may be wrong on the Roster.
+      if (context.intakeLinkHeld === undefined) {
+        throw new Error('intake.reopen was not told which link this Person already holds')
+      }
+
+      const now = context.clock.now()
+
+      // Asking for a link somebody already has is not issuing one. The Admin who
+      // closed the tab and came back is the ordinary case, and minting a second
+      // token there would stop the link they sent last week from working -- so this
+      // act is *give me this Person's link*, and it is idempotent while one stands.
+      const held = context.intakeLinkHeld
+      if (held && intakeLinkState(held.expiresAt, now) === 'live') {
+        return { effects: [], rejections: [] }
+      }
+
+      const link = issueIntakeLink({
+        ministryId: command.ministryId,
+        personId: command.personId,
+        token: intakeLinkToken(context.ids.next()),
+        at: now,
+      })
+
+      return {
+        effects: [
+          recordIntakeLink(link),
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'intake.link_issued',
+            subjectType: 'person',
+            subjectId: command.personId,
+            // The window, and not the token. History is read on an Admin surface,
+            // and recording the credential there would put a way into somebody's
+            // own form into the ministry's permanent record.
+            payload: { expiresAt: link.expiresAt.toISOString() },
+          }),
+        ],
+        rejections: [],
+      }
+    }
+
+    case 'person.set_lead_eligibility': {
+      // Nothing is loaded and nothing is consulted. Eligibility is a plan, and
+      // every fact it might have been checked against is a fact it is deliberately
+      // independent of: whether the Person has completed Intake, whether they hold
+      // an account, how many relationships they already lead. The rules that do
+      // depend on those are the pairing ones, and they are enforced where a
+      // membership is written rather than here.
+      const now = context.clock.now()
+
+      return {
+        effects: [
+          setLeadEligibility({
+            ministryId: command.ministryId,
+            personId: command.personId,
+            eligible: command.eligible,
+            decidedAt: now,
+          }),
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'person.lead_eligibility_set',
+            subjectType: 'person',
+            subjectId: command.personId,
+            payload: { eligible: command.eligible },
+          }),
+        ],
+        rejections: [],
+      }
     }
 
     case 'relationship.create': {

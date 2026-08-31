@@ -120,6 +120,14 @@ export type IntakeRefusal =
   | 'intake.contact_sharing_undecided'
   | 'intake.source_unknown'
   | 'intake.email_unreadable'
+  /**
+   * The two a form field cannot produce, and which `readIntakeForm` therefore never
+   * returns. They live in this union because they reach the Person the same way
+   * every other refusal does -- as a code, on the form they just submitted -- and a
+   * second vocabulary for them would be a second thing the page has to know about.
+   */
+  | 'intake.link_expired'
+  | 'intake.details_belong_to_someone_else'
 
 export type IntakeReading =
   | { readonly submission: IntakeSubmissionDraft }

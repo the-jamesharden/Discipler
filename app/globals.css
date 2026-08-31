@@ -103,6 +103,10 @@ table.overlay td.recommended { outline: 2px solid var(--accent); outline-offset:
   vertical-align: middle;
 }
 
+/* A list because each line is a separate relationship, not a run of prose. It reads
+   as lines rather than as bullets, which is what a table cell has room for. */
+ul.bare { list-style: none; margin: 0; padding: 0; }
+
 ul.legend { list-style: none; margin: 0.75rem 0; padding: 0; display: flex; flex-wrap: wrap; gap: 1rem; }
 ul.legend li { display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; }
 
