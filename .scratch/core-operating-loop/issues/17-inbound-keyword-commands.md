@@ -142,6 +142,29 @@ without the fix:
   defect and is not fixed here* — it needs the same field on a snapshot five commands
   share, and that is ticket 12's to close.
 
+### Fixed 2026-08-31 — the signature check refused every callback behind two proxies
+
+Found by the review that also asked why the check was unwritten, and in the part of
+it nothing had exercised: the URL the signature is verified against.
+
+**Both forwarded headers are lists** — each proxy in a chain appends to what it was
+given — and `calledUrl` split `x-forwarded-proto` on the comma but not
+`x-forwarded-host`. That asymmetry was invisible because of how `URL` behaves:
+assigning a value it cannot parse to `.host` is *silently ignored* rather than
+throwing, so `discipler.example, 10.0.0.7:3000` left the internal host in place and
+read as success. Behind two proxies every genuine callback would have been refused,
+with a signature mismatch as the only symptom and nothing naming the cause.
+
+One helper now takes the entry nearest the caller from either header, and a forwarded
+host that will not parse throws where the fault is instead of silently signing over an
+internal address. Two tests cover it, both failing without the fix.
+
+The residual recorded above stands and is unchanged: the URL is still re-serialized
+through `new URL`, so a console-configured callback URL differing in *encoding* would
+refuse genuine traffic. That is a different failure with a different fix, and the
+encoding a deployment actually uses is still the thing to check before hardening
+against a shape nobody has seen.
+
 ### Settled 2026-08-31 — `SWAP` with nothing live raises no item
 
 Two rules meet on one case and point opposite ways: a Person with **no live

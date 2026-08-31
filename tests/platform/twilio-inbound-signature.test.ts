@@ -103,6 +103,32 @@ describe('the URL the signature is checked against', () => {
     )
   })
 
+  it('takes the host nearest the caller when proxies have chained', () => {
+    // The same shape as the scheme above, and it failed differently: assigning a
+    // comma-separated value to `URL.host` is invalid, and an invalid host assignment
+    // is silently ignored rather than throwing -- so the internal host survived and
+    // every genuine callback was refused.
+    const headers = new Headers({
+      'x-forwarded-host': 'discipler.example, 10.0.0.7:3000',
+      'x-forwarded-proto': 'https, http',
+    })
+
+    expect(calledUrl('http://10.0.0.7:3000/sms/inbound', headers)).toBe(
+      'https://discipler.example/sms/inbound',
+    )
+  })
+
+  it('refuses to sign against an internal host a proxy header could not replace', () => {
+    // A forwarded host that will not parse leaves nothing trustworthy to sign over.
+    // Falling back to the internal address would refuse every genuine callback with
+    // no way to tell why, so the caller is told the URL could not be established.
+    const headers = new Headers({ 'x-forwarded-host': 'not a host at all' })
+
+    expect(() => calledUrl('http://10.0.0.7:3000/sms/inbound', headers)).toThrow(
+      /forwarded host/i,
+    )
+  })
+
   it('keeps the query string, which Twilio signs as part of the URL', () => {
     const headers = new Headers({ host: 'discipler.example' })
 

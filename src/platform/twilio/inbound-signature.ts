@@ -67,6 +67,14 @@ export const signatureMatches = (
 }
 
 /**
+ * Both forwarded headers are lists, because each proxy in a chain appends to what it
+ * was given. The first entry is the one nearest the caller, which is what Twilio
+ * actually dialled; everything after it is an internal hop.
+ */
+const nearestTheCaller = (value: string | null): string | null =>
+  value === null ? null : (value.split(',')[0]!.trim() || null)
+
+/**
  * The URL Twilio signed, which is the one it called rather than the one this
  * process thinks it is serving.
  *
@@ -79,8 +87,9 @@ export const signatureMatches = (
  */
 export const calledUrl = (requestUrl: string, headers: Headers): string => {
   const url = new URL(requestUrl)
-  const forwardedHost = headers.get('x-forwarded-host') ?? headers.get('host')
-  const forwardedProto = headers.get('x-forwarded-proto')
+  const forwardedHost =
+    nearestTheCaller(headers.get('x-forwarded-host')) ?? nearestTheCaller(headers.get('host'))
+  const forwardedProto = nearestTheCaller(headers.get('x-forwarded-proto'))
 
   // `host` is set rather than `hostname`, because the forwarded value may carry a
   // port -- and the port is cleared first, since assigning a host with no port in it
@@ -89,10 +98,18 @@ export const calledUrl = (requestUrl: string, headers: Headers): string => {
   if (forwardedHost) {
     url.port = ''
     url.host = forwardedHost
+
+    // `URL.host` is a setter that *silently ignores* a value it cannot parse, so a
+    // failed assignment leaves the internal address in place and reads as success.
+    // That is the worst of the three outcomes: every genuine callback refused, with
+    // a signature mismatch as the only symptom and nothing naming the cause. Better
+    // to fail where the fault is.
+    if (url.host !== forwardedHost.toLowerCase()) {
+      throw new Error(`Could not build the called URL: forwarded host ${forwardedHost}`)
+    }
   }
-  // A comma-separated list where more than one proxy appended to it; the first is
-  // the one nearest the caller, which is the scheme Twilio used.
-  if (forwardedProto) url.protocol = `${forwardedProto.split(',')[0]!.trim()}:`
+
+  if (forwardedProto) url.protocol = `${forwardedProto}:`
 
   return url.toString()
 }

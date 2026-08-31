@@ -52,53 +52,35 @@ describe.skipIf(skipUnlessAppIsRunning)('the inbound webhook', () => {
   // token is the running app's, discovered rather than chosen, for the reason
   // `cronSecret` gives -- a test that picked its own would prove the route agrees
   // with itself and nothing about whether Twilio can reach it.
-  const texts = (from: string, body: string) => {
+  const webhook = `${baseUrl}/sms/inbound`
+
+  const signingToken = () => {
     if (!twilioAuthToken) {
       throw new Error('TWILIO_AUTH_TOKEN is not set, so the webhook cannot be exercised')
     }
-
-    const url = `${baseUrl}/sms/inbound`
-    const parameters = { From: from, Body: body }
-
-    return fetch(url, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/x-www-form-urlencoded',
-        'x-twilio-signature': twilioSignature(twilioAuthToken, url, parameters),
-      },
-      body: new URLSearchParams(parameters),
-    })
+    return twilioAuthToken
   }
 
-  it('refuses a caller who did not sign, which is anybody who knows a number', async () => {
-    // The state this route was in until the signature check landed: a number is
-    // public, and `STOP`, `PAUSE` and a forged Concern were all reachable with it.
-    const response = await fetch(`${baseUrl}/sms/inbound`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ From: '+15550100001', Body: 'STOP' }),
-    })
-
-    expect(response.status).toBe(403)
-  })
-
-  it('refuses a body edited after it was signed', async () => {
-    // A genuine callback replayed with `STOP` in it. The signature is over the form
-    // Twilio sent, so the edit is what breaks it.
-    const url = `${baseUrl}/sms/inbound`
-    const signed = { From: '+15550100001', Body: 'hello' }
-
-    const response = await fetch(url, {
+  /**
+   * One POST to the webhook. The signature is passed in rather than derived here, so
+   * a test that sends the wrong one -- or none -- goes through the same assembly a
+   * genuine call does, instead of rebuilding the request beside it and proving the
+   * two agree about nothing.
+   */
+  const posts = (form: Readonly<Record<string, string>>, signature: string | null) =>
+    fetch(webhook, {
       method: 'POST',
       headers: {
         'content-type': 'application/x-www-form-urlencoded',
-        'x-twilio-signature': twilioSignature(twilioAuthToken!, url, signed),
+        ...(signature === null ? {} : { 'x-twilio-signature': signature }),
       },
-      body: new URLSearchParams({ ...signed, Body: 'STOP' }),
+      body: new URLSearchParams(form),
     })
 
-    expect(response.status).toBe(403)
-  })
+  const texts = (from: string, body: string) => {
+    const form = { From: from, Body: body }
+    return posts(form, twilioSignature(signingToken(), webhook, form))
+  }
 
   const inbox = async (person: PersonId): Promise<string[]> => {
     const { rows } = await pool.query<{ body: string }>(
@@ -108,6 +90,27 @@ describe.skipIf(skipUnlessAppIsRunning)('the inbound webhook', () => {
     )
     return rows.map((row) => row.body)
   }
+
+  it('refuses a caller who did not sign, which is anybody who knows a number', async () => {
+    // The state this route was in until the signature check landed: a number is
+    // public, and `STOP`, `PAUSE` and a forged Concern were all reachable with it.
+    const response = await posts({ From: '+15550100001', Body: 'STOP' }, null)
+
+    expect(response.status).toBe(403)
+  })
+
+  it('refuses a body edited after it was signed', async () => {
+    // A genuine callback replayed with `STOP` in it. The signature is over the form
+    // Twilio sent, so the edit is what breaks it.
+    const signed = { From: '+15550100001', Body: 'hello' }
+
+    const response = await posts(
+      { ...signed, Body: 'STOP' },
+      twilioSignature(signingToken(), webhook, signed),
+    )
+
+    expect(response.status).toBe(403)
+  })
 
   it('resolves the sender’s number to the question awaiting a reply', async () => {
     const leader = await congregant('Ruth Callan')
