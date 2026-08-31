@@ -108,6 +108,177 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
     expect(row).toContain('In a relationship with Uche Nwosu')
   })
 
+  /**
+   * One Person's row and nothing either side of it. The looser `slice(indexOf(name))`
+   * the suites above use reads to the end of the table, which is enough to prove a
+   * label is present and cannot prove one is absent -- and absence is half of what
+   * Awaiting Leader Acceptance has to say.
+   */
+  const rowFor = (html: string, name: string): string => {
+    // Matched on the name *cell*, not on the name. Every other Person in the
+    // relationship is printed inside this row too, so searching the page for
+    // "Ezra Kimani" finds whichever row mentions him first -- which is the row of
+    // the man he leads.
+    const row = html
+      .split('<tr')
+      .find((candidate) => candidate.startsWith(`><td>${name}</td>`))
+    expect(row, `no row on the Roster for ${name}`).toBeDefined()
+    // Tags stripped, so the assertions read the sentence an Admin reads rather than
+    // the markup it is carried in -- a label split across a `<span>` is the same
+    // words on the screen, and a test that failed over it would be testing the
+    // styling.
+    return row!.replace(/<[^>]*>/g, '')
+  }
+
+  it('says on the row that a relationship is still awaiting its leader’s acceptance', async () => {
+    // The state was derivable from `relationship.accepted_at` and was asserted once,
+    // in the banner the pairing screen redirects to, and never again. An Admin who
+    // came back a week later to ask which of their pairings had actually started had
+    // nowhere on the Roster to read it.
+    const { cookie } = await signIn(ministry)
+
+    const leader = await addPerson(ministry, 'Ezra Kimani', { phone: number() })
+    const participant = await addPerson(ministry, 'Dele Bakare', { phone: number() })
+    await pairOneToOne(ministry, leader, participant, { acceptedAt: null })
+
+    const { html } = await getPage('/roster', cookie)
+
+    // On both rows, because it is one fact about the relationship and neither side
+    // of it has started. The Participant has been told nothing yet either.
+    expect(rowFor(html, 'Ezra Kimani')).toContain('Leads Dele Bakare — Awaiting Leader Acceptance')
+    expect(rowFor(html, 'Dele Bakare')).toContain(
+      'In a relationship with Ezra Kimani — Awaiting Leader Acceptance',
+    )
+  })
+
+  it('stops saying it once that leader has accepted', async () => {
+    const { cookie } = await signIn(ministry)
+
+    const leader = await addPerson(ministry, 'Ines Ferreira', { phone: number() })
+    const participant = await addPerson(ministry, 'Noor Haddad', { phone: number() })
+    await pairOneToOne(ministry, leader, participant, { acceptedAt: new Date() })
+
+    const { html } = await getPage('/roster', cookie)
+
+    expect(rowFor(html, 'Ines Ferreira')).toContain('Leads Noor Haddad')
+    // Scoped to her row rather than the page: other suites in this Ministry leave
+    // unaccepted relationships behind, so a page-wide `not.toContain` would pass or
+    // fail on their fixtures instead of on hers.
+    expect(rowFor(html, 'Ines Ferreira')).not.toContain('Awaiting Leader Acceptance')
+  })
+
+  it('sends a leader a fresh invitation from the row that says they have not accepted', async () => {
+    // The condition the tick escalates to an Admin, with the act that answers it on
+    // the same row. Before this the Admin was told a relationship had not been
+    // accepted and had no way to do anything about it.
+    const { cookie } = await signIn(ministry)
+
+    // Paired through the real route rather than seeded, because the act under test
+    // re-sends a link: a fixture that writes the membership rows directly issues no
+    // invitation, and there would be nothing to send again. Same gender, since a
+    // one-to-one that crosses it is refused.
+    const leader = await addPerson(ministry, 'Malachi Reinvite', {
+      phone: number(),
+      answers: { gender: 'male' },
+    })
+    const participant = await addPerson(ministry, 'Ari Reinvite', {
+      phone: number(),
+      answers: { gender: 'male' },
+    })
+    const paired = await post('/roster/pair/create', cookie, {
+      leaderId: leader,
+      participantId: participant,
+    })
+    expect(paired.response.status).toBe(303)
+    expect(paired.location).not.toContain('refused')
+
+    const { rows: created } = await pool.query<{ relationship_id: string }>(
+      `select relationship_id from relationship_member where person_id = $1`,
+      [leader],
+    )
+    const relationship = created[0]?.relationship_id
+    expect(relationship).toBeDefined()
+
+    const before = await getPage('/roster', cookie)
+    expect(rowFor(before.html, 'Malachi Reinvite')).toContain('Send a new invitation')
+
+    const { response } = await post('/roster/reinvite', cookie, {
+      relationshipId: relationship!,
+      personId: leader,
+    })
+    expect(response.status).toBe(303)
+
+    const { rows } = await pool.query<{ body: string }>(
+      `select body from outbound_message where person_id = $1 order by enqueued_at`,
+      [leader],
+    )
+    // The invitation the pairing sent, and the one the Admin just sent again.
+    expect(rows).toHaveLength(2)
+    expect(rows[1]?.body).toContain('/invitation/')
+  })
+
+  it('claims nothing was sent when nothing was sent', async () => {
+    // The receipt used to be claimed from having asked rather than from what
+    // happened. Every no-op path leaves the Leader on the Roster under their own
+    // name, so a confirmation keyed on the id alone told an Admin a text had gone
+    // out when none had. Driven here through a relationship seeded with no
+    // invitation, which is a state the command finds nothing to act on.
+    const { cookie } = await signIn(ministry)
+
+    const leader = await addPerson(ministry, 'Perpetua Silent', { phone: number() })
+    const relationship = await pairOneToOne(
+      ministry,
+      leader,
+      await addPerson(ministry, 'Quill Silent', { phone: number() }),
+      { acceptedAt: null },
+    )
+
+    const { response, location } = await post('/roster/reinvite', cookie, {
+      relationshipId: relationship,
+      personId: leader,
+    })
+    expect(response.status).toBe(303)
+    expect(location).not.toContain('reinvited')
+
+    const { html } = await getPage(location.replace(/^https?:\/\/[^/]+/, ''), cookie)
+    expect(html).not.toContain('A new invitation has been sent to Perpetua Silent')
+  })
+
+  it('offers no new invitation on a relationship that has been accepted', async () => {
+    const { cookie } = await signIn(ministry)
+
+    const leader = await addPerson(ministry, 'Nkechi Settled', { phone: number() })
+    await pairOneToOne(
+      ministry,
+      leader,
+      await addPerson(ministry, 'Bo Settled', { phone: number() }),
+      { acceptedAt: new Date() },
+    )
+
+    const { html } = await getPage('/roster', cookie)
+    // Nothing to re-send. The button belongs to the state, not to the role.
+    expect(rowFor(html, 'Nkechi Settled')).not.toContain('Send a new invitation')
+  })
+
+  it('offers no new invitation to somebody who is only a participant in it', async () => {
+    // A Participant is sent no link at all, per ADR-0011, so there is nothing to
+    // re-issue to them -- and an affordance here would be an Admin sending a
+    // Participant a link the product deliberately does not give them.
+    const { cookie } = await signIn(ministry)
+
+    const participant = await addPerson(ministry, 'Odile Waiting', { phone: number() })
+    await pairOneToOne(
+      ministry,
+      await addPerson(ministry, 'Caleb Waiting', { phone: number() }),
+      participant,
+      { acceptedAt: null },
+    )
+
+    const { html } = await getPage('/roster', cookie)
+    expect(rowFor(html, 'Odile Waiting')).toContain('Awaiting Leader Acceptance')
+    expect(rowFor(html, 'Odile Waiting')).not.toContain('Send a new invitation')
+  })
+
   it('marks somebody eligible to lead before they have completed Intake', async () => {
     const { cookie } = await signIn(ministry)
 

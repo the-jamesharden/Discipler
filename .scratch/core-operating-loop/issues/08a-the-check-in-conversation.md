@@ -16,7 +16,7 @@ Relationships in `Awaiting Leader Acceptance` and `Paused` send no check-ins and
 
 **Blocked by:** 07
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 - [x] A Leader with three relationships receives one sequence covering all three, ordered by start date
 - [x] Each answer attaches to the right relationship and to the Person who sent it
@@ -160,3 +160,11 @@ they are the tests to change.
   relationship.
 - **The calendar month for the opt-out rule resolves in UTC.** 08a carries the
   language; 08b resolves the month against the Ministry timezone, as its text says.
+
+### Shipped — status line corrected 2026-08-31
+
+All fourteen criteria were met when the work landed and the status line was left at
+`ready-for-agent`. Verified before flipping it: `the-check-in-conversation.test.ts`
+passes (10 tests), and the one item this ticket raised for a human — *what a group
+check-in calls the group* — is parked in `docs/open-questions.md` under *pending
+review before the first pilot*. A question parked there does not hold a ticket open.

@@ -181,6 +181,12 @@ matches the duplicate-identity codes and lets the rest throw.
 
 ### Still open
 
+> **Swept 2026-08-31.** Three of these five are done, and the orphan-account item
+> below is wrong about its own severity. See *Swept — the three items that were this
+> ticket's* at the bottom of this file. What remains open is the first item (ticket
+> 24) and the second (ticket 07). Kept as written because it is the list the sweep
+> answers.
+
 - **Phone-and-password sign-in is half shipped.** The account this flow creates is
   a phone identity with a password, per ADR-0008, and no email is collected
   anywhere in the invitation flow. `app/login` and `app/auth/sign-in` still take an
@@ -267,3 +273,122 @@ branch goes is the same open decision.
 **Open:** the Participant reveal branch of `app/invitation/[token]/page.tsx` and the
 Participant scoping in `invitation-reader.ts` are now unreachable — nothing mints the
 token that would render them. They are kept, not deleted.
+
+### Swept — the three items that were this ticket's — 2026-08-31
+
+The *Still open* list held five items. Two were named there as other tickets' and
+still are: **phone-and-password sign-in** is ticket 24's, and **rendering Care
+Needed** is ticket 07's. The other three were this ticket's and are done.
+
+**The Roster derives Awaiting Leader Acceptance.** It is on each relationship line
+on the row, from `relationship.accepted_at is null`, so an Admin can see a week
+later which of their pairings actually started. The banner that used to assert it
+now describes what just happened -- *its leader has been invited* -- because a
+receipt that keeps claiming a state is the one thing on the page still saying
+*awaiting* after the Leader has accepted. `RosterRelationship` carries the
+relationship id for the same reason it carries the names: a row that can describe a
+relationship and not act on it is where the next item was stuck.
+
+**An Admin can send a Leader a fresh Invitation Link.** `invitation.reissue`, from
+the row that says the relationship has not been accepted. This was a dead end
+rather than a missing convenience: the tick stops reminding a Leader once their
+link has run out -- deliberately, since a reminder carrying a dead link sends them
+to a page telling them to find an Admin -- and raises `relationship_unaccepted`
+instead, which the Admin could then do nothing about.
+
+A live link is re-sent rather than replaced, which is `intake.reopen`'s rule for
+`intake.reopen`'s reason: the commonest reason to ask is a Leader who lost the
+text, and minting a second token there stops the one already on their phone from
+working. The Admin never sees the token -- unlike the Intake link, this one *sends*,
+because an Invitation Link authenticates by possession of the phone it was texted
+to and handing it to an Admin to forward would make it reachable by anybody they
+forward it to. The copy is the reminder's, so a Leader cannot tell whether the tick
+or an Admin sent it. Everything that should do nothing -- an accepted relationship,
+a Leader who has agreed, a Participant, another Ministry -- is absent from the
+snapshot rather than refused by a check, so one read covers all four.
+
+**The orphan account was not what this ticket recorded, and is now closed.** The
+note said it was *recoverable by retrying the same link*. It was not, and the
+comment in `accept/route.ts` said so too. The retry reads `person.user_id`, which
+is exactly what the failed command never set -- so it called `create` a second time,
+was refused because the number was taken, and told the Leader to go and sign in to
+an account belonging to no Person, which would accept nothing. A permanent dead end
+for that Leader, wearing a comment saying it was fine. The first test in
+`tests/integration/an-orphaned-account.test.ts` is that refusal, written down.
+
+Narrowed, not closed, by undoing the half-step rather than reconciling it
+afterwards: if the acceptance *throws*, the route discards the account it just
+minted, and the number is free for the retry. `discard` refuses an account any Person already holds -- that
+one was not made by the attempt that is failing, and deleting it would sign a
+working Leader out of their Ministry for good -- and it swallows its own failures,
+because a cleanup that throws replaces the error the Leader needs to see.
+
+**One existing assertion changed rather than being preserved.**
+`pairing-over-http.test.ts` checked the page said `awaiting its leader`, which was
+the banner. It now checks the row's derived label and the reworded receipt. The
+fact the test was written to protect is still asserted, in the place that stays
+true.
+
+30 new and changed tests. 1135 passing across 84 files, 1 skipped -- the
+pre-existing `it.skip` in `invitation-over-http.test.ts`, which waits on the
+decline-surface decision and is not this sweep's.
+
+### Corrected after review — 2026-08-31
+
+Two axes reviewed the sweep above and both refused it the terminal status. They were
+right on every count that mattered, and the code changed rather than the claim.
+
+**The status goes back to `ready-for-agent`.** `docs/agents/triage-labels.md` sets
+the bar: every criterion checked, and every item raised for a human resolved here or
+migrated to `docs/open-questions.md`. Two things fail it, and naming the work as
+another ticket's does not answer either. The criterion *The Leader signs in with a
+phone number and a password, and no email is collected anywhere in this flow* is
+still `[~]` and belongs to ticket 24. And the **Open:** note above -- the Participant
+reveal branch and the Participant scoping in `invitation-reader.ts`, unreachable
+since ticket 12 stopped minting the token -- was a decision left for a person with
+nowhere to live. It is now in `docs/open-questions.md`, which is where parking it
+makes it stop holding this ticket open.
+
+**The orphan account is narrowed, not closed, and the sweep said closed.** The
+compensation runs when `execute` throws in this process. A crash, a timeout or a
+dropped connection between `create` and the command still orphans an account, and
+nothing reconciles one after the fact. What the change removes is the ordinary case
+and the false comment; the residue is the reason the original note asked for a
+reconciliation pass, and that pass is still unwritten. The route's compensation path
+is also not covered by a test -- `an-orphaned-account.test.ts` exercises the adapter
+primitive it depends on, and says so.
+
+**Three defects in the new code, found by review and fixed:**
+
+- **The receipt claimed a text that had not been sent.** `?reinvited=<person>` was
+  set from having asked, and the page confirms whenever that id names anyone on the
+  Roster -- which every no-op path does, since the Leader is on the Roster under
+  their own name either way. An Admin re-inviting somebody whose row has no phone
+  number was told the invitation had gone. The route now redirects with `reinvited`
+  only when a message was actually enqueued, read off the effects.
+- **The tick would have sent the same sentence again.** `remindedAt` is read from
+  `relationship.acceptance_reminded`, so recording only `invitation.reissued` left
+  it null against a link that was live again, and the next tick re-sent the Admin's
+  own copy. The re-issue now appends that event too and counts as the one reminder.
+- **The superseded window was overwritten with no record of it.**
+  `reissueInvitation` replaces the row in place, and the history event carried only
+  `personId` and `replacedTheLink`. It now carries both ends of the window it
+  replaced, which is what `intake.link_issued` already does, and still never the
+  token.
+
+**Four decisions in the re-issue were settled by inference and should not have
+been.** CLAUDE.md: *do not infer material product behavior when a requirement is
+ambiguous; surface the ambiguity*. The ticket said only *"Re-issuing an expired
+link. Nothing does it."* Writing them up here afterwards is a record, not a
+surfacing, so they are in `docs/open-questions.md` for a human. They are: re-sending
+a live link rather than minting a new one; reusing the reminder's wording so a
+Leader cannot tell an Admin's chase from the tick's; a Leader with no number
+producing nothing at all; and the affordance being gated on role and state together.
+
+**One review finding rejected.** The duplication between the re-issue's enqueue and
+the tick's at ~1720 is real but has no existing helper to reuse:
+`chaseTheOpenQuestion` is check-in sequence chasing and not an acceptance reminder.
+Extracting one now would join two acts that differ in what they loop over and what
+they record.
+
+`tsc --noEmit` clean. 1138 passing across 84 files, 1 skipped.

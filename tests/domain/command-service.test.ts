@@ -71,6 +71,9 @@ describe('applying a command\'s effects', () => {
         issueInvitation: async () => {
           throw new Error('no invitation should have been issued')
         },
+        reissueInvitation: async () => {
+          throw new Error('no invitation should have been re-issued')
+        },
         acceptInvitation: async () => {
           throw new Error('nothing should have been accepted')
         },

@@ -38,6 +38,19 @@ export const rosterRoleLabel: Record<MemberRole, string> = {
   participant: 'In a relationship with',
 }
 
+/**
+ * Said beside the relationship rather than beside the Person, because it is a fact
+ * about the relationship: both sides of the same pairing read the same words, and
+ * neither of them is `Paired` differently because of it.
+ *
+ * The Participation Status column is left alone on purpose. `Paired` answers *is
+ * this person being discipled*, and someone whose only relationship has not been
+ * accepted yet is -- arranged for, not yet started. Folding acceptance into that
+ * column would give one word two jobs and make the derivation in SQL disagree with
+ * the one on the screen.
+ */
+export const AWAITING_LEADER_ACCEPTANCE = 'Awaiting Leader Acceptance'
+
 const PROBLEMS: Record<RowProblem, string> = {
   no_name: 'no name',
   no_phone: 'no phone number',

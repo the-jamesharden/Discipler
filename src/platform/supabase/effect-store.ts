@@ -872,6 +872,39 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     )
   },
 
+  async reissueInvitation(invitation: NewInvitation) {
+    // The row is updated rather than deleted and re-inserted, so the invitation
+    // keeps its identity and the dead token cannot survive alongside the live one.
+    // Scoped by Ministry as well as by the pairing: every write in this store is,
+    // and a relationship id arriving from another Ministry's Admin must match
+    // nothing rather than match on the id alone.
+    const { rowCount } = await client.query(
+      `update invitation
+          set token = $4, created_at = $5, expires_at = $6
+        where ministry_id = $1 and relationship_id = $2 and person_id = $3
+          and consumed_at is null`,
+      [
+        invitation.ministryId,
+        invitation.relationshipId,
+        invitation.personId,
+        invitation.token,
+        invitation.createdAt,
+        invitation.expiresAt,
+      ],
+    )
+
+    // No live invitation to replace. The domain decided there was one from a
+    // snapshot read in this transaction, so reaching here means it was spent
+    // between the read and the write -- the Leader accepted while the Admin was
+    // clicking. Thrown rather than inserted: inserting would hand a fresh link to
+    // somebody who has already accepted.
+    if (rowCount === 0) {
+      throw new Error(
+        `No live invitation to re-issue for ${invitation.personId} on ${invitation.relationshipId}`,
+      )
+    }
+  },
+
   async acceptInvitation(acceptance: LeaderAcceptance) {
     // Consumed on account creation, not on resolution -- and consumed exactly once.
     // The `where consumed_at is null` is what makes two submissions of the same

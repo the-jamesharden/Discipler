@@ -347,6 +347,20 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         async issueInvitation(invitation) {
           stagedInvitations.push(invitation)
         },
+        // Replaces rather than appends, like the real one: what the database keeps
+        // is one live invitation per person per relationship, and a fake that let
+        // two accumulate would make a test pass on a shape the index refuses.
+        async reissueInvitation(invitation) {
+          const supersedes = (candidate: NewInvitation) =>
+            candidate.relationshipId === invitation.relationshipId
+            && candidate.personId === invitation.personId
+          const at = invitations.findIndex(supersedes)
+          if (at >= 0) invitations.splice(at, 1)
+          for (let i = stagedInvitations.length - 1; i >= 0; i -= 1) {
+            if (supersedes(stagedInvitations[i]!)) stagedInvitations.splice(i, 1)
+          }
+          stagedInvitations.push(invitation)
+        },
         async acceptInvitation(acceptance) {
           stagedAcceptances.push(acceptance)
         },

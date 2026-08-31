@@ -16,7 +16,7 @@ Every unreadable reply is recorded, so the enumerated list can later be extended
 
 **Blocked by:** 08a, 08b
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 - [x] Matching is a pure function tested against a table including `yes`, `Yes we did!`, `y`, `nope`, `gret`, and emoji
 - [x] That table proves `it wasn't great`, `no concerns`, `we didn't meet`, and `1 and it was great` are all unreadable
@@ -86,3 +86,10 @@ both clocks at once and pass over a question the Leader was never reminded about
 The strippable list and the token list are both deliberately minimal. The ticket's
 own mechanism for growing them is the `checkin.reply_unreadable` history event,
 which records the body verbatim.
+
+### Shipped — status line corrected 2026-08-31
+
+All nine criteria were met when the work landed and the status line was left at
+`ready-for-agent`. Verified before flipping it: `generous-replies.test.ts` (54 tests)
+and `reminders-and-abandonment.test.ts` (37 tests) pass. Every question this ticket
+raised is settled in the comments above; none was left for a human.

@@ -45,4 +45,32 @@ export const supabaseLeaderAccounts: LeaderAccounts = {
 
     return { userId: data.user.id }
   },
+
+  async discard(userId) {
+    const admin = createClient(supabaseCredentials().url, serviceRoleKey(), {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
+
+    // Asked before deleting, and asked of the database rather than trusted from the
+    // caller. The one account that must survive this is one somebody is already
+    // signed in with, and the record of that is `person.user_id` -- the same column
+    // the acceptance route reads to decide not to create a second account.
+    const { data: held, error: lookup } = await admin
+      .from('person')
+      .select('id')
+      .eq('user_id', userId)
+      .limit(1)
+
+    if (lookup) throw new Error(`Could not check whether an account is held: ${lookup.message}`)
+    if (held && held.length > 0) {
+      throw new Error(`Refusing to discard ${userId}: a Person already holds it`)
+    }
+
+    const { error } = await admin.auth.admin.deleteUser(userId)
+
+    // Already gone is the outcome this wanted. This runs while another failure is
+    // being handled, and throwing here would replace the error the Leader needs to
+    // see with one about the cleanup that followed it.
+    if (error && error.status !== 404) throw error
+  },
 }

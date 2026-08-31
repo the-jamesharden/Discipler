@@ -80,6 +80,25 @@ export type Command =
       readonly personId: PersonId
     }
   /**
+   * Sending a Leader their Invitation Link again.
+   *
+   * The condition it answers is one the product raises and could not act on. The
+   * tick stops reminding a Leader whose link has run out -- a reminder carrying a
+   * dead link sends them to a page telling them to find an Admin -- and escalates
+   * to `relationship_unaccepted` instead. This is what an Admin does about it.
+   *
+   * A live link is re-sent rather than replaced, for the reason `intake.reopen`
+   * gives: minting a second token stops the one already on their phone from
+   * working, and the commonest reason to ask is a Leader who lost the text rather
+   * than one holding a dead link.
+   */
+  | {
+      readonly type: 'invitation.reissue'
+      readonly ministryId: MinistryId
+      readonly relationshipId: RelationshipId
+      readonly personId: PersonId
+    }
+  /**
    * An Admin's plan that this Person may lead, recorded before Intake and kept up
    * to date afterwards. One field and not two: the intended role *is* the
    * leader-pool flag, because a Person marked intended-leader but not eligible

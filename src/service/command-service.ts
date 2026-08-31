@@ -78,6 +78,9 @@ export const applyEffects = async (
   const invitations = effects.flatMap((effect) =>
     effect.kind === 'invitation.issue' ? [effect.invitation] : [],
   )
+  const reissues = effects.flatMap((effect) =>
+    effect.kind === 'invitation.reissue' ? [effect.invitation] : [],
+  )
   const acceptances = effects.flatMap((effect) =>
     effect.kind === 'invitation.accept' ? [effect.acceptance] : [],
   )
@@ -170,6 +173,11 @@ export const applyEffects = async (
   // relationship index is what would catch the two in the wrong order.
   for (const acceptance of acceptances) await unit.acceptInvitation(acceptance)
   for (const invitation of invitations) await unit.issueInvitation(invitation)
+  // After the issues, for the same ordering reason: both write the row the one
+  // live token per person per relationship index governs, and a re-issue landing
+  // before the insert it replaces would be refused by that index rather than
+  // replacing anything.
+  for (const invitation of reissues) await unit.reissueInvitation(invitation)
   for (const item of followUps) await unit.raiseFollowUp(item)
 
   // Before the history that says they happened, like every other write here. An
@@ -344,6 +352,9 @@ const needsTheMinistryName = (command: Command): boolean =>
   command.type === 'relationship.create' ||
   command.type === 'relationship.resume' ||
   command.type === 'scheduled.tick' ||
+  // It sends a Leader the same text the tick does, and every message this product
+  // sends names the Ministry it comes from.
+  command.type === 'invitation.reissue' ||
   isCheckIn(command) ||
   isTokenDriven(command)
 
@@ -474,6 +485,13 @@ export const createCommandService = ({
         // one back rather than minting a second and stopping the first from working.
         ...(command.type === 'intake.reopen'
           ? { intakeLinkHeld: await unit.intakeLinkFor(command.personId) }
+          : {}),
+        // The same snapshot the tick reads, rather than a second read of its own.
+        // Re-issuing acts on exactly the Leaders the tick considers still awaited,
+        // and two reads of *who is still to agree* would be two answers waiting to
+        // disagree about whether an Admin may send somebody a link.
+        ...(command.type === 'invitation.reissue'
+          ? { unaccepted: await unit.unacceptedRelationships() }
           : {}),
         // Read inside the transaction like everything else, so two ticks racing
         // each other cannot both find the same Leader unasked. The cadence read

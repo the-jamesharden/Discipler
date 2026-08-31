@@ -1,4 +1,4 @@
-import { personId } from '~/domain/ids'
+import { personId, relationshipId } from '~/domain/ids'
 import { isParticipationStatus, type ParticipationStatus } from '~/domain/participation'
 import { isMemberRole, type MemberRole } from '~/domain/relationships'
 import { intakeLinkState, intakeLinkToken } from '~/domain/intake-link'
@@ -102,6 +102,53 @@ export const supabaseRosterReader: RosterReader = {
     // would say a Person is being discipled by somebody they lead.
     const memberships = ((members ?? []) as MemberRow[]).filter((row) => isMemberRole(row.role))
 
+    // The relationships themselves, for one column: whether each has been accepted.
+    // `accepted_at` is activation and Awaiting Leader Acceptance is its absence --
+    // there is no status column to read, by design, so the Roster derives it here or
+    // it goes on asserting it in a banner and never saying it again.
+    //
+    // Asked for by id, from the memberships just read, rather than for the
+    // Ministry's whole set. Both reads come back capped by PostgREST, and two
+    // independently capped reads can disagree about which relationships exist --
+    // which would land in `awaitingAcceptanceOf` as drift and take the Roster down
+    // with it. Asking for exactly the ids in hand cannot produce a row the
+    // memberships did not already name.
+    const named = [...new Set(memberships.map((row) => row.relationship_id))]
+
+    const { data: relationships, error: relationshipError } = await supabase
+      .from('relationship')
+      .select('id, accepted_at')
+      .eq('ministry_id', ministryId)
+      .in('id', named)
+
+    if (relationshipError) {
+      throw new Error(`Could not read relationships: ${relationshipError.message}`)
+    }
+
+    const acceptedById = new Map(
+      ((relationships ?? []) as { id: string; accepted_at: string | null }[]).map((row) => [
+        row.id,
+        row.accepted_at !== null,
+      ]),
+    )
+
+    /**
+     * The two reads are policed by predicates written to mirror each other -- a
+     * membership is visible to exactly whoever its relationship is. So a membership
+     * whose relationship did not come back means they have drifted apart, and it is
+     * thrown like the other drift in this file rather than defaulted: reading a
+     * missing row as *accepted* would tell an Admin a relationship had started when
+     * nobody had agreed to it, and reading it as *awaiting* would tell a Leader
+     * their live relationships had all stalled.
+     */
+    const awaitingAcceptanceOf = (relationship: string): boolean => {
+      const accepted = acceptedById.get(relationship)
+      if (accepted === undefined) {
+        throw new Error(`A Roster membership named a relationship that did not come back: ${relationship}`)
+      }
+      return !accepted
+    }
+
     const byRelationship = new Map<string, MemberRow[]>()
     for (const row of memberships) {
       byRelationship.set(row.relationship_id, [
@@ -119,7 +166,9 @@ export const supabaseRosterReader: RosterReader = {
       memberships
         .filter((row) => row.person_id === id)
         .map((membership) => ({
+          relationshipId: relationshipId(membership.relationship_id),
           role: membership.role,
+          awaitingAcceptance: awaitingAcceptanceOf(membership.relationship_id),
           withNames: [
             ...new Set(
               (byRelationship.get(membership.relationship_id) ?? []).flatMap((other) =>

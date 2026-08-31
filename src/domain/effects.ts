@@ -493,6 +493,7 @@ export type Effect =
   | { readonly kind: 'message.enqueue'; readonly message: OutboundMessageDraft }
   | { readonly kind: 'relationship.create'; readonly relationship: NewRelationship }
   | { readonly kind: 'invitation.issue'; readonly invitation: NewInvitation }
+  | { readonly kind: 'invitation.reissue'; readonly invitation: NewInvitation }
   | { readonly kind: 'intake_link.issue'; readonly link: NewIntakeLink }
   | { readonly kind: 'invitation.accept'; readonly acceptance: LeaderAcceptance }
   | { readonly kind: 'followUp.raise'; readonly item: NewFollowUpItem }
@@ -571,6 +572,20 @@ export const createPerson = (person: NewPerson): Effect => ({
 
 export const issueInvitationLink = (invitation: NewInvitation): Effect => ({
   kind: 'invitation.issue',
+  invitation,
+})
+
+/**
+ * Replaces the link a Leader holds rather than adding one beside it.
+ *
+ * A separate effect from `invitation.issue` and not an upsert on it, because the
+ * two mean different things to the index that governs them: issuing must refuse a
+ * second live token for the same pairing, and re-issuing must replace the one
+ * that is already there. Folding them together would make the guard depend on
+ * which caller was speaking.
+ */
+export const reissueInvitationLink = (invitation: NewInvitation): Effect => ({
+  kind: 'invitation.reissue',
   invitation,
 })
 

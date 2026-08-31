@@ -28,7 +28,7 @@ Implements `docs/adr/0007-the-check-in-cadence-and-the-week-boundary.md`.
 
 **Blocked by:** 07, 08a, 22
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 - [x] The send time comes from the Ministry's `checkin_day` and `checkin_hour`, resolved against the Ministry timezone
 - [x] The database refuses a `checkin_hour` outside 8am–9pm, not only the form
@@ -174,3 +174,17 @@ is load-bearing — it is what stops an inbound reply and a newly-due sequence b
 finding no conversation open — but it means one tick locks every Leader in the
 Ministry. Fine at pilot scale, and the first thing to revisit if a tick starts
 contending with inbound replies.
+
+### Shipped — status line corrected 2026-08-31
+
+All seven criteria were met when the work landed and the status line was left at
+`ready-for-agent`. Verified before flipping it: `the-cadence.test.ts` passes (10
+tests).
+
+The items raised above were checked against the terminal bar rather than waved
+through. *Who authors the `checkin_hour` constraint* and *the cadence defaults* are
+settled in this ticket. *A Leader whose relationships carry different cadences* is
+unreachable while `docs/open-questions.md` holds per-relationship cadence unsurfaced
+in V1 — it becomes a decision when someone surfaces the override columns, not before.
+*`checkin.start` was kept, not deleted* was the one genuinely open item with nowhere
+to live, and is now migrated to `docs/open-questions.md`.

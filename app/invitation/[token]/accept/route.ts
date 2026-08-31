@@ -45,6 +45,11 @@ export async function POST(
    */
   let userId = invitation.userId
 
+  // Whether *this* request minted the account, which is the only one it may undo.
+  // An account reached through `person.user_id` belongs to a Leader who is already
+  // using it.
+  let mintedHere = false
+
   if (!userId) {
     // The number on file, never one that was typed. A Leader cannot mistype their
     // way out of their own check-ins, and a forwarded link cannot re-point an
@@ -52,6 +57,7 @@ export async function POST(
     const account = await getLeaderAccounts().create(invitation.phone, password)
     if ('refusal' in account) return back(account.refusal)
     userId = account.userId
+    mintedHere = true
   }
 
   try {
@@ -63,10 +69,23 @@ export async function POST(
       userId,
     })
   } catch (error) {
-    // The account now exists and the acceptance did not land. Opening the same
-    // link again finds `person.user_id` set and reuses it rather than trying to
-    // create a second account, so the retry works -- and the failure is not
-    // dressed up as something the Leader did wrong.
+    // The account exists and the acceptance did not land, so the half-step is
+    // undone rather than left to be reconciled later.
+    //
+    // Retrying the link does not recover this on its own, which is what ticket 06
+    // recorded and is not true: the retry reads `person.user_id`, which the failed
+    // command never set, so it tries to create the account again and is refused
+    // because the number is now taken -- and the refusal sends the Leader to sign
+    // in to an account belonging to no Person, which would accept nothing. Putting
+    // the number back is what makes the retry work.
+    if (mintedHere) {
+      // Never in place of the failure being handled. A cleanup that throws would
+      // replace the error the Leader needs to see with one about the cleanup, and
+      // the state it leaves behind is the state this code shipped with.
+      await getLeaderAccounts()
+        .discard(userId)
+        .catch(() => undefined)
+    }
     if (error instanceof InvitationRefused) return back(error.refusal)
     throw error
   }

@@ -144,6 +144,13 @@ export interface UnitOfWork {
   resolveInvitation(token: InvitationToken): Promise<InvitationSnapshot | null>
   issueInvitation(invitation: NewInvitation): Promise<void>
   /**
+   * Replaces the live invitation this Person holds to this relationship with a new
+   * token and a new window. One row throughout: the partial unique index permits
+   * one live invitation per person per relationship, and a dead token left beside
+   * a live one is a second way in that nothing can revoke.
+   */
+  reissueInvitation(invitation: NewInvitation): Promise<void>
+  /**
    * One Leader agreeing to lead, as one write. The token is spent, the name is
    * stored as given, the account is linked to the Person record, the membership is
    * stamped -- and the relationship itself is stamped when this was the last open
@@ -356,6 +363,19 @@ export interface LeaderAccounts {
     phone: string | null,
     password: string,
   ): Promise<{ readonly userId: string } | { readonly refusal: AccountRefusal }>
+  /**
+   * Undoes a `create` whose acceptance did not land.
+   *
+   * An account is minted before the command that links it, so a failure in between
+   * leaves a login belonging to no Person -- and the number it holds is the one the
+   * retry needs, which is why the retry was refused rather than recovering. This
+   * puts the number back.
+   *
+   * It refuses an account any Person already holds. That account was not made by
+   * the attempt that is failing, and deleting it would sign a working Leader out of
+   * their Ministry for good.
+   */
+  discard(userId: string): Promise<void>
 }
 
 /**
@@ -495,9 +515,23 @@ export interface LeaderDashboardReader {
  * takes for a bug unless the row says why.
  */
 export interface RosterRelationship {
+  /**
+   * Named so the row can act on it. Every act an Admin takes about a relationship
+   * from the Roster is about one of *these* relationships rather than about the
+   * Person, and without the id the row can describe them and do nothing.
+   */
+  readonly relationshipId: RelationshipId
   readonly role: MemberRole
   /** Everyone else in it, whatever their role. A group shows all of them. */
   readonly withNames: readonly string[]
+  /**
+   * Derived from `relationship.accepted_at`, never stored as a status. It is the
+   * absence of an acceptance rather than a state anybody sets, which is why it
+   * belongs on the relationship and not beside the Participation Status: it says
+   * nothing about the Person whose row it is on, and both sides of the same
+   * relationship read it the same way.
+   */
+  readonly awaitingAcceptance: boolean
 }
 
 export interface RosterEntry {

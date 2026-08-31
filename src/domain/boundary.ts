@@ -20,6 +20,7 @@ import {
   createRelationship,
   enqueueMessage,
   issueInvitationLink,
+  reissueInvitationLink,
   recordIntakeLink,
   raiseFollowUpItem,
   recordCheckInAnswer,
@@ -2965,6 +2966,112 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             // and recording the credential there would put a way into somebody's
             // own form into the ministry's permanent record.
             payload: { expiresAt: link.expiresAt.toISOString() },
+          }),
+        ],
+        rejections: [],
+      }
+    }
+
+    case 'invitation.reissue': {
+      const { unaccepted, ministryName, appBaseUrl } = context
+      if (!unaccepted) {
+        throw new Error('invitation.reissue was not told which relationships are unaccepted')
+      }
+      if (!ministryName) throw new Error('invitation.reissue was not told the Ministry name')
+      if (!appBaseUrl) throw new Error('invitation.reissue was not told where links point')
+
+      const now = context.clock.now()
+
+      // Absence is the whole of the guard, and it covers every case that should do
+      // nothing in one read: a relationship already accepted is not in this list, a
+      // Leader who has agreed is not in its `awaiting`, and a relationship in
+      // another Ministry was never loaded because the snapshot is scoped to this
+      // one. None of them is a refusal -- the Admin is looking at a screen that was
+      // true when it rendered, and a relationship that got accepted underneath them
+      // is a race they won by losing.
+      const relationship = unaccepted.find(
+        (candidate) => candidate.relationshipId === command.relationshipId,
+      )
+      const leader = relationship?.awaiting.find(
+        (candidate) => candidate.personId === command.personId,
+      )
+      if (!relationship || !leader) return { effects: [], rejections: [] }
+
+      // Nowhere to send it. A Leader with no number on file cannot be texted a link
+      // at all, and enqueuing one would be refused by the outbound queue rather
+      // than telling the Admin what is actually wrong: the Roster row is missing a
+      // phone number.
+      if (!leader.phone) return { effects: [], rejections: [] }
+
+      // A live link is re-sent, never replaced. `intake.reopen` settles this for the
+      // same reason: the commonest reason to ask is a Leader who lost the text, and
+      // minting a second token there stops the one already on their phone from
+      // working -- turning a lost message into a broken link.
+      const stillLive = leader.linkExpiresAt.getTime() > now.getTime()
+
+      const invitation = stillLive
+        ? null
+        : issueInvitation({
+            ministryId: command.ministryId,
+            relationshipId: command.relationshipId,
+            personId: command.personId,
+            token: invitationToken(context.ids.next()),
+            at: now,
+          })
+
+      const token = invitation?.token ?? leader.token
+
+      return {
+        effects: [
+          ...(invitation ? [reissueInvitationLink(invitation)] : []),
+          enqueueMessage({
+            ministryId: command.ministryId,
+            personId: command.personId,
+            toPhone: leader.phone,
+            // The reminder's words, not a fourth near-identical invitation string.
+            // What an Admin is doing here is what the tick does automatically until
+            // the link runs out, and one Leader should not be able to tell from the
+            // text which of the two sent it.
+            body: acceptanceReminderMessage({
+              ministryName,
+              fullName: leader.fullName,
+              link: invitationLink(appBaseUrl, token),
+            }),
+            enqueuedAt: now,
+            // No message to a Leader contains a phone number.
+            disclosesPersonId: null,
+          }),
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'invitation.reissued',
+            subjectType: 'relationship',
+            subjectId: command.relationshipId,
+            // Which Leader, whether they were given a new link, and both ends of
+            // the window that was replaced -- `reissueInvitation` overwrites the
+            // row in place, so without them the issuance this superseded is gone
+            // rather than recorded. The windows and never the token: history is
+            // read on an Admin surface, and writing the credential there keeps a
+            // way into somebody's acceptance in the Ministry's permanent record.
+            payload: {
+              personId: command.personId,
+              replacedTheLink: invitation !== null,
+              supersededExpiresAt: leader.linkExpiresAt.toISOString(),
+              expiresAt: (invitation?.expiresAt ?? leader.linkExpiresAt).toISOString(),
+            },
+          }),
+          // The tick counts *this* as the one reminder that Leader gets. Without
+          // it the re-issue leaves `remindedAt` null against a link that is now
+          // live again, and the next tick sends the identical sentence a second
+          // time -- the Admin's chase and the automatic one arriving as two texts
+          // nobody meant to send twice.
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'relationship.acceptance_reminded',
+            subjectType: 'relationship',
+            subjectId: command.relationshipId,
+            payload: { personId: command.personId },
           }),
         ],
         rejections: [],

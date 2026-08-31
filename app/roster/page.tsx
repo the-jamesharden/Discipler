@@ -6,6 +6,7 @@ import { personId } from '~/domain/ids'
 import { intakeReopenLink } from '~/domain/outbound-copy'
 import { appBaseUrl } from '~/platform/supabase/credentials'
 import {
+  AWAITING_LEADER_ACCEPTANCE,
   importFailureMessage,
   participationStatusLabel,
   rosterRoleLabel,
@@ -39,6 +40,8 @@ export default async function RosterPage({
     paired?: string
     /** The Person whose Intake link was just issued, so this page shows that one. */
     intakeLinkFor?: string
+    /** The Leader who was just sent their Invitation Link again. */
+    reinvited?: string
   }>
 }) {
   const resolution = await resolveAdmin()
@@ -72,6 +75,15 @@ export default async function RosterPage({
   // How many Participants the relationship just created has, so the confirmation can
   // say what landed. Read as a count and never echoed as text.
   const paired = Number.parseInt(query.paired ?? '', 10)
+
+  // Looked up on the Roster rather than echoed, like every other name this page
+  // says: what arrives in the query string is whatever somebody typed there.
+  //
+  // Whether anything was *sent* is not decided here and cannot be -- every no-op
+  // path leaves the Leader on the Roster under their own name, so this lookup
+  // cannot tell a text that went out from one that did not. The route only
+  // redirects with `reinvited` when a message was actually enqueued.
+  const reinvited = roster.find((person) => person.personId === query.reinvited)?.fullName ?? null
 
   return (
     <main>
@@ -152,10 +164,19 @@ export default async function RosterPage({
       <div className="panel">
         {Number.isInteger(paired) && paired > 0 ? (
           <p role="status">
+            {/* What just happened, and not what is still true. The state this used
+                to assert is now on the rows, derived; a receipt that went on
+                claiming it would be the one thing on the Roster still saying
+                *awaiting* after the leader had accepted and the page was
+                reloaded. */}
             {paired === 1
-              ? 'A relationship was created. It is awaiting its leader\u2019s acceptance, and nobody has been contacted yet.'
-              : `A relationship with ${paired} participants was created. It is awaiting its leader\u2019s acceptance, and nobody has been contacted yet.`}
+              ? 'A relationship was created. Its leader has been invited, and nobody else has been contacted yet.'
+              : `A relationship with ${paired} participants was created. Its leader has been invited, and nobody else has been contacted yet.`}
           </p>
+        ) : null}
+
+        {reinvited ? (
+          <p role="status">{`A new invitation has been sent to ${reinvited}.`}</p>
         ) : null}
 
         {roster.length === 0 ? (
@@ -191,6 +212,32 @@ export default async function RosterPage({
                           {person.relationships.map((relationship, index) => (
                             <li key={`${relationship.role}:${index}`}>
                               {`${rosterRoleLabel[relationship.role]} ${relationship.withNames.join(', ')}`}
+                              {/* Derived from the absence of an acceptance, not read
+                                  from a status column -- there is not one. It is the
+                                  difference between a pairing an Admin has arranged
+                                  and one that has actually started, and without it
+                                  the Roster said so once in a banner and never
+                                  again. */}
+                              {relationship.awaitingAcceptance ? (
+                                <span className="subtle">{` — ${AWAITING_LEADER_ACCEPTANCE}`}</span>
+                              ) : null}
+                              {/* Offered on the state and the role together, never
+                                  on either alone. A Participant is sent no link at
+                                  all (ADR-0011), so on their row there is nothing
+                                  to send again -- and on an accepted relationship
+                                  there is nobody left to ask. */}
+                              {relationship.awaitingAcceptance
+                              && relationship.role === 'leader' ? (
+                                <form action="/roster/reinvite" method="post">
+                                  <input
+                                    type="hidden"
+                                    name="relationshipId"
+                                    value={relationship.relationshipId}
+                                  />
+                                  <input type="hidden" name="personId" value={person.personId} />
+                                  <button type="submit">Send a new invitation</button>
+                                </form>
+                              ) : null}
                             </li>
                           ))}
                         </ul>

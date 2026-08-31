@@ -107,8 +107,13 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
     )
     expect(queued.map((row) => row.person_id)).toEqual([rachel])
 
+    // Said on the row now, derived from `relationship.accepted_at`, rather than
+    // asserted by the banner the pairing redirects to. The banner describes what
+    // just happened and stops being evidence of anything the moment the page is
+    // reloaded; the row goes on saying it until the Leader actually agrees.
     const { html } = await getPage('/roster?paired=1', cookie)
-    expect(html).toContain('awaiting its leader')
+    expect(html).toContain('Awaiting Leader Acceptance')
+    expect(html).toContain('Its leader has been invited')
   })
 
   it('forms one relationship from several people selected together', async () => {
