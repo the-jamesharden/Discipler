@@ -2253,8 +2253,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       return { rejections: [], effects }
     }
 
-    case 'invitation.dispute_number':
-    case 'match.decline': {
+    case 'invitation.dispute_number': {
       const invitation = context.invitation
       if (!invitation) {
         throw new Error(`${command.type} was handed no invitation to act on`)
@@ -2263,20 +2262,14 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       const me = memberHolding(invitation, invitation.personId)
       const now = context.clock.now()
 
-      // A Leader disputes the number Discipler holds for them; a Participant says
-      // the match is not right. Neither is the other's, and a link forwarded to
-      // somebody else cannot become one.
-      if (command.type === 'invitation.dispute_number' && me.role !== 'leader') {
+      // A Leader disputes the number Discipler holds for them, and only a Leader:
+      // a link forwarded to somebody else cannot become theirs. Only a Leader is
+      // ever sent one -- see `docs/adr/0011-only-a-leader-is-sent-a-link.md` -- so
+      // this refusal is a fence around a state nothing produces rather than a
+      // branch the flow reaches.
+      if (me.role !== 'leader') {
         throw new InvitationRefused('invitation.not_a_leader')
       }
-      if (command.type === 'match.decline' && me.role !== 'participant') {
-        throw new InvitationRefused('invitation.not_a_participant')
-      }
-
-      const kind =
-        command.type === 'invitation.dispute_number'
-          ? 'invitation_number_disputed'
-          : 'match_declined'
 
       // It changes nothing else. A forwarded link can never re-point an account,
       // and unpairing stays a pastoral decision an Admin makes.
@@ -2285,7 +2278,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         effects: [
           raiseFollowUpItem({
             ministryId: command.ministryId,
-            kind,
+            kind: 'invitation_number_disputed',
             personId: me.personId,
             relationshipId: invitation.relationshipId,
             raisedAt: now,
@@ -2293,7 +2286,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           appendHistory({
             ministryId: command.ministryId,
             occurredAt: now,
-            type: `follow_up.${kind}`,
+            type: 'follow_up.invitation_number_disputed',
             subjectType: 'relationship',
             subjectId: invitation.relationshipId,
             payload: { personId: me.personId },

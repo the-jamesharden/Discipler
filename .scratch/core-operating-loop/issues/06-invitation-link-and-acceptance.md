@@ -225,3 +225,45 @@ capability the product had shipped and reverses two settled sections.
 `src/domain/follow-up.ts`, and the tests that cover them. The `match_declined`
 value in the `follow_up_kind` enum **must stay** — history that already carries it
 has to read back, and this repo does not overwrite past facts.
+
+### Swept — the withdrawal ADR-0011 named is done, bar one decision — 2026-08-31
+
+The *Still to withdraw* list above was still standing three tickets later. Cleared:
+
+- `match.decline` is gone from `src/domain/commands.ts`, and its branch of the
+  shared `invitation.dispute_number` case in `src/domain/boundary.ts` with it. That
+  case no longer branches on `command.type` at all: one command, one refusal, one
+  kind, rather than a ternary choosing between a live path and a dead one.
+- `app/invitation/[token]/decline/route.ts` is deleted.
+- `invitation.not_a_participant` is gone from `src/domain/errors.ts` and from
+  `app/invitation/copy.ts`, and `match.decline` from `isTokenDriven` in
+  `src/service/command-service.ts`.
+- The decline form is gone from `app/invitation/[token]/page.tsx`, and the
+  `done=declined` acknowledgement with it.
+
+**`src/domain/follow-up.ts` was deliberately left alone**, against the list above.
+The list says to withdraw the `match_declined` kind there and, in the next sentence,
+that the enum value must stay because *history that already carries it has to read
+back*. Those cannot both hold: `FOLLOW_UP_KINDS`, `isFollowUpKind` and
+`readFollowUpPayload` are the read-back path the Care Needed reader narrows a stored
+row through, so dropping the kind from the domain would make an existing
+`match_declined` row fail `isFollowUpKind` and vanish from an Admin's list — silently,
+which is the one thing a Follow-Up Item exists not to do. Whether the domain should
+keep rendering a kind nothing can write is a decision, not a refactor, so it is left
+for a person. `tests/integration/care-needed.test.ts` and
+`tests/integration/follow-up-items.test.ts` still cover the read-back and still pass.
+
+**Three tests in `invitation-over-http.test.ts` were already failing at HEAD** and
+were passing only against a stale `next dev` on :3000. Ticket 12 stopped minting the
+Participant's link and left them behind, all three dying on `no live invitation was
+issued`. Verified by running the suite against a freshly built server. The two
+decline ones are deleted; the third — *shows a Participant their Leaders, never the
+other Participants* — is `it.skip` with the reason on it, because deleting it would
+take the only description of the Participant reveal branch with it, and whether that
+branch goes is the same open decision.
+
+`tsc --noEmit` clean; 893 pass, 1 skipped, against a rebuilt app.
+
+**Open:** the Participant reveal branch of `app/invitation/[token]/page.tsx` and the
+Participant scoping in `invitation-reader.ts` are now unreachable — nothing mints the
+token that would render them. They are kept, not deleted.

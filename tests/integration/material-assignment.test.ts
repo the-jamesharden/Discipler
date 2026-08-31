@@ -424,7 +424,7 @@ describe('the Material a relationship is working through', () => {
 
       await expect(
         rewritePeriods(relationship, closedAt, romans, startedLate),
-      ).rejects.toThrow(/gap, an overlap, or no opening period/)
+      ).rejects.toThrow(/gap, an overlap, or an opening period/)
     })
 
     it('refuses two periods that overlap', async () => {
@@ -436,7 +436,7 @@ describe('the Material a relationship is working through', () => {
 
       await expect(
         rewritePeriods(relationship, closedAt, romans, startedEarly),
-      ).rejects.toThrow(/gap, an overlap, or no opening period/)
+      ).rejects.toThrow(/gap, an overlap, or an opening period/)
     })
 
     it('refuses a history that starts with a Material instead of with the opening period', async () => {
@@ -452,7 +452,40 @@ describe('the Material a relationship is working through', () => {
            values ($1, $2, $3, $4)`,
           [ministry.id, relationship, romans, acceptedAt],
         ),
-      ).rejects.toThrow(/gap, an overlap, or no opening period/)
+      ).rejects.toThrow(/gap, an overlap, or an opening period/)
+    })
+
+    it('refuses a history that opens later than the relationship it belongs to', async () => {
+      const relationship = await aRelationship()
+
+      // One period, contiguous with itself, no overlap and no gap *between* rows --
+      // and the first fortnight after acceptance covered by nothing at all, which is
+      // the same hole the opening period exists to close. Relative contiguity cannot
+      // see this one; the first period being anchored to `accepted_at` is what does.
+      await expect(
+        pool.query(
+          `update material_assignment set started_at = $2 where relationship_id = $1`,
+          [relationship, new Date(acceptedAt.getTime() + days(14))],
+        ),
+      ).rejects.toThrow(/gap, an overlap, or an opening period/)
+    })
+
+    it('refuses an assignment dated before the period it would close began', async () => {
+      const relationship = await aRelationship()
+      const romans = materialId(await addMaterial(ministry, 'Romans ' + ++numbered))
+      const john = materialId(await addMaterial(ministry, "John's Gospel " + ++numbered))
+
+      at(new Date(acceptedAt.getTime() + days(21)))
+      await assign(relationship, romans)
+
+      // After acceptance, and still before the period it would have to close. The
+      // close would write `ended_at` earlier than that period's own `started_at`,
+      // which the check constraint raises as a bare Postgres error no refusal code
+      // could carry back -- so `app.assign_material` answers this one itself.
+      at(new Date(acceptedAt.getTime() + days(7)))
+      await expect(assign(relationship, john)).rejects.toThrow(
+        /assignment_precedes_running_period/,
+      )
     })
 
     it('refuses a second period with no Material, which would read as an un-assignment', async () => {
@@ -634,15 +667,26 @@ describe('the Material a relationship is working through', () => {
     })
 
     it('is another Ministry’s to see, never this one’s', async () => {
-      await addMaterial(other, 'Northgate Only ' + ++numbered)
+      // One title on each list, so the assertions below can fail in both
+      // directions. Asserting only the absence passes just as well on a read that
+      // returned nothing at all, which is a different defect wearing this test's
+      // green tick.
+      const mine = 'Riverside Only ' + ++numbered
+      const theirTitle = 'Northgate Only ' + ++numbered
+      await addMaterial(ministry, mine)
+      await addMaterial(other, theirTitle)
       const client = await signInAs(ministry)
 
       const { data, error } = await client.from('material').select('title')
       if (error) throw new Error(error.message)
 
-      expect((data as { title: string }[]).map((row) => row.title)).not.toContain(
-        expect.stringContaining('Northgate Only'),
-      )
+      // Compared as titles, not through `expect.stringContaining`: `toContain`
+      // tests membership with `includes`, which no asymmetric matcher is ever
+      // equal under, so the negated form passed whatever the list held.
+      const titles = (data as { title: string }[]).map((row) => row.title)
+      expect(titles).toContain(mine)
+      expect(titles).not.toContain(theirTitle)
+
       const { data: theirs } = await client
         .from('material')
         .select('title')

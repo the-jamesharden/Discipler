@@ -52,6 +52,10 @@ export interface MinistryFixture {
   readonly adminEmail: string
   readonly adminPassword: string
   readonly adminUserId: string
+  /** The number this Ministry sends as. Unique per fixture, so a test asserting
+   *  on the sender is asserting on *this* Ministry's identity and not on a
+   *  constant every Ministry would satisfy. */
+  readonly sendingNumber: string
 }
 
 let uniqueSuffix = 0
@@ -60,9 +64,13 @@ const unique = () => `${Date.now()}-${uniqueSuffix++}`
 export const createMinistryWithAdmin = async (name: string): Promise<MinistryFixture> => {
   const admin = serviceRoleClient()
 
+  // Provisioned with the Ministry, because sending identity is a property of the
+  // Ministry and a fixture without one cannot be drained at all.
+  const sendingNumber = `+1555${String(Date.now() % 1_000_000).padStart(7, '0')}`
+
   const { data: ministry, error: ministryError } = await admin
     .from('ministry')
-    .insert({ name })
+    .insert({ name, sending_number: sendingNumber })
     .select('id')
     .single()
   if (ministryError) throw new Error(`Could not create Ministry: ${ministryError.message}`)
@@ -88,6 +96,7 @@ export const createMinistryWithAdmin = async (name: string): Promise<MinistryFix
     adminEmail,
     adminPassword,
     adminUserId: user.user.id,
+    sendingNumber,
   }
 }
 

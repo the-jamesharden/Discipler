@@ -16,6 +16,15 @@ import {
   type PostgresInvitationReader,
 } from '~/platform/supabase/invitation-reader'
 import { createSupabaseCareNeededReader } from '~/platform/supabase/care-needed-reader'
+import {
+  createPostgresMinistryDirectory,
+  type PostgresMinistryDirectory,
+} from '~/platform/supabase/ministry-directory'
+import {
+  createPostgresOutboundQueue,
+  type PostgresOutboundQueue,
+} from '~/platform/supabase/outbound-queue'
+import { createTwilioTransport } from '~/platform/twilio/message-transport'
 import { supabaseLeaderAccounts } from '~/platform/supabase/leader-accounts'
 import { supabaseRosterReader } from '~/platform/supabase/roster-reader'
 import { createCommandService, type CommandService } from './command-service'
@@ -25,6 +34,9 @@ import type {
   IntakeReader,
   InvitationReader,
   LeaderAccounts,
+  MessageTransport,
+  MinistryDirectory,
+  OutboundQueue,
   RosterReader,
 } from './ports'
 
@@ -43,6 +55,9 @@ let commandStore: PostgresEffectStore | undefined
 let intakeReader: PostgresIntakeReader | undefined
 let invitationReader: PostgresInvitationReader | undefined
 let inboundReader: PostgresInboundReader | undefined
+let outboundQueue: PostgresOutboundQueue | undefined
+let ministryDirectory: PostgresMinistryDirectory | undefined
+let messageTransport: MessageTransport | undefined
 
 export const getCommandService = (): CommandService => {
   if (!commandService) {
@@ -92,6 +107,42 @@ export const getInboundReader = (): InboundReader => {
 }
 
 /**
+ * The queue the sending layer drains. It reads and writes on the trusted
+ * connection, scoping every statement to the Ministry it is acting for, because
+ * draining is not something a browser session ever does and there is no session
+ * behind it to say which Ministry a row belongs to.
+ */
+export const getOutboundQueue = (): OutboundQueue => {
+  if (!outboundQueue) outboundQueue = createPostgresOutboundQueue(commandDatabaseUrl())
+  return outboundQueue
+}
+
+/**
+ * Where a message actually leaves the building. Twilio is behind this and nowhere
+ * else -- it is a delivery vendor, not a domain concept, and nothing above this
+ * line knows its name.
+ *
+ * Built lazily like everything else here, which matters more than usual: its
+ * credentials are only required by a deployment that sends, so a developer running
+ * the Roster locally is not stopped by an account they have no use for.
+ */
+export const getMessageTransport = (): MessageTransport => {
+  if (!messageTransport) messageTransport = createTwilioTransport()
+  return messageTransport
+}
+
+/**
+ * Which Ministries the scheduler has to run for. The one unscoped read in the app,
+ * kept to ids for that reason -- see the port.
+ */
+export const getMinistryDirectory = (): MinistryDirectory => {
+  if (!ministryDirectory) {
+    ministryDirectory = createPostgresMinistryDirectory(commandDatabaseUrl())
+  }
+  return ministryDirectory
+}
+
+/**
  * Gives back the connection pool the store holds. The running app never calls this
  * -- it keeps the pool for its whole lifetime -- but a test that assembles the real
  * container has no other way to let go of it when the suite ends.
@@ -101,15 +152,24 @@ export const closeCommandService = async (): Promise<void> => {
   const reader = intakeReader
   const invitations = invitationReader
   const inbound = inboundReader
+  const queue = outboundQueue
+  const directory = ministryDirectory
   commandService = undefined
   commandStore = undefined
   intakeReader = undefined
   invitationReader = undefined
   inboundReader = undefined
+  outboundQueue = undefined
+  ministryDirectory = undefined
+  // The transport holds no pool -- it is `fetch` and a pair of credentials -- so
+  // there is nothing of its to close, only the reference to drop.
+  messageTransport = undefined
   await store?.close()
   await reader?.close()
   await invitations?.close()
   await inbound?.close()
+  await queue?.close()
+  await directory?.close()
 }
 
 export const getRosterReader = (): RosterReader => supabaseRosterReader

@@ -289,11 +289,10 @@ const isTokenDriven = (
   command: Command,
 ): command is Extract<
   Command,
-  { type: 'relationship.accept' | 'invitation.dispute_number' | 'match.decline' }
+  { type: 'relationship.accept' | 'invitation.dispute_number' }
 > =>
   command.type === 'relationship.accept' ||
-  command.type === 'invitation.dispute_number' ||
-  command.type === 'match.decline'
+  command.type === 'invitation.dispute_number'
 
 /** Every message these commands enqueue speaks in the Ministry's voice. */
 const needsTheMinistryName = (command: Command): boolean =>

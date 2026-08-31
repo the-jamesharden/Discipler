@@ -309,13 +309,3 @@ export type Command =
       readonly ministryId: MinistryId
       readonly token: InvitationToken
     }
-  /**
-   * A Participant saying the match is not right, without having to have a
-   * conversation about it. It raises an item and changes nothing else: unpairing
-   * is a pastoral decision and stays with the Admin.
-   */
-  | {
-      readonly type: 'match.decline'
-      readonly ministryId: MinistryId
-      readonly token: InvitationToken
-    }

@@ -23,9 +23,18 @@ export async function POST(request: NextRequest) {
   // succeed at on the second attempt.
   if (typeof from !== 'string' || typeof body !== 'string') return acknowledged()
 
-  // A number Discipler does not hold, or one held by more than one Person --
-  // which is ticket 26's, and until it lands resolves to nobody rather than to a
-  // guess. Either way there is nothing to act on and nothing to say.
+  // A number Discipler does not hold, or one held by more than one Person.
+  // Resolving the second by guessing would file one congregant's answer against
+  // another's relationship, so it resolves to nobody instead.
+  //
+  // **That second case is unowned, and is not ticket 26's.** Ticket 08a deferred
+  // it there; ticket 26 builds the import report's resolution screen and its own
+  // text keeps the shared number as a legitimate permanent state -- *two rows
+  // sharing a number with different names are still both imported, that is the
+  // couple case ADR-0005 protects*. So a household on one phone is a state the
+  // product creates deliberately and whose replies land here and stop: the check-in
+  // answers are dropped, and the derivation then reports the relationship as gone
+  // silent. No ticket in 01-26 closes that.
   const sender = await getInboundReader().resolveSender(from)
   if (!sender) return acknowledged()
 

@@ -211,59 +211,6 @@ describe.skipIf(skipUnlessAppIsRunning)('a Leader opening their Invitation Link'
     expect(rows[0].consumed_at).toBeNull()
   })
 
-  it('gives a Participant a link that declines rather than one that accepts', async () => {
-    const david = await roster('David Declined')
-    const emily = await roster('Emily Declined')
-    await pair([david], [emily])
-
-    await post(`/invitation/${await tokenFor(david)}/accept`, {
-      fullName: 'David Declined',
-      password: 'a-long-enough-password',
-    })
-
-    const token = await tokenFor(emily)
-    const { html } = await open(token)
-
-    // A Participant is told about the match, not asked to ratify it.
-    expect(html).toContain('David Declined')
-    expect(html).not.toContain('name="password"')
-    expect(html).toContain('isn’t the right match')
-
-    const { location } = await post(`/invitation/${token}/decline`)
-    expect(location).toContain('done=declined')
-
-    const { rows } = await pool.query(
-      `select kind from follow_up_item where person_id = $1 and resolved_at is null`,
-      [emily],
-    )
-    expect(rows[0].kind).toBe('match_declined')
-  })
-
-  it('lets a Participant decline long after their link would have expired', async () => {
-    const david = await roster('David Late')
-    const emily = await roster('Emily Late')
-    await pair([david], [emily])
-
-    await post(`/invitation/${await tokenFor(david)}/accept`, {
-      fullName: 'David Late',
-      password: 'a-long-enough-password',
-    })
-
-    const token = await tokenFor(emily)
-    await pool.query(
-      `update invitation set expires_at = created_at + interval '1 second' where token = $1`,
-      [token],
-    )
-
-    // An expiry protects a credential that creates an account. Declining creates
-    // nothing, so there is nothing here for it to protect.
-    const { html } = await open(token)
-    expect(html).toContain('isn’t the right match')
-
-    const { location } = await post(`/invitation/${token}/decline`)
-    expect(location).toContain('done=declined')
-  })
-
   it('lets a Leader who already has an account accept a second relationship', async () => {
     const david = await roster('David Leads Twice')
     const first = await roster('First Disciple')
@@ -319,7 +266,18 @@ describe.skipIf(skipUnlessAppIsRunning)('a Leader opening their Invitation Link'
     expect(html).toContain('name="password"')
   })
 
-  it('shows a Participant their Leaders, never the other Participants', async () => {
+  /**
+   * Skipped, and deliberately not deleted. Only a Leader is ever sent a link --
+   * `docs/adr/0011-only-a-leader-is-sent-a-link.md` -- so nothing mints the token
+   * this asks for and the test cannot run. What it covers still exists: the
+   * reader scopes a Participant's reveal to their Leaders and hides the other
+   * Participants, and `app/invitation/[token]/page.tsx` still renders that branch.
+   *
+   * Whether that surface goes with the decline affordance is the open decision.
+   * Deleting this test would take the only description of the branch with it, so
+   * it waits here instead.
+   */
+  it.skip('shows a Participant their Leaders, never the other Participants', async () => {
     const david = await roster('David Group Lead')
     const emily = await roster('Emily Sees')
     const anna = await roster('Anna Hidden')

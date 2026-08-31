@@ -90,9 +90,15 @@ comment on table material is
 -- The first path segment is the Ministry, which is what the policies below read.
 -- Storage has no `ministry_id` column to police, so the key *is* the tenant claim:
 -- `material/<ministry_id>/<uuid>.pdf`.
+--
+-- `do update` and not `do nothing`: a bucket already sitting under this id is the
+-- one case that matters, and leaving it alone would leave whatever `public` flag it
+-- came with. A public `material` bucket is every Ministry's uploads on a URL, which
+-- is the single thing this whole section exists to refuse -- so the flag is asserted
+-- rather than assumed.
 insert into storage.buckets (id, name, public)
 values ('material', 'material', false)
-on conflict (id) do nothing;
+on conflict (id) do update set public = false;
 
 -- Ministry isolation, said again in the one place row-level security on `material`
 -- cannot reach. An Admin of one Ministry reading, writing or deleting another's
@@ -262,12 +268,19 @@ comment on table material_assignment is
 -- is what stays true of the migration, the repair script and the psql session that
 -- are not.
 --
--- Contiguity is the whole test, and it gives both properties at once. Order the
+-- Contiguity is most of the test, and it gives both properties at once. Order the
 -- periods by when they started; each after the first must begin at the very instant
 -- the one before it ended. Gaps are then impossible by construction, and so are
 -- overlaps -- a period beginning before its predecessor ended would not begin at
 -- the instant it ended. Cheaper and more exact than an exclusion constraint, which
 -- would catch the overlap and say nothing about the hole.
+--
+-- Most of the test, and not all of it: contiguity says the periods meet *each
+-- other* and says nothing about where the first one begins. A history that opened a
+-- month after acceptance is contiguous with itself and still leaves the weeks
+-- before it uncovered, so the first period is anchored to `relationship.accepted_at`
+-- below. That is the same hole under a different name, on the one edge relative
+-- tests cannot see.
 --
 -- Two more things fall out of the same ordering:
 --
@@ -302,7 +315,17 @@ declare
   -- operation rather than by coalescing a field off a record that is not there.
   subject uuid := case when tg_op = 'DELETE' then old.relationship_id
                        else new.relationship_id end;
+
+  -- The instant the history has to open at. Null when the relationship itself is
+  -- gone -- a cascading delete takes its periods with it, so there is nothing left
+  -- for the check below to judge -- and null again on a relationship nobody has
+  -- accepted, which is a relationship no period may sit on at all.
+  accepted timestamptz;
 begin
+  select r.accepted_at into accepted
+    from public.relationship r
+   where r.id = subject;
+
   if exists (
     select 1
       from (
@@ -329,9 +352,15 @@ begin
        -- A history that starts with a Material rather than with the period that
        -- has none.
        or (period.position = 1 and period.material_id is not null)
+       -- A history that opens somewhere other than acceptance -- or that opens at
+       -- all on a relationship nobody accepted, where `accepted` is null and every
+       -- start is distinct from it. Either way the weeks the history claims to
+       -- cover and the weeks the relationship actually had are not the same set.
+       or (period.position = 1 and period.started_at is distinct from accepted)
   ) then
     raise exception
-      'the Material history of relationship % would have a gap, an overlap, or no opening period',
+      'the Material history of relationship % would have a gap, an overlap, or an '
+      'opening period that is missing or does not begin at acceptance',
       subject
       using errcode = 'check_violation',
             constraint = 'material_periods_never_overlap_and_never_leave_gaps';
@@ -385,6 +414,7 @@ as $$
 declare
   standing public.relationship;
   opened   boolean;
+  running  timestamptz;
 begin
   select * into standing
     from public.relationship r
@@ -415,6 +445,21 @@ begin
     if standing.accepted_at is null then return 'relationship_not_accepted'; end if;
     if not opened then return 'material_history_not_open'; end if;
     if at < standing.accepted_at then return 'assignment_precedes_acceptance'; end if;
+  end if;
+
+  -- And inside the period it is about to close, which is a stricter thing than
+  -- being after acceptance once a second period is running: that one started later.
+  -- Closing a period at an instant before its own start writes `ended_at <
+  -- started_at`, and `material_assignment_ends_after_it_starts` raises that as a raw
+  -- constraint violation -- the one outcome the refusal codes cannot carry back, so
+  -- the caller would see a database error where every other bad instant is an answer.
+  select a.started_at into running
+    from public.material_assignment a
+   where a.relationship_id = target_relationship_id
+     and a.ended_at is null;
+
+  if running is not null and at < running then
+    return 'assignment_precedes_running_period';
   end if;
 
   -- The close and the open, at one instant. A relationship with no running period

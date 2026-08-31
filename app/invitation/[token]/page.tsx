@@ -56,16 +56,15 @@ export default async function InvitationPage({
     )
   }
 
-  if (done === 'disputed' || done === 'declined') {
+  if (done === 'disputed') {
     return (
       <main>
         <h1>Thanks — we’ve passed that on</h1>
         <p className="subtle">{ministryName}</p>
         <div className="panel">
           <p>
-            {done === 'disputed'
-              ? 'Nothing has changed on your account. Someone from the ministry will be in touch to put the number right.'
-              : 'Nothing has changed. Someone from the ministry will take a look and be in touch.'}
+            Nothing has changed on your account. Someone from the ministry will be in
+            touch to put the number right.
           </p>
         </div>
       </main>
@@ -164,23 +163,18 @@ export default async function InvitationPage({
             )}
           </>
         ) : (
-          <>
-            <p>
-              They’ll text you to arrange when to meet, so you’ll know the number when it
-              arrives. Nothing else is needed from you.
-            </p>
-
-            {/*
-              Offered whatever the expiry says, unlike the Leader's form above. An
-              expiry protects a credential that creates an account; declining
-              creates nothing and raises an item, so there is nothing here for it
-              to protect -- and a match that is wrong is wrong in week three as
-              much as in week one.
-            */}
-            <form method="post" action={`/invitation/${token}/decline`}>
-              <button type="submit">This isn’t the right match</button>
-            </form>
-          </>
+          /*
+            Only a Leader is ever sent a link -- see
+            `docs/adr/0011-only-a-leader-is-sent-a-link.md` -- so nothing mints a
+            Participant's token and this branch renders for no live invitation. It
+            is kept so a historical row still reads back as something, and it offers
+            no action: a Participant does not decline, and a match that is not
+            working reaches an Admin as a swap.
+          */
+          <p>
+            They’ll text you to arrange when to meet, so you’ll know the number when it
+            arrives. Nothing else is needed from you.
+          </p>
         )}
       </div>
     </main>

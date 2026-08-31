@@ -61,8 +61,6 @@ export type InvitationRefusal =
   | 'invitation.already_used'
   /** Only a Leader accepts. A Participant is told about a match, not asked to ratify it. */
   | 'invitation.not_a_leader'
-  /** Only a Participant declines. A Leader who will not lead is ticket 13's, not this. */
-  | 'invitation.not_a_participant'
 
 export class InvitationRefused extends Error {
   constructor(readonly refusal: InvitationRefusal) {

@@ -99,6 +99,20 @@ export const createPostgresOutboundQueue = (
       })
     },
 
+    async sendingNumber(ministryId: MinistryId) {
+      return inMinistry(ministryId, async (client) => {
+        const { rows } = await client.query<{ sending_number: string | null }>(
+          `select sending_number from ministry where id = $1`,
+          [ministryId],
+        )
+
+        // No row and a null column are the same answer to the sending layer -- there
+        // is no number to send as -- and neither is a fact about any recipient, so
+        // neither is a withholding. `dispatchQueue` refuses the drain on both.
+        return rows[0]?.sending_number ?? null
+      })
+    },
+
     async mayReceive(
       ministryId: MinistryId,
       person: PersonId,

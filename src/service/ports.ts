@@ -314,6 +314,23 @@ export interface EffectStore {
   transact<T>(ministryId: MinistryId, work: (unit: UnitOfWork) => Promise<T>): Promise<T>
 }
 
+/**
+ * Every Ministry there is, by id alone.
+ *
+ * The one read in Discipler that is not scoped to a Ministry, and it is separate
+ * from `EffectStore` for that reason: that port's contract is that the Ministry is
+ * named up front, and a method here that answered *all of them* would contradict
+ * the sentence it is written under.
+ *
+ * It exists because the scheduled tick is per-Ministry and the scheduler is not.
+ * Something has to turn *it is nine o'clock* into *it is nine o'clock for each of
+ * these*, and this is the smallest thing that can: ids, no names, no rows, nothing
+ * a caller could render or leak across a boundary.
+ */
+export interface MinistryDirectory {
+  everyMinistry(): Promise<readonly MinistryId[]>
+}
+
 export interface RosterEntry {
   readonly personId: PersonId
   readonly fullName: string
@@ -372,6 +389,15 @@ export interface ContactDetails {
 export interface OutboundQueue {
   /** Everything enqueued for this Ministry and neither sent nor withheld. */
   due(ministryId: MinistryId): Promise<readonly QueuedMessage[]>
+  /**
+   * The number this Ministry sends from, or null where none is provisioned yet.
+   *
+   * Read here rather than taken from configuration because sending identity is a
+   * property of the Ministry: a number in the environment is one congregation's
+   * people receiving texts from another's the first time a second Ministry is
+   * onboarded, and by then it is a migration against live message history.
+   */
+  sendingNumber(ministryId: MinistryId): Promise<string | null>
   /** Whether this Person may be sent to *right now*, not when they were queued. */
   mayReceive(ministryId: MinistryId, personId: PersonId): Promise<WithholdingReason | null>
   /** The details to disclose, or null where the Person has not agreed to share. */
@@ -387,7 +413,17 @@ export interface OutboundQueue {
 
 /** Twilio lives behind this and nowhere else. It is not a domain concept. */
 export interface MessageTransport {
-  deliver(to: string, body: string): Promise<void>
+  /**
+   * `from` is passed rather than held, because one transport serves every Ministry
+   * and each of them sends as itself. A transport that closed over a number would
+   * make the identity a property of the deployment, which is the thing the spec
+   * rules out.
+   *
+   * Throws when the vendor refuses. The row stays neither sent nor withheld, so the
+   * next drain picks it up again -- see `dispatchQueue`, which keeps one refusal
+   * from taking the rest of the queue down with it.
+   */
+  deliver(from: string, to: string, body: string): Promise<void>
 }
 
 export interface DiscipleshipGoalOption {

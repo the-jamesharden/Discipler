@@ -17,7 +17,6 @@ const PROBLEMS: Record<Problem, string> = {
   'invitation.already_used':
     'You’ve already set up your account with this link. Sign in with your phone number and password.',
   'invitation.not_a_leader': 'This link isn’t yours to accept.',
-  'invitation.not_a_participant': 'This link isn’t yours to decline.',
   'account.password_too_short': 'Choose a password of at least 8 characters.',
   'account.no_number_on_file':
     'We don’t have a phone number for you, so there’s nothing to sign you in with. Let whoever invited you know.',

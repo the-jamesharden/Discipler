@@ -379,6 +379,7 @@ type DatabaseAssignmentRefusal =
   | 'material_history_already_open'
   | 'material_history_not_open'
   | 'assignment_precedes_acceptance'
+  | 'assignment_precedes_running_period'
 
 const ASSIGNMENT_REFUSALS: Readonly<
   Record<DatabaseAssignmentRefusal, MaterialAssignmentRefusal | null>
@@ -389,6 +390,7 @@ const ASSIGNMENT_REFUSALS: Readonly<
   material_history_already_open: null,
   material_history_not_open: null,
   assignment_precedes_acceptance: null,
+  assignment_precedes_running_period: null,
 }
 
 const refused = <Answer extends string, Refusal extends string>(

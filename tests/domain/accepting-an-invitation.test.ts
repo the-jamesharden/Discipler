@@ -199,15 +199,15 @@ describe('a token that cannot do what is asked of it', () => {
   })
 })
 
-describe('the two things a token raises instead of changing', () => {
-  const raised = (command: 'invitation.dispute_number' | 'match.decline', holder = david) =>
+describe('the one thing a token raises instead of changing', () => {
+  const raised = (holder = david) =>
     handleCommand(
-      { type: command, ministryId: ministry, token },
+      { type: 'invitation.dispute_number', ministryId: ministry, token },
       context(snapshot({ personId: holder })),
     )
 
   it('raises a persistent item when a Leader says the number is not theirs', () => {
-    const result = raised('invitation.dispute_number')
+    const result = raised()
     const item = result.effects.find((e) => e.kind === 'followUp.raise')
 
     if (item?.kind !== 'followUp.raise') throw new Error('nothing was raised')
@@ -220,7 +220,7 @@ describe('the two things a token raises instead of changing', () => {
   })
 
   it('changes nothing else: a forwarded link can never re-point an account', () => {
-    const result = raised('invitation.dispute_number')
+    const result = raised()
 
     expect(result.effects.map((e) => e.kind).sort()).toEqual([
       'followUp.raise',
@@ -228,20 +228,11 @@ describe('the two things a token raises instead of changing', () => {
     ])
   })
 
-  it('raises a persistent item when a Participant says the match is not right', () => {
-    const result = raised('match.decline', emily)
-    const item = result.effects.find((e) => e.kind === 'followUp.raise')
-
-    if (item?.kind !== 'followUp.raise') throw new Error('nothing was raised')
-    expect(item.item.kind).toBe('match_declined')
-  })
-
-  it('keeps each affordance to the role it belongs to', () => {
-    expect(() => raised('match.decline', david)).toThrow(
-      new InvitationRefused('invitation.not_a_participant'),
-    )
-    expect(() => raised('invitation.dispute_number', emily)).toThrow(
-      new InvitationRefused('invitation.not_a_leader'),
-    )
+  // Only a Leader is ever sent a link, so a Participant holding one is a state
+  // nothing produces -- see `docs/adr/0011-only-a-leader-is-sent-a-link.md`. The
+  // fence is asserted anyway: it is what stops a forwarded link becoming somebody
+  // else's, and a Participant declining a match was withdrawn, not relocated here.
+  it('keeps the affordance to the role it belongs to', () => {
+    expect(() => raised(emily)).toThrow(new InvitationRefused('invitation.not_a_leader'))
   })
 })

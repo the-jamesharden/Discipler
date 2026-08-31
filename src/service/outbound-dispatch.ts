@@ -26,6 +26,23 @@ export interface Dispatch {
 export interface DispatchOutcome {
   readonly sent: number
   readonly withheld: number
+  /**
+   * Messages the vendor refused. Distinct from `withheld`, and the distinction is
+   * the point: a withheld message is Discipler keeping a promise to a Person, and a
+   * failed one is Twilio having a bad day. Reporting them as one number would let a
+   * broken account read as a congregation that had all opted out.
+   *
+   * A failed row stays neither sent nor withheld, so the next drain tries it again.
+   */
+  readonly failed: number
+}
+
+/** Raised when a Ministry has no number to send as. Not a per-message outcome. */
+export class NoSendingNumber extends Error {
+  constructor(readonly ministryId: MinistryId) {
+    super(`Ministry ${ministryId} has no sending number, so nothing can be sent as it`)
+    this.name = 'NoSendingNumber'
+  }
 }
 
 export const dispatchQueue = async ({
@@ -35,8 +52,18 @@ export const dispatchQueue = async ({
   ministryId,
 }: Dispatch): Promise<DispatchOutcome> => {
   const messages = await queue.due(ministryId)
+
+  // Before the first send and once for the drain. A Ministry with no number cannot
+  // send as itself, and sending as somebody else is the one outcome worse than not
+  // sending: it puts one congregation's number on another's messages. Raised rather
+  // than withheld -- a withholding is a fact about a recipient, and every recipient
+  // here is fine.
+  const from = messages.length > 0 ? await queue.sendingNumber(ministryId) : null
+  if (messages.length > 0 && !from) throw new NoSendingNumber(ministryId)
+
   let sent = 0
   let withheld = 0
+  let failed = 0
 
   for (const message of messages) {
     const now = clock.now()
@@ -67,10 +94,31 @@ export const dispatchQueue = async ({
       if (contact) body = withSharedContact(body, contact)
     }
 
-    await transport.deliver(message.toPhone, body)
+    // One refusal does not end the drain. The alternative -- letting it throw --
+    // means a single unroutable number holds up every message behind it in the
+    // queue, including the ones to people who are reachable, and the Leader whose
+    // number was mistyped costs their whole Ministry its week.
+    //
+    // The row is left neither sent nor withheld, so the next pass tries it again.
+    // A permanently-refused message therefore retries forever, which is a known
+    // cost and not the intended end state: parking one needs a column to record
+    // that it was parked and why, and `withheld_reason` is recipient-level by
+    // design. `MessageNotDelivered.isPermanent` is what that decision gets made
+    // against.
+    try {
+      await transport.deliver(from as string, message.toPhone, body)
+    } catch (error) {
+      failed++
+      console.error(
+        `Could not deliver message ${message.id} in ministry ${ministryId}`,
+        error,
+      )
+      continue
+    }
+
     await queue.markSent(ministryId, message.id, now)
     sent++
   }
 
-  return { sent, withheld }
+  return { sent, withheld, failed }
 }

@@ -13,7 +13,6 @@ const EVERY_REFUSAL: readonly (InvitationRefusal | AccountRefusal)[] = [
   'invitation.expired',
   'invitation.already_used',
   'invitation.not_a_leader',
-  'invitation.not_a_participant',
   'account.password_too_short',
   'account.no_number_on_file',
   'account.already_exists',
