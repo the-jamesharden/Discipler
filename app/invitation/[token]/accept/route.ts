@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { InvitationRefused } from '~/domain/errors'
 import { invitationToken } from '~/domain/invitations'
-import { getCommandService, getInvitationReader, getLeaderAccounts } from '~/service/container'
+import { getCommandService, getInvitationReader, getAccounts } from '~/service/container'
 
 /**
  * An ordinary form POST, so acceptance works before JavaScript has loaded. There
@@ -54,7 +54,7 @@ export async function POST(
     // The number on file, never one that was typed. A Leader cannot mistype their
     // way out of their own check-ins, and a forwarded link cannot re-point an
     // account at somebody else's phone.
-    const account = await getLeaderAccounts().create(invitation.phone, password)
+    const account = await getAccounts().create(invitation.phone, password)
     if ('refusal' in account) return back(account.refusal)
     userId = account.userId
     mintedHere = true
@@ -82,7 +82,7 @@ export async function POST(
       // Never in place of the failure being handled. A cleanup that throws would
       // replace the error the Leader needs to see with one about the cleanup, and
       // the state it leaves behind is the state this code shipped with.
-      await getLeaderAccounts()
+      await getAccounts()
         .discard(userId)
         .catch(() => undefined)
     }

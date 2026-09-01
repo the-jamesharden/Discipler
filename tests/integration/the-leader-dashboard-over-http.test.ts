@@ -4,9 +4,9 @@ import {
   addMaterial,
   addMembership,
   addPerson,
-  addPersonForAdmin,
   addPersonWithAccount,
   assignMaterial,
+  completeIntake,
   createMinistryWithAdmin,
   createRelationship,
   pauseRelationship,
@@ -227,10 +227,16 @@ describe.skipIf(skipUnlessAppIsRunning)('a Leader reading their own relationship
     // One `ministry_member` row, and it says `admin`. The Leader surface is a live
     // query for open leader memberships, so a surface gated on the tier would hide
     // this person's own relationships from them.
-    const church = await createMinistryWithAdmin('Two Hats Chapel')
-    const greaves = await addPersonForAdmin(church, 'James Greaves', {
-      answers: { availability: slots('tuesday:evening') },
+    const church = await createMinistryWithAdmin('Two Hats Chapel', 'James Greaves')
+
+    // The Ministry's own Admin, reached through provisioning rather than through a
+    // fixture that hand-links a Person to somebody's account. That link is the whole
+    // of what makes this case real: see `docs/adr/0009-one-account-per-human.md`.
+    const greaves = { personId: church.adminPersonId }
+    await completeIntake(church, greaves.personId, ['sms', 'contact_sharing'], 'pastor_link', {
+      availability: slots('tuesday:evening'),
     })
+
     const ada = await addPerson(church, 'Ada Rowe', {
       answers: { availability: slots('tuesday:evening') },
     })
@@ -251,7 +257,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Leader reading their own relationship
       role: 'participant',
     })
 
-    const { cookie } = await signInAs(greaves)
+    const { cookie } = await signInAs({ phone: church.adminPhone, password: church.adminPassword })
 
     const roster = await getPage('/roster', cookie)
     expect(roster.response.status).toBe(200)

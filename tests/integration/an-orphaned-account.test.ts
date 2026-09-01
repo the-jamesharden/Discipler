@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { supabaseLeaderAccounts } from '~/platform/supabase/leader-accounts'
+import { supabaseAccounts } from '~/platform/supabase/accounts'
 import {
+  aTestPhoneNumber,
   createMinistryWithAdmin,
-  localSupabase,
   serviceRoleClient,
   type MinistryFixture,
 } from '../support/local-supabase'
@@ -26,16 +26,11 @@ describe('an account orphaned between creation and acceptance', () => {
   let ministry: MinistryFixture
 
   beforeAll(async () => {
-    ministry = await createMinistryWithAdmin('Riverside Chapel')
-
     // The adapter reads its keys from the environment the way the running app does,
-    // and the test runner is not the app. Discovered from the local stack rather
-    // than hard-coded, for the reason `local-supabase.ts` gives: keys a test chose
-    // for itself prove the adapter agrees with the test and nothing else.
-    const { apiUrl, anonKey, serviceRoleKey } = localSupabase()
-    process.env.NEXT_PUBLIC_SUPABASE_URL ??= apiUrl
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??= anonKey
-    process.env.SUPABASE_SERVICE_ROLE_KEY ??= serviceRoleKey
+    // and the test runner is not the app. `localSupabase()` puts them there, which
+    // is what lets a fixture drive the real provisioning path -- so this suite gets
+    // them by asking for a Ministry.
+    ministry = await createMinistryWithAdmin('Riverside Chapel')
   })
 
   const created: string[] = []
@@ -46,34 +41,30 @@ describe('an account orphaned between creation and acceptance', () => {
     }
   })
 
-  let numbered = 0
-  const aNumber = () =>
-    `+1${String((Date.now() % 1_000_000) * 1_000 + ++numbered).padStart(10, '0')}`
-
   it('leaves the number taken, so a second attempt at the same link is refused', async () => {
     // The state as it stands today, written down because it is the reason the
     // compensation below exists rather than a behaviour anybody wants.
-    const phone = aNumber()
+    const phone = aTestPhoneNumber()
 
-    const first = await supabaseLeaderAccounts.create(phone, 'a-long-enough-password')
+    const first = await supabaseAccounts.create(phone, 'a-long-enough-password')
     if (!('userId' in first)) throw new Error(`the first account was refused: ${first.refusal}`)
     created.push(first.userId)
 
-    const second = await supabaseLeaderAccounts.create(phone, 'a-long-enough-password')
+    const second = await supabaseAccounts.create(phone, 'a-long-enough-password')
     expect(second).toEqual({ refusal: 'account.already_exists' })
   })
 
   it('frees the number again once the half-made account is discarded', async () => {
-    const phone = aNumber()
+    const phone = aTestPhoneNumber()
 
-    const orphan = await supabaseLeaderAccounts.create(phone, 'a-long-enough-password')
+    const orphan = await supabaseAccounts.create(phone, 'a-long-enough-password')
     if (!('userId' in orphan)) throw new Error(`the account was refused: ${orphan.refusal}`)
 
-    await supabaseLeaderAccounts.discard(orphan.userId)
+    await supabaseAccounts.discard(orphan.userId)
 
     // The retry the ticket promised. It works because the failed attempt left
     // nothing behind, not because anything reconciled it afterwards.
-    const retry = await supabaseLeaderAccounts.create(phone, 'a-long-enough-password')
+    const retry = await supabaseAccounts.create(phone, 'a-long-enough-password')
     if (!('userId' in retry)) throw new Error(`the retry was refused: ${retry.refusal}`)
     created.push(retry.userId)
 
@@ -84,20 +75,20 @@ describe('an account orphaned between creation and acceptance', () => {
     // The compensation runs in a failure path, where the thing it undoes may
     // already be undone. Throwing there would replace the error the Leader needs
     // to see with one about the cleanup.
-    const phone = aNumber()
-    const account = await supabaseLeaderAccounts.create(phone, 'a-long-enough-password')
+    const phone = aTestPhoneNumber()
+    const account = await supabaseAccounts.create(phone, 'a-long-enough-password')
     if (!('userId' in account)) throw new Error(`the account was refused: ${account.refusal}`)
 
-    await supabaseLeaderAccounts.discard(account.userId)
-    await expect(supabaseLeaderAccounts.discard(account.userId)).resolves.toBeUndefined()
+    await supabaseAccounts.discard(account.userId)
+    await expect(supabaseAccounts.discard(account.userId)).resolves.toBeUndefined()
   })
 
   it('refuses to discard an account a Person already holds', async () => {
     // The one case where deleting would do real harm: an account reached through
     // `person.user_id` was not made by the attempt that is failing, and removing it
     // would sign a working Leader out of a Ministry for good.
-    const phone = aNumber()
-    const account = await supabaseLeaderAccounts.create(phone, 'a-long-enough-password')
+    const phone = aTestPhoneNumber()
+    const account = await supabaseAccounts.create(phone, 'a-long-enough-password')
     if (!('userId' in account)) throw new Error(`the account was refused: ${account.refusal}`)
     created.push(account.userId)
 
@@ -106,12 +97,12 @@ describe('an account orphaned between creation and acceptance', () => {
       .insert({
         ministry_id: ministry.id,
         full_name: 'Held Account',
-        phone: aNumber(),
+        phone: aTestPhoneNumber(),
         user_id: account.userId,
       })
     if (error) throw new Error(error.message)
 
-    await expect(supabaseLeaderAccounts.discard(account.userId)).rejects.toThrow()
+    await expect(supabaseAccounts.discard(account.userId)).rejects.toThrow()
 
     const { data } = await serviceRoleClient().auth.admin.getUserById(account.userId)
     expect(data.user).not.toBeNull()

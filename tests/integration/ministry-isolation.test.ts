@@ -60,8 +60,14 @@ describe('two Ministries operating concurrently', () => {
     const { data: riversideRoster } = await asRiverside.from('person').select('full_name')
     const { data: northgateRoster } = await asNorthgate.from('person').select('full_name')
 
-    expect(riversideRoster?.map((p) => p.full_name)).toEqual(['Ada Rowe'])
-    expect(northgateRoster?.map((p) => p.full_name)).toEqual(['Ben Okafor'])
+    // Each Admin is on their own Roster, because provisioning gives them a Person
+    // row like everybody else -- and on nobody else's, which is what this is about.
+    expect(riversideRoster?.map((p) => p.full_name).sort()).toEqual(
+      [riverside.adminName, 'Ada Rowe'].sort(),
+    )
+    expect(northgateRoster?.map((p) => p.full_name).sort()).toEqual(
+      [northgate.adminName, 'Ben Okafor'].sort(),
+    )
   })
 
   it('each sees only its own Ministry', async () => {
@@ -110,7 +116,10 @@ describe('two Ministries operating concurrently', () => {
     expect(error).not.toBeNull()
 
     const { data } = await asNorthgate.from('person').select('full_name')
-    expect(data?.map((p) => p.full_name)).toEqual(['Ben Okafor'])
+    expect(data?.map((p) => p.full_name).sort()).toEqual(
+      [northgate.adminName, 'Ben Okafor'].sort(),
+    )
+    expect(data?.map((p) => p.full_name)).not.toContain('Smuggled In')
   })
 
   it('cannot write into its own Ministry from the browser either -- writes go through the command boundary', async () => {
@@ -129,7 +138,10 @@ describe('two Ministries operating concurrently', () => {
     expect(error).not.toBeNull()
 
     const { data } = await asRiverside.from('person').select('full_name')
-    expect(data?.map((p) => p.full_name)).toEqual(['Ada Rowe'])
+    expect(data?.map((p) => p.full_name).sort()).toEqual(
+      [riverside.adminName, 'Ada Rowe'].sort(),
+    )
+    expect(data?.map((p) => p.full_name)).not.toContain('Ben Okafor')
   })
 
   it('shows a signed-out visitor nothing at all', async () => {

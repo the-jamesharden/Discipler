@@ -20,8 +20,8 @@ const getRoster = (cookie: string) => getPage('/roster', cookie)
  * their own Ministry, and only their own Ministry.
  *
  * They sign in with a phone number and a password, which is the credential for
- * every user since ticket 15 -- the Admin included, and the account here holds an
- * email address it is not asked for. See
+ * every user -- the Admin included, and the account holds no email at all, because
+ * provisioning mints none. See
  * `docs/adr/0008-the-phone-number-is-the-sign-in-credential.md`.
  */
 
@@ -68,11 +68,17 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin signing in', () => {
     expect(html).not.toContain('Northgate Community Church')
   })
 
-  it('sees an empty Roster', async () => {
+  it('sees themselves on a new Roster, and nobody else', async () => {
+    // Not an empty page. Provisioning gives the Admin a Person row in their own
+    // Ministry, so they are on the Roster from the first day like everybody else --
+    // which is what `docs/adr/0009-one-account-per-human.md` means by one human
+    // holding one login and their roles being derived from what they are part of.
     const { cookie } = await signIn(riverside)
     const { html } = await getRoster(cookie)
 
-    expect(html).toContain('Nobody is on this Roster yet')
+    expect(html).toContain(riverside.adminName)
+    expect(html).not.toContain('Nobody is on this Roster yet')
+    expect(html).not.toContain('Ada Rowe')
   })
 
   it('never sees a Person belonging to another Ministry', async () => {
@@ -82,7 +88,7 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin signing in', () => {
     expect(html).not.toContain('Ben Okafor')
   })
 
-  it('sees their own Roster fill up, so the emptiness above means something', async () => {
+  it('sees their own Roster fill up, so the row above means something', async () => {
     await addPerson(riverside, 'Ada Rowe')
 
     const { cookie } = await signIn(riverside)
@@ -115,12 +121,15 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin signing in', () => {
     // Ticket 01's login page shipped and is superseded rather than extended. Email
     // is optional at Intake, so a Person may lead a relationship without Discipler
     // ever learning one -- which is why the identifier moved to the phone.
+    //
+    // A literal, because there is no address to reach for: provisioning creates a
+    // phone identity and no email, so the account this Admin holds has none.
     const response = await fetch(`${baseUrl}/auth/sign-in`, {
       method: 'POST',
       redirect: 'manual',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        phone: riverside.adminEmail,
+        phone: 'admin@riverside.example',
         password: riverside.adminPassword,
       }),
     })

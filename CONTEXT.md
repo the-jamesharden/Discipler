@@ -13,7 +13,7 @@ The rule that data belonging to one Ministry is never accessible to another. The
 _Avoid_: Tenant isolation
 
 **Admin**:
-The authorized ministry staff member who oversees people, relationships, care needs, materials, and ministry-level insight. Named for the role rather than the office, because not every ministry using Discipler is led by a pastor.
+The authorized ministry staff member who oversees people, relationships, care needs, materials, and ministry-level insight. Named for the role rather than the office, because not every ministry using Discipler is led by a pastor. An Admin is a Person in their own Ministry, on its roster and holding one login like anybody else; Admin is an access tier they hold, not a second kind of human — see `docs/adr/0009-one-account-per-human.md`.
 _Avoid_: Pastor (as a model term; it remains correct prose), Super-admin, Coordinator
 
 **Person**:

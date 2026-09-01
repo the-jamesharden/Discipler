@@ -7,6 +7,7 @@ import { invitationToken } from '~/domain/invitations'
 import { createCommandService } from '~/service/command-service'
 import { createPostgresEffectStore } from '~/platform/supabase/effect-store'
 import {
+  aTestPhoneNumber,
   addPerson,
   createMinistryWithAdmin,
   localSupabase,
@@ -68,12 +69,15 @@ describe('accepting an Invitation Link', () => {
     return invitationToken(token)
   }
 
-  /** A real auth account, because `person.user_id` is a foreign key onto one. */
+  /**
+   * A real auth account, because `person.user_id` is a foreign key onto one. A
+   * phone identity with no email, which is the only shape the product mints.
+   */
   const anAccount = async () => {
     const { data, error } = await serviceRoleClient().auth.admin.createUser({
-      email: `leader-${crypto.randomUUID()}@example.test`,
+      phone: aTestPhoneNumber(),
       password: 'a-long-enough-password',
-      email_confirm: true,
+      phone_confirm: true,
     })
     if (error) throw new Error(error.message)
     return data.user.id
@@ -408,9 +412,9 @@ describe('the two things a token raises instead of changing', () => {
     }
 
     const { data, error } = await serviceRoleClient().auth.admin.createUser({
-      email: `tier-${crypto.randomUUID()}@example.test`,
+      phone: aTestPhoneNumber(),
       password: 'a-long-enough-password',
-      email_confirm: true,
+      phone_confirm: true,
     })
     if (error) throw new Error(error.message)
     const userId = data.user.id

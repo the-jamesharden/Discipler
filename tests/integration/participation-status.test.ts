@@ -2,7 +2,6 @@ import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import {
   addPerson,
-  addPersonForAdmin,
   addPersonWithAccount,
   completeIntake,
   createMinistryWithAdmin,
@@ -178,11 +177,15 @@ describe('Participation Status', () => {
   it('reads Ready to Pair for an Admin who leads and is discipled by nobody', async () => {
     // The dual-role case: one Person row, one `admin` access tier, a relationship
     // led. Being discipled is a separate fact and it is absent.
-    const admin = await addPersonForAdmin(ministry, 'Admin Who Leads')
+    //
+    // The Ministry's own Admin, because provisioning gave him a Person row -- not
+    // somebody hand-linked to his account, which is a state no product flow reaches.
+    const admin = ministry.adminPersonId
+    await completeIntake(ministry, admin)
     const participant = await addPerson(ministry, 'The Admin Disciples Them')
 
-    await pairOneToOne(ministry, admin.personId, participant)
+    await pairOneToOne(ministry, admin, participant)
 
-    expect(await statusOf(admin.personId)).toBe('ready_to_pair')
+    expect(await statusOf(admin)).toBe('ready_to_pair')
   })
 })

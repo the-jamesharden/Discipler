@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import pg from 'pg'
 import { ministryId, type MinistryId } from '~/domain/ids'
 import type { AgeBand, AvailabilitySlot, Gender } from '~/domain/intake'
+import { provisionMinistry } from '~/platform/supabase/provisioning'
 
 export interface LocalSupabase {
   readonly apiUrl: string
@@ -36,6 +37,19 @@ export const localSupabase = (): LocalSupabase => {
     serviceRoleKey: status.SERVICE_ROLE_KEY!,
     databaseUrl: status.DB_URL!,
   }
+
+  // The product's adapters read their keys from the environment the way the running
+  // app does, and the test runner is not the app. Discovered rather than chosen, for
+  // the reason above: keys a test picked for itself would prove an adapter agrees
+  // with the test and nothing else. `??=` so an environment that already says --
+  // CI, or a developer pointing the suite somewhere -- is not overwritten.
+  //
+  // This is what lets a fixture drive a real provisioning path instead of
+  // reimplementing one beside it.
+  process.env.NEXT_PUBLIC_SUPABASE_URL ??= cached.apiUrl
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??= cached.anonKey
+  process.env.SUPABASE_SERVICE_ROLE_KEY ??= cached.serviceRoleKey
+
   return cached
 }
 
@@ -50,75 +64,79 @@ export const serviceRoleClient = (): SupabaseClient => {
 export interface MinistryFixture {
   readonly id: MinistryId
   readonly name: string
+  /** The Admin's own name, which is also their row on their Ministry's Roster. */
+  readonly adminName: string
   /**
    * The credential. A phone number and a password, for every user including
    * Admins -- see docs/adr/0008-the-phone-number-is-the-sign-in-credential.md.
+   * There is no email here because provisioning creates none.
    */
   readonly adminPhone: string
-  readonly adminEmail: string
   readonly adminPassword: string
   readonly adminUserId: string
+  /**
+   * The Admin is a Person in their own Ministry, like everybody else, and this is
+   * that row. It is what makes the dual-role case reachable: an Admin who is later
+   * invited to lead is found here by Acceptance rather than given a second account.
+   * See `docs/adr/0009-one-account-per-human.md`.
+   */
+  readonly adminPersonId: string
   /** The number this Ministry sends as. Unique per fixture, so a test asserting
    *  on the sender is asserting on *this* Ministry's identity and not on a
    *  constant every Ministry would satisfy. */
   readonly sendingNumber: string
 }
 
-let uniqueSuffix = 0
-const unique = () => `${Date.now()}-${uniqueSuffix++}`
+/**
+ * A number no two fixtures share, within a run or across them. E.164 with a US
+ * country code, because that is what `asPhoneNumber` produces from a ten-digit
+ * spreadsheet column and the sign-in form reads a typed number through the same
+ * function.
+ *
+ * The block is picked at random once per process and walked from there, rather
+ * than derived from the clock. `auth.users` holds a number for the life of the
+ * local stack, so numbers that only avoid each other inside one run start being
+ * refused as taken the second time the suite runs against the same database --
+ * which is the collision ticket 24 asked to be solved here once.
+ */
+let nextNumber = Math.floor(Math.random() * 10_000_000)
+export const aTestPhoneNumber = () => `+1555${String(nextNumber++ % 10_000_000).padStart(7, '0')}`
 
 /**
- * A number no two fixtures share. E.164 with a US country code, because that is
- * what `asPhoneNumber` produces from a ten-digit spreadsheet column and the sign-in
- * form reads a typed number through the same function.
+ * A Ministry and its Admin, through the product's own provisioning path rather
+ * than beside it. The Admin gets a phone identity with no email and a Person row
+ * linked to it, because that is what provisioning does -- so every suite built on
+ * this fixture is asserting against a state the product can actually reach.
  */
-let numberSuffix = 0
-const aTestNumber = () =>
-  `+1555${String((Date.now() + numberSuffix++) % 10_000_000).padStart(7, '0')}`
+export const createMinistryWithAdmin = async (
+  name: string,
+  // Named only where a test says something about the Admin as a human -- the
+  // dual-role suites, which need to read his name on a page. Everywhere else the
+  // Admin is furniture and a derived name says so.
+  adminName: string = `Admin of ${name}`,
+): Promise<MinistryFixture> => {
+  // Read before provisioning, so the keys the adapter needs are in the environment
+  // by the time it looks for them.
+  localSupabase()
 
-export const createMinistryWithAdmin = async (name: string): Promise<MinistryFixture> => {
-  const admin = serviceRoleClient()
-
-  // Provisioned with the Ministry, because sending identity is a property of the
-  // Ministry and a fixture without one cannot be drained at all.
-  const sendingNumber = `+1555${String(Date.now() % 1_000_000).padStart(7, '0')}`
-
-  const { data: ministry, error: ministryError } = await admin
-    .from('ministry')
-    .insert({ name, sending_number: sendingNumber })
-    .select('id')
-    .single()
-  if (ministryError) throw new Error(`Could not create Ministry: ${ministryError.message}`)
-
-  const adminEmail = `admin-${unique()}@example.test`
-  const adminPhone = aTestNumber()
+  const adminPhone = aTestPhoneNumber()
   const adminPassword = 'correct-horse-battery-staple'
+  const sendingNumber = aTestPhoneNumber()
 
-  // Both identities on one account. The phone is the credential and the email is a
-  // contact detail the account happens to carry, which is the shape a Ministry
-  // provisioned before ticket 15 is left in -- so the suite proves sign-in against
-  // an account that has an email rather than against one that conveniently does not.
-  const { data: user, error: userError } = await admin.auth.admin.createUser({
-    email: adminEmail,
-    phone: adminPhone,
-    password: adminPassword,
-    email_confirm: true,
-    phone_confirm: true,
+  const provisioned = await provisionMinistry({
+    name,
+    sendingNumber,
+    admin: { fullName: adminName, phone: adminPhone, password: adminPassword },
   })
-  if (userError) throw new Error(`Could not create Admin user: ${userError.message}`)
-
-  const { error: memberError } = await admin
-    .from('ministry_member')
-    .insert({ ministry_id: ministry.id, user_id: user.user.id, tier: 'admin' })
-  if (memberError) throw new Error(`Could not enrol Admin: ${memberError.message}`)
 
   return {
-    id: ministryId(ministry.id),
+    id: ministryId(provisioned.ministryId),
     name,
+    adminName,
     adminPhone,
-    adminEmail,
     adminPassword,
-    adminUserId: user.user.id,
+    adminUserId: provisioned.adminUserId,
+    adminPersonId: provisioned.adminPersonId,
     sendingNumber,
   }
 }
@@ -277,18 +295,24 @@ export const addPerson = async (
   return data.id
 }
 
-/** A client carrying a real signed-in session, so reads are policed by RLS. */
-export const signInAs = async (ministry: MinistryFixture): Promise<SupabaseClient> => {
+/**
+ * A client carrying a real signed-in session, so reads are policed by RLS.
+ *
+ * By phone number, which is the only credential the product has -- a fixture
+ * signing in by email would be proving authorisation against a door
+ * `app/auth/sign-in` does not open.
+ */
+export const signInAs = async (ministry: MinistryFixture): Promise<SupabaseClient> =>
+  signedInWith(ministry.adminPhone, ministry.adminPassword)
+
+const signedInWith = async (phone: string, password: string): Promise<SupabaseClient> => {
   const { apiUrl, anonKey } = localSupabase()
   const client = createClient(apiUrl, anonKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   })
 
-  const { error } = await client.auth.signInWithPassword({
-    email: ministry.adminEmail,
-    password: ministry.adminPassword,
-  })
-  if (error) throw new Error(`Could not sign in as ${ministry.adminEmail}: ${error.message}`)
+  const { error } = await client.auth.signInWithPassword({ phone, password })
+  if (error) throw new Error(`Could not sign in as ${phone}: ${error.message}`)
 
   return client
 }
@@ -298,7 +322,6 @@ export interface AccountFixture {
   readonly userId: string
   /** What they sign in with, and the number on their Person record: one fact. */
   readonly phone: string
-  readonly email: string
   readonly password: string
   readonly fullName: string
 }
@@ -317,14 +340,14 @@ export const addPersonWithAccount = async (
   options: PersonOptions = {},
 ): Promise<AccountFixture> => {
   const admin = serviceRoleClient()
-  const email = `person-${unique()}@example.test`
-  const phone = options.phone ?? aTestNumber()
+  const phone = options.phone ?? aTestPhoneNumber()
 
+  // A phone identity and no email, which is what Acceptance mints. The fixture
+  // stands in for a Leader who has already accepted, so an account shaped any other
+  // way would be a state the product cannot produce.
   const { data: user, error: userError } = await admin.auth.admin.createUser({
-    email,
     phone,
     password: ACCOUNT_PASSWORD,
-    email_confirm: true,
     phone_confirm: true,
   })
   if (userError) throw new Error(`Could not create an account for ${fullName}: ${userError.message}`)
@@ -362,40 +385,7 @@ export const addPersonWithAccount = async (
     personId: person.id,
     userId: user.user.id,
     phone,
-    email,
     password: ACCOUNT_PASSWORD,
-    fullName,
-  }
-}
-
-/** Gives the Ministry's existing Admin a Person row, so they can lead and be discipled. */
-export const addPersonForAdmin = async (
-  ministry: MinistryFixture,
-  fullName: string,
-  options: PersonOptions = {},
-): Promise<AccountFixture> => {
-  const { data, error } = await serviceRoleClient()
-    .from('person')
-    .insert({
-      ministry_id: ministry.id,
-      full_name: fullName,
-      phone: options.phone ?? ministry.adminPhone,
-      user_id: ministry.adminUserId,
-    })
-    .select('id')
-    .single()
-  if (error) throw new Error(`Could not add ${fullName} to the Roster: ${error.message}`)
-
-  if (options.intake !== false) {
-    await completeIntake(ministry, data.id, ['sms', 'contact_sharing'], 'pastor_link', options.answers ?? {})
-  }
-
-  return {
-    personId: data.id,
-    userId: ministry.adminUserId,
-    phone: ministry.adminPhone,
-    email: ministry.adminEmail,
-    password: ministry.adminPassword,
     fullName,
   }
 }
@@ -604,17 +594,5 @@ export const pairOneToOne = async (
 }
 
 /** A client carrying a real signed-in session for any account, not just the Admin. */
-export const signInWith = async (account: AccountFixture): Promise<SupabaseClient> => {
-  const { apiUrl, anonKey } = localSupabase()
-  const client = createClient(apiUrl, anonKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  })
-
-  const { error } = await client.auth.signInWithPassword({
-    email: account.email,
-    password: account.password,
-  })
-  if (error) throw new Error(`Could not sign in as ${account.email}: ${error.message}`)
-
-  return client
-}
+export const signInWith = async (account: AccountFixture): Promise<SupabaseClient> =>
+  signedInWith(account.phone, account.password)

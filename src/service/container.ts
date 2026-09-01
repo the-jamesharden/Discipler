@@ -28,17 +28,17 @@ import {
   type PostgresOutboundQueue,
 } from '~/platform/supabase/outbound-queue'
 import { createTwilioTransport } from '~/platform/twilio/message-transport'
-import { supabaseLeaderAccounts } from '~/platform/supabase/leader-accounts'
+import { supabaseAccounts } from '~/platform/supabase/accounts'
 import { supabaseRosterReader } from '~/platform/supabase/roster-reader'
 import { createCommandService, type CommandService } from './command-service'
 import type {
+  Accounts,
   CareNeededReader,
   DiscipleshipGoalReader,
   LeaderDashboardReader,
   InboundReader,
   IntakeReader,
   InvitationReader,
-  LeaderAccounts,
   MessageTransport,
   MinistryDirectory,
   MinistrySettingsReader,
@@ -214,8 +214,8 @@ export const getLeaderDashboardReader = (): LeaderDashboardReader =>
   supabaseLeaderDashboardReader
 
 /**
- * Acceptance is the only surface that mints an account, but it reaches its adapter
- * the same way every other surface does. A route holding a concrete adapter is how
- * a composition root stops being one.
+ * Acceptance mints an account, and so does provisioning a Ministry's first Admin,
+ * but both reach the adapter the same way every other surface does. A route
+ * holding a concrete adapter is how a composition root stops being one.
  */
-export const getLeaderAccounts = (): LeaderAccounts => supabaseLeaderAccounts
+export const getAccounts = (): Accounts => supabaseAccounts

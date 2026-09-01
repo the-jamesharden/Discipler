@@ -4,9 +4,11 @@ import { createTestClock } from '~/domain/clock'
 import { personId, type PersonId } from '~/domain/ids'
 import { createPostgresEffectStore } from '~/platform/supabase/effect-store'
 import { createCommandService } from '~/service/command-service'
-import { baseUrl, skipUnlessAppIsRunning } from '../support/app'
+import { baseUrl, signInAs, skipUnlessAppIsRunning } from '../support/app'
 import {
+  aTestPhoneNumber,
   addPerson,
+  completeIntake,
   createMinistryWithAdmin,
   localSupabase,
   type MinistryFixture,
@@ -34,13 +36,11 @@ describe.skipIf(skipUnlessAppIsRunning)('a Leader opening their Invitation Link'
     await pool.end()
   })
 
-  // Unique across runs, not merely within one: acceptance creates an auth
-  // account against the number, and the database keeps it after the suite ends.
-  let numbered = 0
-  const aNumber = () =>
-    `+1${String((Date.now() % 1_000_000) * 1_000 + ++numbered).padStart(10, '0')}`
+  // Numbers come from `local-supabase.ts` and nowhere else. Acceptance creates an
+  // auth account against one, and the database keeps it after the suite ends, so a
+  // number that only avoids collisions within a run is not enough.
   const roster = async (fullName: string) =>
-    personId(await addPerson(ministry, fullName, { phone: aNumber() }))
+    personId(await addPerson(ministry, fullName, { phone: aTestPhoneNumber() }))
 
   const pair = async (leaderIds: PersonId[], participantIds: PersonId[]) => {
     const service = createCommandService({
@@ -247,6 +247,91 @@ describe.skipIf(skipUnlessAppIsRunning)('a Leader opening their Invitation Link'
       [david],
     )
     expect(rows[0].activated).toBe(2)
+  })
+
+  it('lets a Leader sign back in with the number the flow displayed', async () => {
+    // The end of the arc ticket 06 started: acceptance sets a password against a
+    // number it showed and never asked for, and this is the proof that the number
+    // shown is the one the front door takes. Without it, a Leader could complete
+    // acceptance and hold an account no form will let them reach.
+    const david = await roster('David Returns')
+    const emily = await roster('Emily Returns')
+    await pair([david], [emily])
+    const token = await tokenFor(david)
+
+    const { html } = await open(token)
+    const shown = html.match(/\+1\d{7,14}/)?.[0]
+    expect(shown).toBeDefined()
+
+    await post(`/invitation/${token}/accept`, {
+      fullName: 'David Returns',
+      password: 'a-long-enough-password',
+    })
+
+    const { response } = await signInAs({
+      phone: shown!,
+      password: 'a-long-enough-password',
+    })
+
+    expect(response.status).toBe(303)
+    expect(response.headers.get('location')).not.toContain('/login')
+  })
+
+  it('reuses an Admin’s account when they accept, rather than minting a second', async () => {
+    /**
+     * The invariant in `docs/adr/0009-one-account-per-human.md`, proved through the
+     * flow rather than through a fixture. It holds because provisioning already
+     * linked the Admin's login to their Person row, so acceptance finds `user_id`
+     * set and creates nothing -- exactly the path a Leader accepting a second
+     * relationship takes.
+     */
+    const admin = ministry.adminPersonId
+    await completeIntake(ministry, admin)
+    const disciple = await roster('Someone The Admin Leads')
+
+    await pair([personId(admin)], [disciple])
+    const token = await tokenFor(personId(admin))
+
+    // No password field, for the same reason a returning Leader sees none: there
+    // is one account per human and they already hold it.
+    const { html } = await open(token)
+    expect(html).not.toContain('name="password"')
+    expect(html).toContain('the password you already set')
+
+    const { location } = await post(`/invitation/${token}/accept`, {
+      fullName: ministry.adminName,
+    })
+    expect(location).toContain('done=accepted')
+
+    // One login, still theirs.
+    const { rows: accounts } = await pool.query<{ count: number }>(
+      `select count(*)::int as count from auth.users where phone = $1`,
+      [ministry.adminPhone.replace('+', '')],
+    )
+    expect(accounts[0]?.count).toBe(1)
+
+    const { rows: person } = await pool.query<{ user_id: string }>(
+      `select user_id from person where id = $1`,
+      [admin],
+    )
+    expect(person[0]?.user_id).toBe(ministry.adminUserId)
+
+    // One membership, and it still says `admin`. The insert acceptance makes is
+    // `on conflict (ministry_id, user_id) do nothing`, and it only misses when the
+    // user_id is new -- which is what a second account would have made it.
+    const { rows: membership } = await pool.query<{ tier: string }>(
+      `select tier from ministry_member where ministry_id = $1 and user_id = $2`,
+      [ministry.id, ministry.adminUserId],
+    )
+    expect(membership).toEqual([{ tier: 'admin' }])
+
+    // And the password they were provisioned with is still the one that works, so
+    // nothing quietly reset it on the way through.
+    const { response } = await signInAs({
+      phone: ministry.adminPhone,
+      password: ministry.adminPassword,
+    })
+    expect(response.headers.get('location')).not.toContain('/login')
   })
 
   it('does not tell a Leader they have an account because the URL said so', async () => {

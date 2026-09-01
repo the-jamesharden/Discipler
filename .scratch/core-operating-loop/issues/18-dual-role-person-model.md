@@ -12,16 +12,16 @@ Nothing here stores a role. Role lives on relationship membership, and Participa
 
 **Blocked by:** 02, 24
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 - [x] `person.user_id` is nullable, references `auth.users`, and is unique per Ministry where set
-- [ ] A Person may exist with no account, and an account may not exist without a Person in that Ministry — *the first half holds and is covered; the second is broken by Admin provisioning alone, which is ticket 24's*
+- [x] A Person may exist with no account, and an account may not exist without a Person in that Ministry — the second half closed with ticket 24: provisioning gives an Admin a Person row, which was the one path that broke it
 - [x] `eligible_to_lead` is a Person-level flag, defaulting to false, settable by an Admin
 - [x] Eligibility is independent of account, of Intake, and of relationships currently led
 - [x] No role is stored on the Person, and `ministry_member.tier` is unchanged
 - [x] A fixture builds the canonical dual-role case: an Admin who leads two relationships and is a Participant in a third
-- [ ] One human holds one `auth.users` row: an Admin who accepts an Invitation Link gains no second account and no second `ministry_member` row — ticket 24
-- [ ] The dual-role case is built through the product's own flows, not by hand-linking `person.user_id` through the service role — ticket 24
+- [x] One human holds one `auth.users` row: an Admin who accepts an Invitation Link gains no second account and no second `ministry_member` row — ticket 24
+- [x] The dual-role case is built through the product's own flows, not by hand-linking `person.user_id` through the service role — ticket 24
 
 ## Comments
 
@@ -100,3 +100,17 @@ The canonical dual-role fixture the ticket asks for does exist and is honest abo
 one flaw: `tests/integration/leader-access.test.ts:61-88` builds Greaves leading two
 relationships and being discipled in a third, via `addPersonForAdmin`, which is the
 service-role hand-link the last criterion is waiting to be rid of.
+
+### Closed by ticket 24, 2026-08-31
+
+`addPersonForAdmin` is gone. The dual-role human in all four suites that had one is
+now the Ministry's own Admin, whose Person row and `person.user_id` link
+`provisionMinistry` created — so the invariant this ticket states is asserted against
+a state the product produces rather than one a fixture reached in through the service
+role.
+
+The account invariant is proved through the flow it was always about:
+`invitation-over-http.test.ts` pairs the Admin, has them accept their own Invitation
+Link, and checks there is still one `auth.users` row for their number, one
+`ministry_member` row still saying `admin`, and that the password provisioning gave
+them still signs them in.

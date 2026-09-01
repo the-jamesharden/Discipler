@@ -435,12 +435,17 @@ export interface UnitOfWork {
 }
 
 /**
- * Minting the account a Leader signs in with. It is the one thing the application
+ * Minting the account somebody signs in with. It is the one thing the application
  * needs from the outside world that creates a user rather than reading or writing
  * a row, which is why it is a port of its own rather than part of the unit of work:
  * it happens before the transaction and it cannot be rolled back with it.
+ *
+ * Not a Leader's alone. An Admin comes into existence through the same mint, so
+ * "a phone identity with a password and no email" is decided in one place -- see
+ * `docs/adr/0008-the-phone-number-is-the-sign-in-credential.md`, which says the
+ * credential is the same for every user.
  */
-export interface LeaderAccounts {
+export interface Accounts {
   /**
    * The number is the one on file, never one that was typed -- a forwarded link
    * must not be able to re-point an account at somebody else's phone.

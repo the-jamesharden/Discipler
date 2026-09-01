@@ -98,7 +98,7 @@ describe('what a Ministry may vary', () => {
     service().execute({
       type: 'settings.update',
       ministryId: of.id,
-      changedBy: of.adminEmail,
+      changedBy: of.adminUserId,
       fields: form(fields),
     })
 
@@ -160,7 +160,7 @@ describe('what a Ministry may vary', () => {
     )
 
     expect(rows[0]?.payload).toMatchObject({
-      changedBy: ministry.adminEmail,
+      changedBy: ministry.adminUserId,
       changes: {
         leaderNoun: { from: 'discipleship coach', to: 'mentor' },
         participantNoun: { from: 'friend', to: 'mentee' },

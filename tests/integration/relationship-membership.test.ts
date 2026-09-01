@@ -2,7 +2,7 @@ import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import {
   addPerson,
-  addPersonForAdmin,
+  completeIntake,
   createMinistryWithAdmin,
   createRelationship,
   localSupabase,
@@ -249,7 +249,14 @@ describe('relationship membership', () => {
   })
 
   it('lets one Person lead two relationships while being a Participant in a third', async () => {
-    const greaves = await addPersonForAdmin(ministry, 'James Greaves')
+    // The Ministry's own Admin, whose Person row provisioning created and linked to
+    // his login. The point of the case is that one human does all three things, and
+    // a fixture that hand-linked a Person to an account would be proving it about a
+    // state no product flow produces.
+    const greaves = { personId: ministry.adminPersonId }
+    // Leading requires Intake, of an Admin exactly as of anybody else. Provisioning
+    // does not complete it: Intake is the Person's own act and carries their consent.
+    await completeIntake(ministry, greaves.personId)
 
     for (const _ of [1, 2]) {
       const led = await createRelationship(ministry, 'one_to_one')
