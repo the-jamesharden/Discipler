@@ -62,6 +62,7 @@ import {
   EndingRefused,
   FollowUpRefused,
   GoalRefused,
+  ImportRowResolutionRefused,
   IntakeRefused,
   InvitationRefused,
   MaterialAssignmentRefused,
@@ -75,6 +76,7 @@ import {
 import type { HistoryEvent } from '~/domain/history'
 import {
   eventId,
+  importRowId,
   intakeSubmissionId,
   ministryId,
   personId,
@@ -782,6 +784,113 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
         }
         throw error
       }
+    }
+  },
+
+  async holdImportRows(rows) {
+    for (const row of rows) {
+      // The same question, asked again by a second upload, lands on the row that is
+      // already open rather than beside it -- `held_import_row_one_open_question` is
+      // what makes that possible, and the conflict target restates its predicate
+      // because Postgres infers a partial index only from one that says so.
+      //
+      // `name_key` is a stored column rather than the expression the index used to
+      // be written as, so this clause names a column. The expression form compiled
+      // and matched nothing: a template literal ate the backslash in `\s+`.
+      //
+      // What the second upload updates is where the row is: the line and the moment
+      // it arrived move to the file the Admin has in front of them now, because a
+      // report pointing at line 7 of a spreadsheet they replaced last week is a
+      // line number that finds nothing. The email moves with them for the same
+      // reason -- it is the row as the file has it, and the answer is about to
+      // store it.
+      await client.query(
+        `insert into held_import_row
+           (id, ministry_id, line, full_name, phone, email, imported_at)
+         values ($1, $2, $3, $4, $5, $6, $7)
+         on conflict (ministry_id, phone, name_key) where resolved_at is null
+         do update set line = excluded.line,
+                       email = excluded.email,
+                       imported_at = excluded.imported_at`,
+        [row.id, row.ministryId, row.line, row.fullName, row.phone, row.email, row.importedAt],
+      )
+    }
+  },
+
+  async heldImportRow(row) {
+    // Scoped by the policy on `held_import_row`, not by a ministry_id in this
+    // statement: the connection has already declared which Ministry it acts for.
+    //
+    // `for update`, which is what makes two Admins on the same report safe. The
+    // domain refuses a row that is already answered, and it can only refuse one it
+    // saw answered -- without the lock both transactions read it open and the
+    // second renames a Person on a question the first one closed.
+    const { rows } = await client.query<{
+      id: string
+      ministry_id: string
+      line: number
+      full_name: string
+      phone: string
+      email: string | null
+      imported_at: Date
+      resolved_at: Date | null
+    }>(
+      `select id, ministry_id, line, full_name, phone, email, imported_at, resolved_at
+         from held_import_row where id = $1 for update`,
+      [row],
+    )
+
+    const held = rows[0]
+    if (!held) return null
+
+    return {
+      id: importRowId(held.id),
+      ministryId: ministryId(held.ministry_id),
+      line: held.line,
+      fullName: held.full_name,
+      phone: phoneNumber(held.phone),
+      email: held.email,
+      importedAt: held.imported_at,
+      resolvedAt: held.resolved_at,
+    }
+  },
+
+  async resolveImportRow(resolution) {
+    // `where resolved_at is null`, so a row somebody answered between the read and
+    // this write is not overwritten. The domain refuses that case against what it
+    // read; this is the floor under it, in the one statement that can see the row
+    // as it stands.
+    await client.query(
+      `update held_import_row
+          set answer = $2, person_id = $3, resolved_by = $4, resolved_at = $5
+        where id = $1 and resolved_at is null`,
+      [
+        resolution.rowId,
+        resolution.answer,
+        resolution.personId,
+        resolution.resolvedBy,
+        resolution.resolvedAt,
+      ],
+    )
+  },
+
+  async renamePerson(renaming) {
+    try {
+      // The name and nothing else. `person.id` never moves, which is the whole of
+      // why this is a rename and not a merge: every relationship, message and
+      // history event this Person holds stays theirs.
+      await client.query(`update person set full_name = $2 where id = $1`, [
+        renaming.personId,
+        renaming.fullName,
+      ])
+    } catch (error) {
+      // Two Admins answering at once, or a spreadsheet that filed that exact name
+      // on that number between the read and this write. The domain checks it too,
+      // against what it read; this is the check that can see the row as it stands.
+      if (constraintViolated(error) === 'person_ministry_identity_uniq') {
+        throw new ImportRowResolutionRefused('import_row.name_is_already_on_this_number')
+      }
+      throw error
     }
   },
 

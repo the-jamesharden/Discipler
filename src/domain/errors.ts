@@ -96,6 +96,37 @@ export class RosterImportRefused extends Error {
 }
 
 /**
+ * Why an answer to a held import row could not be applied.
+ *
+ * None of them is a question about which answer is right -- that is the Admin's and
+ * the product refuses to have an opinion. They are the four ways the answer arrives
+ * about a row or a Person the Roster no longer holds the way the report described,
+ * which is what happens when two Admins work the same import report at once.
+ */
+export type ImportRowRefusal =
+  /** Somebody answered it first. The row keeps their answer, not this one. */
+  | 'import_row.already_answered'
+  /**
+   * The Person named is not on the row's number. A rename that reached past the
+   * number would let a form post rename anybody in the Ministry, so it is refused
+   * rather than trusted -- the report offers only the names on that number.
+   */
+  | 'import_row.person_is_not_on_this_number'
+  /**
+   * That name is on that number now, whoever put it there. Both answers would make
+   * the duplicate `person_ministry_identity_uniq` refuses, and an Admin is told
+   * what happened rather than shown a constraint.
+   */
+  | 'import_row.name_is_already_on_this_number'
+
+export class ImportRowResolutionRefused extends Error {
+  constructor(readonly refusal: ImportRowRefusal) {
+    super(refusal)
+    this.name = 'ImportRowResolutionRefused'
+  }
+}
+
+/**
  * Why the file as a whole could not be read. A file problem rejects every row in it,
  * so it is not a `RowProblem` with a line number -- there is no line to point at.
  */

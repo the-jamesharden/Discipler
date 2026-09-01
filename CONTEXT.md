@@ -51,6 +51,10 @@ _Avoid_: Answer count, submission count, usage, popularity
 **Roster**:
 The pastor-facing set of people in a ministry and their current participation status.
 
+**Held Import Row**:
+A spreadsheet row an import would not file because the number on it is already on the roster under a different name. It is kept, not dropped: the row waits on the roster until an admin says whether it is the same person written differently or somebody else sharing the phone, and it keeps their answer afterwards. Only that one ambiguity is held — the other reasons a row is refused are a spreadsheet to fix, not a question anybody can answer. ADR-0005 is why both readings are real.
+_Avoid_: Calling it an import error, or a merge
+
 **Suggested Pair**:
 A recommendation that a particular mentor and mentee may be a good one-to-one pairing. Suggested pairs are never produced for groups.
 _Avoid_: Match, assignment, pairing

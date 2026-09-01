@@ -7,10 +7,18 @@ import { intakeReopenLink, ministryIntakeLink } from '~/domain/outbound-copy'
 import { appBaseUrl } from '~/platform/supabase/credentials'
 import {
   AWAITING_LEADER_ACCEPTANCE,
+  HELD_ROWS_EXPLANATION,
+  HELD_ROWS_HEADING,
   importFailureMessage,
+  importRowRefusalMessage,
+  NOBODY_ON_THIS_NUMBER,
   participationStatusLabel,
   rosterRoleLabel,
   rowProblemMessage,
+  samePersonAnswer,
+  samePersonConsequence,
+  SOMEONE_ELSE_ANSWER,
+  SOMEONE_ELSE_CONSEQUENCE,
 } from './copy'
 import { decodeImportReport } from './report'
 import { ClipboardField } from './clipboard-field'
@@ -51,6 +59,8 @@ export default async function RosterPage({
     intakeLinkFor?: string
     /** The Leader who was just sent their Invitation Link again. */
     reinvited?: string
+    /** Why an answer to a held import row could not be applied. A code, never prose. */
+    rowError?: string
   }>
 }) {
   const resolution = await resolveAdmin()
@@ -62,6 +72,11 @@ export default async function RosterPage({
   const admin = resolution.admin
 
   const roster = await getRosterReader().listRoster(admin.ministryId)
+  // Read on every load, not only after an upload. The import report is a redirect
+  // and outlives nothing; a question that appeared only there would expire the
+  // moment an Admin navigated away, which is the silent drop the reporting exists
+  // to prevent.
+  const held = await getRosterReader().heldImportRows(admin.ministryId)
   const query = await searchParams
 
   // One Person's link, and only when an Admin has just asked for theirs. Reading
@@ -88,6 +103,7 @@ export default async function RosterPage({
 
   const report = decodeImportReport(query)
   const failure = importFailureMessage(query.error)
+  const rowFailure = importRowRefusalMessage(query.rowError)
   // How many Participants the relationship just created has, so the confirmation can
   // say what landed. Read as a count and never echoed as text.
   const paired = Number.parseInt(query.paired ?? '', 10)
@@ -249,6 +265,61 @@ export default async function RosterPage({
           <button type="submit">Import</button>
         </form>
       </div>
+
+      {/* Its own panel, above the Roster and below the import that produced it.
+          Not folded into the import report: the report says what one upload did and
+          is gone on the next navigation, and these outlive it by design -- a row
+          nobody has answered is still waiting a week later. */}
+      {held.length > 0 ? (
+        <div className="panel">
+          <h2>{HELD_ROWS_HEADING}</h2>
+          <p className="subtle">{HELD_ROWS_EXPLANATION}</p>
+
+          {rowFailure ? (
+            <p className="error" role="alert">
+              {rowFailure}
+            </p>
+          ) : null}
+
+          {held.map((row) => (
+            <div key={row.rowId}>
+              {/* The line and the name in the file, which is what places the row in
+                  the spreadsheet the Admin uploaded. No phone number: the Roster
+                  shows no contact details, and the names below say which number
+                  this is more usefully than the digits would. */}
+              <h3>{`Line ${row.line} — “${row.fullName}”`}</h3>
+
+              {row.onThisNumber.length === 0 ? (
+                <p className="subtle">{NOBODY_ON_THIS_NUMBER}</p>
+              ) : null}
+
+              {/* One form per answer rather than one form with a choice of submit
+                  buttons. Each carries exactly the answer it means, so there is
+                  nothing to leave unset and no value that a browser could send on
+                  an Admin's behalf -- which is the whole of *neither answer is a
+                  default*. */}
+              {row.onThisNumber.map((person) => (
+                <form key={person.personId} method="post" action="/roster/resolve">
+                  <input type="hidden" name="rowId" value={row.rowId} />
+                  <input type="hidden" name="answer" value="same_person" />
+                  <input type="hidden" name="personId" value={person.personId} />
+                  <button type="submit">{samePersonAnswer(person.fullName)}</button>
+                  <p className="subtle">
+                    {samePersonConsequence(person.fullName, row.fullName)}
+                  </p>
+                </form>
+              ))}
+
+              <form method="post" action="/roster/resolve">
+                <input type="hidden" name="rowId" value={row.rowId} />
+                <input type="hidden" name="answer" value="someone_else" />
+                <button type="submit">{SOMEONE_ELSE_ANSWER}</button>
+                <p className="subtle">{SOMEONE_ELSE_CONSEQUENCE}</p>
+              </form>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       <div className="panel">
         {Number.isInteger(paired) && paired > 0 ? (

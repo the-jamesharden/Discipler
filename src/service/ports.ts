@@ -1,4 +1,9 @@
 import type { AccountRefusal } from '~/domain/accounts'
+import type {
+  HeldImportRow,
+  ImportRowAnswer,
+  NameOnTheNumber,
+} from '~/domain/roster'
 import type { AvailabilityOverlay } from '~/domain/availability-overlay'
 import type {
   IntakeLinkSnapshot,
@@ -18,6 +23,7 @@ import type {
   DiscipleshipGoalOrder,
   DiscipleshipGoalRemoval,
   DiscipleshipGoalRenaming,
+  ImportRowResolution,
   IntakeRecord,
   LeadEligibility,
   LeaderAcceptance,
@@ -35,6 +41,7 @@ import type {
   ParticipantDeparture,
   PersonOptIn,
   PersonOptOut,
+  PersonRenaming,
   RelationshipCancellation,
   RelationshipEnding,
 } from '~/domain/effects'
@@ -57,6 +64,7 @@ import type { AgeBand, DiscipleshipGoalId, Gender } from '~/domain/intake'
 import type {
   ConcernId,
   FollowUpItemId,
+  ImportRowId,
   MaterialId,
   MinistryId,
   OutboundMessageId,
@@ -128,6 +136,42 @@ export interface UnitOfWork {
    * backstop against two imports racing each other.
    */
   createPeople(people: readonly NewPerson[]): Promise<void>
+  /**
+   * The rows the import would not guess about, kept so an Admin can answer them.
+   * Written with the people rather than instead of them: an import that files four
+   * congregants and holds a fifth row has done both, and one transaction is what
+   * makes the report it redirects with true.
+   *
+   * An import re-uploaded before anybody answers raises the same question again.
+   * The row it lands on is the one already open rather than a second copy of it --
+   * `held_import_row_one_open_question` is what says so -- and the line it points
+   * at becomes the one in the file just uploaded, because that is the file the
+   * Admin has in front of them.
+   */
+  holdImportRows(rows: readonly HeldImportRow[]): Promise<void>
+  /**
+   * The row an answer is about, or null for an id that names none. Read inside the
+   * transaction like everything else, so two Admins working the same import report
+   * cannot both find it unanswered and both act on it.
+   */
+  heldImportRow(row: ImportRowId): Promise<HeldImportRow | null>
+  /**
+   * The Admin's answer, recorded against the row it closes. Never a delete: what a
+   * Ministry decided about a congregant's identity is a fact about the Ministry,
+   * and the row is what carries it while ticket 07 settles whether a rename is also
+   * a history event.
+   */
+  resolveImportRow(resolution: ImportRowResolution): Promise<void>
+  /**
+   * The name on file becoming the name in the file. One Person row throughout --
+   * this is an update to `person.full_name` and nothing else, so `person.id` never
+   * moves and every relationship, message and history event stays theirs.
+   *
+   * Refuses with an `ImportRowResolutionRefused` when the name is already on that
+   * number, which is `person_ministry_identity_uniq` doing the job the domain check
+   * above it also does. Two Admins answering at once is what gets past the first.
+   */
+  renamePerson(renaming: PersonRenaming): Promise<void>
   appendHistory(events: readonly NewHistoryEvent[]): Promise<readonly HistoryEvent[]>
   /**
    * The submission, its availability, the consents it granted, and the email it
@@ -645,6 +689,33 @@ export interface RosterEntry {
   readonly eligibleToLead: boolean
 }
 
+/**
+ * One import row waiting on an Admin, as the Roster shows it.
+ *
+ * No phone number, deliberately. The Roster shows no contact details -- a number is
+ * reached through `public.contact_to_share` and nowhere else -- and the line, the
+ * name the file carried and the names already on the number are between them enough
+ * for an Admin to know which row this is.
+ */
+export interface UnansweredImportRow {
+  readonly rowId: ImportRowId
+  /** 1-based and counting the header, exactly as the import report said it. */
+  readonly line: number
+  /** The name in the file: what either answer is about to put on a Person. */
+  readonly fullName: string
+  readonly importedAt: Date
+  /**
+   * Everyone the Roster already holds on this row's number, and what it holds them
+   * under. One answer each, because a number may reach two people and *the same
+   * Person* has as many answers as there are names on it.
+   *
+   * Empty only where the Roster has moved out from under the row. The question is
+   * still shown: a row that disappeared from the screen would be the silent expiry
+   * this whole surface exists to prevent.
+   */
+  readonly onThisNumber: readonly NameOnTheNumber[]
+}
+
 /** The live Intake link one Person holds, for the Admin who is about to send it. */
 export interface IssuedIntakeLink {
   readonly token: IntakeLinkToken
@@ -669,6 +740,14 @@ export interface RosterReader {
     ministryId: MinistryId,
     person: PersonId,
   ): Promise<IssuedIntakeLink | null>
+
+  /**
+   * The import rows still waiting on an answer, oldest import first. Read with the
+   * Roster on every load rather than only after an upload: the report is a redirect
+   * and outlives nothing, and a question that appeared only on the redirect would
+   * expire the moment an Admin navigated away.
+   */
+  heldImportRows(ministryId: MinistryId): Promise<readonly UnansweredImportRow[]>
 }
 
 /**

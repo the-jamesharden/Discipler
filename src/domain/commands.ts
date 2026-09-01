@@ -1,6 +1,7 @@
 import type {
   ConcernId,
   FollowUpItemId,
+  ImportRowId,
   MaterialId,
   MinistryId,
   PersonId,
@@ -39,6 +40,31 @@ export type Command =
       readonly type: 'person.import'
       readonly ministryId: MinistryId
       readonly csv: string
+    }
+  /**
+   * The Admin's answer to a row the import would not guess about. It is a separate
+   * command and not a second import, because the file is gone and nothing about it
+   * is being re-read: the row Discipler kept is the whole input, and the answer is
+   * the one thing only a person who knows the congregation can supply.
+   *
+   * The answer carries the Person it is about rather than sitting beside an
+   * optional field, so that *the same Person* with nobody named cannot be composed.
+   * Which Person matters: a number may already reach two people -- ADR-0005 has
+   * always allowed it -- and *the same Person* is a question with one answer per
+   * name on the number.
+   */
+  | {
+      readonly type: 'import_row.resolve'
+      readonly ministryId: MinistryId
+      readonly rowId: ImportRowId
+      /**
+       * The Admin's account, like every other judgement this product records. The
+       * row keeps who answered even if the account later goes.
+       */
+      readonly resolvedBy: string
+      readonly answer:
+        | { readonly kind: 'same_person'; readonly personId: PersonId }
+        | { readonly kind: 'someone_else' }
     }
   /**
    * The submitted form itself is the payload, unread, for the same reason the

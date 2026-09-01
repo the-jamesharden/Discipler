@@ -19,6 +19,7 @@ import type {
   DiscipleshipGoalRemoval,
   DiscipleshipGoalRenaming,
   IntakeRecord,
+  ImportRowResolution,
   LeadEligibility,
   LeaderAcceptance,
   MaterialAssignment,
@@ -34,6 +35,7 @@ import type {
   OutstandingReplySweep,
   PersonOptIn,
   PersonOptOut,
+  PersonRenaming,
   ParticipantDeparture,
   RelationshipCancellation,
   RelationshipEnding,
@@ -52,6 +54,7 @@ import type { HistoryEvent, NewHistoryEvent } from '~/domain/history'
 import type { NewRelationship } from '~/domain/relationships'
 import {
   rosterKey,
+  type HeldImportRow,
   type NewPerson,
   type PhoneNumber,
   type RosterKey,
@@ -63,6 +66,12 @@ export interface InMemoryStore extends EffectStore {
   readonly outbox: readonly OutboundMessageDraft[]
   readonly relationships: readonly NewRelationship[]
   readonly people: readonly NewPerson[]
+  /** Every row an import held for an Admin to answer, in the order it held them. */
+  readonly heldRows: readonly HeldImportRow[]
+  readonly renamings: readonly PersonRenaming[]
+  readonly importRowAnswers: readonly ImportRowResolution[]
+  /** What `heldImportRow` answers with for an id nothing staged has. */
+  heldImportRow?: HeldImportRow | null
   readonly intakes: readonly IntakeRecord[]
   readonly invitations: readonly NewInvitation[]
   readonly acceptances: readonly LeaderAcceptance[]
@@ -163,6 +172,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
   const outbox: OutboundMessageDraft[] = []
   const relationships: NewRelationship[] = []
   const people: NewPerson[] = []
+  const heldRows: HeldImportRow[] = []
+  const renamings: PersonRenaming[] = []
+  const importRowAnswers: ImportRowResolution[] = []
   const intakes: IntakeRecord[] = []
   const invitations: NewInvitation[] = []
   const acceptances: LeaderAcceptance[] = []
@@ -210,6 +222,15 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
     },
     get people() {
       return [...people]
+    },
+    get heldRows() {
+      return [...heldRows]
+    },
+    get renamings() {
+      return [...renamings]
+    },
+    get importRowAnswers() {
+      return [...importRowAnswers]
     },
     get intakes() {
       return [...intakes]
@@ -370,6 +391,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       const stagedConcerns: NewConcern[] = []
       const stagedViewings: ConcernViewing[] = []
       const stagedConcernResolutions: ConcernResolution[] = []
+      const stagedHeldRows: HeldImportRow[] = []
+      const stagedRenamings: PersonRenaming[] = []
+      const stagedImportRowAnswers: ImportRowResolution[] = []
 
       const unit: UnitOfWork = {
         async checkInFor() {
@@ -558,6 +582,22 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
           if (store.failOn === 'createPeople') throw new Error('the Roster is unavailable')
           stagedPeople.push(...imported)
         },
+        async holdImportRows(rows) {
+          stagedHeldRows.push(...rows)
+        },
+        async heldImportRow(row) {
+          return (
+            [...heldRows, ...stagedHeldRows].find((held) => held.id === row) ??
+            store.heldImportRow ??
+            null
+          )
+        },
+        async resolveImportRow(resolution) {
+          stagedImportRowAnswers.push(resolution)
+        },
+        async renamePerson(renaming) {
+          stagedRenamings.push(renaming)
+        },
         async appendHistory(events: readonly NewHistoryEvent[]) {
           if (store.failOn === 'appendHistory') throw new Error('history store unavailable')
           const written = events.map((event) => ({
@@ -587,6 +627,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       const result = await work(unit)
 
       people.push(...stagedPeople)
+      heldRows.push(...stagedHeldRows)
+      renamings.push(...stagedRenamings)
+      importRowAnswers.push(...stagedImportRowAnswers)
       intakes.push(...stagedIntakes)
       relationships.push(...stagedRelationships)
       history.push(...stagedHistory)

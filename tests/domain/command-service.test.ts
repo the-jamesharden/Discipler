@@ -204,6 +204,18 @@ describe('applying a command\'s effects', () => {
         createPeople: async () => {
           throw new Error('the Roster should not have been touched')
         },
+        holdImportRows: async () => {
+          throw new Error('no import row should have been held')
+        },
+        heldImportRow: async () => {
+          throw new Error('no import row should have been read')
+        },
+        resolveImportRow: async () => {
+          throw new Error('no import row should have been answered')
+        },
+        renamePerson: async () => {
+          throw new Error('nobody should have been renamed')
+        },
         ministryVoice: async () => {
           throw new Error('the Ministry should not have been read')
         },

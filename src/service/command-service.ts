@@ -11,7 +11,7 @@ import {
   MaterialAssignmentRefused,
   PauseRefused,
 } from '~/domain/errors'
-import type { IdSource, PersonId } from '~/domain/ids'
+import type { IdSource, ImportRowId, PersonId } from '~/domain/ids'
 import type { IntakeLinkToken } from '~/domain/intake-link'
 import type { InvitationToken } from '~/domain/invitations'
 import type { EffectStore, UnitOfWork } from './ports'
@@ -174,6 +174,15 @@ export const applyEffects = async (
   const concernResolutions = effects.flatMap((effect) =>
     effect.kind === 'concern.resolve' ? [effect.resolution] : [],
   )
+  const heldRows = effects.flatMap((effect) =>
+    effect.kind === 'importRow.raise' ? [effect.row] : [],
+  )
+  const renamings = effects.flatMap((effect) =>
+    effect.kind === 'person.rename' ? [effect.renaming] : [],
+  )
+  const answeredRows = effects.flatMap((effect) =>
+    effect.kind === 'importRow.resolve' ? [effect.resolution] : [],
+  )
 
   // Rows before the facts about them. The whole unit of work is one transaction, so
   // ordering buys nothing for atomicity -- it buys the error: a pairing the caps
@@ -181,6 +190,14 @@ export const applyEffects = async (
   // happened.
   if (people.length > 0) await unit.createPeople(people)
   for (const relationship of relationships) await unit.createRelationship(relationship)
+
+  // After the people, and before the answers that name them. An import files what
+  // it could and holds what it would not guess about, in that order; an answer
+  // renames or creates a Person and then records which Person the row became, and
+  // the row's foreign key is what would catch the two in the wrong order.
+  if (heldRows.length > 0) await unit.holdImportRows(heldRows)
+  for (const renaming of renamings) await unit.renamePerson(renaming)
+  for (const resolution of answeredRows) await unit.resolveImportRow(resolution)
 
   // Before the messages, and not merely inside the same transaction. The outbound
   // queue refuses a message to anybody with no SMS consent on file, so a Welcome
@@ -315,7 +332,11 @@ export const applyEffects = async (
  * read it has no use for.
  */
 const needsTheRoster = (command: Command): boolean =>
-  command.type === 'person.import' || command.type === 'intake.submit'
+  command.type === 'person.import' ||
+  command.type === 'intake.submit' ||
+  // It decides against the names the row's number already holds: which Person a
+  // rename may name, and whether the name in the file has landed there since.
+  command.type === 'import_row.resolve'
 
 /** The commands an Admin performs on one named relationship. */
 type AboutOneRelationship = Extract<
@@ -511,6 +532,18 @@ const resolvedIntakeLink = async (unit: UnitOfWork, token: IntakeLinkToken) => {
   return link
 }
 
+/**
+ * The held import row an answer names. Absent is a defect rather than a refusal:
+ * the row is never deleted, so an id that names none did not come from the report
+ * that offers the answers -- which is a form post composed by hand, not something
+ * an Admin can act on.
+ */
+const heldRow = async (unit: UnitOfWork, row: ImportRowId) => {
+  const held = await unit.heldImportRow(row)
+  if (!held) throw new Error('import_row.resolve was handed an id that names no row')
+  return held
+}
+
 export const createCommandService = ({
   clock,
   ids,
@@ -577,6 +610,12 @@ export const createCommandService = ({
         // one back rather than minting a second and stopping the first from working.
         ...(command.type === 'intake.reopen'
           ? { intakeLinkHeld: await unit.intakeLinkFor(command.personId) }
+          : {}),
+        // Read inside the transaction and under the row's own lock, so two Admins
+        // working the same import report cannot both find it unanswered. The domain
+        // refuses a row it saw answered, and it can only refuse one it saw.
+        ...(command.type === 'import_row.resolve'
+          ? { importRow: await heldRow(unit, command.rowId) }
           : {}),
         // The same snapshot the tick reads, rather than a second read of its own.
         // Re-issuing acts on exactly the Leaders the tick considers still awaited,

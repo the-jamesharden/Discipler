@@ -13,6 +13,12 @@ export type OutboundMessageId = Branded<string, 'OutboundMessageId'>
 export type FollowUpItemId = Branded<string, 'FollowUpItemId'>
 export type ConcernId = Branded<string, 'ConcernId'>
 export type MaterialId = Branded<string, 'MaterialId'>
+/**
+ * One row an import could not file and an Admin can still answer. Minted at the
+ * boundary like every other identifier here, because the report that offers the
+ * answers has to name the row before anything has been decided about it.
+ */
+export type ImportRowId = Branded<string, 'ImportRowId'>
 /** Minted by the database rather than the boundary, like `EventId`: the row is
  * the identifier's source, and nothing needs to name a submission before it
  * exists. */
@@ -27,6 +33,7 @@ export const outboundMessageId = (value: string): OutboundMessageId =>
 export const followUpItemId = (value: string): FollowUpItemId => value as FollowUpItemId
 export const concernId = (value: string): ConcernId => value as ConcernId
 export const materialId = (value: string): MaterialId => value as MaterialId
+export const importRowId = (value: string): ImportRowId => value as ImportRowId
 export const intakeSubmissionId = (value: string): IntakeSubmissionId =>
   value as IntakeSubmissionId
 

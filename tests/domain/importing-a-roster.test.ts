@@ -123,6 +123,42 @@ describe('importing a Roster', () => {
     expect(result.rejections).toEqual([{ line: 2, problem: 'same_number_different_name' }])
   })
 
+  it('keeps the row it would not guess about, so an Admin can answer it later', () => {
+    // The report is a redirect and outlives nothing. A row that expired with it
+    // would leave the Admin exactly where reporting was meant to stop leaving
+    // them: editing the spreadsheet and uploading it again.
+    const result = importing(file('Name,Phone,Email', 'Em Johnson,5550143023,em@example.test'), [
+      { fullName: 'Emily Johnson', phone: '+15550143023' },
+    ])
+
+    expect(
+      result.effects.flatMap((effect) => (effect.kind === 'importRow.raise' ? [effect.row] : [])),
+    ).toEqual([
+      {
+        id: '00000000-0000-4000-8000-000000000001',
+        ministryId: ministry,
+        line: 2,
+        fullName: 'Em Johnson',
+        phone: '+15550143023',
+        email: 'em@example.test',
+        importedAt: at,
+        resolvedAt: null,
+      },
+    ])
+  })
+
+  it('keeps nothing for a row it refused for any other reason', () => {
+    // Only this one has an answer an Admin can give. A row with no phone number is
+    // a spreadsheet to fix, and holding it would put a question on the Roster that
+    // nothing on the screen could close.
+    const result = importing(
+      file('Name,Phone', ',5550143024', 'No Number,', 'Too,Many,Fields'),
+      [],
+    )
+
+    expect(result.effects.filter((effect) => effect.kind === 'importRow.raise')).toEqual([])
+  })
+
   it('tells an exact repeat apart from a number under a new name', () => {
     const result = importing(
       file('Name,Phone', 'Emily Johnson,5550143021', 'Em Johnson,5550143021'),

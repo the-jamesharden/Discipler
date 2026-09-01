@@ -1,4 +1,4 @@
-import { personId, relationshipId } from '~/domain/ids'
+import { importRowId, personId, relationshipId } from '~/domain/ids'
 import { isParticipationStatus, type ParticipationStatus } from '~/domain/participation'
 import { isMemberRole, type MemberRole } from '~/domain/relationships'
 import { intakeLinkState, intakeLinkToken } from '~/domain/intake-link'
@@ -7,7 +7,9 @@ import type {
   RosterEntry,
   RosterReader,
   RosterRelationship,
+  UnansweredImportRow,
 } from '~/service/ports'
+import type { NameOnTheNumber } from '~/domain/roster'
 import { createSupabaseServerClient } from './server-client'
 
 interface MemberRow {
@@ -193,6 +195,75 @@ export const supabaseRosterReader: RosterReader = {
       participationStatus: row.participationStatus,
       eligibleToLead: row.eligibleToLead,
     }))
+  },
+
+  async heldImportRows(ministryId): Promise<readonly UnansweredImportRow[]> {
+    const supabase = await createSupabaseServerClient()
+
+    // A function rather than a table read, for the two reasons `roster` is one: the
+    // Admin test is written into it, and it carries the names on each row's number
+    // -- which the table alone cannot, because reaching them means joining on a
+    // phone number no browser session may read.
+    const { data, error } = await supabase.rpc('held_import_rows', {
+      target_ministry_id: ministryId,
+    })
+
+    if (error) throw new Error(`Could not read the held import rows: ${error.message}`)
+
+    // One row per question per name already on its number, so they are grouped back
+    // into one question each. Insertion order is preserved, and the function orders
+    // by the import instant -- so the oldest unanswered question is first, which is
+    // the one that has been waiting longest.
+    const questions = new Map<string, UnansweredImportRow & { onThisNumber: NameOnTheNumber[] }>()
+
+    for (const row of (data ?? []) as unknown[]) {
+      const {
+        row_id: id,
+        line,
+        full_name: fullName,
+        imported_at: importedAt,
+        person_id: person,
+        person_name: personName,
+      } = (row ?? {}) as Record<string, unknown>
+
+      // Checked rather than asserted, on every field, for the reason the Roster row
+      // beside it is: this is a screen an Admin is about to rename somebody from,
+      // and a question rendered without the line or the name is one they cannot
+      // place in the file they uploaded.
+      if (typeof id !== 'string' || id === '') {
+        throw new Error('A held import row arrived with no id')
+      }
+      if (typeof line !== 'number' || !Number.isInteger(line)) {
+        throw new Error(`A held import row arrived with no line number: ${id}`)
+      }
+      if (typeof fullName !== 'string' || fullName === '') {
+        throw new Error(`A held import row arrived with no name: ${id}`)
+      }
+      if (typeof importedAt !== 'string') {
+        throw new Error(`A held import row arrived with no import date: ${id}`)
+      }
+
+      const question =
+        questions.get(id) ??
+        {
+          rowId: importRowId(id),
+          line,
+          fullName,
+          importedAt: new Date(importedAt),
+          onThisNumber: [],
+        }
+      questions.set(id, question)
+
+      // The left join says the Roster holds nobody on this number any more, which
+      // leaves *someone else on this number* as the only answer. The question is
+      // still shown: a row that vanished would be the silent expiry this surface
+      // exists to prevent.
+      if (typeof person === 'string' && person !== '' && typeof personName === 'string') {
+        question.onThisNumber.push({ personId: personId(person), fullName: personName })
+      }
+    }
+
+    return [...questions.values()]
   },
 
   async liveIntakeLink(ministryId, person): Promise<IssuedIntakeLink | null> {

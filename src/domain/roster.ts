@@ -1,5 +1,5 @@
 import type { Branded } from './branded'
-import type { MinistryId, PersonId } from './ids'
+import type { ImportRowId, MinistryId, PersonId } from './ids'
 
 /**
  * The Roster is every Person in a Ministry. Being on it is not consent and is not a
@@ -139,3 +139,73 @@ export const rosterKey = (person: {
   phone: PhoneNumber
 }): RosterKey =>
   `${person.phone} ${person.fullName.trim().toLowerCase().replace(/\s+/g, ' ')}` as RosterKey
+
+
+/**
+ * What an Admin answered about a row the importer could not file. Two answers and
+ * no third, because the question has exactly two ordinary readings -- the same
+ * Person under a new name, and the second person on a shared phone -- and
+ * ADR-0005 is what says both are real.
+ *
+ * Neither is a default and neither is inferred. The whole point of reporting the
+ * row is that Discipler does not know which it is, and an answer chosen by
+ * anything but an Admin would put the ambiguity back where the importer took it
+ * out of.
+ */
+export type ImportRowAnswer = 'same_person' | 'someone_else'
+
+/**
+ * A row an import refused because the number was already on the Roster under
+ * another name, kept so an Admin can answer it. Stored rather than carried in the
+ * import report's query string, which is the whole of *resolving does not require
+ * re-uploading the file*: the report is a redirect and outlives nothing, and a row
+ * that expired with it would be the silent drop the reporting exists to prevent.
+ *
+ * It holds the row as the file had it -- the name that collided, the number, the
+ * email beside them -- because that is what either answer needs and the file is
+ * gone by the time anybody reads this.
+ *
+ * `resolvedAt` is null while it is still a question. The row is kept afterwards
+ * rather than deleted, like every other decision in this product: what an Admin
+ * answered about a congregant's identity is a fact about the Ministry.
+ */
+export interface HeldImportRow {
+  readonly id: ImportRowId
+  readonly ministryId: MinistryId
+  /** 1-based and counting the header, as the import report says it. */
+  readonly line: number
+  readonly fullName: string
+  readonly phone: PhoneNumber
+  readonly email: string | null
+  readonly importedAt: Date
+  readonly resolvedAt: Date | null
+}
+
+/** One Person already on a held row's number, and the name they are on it under. */
+export interface NameOnTheNumber {
+  readonly personId: PersonId
+  readonly fullName: string
+}
+
+/**
+ * Everyone the Roster already holds on one number, read out of a snapshot keyed by
+ * name and number. A number may reach more than one of them -- that is what
+ * ADR-0005 protects -- so *the same Person* is a question with as many answers as
+ * there are names on it, and this is the list the surface offers one answer per.
+ *
+ * A name with no Person behind it is dropped rather than guessed at: both halves
+ * come from one read, so reaching that means they have drifted apart, and offering
+ * a rename for a Person that cannot be named would be an answer nothing could
+ * apply.
+ */
+export const namesOnTheNumber = (
+  roster: {
+    readonly people: ReadonlyMap<RosterKey, PersonId>
+    readonly namesByNumber: ReadonlyMap<PhoneNumber, readonly string[]>
+  },
+  phone: PhoneNumber,
+): readonly NameOnTheNumber[] =>
+  (roster.namesByNumber.get(phone) ?? []).flatMap((fullName) => {
+    const held = roster.people.get(rosterKey({ fullName, phone }))
+    return held ? [{ personId: held, fullName }] : []
+  })

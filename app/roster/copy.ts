@@ -1,4 +1,4 @@
-import type { PairingRefusal } from '~/domain/errors'
+import type { ImportRowRefusal, PairingRefusal } from '~/domain/errors'
 import type { ParticipationStatus } from '~/domain/participation'
 import type { MemberRole } from '~/domain/relationships'
 import type { RowProblem } from '~/domain/roster'
@@ -65,6 +65,81 @@ const PROBLEMS: Record<RowProblem, string> = {
 }
 
 export const rowProblemMessage = (problem: RowProblem): string => PROBLEMS[problem]
+
+/**
+ * The heading over the rows an Admin can still answer. Named as *waiting on you*
+ * rather than as errors: nothing went wrong with these rows, and the file is not
+ * where the answer is. The one thing missing is a fact only somebody who knows the
+ * congregation has.
+ */
+export const HELD_ROWS_HEADING = 'Rows waiting on you'
+
+/**
+ * Said once, above the rows, rather than repeated on each of them. It says what
+ * Discipler does not know and why, because an Admin who does not understand the
+ * question is the one most likely to click whichever button is on the left.
+ */
+export const HELD_ROWS_EXPLANATION =
+  'Each of these came in on a phone number the Roster already holds, under a name '
+  + 'it has never seen. That is either the same person with their name written '
+  + 'differently, or somebody else who shares the phone — a spouse, a parent and a '
+  + 'teenager. Discipler cannot tell, and will not guess.'
+
+/**
+ * How the question reads when the Roster no longer holds anybody on that number.
+ * It should not happen: the row exists because the number was held. It is said
+ * rather than the row being dropped, because a question that disappeared would be
+ * the silent expiry this whole surface exists to prevent.
+ */
+export const NOBODY_ON_THIS_NUMBER =
+  'Nobody is on the Roster against this number any more, so there is nobody left to '
+  + 'rename. Adding them is the only answer left.'
+
+/**
+ * One answer per Person the number already reaches, each naming that Person. A
+ * number may reach two of them, and *the same person* is a different question about
+ * each -- so the button says whose name is about to change rather than leaving an
+ * Admin to work out which of two the product had in mind.
+ */
+export const samePersonAnswer = (fullName: string): string => `Same person as ${fullName}`
+
+/** Said under the button, so the consequence is visible before it is clicked. */
+export const samePersonConsequence = (was: string, becomes: string): string =>
+  `${was} keeps their history and everything they are part of, and is called ${becomes} from now on.`
+
+export const SOMEONE_ELSE_ANSWER = 'Someone else on this number'
+
+export const SOMEONE_ELSE_CONSEQUENCE =
+  'A second person is added on the same phone. Nobody already on the Roster changes.'
+
+/**
+ * Why an answer could not be applied. None of them is a disagreement about which
+ * answer was right -- that is the Admin's -- so each says what moved underneath
+ * them and what to do about it.
+ *
+ * A `Record` rather than a lookup with a default, like the pairing refusals: a
+ * refusal added to `ImportRowRefusal` and left unworded fails the build rather than
+ * falling through to a sentence that names nothing.
+ */
+const IMPORT_ROW_REFUSALS: Record<ImportRowRefusal, string> = {
+  'import_row.already_answered':
+    'Somebody answered that row before you did. The Roster below shows where it landed.',
+  'import_row.person_is_not_on_this_number':
+    'That person is not on the phone number this row came in on. Reload the Roster and answer it again.',
+  // The row stays. Nothing here can close it -- neither answer is a default and
+  // neither is Discipler's to choose -- so it says plainly that both have been
+  // overtaken rather than quietly hiding a question nobody answered.
+  'import_row.name_is_already_on_this_number':
+    'That name is already on the Roster against this number, so neither answer would '
+    + 'add anything. The row was left as it was.',
+}
+
+export const importRowRefusalMessage = (code: string | undefined): string | undefined => {
+  if (!code) return undefined
+  return (
+    IMPORT_ROW_REFUSALS[code as ImportRowRefusal] ?? 'That row could not be answered.'
+  )
+}
 
 const FAILURES: Record<ImportFailure, string> = {
   no_file: 'Choose a CSV file to import.',

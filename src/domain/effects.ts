@@ -7,7 +7,7 @@ import type {
 } from './check-in'
 import type { ConcernResolution, ConcernViewing, NewConcern } from './concerns'
 import type { NewHistoryEvent } from './history'
-import type { MaterialId, MinistryId, PersonId, RelationshipId } from './ids'
+import type { ImportRowId, MaterialId, MinistryId, PersonId, RelationshipId } from './ids'
 import type {
   AgeBand,
   AvailabilitySlot,
@@ -26,7 +26,7 @@ import type { MinistrySettings } from './ministry-settings'
 import type { InvitationToken, NewInvitation } from './invitations'
 import type { OutboundMessageKind, OutstandingReplyCutoff } from './outstanding-reply'
 import type { MemberRole, NewRelationship, RelationshipOutcome } from './relationships'
-import type { NewPerson, PhoneNumber } from './roster'
+import type { HeldImportRow, ImportRowAnswer, NewPerson, PhoneNumber } from './roster'
 
 /**
  * Commands return effects; they never perform I/O. The application service is the
@@ -618,6 +618,9 @@ export interface PersonOptIn {
 export type Effect =
   | { readonly kind: 'history.append'; readonly event: NewHistoryEvent }
   | { readonly kind: 'person.create'; readonly person: NewPerson }
+  | { readonly kind: 'importRow.raise'; readonly row: HeldImportRow }
+  | { readonly kind: 'importRow.resolve'; readonly resolution: ImportRowResolution }
+  | { readonly kind: 'person.rename'; readonly renaming: PersonRenaming }
   | { readonly kind: 'intake.record'; readonly intake: IntakeRecord }
   | { readonly kind: 'message.enqueue'; readonly message: OutboundMessageDraft }
   | {
@@ -743,9 +746,63 @@ export const createRelationship = (relationship: NewRelationship): Effect => ({
   relationship,
 })
 
+/**
+ * An Admin's answer to a row the importer would not guess about, recorded against
+ * the row it answers and against the Person it landed on -- the one renamed, or the
+ * one created. Both are named because *which Person did this row become* is the
+ * question anybody reading the row afterwards has, and the answer alone does not
+ * say.
+ *
+ * `resolvedBy` is the Admin, for the reason a resolved Concern and a resolved
+ * Follow-Up Item both record one: this is pastoral judgement being exercised over
+ * a congregant's identity, not a field being edited.
+ */
+export interface ImportRowResolution {
+  readonly ministryId: MinistryId
+  readonly rowId: ImportRowId
+  readonly answer: ImportRowAnswer
+  readonly personId: PersonId
+  /** The Admin's account. The row keeps the fact even if the account later goes. */
+  readonly resolvedBy: string
+  readonly resolvedAt: Date
+}
+
+/**
+ * The name on file becoming the name in the file. One Person row throughout and
+ * `person.id` never moves, which is what makes this a rename and not a merge: the
+ * Person keeps their history, their relationships and every message ever sent to
+ * them.
+ *
+ * The name and nothing else. The email the row carried is deliberately absent --
+ * the Admin answered *which Person this row is*, and an address a Person gave at
+ * Intake is not a spreadsheet's to overwrite, which is the rule the importer
+ * already follows for a row it recognises.
+ */
+export interface PersonRenaming {
+  readonly ministryId: MinistryId
+  readonly personId: PersonId
+  readonly fullName: string
+  readonly renamedAt: Date
+}
+
 export const createPerson = (person: NewPerson): Effect => ({
   kind: 'person.create',
   person,
+})
+
+export const holdImportRow = (row: HeldImportRow): Effect => ({
+  kind: 'importRow.raise',
+  row,
+})
+
+export const resolveImportRow = (resolution: ImportRowResolution): Effect => ({
+  kind: 'importRow.resolve',
+  resolution,
+})
+
+export const renamePerson = (renaming: PersonRenaming): Effect => ({
+  kind: 'person.rename',
+  renaming,
 })
 
 export const issueInvitationLink = (invitation: NewInvitation): Effect => ({

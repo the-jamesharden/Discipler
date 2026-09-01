@@ -16,6 +16,9 @@ import {
   optPersonOut,
   cancelRelationship,
   createPerson,
+  holdImportRow,
+  renamePerson,
+  resolveImportRow,
   departFromRelationship,
   endRelationship,
   createRelationship,
@@ -54,6 +57,7 @@ import {
   DepartureRefused,
   EndingRefused,
   GoalRefused,
+  ImportRowResolutionRefused,
   IntakeRefused,
   InvitationRefused,
   MaterialAssignmentRefused,
@@ -144,6 +148,7 @@ import {
 import { CONSENT_VERSION } from './consent'
 import {
   concernId,
+  importRowId,
   personId,
   relationshipId,
   type IdSource,
@@ -179,7 +184,14 @@ import {
   type MinistryLanguage,
   type MinistrySettings,
 } from './ministry-settings'
-import { rosterKey, type PhoneNumber, type RosterKey, type RowRejection } from './roster'
+import {
+  namesOnTheNumber,
+  rosterKey,
+  type HeldImportRow,
+  type PhoneNumber,
+  type RosterKey,
+  type RowRejection,
+} from './roster'
 import { readRosterFile } from './roster-csv'
 
 /**
@@ -202,6 +214,13 @@ export interface CommandContext {
    * The two readings differ by a whole congregation being imported a second time.
    */
   readonly roster?: RosterSnapshot
+  /**
+   * The held row an answer is about, as the database found it, loaded on
+   * `import_row.resolve`'s behalf. It carries `resolvedAt` rather than a *still
+   * open* flag, because whether somebody answered first is a question about time
+   * and every one of those is answered here against the injected clock.
+   */
+  readonly importRow?: HeldImportRow
   /**
    * The Ministry in whose voice the command speaks. Loaded on the command's behalf
    * because every message carries the Ministry name as a prefix, and a domain that
@@ -2975,8 +2994,26 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         // whether that is a rename or the second person on a shared phone, because
         // both are ordinary in a congregation and each guess loses the other one.
         // Reported, never dropped and never silently filed twice.
+        //
+        // Kept as well as reported. The report is a redirect and outlives nothing;
+        // the row it points at has to survive so an Admin can answer it without
+        // re-uploading the file, which is exactly the manual work this product
+        // exists to remove. What is kept is the row as the file had it, because the
+        // file is gone by the time anybody reads it and both answers need the name.
         if (context.roster.namesByNumber.has(row.phone)) {
           rejections.push({ line: row.line, problem: 'same_number_different_name' })
+          effects.push(
+            holdImportRow({
+              id: importRowId(context.ids.next()),
+              ministryId: command.ministryId,
+              line: row.line,
+              fullName: row.fullName,
+              phone: row.phone,
+              email: row.email,
+              importedAt: now,
+              resolvedAt: null,
+            }),
+          )
           continue
         }
 
@@ -3007,6 +3044,114 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       return {
         effects,
         rejections: rejections.sort((first, second) => first.line - second.line),
+      }
+    }
+
+    case 'import_row.resolve': {
+      // Absent rather than defaulted, like the Roster beside it. A row that was
+      // never loaded and a row nobody has answered are the same value and opposite
+      // facts, and the second of them renames a Person on no evidence at all.
+      const row = context.importRow
+      if (!row) throw new Error('import_row.resolve was handed no row to answer')
+      if (!context.roster) {
+        throw new Error('import_row.resolve was handed no Roster to answer against')
+      }
+
+      // Somebody answered first. Two Admins working the same import report is
+      // ordinary, and the second must not rename a Person on the strength of a
+      // question the first one closed -- their answer may have been the other one.
+      if (row.resolvedAt) {
+        throw new ImportRowResolutionRefused('import_row.already_answered')
+      }
+
+      const now = context.clock.now()
+      const held = namesOnTheNumber(context.roster, row.phone)
+
+      // That name is on that number now, whoever put it there -- a second Admin
+      // answering a duplicate row, or an import that landed in between. Both
+      // answers would make the duplicate `person_ministry_identity_uniq` refuses,
+      // and the Admin is told what happened rather than shown a constraint.
+      if (context.roster.people.has(rosterKey({ fullName: row.fullName, phone: row.phone }))) {
+        throw new ImportRowResolutionRefused('import_row.name_is_already_on_this_number')
+      }
+
+      const answer = command.answer
+      if (answer.kind === 'same_person') {
+        // The Person named has to be one of the people that number reaches. The
+        // report offers only those names, so anything else is a form post that did
+        // not come from it -- and an unchecked one would rename any Person in the
+        // Ministry from a screen about a spreadsheet row.
+        const renamed = held.find((person) => person.personId === answer.personId)
+        if (!renamed) {
+          throw new ImportRowResolutionRefused('import_row.person_is_not_on_this_number')
+        }
+
+        // A rename and not a merge: one Person row throughout, `person.id` never
+        // moves, and their history, relationships and messages all stay theirs.
+        //
+        // No history event. Ticket 26 leaves *whether a rename appends one* open,
+        // to be settled with ticket 07's history work rather than by inventing an
+        // event kind here -- and the row below records who answered, what they
+        // answered and when, so nothing is lost while the question is open.
+        return {
+          effects: [
+            renamePerson({
+              ministryId: command.ministryId,
+              personId: renamed.personId,
+              fullName: row.fullName,
+              renamedAt: now,
+            }),
+            resolveImportRow({
+              ministryId: command.ministryId,
+              rowId: row.id,
+              answer: 'same_person',
+              personId: renamed.personId,
+              resolvedBy: command.resolvedBy,
+              resolvedAt: now,
+            }),
+          ],
+          rejections: [],
+        }
+      }
+
+      // The second person on a shared phone, which ADR-0005 has always allowed:
+      // two people on one number are two Person rows, and the identity index is
+      // keyed on the name as well as the number precisely so this is representable.
+      const person = {
+        id: personId(context.ids.next()),
+        ministryId: command.ministryId,
+        fullName: row.fullName,
+        phone: row.phone,
+        email: row.email,
+        createdAt: now,
+      }
+
+      return {
+        effects: [
+          // No message of any kind, for the reason the import sends none: being on
+          // a Roster is not consent and is not a wish to participate.
+          createPerson(person),
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            // They arrived in a spreadsheet and reached the Roster from it. The
+            // answer is what unblocked the row, not a second way of joining a
+            // Ministry, so this is the event every other imported Person gets.
+            type: 'person.imported',
+            subjectType: 'person',
+            subjectId: person.id,
+            payload: { fullName: person.fullName },
+          }),
+          resolveImportRow({
+            ministryId: command.ministryId,
+            rowId: row.id,
+            answer: 'someone_else',
+            personId: person.id,
+            resolvedBy: command.resolvedBy,
+            resolvedAt: now,
+          }),
+        ],
+        rejections: [],
       }
     }
 
