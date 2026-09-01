@@ -90,3 +90,35 @@ scales, which is what the criterion asks for -- but tools that cannot import SVG
 (Google Slides among them) will need it converted. A raster format is not offered
 because nothing in this ticket asks for one.
 
+
+### What the second review changed, 2026-08-31
+
+Two criteria were being met by the Admin's knowledge of their browser rather than by
+anything the page offered, and the review called both partial.
+
+**Copying is a control now.** The link sat in a `readOnly` field and "copy" meant
+select the text by hand. A `Copy` button sits beside it -- the first and only thing
+in Discipler that runs in the browser, because there is no way to put something on a
+clipboard without script. The field is still server-rendered and still a real field,
+so an Admin whose browser runs none of it is exactly where they were; the button is
+the improvement and not the mechanism, and a refused clipboard falls back to
+selecting the field.
+
+**Saving is a download now.** The panel offered one tab and left saving and printing
+to `Ctrl+S` and `Ctrl+P` on it. Saving is its own link with `download`, which names
+the file on the way out; the tab remains, and is now labelled as the printing one,
+because a browser printing the square on its own puts it on the paper at whatever
+size the paper is and the Roster around it would prevent that. The route still sends
+`content-disposition: inline`, because the Roster embeds it as an `<img>`.
+
+**`?via=qr` had three authors.** It was written in `ministryIntakeQrLink`, again in
+the HTTP suite's `scanned` helper, and again in the encoder test's fixture link. Both
+tests now ask the domain for it, so the one string a compliance review ends up
+reading is written once and a drift in it fails the domain test rather than leaving
+three files agreeing about the wrong thing.
+
+**Two smaller things.** `invitationLink`'s docblock had been left stranded above the
+`host` helper inserted beneath it, which left the one link function in the file
+undocumented. And `img.qr`'s comment claimed the element owned the size while sitting
+above `max-width: 100%`; the cap is a cap, it never enlarges the square, and the
+comment says so.

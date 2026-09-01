@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { ministryId } from '~/domain/ids'
+import { ministryIntakeQrLink } from '~/domain/outbound-copy'
 import { QUIET_ZONE_MODULES, renderQrCode } from '~/platform/qr/qr-code'
 
 /**
@@ -11,7 +13,16 @@ import { QUIET_ZONE_MODULES, renderQrCode } from '~/platform/qr/qr-code'
  * that survives paper, and a shape that scales rather than pixelates.
  */
 
-const link = 'https://discipler.example/intake/9d1b0c44-2f5e-4a67-8c3d-71ea45b90f28?via=qr'
+/**
+ * What this encoder is actually handed, asked of the domain rather than typed out
+ * again here. `?via=qr` belongs to `outbound-copy` and is asserted there; a copy of
+ * it in this file would be a second author of the one string a compliance review
+ * ends up reading.
+ */
+const link = ministryIntakeQrLink(
+  'https://discipler.example',
+  ministryId('9d1b0c44-2f5e-4a67-8c3d-71ea45b90f28'),
+)
 
 /** The grid the QR was drawn on, read back off the `viewBox`. */
 const modulesAcross = (svg: string): number => {
@@ -19,6 +30,13 @@ const modulesAcross = (svg: string): number => {
   if (!box) throw new Error('The QR code was drawn without a viewBox')
   expect(box[1]).toBe(box[2])
   return Number(box[1])
+}
+
+/** The size the file has when nothing else has an opinion, off the `width`. */
+const intrinsicWidth = (svg: string): number => {
+  const found = /width="(\d+)"/.exec(svg)
+  if (!found) throw new Error('The QR code was drawn without a width')
+  return Number(found[1])
 }
 
 /** Every coordinate a dark module was drawn at. */
@@ -67,9 +85,7 @@ describe('the QR code Discipler draws', () => {
     // Not the size it appears at on a page -- a page says that for itself. This is
     // the size the file has when nothing else has an opinion, which is the case when
     // an Admin opens it on its own and prints it.
-    const width = /width="(\d+)"/.exec(svg)
-    expect(width).not.toBeNull()
-    expect(Number(width![1])).toBeGreaterThanOrEqual(512)
+    expect(intrinsicWidth(svg)).toBeGreaterThanOrEqual(512)
   })
 
   it('draws a different code for a different Ministry', async () => {

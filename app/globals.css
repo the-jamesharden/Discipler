@@ -141,11 +141,33 @@ h3 { font-size: 0.95rem; margin: 1.5rem 0 0.5rem; }
    border keeping the quiet zone visible against a white panel. */
 img.qr {
   display: block;
-  /* The size is the page's, set on the element, so one number decides it. */
+  /* The size is the page's and is stated on the element. This caps it so the square
+     cannot run past the panel on a narrow screen; it never decides how large it is
+     drawn, and it never enlarges it. */
   max-width: 100%;
   height: auto;
   background: #ffffff;
   border: 1px solid var(--line);
   border-radius: 7px;
   margin-bottom: 1rem;
+}
+
+/* The Ministry's Intake link and the button that copies it. One row, because the
+   button is an action on the field beside it rather than on the panel. */
+.copyable {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.copyable input { margin-bottom: 0; }
+.copyable button { white-space: nowrap; }
+
+/* Reserved rather than sized to its contents, so the field does not jump narrower
+   the moment the confirmation appears. */
+.copied {
+  color: var(--muted);
+  font-size: 0.9rem;
+  min-width: 4.5rem;
 }

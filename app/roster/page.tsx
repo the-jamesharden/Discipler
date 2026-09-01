@@ -13,6 +13,7 @@ import {
   rowProblemMessage,
 } from './copy'
 import { decodeImportReport } from './report'
+import { ClipboardField } from './clipboard-field'
 
 export const dynamic = 'force-dynamic'
 
@@ -139,8 +140,11 @@ export default async function RosterPage({
 
         <label htmlFor="intakeLink">The link to send</label>
         {/* A field rather than a sentence, because what an Admin does with this is
-            select the whole of it and paste it into a text message. */}
-        <input id="intakeLink" type="text" readOnly value={intakeLink} />
+            paste it into a text message -- and a button beside it, because the
+            criterion is that they can *copy* it and selecting a field by hand is not
+            something the page offers them. The field is still a field underneath: a
+            browser running no script leaves an Admin exactly where they were. */}
+        <ClipboardField id="intakeLink" value={intakeLink} />
         <p className="subtle">
           Intake completed through this link is recorded as sent by a pastor.
         </p>
@@ -168,11 +172,17 @@ export default async function RosterPage({
           height={QR_CODE_ON_SCREEN}
         />
         <p>
-          {/* A tab of its own, because the two things this is for -- printing it and
-              saving it -- both happen on that page, and neither is helped by having
-              lost the Roster to get there. */}
+          {/* Two actions rather than a tab and some knowledge of the browser. Saving
+              is the download, which names the file on the way out so an Admin
+              recognises it later in a folder of downloads. Printing is the tab: a
+              browser printing the square on its own puts it on the paper at whatever
+              size the paper is, which is what the Roster around it would prevent. */}
+          <a href="/roster/intake-code.svg" download="intake-qr-code.svg">
+            Save the QR code
+          </a>
+          {' · '}
           <a href="/roster/intake-code.svg" target="_blank" rel="noreferrer">
-            The QR code on its own, to print or save
+            Open it on its own, to print
           </a>
         </p>
       </div>

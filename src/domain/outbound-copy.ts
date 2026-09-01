@@ -132,16 +132,16 @@ export const withSharedContact = (body: string, contact: SharedContact): string 
   `${body} ${contact.fullName}: ${contact.phone}`
 
 /**
- * Where a token becomes something a Person can tap. The shape of the URL is a
- * copy decision -- it is read off a phone and occasionally typed -- so it lives
- * here with the wording, and the host it hangs off is configuration.
- */
-/**
  * The configured host, with any trailing slash taken off. Every link below hangs off
  * it, and a base URL is as likely to be configured with the slash as without.
  */
 const host = (baseUrl: string): string => baseUrl.replace(/\/+$/, '')
 
+/**
+ * Where a token becomes something a Person can tap. The shape of the URL is a
+ * copy decision -- it is read off a phone and occasionally typed -- so it lives
+ * here with the wording, and the host it hangs off is configuration.
+ */
 export const invitationLink = (baseUrl: string, token: string): string =>
   `${host(baseUrl)}/invitation/${token}`
 

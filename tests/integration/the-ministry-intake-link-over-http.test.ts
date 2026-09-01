@@ -1,4 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest'
+import { ministryId } from '~/domain/ids'
+import { ministryIntakeQrLink } from '~/domain/outbound-copy'
 import { renderQrCode } from '~/platform/qr/qr-code'
 import { createMinistryWithAdmin, type MinistryFixture } from '../support/local-supabase'
 import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app'
@@ -42,8 +44,14 @@ describe.skipIf(skipUnlessAppIsRunning)('the Ministry Intake Link an Admin can s
     return `${url.pathname}${url.search}`
   }
 
-  /** The same link as the code carries it, built once rather than at each use. */
-  const scanned = (link: string): string => `${link}?via=qr`
+  /**
+   * The same link as the code carries it, asked of the domain rather than re-authored
+   * here. `?via=qr` is the whole difference between what a pastor texts and what a
+   * room scans, and it is written in one place so a drift in it fails the domain test
+   * rather than leaving two files agreeing with each other about the wrong thing.
+   */
+  const scanned = (link: string, of: MinistryFixture): string =>
+    ministryIntakeQrLink(new URL(link).origin, ministryId(of.id))
 
   const qrCode = (as: string) =>
     fetch(`${baseUrl}/roster/intake-code.svg`, { redirect: 'manual', headers: { cookie: as } })
@@ -53,9 +61,14 @@ describe.skipIf(skipUnlessAppIsRunning)('the Ministry Intake Link an Admin can s
     const link = linkOnThePage(html, ministry)
 
     // In a field rather than in prose, because the thing an Admin does with it is
-    // select the whole of it and paste it into a text message.
+    // paste it into a text message.
     expect(html).toContain(`value="${link}"`)
     expect(link.endsWith(`/intake/${ministry.id}`)).toBe(true)
+
+    // And a control that copies it, because the criterion is that an Admin can copy
+    // it -- selecting a field by hand is something they can do, not something the
+    // page offers. Server-rendered, so the field is a field with or without script.
+    expect(html).toContain('Copy</button>')
   })
 
   it('says which consent each of the two routes records', async () => {
@@ -80,7 +93,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Ministry Intake Link an Admin can s
 
     // The square encodes *this* Ministry's link with `?via=qr` on it. Encoding the
     // plain link would put every scan in the record as though a pastor had sent it.
-    expect(await response.text()).toBe(await renderQrCode(scanned(link)))
+    expect(await response.text()).toBe(await renderQrCode(scanned(link, ministry)))
   })
 
   it('draws the code on the page big enough to hold a phone up to', async () => {
@@ -92,9 +105,9 @@ describe.skipIf(skipUnlessAppIsRunning)('the Ministry Intake Link an Admin can s
     const tag = /<img[^>]*class="qr"[^>]*>/.exec(html)
     expect(tag).not.toBeNull()
 
-    const drawn = /width="(\d+)"/.exec(tag![0])
-    expect(drawn).not.toBeNull()
-    expect(Number(drawn![1])).toBeGreaterThanOrEqual(320)
+    const askedFor = /width="(\d+)"/.exec(tag![0])
+    expect(askedFor).not.toBeNull()
+    expect(Number(askedFor![1])).toBeGreaterThanOrEqual(320)
   })
 
   it('does not offer the code’s own link as a second thing to send', async () => {
@@ -103,16 +116,20 @@ describe.skipIf(skipUnlessAppIsRunning)('the Ministry Intake Link an Admin can s
     // A field holding `?via=qr` would be texted, and every Person who followed it
     // would be recorded as having scanned a code nobody printed -- which is the one
     // distinction the panel above it exists to keep honest.
-    expect(html).not.toContain(`value="${scanned(linkOnThePage(html, ministry))}"`)
+    expect(html).not.toContain(`value="${scanned(linkOnThePage(html, ministry), ministry)}"`)
   })
 
   it('offers the code on its own, so it can be printed or saved', async () => {
     const { html } = await getPage('/roster', cookie)
-    expect(html).toContain('href="/roster/intake-code.svg"')
+
+    // Two actions the page provides, rather than a tab and the Admin's knowledge of
+    // their browser: the download saves it, the tab is where it is printed from.
+    expect(html).toContain('download="intake-qr-code.svg"')
+    expect(html).toContain('target="_blank"')
 
     const response = await qrCode(cookie)
 
-    // Named on the way out, because the Admin saving it is going to look for it
+    // Named on the way out too, because the Admin saving it is going to look for it
     // again in a folder of downloads, and it scales because it is going on paper.
     expect(response.headers.get('content-disposition')).toContain('intake-qr-code.svg')
     expect(await response.text()).toContain('viewBox')
@@ -154,7 +171,9 @@ describe.skipIf(skipUnlessAppIsRunning)('the Ministry Intake Link an Admin can s
     expect(form).toContain('Fairmount Church')
     expect(form).toContain(`action="/intake/${ministry.id}/submit"`)
 
-    const fromTheCode = await fetch(`${baseUrl}${pathOf(scanned(link))}`, { redirect: 'manual' })
+    const fromTheCode = await fetch(`${baseUrl}${pathOf(scanned(link, ministry))}`, {
+      redirect: 'manual',
+    })
     expect(fromTheCode.status).toBe(200)
     // What the form will submit, and therefore what the consent record will say.
     expect(await fromTheCode.text()).toContain('value="qr"')
