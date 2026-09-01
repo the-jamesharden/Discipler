@@ -191,19 +191,6 @@ export const AWAITING_LEADER_ACCEPTANCE = 'Awaiting Leader Acceptance'
  */
 export const RESET_PASSWORD = 'Reset password'
 
-/**
- * What stands in its place on the Admin's own row.
- *
- * Said rather than left blank: a blank where every other account-holding row has an
- * action reads as a bug, and an Admin looking for their own reset needs to know it
- * is not there rather than that they have not found it.
- *
- * Plain text and not a link, because the surface it would point at does not exist
- * yet -- changing your own password is ticket 30 -- and a link that goes nowhere is
- * exactly what this whole ticket exists to stop being. Ticket 30 turns it into one.
- */
-export const CANNOT_RESET_YOURSELF = 'You cannot reset your own password'
-
 const PROBLEMS: Record<RowProblem, string> = {
   no_name: 'no name',
   no_phone: 'no phone number',

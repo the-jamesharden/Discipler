@@ -132,7 +132,11 @@ _Avoid_: Starter Message (its words are true on the day a match is made, not aft
 
 **Password Reset**:
 An Admin setting a new password on somebody else's account, for a person who has lost theirs. Discipler chooses the password, shows it once on screen and sends it nowhere: the Admin reads it out, which is why a reset only works when the two of them can talk. Setting it ends every session on that account — `docs/adr/0016-a-password-change-ends-every-session.md` records why that is a rule and not a behaviour. It is always somebody else's: an Admin holds a session already, so their own is not a recovery.
-_Avoid_: Forgotten password and password recovery (nothing here is self-serve; one-time codes to the number are the post-launch recovery, per ADR-0008), and Temporary password (nothing expires it or forces a change)
+_Avoid_: Forgotten password and password recovery (recovery is not self-serve; one-time codes to the number are the post-launch recovery, per ADR-0008, and a person who still holds a session makes a Password Change instead), and Temporary password (nothing expires it or forces a change)
+
+**Password Change**:
+A person setting a new password on their own account, from a session they already hold, having proved the current one. It is the self-service half of what Password Reset is the assisted half of: reachable by anybody with a session, whether or not a Ministry still holds them, and never on somebody else's behalf. Like a reset it ends every session on the account, the one that asked included, so the person signs in again with what they chose. Nothing is recorded, because the reset event exists to say that somebody else touched the credential.
+_Avoid_: Account settings and profile (nothing else about the person is editable here), and Sign out (ending the sessions is a consequence of the change, not a feature of its own)
 
 **Invitation Link**:
 The individualized, SMS-delivered link that reveals a new relationship to a person in it, with no session. Only a Leader is ever sent one. It resolves on its own page rather than in the leader dashboard, because a leader has no account until they accept. Possession of the phone it was sent to is the authentication; it expires after a fixed window and is consumed when the leader creates their account, not when it is opened.

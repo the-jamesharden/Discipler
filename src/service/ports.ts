@@ -1,4 +1,4 @@
-import type { AccountCreationRefusal } from '~/domain/accounts'
+import type { AccountCreationRefusal, PasswordChangeRefusal } from '~/domain/accounts'
 import type {
   HeldImportRow,
   ImportRowAnswer,
@@ -567,6 +567,33 @@ export interface Accounts {
    * left for the adapter to enforce and nothing an Admin could act on if it did.
    */
   setPassword(userId: string, password: string): Promise<void>
+  /**
+   * A person's own change of password: the current one verified, and then exactly
+   * what `setPassword` does -- the new one set and every session on the account
+   * ended, the one asking included.
+   *
+   * One method, and not a `verifyPassword` beside `setPassword`, for the reason
+   * `setPassword` is one method and not two. Sessions here run to about a year, so
+   * *signed in* is a weak proof of presence, and forgetting the verify would let a
+   * borrowed unlocked phone change the password unchallenged. One method cannot be
+   * called wrong. `docs/adr/0016-a-password-change-ends-every-session.md` names it
+   * as bound by the same rule.
+   *
+   * The current password is checked against the account's own phone, which the
+   * adapter reads from the account and never from a caller -- a form carries no
+   * number. A wrong one is a refusal and touches nothing. Too short is refused at
+   * this edge for the reason `create` refuses it, so a caller that forgot the form
+   * rule cannot set what the invitation form would have refused; whether the two
+   * new passwords matched is the form's question alone and never reaches here.
+   */
+  changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<
+    | { readonly changed: true }
+    | { readonly refusal: Exclude<PasswordChangeRefusal, 'account.passwords_differ'> }
+  >
 }
 
 /**

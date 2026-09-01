@@ -4,6 +4,8 @@
  * stranger puts in `?error=` can appear inside the app's own error styling -- and
  * so the copy is changed in one place rather than at each redirect.
  */
+import { isRefusalIn } from '../refusals'
+
 export type SignInFailure = 'missing-credentials' | 'unreadable-phone' | 'no-such-account'
 
 const messages: Record<SignInFailure, string> = {
@@ -20,8 +22,16 @@ const messages: Record<SignInFailure, string> = {
   'no-such-account': 'That phone number and password did not match.',
 }
 
-/** Unrecognised codes fall back rather than render, so an invented one says nothing. */
+/**
+ * Unrecognised codes fall back rather than render, so an invented one says nothing.
+ *
+ * Through `isRefusalIn` rather than a bare index, because what arrives here is
+ * whatever somebody typed into the query string: `__proto__` and `constructor` are
+ * both indexable on a plain object, and neither is a sentence a page can render.
+ */
 export const signInFailureMessage = (code: string | undefined): string | undefined => {
   if (!code) return undefined
-  return messages[code as SignInFailure] ?? 'Something went wrong. Try signing in again.'
+  return isRefusalIn(messages, code)
+    ? messages[code]
+    : 'Something went wrong. Try signing in again.'
 }

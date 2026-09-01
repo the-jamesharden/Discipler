@@ -15,14 +15,47 @@ import { serviceRoleKey, supabaseCredentials } from './credentials'
  * refusal without importing an adapter.
  */
 
+/** The client that can mint, read and rewrite a user. Nothing here keeps it. */
+const adminClient = () =>
+  createClient(supabaseCredentials().url, serviceRoleKey(), {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+
+/**
+ * A new password on an account, and every session the account holds ended with it.
+ * Shared by the two port methods that set one, so the revocation is written once
+ * and a change cannot drift from a reset.
+ */
+const setPassword = async (userId: string, password: string): Promise<void> => {
+  // Every session on the account ends here, and this one call is the whole of
+  // how. GoTrue revokes on an admin password update: the access token the old
+  // session holds is refused with `session_not_found` and its refresh token is
+  // gone, both immediately.
+  //
+  // That is established rather than assumed, because it is not obvious and there
+  // is no admin call that would do it on its own -- `auth.admin.signOut(jwt)`
+  // posts to `/logout` carrying *the user's own* access token, which an Admin
+  // performing a reset does not have. `docs/adr/0016-a-password-change-ends-
+  // every-session.md` fixes the outcome and deliberately leaves the mechanism
+  // open, and `tests/integration/resetting-a-password.test.ts` is what holds it:
+  // it takes a session, resets, and finds the session refused. If a GoTrue
+  // release ever stops revoking here, that test fails and this comment is where
+  // the second half goes.
+  const { error } = await adminClient().auth.admin.updateUserById(userId, { password })
+
+  // No refusal, unlike `create`. There is no rule left for this to enforce -- the
+  // Roster decided who may be reset and Discipler chose the password -- so an
+  // error here is a fault rather than an answer, and swallowing it would leave an
+  // Admin reading out four words that set nothing.
+  if (error) throw error
+}
+
 export const supabaseAccounts: Accounts = {
   async create(phone, password) {
     if (!phone) return { refusal: 'account.no_number_on_file' }
     if (password.length < SHORTEST_PASSWORD) return { refusal: 'account.password_too_short' }
 
-    const admin = createClient(supabaseCredentials().url, serviceRoleKey(), {
-      auth: { autoRefreshToken: false, persistSession: false },
-    })
+    const admin = adminClient()
 
     // A phone identity and nothing else. No email is set, because email is not a
     // credential here and an address on the account would be a second door onto it
@@ -51,38 +84,51 @@ export const supabaseAccounts: Accounts = {
     return { userId: data.user.id }
   },
 
-  async setPassword(userId, password) {
-    const admin = createClient(supabaseCredentials().url, serviceRoleKey(), {
+  setPassword,
+
+  async changePassword(userId, currentPassword, newPassword) {
+    if (newPassword.length < SHORTEST_PASSWORD) return { refusal: 'account.password_too_short' }
+
+    // The number comes from the account and never from the caller. The form that
+    // reaches here carries none, and a check against a number somebody typed would
+    // verify a password against whichever account they named.
+    const { data, error: lookup } = await adminClient().auth.admin.getUserById(userId)
+    if (lookup) throw lookup
+    const phone = data.user.phone
+    if (!phone) throw new Error(`Account ${userId} holds no phone number to verify against`)
+
+    // The check is a password sign-in, on a client that keeps nothing. There is no
+    // verify-only endpoint, and this one goes through the same door as the sign-in
+    // form and sits behind the same per-IP rate limit -- which is why there is no
+    // limiter of Discipler's own here: the exposure is exactly the one the sign-in
+    // form already has. The session this mints is ended by the update that follows,
+    // like every other session on the account.
+    const { anonKey, url } = supabaseCredentials()
+    const checking = createClient(url, anonKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     })
+    const { error } = await checking.auth.signInWithPassword({
+      phone,
+      password: currentPassword,
+    })
 
-    // Every session on the account ends here, and this one call is the whole of
-    // how. GoTrue revokes on an admin password update: the access token the old
-    // session holds is refused with `session_not_found` and its refresh token is
-    // gone, both immediately.
-    //
-    // That is established rather than assumed, because it is not obvious and there
-    // is no admin call that would do it on its own -- `auth.admin.signOut(jwt)`
-    // posts to `/logout` carrying *the user's own* access token, which an Admin
-    // performing a reset does not have. `docs/adr/0016-a-password-change-ends-
-    // every-session.md` fixes the outcome and deliberately leaves the mechanism
-    // open, and `tests/integration/resetting-a-password.test.ts` is what holds it:
-    // it takes a session, resets, and finds the session refused. If a GoTrue
-    // release ever stops revoking here, that test fails and this comment is where
-    // the second half goes.
-    const { error } = await admin.auth.admin.updateUserById(userId, { password })
+    if (error) {
+      // Only a wrong password is an answer. Anything else -- the endpoint rate
+      // limiting this address, the service being down -- is a fault, and reporting
+      // it as *that is not your current password* would send a person who typed it
+      // correctly off to retype it.
+      if (error.code === 'invalid_credentials') {
+        return { refusal: 'account.current_password_wrong' }
+      }
+      throw error
+    }
 
-    // No refusal, unlike `create`. There is no rule left for this to enforce -- the
-    // Roster decided who may be reset and Discipler chose the password -- so an
-    // error here is a fault rather than an answer, and swallowing it would leave an
-    // Admin reading out four words that set nothing.
-    if (error) throw error
+    await setPassword(userId, newPassword)
+    return { changed: true }
   },
 
   async discard(userId) {
-    const admin = createClient(supabaseCredentials().url, serviceRoleKey(), {
-      auth: { autoRefreshToken: false, persistSession: false },
-    })
+    const admin = adminClient()
 
     // Asked before deleting, and asked of the database rather than trusted from the
     // caller. The one account that must survive this is one somebody is already

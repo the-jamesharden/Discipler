@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { CHANGE_YOUR_PASSWORD } from '../account/copy'
 import { DAY_BLOCKS, WEEKDAYS } from '~/domain/intake'
 import { resolveAdmin } from '~/platform/supabase/current-admin'
 import { getLeaderDashboardReader } from '~/service/container'
@@ -231,12 +232,17 @@ export default async function RelationshipsPage() {
       <p className="subtle">Discipler</p>
 
       {/* The way back, for the one person who has one. A plain Leader has no
-          Roster and is offered no link to it. */}
-      {resolution.status === 'admin' ? (
-        <p>
-          <Link href="/roster">Roster</Link>
-        </p>
-      ) : null}
+          Roster and is offered no link to it -- which is why the password link is
+          here as well as there: this is the one page a Leader has. */}
+      <p>
+        {resolution.status === 'admin' ? (
+          <>
+            <Link href="/roster">Roster</Link>
+            {' · '}
+          </>
+        ) : null}
+        <Link href="/account">{CHANGE_YOUR_PASSWORD}</Link>
+      </p>
 
       {led.length === 0 ? (
         <div className="panel">

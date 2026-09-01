@@ -1,4 +1,5 @@
 import { signInFailureMessage } from './failures'
+import { signInNoticeMessage } from './notices'
 
 /**
  * One sign-in form for every user. The credential is a phone number and a password,
@@ -9,10 +10,11 @@ import { signInFailureMessage } from './failures'
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>
+  searchParams: Promise<{ error?: string; notice?: string }>
 }) {
-  const { error } = await searchParams
+  const { error, notice } = await searchParams
   const message = signInFailureMessage(error)
+  const explanation = signInNoticeMessage(notice)
 
   return (
     <main>
@@ -20,6 +22,10 @@ export default async function LoginPage({
       <p className="subtle">Discipler</p>
 
       <div className="panel">
+        {/* Not an error. Somebody sent here by the product -- having just changed
+            their password, and been signed out everywhere by doing so -- needs to
+            be told why, or they read the page as failure and try the old one. */}
+        {explanation ? <p role="status">{explanation}</p> : null}
         {message ? (
           <p className="error" role="alert">
             {message}

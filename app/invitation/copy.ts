@@ -13,6 +13,13 @@ import type { InvitationRefusal } from '~/domain/errors'
  */
 type Problem = InvitationRefusal | AccountCreationRefusal
 
+/**
+ * The one sentence for the one length rule. Exported because the change-your-
+ * password surface applies the same rule at the same length, and two wordings of
+ * it would eventually disagree about the number.
+ */
+export const PASSWORD_TOO_SHORT = 'Choose a password of at least 8 characters.'
+
 const PROBLEMS: Record<Problem, string> = {
   'invitation.not_found':
     'This link isn’t one we recognise. Check you copied the whole of it, or ask whoever invited you to send it again.',
@@ -21,7 +28,7 @@ const PROBLEMS: Record<Problem, string> = {
   'invitation.already_used':
     'You’ve already set up your account with this link. Sign in with your phone number and password.',
   'invitation.not_a_leader': 'This link isn’t yours to accept.',
-  'account.password_too_short': 'Choose a password of at least 8 characters.',
+  'account.password_too_short': PASSWORD_TOO_SHORT,
   'account.no_number_on_file':
     'We don’t have a phone number for you, so there’s nothing to sign you in with. Let whoever invited you know.',
   'account.already_exists':

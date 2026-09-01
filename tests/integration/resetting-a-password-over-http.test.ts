@@ -99,16 +99,18 @@ describe.skipIf(skipUnlessAppIsRunning)('resetting a password over HTTP', () => 
     expect(rowFor(html, 'Ruth Adeyemi')).not.toContain('Reset password')
   })
 
-  it('says why on the Admin’s own row instead of leaving it blank', async () => {
+  it('offers the Admin their own change instead of a reset on their own row', async () => {
     const { cookie } = await signIn(ministry)
     const { html } = await getPage('/roster', cookie)
     const own = rowFor(html, ministry.adminName)
 
-    expect(own).toContain('You cannot reset your own password')
-    // A blank where every other account-holding row has an action reads as a bug,
-    // and the sentence is plain text rather than a link because the surface it would
-    // point at is ticket 30 and does not exist yet.
+    // Not a reset: resetting your own password is not a recovery, because you are
+    // holding a session as you ask. The row carries the one action that applies to
+    // the Admin's own account, so nothing here is blank where every other
+    // account-holding row has an action.
     expect(own).not.toContain(`/roster/reset/${ministry.adminPersonId}`)
+    expect(own).toContain('href="/account"')
+    expect(own).toContain('Change your password')
   })
 
   it('names the Person, warns about the sign-out, and shows no phone number', async () => {

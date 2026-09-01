@@ -53,8 +53,34 @@ export type PasswordResetRefusal =
    */
   | 'account.cannot_reset_yourself'
 
+/**
+ * Why a person's own change of password was refused. A third set, for the reason
+ * the second one is: the self-service form can be refused for a wrong current
+ * password and can never be refused for resetting yourself, and a `Record` over
+ * the whole union would have it wording sentences it cannot receive.
+ */
+export type PasswordChangeRefusal =
+  /** The same length rule the invitation form applies, and the only rule there is. */
+  | 'account.password_too_short'
+  /**
+   * The two new passwords are not the same. Success ends every session, so a
+   * mistyped new password would lock the person out until an Admin resets them --
+   * and for a Ministry's sole Admin there is no path back at all. The second field
+   * is the one guard the product can offer before the door closes.
+   */
+  | 'account.passwords_differ'
+  /**
+   * Not what the account's password currently is. Sessions here run to about a
+   * year, so *signed in* is a weak proof of presence: without this check a
+   * borrowed unlocked phone is a permanent account takeover.
+   */
+  | 'account.current_password_wrong'
+
 /** Everything an account can be refused for, wherever it was asked. */
-export type AccountRefusal = AccountCreationRefusal | PasswordResetRefusal
+export type AccountRefusal =
+  | AccountCreationRefusal
+  | PasswordResetRefusal
+  | PasswordChangeRefusal
 
 /**
  * Whether this account may be reset by this actor, and why not. Null is *go ahead*.
@@ -81,6 +107,30 @@ export const passwordResetRefusal = (
 
 /** Short enough to type on a phone, long enough to be worth having. */
 export const SHORTEST_PASSWORD = 8
+
+/**
+ * The form's own rules on a new password, checked first and together, before the
+ * platform is asked anything. Empty is *go ahead*.
+ *
+ * In field order -- the new password's length, then whether the repeat matches --
+ * so a person reads their mistakes top to bottom the way they filled the form in,
+ * which is how every other form here reports them. Checking these before the port
+ * is called also means a form that was going to be refused anyway spends nothing
+ * at the platform's sign-in endpoint.
+ *
+ * The current password is deliberately not among them. Whether it is right is a
+ * fact only the platform holds, and `Accounts.changePassword` answers it alone
+ * once the form is well-formed. Nor is there a rule that the new one differ from
+ * the old: re-setting the same password is harmless and still ends every session,
+ * which is the outcome that matters.
+ */
+export const passwordChangeRefusals = (
+  newPassword: string,
+  newPasswordAgain: string,
+): readonly PasswordChangeRefusal[] => [
+  ...(newPassword.length < SHORTEST_PASSWORD ? (['account.password_too_short'] as const) : []),
+  ...(newPassword !== newPasswordAgain ? (['account.passwords_differ'] as const) : []),
+]
 
 /**
  * Where randomness comes from, injected for the reason `IdSource` is: a generator

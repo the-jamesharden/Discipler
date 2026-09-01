@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { CHANGE_YOUR_PASSWORD } from '../account/copy'
 import { resolveAdmin } from '~/platform/supabase/current-admin'
 import { getRosterReader } from '~/service/container'
 import { personId } from '~/domain/ids'
@@ -16,7 +17,6 @@ import {
   alreadyIn as alreadyInMessage,
   askedToJoin,
   AWAITING_LEADER_ACCEPTANCE,
-  CANNOT_RESET_YOURSELF,
   DECLINE,
   declinedRequest,
   declaredGenderLabel,
@@ -179,6 +179,8 @@ export default async function RosterPage({
           is offered unconditionally and answers honestly when they lead nothing. */}
       <p>
         <Link href="/relationships">The relationships you lead</Link>
+        {' · '}
+        <Link href="/account">{CHANGE_YOUR_PASSWORD}</Link>
       </p>
 
       {/* What this Ministry owns about how Discipler runs for it: its clock, its
@@ -675,15 +677,17 @@ export default async function RosterPage({
                           would teach an Admin that the product does not know its
                           own state.
 
-                          On the Admin's own row it is replaced by a sentence rather
-                          than left blank. Resetting your own password is not a
-                          recovery -- you are holding a session as you ask -- and it
-                          belongs on a self-service surface that does not exist yet;
-                          a blank where every other account row has an action would
-                          read as a bug. */}
+                          On the Admin's own row the action is a different one.
+                          Resetting your own password is not a recovery -- you are
+                          holding a session as you ask -- so the row offers the
+                          self-service change instead: every other account-holding
+                          row has an action in this place, and this is the one
+                          action that applies to the Admin's own. */}
                       {person.holdsAnAccount ? (
                         person.personId === admin.personId ? (
-                          <p className="subtle">{CANNOT_RESET_YOURSELF}</p>
+                          <p>
+                            <Link href="/account">{CHANGE_YOUR_PASSWORD}</Link>
+                          </p>
                         ) : (
                           <p>
                             <Link href={`/roster/reset/${person.personId}`}>

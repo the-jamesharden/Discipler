@@ -21,9 +21,12 @@ const REFUSALS: Record<PasswordResetRefusal, string> = {
     'There is nothing on this Roster to reset. Somebody has a password once they have '
     + 'accepted an invitation to lead and made an account; most people on a Roster '
     + 'never have one.',
+  // Followed on the screen by a link to the page that does it. *Ask another Admin*
+  // was the only advice available when ticket 28 shipped and is false now that
+  // there is a page for it -- and a hand-crafted GET is exactly the reader who
+  // follows the words on the screen.
   'account.cannot_reset_yourself':
-    'You cannot reset your own password from here. Ask another Admin of this ministry '
-    + 'to do it for you.',
+    'You cannot reset your own password from here. Change it yourself instead.',
 }
 
 export const passwordResetRefusalMessage = (refusal: PasswordResetRefusal): string =>

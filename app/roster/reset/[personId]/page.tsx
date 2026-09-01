@@ -4,6 +4,7 @@ import { generatePassword, passwordResetRefusal } from '~/domain/accounts'
 import { personId as asPersonId } from '~/domain/ids'
 import { resolveAdmin } from '~/platform/supabase/current-admin'
 import { getRandomSource, getRosterReader } from '~/service/container'
+import { CHANGE_YOUR_PASSWORD } from '../../../account/copy'
 import {
   NOTHING_IS_SENT,
   passwordResetRefusalMessage,
@@ -69,6 +70,12 @@ export default async function ResetPasswordPage({
         <p className="subtle">{admin.ministryName}</p>
         <div className="panel">
           <p className="error" role="alert">{passwordResetRefusalMessage(refusal)}</p>
+          {/* The sentence above says *change it yourself*; this is where. */}
+          {refusal === 'account.cannot_reset_yourself' ? (
+            <p>
+              <Link href="/account">{CHANGE_YOUR_PASSWORD}</Link>
+            </p>
+          ) : null}
           <p>
             <Link href="/roster">Back to the Roster</Link>
           </p>

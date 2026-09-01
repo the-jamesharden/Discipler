@@ -13,6 +13,13 @@ not a second call beside it.
 This binds every path that will ever set a password: an Admin's reset (ticket 28), a
 person changing their own (ticket 30), and anything that follows them.
 
+**Amended 2026-09-01, ticket 30.** A second method, `Accounts.changePassword`, verifies
+the current password and then does exactly what `setPassword` does, sharing the
+revocation rather than duplicating it. It is one method rather than a `verifyPassword`
+beside `setPassword` for the same reason given below: two methods would let a caller
+skip the verify, and a borrowed phone would change the password unchallenged. Every
+method on the port that sets a password ends every session as part of doing so.
+
 ## Context
 
 Ticket 24 moved the credential to a phone number and a password and shipped no way to
