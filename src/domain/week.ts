@@ -104,6 +104,26 @@ const formatterFor = (timeZone: string): Intl.DateTimeFormat => {
   return formatter
 }
 
+/**
+ * Whether this platform can resolve a week, a month or a cadence against that
+ * zone at all.
+ *
+ * Asked here rather than by the settings form on its own, so that the zone the
+ * form accepts and the zone the dispatcher can read are the same set by
+ * construction. The database checks a Ministry's zone too -- and has to, because
+ * pilot settings are written by SQL -- but it checks against `pg_timezone_names`,
+ * which is the wider list: a zone that satisfied Postgres and not `Intl` would be
+ * saved happily and then throw on every tick, for everybody in that Ministry.
+ */
+export const isKnownTimezone = (timeZone: string): boolean => {
+  try {
+    formatterFor(timeZone)
+    return true
+  } catch {
+    return false
+  }
+}
+
 const zonedTime = (instant: Date, timeZone: string): ZonedTime => {
   const parts = formatterFor(timeZone).formatToParts(instant)
   const read = (type: Intl.DateTimeFormatPartTypes): number => {

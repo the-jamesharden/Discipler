@@ -7,6 +7,7 @@ import type {
   RelationshipId,
 } from './ids'
 import type { GoalDirection } from './discipleship-goals'
+import type { MinistrySettingsFields } from './ministry-settings'
 import type { DiscipleshipGoalId, IntakeFormFields } from './intake'
 import type { IntakeLinkToken } from './intake-link'
 import type { InvitationToken } from './invitations'
@@ -402,7 +403,13 @@ export type Command =
    * The one edit that costs somebody something. Every Person whose current answer
    * pointed at this option loses it: they keep their Intake and their
    * availability and stay pairable, ranked on availability alone until they
-   * answer again, and their stated goal is gone for good.
+   * answer again, and their stated goal is gone from every live surface.
+   *
+   * Gone, but not unrecorded. The answers the delete is about to blank are read
+   * before it runs and written into `discipleship_goal.removed`, so a Ministry can
+   * still say from its own history who used to want this -- which is what keeps
+   * ADR-0014's exemption to *preserve historical ministry events* bounded to the
+   * screens rather than extending to the record.
    *
    * Nothing here says the Admin was warned. The warning is a screen's -- it needs
    * a page and a second press to exist at all -- and what this records is that
@@ -412,6 +419,29 @@ export type Command =
       readonly type: 'goal.remove'
       readonly ministryId: MinistryId
       readonly goalId: DiscipleshipGoalId
+    }
+  /**
+   * An Admin saving the one settings form: the Ministry it is, the Language it
+   * speaks, and how it wants Pairing and the weekly ask to behave.
+   *
+   * One command for all three sections, because it is one form and one save. Three
+   * commands would let a Ministry's timezone land while its cadence was refused,
+   * which is the shape that produces a check-in due at an hour nobody chose.
+   *
+   * The form arrives unread, like the spreadsheet and the Intake form: what counts
+   * as a timezone, a whole hour inside quiet hours, or a word for a role is a rule,
+   * and rules live on the domain side of this boundary.
+   */
+  | {
+      readonly type: 'settings.update'
+      readonly ministryId: MinistryId
+      readonly fields: MinistrySettingsFields
+      /**
+       * The Admin's account, as the session named it. Settings decide the hour a
+       * whole Ministry is texted at and whether the gender rule is enforced at
+       * all, so the record names who changed them.
+       */
+      readonly changedBy: string
     }
   /**
    * *Not my number.* It changes nothing -- a forwarded link can never re-point an

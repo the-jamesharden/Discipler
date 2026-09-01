@@ -7,7 +7,7 @@ import type {
   UnacceptedRelationship,
 } from '~/domain/boundary'
 import type { CheckInSnapshot } from '~/domain/check-in'
-import type { OfferedGoal } from '~/domain/discipleship-goals'
+import type { OfferedGoal, StatedGoal } from '~/domain/discipleship-goals'
 import type { InboundSnapshot } from '~/domain/keywords'
 import type { ConcernResolution, ConcernViewing, NewConcern } from '~/domain/concerns'
 import type {
@@ -42,6 +42,12 @@ import type { FollowUpResolution, NewFollowUpItem } from '~/domain/follow-up'
 import type { NewIntakeLink } from '~/domain/intake-link'
 import type { NewInvitation } from '~/domain/invitations'
 import { eventId, type MinistryId, type PersonId } from '~/domain/ids'
+import {
+  DEFAULT_AGE_BAND_GAP,
+  roleNoun,
+  type MinistryLanguage,
+  type MinistrySettings,
+} from '~/domain/ministry-settings'
 import type { HistoryEvent, NewHistoryEvent } from '~/domain/history'
 import type { NewRelationship } from '~/domain/relationships'
 import {
@@ -81,6 +87,8 @@ export interface InMemoryStore extends EffectStore {
   readonly keywordClarifications: readonly KeywordExchangeClarification[]
   readonly keywordClosures: readonly KeywordExchangeClosure[]
   readonly leadEligibilities: readonly LeadEligibility[]
+  /** Every settings form this store saved, in the order the effects saved them. */
+  readonly settingsSaved: readonly MinistrySettings[]
   /** Every option added, reworded, reordered or removed, in the order it happened. */
   readonly addedGoals: readonly NewDiscipleshipGoal[]
   readonly renamedGoals: readonly DiscipleshipGoalRenaming[]
@@ -123,8 +131,21 @@ export interface InMemoryStore extends EffectStore {
    * that edit the list set it.
    */
   goals: readonly OfferedGoal[]
+  /** The submissions a removal would blank. Set by the tests that remove one. */
+  goalAnswers: readonly StatedGoal[]
   /** The Ministry every command in this store speaks for. */
   ministryName: string
+  /**
+   * The words this store's Ministry calls its two roles by. Discipler's own
+   * defaults, so that a test about pairing does not have to say anything about
+   * language -- and the tests that *are* about language set them.
+   */
+  language: MinistryLanguage
+  /**
+   * The settings `settings.update` decides against: what they were before the
+   * form was saved.
+   */
+  settings: MinistrySettings
   failOn?:
     | 'appendHistory'
     | 'enqueueMessages'
@@ -161,6 +182,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
   const keywordClarifications: KeywordExchangeClarification[] = []
   const keywordClosures: KeywordExchangeClosure[] = []
   const leadEligibilities: LeadEligibility[] = []
+  const settingsSaved: MinistrySettings[] = []
   const addedGoals: NewDiscipleshipGoal[] = []
   const renamedGoals: DiscipleshipGoalRenaming[] = []
   const goalOrders: DiscipleshipGoalOrder[] = []
@@ -261,6 +283,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
     get leadEligibilities() {
       return [...leadEligibilities]
     },
+    get settingsSaved() {
+      return [...settingsSaved]
+    },
     get addedGoals() {
       return [...addedGoals]
     },
@@ -287,11 +312,26 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
     },
     intakeLink: null,
     goals: [],
+    goalAnswers: [],
     unaccepted: [],
     paused: [],
     checkInsDue: [],
     contacts: new Map<PersonId, PersonContact>(),
     ministryName: 'Riverside Chapel',
+    language: {
+      leaderNoun: roleNoun('mentor'),
+      participantNoun: roleNoun('mentee'),
+    },
+    settings: {
+      name: 'Riverside Chapel',
+      fromName: null,
+      timezone: 'UTC',
+      leaderNoun: roleNoun('mentor'),
+      participantNoun: roleNoun('mentee'),
+      suggestGenderMatch: true,
+      suggestMaxAgeBandGap: DEFAULT_AGE_BAND_GAP,
+      cadence: { day: 1, hour: 9 },
+    },
     async transact(_ministryId: MinistryId, work) {
       const stagedHistory: HistoryEvent[] = []
       const stagedOutbox: OutboundMessageDraft[] = []
@@ -321,6 +361,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       const stagedKeywordClarifications: KeywordExchangeClarification[] = []
       const stagedKeywordClosures: KeywordExchangeClosure[] = []
       const stagedLeadEligibilities: LeadEligibility[] = []
+      const stagedSettings: MinistrySettings[] = []
       const stagedAddedGoals: NewDiscipleshipGoal[] = []
       const stagedRenamedGoals: DiscipleshipGoalRenaming[] = []
       const stagedGoalOrders: DiscipleshipGoalOrder[] = []
@@ -387,6 +428,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         },
         async reorderDiscipleshipGoals(order) {
           stagedGoalOrders.push(order)
+        },
+        async answersPointingAt() {
+          return store.goalAnswers
         },
         async removeDiscipleshipGoal(removal) {
           stagedRemovedGoals.push(removal)
@@ -497,8 +541,14 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
             [...intakes, ...stagedIntakes].map((intake) => intake.personId),
           )
         },
-        async ministryName() {
-          return store.ministryName
+        async ministryVoice() {
+          return { name: store.ministryName, ...store.language }
+        },
+        async ministrySettings() {
+          return store.settings
+        },
+        async saveMinistrySettings(settings) {
+          stagedSettings.push(settings)
         },
         async recordIntake(intake) {
           if (store.failOn === 'recordIntake') throw new Error('Intake unavailable')
@@ -567,6 +617,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       keywordClarifications.push(...stagedKeywordClarifications)
       keywordClosures.push(...stagedKeywordClosures)
       leadEligibilities.push(...stagedLeadEligibilities)
+      settingsSaved.push(...stagedSettings)
       addedGoals.push(...stagedAddedGoals)
       renamedGoals.push(...stagedRenamedGoals)
       goalOrders.push(...stagedGoalOrders)

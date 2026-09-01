@@ -150,6 +150,9 @@ export const applyEffects = async (
   const eligibilities = effects.flatMap((effect) =>
     effect.kind === 'person.lead_eligibility' ? [effect.eligibility] : [],
   )
+  const settingsSaves = effects.flatMap((effect) =>
+    effect.kind === 'settings.save' ? [effect.saving] : [],
+  )
   const addedGoals = effects.flatMap((effect) =>
     effect.kind === 'goal.add' ? [effect.goal] : [],
   )
@@ -258,6 +261,12 @@ export const applyEffects = async (
   // Before the history that says it happened, like every other write here.
   for (const eligibility of eligibilities) await unit.setLeadEligibility(eligibility)
   for (const link of intakeLinks) await unit.issueIntakeLink(link)
+
+  // Before the history saying it happened, like every other write here. The
+  // database refuses a zone it does not know and an hour outside quiet hours, and
+  // being refused after history had already recorded the change would leave a
+  // Ministry's record claiming a cadence nothing ever ran on.
+  for (const saving of settingsSaves) await unit.saveMinistrySettings(saving.settings)
 
   // The option, then the list it belongs to. An addition lands before the
   // renumbering that would place it, and a removal before the renumbering that
@@ -370,17 +379,16 @@ const named = async (unit: UnitOfWork, command: AboutOneRelationship) => {
  * The four ways an Admin edits the Ministry's Discipleship Goal options. Each of
  * them decides against the whole list -- whether an option is a duplicate, where
  * a new one goes, whether this is the last one left -- so each of them loads it.
+ *
+ * Named once and read both ways: the type the guard narrows to is derived from
+ * this list, so a fifth edit cannot be added to one and forgotten in the other.
  */
+const GOAL_LIST_EDITS = ['goal.add', 'goal.rename', 'goal.move', 'goal.remove'] as const
+
 const editsTheGoalList = (
   command: Command,
-): command is Extract<
-  Command,
-  { type: 'goal.add' | 'goal.rename' | 'goal.move' | 'goal.remove' }
-> =>
-  command.type === 'goal.add' ||
-  command.type === 'goal.rename' ||
-  command.type === 'goal.move' ||
-  command.type === 'goal.remove'
+): command is Extract<Command, { type: (typeof GOAL_LIST_EDITS)[number] }> =>
+  (GOAL_LIST_EDITS as readonly string[]).includes(command.type)
 
 /**
  * Intake needs two things no other command does: the Ministry's name, because every
@@ -402,8 +410,27 @@ const isTokenDriven = (
   command.type === 'relationship.accept' ||
   command.type === 'invitation.dispute_number'
 
-/** Every message these commands enqueue speaks in the Ministry's voice. */
+/**
+ * The two commands whose messages call somebody by their role: pairing, which
+ * texts each Leader an invitation to be somebody's Leader, and acceptance, which
+ * tells both sides what they now are to each other. Everything else Discipler
+ * sends names people and never roles.
+ */
+const namesARole = (command: Command): boolean =>
+  command.type === 'relationship.create' || command.type === 'relationship.accept'
+
+/**
+ * Every message these commands enqueue speaks in the Ministry's voice.
+ *
+ * `namesARole` is folded in rather than checked separately, and that is what makes
+ * the two safe to read off one `ministryVoice`. Every message that names a role
+ * also carries the Ministry prefix -- `composeMessage` puts it on everything -- so
+ * there is no command that needs the words and not the name, and a future one that
+ * named a role without appearing here would otherwise reach the boundary with no
+ * words at all.
+ */
 const needsTheMinistryName = (command: Command): boolean =>
+  namesARole(command) ||
   isIntakeSubmission(command) ||
   command.type === 'relationship.create' ||
   command.type === 'relationship.resume' ||
@@ -495,6 +522,8 @@ export const createCommandService = ({
     // writes -- happens in one transaction. Deciding an import against a Roster read
     // outside the transaction would let two concurrent imports both find it empty.
     return store.transact(command.ministryId, async (unit) => {
+      const voice = needsTheMinistryName(command) ? await unit.ministryVoice() : undefined
+
       const result = handleCommand(command, {
         ministryId: command.ministryId,
         clock,
@@ -511,8 +540,15 @@ export const createCommandService = ({
               },
             }
           : {}),
-        ...(needsTheMinistryName(command)
-          ? { ministryName: await unit.ministryName() }
+        // One read for both. The name a message speaks in and the words it calls
+        // the roles by are three columns of one row, and every message that
+        // carries a noun carries the name too -- so asking twice would be a
+        // second round trip for a second half of the same fact.
+        ...(voice
+          ? {
+              ministryName: voice.name,
+              ...(namesARole(command) ? { language: voice } : {}),
+            }
           : {}),
         appBaseUrl,
         // Pairing texts every Leader an Invitation Link, so it needs their names
@@ -567,8 +603,22 @@ export const createCommandService = ({
         // the list at once cannot both decide against a version of it that no
         // longer stands -- and so the count an Admin was warned with is the count
         // history records.
+        // Read inside the transaction like everything else, so the values history
+        // records as *what these used to be* are the ones that were actually
+        // there when the edit was decided rather than ones a second Admin had
+        // already replaced.
+        ...(command.type === 'settings.update'
+          ? { settings: await unit.ministrySettings() }
+          : {}),
         ...(editsTheGoalList(command)
           ? { goals: await unit.discipleshipGoals() }
+          : {}),
+        // Only the removal, and only before it happens. `on delete set null` is
+        // about to make this unanswerable, so the answers are read here -- inside
+        // the same transaction, behind the same advisory lock the list read takes
+        // -- and written into the event that outlives them.
+        ...(command.type === 'goal.remove'
+          ? { goalAnswers: await unit.answersPointingAt(command.goalId) }
           : {}),
         // Read inside the transaction, behind the same advisory lock the read
         // itself takes, so a reply and a newly-due sequence cannot both find no

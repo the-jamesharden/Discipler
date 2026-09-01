@@ -98,10 +98,14 @@ export default async function RosterPage({
         <Link href="/relationships">The relationships you lead</Link>
       </p>
 
-      {/* The Ministry's own Intake options, which are set before a semester begins
-          rather than while somebody is filling the form in. It is a settings screen
-          and not a Roster one, so it is linked from here rather than folded in. */}
+      {/* What this Ministry owns about how Discipler runs for it: its clock, its
+          words, its pairing constraints, and the options its Intake form offers.
+          All of it is set before a semester begins rather than while somebody is
+          filling a form in, so these are settings screens and not Roster ones --
+          linked from here rather than folded in. */}
       <p>
+        <Link href="/settings">Ministry settings</Link>
+        {' · '}
         <Link href="/settings/goals">Discipleship Goal options</Link>
       </p>
 

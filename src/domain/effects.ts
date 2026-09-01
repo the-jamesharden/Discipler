@@ -1,3 +1,4 @@
+import type { GoalWording } from './discipleship-goals'
 import type {
   CheckInPromptId,
   CheckInQuestion,
@@ -21,6 +22,7 @@ import type {
   RelationshipKeyword,
 } from './keywords'
 import type { NewIntakeLink } from './intake-link'
+import type { MinistrySettings } from './ministry-settings'
 import type { InvitationToken, NewInvitation } from './invitations'
 import type { OutboundMessageKind, OutstandingReplyCutoff } from './outstanding-reply'
 import type { MemberRole, NewRelationship, RelationshipOutcome } from './relationships'
@@ -88,7 +90,7 @@ export interface OutboundMessageDraft {
  */
 export interface OutstandingReplyClosure {
   readonly ministryId: MinistryId
-  readonly promptKey: string | null
+  readonly phone: string | null
   /**
    * `answered` -- the reply arrived and bound to it. `timed_out` -- a reply can no
    * longer change anything, which a new week's sequence makes true of last week's
@@ -470,7 +472,7 @@ export interface LeadEligibility {
 export interface NewDiscipleshipGoal {
   readonly id: DiscipleshipGoalId
   readonly ministryId: MinistryId
-  readonly label: string
+  readonly label: GoalWording
   readonly position: number
   readonly createdAt: Date
 }
@@ -483,7 +485,7 @@ export interface NewDiscipleshipGoal {
 export interface DiscipleshipGoalRenaming {
   readonly ministryId: MinistryId
   readonly goalId: DiscipleshipGoalId
-  readonly label: string
+  readonly label: GoalWording
 }
 
 /**
@@ -502,16 +504,29 @@ export interface DiscipleshipGoalOrder {
 /**
  * One option, gone, and what it cost.
  *
- * `chosenBy` is carried for the history event beside it and for nothing else. It
- * is the only record that will survive: the answers themselves are blanked by the
- * database, and nothing anywhere can say afterwards how many people had chosen
- * this option unless the removal wrote it down.
+ * `chosenBy` is carried for the history event beside it and for nothing else --
+ * as are the blanked answers the boundary reads alongside it. Between them they
+ * are the whole of what survives: the answers themselves are blanked by the
+ * database, and nothing anywhere can say afterwards who had chosen this option, or
+ * what it said, unless the removal wrote it down first. ADR-0014.
  */
 export interface DiscipleshipGoalRemoval {
   readonly ministryId: MinistryId
   readonly goalId: DiscipleshipGoalId
-  readonly label: string
+  readonly label: GoalWording
   readonly chosenBy: number
+}
+
+/**
+ * One Ministry's settings, saved.
+ *
+ * Every field at once and never a patch. It is one form and one save, and a
+ * partial write is how a Ministry ends up with a timezone from one edit and a
+ * cadence from another -- which is a check-in due at an hour nobody chose.
+ */
+export interface MinistrySettingsSaving {
+  readonly ministryId: MinistryId
+  readonly settings: MinistrySettings
 }
 
 /**
@@ -643,6 +658,7 @@ export type Effect =
       readonly kind: 'person.lead_eligibility'
       readonly eligibility: LeadEligibility
     }
+  | { readonly kind: 'settings.save'; readonly saving: MinistrySettingsSaving }
   | { readonly kind: 'goal.add'; readonly goal: NewDiscipleshipGoal }
   | { readonly kind: 'goal.rename'; readonly renaming: DiscipleshipGoalRenaming }
   | { readonly kind: 'goal.reorder'; readonly order: DiscipleshipGoalOrder }
@@ -664,6 +680,11 @@ export const recordIntakeLink = (link: NewIntakeLink): Effect => ({
 export const setLeadEligibility = (eligibility: LeadEligibility): Effect => ({
   kind: 'person.lead_eligibility',
   eligibility,
+})
+
+export const saveMinistrySettings = (saving: MinistrySettingsSaving): Effect => ({
+  kind: 'settings.save',
+  saving,
 })
 
 export const addDiscipleshipGoal = (goal: NewDiscipleshipGoal): Effect => ({

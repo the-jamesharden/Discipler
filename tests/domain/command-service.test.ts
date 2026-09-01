@@ -141,6 +141,9 @@ describe('applying a command\'s effects', () => {
         reorderDiscipleshipGoals: async () => {
           throw new Error('the goal options should not have been reordered')
         },
+        answersPointingAt: async () => {
+          throw new Error('no goal option\'s answers should have been read')
+        },
         removeDiscipleshipGoal: async () => {
           throw new Error('no goal option should have been removed')
         },
@@ -201,8 +204,14 @@ describe('applying a command\'s effects', () => {
         createPeople: async () => {
           throw new Error('the Roster should not have been touched')
         },
-        ministryName: async () => {
+        ministryVoice: async () => {
           throw new Error('the Ministry should not have been read')
+        },
+        ministrySettings: async () => {
+          throw new Error('the settings should not have been read')
+        },
+        saveMinistrySettings: async () => {
+          throw new Error('the settings should not have been saved')
         },
         recordIntake: async () => {
           throw new Error('Intake should not have been touched')

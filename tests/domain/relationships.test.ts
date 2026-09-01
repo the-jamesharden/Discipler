@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { roleNoun } from '~/domain/ministry-settings'
 import { handleCommand, type CommandContext } from '~/domain/boundary'
 import { createTestClock } from '~/domain/clock'
 import { PairingRefused } from '~/domain/errors'
@@ -24,6 +25,7 @@ const context = (): CommandContext => ({
   clock: createTestClock(at),
   ids: createSequentialIds(),
   ministryName: 'Riverside Chapel',
+  language: { leaderNoun: roleNoun('mentor'), participantNoun: roleNoun('mentee') },
   appBaseUrl: 'https://discipler.example',
   // Creating a relationship texts every Leader an Invitation Link, so the names
   // and numbers travel with the request now. Nothing here is a Participant's

@@ -1,4 +1,5 @@
 import type { GoalRefusal } from '~/domain/errors'
+import { refusalIn } from '../../refusals'
 
 /**
  * Everything the Discipleship Goal settings say in words, in one place. The
@@ -15,21 +16,17 @@ const REFUSALS: Record<GoalRefusal, string> = {
     'This is the only option left. Intake asks everyone to choose one, so add another before removing this.',
 }
 
-// `Object.hasOwn` and never `in`, which walks the prototype chain: `__proto__`,
-// `toString` and `valueOf` are all `in` this object and none of them is a refusal.
-// The query string is whatever somebody typed there, so `in` would hand this
-// screen an object or a function to render and take the page down with it.
-const isRefusal = (code: string): code is GoalRefusal => Object.hasOwn(REFUSALS, code)
-
 /**
  * The wording for a refusal that came back on the query string, or null for one
  * this screen does not recognise.
  *
- * Never echoed. What arrives in the query string is whatever somebody typed there,
- * so an unknown code renders nothing rather than reflecting itself into the page.
+ * The sentences are this screen's and the lookup is not: `refusalIn` is shared
+ * with every other surface that reads a code off a query string, and it is what
+ * keeps the `Object.hasOwn` -- rather than `in`, which walks the prototype chain
+ * -- in one place instead of in each of them.
  */
 export const refusalMessage = (code: string | undefined): string | null =>
-  code !== undefined && isRefusal(code) ? REFUSALS[code] : null
+  refusalIn(REFUSALS, code)
 
 /**
  * What removing this option would cost, said as a sentence rather than as a number

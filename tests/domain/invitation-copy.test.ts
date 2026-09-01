@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { invitationToken } from '~/domain/invitations'
+import { roleNoun } from '~/domain/ministry-settings'
 import {
   acceptanceReminderMessage,
   invitationLink,
@@ -39,6 +40,7 @@ describe('the message that carries the Invitation Link', () => {
   const body = invitationMessage({
     ministryName: 'Riverside Chapel',
     fullName: 'David Ellis',
+    leaderNoun: roleNoun('mentor'),
     link,
   })
 
@@ -62,17 +64,38 @@ describe('the message that carries the Invitation Link', () => {
   it('carries no phone number', () => {
     expect(carriesAPhoneNumber(body)).toBe(false)
   })
+
+  /**
+   * The Ministry's own word for the role, in a message the Ministry sends. The
+   * noun sits in noun position and never as a verb: *someone to mentor* reads
+   * well and *someone to discipler* does not, and the word is whatever a Ministry
+   * typed rather than one Discipler chose for them.
+   */
+  it('calls the role what this Ministry calls it', () => {
+    expect(body).toContain('to be their mentor')
+
+    expect(
+      invitationMessage({
+        ministryName: 'Riverside Chapel',
+        fullName: 'David Ellis',
+        leaderNoun: roleNoun('discipleship coach'),
+        link,
+      }),
+    ).toContain('to be their discipleship coach')
+  })
 })
 
 describe('the Starter Message', () => {
   const toLeader = starterMessageToLeader({
     ministryName: 'Riverside Chapel',
     participantNames: ['Emily Johnson'],
+    leaderNoun: roleNoun('mentor'),
   })
 
   const toParticipant = starterMessageToParticipant({
     ministryName: 'Riverside Chapel',
     leaderNames: ['David Ellis'],
+    participantNoun: roleNoun('mentee'),
   })
 
   it('carries the opt-out and rate disclosure to everyone in the relationship', () => {
@@ -88,11 +111,31 @@ describe('the Starter Message', () => {
     const group = starterMessageToLeader({
       ministryName: 'Riverside Chapel',
       participantNames: ['Emily Johnson', 'Sarah Kim', 'Anna Reed'],
+      leaderNoun: roleNoun('mentor'),
     })
 
     expect(group).toContain('Emily Johnson')
     expect(group).toContain('Sarah Kim')
     expect(group).toContain('Anna Reed')
+  })
+
+  /**
+   * The reader's own role, so the noun is singular however many people are on the
+   * other side of it. *David and Ruth is your mentor* is the sentence a group
+   * would otherwise produce, and no amount of pluralising a word a Ministry typed
+   * would fix it reliably.
+   */
+  it('calls each side what this Ministry calls it', () => {
+    expect(toLeader).toContain('Emily Johnson\u2019s mentor')
+    expect(toParticipant).toContain('David Ellis\u2019s mentee')
+
+    expect(
+      starterMessageToLeader({
+        ministryName: 'Riverside Chapel',
+        participantNames: ['Emily Johnson', 'Sarah Kim'],
+        leaderNoun: roleNoun('discipleship coach'),
+      }),
+    ).toContain('Emily Johnson and Sarah Kim\u2019s discipleship coach')
   })
 
   it('sends a Leader no phone number, ever', () => {
@@ -110,6 +153,7 @@ describe('the Starter Message', () => {
     const group = starterMessageToParticipant({
       ministryName: 'Riverside Chapel',
       leaderNames: ['David Ellis', 'Ruth Adeyemi'],
+      participantNoun: roleNoun('mentee'),
     })
 
     expect(group).toContain('David Ellis and Ruth Adeyemi')

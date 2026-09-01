@@ -40,9 +40,19 @@ import {
   type OpenKeywordExchange,
   type RelationshipKeyword,
 } from '~/domain/keywords'
-import type { OfferedGoal } from '~/domain/discipleship-goals'
+import {
+  goalWording,
+  type OfferedGoal,
+  type StatedGoal,
+} from '~/domain/discipleship-goals'
 import { discipleshipGoalId } from '~/domain/intake'
+import {
+  roleNoun,
+  type MinistrySettings,
+  type MinistryVoice,
+} from '~/domain/ministry-settings'
 import { readStandingPause, type StandingPause } from '~/domain/pause'
+import { count, text } from './rows'
 import type { MemberRole, RelationshipOutcome } from '~/domain/relationships'
 import type { ConcernResolution, ConcernViewing, NewConcern } from '~/domain/concerns'
 import {
@@ -65,6 +75,7 @@ import {
 import type { HistoryEvent } from '~/domain/history'
 import {
   eventId,
+  intakeSubmissionId,
   ministryId,
   personId,
   relationshipId,
@@ -638,12 +649,112 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     return new Set<PersonId>(rows.map((row) => personId(row.person_id)))
   },
 
-  async ministryName() {
+  async ministryVoice(): Promise<MinistryVoice> {
     // Scoped by the policy on `ministry`, like everything else on this connection.
-    const { rows } = await client.query<{ name: string }>(`select name from ministry`)
-    const name = rows[0]?.name
-    if (!name) throw new Error('This command has no Ministry to speak for')
-    return name
+    //
+    // `from_name` where a Ministry has set one and the display name otherwise, and
+    // the fallback is here rather than in the boundary: what a message reads as is
+    // one fact, and a second `coalesce` somewhere upstream would be a second
+    // answer to it. `nullif` on the trimmed value, because a column that holds
+    // spaces is a Ministry that has not set one.
+    const { rows } = await client.query<{
+      name: string
+      leader_noun: string
+      participant_noun: string
+    }>(
+      `select coalesce(nullif(btrim(from_name), ''), name) as name,
+              leader_noun,
+              participant_noun
+         from ministry`,
+    )
+
+    const voice = rows[0]
+    if (!voice) throw new Error('This command has no Ministry to speak for')
+
+    return {
+      name: voice.name,
+      leaderNoun: roleNoun(voice.leader_noun),
+      participantNoun: roleNoun(voice.participant_noun),
+    }
+  },
+
+  async ministrySettings(): Promise<MinistrySettings> {
+    // The row itself rather than `ministry_settings`, which is the read the
+    // *signed-in Admin* makes through their own session. This connection has
+    // already declared which Ministry it acts for and the policy scopes it, so a
+    // definer function here would be a second gate in front of a door already
+    // locked.
+    const { rows } = await client.query<{
+      name: string
+      from_name: string | null
+      timezone: string
+      leader_noun: string
+      participant_noun: string
+      suggest_gender_match: boolean
+      suggest_max_age_band_gap: number
+      checkin_day: number
+      checkin_hour: number
+    }>(
+      `select name, from_name, timezone, leader_noun, participant_noun,
+              suggest_gender_match, suggest_max_age_band_gap,
+              checkin_day, checkin_hour
+         from ministry`,
+    )
+
+    const row = rows[0]
+    if (!row) throw new Error('This command has no Ministry to read the settings of')
+
+    return {
+      name: row.name,
+      // `text` folds a blank column into null, which is the same reading
+      // `ministryVoice` takes above: a `from_name` of spaces is a Ministry that
+      // has not set one, and the form has to show it as unset rather than as set
+      // to nothing.
+      fromName: text(row.from_name),
+      timezone: row.timezone,
+      leaderNoun: roleNoun(row.leader_noun),
+      participantNoun: roleNoun(row.participant_noun),
+      suggestGenderMatch: row.suggest_gender_match,
+      suggestMaxAgeBandGap: Number(row.suggest_max_age_band_gap),
+      cadence: { day: Number(row.checkin_day), hour: Number(row.checkin_hour) },
+    }
+  },
+
+  async saveMinistrySettings(settings: MinistrySettings) {
+    // One statement for all three sections, because it is one form and one save.
+    // Two would let a Ministry's Language land while its Pairing was refused by
+    // the check constraint underneath the hour.
+    const { rowCount } = await client.query(
+      `update ministry
+          set name = $1,
+              from_name = $2,
+              timezone = $3,
+              leader_noun = $4,
+              participant_noun = $5,
+              suggest_gender_match = $6,
+              suggest_max_age_band_gap = $7,
+              checkin_day = $8,
+              checkin_hour = $9`,
+      [
+        settings.name,
+        settings.fromName,
+        settings.timezone,
+        settings.leaderNoun,
+        settings.participantNoun,
+        settings.suggestGenderMatch,
+        settings.suggestMaxAgeBandGap,
+        settings.cadence.day,
+        settings.cadence.hour,
+      ],
+    )
+
+    // No `where`: the policy on this connection is the scope, and a Ministry it is
+    // not acting for is not there to be updated. Nothing matching therefore means
+    // the connection is acting for a Ministry that does not exist, which is a
+    // defect rather than a settings form somebody filled in wrong.
+    if (rowCount !== 1) {
+      throw new Error('This command has no Ministry to save the settings of')
+    }
   },
 
   async createPeople(people: readonly NewPerson[]) {
@@ -723,10 +834,11 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       // the list was true when the page was served, and a check at the boundary
       // would still be reading it a moment before this insert.
       //
-      // A refusal rather than a failure, because everything else the Person typed
-      // is still good and the whole submission rolls back with this. It reaches
-      // them as the form again with one answer to give a second time, instead of
-      // as a 500 that loses the grid they just filled in.
+      // A refusal rather than a failure. The whole submission rolls back with it,
+      // so nothing of theirs is half-recorded, and it reaches them as the form
+      // saying what happened instead of as a 500. The form comes back empty either
+      // way -- refusals travel as a code on the query string and nothing else --
+      // so what this buys them is a sentence they can act on, not their answers.
       if (constraintViolated(error) === 'intake_submission_discipleship_goal_id_fkey') {
         throw new IntakeRefused(['intake.goal_no_longer_offered'])
       }
@@ -1998,16 +2110,24 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
          from discipleship_goal_options(app.command_ministry_id())`,
     )
 
-    return rows.map((row) => ({
-      id: discipleshipGoalId(row.id),
-      label: row.label,
-      position: Number(row.list_position),
-      // `count(*)` is a bigint and `pg` hands those back as strings, because most
-      // of their range does not survive a JavaScript number. A congregation's
-      // worth of answers does, so it is converted here rather than carried as text
-      // into arithmetic that would silently concatenate.
-      chosenBy: Number(row.chosen_by),
-    }))
+    return rows.map((row) => {
+      // The same reading of `count(*)` the settings surface uses, and deliberately
+      // not a `Number()` of its own: the two had drifted into different strictness
+      // over one SQL function, and this is the lenient side -- the one that writes
+      // the number into `discipleship_goal.removed`, where it is the only record
+      // that will survive the answers it counts.
+      const chosenBy = count(row.chosen_by)
+      if (chosenBy === null) {
+        throw new Error(`No count of who chose Discipleship Goal ${row.id} came back`)
+      }
+
+      return {
+        id: discipleshipGoalId(row.id),
+        label: goalWording(row.label),
+        position: Number(row.list_position),
+        chosenBy,
+      }
+    })
   },
 
   async addDiscipleshipGoal(goal: NewDiscipleshipGoal) {
@@ -2073,6 +2193,34 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
         `Reordering the Discipleship Goals moved ${rowCount} of ${order.order.length} options`,
       )
     }
+  },
+
+  async answersPointingAt(goalId): Promise<readonly StatedGoal[]> {
+    // Read before the delete, because `on delete set null` is about to make this
+    // question unanswerable: after the removal no row remembers that it pointed
+    // here. Both run in the one transaction the command opened, so nothing can
+    // submit this option between the read and the blanking.
+    //
+    // Every submission, not a `distinct on` over the standing ones. The warning an
+    // Admin saw counts people; the delete blanks rows; and it is the rows that have
+    // to be listed for the loss to be recoverable.
+    const { rows } = await client.query<{
+      id: string
+      person_id: string
+      submitted_at: Date
+    }>(
+      `select id, person_id, submitted_at
+         from intake_submission
+        where discipleship_goal_id = $1
+        order by submitted_at, id`,
+      [goalId],
+    )
+
+    return rows.map((row) => ({
+      submissionId: intakeSubmissionId(row.id),
+      personId: personId(row.person_id),
+      submittedAt: row.submitted_at,
+    }))
   },
 
   async removeDiscipleshipGoal(removal: DiscipleshipGoalRemoval) {
@@ -2220,21 +2368,21 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
 
   async closeOutstandingReply({
     ministryId,
-    promptKey,
+    phone,
     as,
     closing,
   }: OutstandingReplyClosure) {
     // A Person with no number holds no conversation, and the null is carried this
     // far rather than filtered out by the caller so that *this Person has no
     // number* stays one thing said in one place.
-    if (!promptKey) return
+    if (!phone) return
 
     await client.query(
       `update outbound_message
           set prompt_state = $3
         where ministry_id = $1 and prompt_key = $2 and prompt_state = 'open'
           and message_kind = any($4::outbound_message_kind[])`,
-      [ministryId, promptKey, as, closing],
+      [ministryId, phone, as, closing],
     )
   },
 

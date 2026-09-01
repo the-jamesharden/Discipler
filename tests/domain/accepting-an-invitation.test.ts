@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { roleNoun } from '~/domain/ministry-settings'
 import {
   handleCommand,
   type CommandContext,
@@ -40,6 +41,7 @@ const context = (invitation: InvitationSnapshot, at = now): CommandContext => ({
   clock: createTestClock(at),
   ids: createSequentialIds(),
   ministryName: 'Riverside Chapel',
+  language: { leaderNoun: roleNoun('mentor'), participantNoun: roleNoun('mentee') },
   appBaseUrl: 'https://discipler.example',
   invitation,
 })
@@ -127,6 +129,16 @@ describe('the Starter Message acceptance releases', () => {
     // ever carried one.
     for (const message of enqueued(result)) {
       expect(message.disclosesPersonId).toBeNull()
+    }
+  })
+
+  it('opens no conversation, so it cannot delay the first check-in', () => {
+    // The rule serialisation reads is the message's own `kind`, and the Starter
+    // Message is the case it was settled against: one that took the recipient's
+    // number would hold it until it timed out, and the very first check-in
+    // question on that relationship would be the thing waiting behind it.
+    for (const message of enqueued(result)) {
+      expect(message.kind).toBe('no_reply')
     }
   })
 

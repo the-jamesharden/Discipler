@@ -35,6 +35,7 @@ import {
   renameDiscipleshipGoal,
   reorderDiscipleshipGoals,
   resolveConcern,
+  saveMinistrySettings,
   setKeywordExchangeTarget,
   setLeadEligibility,
   sweepOutstandingReplies,
@@ -56,6 +57,7 @@ import {
   IntakeRefused,
   InvitationRefused,
   MaterialAssignmentRefused,
+  MinistrySettingsRefused,
   PairingRefused,
   PauseRefused,
 } from './errors'
@@ -104,7 +106,9 @@ import {
   offeredGoal,
   orderAfterMoving,
   readGoalWording,
+  type GoalWording,
   type OfferedGoal,
+  type StatedGoal,
 } from './discipleship-goals'
 import { discipleshipGoalId, readIntakeForm, type DiscipleshipGoalId } from './intake'
 import {
@@ -169,6 +173,11 @@ import {
   type PausePeriodWeeks,
   type StandingPause,
 } from './pause'
+import {
+  readMinistrySettings,
+  type MinistryLanguage,
+  type MinistrySettings,
+} from './ministry-settings'
 import { rosterKey, type PhoneNumber, type RosterKey, type RowRejection } from './roster'
 import { readRosterFile } from './roster-csv'
 
@@ -196,8 +205,29 @@ export interface CommandContext {
    * The Ministry in whose voice the command speaks. Loaded on the command's behalf
    * because every message carries the Ministry name as a prefix, and a domain that
    * fetched it would no longer be a pure function of its inputs.
+   *
+   * Already the *speaking* name: `from_name` where a Ministry has set one, its
+   * display name otherwise. The fallback happens once, at the store, so nothing
+   * here has to remember which of the two a message carries.
    */
   readonly ministryName?: string
+  /**
+   * What this Ministry calls its two roles, loaded on the behalf of the commands
+   * whose messages say one. A Ministry's people are called what that Ministry
+   * calls them, which is the same rule its Discipleship Goal options follow.
+   *
+   * Absent on every command that composes no message naming a role, rather than
+   * defaulted to Discipler's own words: a message that quietly said *mentor* to a
+   * Ministry that had asked for *coach* would be the one failure a preview exists
+   * to make impossible.
+   */
+  readonly language?: MinistryLanguage
+  /**
+   * This Ministry's settings as they stand, loaded on `settings.update`'s behalf
+   * so that history can record what each field used to be. Absent on everything
+   * else.
+   */
+  readonly settings?: MinistrySettings
   /**
    * Who is being paired, or who is already in the relationship being accepted --
    * their names and the numbers Discipler would text. Loaded on the command's
@@ -287,6 +317,17 @@ export interface CommandContext {
    * seeds every new one and refuses the removal that would empty it.
    */
   readonly goals?: readonly OfferedGoal[]
+  /**
+   * Every submission pointing at the option a `goal.remove` names, read before the
+   * delete blanks them. Loaded on that one command's behalf and on no other's: it
+   * is the only edit that destroys anything, and reading it for a rename would be
+   * a table scan to answer a question nobody asked.
+   *
+   * Absent rather than empty, like `goals`. *Nobody ever chose this* and *the read
+   * did not happen* are opposite facts, and confusing them here would have a
+   * removal record that it cost nothing while blanking a congregation's answers.
+   */
+  readonly goalAnswers?: readonly StatedGoal[]
   /**
    * What the Person an inbound text came from holds, what they last asked for, and
    * whether Discipler may still text them. Loaded on `sms.inbound`'s behalf,
@@ -500,6 +541,21 @@ const membersOf = (
 ]
 
 /**
+ * The words this Ministry calls its two roles by.
+ *
+ * Thrown for rather than defaulted, like every other snapshot here. Discipler's
+ * own words standing in for a Ministry's would be a message going out saying
+ * *mentor* to a Ministry that had asked for *coach* -- which is the one failure
+ * the settings preview exists to make impossible, and it would be invisible.
+ */
+const theWordFor = (context: CommandContext): MinistryLanguage => {
+  if (!context.language) {
+    throw new Error('This command was handed no words for the roles it names')
+  }
+  return context.language
+}
+
+/**
  * The Ministry's own list of Discipleship Goal options, or a loud failure rather
  * than an empty one. See `CommandContext.goals`: absent and empty are opposite
  * facts, and a read that silently became *this Ministry offers nothing* would
@@ -510,6 +566,19 @@ const theOptionsOnOffer = (context: CommandContext): readonly OfferedGoal[] => {
     throw new Error('No list of Discipleship Goal options was loaded for this edit')
   }
   return context.goals
+}
+
+/**
+ * The answers a removal is about to blank, or a loud failure rather than an empty
+ * list. See `CommandContext.goalAnswers`: a read that silently became *nobody ever
+ * chose this* would have the removal event record a loss of nothing, which is the
+ * one record that cannot be gone back for.
+ */
+const theAnswersAboutToGo = (context: CommandContext): readonly StatedGoal[] => {
+  if (!context.goalAnswers) {
+    throw new Error('No answers were loaded for the Discipleship Goal being removed')
+  }
+  return context.goalAnswers
 }
 
 /**
@@ -535,7 +604,7 @@ const theWordingFor = (
   goals: readonly OfferedGoal[],
   raw: string,
   except?: DiscipleshipGoalId,
-): string => {
+): GoalWording => {
   const wording = readGoalWording(raw)
   if (!wording) throw new GoalRefused('goal.needs_wording')
   if (alreadyOffered(goals, wording, except)) throw new GoalRefused('goal.already_offered')
@@ -997,7 +1066,7 @@ const openConversationWith = (
   effects.push(
     closeOutstandingReply({
       ministryId,
-      promptKey: checkIn.phone,
+      phone: checkIn.phone,
       as: 'timed_out',
       closing: LAST_WEEKS_QUESTION,
     }),
@@ -1710,7 +1779,7 @@ const replyInsideExchange = (
   // waiting on an exchange that finished the moment they replied.
   const numberIsFree = closeOutstandingReply({
     ministryId: keywording.ministryId,
-    promptKey: keywording.phone,
+    phone: keywording.phone,
     as: 'answered',
     closing: WHATEVER_WAS_ASKED,
   })
@@ -2312,7 +2381,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         // would advance one question every forty-eight hours.
         closeOutstandingReply({
           ministryId: command.ministryId,
-          promptKey: checkIn.phone,
+          phone: checkIn.phone,
           as: 'answered',
           closing: WHATEVER_WAS_ASKED,
         }),
@@ -3062,6 +3131,14 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             consentVersion: CONSENT_VERSION,
             contactSharingConsent: submission.contactSharingConsent,
             availabilitySlots: submission.availability.length,
+            // The option they picked, for the same reason the name below is here:
+            // `intake_submission.discipleship_goal_id` is blanked if the Ministry
+            // ever removes this option, and without this the fact that they chose
+            // it would be gone from the whole system. The id and not the wording --
+            // the wording is the option's own and changes under a rename, and
+            // `discipleship_goal.renamed` and `.removed` are what resolve an id to
+            // the words that stood on any given date.
+            goalId: submission.goalId,
             // The name they gave on this submission, the same way
             // `person.joined_at_intake` records the one they joined under. A
             // correction overwrites `person.full_name`, and without this the name
@@ -3294,6 +3371,72 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       }
     }
 
+    case 'settings.update': {
+      const were = context.settings
+      if (!were) throw new Error('settings.update was handed no settings to change')
+
+      const reading = readMinistrySettings(command.fields)
+      // Every problem at once, and the whole save refused. One form, one
+      // transaction: a Ministry never ends up with a timezone from this attempt
+      // and a cadence from the last.
+      if ('refusals' in reading) throw new MinistrySettingsRefused(reading.refusals)
+
+      const settings = reading.settings
+
+      // What actually moved, field by field, and nothing that did not. An Admin
+      // who opened the form, corrected a typo in one noun and pressed save has
+      // changed one thing, and a record claiming they set eight would make the
+      // one that matters -- the day a Ministry turned the gender rule off --
+      // impossible to find by reading.
+      const changes = Object.fromEntries(
+        (
+          [
+            ['name', were.name, settings.name],
+            ['fromName', were.fromName, settings.fromName],
+            ['timezone', were.timezone, settings.timezone],
+            ['leaderNoun', were.leaderNoun, settings.leaderNoun],
+            ['participantNoun', were.participantNoun, settings.participantNoun],
+            ['suggestGenderMatch', were.suggestGenderMatch, settings.suggestGenderMatch],
+            [
+              'suggestMaxAgeBandGap',
+              were.suggestMaxAgeBandGap,
+              settings.suggestMaxAgeBandGap,
+            ],
+            ['checkinDay', were.cadence.day, settings.cadence.day],
+            ['checkinHour', were.cadence.hour, settings.cadence.hour],
+          ] as const
+        ).flatMap(([field, from, to]) => (from === to ? [] : [[field, { from, to }]])),
+      )
+
+      // Nothing moved: an Admin opened the form, changed their mind and pressed
+      // save. That is not an edit, so nothing is written and history says nothing
+      // -- the same answer `goal.move` gives the Admin who pressed *up* on the top
+      // option. A `ministry.settings_changed` event recording no change would be a
+      // diary entry in a record that exists to be read for the changes that matter.
+      if (Object.keys(changes).length === 0) return { effects: [], rejections: [] }
+
+      const now = context.clock.now()
+
+      return {
+        effects: [
+          saveMinistrySettings({ ministryId: command.ministryId, settings }),
+          // The values as they stood, which the update is about to overwrite and
+          // which nothing else keeps. A cadence edit affects future periods only,
+          // so a Ministry reading its own record has to be able to see which
+          // cadence sent the messages it is looking at.
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'ministry.settings_changed',
+            subjectType: 'ministry',
+            subjectId: command.ministryId,
+            payload: { changedBy: command.changedBy, changes },
+          }),
+        ],
+        rejections: [],
+      }
+    }
+
     case 'goal.add': {
       const goals = theOptionsOnOffer(context)
       const label = theWordingFor(goals, command.label)
@@ -3356,7 +3499,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
     case 'goal.move': {
       const goals = theOptionsOnOffer(context)
       const goal = theOptionNamed(goals, command.goalId)
-      const order = orderAfterMoving(goals, goal.id, command.direction)
+      const order = orderAfterMoving(goals, goal, command.direction)
 
       // Already where it was asked to go: the top option, sent up. Nothing
       // happened, so nothing is written and history says nothing -- an Admin has
@@ -3385,6 +3528,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
     case 'goal.remove': {
       const goals = theOptionsOnOffer(context)
       const goal = theOptionNamed(goals, command.goalId)
+      const blanked = theAnswersAboutToGo(context)
 
       // The rule, and not the screen's restraint: a Ministry with no options
       // cannot serve an Intake form at all. The database refuses this a second
@@ -3402,17 +3546,32 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             label: goal.label,
             chosenBy: goal.chosenBy,
           }),
-          // What it cost, written down at the moment it is spent. The answers
-          // themselves are blanked by the database and no undo recovers them, so
-          // this event is the only thing that will ever be able to say how many
-          // people had chosen this option, or what it said.
+          // What it cost, written down at the moment it is spent. The database is
+          // about to blank the answers themselves and no query recovers them from
+          // there afterwards, so this event is the only thing that will ever be
+          // able to say what this option said or who had chosen it.
+          //
+          // Two different facts, and deliberately not one number twice.
+          // `answersLost` is the count an Admin was warned with: people whose
+          // *current* answer points here. `blankedAnswers` is every submission the
+          // delete touches, which includes the superseded ones of somebody who has
+          // since answered differently -- a larger set, and the one that has to be
+          // listed if the removal is to be recoverable at all. ADR-0014.
           appendHistory({
             ministryId: command.ministryId,
             occurredAt: now,
             type: 'discipleship_goal.removed',
             subjectType: 'discipleship_goal',
             subjectId: goal.id,
-            payload: { label: goal.label, answersLost: goal.chosenBy },
+            payload: {
+              label: goal.label,
+              answersLost: goal.chosenBy,
+              blankedAnswers: blanked.map((answer) => ({
+                submissionId: answer.submissionId,
+                personId: answer.personId,
+                submittedAt: answer.submittedAt.toISOString(),
+              })),
+            },
           }),
         ],
         rejections: [],
@@ -3501,6 +3660,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             body: invitationMessage({
               ministryName,
               fullName: leader.fullName,
+              leaderNoun: theWordFor(context).leaderNoun,
               link: invitationLink(baseUrl, invitation.token),
             }),
             enqueuedAt: now,
@@ -3616,7 +3776,11 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             ministryId: command.ministryId,
             personId: leader.personId,
             toPhone: leader.phone,
-            body: starterMessageToLeader({ ministryName, participantNames }),
+            body: starterMessageToLeader({
+              ministryName,
+              participantNames,
+              leaderNoun: theWordFor(context).leaderNoun,
+            }),
             enqueuedAt: now,
             disclosesPersonId: null,
             // *You have been paired* asks nothing, so it takes nobody's number --
@@ -3633,7 +3797,11 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             ministryId: command.ministryId,
             personId: participant.personId,
             toPhone: participant.phone,
-            body: starterMessageToParticipant({ ministryName, leaderNames }),
+            body: starterMessageToParticipant({
+              ministryName,
+              leaderNames,
+              participantNoun: theWordFor(context).participantNoun,
+            }),
             enqueuedAt: now,
             disclosesPersonId: null,
             kind: 'no_reply',

@@ -18,6 +18,7 @@ import {
 import { createSupabaseCareNeededReader } from '~/platform/supabase/care-needed-reader'
 import { supabaseDiscipleshipGoalReader } from '~/platform/supabase/discipleship-goals'
 import { supabaseLeaderDashboardReader } from '~/platform/supabase/leader-dashboard'
+import { supabaseMinistrySettingsReader } from '~/platform/supabase/ministry-settings'
 import {
   createPostgresMinistryDirectory,
   type PostgresMinistryDirectory,
@@ -40,6 +41,7 @@ import type {
   LeaderAccounts,
   MessageTransport,
   MinistryDirectory,
+  MinistrySettingsReader,
   OutboundQueue,
   RosterReader,
 } from './ports'
@@ -185,6 +187,14 @@ export const getRosterReader = (): RosterReader => supabaseRosterReader
  */
 export const getDiscipleshipGoalReader = (): DiscipleshipGoalReader =>
   supabaseDiscipleshipGoalReader
+
+/**
+ * The settings surface reads through the signed-in Admin's session, so
+ * `ministry_settings` is what scopes it -- and that function answers an Admin of
+ * the Ministry and nobody else.
+ */
+export const getMinistrySettingsReader = (): MinistrySettingsReader =>
+  supabaseMinistrySettingsReader
 
 /**
  * Care Needed reads through the signed-in Admin's session, so the policy on

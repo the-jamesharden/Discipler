@@ -1,4 +1,5 @@
 import type { IntakeRefusal } from './intake'
+import type { MinistrySettingsRefusal } from './ministry-settings'
 
 /**
  * Refusals travel as codes, never as prose. The same rule the sign-in page follows:
@@ -390,5 +391,22 @@ export class GoalRefused extends Error {
   constructor(readonly refusal: GoalRefusal) {
     super(refusal)
     this.name = 'GoalRefused'
+  }
+}
+
+/**
+ * A settings form that could not be taken, carrying every problem with it rather
+ * than the first one found.
+ *
+ * All of them at once, like Intake's, and for the same reason: an Admin filling in
+ * three sections of one form should not discover their mistakes one round trip at
+ * a time. The whole save is refused either way -- it is one form and one
+ * transaction -- so a Ministry never ends up with a timezone from this attempt and
+ * a cadence from the last.
+ */
+export class MinistrySettingsRefused extends Error {
+  constructor(readonly refusals: readonly MinistrySettingsRefusal[]) {
+    super(refusals.join(', '))
+    this.name = 'MinistrySettingsRefused'
   }
 }

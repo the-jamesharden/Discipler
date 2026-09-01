@@ -153,6 +153,13 @@ export const intakeReopenLink = (baseUrl: string, token: string): string =>
 export interface InvitationMessage {
   readonly ministryName: string
   readonly fullName: string
+  /**
+   * The Ministry's own word for the role being offered. In noun position and
+   * never as a verb: *someone to mentor* reads well and *someone to discipler*
+   * does not, and this word is whatever a Ministry typed rather than one
+   * Discipler picked out for them.
+   */
+  readonly leaderNoun: string
   readonly link: string
 }
 
@@ -169,16 +176,18 @@ export interface InvitationMessage {
 export const invitationMessage = ({
   ministryName,
   fullName,
+  leaderNoun,
   link,
 }: InvitationMessage): string => {
   const firstName = firstNameOf(fullName)
+  const matched = `you’ve been matched with someone to be their ${leaderNoun}.`
 
   return composeMessage({
     ministryName,
     identifyDelivery: false,
     discloseOptOut: false,
     body:
-      (firstName ? `${firstName}, you’ve been matched with someone to disciple.` : 'You’ve been matched with someone to disciple.') +
+      (firstName ? `${firstName}, ${matched}` : `${matched[0]!.toUpperCase()}${matched.slice(1)}`) +
       ` Have a look and let us know: ${link}`,
   })
 }
@@ -187,6 +196,8 @@ export interface StarterMessageToLeader {
   readonly ministryName: string
   /** Everyone they are now meeting with. One name is a one-to-one; several a group. */
   readonly participantNames: readonly string[]
+  /** What this Ministry calls the reader's own role. */
+  readonly leaderNoun: string
 }
 
 /**
@@ -201,18 +212,25 @@ export interface StarterMessageToLeader {
 export const starterMessageToLeader = ({
   ministryName,
   participantNames,
+  leaderNoun,
 }: StarterMessageToLeader): string =>
   composeMessage({
     ministryName,
     identifyDelivery: false,
     discloseOptOut: true,
-    body: `You’re now meeting with ${asList(participantNames)}. We’ll check in with you each week to see how it’s going.`,
+    // The reader's *own* role, which is one person however many are on the other
+    // side of it -- so the noun stays singular and nothing has to pluralise a
+    // word a Ministry typed. `asList` puts the group inside the possessive, which
+    // is the one shape that reads for both a one-to-one and a group of four.
+    body: `You’re now ${asList(participantNames)}’s ${leaderNoun}. We’ll check in with you each week to see how it’s going.`,
   })
 
 export interface StarterMessageToParticipant {
   readonly ministryName: string
   /** Who will be reaching out. Named in the body; their number never is. */
   readonly leaderNames: readonly string[]
+  /** What this Ministry calls the reader's own role. */
+  readonly participantNoun: string
 }
 
 /**
@@ -235,13 +253,18 @@ export interface StarterMessageToParticipant {
 export const starterMessageToParticipant = ({
   ministryName,
   leaderNames,
+  participantNoun,
 }: StarterMessageToParticipant): string =>
   composeMessage({
     ministryName,
     identifyDelivery: false,
     discloseOptOut: true,
+    // The reader's own role again, for the reason the Leader's message gives:
+    // *David and Ruth is your mentor* is what a group produces from the other
+    // shape, and pluralising a word a Ministry typed is not something copy can do
+    // reliably.
     body:
-      `Great news! You have been paired with ${asList(leaderNames)} for discipleship, ` +
+      `Great news! You’re now ${asList(leaderNames)}’s ${participantNoun}, and ` +
       'they will reach out to you soon to set up a time to meet and kick things off!',
   })
 

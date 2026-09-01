@@ -42,7 +42,11 @@ The process by which a person provides the information and consent needed to ent
 One of the thirty-five selectable windows on the intake grid: each day of the week divided into early morning, morning, midday, afternoon, and evening.
 
 **Discipleship Goal**:
-The single outcome a participant selects at intake to describe what they are seeking from discipleship. The options offered are the ministry's own.
+The single outcome a participant selects at intake to describe what they are seeking from discipleship. The options offered are the ministry's own. An option is a row and answers point at it, so rewording one is not asking a new question; removing one blanks the answers that pointed at it, taking a stated goal off every live surface. ADR-0014 records why that is allowed and how the record survives it: the blanked answers are written into the removal event before the delete runs.
+
+**Chosen By**:
+How many people's *current* intake answer points at a particular Discipleship Goal option. People and not submissions: intake is append-only and re-submittable, so somebody who has since changed their answer counts only against the option they now hold. It is what an admin is warned with before removing an option, and the number the removal writes into history — where it becomes the only surviving record of what was lost. One definition, in `public.discipleship_goal_options`, is read by both the settings surface that warns and the command boundary that records, so the two cannot disagree.
+_Avoid_: Answer count, submission count, usage, popularity
 
 **Roster**:
 The pastor-facing set of people in a ministry and their current participation status.
@@ -114,7 +118,7 @@ _Avoid_: an account (nothing about it gives anyone one), and the Intake form as 
 A message in the Check-In Rhythm that expects a reply from its recipient.
 
 **Outstanding Reply**:
-A Response-Required Message that has been sent and whose reply has not yet arrived. At most one is outstanding per phone number at a time, because a number holds one conversation however many people are reachable on it; a later message to the same number takes ownership of the next reply and supersedes the one before it. It resolves as answered, superseded, or timed out — after 48 hours for a check-in question or a concern detail request, or at the start of a new week if that comes first, and after 24 hours for a Keyword Exchange. A message expecting no reply is never outstanding and never makes a number busy.
+A Response-Required Message that has been sent and whose reply has not yet arrived. At most one is outstanding per phone number at a time, because a number holds one conversation however many people are reachable on it; a later message to the same number takes ownership of the next reply and supersedes the one before it. It resolves as answered, superseded, or timed out; how long it waits before timing out depends on the kind of message that opened it, and `docs/check-in-rhythm.md` holds the windows. A message expecting no reply is never outstanding and never makes a number busy.
 _Avoid_: prompt. The database columns predate this entry and spell it `prompt_key` and `prompt_state`; they mean this and are not to be read as a Keyword Exchange.
 
 **Meeting Response**:
@@ -208,4 +212,7 @@ _Avoid_: Schedule, cron time
 The ISO week in the Ministry Timezone. Defined independently of the Check-In Cadence, so that moving the cadence cannot produce one week carrying two check-ins and another carrying none.
 
 **Ministry Language**:
-The nouns a Ministry uses for the two roles in a relationship, applied to every message it sends. Wording a Ministry owns, in the same way it owns its Discipleship Goal options; the structure of a message is not.
+The nouns a Ministry uses for the two roles in a relationship, carried into every message that names a role. Wording a Ministry owns, in the same way it owns its Discipleship Goal options; the structure of a message is not. ADR-0015 records the two rules the wording has to obey — the word sits in noun position and names the reader's own role — and why a word a Ministry typed can be neither conjugated nor pluralised on its behalf.
+
+**Sending Name**:
+The name a Ministry's messages read as, distinct from both the display name an Admin sees on their own screens and the number the messages are sent from. Unset means *speak as the display name*.

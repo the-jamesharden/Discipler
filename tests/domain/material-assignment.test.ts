@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { roleNoun } from '~/domain/ministry-settings'
 import {
   handleCommand,
   type InvitationSnapshot,
@@ -246,6 +247,7 @@ const accept = (snapshot = invitation(), at = acceptedAt) =>
       clock: createTestClock(at),
       ids: createSequentialIds(),
       ministryName: 'Riverside Chapel',
+  language: { leaderNoun: roleNoun('mentor'), participantNoun: roleNoun('mentee') },
       appBaseUrl: 'https://discipler.example',
       invitation: snapshot,
     },

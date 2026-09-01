@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { roleNoun } from '~/domain/ministry-settings'
 import { handleCommand, type CommandContext } from '~/domain/boundary'
 import { createTestClock } from '~/domain/clock'
 import { createSequentialIds, ministryId, personId } from '~/domain/ids'
@@ -17,6 +18,7 @@ const context = (): CommandContext => ({
   clock: createTestClock(now),
   ids: createSequentialIds(),
   ministryName: 'Riverside Chapel',
+  language: { leaderNoun: roleNoun('mentor'), participantNoun: roleNoun('mentee') },
   appBaseUrl: 'https://discipler.example',
   contacts: {
     people: new Map([

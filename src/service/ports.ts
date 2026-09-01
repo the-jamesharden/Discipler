@@ -43,7 +43,8 @@ import type {
   FollowUpResolution,
   NewFollowUpItem,
 } from '~/domain/follow-up'
-import type { OfferedGoal } from '~/domain/discipleship-goals'
+import type { OfferedGoal, StatedGoal } from '~/domain/discipleship-goals'
+import type { MinistrySettings, MinistryVoice } from '~/domain/ministry-settings'
 import type { IntakeLinkState, IntakeLinkToken, NewIntakeLink } from '~/domain/intake-link'
 import type { InboundSnapshot } from '~/domain/keywords'
 import type {
@@ -110,11 +111,17 @@ export interface UnitOfWork {
    */
   peopleWhoCompletedIntake(): Promise<ReadonlySet<PersonId>>
   /**
-   * The Ministry's name, in whose voice every outbound message speaks. Read inside
-   * the unit of work like everything else, so a command cannot compose a message
-   * for a Ministry the connection is not acting for.
+   * How this Ministry speaks: the name every outbound message reads as, and the
+   * words it calls its two roles by. Read inside the unit of work like everything
+   * else, so a command cannot compose a message for a Ministry the connection is
+   * not acting for.
+   *
+   * One read and not two. The name and the nouns are three columns of one row and
+   * every message that carries a noun carries the name as well, so asking for them
+   * separately would be a second round trip for a second half of the same fact --
+   * and two answers that could, briefly, disagree about which Ministry is speaking.
    */
-  ministryName(): Promise<string>
+  ministryVoice(): Promise<MinistryVoice>
   /**
    * Refuses with a `RosterImportRefused` when one of these people is already on the
    * Roster -- the case the read above is meant to catch, left to the database as the
@@ -330,6 +337,22 @@ export interface UnitOfWork {
   setLeadEligibility(eligibility: LeadEligibility): Promise<void>
 
   /**
+   * This Ministry's settings as they stand, loaded on `settings.update`'s behalf.
+   *
+   * Read inside the unit of work like everything else, so the values history
+   * records as *what these used to be* are the values that were actually there
+   * when the edit was decided -- not ones a second Admin had already replaced.
+   */
+  ministrySettings(): Promise<MinistrySettings>
+
+  /**
+   * One Ministry's settings, saved. Every field at once, because it is one form
+   * and a partial write would let two sections of it disagree about which edit
+   * won.
+   */
+  saveMinistrySettings(settings: MinistrySettings): Promise<void>
+
+  /**
    * Every Discipleship Goal option this Ministry offers, in the order the form
    * shows them, each with how many people's current Intake answer points at it.
    *
@@ -350,6 +373,17 @@ export interface UnitOfWork {
 
   /** The Ministry's whole list, renumbered into the order it was handed. */
   reorderDiscipleshipGoals(order: DiscipleshipGoalOrder): Promise<void>
+
+  /**
+   * Every submission pointing at one option, read before it is removed -- because
+   * afterwards there is nothing left to read. What comes back goes into the
+   * `discipleship_goal.removed` event, which is then the only record that this
+   * Person's stated goal was ever this option.
+   *
+   * Every submission and not only the standing ones: `chosenBy` counts people and
+   * the delete blanks rows, and it is the rows that have to be written down.
+   */
+  answersPointingAt(goalId: DiscipleshipGoalId): Promise<readonly StatedGoal[]>
 
   /**
    * One option, deleted. The database blanks it on every submission that chose
@@ -810,30 +844,35 @@ export interface IntakePrefill {
 }
 
 /**
- * One option as the settings surface shows it: what it says, and what removing it
- * would cost.
- *
- * The same count the command boundary decides against, and from the same
- * definition in the database -- so the number an Admin was warned with and the
- * number history records cannot disagree.
- */
-export interface DiscipleshipGoalListing {
-  readonly id: DiscipleshipGoalId
-  readonly label: string
-  /** How many people's current Intake answer points at this option. */
-  readonly chosenBy: number
-}
-
-/**
  * What the settings surface needs to show a Ministry its own list. Read through
  * the signed-in Admin's session, so the policies are what scope it -- an Admin
  * sees their Ministry's options and no other Ministry's, and goals are never
  * shared or compared across Ministries.
+ *
+ * `OfferedGoal` and not a shape of this surface's own. One option is one concept
+ * whichever side of the seam is looking at it, and the settings surface warning an
+ * Admin and the command boundary writing the number into history read the same
+ * `discipleship_goal_options` definition -- so a second type here would only be
+ * two names for one row, waiting to disagree about what `chosenBy` counts.
  */
 export interface DiscipleshipGoalReader {
-  listDiscipleshipGoals(
-    ministryId: MinistryId,
-  ): Promise<readonly DiscipleshipGoalListing[]>
+  listDiscipleshipGoals(ministryId: MinistryId): Promise<readonly OfferedGoal[]>
+}
+
+/**
+ * What the settings surface needs to show a Ministry its own settings. Read
+ * through the signed-in Admin's session, so `ministry_settings` is what scopes it
+ * -- and that function answers an Admin of the Ministry and nobody else, because
+ * what hour a whole Ministry is texted at and whether the gender rule is enforced
+ * are the coordinator's to see.
+ *
+ * `MinistrySettings` and not a shape of this surface's own, for the reason the
+ * Discipleship Goal reader gives: the screen an Admin edits from and the boundary
+ * that decides the edit read one definition, so they cannot come to disagree about
+ * what this Ministry's settings are.
+ */
+export interface MinistrySettingsReader {
+  readMinistrySettings(ministryId: MinistryId): Promise<MinistrySettings>
 }
 
 export interface IntakeReader {

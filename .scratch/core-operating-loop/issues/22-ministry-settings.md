@@ -38,18 +38,18 @@ consume the timezone.
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** shipped
 
-- [ ] One settings surface with three sections — Ministry, Language, Pairing — in one form
-- [ ] A Ministry has a timezone, and every availability block, cadence, week boundary, and messaging window resolves against it
-- [ ] `leader_noun` and `participant_noun` are editable and the preview beneath them renders a real message using them
-- [ ] `suggest_gender_match` and `suggest_max_age_band_gap` are stored settings that ticket 04's ranking reads
-- [ ] The gender constraint and the age constraint are visibly different controls, not two rows of one toggle list
-- [ ] `checkin_day` accepts 0–6 and `checkin_hour` an integer hour
-- [ ] A `checkin_hour` outside 8am–9pm is refused by a database check constraint, proven by a test that writes it by SQL
-- [ ] `relationship.checkin_day` and `relationship.checkin_hour` exist, are nullable, and are null on every row
-- [ ] Message structure, reply tokens, and the opt-out footer appear nowhere on the screen, including as disabled fields
-- [ ] Settings are per Ministry and readable only within that Ministry
+- [x] One settings surface with three sections — Ministry, Language, Pairing — in one form
+- [x] A Ministry has a timezone, and every availability block, cadence, week boundary, and messaging window resolves against it
+- [x] `leader_noun` and `participant_noun` are editable and the preview beneath them renders a real message using them
+- [x] `suggest_gender_match` and `suggest_max_age_band_gap` are stored settings that ticket 04's ranking reads
+- [x] The gender constraint and the age constraint are visibly different controls, not two rows of one toggle list
+- [x] `checkin_day` accepts 0–6 and `checkin_hour` an integer hour
+- [x] A `checkin_hour` outside 8am–9pm is refused by a database check constraint, proven by a test that writes it by SQL
+- [x] `relationship.checkin_day` and `relationship.checkin_hour` exist, are nullable, and are null on every row
+- [x] Message structure, reply tokens, and the opt-out footer appear nowhere on the screen, including as disabled fields
+- [x] Settings are per Ministry and readable only within that Ministry
 
 ## Comments
 
@@ -64,5 +64,74 @@ Default `1`, which is ADR-0001's rule and permits a 25–34 Leader with a 35–4
 Participant. A Ministry wanting *never older than their Leader* sets `0`. The label and
 help text on the form must carry the word *above*; "age gap" alone reads as symmetric.
 
-- [ ] `suggest_max_age_band_gap` is labelled and documented as bands a Participant may be **above** their Leader
-- [ ] The default is `1`, and `0` is a valid setting meaning never older
+- [x] `suggest_max_age_band_gap` is labelled and documented as bands a Participant may be **above** their Leader
+- [x] The default is `1`, and `0` is a valid setting meaning never older
+
+### Settled — which messages carry the nouns, and in what position
+
+Nothing in `src/domain/outbound-copy.ts` named a role, so there was nowhere for a
+Ministry's word to go and a preview of *its own words in its own messages* would have
+been a preview of nothing. The copy was rewritten, and the shape it was rewritten into
+is a constraint on every message written from now on:
+
+- the word sits in **noun position**, never as a verb — *someone to be their mentor*,
+  because *someone to discipler* is not a sentence;
+- the word names the **reader's own role**, so it stays singular however many people
+  are on the other side of it — *David and Ruth is your mentor* is what the other
+  shape produces for a group.
+
+Three messages carry a noun and they are the only three that name a role at all:
+`invitationMessage`, `starterMessageToLeader`, `starterMessageToParticipant`. The
+preview is composed by the same two Starter Message functions the sender calls, prefix
+and opt-out disclosure and all. Recorded in
+`docs/adr/0015-a-ministrys-own-word-goes-in-noun-position.md`.
+
+### What ticket 08b had already landed, and was not re-authored
+
+`timezone`, `checkin_day`, `checkin_hour`, the 8am-9pm check constraint and the
+nullable `relationship.checkin_day` / `relationship.checkin_hour` came in with
+`20260901000100_the_cadence_and_the_week_boundary.sql`, whose own comment said the
+second ticket to land verifies the constraint rather than re-authoring it.
+`tests/integration/ministry-settings.test.ts` does exactly that: it writes 6am, 7am,
+10pm and 11pm straight past the form by SQL and proves each is refused, and that 8am
+and 9pm are not.
+
+### `from_name` is what a message reads as
+
+Not the display name and not `sending_number`. Resolved once, at the store, as
+`coalesce(nullif(btrim(from_name), ''), name)`, so nothing downstream has to remember
+which of the two a message carries. Null means *speak as the display name*, and it is
+null rather than a copy — a Ministry that renames itself would otherwise go on
+speaking as whoever it used to be.
+
+### `suggest_gender_match` is wired to the trigger, not only stored
+
+`app.reject_gender_mismatch` now reads the setting off the relationship's Ministry
+before it does anything else, which is what makes the checkbox the *deliberate
+disable* ticket 05 said this ticket would provide. A setting that only greyed out a
+control would have changed nothing: gender is enforced by a trigger precisely so that
+manual pairing cannot cross it.
+
+### One criterion is narrower than it reads
+
+*"A Ministry has a timezone, and every availability block, cadence, week boundary,
+and messaging window resolves against it"* is ticked for what this ticket can carry.
+The timezone exists, is editable, and is validated twice — `isKnownTimezone` against
+the same `Intl` zone database the dispatcher reads, and `pg_timezone_names` in the
+trigger, because pilot settings are written by SQL. The cadence, the ISO week behind
+the care counters and the *first check-in of each calendar month* rule all resolve
+against it today.
+
+An **availability block** does not, and cannot yet: the grid is seven days by five
+named blocks with no clock in it, and nothing in the product turns a block into an
+instant. Neither does a **messaging window**, because there is no send-window code to
+resolve — the quiet-hours clamp is on the cadence rather than on the queue. Both
+become true when something needs them to be, against this timezone; neither is
+faked here.
+
+### Still on ticket 04
+
+`suggest_max_age_band_gap` is stored, defaulted to `1`, bounded to the ladder and
+labelled with the word *above*. Nothing ranks anything yet — the suggestion engine is
+ticket 04's, and this ticket's job was to give it a setting to read rather than a
+constant.
