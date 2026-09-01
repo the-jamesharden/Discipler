@@ -61,14 +61,27 @@ have consumers on the discipleship path. Neither obviously has one here.
 
 **Blocked by:** 25, 27
 
-**Status:** needs-triage
+**Status:** ready-for-agent
 
 - [ ] `/intake/<ministry>` opens the group form and the link never breaks
-- [ ] The form asks which group the Person would like to join
-- [ ] The Discipleship Goal question is not asked on this path
+- [ ] The form asks gender, age band, availability, which group, then name, mobile, email and the two consents, in that order
+- [ ] The Discipleship Goal and the first-time question are not asked on this path
+- [ ] A group carries a name an Admin types when forming it and may edit from the Roster
+- [ ] The dropdown lists accepted, open, named groups, filtered on declared gender regardless of the Ministry setting, mixed groups always
+- [ ] A Ministry with no eligible group, or a Person every group is closed to, sees a page saying so with a link to the discipleship wizard
+- [ ] A group is open by default; an Admin may set it to require approval when forming it and change that later
+- [ ] Submitting for an open group writes the membership and a ministry event with the Person as actor, in the same transaction as the Intake
+- [ ] Submitting for an approval-required group raises a `group_join_requested` Follow-Up Item and writes no membership
+- [ ] An Admin admits from the item, which adds the Participant and resolves the item in one act, or resolves it alone
+- [ ] The joiner is sent a Welcome Message worded for a group and nothing on joining, admission or decline
+- [ ] The Leader is texted on every join, naming the Person's first name and the dashboard link, never a number
+- [ ] The Leader's Starter Message carries the dashboard link
+- [ ] The done page names the group, and the Leader's first name for an open group
+- [ ] A Person already in the group they ask for gets the done page and no write; an open item is not duplicated for the same Person and group
 - [ ] `consent_record.intake_path` records `group` for submissions made here
-- [ ] Consent records written under this link before this ticket keep a null
-      path and are not backfilled
+- [ ] Consent records written under this link before this ticket keep a null path and are not backfilled
+- [ ] The tokenized reopen link still serves the single-page form
+- [ ] An ADR records the self-join decision and `docs/product-flow.md` and `docs/product-rules.md` no longer say groups are formed only manually
 
 ## Comments
 
@@ -139,3 +152,61 @@ Neither is worth a commit ahead of the rest.
 
 Recommended next step: triage in the ticket-27 pattern - decide the group name first, then the join-or-request shape, then the rest follow.
 Status left at `needs-triage`.
+
+### Triaged, 2026-09-01
+
+Grilled to an answer in five rounds.
+Every item under *Open*, the gap the implementer found, and the questions those answers opened are settled below.
+Decisions the docs contradict are marked, and the ADR the last criterion asks for records them.
+
+**A group has a name, typed by an Admin.**
+A nullable `name` on `relationship`.
+The pair screen requires it when forming a group and it is editable from the Roster afterwards.
+It is a label, not a ministry event, so editing overwrites no history.
+Groups that exist today keep a null name, are left out of the dropdown, and keep the check-in's Participant listing until an Admin names them.
+A named group's check-in question uses the name, which is the answer to the open question `docs/open-questions.md` parks under *What a group check-in calls the group*.
+The name is public: the naming field says it appears on the group link, and the dropdown shows nothing else about a group.
+
+**Picking an open group joins it.
+A pastor may set a group to require approval instead.**
+This contradicts `docs/product-flow.md` (*groups are always formed manually*) and `docs/product-rules.md` (*the pastor can manually create groups*), and is decided anyway: a Person who chose a group has chosen, and the pastor's judgment is kept as a per-group switch rather than a gate on everyone.
+`relationship.join_requires_approval`, boolean, default false, set on the pair screen beside the name and the declared gender, editable from the Roster.
+It is not a safety binding, so it is not immutable.
+An open group's submit writes the membership row and a ministry event in the same transaction as the Person, the submission and the consents, with the Person as the actor, because they are.
+Ticket 25's gender trigger runs at the insert as it does for every membership.
+An approval-required group's submit raises a `group_join_requested` Follow-Up Item on Care Needed showing name, gender, age band, the group, and when they asked.
+An Admin admits from the item, which is a new command adding a Participant to an open group and resolving the item in the same act, or resolves the item alone.
+Admitting refuses if the group has ended, and the Admin closes the item by hand as with any item about a relationship that is gone.
+Admin tier only.
+A self-join into an open group raises nothing for the Admin: nothing is left to decide.
+No Roster signal: the item is the surface.
+
+**Which groups, and the filter.**
+Accepted, not ended, and named.
+Gender is asked on the screen before the group screen and the list filters on `declared_gender` always; mixed groups always appear.
+`suggest_gender_match` has no bearing, because the spec scopes that setting to one-to-ones and says no setting makes a declared single-gender group mixed.
+A Ministry with no eligible group, and a Person every group is closed to, see the same page: not taking group sign-ups yet, with a link to the discipleship wizard.
+No silent fallback, because a fallback asks a Goal question the Person did not come to answer.
+
+**What is asked.**
+Gender and age band, because the Admin admitting and the Leader receiving want both and the age rule governs suggestion only.
+Availability, because the Leader dashboard draws every member's availability on its grid and a joiner without any is a blank row.
+The Goal and the first-time question are dropped: nothing on this path reads either.
+
+**Who hears what.**
+The joiner is sent the Welcome Message on submit, worded for a group and promising no match, because it is the consent receipt and the A2P first contact rather than a join notification.
+They hear nothing on joining, on admission, or on decline: declining is a conversation the Admin has, per ADR-0010.
+The Leader is texted on every join, direct or admitted, naming the Person's first name and the dashboard link and never a number; a Leader without standing SMS consent gets nothing, as with every send.
+The Leader's Starter Message gains the dashboard link.
+Nothing before acceptance changes: the invitation text and page stay as they are, and Participants' numbers stay behind sign-in and each Person's contact-sharing consent.
+The done page names the group, and the Leader's first name for an open group, so the Person recognises the call; for an approval-required group it names no Leader.
+
+**Repeats.**
+A Person already in the group they ask for gets the done page and no write.
+An open item for the same Person and group is not duplicated.
+A second request for a different group is legitimate: a Participant may be in any number of groups.
+
+**Left as they are.**
+The tokenized reopen link keeps serving the single-page form, recording a null path; it exists to correct a number and it works.
+A group still needs at least one Participant at formation; an empty group for the link to fill is its own ticket, because every message downstream names Participants.
+No size cap: a pastor who wants to stop growth sets the group to require approval.
