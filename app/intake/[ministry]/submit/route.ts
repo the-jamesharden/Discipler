@@ -1,10 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { IntakeRefused } from '~/domain/errors'
 import type { IntakeFormFields } from '~/domain/intake'
+import { consentSourceOf, submittedIntakeForm, textField } from '../../submitted-form'
 import { getCommandService, getIntakeReader } from '~/service/container'
-
-/** What the form's hidden field means. There is no third route to Intake. */
-const ROUTES: Record<string, string> = { link: 'pastor_link', qr: 'qr_code' }
 
 /**
  * An ordinary form POST from somebody with no account. The Ministry comes from the
@@ -22,31 +20,13 @@ export async function POST(request: NextRequest, context: { params: Promise<{ mi
   if (!page) return NextResponse.redirect(new URL('/', request.url), { status: 303 })
 
   const submitted = await request.formData()
-  const text = (name: string): string | null => {
-    const value = submitted.get(name)
-    return typeof value === 'string' ? value : null
-  }
 
-  const form: IntakeFormFields = {
-    fullName: text('fullName'),
-    phone: text('phone'),
-    email: text('email'),
-    ageBand: text('ageBand'),
-    gender: text('gender'),
-    goalId: text('goalId'),
-    availability: submitted
-      .getAll('availability')
-      .filter((value): value is string => typeof value === 'string'),
-    smsConsent: text('smsConsent') !== null,
-    contactSharing: text('contactSharing'),
-    // Exactly the two routes, and nothing else mapped onto them. The page decides
-    // which one the visitor arrived by -- a bare link is the pastor-sent one, which
-    // is the documented primary path -- and says so in the form. Anything else
-    // arriving here is passed through unchanged so the domain refuses it, because
-    // `consent_record.source` is not defaulted and a write that cannot say how a
-    // Person came to agree must fail rather than guess.
-    source: ROUTES[text('via') ?? ''] ?? text('via'),
-  }
+  const form: IntakeFormFields = submittedIntakeForm(submitted, {
+    source: consentSourceOf(textField(submitted, 'via')),
+    // This is the form that asks nothing about sides, and it writes a null path
+    // saying so. Ticket 29 is what turns it into the group form.
+    intakePath: null,
+  })
 
   try {
     await getCommandService().execute({

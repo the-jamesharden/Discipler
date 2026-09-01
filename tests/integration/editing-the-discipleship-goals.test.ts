@@ -544,6 +544,9 @@ describe('a Ministry’s Discipleship Goal options', () => {
           smsConsent: true,
           contactSharing: 'granted',
           source: 'pastor_link',
+          intakePath: null,
+          declaredSide: null,
+          experience: null,
         },
       }),
     ).rejects.toThrow(new IntakeRefused(['intake.goal_no_longer_offered']))

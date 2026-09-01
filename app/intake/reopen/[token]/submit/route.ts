@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { IntakeRefused } from '~/domain/errors'
 import type { IntakeFormFields } from '~/domain/intake'
+import { submittedIntakeForm } from '../../../submitted-form'
 import { intakeLinkToken } from '~/domain/intake-link'
 import { getCommandService, getIntakeReader } from '~/service/container'
 
@@ -23,27 +24,17 @@ export async function POST(
   if (!page) return NextResponse.redirect(new URL('/', request.url), { status: 303 })
 
   const submitted = await request.formData()
-  const text = (name: string): string | null => {
-    const value = submitted.get(name)
-    return typeof value === 'string' ? value : null
-  }
 
-  const form: IntakeFormFields = {
-    fullName: text('fullName'),
-    phone: text('phone'),
-    email: text('email'),
-    ageBand: text('ageBand'),
-    gender: text('gender'),
-    goalId: text('goalId'),
-    availability: submitted
-      .getAll('availability')
-      .filter((value): value is string => typeof value === 'string'),
-    smsConsent: text('smsConsent') !== null,
-    contactSharing: text('contactSharing'),
+  const form: IntakeFormFields = submittedIntakeForm(submitted, {
     // A link a pastor sent, which is what this is. There is no third route to
     // consent and reopening a form does not invent one.
     source: 'pastor_link',
-  }
+    // It reopens the single-page form, which asks nothing about sides. So this
+    // submission declares no path -- and, because a null path is *not asked* and
+    // never *withdrawn*, it leaves whatever side the Person last declared standing
+    // on their Roster row. Correcting a phone number is not changing an offer.
+    intakePath: null,
+  })
 
   try {
     await getCommandService().execute({

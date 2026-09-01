@@ -60,7 +60,7 @@ import type {
 } from '~/domain/outstanding-reply'
 import type { InvitationToken, NewInvitation } from '~/domain/invitations'
 import type { HistoryEvent, NewHistoryEvent } from '~/domain/history'
-import type { AgeBand, DiscipleshipGoalId, Gender } from '~/domain/intake'
+import type { AgeBand, DeclaredSide, DiscipleshipGoalId, Gender } from '~/domain/intake'
 import type {
   ConcernId,
   FollowUpItemId,
@@ -687,6 +687,30 @@ export interface RosterEntry {
    * nothing about what they already lead.
    */
   readonly eligibleToLead: boolean
+  /**
+   * Which side this Person last offered to stand on at Intake, and null where no
+   * form has ever asked them.
+   *
+   * Derived from the latest consent record that asked, so a Person who reopens
+   * Intake and answers the other side changes what their row says -- and a form
+   * that asked nothing changes nothing, because null there means *not asked* and
+   * never *withdrawn*.
+   *
+   * It sits beside `eligibleToLead` and is the weaker of the two claims by design:
+   * this is a preference the Person stated, that one is a plan an Admin recorded.
+   * Answering `mentor` does not set it and must not.
+   */
+  readonly declaredSide: DeclaredSide | null
+  /**
+   * Whether their latest submission said this is their first time. Null where the
+   * submission predates the question.
+   *
+   * Read by the pairing surface, which shows it per candidate and does nothing else
+   * with it: it ranks nobody and filters nobody out. That screen already declines
+   * to filter its candidates, because pastoral judgment is never subordinate to a
+   * filtered list.
+   */
+  readonly firstTime: boolean | null
 }
 
 /**

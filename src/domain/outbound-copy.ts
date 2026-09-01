@@ -177,6 +177,26 @@ export const ministryIntakeLink = (baseUrl: string, ministry: MinistryId): strin
 export const ministryIntakeQrLink = (baseUrl: string, ministry: MinistryId): string =>
   `${ministryIntakeLink(baseUrl, ministry)}?via=qr`
 
+/**
+ * The second link the same Ministry hands out: the discipleship wizard, which asks
+ * first whether the Person is offering to mentor or asking to be mentored.
+ *
+ * A second link and not a second form behind the first, because an Admin sends
+ * whichever fits the conversation and prints whichever fits the room. It carries no
+ * token either, for the same reason -- there is nothing on it that could be secret
+ * from anybody.
+ */
+export const ministryDiscipleshipIntakeLink = (
+  baseUrl: string,
+  ministry: MinistryId,
+): string => `${ministryIntakeLink(baseUrl, ministry)}/discipleship`
+
+/** The same link, for its own QR code, differing in the one thing `source` records. */
+export const ministryDiscipleshipIntakeQrLink = (
+  baseUrl: string,
+  ministry: MinistryId,
+): string => `${ministryDiscipleshipIntakeLink(baseUrl, ministry)}?via=qr`
+
 export interface InvitationMessage {
   readonly ministryName: string
   readonly fullName: string

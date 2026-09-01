@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { currentAdmin } from '~/platform/supabase/current-admin'
 import { getRosterReader } from '~/service/container'
-import { pairingRefusalMessage } from '../copy'
+import { firstTimeLabel, pairingRefusalMessage } from '../copy'
 import { DECLARED_GENDER_OPTIONS } from '../declared-gender'
 
 export const dynamic = 'force-dynamic'
@@ -66,6 +66,28 @@ export default async function PairPage({
   const preselectedLeaders = onlyKnownPeople(query.leaderId)
 
   /**
+   * What each candidate said about whether this is their first time, beside their
+   * name in both lists. An Admin about to pair two people can see when both are new
+   * to this, which is the whole of what this answer is for.
+   *
+   * It ranks nobody and refuses nobody, which is what keeps it outside ADR-0001.
+   * That ADR fixes the *suggestion* inputs at four and constrains any fifth; this is
+   * not one -- nothing on this screen suggests anybody, and the candidate list is
+   * deliberately unfiltered because pastoral judgment is never subordinate to a
+   * filtered list. Ticket 04 does not inherit this as a ranking input, and would
+   * need an amendment to ADR-0001 to make it one.
+   *
+   * Silent where nobody was asked. The two answers are said outright, so a blank is
+   * *the form did not ask* rather than a quiet *no*.
+   */
+  const firstTimeNote = (firstTime: boolean | null) =>
+    firstTime === null ? null : (
+      <span className="subtle">
+        {` — ${firstTimeLabel[firstTime ? 'first_time' : 'done_before']}`}
+      </span>
+    )
+
+  /**
    * What they declared last time, on a submission coming back refused. Compared
    * against the three answers rather than rendered, like every other value that
    * arrived in a query string.
@@ -122,6 +144,7 @@ export default async function PairPage({
                     defaultChecked={preselectedLeaders.has(person.personId)}
                   />
                   {person.fullName}
+                  {firstTimeNote(person.firstTime)}
                 </label>
               ))}
             </fieldset>
@@ -141,6 +164,7 @@ export default async function PairPage({
                     defaultChecked={preselectedParticipants.has(person.personId)}
                   />
                   {person.fullName}
+                  {firstTimeNote(person.firstTime)}
                 </label>
               ))}
             </fieldset>

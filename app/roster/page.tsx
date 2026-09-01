@@ -3,15 +3,21 @@ import { redirect } from 'next/navigation'
 import { resolveAdmin } from '~/platform/supabase/current-admin'
 import { getRosterReader } from '~/service/container'
 import { personId } from '~/domain/ids'
-import { intakeReopenLink, ministryIntakeLink } from '~/domain/outbound-copy'
+import {
+  intakeReopenLink,
+  ministryDiscipleshipIntakeLink,
+  ministryIntakeLink,
+} from '~/domain/outbound-copy'
 import { appBaseUrl } from '~/platform/supabase/credentials'
 import {
   AWAITING_LEADER_ACCEPTANCE,
+  declaredSideLabel,
   HELD_ROWS_EXPLANATION,
   HELD_ROWS_HEADING,
   importFailureMessage,
   importRowRefusalMessage,
   NOBODY_ON_THIS_NUMBER,
+  NOTHING_DECLARED,
   participationStatusLabel,
   rosterRoleLabel,
   rowProblemMessage,
@@ -100,6 +106,10 @@ export default async function RosterPage({
   // nothing about it to store. The QR code's variant of it is composed by the route
   // that draws the code, which is the only thing that needs it.
   const intakeLink = ministryIntakeLink(appBaseUrl(), admin.ministryId)
+  // The second one, composed the same way for the same reason. Two links because
+  // an Admin sends whichever fits the conversation: this one opens the wizard that
+  // asks first whether somebody is offering to mentor or asking to be mentored.
+  const discipleshipLink = ministryDiscipleshipIntakeLink(appBaseUrl(), admin.ministryId)
 
   const report = decodeImportReport(query)
   const failure = importFailureMessage(query.error)
@@ -198,6 +208,54 @@ export default async function RosterPage({
           </a>
           {' · '}
           <a href="/roster/intake-code.svg" target="_blank" rel="noreferrer">
+            Open it on its own, to print
+          </a>
+        </p>
+      </div>
+
+      {/* The second link, and the second code. They are handed out side by side and
+          the difference between them is what an Admin has to be able to see before
+          they print one: this one asks which side of a discipleship relationship
+          somebody is offering to stand on, and the one above it does not ask. */}
+      <div className="panel">
+        <h2>The discipleship link</h2>
+        <p className="subtle">
+          A step-by-step form for discipleship. Its first question is whether the
+          person is joining as a mentor or as someone to be mentored, and both are
+          then asked the same things — their age, gender, whether this is their first
+          time, when they could meet, and what they are hoping for. Answering{' '}
+          <em>mentor</em> shows on their Roster row below. It does not make them
+          eligible to lead: that stays yours to decide.
+        </p>
+
+        <label htmlFor="discipleshipLink">The link to send</label>
+        <ClipboardField id="discipleshipLink" value={discipleshipLink} />
+        <p className="subtle">
+          Intake completed through this link is recorded as sent by a pastor, exactly
+          like the link above.
+        </p>
+
+        <h3>The discipleship QR code</h3>
+        <p className="subtle">
+          The same wizard, reached by scanning — and a different square from the one
+          above it. Printing the wrong one puts the wrong form in front of a room.
+        </p>
+        <img
+          className="qr"
+          src="/roster/discipleship-code.svg"
+          alt={`QR code opening the discipleship form for ${admin.ministryName}`}
+          width={QR_CODE_ON_SCREEN}
+          height={QR_CODE_ON_SCREEN}
+        />
+        <p>
+          <a
+            href="/roster/discipleship-code.svg"
+            download="discipleship-intake-qr-code.svg"
+          >
+            Save the discipleship QR code
+          </a>
+          {' · '}
+          <a href="/roster/discipleship-code.svg" target="_blank" rel="noreferrer">
             Open it on its own, to print
           </a>
         </p>
@@ -357,6 +415,7 @@ export default async function RosterPage({
                   <th>Name</th>
                   <th>Participation</th>
                   <th>Relationships</th>
+                  <th>Offered at Intake</th>
                   <th>Eligible to lead</th>
                   <th>Action</th>
                 </tr>
@@ -409,6 +468,22 @@ export default async function RosterPage({
                             </li>
                           ))}
                         </ul>
+                      )}
+                    </td>
+                    {/* What the Person said about themselves, immediately left of
+                        what an Admin decided about them. The two are neighbours
+                        because they are constantly confused and must not be: this
+                        one is an answer somebody gave on a form, and answering
+                        `mentor` sets nothing beside it.
+
+                        Derived from the latest Intake that asked, so somebody who
+                        goes back and answers the other side changes what this says
+                        -- and a form that asked nothing leaves it alone. */}
+                    <td>
+                      {person.declaredSide === null ? (
+                        <span className="empty">{NOTHING_DECLARED}</span>
+                      ) : (
+                        declaredSideLabel[person.declaredSide]
                       )}
                     </td>
                     {/* A plan an Admin records, and never a fact about the Person.

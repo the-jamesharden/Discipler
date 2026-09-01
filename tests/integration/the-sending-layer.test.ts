@@ -69,6 +69,9 @@ describe('The sending layer checks every recipient', () => {
         smsConsent: true,
         contactSharing: 'granted',
         source: 'pastor_link',
+        intakePath: null,
+        declaredSide: null,
+        experience: null,
         ...overrides,
       },
     })
@@ -273,6 +276,9 @@ describe('The sending layer checks every recipient', () => {
         smsConsent: true,
         contactSharing: 'granted',
         source: 'pastor_link',
+        intakePath: null,
+        declaredSide: null,
+        experience: null,
       },
     })
 

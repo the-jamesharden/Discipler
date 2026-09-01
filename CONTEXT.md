@@ -123,8 +123,20 @@ The link an Admin hands one Person so they can reopen their own intake form, pre
 _Avoid_: an account (nothing about it gives anyone one), and the Intake form as a withdrawal route (that is `STOP`)
 
 **Ministry Intake Link**:
-The one intake link a whole ministry hands out. It names the ministry, carries no token, and is both the link a pastor sends and the link the ministry's QR code opens — so it is printable in a way the Intake Link above is not. It does not know who opened it, which is why the form asks. The two routes to it are the same link and differ only in whether it was scanned; which route somebody came by is kept on their consent record, because that is the question a compliance review asks.
-_Avoid_: calling it the Intake Link (that one is a single person's, prefilled, and expires), and treating the QR code as a second form (it opens this same link, saying it was scanned)
+An intake link a whole ministry hands out. It names the ministry, carries no token, and is both the link a pastor sends and the link its QR code opens — so it is printable in a way the Intake Link above is not. It does not know who opened it, which is why the form asks. The two routes to it are the same link and differ only in whether it was scanned; which route somebody came by is kept on their consent record, because that is the question a compliance review asks. A ministry has more than one: the original link, and the Discipleship Intake Wizard below, each with its own QR code.
+_Avoid_: calling it the Intake Link (that one is a single person's, prefilled, and expires), and treating a QR code as a second form (each one opens its own link, saying it was scanned)
+
+**Discipleship Intake Wizard**:
+The second form a Ministry hands out, on its own Ministry Intake Link and its own QR code, beside the original one. It asks the same things the single-page form asks, one screen at a time, and it asks one thing first that the other form never asks: which side of a discipleship relationship this Person is offering to stand on. Nothing is written until the last screen submits, so an abandoned wizard leaves no Person, no submission and no consent record.
+_Avoid_: calling it a mentor link and a mentee link (there is one link and the side is an answer inside it), and a separate form (the questions are the same ones, in the same words, asked over more screens)
+
+**Declared Side**:
+Mentor or Mentee, as a Person answered it on the Discipleship Intake Wizard. It is a preference they stated and never a decision anybody made about them: it shows on their roster row and it does not make them Eligible to Lead, which remains a plan an Admin records. It is read back from their latest intake that asked, so answering the other side later changes what their row says, and a form that asked nothing changes nothing.
+_Avoid_: a role (that is Leader or Participant, decided at pairing), Eligible to Lead (an Admin's plan, never self-declared), and treating an unanswered side as a refusal to offer
+
+**Intake Path**:
+Which form a Person was answering, kept on their consent record beside the route they arrived by. The two are separate questions: the path says *which form*, and the route says *a link a pastor sent or a QR code they scanned*.
+_Avoid_: folding either into the other, and reading an absent path as anything but *the form did not ask*
 
 **Response-Required Message**:
 A message in the Check-In Rhythm that expects a reply from its recipient.

@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { ministryId } from '~/domain/ids'
 import { CONSENT_SOURCES } from '~/domain/intake'
-import { ministryIntakeLink, ministryIntakeQrLink } from '~/domain/outbound-copy'
+import {
+  ministryDiscipleshipIntakeLink,
+  ministryDiscipleshipIntakeQrLink,
+  ministryIntakeLink,
+  ministryIntakeQrLink,
+} from '~/domain/outbound-copy'
 
 /**
  * The one link a whole Ministry hands out, and the same link with the one thing on
@@ -56,5 +61,41 @@ describe('the QR code’s link', () => {
     // not unrecognised.
     expect(new URL(ministryIntakeQrLink(baseUrl, ministry)).searchParams.get('via')).toBe('qr')
     expect(CONSENT_SOURCES).toContain('qr_code')
+  })
+})
+
+describe('the discipleship link', () => {
+  it('is the Ministry’s own link with the wizard on the end of it', () => {
+    expect(ministryDiscipleshipIntakeLink(baseUrl, ministry)).toBe(
+      `${ministryIntakeLink(baseUrl, ministry)}/discipleship`,
+    )
+  })
+
+  it('carries no token either, because it is printed in front of a room', () => {
+    expect(ministryDiscipleshipIntakeLink(baseUrl, ministry)).not.toContain('reopen')
+  })
+
+  it('has its own QR code, differing in the one thing a consent record records', () => {
+    expect(ministryDiscipleshipIntakeQrLink(baseUrl, ministry)).toBe(
+      `${ministryDiscipleshipIntakeLink(baseUrl, ministry)}?via=qr`,
+    )
+    expect(
+      new URL(ministryDiscipleshipIntakeQrLink(baseUrl, ministry)).searchParams.get('via'),
+    ).toBe('qr')
+  })
+
+  /**
+   * Four squares would be two too many and two links are already two things an
+   * Admin has to tell apart. The pair that matters is *which form* -- so these two
+   * are different URLs, and nothing about them differs only in a query string that
+   * a copy-paste could drop.
+   */
+  it('is a different link from the one beside it, and not the same one relabelled', () => {
+    expect(ministryDiscipleshipIntakeLink(baseUrl, ministry)).not.toBe(
+      ministryIntakeLink(baseUrl, ministry),
+    )
+    expect(ministryDiscipleshipIntakeQrLink(baseUrl, ministry)).not.toBe(
+      ministryIntakeQrLink(baseUrl, ministry),
+    )
   })
 })

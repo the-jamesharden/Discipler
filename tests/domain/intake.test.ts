@@ -12,6 +12,10 @@ const wellFormed: IntakeFormFields = {
   smsConsent: true,
   contactSharing: 'granted',
   source: 'pastor_link',
+  // The single-page form, which asks none of the wizard's three questions.
+  intakePath: null,
+  declaredSide: null,
+  experience: null,
 }
 
 const read = (overrides: Partial<IntakeFormFields> = {}) =>
@@ -36,6 +40,12 @@ describe('Reading the Intake form', () => {
         smsConsent: true,
         contactSharingConsent: true,
         source: 'pastor_link',
+        // The three the wizard asks and this form does not. Null is a real state
+        // here: it says the Person answered a form that did not ask, which is
+        // exactly what this one is.
+        intakePath: null,
+        declaredSide: null,
+        firstTime: null,
       },
     })
   })

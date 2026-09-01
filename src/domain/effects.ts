@@ -12,8 +12,10 @@ import type {
   AgeBand,
   AvailabilitySlot,
   ConsentSource,
+  DeclaredSide,
   DiscipleshipGoalId,
   Gender,
+  IntakePath,
 } from './intake'
 import type { FollowUpResolution, NewFollowUpItem } from './follow-up'
 import type {
@@ -174,9 +176,28 @@ export interface IntakeRecord {
    * spreadsheet -- which is the same reason an import refuses to overwrite it.
    */
   readonly email: string | null
+  /**
+   * Whether the Person said this is their first time. Recorded on the submission
+   * rather than on the consent record: it is a matching input the pairing surface
+   * reads, not a fact about what they were agreeing to. Null where the form did not
+   * ask.
+   */
+  readonly firstTime: boolean | null
   /** The consent version the Person actually saw, recorded with each decision. */
   readonly consentVersion: string
   readonly source: ConsentSource
+  /**
+   * Which form they answered, and which side they offered to stand on -- recorded
+   * beside `source` on every consent record this submission writes, because
+   * `source` answers *link or QR* and stops answering it cleanly the moment a
+   * second form is folded into the same enum.
+   *
+   * Both null where the form did not ask, which is not a gap: it is the state every
+   * record written before the wizard existed is in, and the one the single-page
+   * form still writes. Neither is backfilled with a guess.
+   */
+  readonly intakePath: IntakePath | null
+  readonly declaredSide: DeclaredSide | null
   /**
    * Every consent the form asked about, with what the Person decided. Both are
    * recorded, including a refusal.

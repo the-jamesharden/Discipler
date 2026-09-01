@@ -2,6 +2,7 @@ import { importRowId, personId, relationshipId } from '~/domain/ids'
 import { isParticipationStatus, type ParticipationStatus } from '~/domain/participation'
 import { isMemberRole, type MemberRole } from '~/domain/relationships'
 import { intakeLinkState, intakeLinkToken } from '~/domain/intake-link'
+import { isDeclaredSide, type DeclaredSide } from '~/domain/intake'
 import type {
   IssuedIntakeLink,
   RosterEntry,
@@ -19,7 +20,7 @@ interface MemberRow {
 }
 
 /**
- * `public.roster` returns a derivation beside three columns, so the generated types
+ * `public.roster` returns a derivation beside five columns, so the generated types
  * do not know about it and the row arrives untyped. Named here once rather than
  * cast at the point of use.
  */
@@ -28,6 +29,8 @@ interface PersonRow {
   readonly fullName: string
   readonly participationStatus: ParticipationStatus
   readonly eligibleToLead: boolean
+  readonly declaredSide: DeclaredSide | null
+  readonly firstTime: boolean | null
 }
 
 /**
@@ -43,6 +46,8 @@ const asPersonRow = (row: unknown): PersonRow => {
     full_name: fullName,
     participation_status: status,
     eligible_to_lead: eligible,
+    declared_side: side,
+    first_time: firstTime,
   } = (row ?? {}) as Record<string, unknown>
 
   if (typeof id !== 'string' || id === '') throw new Error('A Roster row arrived with no id')
@@ -62,8 +67,26 @@ const asPersonRow = (row: unknown): PersonRow => {
   if (typeof eligible !== 'boolean') {
     throw new Error(`A Roster row arrived with no lead eligibility for ${id}`)
   }
+  // Both columns are nullable and null is a real answer -- the Person answered a
+  // form that did not ask -- so null passes and everything else is checked. What is
+  // caught here is the column missing altogether, which is this reader and the
+  // function having drifted apart: read as *nothing declared*, a whole Ministry's
+  // offers to mentor would vanish from the Roster without a single error.
+  if (side !== null && !isDeclaredSide(side)) {
+    throw new Error(`A Roster row arrived with a side nothing recognises for ${id}`)
+  }
+  if (firstTime !== null && typeof firstTime !== 'boolean') {
+    throw new Error(`A Roster row arrived with no first-time answer for ${id}`)
+  }
 
-  return { id, fullName, participationStatus: status, eligibleToLead: eligible }
+  return {
+    id,
+    fullName,
+    participationStatus: status,
+    eligibleToLead: eligible,
+    declaredSide: side,
+    firstTime,
+  }
 }
 
 export const supabaseRosterReader: RosterReader = {
@@ -194,6 +217,8 @@ export const supabaseRosterReader: RosterReader = {
       relationships: relationshipsFor(row.id),
       participationStatus: row.participationStatus,
       eligibleToLead: row.eligibleToLead,
+      declaredSide: row.declaredSide,
+      firstTime: row.firstTime,
     }))
   },
 

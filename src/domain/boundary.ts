@@ -3259,8 +3259,14 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           goalId: submission.goalId,
           availability: submission.availability,
           email: submission.email,
+          firstTime: submission.firstTime,
           consentVersion: CONSENT_VERSION,
           source: submission.source,
+          // What they were answering and which side they said they were on, on
+          // every consent record this submission writes. Null where the form did
+          // not ask, which is what the single-page form still is.
+          intakePath: submission.intakePath,
+          declaredSide: submission.declaredSide,
           // Both decisions, always, including a refusal. What is current is the
           // latest record for that consent, so a decision that writes no row is a
           // decision that cannot be seen -- and on a re-submission it silently

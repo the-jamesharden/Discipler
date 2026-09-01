@@ -136,6 +136,9 @@ describe.skipIf(skipUnlessAppIsRunning)('the scheduled tick, as the scheduler ru
         smsConsent: true,
         contactSharing: 'granted',
         source: 'pastor_link',
+        intakePath: null,
+        declaredSide: null,
+        experience: null,
       },
     })
 

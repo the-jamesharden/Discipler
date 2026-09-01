@@ -931,8 +931,9 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     try {
       ;({ rows } = await client.query<{ id: string }>(
         `insert into intake_submission
-           (ministry_id, person_id, submitted_at, age_band, gender, discipleship_goal_id)
-         values ($1, $2, $3, $4, $5, $6)
+           (ministry_id, person_id, submitted_at, age_band, gender, discipleship_goal_id,
+            first_time)
+         values ($1, $2, $3, $4, $5, $6, $7)
          returning id`,
         [
           intake.ministryId,
@@ -941,6 +942,11 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
           intake.ageBand,
           intake.gender,
           intake.goalId,
+          // Null where the form did not ask, which is not the same as `no`. The
+          // pairing surface reads all three states and says nothing where it is
+          // null, because a submission that predates the question has not answered
+          // it.
+          intake.firstTime,
         ],
       ))
     } catch (error) {
@@ -978,8 +984,9 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     for (const decision of intake.consentDecisions) {
       await client.query(
         `insert into consent_record
-           (ministry_id, person_id, consent, granted, version, decided_at, source)
-         values ($1, $2, $3, $4, $5, $6, $7)`,
+           (ministry_id, person_id, consent, granted, version, decided_at, source,
+            intake_path, declared_side)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
         [
           intake.ministryId,
           intake.personId,
@@ -988,6 +995,12 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
           intake.consentVersion,
           intake.submittedAt,
           intake.source,
+          // Beside the source and not folded into it. Which form they answered and
+          // which side they said they were on are two more things a compliance
+          // review asks about a record, and both are null on a form that asked
+          // neither.
+          intake.intakePath,
+          intake.declaredSide,
         ],
       )
     }

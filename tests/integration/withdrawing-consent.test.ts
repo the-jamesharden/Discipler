@@ -66,6 +66,9 @@ describe('A Person can change their mind about a consent', () => {
         smsConsent: true,
         contactSharing: 'granted',
         source: 'pastor_link',
+        intakePath: null,
+        declaredSide: null,
+        experience: null,
         ...overrides,
       },
     })

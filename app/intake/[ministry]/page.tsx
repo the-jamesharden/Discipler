@@ -1,7 +1,8 @@
 import { notFound } from 'next/navigation'
 import { getIntakeReader } from '~/service/container'
 import { refusalMessages } from '../copy'
-import { IntakeForm, NOTHING_PREFILLED } from '../form'
+import { NOTHING_PREFILLED } from '../fields'
+import { IntakeForm } from '../form'
 
 /**
  * One form, reached with no account and no software to learn. One link serves the

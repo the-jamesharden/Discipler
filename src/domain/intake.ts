@@ -60,6 +60,48 @@ export const CONSENT_SOURCES = ['pastor_link', 'qr_code'] as const
 export type ConsentSource = (typeof CONSENT_SOURCES)[number]
 
 /**
+ * Which form the Person was answering, which is a different question from how they
+ * reached it: `source` says link or QR, and one path times two routes is already
+ * four combinations. One member today -- ticket 29 adds `group` having decided it.
+ *
+ * Null everywhere this is absent, and null is a real state: it means the Person
+ * answered a form that did not ask. The original `/intake/<ministry>` form is still
+ * one of those.
+ */
+export const INTAKE_PATHS = ['discipleship'] as const
+export type IntakePath = (typeof INTAKE_PATHS)[number]
+
+/**
+ * Which side of a discipleship relationship the Person offered to stand on. A
+ * preference they stated and nothing stronger: it produces a signal on their Roster
+ * row and never `eligible_to_lead`, which ticket 16 made a plan an Admin records.
+ *
+ * Deliberately not `MemberRole`. That says what somebody is in a relationship an
+ * Admin formed; this says what somebody offered before one existed.
+ */
+export const DECLARED_SIDES = ['mentor', 'mentee'] as const
+export type DeclaredSide = (typeof DECLARED_SIDES)[number]
+
+/**
+ * One guard, because four places have to ask this and each of them is somewhere a
+ * wrong answer is silent: a value out of a query string, a column off a row the
+ * Roster is about to render, a hidden input coming back on a refused submission.
+ */
+export const isDeclaredSide = (value: unknown): value is DeclaredSide =>
+  DECLARED_SIDES.includes(value as DeclaredSide)
+
+/**
+ * The first-time screen's two answers, carried as words rather than as a yes/no.
+ *
+ * The screen words them as statements -- *Yes, I've done this before* and *No, this
+ * is my first time* -- so the answer is legible without the question. A field
+ * spelled `yes`/`no` would invert under exactly that wording, and a first-timer
+ * recorded as experienced is a mistake nothing downstream could notice.
+ */
+export const EXPERIENCE_ANSWERS = ['first_time', 'done_before'] as const
+export type ExperienceAnswer = (typeof EXPERIENCE_ANSWERS)[number]
+
+/**
  * The options a Ministry offers. The list is the Ministry's own -- set before a
  * semester begins -- so a goal is an identifier here rather than a value.
  */
@@ -79,6 +121,16 @@ export interface IntakeFormFields {
   readonly smsConsent: boolean
   readonly contactSharing: string | null
   readonly source: string | null
+  /**
+   * The three the wizard adds, and which the single-page form leaves null. They
+   * arrive here together with everything else because nothing is written until the
+   * wizard's last step submits: each screen carries the earlier answers forward as
+   * hidden inputs, so what reaches this reader is one whole form however many
+   * screens it was spread across.
+   */
+  readonly intakePath: string | null
+  readonly declaredSide: string | null
+  readonly experience: string | null
 }
 
 export interface IntakeSubmissionDraft {
@@ -92,6 +144,13 @@ export interface IntakeSubmissionDraft {
   readonly smsConsent: true
   readonly contactSharingConsent: boolean
   readonly source: ConsentSource
+  readonly intakePath: IntakePath | null
+  readonly declaredSide: DeclaredSide | null
+  /**
+   * True where the Person said this is their first time -- being discipled, or
+   * mentoring, whichever side they declared. Null where the form did not ask.
+   */
+  readonly firstTime: boolean | null
 }
 
 const isOneOf = <T extends string>(allowed: readonly T[], value: unknown): value is T =>
@@ -120,6 +179,20 @@ export type IntakeRefusal =
   | 'intake.contact_sharing_undecided'
   | 'intake.source_unknown'
   | 'intake.email_unreadable'
+  /**
+   * The wizard's first screen, unanswered, and its third. Both are ordinary
+   * refusals a Person can act on: they name a screen they can go back to.
+   */
+  | 'intake.side_unknown'
+  | 'intake.first_time_unanswered'
+  /**
+   * The form named a path Discipler does not serve, or carried an answer with no
+   * path to belong to. Held to the same rule as `source_unknown` and for the same
+   * reason: a consent record that cannot say what question was answered fails
+   * rather than guessing, and it is `consent_record` whose whole job is to be read
+   * back in an audit.
+   */
+  | 'intake.path_unknown'
   /**
    * The two a form field cannot produce, and which `readIntakeForm` therefore never
    * returns. They live in this union because they reach the Person the same way
@@ -152,6 +225,26 @@ export type IntakeReading =
  */
 export const readIntakeForm = (fields: IntakeFormFields): IntakeReading => {
   const refusals: IntakeRefusal[] = []
+
+  // The wizard's first and third screens, read first because that is where they
+  // are. A form that did not ask carries all three as null and passes through:
+  // the single-page form is one of those and stays one until ticket 29.
+  const rawPath = fields.intakePath?.trim() || null
+  const path = isOneOf(INTAKE_PATHS, rawPath) ? rawPath : null
+  const declaredSide = isOneOf(DECLARED_SIDES, fields.declaredSide) ? fields.declaredSide : null
+  const experience = isOneOf(EXPERIENCE_ANSWERS, fields.experience) ? fields.experience : null
+
+  if (rawPath !== null && path === null) refusals.push('intake.path_unknown')
+
+  if (path === 'discipleship') {
+    if (declaredSide === null) refusals.push('intake.side_unknown')
+    if (experience === null) refusals.push('intake.first_time_unanswered')
+  } else if (rawPath === null && (fields.declaredSide !== null || fields.experience !== null)) {
+    // An answer with no question. Refused rather than dropped, because dropping it
+    // writes a consent record that says a Person was asked nothing when they were
+    // looking at a screen that asked them something.
+    refusals.push('intake.path_unknown')
+  }
 
   // A name and a number together, because that is what identifies a Person within a
   // Ministry. One link serves a whole Ministry -- the pastor sends it, or a QR code
@@ -219,6 +312,9 @@ export const readIntakeForm = (fields: IntakeFormFields): IntakeReading => {
       smsConsent: true,
       contactSharingConsent: contactSharing === 'granted',
       source: fields.source as ConsentSource,
+      intakePath: path,
+      declaredSide,
+      firstTime: experience === null ? null : experience === 'first_time',
     },
   }
 }

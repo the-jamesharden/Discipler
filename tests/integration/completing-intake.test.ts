@@ -53,6 +53,9 @@ describe('Completing Intake', () => {
     smsConsent: true,
     contactSharing: 'granted',
     source: 'pastor_link',
+    intakePath: null,
+    declaredSide: null,
+    experience: null,
     ...overrides,
   })
 

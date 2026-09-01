@@ -1,4 +1,5 @@
 import type { ImportRowRefusal, PairingRefusal } from '~/domain/errors'
+import type { DeclaredSide, ExperienceAnswer } from '~/domain/intake'
 import type { ParticipationStatus } from '~/domain/participation'
 import type { MemberRole } from '~/domain/relationships'
 import type { RowProblem } from '~/domain/roster'
@@ -36,6 +37,40 @@ export const rosterRoleLabel: Record<MemberRole, string> = {
   // relationship, and in a group that includes people being discipled alongside
   // them rather than doing the discipling.
   participant: 'In a relationship with',
+}
+
+/**
+ * Which side a Person offered to stand on at Intake, as the Roster says it.
+ *
+ * Worded as something they did rather than as something they are. *Offered to
+ * mentor* is an answer on a form; *Mentor* would read as a role somebody holds,
+ * which is exactly the collapse this column must not invite -- leading is a plan an
+ * Admin records in the column beside it, and this one sets nothing there.
+ */
+export const declaredSideLabel: Record<DeclaredSide, string> = {
+  mentor: 'Offered to mentor',
+  mentee: 'Asked to be mentored',
+}
+
+/**
+ * Said as *not asked* rather than as a dash meaning nothing, because that is what
+ * it is: this Person completed a form that never put the question to them, or has
+ * not completed one at all. It is not them declining to offer.
+ */
+export const NOTHING_DECLARED = 'Not asked'
+
+/**
+ * Whether this is their first time, per candidate, on the pairing screen. Both
+ * answers are said outright, including *has done this before* -- said only for the
+ * first-timers, a blank would read as *no* rather than as *nobody asked them*.
+ *
+ * Keyed on the form's own two answers rather than on yes and no, for the reason
+ * `EXPERIENCE_ANSWERS` exists at all: the screen words them as statements, and a
+ * `yes` meaning *first time* is the one key that reads backwards.
+ */
+export const firstTimeLabel: Record<ExperienceAnswer, string> = {
+  first_time: 'New to this',
+  done_before: 'Has done this before',
 }
 
 /**

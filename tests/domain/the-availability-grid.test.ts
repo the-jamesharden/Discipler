@@ -44,6 +44,9 @@ describe('The availability grid', () => {
       smsConsent: true,
       contactSharing: 'granted',
       source: 'pastor_link',
+      intakePath: null,
+      declaredSide: null,
+      experience: null,
     }
 
     const result = readIntakeForm(form)

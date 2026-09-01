@@ -1,4 +1,4 @@
-import type { DayBlock, IntakeRefusal, Weekday } from '~/domain/intake'
+import type { DayBlock, DeclaredSide, IntakeRefusal, Weekday } from '~/domain/intake'
 
 /**
  * Everything the Intake form says in words. The domain deals in refusal codes and
@@ -43,6 +43,14 @@ const REFUSALS: Record<IntakeRefusal, string> = {
   'intake.contact_sharing_undecided':
     'Please tell us whether we may share your number — either answer is fine.',
   'intake.source_unknown': 'This link is incomplete. Please ask for a new one.',
+  'intake.side_unknown':
+    'Please tell us whether you are joining as a mentor or as someone to be '
+    + 'mentored.',
+  'intake.first_time_unanswered': 'Please tell us whether this is your first time.',
+  // Says the same thing `intake.source_unknown` says, because it is the same kind
+  // of thing: a form that cannot say what it was asking is not one Discipler
+  // served, and there is nothing on it the Person can correct.
+  'intake.path_unknown': 'This link is incomplete. Please ask for a new one.',
   'intake.email_unreadable': 'That does not look like an email address.',
   'intake.link_expired':
     'This link has expired. Ask whoever sent it to you for a new one.',
@@ -82,3 +90,50 @@ export const refusalMessages = (raw: string | undefined): readonly string[] =>
     .split(' ')
     .filter(isRefusal)
     .map((refusal) => REFUSALS[refusal])
+
+/**
+ * The discipleship wizard's wording. Mentor and mentee are asked the same things in
+ * the same order and differ only here, which is why every one of these is a record
+ * keyed on the side rather than a branch inside a screen: a question that existed
+ * for one side and not the other would be invisible until somebody read both.
+ */
+
+export const sideLabel: Record<DeclaredSide, string> = {
+  mentor: 'A mentor',
+  mentee: 'Someone to be mentored',
+}
+
+export const sideHint: Record<DeclaredSide, string> = {
+  mentor: 'You are offering to disciple someone.',
+  mentee: 'You are asking to be discipled by someone.',
+}
+
+export const SIDE_QUESTION = 'I’m joining as…'
+
+/**
+ * The one screen whose question is not the same sentence for both sides. It is
+ * still the same question: has this Person done this before.
+ */
+export const firstTimeQuestion: Record<DeclaredSide, string> = {
+  mentor: 'Have you mentored someone before?',
+  mentee: 'Have you been discipled by a mentor before?',
+}
+
+/**
+ * Worded as statements rather than as yes and no, so the answer is legible without
+ * the question above it -- on this screen, and afterwards on the pairing surface
+ * that reads what it recorded.
+ */
+export const DONE_BEFORE_ANSWER = 'Yes, I’ve done this before'
+export const FIRST_TIME_ANSWER = 'No, this is my first time'
+
+export const DONE_HEADING = 'You’re on the list'
+
+export const doneMessage: Record<DeclaredSide, (ministryName: string) => string> = {
+  mentor: (ministryName) =>
+    `${ministryName} will look at when you can meet and what you said you are hoping `
+    + 'for, and be in touch when there is someone for you to mentor.',
+  mentee: (ministryName) =>
+    `${ministryName} will look at when you can meet and what you said you are hoping `
+    + 'for, and be in touch when there is a mentor for you.',
+}
