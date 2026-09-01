@@ -2422,6 +2422,19 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     return intakeLinkWhere(client, `l.person_id = $1`, [person])
   },
 
+  async accountHeldBy(person: PersonId): Promise<string | null> {
+    // Scoped by the policy on `person`, not by a ministry_id in this statement: the
+    // connection has already declared which Ministry it acts for, and a Person of
+    // another's is not visible to read. So no row and a row with no account come
+    // back as the same null -- which is the answer the domain wants, and the reason
+    // an Admin is never told which of the two it was.
+    const { rows } = await client.query<{ user_id: string | null }>(
+      `select user_id from person where id = $1`,
+      [person],
+    )
+    return rows[0]?.user_id ?? null
+  },
+
   async raiseConcern(concern: NewConcern) {
     // No dedupe and no `on conflict`, unlike a Follow-Up Item. Two Concerns raised
     // a fortnight apart are two things a Leader said, and collapsing them would

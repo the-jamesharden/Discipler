@@ -1,4 +1,4 @@
-import type { AccountRefusal } from '~/domain/accounts'
+import type { AccountCreationRefusal } from '~/domain/accounts'
 import type {
   HeldImportRow,
   ImportRowAnswer,
@@ -456,6 +456,19 @@ export interface UnitOfWork {
    */
   intakeLinkFor(person: PersonId): Promise<IntakeLinkSnapshot | null>
 
+  /**
+   * The account one Person on this Ministry's Roster holds, or null where the
+   * Roster holds no such Person or they hold none. Read on
+   * `person.reset_password`'s behalf, inside the transaction and on the connection
+   * that has already declared which Ministry it acts for -- so a Person of
+   * another's is not visible to read at all, and reaches the domain as *there is
+   * nothing here to reset*.
+   *
+   * One value for the two cases, because they are one refusal: telling them apart
+   * would disclose to an Admin that another Ministry holds that Person.
+   */
+  accountHeldBy(person: PersonId): Promise<string | null>
+
   raiseConcern(concern: NewConcern): Promise<void>
   /** One Admin opening one Concern's text, recorded before the text is handed over. */
   recordConcernViewing(viewing: ConcernViewing): Promise<void>
@@ -497,7 +510,7 @@ export interface Accounts {
   create(
     phone: string | null,
     password: string,
-  ): Promise<{ readonly userId: string } | { readonly refusal: AccountRefusal }>
+  ): Promise<{ readonly userId: string } | { readonly refusal: AccountCreationRefusal }>
   /**
    * Undoes a `create` whose acceptance did not land.
    *
@@ -511,6 +524,23 @@ export interface Accounts {
    * their Ministry for good.
    */
   discard(userId: string): Promise<void>
+  /**
+   * A new password on an existing account, and every session that account holds
+   * ended along with it.
+   *
+   * One method and not two. Ending the sessions is part of what setting a password
+   * *is* here -- see
+   * `docs/adr/0016-a-password-change-ends-every-session.md` -- and a `setPassword`
+   * beside an `endSessions` would make *a password change that left an old session
+   * alive* a state a caller could reach by forgetting the second call. That state
+   * is the one the rule exists to prevent, and one method cannot be called wrong.
+   *
+   * It takes no refusals. Whether this account may be reset at all is decided
+   * before anything reaches here -- on the Roster, against the acting Admin's own
+   * Ministry -- and the password is one Discipler generated, so there is no rule
+   * left for the adapter to enforce and nothing an Admin could act on if it did.
+   */
+  setPassword(userId: string, password: string): Promise<void>
 }
 
 /**
@@ -711,6 +741,24 @@ export interface RosterEntry {
    * filtered list.
    */
   readonly firstTime: boolean | null
+  /**
+   * Whether this Person holds an account -- a Leader who accepted their Invitation
+   * Link, or an Admin who was provisioned. Derived from `person.user_id`, never
+   * stored beside it.
+   *
+   * One boolean and not the identifier. It decides whether the row offers to reset
+   * their password, and a Roster carrying every account identifier on it would be
+   * handing out the argument to the one call that can change any of those
+   * credentials.
+   */
+  readonly holdsAnAccount: boolean
+}
+
+/** The account one Person holds, for the Admin who is about to reset it. */
+export interface AccountOnTheRoster {
+  readonly personId: PersonId
+  readonly fullName: string
+  readonly userId: string
 }
 
 /**
@@ -772,6 +820,24 @@ export interface RosterReader {
    * expire the moment an Admin navigated away.
    */
   heldImportRows(ministryId: MinistryId): Promise<readonly UnansweredImportRow[]>
+
+  /**
+   * The account this one Person holds, or null where the Roster holds no such
+   * Person or they hold none.
+   *
+   * Read one at a time and never with the Roster, for the reason the Intake link
+   * beside it is: the caller is an Admin who has asked about this Person, and every
+   * account identifier on one page would be a page of arguments to the call that
+   * changes a credential.
+   *
+   * The name comes back with it because the reset surface has to say whose password
+   * is about to change, and reading it a second time would be a second answer that
+   * could disagree with this one about who this row is.
+   */
+  accountOnTheRoster(
+    ministryId: MinistryId,
+    person: PersonId,
+  ): Promise<AccountOnTheRoster | null>
 }
 
 /**

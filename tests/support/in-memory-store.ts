@@ -112,6 +112,11 @@ export interface InMemoryStore extends EffectStore {
    * on, and the one a Person already holds when an Admin asks for theirs.
    */
   intakeLink: IntakeLinkSnapshot | null
+  /**
+   * The account `accountHeldBy` answers with. Null is a real answer -- no such
+   * Person here, or one holding no account -- so it is set rather than defaulted.
+   */
+  accountHeld: string | null
   readonly concerns: readonly NewConcern[]
   readonly concernViewings: readonly ConcernViewing[]
   readonly concernResolutions: readonly ConcernResolution[]
@@ -332,6 +337,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       return [...concernResolutions]
     },
     intakeLink: null,
+    accountHeld: null,
     goals: [],
     goalAnswers: [],
     unaccepted: [],
@@ -467,6 +473,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         },
         async intakeLinkFor() {
           return store.intakeLink ?? null
+        },
+        async accountHeldBy() {
+          return store.accountHeld
         },
         async contactsFor(ids) {
           return new Map(

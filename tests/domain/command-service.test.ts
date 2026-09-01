@@ -165,6 +165,7 @@ describe('applying a command\'s effects', () => {
         resolveConcern: async () => {
           throw new Error('no Concern should have been resolved')
         },
+        accountHeldBy: async () => null,
         concernDetailFor: async () => {
           throw new Error('no Concern should have been read')
         },

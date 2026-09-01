@@ -51,6 +51,34 @@ export const supabaseAccounts: Accounts = {
     return { userId: data.user.id }
   },
 
+  async setPassword(userId, password) {
+    const admin = createClient(supabaseCredentials().url, serviceRoleKey(), {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
+
+    // Every session on the account ends here, and this one call is the whole of
+    // how. GoTrue revokes on an admin password update: the access token the old
+    // session holds is refused with `session_not_found` and its refresh token is
+    // gone, both immediately.
+    //
+    // That is established rather than assumed, because it is not obvious and there
+    // is no admin call that would do it on its own -- `auth.admin.signOut(jwt)`
+    // posts to `/logout` carrying *the user's own* access token, which an Admin
+    // performing a reset does not have. `docs/adr/0016-a-password-change-ends-
+    // every-session.md` fixes the outcome and deliberately leaves the mechanism
+    // open, and `tests/integration/resetting-a-password.test.ts` is what holds it:
+    // it takes a session, resets, and finds the session refused. If a GoTrue
+    // release ever stops revoking here, that test fails and this comment is where
+    // the second half goes.
+    const { error } = await admin.auth.admin.updateUserById(userId, { password })
+
+    // No refusal, unlike `create`. There is no rule left for this to enforce -- the
+    // Roster decided who may be reset and Discipler chose the password -- so an
+    // error here is a fault rather than an answer, and swallowing it would leave an
+    // Admin reading out four words that set nothing.
+    if (error) throw error
+  },
+
   async discard(userId) {
     const admin = createClient(supabaseCredentials().url, serviceRoleKey(), {
       auth: { autoRefreshToken: false, persistSession: false },

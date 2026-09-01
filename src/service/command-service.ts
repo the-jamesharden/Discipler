@@ -611,6 +611,13 @@ export const createCommandService = ({
         ...(command.type === 'intake.reopen'
           ? { intakeLinkHeld: await unit.intakeLinkFor(command.personId) }
           : {}),
+        // Read inside the transaction, on the connection that has already declared
+        // which Ministry it acts for -- so a Person of another Ministry's is
+        // invisible rather than merely unmatched, and the command refuses on the
+        // same value it would refuse a Person who holds no account with.
+        ...(command.type === 'person.reset_password'
+          ? { accountToReset: await unit.accountHeldBy(command.personId) }
+          : {}),
         // Read inside the transaction and under the row's own lock, so two Admins
         // working the same import report cannot both find it unanswered. The domain
         // refuses a row it saw answered, and it can only refuse one it saw.

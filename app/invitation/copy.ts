@@ -1,4 +1,4 @@
-import type { AccountRefusal } from '~/domain/accounts'
+import type { AccountCreationRefusal } from '~/domain/accounts'
 import type { InvitationRefusal } from '~/domain/errors'
 
 /**
@@ -7,7 +7,11 @@ import type { InvitationRefusal } from '~/domain/errors'
  * or a person to somebody whose token did not resolve.
  */
 
-type Problem = InvitationRefusal | AccountRefusal
+/**
+ * Only the refusals minting an account can produce. A reset is refused in codes of
+ * its own and reaches an Admin on the Roster, never a Leader holding a link.
+ */
+type Problem = InvitationRefusal | AccountCreationRefusal
 
 const PROBLEMS: Record<Problem, string> = {
   'invitation.not_found':

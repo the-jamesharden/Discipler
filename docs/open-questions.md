@@ -342,6 +342,24 @@ What needs answering: which of those three a correction triggers, and whether th
 differs between a correction made days after Intake and one made a year into a
 relationship.
 
+## Open: how a Ministry's only Admin gets back in
+
+Ticket 28 gave an Admin a way to reset anybody else on their Roster, and named this as
+the case it does not cover: a Ministry whose only Admin has lost their own password.
+There is nobody with the tier to reset them, the route refuses a self-targeted POST by
+design, and ticket 30's self-service change requires a session they cannot get.
+
+One-time codes to the phone number close it — `docs/adr/0008-the-phone-number-is-the-sign-in-credential.md`
+says the number is the credential, so a code sent to it is the recovery that follows —
+and they remain post-launch. The question is what happens before then.
+
+What needs answering: whether anything ships ahead of one-time codes, and if so what
+shape it takes. The candidates are an operator-level path outside any Ministry (which
+is a new kind of actor this product does not have), a second Admin required at
+provisioning (which makes a one-pastor church impossible to set up), or nothing at all
+until codes ship (which means the pilot's answer to a locked-out sole Admin is somebody
+running SQL). Each is a different bet about who the first pilot Ministries are.
+
 ## Deferred with the quarterly report
 
 These are not unresolved so much as not yet needed. They must be answered before the reporting interface is built, and the underlying history must be complete enough to answer them later.

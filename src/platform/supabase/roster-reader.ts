@@ -4,6 +4,7 @@ import { isMemberRole, type MemberRole } from '~/domain/relationships'
 import { intakeLinkState, intakeLinkToken } from '~/domain/intake-link'
 import { DECLARED_SIDES, isOneOf, type DeclaredSide } from '~/domain/intake'
 import type {
+  AccountOnTheRoster,
   IssuedIntakeLink,
   RosterEntry,
   RosterReader,
@@ -20,7 +21,7 @@ interface MemberRow {
 }
 
 /**
- * `public.roster` returns a derivation beside five columns, so the generated types
+ * `public.roster` returns a derivation beside six columns, so the generated types
  * do not know about it and the row arrives untyped. Named here once rather than
  * cast at the point of use.
  */
@@ -31,6 +32,7 @@ interface PersonRow {
   readonly eligibleToLead: boolean
   readonly declaredSide: DeclaredSide | null
   readonly firstTime: boolean | null
+  readonly holdsAnAccount: boolean
 }
 
 /**
@@ -48,6 +50,7 @@ const asPersonRow = (row: unknown): PersonRow => {
     eligible_to_lead: eligible,
     declared_side: side,
     first_time: firstTime,
+    holds_an_account: holdsAnAccount,
   } = (row ?? {}) as Record<string, unknown>
 
   if (typeof id !== 'string' || id === '') throw new Error('A Roster row arrived with no id')
@@ -78,6 +81,13 @@ const asPersonRow = (row: unknown): PersonRow => {
   if (firstTime !== null && typeof firstTime !== 'boolean') {
     throw new Error(`A Roster row arrived with no first-time answer for ${id}`)
   }
+  // `user_id is not null` is never null itself, so anything but a boolean here is
+  // the select list and this reader having drifted apart. Read as *holds none*, a
+  // whole Ministry's Leaders would lose the reset action from their rows without a
+  // single error -- which is the state ticket 28 exists to end.
+  if (typeof holdsAnAccount !== 'boolean') {
+    throw new Error(`A Roster row arrived with no account answer for ${id}`)
+  }
 
   return {
     id,
@@ -86,6 +96,7 @@ const asPersonRow = (row: unknown): PersonRow => {
     eligibleToLead: eligible,
     declaredSide: side,
     firstTime,
+    holdsAnAccount,
   }
 }
 
@@ -219,6 +230,7 @@ export const supabaseRosterReader: RosterReader = {
       eligibleToLead: row.eligibleToLead,
       declaredSide: row.declaredSide,
       firstTime: row.firstTime,
+      holdsAnAccount: row.holdsAnAccount,
     }))
   },
 
@@ -289,6 +301,43 @@ export const supabaseRosterReader: RosterReader = {
     }
 
     return [...questions.values()]
+  },
+
+  async accountOnTheRoster(ministryId, person): Promise<AccountOnTheRoster | null> {
+    const supabase = await createSupabaseServerClient()
+
+    // Through the signed-in session, so the policies on `person` decide whether
+    // this caller may see this row -- an Admin of that Ministry, and nobody else.
+    // The `eq` on the Ministry restates the same fact and is not what enforces it.
+    //
+    // Not through `public.roster`. That function is the whole list and hands back
+    // no account identifiers by design; this is the one Person an Admin has asked
+    // about, and `user_id` is a column a browser session already holds SELECT on.
+    const { data, error } = await supabase
+      .from('person')
+      .select('id, full_name, user_id')
+      .eq('ministry_id', ministryId)
+      .eq('id', person)
+      .maybeSingle()
+
+    if (error) throw new Error(`Could not read the account on the Roster: ${error.message}`)
+    if (!data) return null
+
+    // A Person this Ministry does not hold and a Person holding no account both
+    // come back as null, and the caller is told the same thing by both. That is
+    // deliberate: a refusal that told them apart would disclose to an Admin that
+    // somebody else's Ministry holds that Person.
+    if (typeof data.user_id !== 'string' || data.user_id === '') return null
+
+    // A row that came back without a name is a broken read and is thrown rather
+    // than folded into the null above. The surface has to say whose password is
+    // about to change, and a confirmation naming nobody is one an Admin cannot
+    // check before they press it.
+    if (typeof data.full_name !== 'string' || data.full_name === '') {
+      throw new Error(`The account on the Roster for ${person} came back with no name`)
+    }
+
+    return { personId: personId(data.id), fullName: data.full_name, userId: data.user_id }
   },
 
   async liveIntakeLink(ministryId, person): Promise<IssuedIntakeLink | null> {

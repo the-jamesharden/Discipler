@@ -63,6 +63,7 @@ import {
   MaterialAssignmentRefused,
   MinistrySettingsRefused,
   PairingRefused,
+  PasswordResetRefused,
   PauseRefused,
 } from './errors'
 import {
@@ -114,6 +115,7 @@ import {
   type OfferedGoal,
   type StatedGoal,
 } from './discipleship-goals'
+import { passwordResetRefusal } from './accounts'
 import { discipleshipGoalId, readIntakeForm, type DiscipleshipGoalId } from './intake'
 import {
   intakeLinkState,
@@ -279,6 +281,19 @@ export interface CommandContext {
    * those quietly stops the link the Admin sent last week from working.
    */
   readonly intakeLinkHeld?: IntakeLinkSnapshot | null
+  /**
+   * The account the Person a reset names holds, loaded on
+   * `person.reset_password`'s behalf. `null` covers both *this Ministry's Roster
+   * does not hold that Person* and *they hold no account*, which are one refusal
+   * because from the acting Admin's side they are one fact: there is nothing on
+   * this Roster to reset.
+   *
+   * Null rather than absent for *nothing to reset*, and absent rather than null
+   * for *not loaded* -- the distinction `intakeLinkHeld` above makes, for the same
+   * reason. Read as the same value, an unloaded snapshot would refuse every reset
+   * in the product as a race.
+   */
+  readonly accountToReset?: string | null
   /**
    * Every relationship in this Ministry that nobody has accepted yet, loaded on
    * the tick's behalf. Absent rather than empty, for the same reason the Roster
@@ -3497,6 +3512,54 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           }),
         ],
         rejections: [],
+      }
+    }
+
+    case 'person.reset_password': {
+      // The password is already set by the time this runs. Setting it is Supabase
+      // Auth's and cannot be rolled back with a transaction, so the order is
+      // deliberate and stated in ticket 28: the credential first, the record
+      // second, and a record that fails to land is reported rather than swallowed.
+      // History claiming a credential change that never happened is the worse lie
+      // -- it is the record a Ministry consults precisely when it is asking
+      // whether somebody's account was touched.
+      //
+      // Which is why the refusals below are the screen's guard restated rather
+      // than the guard itself: the route re-reads the target immediately before it
+      // touches the password, and reaching either of these means losing a race
+      // against a Roster that moved in between.
+      const { accountToReset } = context
+      if (accountToReset === undefined) {
+        throw new Error('person.reset_password was handed no account to reset')
+      }
+
+      // The same rule the screen and the route asked, from the one place it lives.
+      const refusal = passwordResetRefusal(accountToReset, command.resetBy)
+      if (refusal) throw new PasswordResetRefused(refusal)
+
+      const now = context.clock.now()
+
+      // The event and nothing else. No row is written about a reset: the password
+      // lives in Supabase Auth and the account is the account, so there is no
+      // Discipler-side state for this to change -- only a fact worth being able to
+      // answer for later, which is the same argument `concern.viewed` makes about
+      // an Admin's act of access.
+      //
+      // The payload carries who did it and nothing more. Not the password, not a
+      // hash of it, not its length: a password is not ministry content and this
+      // record is read by whoever is asking who touched an account.
+      return {
+        rejections: [],
+        effects: [
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'person.password_reset',
+            subjectType: 'person',
+            subjectId: command.personId,
+            payload: { resetBy: command.resetBy },
+          }),
+        ],
       }
     }
 

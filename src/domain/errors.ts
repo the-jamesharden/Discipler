@@ -1,3 +1,4 @@
+import type { PasswordResetRefusal } from './accounts'
 import type { IntakeRefusal } from './intake'
 import type { MinistrySettingsRefusal } from './ministry-settings'
 
@@ -449,5 +450,18 @@ export class MinistrySettingsRefused extends Error {
   constructor(readonly refusals: readonly MinistrySettingsRefusal[]) {
     super(refusals.join(', '))
     this.name = 'MinistrySettingsRefused'
+  }
+}
+
+/**
+ * Why a password reset could not act. The codes live in `src/domain/accounts.ts`
+ * beside the password rule itself, because the surfaces that render them are the
+ * Roster and the reset screen -- neither of which should have to reach through an
+ * adapter to find out what a refusal can say.
+ */
+export class PasswordResetRefused extends Error {
+  constructor(readonly refusal: PasswordResetRefusal) {
+    super(refusal)
+    this.name = 'PasswordResetRefused'
   }
 }

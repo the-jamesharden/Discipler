@@ -1,3 +1,4 @@
+import type { RandomSource } from '~/domain/accounts'
 import { systemClock } from '~/domain/clock'
 import type { IdSource } from '~/domain/ids'
 import { appBaseUrl, commandDatabaseUrl } from '~/platform/supabase/credentials'
@@ -55,6 +56,35 @@ import type {
 
 /** The real source of identifiers, alongside the real clock. */
 const randomIds: IdSource = { next: () => crypto.randomUUID() }
+
+/**
+ * The real source of randomness, beside the identifiers. Both exist so the domain
+ * stays a pure function of its inputs and the tests can say what came out.
+ *
+ * Rejection sampling rather than `% upperBound`, and the difference is not
+ * academic here: 2^32 does not divide by an arbitrary list length, so the modulo
+ * alone makes the first few words of the list very slightly likelier than the rest
+ * -- a bias in the one thing the wordlist's whole size argument depends on. The
+ * loop discards the short tail of the range instead, and with 1024 words it
+ * discards nothing at all, because 1024 divides 2^32 exactly.
+ */
+const randomChoices: RandomSource = {
+  choose: (upperBound) => {
+    if (!Number.isInteger(upperBound) || upperBound < 1) {
+      throw new Error(`Cannot choose from ${upperBound} possibilities`)
+    }
+
+    const beyond = 2 ** 32
+    const largestWholeMultiple = Math.floor(beyond / upperBound) * upperBound
+    const drawn = new Uint32Array(1)
+
+    do {
+      crypto.getRandomValues(drawn)
+    } while (drawn[0]! >= largestWholeMultiple)
+
+    return drawn[0]! % upperBound
+  },
+}
 
 let commandService: CommandService | undefined
 let commandStore: PostgresEffectStore | undefined
@@ -219,3 +249,11 @@ export const getLeaderDashboardReader = (): LeaderDashboardReader =>
  * holding a concrete adapter is how a composition root stops being one.
  */
 export const getAccounts = (): Accounts => supabaseAccounts
+
+/**
+ * Where a generated password's words come from. The reset surface asks for it the
+ * way every other surface asks for a port -- a page holding `crypto` directly is
+ * how a composition root stops being one, and it is also how a test loses the only
+ * seam that lets it name the password it expects.
+ */
+export const getRandomSource = (): RandomSource => randomChoices

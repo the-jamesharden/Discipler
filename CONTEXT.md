@@ -114,6 +114,10 @@ _Avoid_: sending it again on resume (that is the Resume Message)
 The message sent to everyone in a relationship when an Admin resumes it from a Pause, each side named the other side. It carries the ministry's opt-out and rate disclosure language. A Pause running out releases nothing.
 _Avoid_: Starter Message (its words are true on the day a match is made, not after a fortnight away)
 
+**Password Reset**:
+An Admin setting a new password on somebody else's account, for a person who has lost theirs. Discipler chooses the password, shows it once on screen and sends it nowhere: the Admin reads it out, which is why a reset only works when the two of them can talk. Setting it ends every session on that account — `docs/adr/0016-a-password-change-ends-every-session.md` records why that is a rule and not a behaviour. It is always somebody else's: an Admin holds a session already, so their own is not a recovery.
+_Avoid_: Forgotten password and password recovery (nothing here is self-serve; one-time codes to the number are the post-launch recovery, per ADR-0008), and Temporary password (nothing expires it or forces a change)
+
 **Invitation Link**:
 The individualized, SMS-delivered link that reveals a new relationship to a person in it, with no session. Only a Leader is ever sent one. It resolves on its own page rather than in the leader dashboard, because a leader has no account until they accept. Possession of the phone it was sent to is the authentication; it expires after a fixed window and is consumed when the leader creates their account, not when it is opened.
 _Avoid_: a Participant's Invitation Link (a Participant answers at Intake and is asked nothing further). The Intake Link below is not one: it asks a Person nothing new and reveals nobody else to them.

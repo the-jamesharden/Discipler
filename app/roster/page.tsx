@@ -11,6 +11,7 @@ import {
 import { appBaseUrl } from '~/platform/supabase/credentials'
 import {
   AWAITING_LEADER_ACCEPTANCE,
+  CANNOT_RESET_YOURSELF,
   HELD_ROWS_EXPLANATION,
   HELD_ROWS_HEADING,
   importFailureMessage,
@@ -18,6 +19,7 @@ import {
   NOBODY_ON_THIS_NUMBER,
   OFFERED_TO_MENTOR,
   participationStatusLabel,
+  RESET_PASSWORD,
   rosterRoleLabel,
   rowProblemMessage,
   samePersonAnswer,
@@ -524,6 +526,31 @@ export default async function RosterPage({
                         <input type="hidden" name="personId" value={person.personId} />
                         <button type="submit">Intake link</button>
                       </form>
+                      {/* Offered only where there is an account to reset, which
+                          is most of a Roster's rows not having it: an account
+                          exists for a Leader who accepted an Invitation Link and
+                          for an Admin who was provisioned, and for nobody else. A
+                          control that were always here and refused most of the time
+                          would teach an Admin that the product does not know its
+                          own state.
+
+                          On the Admin's own row it is replaced by a sentence rather
+                          than left blank. Resetting your own password is not a
+                          recovery -- you are holding a session as you ask -- and it
+                          belongs on a self-service surface that does not exist yet;
+                          a blank where every other account row has an action would
+                          read as a bug. */}
+                      {person.holdsAnAccount ? (
+                        person.personId === admin.personId ? (
+                          <p className="subtle">{CANNOT_RESET_YOURSELF}</p>
+                        ) : (
+                          <p>
+                            <Link href={`/roster/reset/${person.personId}`}>
+                              {RESET_PASSWORD}
+                            </Link>
+                          </p>
+                        )
+                      ) : null}
                       {issuedFor === person.personId && issuedLink ? (
                         <div role="status">
                           {/* Shown rather than sent. The Admin passes it on however

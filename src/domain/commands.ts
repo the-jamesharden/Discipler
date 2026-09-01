@@ -490,3 +490,24 @@ export type Command =
       readonly ministryId: MinistryId
       readonly token: InvitationToken
     }
+  /**
+   * An Admin putting a Leader who has lost their password back in.
+   *
+   * The password itself is nowhere in this command and is nowhere in what it
+   * records. Setting it is Supabase Auth's -- it happens through the `Accounts`
+   * port, before this arrives -- and what the domain is asked for is the fact that
+   * it happened, with an actor and a subject. See ticket 28 and
+   * `docs/adr/0016-a-password-change-ends-every-session.md`.
+   *
+   * Recorded in the Ministry that reset it, and only there. One account can be
+   * linked to a Person on two Rosters (ADR-0009), and writing the event into both
+   * would be a write outside the acting Admin's Ministry -- precisely the isolation
+   * the schema enforces everywhere else.
+   */
+  | {
+      readonly type: 'person.reset_password'
+      readonly ministryId: MinistryId
+      readonly personId: PersonId
+      /** The Admin's account, as the session named it. */
+      readonly resetBy: string
+    }
