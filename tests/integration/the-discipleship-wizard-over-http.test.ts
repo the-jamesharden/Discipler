@@ -163,6 +163,39 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
     expect(html).toContain('name="availability" value="friday:evening"')
   })
 
+  it('will not carry a first-time answer back onto the other side’s question', async () => {
+    // Back to the first screen, holding a whole form answered as a mentee. The
+    // first-time question is worded from the side, so this is the one answer the
+    // side screen must not carry forward: *yes, I have been discipled before*
+    // arriving pre-selected under *have you mentored someone before* is an answer
+    // nobody gave, in the one field the pairing surface reads.
+    const { html } = await open({
+      step: '1',
+      side: 'mentee',
+      ageBand: '25-34',
+      gender: 'female',
+      experience: 'done_before',
+      availability: ['friday:evening'],
+    })
+
+    expect(html).not.toContain('name="experience"')
+    // Everything the side does not word is still on its way forward.
+    expect(html).toContain('name="ageBand" value="25-34"')
+    expect(html).toContain('name="gender" value="female"')
+    expect(html).toContain('name="availability" value="friday:evening"')
+
+    // And the question is put again rather than skipped: the wizard cannot reach
+    // the grid until it has an answer worded for the side now declared.
+    const after = await open({
+      step: '4',
+      side: 'mentor',
+      ageBand: '25-34',
+      gender: 'female',
+      availability: ['friday:evening'],
+    })
+    expect(after.html).toContain('Have you mentored someone before?')
+  })
+
   it('writes nothing at all until the last step submits', async () => {
     // Four screens' worth of answers, and then the browser is closed.
     await open({ step: '2', side: 'mentee' })
@@ -363,14 +396,23 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
     })
     expect(code.status).toBe(200)
     expect(code.headers.get('content-type')).toContain('image/svg+xml')
-    expect(await code.text()).toContain('<svg')
+
+    // Captioned in the file itself, because the file is what an Admin opens on its
+    // own and prints. A square with the label only on the Roster beside it is a
+    // square nobody in the room can tell from the other one.
+    const drawn = await code.text()
+    expect(drawn).toContain('<svg')
+    expect(drawn).toContain('Discipleship')
   })
 
   it('shows the offer on the Roster row, beside the plan it is not', async () => {
     const { html } = await getPage('/roster', cookie)
 
-    expect(html).toContain('Offered at Intake')
     expect(html).toContain('Offered to mentor')
+    // Only the mentor answer is said. It is the one an Admin might act on, and a
+    // word in every other row would make a column of state out of one signal.
+    expect(html).not.toContain('Asked to be mentored')
+    expect(html).not.toContain('Not asked')
     // The Admin's column is untouched by the Person's answer: the button on
     // Solomon's row still offers to mark him eligible.
     expect(html).toContain('No — mark eligible')

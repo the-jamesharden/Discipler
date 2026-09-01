@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import type { ReactNode } from 'react'
 import { DECLARED_SIDES, EXPERIENCE_ANSWERS } from '~/domain/intake'
 import type { DiscipleshipGoalOption } from '~/service/ports'
 import {
@@ -6,7 +7,6 @@ import {
   FIRST_TIME_ANSWER,
   firstTimeQuestion,
   SIDE_QUESTION,
-  sideHint,
   sideLabel,
 } from './copy'
 import {
@@ -18,7 +18,18 @@ import {
   GoalField,
   NOTHING_PREFILLED,
 } from './fields'
-import { answersAsQuery, LAST_STEP, type WizardAnswers } from './wizard-answers'
+import {
+  AGE_AND_GENDER_STEP,
+  answersAsQuery,
+  AVAILABILITY_STEP,
+  CHOICE_FIELDS,
+  FIRST_TIME_STEP,
+  furthestStep,
+  notCarriedAt,
+  SIDE_STEP,
+  type IntakeVia,
+  type WizardAnswers,
+} from './wizard-answers'
 
 /**
  * The discipleship Intake wizard: one component with a `side` argument, the way
@@ -37,45 +48,46 @@ import { answersAsQuery, LAST_STEP, type WizardAnswers } from './wizard-answers'
  *
  * Steps one to four are GET forms back to this same page; step five is the only
  * POST, and it is the only write. An abandoned wizard leaves nothing behind.
+ *
+ * Which screen is which is read from `wizard-answers` by name and never by
+ * position, for the reason the screen list gives: the order is written down in one
+ * place, and a screen added in the middle must not have to be found again here.
  */
 
 /**
- * Every answer the wizard holds, carried forward, minus the ones this screen is
- * about to ask for itself -- a hidden `ageBand` beside the age question would send
- * two of them.
+ * Every answer the wizard holds, carried forward, minus the ones this screen must
+ * not send -- what it is asking for itself, and what its own question rewords.
  *
  * Named fields rather than a step number, and not for tidiness: a screen reached by
  * pressing Back still holds the answers to the screens after it, and carrying only
  * *the steps before this one* would drop them on the way forward again. Somebody who
  * went back to correct their age would find their availability quietly emptied.
+ *
+ * The fields themselves come from the same table that says what each one may hold,
+ * so an answer added to the wizard is carried here without anybody remembering to
+ * add it.
  */
 const Hidden = ({
   answers,
   via,
-  asking = [],
+  dropping = [],
 }: {
   readonly answers: WizardAnswers
-  readonly via: 'link' | 'qr'
-  /** What this screen's own fields are named. Those are not carried as hidden. */
-  readonly asking?: readonly (keyof WizardAnswers)[]
+  readonly via: IntakeVia
+  /** What this screen asks for or rewords. Those are not carried as hidden. */
+  readonly dropping?: readonly (keyof WizardAnswers)[]
 }) => {
-  const carried = (field: keyof WizardAnswers) => !asking.includes(field)
+  const carried = (field: keyof WizardAnswers) => !dropping.includes(field)
 
   return (
     <>
       <input type="hidden" name="via" value={via} />
-      {carried('side') && answers.side ? (
-        <input type="hidden" name="side" value={answers.side} />
-      ) : null}
-      {carried('ageBand') && answers.ageBand ? (
-        <input type="hidden" name="ageBand" value={answers.ageBand} />
-      ) : null}
-      {carried('gender') && answers.gender ? (
-        <input type="hidden" name="gender" value={answers.gender} />
-      ) : null}
-      {carried('experience') && answers.experience ? (
-        <input type="hidden" name="experience" value={answers.experience} />
-      ) : null}
+      {CHOICE_FIELDS.map((field) => {
+        const answer = answers[field]
+        return carried(field) && answer !== null ? (
+          <input key={field} type="hidden" name={field} value={answer} />
+        ) : null
+      })}
       {carried('availability')
         ? answers.availability.map((slot) => (
             <input key={slot} type="hidden" name="availability" value={slot} />
@@ -84,6 +96,37 @@ const Hidden = ({
     </>
   )
 }
+
+/**
+ * The shell steps one to four share: a GET back to this page, carrying every answer
+ * this screen is neither asking for nor rewording, and naming the screen after it
+ * on Continue.
+ *
+ * Both of those are read from the screen list rather than written per screen. Which
+ * fields a screen carries was four hand-written lists, and getting one wrong is
+ * how a screen reached by pressing Back quietly emptied somebody's availability;
+ * which step comes next was four literals in a sequence written down nowhere.
+ */
+const StepForm = ({
+  at,
+  answers,
+  via,
+  here,
+  children,
+}: {
+  readonly at: number
+  readonly answers: WizardAnswers
+  readonly via: IntakeVia
+  readonly here: string
+  readonly children: ReactNode
+}) => (
+  <form method="get" action={here}>
+    <Hidden answers={answers} via={via} dropping={notCarriedAt(at)} />
+    <input type="hidden" name="step" value={String(at + 1)} />
+    {children}
+    <button type="submit">Continue</button>
+  </form>
+)
 
 export const IntakeWizard = ({
   step,
@@ -101,31 +144,35 @@ export const IntakeWizard = ({
   readonly submitTo: string
   readonly ministryName: string
   readonly goals: readonly DiscipleshipGoalOption[]
-  readonly via: 'link' | 'qr'
+  readonly via: IntakeVia
 }) => {
-  // Never read on a screen that has one, because `stepToShow` refuses to show a
-  // later screen until the first question is answered. Narrowed here once so the
-  // wording lookups below are not each asserting it.
+  // The screen actually shown. Clamped here as well as on the page, because the
+  // step after this one is now derived from it: a component handed a step the
+  // answers do not reach would otherwise render one screen and name another on its
+  // Continue button.
+  const at = Math.min(Math.max(step, SIDE_STEP), furthestStep(answers))
+
+  // Never null on a screen that reads it, because `at` cannot reach one until the
+  // first question is answered. Narrowed here once so the wording lookups below are
+  // not each asserting it.
   const side = answers.side
 
   const back =
-    step === 1 ? null : (
+    at === SIDE_STEP ? null : (
       <p>
-        <Link href={`${here}?${answersAsQuery(answers, via, step - 1)}`}>Back</Link>
+        <Link href={`${here}?${answersAsQuery(answers, via, at - 1)}`}>Back</Link>
       </p>
     )
 
-  if (step === 1 || side === null) {
+  if (at === SIDE_STEP || side === null) {
     return (
-      <form method="get" action={here}>
-        <Hidden answers={answers} via={via} asking={['side']} />
-        <input type="hidden" name="step" value="2" />
-
+      <StepForm at={at} answers={answers} via={via} here={here}>
         <fieldset>
           <legend>{SIDE_QUESTION}</legend>
-          {/* Nothing else on the screen. Every later screen's wording follows
-              from this answer, so asking anything beside it would be asking it
-              in words that do not yet exist. */}
+          {/* Nothing else on the screen. The first-time question and the closing
+              line are worded from this answer, so anything beside it would be
+              said in words that do not yet exist -- which is also why answering
+              it again drops the first-time answer rather than carrying it. */}
           {DECLARED_SIDES.map((option) => (
             <label key={option} htmlFor={`side:${option}`}>
               <input
@@ -137,40 +184,29 @@ export const IntakeWizard = ({
                 defaultChecked={answers.side === option}
               />{' '}
               {sideLabel[option]}
-              <span className="subtle"> — {sideHint[option]}</span>
             </label>
           ))}
         </fieldset>
-
-        <button type="submit">Continue</button>
-      </form>
+      </StepForm>
     )
   }
 
-  if (step === 2) {
+  if (at === AGE_AND_GENDER_STEP) {
     return (
       <>
-        <form method="get" action={here}>
-          <Hidden answers={answers} via={via} asking={['ageBand', 'gender']} />
-          <input type="hidden" name="step" value="3" />
-
+        <StepForm at={at} answers={answers} via={via} here={here}>
           <AgeBandField prefill={{ ...NOTHING_PREFILLED, ageBand: answers.ageBand }} />
           <GenderField prefill={{ ...NOTHING_PREFILLED, gender: answers.gender }} />
-
-          <button type="submit">Continue</button>
-        </form>
+        </StepForm>
         {back}
       </>
     )
   }
 
-  if (step === 3) {
+  if (at === FIRST_TIME_STEP) {
     return (
       <>
-        <form method="get" action={here}>
-          <Hidden answers={answers} via={via} asking={['experience']} />
-          <input type="hidden" name="step" value="4" />
-
+        <StepForm at={at} answers={answers} via={via} here={here}>
           <fieldset>
             <legend>{firstTimeQuestion[side]}</legend>
             {/* Two answers, worded as statements rather than as yes and no, so
@@ -191,25 +227,18 @@ export const IntakeWizard = ({
               </label>
             ))}
           </fieldset>
-
-          <button type="submit">Continue</button>
-        </form>
+        </StepForm>
         {back}
       </>
     )
   }
 
-  if (step === 4) {
+  if (at === AVAILABILITY_STEP) {
     return (
       <>
-        <form method="get" action={here}>
-          <Hidden answers={answers} via={via} asking={['availability']} />
-          <input type="hidden" name="step" value={String(LAST_STEP)} />
-
+        <StepForm at={at} answers={answers} via={via} here={here}>
           <AvailabilityGrid availability={answers.availability} />
-
-          <button type="submit">Continue</button>
-        </form>
+        </StepForm>
         {back}
       </>
     )

@@ -2,6 +2,7 @@ import { ministryIntakeQrLink } from '~/domain/outbound-copy'
 import { currentAdmin } from '~/platform/supabase/current-admin'
 import { renderQrCode } from '~/platform/qr/qr-code'
 import { appBaseUrl } from '~/platform/supabase/credentials'
+import { qrCodeCaption } from '../copy'
 
 /**
  * The QR code as a file of its own, so it can be printed and put in front of a room
@@ -23,7 +24,10 @@ export async function GET() {
   const admin = await currentAdmin()
   if (!admin) return new Response('Not found', { status: 404 })
 
-  const svg = await renderQrCode(ministryIntakeQrLink(appBaseUrl(), admin.ministryId))
+  const svg = await renderQrCode(
+    ministryIntakeQrLink(appBaseUrl(), admin.ministryId),
+    qrCodeCaption.intake(admin.ministryName),
+  )
 
   return new Response(svg, {
     headers: {

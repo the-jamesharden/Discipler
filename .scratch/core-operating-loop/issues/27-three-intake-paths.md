@@ -31,7 +31,9 @@ is already one component for two routes — mentor and mentee are asked the same
 questions and differ only in wording and in the closing line.
 
 1. **Side.** "I'm joining as a…" — *Mentor* or *Mentee*. Nothing else on the
-   screen; every later screen's wording depends on this answer.
+   screen; the screens that say anything side-specific — the first-time question,
+   and the closing line — are worded from this answer, so nothing after it can be
+   asked until it is given.
 2. **Age band and gender**, together on one screen. Age is a band and never an
    exact age (ADR-0001). Gender is the absolute pairing constraint (ADR-0001),
    which a Ministry may disable only in settings (ticket 22).
@@ -103,15 +105,19 @@ filtered list, which is why that screen already declines to filter its candidate
   a room knows which one they printed.
 - `/intake/<ministry>` — **untouched by this ticket.** It keeps working exactly
   as it does today and keeps writing a null `intake_path`. Ticket 29 turns it
-  into the group form.
+  into the group form. One behaviour did change, and only for a request nobody
+  filling the form in can make: a body carrying `side` or `experience` on a route
+  that declares no path is now refused rather than ignored, which is the rule
+  `intake_path` is declared by the route at all.
 
 **Blocked by:** 03, 23
 
 **Status:** shipped
 
 - [x] A discipleship Intake link exists at its own route and opens the wizard
-- [x] The wizard's first question is mentor or mentee, and every later screen's
-      wording follows from it
+- [x] The wizard's first question is mentor or mentee, and the screens that have
+      something side-specific to say — the first-time question and the closing
+      line — are worded from it
 - [x] The wizard asks age band, gender, the first-time question, availability and
       the Discipleship Goal, and both sides are asked all five
 - [x] Nothing is written to the database until the final step submits; an
@@ -121,9 +127,13 @@ filtered list, which is why that screen already declines to filter its candidate
       the Person answered, separately from `source`
 - [x] Answering mentor shows a signal on the Roster row and does not set
       `eligible_to_lead`
-- [x] A Person who reopens Intake and answers the other side changes the signal
+- [ ] A Person who reopens Intake and answers the other side changes the signal —
+      the derivation does this, but the tokenized reopen link renders the
+      single-page form, which never asks the side. See *The reopen link does not
+      ask the side*.
 - [x] The pairing surface shows, per candidate, whether this is their first time
-- [x] `/intake/<ministry>` still works and is unchanged
+- [x] `/intake/<ministry>` still works and is unchanged, but for the crafted-body
+      refusal noted under Routes
 - [x] Consent records written before this ticket are not backfilled with a path
 
 ## Comments
@@ -248,3 +258,61 @@ earlier one — but the mechanism is the public link rather than the tokenized o
 Converting the reopen link to serve whichever form a Person last answered is a real
 question and belongs with ticket 29, which is already changing what
 `/intake/<ministry>` serves.
+
+### Review, second round, 2026-09-01
+
+Six things the review caught, all fixed. Three of them are the same shape: an
+answer, or a screen, written down in more than one place.
+
+**Re-answering the side carried the first-time answer onto the other side's
+question.** The hidden inputs are selected by field name, which is right for age
+and gender -- they govern nothing downstream -- and wrong for the one screen whose
+answer *rewords* a later question. A mentee who answered *yes, I have been
+discipled before*, pressed Back and switched to mentor reached the third screen
+with *yes, I have mentored someone before* already selected: an answer nobody
+gave, in the one field the pairing surface reads, and the ticket's own worry is
+that a first-timer recorded as experienced is a mistake nothing downstream could
+notice. The screen list now says what each screen rewords as well as what it asks,
+and a screen drops both. Coming back and pressing Continue with the same side
+costs one screen; the alternative cost an answer that was wrong and looked given.
+Covered by a unit test and over HTTP.
+
+**The wizard's screens were told apart by number again.** The screen list says it
+is the only place the order is written down, and the component beside it then
+branched on `at === 2`, `at === 3` and `at === 4`. They are named now --
+`SIDE_STEP`, `AGE_AND_GENDER_STEP`, `FIRST_TIME_STEP`, `AVAILABILITY_STEP` -- and
+derived from the list, so a screen inserted in the middle moves no number by hand.
+
+**The four carried answers were written out four times.** The interface, the
+screen list, the reader, the query composer and the hidden inputs each held their
+own copy of *side, ageBand, gender, experience*, and only two of the five were
+guarded by a test. They now come from one table that puts each answer beside the
+list it has to come from; availability stays beside them rather than in them,
+because it is a list and reads, writes and empties differently.
+
+**The QR codes were unlabelled files.** The criterion says *labelled clearly
+enough that an Admin printing one for a room knows which one they printed*, and
+the label was on the Roster page and in the download filename -- neither of which
+is printed. The caption is now drawn into the SVG, below the code's own quiet
+zone, and the renderer takes it as a required argument rather than an optional
+one, so a third code cannot ship unlabelled by omission. This labels the ticket-23
+code as well, which is a small widening of this ticket: an unlabelled square
+beside a labelled one answers *which one is this* only by elimination.
+
+**The Roster column said something about every Person.** The ticket asks for one
+signal -- *the Person's row shows that they offered to mentor* -- and the column
+also said *asked to be mentored* and *not asked*, which is a column of state about
+everybody rather than a signal about somebody. Only the mentor answer is said now.
+
+**Two smaller ones.** The done page fell back to the mentee wording for a side it
+did not recognise, which is a guess on the one path that refuses to guess
+everywhere else -- it now says the half that is true for both sides. And the
+first-time answer had no glossary entry although it reaches two Admin screens; it
+is in `CONTEXT.md` as **First-Time Answer**.
+
+One finding was raised and not taken. `first_time` travels as two words and lands
+as a boolean, and the pairing screen turned it back into a word to look a label
+up. The round trip is gone -- the label takes the boolean the Roster actually
+holds -- but the column stays a nullable boolean, because that is what this ticket
+specifies and the name `first_time` does not invert the way a `yes`/`no` field
+would.

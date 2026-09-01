@@ -1,7 +1,8 @@
 import { notFound } from 'next/navigation'
-import { isDeclaredSide, type DeclaredSide } from '~/domain/intake'
+import { DECLARED_SIDES, isOneOf } from '~/domain/intake'
 import { getIntakeReader } from '~/service/container'
-import { DONE_HEADING, doneMessage } from '../../../copy'
+import { DONE_HEADING, doneMessage, doneMessageWithoutASide } from '../../../copy'
+import { firstValue } from '../../../wizard-answers'
 
 /**
  * What a Person sees the moment the wizard submits. The Welcome Message is already
@@ -26,17 +27,21 @@ export default async function DiscipleshipIntakeDonePage({
   if (!page) notFound()
 
   // Compared against the two answers rather than rendered, like every other value
-  // that arrived in a query string. A side nothing recognises falls back to the
-  // mentee wording, which is the commoner case and says nothing untrue: they are on
-  // the list and the Ministry will be in touch.
-  const asked = Array.isArray(raw) ? raw[0] : raw
-  const side: DeclaredSide = isDeclaredSide(asked) ? asked : 'mentee'
+  // that arrived in a query string. A side nothing recognises is null rather than a
+  // guess, for the reason nothing else on this path guesses one: the consent record
+  // is not backfilled with a side and neither is the sentence describing it.
+  const asked = firstValue(raw)
+  const side = isOneOf(DECLARED_SIDES, asked) ? asked : null
 
   return (
     <main>
       <h1>{DONE_HEADING}</h1>
       <div className="panel">
-        <p>{doneMessage[side](page.ministryName)}</p>
+        <p>
+          {side === null
+            ? doneMessageWithoutASide(page.ministryName)
+            : doneMessage[side](page.ministryName)}
+        </p>
         <p>We’ve sent you a text to confirm.</p>
         <p className="subtle">You can close this page.</p>
       </div>

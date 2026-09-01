@@ -11,13 +11,12 @@ import {
 import { appBaseUrl } from '~/platform/supabase/credentials'
 import {
   AWAITING_LEADER_ACCEPTANCE,
-  declaredSideLabel,
   HELD_ROWS_EXPLANATION,
   HELD_ROWS_HEADING,
   importFailureMessage,
   importRowRefusalMessage,
   NOBODY_ON_THIS_NUMBER,
-  NOTHING_DECLARED,
+  OFFERED_TO_MENTOR,
   participationStatusLabel,
   rosterRoleLabel,
   rowProblemMessage,
@@ -415,7 +414,7 @@ export default async function RosterPage({
                   <th>Name</th>
                   <th>Participation</th>
                   <th>Relationships</th>
-                  <th>Offered at Intake</th>
+                  <th>Offered to mentor</th>
                   <th>Eligible to lead</th>
                   <th>Action</th>
                 </tr>
@@ -476,15 +475,17 @@ export default async function RosterPage({
                         one is an answer somebody gave on a form, and answering
                         `mentor` sets nothing beside it.
 
+                        Only the mentor answer is said. It is the one an Admin might
+                        act on, and a word in every other row -- *asked to be
+                        mentored*, *not asked* -- would turn one signal into a column
+                        of state about everybody, which is not what was asked for and
+                        is not what the answer means.
+
                         Derived from the latest Intake that asked, so somebody who
                         goes back and answers the other side changes what this says
                         -- and a form that asked nothing leaves it alone. */}
                     <td>
-                      {person.declaredSide === null ? (
-                        <span className="empty">{NOTHING_DECLARED}</span>
-                      ) : (
-                        declaredSideLabel[person.declaredSide]
-                      )}
+                      {person.declaredSide === 'mentor' ? OFFERED_TO_MENTOR : null}
                     </td>
                     {/* A plan an Admin records, and never a fact about the Person.
                         Offered on every row, including somebody who has not

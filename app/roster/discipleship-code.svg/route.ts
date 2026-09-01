@@ -1,4 +1,5 @@
 import { ministryDiscipleshipIntakeQrLink } from '~/domain/outbound-copy'
+import { qrCodeCaption } from '../copy'
 import { currentAdmin } from '~/platform/supabase/current-admin'
 import { renderQrCode } from '~/platform/qr/qr-code'
 import { appBaseUrl } from '~/platform/supabase/credentials'
@@ -24,8 +25,13 @@ export async function GET() {
   const admin = await currentAdmin()
   if (!admin) return new Response('Not found', { status: 404 })
 
+  // Captioned with the Ministry and the form, which is the whole of *labelled
+  // clearly enough that an Admin printing one for a room knows which one they
+  // printed*. The label is in the file rather than beside it on the Roster,
+  // because the file is what gets opened on its own and put on paper.
   const svg = await renderQrCode(
     ministryDiscipleshipIntakeQrLink(appBaseUrl(), admin.ministryId),
+    qrCodeCaption.discipleship(admin.ministryName),
   )
 
   return new Response(svg, {

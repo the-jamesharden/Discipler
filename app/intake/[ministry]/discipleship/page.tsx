@@ -3,6 +3,8 @@ import { getIntakeReader } from '~/service/container'
 import { refusalMessages } from '../../copy'
 import { IntakeWizard } from '../../wizard'
 import {
+  firstValue,
+  readVia,
   readWizardAnswers,
   stepToShow,
   stuckOnAvailability,
@@ -38,14 +40,16 @@ export default async function DiscipleshipIntakePage({
 
   const answers = readWizardAnswers(query)
   const step = stepToShow(query.step, answers)
-  const via = query.via === 'qr' ? 'qr' : 'link'
-  const refused = Array.isArray(query.refused) ? query.refused[0] : query.refused
+  const via = readVia(query.via)
+  const refused = firstValue(query.refused)
   // The codes a refused submission came back with, and the one this page can raise
-  // on its own: Continue with nothing ticked on the grid.
+  // on its own: Continue with nothing ticked on the grid. Both, because a refused
+  // submission whose availability was also unreadable lands on this screen holding
+  // the rest of its refusals, and showing only the grid's would send the Person
+  // back round to discover the others one at a time.
   const problems = refusalMessages(
-    stuckOnAvailability(query.step, answers)
-      ? 'intake.availability_not_selected'
-      : refused,
+    refused,
+    stuckOnAvailability(query.step, answers) ? 'intake.availability_not_selected' : undefined,
   )
 
   const here = `/intake/${page.ministryId}/discipleship`

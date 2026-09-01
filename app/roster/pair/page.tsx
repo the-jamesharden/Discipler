@@ -82,9 +82,7 @@ export default async function PairPage({
    */
   const firstTimeNote = (firstTime: boolean | null) =>
     firstTime === null ? null : (
-      <span className="subtle">
-        {` — ${firstTimeLabel[firstTime ? 'first_time' : 'done_before']}`}
-      </span>
+      <span className="subtle">{` — ${firstTimeLabel(firstTime)}`}</span>
     )
 
   /**

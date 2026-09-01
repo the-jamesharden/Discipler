@@ -84,12 +84,23 @@ const isRefusal = (value: string): value is IntakeRefusal =>
 /**
  * Only codes this form actually issues are rendered. Anything else arriving in the
  * query string renders nothing rather than being reflected back into the page.
+ *
+ * Takes any number of sources because a screen can have two: the codes a refused
+ * submission came back with, and one the screen raised on its own. Both are shown,
+ * deduplicated -- *every problem at once* is the rule the reader is written to, and
+ * a screen that dropped one set to show the other would break it at the boundary
+ * where the two overlap.
  */
-export const refusalMessages = (raw: string | undefined): readonly string[] =>
-  (raw ?? '')
-    .split(' ')
-    .filter(isRefusal)
-    .map((refusal) => REFUSALS[refusal])
+export const refusalMessages = (
+  ...raw: readonly (string | null | undefined)[]
+): readonly string[] => [
+  ...new Set(
+    raw
+      .flatMap((codes) => (codes ?? '').split(' '))
+      .filter(isRefusal)
+      .map((refusal) => REFUSALS[refusal]),
+  ),
+]
 
 /**
  * The discipleship wizard's wording. Mentor and mentee are asked the same things in
@@ -101,11 +112,6 @@ export const refusalMessages = (raw: string | undefined): readonly string[] =>
 export const sideLabel: Record<DeclaredSide, string> = {
   mentor: 'A mentor',
   mentee: 'Someone to be mentored',
-}
-
-export const sideHint: Record<DeclaredSide, string> = {
-  mentor: 'You are offering to disciple someone.',
-  mentee: 'You are asking to be discipled by someone.',
 }
 
 export const SIDE_QUESTION = 'I’m joining as…'
@@ -128,6 +134,20 @@ export const DONE_BEFORE_ANSWER = 'Yes, I’ve done this before'
 export const FIRST_TIME_ANSWER = 'No, this is my first time'
 
 export const DONE_HEADING = 'You’re on the list'
+
+/**
+ * The closing line when the side is not known -- said without it rather than said
+ * in a guess.
+ *
+ * The submit route puts the side in the URL of this page and there is no ordinary
+ * way to arrive without one, so this is for the hand-typed URL and the truncated
+ * redirect. Defaulting to the commoner side would tell somebody who offered to
+ * mentor that a mentor is being found for them, which is a sentence about somebody
+ * else's Person. Everything true of both sides is still said.
+ */
+export const doneMessageWithoutASide = (ministryName: string): string =>
+  `${ministryName} will look at when you can meet and what you said you are hoping `
+  + 'for, and be in touch.'
 
 export const doneMessage: Record<DeclaredSide, (ministryName: string) => string> = {
   mentor: (ministryName) =>

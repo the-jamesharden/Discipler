@@ -83,14 +83,6 @@ export const DECLARED_SIDES = ['mentor', 'mentee'] as const
 export type DeclaredSide = (typeof DECLARED_SIDES)[number]
 
 /**
- * One guard, because four places have to ask this and each of them is somewhere a
- * wrong answer is silent: a value out of a query string, a column off a row the
- * Roster is about to render, a hidden input coming back on a refused submission.
- */
-export const isDeclaredSide = (value: unknown): value is DeclaredSide =>
-  DECLARED_SIDES.includes(value as DeclaredSide)
-
-/**
  * The first-time screen's two answers, carried as words rather than as a yes/no.
  *
  * The screen words them as statements -- *Yes, I've done this before* and *No, this
@@ -153,13 +145,28 @@ export interface IntakeSubmissionDraft {
   readonly firstTime: boolean | null
 }
 
-const isOneOf = <T extends string>(allowed: readonly T[], value: unknown): value is T =>
+/**
+ * One guard for every list on this page, exported because the screens have to ask
+ * the same questions this reader does and each of them is somewhere a wrong answer
+ * is silent: a value out of a query string, a column off a row the Roster is about
+ * to render, a hidden input coming back on a refused submission.
+ */
+export const isOneOf = <T extends string>(allowed: readonly T[], value: unknown): value is T =>
   allowed.includes(value as T)
 
 const readSlot = (key: string): AvailabilitySlot | null => {
   const [day, block] = key.split(':')
   return isOneOf(WEEKDAYS, day) && isOneOf(DAY_BLOCKS, block) ? { day, block } : null
 }
+
+/**
+ * Whether a key is one of the thirty-five the grid submits, and not something a
+ * hand-written URL invented. The key format is this module's -- a screen carrying
+ * slots between steps asks here rather than rebuilding `${day}:${block}` beside it,
+ * because two spellings of the same key would disagree in exactly one direction:
+ * silently, and only about somebody's availability.
+ */
+export const isSlotKey = (key: string): boolean => readSlot(key) !== null
 
 /**
  * Why a form could not be accepted. Every problem is reported at once rather than

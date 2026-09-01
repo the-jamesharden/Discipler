@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { IntakeRefused } from '~/domain/errors'
 import type { IntakeFormFields } from '~/domain/intake'
 import { getCommandService, getIntakeReader } from '~/service/container'
-import { answersAsQuery, LAST_STEP, readWizardAnswers } from '../../../wizard-answers'
+import { answersAsQuery, LAST_STEP, readVia, readWizardAnswers } from '../../../wizard-answers'
 import { consentSourceOf, submittedIntakeForm, textField } from '../../../submitted-form'
 
 /**
@@ -48,16 +48,18 @@ export async function POST(
       // nothing that was typed on this one. Those answers were in the URL already
       // -- that is how the wizard moves between screens -- and a name and a number
       // are not joining them.
+      //
+      // Read off the form this route already built rather than out of the request a
+      // second time: one place decides what each field on the wire is called, and a
+      // second reader of the same body is a second place for that to be got wrong.
       const answers = readWizardAnswers({
-        side: textField(submitted, 'side') ?? undefined,
-        ageBand: textField(submitted, 'ageBand') ?? undefined,
-        gender: textField(submitted, 'gender') ?? undefined,
-        experience: textField(submitted, 'experience') ?? undefined,
-        availability: submitted
-          .getAll('availability')
-          .filter((value): value is string => typeof value === 'string'),
+        side: form.declaredSide ?? undefined,
+        ageBand: form.ageBand ?? undefined,
+        gender: form.gender ?? undefined,
+        experience: form.experience ?? undefined,
+        availability: [...form.availability],
       })
-      const params = answersAsQuery(answers, via === 'qr' ? 'qr' : 'link', LAST_STEP)
+      const params = answersAsQuery(answers, readVia(via), LAST_STEP)
       params.set('refused', error.refusals.join(' '))
 
       return NextResponse.redirect(

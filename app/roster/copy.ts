@@ -1,5 +1,4 @@
 import type { ImportRowRefusal, PairingRefusal } from '~/domain/errors'
-import type { DeclaredSide, ExperienceAnswer } from '~/domain/intake'
 import type { ParticipationStatus } from '~/domain/participation'
 import type { MemberRole } from '~/domain/relationships'
 import type { RowProblem } from '~/domain/roster'
@@ -40,38 +39,47 @@ export const rosterRoleLabel: Record<MemberRole, string> = {
 }
 
 /**
- * Which side a Person offered to stand on at Intake, as the Roster says it.
+ * What is printed under each QR code, so the square answers *which form is this*
+ * on its own.
+ *
+ * The Ministry's name and the form's, because both are questions somebody standing
+ * in front of the poster may have and neither is answered by a square. An Admin
+ * holds two of these and prints one; a room reads the one that got printed.
+ */
+export const qrCodeCaption = {
+  intake: (ministryName: string) => `${ministryName} — Intake`,
+  discipleship: (ministryName: string) => `${ministryName} — Discipleship`,
+}
+
+/**
+ * The one signal the declared side puts on a Roster row: this Person offered to
+ * mentor somebody.
  *
  * Worded as something they did rather than as something they are. *Offered to
  * mentor* is an answer on a form; *Mentor* would read as a role somebody holds,
  * which is exactly the collapse this column must not invite -- leading is a plan an
  * Admin records in the column beside it, and this one sets nothing there.
+ *
+ * The mentee answer is not said here, and the unanswered case is not said either.
+ * The column exists to surface the offer an Admin might act on; a *Not asked* in
+ * every other row would make a column of state out of a signal, and *asked to be
+ * mentored* is what every Person on this Roster is already presumed to want.
  */
-export const declaredSideLabel: Record<DeclaredSide, string> = {
-  mentor: 'Offered to mentor',
-  mentee: 'Asked to be mentored',
-}
-
-/**
- * Said as *not asked* rather than as a dash meaning nothing, because that is what
- * it is: this Person completed a form that never put the question to them, or has
- * not completed one at all. It is not them declining to offer.
- */
-export const NOTHING_DECLARED = 'Not asked'
+export const OFFERED_TO_MENTOR = 'Offered to mentor'
 
 /**
  * Whether this is their first time, per candidate, on the pairing screen. Both
  * answers are said outright, including *has done this before* -- said only for the
  * first-timers, a blank would read as *no* rather than as *nobody asked them*.
  *
- * Keyed on the form's own two answers rather than on yes and no, for the reason
- * `EXPERIENCE_ANSWERS` exists at all: the screen words them as statements, and a
- * `yes` meaning *first time* is the one key that reads backwards.
+ * Takes the answer the Roster actually holds. The form carries this as two words
+ * because the screen words them as statements and a `yes` meaning *first time*
+ * reads backwards; by the time it reaches a Roster row it is the boolean
+ * `intake_submission.first_time`, and turning that back into `first_time` to look
+ * a label up would be the round trip the wording was avoiding, run in reverse.
  */
-export const firstTimeLabel: Record<ExperienceAnswer, string> = {
-  first_time: 'New to this',
-  done_before: 'Has done this before',
-}
+export const firstTimeLabel = (firstTime: boolean): string =>
+  firstTime ? 'New to this' : 'Has done this before'
 
 /**
  * Said beside the relationship rather than beside the Person, because it is a fact

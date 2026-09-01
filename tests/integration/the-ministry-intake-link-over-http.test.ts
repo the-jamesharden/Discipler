@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import { ministryId } from '~/domain/ids'
 import { ministryIntakeQrLink } from '~/domain/outbound-copy'
 import { renderQrCode } from '~/platform/qr/qr-code'
+import { qrCodeCaption } from '../../app/roster/copy'
 import { createMinistryWithAdmin, type MinistryFixture } from '../support/local-supabase'
 import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app'
 
@@ -93,7 +94,9 @@ describe.skipIf(skipUnlessAppIsRunning)('the Ministry Intake Link an Admin can s
 
     // The square encodes *this* Ministry's link with `?via=qr` on it. Encoding the
     // plain link would put every scan in the record as though a pastor had sent it.
-    expect(await response.text()).toBe(await renderQrCode(scanned(link, ministry)))
+    expect(await response.text()).toBe(
+      await renderQrCode(scanned(link, ministry), qrCodeCaption.intake('Fairmount Church')),
+    )
   })
 
   it('draws the code on the page big enough to hold a phone up to', async () => {

@@ -28,8 +28,8 @@ A person being discipled within a discipleship relationship.
 Leader and Participant are roles held on a relationship, not kinds of person: the same person may lead one relationship and be a participant in another at the same time.
 
 **Mentor** / **Mentee**:
-Participant-facing words for the Leader and Participant of a relationship with one participant. They belong in message copy, not in the model.
-_Avoid_: Using these as model terms, or introducing Group Leader / Group Participant as separate roles
+Participant-facing words for the Leader and Participant of a relationship with one participant. They belong in message copy, and in the one place the model has adopted them: they are the two values of a Declared Side, which is what a person said they were offering before any relationship existed. They are never roles held on a relationship — those are Leader and Participant.
+_Avoid_: Using these as names for relationship roles, or introducing Group Leader / Group Participant as separate roles
 
 **Discipleship Relationship**:
 The ministry relationship Discipler supports and follows over time: M leaders and N participants. A one-to-one is one leader and one participant; every other shape is a group, and a group may be led by more than one person. There is no separate group concept.
@@ -133,6 +133,10 @@ _Avoid_: calling it a mentor link and a mentee link (there is one link and the s
 **Declared Side**:
 Mentor or Mentee, as a Person answered it on the Discipleship Intake Wizard. It is a preference they stated and never a decision anybody made about them: it shows on their roster row and it does not make them Eligible to Lead, which remains a plan an Admin records. It is read back from their latest intake that asked, so answering the other side later changes what their row says, and a form that asked nothing changes nothing.
 _Avoid_: a role (that is Leader or Participant, decided at pairing), Eligible to Lead (an Admin's plan, never self-declared), and treating an unanswered side as a refusal to offer
+
+**First-Time Answer**:
+Whether a person said this is their first time — being discipled, or mentoring, whichever Declared Side they offered. The question is worded from the side, and the answer is carried as two words rather than as yes and no, because the form words them as statements and a `yes` meaning *first time* reads backwards. It is read on the pairing screen, per candidate, and nowhere else: it ranks nobody and refuses nobody.
+_Avoid_: a suggestion input (ADR-0001 fixes those, and this is not one of them), a filter on the candidate list, and reading an unanswered one as *no*
 
 **Intake Path**:
 Which form a Person was answering, kept on their consent record beside the route they arrived by. The two are separate questions: the path says *which form*, and the route says *a link a pastor sent or a QR code they scanned*.

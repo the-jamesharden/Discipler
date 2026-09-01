@@ -2,7 +2,7 @@ import { importRowId, personId, relationshipId } from '~/domain/ids'
 import { isParticipationStatus, type ParticipationStatus } from '~/domain/participation'
 import { isMemberRole, type MemberRole } from '~/domain/relationships'
 import { intakeLinkState, intakeLinkToken } from '~/domain/intake-link'
-import { isDeclaredSide, type DeclaredSide } from '~/domain/intake'
+import { DECLARED_SIDES, isOneOf, type DeclaredSide } from '~/domain/intake'
 import type {
   IssuedIntakeLink,
   RosterEntry,
@@ -72,7 +72,7 @@ const asPersonRow = (row: unknown): PersonRow => {
   // caught here is the column missing altogether, which is this reader and the
   // function having drifted apart: read as *nothing declared*, a whole Ministry's
   // offers to mentor would vanish from the Roster without a single error.
-  if (side !== null && !isDeclaredSide(side)) {
+  if (side !== null && !isOneOf(DECLARED_SIDES, side)) {
     throw new Error(`A Roster row arrived with a side nothing recognises for ${id}`)
   }
   if (firstTime !== null && typeof firstTime !== 'boolean') {

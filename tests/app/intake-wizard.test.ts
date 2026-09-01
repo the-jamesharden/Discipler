@@ -6,14 +6,19 @@ import {
   doneMessage,
   firstTimeQuestion,
   refusalMessages,
-  sideHint,
   sideLabel,
 } from '../../app/intake/copy'
 import {
   answersAsQuery,
+  asksAt,
+  AVAILABILITY_STEP,
+  FIRST_TIME_STEP,
   furthestStep,
   LAST_STEP,
+  notCarriedAt,
   readWizardAnswers,
+  SCREENS,
+  SIDE_STEP,
   stepToShow,
   stuckOnAvailability,
 } from '../../app/intake/wizard-answers'
@@ -27,7 +32,6 @@ describe('what the wizard says', () => {
   it('words every side-dependent line for both sides', () => {
     for (const side of DECLARED_SIDES) {
       expect(sideLabel[side]).toBeTruthy()
-      expect(sideHint[side]).toBeTruthy()
       expect(firstTimeQuestion[side]).toBeTruthy()
       expect(doneMessage[side]('Riverside Chapel')).toContain('Riverside Chapel')
     }
@@ -63,6 +67,32 @@ describe('what the wizard says', () => {
     expect(refusalMessages('intake.path_unknown')).toEqual([
       'This link is incomplete. Please ask for a new one.',
     ])
+  })
+
+  /**
+   * The availability screen has two sources of problems at once: the codes a
+   * refused submission came back with, and the one the screen raises itself when
+   * Continue is pressed with nothing ticked. A submission refused for an
+   * unreadable grid lands on exactly that screen still holding the rest of its
+   * refusals, and *every problem is reported at once* has to survive it.
+   */
+  it('shows what the submission was refused for and what the screen itself raises', () => {
+    expect(
+      refusalMessages(
+        'intake.name_missing intake.availability_unreadable',
+        'intake.availability_not_selected',
+      ),
+    ).toEqual([
+      'Please give your name.',
+      'Something went wrong reading your times. Please try again.',
+      'Please select at least one time that could work.',
+    ])
+  })
+
+  it('says an overlapping problem once', () => {
+    expect(
+      refusalMessages('intake.availability_not_selected', 'intake.availability_not_selected'),
+    ).toEqual(['Please select at least one time that could work.'])
   })
 })
 
@@ -102,6 +132,89 @@ describe('what the wizard reads back off its own URL', () => {
       experience: null,
       availability: ['monday:midday'],
     })
+  })
+})
+
+/**
+ * The screen list is the wizard's order, and everything else about stepping is
+ * read off it. These assert the properties the rest depends on, rather than the
+ * step numbers, which the tests below already pin.
+ */
+describe('the list the wizard steps through', () => {
+  it('asks for every answer it carries between screens, and asks each of them once', () => {
+    const carried = Object.keys(readWizardAnswers({})).sort()
+    const asked = SCREENS.flatMap((screen) => [...screen.asks]).sort()
+
+    // An answer carried but never asked could not be given; an answer asked on two
+    // screens would be sent twice from the second -- once as its own control and
+    // once as the hidden input carrying it forward.
+    expect(asked).toEqual(carried)
+  })
+
+  it('ends on a screen that gates nothing, because it asks for none of them', () => {
+    expect(asksAt(LAST_STEP)).toEqual([])
+  })
+
+  it('answers for a step outside itself rather than throwing', () => {
+    expect(asksAt(0)).toEqual([])
+    expect(asksAt(LAST_STEP + 1)).toEqual([])
+    expect(notCarriedAt(0)).toEqual([])
+    expect(notCarriedAt(LAST_STEP + 1)).toEqual([])
+  })
+
+  /**
+   * The screens are told apart by name everywhere else, so the names have to be
+   * the screens they say they are. Asserted here rather than in the component,
+   * which is the point of them: nothing outside this module counts screens.
+   */
+  it('names its screens in the order it asks them', () => {
+    expect(SIDE_STEP).toBe(1)
+    expect(FIRST_TIME_STEP).toBe(3)
+    expect(AVAILABILITY_STEP).toBe(4)
+    expect(LAST_STEP).toBe(5)
+  })
+
+  /**
+   * The first-time question is worded from the side, so re-answering the side puts
+   * a different question above an answer already given. Carried forward, an *I have
+   * mentored someone before* would arrive pre-selected under *have you been
+   * discipled before* -- an answer nobody gave, in the one field the pairing surface
+   * reads, and a first-timer recorded as experienced is a mistake nothing
+   * downstream could notice.
+   */
+  it('drops the answer its own question rewords, and carries everything else', () => {
+    expect(notCarriedAt(SIDE_STEP)).toEqual(['side', 'experience'])
+
+    // Every other screen drops only what it is asking for. Somebody correcting
+    // their age keeps the availability they gave after it.
+    for (const step of [2, FIRST_TIME_STEP, AVAILABILITY_STEP, LAST_STEP]) {
+      expect(notCarriedAt(step)).toEqual([...asksAt(step)])
+    }
+  })
+
+  it('asks the first-time question again once the side has been re-answered', () => {
+    const wholeForm = readWizardAnswers({
+      side: 'mentee',
+      ageBand: '25-34',
+      gender: 'female',
+      experience: 'done_before',
+      availability: ['monday:midday'],
+    })
+
+    // What the side screen sends on: everything it neither asks for nor rewords.
+    const dropped: readonly string[] = notCarriedAt(SIDE_STEP)
+    const carriedOn = Object.fromEntries(
+      Object.entries(wholeForm).filter(([field]) => !dropped.includes(field)),
+    )
+    const afterSwitchingSides = readWizardAnswers({ ...carriedOn, side: 'mentor' })
+
+    expect(afterSwitchingSides.experience).toBeNull()
+    // And nothing else is lost on the way: the age, the gender and the grid are
+    // worded from nothing, so re-answering the side has no claim on them.
+    expect(afterSwitchingSides.ageBand).toBe('25-34')
+    expect(afterSwitchingSides.gender).toBe('female')
+    expect(afterSwitchingSides.availability).toEqual(['monday:midday'])
+    expect(furthestStep(afterSwitchingSides)).toBe(FIRST_TIME_STEP)
   })
 })
 
