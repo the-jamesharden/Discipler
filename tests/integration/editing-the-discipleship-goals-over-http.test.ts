@@ -13,10 +13,11 @@ import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app
  * it.
  *
  * The warning is the whole reason this suite exists. Three of the four edits cost
- * nobody anything and could be proved anywhere; removing loses answers that
- * nothing recovers, and *the Admin is told before it happens* is a claim about a
- * screen and a second press. It cannot be proved at the boundary, which has no
- * page to warn anybody on.
+ * nobody anything and could be proved anywhere; removing takes answers off every
+ * live surface for good -- history keeps them, but no screen an Admin has will
+ * ever show them again -- and *the Admin is told before it happens* is a claim
+ * about a screen and a second press. It cannot be proved at the boundary, which
+ * has no page to warn anybody on.
  */
 
 describe.skipIf(skipUnlessAppIsRunning)('the Discipleship Goal settings', () => {

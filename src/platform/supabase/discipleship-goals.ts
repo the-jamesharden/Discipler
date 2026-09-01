@@ -1,6 +1,7 @@
+import { goalWording, type OfferedGoal } from '~/domain/discipleship-goals'
 import { discipleshipGoalId } from '~/domain/intake'
-import type { DiscipleshipGoalListing, DiscipleshipGoalReader } from '~/service/ports'
-import { rows, text } from './rows'
+import type { DiscipleshipGoalReader } from '~/service/ports'
+import { count, rows, text } from './rows'
 import { createSupabaseServerClient } from './server-client'
 
 /**
@@ -19,33 +20,35 @@ import { createSupabaseServerClient } from './server-client'
  * is the screen an Admin removes options from: an option that arrived without its
  * count would offer a removal with no warning attached, which is the one thing
  * this surface exists to prevent.
+ *
+ * `count` is the shared reading of a bigint, and the effect store's read of this
+ * same function uses it too -- the two had drifted into different strictness, and
+ * the lenient one was the one writing the number into history.
  */
-const asOption = (row: Record<string, unknown>): DiscipleshipGoalListing => {
+const asOption = (row: Record<string, unknown>): OfferedGoal => {
   const id = text(row.id)
   const label = text(row.label)
-  // `count(*)` is a bigint, and PostgREST renders those as JSON numbers while the
-  // direct driver hands back strings. Both are accepted and anything else is not:
-  // a count that arrived as neither is a warning nobody could trust.
-  const chosenBy =
-    typeof row.chosen_by === 'number'
-      ? row.chosen_by
-      : typeof row.chosen_by === 'string' && row.chosen_by !== ''
-        ? Number(row.chosen_by)
-        : Number.NaN
+  const position = count(row.list_position)
+  const chosenBy = count(row.chosen_by)
 
   if (id === null) throw new Error('A Discipleship Goal option arrived with no id')
   if (label === null) {
     throw new Error(`A Discipleship Goal option arrived with no wording: ${id}`)
   }
-  if (!Number.isInteger(chosenBy)) {
+  if (position === null) {
+    throw new Error(`A Discipleship Goal option arrived with no place on the list: ${id}`)
+  }
+  if (chosenBy === null) {
     throw new Error(`No count of who chose Discipleship Goal ${id} came back`)
   }
 
-  return { id: discipleshipGoalId(id), label, chosenBy }
+  // The column is the authority on its own wording: it is what `readGoalWording`
+  // wrote, and `unique (ministry_id, label)` has held it since.
+  return { id: discipleshipGoalId(id), label: goalWording(label), position, chosenBy }
 }
 
 export const supabaseDiscipleshipGoalReader: DiscipleshipGoalReader = {
-  async listDiscipleshipGoals(ministryId): Promise<readonly DiscipleshipGoalListing[]> {
+  async listDiscipleshipGoals(ministryId): Promise<readonly OfferedGoal[]> {
     const supabase = await createSupabaseServerClient()
 
     // A function rather than a table read plus a count of its own. The count is

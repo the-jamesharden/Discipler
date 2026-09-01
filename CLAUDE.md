@@ -25,6 +25,7 @@ source documents. Subagents: your task prompt is your scope, not this list.
 - Do not begin implementation during product-definition or grilling work unless explicitly asked.
 - Treat `docs/reference/` as historical product evidence. If newer decisions conflict with reference material, surface the conflict explicitly.
 - `CONTEXT.md` is a glossary only. Do not turn it into a specification, scratchpad, or implementation document.
+- No `CONTEXT.md` entry states a duration or a cap that a doc or a constant already owns. Name the concept and point at where the number is enforced.
 - ADRs are for consequential, hard-to-reverse, surprising decisions with a real trade-off. Do not use ADRs as a diary.
 
 ## Product guardrail

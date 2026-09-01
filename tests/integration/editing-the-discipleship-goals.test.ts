@@ -1,6 +1,7 @@
 import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createTestClock } from '~/domain/clock'
+import { goalWording } from '~/domain/discipleship-goals'
 import { GoalRefused, IntakeRefused } from '~/domain/errors'
 import type { IdSource } from '~/domain/ids'
 import { discipleshipGoalId } from '~/domain/intake'
@@ -22,9 +23,12 @@ import {
  *
  * Renaming keeps the row, so it keeps every answer pointing at it. Removing
  * deletes the row, and `on delete set null` blanks those answers -- which is the
- * loss the Admin has to be warned about, and which nothing recovers. The one
- * removal that is refused outright is the last option, because a Ministry with no
- * options cannot serve the Intake form its own link opens.
+ * loss the Admin has to be warned about, and which no query recovers afterwards.
+ * What does survive it is the `discipleship_goal.removed` event, written from a
+ * read taken before the delete in the same transaction: ADR-0014's bargain is that
+ * the live surface loses the answer and the record does not. The one removal that
+ * is refused outright is the last option, because a Ministry with no options
+ * cannot serve the Intake form its own link opens.
  */
 
 describe('a Ministry’s Discipleship Goal options', () => {
@@ -160,7 +164,7 @@ describe('a Ministry’s Discipleship Goal options', () => {
       goalId: goal,
     })
 
-    // Her stated goal is gone and nothing recovers it.
+    // Her stated goal is off every live surface, and no query puts it back.
     expect(await goalChosenBy(person)).toBeNull()
 
     // Her Intake and her availability are not. She stays pairable, ranked on
@@ -194,13 +198,22 @@ describe('a Ministry’s Discipleship Goal options', () => {
     await service().execute({ type: 'goal.remove', ministryId: ministry.id, goalId: goal })
 
     const { rows } = await pool.query<{
-      payload: { label: string; answersLost: number }
+      payload: {
+        label: string
+        answersLost: number
+        blankedAnswers: readonly { submissionId: string; personId: string }[]
+      }
     }>(
       `select payload from ministry_event
         where subject_id = $1 and type = 'discipleship_goal.removed'`,
       [goal],
     )
-    expect(rows[0]?.payload).toEqual({ label: 'Leadership and serving', answersLost: 2 })
+    expect(rows[0]?.payload.label).toBe('Leadership and serving')
+    expect(rows[0]?.payload.answersLost).toBe(2)
+    // The rows themselves, and not only how many there were. The submissions are
+    // blanked in the same transaction that writes this, so afterwards nothing in
+    // the database can say these two people ever chose it -- except this.
+    expect(rows[0]?.payload.blankedAnswers).toHaveLength(2)
   })
 
   it('counts the people who chose an option, not the submissions that named it', async () => {
@@ -226,12 +239,68 @@ describe('a Ministry’s Discipleship Goal options', () => {
 
     await service().execute({ type: 'goal.remove', ministryId: ministry.id, goalId: goal })
 
-    const { rows } = await pool.query<{ payload: { answersLost: number } }>(
+    const { rows } = await pool.query<{
+      payload: {
+        answersLost: number
+        blankedAnswers: readonly { submissionId: string; personId: string }[]
+      }
+    }>(
       `select payload from ministry_event
         where subject_id = $1 and type = 'discipleship_goal.removed'`,
       [goal],
     )
+
+    // One person was warned about and three rows were blanked, which is the whole
+    // difference between the two numbers: Ruth answered twice and Sam's older
+    // answer still named it. The Admin decides about people; the record has to
+    // list rows, because a row is what the delete actually took.
     expect(rows[0]?.payload.answersLost).toBe(1)
+    expect(rows[0]?.payload.blankedAnswers).toHaveLength(3)
+    expect(
+      new Set(rows[0]?.payload.blankedAnswers.map((answer) => answer.personId)).size,
+    ).toBe(2)
+    expect(new Set(rows[0]?.payload.blankedAnswers.map((a) => a.personId))).toContain(
+      moved,
+    )
+  })
+
+  it('remembers who chose an option once the answers themselves are blanked', async () => {
+    // The whole of ADR-0014's exemption, end to end. The submission loses its
+    // pointer and there is no undo; what makes the loss recoverable is that the
+    // rows were written into the event before the delete ran, so a Ministry can
+    // still answer *who used to want this* from its own history alone.
+    await service().execute({
+      type: 'goal.add',
+      ministryId: ministry.id,
+      label: 'Prayer and fasting',
+    })
+    const goal = await optionCalled('Prayer and fasting')
+    const person = await addPerson(ministry, 'Tomas Iglesias', {
+      phone: aNumber(),
+      answers: { goalId: goal },
+    })
+
+    await service().execute({ type: 'goal.remove', ministryId: ministry.id, goalId: goal })
+
+    // Gone from the live surface: this is what the Admin was warned about, and it
+    // is still true.
+    expect(await goalChosenBy(person)).toBeNull()
+
+    // And recoverable from history, which is what the warning does not have to say.
+    const { rows: removed } = await pool.query<{
+      payload: {
+        label: string
+        blankedAnswers: readonly { personId: string }[]
+      }
+    }>(
+      `select payload from ministry_event
+        where subject_id = $1 and type = 'discipleship_goal.removed'`,
+      [goal],
+    )
+    expect(removed[0]?.payload.label).toBe('Prayer and fasting')
+    expect(removed[0]?.payload.blankedAnswers.map((answer) => answer.personId)).toEqual([
+      person,
+    ])
   })
 
   it('refuses to leave a Ministry with no options at all', async () => {
@@ -365,7 +434,7 @@ describe('a Ministry’s Discipleship Goal options', () => {
         unit.addDiscipleshipGoal({
           id: discipleshipGoalId(crypto.randomUUID()),
           ministryId: racing.id,
-          label: offered,
+          label: goalWording(offered),
           position: 99,
           createdAt: at,
         }),
@@ -386,7 +455,7 @@ describe('a Ministry’s Discipleship Goal options', () => {
         unit.removeDiscipleshipGoal({
           ministryId: racing.id,
           goalId: survivor,
-          label: offered,
+          label: goalWording(offered),
           chosenBy: 0,
         }),
       ),

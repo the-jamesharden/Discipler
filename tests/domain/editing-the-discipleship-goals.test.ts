@@ -2,10 +2,19 @@ import { describe, expect, it } from 'vitest'
 import { handleCommand, type CommandContext } from '~/domain/boundary'
 import { createTestClock } from '~/domain/clock'
 import type { Command } from '~/domain/commands'
-import type { OfferedGoal } from '~/domain/discipleship-goals'
+import {
+  goalWording,
+  type OfferedGoal,
+  type StatedGoal,
+} from '~/domain/discipleship-goals'
 import type { Effect } from '~/domain/effects'
 import { GoalRefused } from '~/domain/errors'
-import { createSequentialIds, ministryId } from '~/domain/ids'
+import {
+  createSequentialIds,
+  intakeSubmissionId,
+  ministryId,
+  personId,
+} from '~/domain/ids'
 import { discipleshipGoalId } from '~/domain/intake'
 
 /**
@@ -28,17 +37,42 @@ const marriage = discipleshipGoalId('00000000-0000-4000-8000-0000000000b3')
 const at = new Date('2026-09-14T10:00:00Z')
 
 const theList: readonly OfferedGoal[] = [
-  { id: basics, label: 'Growing in the basics of faith', position: 1, chosenBy: 4 },
-  { id: career, label: 'Career and calling', position: 2, chosenBy: 0 },
-  { id: marriage, label: 'Marriage and family', position: 3, chosenBy: 7 },
+  { id: basics, label: goalWording('Growing in the basics of faith'), position: 1, chosenBy: 4 },
+  { id: career, label: goalWording('Career and calling'), position: 2, chosenBy: 0 },
+  { id: marriage, label: goalWording('Marriage and family'), position: 3, chosenBy: 7 },
 ]
 
-const edit = (command: Command, goals: readonly OfferedGoal[] = theList) =>
+/**
+ * Seven people chose *Marriage and family*, and one of them said so twice --
+ * answering once in the spring and again in the autumn. The count an Admin is
+ * warned with is people, so it is seven; the rows a removal blanks are eight.
+ */
+const marriageAnswers: readonly StatedGoal[] = [
+  ...Array.from({ length: 7 }, (_unused, index) => ({
+    submissionId: intakeSubmissionId(`00000000-0000-4000-8000-0000000000${10 + index}`),
+    personId: personId(`00000000-0000-4000-8000-0000000000${20 + index}`),
+    submittedAt: new Date('2026-09-01T09:00:00Z'),
+  })),
+  // The same Person as the first row above, answering a second time. Superseded,
+  // so it is not in the count -- and blanked all the same, so it is in the record.
+  {
+    submissionId: intakeSubmissionId('00000000-0000-4000-8000-000000000019'),
+    personId: personId('00000000-0000-4000-8000-000000000020'),
+    submittedAt: new Date('2026-03-01T09:00:00Z'),
+  },
+]
+
+const edit = (
+  command: Command,
+  goals: readonly OfferedGoal[] = theList,
+  goalAnswers: readonly StatedGoal[] = marriageAnswers,
+) =>
   handleCommand(command, {
     ministryId: ministry,
     clock: createTestClock(at),
     ids: createSequentialIds(),
     goals,
+    goalAnswers,
   } satisfies CommandContext)
 
 const added = (effects: readonly Effect[]) =>
@@ -75,8 +109,8 @@ describe('adding a Discipleship Goal option', () => {
     // A removal leaves a gap. Counting the options instead would put the new one
     // on a position something else already holds.
     const gapped: readonly OfferedGoal[] = [
-      { id: basics, label: 'Growing in the basics of faith', position: 1, chosenBy: 0 },
-      { id: marriage, label: 'Marriage and family', position: 3, chosenBy: 0 },
+      { id: basics, label: goalWording('Growing in the basics of faith'), position: 1, chosenBy: 0 },
+      { id: marriage, label: goalWording('Marriage and family'), position: 3, chosenBy: 0 },
     ]
 
     const { effects } = edit(
@@ -231,8 +265,8 @@ describe('moving a Discipleship Goal option', () => {
 
   it('rewrites positions that had drifted, rather than carrying the gaps forward', () => {
     const gapped: readonly OfferedGoal[] = [
-      { id: basics, label: 'Growing in the basics of faith', position: 2, chosenBy: 0 },
-      { id: career, label: 'Career and calling', position: 9, chosenBy: 0 },
+      { id: basics, label: goalWording('Growing in the basics of faith'), position: 2, chosenBy: 0 },
+      { id: career, label: goalWording('Career and calling'), position: 9, chosenBy: 0 },
     ]
 
     const { effects } = edit(
@@ -312,14 +346,56 @@ describe('removing a Discipleship Goal option', () => {
         type: 'discipleship_goal.removed',
         subjectType: 'discipleship_goal',
         subjectId: marriage,
-        payload: { label: 'Marriage and family', answersLost: 7 },
+        payload: {
+          label: 'Marriage and family',
+          answersLost: 7,
+          blankedAnswers: marriageAnswers.map((answer) => ({
+            submissionId: answer.submissionId,
+            personId: answer.personId,
+            submittedAt: answer.submittedAt.toISOString(),
+          })),
+        },
       },
     ])
   })
 
+  it('records every row the delete blanks, not only the people it was counted as', () => {
+    // The warning is about people and the delete is about rows, and the two are
+    // different numbers wherever anybody answered twice. The larger set is the one
+    // written down -- a superseded answer is still an answer that pointed here, and
+    // after the removal nothing else can say it did.
+    const { effects } = edit({ type: 'goal.remove', ministryId: ministry, goalId: marriage })
+    const [event] = history(effects)
+    const payload = event!.payload as {
+      answersLost: number
+      blankedAnswers: readonly { personId: string }[]
+    }
+
+    expect(payload.answersLost).toBe(7)
+    expect(payload.blankedAnswers).toHaveLength(8)
+    expect(new Set(payload.blankedAnswers.map((answer) => answer.personId)).size).toBe(7)
+  })
+
+  it('will not record a removal whose answers were never read', () => {
+    // Absent and empty are opposite facts. A removal that recorded *it cost
+    // nothing* because the read never happened is the one record nobody can go
+    // back for, so this fails loudly rather than writing an empty list.
+    expect(() =>
+      handleCommand(
+        { type: 'goal.remove', ministryId: ministry, goalId: marriage },
+        {
+          ministryId: ministry,
+          clock: createTestClock(at),
+          ids: createSequentialIds(),
+          goals: theList,
+        } satisfies CommandContext,
+      ),
+    ).toThrow('No answers were loaded for the Discipleship Goal being removed')
+  })
+
   it('refuses the last one, because Intake could not then be served', () => {
     const one: readonly OfferedGoal[] = [
-      { id: basics, label: 'Growing in the basics of faith', position: 1, chosenBy: 4 },
+      { id: basics, label: goalWording('Growing in the basics of faith'), position: 1, chosenBy: 4 },
     ]
 
     expect(() =>

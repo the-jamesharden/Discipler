@@ -128,6 +128,36 @@ describe('Completing Intake', () => {
     expect(rows[0].submissions).toBe(2)
   })
 
+  it('records the option they chose in history, where a removal cannot reach it', async () => {
+    // `intake_submission.discipleship_goal_id` is blanked if the Ministry ever
+    // removes this option, and the row is then the only place that said what they
+    // picked. So the submission event says it too, the same way it records the name
+    // they gave -- and ADR-0014's exemption stays bounded by what history keeps.
+    //
+    // The id and not the wording: the wording is the option's own and moves under a
+    // rename, and `discipleship_goal.renamed` is what resolves an id to the words
+    // that stood on a given date.
+    const goal = await firstGoalId()
+    const person = await addPerson(ministry, 'Hannah Beck', {
+      intake: false,
+      phone: '+15552340012',
+    })
+
+    await service().execute({
+      type: 'intake.submit',
+      ministryId: ministry.id,
+      form: await form({ fullName: 'Hannah Beck', phone: '5552340012' }),
+    })
+
+    const { rows } = await pool.query(
+      `select payload from ministry_event
+        where subject_id = $1 and type = 'intake.submitted'`,
+      [person],
+    )
+    expect(rows).toHaveLength(1)
+    expect(rows[0].payload.goalId).toBe(goal)
+  })
+
   it('records the two consents separately, each with its own version, time and route', async () => {
     await service().execute({
       type: 'intake.submit',

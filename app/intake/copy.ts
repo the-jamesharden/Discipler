@@ -54,9 +54,16 @@ const REFUSALS: Record<IntakeRefusal, string> = {
     + 'ask whoever sent you this link.',
   // Said as *no longer offered* rather than as an error, because nothing they did
   // was wrong: the ministry changed its list while this form was open.
+  //
+  // It says the form is empty rather than promising it is not. Every refusal on
+  // this page comes back as a code on the query string and nothing else -- a name
+  // and a number are not going in a URL -- so the form re-renders blank, and a
+  // message claiming otherwise would have somebody hunting for the answers it said
+  // were there.
   'intake.goal_no_longer_offered':
-    'That option is no longer one this ministry offers. Please choose from the list '
-    + 'as it stands now — everything else you entered is still here.',
+    'That option is no longer one this ministry offers: the ministry changed its list '
+    + 'while this form was open. Nothing was saved, so please fill the form in again '
+    + 'and choose from the list as it stands now.',
 }
 
 // `Object.hasOwn` and never `in`, which walks the prototype chain: `__proto__` and

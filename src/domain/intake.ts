@@ -133,9 +133,11 @@ export type IntakeRefusal =
    * A form field cannot produce it either: the list was on the page when it was
    * served, and stopped being true before it came back.
    *
-   * It reaches them as a refusal rather than as a failure because everything else
-   * they typed is still good -- their name, their number, the grid, the consents --
-   * and the form re-renders around one answer they now have to give again.
+   * It reaches them as a refusal rather than as a failure because nothing they did
+   * was wrong and nothing of theirs landed: the whole submission rolls back with
+   * it, so they are asked again rather than half-recorded. The form itself comes
+   * back empty, like it does after every refusal on this page -- what travels back
+   * is the code and nothing else.
    */
   | 'intake.goal_no_longer_offered'
 

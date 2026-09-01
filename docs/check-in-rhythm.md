@@ -154,7 +154,7 @@ Mon 18:40  Ruth → 2
 Mon 18:40  → Naomi  "Did you meet with Iris this week? …"      released by Ruth's answer
 ```
 
-Serialization governs scheduled traffic — the check-in rhythm and the participant-facing messages around it. It never governs a reply to something the person just sent.
+Serialisation governs scheduled traffic — the check-in rhythm and the participant-facing messages around it. It never governs a reply to something the person just sent.
 
 **A message expecting no reply holds nothing.** The welcome message, the starter message, the closing thank-you, a clarification and a next-day reminder are never open and never make a number busy. A starter message that opened a conversation would block its own relationship's first check-in, and a reminder held behind the very question it re-sends could only be released by the timeout that makes it pointless.
 

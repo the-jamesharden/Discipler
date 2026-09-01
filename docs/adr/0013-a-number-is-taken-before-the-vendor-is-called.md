@@ -21,8 +21,8 @@ inside the queue worker's row lock, so concurrent workers cannot both send*.
 Two workers draining one Ministry at once lock two different rows. Row locks alone
 therefore serialise nothing here: what the two workers contend for is the **number**,
 which is on neither row lock's path. The thing that actually serialises them is the
-partial unique index on `outbound_message (prompt_key) where prompt_state = 'open'` —
-and an index only serialises writes that have happened.
+partial unique index on `outbound_message (ministry_id, prompt_key) where prompt_state
+= 'open'` — and an index only serialises writes that have happened.
 
 That is what forces the ordering. There are two places the write can go:
 
@@ -49,6 +49,15 @@ any supersession the claim caused: a keyword question that preempted a check-in 
 and then failed to deliver leaves that question superseded rather than restoring it. A
 Leader mid-keyword is mid-keyword whether or not the confirmation reached them, and
 re-opening a question they have moved on from is the worse of the two wrongs.
+
+The index is keyed on `(ministry_id, prompt_key)` rather than on the number alone, so
+what is serialised is a number *within a Ministry*. One handset reachable in two
+Ministries therefore holds two conversations, one per tenant. That is deliberate: every
+read on this path is bounded by `app.command_ministry_id()`, so a global key would let
+one congregation's open question hold another's message with neither side able to see
+the row holding it or to sweep it. Whether one handset in two Ministries is one
+conversation is ticket 26's question, and it is not answered here by making a tenant
+wait on a row it may not read.
 
 A worker killed between the claim and the vendor call leaves a number taken by a message
 that never went out. It is bounded rather than permanent — but only because the sweep is

@@ -13,6 +13,10 @@ export type OutboundMessageId = Branded<string, 'OutboundMessageId'>
 export type FollowUpItemId = Branded<string, 'FollowUpItemId'>
 export type ConcernId = Branded<string, 'ConcernId'>
 export type MaterialId = Branded<string, 'MaterialId'>
+/** Minted by the database rather than the boundary, like `EventId`: the row is
+ * the identifier's source, and nothing needs to name a submission before it
+ * exists. */
+export type IntakeSubmissionId = Branded<string, 'IntakeSubmissionId'>
 
 export const ministryId = (value: string): MinistryId => value as MinistryId
 export const personId = (value: string): PersonId => value as PersonId
@@ -23,6 +27,8 @@ export const outboundMessageId = (value: string): OutboundMessageId =>
 export const followUpItemId = (value: string): FollowUpItemId => value as FollowUpItemId
 export const concernId = (value: string): ConcernId => value as ConcernId
 export const materialId = (value: string): MaterialId => value as MaterialId
+export const intakeSubmissionId = (value: string): IntakeSubmissionId =>
+  value as IntakeSubmissionId
 
 /**
  * Where new identifiers come from. Injected for the same reason the clock is: a

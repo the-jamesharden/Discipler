@@ -1,13 +1,15 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 /**
- * Reading a PostgREST response, for every adapter in this directory.
+ * Reading a row back, for every adapter in this directory -- whether it arrived
+ * through PostgREST or through the driver.
  *
- * These three were written out per file until two of them drifted: `rows` and
- * `text` stood letter-for-letter in both the Care Needed reader and the Leader
- * Dashboard, and each surface had grown its own id-to-name query on top of them.
- * A helper that means the same thing in two files is one helper, and a difference
- * between the copies is a bug nobody would go looking for.
+ * These were written out per file until they drifted: `rows` and `text` stood
+ * letter-for-letter in both the Care Needed reader and the Leader Dashboard, and
+ * each surface had grown its own id-to-name query on top of them. A helper that
+ * means the same thing in two files is one helper, and a difference between the
+ * copies is a bug nobody would go looking for -- which is exactly what happened to
+ * the two readings of `count(*)` that `count` below now replaces.
  */
 
 /**
@@ -61,4 +63,28 @@ export const lookup = async <T>(
       return id !== null && value !== null ? [[id, value] as const] : []
     }),
   )
+}
+
+/**
+ * A `count(*)` column as a number, or null where it came back as neither of the
+ * two things a count arrives as.
+ *
+ * Both transports are accepted because both are used on the same SQL function:
+ * `count(*)` is a bigint, PostgREST renders those as JSON numbers, and `pg` hands
+ * them back as strings -- most of a bigint's range does not survive a JavaScript
+ * number, and a congregation's worth of answers comfortably does.
+ *
+ * Null rather than `NaN` or a silent zero. The one caller that cannot tolerate a
+ * wrong answer here is the removal warning, where a count that arrived as neither
+ * is a number nobody could trust -- and zero would read as *removing this costs
+ * nobody anything*.
+ */
+export const count = (value: unknown): number | null => {
+  const read =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string' && value !== ''
+        ? Number(value)
+        : Number.NaN
+  return Number.isInteger(read) ? read : null
 }

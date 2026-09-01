@@ -112,6 +112,30 @@ describe('one conversation per phone', () => {
     }
   }
 
+  /**
+   * Waits until a `claim` is parked on the unique index, rather than guessing at it
+   * with a timer.
+   *
+   * A worker taking a number that another transaction has taken and not yet
+   * committed does not fail and does not proceed: the index makes it wait on that
+   * transaction. Postgres says so in `pg_stat_activity`, so the test reads it there
+   * -- a fixed delay would be the difference between proving the block and
+   * usually observing it.
+   */
+  const blockedOnTheOpenReplyIndex = async () => {
+    for (let attempt = 0; attempt < 400; attempt++) {
+      const { rows } = await pool.query(
+        `select 1 from pg_stat_activity
+          where state = 'active' and wait_event_type = 'Lock'
+            and query like '%reply_opened_at%'
+          limit 1`,
+      )
+      if (rows.length > 0) return
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    }
+    throw new Error('the second worker never reached the index')
+  }
+
   // A Monday at nine, which is the default cadence, so a suite that stays inside
   // one ISO week has no second check-in falling due in the middle of it.
   const monday = new Date('2026-10-05T09:00:00Z')
@@ -203,8 +227,10 @@ describe('one conversation per phone', () => {
     await pairOneToOne(world.ministry, sam, grace)
 
     // A Starter Message, put on the queue directly because acceptance is not what
-    // is under test. What is, is that it opens no conversation: one that did would
-    // block its own relationship's very first check-in.
+    // is under test. What is, is that the queue lets a `no_reply` row past without
+    // taking the number. That acceptance actually enqueues the Starter Message as
+    // `no_reply` -- the other half of the claim, and the one this row asserts
+    // nothing about -- is `tests/domain/accepting-an-invitation`'s.
     await pool.query(
       `insert into outbound_message
          (ministry_id, person_id, to_phone, body, enqueued_at, prompt_key, message_kind)
@@ -372,9 +398,6 @@ describe('one conversation per phone', () => {
     const handset = aNumber()
     const leah = await world.congregant('Leah Osei', handset)
 
-    // Two scheduled questions on one number, put on the queue directly so the race
-    // is the only variable. Both workers see a free number if either is allowed to
-    // ask before it commits.
     const { rows } = await pool.query<{ id: string }>(
       `insert into outbound_message
          (ministry_id, person_id, to_phone, body, enqueued_at, prompt_key, message_kind)
@@ -383,20 +406,44 @@ describe('one conversation per phone', () => {
        returning id`,
       [world.ministry.id, leah, handset, monday],
     )
+    const [first, second] = rows.map((row) => row.id) as [string, string]
 
-    const asWorker = (id: string) =>
-      queue.claim(
+    // The losing interleaving, held open rather than raced for. Two `claim` calls
+    // fired at once would usually have the first one *committed* before the second
+    // one looks, and the second would then be refused by the ordinary busy check --
+    // the case that needs no index at all. So the first worker is played by hand,
+    // and stopped between taking the number and committing it.
+    const firstWorker = await pool.connect()
+    try {
+      await firstWorker.query('begin')
+      await firstWorker.query(
+        `update outbound_message set prompt_state = 'open', reply_opened_at = $2
+          where id = $1`,
+        [first, monday],
+      )
+
+      // Uncommitted, so the second worker's busy check reads the number as free.
+      // This is precisely what the row locks cannot catch: two workers, two
+      // different rows, nothing shared but the key.
+      const secondWorker = queue.claim(
         world.ministry.id,
-        world.queueRow(id),
+        world.queueRow(second),
         serialisationOf('scheduled_question'),
         monday,
       )
 
-    const outcomes = await Promise.all(rows.map((row) => asWorker(row.id)))
+      // It gets past the check and blocks on the index, which is where it stays
+      // until the first worker commits or aborts. Waited for rather than slept
+      // through, so the test proves the block instead of hoping for it.
+      await blockedOnTheOpenReplyIndex()
+      await firstWorker.query('commit')
 
-    // Exactly one of them may send. Which one is not the point and is not asserted.
-    expect(outcomes.filter((outcome) => outcome === 'claimed')).toHaveLength(1)
-    expect(outcomes.filter((outcome) => outcome === 'held')).toHaveLength(1)
+      // And the index, not the check, is what refuses it -- reported as the same
+      // `held` a busy number gets, because it means the same thing to a dispatcher.
+      expect(await secondWorker).toBe('held')
+    } finally {
+      firstWorker.release()
+    }
 
     const open = (await world.conversationsOn(handset)).filter(
       (row) => row.prompt_state === 'open',
