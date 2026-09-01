@@ -32,8 +32,16 @@ on a group-versus-one-to-one flag still holds.
 rejected for the reason it was raised with — it cannot express *this is a women's group
 that currently has one member*, and a silent derivation binds people to something nobody
 chose. So the Pair form carries three answers, none of them checked, and the domain
-refuses a group that declared nothing. A one-to-one is asked nothing, as the ticket says
-it should not be.
+refuses a group that declared nothing.
+
+The ticket says a one-to-one "should never be asked", and **the form asks it anyway** --
+one fieldset serves both shapes, with the legend carrying the distinction. This is a
+departure and it is deliberate: without JavaScript the browser cannot tell a group from
+a one-to-one until the boxes are ticked, so hiding the question for a pair would mean
+knowing the answer before the Admin gave it. The *rule* is honoured where it can be --
+the domain requires a declaration of a group and takes a one-to-one without one. An
+Admin who answers anyway is held to what they said rather than having it discarded,
+because discarding it silently is the no-op this ticket rules out.
 
 **Also settled:** a declaration binds whether or not the Ministry has turned
 `suggest_gender_match` off. That setting is the deliberate disable for the rule Discipler
@@ -92,3 +100,40 @@ argument the leader checkboxes already make.
 `docs/adr/0004-relationship-kind-as-capacity-declaration.md` carries a second amendment.
 The first one's headline — *a group may be mixed* — is corrected rather than quietly
 replaced, because it was argued for at length and a reader will find it.
+
+### Found by the review — two triggers were missing an update
+
+`relationship_member_matches_declared_gender_on_reopen` copied its WHEN clause from
+`20260828000300`, which names *the two updates that can introduce a mismatch*:
+reopening a closed membership, and moving one onto a different Person. There is a third
+for this rule, because it is a property of the relationship row rather than of the
+member set — `update relationship_member set relationship_id = ...` re-scopes a
+membership to a different declaration while the Person and `ended_at` sit still. The
+composite foreign key carries `kind` and deliberately not `declared_gender`, so nothing
+else caught it. A woman could be moved into a declared men's group.
+
+**The shipped one-to-one trigger had the same hole**, since `20260828000300`, and this
+review is what found it. A membership moved from one one-to-one onto another leaves two
+people of different genders alone together. Corrected in the same migration rather than
+deferred: it is one clause of the same rule, found by the same reasoning, and a known
+safeguarding hole is not a thing to schedule. Both have a test.
+
+### Raised, not resolved — a correction to Intake can contradict a relationship
+
+Both halves of the Gender Rule are checked when somebody *joins*. Intake can be
+re-submitted afterwards and the latest answer is the one that counts, so a declared
+women's group can come to hold a man with no refusal anywhere. Older than this ticket
+and true of the one-to-one rule too.
+
+Every way of closing it is a product decision with a cost — refuse the correction, end
+the relationship, or raise a Follow-Up Item — so it is parked in
+`docs/open-questions.md` rather than answered here.
+
+### Stated, not fixed — existing relationships can never declare
+
+The migration adds a nullable column with no backfill, and the declaration is immutable.
+Taken together, every relationship formed before this migration declares nothing and
+always will. There is no answer to backfill with: an existing group's members happening
+to share a gender is not the same fact as somebody having said the group is for them.
+Its way to become a men's group is the way any relationship changes what it is — end it
+and form a new one.

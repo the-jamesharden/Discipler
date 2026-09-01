@@ -202,6 +202,30 @@ describe('pairing and the two constraints', () => {
     ).rejects.toThrow(/same gender/i)
   })
 
+  it('refuses a membership moved onto a one-to-one it does not match', async () => {
+    // The same third update the declared-gender rule has. Neither the Person nor
+    // `ended_at` moves, so the reopen trigger's WHEN clause does not fire on it.
+    const her = await woman('Sasha Trent')
+    const herPartner = await woman('Tess Udall')
+    await pair(her, [herPartner])
+
+    const him = await man('Ulf Vance')
+    const hisPartner = await man('Vic Wold')
+    await pair(him, [hisPartner])
+
+    const { rows } = await pool.query(
+      `select relationship_id from relationship_member where person_id = $1`,
+      [hisPartner],
+    )
+
+    await expect(
+      pool.query(
+        `update relationship_member set relationship_id = $1 where person_id = $2`,
+        [rows[0].relationship_id, herPartner],
+      ),
+    ).rejects.toThrow(/same gender/i)
+  })
+
   it('reads the latest Intake, because a correction is the answer that counts', async () => {
     const leader = await man('Peter Rowe')
     const participant = await woman('Quinn Steele')

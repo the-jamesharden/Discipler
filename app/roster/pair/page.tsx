@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { currentAdmin } from '~/platform/supabase/current-admin'
 import { getRosterReader } from '~/service/container'
 import { pairingRefusalMessage } from '../copy'
+import { DECLARATIONS } from '../declared-gender'
 
 export const dynamic = 'force-dynamic'
 
@@ -65,16 +66,10 @@ export default async function PairPage({
   const preselectedLeaders = onlyKnownPeople(query.leaderId)
 
   /**
-   * What they declared last time, on a submission coming back refused. Looked up
+   * What they declared last time, on a submission coming back refused. Compared
    * against the three answers rather than rendered, like every other value that
-   * arrived in a query string -- and nothing is checked on a first visit, because
-   * the question has no default and a preselected radio would answer it for them.
+   * arrived in a query string.
    */
-  const DECLARATIONS = [
-    { value: 'male', label: 'A men\u2019s group \u2014 everybody in it is a man' },
-    { value: 'female', label: 'A women\u2019s group \u2014 everybody in it is a woman' },
-    { value: 'mixed', label: 'Mixed \u2014 men and women together' },
-  ] as const
   const declaredBefore = [query.declaredGender ?? []].flat()[0]
 
   return (
@@ -154,16 +149,21 @@ export default async function PairPage({
               Asked outright, with nothing preselected. A group's gender is not
               implied by anybody in it -- *this is a women's group that currently has
               one member* is true and nothing in the membership says it -- so the
-              product does not derive it and does not guess. It is left off a
-              one-to-one, whose gender *is* the two people in it, and where the
-              absolute match holds whatever anybody ticks; the domain is what knows
-              which shape this is, so this fieldset asks unconditionally and says
-              plainly who it is for.
+              product does not derive it and does not guess.
+
+              It is one fieldset for both shapes, and the legend carries the
+              distinction. A one-to-one should be asked nothing -- its gender *is* the
+              two people in it -- but the browser cannot tell a group from a one-to-one
+              until the boxes are ticked, so a form that hid this for a pair would have
+              to know the answer before the Admin gave it. The domain is what knows the
+              shape: it requires an answer of a group and takes a one-to-one without
+              one. An Admin who answers anyway is held to what they said rather than
+              having it discarded, which is the refusal-over-silence rule the rest of
+              this screen follows.
 
               No `required`, for the reason the leader checkboxes have none: the rule
-              is *a group must declare*, the browser cannot tell a group from a
-              one-to-one until the boxes are ticked, and half-enforcing it here would
-              leave the real rule in two places.
+              is *a group must declare*, the browser cannot express that, and
+              half-enforcing it here would leave the real rule in two places.
             */}
             <fieldset>
               <legend>If this is a group, what kind of group is it?</legend>

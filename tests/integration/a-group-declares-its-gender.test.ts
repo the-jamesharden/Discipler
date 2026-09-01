@@ -202,6 +202,36 @@ describe('a group that declared its gender', () => {
     ).rejects.toThrow(/declared/i)
   })
 
+  it('refuses a membership moved onto a relationship declaring another gender', async () => {
+    // The third update that can introduce a mismatch, and the one the one-to-one
+    // rule does not have: this rule is a property of the *relationship row*, so
+    // changing which relationship a membership is on changes which declaration
+    // applies to it. Neither the Person nor `ended_at` moves, and the composite
+    // foreign key carries `kind` rather than `declared_gender`, so nothing else
+    // would catch it.
+    const hers = await woman('Ada Bright')
+    const herFirst = await woman('Bea Colton')
+    const herSecond = await woman('Cass Drew')
+    await form([hers], [herFirst, herSecond], 'female')
+
+    const his = await man('Dan Everett')
+    const hisFirst = await man('Eli Fenn')
+    const hisSecond = await man('Fox Gale')
+    await form([his], [hisFirst, hisSecond], 'male')
+
+    const { rows } = await pool.query(
+      `select relationship_id from relationship_member where person_id = $1`,
+      [hisFirst],
+    )
+
+    await expect(
+      pool.query(
+        `update relationship_member set relationship_id = $1 where person_id = $2`,
+        [rows[0].relationship_id, herFirst],
+      ),
+    ).rejects.toThrow(/declared/i)
+  })
+
   it('is immutable, because a constraint that can be switched off is not a constraint', async () => {
     const leader = await man('Xander Ames')
     const first = await man('Yusuf Bell')

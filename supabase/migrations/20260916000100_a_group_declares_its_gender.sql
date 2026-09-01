@@ -39,6 +39,17 @@
 -- This is read by a trigger that already opens the relationship row, so the copy
 -- would buy nothing and would need a fourth column in the composite key to keep it
 -- honest.
+-- Every relationship that already exists becomes one declaring nothing, which for a
+-- group means mixed. There is no backfill, because there is no answer to backfill
+-- *with*: the members of an existing group happening to share a gender is not the same
+-- fact as somebody having said the group is for them, and inventing the declaration
+-- would be the silent derivation this ticket rejected, applied retroactively to
+-- relationships nobody was asked about.
+--
+-- The consequence, stated so it is not discovered later: taken with the immutability
+-- trigger below, a group formed before this migration can never declare a gender. Its
+-- way to become a men's group is the way any relationship changes what it is -- end it
+-- and form a new one, which is also what the history should say happened.
 alter table relationship add column declared_gender gender;
 
 comment on column relationship.declared_gender is
@@ -154,15 +165,57 @@ create trigger relationship_member_matches_declared_gender
   before insert on relationship_member
   for each row execute function app.reject_declared_gender_mismatch();
 
--- Scoped to the two updates that can introduce a mismatch -- reopening a closed
--- membership, and moving one onto a different Person -- for the reason 20260828000300
+-- Scoped to the updates that can introduce a mismatch, for the reason 20260828000300
 -- gives: a blanket update trigger would re-check the row somebody is closing, leaving
 -- a relationship that had somehow gone mismatched impossible to even end.
+--
+-- **Three of them, where 20260828000300 named two.** Reopening a closed membership and
+-- moving one onto a different Person are its two. The third is `relationship_id`, and
+-- it exists here because this rule is a property of the *relationship row* rather than
+-- of the member set: moving a membership onto another relationship changes which
+-- declaration governs it while leaving the Person and `ended_at` exactly as they were.
+-- The composite foreign key carries `kind` and deliberately not `declared_gender`, so
+-- the key would happily move a woman into a declared men's group of the same kind and
+-- Ministry. Copying the sibling's WHEN clause verbatim would have been correct because
+-- the current write paths happen not to do that -- which is the argument 20260828000300
+-- exists to stop making.
 create trigger relationship_member_matches_declared_gender_on_reopen
   before update on relationship_member
   for each row
   when (
     (old.ended_at is not null and new.ended_at is null)
     or old.person_id is distinct from new.person_id
+    or old.relationship_id is distinct from new.relationship_id
   )
   execute function app.reject_declared_gender_mismatch();
+
+-- ---------------------------------------------------------------------------
+-- The same hole, in the rule this ticket did not come here to change
+-- ---------------------------------------------------------------------------
+
+-- `relationship_member_gender_matches_on_reopen` has been missing the same update
+-- since 20260828000300 installed it, and the review of *this* migration is what found
+-- it. A membership moved from one one-to-one onto another is re-scoped to a different
+-- pair of people without the Person or `ended_at` changing, so the trigger never fires
+-- and two people of different genders are left alone together -- the exact outcome the
+-- rule exists to prevent.
+--
+-- Corrected here rather than left for its own ticket. It is one clause of the same
+-- rule, found by the same reasoning, and a known safeguarding hole is not a thing to
+-- schedule. Stated rather than quietly widened, because 20260828000300 argued its WHEN
+-- clause at length and a reader will find that argument first.
+--
+-- The function is untouched. This is the firing condition and nothing else, so the
+-- absolute match between two people is the rule it always was.
+create or replace trigger relationship_member_gender_matches_on_reopen
+  before update on relationship_member
+  for each row
+  when (
+    new.kind = 'one_to_one'
+    and (
+      (old.ended_at is not null and new.ended_at is null)
+      or old.person_id is distinct from new.person_id
+      or old.relationship_id is distinct from new.relationship_id
+    )
+  )
+  execute function app.reject_gender_mismatch();

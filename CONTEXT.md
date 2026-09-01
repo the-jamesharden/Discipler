@@ -56,7 +56,7 @@ A recommendation that a particular mentor and mentee may be a good one-to-one pa
 _Avoid_: Match, assignment, pairing
 
 **Relationship Kind**:
-Whether a discipleship relationship was formed as a one-to-one or as a group. Declared when the relationship is created and immutable afterwards. It is a capacity declaration that exists so the participation caps and the Gender Rule can be enforced in the database; it is never read by message copy or by state derivation, both of which follow the live participant count.
+Whether a discipleship relationship was formed as a one-to-one or as a group. Declared when the relationship is created and immutable afterwards. It is a capacity declaration that exists so the participation caps can be enforced in the database, and it is what tells the absolute two-person half of the Gender Rule which relationships to bind; the half that binds a group reads the Declared Gender instead and no kind at all. It is never read by message copy or by state derivation, both of which follow the live participant count.
 _Avoid_: Treating kind as a second entity, or as the answer to "is this a group"
 
 **Eligible to Lead**:
@@ -70,8 +70,12 @@ _Avoid_: Age gap, age difference — both read as symmetric
 A hard eligibility rule that removes a combination from suggestion entirely. Constraints govern suggestion only and a ministry may always pair manually across them — with one exception, the Gender Rule, which also binds pairing.
 
 **Gender Rule**:
-A one-to-one relationship is between two people of the same gender, and a group that declares a gender holds only people of that gender. A group declared mixed is unconstrained. A safeguarding rule rather than a suggestion preference: it is enforced in the database and manual pairing cannot cross it.
+A one-to-one relationship is between two people of the same gender, and a relationship that declared a gender holds only people of that gender. A relationship that declared none is unconstrained by the second half. A safeguarding rule rather than a suggestion preference: it is enforced in the database and manual pairing cannot cross it.
 _Avoid_: "gender does not apply to groups" — it applies to any relationship that declared a gender
+
+**Declared Gender**:
+What a relationship says it is for — men, women, or nobody in particular — stated by an Admin when it is created and immutable afterwards. It is what the Gender Rule binds a group by, and it is asked rather than derived: the people currently in a group cannot say *this is a women's group that has one member so far*. A one-to-one is not asked, because its two people already answer it.
+_Avoid_: Reading an undeclared relationship as "not yet decided" — it declares nothing, which is a settled answer
 
 **Pair**:
 Verb only. The pastor's act of placing people into a discipleship relationship.

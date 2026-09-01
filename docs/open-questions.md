@@ -318,6 +318,30 @@ What needs answering: whether a Ministry opening and its first Admin arriving ar
 ministry events in their own right; and if they are, whether provisioning records
 them directly or the command boundary grows a way to open a Ministry.
 
+## Open: what happens when a Person's Intake contradicts a relationship they are already in
+
+Raised by ticket 25's review, and it is older than that ticket. The Gender Rule is
+enforced when somebody *joins* a relationship: both halves of it -- the absolute match
+between two people in a one-to-one, and the Declared Gender that binds a group -- are
+triggers on `relationship_member`, and they read the Person's latest Intake at the
+moment the membership is written.
+
+Intake can be re-submitted, and a correction is the answer that counts. So a Person
+already inside a relationship can answer differently afterwards, and nothing re-checks:
+a declared women's group can come to hold a man, and a one-to-one can come to hold two
+people who no longer match, with no refusal at any surface.
+
+It is not a hole to quietly close, because every way of closing it is a product
+decision with a cost. Refusing the Intake correction subordinates a Person's own answer
+about themselves to a relationship somebody else put them in. Ending the relationship
+does it silently and on a fact that is often a typo being fixed. Raising a Follow-Up
+Item for an Admin keeps pastoral judgment in the loop, which is what the product rules
+generally ask for, but it means a safeguarding rule that reports rather than binds.
+
+What needs answering: which of those three a correction triggers, and whether the answer
+differs between a correction made days after Intake and one made a year into a
+relationship.
+
 ## Deferred with the quarterly report
 
 These are not unresolved so much as not yet needed. They must be answered before the reporting interface is built, and the underlying history must be complete enough to answer them later.
