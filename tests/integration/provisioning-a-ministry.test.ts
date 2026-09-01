@@ -154,6 +154,43 @@ describe('provisioning a Ministry and its first Admin', () => {
     expect(rows).toHaveLength(0)
   })
 
+  it('takes the Ministry back when a write after it fails, and frees the number', async () => {
+    // A failure *inside* the transaction, which the refusals above never reach --
+    // they are turned away before a row is written. A blank name passes the type
+    // checker and fails `person`'s own check constraint, so the Ministry is already
+    // inserted when the second statement gives way.
+    //
+    // This is the case the compensation used to be hand-rolled for. Postgres takes
+    // the rows back, which leaves the account as the only thing that can be
+    // half-done -- and it is discarded, which is what makes the number reusable.
+    const phone = aTestPhoneNumber()
+    // Named per run, because the retry below creates it: a fixed name would have
+    // this test asserting nothing on the second run against the same database.
+    const name = `Half Made Chapel ${phone}`
+
+    await expect(
+      provisionMinistry({
+        name,
+        sendingNumber: aTestPhoneNumber(),
+        admin: { fullName: '   ', phone, password: 'a-long-enough-password' },
+      }),
+    ).rejects.toThrow(MinistryNotProvisioned)
+
+    const { rows } = await pool.query(`select id from ministry where name = $1`, [name])
+    expect(rows).toHaveLength(0)
+
+    // The number is free, so the operator's obvious next move -- fix the name, run
+    // it again -- works. It is the whole point of undoing the half-step rather than
+    // leaving it to be reconciled.
+    const retry = await provisionMinistry({
+      name,
+      sendingNumber: aTestPhoneNumber(),
+      admin: { fullName: 'Named This Time', phone, password: 'a-long-enough-password' },
+    })
+
+    expect(retry.adminPhone).toBe(phone)
+  })
+
   it('refuses a password too short to be worth having, and creates no Ministry', async () => {
     await expect(
       provisionMinistry({

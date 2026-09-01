@@ -123,13 +123,31 @@ exactly what ADR-0008's closing paragraph warns about. It runs through
 number as provisioning stored it rather than as it typed it, so the two cannot agree
 by accident.
 
-**The compensation stopped promising what it cannot deliver.** Its comment said a
-part-way failure "is undone rather than left to be reconciled later", and the delete
-underneath it returns an error rather than throwing -- so a failed delete was
-invisible, the discard after it then failed because a Person still held the account,
-and a bare `catch` swallowed both. It is best-effort and now says so: what survives
-is named in the error the operator reads, because the retry they will reach for is
-the thing it breaks.
+**The compensation was deleted rather than documented.** Its comment claimed a
+part-way failure "is undone rather than left to be reconciled later", which it could
+not deliver: the delete underneath returned an error rather than throwing, the
+discard after it then failed because a Person still held the account, and a bare
+`catch` swallowed both.
+
+Writing an honest comment about it was the wrong fix. The three rows go in one
+transaction now, on the connection the command boundary already uses -- and
+deliberately *without* `set local role discipler_command`, because that role holds
+`select` on `ministry` and `ministry_member` and nothing more. No command has ever
+needed to create a Ministry, and this is the one write that comes before there is a
+Ministry to scope a command to, so it is the one write that cannot be one.
+
+Postgres takes the rows back for nothing, which leaves exactly one thing that can be
+half-done: the account, which no database can roll back. That is a single `discard`,
+the same compensation the acceptance route makes, and the only case that still needs
+a human -- a discard that itself fails -- is named in the error rather than
+swallowed, because the retry an operator reaches for next is the thing it breaks.
+
+`tests/integration/provisioning-a-ministry.test.ts` covers it with a failure *inside*
+the transaction, which the refusals around it never reach: a blank name passes the
+type checker and fails `person`'s check constraint, so the Ministry is already
+inserted when the second statement gives way. It asserts the Ministry is gone and
+that provisioning the same number again succeeds. Verified by breaking the rollback
+and watching it fail.
 
 **The credential side effect has a name.** `localSupabase()` was reshaping
 `process.env` from inside a getter. `publishSupabaseCredentials()` does it out loud,

@@ -1,7 +1,7 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import pg from 'pg'
 import { asPhoneNumber } from '~/domain/roster'
 import { supabaseAccounts } from './accounts'
-import { serviceRoleKey, supabaseCredentials } from './credentials'
+import { commandDatabaseUrl } from './credentials'
 
 /**
  * How a Ministry and its first Admin come into existence.
@@ -26,10 +26,10 @@ import { serviceRoleKey, supabaseCredentials } from './credentials'
  *
  * These writes record no history, and that is a gap rather than a decision. Every
  * other Person reaches the Roster through the command boundary and leaves a
- * `person.imported` or Intake event behind; this one is written on the service-role
- * connection because there is no Ministry to scope a command to until the row it
- * would be scoped to exists. Whether a Ministry opening and its first Admin
- * arriving are ministry events in their own right is in
+ * `person.imported` or Intake event behind; this one runs beside that boundary
+ * rather than through it, because there is no Ministry to scope a command to until
+ * the row it would be scoped to exists. Whether a Ministry opening and its first
+ * Admin arriving are ministry events in their own right is in
  * `docs/open-questions.md` and is deliberately not answered here.
  */
 
@@ -67,9 +67,12 @@ export interface ProvisionedMinistry {
 /**
  * Thrown rather than refused, unlike the mint it wraps. Acceptance turns a refusal
  * into wording on a page because a Leader is standing in front of it; there is
- * nobody in front of this, so a refusal code would only ever be printed. The code
- * itself is carried through as the reason, because "that number already signs
- * somebody in" is the answer an operator most often needs.
+ * nobody in front of this, so a refusal code would only ever be printed.
+ *
+ * `reason` is prose for an operator, not a code to branch on -- sometimes it is a
+ * refusal code (`account.already_exists`, which is the answer they most often
+ * need), sometimes a constraint's complaint. Anything wanting to branch should be
+ * given a field of its own rather than parsing this one.
  */
 export class MinistryNotProvisioned extends Error {
   constructor(readonly reason: string) {
@@ -81,10 +84,6 @@ export class MinistryNotProvisioned extends Error {
 export const provisionMinistry = async (
   ministry: NewMinistry,
 ): Promise<ProvisionedMinistry> => {
-  const admin = createClient(supabaseCredentials().url, serviceRoleKey(), {
-    auth: { autoRefreshToken: false, persistSession: false },
-  })
-
   // The same reading of a phone number the Roster, the Intake form and the sign-in
   // form use. Read once and then used for both the credential and the Person row,
   // so an operator typing `(555) 123-4567` cannot end up with an account normalised
@@ -103,91 +102,81 @@ export const provisionMinistry = async (
   const account = await supabaseAccounts.create(phone, ministry.admin.password)
   if ('refusal' in account) throw new MinistryNotProvisioned(account.refusal)
 
-  let ministryId: string | undefined
+  /**
+   * The three rows go in one transaction, on the connection the command boundary
+   * uses -- and deliberately without `set local role discipler_command`, which is
+   * the first thing every other write on it does. That role holds `select` on
+   * `ministry` and `ministry_member` and nothing more
+   * (`20260825000100_ministry_isolation_and_history.sql:249`), because no command
+   * has ever needed to create a Ministry. This is the one write that comes before
+   * there is a Ministry to scope a command to, so it is the one write that cannot
+   * be one.
+   *
+   * A transaction rather than three writes and a cleanup: Postgres takes the rows
+   * back for nothing, which leaves exactly one thing that can be half-done -- the
+   * account, which no database can roll back.
+   */
+  const client = new pg.Client({ connectionString: commandDatabaseUrl() })
+  await client.connect()
 
   try {
-    const { data: created, error: ministryError } = await admin
-      .from('ministry')
-      .insert({ name: ministry.name, sending_number: ministry.sendingNumber })
-      .select('id')
-      .single()
-    if (ministryError) throw new MinistryNotProvisioned(ministryError.message)
-    ministryId = created.id
+    await client.query('begin')
+
+    const created = await client.query<{ id: string }>(
+      `insert into ministry (name, sending_number) values ($1, $2) returning id`,
+      [ministry.name, ministry.sendingNumber],
+    )
+    const ministryId = created.rows[0]!.id
 
     // The link, and the whole reason this is a product path rather than a fixture.
     // An Admin who is later sent an Invitation Link is found here by Acceptance and
     // reuses this account instead of gaining a second one.
-    const { data: person, error: personError } = await admin
-      .from('person')
-      .insert({
-        ministry_id: created.id,
-        full_name: ministry.admin.fullName,
-        phone,
-        user_id: account.userId,
-      })
-      .select('id')
-      .single()
-    if (personError) throw new MinistryNotProvisioned(personError.message)
+    const person = await client.query<{ id: string }>(
+      `insert into person (ministry_id, full_name, phone, user_id)
+       values ($1, $2, $3, $4) returning id`,
+      [ministryId, ministry.admin.fullName, phone, account.userId],
+    )
 
     // Admin access is this row and nothing else. `unique (ministry_id, user_id)`
     // permits no second one, which is what makes an Admin who leads hold a single
     // row that says `admin`.
-    const { error: memberError } = await admin
-      .from('ministry_member')
-      .insert({ ministry_id: created.id, user_id: account.userId, tier: 'admin' })
-    if (memberError) throw new MinistryNotProvisioned(memberError.message)
+    await client.query(
+      `insert into ministry_member (ministry_id, user_id, tier) values ($1, $2, 'admin')`,
+      [ministryId, account.userId],
+    )
+
+    await client.query('commit')
 
     return {
-      ministryId: created.id,
+      ministryId,
       adminUserId: account.userId,
-      adminPersonId: person.id,
+      adminPersonId: person.rows[0]!.id,
       adminPhone: phone,
     }
   } catch (error) {
-    // Four writes across two systems and no transaction spanning them, so a failure
-    // part-way is cleaned up here. Best-effort, and said plainly rather than
-    // promised: nothing above this line can roll back, and a cleanup that failed
-    // must not replace the error the operator actually needs to read.
-    //
-    // The Ministry goes first and everything under it cascades, which is what frees
-    // the account: `discard` refuses one a Person still holds, and until the Person
-    // row is gone that is exactly what this is. So the delete failing means the
-    // discard fails too, and what is left behind is a Ministry holding a number
-    // nobody can sign in with. That state is reachable, and the operator is told
-    // about it rather than left to find it -- because the retry they will reach for
-    // is the thing it breaks.
-    const left = await cleanUp(admin, ministryId, account.userId)
-    if (left) {
+    await client.query('rollback').catch(() => undefined)
+
+    // The rollback took every row back, so the account is the only thing left --
+    // and nothing holds it any more, which is precisely what lets `discard` have
+    // it: it refuses an account a Person still points at.
+    const failure = messageOf(error)
+    try {
+      await supabaseAccounts.discard(account.userId)
+    } catch (undiscarded) {
+      // The one outcome that needs a human, so it is said rather than swallowed.
+      // The retry an operator reaches for next is the thing it breaks.
       throw new MinistryNotProvisioned(
-        `${left}. The original failure was: ${error instanceof Error ? error.message : String(error)}`,
+        `${failure} -- and the account on ${phone} could not be removed either ` +
+          `(${messageOf(undiscarded)}), so that number is taken and provisioning ` +
+          `it again will be refused until somebody removes it by hand`,
       )
     }
-    throw error
+
+    throw new MinistryNotProvisioned(failure)
+  } finally {
+    await client.end()
   }
 }
 
-/**
- * Undoes as much of a failed provisioning as it can, and reports what it could not.
- * A string back means something survives that needs a human; `undefined` means the
- * attempt left nothing behind and the caller may re-throw its own failure untouched.
- */
-const cleanUp = async (
-  admin: SupabaseClient,
-  ministryId: string | undefined,
-  userId: string,
-): Promise<string | undefined> => {
-  if (ministryId) {
-    const { error } = await admin.from('ministry').delete().eq('id', ministryId)
-    if (error) {
-      return `Ministry ${ministryId} and the account on ${userId} were both left behind and need removing by hand (${error.message})`
-    }
-  }
-
-  try {
-    await supabaseAccounts.discard(userId)
-  } catch (error) {
-    return `the account on ${userId} was left behind and needs removing by hand (${error instanceof Error ? error.message : String(error)})`
-  }
-
-  return undefined
-}
+const messageOf = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error)

@@ -56,10 +56,13 @@ export const localSupabase = (): LocalSupabase => {
  * all ask for a Ministry first.
  */
 export const publishSupabaseCredentials = (): void => {
-  const { apiUrl, anonKey, serviceRoleKey } = localSupabase()
+  const { apiUrl, anonKey, serviceRoleKey, databaseUrl } = localSupabase()
   process.env.NEXT_PUBLIC_SUPABASE_URL ??= apiUrl
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??= anonKey
   process.env.SUPABASE_SERVICE_ROLE_KEY ??= serviceRoleKey
+  // The connection, not only the API keys: provisioning writes its three rows in a
+  // transaction, which no HTTP client can hold open.
+  process.env.DATABASE_URL ??= databaseUrl
 }
 
 /** Bypasses row-level security. For seeding fixtures only -- never for assertions. */
