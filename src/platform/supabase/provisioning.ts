@@ -39,6 +39,9 @@ export interface NewMinistry {
    * The number this Ministry's messages are sent from. Provisioned with the
    * Ministry because a Ministry without one cannot send anything, and borrowing
    * another Ministry's identity is worse than refusing to send.
+   *
+   * Read through `asPhoneNumber` like the Admin's, and typed however an operator
+   * would type it.
    */
   readonly sendingNumber: string
   readonly admin: NewAdmin
@@ -62,6 +65,8 @@ export interface ProvisionedMinistry {
   readonly adminPersonId: string
   /** The number as it was stored, which is what they sign in with. */
   readonly adminPhone: string
+  /** Likewise as stored: what a caller asserting on the sender should assert on. */
+  readonly sendingNumber: string
 }
 
 /**
@@ -92,6 +97,17 @@ export const provisionMinistry = async (
   // number that is load-bearing in three separate ways.
   const phone = asPhoneNumber(ministry.admin.phone)
   if (!phone) throw new MinistryNotProvisioned(`unreadable phone number: ${ministry.admin.phone}`)
+
+  // The Ministry's own number, read the same way and refused the same way. It is
+  // subject to `ministry_sending_number_is_e164` regardless, so an unreadable one
+  // was never going to be stored -- but it would have failed two statements later,
+  // inside the transaction and after the account was minted, which turns an
+  // operator's typo into a Postgres constraint message and a compensating discard.
+  // Read here, both numbers are known good before anything exists to undo.
+  const sendingNumber = asPhoneNumber(ministry.sendingNumber)
+  if (!sendingNumber) {
+    throw new MinistryNotProvisioned(`unreadable sending number: ${ministry.sendingNumber}`)
+  }
 
   // The account first, and nothing written before it. It is the one step that can
   // be refused for a reason the operator caused -- a number that already signs
@@ -124,7 +140,7 @@ export const provisionMinistry = async (
 
     const created = await client.query<{ id: string }>(
       `insert into ministry (name, sending_number) values ($1, $2) returning id`,
-      [ministry.name, ministry.sendingNumber],
+      [ministry.name, sendingNumber],
     )
     const ministryId = created.rows[0]!.id
 
@@ -152,6 +168,7 @@ export const provisionMinistry = async (
       adminUserId: account.userId,
       adminPersonId: person.rows[0]!.id,
       adminPhone: phone,
+      sendingNumber,
     }
   } catch (error) {
     await client.query('rollback').catch(() => undefined)

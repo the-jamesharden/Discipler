@@ -1,8 +1,11 @@
 import { beforeAll, describe, expect, it } from 'vitest'
+import { createClient } from '@supabase/supabase-js'
 import {
   addPerson,
   createMinistryWithAdmin,
+  localSupabase,
   type MinistryFixture,
+  serviceRoleClient,
 } from '../support/local-supabase'
 import {
   baseUrl,
@@ -135,6 +138,53 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin signing in', () => {
     })
 
     expect(response.headers.get('location')).toContain('/login?error=unreadable-phone')
+  })
+
+  it('is turned away with an address that really would sign them in underneath', async () => {
+    // The test above proves an email-shaped string is unreadable as a number. It
+    // cannot prove the stronger thing, because the address it posts belongs to
+    // nobody: an account holding one is a state provisioning no longer produces.
+    //
+    // So one is made by hand -- the shape a pilot account minted before ticket 24
+    // would have -- and it is shown to be a working credential at Supabase before
+    // the front door is asked about it. What is asserted is that the door does not
+    // open: not that the address is unknown, but that it is never carried to
+    // somewhere that knows it.
+    const email = `pilot-${Date.now()}@riverside.example`
+    const password = 'a-long-enough-password'
+
+    const admin = serviceRoleClient()
+    const { data: created, error: mintError } = await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+    })
+    if (mintError) throw new Error(`Could not mint the email account: ${mintError.message}`)
+
+    try {
+      const { apiUrl, anonKey } = localSupabase()
+      const supabase = createClient(apiUrl, anonKey, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      })
+      const { error: underneath } = await supabase.auth.signInWithPassword({ email, password })
+      expect(underneath).toBeNull()
+
+      const response = await fetch(`${baseUrl}/auth/sign-in`, {
+        method: 'POST',
+        redirect: 'manual',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ phone: email, password }),
+      })
+
+      expect(response.headers.get('location')).toContain('/login?error=unreadable-phone')
+
+      // And no session came back with the refusal, which is the part that would
+      // matter if the reading above ever stopped happening.
+      const { response: roster } = await getRoster(cookiesFrom(response))
+      expect(roster.status).toBe(307)
+    } finally {
+      await admin.auth.admin.deleteUser(created.user.id)
+    }
   })
 
   it('reads a number typed the way somebody would type it', async () => {

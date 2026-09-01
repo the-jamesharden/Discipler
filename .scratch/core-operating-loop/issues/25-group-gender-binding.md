@@ -59,11 +59,14 @@ group to quietly admit a man.
 - [x] A one-to-one still matches absolutely, and the existing trigger is not weakened
 - [x] Manual pairing cannot cross the constraint at any surface, including the Pair page
 - [x] The refusal reaches an Admin as a user-facing error, never a silent no-op
-- [ ] Suggestions filter on the same rule they are ranked under — **nothing to do yet.**
-      There is no scorer: ticket 04 is `ready-for-agent` and unbuilt, and this repo
-      contains no suggestion code to filter. Recorded on ticket 04 rather than held
-      open here.
 - [x] No group entity and no group-specific code path is introduced — the ticket 05 fence still passes
+
+**Carried to ticket 04:** *suggestions filter on the same rule they are ranked under*
+was drafted as a criterion here and is not one. There is no scorer to filter: ticket 04
+is `ready-for-agent` and unbuilt, and this repo contains no suggestion code. It is not
+work this ticket left undone, so it is not a box this ticket can check or hold itself
+open on. Ticket 04 carries the rule and two acceptance criteria of its own under
+*Carried over from ticket 25*.
 
 ## Comments
 

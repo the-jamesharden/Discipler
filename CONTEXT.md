@@ -56,7 +56,7 @@ A recommendation that a particular mentor and mentee may be a good one-to-one pa
 _Avoid_: Match, assignment, pairing
 
 **Relationship Kind**:
-Whether a discipleship relationship was formed as a one-to-one or as a group. Declared when the relationship is created and immutable afterwards. It is a capacity declaration that exists so the participation caps can be enforced in the database, and it is what tells the absolute two-person half of the Gender Rule which relationships to bind; the half that binds a group reads the Declared Gender instead and no kind at all. It is never read by message copy or by state derivation, both of which follow the live participant count.
+Whether a discipleship relationship was formed as a one-to-one or as a group. Declared when the relationship is created and immutable afterwards. It is a capacity declaration that exists so the participation caps and the two-person half of the Gender Rule can be enforced in the database; it is never read by message copy or by state derivation, both of which follow the live participant count. Which code may read it is ADR-0004's to say.
 _Avoid_: Treating kind as a second entity, or as the answer to "is this a group"
 
 **Eligible to Lead**:

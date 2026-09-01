@@ -131,12 +131,17 @@ export const REFUSALS: Record<PairingRefusal, string> = {
     + 'a safeguarding rule and pairing by hand does not override it. A group can be '
     + 'mixed, if you say that is what it is.',
   // Names what the Admin themselves declared, because the fix is one of two things
-  // and they are the only person who knows which: take the wrong person out, or
-  // create it as a mixed group. A sentence that only said "genders do not match"
-  // would describe a rule rather than the choice in front of them.
+  // and they are the only person who knows which: change who is in it, or say it is
+  // mixed. A sentence that only said "genders do not match" would describe a rule
+  // rather than the choice in front of them.
+  //
+  // Names no shape and does not say to remove somebody: the form asks the question of
+  // every shape, so an Admin who declared a men's relationship and then selected two
+  // women reaches this on a pair, where there is nothing to create and taking one of
+  // the two out leaves nobody. Saying it is mixed is the fix that works either way.
   'relationship.gender_does_not_match_the_declaration':
     'Somebody selected is not of the gender this relationship was declared to be. '
-    + 'Either take them out, or create it as a mixed group.',
+    + 'Either change who is in it, or say it is mixed.',
   // Only a group is asked, so the wording says group. An Admin pairing two people
   // never sees this: their relationship’s gender is the gender of the two of them.
   'relationship.needs_a_gender_declaration':

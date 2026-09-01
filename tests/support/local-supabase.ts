@@ -126,6 +126,14 @@ let nextNumber = Math.floor(Math.random() * 10_000_000)
 export const aTestPhoneNumber = () => `+1555${String(nextNumber++ % 10_000_000).padStart(7, '0')}`
 
 /**
+ * The password every fixture account holds. One constant rather than a literal at
+ * each mint, so a suite signing somebody in never has to know which helper made
+ * them. Long enough to clear `SHORTEST_PASSWORD`; a test about the password rule
+ * itself passes its own.
+ */
+export const ACCOUNT_PASSWORD = 'correct-horse-battery-staple'
+
+/**
  * A Ministry and its Admin, through the product's own provisioning path rather
  * than beside it. The Admin gets a phone identity with no email and a Person row
  * linked to it, because that is what provisioning does -- so every suite built on
@@ -142,13 +150,14 @@ export const createMinistryWithAdmin = async (
   // the time it looks for them.
   publishSupabaseCredentials()
 
-  const adminPassword = 'correct-horse-battery-staple'
-  const sendingNumber = aTestPhoneNumber()
-
   const provisioned = await provisionMinistry({
     name,
-    sendingNumber,
-    admin: { fullName: adminName, phone: aTestPhoneNumber(), password: adminPassword },
+    sendingNumber: aTestPhoneNumber(),
+    admin: {
+      fullName: adminName,
+      phone: aTestPhoneNumber(),
+      password: ACCOUNT_PASSWORD,
+    },
   })
 
   return {
@@ -159,10 +168,11 @@ export const createMinistryWithAdmin = async (
     // because the fixture types E.164, and a fixture that reported its own input
     // would keep agreeing after they stopped agreeing.
     adminPhone: provisioned.adminPhone,
-    adminPassword,
+    adminPassword: ACCOUNT_PASSWORD,
     adminUserId: provisioned.adminUserId,
     adminPersonId: provisioned.adminPersonId,
-    sendingNumber,
+    // Stored rather than typed, for the same reason as the number above.
+    sendingNumber: provisioned.sendingNumber,
   }
 }
 
@@ -367,8 +377,6 @@ export const adminAsPerson = (ministry: MinistryFixture): AccountFixture => ({
   password: ministry.adminPassword,
   fullName: ministry.adminName,
 })
-
-const ACCOUNT_PASSWORD = 'correct-horse-battery-staple'
 
 /**
  * A human with a Person row and a login. `tier` is an access level and says nothing

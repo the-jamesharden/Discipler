@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { currentAdmin } from '~/platform/supabase/current-admin'
 import { getRosterReader } from '~/service/container'
 import { pairingRefusalMessage } from '../copy'
-import { DECLARATIONS } from '../declared-gender'
+import { DECLARED_GENDER_OPTIONS } from '../declared-gender'
 
 export const dynamic = 'force-dynamic'
 
@@ -146,10 +146,8 @@ export default async function PairPage({
             </fieldset>
 
             {/*
-              Asked outright, with nothing preselected. A group's gender is not
-              implied by anybody in it -- *this is a women's group that currently has
-              one member* is true and nothing in the membership says it -- so the
-              product does not derive it and does not guess.
+              Asked outright, with nothing preselected, for the reason
+              `needsAGenderDeclaration` gives in src/domain/relationships.ts.
 
               It is one fieldset for both shapes, and the legend carries the
               distinction. A one-to-one should be asked nothing -- its gender *is* the
@@ -161,9 +159,8 @@ export default async function PairPage({
               having it discarded, which is the refusal-over-silence rule the rest of
               this screen follows.
 
-              No `required`, for the reason the leader checkboxes have none: the rule
-              is *a group must declare*, the browser cannot express that, and
-              half-enforcing it here would leave the real rule in two places.
+              No `required`, for the reason the leader checkboxes have none, and for
+              the one the boundary states where it does the refusing.
             */}
             <fieldset>
               <legend>If this is a group, what kind of group is it?</legend>
@@ -172,7 +169,7 @@ export default async function PairPage({
                 that cannot be changed afterwards. Two people on their own are matched
                 by gender automatically — leave this alone.
               </p>
-              {DECLARATIONS.map((declaration) => (
+              {DECLARED_GENDER_OPTIONS.map((declaration) => (
                 <label
                   key={declaration.value}
                   htmlFor={`declaredGender:${declaration.value}`}

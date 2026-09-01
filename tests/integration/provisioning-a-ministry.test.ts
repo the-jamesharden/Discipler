@@ -131,6 +131,55 @@ describe('provisioning a Ministry and its first Admin', () => {
     expect(rows).toHaveLength(0)
   })
 
+  it('refuses a sending number it cannot read, before there is an account to take back', async () => {
+    // The Ministry's own number is load-bearing too, and `ministry_sending_number_is_e164`
+    // would have caught it -- two statements later, inside the transaction and after
+    // the mint, so an operator's typo came back as a constraint's complaint and cost
+    // an account a compensating discard had to remove. Both numbers are read up
+    // front, so this refusal creates nothing at all.
+    const adminPhone = aTestPhoneNumber()
+
+    await expect(
+      provisionMinistry({
+        name: 'No Sender Fellowship',
+        sendingNumber: 'the church office line',
+        admin: { fullName: 'Unsent', phone: adminPhone, password: 'a-long-enough-password' },
+      }),
+    ).rejects.toThrow(/unreadable sending number/)
+
+    const { rows } = await pool.query(`select id from ministry where name = $1`, [
+      'No Sender Fellowship',
+    ])
+    expect(rows).toHaveLength(0)
+
+    // And no account either, which shows in the one place it would: the Admin's
+    // number is still free. A mint that had happened would refuse this as taken.
+    const provisioned = await provisionMinistry({
+      name: 'No Sender Fellowship, Second Attempt',
+      sendingNumber: aTestPhoneNumber(),
+      admin: { fullName: 'Unsent', phone: adminPhone, password: 'a-long-enough-password' },
+    })
+    expect(provisioned.adminPhone).toBe(adminPhone)
+  })
+
+  it('stores the sending number as it read it, not as it was handed one', async () => {
+    const typed = aTestPhoneNumber().replace(/^\+1(\d{3})(\d{3})(\d{4})$/, '($1) $2-$3')
+
+    const provisioned = await provisionMinistry({
+      name: 'Typed Sender Chapel',
+      sendingNumber: typed,
+      admin: { fullName: 'Sender Typed', phone: aTestPhoneNumber(), password: 'a-long-enough-password' },
+    })
+
+    expect(provisioned.sendingNumber).toMatch(/^\+1\d{10}$/)
+
+    const { rows } = await pool.query<{ sending_number: string }>(
+      `select sending_number from ministry where id = $1`,
+      [provisioned.ministryId],
+    )
+    expect(rows[0]?.sending_number).toBe(provisioned.sendingNumber)
+  })
+
   it('refuses a number that already signs somebody in, rather than splitting them in two', async () => {
     const first = await createMinistryWithAdmin('Southbank Chapel')
 

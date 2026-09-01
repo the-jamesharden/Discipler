@@ -83,6 +83,18 @@ describe('what a refused pairing says to an Admin', () => {
     expect(said).toMatch(/mixed/i)
   })
 
+  it('offers a fix that works on a one-to-one, because the form asks every shape', () => {
+    // The declaration fieldset is shown whatever is ticked, and the boundary keeps
+    // what a one-to-one answered, so two women declared a men's relationship land
+    // here. Telling that Admin to create a group, or to take somebody out of a pair,
+    // is advice about a relationship they are not forming.
+    const said = pairingRefusalMessage(
+      'relationship.gender_does_not_match_the_declaration',
+    ) ?? ''
+    expect(said).not.toMatch(/group/i)
+    expect(said).not.toMatch(/take them out/i)
+  })
+
   it('asks the group question in the words the form asks it in', () => {
     const said = pairingRefusalMessage('relationship.needs_a_gender_declaration') ?? ''
     expect(said).toMatch(/group/i)

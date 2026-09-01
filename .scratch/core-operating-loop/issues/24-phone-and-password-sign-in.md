@@ -34,7 +34,9 @@ credential and nothing signs in with it.
 - [x] `addPersonForAdmin` is gone, and the dual-role case is built through the real provisioning flow
 - [x] Every test fixture that signs somebody in does so by phone number
 - [x] A Leader who accepted an Invitation Link can sign back in with the number that flow displayed
-- [x] A lost password still requires an Admin reset; one-time codes remain post-launch
+- [x] No self-serve recovery ships: one-time codes remain post-launch, and the login page
+      names an Admin reset as the only route — *the Admin has no tool to perform that reset,
+      which is ticket 28 rather than part of this one*
 
 ## Comments
 
@@ -168,3 +170,20 @@ Ministry, and there is no Ministry to scope a command to until the row exists, s
 is a real question about where the boundary starts. It is written up in
 `docs/open-questions.md` under *whether provisioning a Ministry is itself a ministry
 event*, and the module says in as many words that it is not answering it.
+
+
+### The one criterion this ticket cannot honestly claim, 2026-09-01
+
+*"A lost password still requires an Admin reset; one-time codes remain post-launch."*
+
+Read as "no self-serve recovery ships", it holds and is what the sign-in half was
+ever going to deliver. Read as "an Admin can reset a lost password", it does not: the
+login page tells a Leader to *"Ask whoever runs Discipler at your church to reset
+it"*, and there is no surface in `app/` and no adapter in `src/` that lets them. The
+criterion was ticked on the first reading without saying which one it meant, so it
+now says what shipped and points at the gap.
+
+The gap is a missing capability rather than an unresolved question, so it is a
+ticket -- 28 -- and not a line in `docs/open-questions.md`. Nothing about it holds
+this ticket open: the credential moved to the phone, which is what 24 was for, and
+the Leader who cannot recover a password today could not recover one before it either.

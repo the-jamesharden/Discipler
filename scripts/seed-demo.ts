@@ -9,32 +9,37 @@
  * their own Roster. The number it prints is the credential; there is no email to
  * sign in with.
  *
- * `addPerson` is still a test helper, and that is the right way round: it puts one
- * more row on a Roster, which is seeding and not provisioning.
+ * `addPerson`, `aTestPhoneNumber` and the fixture password are still test helpers,
+ * and that is the right way round: they put one more row on a Roster and pick
+ * numbers nothing else has taken, which is seeding and not provisioning.
  */
 import { ministryId } from '../src/domain/ids'
 import { provisionMinistry } from '../src/platform/supabase/provisioning'
-import { addPerson, publishSupabaseCredentials } from '../tests/support/local-supabase'
+import {
+  ACCOUNT_PASSWORD,
+  aTestPhoneNumber,
+  addPerson,
+  publishSupabaseCredentials,
+} from '../tests/support/local-supabase'
 
 // The adapters read the environment the way the running app does, and a script run
 // through `vite-node` is not the app.
 publishSupabaseCredentials()
 
-// Consecutive rather than random: a developer reading two Ministries out of this
-// output wants to tell their numbers apart at a glance.
-let nextNumber = 5_550_000
-const aNumber = () => `+1555${String(nextNumber++).padStart(7, '0')}`
-
 const seed = async (name: string, adminName: string) => {
-  const adminPassword = 'correct-horse-battery-staple'
-
+  // The suites' generator, not one of this script's own. It starts from a block
+  // picked at random per process and walks from there: consecutive within a run, so
+  // a developer can tell two Ministries apart at a glance, and different between
+  // runs, which is the part that matters here. `auth.users` holds a number for the
+  // life of the local stack, so a fixed start meant seeding a second time against
+  // the same stack was refused for `account.already_exists`.
   const provisioned = await provisionMinistry({
     name,
-    sendingNumber: aNumber(),
-    admin: { fullName: adminName, phone: aNumber(), password: adminPassword },
+    sendingNumber: aTestPhoneNumber(),
+    admin: { fullName: adminName, phone: aTestPhoneNumber(), password: ACCOUNT_PASSWORD },
   })
 
-  return { name, adminName, adminPassword, ...provisioned }
+  return { name, adminName, adminPassword: ACCOUNT_PASSWORD, ...provisioned }
 }
 
 const riverside = await seed('Riverside Chapel', 'Grace Adeyemi')

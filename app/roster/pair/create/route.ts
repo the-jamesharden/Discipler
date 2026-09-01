@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { PairingRefused } from '~/domain/errors'
 import { personId } from '~/domain/ids'
 import type { Gender } from '~/domain/intake'
-import { declarationFrom, declarationTo } from '../../declared-gender'
+import { declaredGenderFromField, declaredGenderToField } from '../../declared-gender'
 import { currentAdmin } from '~/platform/supabase/current-admin'
 import { getCommandService } from '~/service/container'
 
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
    * from *somebody answered mixed*, and a route that guessed would answer a
    * safeguarding question on the Admin's behalf.
    */
-  const declaredGender: Gender | null | undefined = declarationFrom(
+  const declaredGender: Gender | null | undefined = declaredGenderFromField(
     form.get('declaredGender'),
   )
 
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     // Admin refused because one person is of the wrong gender is correcting the
     // person, not re-declaring what the group is.
     if (declaredGender !== undefined) {
-      params.set('declaredGender', declarationTo(declaredGender))
+      params.set('declaredGender', declaredGenderToField(declaredGender))
     }
 
     return NextResponse.redirect(new URL(`/roster/pair?${params}`, request.url), {
