@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { resolveAdmin } from '~/platform/supabase/current-admin'
 import { getRosterReader } from '~/service/container'
 import { personId } from '~/domain/ids'
-import { intakeReopenLink } from '~/domain/outbound-copy'
+import { intakeReopenLink, ministryIntakeLink } from '~/domain/outbound-copy'
 import { appBaseUrl } from '~/platform/supabase/credentials'
 import {
   AWAITING_LEADER_ACCEPTANCE,
@@ -15,6 +15,14 @@ import {
 import { decodeImportReport } from './report'
 
 export const dynamic = 'force-dynamic'
+
+/**
+ * How large the code is drawn on the Roster, in CSS pixels. The square scales, so
+ * this is a display decision and it lives here rather than in the stylesheet: it is
+ * the number that decides whether an Admin can hold a phone up to their own screen,
+ * which is one of the two things the code is for.
+ */
+const QR_CODE_ON_SCREEN = 384
 
 const NotAnAdmin = () => (
   <main>
@@ -70,6 +78,13 @@ export default async function RosterPage({
   const issuedLink = issued
     ? { url: intakeReopenLink(appBaseUrl(), issued.token), expiresAt: issued.expiresAt }
     : null
+
+  // The Ministry's own Intake link. Composed from the session rather than read from
+  // anywhere: it is the Ministry's identifier and the configured host, and there is
+  // nothing about it to store. The QR code's variant of it is composed by the route
+  // that draws the code, which is the only thing that needs it.
+  const intakeLink = ministryIntakeLink(appBaseUrl(), admin.ministryId)
+
   const report = decodeImportReport(query)
   const failure = importFailureMessage(query.error)
   // How many Participants the relationship just created has, so the confirmation can
@@ -108,6 +123,59 @@ export default async function RosterPage({
         {' · '}
         <Link href="/settings/goals">Discipleship Goal options</Link>
       </p>
+
+      {/* The Admin's half of the Intake sentence. The form and both routes to it
+          have existed since ticket 03; what did not exist was any way for a pastor
+          to obtain either one short of knowing the Ministry's identifier and typing
+          the URL. */}
+      <div className="panel">
+        <h2>This Ministry’s own Intake link</h2>
+        <p className="subtle">
+          One link, for everybody. It does not know who opens it, so it asks — which
+          is what lets the same link be sent to one person and put in front of a
+          room. It is not the Intake link on a Person’s row below: that one is theirs
+          alone, arrives with their answers already in it, and runs out.
+        </p>
+
+        <label htmlFor="intakeLink">The link to send</label>
+        {/* A field rather than a sentence, because what an Admin does with this is
+            select the whole of it and paste it into a text message. */}
+        <input id="intakeLink" type="text" readOnly value={intakeLink} />
+        <p className="subtle">
+          Intake completed through this link is recorded as sent by a pastor.
+        </p>
+
+        <h3>The QR code</h3>
+        <p className="subtle">
+          The same form, reached by scanning. Intake completed this way is recorded
+          as scanned from a QR code, which is a different record from the one above —
+          a compliance review asks which of the two a Person agreed through, so it is
+          worth knowing which one you handed out.
+        </p>
+        {/* Drawn by the route rather than inlined here, so the square an Admin
+            prints and the square they are looking at cannot come to differ.
+
+            The code carries the same link with `?via=qr` on it, and that link is
+            deliberately not offered as a second field to copy: a link texted from
+            here would record every Person who followed it as having scanned a code
+            nobody printed, which is the one distinction this panel exists to keep
+            honest. */}
+        <img
+          className="qr"
+          src="/roster/intake-code.svg"
+          alt={`QR code opening Intake for ${admin.ministryName}`}
+          width={QR_CODE_ON_SCREEN}
+          height={QR_CODE_ON_SCREEN}
+        />
+        <p>
+          {/* A tab of its own, because the two things this is for -- printing it and
+              saving it -- both happen on that page, and neither is helped by having
+              lost the Roster to get there. */}
+          <a href="/roster/intake-code.svg" target="_blank" rel="noreferrer">
+            The QR code on its own, to print or save
+          </a>
+        </p>
+      </div>
 
       <div className="panel">
         <h2>Import from a spreadsheet</h2>

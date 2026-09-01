@@ -135,3 +135,17 @@ h3 { font-size: 0.95rem; margin: 1.5rem 0 0.5rem; }
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* The Ministry's QR code. White in its own right rather than in the theme's
+   colours -- an inverted QR code is one most phones will not read -- with a
+   border keeping the quiet zone visible against a white panel. */
+img.qr {
+  display: block;
+  /* The size is the page's, set on the element, so one number decides it. */
+  max-width: 100%;
+  height: auto;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  margin-bottom: 1rem;
+}

@@ -1,4 +1,5 @@
 import type { CheckInQuestion } from './check-in'
+import type { MinistryId } from './ids'
 import type { RelationshipKeyword } from './keywords'
 
 /**
@@ -135,8 +136,14 @@ export const withSharedContact = (body: string, contact: SharedContact): string 
  * copy decision -- it is read off a phone and occasionally typed -- so it lives
  * here with the wording, and the host it hangs off is configuration.
  */
+/**
+ * The configured host, with any trailing slash taken off. Every link below hangs off
+ * it, and a base URL is as likely to be configured with the slash as without.
+ */
+const host = (baseUrl: string): string => baseUrl.replace(/\/+$/, '')
+
 export const invitationLink = (baseUrl: string, token: string): string =>
-  `${baseUrl.replace(/\/+$/, '')}/invitation/${token}`
+  `${host(baseUrl)}/invitation/${token}`
 
 /**
  * Where an Intake link becomes something a Person can tap. The same shape as an
@@ -148,7 +155,27 @@ export const invitationLink = (baseUrl: string, token: string): string =>
  * Discipler would have texted it to.
  */
 export const intakeReopenLink = (baseUrl: string, token: string): string =>
-  `${baseUrl.replace(/\/+$/, '')}/intake/reopen/${token}`
+  `${host(baseUrl)}/intake/reopen/${token}`
+
+/**
+ * The one Intake link a whole Ministry hands out. It names the Ministry and carries
+ * no token, which is what makes it printable: it goes on a bulletin and on a screen
+ * in front of a room, so there is nothing on it that could be secret from anybody.
+ *
+ * Nothing composes this one into a message either. An Admin reads it off the Roster
+ * and sends it in whatever conversation they are already having.
+ */
+export const ministryIntakeLink = (baseUrl: string, ministry: MinistryId): string =>
+  `${host(baseUrl)}/intake/${ministry}`
+
+/**
+ * The same link, for the QR code. The one difference between them is `?via=qr`, and
+ * that difference is the whole reason there are two functions and not one with a
+ * flag: the form turns it into `qr_code` rather than `pastor_link`, and a compliance
+ * review asks which of those a Person's consent was recorded under.
+ */
+export const ministryIntakeQrLink = (baseUrl: string, ministry: MinistryId): string =>
+  `${ministryIntakeLink(baseUrl, ministry)}?via=qr`
 
 export interface InvitationMessage {
   readonly ministryName: string

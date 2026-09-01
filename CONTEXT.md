@@ -114,6 +114,10 @@ _Avoid_: a Participant's Invitation Link (a Participant answers at Intake and is
 The link an Admin hands one Person so they can reopen their own intake form, prefilled, and correct what it says. It is the only route by which a Participant's availability changes: there is no participant dashboard and no SMS path for it. The Admin is shown the link and passes it on themselves — Discipler never texts it, because the commonest reason to reopen somebody's intake is that the number on file is wrong. Possession of it is the authentication, as with an Invitation Link, and it expires after a fixed window. One live link per person: asking for it again gives back the one they hold, and a new one is minted only once that has run out. It is never consumed — correcting a number today and availability next week is the thing it exists for.
 _Avoid_: an account (nothing about it gives anyone one), and the Intake form as a withdrawal route (that is `STOP`)
 
+**Ministry Intake Link**:
+The one intake link a whole ministry hands out. It names the ministry, carries no token, and is both the link a pastor sends and the link the ministry's QR code opens — so it is printable in a way the Intake Link above is not. It does not know who opened it, which is why the form asks. The two routes to it are the same link and differ only in whether it was scanned; which route somebody came by is kept on their consent record, because that is the question a compliance review asks.
+_Avoid_: calling it the Intake Link (that one is a single person's, prefilled, and expires), and treating the QR code as a second form (it opens this same link, saying it was scanned)
+
 **Response-Required Message**:
 A message in the Check-In Rhythm that expects a reply from its recipient.
 
