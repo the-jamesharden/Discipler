@@ -701,20 +701,37 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
   },
 
   async recordIntake(intake: IntakeRecord) {
-    const { rows } = await client.query<{ id: string }>(
-      `insert into intake_submission
-         (ministry_id, person_id, submitted_at, age_band, gender, discipleship_goal_id)
-       values ($1, $2, $3, $4, $5, $6)
-       returning id`,
-      [
-        intake.ministryId,
-        intake.personId,
-        intake.submittedAt,
-        intake.ageBand,
-        intake.gender,
-        intake.goalId,
-      ],
-    )
+    let rows: { id: string }[]
+    try {
+      ;({ rows } = await client.query<{ id: string }>(
+        `insert into intake_submission
+           (ministry_id, person_id, submitted_at, age_band, gender, discipleship_goal_id)
+         values ($1, $2, $3, $4, $5, $6)
+         returning id`,
+        [
+          intake.ministryId,
+          intake.personId,
+          intake.submittedAt,
+          intake.ageBand,
+          intake.gender,
+          intake.goalId,
+        ],
+      ))
+    } catch (error) {
+      // The Ministry retired this option while the form was open. Reachable since
+      // an Admin can edit the list at all, and the only place it can be caught:
+      // the list was true when the page was served, and a check at the boundary
+      // would still be reading it a moment before this insert.
+      //
+      // A refusal rather than a failure, because everything else the Person typed
+      // is still good and the whole submission rolls back with this. It reaches
+      // them as the form again with one answer to give a second time, instead of
+      // as a 500 that loses the grid they just filled in.
+      if (constraintViolated(error) === 'intake_submission_discipleship_goal_id_fkey') {
+        throw new IntakeRefused(['intake.goal_no_longer_offered'])
+      }
+      throw error
+    }
     const submissionId = rows[0]?.id
     if (!submissionId) throw new Error('Recording the Intake submission returned no row')
 
@@ -1953,6 +1970,20 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
   },
 
   async discipleshipGoals(): Promise<readonly OfferedGoal[]> {
+    // One Ministry edits its list one edit at a time, and the lock is what makes
+    // that true. Without it two Admins -- or one Admin's double submit -- both read
+    // the same list and both decide against it: two additions compute the same
+    // `nextPosition` and collide on `unique (ministry_id, position)` at commit,
+    // which is deferred and so arrives as an unhandled error rather than as a
+    // refusal; and two labels differing only in capitalisation both land, because
+    // the rule that calls those one option is the domain's and the database's
+    // unique index is exact. Taken here, where the read is, exactly as the check-in
+    // snapshot takes its own, and keyed on the Ministry like the tick's, so one
+    // congregation editing its list does not make another wait.
+    await client.query(
+      `select pg_advisory_xact_lock(hashtextextended(app.command_ministry_id()::text, 0))`,
+    )
+
     // The same function the settings surface reads, so the count an Admin was
     // warned with and the count history records come from one definition rather
     // than from two queries waiting to disagree. It gates on the Ministry this

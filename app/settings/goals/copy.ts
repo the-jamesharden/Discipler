@@ -15,7 +15,11 @@ const REFUSALS: Record<GoalRefusal, string> = {
     'This is the only option left. Intake asks everyone to choose one, so add another before removing this.',
 }
 
-const isRefusal = (code: string): code is GoalRefusal => code in REFUSALS
+// `Object.hasOwn` and never `in`, which walks the prototype chain: `__proto__`,
+// `toString` and `valueOf` are all `in` this object and none of them is a refusal.
+// The query string is whatever somebody typed there, so `in` would hand this
+// screen an object or a function to render and take the page down with it.
+const isRefusal = (code: string): code is GoalRefusal => Object.hasOwn(REFUSALS, code)
 
 /**
  * The wording for a refusal that came back on the query string, or null for one

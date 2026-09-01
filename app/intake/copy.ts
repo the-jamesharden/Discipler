@@ -52,9 +52,19 @@ const REFUSALS: Record<IntakeRefusal, string> = {
   'intake.details_belong_to_someone_else':
     'Those details are already on file for someone else here. Please check them, or '
     + 'ask whoever sent you this link.',
+  // Said as *no longer offered* rather than as an error, because nothing they did
+  // was wrong: the ministry changed its list while this form was open.
+  'intake.goal_no_longer_offered':
+    'That option is no longer one this ministry offers. Please choose from the list '
+    + 'as it stands now — everything else you entered is still here.',
 }
 
-const isRefusal = (value: string): value is IntakeRefusal => value in REFUSALS
+// `Object.hasOwn` and never `in`, which walks the prototype chain: `__proto__` and
+// `toString` are both `in` this object and neither is a refusal. What arrives in
+// the query string is whatever somebody typed there, and `in` would hand this form
+// an object or a function to render and take the page down with it.
+const isRefusal = (value: string): value is IntakeRefusal =>
+  Object.hasOwn(REFUSALS, value)
 
 /**
  * Only codes this form actually issues are rendered. Anything else arriving in the

@@ -128,6 +128,16 @@ export type IntakeRefusal =
    */
   | 'intake.link_expired'
   | 'intake.details_belong_to_someone_else'
+  /**
+   * The Ministry retired the option this Person picked while their form was open.
+   * A form field cannot produce it either: the list was on the page when it was
+   * served, and stopped being true before it came back.
+   *
+   * It reaches them as a refusal rather than as a failure because everything else
+   * they typed is still good -- their name, their number, the grid, the consents --
+   * and the form re-renders around one answer they now have to give again.
+   */
+  | 'intake.goal_no_longer_offered'
 
 export type IntakeReading =
   | { readonly submission: IntakeSubmissionDraft }

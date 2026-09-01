@@ -133,6 +133,22 @@ describe.skipIf(skipUnlessAppIsRunning)('the Discipleship Goal settings', () => 
     expect(asRendered(html)).not.toContain('role="alert"')
   })
 
+  it('still serves the page when the code names something every object has', async () => {
+    const { cookie } = await signIn(ministry)
+
+    // `__proto__`, `toString` and `valueOf` are all *in* a plain object without
+    // being refusals, so a membership test that walked the prototype chain would
+    // hand this page an object or a function to render and take the settings screen
+    // down for anybody who followed a mangled link.
+    for (const code of ['__proto__', 'toString', 'valueOf', 'constructor']) {
+      const { response, html } = await getPage(`/settings/goals?error=${code}`, cookie)
+
+      expect(response.status).toBe(200)
+      expect(asRendered(html)).toContain('Discipleship Goals')
+      expect(asRendered(html)).not.toContain('role="alert"')
+    }
+  })
+
   it('warns how many people chose an option, and removes nothing yet', async () => {
     const { cookie } = await signIn(ministry)
 

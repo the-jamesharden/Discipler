@@ -1,7 +1,7 @@
 import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createTestClock } from '~/domain/clock'
-import { GoalRefused } from '~/domain/errors'
+import { GoalRefused, IntakeRefused } from '~/domain/errors'
 import type { IdSource } from '~/domain/ids'
 import { discipleshipGoalId } from '~/domain/intake'
 import { createPostgresEffectStore } from '~/platform/supabase/effect-store'
@@ -264,18 +264,32 @@ describe('a Ministry’s Discipleship Goal options', () => {
     const alone = await createMinistryWithAdmin('Eastside Church')
     const options = await theList(alone)
 
-    // The floor is the database's, not a screen's. Every option but one goes in a
-    // single statement, which is permitted; the statement that would take them all
-    // is refused.
-    await pool.query(
-      `delete from discipleship_goal where ministry_id = $1 and label <> $2`,
-      [alone.id, options[0]!],
-    )
-    await expect(
-      pool.query(`delete from discipleship_goal where ministry_id = $1`, [alone.id]),
-    ).rejects.toThrow(/cannot be left with no Discipleship Goal/)
+    // As `service_role`, which is what a pilot script actually connects as -- not
+    // as the owner, which bypasses everything and would prove only that the
+    // function parses. The floor is the database's, not a screen's.
+    const client = await pool.connect()
+    try {
+      await client.query('begin')
+      await client.query('set local role service_role')
 
-    expect(await theList(alone)).toEqual([options[0]!])
+      // Every option but one, in a single statement: permitted, because the form
+      // still has something to offer.
+      await client.query(
+        `delete from discipleship_goal where ministry_id = $1 and label <> $2`,
+        [alone.id, options[0]!],
+      )
+
+      // The statement that would take them all is refused on its last row.
+      await expect(
+        client.query(`delete from discipleship_goal where ministry_id = $1`, [alone.id]),
+      ).rejects.toThrow(/cannot be left with no Discipleship Goal/)
+
+      await client.query('rollback')
+    } finally {
+      client.release()
+    }
+
+    expect(await theList(alone)).toEqual(options)
   })
 
   it('lets a Ministry be deleted with its options, which is not an edit', async () => {
@@ -379,6 +393,98 @@ describe('a Ministry’s Discipleship Goal options', () => {
     ).rejects.toThrow(new GoalRefused('goal.last_one'))
 
     expect(await theList(racing)).toEqual([offered])
+  })
+
+  it('serialises two edits to one list, so neither decides against a stale one', async () => {
+    // The boundary decides *where a new option goes* and *whether one is already
+    // offered* against the list it read, and neither answer survives a second
+    // Admin editing between that read and the write. So the read takes an advisory
+    // lock on the Ministry, and the second edit waits for the first.
+    //
+    // Two additions racing is the case that costs the most when it goes wrong:
+    // both compute the same `nextPosition`, and `unique (ministry_id, position)`
+    // is deferred, so the collision arrives at commit as an unhandled error rather
+    // than as anything an Admin could act on. Both land, on positions of their own.
+    const busy = await createMinistryWithAdmin('Fairview Church')
+    const before = (await theList(busy)).length
+
+    await Promise.all([
+      service().execute({ type: 'goal.add', ministryId: busy.id, label: 'Grief' }),
+      service().execute({ type: 'goal.add', ministryId: busy.id, label: 'Money' }),
+    ])
+
+    const after = await theList(busy)
+    expect(after).toHaveLength(before + 2)
+    expect(after).toContain('Grief')
+    expect(after).toContain('Money')
+
+    const { rows } = await pool.query<{ position: number }>(
+      `select position from discipleship_goal where ministry_id = $1 order by position`,
+      [busy.id],
+    )
+    expect(new Set(rows.map((row) => row.position)).size).toBe(rows.length)
+  })
+
+  it('refuses a wording only capitalised differently, even from two Admins at once', async () => {
+    // The rule that calls these one option is the domain's -- the database's unique
+    // index is exact -- so without the lock both would land and the form would
+    // offer two choices a Person could not tell apart.
+    const busy = await createMinistryWithAdmin('Greenfield Chapel')
+
+    const both = await Promise.allSettled([
+      service().execute({ type: 'goal.add', ministryId: busy.id, label: 'Grief and loss' }),
+      service().execute({ type: 'goal.add', ministryId: busy.id, label: 'grief AND loss' }),
+    ])
+
+    expect(both.filter((one) => one.status === 'fulfilled')).toHaveLength(1)
+    const refused = both.find((one) => one.status === 'rejected')
+    expect((refused as PromiseRejectedResult).reason).toEqual(
+      new GoalRefused('goal.already_offered'),
+    )
+
+    const list = await theList(busy)
+    expect(list.filter((label) => label.toLowerCase() === 'grief and loss')).toHaveLength(1)
+  })
+
+  it('sends a Person back to the form when their answer was retired mid-fill', async () => {
+    // The list was true when the page was served and stopped being true before the
+    // form came back. The foreign key is what catches it, and what it reaches the
+    // Person as is the difference between one answer to give again and a 500 that
+    // loses the availability grid they just filled in.
+    const changing = await createMinistryWithAdmin('Harbour Church')
+    const retired = await optionCalled((await theList(changing))[1]!, changing)
+
+    await service().execute({
+      type: 'goal.remove',
+      ministryId: changing.id,
+      goalId: retired,
+    })
+
+    await expect(
+      service().execute({
+        type: 'intake.submit',
+        ministryId: changing.id,
+        form: {
+          fullName: 'Tessa Bright',
+          phone: '5551230000',
+          availability: ['monday:midday'],
+          ageBand: '25-34',
+          gender: 'female',
+          goalId: retired,
+          email: null,
+          smsConsent: true,
+          contactSharing: 'granted',
+          source: 'pastor_link',
+        },
+      }),
+    ).rejects.toThrow(new IntakeRefused(['intake.goal_no_longer_offered']))
+
+    // And nothing of theirs landed: the whole submission rolls back with it.
+    const { rows } = await pool.query<{ count: string }>(
+      `select count(*) from person where ministry_id = $1 and full_name = 'Tessa Bright'`,
+      [changing.id],
+    )
+    expect(Number(rows[0]!.count)).toBe(0)
   })
 
   it('shows the list and its counts only to an Admin of that Ministry', async () => {
