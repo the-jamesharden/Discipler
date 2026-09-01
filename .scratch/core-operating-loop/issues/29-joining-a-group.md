@@ -85,3 +85,57 @@ ADR-0004 puts relationship kind at pairing, and a Person expressing a group
 preference at Intake had nowhere to go. That reading is now settled: this is not
 a preference to be weighed later, it is a Person naming a specific existing
 group. Whether naming it admits them is the open question that replaces it.
+
+### Picked up for implementation and returned, 2026-09-01
+
+Picked up under `/implement` and returned without code.
+The status is `needs-triage`, the six items under *Open* are labelled as the product decisions, and none has an answer recorded here the way ticket 27's *Triaged* comment recorded its answers before it was built.
+The working rule is to surface an ambiguity rather than resolve it from the source documents, so this comment records what an implementer found and what a human has to decide, and nothing was built.
+
+**A seventh gap the ticket does not name, and it is the one that stops the work: a group has no name.**
+The form's one new question is *a dropdown of the Ministry's groups*, and `relationship` carries `kind`, `declared_gender` and four timestamps.
+Nothing on it, or on `relationship_member`, or anywhere else, is a name or a label.
+`docs/open-questions.md` already parks this under *pending review before the first pilot* as *What a group check-in calls the group*, with the decision stated as *who names a group and when: a column filled at pairing, or a label an Admin sets afterwards*.
+This ticket is now the second consumer of that decision, and the two want the same thing, which is worth knowing when it is made.
+A dropdown that listed groups as *Leader's name plus Participant names* would leak every member's name to an unauthenticated page, which is a stronger version of the *is every group's name public* question below, so it is not an interim answer.
+Until a group has a name, no version of this form can be built.
+
+What an implementer could and could not settle from the docs, item by item:
+
+- **Gender filter.**
+  Partly derivable.
+  The spec (line 185) says *no setting makes a declared single-gender group mixed* and that the Ministry setting unconstrains one-to-ones only.
+  So the dropdown filters on `declared_gender` regardless of `suggest_gender_match`, mixed groups always appear, and gender is asked before the group.
+  Still a human's to confirm, because it makes this the one Intake form that branches, and because a Ministry with the constraint disabled would see the filter apply anyway.
+- **Join or request.**
+  Not derivable, but the docs lean one way.
+  `docs/product-flow.md` (line 84) says *groups are always formed manually* and `docs/product-rules.md` (line 24) says the pastor creates them by selecting participants.
+  A form that wrote `relationship_member` would contradict both.
+  A request an Admin acts on is the reading consistent with the docs.
+  What that request is - a new Follow-Up Item kind on Care Needed, or a new surface - is undecided and changes the size of the ticket by a lot.
+- **Group names on an unauthenticated page.**
+  Not derivable.
+  Cannot be answered until the naming question is, because what leaks depends on what a name is made of.
+- **A Ministry with no groups.**
+  Not derivable, and it is every Ministry's day-one state.
+  Refusing, falling back to the discipleship wizard, and saying so are three different products.
+- **Availability.**
+  Not derivable.
+  Nothing on this path reads it unless the request surface shows it to the Admin, which depends on the item above.
+  The ticket-27 test would drop it, and the `intake_submission` schema does not require it, so dropping is possible.
+  Dropping the Goal and keeping availability would need a reason, since both are suggestion inputs and the ticket dropped the Goal for having no consumer here.
+- **Age band and the first-time question.**
+  Not derivable.
+  Neither has a consumer named on this path.
+  Age band also feeds the `suggest_max_age_band_gap` check, which governs suggestion only and never runs for a group.
+
+**One item ticket 27's review handed here is also open.**
+Its *The reopen link does not ask the side* finding says the tokenized reopen link renders the single-page form, and that converting it to serve whichever form a Person last answered *belongs with ticket 29, which is already changing what `/intake/<ministry>` serves*.
+This ticket does not mention it.
+Once `/intake/<ministry>` is the group form, the reopen link has to serve something, and which form that is needs a decision.
+
+**What could be built without a decision** is small: the `group` member of the `intake_path` enum, and the non-backfill of earlier records, which is a non-action.
+Neither is worth a commit ahead of the rest.
+
+Recommended next step: triage in the ticket-27 pattern - decide the group name first, then the join-or-request shape, then the rest follow.
+Status left at `needs-triage`.
