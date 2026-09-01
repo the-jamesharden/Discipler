@@ -5,6 +5,7 @@ import {
   addMembership,
   addPerson,
   addPersonWithAccount,
+  adminAsPerson,
   completeIntake,
   createMinistryWithAdmin,
   createRelationship,
@@ -37,7 +38,7 @@ describe('what a Leader can reach', () => {
   // An Admin who leads two relationships and is discipled in a third. He is
   // Riverside's own Admin, a Person like everybody else because that is what
   // provisioning makes him -- not a Person hand-linked to somebody's account.
-  let greaves: { readonly personId: string; readonly userId: string }
+  let greaves: AccountFixture
   let greavesLeads: [string, string]
   let greavesIsDiscipledIn: string
 
@@ -60,7 +61,7 @@ describe('what a Leader can reach', () => {
     northgate = await createMinistryWithAdmin('Northgate Community Church')
     pool = new pg.Pool({ connectionString: localSupabase().databaseUrl })
 
-    greaves = { personId: riverside.adminPersonId, userId: riverside.adminUserId }
+    greaves = adminAsPerson(riverside)
     await completeIntake(riverside, greaves.personId)
     karen = await addPersonWithAccount(riverside, 'Karen Whitfield', 'leader')
     mo = await addPersonWithAccount(riverside, 'Mo Farah', 'leader')
@@ -100,7 +101,7 @@ describe('what a Leader can reach', () => {
   })
 
   /** The Leader Dashboard's own query: relationships this account holds an open leader membership on. */
-  const leaderSurfaceFor = async (account: { readonly userId: string }): Promise<string[]> => {
+  const leaderSurfaceFor = async (account: AccountFixture): Promise<string[]> => {
     const client = await pool.connect()
     try {
       await client.query('begin')

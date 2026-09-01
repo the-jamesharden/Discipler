@@ -297,6 +297,27 @@ building it.
 
 Settled 2026-08-30. Recorded in ticket 12, and in `docs/product-rules.md` under *Settled: Pause Is Leader-Controlled, Bounded, and Visible*, which now states the withdrawal rule as the Pause's rather than the keyword exchange's — including the half a Pause must **not** reach: a question already asked and already lapsed is a silence that had accrued before anybody stepped back.
 
+## Open: whether provisioning a Ministry is itself a ministry event
+
+Raised by ticket 24, which made provisioning product code and deliberately did not
+answer this.
+
+`provisionMinistry` writes four things -- a Ministry, an account, the Admin's Person
+row, and their `ministry_member` row -- and records no history for any of them. Every
+other Person reaches a Roster through the command boundary and leaves an event
+behind, so the Admin is the one Person on a Roster whose arrival is not written down.
+
+It is not simply an oversight to correct. History is scoped to a Ministry, and there
+is no Ministry to scope a command to until the row the command would be scoped to
+exists, so a `ministry.opened` event is a genuine question about where the boundary
+starts rather than a missing call. `tests/integration/ministry-isolation.test.ts`
+already writes a `ministry.opened` event by hand to have something to assert
+isolation against, which is the closest thing to a decision anybody has made.
+
+What needs answering: whether a Ministry opening and its first Admin arriving are
+ministry events in their own right; and if they are, whether provisioning records
+them directly or the command boundary grows a way to open a Ministry.
+
 ## Deferred with the quarterly report
 
 These are not unresolved so much as not yet needed. They must be answered before the reporting interface is built, and the underlying history must be complete enough to answer them later.

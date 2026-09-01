@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import {
   addPerson,
   addPersonWithAccount,
+  adminAsPerson,
   completeIntake,
   createMinistryWithAdmin,
   localSupabase,
@@ -180,12 +181,12 @@ describe('Participation Status', () => {
     //
     // The Ministry's own Admin, because provisioning gave him a Person row -- not
     // somebody hand-linked to his account, which is a state no product flow reaches.
-    const admin = ministry.adminPersonId
-    await completeIntake(ministry, admin)
+    const admin = adminAsPerson(ministry)
+    await completeIntake(ministry, admin.personId)
     const participant = await addPerson(ministry, 'The Admin Disciples Them')
 
-    await pairOneToOne(ministry, admin, participant)
+    await pairOneToOne(ministry, admin.personId, participant)
 
-    expect(await statusOf(admin)).toBe('ready_to_pair')
+    expect(await statusOf(admin.personId)).toBe('ready_to_pair')
   })
 })

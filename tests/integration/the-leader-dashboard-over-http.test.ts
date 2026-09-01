@@ -5,6 +5,7 @@ import {
   addMembership,
   addPerson,
   addPersonWithAccount,
+  adminAsPerson,
   assignMaterial,
   completeIntake,
   createMinistryWithAdmin,
@@ -232,7 +233,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Leader reading their own relationship
     // The Ministry's own Admin, reached through provisioning rather than through a
     // fixture that hand-links a Person to somebody's account. That link is the whole
     // of what makes this case real: see `docs/adr/0009-one-account-per-human.md`.
-    const greaves = { personId: church.adminPersonId }
+    const greaves = adminAsPerson(church)
     await completeIntake(church, greaves.personId, ['sms', 'contact_sharing'], 'pastor_link', {
       availability: slots('tuesday:evening'),
     })
@@ -257,7 +258,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Leader reading their own relationship
       role: 'participant',
     })
 
-    const { cookie } = await signInAs({ phone: church.adminPhone, password: church.adminPassword })
+    const { cookie } = await signInAs(greaves)
 
     const roster = await getPage('/roster', cookie)
     expect(roster.response.status).toBe(200)

@@ -111,3 +111,42 @@ refused as taken the second time the suite runs against the same database.
 **What is not here.** No password reset and no sign-out route, which is what the
 login page already tells a Leader: recovery is an Admin reset until one-time codes
 ship, and both remain post-launch.
+
+### What the review changed, and the one thing it surfaced
+
+**Provisioning reads a number the way everything else does.** It took whatever it
+was handed straight to both the mint and the Person row, so an operator typing
+`(555) 123-4567` would have had the account normalised one way and the record
+written the other -- of a number that is load-bearing three separate times, which is
+exactly what ADR-0008's closing paragraph warns about. It runs through
+`asPhoneNumber` once now and both writes use the result, and the fixture reports the
+number as provisioning stored it rather than as it typed it, so the two cannot agree
+by accident.
+
+**The compensation stopped promising what it cannot deliver.** Its comment said a
+part-way failure "is undone rather than left to be reconciled later", and the delete
+underneath it returns an error rather than throwing -- so a failed delete was
+invisible, the discard after it then failed because a Person still held the account,
+and a bare `catch` swallowed both. It is best-effort and now says so: what survives
+is named in the error the operator reads, because the retry they will reach for is
+the thing it breaks.
+
+**The credential side effect has a name.** `localSupabase()` was reshaping
+`process.env` from inside a getter. `publishSupabaseCredentials()` does it out loud,
+and `createMinistryWithAdmin` calls it -- which is how every suite that touches a
+product adapter gets it, since they all ask for a Ministry first.
+
+**`adminAsPerson` carries the dual-role human.** Four suites had grown the same two
+lines reaching into the fixture for `adminPersonId` and `adminUserId`. It hands back
+a full `AccountFixture`, so `signInWith` and `signInAs` take it like any other
+account. Intake stays out of it deliberately: it is the Person's own act and carries
+their consent, so a suite that needs the Admin pairable completes it itself.
+
+**Surfaced rather than answered: provisioning records no history.** Every other
+Person reaches a Roster through the command boundary and leaves an event behind; the
+Admin is the one Person whose arrival is not written down, and the Ministry's own
+opening is not either. That is not a slip to patch quietly -- history is scoped to a
+Ministry, and there is no Ministry to scope a command to until the row exists, so it
+is a real question about where the boundary starts. It is written up in
+`docs/open-questions.md` under *whether provisioning a Ministry is itself a ministry
+event*, and the module says in as many words that it is not answering it.

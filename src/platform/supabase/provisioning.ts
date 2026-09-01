@@ -1,4 +1,5 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { asPhoneNumber } from '~/domain/roster'
 import { supabaseAccounts } from './accounts'
 import { serviceRoleKey, supabaseCredentials } from './credentials'
 
@@ -22,6 +23,14 @@ import { serviceRoleKey, supabaseCredentials } from './credentials'
  * Admin who is later invited to lead reuses the account they already have rather
  * than minting a second one. Making the link at Acceptance instead would mean
  * consulting a session that acceptance deliberately does not have.
+ *
+ * These writes record no history, and that is a gap rather than a decision. Every
+ * other Person reaches the Roster through the command boundary and leaves a
+ * `person.imported` or Intake event behind; this one is written on the service-role
+ * connection because there is no Ministry to scope a command to until the row it
+ * would be scoped to exists. Whether a Ministry opening and its first Admin
+ * arriving are ministry events in their own right is in
+ * `docs/open-questions.md` and is deliberately not answered here.
  */
 
 export interface NewMinistry {
@@ -37,7 +46,11 @@ export interface NewMinistry {
 
 export interface NewAdmin {
   readonly fullName: string
-  /** What they sign in with, and the number on their Person record: one fact. */
+  /**
+   * What they sign in with, and the number on their Person record: one fact, read
+   * once through `asPhoneNumber` so it cannot become two. Typed however an operator
+   * would type it; it does not have to arrive in E.164.
+   */
   readonly phone: string
   readonly password: string
 }
@@ -47,6 +60,8 @@ export interface ProvisionedMinistry {
   readonly adminUserId: string
   /** The Admin's own row on their Ministry's Roster. */
   readonly adminPersonId: string
+  /** The number as it was stored, which is what they sign in with. */
+  readonly adminPhone: string
 }
 
 /**
@@ -70,13 +85,22 @@ export const provisionMinistry = async (
     auth: { autoRefreshToken: false, persistSession: false },
   })
 
+  // The same reading of a phone number the Roster, the Intake form and the sign-in
+  // form use. Read once and then used for both the credential and the Person row,
+  // so an operator typing `(555) 123-4567` cannot end up with an account normalised
+  // one way and a record written the other -- which is the failure
+  // `docs/adr/0008-the-phone-number-is-the-sign-in-credential.md` warns about, a
+  // number that is load-bearing in three separate ways.
+  const phone = asPhoneNumber(ministry.admin.phone)
+  if (!phone) throw new MinistryNotProvisioned(`unreadable phone number: ${ministry.admin.phone}`)
+
   // The account first, and nothing written before it. It is the one step that can
   // be refused for a reason the operator caused -- a number that already signs
   // somebody in, a password too short to be worth having -- and a Ministry created
   // ahead of it would be a Ministry nobody can sign in to.
   //
   // The same mint Acceptance uses, so "a phone identity, no email" is decided once.
-  const account = await supabaseAccounts.create(ministry.admin.phone, ministry.admin.password)
+  const account = await supabaseAccounts.create(phone, ministry.admin.password)
   if ('refusal' in account) throw new MinistryNotProvisioned(account.refusal)
 
   let ministryId: string | undefined
@@ -98,7 +122,7 @@ export const provisionMinistry = async (
       .insert({
         ministry_id: created.id,
         full_name: ministry.admin.fullName,
-        phone: ministry.admin.phone,
+        phone,
         user_id: account.userId,
       })
       .select('id')
@@ -117,25 +141,53 @@ export const provisionMinistry = async (
       ministryId: created.id,
       adminUserId: account.userId,
       adminPersonId: person.id,
+      adminPhone: phone,
     }
   } catch (error) {
     // Four writes across two systems and no transaction spanning them, so a failure
-    // part-way is undone rather than left to be reconciled later. The account holds
-    // the Admin's number, and a half-provisioned Ministry that kept it would refuse
-    // the retry for a number nobody can sign in with.
+    // part-way is cleaned up here. Best-effort, and said plainly rather than
+    // promised: nothing above this line can roll back, and a cleanup that failed
+    // must not replace the error the operator actually needs to read.
     //
     // The Ministry goes first and everything under it cascades, which is what frees
     // the account: `discard` refuses one a Person still holds, and until the Person
-    // row is gone that is exactly what this is.
-    //
-    // Neither cleanup may throw in place of the failure being handled. What went
-    // wrong here is what the operator needs to read.
-    try {
-      if (ministryId) await admin.from('ministry').delete().eq('id', ministryId)
-      await supabaseAccounts.discard(account.userId)
-    } catch {
-      // Deliberately swallowed.
+    // row is gone that is exactly what this is. So the delete failing means the
+    // discard fails too, and what is left behind is a Ministry holding a number
+    // nobody can sign in with. That state is reachable, and the operator is told
+    // about it rather than left to find it -- because the retry they will reach for
+    // is the thing it breaks.
+    const left = await cleanUp(admin, ministryId, account.userId)
+    if (left) {
+      throw new MinistryNotProvisioned(
+        `${left}. The original failure was: ${error instanceof Error ? error.message : String(error)}`,
+      )
     }
     throw error
   }
+}
+
+/**
+ * Undoes as much of a failed provisioning as it can, and reports what it could not.
+ * A string back means something survives that needs a human; `undefined` means the
+ * attempt left nothing behind and the caller may re-throw its own failure untouched.
+ */
+const cleanUp = async (
+  admin: SupabaseClient,
+  ministryId: string | undefined,
+  userId: string,
+): Promise<string | undefined> => {
+  if (ministryId) {
+    const { error } = await admin.from('ministry').delete().eq('id', ministryId)
+    if (error) {
+      return `Ministry ${ministryId} and the account on ${userId} were both left behind and need removing by hand (${error.message})`
+    }
+  }
+
+  try {
+    await supabaseAccounts.discard(userId)
+  } catch (error) {
+    return `the account on ${userId} was left behind and needs removing by hand (${error instanceof Error ? error.message : String(error)})`
+  }
+
+  return undefined
 }

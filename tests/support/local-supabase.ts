@@ -37,20 +37,29 @@ export const localSupabase = (): LocalSupabase => {
     serviceRoleKey: status.SERVICE_ROLE_KEY!,
     databaseUrl: status.DB_URL!,
   }
-
-  // The product's adapters read their keys from the environment the way the running
-  // app does, and the test runner is not the app. Discovered rather than chosen, for
-  // the reason above: keys a test picked for itself would prove an adapter agrees
-  // with the test and nothing else. `??=` so an environment that already says --
-  // CI, or a developer pointing the suite somewhere -- is not overwritten.
-  //
-  // This is what lets a fixture drive a real provisioning path instead of
-  // reimplementing one beside it.
-  process.env.NEXT_PUBLIC_SUPABASE_URL ??= cached.apiUrl
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??= cached.anonKey
-  process.env.SUPABASE_SERVICE_ROLE_KEY ??= cached.serviceRoleKey
-
   return cached
+}
+
+/**
+ * Puts the local stack's keys where the product's own adapters look for them.
+ *
+ * They read the environment the way the running app does, and the test runner is
+ * not the app -- so a fixture that drives a real adapter has to furnish the
+ * environment first. Discovered rather than chosen, for the reason `localSupabase`
+ * gives: keys a test picked for itself would prove an adapter agrees with the test
+ * and nothing else. `??=` so an environment that already says -- CI, or a developer
+ * pointing the suite somewhere -- is not overwritten.
+ *
+ * Called out loud rather than done quietly inside `localSupabase`, because a getter
+ * that reshapes the process is a getter nobody expects. `createMinistryWithAdmin`
+ * calls it, which is how every suite that reaches a product adapter gets it: they
+ * all ask for a Ministry first.
+ */
+export const publishSupabaseCredentials = (): void => {
+  const { apiUrl, anonKey, serviceRoleKey } = localSupabase()
+  process.env.NEXT_PUBLIC_SUPABASE_URL ??= apiUrl
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??= anonKey
+  process.env.SUPABASE_SERVICE_ROLE_KEY ??= serviceRoleKey
 }
 
 /** Bypasses row-level security. For seeding fixtures only -- never for assertions. */
@@ -61,8 +70,18 @@ export const serviceRoleClient = (): SupabaseClient => {
   })
 }
 
-export interface MinistryFixture {
+/**
+ * As much of a Ministry as most seeding needs: which one. Narrower than the
+ * fixture on purpose, so the helpers that only put a row somewhere can be reached
+ * by a caller holding nothing but a provisioned id -- `scripts/seed-demo.ts` runs
+ * the real provisioning and then adds a Person, and should not have to build a
+ * whole fixture to do the second half.
+ */
+export interface MinistryRef {
   readonly id: MinistryId
+}
+
+export interface MinistryFixture extends MinistryRef {
   readonly name: string
   /** The Admin's own name, which is also their row on their Ministry's Roster. */
   readonly adminName: string
@@ -93,11 +112,12 @@ export interface MinistryFixture {
  * spreadsheet column and the sign-in form reads a typed number through the same
  * function.
  *
- * The block is picked at random once per process and walked from there, rather
- * than derived from the clock. `auth.users` holds a number for the life of the
- * local stack, so numbers that only avoid each other inside one run start being
- * refused as taken the second time the suite runs against the same database --
- * which is the collision ticket 24 asked to be solved here once.
+ * The block is picked at random once per process and walked from there. It used to
+ * be `Date.now() % 10_000_000`, which wraps every few hours -- and `auth.users`
+ * holds a number for the life of the local stack, so two runs either side of a wrap
+ * collided and the second was refused for a number nobody could see. Random start,
+ * sequential after, makes that unlikely rather than periodic. It is not a guarantee;
+ * the guarantee is `npm run db:reset`.
  */
 let nextNumber = Math.floor(Math.random() * 10_000_000)
 export const aTestPhoneNumber = () => `+1555${String(nextNumber++ % 10_000_000).padStart(7, '0')}`
@@ -115,25 +135,27 @@ export const createMinistryWithAdmin = async (
   // Admin is furniture and a derived name says so.
   adminName: string = `Admin of ${name}`,
 ): Promise<MinistryFixture> => {
-  // Read before provisioning, so the keys the adapter needs are in the environment
-  // by the time it looks for them.
-  localSupabase()
+  // Before provisioning, so the keys the adapter needs are in the environment by
+  // the time it looks for them.
+  publishSupabaseCredentials()
 
-  const adminPhone = aTestPhoneNumber()
   const adminPassword = 'correct-horse-battery-staple'
   const sendingNumber = aTestPhoneNumber()
 
   const provisioned = await provisionMinistry({
     name,
     sendingNumber,
-    admin: { fullName: adminName, phone: adminPhone, password: adminPassword },
+    admin: { fullName: adminName, phone: aTestPhoneNumber(), password: adminPassword },
   })
 
   return {
     id: ministryId(provisioned.ministryId),
     name,
     adminName,
-    adminPhone,
+    // As provisioning stored it, not as the fixture typed it. They agree today
+    // because the fixture types E.164, and a fixture that reported its own input
+    // would keep agreeing after they stopped agreeing.
+    adminPhone: provisioned.adminPhone,
     adminPassword,
     adminUserId: provisioned.adminUserId,
     adminPersonId: provisioned.adminPersonId,
@@ -164,7 +186,7 @@ export type ConsentSource = 'pastor_link' | 'qr_code'
  * paired, they cannot lead, and they receive nothing, which the database enforces.
  */
 export const completeIntake = async (
-  ministry: MinistryFixture,
+  ministry: MinistryRef,
   personId: string,
   consents: readonly ConsentKind[] = ['sms', 'contact_sharing'],
   source: ConsentSource = 'pastor_link',
@@ -277,7 +299,7 @@ export interface PersonOptions {
 }
 
 export const addPerson = async (
-  ministry: MinistryFixture,
+  ministry: MinistryRef,
   fullName: string,
   options: PersonOptions = {},
 ): Promise<string> => {
@@ -325,6 +347,23 @@ export interface AccountFixture {
   readonly password: string
   readonly fullName: string
 }
+
+/**
+ * The Admin as a Person: the dual-role human, reached the way the product makes
+ * them rather than hand-linked through the service role. Every suite that needs one
+ * asks for it here, so the shape of "an Admin who also leads" is written once.
+ *
+ * Intake is deliberately not part of it. It is the Person's own act and carries
+ * their consent, so a suite that needs the Admin pairable completes it itself --
+ * exactly as it would for anybody else.
+ */
+export const adminAsPerson = (ministry: MinistryFixture): AccountFixture => ({
+  personId: ministry.adminPersonId,
+  userId: ministry.adminUserId,
+  phone: ministry.adminPhone,
+  password: ministry.adminPassword,
+  fullName: ministry.adminName,
+})
 
 const ACCOUNT_PASSWORD = 'correct-horse-battery-staple'
 

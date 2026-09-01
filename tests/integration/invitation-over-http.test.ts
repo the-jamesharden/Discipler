@@ -259,9 +259,15 @@ describe.skipIf(skipUnlessAppIsRunning)('a Leader opening their Invitation Link'
     await pair([david], [emily])
     const token = await tokenFor(david)
 
+    const { rows: onFile } = await pool.query<{ phone: string }>(
+      `select phone from person where id = $1`,
+      [david],
+    )
+
     const { html } = await open(token)
     const shown = html.match(/\+1\d{7,14}/)?.[0]
-    expect(shown).toBeDefined()
+    // The number on the page is his, not merely the first number on the page.
+    expect(shown).toBe(onFile[0]?.phone)
 
     await post(`/invitation/${token}/accept`, {
       fullName: 'David Returns',
@@ -331,6 +337,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Leader opening their Invitation Link'
       phone: ministry.adminPhone,
       password: ministry.adminPassword,
     })
+    expect(response.status).toBe(303)
     expect(response.headers.get('location')).not.toContain('/login')
   })
 

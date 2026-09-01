@@ -47,7 +47,11 @@ describe('provisioning a Ministry and its first Admin', () => {
     // Not merely unused: absent. An address on the account would be a second door
     // onto it, and nothing in the product opens that one -- so leaving it there
     // would be leaving a credential nobody maintains.
-    expect(account.email ?? '').toBe('')
+    //
+    // The empty string and not `undefined`: that is what GoTrue reports for an
+    // account with no email, and asserting the value it actually returns is what
+    // makes this fail if one is ever set.
+    expect(account.email).toBe('')
   })
 
   it('gives the Admin a Person row in their own Ministry, linked to that account', async () => {
@@ -83,6 +87,48 @@ describe('provisioning a Ministry and its first Admin', () => {
     )
 
     expect(rows).toEqual([{ tier: 'admin' }])
+  })
+
+  it('reads a number typed the way an operator would type it', async () => {
+    // The same reading the Roster, the Intake form and the sign-in form use. A
+    // second one here would drift, and the way it would fail is an Admin whose
+    // record and whose credential hold different numbers -- one of which is also
+    // the number their Ministry texts them on.
+    const typed = aTestPhoneNumber().replace(/^\+1(\d{3})(\d{3})(\d{4})$/, '($1) $2-$3')
+    expect(typed).not.toMatch(/^\+/)
+
+    const provisioned = await provisionMinistry({
+      name: 'As Typed Chapel',
+      sendingNumber: aTestPhoneNumber(),
+      admin: { fullName: 'Typed It Out', phone: typed, password: 'a-long-enough-password' },
+    })
+
+    expect(provisioned.adminPhone).toMatch(/^\+1\d{10}$/)
+
+    // The record and the credential, agreeing.
+    const { rows } = await pool.query<{ phone: string }>(
+      `select phone from person where id = $1`,
+      [provisioned.adminPersonId],
+    )
+    expect(rows[0]?.phone).toBe(provisioned.adminPhone)
+
+    const account = await accountFor(provisioned.adminUserId)
+    expect(account.phone).toBe(provisioned.adminPhone.replace('+', ''))
+  })
+
+  it('refuses a number it cannot read at all, and creates nothing', async () => {
+    await expect(
+      provisionMinistry({
+        name: 'Unreadable Fellowship',
+        sendingNumber: aTestPhoneNumber(),
+        admin: { fullName: 'Not A Number', phone: 'ring me', password: 'a-long-enough-password' },
+      }),
+    ).rejects.toThrow(/unreadable phone number/)
+
+    const { rows } = await pool.query(`select id from ministry where name = $1`, [
+      'Unreadable Fellowship',
+    ])
+    expect(rows).toHaveLength(0)
   })
 
   it('refuses a number that already signs somebody in, rather than splitting them in two', async () => {
