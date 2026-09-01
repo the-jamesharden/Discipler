@@ -57,6 +57,10 @@ describe('accepting an Invitation Link', () => {
       ministryId: ministry.id,
       leaderIds,
       participantIds,
+      // Mixed. These tests are about who has to accept before a relationship opens,
+      // and a declaration that bound anybody would be a second subject in each of
+      // them.
+      declaredGender: null,
     })
 
   const tokenFor = async (person: PersonId) => {

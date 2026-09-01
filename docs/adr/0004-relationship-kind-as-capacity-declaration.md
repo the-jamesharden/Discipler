@@ -150,3 +150,54 @@ losing a member is not a decision to place two people alone together.
 `src/` and `app/` only, so a migration reading `kind` trips nothing. That is correct —
 constraints are exactly who may read it — but it means the honest record of which
 constraints do is this document, not a test.
+
+## Amendment — a group declares its gender, and `kind` is not what binds it
+
+*2026-09-01, with ticket 25.*
+
+The amendment above said the safeguarding rule was *a one-to-one is between two people
+of the same gender, and a group may be mixed*, and conditioned
+`app.reject_gender_mismatch` on `kind` accordingly. That was reasoned carefully and it
+answered the wrong question.
+
+A men's small group with three Leaders is not "a shape with no pair to match". It is the
+ordinary case in a ministry, and it is where a safeguarding rule earns its keep. The
+question a constraint on a group has to ask is not how many Leaders the relationship
+holds but **whether it declared itself single-gender** — and `kind` cannot answer that,
+because it is a statement about capacity and says nothing about who may be in it.
+
+**So the rule is now carried by a second column and not by this one.**
+`relationship.declared_gender` is a `gender`, nullable, where null means the relationship
+declares none. Where it holds a gender, every member is of it — Leader and Participant
+alike, whatever the kind. It is immutable after creation, for the reason `kind` is: a
+constraint that can be switched off after the fact is not a constraint, and here the
+switch would unbind people already inside the relationship.
+
+**What this changes about `kind`.** Less than the previous amendment claimed for it. The
+absolute match between the two people in a one-to-one is still conditioned on `kind`, and
+still is for the reason given there: a group is assembled row by row, so its first two
+members read as N=1, and a count-based rule would refuse a mixed group depending on the
+order the rows arrived in. That one condition is the whole of `kind`'s involvement in
+safeguarding. The new constraint reads no kind at all.
+
+**What this changes about the consequence.** The previous amendment closed by restating
+the trade — *a group that drops to one Participant keeps `kind = 'group'` and stays
+unbound by the rule*. That sentence is now only true of a group that declared itself
+mixed, which is a group that said so. A group that declared a gender goes on holding
+only people of it however many members it has, which is the case the sentence was
+quietly excluding.
+
+**The declaration is asked, not derived.** Deriving it from who happens to be selected
+cannot express *this is a women's group that currently has one member*, and a derivation
+that is silent binds people to something nobody chose. So the Pair form asks — three
+answers, nothing preselected — and the domain refuses a group that declared nothing.
+`needsAGenderDeclaration` sits beside `kindFor` in `src/domain/relationships.ts` so that
+the one branch on the shape stays in the one file this ADR permits to know what a kind
+is. The refusal reaches the Admin as wording on the form they submitted, with their
+selection and their answer still on it.
+
+**It is not gated on `ministry.suggest_gender_match`.** That setting is the deliberate
+disable for the rule Discipler applies on a Ministry's behalf — the automatic match
+between two people who never declared anything. A declaration is a statement an Admin
+made about one relationship on purpose. A Ministry that permitted mixed one-to-ones has
+not asked for its own women's group to quietly admit a man.

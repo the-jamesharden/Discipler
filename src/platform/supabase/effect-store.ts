@@ -121,6 +121,8 @@ const REFUSALS: Record<string, PairingRefusal> = {
     'relationship.leader_has_not_completed_intake',
   relationship_member_leader_has_not_opted_out: 'relationship.leader_has_opted_out',
   relationship_member_gender_matches: 'relationship.gender_must_match',
+  relationship_member_matches_declared_gender:
+    'relationship.gender_does_not_match_the_declaration',
   one_to_one_one_open_leader: 'relationship.already_has_a_leader',
 }
 
@@ -917,10 +919,20 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
 
   async createRelationship(relationship: NewRelationship) {
     try {
+      // The declaration is written with the relationship and before any member, so
+      // the trigger that enforces it is already reading the finished answer on the
+      // very first membership row. Setting it afterwards would admit people to a
+      // relationship that had not yet said what it was.
       await client.query(
-        `insert into relationship (id, ministry_id, kind, created_at)
-         values ($1, $2, $3, $4)`,
-        [relationship.id, relationship.ministryId, relationship.kind, relationship.createdAt],
+        `insert into relationship (id, ministry_id, kind, declared_gender, created_at)
+         values ($1, $2, $3, $4, $5)`,
+        [
+          relationship.id,
+          relationship.ministryId,
+          relationship.kind,
+          relationship.declaredGender,
+          relationship.createdAt,
+        ],
       )
 
       for (const member of relationship.members) {

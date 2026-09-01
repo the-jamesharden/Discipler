@@ -37,10 +37,21 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
   const pair = (leaderId: string, participantIds: string[]) =>
     pairLed([leaderId], participantIds)
 
-  const pairLed = async (leaderIds: string[], participantIds: string[]) => {
+  /**
+   * `mixed` unless a test says otherwise, because a group has to declare what it is
+   * and these tests are about the surface rather than about the declaration. A
+   * one-to-one is asked nothing, so sending it is harmless there: the absolute match
+   * between two people holds whatever is on the column.
+   */
+  const pairLed = async (
+    leaderIds: string[],
+    participantIds: string[],
+    declaredGender: 'male' | 'female' | 'mixed' | null = 'mixed',
+  ) => {
     const body = new URLSearchParams()
     for (const id of leaderIds) body.append('leaderId', id)
     for (const id of participantIds) body.append('participantId', id)
+    if (declaredGender !== null) body.append('declaredGender', declaredGender)
 
     const response = await fetch(`${baseUrl}/roster/pair/create`, {
       method: 'POST',
@@ -284,5 +295,98 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
 
     expect(response.status).toBe(303)
     expect(response.headers.get('location')).toContain('/roster')
+  })
+
+  it('asks what kind of group this is, with nothing answered for the Admin', async () => {
+    const { html } = await getPage('/roster/pair', cookie)
+
+    expect(html).toContain('what kind of group is it')
+    // Three answers and no default. A preselected radio would answer a safeguarding
+    // question on the Admin's behalf, which is the whole of what "ask outright" rules
+    // out -- so no `declaredGender` input arrives checked.
+    for (const value of ['male', 'female', 'mixed']) {
+      expect(
+        new RegExp(`name="declaredGender"[^>]*value="${value}"`).test(html),
+        value,
+      ).toBe(true)
+    }
+    expect(html).not.toMatch(/name="declaredGender"[^>]*checked/)
+    expect(html).not.toMatch(/checked[^>]*name="declaredGender"/)
+  })
+
+  it('refuses a group nobody declared, rather than guessing at one', async () => {
+    const first = await woman('Maeve Ionescu')
+    const second = await woman('Nell Jarvis')
+    const third = await woman('Orla Kean')
+
+    const { location } = await pairLed([first], [second, third], null)
+    expect(location).toContain('error=relationship.needs_a_gender_declaration')
+
+    const { html } = await getPage(location.replace(/^[^?]*/, '/roster/pair'), cookie)
+    const alert = html.match(/role="alert"[^>]*>([^<]*)</)?.[1] ?? ''
+    expect(alert).toMatch(/men|women/i)
+    expect(alert).not.toContain('needs_a_gender_declaration')
+
+    const { rows } = await pool.query(
+      `select 1 from relationship_member where person_id = any($1)`,
+      [[first, second, third]],
+    )
+    expect(rows).toEqual([])
+  })
+
+  it('pairs two people with nothing declared, because a one-to-one is asked nothing', async () => {
+    const leader = await woman('Prue Larkin')
+    const participant = await woman('Quila Mbeki')
+
+    const { location } = await pairLed([leader], [participant], null)
+    expect(location).toContain('/roster?paired=1')
+  })
+
+  it('refuses a declared group that crosses its own declaration, and hands the answer back', async () => {
+    const leader = await man('Rafe Nunn')
+    const first = await man('Silas Ojo')
+    const outsider = await woman('Tamsin Pace')
+
+    const { response, location } = await pairLed([leader], [first, outsider], 'male')
+
+    expect(response.status).toBe(303)
+    expect(location).toContain('error=relationship.gender_does_not_match_the_declaration')
+    // The declaration comes back with the selection, so the Admin corrects the one
+    // person who was wrong rather than restating what the group is.
+    expect(location).toContain('declaredGender=male')
+
+    const { html } = await getPage(location.replace(/^[^?]*/, '/roster/pair'), cookie)
+    const alert = html.match(/role="alert"[^>]*>([^<]*)</)?.[1] ?? ''
+    expect(alert).toMatch(/declared/i)
+    expect(alert).not.toContain('gender_does_not_match')
+    expect(
+      /name="declaredGender"[^>]*value="male"[^>]*checked/.test(html) ||
+        /value="male"[^>]*checked[^>]*name="declaredGender"/.test(html) ||
+        /name="declaredGender"[^>]*checked[^>]*value="male"/.test(html),
+    ).toBe(true)
+
+    const { rows } = await pool.query(
+      `select 1 from relationship_member where person_id = any($1)`,
+      [[leader, first, outsider]],
+    )
+    expect(rows).toEqual([])
+  })
+
+  it('forms a women’s group, and records what it was declared to be', async () => {
+    const leader = await woman('Ursula Quist')
+    const first = await woman('Vi Rahman')
+    const second = await woman('Wilma Sato')
+
+    const { location } = await pairLed([leader], [first, second], 'female')
+    expect(location).toContain('/roster?paired=2')
+
+    const { rows } = await pool.query(
+      `select distinct r.declared_gender
+         from relationship r
+         join relationship_member m on m.relationship_id = r.id
+        where m.person_id = any($1)`,
+      [[leader, first, second]],
+    )
+    expect(rows).toEqual([{ declared_gender: 'female' }])
   })
 })

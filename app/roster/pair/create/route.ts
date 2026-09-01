@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { PairingRefused } from '~/domain/errors'
 import { personId } from '~/domain/ids'
+import { GENDERS, type Gender } from '~/domain/intake'
 import { currentAdmin } from '~/platform/supabase/current-admin'
 import { getCommandService } from '~/service/container'
 
@@ -23,6 +24,24 @@ export async function POST(request: NextRequest) {
   const participantIds = chosen('participantId')
 
   /**
+   * What the Admin said this relationship is. Three answers and no fourth: a gender,
+   * `mixed`, or -- where the radio was left alone -- nothing at all.
+   *
+   * `undefined` is passed through rather than folded to `mixed`, because the domain
+   * has to be able to tell *nobody answered* from *somebody answered mixed*, and a
+   * route that guessed would answer a safeguarding question on the Admin's behalf.
+   * Anything else in the field is nothing at all for the same reason: a value typed
+   * into a form post is not a declaration.
+   */
+  const declared = form.get('declaredGender')
+  const declaredGender: Gender | null | undefined =
+    declared === 'mixed'
+      ? null
+      : GENDERS.includes(declared as Gender)
+        ? (declared as Gender)
+        : undefined
+
+  /**
    * Back to the form with the selection intact. An Admin who picked five people for a
    * group and hit a refusal should be correcting one choice, not making all five
    * again -- and a refusal that costs more than the mistake did teaches people to
@@ -32,6 +51,10 @@ export async function POST(request: NextRequest) {
     const params = new URLSearchParams({ error: code })
     for (const id of leaderIds) params.append('leaderId', id)
     for (const id of participantIds) params.append('with', id)
+    // Their answer comes back too, for the same reason their selection does. An
+    // Admin refused because one person is of the wrong gender is correcting the
+    // person, not re-declaring what the group is.
+    if (declaredGender !== undefined) params.set('declaredGender', declaredGender ?? 'mixed')
 
     return NextResponse.redirect(new URL(`/roster/pair?${params}`, request.url), {
       status: 303,
@@ -49,6 +72,7 @@ export async function POST(request: NextRequest) {
       ministryId: admin.ministryId,
       leaderIds: leaderIds.map(personId),
       participantIds: participantIds.map(personId),
+      ...(declaredGender === undefined ? {} : { declaredGender }),
     })
   } catch (error) {
     // Every refusal an Admin can act on travels as a code and lands back on the form

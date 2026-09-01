@@ -4,7 +4,7 @@ import { handleCommand, type CommandContext } from '~/domain/boundary'
 import { createTestClock } from '~/domain/clock'
 import { PairingRefused } from '~/domain/errors'
 import { createSequentialIds, ministryId, personId } from '~/domain/ids'
-import { kindFor } from '~/domain/relationships'
+import { kindFor, needsAGenderDeclaration } from '~/domain/relationships'
 
 /**
  * M Leaders and N Participants, formed but not activated. The rules that can be
@@ -39,12 +39,26 @@ const context = (): CommandContext => ({
   },
 })
 
+/**
+ * Mixed unless a test says otherwise. A group has to declare what it is, and these
+ * tests are about who is in a relationship rather than what gender it was said to
+ * be -- declaring `null` is the answer that constrains nobody, so it is the one that
+ * leaves each test asserting only its own subject. The rule that a group must
+ * declare *something* has its own test below.
+ */
 const create = (
   participantIds: ReturnType<typeof personId>[],
   leaderIds: ReturnType<typeof personId>[] = [leader],
+  declaredGender: 'male' | 'female' | null = null,
 ) =>
   handleCommand(
-    { type: 'relationship.create', ministryId: ministry, leaderIds, participantIds },
+    {
+      type: 'relationship.create',
+      ministryId: ministry,
+      leaderIds,
+      participantIds,
+      declaredGender,
+    },
     context(),
   )
 
@@ -181,5 +195,69 @@ describe('creating a relationship', () => {
     } as const
 
     expect(handleCommand(command, context())).toEqual(handleCommand(command, context()))
+  })
+})
+
+/**
+ * The second declaration a relationship carries. `kind` says how many people it can
+ * hold; this says who may be in it, and a group has to be told -- *this is a women's
+ * group that currently has one member* is a true thing about a group that nothing in
+ * its membership says.
+ *
+ * Three states and no default. `undefined` is nobody was asked, `null` is somebody
+ * answered mixed, and a gender binds every member. Collapsing the first two would
+ * have the product answer a safeguarding question on the Admin's behalf.
+ */
+describe('the gender a relationship declares', () => {
+  it('is asked of a group and never of a one-to-one', () => {
+    expect(needsAGenderDeclaration(1, 1)).toBe(false)
+    expect(needsAGenderDeclaration(1, 2)).toBe(true)
+    // Three people meeting is a group whichever side the third stands on, so the
+    // shape that is a group only because of its second Leader is asked too.
+    expect(needsAGenderDeclaration(2, 1)).toBe(true)
+  })
+
+  it('refuses a group that declared nothing', () => {
+    expect(() =>
+      handleCommand(
+        {
+          type: 'relationship.create',
+          ministryId: ministry,
+          leaderIds: [leader],
+          participantIds: [emily, ada],
+        },
+        context(),
+      ),
+    ).toThrow(
+      expect.objectContaining({ refusal: 'relationship.needs_a_gender_declaration' }),
+    )
+  })
+
+  it('lets a one-to-one be formed with nothing declared, because nobody was asked', () => {
+    const pair = relationshipIn(
+      handleCommand(
+        {
+          type: 'relationship.create',
+          ministryId: ministry,
+          leaderIds: [leader],
+          participantIds: [emily],
+        },
+        context(),
+      ),
+    )
+
+    expect(pair.declaredGender).toBeNull()
+  })
+
+  it('carries what was declared onto the relationship', () => {
+    expect(relationshipIn(create([emily, ada], [leader], 'female')).declaredGender).toBe(
+      'female',
+    )
+  })
+
+  it('reads a declared mixed group as binding nobody', () => {
+    // `null` and *nobody answered* are different requests and only one of them is
+    // refused. This is the one that is not.
+    expect(relationshipIn(create([emily, ada], [leader], null)).declaredGender).toBeNull()
   })
 })

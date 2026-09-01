@@ -162,6 +162,7 @@ import {
   ACCEPTANCE_REMINDER_DAYS,
   isRelationshipOutcome,
   kindFor,
+  needsAGenderDeclaration,
   type MemberRole,
   type NewMembership,
 } from './relationships'
@@ -3579,7 +3580,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
     }
 
     case 'relationship.create': {
-      const { leaderIds, participantIds } = command
+      const { leaderIds, participantIds, declaredGender } = command
       const ministryName = context.ministryName
       const baseUrl = context.appBaseUrl
       if (!ministryName) {
@@ -3604,6 +3605,21 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       if (new Set(everyone).size !== everyone.length) {
         throw new PairingRefused('relationship.person_listed_twice')
       }
+      // A group says what it is, once, and there is no default to fall back on: a
+      // silent *mixed* would be the product deciding a safeguarding question on the
+      // Admin's behalf, and a silent binding would bind people to something nobody
+      // chose. `undefined` is nobody answered; `null` is somebody answered mixed.
+      //
+      // Refused here rather than by the form's `required`, for the reason the leader
+      // checkboxes drop theirs: the browser cannot know which shape is being formed
+      // until the boxes are ticked, and half-enforcing it there would leave the real
+      // rule in two places.
+      if (
+        needsAGenderDeclaration(leaderIds.length, participantIds.length) &&
+        declaredGender === undefined
+      ) {
+        throw new PairingRefused('relationship.needs_a_gender_declaration')
+      }
 
       const now = context.clock.now()
       const relationship = {
@@ -3613,6 +3629,11 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         // fact; the kind is a record of what they were at formation, kept so the
         // participation caps and the gender rule can be expressed in the database.
         kind: kindFor(leaderIds.length, participantIds.length),
+        // What the Admin declared, or nothing where nobody was asked. A one-to-one
+        // reaching here with a declaration keeps it: it binds identically and
+        // weakens nothing, since the absolute match between its two people holds
+        // whatever is on the column.
+        declaredGender: declaredGender ?? null,
         createdAt: now,
         members: membersOf(leaderIds, participantIds, now),
       }

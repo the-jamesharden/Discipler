@@ -129,7 +129,19 @@ export const REFUSALS: Record<PairingRefusal, string> = {
   'relationship.gender_must_match':
     'A one-to-one relationship must be between two people of the same gender. This is '
     + 'a safeguarding rule and pairing by hand does not override it. A group can be '
-    + 'mixed.',
+    + 'mixed, if you say that is what it is.',
+  // Names what the Admin themselves declared, because the fix is one of two things
+  // and they are the only person who knows which: take the wrong person out, or
+  // create it as a mixed group. A sentence that only said "genders do not match"
+  // would describe a rule rather than the choice in front of them.
+  'relationship.gender_does_not_match_the_declaration':
+    'Somebody selected is not of the gender this relationship was declared to be. '
+    + 'Either take them out, or create it as a mixed group.',
+  // Only a group is asked, so the wording says group. An Admin pairing two people
+  // never sees this: their relationship’s gender is the gender of the two of them.
+  'relationship.needs_a_gender_declaration':
+    'Say whether this is a men’s group, a women’s group, or a mixed one. Everybody '
+    + 'in a men’s or women’s group must be of that gender.',
   'relationship.already_has_a_leader':
     'A one-to-one relationship has one leader. Add another person to be discipled to '
     + 'make it a group, and it can then have several.',

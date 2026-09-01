@@ -110,3 +110,22 @@ may be above their Leader*, default `1`, no limit below.
 - [ ] A 25–34 Leader with a 35–44 Participant is suggested at the default gap of `1`
 - [ ] A 65+ Leader with an 18–24 Participant is suggested, proving the constraint is one-directional
 - [ ] `suggest_max_age_band_gap` of `0` excludes any Participant in a band above their Leader
+
+### Carried over from ticket 25 — suggestions filter on the declared gender too
+
+Ticket 25 gave `relationship` an immutable `declared_gender`, so *gender must match* is
+now two rules and the scorer has to know about both. Ticket 25 could not build this half:
+there is no scorer yet, and it left the criterion here rather than holding itself open.
+
+- The one-to-one rule is unchanged — the two people in a suggested pair must be of the
+  same gender, subject to `suggest_gender_match` as this ticket already says.
+- **A suggestion into an existing group that declared a gender may only offer people of
+  it**, whatever `suggest_gender_match` says. A declaration is a statement an Admin made
+  about one relationship on purpose, and the Ministry-wide setting does not disable it.
+  This is the rule ticket 25's checkbox meant by *suggestions filter on the same rule
+  they are ranked under*.
+- The filter is not overridable and never appears as a reason, exactly like its sibling.
+
+- [ ] A suggestion into a group that declared a gender offers only people of that gender
+- [ ] It does so even where `suggest_gender_match` is off, because a declaration is not
+      that setting's to disable

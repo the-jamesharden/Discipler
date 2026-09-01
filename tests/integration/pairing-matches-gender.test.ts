@@ -19,9 +19,11 @@ import {
  * **Gender binds a one-to-one.** Men with men and women with women, for the pilot,
  * and manual pairing may never cross it.
  *
- * **Gender does not bind a group.** A group is people who meet together, and may hold
- * Leaders and Participants of any gender. A check that read "everyone in a
- * relationship shares a gender" would be a coherent rule and the wrong one.
+ * **Gender does not bind a group that declared itself mixed.** A group says what it
+ * is at formation; one that said mixed may hold Leaders and Participants of any
+ * gender. A check that read "everyone in a relationship shares a gender" would be a
+ * coherent rule and the wrong one. The other half -- a group that declared a gender
+ * and binds every member to it -- is `a-group-declares-its-gender.test.ts`.
  *
  * **The age band binds nothing.** It governs *suggestion only*, so an Admin pairing by
  * hand crosses it freely and gets no refusal at all.
@@ -55,12 +57,16 @@ describe('pairing and the two constraints', () => {
   const pair = (leaderId: PersonId, participantIds: PersonId[]) =>
     pairLed([leaderId], participantIds)
 
+  // Declared mixed, because these are the cases where the *one-to-one* rule must not
+  // reach -- a group that had declared a gender would be refused by ticket 25's
+  // constraint instead, which is a different rule tested in its own file.
   const pairLed = (leaderIds: PersonId[], participantIds: PersonId[]) =>
     service().execute({
       type: 'relationship.create',
       ministryId: ministry.id,
       leaderIds,
       participantIds,
+      declaredGender: null,
     })
 
   const man = async (name: string, ageBand: '18-24' | '25-34' | '65+' = '25-34') =>

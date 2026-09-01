@@ -23,6 +23,7 @@ export default async function PairPage({
   searchParams: Promise<{
     with?: string | string[]
     leaderId?: string | string[]
+    declaredGender?: string | string[]
     error?: string
   }>
 }) {
@@ -62,6 +63,19 @@ export default async function PairPage({
   }
   const preselectedParticipants = onlyKnownPeople(query.with)
   const preselectedLeaders = onlyKnownPeople(query.leaderId)
+
+  /**
+   * What they declared last time, on a submission coming back refused. Looked up
+   * against the three answers rather than rendered, like every other value that
+   * arrived in a query string -- and nothing is checked on a first visit, because
+   * the question has no default and a preselected radio would answer it for them.
+   */
+  const DECLARATIONS = [
+    { value: 'male', label: 'A men\u2019s group \u2014 everybody in it is a man' },
+    { value: 'female', label: 'A women\u2019s group \u2014 everybody in it is a woman' },
+    { value: 'mixed', label: 'Mixed \u2014 men and women together' },
+  ] as const
+  const declaredBefore = [query.declaredGender ?? []].flat()[0]
 
   return (
     <main>
@@ -132,6 +146,45 @@ export default async function PairPage({
                     defaultChecked={preselectedParticipants.has(person.personId)}
                   />
                   {person.fullName}
+                </label>
+              ))}
+            </fieldset>
+
+            {/*
+              Asked outright, with nothing preselected. A group's gender is not
+              implied by anybody in it -- *this is a women's group that currently has
+              one member* is true and nothing in the membership says it -- so the
+              product does not derive it and does not guess. It is left off a
+              one-to-one, whose gender *is* the two people in it, and where the
+              absolute match holds whatever anybody ticks; the domain is what knows
+              which shape this is, so this fieldset asks unconditionally and says
+              plainly who it is for.
+
+              No `required`, for the reason the leader checkboxes have none: the rule
+              is *a group must declare*, the browser cannot tell a group from a
+              one-to-one until the boxes are ticked, and half-enforcing it here would
+              leave the real rule in two places.
+            */}
+            <fieldset>
+              <legend>If this is a group, what kind of group is it?</legend>
+              <p className="subtle">
+                Everybody in a men’s or women’s group must be of that gender, and
+                that cannot be changed afterwards. Two people on their own are matched
+                by gender automatically — leave this alone.
+              </p>
+              {DECLARATIONS.map((declaration) => (
+                <label
+                  key={declaration.value}
+                  htmlFor={`declaredGender:${declaration.value}`}
+                >
+                  <input
+                    id={`declaredGender:${declaration.value}`}
+                    type="radio"
+                    name="declaredGender"
+                    value={declaration.value}
+                    defaultChecked={declaredBefore === declaration.value}
+                  />
+                  {declaration.label}
                 </label>
               ))}
             </fieldset>

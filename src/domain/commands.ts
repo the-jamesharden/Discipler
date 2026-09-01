@@ -8,7 +8,7 @@ import type {
 } from './ids'
 import type { GoalDirection } from './discipleship-goals'
 import type { MinistrySettingsFields } from './ministry-settings'
-import type { DiscipleshipGoalId, IntakeFormFields } from './intake'
+import type { DiscipleshipGoalId, Gender, IntakeFormFields } from './intake'
 import type { IntakeLinkToken } from './intake-link'
 import type { InvitationToken } from './invitations'
 import type { PausePeriodWeeks } from './pause'
@@ -130,6 +130,17 @@ export type Command =
       /** One Leader makes a one-to-one possible; several make it a group. */
       readonly leaderIds: readonly PersonId[]
       readonly participantIds: readonly PersonId[]
+      /**
+       * What the Admin said this relationship is: a men's one, a women's one, or --
+       * as `null` -- a mixed one. Every member must be of a declared gender, and the
+       * declaration is frozen at creation.
+       *
+       * Optional here and required by the boundary of anything but a one-to-one,
+       * which is asked nothing: its gender is implied by the two people in it. The
+       * three states are distinct and none of them is a default -- `undefined` is
+       * *nobody was asked*, `null` is *mixed*, and a value is a binding.
+       */
+      readonly declaredGender?: Gender | null
     }
   /**
    * An Admin cancelling a relationship nobody accepted. It ends every open

@@ -30,10 +30,20 @@ export type PairingRefusal =
   | 'relationship.leader_has_not_completed_intake'
   | 'relationship.leader_has_opted_out'
   // Safeguarding, and the one constraint on pairing an Admin cannot decide to cross.
-  // It binds a one-to-one only: a group is people who meet together and may be mixed.
-  // Its sibling, the age band, governs suggestion only and is deliberately absent
+  // Two codes because there are two rules and an Admin who hits one is being told a
+  // different thing. The first is the absolute match between the two people in a
+  // one-to-one, which nobody declares and which binds either way. The second is a
+  // relationship that said what it is -- a men's group, a women's group -- refusing
+  // somebody who is not of it.
+  //
+  // Their sibling, the age band, governs suggestion only and is deliberately absent
   // from this list: crossing it by hand is a supported thing to do, not a refusal.
   | 'relationship.gender_must_match'
+  | 'relationship.gender_does_not_match_the_declaration'
+  // Nobody said what this relationship is. Asked of a group and never of a
+  // one-to-one, whose gender is implied by the two people in it -- so this is not a
+  // missing field so much as a question that only a group is asked.
+  | 'relationship.needs_a_gender_declaration'
   // A one-to-one is two people and holds exactly one Leader. Reachable now that the
   // form offers several: an Admin who ticks two Leaders and one Participant has
   // formed a group, but one who reopens a closed leader membership on a one-to-one

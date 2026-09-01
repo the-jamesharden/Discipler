@@ -52,6 +52,10 @@ describe('creating a relationship', () => {
       ministryId: ministry.id,
       leaderIds: [leaderId],
       participantIds,
+      // Mixed, so the shape under test is the only thing being asserted. What a
+      // group declares, and what happens when somebody crosses it, is ticket 25's
+      // own file.
+      declaredGender: null,
     })
 
   const membersOf = async (relationshipId: string) => {

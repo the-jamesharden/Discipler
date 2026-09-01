@@ -28,27 +28,34 @@ this is a second column on `relationship`, not a group entity and not a group-sp
 code path, and ticket 05's rule that message copy branches on Participant count and never
 on a group-versus-one-to-one flag still holds.
 
-**Open, and needs an answer before this is built:** what an Admin sees at creation. A
-one-to-one's gender is implied by the two people in it and should never be asked for. A
-group's is not, and there are two honest answers: derive it (all members share a gender →
-the group is bound to it; they do not → mixed), or ask the Admin outright. Deriving is
-silent and cannot express *this is a women's group that currently has one member*; asking
-puts a safeguarding decision in front of the person making it. Deriving with the
-derivation shown and overridable is a third answer. This is a product decision, not an
-implementation detail.
+**Answered, 2026-09-01: ask the Admin outright, with nothing preselected.** Deriving was
+rejected for the reason it was raised with — it cannot express *this is a women's group
+that currently has one member*, and a silent derivation binds people to something nobody
+chose. So the Pair form carries three answers, none of them checked, and the domain
+refuses a group that declared nothing. A one-to-one is asked nothing, as the ticket says
+it should not be.
+
+**Also settled:** a declaration binds whether or not the Ministry has turned
+`suggest_gender_match` off. That setting is the deliberate disable for the rule Discipler
+applies on a Ministry's behalf — the automatic match between two people who declared
+nothing. A Ministry that permitted mixed one-to-ones has not asked for its own women's
+group to quietly admit a man.
 
 **Blocked by:** 05
 
-**Status:** needs-triage
+**Status:** shipped
 
-- [ ] `relationship` carries an immutable gender declaration alongside `kind`
-- [ ] A declared single-gender group refuses a member of another gender, as a database constraint
-- [ ] A declared mixed group accepts any member
-- [ ] A one-to-one still matches absolutely, and the existing trigger is not weakened
-- [ ] Manual pairing cannot cross the constraint at any surface, including the Pair page
-- [ ] The refusal reaches an Admin as a user-facing error, never a silent no-op
-- [ ] Suggestions filter on the same rule they are ranked under
-- [ ] No group entity and no group-specific code path is introduced — the ticket 05 fence still passes
+- [x] `relationship` carries an immutable gender declaration alongside `kind`
+- [x] A declared single-gender group refuses a member of another gender, as a database constraint
+- [x] A declared mixed group accepts any member
+- [x] A one-to-one still matches absolutely, and the existing trigger is not weakened
+- [x] Manual pairing cannot cross the constraint at any surface, including the Pair page
+- [x] The refusal reaches an Admin as a user-facing error, never a silent no-op
+- [ ] Suggestions filter on the same rule they are ranked under — **nothing to do yet.**
+      There is no scorer: ticket 04 is `ready-for-agent` and unbuilt, and this repo
+      contains no suggestion code to filter. Recorded on ticket 04 rather than held
+      open here.
+- [x] No group entity and no group-specific code path is introduced — the ticket 05 fence still passes
 
 ## Comments
 
@@ -59,3 +66,29 @@ was reasoned and wrong in a way that only shows up when you name the case it exc
 the correction is worth its own reviewable change rather than a second amendment buried
 in a shipped ticket. It also needs a migration, a trigger, a domain fence, a UI decision
 and its own tests, which is more than a review fix.
+
+### What was built
+
+`relationship.declared_gender` — a nullable `gender`, where null is *declares none*.
+Two triggers on `relationship_member` (insert, and the two updates that can introduce a
+mismatch) refuse a member who is not of it, and an immutability trigger on
+`relationship` refuses a change to it. Migration
+`20260916000100_a_group_declares_its_gender.sql`.
+
+It is a **second** constraint and not a rewrite of the first.
+`app.reject_gender_mismatch` — the absolute match between the two people in a
+one-to-one — is untouched, still conditioned on `kind`, and still gated on
+`ministry.suggest_gender_match`. The two raise different constraint names and reach the
+Admin as different sentences, because an Admin who crossed a rule they declared
+themselves is being told a different thing from one who crossed a rule the product
+applies.
+
+`needsAGenderDeclaration` sits beside `kindFor` in `src/domain/relationships.ts`, which
+is the one file ADR-0004's fence permits to know what a kind is. The form carries no
+`required`: the browser cannot tell a group from a one-to-one until the boxes are
+ticked, and half-enforcing it there would leave the real rule in two places — the same
+argument the leader checkboxes already make.
+
+`docs/adr/0004-relationship-kind-as-capacity-declaration.md` carries a second amendment.
+The first one's headline — *a group may be mixed* — is corrected rather than quietly
+replaced, because it was argued for at length and a reader will find it.

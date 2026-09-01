@@ -1,3 +1,4 @@
+import type { Gender } from './intake'
 import type { MinistryId, PersonId, RelationshipId } from './ids'
 
 /**
@@ -32,11 +33,22 @@ export interface NewRelationship {
   readonly ministryId: MinistryId
   /**
    * A capacity declaration, fixed at formation and immutable afterwards. Read by the
-   * participation-cap constraints, by the gender constraint -- which binds a
-   * one-to-one and not a group -- by the pairing scorer, and by nothing else.
-   * See docs/adr/0004-relationship-kind-as-capacity-declaration.md.
+   * participation-cap constraints, by the absolute gender match -- which binds the
+   * two people in a one-to-one -- by the pairing scorer, and by nothing else.
+   * `declaredGender` below is the other half of the gender rule and reads no kind at
+   * all. See docs/adr/0004-relationship-kind-as-capacity-declaration.md.
    */
   readonly kind: RelationshipKind
+  /**
+   * The gender every member of this relationship must be, or null where it declares
+   * none. Null is *mixed*, and it is also what a one-to-one carries when nobody was
+   * asked -- a one-to-one's gender is implied by the two people in it, and the
+   * absolute match between them is a separate rule that binds either way.
+   *
+   * Immutable after creation, for the reason `kind` is. Read by the constraint that
+   * enforces it and by nothing else.
+   */
+  readonly declaredGender: Gender | null
   readonly createdAt: Date
   readonly members: readonly NewMembership[]
 }
@@ -50,6 +62,24 @@ export interface NewRelationship {
  */
 export const kindFor = (leaderCount: number, participantCount: number): RelationshipKind =>
   leaderCount === 1 && participantCount === 1 ? 'one_to_one' : 'group'
+
+/**
+ * Whether the Admin forming this relationship has to say what gender it is.
+ *
+ * Two people imply it: a one-to-one is a men's relationship or a women's one by
+ * virtue of who is in it, the absolute match enforces that whatever was declared,
+ * and asking would be asking somebody to retype what they just selected. Every
+ * other shape has to be told, because *this is a women's group that currently has
+ * one member* is a true thing about a group that nothing in its membership says.
+ *
+ * Beside `kindFor` because it is the same question asked once more: this file is
+ * the one place permitted to know what a kind is, and a caller branching on the
+ * literal would be the fence break ADR-0004 exists to stop.
+ */
+export const needsAGenderDeclaration = (
+  leaderCount: number,
+  participantCount: number,
+): boolean => kindFor(leaderCount, participantCount) !== 'one_to_one'
 
 /**
  * The two thresholds a relationship nobody has accepted crosses, both measured

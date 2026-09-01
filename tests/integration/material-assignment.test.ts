@@ -255,6 +255,9 @@ describe('the Material a relationship is working through', () => {
         ministryId: ministry.id,
         leaderIds: [david, sarah],
         participantIds: [emily],
+        // Two Leaders makes this a group, and a group says what it is. Mixed: the
+        // subject here is co-leader acceptance.
+        declaredGender: null,
       })
       const created = effects.find((effect) => effect.kind === 'relationship.create')
       if (created?.kind !== 'relationship.create') throw new Error('nothing was created')

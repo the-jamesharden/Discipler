@@ -30,9 +30,17 @@ const context = (): CommandContext => ({
   },
 })
 
+// Mixed, because these tests are about who gets invited and a declaration that
+// constrained somebody would be a second subject in every one of them.
 const pair = (leaderIds = [david], participantIds = [emily]) =>
   handleCommand(
-    { type: 'relationship.create', ministryId: ministry, leaderIds, participantIds },
+    {
+      type: 'relationship.create',
+      ministryId: ministry,
+      leaderIds,
+      participantIds,
+      declaredGender: null,
+    },
     context(),
   )
 

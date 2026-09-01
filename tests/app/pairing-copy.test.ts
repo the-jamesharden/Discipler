@@ -23,6 +23,8 @@ const EVERY_REFUSAL: readonly PairingRefusal[] = [
   'relationship.leader_has_not_completed_intake',
   'relationship.leader_has_opted_out',
   'relationship.gender_must_match',
+  'relationship.gender_does_not_match_the_declaration',
+  'relationship.needs_a_gender_declaration',
   'relationship.already_has_a_leader',
 ]
 
@@ -69,6 +71,22 @@ describe('what a refused pairing says to an Admin', () => {
     const said = pairingRefusalMessage('relationship.gender_must_match') ?? ''
     expect(said).toMatch(/one-to-one/i)
     expect(said).toMatch(/group/i)
+  })
+
+  it('tells the Admin what to do about a group that declared a gender', () => {
+    // The Admin declared this themselves, so the refusal is not news about a rule --
+    // it is a choice between two fixes, and only they know which one they meant.
+    const said = pairingRefusalMessage(
+      'relationship.gender_does_not_match_the_declaration',
+    ) ?? ''
+    expect(said).toMatch(/declared/i)
+    expect(said).toMatch(/mixed/i)
+  })
+
+  it('asks the group question in the words the form asks it in', () => {
+    const said = pairingRefusalMessage('relationship.needs_a_gender_declaration') ?? ''
+    expect(said).toMatch(/group/i)
+    expect(said).toMatch(/mixed/i)
   })
 
   it('distinguishes the two roles, because they send the Admin to different people', () => {
