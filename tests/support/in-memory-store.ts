@@ -37,6 +37,8 @@ import type {
   PersonOptOut,
   PersonRenaming,
   ParticipantDeparture,
+  NewParticipantMembership,
+  GroupConfiguration,
   RelationshipCancellation,
   RelationshipEnding,
 } from '~/domain/effects'
@@ -80,6 +82,9 @@ export interface InMemoryStore extends EffectStore {
   readonly cancellations: readonly RelationshipCancellation[]
   readonly endings: readonly RelationshipEnding[]
   readonly departures: readonly ParticipantDeparture[]
+  /** Every Participant added to a relationship after formation, in order. */
+  readonly joins: readonly NewParticipantMembership[]
+  readonly groupConfigurations: readonly GroupConfiguration[]
   /** Every Material period opened, in the order the effects opened them. */
   readonly materialAssignments: readonly MaterialAssignment[]
   readonly sequences: readonly NewCheckInSequence[]
@@ -209,6 +214,8 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
   const cancellations: RelationshipCancellation[] = []
   const endings: RelationshipEnding[] = []
   const departures: ParticipantDeparture[] = []
+  const joins: NewParticipantMembership[] = []
+  const groupConfigurations: GroupConfiguration[] = []
   const materialAssignments: MaterialAssignment[] = []
   const concerns: NewConcern[] = []
   const viewings: ConcernViewing[] = []
@@ -260,6 +267,12 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
     },
     get departures() {
       return [...departures]
+    },
+    get joins() {
+      return [...joins]
+    },
+    get groupConfigurations() {
+      return [...groupConfigurations]
     },
     get materialAssignments() {
       return [...materialAssignments]
@@ -372,6 +385,8 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       const stagedCancellations: RelationshipCancellation[] = []
       const stagedEndings: RelationshipEnding[] = []
       const stagedDepartures: ParticipantDeparture[] = []
+      const stagedJoins: NewParticipantMembership[] = []
+      const stagedGroupConfigurations: GroupConfiguration[] = []
       const stagedMaterialAssignments: MaterialAssignment[] = []
       const stagedSequences: NewCheckInSequence[] = []
       const stagedPrompts: NewCheckInPrompt[] = []
@@ -550,6 +565,18 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         async departFromRelationship(departure) {
           stagedDepartures.push(departure)
         },
+        async groupToJoin() {
+          return store.relationship ?? null
+        },
+        async joinRequest() {
+          return null
+        },
+        async joinRelationship(membership) {
+          stagedJoins.push(membership)
+        },
+        async configureGroup(configuration) {
+          stagedGroupConfigurations.push(configuration)
+        },
         async assignMaterial(assignment) {
           stagedMaterialAssignments.push(assignment)
         },
@@ -653,6 +680,8 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       cancellations.push(...stagedCancellations)
       endings.push(...stagedEndings)
       departures.push(...stagedDepartures)
+      joins.push(...stagedJoins)
+      groupConfigurations.push(...stagedGroupConfigurations)
       materialAssignments.push(...stagedMaterialAssignments)
       sequences.push(...stagedSequences)
       prompts.push(...stagedPrompts)

@@ -120,6 +120,13 @@ const around = (composed: string, to: string): MessagePreview => {
 }
 
 /**
+ * Where the preview's link points. The real one hangs off the configured host and
+ * this page has no business reading configuration to show wording; the sentence
+ * around it is what a Ministry is being shown.
+ */
+const PREVIEW_DASHBOARD_LINK = 'discipler.example/relationships'
+
+/**
  * The two Starter Messages, which are the messages that call somebody by their
  * role -- one for each word, so a Ministry sees both of its own words in the
  * message the person who reads that word actually gets.
@@ -135,6 +142,7 @@ export const messagePreviews = (): readonly MessagePreview[] => [
       ministryName: NAME,
       participantNames: ['Emily Johnson'],
       leaderNoun: NOUN,
+      dashboardLink: PREVIEW_DASHBOARD_LINK,
     }),
     'What a leader receives when a match is agreed',
   ),

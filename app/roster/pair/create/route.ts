@@ -35,6 +35,15 @@ export async function POST(request: NextRequest) {
   )
 
   /**
+   * What the Admin called it, as typed, and whether joining it through the group
+   * link asks first. Both passed through unread: what counts as a name is the
+   * boundary's, and a checkbox is sent when ticked and absent when not.
+   */
+  const rawName = form.get('name')
+  const name = typeof rawName === 'string' ? rawName : null
+  const joinRequiresApproval = form.get('joinRequiresApproval') === 'yes'
+
+  /**
    * Back to the form with the selection intact. An Admin who picked five people for a
    * group and hit a refusal should be correcting one choice, not making all five
    * again -- and a refusal that costs more than the mistake did teaches people to
@@ -50,6 +59,8 @@ export async function POST(request: NextRequest) {
     if (declaredGender !== undefined) {
       params.set('declaredGender', declaredGenderToField(declaredGender))
     }
+    if (name) params.set('name', name)
+    if (joinRequiresApproval) params.set('joinRequiresApproval', 'yes')
 
     return NextResponse.redirect(new URL(`/roster/pair?${params}`, request.url), {
       status: 303,
@@ -68,6 +79,8 @@ export async function POST(request: NextRequest) {
       leaderIds: leaderIds.map(personId),
       participantIds: participantIds.map(personId),
       ...(declaredGender === undefined ? {} : { declaredGender }),
+      name,
+      joinRequiresApproval,
     })
   } catch (error) {
     // Every refusal an Admin can act on travels as a code and lands back on the form

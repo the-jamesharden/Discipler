@@ -199,6 +199,18 @@ describe('applying a command\'s effects', () => {
         departFromRelationship: async () => {
           throw new Error('nobody should have left anything')
         },
+        groupToJoin: async () => {
+          throw new Error('not in this test')
+        },
+        joinRequest: async () => {
+          throw new Error('not in this test')
+        },
+        joinRelationship: async () => {
+          throw new Error('not in this test')
+        },
+        configureGroup: async () => {
+          throw new Error('not in this test')
+        },
         createRelationship: async () => {
           throw new Error('relationships should not have been touched')
         },

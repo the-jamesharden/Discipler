@@ -1,4 +1,5 @@
 import type { DayBlock, DeclaredSide, IntakeRefusal, Weekday } from '~/domain/intake'
+import { asList } from '~/domain/outbound-copy'
 
 /**
  * Everything the Intake form says in words. The domain deals in refusal codes and
@@ -51,6 +52,15 @@ const REFUSALS: Record<IntakeRefusal, string> = {
   // of thing: a form that cannot say what it was asking is not one Discipler
   // served, and there is nothing on it the Person can correct.
   'intake.path_unknown': 'This link is incomplete. Please ask for a new one.',
+  'intake.group_not_selected': 'Please choose which group you would like to join.',
+  // Says the list moved rather than that the Person was wrong: the dropdown was
+  // drawn from the same list this refusal checks, so reaching it means a group
+  // closed while the form was open -- or a body Discipler did not serve.
+  'intake.group_unavailable':
+    'That group is no longer open to join. Please choose from the groups as they '
+    + 'stand now.',
+  'intake.group_not_open_to_you':
+    'That group is not open to you. Please choose a different group.',
   'intake.email_unreadable': 'That does not look like an email address.',
   'intake.link_expired':
     'This link has expired. Ask whoever sent it to you for a new one.',
@@ -148,6 +158,51 @@ export const DONE_HEADING = 'You’re on the list'
 export const doneMessageWithoutASide = (ministryName: string): string =>
   `${ministryName} will look at when you can meet and what you said you are hoping `
   + 'for, and be in touch.'
+
+/**
+ * The group form's wording. It shares the fields and the refusals above with the
+ * discipleship wizard and differs in its one question and in what its done page
+ * can say -- which, unlike the wizard's, is sometimes *you're in*.
+ */
+
+export const groupHeading = (ministryName: string): string => `Join a group at ${ministryName}`
+
+export const GROUP_QUESTION = 'Which group would you like to join?'
+
+/**
+ * What the link says when there is nothing to join: a Ministry with no group the
+ * form could offer, or a Person every group is closed to. The same page, because
+ * to the Person the list is empty either way. It says so plainly and points at
+ * the discipleship wizard, rather than silently serving that wizard -- which would
+ * ask a Goal question the Person did not come to answer -- and rather than a dead
+ * page, which the link is promised never to be.
+ */
+export const NO_GROUPS_HEADING = 'Nothing to join yet'
+export const noGroupsMessage = (ministryName: string): string =>
+  `${ministryName} isn’t taking group sign-ups at the moment.`
+export const NO_GROUPS_ALTERNATIVE =
+  'If you’re looking for one-to-one discipleship, that form is here:'
+
+/**
+ * The two things the done page can say, told apart by what the submission did.
+ * A Person who joined an open group is told so and told who leads it, by first
+ * name, so they recognise the call when it comes -- it is the only place they
+ * learn it, because nothing is texted to them about the group. A Person whose
+ * request is waiting is told that and named no Leader, because nothing is settled.
+ */
+export const JOINED_HEADING = 'You’re in'
+export const joinedMessage = (groupName: string, leaderFirstNames: readonly string[]): string =>
+  leaderFirstNames.length === 0
+    ? `You’re in ${groupName}. Your leader will be in touch.`
+    : `You’re in ${groupName}. Your leader is ${asList(leaderFirstNames)}, who will be in touch.`
+
+export const REQUESTED_HEADING = 'You’re on the list'
+export const requestedMessage = (ministryName: string, groupName: string): string =>
+  `${ministryName} will be in touch about ${groupName}.`
+
+/** Said when the group the done URL names is not one the page can find. */
+export const doneMessageWithoutAGroup = (ministryName: string): string =>
+  `${ministryName} has what they need, and will be in touch.`
 
 export const doneMessage: Record<DeclaredSide, (ministryName: string) => string> = {
   mentor: (ministryName) =>

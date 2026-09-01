@@ -198,7 +198,6 @@ Settled 2026-08-27.
 
 - **A2P compliance requirements have not been checked against a live campaign registration.** The `Discipler:` identification prefix and its trigger points are a product decision made on an understanding of carrier requirements, not a verified one. Review alongside the consent wording.
 - **`docs/consent-language.md` has not had legal review**, including the `HELP` response content.
-- **What a group check-in calls the group.** `docs/product-flow.md` and the check-in rhythm both say the question names the relationship when it has several Participants — *"Did you meet with Tuesday Men's Group this week?"* — but a relationship has never had a name, and nothing in the product creates one. Ticket 08a ships the question listing the Participants instead, which reads correctly for a group of two or three and poorly for a group of eight. Deciding it means deciding who names a group and when: a column filled at pairing, or a label an Admin sets afterwards.
 - **`checkin.start` outlives the justification it was kept for.** Ticket 08b replaced it as the weekly trigger, and ticket 11 withdrew the Admin "send one additional check-in" action it was then kept for (`docs/adr/0010-nudge-reveals-a-number-and-sends-nothing.md`). It survives only as 08a's test seam, and it carries no cadence check: it can open a second sequence inside one ISO week, which sits against *One sequence per Leader per week*. That rule currently holds only because nothing routes to the command, and on the current reading nothing will. Deciding it means either withdrawing the command or giving the rule a guard that does not depend on nobody calling it.
 - **The Participant reveal branch is unreachable and has not been withdrawn.** Ticket 12 stopped minting a Participant's Invitation Link and ADR-0011 settled that only a Leader is sent one, so the Participant branch of `app/invitation/[token]/page.tsx` and the Participant scoping in `src/platform/supabase/invitation-reader.ts` can no longer be reached by anything. They are kept rather than deleted, alongside an `it.skip` in `invitation-over-http.test.ts` that is now the only description of what that branch does. Deciding it means deciding whether a Participant ever gets a web surface of their own; until then the code and its test are dead weight that reads as live.
 - **Cancelling a relationship leaves its `relationship_unaccepted` item standing.** Ticket 07 raised this and asked for it to be settled: a Follow-Up Item persists until an Admin acts on it, and resolving is its own recorded act with its own actor and time, so cancelling deliberately does not resolve the item — `tests/integration/cancelling-a-relationship.test.ts` asserts it. The cost is that Care Needed can list an item about a relationship that no longer exists, which is a row an Admin closes for no reason. Deciding it means choosing between the audit rule as written and a Care Needed list with nothing dead on it; if it is the latter, it is a one-line change to the cancel command.
@@ -296,6 +295,18 @@ Keyword Exchange route it was written for — ticket 17 inherits the rule rather
 building it.
 
 Settled 2026-08-30. Recorded in ticket 12, and in `docs/product-rules.md` under *Settled: Pause Is Leader-Controlled, Bounded, and Visible*, which now states the withdrawal rule as the Pause's rather than the keyword exchange's — including the half a Pause must **not** reach: a question already asked and already lapsed is a silence that had accrued before anybody stepped back.
+
+## Resolved: who names a group, and when
+
+Settled 2026-09-01, by ticket 29.
+
+An Admin names a group when forming it, and may rename it from the Roster afterwards.
+The name is a label and not a ministry event, so a rename overwrites no history.
+The weekly question asks about a named group by name -- *did you meet with Tuesday Men's Group this week* -- and about an unnamed one, and every one-to-one, by listing the people in it, which is what ticket 08a shipped.
+Groups formed before ticket 29 have no name until an Admin gives them one.
+
+The second consumer of the name is the group Intake link, which offers a group by name and nothing else.
+See `docs/adr/0017-picking-a-group-joins-it.md`.
 
 ## Open: whether provisioning a Ministry is itself a ministry event
 

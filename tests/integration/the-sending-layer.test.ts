@@ -72,6 +72,7 @@ describe('The sending layer checks every recipient', () => {
         intakePath: null,
         declaredSide: null,
         experience: null,
+        groupId: null,
         ...overrides,
       },
     })
@@ -279,6 +280,7 @@ describe('The sending layer checks every recipient', () => {
         intakePath: null,
         declaredSide: null,
         experience: null,
+        groupId: null,
       },
     })
 

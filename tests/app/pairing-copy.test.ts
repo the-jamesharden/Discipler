@@ -26,6 +26,7 @@ const EVERY_REFUSAL: readonly PairingRefusal[] = [
   'relationship.gender_does_not_match_the_declaration',
   'relationship.needs_a_gender_declaration',
   'relationship.already_has_a_leader',
+  'relationship.needs_a_name',
 ]
 
 describe('what a refused pairing says to an Admin', () => {

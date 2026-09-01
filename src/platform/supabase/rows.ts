@@ -1,3 +1,4 @@
+import { GENDERS, isOneOf, type Gender } from '~/domain/intake'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 /**
@@ -79,6 +80,18 @@ export const lookup = async <T>(
  * is a number nobody could trust -- and zero would read as *removing this costs
  * nobody anything*.
  */
+/**
+ * A `declared_gender` column as a row hands it back: null is mixed, a gender is
+ * a binding, and anything else is thrown for rather than read as mixed -- the one
+ * answer that offers a group to everybody. Shared by every reader that shows a
+ * group's declaration, so two of them cannot answer a drifted enum differently.
+ */
+export const declaredGenderOf = (value: unknown): Gender | null => {
+  if (value === null || value === undefined) return null
+  if (isOneOf(GENDERS, value)) return value
+  throw new Error(`A group arrived declaring a gender this reader does not know: ${String(value)}`)
+}
+
 export const count = (value: unknown): number | null => {
   const read =
     typeof value === 'number'

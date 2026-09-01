@@ -56,6 +56,7 @@ describe('Completing Intake', () => {
     intakePath: null,
     declaredSide: null,
     experience: null,
+    groupId: null,
     ...overrides,
   })
 

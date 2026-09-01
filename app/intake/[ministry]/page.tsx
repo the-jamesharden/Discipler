@@ -1,39 +1,65 @@
 import { notFound } from 'next/navigation'
 import { getIntakeReader } from '~/service/container'
-import { refusalMessages } from '../copy'
-import { NOTHING_PREFILLED } from '../fields'
-import { IntakeForm } from '../form'
+import { groupHeading, refusalMessages } from '../copy'
+import { GroupIntakeWizard, NoGroups } from '../group-wizard'
+import { groupWizard } from '../group-wizard-answers'
+import { firstValue, readVia, type WizardQuery } from '../wizard-machine'
 
 /**
- * One form, reached with no account and no software to learn. One link serves the
- * whole Ministry: a pastor sends it directly, or a QR code opens the same one at a
- * leaders' meeting, and `?via=qr` is the only difference between the two.
+ * The Ministry's original Intake link, which since ticket 29 is the form for
+ * somebody who wants to join one of its groups. The link was already in bulletins
+ * and in sent texts, so it keeps working and nobody who has it reaches a dead
+ * page: it opens this wizard, or -- for a Ministry with nothing to join -- a page
+ * that says so and points at the discipleship form.
  *
- * Nothing is prefilled here, and that is what the link being the Ministry's rather
- * than a Person's means: it does not know who opened it, so the form asks. The
- * tokenized link an Admin sends one Person is the page that does know.
+ * One link serves the whole Ministry: a pastor sends it directly, or a QR code
+ * opens the same one at a leaders' meeting, and `?via=qr` is the only difference
+ * between the two. Nothing is prefilled, because the link does not know who
+ * opened it, so the form asks. The tokenized link an Admin sends one Person still
+ * opens the single-page form with their answers already in it.
  *
- * It is an ordinary form POST, so it works before JavaScript has loaded -- this is
- * the one page in Discipler filled in by somebody who will never have an account.
+ * Ordinary forms and no JavaScript, like every Intake page: it is filled in by
+ * somebody who will never have an account.
  */
-export default async function IntakePage({
+export default async function GroupIntakePage({
   params,
   searchParams,
 }: {
   params: Promise<{ ministry: string }>
-  searchParams: Promise<{ via?: string; refused?: string }>
+  searchParams: Promise<WizardQuery>
 }) {
   const { ministry } = await params
-  const { via, refused } = await searchParams
+  const query = await searchParams
 
-  const page = await getIntakeReader().readIntakePage(ministry)
+  const page = await getIntakeReader().readGroupIntakePage(ministry)
   if (!page) notFound()
 
-  const problems = refusalMessages(refused)
+  const here = `/intake/${page.ministryId}`
+  const discipleshipLink = `${here}/discipleship`
+  const via = readVia(query.via)
+
+  // Read once without the groups, for the gender; then again with the groups that
+  // gender may be offered, so the group answer is checked against exactly the list
+  // the dropdown was drawn from. A group nobody was offered never survives the read.
+  const gender = groupWizard.readAnswers(query).gender
+  const offered = page.groups.filter(
+    (group) => group.declaredGender === null || group.declaredGender === gender,
+  )
+  const answers = groupWizard.readAnswers(query, {
+    groupId: offered.map((group) => group.relationshipId),
+  })
+  const step = groupWizard.stepToShow(query.step, answers)
+  const refused = firstValue(query.refused)
+  const problems = refusalMessages(
+    refused,
+    groupWizard.stuckOnAvailability(query.step, answers)
+      ? 'intake.availability_not_selected'
+      : undefined,
+  )
 
   return (
     <main>
-      <h1>Join discipleship at {page.ministryName}</h1>
+      <h1>{groupHeading(page.ministryName)}</h1>
       <p className="subtle">
         A few questions, once. There is nothing to download and no account to create.
       </p>
@@ -50,13 +76,21 @@ export default async function IntakePage({
           </div>
         ) : null}
 
-        <IntakeForm
-          action={`/intake/${page.ministryId}/submit`}
-          ministryName={page.ministryName}
-          goals={page.goals}
-          via={via === 'qr' ? 'qr' : 'link'}
-          prefill={NOTHING_PREFILLED}
-        />
+        {page.groups.length === 0 ? (
+          // Every Ministry's day-one state, said before anybody is asked anything.
+          <NoGroups ministryName={page.ministryName} discipleshipLink={discipleshipLink} />
+        ) : (
+          <GroupIntakeWizard
+            step={step}
+            answers={answers}
+            groups={offered}
+            here={here}
+            submitTo={`${here}/submit`}
+            ministryName={page.ministryName}
+            discipleshipLink={discipleshipLink}
+            via={via}
+          />
+        )}
       </div>
     </main>
   )

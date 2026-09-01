@@ -1,4 +1,10 @@
-import type { ImportRowRefusal, PairingRefusal } from '~/domain/errors'
+import type {
+  FollowUpRefusal,
+  GroupRefusal,
+  ImportRowRefusal,
+  PairingRefusal,
+} from '~/domain/errors'
+import type { Gender } from '~/domain/intake'
 import type { ParticipationStatus } from '~/domain/participation'
 import type { MemberRole } from '~/domain/relationships'
 import type { RowProblem } from '~/domain/roster'
@@ -47,8 +53,92 @@ export const rosterRoleLabel: Record<MemberRole, string> = {
  * holds two of these and prints one; a room reads the one that got printed.
  */
 export const qrCodeCaption = {
-  intake: (ministryName: string) => `${ministryName} — Intake`,
+  // The original link, which since ticket 29 opens the group form. Captioned for
+  // what it opens now, so a room reads which form it is scanning.
+  intake: (ministryName: string) => `${ministryName} — Join a group`,
   discipleship: (ministryName: string) => `${ministryName} — Discipleship`,
+}
+
+/**
+ * The Groups panel: every live group, named or not, with the two things an Admin
+ * decides about each. An unnamed group is said to be unnamed rather than left
+ * blank, because that is the thing to fix -- the group link offers a group by name
+ * and nothing else, so an unnamed one is on no link at all.
+ */
+export const GROUPS_HEADING = 'Groups'
+export const GROUPS_EXPLANATION =
+  'Every group that has not ended. A group with a name is offered on the group link '
+  + 'above; an unnamed one is not, and is asked about each week by listing who is in '
+  + 'it rather than by name. Ticking the box means somebody who picks the group on the '
+  + 'link asks to join rather than joins, and waits for you under “Waiting to join a '
+  + 'group” below.'
+export const UNNAMED_GROUP = 'Unnamed group'
+export const GROUP_NAME_LABEL = 'What this group is called'
+export const GROUP_NAME_HINT = 'This appears on the group link, which anybody may open.'
+export const REQUIRE_APPROVAL_LABEL = 'Ask me before anyone joins through the link'
+export const SAVE_GROUP = 'Save'
+export const GROUP_SAVED = 'Saved.'
+export const declaredGenderLabel: Record<'mixed' | Gender, string> = {
+  mixed: 'Mixed',
+  male: 'Men',
+  female: 'Women',
+}
+
+/**
+ * The panel of people waiting to be admitted. Shown only when somebody is: an
+ * empty panel would be a heading about nothing on a page that is already long.
+ */
+export const WAITING_HEADING = 'Waiting to join a group'
+export const WAITING_EXPLANATION =
+  'Each of these picked a group you have set to ask first. Admitting them adds them to '
+  + 'the group and tells its leader; declining closes the request and tells nobody — '
+  + 'that is a conversation to have, and you have their number on the Roster.'
+export const ADMIT = 'Admit'
+export const DECLINE = 'Decline'
+export const admitted = (fullName: string): string =>
+  `${fullName} is in. Their leader has been told.`
+export const alreadyIn = (fullName: string): string =>
+  `${fullName} was already in that group, so the request was closed and nobody was told.`
+export const declinedRequest = (fullName: string): string =>
+  `${fullName}’s request was closed. Nobody has been told.`
+export const askedToJoin = (groupName: string | null): string =>
+  groupName === null ? 'asked to join a group that has since lost its name' : `asked to join ${groupName}`
+
+const GROUP_REFUSALS: Record<GroupRefusal, string> = {
+  'group.relationship_not_found': 'That group is not on this Roster any more.',
+  'group.name_missing': 'Give the group a name. It cannot be saved without one.',
+  'group.relationship_ended': 'That group has ended, so there is nothing left to change.',
+  'group.request_not_found':
+    'That request has already been answered. The Roster below shows where things stand.',
+  'group.request_group_ended':
+    'That group has ended since they asked, so there is nothing to admit them to. Decline '
+    + 'the request to close it.',
+}
+
+export const groupRefusalMessage = (code: string | undefined): string | undefined => {
+  if (!code) return undefined
+  return GROUP_REFUSALS[code as GroupRefusal] ?? 'That could not be saved.'
+}
+
+const FOLLOW_UP_REFUSALS: Record<FollowUpRefusal, string> = {
+  'follow_up.not_found': 'That request is gone.',
+  'follow_up.already_resolved': 'Somebody answered that request before you did.',
+  'follow_up.resolver_is_not_in_this_ministry': 'This account cannot answer requests here.',
+}
+
+/**
+ * Why an admission could not go through: the request itself, or the membership
+ * the database refused -- which is a pairing refusal, said in the pairing's own
+ * words, because it is the same rule refusing the same thing.
+ */
+export const admissionRefusalMessage = (code: string | undefined): string | undefined => {
+  if (!code) return undefined
+  return (
+    GROUP_REFUSALS[code as GroupRefusal]
+    ?? FOLLOW_UP_REFUSALS[code as FollowUpRefusal]
+    ?? REFUSALS[code as PairingRefusal]
+    ?? 'That request could not be answered.'
+  )
 }
 
 /**
@@ -292,6 +382,11 @@ export const REFUSALS: Record<PairingRefusal, string> = {
   'relationship.needs_a_gender_declaration':
     'Say whether this is a men’s group, a women’s group, or a mixed one. Everybody '
     + 'in a men’s or women’s group must be of that gender.',
+  // Only a group is asked, like the declaration above. The name is what the group
+  // Intake link offers and what the weekly check-in asks about.
+  'relationship.needs_a_name':
+    'Give this group a name. It is what people will see on the group link, and what '
+    + 'its leader is asked about each week.',
   'relationship.already_has_a_leader':
     'A one-to-one relationship has one leader. Add another person to be discipled to '
     + 'make it a group, and it can then have several.',

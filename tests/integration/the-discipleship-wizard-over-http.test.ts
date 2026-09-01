@@ -2,6 +2,7 @@ import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app'
 import {
+  addPerson,
   createMinistryWithAdmin,
   localSupabase,
   type MinistryFixture,
@@ -332,51 +333,18 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
     expect(await countOf('intake_submission', 'Skipper Jones')).toBe(0)
   })
 
-  it('leaves the original Intake link exactly as it was', async () => {
+  it('serves the group form on the original link, and the wizard still declares its own path', async () => {
+    // Ticket 29 turned the original link into the group form. What this suite
+    // still owns is that the discipleship wizard is its own route with its own
+    // path, and that the original link never went dead.
     const response = await fetch(`${baseUrl}/intake/${ministry.id}`, { redirect: 'manual' })
     const html = await response.text()
 
     expect(response.status).toBe(200)
-    // One page, nine questions, and no question about sides.
-    expect(html).toContain('name="fullName"')
-    expect(html).toContain('monday:early_morning')
-    expect(html).toContain('name="smsConsent"')
+    expect(html).toContain('Join a group at Riverside Chapel')
     expect(html).not.toContain('name="side"')
     expect(html).not.toContain('name="experience"')
-  })
-
-  it('writes a null path through the original link, and backfills nothing', async () => {
-    const body = new URLSearchParams({
-      via: 'link',
-      fullName: 'Hannah Reeves',
-      phone: '555 812 0203',
-      ageBand: '35-44',
-      gender: 'female',
-      goalId: await goalId(),
-      smsConsent: 'yes',
-      contactSharing: 'granted',
-    })
-    body.append('availability', 'wednesday:evening')
-
-    const response = await fetch(`${baseUrl}/intake/${ministry.id}/submit`, {
-      method: 'POST',
-      redirect: 'manual',
-      headers: { 'content-type': 'application/x-www-form-urlencoded' },
-      body,
-    })
-    expect(response.status).toBe(303)
-
-    const { rows } = await pool.query(
-      `select c.intake_path, c.declared_side
-         from consent_record c join person p on p.id = c.person_id
-        where c.ministry_id = $1 and p.full_name = 'Hannah Reeves'`,
-      [ministry.id],
-    )
-    expect(rows.length).toBeGreaterThan(0)
-    for (const row of rows) {
-      expect(row.intake_path).toBeNull()
-      expect(row.declared_side).toBeNull()
-    }
+    expect(html).not.toContain('name="goalId"')
   })
 
   it('hands the Admin both links and both QR codes, each labelled', async () => {
@@ -419,11 +387,14 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
   })
 
   it('shows the pairing surface whether each candidate is new to this', async () => {
+    // A second candidate, because the pairing screen shows nobody until two people
+    // have completed Intake -- and one who was asked nothing, so nothing is
+    // claimed about her.
+    await addPerson(ministry, 'Hannah Reeves', { phone: '+15558120203' })
     const { html } = await getPage('/roster/pair', cookie)
 
     expect(html).toContain('Solomon Adeyemi')
     expect(html).toContain('Has done this before')
-    // Nobody was asked on the original form, so nothing is claimed about them.
     expect(html).toContain('Hannah Reeves')
   })
 })

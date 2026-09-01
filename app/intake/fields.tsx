@@ -1,6 +1,6 @@
 import { AGE_BANDS, DAY_BLOCKS, WEEKDAYS } from '~/domain/intake'
-import type { DiscipleshipGoalOption, IntakePrefill } from '~/service/ports'
-import { dayBlockLabel, weekdayLabel } from './copy'
+import type { DiscipleshipGoalOption, IntakePrefill, JoinableGroup } from '~/service/ports'
+import { dayBlockLabel, GROUP_QUESTION, weekdayLabel } from './copy'
 
 /**
  * The questions Intake asks, each as its own piece.
@@ -136,6 +136,36 @@ export const GoalField = ({
       {goals.map((goal) => (
         <option key={goal.id} value={goal.id}>
           {goal.label}
+        </option>
+      ))}
+    </select>
+  </>
+)
+
+/**
+ * The group form's one question of its own, in the Goal's place: which of the
+ * Ministry's groups the Person would like to join. The list arrives already
+ * filtered for the gender they answered on the screen before, and shows a name
+ * and nothing else -- not who leads it, not who is in it, and not whether picking
+ * it asks or joins, which the done page says instead. A dropdown that marked the
+ * guarded groups would invite choosing by friction rather than by fit.
+ */
+export const GroupField = ({
+  groups,
+  chosen,
+}: {
+  readonly groups: readonly JoinableGroup[]
+  readonly chosen: string | null
+}) => (
+  <>
+    <label htmlFor="groupId">{GROUP_QUESTION}</label>
+    <select id="groupId" name="groupId" required defaultValue={chosen ?? ''}>
+      <option value="" disabled>
+        Choose one
+      </option>
+      {groups.map((group) => (
+        <option key={group.relationshipId} value={group.relationshipId}>
+          {group.name}
         </option>
       ))}
     </select>

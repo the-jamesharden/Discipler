@@ -25,6 +25,8 @@ export default async function PairPage({
     with?: string | string[]
     leaderId?: string | string[]
     declaredGender?: string | string[]
+    name?: string | string[]
+    joinRequiresApproval?: string | string[]
     error?: string
   }>
 }) {
@@ -91,6 +93,13 @@ export default async function PairPage({
    * arrived in a query string.
    */
   const declaredBefore = [query.declaredGender ?? []].flat()[0]
+  /**
+   * The name they typed and the door they chose, on a submission coming back
+   * refused. The name is the Admin's own typing rather than anybody's details, and
+   * it is put back into a field rather than rendered as text.
+   */
+  const namedBefore = [query.name ?? []].flat()[0] ?? ''
+  const askedFirstBefore = [query.joinRequiresApproval ?? []].flat()[0] === 'yes'
 
   return (
     <main>
@@ -206,6 +215,34 @@ export default async function PairPage({
                   {declaration.label}
                 </label>
               ))}
+            </fieldset>
+
+            {/*
+              What a group is called, and whether joining it through the group link
+              asks first. Asked of every shape for the reason the declaration is:
+              the browser cannot tell a group from a one-to-one until the boxes are
+              ticked. The domain requires the name of a group and takes a one-to-one
+              without one. No `required`, for the same reason.
+            */}
+            <fieldset>
+              <legend>If this is a group, what is it called?</legend>
+              <p className="subtle">
+                The name appears on the group link, which anybody may open, and is what
+                its leader is asked about each week. Two people on their own need no
+                name — leave this blank.
+              </p>
+              <label htmlFor="name">Group name</label>
+              <input id="name" name="name" defaultValue={namedBefore} />
+              <label htmlFor="joinRequiresApproval">
+                <input
+                  id="joinRequiresApproval"
+                  type="checkbox"
+                  name="joinRequiresApproval"
+                  value="yes"
+                  defaultChecked={askedFirstBefore}
+                />{' '}
+                Ask me before anyone joins through the group link
+              </label>
             </fieldset>
 
             <button type="submit">Create relationship</button>

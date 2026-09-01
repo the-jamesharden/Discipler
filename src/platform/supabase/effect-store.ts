@@ -4,6 +4,7 @@ import type {
   AwaitingLeader,
   IntakeLinkSnapshot,
   InvitationSnapshot,
+  OpenJoinRequest,
   PausedRelationship,
   PersonContact,
   RelationshipSnapshot,
@@ -13,8 +14,10 @@ import type {
   DiscipleshipGoalOrder,
   DiscipleshipGoalRemoval,
   DiscipleshipGoalRenaming,
+  GroupConfiguration,
   IntakeRecord,
   LeadEligibility,
+  NewParticipantMembership,
   NewDiscipleshipGoal,
   LeaderAcceptance,
   MaterialAssignment,
@@ -45,7 +48,7 @@ import {
   type OfferedGoal,
   type StatedGoal,
 } from '~/domain/discipleship-goals'
-import { discipleshipGoalId } from '~/domain/intake'
+import { discipleshipGoalId, type Gender } from '~/domain/intake'
 import {
   roleNoun,
   type MinistrySettings,
@@ -76,11 +79,13 @@ import {
 import type { HistoryEvent } from '~/domain/history'
 import {
   eventId,
+  followUpItemId,
   importRowId,
   intakeSubmissionId,
   ministryId,
   personId,
   relationshipId,
+  type FollowUpItemId,
   type MinistryId,
   type PersonId,
   type RelationshipId,
@@ -216,6 +221,7 @@ interface CheckInRelationshipRow {
   created_at: Date
   accepted_at: Date | null
   participant_names: string[]
+  name: string | null
   checkin_day: number
   checkin_hour: number
 }
@@ -259,6 +265,54 @@ const openMembersOfRelationship = `select m.person_id, m.role, p.full_name, p.ph
      join person p on p.id = m.person_id
     where m.relationship_id = $1 and m.ended_at is null
     order by m.role, m.started_at, p.full_name, m.person_id`
+
+/** One relationship row as the commands about it read it. */
+interface RelationshipRow {
+  id: string
+  created_at: Date
+  accepted_at: Date | null
+  ended_at: Date | null
+  name: string | null
+  join_requires_approval: boolean
+  declared_gender: Gender | null
+}
+
+interface MemberRow {
+  person_id: string
+  role: MemberRole
+  full_name: string
+  phone: string | null
+}
+
+// Locked, for the same reason acceptance locks it: the domain decides from what
+// it reads here, and two Admins cancelling -- or pausing, or two people joining
+// -- at once would otherwise both read the row as untouched and both write to it.
+const relationshipForUpdate = `select id, created_at, accepted_at, ended_at, name,
+            join_requires_approval, declared_gender
+       from relationship
+      where id = $1
+        for update`
+
+const asRelationshipSnapshot = (
+  relationship: RelationshipRow,
+  members: readonly MemberRow[],
+  pause: PauseRow | undefined,
+): RelationshipSnapshot => ({
+  relationshipId: relationshipId(relationship.id),
+  createdAt: relationship.created_at,
+  acceptedAt: relationship.accepted_at,
+  endedAt: relationship.ended_at,
+  name: relationship.name,
+  joinRequiresApproval: relationship.join_requires_approval,
+  declaredGender: relationship.declared_gender,
+  pause: standingPause(pause),
+  members: members.map((row) => ({
+    personId: personId(row.person_id),
+    role: row.role,
+    fullName: row.full_name,
+    phone: row.phone,
+  })),
+})
 
 
 /** One open Keyword Exchange, as the row holds it. */
@@ -395,6 +449,7 @@ const asCheckInRelationship = (
   role: 'leader',
   startedAt: row.created_at,
   participantNames: row.participant_names,
+  name: row.name,
   acceptedAt: row.accepted_at,
   paused: row.paused,
   cadence: { day: row.checkin_day, hour: row.checkin_hour },
@@ -1050,13 +1105,16 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       // very first membership row. Setting it afterwards would admit people to a
       // relationship that had not yet said what it was.
       await client.query(
-        `insert into relationship (id, ministry_id, kind, declared_gender, created_at)
-         values ($1, $2, $3, $4, $5)`,
+        `insert into relationship
+           (id, ministry_id, kind, declared_gender, name, join_requires_approval, created_at)
+         values ($1, $2, $3, $4, $5, $6, $7)`,
         [
           relationship.id,
           relationship.ministryId,
           relationship.kind,
           relationship.declaredGender,
+          relationship.name,
+          relationship.joinRequiresApproval,
           relationship.createdAt,
         ],
       )
@@ -1431,16 +1489,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // Locked, for the same reason acceptance locks it: the domain decides from
     // what it reads here, and two Admins cancelling -- or pausing -- at once would
     // otherwise both read the row as untouched and both write to it.
-    const { rows } = await client.query<{
-      id: string
-      created_at: Date
-      accepted_at: Date | null
-      ended_at: Date | null
-    }>(
-      `select id, created_at, accepted_at, ended_at
-         from relationship where id = $1 for update`,
-      [id],
-    )
+    const { rows } = await client.query<RelationshipRow>(relationshipForUpdate, [id])
 
     const relationship = rows[0]
     if (!relationship) return null
@@ -1468,19 +1517,101 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       [id],
     )
 
+    return asRelationshipSnapshot(relationship, members, pauses[0])
+  },
+
+  async groupToJoin(id: string): Promise<RelationshipSnapshot | null> {
+    // A group the form named, as the database holds it now. The identifier arrived
+    // in a request body, so it is not trusted into a query as a uuid until it looks
+    // like one -- and a relationship formed as a one-to-one is *no such group*,
+    // whatever its id: the join path never offers one, and a one-to-one holds one
+    // Participant however the row arrived.
+    if (!/^[0-9a-f-]{36}$/i.test(id)) return null
+
+    const { rows } = await client.query<RelationshipRow>(
+      `select id, created_at, accepted_at, ended_at, name,
+              join_requires_approval, declared_gender
+         from relationship
+        where id = $1
+          and kind = 'group'
+          for update`,
+      [id],
+    )
+    const relationship = rows[0]
+    if (!relationship) return null
+
+    const { rows: members } = await client.query<MemberRow>(openMembersOfRelationship, [id])
+    const { rows: pauses } = await client.query<PauseRow>(
+      `select relationship_id, paused_at, period_weeks
+         from relationship_pauses(app.command_ministry_id())
+        where relationship_id = $1`,
+      [id],
+    )
+
+    return asRelationshipSnapshot(relationship, members, pauses[0])
+  },
+
+  async joinRequest(itemId: FollowUpItemId): Promise<OpenJoinRequest | null> {
+    // Open, and of the one kind an admission acts on. Locked, so two Admins
+    // admitting the same Person read the same row and the second is refused by
+    // the resolution rather than admitting them twice.
+    const { rows } = await client.query<{
+      id: string
+      person_id: string
+      relationship_id: string
+    }>(
+      `select id, person_id, relationship_id
+         from follow_up_item
+        where id = $1
+          and kind = 'group_join_requested'
+          and resolved_at is null
+          for update`,
+      [itemId],
+    )
+    const item = rows[0]
+    if (!item) return null
+
     return {
-      relationshipId: relationshipId(relationship.id),
-      createdAt: relationship.created_at,
-      acceptedAt: relationship.accepted_at,
-      endedAt: relationship.ended_at,
-      pause: standingPause(pauses[0]),
-      members: members.map((row) => ({
-        personId: personId(row.person_id),
-        role: row.role,
-        fullName: row.full_name,
-        phone: row.phone,
-      })),
+      itemId: followUpItemId(item.id),
+      personId: personId(item.person_id),
+      relationshipId: relationshipId(item.relationship_id),
     }
+  },
+
+  async joinRelationship(membership: NewParticipantMembership) {
+    // One row, as a Participant, carrying the relationship's own kind: the
+    // composite key wants it and the domain is fenced from reading it, so it is
+    // copied from the relationship in the same statement. Every rule the caps and
+    // the gender triggers hold at formation holds here too, on the same insert.
+    try {
+      await client.query(
+        `insert into relationship_member
+           (ministry_id, relationship_id, kind, person_id, role, started_at)
+         select $1, r.id, r.kind, $3, 'participant', $4
+           from relationship r
+          where r.id = $2`,
+        [
+          membership.ministryId,
+          membership.relationshipId,
+          membership.personId,
+          membership.startedAt,
+        ],
+      )
+    } catch (error) {
+      throw asRefusal(error) ?? error
+    }
+  },
+
+  async configureGroup(configuration: GroupConfiguration) {
+    // The two columns an Admin may change on a group. Neither trigger on the row
+    // fires -- `kind` and `declared_gender` are untouched -- and the blank-name
+    // constraint is the boundary's rule repeated.
+    await client.query(
+      `update relationship
+          set name = $2, join_requires_approval = $3
+        where id = $1`,
+      [configuration.relationshipId, configuration.name, configuration.joinRequiresApproval],
+    )
   },
 
   async pausedRelationships(): Promise<readonly PausedRelationship[]> {
@@ -1709,6 +1840,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       `select r.id as relationship_id,
               r.created_at,
               r.accepted_at,
+              r.name,
               -- Paused lives in history rather than in a column, like every
               -- other relationship state here.
               ${pausedColumn},
@@ -1779,6 +1911,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
         `select r.id as relationship_id,
                 r.created_at,
                 r.accepted_at,
+                r.name,
                 ${pausedColumn},
                 ${participantNamesColumn},
                 ${cadenceColumns}

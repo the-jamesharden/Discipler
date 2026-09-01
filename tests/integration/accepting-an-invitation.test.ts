@@ -57,6 +57,9 @@ describe('accepting an Invitation Link', () => {
       ministryId: ministry.id,
       leaderIds,
       participantIds,
+      // Named, because a group is called something. Dropped by the boundary for a
+      // one-to-one, so it costs a pair nothing.
+      name: 'The Tuesday Group',
       // Mixed. These tests are about who has to accept before a relationship opens,
       // and a declaration that bound anybody would be a second subject in each of
       // them.

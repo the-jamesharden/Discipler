@@ -81,7 +81,7 @@ An admin cannot attest to consent on a congregant's behalf, at import or anywher
 
 ## Suggestion
 
-Suggestions are produced for one-to-one relationships only; groups are always formed manually.
+Suggestions are produced for one-to-one relationships only. A group is formed by the pastor, and may then be joined through the Ministry's group Intake link -- directly, or by asking first where the pastor has set that group to ask. See `docs/adr/0017-picking-a-group-joins-it.md`.
 
 Constraints filter before anything is ranked. Gender must match and is absolute — manual pairing cannot override it. The age band constraint governs suggestion only and an admin may pair across it. Whoever survives is ranked by availability overlap, with Discipleship Goal separating candidates who already have comparable overlap, and ties broken by who has waited longest since intake.
 

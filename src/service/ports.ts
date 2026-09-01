@@ -10,6 +10,7 @@ import type {
   InvitationSnapshot,
   PausedRelationship,
   PersonContact,
+  OpenJoinRequest,
   RelationshipSnapshot,
   UnacceptedRelationship,
 } from '~/domain/boundary'
@@ -39,6 +40,8 @@ import type {
   OutstandingReplyClosure,
   OutstandingReplySweep,
   ParticipantDeparture,
+  NewParticipantMembership,
+  GroupConfiguration,
   PersonOptIn,
   PersonOptOut,
   PersonRenaming,
@@ -290,6 +293,29 @@ export interface UnitOfWork {
    * reopened.
    */
   departFromRelationship(departure: ParticipantDeparture): Promise<void>
+  /**
+   * The group a submission on the group path named, as the database holds it now
+   * and locked, or null for an identifier that names no group this Ministry holds
+   * -- including a relationship formed as a one-to-one, which the join path never
+   * offers. Takes a string rather than an id because the value arrived in a
+   * request body and has proved nothing yet.
+   */
+  groupToJoin(id: string): Promise<RelationshipSnapshot | null>
+  /**
+   * One open `group_join_requested` item, locked, or null where the id names no
+   * open item of that kind. Read so an admission acts on who actually asked and
+   * for which group, rather than on whatever a request body said.
+   */
+  joinRequest(itemId: FollowUpItemId): Promise<OpenJoinRequest | null>
+  /**
+   * Adds one Participant to a relationship that already exists -- the mirror of a
+   * departure. Refuses with a `PairingRefused` when the caps, the Intake gate or
+   * the gender rule refuse the membership, exactly as formation does: the same
+   * triggers judge the same insert.
+   */
+  joinRelationship(membership: NewParticipantMembership): Promise<void>
+  /** What an Admin called a group and whether joining it asks. */
+  configureGroup(configuration: GroupConfiguration): Promise<void>
   /**
    * Closes the Material period that was running and opens a new one at the same
    * instant, through the one database function that writes either -- which is what
@@ -794,9 +820,52 @@ export interface IssuedIntakeLink {
   readonly expiresAt: Date
 }
 
+/**
+ * One of the Ministry's live groups, as the Admin's Groups panel shows it: what
+ * it is called -- or that it is not called anything yet -- what it declared,
+ * whether its door is open, whether its Leaders have accepted, and who is in it.
+ */
+export interface MinistryGroup {
+  readonly relationshipId: RelationshipId
+  readonly name: string | null
+  readonly declaredGender: Gender | null
+  readonly joinRequiresApproval: boolean
+  readonly accepted: boolean
+  readonly leaderNames: readonly string[]
+  readonly participantNames: readonly string[]
+}
+
+/**
+ * Somebody waiting to be admitted to a group that requires approval, with what an
+ * Admin decides on: who they are, what they answered about themselves, which group
+ * they named, and when they asked. The item the Admin acts on is named so the
+ * admission can name it back.
+ */
+export interface JoinRequestOnTheRoster {
+  readonly itemId: FollowUpItemId
+  readonly personId: PersonId
+  readonly fullName: string
+  readonly relationshipId: RelationshipId
+  readonly groupName: string | null
+  readonly gender: Gender | null
+  readonly ageBand: AgeBand | null
+  readonly raisedAt: Date
+}
+
 export interface RosterReader {
   /** Scoped to one Ministry, and enforced as such in the database, not here. */
   listRoster(ministryId: MinistryId): Promise<readonly RosterEntry[]>
+
+  /**
+   * Every group the Ministry holds that has not ended, named or not, for the panel
+   * an Admin names them from and switches approval on. Its own read rather than a
+   * column on the Roster, because the Roster is a list of people and a group is on
+   * it once per member.
+   */
+  listGroups(ministryId: MinistryId): Promise<readonly MinistryGroup[]>
+
+  /** Everybody waiting to be admitted, oldest request first. */
+  openJoinRequests(ministryId: MinistryId): Promise<readonly JoinRequestOnTheRoster[]>
 
   /**
    * The link this Person currently holds, or null where they hold none and where
@@ -1049,9 +1118,37 @@ export interface MinistrySettingsReader {
   readMinistrySettings(ministryId: MinistryId): Promise<MinistrySettings>
 }
 
+/**
+ * One group the group Intake link offers: what it is called, what it declared,
+ * whether picking it asks or joins, and who leads it by first name. The whole of
+ * what an unauthenticated page is told about a group.
+ */
+export interface JoinableGroup {
+  readonly relationshipId: RelationshipId
+  readonly name: string
+  readonly declaredGender: Gender | null
+  readonly joinRequiresApproval: boolean
+  readonly leaderFirstNames: readonly string[]
+}
+
+/** What the group Intake form needs to render itself, for a visitor with no session. */
+export interface GroupIntakePage {
+  readonly ministryId: MinistryId
+  readonly ministryName: string
+  /**
+   * Every group the link offers, unfiltered by gender. The form asks gender before
+   * it asks which group and filters this list against the answer at the screen;
+   * the submission checks the same thing again in the domain.
+   */
+  readonly groups: readonly JoinableGroup[]
+}
+
 export interface IntakeReader {
   /** Null when the link names no Ministry this Discipler holds. */
   readIntakePage(id: string): Promise<IntakePage | null>
+
+  /** The same Ministry's group form. Null for the same reason. */
+  readGroupIntakePage(id: string): Promise<GroupIntakePage | null>
 
   /** Null when the token names nobody. Expired links still answer. */
   readReopenedIntakePage(token: string): Promise<ReopenedIntakePage | null>

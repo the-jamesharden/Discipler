@@ -66,6 +66,9 @@ describe('pairing and the two constraints', () => {
       ministryId: ministry.id,
       leaderIds,
       participantIds,
+      // Named, because a group is called something. Dropped by the boundary for a
+      // one-to-one, so it costs a pair nothing.
+      name: 'The Tuesday Group',
       declaredGender: null,
     })
 

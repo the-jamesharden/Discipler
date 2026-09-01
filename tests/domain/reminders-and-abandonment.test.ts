@@ -49,6 +49,7 @@ const leads = (id: typeof emily, startedOn: string, names: readonly string[]): C
   role: 'leader',
   startedAt: new Date(startedOn),
   participantNames: names,
+  name: null,
   acceptedAt: new Date(startedOn),
   paused: false,
   cadence: { day: 1, hour: 20 },

@@ -59,6 +59,13 @@ export const composeMessage = ({
 export interface WelcomeMessage {
   readonly ministryName: string
   readonly fullName: string
+  /**
+   * What the message may say comes next. `a_match` on the paths where an Admin
+   * pairs people; `nothing` on the group path, where the Person has already named
+   * where they are going and hears nothing about it by text -- the Welcome there is
+   * the consent receipt and the A2P first contact, and not a join notification.
+   */
+  readonly promises: 'a_match' | 'nothing'
 }
 
 /**
@@ -78,7 +85,7 @@ const firstNameOf = (fullName: string): string | null =>
  * consented is waiting on a pairing decision an Admin has not made yet, and saying
  * anything firmer here would be a commitment nobody has made on their behalf.
  */
-export const welcomeMessage = ({ ministryName, fullName }: WelcomeMessage): string => {
+export const welcomeMessage = ({ ministryName, fullName, promises }: WelcomeMessage): string => {
   const firstName = firstNameOf(fullName)
 
   return composeMessage({
@@ -87,7 +94,9 @@ export const welcomeMessage = ({ ministryName, fullName }: WelcomeMessage): stri
     discloseOptOut: true,
     body:
       (firstName ? `Thanks, ${firstName} — you’re all set.` : 'You’re all set.') +
-      ' We’ll text you once you’ve been matched with someone to meet with.',
+      (promises === 'a_match'
+        ? ' We’ll text you once you’ve been matched with someone to meet with.'
+        : ''),
   })
 }
 
@@ -96,7 +105,7 @@ export const welcomeMessage = ({ ministryName, fullName }: WelcomeMessage): stri
  * on the kind a relationship was formed as, so this is the only place the
  * difference between a one-to-one and a group shows up in wording at all.
  */
-const asList = (names: readonly string[]): string => {
+export const asList = (names: readonly string[]): string => {
   if (names.length <= 1) return names[0] ?? 'them'
   return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
 }
@@ -197,6 +206,15 @@ export const ministryDiscipleshipIntakeQrLink = (
   ministry: MinistryId,
 ): string => `${ministryDiscipleshipIntakeLink(baseUrl, ministry)}?via=qr`
 
+/**
+ * Where a Leader sees everyone in what they lead and how to reach them. It carries
+ * no token: the Leader signs in with the number and password they set when they
+ * accepted, so the link is the same for everybody and secret from nobody. Composed
+ * into the Starter Message and into the text that says somebody has joined.
+ */
+export const leaderDashboardLink = (baseUrl: string): string =>
+  `${host(baseUrl)}/relationships`
+
 export interface InvitationMessage {
   readonly ministryName: string
   readonly fullName: string
@@ -245,6 +263,8 @@ export interface StarterMessageToLeader {
   readonly participantNames: readonly string[]
   /** What this Ministry calls the reader's own role. */
   readonly leaderNoun: string
+  /** Where they see everyone in it and how to reach them. */
+  readonly dashboardLink: string
 }
 
 /**
@@ -260,6 +280,7 @@ export const starterMessageToLeader = ({
   ministryName,
   participantNames,
   leaderNoun,
+  dashboardLink,
 }: StarterMessageToLeader): string =>
   composeMessage({
     ministryName,
@@ -269,7 +290,56 @@ export const starterMessageToLeader = ({
     // side of it -- so the noun stays singular and nothing has to pluralise a
     // word a Ministry typed. `asList` puts the group inside the possessive, which
     // is the one shape that reads for both a one-to-one and a group of four.
-    body: `You’re now ${asList(participantNames)}’s ${leaderNoun}. We’ll check in with you each week to see how it’s going.`,
+    //
+    // The link is a URL and not a number: the numbers are on the page it opens,
+    // behind the sign-in the Leader just set and behind each Person's own
+    // contact-sharing decision, which is where a number is allowed to be.
+    body:
+      `You’re now ${asList(participantNames)}’s ${leaderNoun}. `
+      + `${WHERE_TO_SEE_THEM} ${dashboardLink}. `
+      + 'We’ll check in with you each week to see how it’s going.',
+  })
+
+/**
+ * The one sentence that points a Leader at their dashboard, said the same way in
+ * the Starter Message and in the text that says somebody has joined. *Who you're
+ * meeting with* rather than *your group*, because the Starter Message goes to a
+ * one-to-one's Leader too.
+ */
+const WHERE_TO_SEE_THEM = 'See who you’re meeting with and how to reach them at'
+
+export interface GroupJoinedMessage {
+  readonly ministryName: string
+  /** Whoever just joined. Their first name is said and nothing else about them. */
+  readonly joinerFullName: string
+  /** What the Ministry calls the group they joined. */
+  readonly groupName: string
+  readonly dashboardLink: string
+}
+
+/**
+ * Sent to a group's Leader the moment somebody joins it -- through the Intake link
+ * on an open group, or by an Admin admitting somebody who asked. The Leader was in
+ * neither conversation, and this is how they hear.
+ *
+ * A first name and a link, and no number, for the reason the Starter Message
+ * carries none. Nothing is sent to the Person who joined: that is a decision
+ * recorded in `docs/adr/0017-picking-a-group-joins-it.md`, and the Welcome Message
+ * they were sent on submitting is a receipt rather than a notice.
+ */
+export const groupJoinedMessage = ({
+  ministryName,
+  joinerFullName,
+  groupName,
+  dashboardLink,
+}: GroupJoinedMessage): string =>
+  composeMessage({
+    ministryName,
+    identifyDelivery: false,
+    discloseOptOut: true,
+    body:
+      `${firstNameOf(joinerFullName) ?? 'Someone'} just joined ${groupName}. `
+      + `${WHERE_TO_SEE_THEM} ${dashboardLink}.`,
   })
 
 export interface StarterMessageToParticipant {

@@ -168,7 +168,8 @@ export interface IntakeRecord {
   readonly corrections: ContactCorrection | null
   readonly ageBand: AgeBand
   readonly gender: Gender
-  readonly goalId: DiscipleshipGoalId
+  /** Null on the group path, which asks no Goal. */
+  readonly goalId: DiscipleshipGoalId | null
   readonly availability: readonly AvailabilitySlot[]
   /**
    * Optional on the form. When it is given it lands on the Person, because an
@@ -636,6 +637,35 @@ export interface PersonOptIn {
   readonly endedAt: Date
 }
 
+/**
+ * One Participant joining a relationship that already exists -- the mirror of a
+ * departure, and the first path that adds a membership after formation. A group
+ * only: the join path never offers a one-to-one, and the database holds a
+ * one-to-one to one open Participant however the row arrived.
+ *
+ * It carries no actor. Who did it is the history event beside it: a Person who
+ * joined an open group themselves, or an Admin who admitted them, and those are
+ * two different event types rather than one with a flag.
+ */
+export interface NewParticipantMembership {
+  readonly ministryId: MinistryId
+  readonly relationshipId: RelationshipId
+  readonly personId: PersonId
+  readonly startedAt: Date
+}
+
+/**
+ * What an Admin called a group and whether joining it asks. Both, always: it is
+ * one form and one save, and a rename that landed while the switch was refused is
+ * a state nobody chose.
+ */
+export interface GroupConfiguration {
+  readonly ministryId: MinistryId
+  readonly relationshipId: RelationshipId
+  readonly name: string
+  readonly joinRequiresApproval: boolean
+}
+
 export type Effect =
   | { readonly kind: 'history.append'; readonly event: NewHistoryEvent }
   | { readonly kind: 'person.create'; readonly person: NewPerson }
@@ -662,6 +692,8 @@ export type Effect =
     }
   | { readonly kind: 'relationship.end'; readonly ending: RelationshipEnding }
   | { readonly kind: 'relationship.depart'; readonly departure: ParticipantDeparture }
+  | { readonly kind: 'relationship.join'; readonly membership: NewParticipantMembership }
+  | { readonly kind: 'group.configure'; readonly configuration: GroupConfiguration }
   | { readonly kind: 'material.assign'; readonly assignment: MaterialAssignment }
   | { readonly kind: 'checkin.open'; readonly sequence: NewCheckInSequence }
   | { readonly kind: 'checkin.ask'; readonly prompt: NewCheckInPrompt }
@@ -734,6 +766,16 @@ export const removeDiscipleshipGoal = (removal: DiscipleshipGoalRemoval): Effect
 export const recordIntake = (intake: IntakeRecord): Effect => ({
   kind: 'intake.record',
   intake,
+})
+
+export const joinRelationship = (membership: NewParticipantMembership): Effect => ({
+  kind: 'relationship.join',
+  membership,
+})
+
+export const configureGroup = (configuration: GroupConfiguration): Effect => ({
+  kind: 'group.configure',
+  configuration,
 })
 
 export const enqueueMessage = (

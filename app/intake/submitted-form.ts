@@ -73,5 +73,8 @@ export const submittedIntakeForm = (
     // in from drifting apart.
     declaredSide: text('side'),
     experience: text('experience'),
+    // The group form's own screen. Read on every route for the reason the side is:
+    // a group named on a route that declares no group path is refused, not dropped.
+    groupId: text('groupId'),
   }
 }

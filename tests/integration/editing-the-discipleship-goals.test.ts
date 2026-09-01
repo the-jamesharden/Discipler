@@ -547,6 +547,7 @@ describe('a Ministry’s Discipleship Goal options', () => {
           intakePath: null,
           declaredSide: null,
           experience: null,
+          groupId: null,
         },
       }),
     ).rejects.toThrow(new IntakeRefused(['intake.goal_no_longer_offered']))

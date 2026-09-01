@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import type { ReactNode } from 'react'
 import { DECLARED_SIDES, EXPERIENCE_ANSWERS } from '~/domain/intake'
 import type { DiscipleshipGoalOption } from '~/service/ports'
 import {
@@ -22,14 +21,14 @@ import {
   AGE_AND_GENDER_STEP,
   answersAsQuery,
   AVAILABILITY_STEP,
-  CHOICE_FIELDS,
+  discipleshipWizard,
   FIRST_TIME_STEP,
   furthestStep,
-  notCarriedAt,
   SIDE_STEP,
   type IntakeVia,
   type WizardAnswers,
 } from './wizard-answers'
+import { Hidden, StepForm } from './wizard-shell'
 
 /**
  * The discipleship Intake wizard: one component with a `side` argument, the way
@@ -42,7 +41,7 @@ import {
  *
  * Both sides are asked the same five things in the same order and differ only in
  * wording, which lives in `copy.ts` as a record keyed on the side. The fields
- * themselves are the ones the single page asks, imported rather than restated:
+ * themselves are the ones the group form asks, imported rather than restated:
  * `Agreements` in particular is the wording a consent record points at by version,
  * and two forms drifting apart would make that version ambiguous.
  *
@@ -52,81 +51,9 @@ import {
  * Which screen is which is read from `wizard-answers` by name and never by
  * position, for the reason the screen list gives: the order is written down in one
  * place, and a screen added in the middle must not have to be found again here.
+ * The hidden inputs and the step shell come from `wizard-shell`, shared with the
+ * group form for the reason the fields are.
  */
-
-/**
- * Every answer the wizard holds, carried forward, minus the ones this screen must
- * not send -- what it is asking for itself, and what its own question rewords.
- *
- * Named fields rather than a step number, and not for tidiness: a screen reached by
- * pressing Back still holds the answers to the screens after it, and carrying only
- * *the steps before this one* would drop them on the way forward again. Somebody who
- * went back to correct their age would find their availability quietly emptied.
- *
- * The fields themselves come from the same table that says what each one may hold,
- * so an answer added to the wizard is carried here without anybody remembering to
- * add it.
- */
-const Hidden = ({
-  answers,
-  via,
-  dropping = [],
-}: {
-  readonly answers: WizardAnswers
-  readonly via: IntakeVia
-  /** What this screen asks for or rewords. Those are not carried as hidden. */
-  readonly dropping?: readonly (keyof WizardAnswers)[]
-}) => {
-  const carried = (field: keyof WizardAnswers) => !dropping.includes(field)
-
-  return (
-    <>
-      <input type="hidden" name="via" value={via} />
-      {CHOICE_FIELDS.map((field) => {
-        const answer = answers[field]
-        return carried(field) && answer !== null ? (
-          <input key={field} type="hidden" name={field} value={answer} />
-        ) : null
-      })}
-      {carried('availability')
-        ? answers.availability.map((slot) => (
-            <input key={slot} type="hidden" name="availability" value={slot} />
-          ))
-        : null}
-    </>
-  )
-}
-
-/**
- * The shell steps one to four share: a GET back to this page, carrying every answer
- * this screen is neither asking for nor rewording, and naming the screen after it
- * on Continue.
- *
- * Both of those are read from the screen list rather than written per screen. Which
- * fields a screen carries was four hand-written lists, and getting one wrong is
- * how a screen reached by pressing Back quietly emptied somebody's availability;
- * which step comes next was four literals in a sequence written down nowhere.
- */
-const StepForm = ({
-  at,
-  answers,
-  via,
-  here,
-  children,
-}: {
-  readonly at: number
-  readonly answers: WizardAnswers
-  readonly via: IntakeVia
-  readonly here: string
-  readonly children: ReactNode
-}) => (
-  <form method="get" action={here}>
-    <Hidden answers={answers} via={via} dropping={notCarriedAt(at)} />
-    <input type="hidden" name="step" value={String(at + 1)} />
-    {children}
-    <button type="submit">Continue</button>
-  </form>
-)
 
 export const IntakeWizard = ({
   step,
@@ -157,6 +84,7 @@ export const IntakeWizard = ({
   // not each asserting it.
   const side = answers.side
 
+  const wizard = discipleshipWizard
   const back =
     at === SIDE_STEP ? null : (
       <p>
@@ -166,7 +94,7 @@ export const IntakeWizard = ({
 
   if (at === SIDE_STEP || side === null) {
     return (
-      <StepForm at={at} answers={answers} via={via} here={here}>
+      <StepForm wizard={wizard} at={at} answers={answers} via={via} here={here}>
         <fieldset>
           <legend>{SIDE_QUESTION}</legend>
           {/* Nothing else on the screen. The first-time question and the closing
@@ -194,7 +122,7 @@ export const IntakeWizard = ({
   if (at === AGE_AND_GENDER_STEP) {
     return (
       <>
-        <StepForm at={at} answers={answers} via={via} here={here}>
+        <StepForm wizard={wizard} at={at} answers={answers} via={via} here={here}>
           <AgeBandField prefill={{ ...NOTHING_PREFILLED, ageBand: answers.ageBand }} />
           <GenderField prefill={{ ...NOTHING_PREFILLED, gender: answers.gender }} />
         </StepForm>
@@ -206,7 +134,7 @@ export const IntakeWizard = ({
   if (at === FIRST_TIME_STEP) {
     return (
       <>
-        <StepForm at={at} answers={answers} via={via} here={here}>
+        <StepForm wizard={wizard} at={at} answers={answers} via={via} here={here}>
           <fieldset>
             <legend>{firstTimeQuestion[side]}</legend>
             {/* Two answers, worded as statements rather than as yes and no, so
@@ -236,7 +164,7 @@ export const IntakeWizard = ({
   if (at === AVAILABILITY_STEP) {
     return (
       <>
-        <StepForm at={at} answers={answers} via={via} here={here}>
+        <StepForm wizard={wizard} at={at} answers={answers} via={via} here={here}>
           <AvailabilityGrid availability={answers.availability} />
         </StepForm>
         {back}
@@ -251,7 +179,7 @@ export const IntakeWizard = ({
           screen as the write it authorises. */}
       <form method="post" action={submitTo}>
         {/* Nothing is asked again here, so everything is carried. */}
-        <Hidden answers={answers} via={via} />
+        <Hidden wizard={wizard} answers={answers} via={via} />
 
         <ContactFields prefill={NOTHING_PREFILLED} />
         <GoalField goals={goals} prefill={NOTHING_PREFILLED} />

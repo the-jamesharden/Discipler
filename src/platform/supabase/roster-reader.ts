@@ -1,17 +1,20 @@
-import { importRowId, personId, relationshipId } from '~/domain/ids'
+import { followUpItemId, importRowId, personId, relationshipId } from '~/domain/ids'
 import { isParticipationStatus, type ParticipationStatus } from '~/domain/participation'
 import { isMemberRole, type MemberRole } from '~/domain/relationships'
 import { intakeLinkState, intakeLinkToken } from '~/domain/intake-link'
-import { DECLARED_SIDES, isOneOf, type DeclaredSide } from '~/domain/intake'
+import { AGE_BANDS, DECLARED_SIDES, GENDERS, isOneOf, type DeclaredSide } from '~/domain/intake'
 import type {
   AccountOnTheRoster,
   IssuedIntakeLink,
+  JoinRequestOnTheRoster,
+  MinistryGroup,
   RosterEntry,
   RosterReader,
   RosterRelationship,
   UnansweredImportRow,
 } from '~/service/ports'
 import type { NameOnTheNumber } from '~/domain/roster'
+import { declaredGenderOf, rows, text } from './rows'
 import { createSupabaseServerClient } from './server-client'
 
 interface MemberRow {
@@ -99,6 +102,10 @@ const asPersonRow = (row: unknown): PersonRow => {
     holdsAnAccount,
   }
 }
+
+/** A text[] column as PostgREST hands it back, or nothing where it is not one. */
+const names = (value: unknown): readonly string[] =>
+  Array.isArray(value) ? value.filter((each): each is string => typeof each === 'string') : []
 
 export const supabaseRosterReader: RosterReader = {
   async listRoster(ministryId): Promise<readonly RosterEntry[]> {
@@ -232,6 +239,64 @@ export const supabaseRosterReader: RosterReader = {
       firstTime: row.firstTime,
       holdsAnAccount: row.holdsAnAccount,
     }))
+  },
+
+  async listGroups(ministryId): Promise<readonly MinistryGroup[]> {
+    const supabase = await createSupabaseServerClient()
+
+    // A function, for the reason the Roster is one and for one more: *is this a
+    // group* is the capacity question ADR-0004 fences to the database, and the
+    // function answers it without this file naming what a group is.
+    const { data, error } = await supabase.rpc('ministry_groups', {
+      target_ministry_id: ministryId,
+    })
+    if (error) throw new Error(`Could not read the groups: ${error.message}`)
+
+    return rows(data).map((row) => {
+      const id = text(row.relationship_id)
+      if (!id) throw new Error('A group row arrived with no id')
+      return {
+        relationshipId: relationshipId(id),
+        name: text(row.name),
+        declaredGender: declaredGenderOf(row.declared_gender),
+        joinRequiresApproval: row.join_requires_approval === true,
+        accepted: row.accepted === true,
+        leaderNames: names(row.leader_names),
+        participantNames: names(row.participant_names),
+      }
+    })
+  },
+
+  async openJoinRequests(ministryId): Promise<readonly JoinRequestOnTheRoster[]> {
+    const supabase = await createSupabaseServerClient()
+
+    const { data, error } = await supabase.rpc('group_join_requests', {
+      target_ministry_id: ministryId,
+    })
+    if (error) throw new Error(`Could not read who is waiting to join: ${error.message}`)
+
+    return rows(data).map((row) => {
+      const item = text(row.item_id)
+      const person = text(row.person_id)
+      const fullName = text(row.full_name)
+      const relationship = text(row.relationship_id)
+      const raisedAt = text(row.raised_at)
+      if (!item || !person || !fullName || !relationship || !raisedAt) {
+        throw new Error('A join request arrived with a piece missing')
+      }
+      const gender = row.gender
+      const ageBand = row.age_band
+      return {
+        itemId: followUpItemId(item),
+        personId: personId(person),
+        fullName,
+        relationshipId: relationshipId(relationship),
+        groupName: text(row.group_name),
+        gender: isOneOf(GENDERS, gender) ? gender : null,
+        ageBand: isOneOf(AGE_BANDS, ageBand) ? ageBand : null,
+        raisedAt: new Date(raisedAt),
+      }
+    })
   },
 
   async heldImportRows(ministryId): Promise<readonly UnansweredImportRow[]> {

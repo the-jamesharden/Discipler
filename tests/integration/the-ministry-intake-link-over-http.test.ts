@@ -170,15 +170,18 @@ describe.skipIf(skipUnlessAppIsRunning)('the Ministry Intake Link an Admin can s
     // Two assertions rather than one sentence: React puts a comment between the
     // static half of a heading and the interpolated half, so the Ministry's name and
     // the words in front of it are not adjacent in the markup.
-    expect(form).toContain('Join discipleship at')
+    //
+    // Since ticket 29 the link opens the group form. This Ministry has no group to
+    // offer, which is every Ministry on day one, so what it serves is the page that
+    // says so and points at the discipleship wizard -- never a dead page.
+    expect(form).toContain('Join a group at')
     expect(form).toContain('Fairmount Church')
-    expect(form).toContain(`action="/intake/${ministry.id}/submit"`)
+    expect(form).toContain(`/intake/${ministry.id}/discipleship`)
 
     const fromTheCode = await fetch(`${baseUrl}${pathOf(scanned(link, ministry))}`, {
       redirect: 'manual',
     })
     expect(fromTheCode.status).toBe(200)
-    // What the form will submit, and therefore what the consent record will say.
-    expect(await fromTheCode.text()).toContain('value="qr"')
+    expect(await fromTheCode.text()).toContain('Join a group at')
   })
 })

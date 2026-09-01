@@ -43,6 +43,7 @@ const leads: CheckInRelationship = {
   role: 'leader',
   startedAt: new Date('2026-03-02T09:00:00Z'),
   participantNames: ['Emily'],
+  name: null,
   acceptedAt: new Date('2026-03-02T09:00:00Z'),
   paused: false,
   cadence: { day: 1, hour: 20 },

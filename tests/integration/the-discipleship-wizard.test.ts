@@ -62,6 +62,7 @@ describe('the discipleship wizard', () => {
     intakePath: 'discipleship',
     declaredSide: 'mentee',
     experience: 'first_time',
+    groupId: null,
     ...overrides,
   })
 
@@ -209,6 +210,7 @@ describe('what the Roster derives from the wizard', () => {
         intakePath: 'discipleship',
         declaredSide: 'mentee',
         experience: 'first_time',
+        groupId: null,
         ...overrides,
       },
     })

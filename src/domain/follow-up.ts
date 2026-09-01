@@ -8,7 +8,7 @@ import { isMemberRole, type MemberRole } from './relationships'
  * until an Admin acts on it. That single property is what makes Care Needed
  * trustworthy: nothing needing a decision disappears before somebody makes it.
  *
- * Six kinds, named for the condition rather than the remedy, and every one of them
+ * Seven kinds, named for the condition rather than the remedy, and every one of them
  * is an act or a condition no later event undoes -- which is the test for
  * belonging here. Derived states are excluded by the same test: `Stalled` clears on
  * an answered check-in, so it could never satisfy *never clears itself*. A Concern
@@ -39,6 +39,13 @@ export const FOLLOW_UP_KINDS = [
    * surface from a Leader texting `SWAP`, and without an item it reaches nobody.
    */
   'match_declined',
+  /**
+   * A Person asked to join a group the pastor set to require approval. Raised by
+   * the Intake submission and closed by an Admin admitting them or resolving it
+   * alone. It carries the Person and the group, so the one-open-item index already
+   * says the same Person asking for the same group twice is one thing to act on.
+   */
+  'group_join_requested',
 ] as const
 
 export type FollowUpKind = (typeof FOLLOW_UP_KINDS)[number]
@@ -46,7 +53,7 @@ export type FollowUpKind = (typeof FOLLOW_UP_KINDS)[number]
 /**
  * The kind and what it carries, as one discriminated union, so a `pause_expired`
  * without its period is not a value TypeScript will construct. The database
- * repeats the rule as a check constraint: three of six kinds carry anything, and a
+ * repeats the rule as a check constraint: three of seven kinds carry anything, and a
  * future writer that bypasses this boundary must still be refused.
  *
  * `relationship_unaccepted` carries nothing, though the Admin is shown how long it
@@ -68,6 +75,7 @@ export type FollowUpPayload =
   | { readonly kind: 'participant_keyword'; readonly keyword: string }
   | { readonly kind: 'invitation_number_disputed' }
   | { readonly kind: 'match_declined' }
+  | { readonly kind: 'group_join_requested' }
 
 /**
  * What the item is about: a relationship, a Person, or both. Two nullable typed
@@ -106,7 +114,7 @@ export interface FollowUpResolution {
 }
 
 /**
- * What a kind carries, as the row stores it. Three of the six carry anything, so
+ * What a kind carries, as the row stores it. Three of the seven carry anything, so
  * every other one is the default -- adding a kind that carries nothing needs no
  * edit here, and adding one that does will not compile without a case.
  */

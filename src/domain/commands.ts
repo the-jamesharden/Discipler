@@ -167,6 +167,53 @@ export type Command =
        * *nobody was asked*, `null` is *mixed*, and a value is a binding.
        */
       readonly declaredGender?: Gender | null
+      /**
+       * What the Admin called it. Required by the boundary of anything but a
+       * one-to-one, which has nothing a name is for, and absent rather than
+       * defaulted for the reason the declaration above is: a group the form did
+       * not name is a refusal, not a group called nothing.
+       */
+      readonly name?: string | null
+      /**
+       * Whether joining this group through the Intake link asks or joins. Absent
+       * means off, which is the default the ADR records; a form that wants approval
+       * says so.
+       */
+      readonly joinRequiresApproval?: boolean
+    }
+  /**
+   * An Admin changing what a group is called and whether joining it asks. One
+   * command for both because it is one form and one save, like `settings.update`:
+   * a rename landing while the approval switch was refused is a state nobody
+   * chose. Neither is a ministry event -- a label and a switch -- but the change is
+   * recorded, with who made it.
+   */
+  | {
+      readonly type: 'group.configure'
+      readonly ministryId: MinistryId
+      readonly relationshipId: RelationshipId
+      /** As typed. What counts as a name is decided at the boundary. */
+      readonly name: string | null
+      readonly joinRequiresApproval: boolean
+      /** The Admin's account, as the session named it. */
+      readonly changedBy: string
+    }
+  /**
+   * An Admin admitting somebody who asked to join a group that requires approval.
+   *
+   * It names the item and nothing else: which Person and which group are read off
+   * the item inside the transaction, so a body that named a different Person or a
+   * different group from the item it was closing could not be composed. Admitting
+   * adds the Participant and resolves the item in one act -- resolving is an
+   * Admin's recorded act, and this is one -- and texts the group's Leader that
+   * somebody has joined, exactly as a self-join does.
+   */
+  | {
+      readonly type: 'relationship.admit'
+      readonly ministryId: MinistryId
+      readonly itemId: FollowUpItemId
+      /** The Admin's account, as the session named it. */
+      readonly admittedBy: string
     }
   /**
    * An Admin cancelling a relationship nobody accepted. It ends every open

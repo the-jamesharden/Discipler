@@ -49,6 +49,21 @@ export interface NewRelationship {
    * enforces it and by nothing else.
    */
   readonly declaredGender: Gender | null
+  /**
+   * What the Ministry calls this group, or null for a one-to-one, which is called
+   * by the two people in it. Required of a group at the boundary and editable
+   * afterwards: a name is a label, not a ministry event, so changing it overwrites
+   * no history. It is what the group Intake link offers and what the weekly
+   * check-in asks about.
+   */
+  readonly name: string | null
+  /**
+   * Whether picking this group on the Intake form asks to join rather than joins.
+   * Off unless the Admin says otherwise, and editable afterwards, because it is the
+   * pastor's switch and not a safety binding. Meaningless on a one-to-one, which
+   * the group link never offers, and false there.
+   */
+  readonly joinRequiresApproval: boolean
   readonly createdAt: Date
   readonly members: readonly NewMembership[]
 }
@@ -80,6 +95,24 @@ export const needsAGenderDeclaration = (
   leaderCount: number,
   participantCount: number,
 ): boolean => kindFor(leaderCount, participantCount) !== 'one_to_one'
+
+/**
+ * Whether the Admin forming this relationship has to name it. The same shapes that
+ * declare a gender: a one-to-one is called by the two people in it and is never
+ * offered on the group link, so it has nothing a name would be for. Asked here
+ * beside its sibling for the reason that one is -- this file is the one place
+ * permitted to know what a kind is.
+ */
+export const needsAName = needsAGenderDeclaration
+
+/**
+ * What the boundary accepts as a group's name: something, once trimmed. The
+ * database carries the same rule as `relationship_name_is_not_blank`.
+ */
+export const readGroupName = (raw: string | null | undefined): string | null => {
+  const name = raw?.trim() ?? ''
+  return name === '' ? null : name
+}
 
 /**
  * The two thresholds a relationship nobody has accepted crosses, both measured

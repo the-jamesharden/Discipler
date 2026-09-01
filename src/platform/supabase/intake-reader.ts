@@ -1,14 +1,17 @@
 import pg from 'pg'
 import { discipleshipGoalId, type AgeBand, type Gender } from '~/domain/intake'
 import { intakeLinkState } from '~/domain/intake-link'
-import { ministryId, personId } from '~/domain/ids'
+import { ministryId, personId, relationshipId } from '~/domain/ids'
 import type {
   DiscipleshipGoalOption,
+  GroupIntakePage,
   IntakePage,
   IntakePrefill,
   IntakeReader,
+  JoinableGroup,
   ReopenedIntakePage,
 } from '~/service/ports'
+import { declaredGenderOf } from './rows'
 
 /**
  * What the Intake form needs to render itself. The page is served to somebody with
@@ -133,6 +136,49 @@ export const createPostgresIntakeReader = (
         }))
 
         return { ministryId: ministryId(id), ministryName: name, goals }
+      } finally {
+        await client.query('rollback')
+        client.release()
+      }
+    },
+
+    async readGroupIntakePage(id: string): Promise<GroupIntakePage | null> {
+      if (!/^[0-9a-f-]{36}$/i.test(id)) return null
+
+      const client = await pool.connect()
+      try {
+        await client.query('begin')
+        await client.query('set local role discipler_command')
+        await client.query(`select set_config('discipler.ministry_id', $1, true)`, [id])
+
+        const { rows: ministries } = await client.query<{ name: string }>(
+          `select name from ministry where id = $1`,
+          [id],
+        )
+        const name = ministries[0]?.name
+        if (!name) return null
+
+        // Asked of the database rather than filtered here, because which
+        // relationships can take another Participant is the capacity question
+        // ADR-0004 keeps out of application code. The function returns groups and
+        // this reader never names what a group is.
+        const { rows } = await client.query<{
+          relationship_id: string
+          name: string
+          declared_gender: string | null
+          join_requires_approval: boolean
+          leader_first_names: string[]
+        }>(`select * from groups_open_to_join($1)`, [id])
+
+        const groups: JoinableGroup[] = rows.map((row) => ({
+          relationshipId: relationshipId(row.relationship_id),
+          name: row.name,
+          declaredGender: declaredGenderOf(row.declared_gender),
+          joinRequiresApproval: row.join_requires_approval,
+          leaderFirstNames: row.leader_first_names,
+        }))
+
+        return { ministryId: ministryId(id), ministryName: name, groups }
       } finally {
         await client.query('rollback')
         client.release()

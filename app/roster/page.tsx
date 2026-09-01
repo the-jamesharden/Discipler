@@ -10,8 +10,22 @@ import {
 } from '~/domain/outbound-copy'
 import { appBaseUrl } from '~/platform/supabase/credentials'
 import {
+  ADMIT,
+  admissionRefusalMessage,
+  admitted as admittedMessage,
+  alreadyIn as alreadyInMessage,
+  askedToJoin,
   AWAITING_LEADER_ACCEPTANCE,
   CANNOT_RESET_YOURSELF,
+  DECLINE,
+  declinedRequest,
+  declaredGenderLabel,
+  GROUP_NAME_HINT,
+  GROUP_NAME_LABEL,
+  GROUP_SAVED,
+  groupRefusalMessage,
+  GROUPS_EXPLANATION,
+  GROUPS_HEADING,
   HELD_ROWS_EXPLANATION,
   HELD_ROWS_HEADING,
   importFailureMessage,
@@ -19,13 +33,18 @@ import {
   NOBODY_ON_THIS_NUMBER,
   OFFERED_TO_MENTOR,
   participationStatusLabel,
+  REQUIRE_APPROVAL_LABEL,
   RESET_PASSWORD,
   rosterRoleLabel,
   rowProblemMessage,
   samePersonAnswer,
   samePersonConsequence,
+  SAVE_GROUP,
   SOMEONE_ELSE_ANSWER,
   SOMEONE_ELSE_CONSEQUENCE,
+  UNNAMED_GROUP,
+  WAITING_EXPLANATION,
+  WAITING_HEADING,
 } from './copy'
 import { decodeImportReport } from './report'
 import { ClipboardField } from './clipboard-field'
@@ -68,6 +87,15 @@ export default async function RosterPage({
     reinvited?: string
     /** Why an answer to a held import row could not be applied. A code, never prose. */
     rowError?: string
+    /** The group whose name or door was just saved, and why one could not be. */
+    configured?: string
+    groupError?: string
+    group?: string
+    /** Whose request to join a group was just answered, and why one could not be. */
+    admitted?: string
+    alreadyIn?: string
+    declined?: string
+    joinError?: string
   }>
 }) {
   const resolution = await resolveAdmin()
@@ -84,6 +112,11 @@ export default async function RosterPage({
   // moment an Admin navigated away, which is the silent drop the reporting exists
   // to prevent.
   const held = await getRosterReader().heldImportRows(admin.ministryId)
+  // The Ministry's groups and whoever is waiting to join one, read with the Roster
+  // for the reason the held rows are: a request that appeared only on a redirect
+  // would expire the moment an Admin navigated away.
+  const groups = await getRosterReader().listGroups(admin.ministryId)
+  const waiting = await getRosterReader().openJoinRequests(admin.ministryId)
   const query = await searchParams
 
   // One Person's link, and only when an Admin has just asked for theirs. Reading
@@ -127,6 +160,13 @@ export default async function RosterPage({
   // cannot tell a text that went out from one that did not. The route only
   // redirects with `reinvited` when a message was actually enqueued.
   const reinvited = roster.find((person) => person.personId === query.reinvited)?.fullName ?? null
+  // Looked up the same way, for the same reason: a name in the query string is
+  // whatever somebody typed there, and the Roster is what says whose it is.
+  const admittedName = roster.find((person) => person.personId === query.admitted)?.fullName ?? null
+  const declinedName = roster.find((person) => person.personId === query.declined)?.fullName ?? null
+  const alreadyInName = roster.find((person) => person.personId === query.alreadyIn)?.fullName ?? null
+  const groupFailure = groupRefusalMessage(query.groupError)
+  const joinFailure = admissionRefusalMessage(query.joinError)
 
   return (
     <main>
@@ -157,12 +197,15 @@ export default async function RosterPage({
           to obtain either one short of knowing the Ministry's identifier and typing
           the URL. */}
       <div className="panel">
-        <h2>This Ministry’s own Intake link</h2>
+        <h2>The group link</h2>
         <p className="subtle">
-          One link, for everybody. It does not know who opens it, so it asks — which
-          is what lets the same link be sent to one person and put in front of a
-          room. It is not the Intake link on a Person’s row below: that one is theirs
-          alone, arrives with their answers already in it, and runs out.
+          One link, for everybody who wants to join one of this Ministry’s groups. It
+          does not know who opens it, so it asks — their age, gender, when they could
+          meet, and which group — which is what lets the same link be sent to one
+          person and put in front of a room. A group appears on it once you have
+          named it below. Picking a group joins it, unless you have set that group
+          to ask you first. It is not the Intake link on a Person’s row below: that
+          one is theirs alone, arrives with their answers already in it, and runs out.
         </p>
 
         <label htmlFor="intakeLink">The link to send</label>
@@ -194,7 +237,7 @@ export default async function RosterPage({
         <img
           className="qr"
           src="/roster/intake-code.svg"
-          alt={`QR code opening Intake for ${admin.ministryName}`}
+          alt={`QR code opening the group form for ${admin.ministryName}`}
           width={QR_CODE_ON_SCREEN}
           height={QR_CODE_ON_SCREEN}
         />
@@ -332,6 +375,104 @@ export default async function RosterPage({
           <button type="submit">Import</button>
         </form>
       </div>
+
+      {/* Every live group, for the two things an Admin decides about each: what it
+          is called, and whether picking it on the link asks. Its own panel because
+          the Roster is a list of people and a group is on it once per member. */}
+      <div className="panel">
+        <h2>{GROUPS_HEADING}</h2>
+        <p className="subtle">{GROUPS_EXPLANATION}</p>
+
+        {groupFailure ? (
+          <p className="error" role="alert">
+            {groupFailure}
+          </p>
+        ) : null}
+
+        {groups.length === 0 ? (
+          <p className="empty">No groups yet. Form one from the Roster below.</p>
+        ) : (
+          groups.map((group) => (
+            <form key={group.relationshipId} method="post" action="/roster/groups/configure">
+              <input type="hidden" name="relationshipId" value={group.relationshipId} />
+              <h3>{group.name ?? UNNAMED_GROUP}</h3>
+              <p className="subtle">
+                {`${declaredGenderLabel[group.declaredGender ?? 'mixed']} · `}
+                {`${rosterRoleLabel.leader} ${group.leaderNames.join(', ')} · `}
+                {group.participantNames.length === 0
+                  ? 'nobody else in it yet'
+                  : `with ${group.participantNames.join(', ')}`}
+                {group.accepted ? null : ` — ${AWAITING_LEADER_ACCEPTANCE}`}
+              </p>
+              {query.configured === group.relationshipId ? <p role="status">{GROUP_SAVED}</p> : null}
+              <label htmlFor={`name:${group.relationshipId}`}>{GROUP_NAME_LABEL}</label>
+              <input
+                id={`name:${group.relationshipId}`}
+                name="name"
+                required
+                defaultValue={group.name ?? ''}
+              />
+              <p className="subtle">{GROUP_NAME_HINT}</p>
+              <label htmlFor={`approval:${group.relationshipId}`}>
+                <input
+                  id={`approval:${group.relationshipId}`}
+                  type="checkbox"
+                  name="joinRequiresApproval"
+                  value="yes"
+                  defaultChecked={group.joinRequiresApproval}
+                />{' '}
+                {REQUIRE_APPROVAL_LABEL}
+              </label>
+              <button type="submit">{SAVE_GROUP}</button>
+            </form>
+          ))
+        )}
+      </div>
+
+      {/* Whoever picked a group that asks first. Shown only when somebody has:
+          a heading over nothing is noise on a page that is already long. The
+          two answers are two forms, each carrying exactly the answer it means. */}
+      {waiting.length > 0 || joinFailure || admittedName || alreadyInName || declinedName ? (
+        <div className="panel">
+          <h2>{WAITING_HEADING}</h2>
+          <p className="subtle">{WAITING_EXPLANATION}</p>
+
+          {joinFailure ? (
+            <p className="error" role="alert">
+              {joinFailure}
+            </p>
+          ) : null}
+          {admittedName ? <p role="status">{admittedMessage(admittedName)}</p> : null}
+          {alreadyInName ? <p role="status">{alreadyInMessage(alreadyInName)}</p> : null}
+          {declinedName ? <p role="status">{declinedRequest(declinedName)}</p> : null}
+
+          {waiting.map((request) => (
+            <div key={request.itemId}>
+              <h3>{request.fullName}</h3>
+              <p className="subtle">
+                {[
+                  askedToJoin(request.groupName),
+                  request.gender ? declaredGenderLabel[request.gender] : null,
+                  request.ageBand,
+                  `asked ${request.raisedAt.toISOString().slice(0, 10)}`,
+                ]
+                  .filter((part) => part !== null)
+                  .join(' · ')}
+              </p>
+              <form method="post" action="/roster/join-requests/admit">
+                <input type="hidden" name="itemId" value={request.itemId} />
+                <input type="hidden" name="personId" value={request.personId} />
+                <button type="submit">{ADMIT}</button>
+              </form>
+              <form method="post" action="/roster/join-requests/decline">
+                <input type="hidden" name="itemId" value={request.itemId} />
+                <input type="hidden" name="personId" value={request.personId} />
+                <button type="submit">{DECLINE}</button>
+              </form>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       {/* Its own panel, above the Roster and below the import that produced it.
           Not folded into the import report: the report says what one upload did and

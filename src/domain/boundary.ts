@@ -22,6 +22,8 @@ import {
   departFromRelationship,
   endRelationship,
   createRelationship,
+  configureGroup,
+  joinRelationship,
   closeOutstandingReply,
   enqueueMessage,
   issueInvitationLink,
@@ -57,6 +59,7 @@ import {
   DepartureRefused,
   EndingRefused,
   GoalRefused,
+  GroupRefused,
   ImportRowResolutionRefused,
   IntakeRefused,
   InvitationRefused,
@@ -116,7 +119,13 @@ import {
   type StatedGoal,
 } from './discipleship-goals'
 import { passwordResetRefusal } from './accounts'
-import { discipleshipGoalId, readIntakeForm, type DiscipleshipGoalId } from './intake'
+import {
+  discipleshipGoalId,
+  GROUP_PATH,
+  readIntakeForm,
+  type DiscipleshipGoalId,
+  type Gender,
+} from './intake'
 import {
   intakeLinkState,
   intakeLinkToken,
@@ -128,6 +137,8 @@ import {
   acknowledgedMessage,
   checkInClarification,
   checkInSubject,
+  groupJoinedMessage,
+  leaderDashboardLink,
   checkInThankYou,
   concernDetailRequest,
   invitationLink,
@@ -149,6 +160,7 @@ import {
 } from './outbound-copy'
 import { CONSENT_VERSION } from './consent'
 import {
+  type FollowUpItemId,
   concernId,
   importRowId,
   personId,
@@ -170,6 +182,8 @@ import {
   isRelationshipOutcome,
   kindFor,
   needsAGenderDeclaration,
+  needsAName,
+  readGroupName,
   type MemberRole,
   type NewMembership,
 } from './relationships'
@@ -314,6 +328,21 @@ export interface CommandContext {
    * Absent when the command names none.
    */
   readonly relationship?: RelationshipSnapshot
+  /**
+   * The group a submission on the group path named, loaded on `intake.submit`'s
+   * behalf when the form carries one -- as the database holds it now, locked, so
+   * two people joining at once cannot both read a door that has since closed.
+   * `null` is *no such group*: it does not exist, has ended, or was never a group.
+   * Absent is *not loaded*, which a submission naming a group refuses to run on.
+   */
+  readonly groupToJoin?: RelationshipSnapshot | null
+  /**
+   * The open request an admission names, loaded on `relationship.admit`'s behalf,
+   * with the group it is about arriving as `relationship` and the Person who asked
+   * in `contacts`. `null` is *no open request of that kind by that id*; absent is
+   * *not loaded*.
+   */
+  readonly joinRequest?: OpenJoinRequest | null
   /**
    * Where a link points. The shape of the path is a copy decision and lives in
    * `outbound-copy`; the host it hangs off is configuration and arrives here.
@@ -483,6 +512,12 @@ export interface RelationshipSnapshot {
   readonly createdAt: Date
   readonly acceptedAt: Date | null
   readonly endedAt: Date | null
+  /** What the Ministry calls it, or null where nobody has named it. */
+  readonly name: string | null
+  /** Whether joining it through the Intake link asks rather than joins. */
+  readonly joinRequiresApproval: boolean
+  /** What it declared at formation, or null for mixed and for a one-to-one. */
+  readonly declaredGender: Gender | null
   /**
    * The Pause standing on it right now, or null. Read back from the
    * `relationship.paused` and `relationship.resumed` events rather than from a
@@ -492,6 +527,18 @@ export interface RelationshipSnapshot {
   readonly pause: StandingPause | null
   /** Everyone holding an open membership, whatever their role. */
   readonly members: readonly RelationshipMember[]
+}
+
+/**
+ * One open `group_join_requested` item, as an admission reads it: who asked and
+ * for which group. Read off the item inside the transaction rather than taken
+ * from the request, so an admission cannot name a different Person or group from
+ * the item it closes.
+ */
+export interface OpenJoinRequest {
+  readonly itemId: FollowUpItemId
+  readonly personId: PersonId
+  readonly relationshipId: RelationshipId
 }
 
 export interface PersonContact {
@@ -646,6 +693,57 @@ const theWordingFor = (
   return wording
 }
 
+/**
+ * The text a group's Leaders get when somebody joins, whichever way they joined.
+ * One per Leader with a number; a Leader without one is skipped here the way the
+ * queue would skip them, and a Leader who has opted out is refused at the queue.
+ */
+const tellTheLeadersSomebodyJoined = (
+  context: CommandContext,
+  group: RelationshipSnapshot,
+  joinerFullName: string,
+  now: Date,
+): readonly Effect[] => {
+  const ministryName = context.ministryName
+  if (!ministryName) throw new Error('A join was handed no Ministry to speak for')
+  if (group.name === null) throw new Error('A join was handed a group with no name to say')
+  const dashboardLink = leaderDashboardLink(theHost(context))
+  const groupName = group.name
+
+  return group.members
+    .filter((member) => member.role === 'leader' && member.phone !== null)
+    .map((leader) =>
+      enqueueMessage({
+        ministryId: context.ministryId,
+        personId: leader.personId,
+        toPhone: leader.phone,
+        body: groupJoinedMessage({
+          ministryName,
+          joinerFullName,
+          groupName,
+          dashboardLink,
+        }),
+        enqueuedAt: now,
+        // A first name and a link. The numbers are on the page the link opens,
+        // behind sign-in and behind each Person's contact-sharing decision.
+        disclosesPersonId: null,
+        kind: 'no_reply',
+      }),
+    )
+}
+
+/**
+ * Where links point, or a loud failure rather than a link to nowhere. The
+ * service passes it on every command; a test that composes a message with a link
+ * in it has to say where.
+ */
+const theHost = (context: CommandContext): string => {
+  if (!context.appBaseUrl) {
+    throw new Error('This command was handed nowhere for its links to point')
+  }
+  return context.appBaseUrl
+}
+
 /** A Person the command was handed, or a loud failure rather than a blank name. */
 const whoIs = (context: CommandContext, id: PersonId): PersonContact => {
   const person = context.contacts?.people.get(id)
@@ -783,7 +881,9 @@ const bodyOfQuestion = (
   if (question === 'met') {
     return meetingQuestion({
       ministryName,
-      subject: checkInSubject(relationship.participantNames),
+      // A named group is asked about by name; everything else by the people in
+      // it. A fact about the row and never about its kind.
+      subject: relationship.name ?? checkInSubject(relationship.participantNames),
       discloseOptOut,
     })
   }
@@ -2903,6 +3003,102 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       }
     }
 
+    case 'group.configure': {
+      const group = context.relationship
+      if (!group) throw new Error('group.configure was handed no relationship to configure')
+      if (group.endedAt !== null) throw new GroupRefused('group.relationship_ended')
+
+      const name = readGroupName(command.name)
+      if (name === null) throw new GroupRefused('group.name_missing')
+
+      const now = context.clock.now()
+      return {
+        rejections: [],
+        effects: [
+          configureGroup({
+            ministryId: command.ministryId,
+            relationshipId: group.relationshipId,
+            name,
+            joinRequiresApproval: command.joinRequiresApproval,
+          }),
+          // A label and a switch, neither of them a ministry event -- but who
+          // changed what a group is called and whether its door is open is worth
+          // being able to answer later, so it is recorded with its actor.
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'relationship.group_configured',
+            subjectType: 'relationship',
+            subjectId: group.relationshipId,
+            payload: {
+              name,
+              joinRequiresApproval: command.joinRequiresApproval,
+              changedBy: command.changedBy,
+            },
+          }),
+        ],
+      }
+    }
+
+    case 'relationship.admit': {
+      if (context.joinRequest === undefined) {
+        throw new Error('relationship.admit was handed nothing about the request it names')
+      }
+      const request = context.joinRequest
+      if (request === null) throw new GroupRefused('group.request_not_found')
+
+      // The group the request named, as the database holds it now. Gone, or
+      // ended since the Person asked, is a refusal rather than a membership on a
+      // relationship that is over -- and the Admin closes the item by hand, the
+      // way any item about a relationship that no longer exists is closed.
+      const group = context.relationship
+      if (!group || group.endedAt !== null) throw new GroupRefused('group.request_group_ended')
+
+      const joiner = whoIs(context, request.personId)
+      const now = context.clock.now()
+
+      const effects: Effect[] = [
+        // Admitting is an Admin's recorded act, so the item is resolved inside it
+        // rather than left for a second click. The resolution carries the Admin;
+        // the event below carries the Person and the item.
+        resolveFollowUpItem({
+          ministryId: command.ministryId,
+          itemId: request.itemId,
+          resolvedBy: command.admittedBy,
+          resolvedAt: now,
+        }),
+      ]
+
+      // Already in it -- admitted from a second item, or through the open door
+      // after the switch was turned off -- resolves the item and joins nothing.
+      const alreadyIn = group.members.some((member) => member.personId === request.personId)
+      if (!alreadyIn) {
+        effects.push(
+          joinRelationship({
+            ministryId: command.ministryId,
+            relationshipId: group.relationshipId,
+            personId: request.personId,
+            startedAt: now,
+          }),
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'relationship.participant_admitted',
+            subjectType: 'relationship',
+            subjectId: group.relationshipId,
+            payload: {
+              personId: request.personId,
+              admittedBy: command.admittedBy,
+              itemId: request.itemId,
+            },
+          }),
+          ...tellTheLeadersSomebodyJoined(context, group, joiner.fullName, now),
+        )
+      }
+
+      return { rejections: [], effects }
+    }
+
     case 'follow_up.resolve': {
       const now = context.clock.now()
 
@@ -3256,6 +3452,80 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       // first one is greeted.
       const isFirstSubmission = !context.roster.whoCompletedIntake.has(id)
 
+      // The group path's one question, answered against the group as the database
+      // holds it now. Every refusal here is thrown before anything is written, like
+      // the form's own: a Person who named a group that has since closed keeps
+      // their answers and is told, rather than landing on the Roster with nothing
+      // joined and no word why.
+      const joining: Effect[] = []
+      if (submission.groupId !== null) {
+        if (context.groupToJoin === undefined) {
+          throw new Error('intake.submit named a group and was handed nothing about it')
+        }
+        const group = context.groupToJoin
+        if (
+          group === null
+          || group.acceptedAt === null
+          || group.endedAt !== null
+          || group.name === null
+        ) {
+          throw new IntakeRefused(['intake.group_unavailable'])
+        }
+        // The dropdown filtered on this before it was offered; the trigger on
+        // `relationship_member` checks it again at the insert. Said here as well
+        // so a changed list or a crafted body reaches the Person as a sentence
+        // rather than as a constraint name.
+        if (group.declaredGender !== null && group.declaredGender !== submission.gender) {
+          throw new IntakeRefused(['intake.group_not_open_to_you'])
+        }
+
+        // Somebody already in the group they asked for gets the done page and no
+        // write: there is nothing to join and nothing to decide.
+        const alreadyIn = group.members.some((member) => member.personId === id)
+        if (!alreadyIn && group.joinRequiresApproval) {
+          joining.push(
+            raiseFollowUpItem({
+              ministryId: command.ministryId,
+              kind: 'group_join_requested',
+              personId: id,
+              relationshipId: group.relationshipId,
+              raisedAt: now,
+            }),
+            // The item dedupes while it stands open and this does not, so how
+            // many times a Person asked survives.
+            appendHistory({
+              ministryId: command.ministryId,
+              occurredAt: now,
+              type: 'relationship.join_requested',
+              subjectType: 'relationship',
+              subjectId: group.relationshipId,
+              payload: { personId: id },
+            }),
+          )
+        } else if (!alreadyIn) {
+          joining.push(
+            joinRelationship({
+              ministryId: command.ministryId,
+              relationshipId: group.relationshipId,
+              personId: id,
+              startedAt: now,
+            }),
+            // The Person is the actor, because they are. An admission is a
+            // different event with an Admin in it, so an audit can tell the two
+            // apart by type rather than by a flag.
+            appendHistory({
+              ministryId: command.ministryId,
+              occurredAt: now,
+              type: 'relationship.participant_joined',
+              subjectType: 'relationship',
+              subjectId: group.relationshipId,
+              payload: { personId: id },
+            }),
+            ...tellTheLeadersSomebodyJoined(context, group, submission.fullName, now),
+          )
+        }
+      }
+
       effects.push(
         recordIntake({
           ministryId: command.ministryId,
@@ -3339,6 +3609,9 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             body: welcomeMessage({
               ministryName: context.ministryName,
               fullName: submission.fullName,
+              // On the group path the Person has already said where they are
+              // going, and hears nothing about it by text: this is the receipt.
+              promises: submission.intakePath === GROUP_PATH ? 'nothing' : 'a_match',
             }),
             enqueuedAt: now,
             // Nothing. There is no relationship yet, so there is nobody to
@@ -3349,6 +3622,12 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           }),
         )
       }
+
+      // After the Intake, which is what makes them somebody the membership's own
+      // rules will admit, and after the Welcome, which is theirs before anything
+      // about a group is. The service applies these by kind rather than in this
+      // order, so this is legibility and not sequencing.
+      effects.push(...joining)
 
       return { effects, rejections: [] }
     }
@@ -3841,6 +4120,17 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       ) {
         throw new PairingRefused('relationship.needs_a_gender_declaration')
       }
+      // A group is called something, because the group Intake link offers it by
+      // name and the weekly check-in asks about it by name. A one-to-one has no
+      // name: it is called by the two people in it, and a name typed for one is
+      // dropped rather than kept -- unlike the declaration above, which binds the
+      // same way whatever the shape, a name on a pair would change what the weekly
+      // question calls two people.
+      const isAGroup = needsAName(leaderIds.length, participantIds.length)
+      const name = isAGroup ? readGroupName(command.name) : null
+      if (isAGroup && name === null) {
+        throw new PairingRefused('relationship.needs_a_name')
+      }
 
       const now = context.clock.now()
       const relationship = {
@@ -3855,6 +4145,11 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         // weakens nothing, since the absolute match between its two people holds
         // whatever is on the column.
         declaredGender: declaredGender ?? null,
+        name,
+        // Off unless the Admin said otherwise, and off for a one-to-one whatever
+        // was said, since the group link never offers one. The default is a
+        // product decision and lives in the ADR, not in a form's initial state.
+        joinRequiresApproval: isAGroup && (command.joinRequiresApproval ?? false),
         createdAt: now,
         members: membersOf(leaderIds, participantIds, now),
       }
@@ -3876,6 +4171,8 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             leaderIds: [...leaderIds],
             participantIds: [...participantIds],
             participantCount: participantIds.length,
+            name,
+            joinRequiresApproval: relationship.joinRequiresApproval,
           },
         }),
       ]
@@ -4022,6 +4319,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
               ministryName,
               participantNames,
               leaderNoun: theWordFor(context).leaderNoun,
+              dashboardLink: leaderDashboardLink(theHost(context)),
             }),
             enqueuedAt: now,
             disclosesPersonId: null,

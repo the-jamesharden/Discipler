@@ -161,6 +161,14 @@ export interface CheckInRelationship {
   readonly startedAt: Date
   /** Everyone being discipled in it, for the sentence that names them. */
   readonly participantNames: readonly string[]
+  /**
+   * What the Ministry calls it, where an Admin has named it. A named group is
+   * asked about by name -- *did you meet with Tuesday Men's Group* -- and an
+   * unnamed one, and every one-to-one, by the people in it. A fact about the row
+   * and not about its kind: the copy reads the name where there is one and the
+   * live Participants where there is not, and never the column ADR-0004 fences.
+   */
+  readonly name: string | null
   /** Null while it is Awaiting Leader Acceptance. */
   readonly acceptedAt: Date | null
   readonly paused: boolean

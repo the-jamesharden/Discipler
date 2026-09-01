@@ -47,6 +47,7 @@ describe('The availability grid', () => {
       intakePath: null,
       declaredSide: null,
       experience: null,
+      groupId: null,
     }
 
     const result = readIntakeForm(form)

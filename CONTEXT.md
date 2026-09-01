@@ -81,6 +81,22 @@ _Avoid_: "gender does not apply to groups" — it applies to any relationship th
 What a relationship says it is for — men, women, or nobody in particular — stated by an Admin when it is created and immutable afterwards. It is what the Gender Rule binds a group by, and it is asked rather than derived: the people currently in a group cannot say *this is a women's group that has one member so far*. A one-to-one is not asked, because its two people already answer it.
 _Avoid_: Reading an undeclared relationship as "not yet decided" — it declares nothing, which is a settled answer
 
+**Group Name**:
+What a Ministry calls a group, typed by an Admin when forming it and editable from the Roster afterwards. A label, not a ministry event: renaming overwrites no history. It is what the group Intake link offers and what the weekly check-in asks about; an unnamed group is on no link and is asked about by listing its people. A one-to-one has none.
+_Avoid_: Naming a one-to-one, or reading an unnamed group as broken -- it predates the name
+
+**Group Intake Link**:
+The Ministry's original Intake link, `/intake/<ministry>`, which since ticket 29 opens the form for somebody who wants to join one of the Ministry's groups. It asks gender and age band, when they could meet, and which group, and never the Discipleship Goal. The discipleship wizard is the other link.
+_Avoid_: "the Intake link" without saying which
+
+**Join Approval**:
+A per-group switch an Admin sets when forming a group or from the Roster afterwards. Off, a Person who picks the group on the Group Intake Link is in it when they submit; on, their submission raises a Join Request and an Admin admits them. Off by default, and not a safety binding -- the Gender Rule holds on a join either way -- so it is editable. See `docs/adr/0017-picking-a-group-joins-it.md`.
+_Avoid_: Approval as the default, or as a Ministry-wide setting
+
+**Join Request**:
+The Follow-Up Item raised when a Person picks a group whose Join Approval is on. It carries the Person and the group, stands once however many times they ask, and closes only when an Admin admits them -- which adds them to the group in the same act -- or resolves it alone. Nothing is sent to the Person either way.
+_Avoid_: Application, waitlist
+
 **Pair**:
 Verb only. The pastor's act of placing people into a discipleship relationship.
 _Avoid_: Using "pair" or "pairing" as a noun for the relationship

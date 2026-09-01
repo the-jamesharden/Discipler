@@ -21,7 +21,7 @@ The pastor can view the full roster.
 
 The pastor can manually create one-to-one relationships.
 
-The pastor can manually create groups by selecting multiple participants for a leader.
+The pastor can manually create groups by selecting multiple participants for a leader, and names each one. A Person may then join a group through the Ministry's group Intake link; the pastor may set any group to ask them first instead. See `docs/adr/0017-picking-a-group-joins-it.md`.
 
 Suggested pairings do not remove the pastor's ability to pair people manually.
 

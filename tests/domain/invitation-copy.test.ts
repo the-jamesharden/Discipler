@@ -85,11 +85,15 @@ describe('the message that carries the Invitation Link', () => {
   })
 })
 
+/** Where the Leader is sent to see who they are meeting with. */
+const DASHBOARD = 'https://discipler.test/relationships'
+
 describe('the Starter Message', () => {
   const toLeader = starterMessageToLeader({
     ministryName: 'Riverside Chapel',
     participantNames: ['Emily Johnson'],
     leaderNoun: roleNoun('mentor'),
+    dashboardLink: DASHBOARD,
   })
 
   const toParticipant = starterMessageToParticipant({
@@ -112,6 +116,7 @@ describe('the Starter Message', () => {
       ministryName: 'Riverside Chapel',
       participantNames: ['Emily Johnson', 'Sarah Kim', 'Anna Reed'],
       leaderNoun: roleNoun('mentor'),
+      dashboardLink: DASHBOARD,
     })
 
     expect(group).toContain('Emily Johnson')
@@ -134,12 +139,24 @@ describe('the Starter Message', () => {
         ministryName: 'Riverside Chapel',
         participantNames: ['Emily Johnson', 'Sarah Kim'],
         leaderNoun: roleNoun('discipleship coach'),
+        dashboardLink: DASHBOARD,
       }),
     ).toContain('Emily Johnson and Sarah Kim\u2019s discipleship coach')
   })
 
   it('sends a Leader no phone number, ever', () => {
     expect(carriesAPhoneNumber(toLeader)).toBe(false)
+  })
+
+  /**
+   * The link and not the numbers: the numbers are on the page it opens, behind
+   * the sign-in the Leader just set and behind each Person's contact-sharing
+   * decision, which is where a number is allowed to be.
+   */
+  it('points the Leader at the page that shows who they are meeting with', () => {
+    expect(toLeader).toContain(
+      'See who you’re meeting with and how to reach them at https://discipler.test/relationships.',
+    )
   })
 
   it('names whoever is going to reach out', () => {

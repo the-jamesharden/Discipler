@@ -894,6 +894,7 @@ function aConversationAbout(
       role: 'leader',
       startedAt: new Date('2026-03-01T09:00:00Z'),
       participantNames: ['Emily Johnson'],
+      name: null,
       acceptedAt: new Date('2026-05-01T09:00:00Z'),
       paused: false,
       cadence: { day: 1, hour: 20 },

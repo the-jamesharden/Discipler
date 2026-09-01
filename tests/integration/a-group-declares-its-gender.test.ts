@@ -57,6 +57,9 @@ describe('a group that declared its gender', () => {
       ministryId: ministry.id,
       leaderIds,
       participantIds,
+      // Named, because a group is called something. Dropped by the boundary for a
+      // one-to-one, so it costs a pair nothing.
+      name: 'The Tuesday Group',
       declaredGender,
     })
 
@@ -289,6 +292,7 @@ describe('a group that declared its gender', () => {
           await addPerson(permissive, 'Dane Ellery', { answers: { gender: 'male' } }),
         )],
         declaredGender: 'female',
+        name: 'The Tuesday Group',
       }),
     ).rejects.toThrow(PairingRefused)
   })

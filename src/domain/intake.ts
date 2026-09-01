@@ -1,4 +1,5 @@
 import type { Branded } from './branded'
+import { relationshipId, type RelationshipId } from './ids'
 import { asEmail, asPhoneNumber, type PhoneNumber } from './roster'
 
 /**
@@ -61,15 +62,25 @@ export type ConsentSource = (typeof CONSENT_SOURCES)[number]
 
 /**
  * Which form the Person was answering, which is a different question from how they
- * reached it: `source` says link or QR, and one path times two routes is already
- * four combinations. One member today -- ticket 29 adds `group` having decided it.
+ * reached it: `source` says link or QR, and two paths times two routes is already
+ * four combinations. Two members: the discipleship wizard, and the group form the
+ * original `/intake/<ministry>` link became in ticket 29.
  *
  * Null everywhere this is absent, and null is a real state: it means the Person
- * answered a form that did not ask. The original `/intake/<ministry>` form is still
- * one of those.
+ * answered a form that did not ask. Every record written before ticket 27 is one
+ * of those, and so is every record the tokenized reopen link still writes.
  */
-export const INTAKE_PATHS = ['discipleship'] as const
+export const INTAKE_PATHS = ['discipleship', 'group'] as const
 export type IntakePath = (typeof INTAKE_PATHS)[number]
+
+/**
+ * The group path, named once. It is the Intake path a Person joins a group by and
+ * not a relationship's kind, and every comparison against it goes through this
+ * constant so the literal appears in exactly one file -- which is what lets the
+ * fence in `relationship-kind-fence.test.ts` go on saying that nothing outside the
+ * two files ADR-0004 names branches on the word.
+ */
+export const GROUP_PATH: IntakePath = INTAKE_PATHS[1]
 
 /**
  * Which side of a discipleship relationship the Person offered to stand on. A
@@ -123,6 +134,12 @@ export interface IntakeFormFields {
   readonly intakePath: string | null
   readonly declaredSide: string | null
   readonly experience: string | null
+  /**
+   * The group path's one question, in place of the Discipleship Goal: which of
+   * the Ministry's groups the Person wants to join, as the identifier the form
+   * offered. Null on every other path, which asks no such thing.
+   */
+  readonly groupId: string | null
 }
 
 export interface IntakeSubmissionDraft {
@@ -131,7 +148,12 @@ export interface IntakeSubmissionDraft {
   readonly email: string | null
   readonly ageBand: AgeBand
   readonly gender: Gender
-  readonly goalId: DiscipleshipGoalId
+  /**
+   * Null on the group path and only there. The Goal is the suggestion tiebreaker,
+   * and a Person who named a group is not being ranked against anybody -- so the
+   * question is not asked, and a record that said it was would be a guess.
+   */
+  readonly goalId: DiscipleshipGoalId | null
   readonly availability: readonly AvailabilitySlot[]
   readonly smsConsent: true
   readonly contactSharingConsent: boolean
@@ -143,6 +165,8 @@ export interface IntakeSubmissionDraft {
    * mentoring, whichever side they declared. Null where the form did not ask.
    */
   readonly firstTime: boolean | null
+  /** The group the Person asked to join. Set on the group path and null elsewhere. */
+  readonly groupId: RelationshipId | null
 }
 
 /**
@@ -201,6 +225,26 @@ export type IntakeRefusal =
    */
   | 'intake.path_unknown'
   /**
+   * The group form's own screen, unanswered: a group path with no group named on
+   * it. An ordinary refusal a Person can go back and answer.
+   */
+  | 'intake.group_not_selected'
+  /**
+   * The group the body names is not one the page offered: it does not exist, has
+   * ended, has not been accepted, has no name, or is not a group. A form field
+   * cannot produce it -- the dropdown was drawn from the same list -- so it reaches
+   * a Person only when the list changed under them or the body was not the form
+   * Discipler served, and it says the same thing either way.
+   */
+  | 'intake.group_unavailable'
+  /**
+   * The group declares a gender and the Person is not of it. The dropdown filtered
+   * this out before it was offered, so like the refusal above it is the changed
+   * list or the crafted body -- and unlike it, it says why, because the Person can
+   * choose a different group.
+   */
+  | 'intake.group_not_open_to_you'
+  /**
    * The two a form field cannot produce, and which `readIntakeForm` therefore never
    * returns. They live in this union because they reach the Person the same way
    * every other refusal does -- as a code, on the form they just submitted -- and a
@@ -243,14 +287,37 @@ export const readIntakeForm = (fields: IntakeFormFields): IntakeReading => {
 
   if (rawPath !== null && path === null) refusals.push('intake.path_unknown')
 
-  if (path === 'discipleship') {
+  const askedTheSide = path === 'discipleship'
+  const askedTheGroup = path === GROUP_PATH
+
+  // Said once however many answers had no question: it is one problem with the
+  // form, not one per field.
+  const answerWithNoQuestion = () => {
+    if (!refusals.includes('intake.path_unknown')) refusals.push('intake.path_unknown')
+  }
+
+  if (askedTheSide) {
     if (declaredSide === null) refusals.push('intake.side_unknown')
     if (experience === null) refusals.push('intake.first_time_unanswered')
-  } else if (rawPath === null && (fields.declaredSide !== null || fields.experience !== null)) {
+  } else if (fields.declaredSide !== null || fields.experience !== null) {
     // An answer with no question. Refused rather than dropped, because dropping it
     // writes a consent record that says a Person was asked nothing when they were
-    // looking at a screen that asked them something.
-    refusals.push('intake.path_unknown')
+    // looking at a screen that asked them something. The group path is held to
+    // this too: it has no sides, and a side arriving on it is not its form.
+    answerWithNoQuestion()
+  }
+
+  // The group path's one question, and the one it does not ask. A group named on
+  // any other path is the same answer-with-no-question as a side on the group path,
+  // and a Goal on the group path is too: the Goal is the suggestion tiebreaker, and
+  // nobody who has named a group is being ranked.
+  const rawGroup = fields.groupId?.trim() || null
+  const groupId = rawGroup === null ? null : relationshipId(rawGroup)
+  if (askedTheGroup) {
+    if (groupId === null) refusals.push('intake.group_not_selected')
+    if (fields.goalId !== null) answerWithNoQuestion()
+  } else if (rawGroup !== null) {
+    answerWithNoQuestion()
   }
 
   // A name and a number together, because that is what identifies a Person within a
@@ -283,8 +350,10 @@ export const readIntakeForm = (fields: IntakeFormFields): IntakeReading => {
   if (!isOneOf(AGE_BANDS, fields.ageBand)) refusals.push('intake.age_band_unknown')
   if (!isOneOf(GENDERS, fields.gender)) refusals.push('intake.gender_unknown')
 
+  // Asked of every form but the group one, which has a question of its own in the
+  // Goal's place.
   const goalId = fields.goalId?.trim() || null
-  if (!goalId) refusals.push('intake.goal_not_selected')
+  if (!goalId && !askedTheGroup) refusals.push('intake.goal_not_selected')
 
   // Without it Discipler has no way to reach them at all, and Participation Status
   // would read `No Intake Submitted` however complete the rest of the form was.
@@ -314,7 +383,7 @@ export const readIntakeForm = (fields: IntakeFormFields): IntakeReading => {
       email,
       ageBand: fields.ageBand as AgeBand,
       gender: fields.gender as Gender,
-      goalId: discipleshipGoalId(goalId!),
+      goalId: askedTheGroup ? null : discipleshipGoalId(goalId!),
       availability,
       smsConsent: true,
       contactSharingConsent: contactSharing === 'granted',
@@ -322,6 +391,7 @@ export const readIntakeForm = (fields: IntakeFormFields): IntakeReading => {
       intakePath: path,
       declaredSide,
       firstTime: experience === null ? null : experience === 'first_time',
+      groupId: askedTheGroup ? groupId : null,
     },
   }
 }

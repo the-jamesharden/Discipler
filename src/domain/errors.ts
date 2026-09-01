@@ -45,6 +45,10 @@ export type PairingRefusal =
   // one-to-one, whose gender is implied by the two people in it -- so this is not a
   // missing field so much as a question that only a group is asked.
   | 'relationship.needs_a_gender_declaration'
+  // Nobody said what this group is called. Asked of a group and never of a
+  // one-to-one, like the declaration above: a one-to-one is called by the two
+  // people in it, and a group is what the group Intake link offers by name.
+  | 'relationship.needs_a_name'
   // A one-to-one is two people and holds exactly one Leader. Reachable now that the
   // form offers several: an Admin who ticks two Leaders and one Participant has
   // formed a group, but one who reopens a closed leader membership on a one-to-one
@@ -358,6 +362,31 @@ export type FollowUpRefusal =
    * what says so.
    */
   | 'follow_up.resolver_is_not_in_this_ministry'
+
+/**
+ * Why an Admin's act on a group could not go through: naming it, switching
+ * approval on it, or admitting somebody who asked to join.
+ *
+ * Decided in the domain from the snapshot, but for the two the database alone can
+ * see -- the item already closed under another Admin, and the membership the caps
+ * or the gender rule refuse -- which reach the same surface as a `FollowUpRefused`
+ * and a `PairingRefused` respectively, because they are those.
+ */
+export type GroupRefusal =
+  | 'group.relationship_not_found'
+  | 'group.name_missing'
+  | 'group.relationship_ended'
+  /** The item names no open request to join a group, or names some other kind. */
+  | 'group.request_not_found'
+  /** The group the request named has ended since. The Admin closes the item by hand. */
+  | 'group.request_group_ended'
+
+export class GroupRefused extends Error {
+  constructor(readonly refusal: GroupRefusal) {
+    super(refusal)
+    this.name = 'GroupRefused'
+  }
+}
 
 export class FollowUpRefused extends Error {
   constructor(readonly refusal: FollowUpRefusal) {

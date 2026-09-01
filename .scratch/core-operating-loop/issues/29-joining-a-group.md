@@ -61,27 +61,27 @@ have consumers on the discipleship path. Neither obviously has one here.
 
 **Blocked by:** 25, 27
 
-**Status:** ready-for-agent
+**Status:** shipped
 
-- [ ] `/intake/<ministry>` opens the group form and the link never breaks
-- [ ] The form asks gender, age band, availability, which group, then name, mobile, email and the two consents, in that order
-- [ ] The Discipleship Goal and the first-time question are not asked on this path
-- [ ] A group carries a name an Admin types when forming it and may edit from the Roster
-- [ ] The dropdown lists accepted, open, named groups, filtered on declared gender regardless of the Ministry setting, mixed groups always
-- [ ] A Ministry with no eligible group, or a Person every group is closed to, sees a page saying so with a link to the discipleship wizard
-- [ ] A group is open by default; an Admin may set it to require approval when forming it and change that later
-- [ ] Submitting for an open group writes the membership and a ministry event with the Person as actor, in the same transaction as the Intake
-- [ ] Submitting for an approval-required group raises a `group_join_requested` Follow-Up Item and writes no membership
-- [ ] An Admin admits from the item, which adds the Participant and resolves the item in one act, or resolves it alone
-- [ ] The joiner is sent a Welcome Message worded for a group and nothing on joining, admission or decline
-- [ ] The Leader is texted on every join, naming the Person's first name and the dashboard link, never a number
-- [ ] The Leader's Starter Message carries the dashboard link
-- [ ] The done page names the group, and the Leader's first name for an open group
-- [ ] A Person already in the group they ask for gets the done page and no write; an open item is not duplicated for the same Person and group
-- [ ] `consent_record.intake_path` records `group` for submissions made here
-- [ ] Consent records written under this link before this ticket keep a null path and are not backfilled
-- [ ] The tokenized reopen link still serves the single-page form
-- [ ] An ADR records the self-join decision and `docs/product-flow.md` and `docs/product-rules.md` no longer say groups are formed only manually
+- [x] `/intake/<ministry>` opens the group form and the link never breaks
+- [x] The form asks gender, age band, availability, which group, then name, mobile, email and the two consents, in that order
+- [x] The Discipleship Goal and the first-time question are not asked on this path
+- [x] A group carries a name an Admin types when forming it and may edit from the Roster
+- [x] The dropdown lists accepted, open, named groups, filtered on declared gender regardless of the Ministry setting, mixed groups always
+- [x] A Ministry with no eligible group, or a Person every group is closed to, sees a page saying so with a link to the discipleship wizard
+- [x] A group is open by default; an Admin may set it to require approval when forming it and change that later
+- [x] Submitting for an open group writes the membership and a ministry event with the Person as actor, in the same transaction as the Intake
+- [x] Submitting for an approval-required group raises a `group_join_requested` Follow-Up Item and writes no membership
+- [x] An Admin admits from the item, which adds the Participant and resolves the item in one act, or resolves it alone
+- [x] The joiner is sent a Welcome Message worded for a group and nothing on joining, admission or decline
+- [x] The Leader is texted on every join, naming the Person's first name and the dashboard link, never a number
+- [x] The Leader's Starter Message carries the dashboard link
+- [x] The done page names the group, and the Leader's first name for an open group
+- [x] A Person already in the group they ask for gets the done page and no write; an open item is not duplicated for the same Person and group
+- [x] `consent_record.intake_path` records `group` for submissions made here
+- [x] Consent records written under this link before this ticket keep a null path and are not backfilled
+- [x] The tokenized reopen link still serves the single-page form
+- [x] An ADR records the self-join decision and `docs/product-flow.md` and `docs/product-rules.md` no longer say groups are formed only manually
 
 ## Comments
 
@@ -210,3 +210,56 @@ A second request for a different group is legitimate: a Participant may be in an
 The tokenized reopen link keeps serving the single-page form, recording a null path; it exists to correct a number and it works.
 A group still needs at least one Participant at formation; an empty group for the link to fill is its own ticket, because every message downstream names Participants.
 No size cap: a pastor who wants to stop growth sets the group to require approval.
+
+### Shipped, 2026-09-01
+
+Five decisions the triage left to the implementation, each recorded here because a reader of the ticket would otherwise expect something slightly different.
+
+**The Admin acts from the Roster, because Care Needed has no page.**
+The triage says the request is a Follow-Up Item on Care Needed and the Admin admits from the item.
+The item is exactly that: a `group_join_requested` row in `follow_up_item`, which the Care Needed reader lists like any other kind.
+But nothing in `app/` renders Care Needed and no route resolves an item -- the view exists as a reader and a test, and the Admin surface was specified only as far as the loop required.
+So the Roster carries a panel, *Waiting to join a group*, beside the held-import-rows panel that already works this way, with Admit and Decline on each request.
+Decline is the existing `follow_up.resolve` command, reached from a surface for the first time.
+When Care Needed gets its page, the panel is its to take; the ADR says so.
+
+**Groups are named and configured from a Groups panel, not from each member's row.**
+A group is on the Roster once per member, and a rename form on every row would be the same form several times.
+The panel lists every live group, named or not -- an unnamed one says so, because an unnamed group is on no link -- with the name and the switch on one form and one save, like the settings form.
+It reads through `public.ministry_groups`, a function rather than a query, for the reason `groups_open_to_join` is one: *is this a group* is the capacity question ADR-0004 fences to the database, and neither reader names the literal.
+
+**One-to-ones now hold one Participant in the database.**
+Joining is the first path that adds a membership after formation, and until now nothing stopped a second Participant landing on a relationship formed as a one-to-one because nothing could put one there.
+`one_to_one_one_open_participant` is a partial unique index of the same kind as the two caps ADR-0004 named, and the only reason the join path's *groups only* is a rule rather than a filter.
+
+**The Intake path literal is fenced, not free.**
+`relationship-kind-fence.test.ts` forbids the word `group` in application code, and the Intake path is that word.
+It appears once, in `src/domain/intake.ts` as `GROUP_PATH`, and every comparison goes through the constant; the fence allows that file that literal and nothing else, and still refuses it the other three patterns.
+
+**The wizard machinery was split out rather than copied.**
+Two wizards ask different questions in a different order and share every stepping rule, so `wizard-machine.ts` is the rules and each wizard is a table of screens handed to it.
+The discipleship wizard's exports are unchanged and its tests did not move.
+The group form's list of groups is not known until the page is served, so its reader takes the offered list in and checks the answer against that; a group nobody was offered never survives the read.
+
+Two smaller notes.
+The Welcome Message now says what it may promise: `a_match` on the paths where an Admin pairs people, `nothing` on the group path, where the Person has already named where they are going and hears nothing about it by text.
+And the QR code on the original link is captioned *Join a group*, because that is what it opens now, and a room reads the caption.
+
+### Review, 2026-09-01
+
+Three things the review caught, all fixed, and three it raised that were kept.
+
+**A one-to-one kept a name it was given.**
+The glossary says a one-to-one has none, and the boundary was storing whatever the pair form carried, so a pair named *Tuesday* was asked *did you meet with Tuesday this week*.
+A name and the approval switch are now dropped for a one-to-one rather than kept, which is the one place this ticket departs from the declaration's rule of holding an Admin to what they typed: a name on a pair changes what the weekly question calls two people, and a declaration on a pair changes nothing.
+
+**The done page promised a request that was never raised.**
+Somebody already in a guarded group who submitted again was told they were on the list, because the route read the group's switch rather than what the submission did.
+Both the group form's route and the admit route now read the command's effects: a request is *requested* only when an item was raised, and the Roster says a Leader was told only when somebody actually joined.
+
+**Three doc comments had been orphaned** by code inserted between them and the thing they described.
+
+Kept, with the reason.
+`relationship.group_configured` is appended to history although the triage says a rename overwrites no history: it overwrites none, and who opened a door and when is a question a Ministry may need to answer.
+The pair screen puts the name an Admin typed back into the field on a refused submission, which is the one place a typed value travels in a URL: it is the Admin's own text on an authenticated page, it is put into a field rather than rendered as text, and asking them to retype it beside their selection would be the refusal costing more than the mistake.
+And the group wizard's list of groups is empty until the page hands it in, so a caller that forgets the list reads no group at all; that is the safe direction, and the page and the route are the only two callers.

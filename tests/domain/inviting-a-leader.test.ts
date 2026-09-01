@@ -40,6 +40,9 @@ const pair = (leaderIds = [david], participantIds = [emily]) =>
       leaderIds,
       participantIds,
       declaredGender: null,
+      // Named for the same reason it is declared mixed: a group has to be called
+      // something, and these tests are about who gets invited.
+      name: 'The Tuesday Group',
     },
     context(),
   )

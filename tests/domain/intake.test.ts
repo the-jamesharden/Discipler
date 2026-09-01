@@ -16,6 +16,7 @@ const wellFormed: IntakeFormFields = {
   intakePath: null,
   declaredSide: null,
   experience: null,
+  groupId: null,
 }
 
 const read = (overrides: Partial<IntakeFormFields> = {}) =>
@@ -46,6 +47,7 @@ describe('Reading the Intake form', () => {
         intakePath: null,
         declaredSide: null,
         firstTime: null,
+        groupId: null,
       },
     })
   })

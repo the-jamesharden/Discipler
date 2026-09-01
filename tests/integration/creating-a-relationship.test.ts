@@ -52,6 +52,9 @@ describe('creating a relationship', () => {
       ministryId: ministry.id,
       leaderIds: [leaderId],
       participantIds,
+      // Named, because a group is called something. Dropped by the boundary for a
+      // one-to-one, so it costs a pair nothing.
+      name: 'The Tuesday Group',
       // Mixed, so the shape under test is the only thing being asserted. What a
       // group declares, and what happens when somebody crosses it, is ticket 25's
       // own file.

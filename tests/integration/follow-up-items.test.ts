@@ -74,6 +74,7 @@ describe('the Follow-Up Item table', () => {
     )
 
     expect(rows.map((row) => row.label)).toEqual([
+      'group_join_requested',
       'invitation_number_disputed',
       'match_declined',
       'participant_keyword',

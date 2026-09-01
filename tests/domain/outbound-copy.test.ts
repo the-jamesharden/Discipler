@@ -53,7 +53,11 @@ describe('Opt-out and rate disclosure', () => {
 
 describe('The Welcome Message', () => {
   it('is first contact, so it identifies delivery and discloses opt-out', () => {
-    const text = welcomeMessage({ ministryName: 'Riverside Chapel', fullName: 'Emily Johnson' })
+    const text = welcomeMessage({
+      ministryName: 'Riverside Chapel',
+      fullName: 'Emily Johnson',
+      promises: 'a_match',
+    })
 
     expect(text).toBe(
       'Discipler: Riverside Chapel: Thanks, Emily — you’re all set. ' +
@@ -62,15 +66,35 @@ describe('The Welcome Message', () => {
     )
   })
 
-  it('greets a one-word name without mangling it', () => {
-    expect(welcomeMessage({ ministryName: 'Riverside Chapel', fullName: 'Emily' })).toContain(
-      'Thanks, Emily —',
+  /**
+   * On the group path the Person has already said where they are going and hears
+   * nothing about it by text. The Welcome there is the consent receipt and the
+   * first contact, so it keeps both disclosures and promises nothing about a match.
+   */
+  it('promises no match to somebody who named a group', () => {
+    const text = welcomeMessage({
+      ministryName: 'Riverside Chapel',
+      fullName: 'Emily Johnson',
+      promises: 'nothing',
+    })
+
+    expect(text).toBe(
+      'Discipler: Riverside Chapel: Thanks, Emily — you’re all set. ' +
+        'Msg & data rates may apply. Reply STOP to opt out, HELP for help.',
     )
+    expect(text).not.toContain('matched')
+    expect(text).not.toContain('joined')
+  })
+
+  it('greets a one-word name without mangling it', () => {
+    expect(
+      welcomeMessage({ ministryName: 'Riverside Chapel', fullName: 'Emily', promises: 'a_match' }),
+    ).toContain('Thanks, Emily —')
   })
 
   it('names nobody it cannot name rather than greeting an empty string', () => {
-    expect(welcomeMessage({ ministryName: 'Riverside Chapel', fullName: '   ' })).toContain(
-      'Riverside Chapel: You’re all set.',
-    )
+    expect(
+      welcomeMessage({ ministryName: 'Riverside Chapel', fullName: '   ', promises: 'a_match' }),
+    ).toContain('Riverside Chapel: You’re all set.')
   })
 })

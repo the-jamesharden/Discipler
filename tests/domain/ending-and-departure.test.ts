@@ -33,6 +33,9 @@ const snapshot = (over: Partial<RelationshipSnapshot> = {}): RelationshipSnapsho
   createdAt,
   acceptedAt,
   endedAt: null,
+  name: null,
+  joinRequiresApproval: false,
+  declaredGender: null,
   pause: null,
   members: [
     { personId: david, role: 'leader', fullName: 'David Ellis', phone: '+15550101' },

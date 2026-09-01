@@ -36,6 +36,16 @@ const filesUnder = (directory: string): string[] =>
 const MAY_READ_KIND = ['src/domain/relationships.ts', 'src/platform/supabase/effect-store.ts']
 
 /**
+ * The one file permitted the literal `'group'` for a different reason: it names
+ * the Intake path a Person joins a group by -- `consent_record.intake_path`, which
+ * ticket 27 reserved and ticket 29 filled -- and not a relationship's kind. It is
+ * exported once as `GROUP_PATH` and every comparison goes through the constant, so
+ * the word appears there and nowhere else; the other three patterns still apply
+ * to it, and a `RelationshipKind` reaching `intake.ts` fails here like anywhere.
+ */
+const MAY_NAME_THE_GROUP_PATH = ['src/domain/intake.ts']
+
+/**
  * Matched whole rather than as substrings, for the reason ADR-0003 gives: the
  * refusal code `relationship.participant_already_in_a_one_to_one` contains
  * `one_to_one`, and a substring search would flag it as a kind branch when it is
@@ -83,6 +93,12 @@ describe('relationship kind', () => {
       const source = readFileSync(join(repoRoot, path), 'utf8')
 
       for (const { pattern, what } of readsKind) {
+        if (
+          MAY_NAME_THE_GROUP_PATH.includes(path)
+          && what === "the literal 'group'"
+        ) {
+          continue
+        }
         expect(
           pattern.test(source),
           `${path} reads ${what}. Copy and state derivation follow the live ` +

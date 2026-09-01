@@ -7,11 +7,12 @@ import {
   CheckInRefused,
   DepartureRefused,
   EndingRefused,
+  GroupRefused,
   InvitationRefused,
   MaterialAssignmentRefused,
   PauseRefused,
 } from '~/domain/errors'
-import type { IdSource, ImportRowId, PersonId } from '~/domain/ids'
+import type { FollowUpItemId, IdSource, ImportRowId, PersonId } from '~/domain/ids'
 import type { IntakeLinkToken } from '~/domain/intake-link'
 import type { InvitationToken } from '~/domain/invitations'
 import type { EffectStore, UnitOfWork } from './ports'
@@ -104,6 +105,12 @@ export const applyEffects = async (
   )
   const departures = effects.flatMap((effect) =>
     effect.kind === 'relationship.depart' ? [effect.departure] : [],
+  )
+  const joins = effects.flatMap((effect) =>
+    effect.kind === 'relationship.join' ? [effect.membership] : [],
+  )
+  const groupConfigurations = effects.flatMap((effect) =>
+    effect.kind === 'group.configure' ? [effect.configuration] : [],
   )
   const materialAssignments = effects.flatMap((effect) =>
     effect.kind === 'material.assign' ? [effect.assignment] : [],
@@ -227,6 +234,13 @@ export const applyEffects = async (
   for (const ending of endings) await unit.endRelationship(ending)
   for (const departure of departures) await unit.departFromRelationship(departure)
 
+  // After the Intake, which is what the membership's own Intake gate reads: a
+  // Person joining a group on the form they have just completed is admitted by the
+  // trigger only once the submission and the consent it reads are on the rows.
+  // Before the history saying they joined, like every other write here.
+  for (const membership of joins) await unit.joinRelationship(membership)
+  for (const configuration of groupConfigurations) await unit.configureGroup(configuration)
+
   // After the acceptance that stamps `accepted_at`, because that is the instant the
   // period with no Material starts from and the row has to exist for it to start.
   // Before the history saying it happened, like every other write here.
@@ -349,6 +363,7 @@ type AboutOneRelationship = Extract<
       | 'relationship.end'
       | 'relationship.pause'
       | 'relationship.resume'
+      | 'group.configure'
   }
 >
 
@@ -362,7 +377,8 @@ const isAboutOneRelationship = (command: Command): command is AboutOneRelationsh
   command.type === 'relationship.depart' ||
   command.type === 'relationship.end' ||
   command.type === 'relationship.pause' ||
-  command.type === 'relationship.resume'
+  command.type === 'relationship.resume' ||
+  command.type === 'group.configure'
 
 /**
  * What each of them calls *there is no such relationship*. One map rather than a
@@ -378,6 +394,7 @@ const NOT_FOUND: Readonly<Record<AboutOneRelationship['type'], () => Error>> = {
   'relationship.end': () => new EndingRefused('ending.relationship_not_found'),
   'relationship.pause': () => new PauseRefused('pause.relationship_not_found'),
   'relationship.resume': () => new PauseRefused('pause.relationship_not_found'),
+  'group.configure': () => new GroupRefused('group.relationship_not_found'),
 }
 
 /**
@@ -453,6 +470,8 @@ const namesARole = (command: Command): boolean =>
 const needsTheMinistryName = (command: Command): boolean =>
   namesARole(command) ||
   isIntakeSubmission(command) ||
+  // It texts the group's Leaders that somebody joined, in the Ministry's voice.
+  command.type === 'relationship.admit' ||
   command.type === 'relationship.create' ||
   command.type === 'relationship.resume' ||
   command.type === 'scheduled.tick' ||
@@ -533,6 +552,23 @@ const resolvedIntakeLink = async (unit: UnitOfWork, token: IntakeLinkToken) => {
 }
 
 /**
+ * Everything an admission decides from: the open request, the group it names as
+ * the database holds it now, and the name of the Person who asked. Loaded together
+ * because the second and third are found through the first.
+ */
+const joinRequestContext = async (unit: UnitOfWork, itemId: FollowUpItemId) => {
+  const joinRequest = await unit.joinRequest(itemId)
+  if (!joinRequest) return { joinRequest: null }
+
+  const relationship = await unit.relationshipFor(joinRequest.relationshipId)
+  return {
+    joinRequest,
+    ...(relationship ? { relationship } : {}),
+    contacts: { people: await unit.contactsFor([joinRequest.personId]) },
+  }
+}
+
+/**
  * The held import row an answer names. Absent is a defect rather than a refusal:
  * the row is never deleted, so an id that names none did not come from the report
  * that offers the answers -- which is a form post composed by hand, not something
@@ -605,6 +641,20 @@ export const createCommandService = ({
         // re-issued out from under the submission it is authenticating.
         ...(command.type === 'intake.submit' && command.token
           ? { intakeLink: await resolvedIntakeLink(unit, command.token) }
+          : {}),
+        // The group the form named, read and locked inside the transaction like
+        // everything else, so a door that closes between the page and the submit
+        // is seen closed. Only when the body carries one: every other submission
+        // pays nothing for a read it has no use for.
+        ...(command.type === 'intake.submit' && command.form.groupId
+          ? { groupToJoin: await unit.groupToJoin(command.form.groupId) }
+          : {}),
+        // The request an admission names, then the group and the Person it is
+        // about -- read off the item rather than the request, so the body could
+        // not have named anybody else. Both absent when the item is gone, and the
+        // domain refuses on the item before it looks for either.
+        ...(command.type === 'relationship.admit'
+          ? await joinRequestContext(unit, command.itemId)
           : {}),
         // Loaded so that asking for a link somebody already holds gives them that
         // one back rather than minting a second and stopping the first from working.

@@ -1,21 +1,49 @@
 import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { baseUrl, skipUnlessAppIsRunning } from '../support/app'
-import { createMinistryWithAdmin, localSupabase, type MinistryFixture } from '../support/local-supabase'
+import {
+  addMembership,
+  addPerson,
+  createMinistryWithAdmin,
+  localSupabase,
+  openMaterialHistory,
+  type MinistryFixture,
+} from '../support/local-supabase'
 
 /**
- * The headline of the ticket, driven the way a congregant does it: open the link,
+ * The headline of ticket 03, driven the way a congregant does it: open the link,
  * fill the form in, press Submit. Over HTTP against the running app, because this is
  * the one surface in Discipler used by somebody who will never have an account, and
  * no unit test can tell you whether they could actually reach it.
+ *
+ * Since ticket 29 the link opens the group form, so what is filled in here is that
+ * form: the same questions the single page asked, minus the Goal and plus which
+ * group. What ticket 03 promised -- a Person with no account lands on the Roster
+ * as Ready to Pair, with the route they arrived by on the record -- holds unchanged.
  */
 describe.skipIf(skipUnlessAppIsRunning)('a Person completing Intake from a link', () => {
   let ministry: MinistryFixture
   let pool: pg.Pool
+  let groupId: string
 
   beforeAll(async () => {
     ministry = await createMinistryWithAdmin('Riverside Chapel')
     pool = new pg.Pool({ connectionString: localSupabase().databaseUrl })
+
+    // One group for the link to offer. A Ministry with none shows a page that says
+    // so, which is its own test in `joining-a-group-over-http`.
+    const leader = await addPerson(ministry, 'Ruth Adeyemi', { phone: '+15558120090', answers: { gender: 'female' } })
+    const first = await addPerson(ministry, 'Emily Johnson', { phone: '+15558120091', answers: { gender: 'female' } })
+    const acceptedAt = new Date('2026-03-02T09:00:00Z')
+    const { rows } = await pool.query<{ id: string }>(
+      `insert into relationship (ministry_id, kind, accepted_at, name, declared_gender)
+       values ($1, 'group', $2, 'Tuesday Women’s Group', 'female') returning id`,
+      [ministry.id, acceptedAt],
+    )
+    groupId = rows[0]!.id
+    await openMaterialHistory(ministry, groupId, acceptedAt)
+    await addMembership({ ministry, relationshipId: groupId, kind: 'group', personId: leader, role: 'leader' })
+    await addMembership({ ministry, relationshipId: groupId, kind: 'group', personId: first, role: 'participant' })
   })
 
   afterAll(async () => {
@@ -35,25 +63,22 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person completing Intake from a link'
     return { response, location: response.headers.get('location') ?? '' }
   }
 
-  const goalId = async (): Promise<string> => {
-    const { rows } = await pool.query(
-      `select id from discipleship_goal where ministry_id = $1 order by position limit 1`,
-      [ministry.id],
-    )
-    return rows[0].id as string
-  }
-
   it('serves the form to somebody with no account at all', async () => {
     const response = await fetch(`${baseUrl}/intake/${ministry.id}`, { redirect: 'manual' })
     const html = await response.text()
 
     expect(response.status).toBe(200)
     expect(html).toContain('Riverside Chapel')
-    // The grid, and both consent decisions.
-    expect(html).toContain('monday:early_morning')
-    expect(html).toContain('sunday:evening')
-    expect(html).toContain('name="smsConsent"')
-    expect(html).toContain('value="declined"')
+    // The first screen. The grid and both consent decisions are on later ones.
+    expect(html).toContain('name="ageBand"')
+    expect(html).toContain('name="gender"')
+
+    const last = await fetch(
+      `${baseUrl}/intake/${ministry.id}?step=4&ageBand=35-44&gender=female&availability=monday:midday&groupId=${groupId}`,
+      { redirect: 'manual' },
+    ).then((r) => r.text())
+    expect(last).toContain('name="smsConsent"')
+    expect(last).toContain('value="declined"')
   })
 
   it('records the submission and moves the Person to Ready to Pair', async () => {
@@ -64,7 +89,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person completing Intake from a link'
         email: 'hannah@example.test',
         ageBand: '35-44',
         gender: 'female',
-        goalId: await goalId(),
+        groupId,
         smsConsent: 'yes',
         contactSharing: 'granted',
         via: 'qr',
@@ -80,7 +105,8 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person completing Intake from a link'
         where p.ministry_id = $1 and p.full_name = 'Hannah Reeves'`,
       [ministry.id],
     )
-    expect(rows[0].status).toBe('ready_to_pair')
+    // In a group now, which is what Paired means.
+    expect(rows[0].status).toBe('paired')
 
     const { rows: consents } = await pool.query(
       `select c.source from consent_record c join person p on p.id = c.person_id
@@ -97,9 +123,10 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person completing Intake from a link'
         fullName: 'Nathan Cole',
         phone: '555 812 0101',
         ageBand: '35-44',
-        gender: 'male',
-        goalId: await goalId(),
+        gender: 'female',
+        groupId,
         contactSharing: 'granted',
+        via: 'link',
       },
       [],
     )
@@ -125,7 +152,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person completing Intake from a link'
         phone: '555 812 0102',
         ageBand: '25-34',
         gender: 'female',
-        goalId: await goalId(),
+        groupId,
         smsConsent: 'yes',
         contactSharing: 'granted',
         via: 'admin_attested',

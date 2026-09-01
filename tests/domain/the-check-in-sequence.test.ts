@@ -35,6 +35,7 @@ const leads = (
   role: 'leader',
   startedAt: startedOn,
   participantNames,
+  name: null,
   acceptedAt: startedOn,
   paused: false,
   cadence: { day: 1, hour: 9 },

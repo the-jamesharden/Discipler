@@ -31,6 +31,7 @@ const wizardForm: IntakeFormFields = {
   intakePath: 'discipleship',
   declaredSide: 'mentee',
   experience: 'first_time',
+  groupId: null,
 }
 
 const read = (overrides: Partial<IntakeFormFields> = {}) =>
@@ -88,8 +89,8 @@ describe('what the wizard records', () => {
     })
   })
 
-  it('serves exactly one path today, which is what ticket 29 adds to', () => {
-    expect(INTAKE_PATHS).toEqual(['discipleship'])
+  it('serves two paths: the wizard, and the group form ticket 29 added', () => {
+    expect(INTAKE_PATHS).toEqual(['discipleship', 'group'])
   })
 })
 

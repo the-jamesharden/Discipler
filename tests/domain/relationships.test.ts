@@ -58,6 +58,9 @@ const create = (
       leaderIds,
       participantIds,
       declaredGender,
+      // Named for the reason it is declared: a group is called something, and
+      // these tests are about who is in it. The rule has its own test below.
+      name: 'The Tuesday Group',
     },
     context(),
   )

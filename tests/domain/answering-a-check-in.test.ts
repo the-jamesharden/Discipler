@@ -41,6 +41,7 @@ const covers = (
   role: 'leader',
   startedAt,
   participantNames,
+  name: null,
   acceptedAt: startedAt,
   paused: false,
   cadence: { day: 1, hour: 9 },

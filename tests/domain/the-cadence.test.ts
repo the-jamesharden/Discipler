@@ -16,6 +16,7 @@ const leads = (over: Partial<CheckInRelationship> = {}): CheckInRelationship => 
   role: 'leader',
   startedAt: at('2026-03-02T09:00:00Z'),
   participantNames: ['Emily'],
+  name: null,
   acceptedAt: at('2026-03-02T09:00:00Z'),
   paused: false,
   // Monday 8pm, which is where every test below starts.

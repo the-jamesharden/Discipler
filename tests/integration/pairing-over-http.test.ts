@@ -52,6 +52,8 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
     for (const id of leaderIds) body.append('leaderId', id)
     for (const id of participantIds) body.append('participantId', id)
     if (declaredGender !== null) body.append('declaredGender', declaredGender)
+    // A group is called something; a pair drops the name, so it costs nothing here.
+    body.append('name', 'The Tuesday Group')
 
     const response = await fetch(`${baseUrl}/roster/pair/create`, {
       method: 'POST',
