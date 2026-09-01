@@ -241,6 +241,14 @@ export default async function RosterPage({
                 </ul>
               </>
             ) : null}
+            {/* The report says the row was refused; the panel above is where it can
+                be answered. Pointing at it rather than repeating the answers here:
+                two places offering the same two buttons would be two places for an
+                Admin to answer the same question, and the panel is the one that
+                survives navigating away from this redirect. */}
+            {report.refused.some(({ problem }) => problem === 'same_number_different_name') ? (
+              <p>{`Rows on a number the Roster already holds are waiting for you under “${HELD_ROWS_HEADING}” above.`}</p>
+            ) : null}
             {report.hidden.length > 0 ? (
               <>
                 {/* Counted by reason, not just counted: "340 more" tells an Admin

@@ -128,6 +128,11 @@ describe('resolving a number the Roster already holds', () => {
           rowId,
           answer: 'same_person',
           personId: emily,
+          // The name they were called until now. `person.full_name` is overwritten
+          // in place, so this is the only thing that keeps it -- and ticket 07
+          // cannot settle whether a rename is a history event if the fact the event
+          // would carry has already been destroyed.
+          renamedFrom: 'Emily Johnson',
           resolvedBy: admin,
           resolvedAt: at,
         },
@@ -159,6 +164,26 @@ describe('resolving a number the Roster already holds', () => {
       )
 
       expect(renamesIn(result).map((renaming) => renaming.personId)).toEqual([daniel])
+    })
+
+    it('keeps the name they were called before, so the rename destroys no fact', () => {
+      // `person.full_name` is overwritten in place. Without this the name a
+      // Ministry used for somebody is gone from the whole system -- and ticket 26
+      // leaves *is a rename a history event* open, which ticket 07 cannot answer
+      // for a rename whose previous name nobody kept.
+      const result = resolving(
+        { kind: 'same_person', personId: daniel },
+        {
+          onTheRoster: [
+            { id: emily, fullName: 'Emily Johnson', phone: shared },
+            { id: daniel, fullName: 'Daniel Johnson', phone: shared },
+          ],
+        },
+      )
+
+      expect(resolutionsIn(result).map((answer) => answer.renamedFrom)).toEqual([
+        'Daniel Johnson',
+      ])
     })
 
     it('refuses to rename somebody who is not on this number', () => {
@@ -207,6 +232,8 @@ describe('resolving a number the Roster already holds', () => {
           rowId,
           answer: 'someone_else',
           personId: '00000000-0000-4000-8000-000000000001',
+          // Nobody was renamed, so there is no previous name to keep.
+          renamedFrom: null,
           resolvedBy: admin,
           resolvedAt: at,
         },

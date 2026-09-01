@@ -762,6 +762,21 @@ export interface ImportRowResolution {
   readonly rowId: ImportRowId
   readonly answer: ImportRowAnswer
   readonly personId: PersonId
+  /**
+   * What that Person was called before the rename, on `same_person`, and null on
+   * the answer that renames nobody.
+   *
+   * Kept because `person.full_name` is overwritten in place: without it the name
+   * this Ministry used to call somebody by is gone from the whole system, and
+   * *preserve historical ministry events rather than overwriting past facts* is
+   * the rule that forbids that. ADR-0014 gives a reworded Discipleship Goal the
+   * same treatment for the same reason.
+   *
+   * Deliberately not a history event. Whether a rename appends one is ticket 26's
+   * open question and ticket 07's to settle; this is the fact that question will
+   * need, kept so it is still there to be read when somebody answers it.
+   */
+  readonly renamedFrom: string | null
   /** The Admin's account. The row keeps the fact even if the account later goes. */
   readonly resolvedBy: string
   readonly resolvedAt: Date

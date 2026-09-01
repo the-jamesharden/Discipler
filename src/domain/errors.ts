@@ -99,8 +99,8 @@ export class RosterImportRefused extends Error {
  * Why an answer to a held import row could not be applied.
  *
  * None of them is a question about which answer is right -- that is the Admin's and
- * the product refuses to have an opinion. They are the four ways the answer arrives
- * about a row or a Person the Roster no longer holds the way the report described,
+ * the product refuses to have an opinion. They are the three ways an answer arrives
+ * about a row, or a Person, the Roster no longer holds the way the report described,
  * which is what happens when two Admins work the same import report at once.
  */
 export type ImportRowRefusal =

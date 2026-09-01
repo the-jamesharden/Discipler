@@ -27,8 +27,10 @@ belongs with Roster completeness (ticket 16), and nothing here forecloses it.
 somebody in every future message, which argues yes; it is also an Admin correcting a
 spreadsheet typo, which argues no. Worth settling with ticket 07's history work rather
 than inventing an event kind here. *Left open and not answered: the rename writes no
-event, and `held_import_row` carries who answered, what they answered and when, so
-nothing is lost while the question stands.*
+event. What it does write is `held_import_row.renamed_from` — the name the Person was
+called until then — because `person.full_name` is overwritten in place and ticket 07
+cannot settle whether a rename is an event if the fact that event would carry has
+already been destroyed.*
 
 **Blocked by:** 02
 
@@ -107,3 +109,36 @@ beside merging.
 relationship, message and history event stays theirs. Two Person rows that already exist
 are still not mergeable, still belong with Roster completeness, and are still untouched
 by this.
+
+
+### Review fixes
+
+Three of them were mine to have caught.
+
+**A congregant's number was one REST call away.** `grant select on held_import_row to
+authenticated` put `phone` on a table PostgREST serves, which is exactly what
+`20260910000100_the_leader_dashboard.sql` dropped the table grant on `person` to stop —
+and it says there that a column privilege cannot be subtracted from a table grant
+afterwards. The grant now names its columns and `phone` is not among them, so
+`public.contact_to_share` is still the only path a browser session has to a number. The
+migration's own comment had claimed *the number itself never leaves* while the grant
+below it said otherwise.
+
+**The rename destroyed a fact.** `update person set full_name` overwrote the previous
+name and nothing kept it, against *preserve historical ministry events rather than
+overwriting past facts with current values*. ADR-0014 has the precedent: a reworded
+Discipleship Goal writes the wording it used to carry before the update runs. So the row
+carries `renamed_from`. That is not the history event the **Open:** question is about —
+it is the fact that question will need in order to be answerable at all.
+
+**An answered row died with the Person.** `on delete cascade` on the Person the answer
+landed on would have deleted the record of who decided what — and ticket 16's merge is
+the first thing that would delete a Person, which makes it the ticket that most needs
+these rows to survive. It is `on delete set null (person_id)` now, like `resolved_by`
+beside it, and the whole-answer check no longer requires a Person to still exist.
+
+Two smaller ones: the upsert that dedupes a re-uploaded file now writes `full_name` as
+well as the line — the conflict is on the *normalised* name, so two spellings land on one
+row and the answer has to write the one actually in front of the Admin — and the import
+report now points at the panel where a `same_number_different_name` row can be answered,
+rather than reporting the row and saying nothing about where it went.

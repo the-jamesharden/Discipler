@@ -117,9 +117,16 @@ export const SOMEONE_ELSE_CONSEQUENCE =
  * answer was right -- that is the Admin's -- so each says what moved underneath
  * them and what to do about it.
  *
- * A `Record` rather than a lookup with a default, like the pairing refusals: a
- * refusal added to `ImportRowRefusal` and left unworded fails the build rather than
- * falling through to a sentence that names nothing.
+ * A `Record` rather than a lookup with a default, like the import failures above:
+ * a refusal added to `ImportRowRefusal` and left unworded fails the build rather
+ * than falling through to a sentence that names nothing.
+ *
+ * The lookup below still has a fallback, and that is a different job. The `Record`
+ * answers *is every refusal this product can raise worded*, at build time; the
+ * fallback answers *what does the page say about a string somebody typed into the
+ * query bar*, which is the same promise the sign-in page makes about an invented
+ * `?error=` -- the screen says its own words, and nothing a stranger supplied is
+ * reflected back into it.
  */
 const IMPORT_ROW_REFUSALS: Record<ImportRowRefusal, string> = {
   'import_row.already_answered':

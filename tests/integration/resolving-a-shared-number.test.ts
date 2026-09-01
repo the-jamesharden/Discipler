@@ -67,9 +67,10 @@ describe('resolving a number the Roster already holds', () => {
       full_name: string
       answer: string | null
       person_id: string | null
+      renamed_from: string | null
       resolved_by: string | null
     }>(
-      `select id, line, full_name, answer, person_id, resolved_by
+      `select id, line, full_name, answer, person_id, renamed_from, resolved_by
          from held_import_row where ministry_id = $1 and phone = $2 order by created_at`,
       [ministry.id, `+1${phone}`],
     )
@@ -149,6 +150,20 @@ describe('resolving a number the Roster already holds', () => {
       await answer(row!.id, { kind: 'same_person', personId: before!.id })
 
       expect((await peopleOn(phone))[0]!.email).toBe('ada@example.test')
+    })
+
+    it('keeps the name they were called before, because the column is overwritten', async () => {
+      // `update person set full_name` destroys the previous name, and nothing else
+      // in the product holds it. Ticket 26 leaves *is a rename a history event*
+      // open for ticket 07 -- which is unanswerable for a rename whose previous
+      // name nobody kept, so the row keeps it.
+      const phone = await collide('Margaret Nwosu', 'Maggie Nwosu')
+      const [before] = await peopleOn(phone)
+      const [row] = await heldRowsOn(phone)
+
+      await answer(row!.id, { kind: 'same_person', personId: before!.id })
+
+      expect(await heldRowsOn(phone)).toMatchObject([{ renamed_from: 'Margaret Nwosu' }])
     })
 
     it('records who answered, and what they answered', async () => {
@@ -278,6 +293,21 @@ describe('resolving a number the Roster already holds', () => {
         target_ministry_id: ministry.id,
       })
 
+      expect(JSON.stringify(data)).not.toContain(phone)
+    })
+
+    it('cannot read a congregant\'s number off the table, even as an Admin', async () => {
+      // A table-level SELECT would put a number one REST call away from a browser
+      // session, which is what the leader-dashboard migration dropped the table
+      // grant on `person` to stop -- and it notes there that a column privilege
+      // cannot be subtracted from a table grant afterwards.
+      // `public.contact_to_share` stays the only path a session has to a number.
+      const phone = await collide('Ruth Adekunle', 'R Adekunle')
+
+      const admin = await signInAs(ministry)
+      const { data, error } = await admin.from('held_import_row').select('phone')
+
+      expect(error).not.toBeNull()
       expect(JSON.stringify(data)).not.toContain(phone)
     })
 

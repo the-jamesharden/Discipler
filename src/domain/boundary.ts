@@ -3106,6 +3106,11 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
               rowId: row.id,
               answer: 'same_person',
               personId: renamed.personId,
+              // The name this Ministry called them by until now. `person.full_name`
+              // is about to be overwritten in place, so this is the only thing that
+              // keeps it -- and a past fact overwritten with a current value is the
+              // one thing the working rules say not to do.
+              renamedFrom: renamed.fullName,
               resolvedBy: command.resolvedBy,
               resolvedAt: now,
             }),
@@ -3147,6 +3152,8 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             rowId: row.id,
             answer: 'someone_else',
             personId: person.id,
+            // Nobody was renamed, so there is no previous name to keep.
+            renamedFrom: null,
             resolvedBy: command.resolvedBy,
             resolvedAt: now,
           }),

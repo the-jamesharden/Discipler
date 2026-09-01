@@ -65,6 +65,17 @@ create table held_import_row (
   -- Person did this row become* is the question anybody reading it afterwards has,
   -- and the answer alone does not say.
   person_id   uuid,
+  -- What that Person was called before the rename, on `same_person` and nothing
+  -- else. `person.full_name` is overwritten in place, so without this the previous
+  -- name is gone from the whole system -- and *preserve historical ministry events
+  -- rather than overwriting past facts* is the rule that forbids that. It is the
+  -- same shape ADR-0014 gives a reworded Discipleship Goal, which writes the
+  -- wording it used to carry before the update runs.
+  --
+  -- Not a history event. Whether a rename appends one is ticket 26's open question
+  -- and ticket 07's to settle; this is the fact that question will need, kept where
+  -- the rest of the answer already is so that it is still there to be read.
+  renamed_from text,
   -- The Admin's account, like `concern.resolved_by` and `follow_up_item.resolved_by`
   -- beside it. `on delete set null` names the one column to clear: removing somebody
   -- from a Ministry must not delete the record that this row was answered.
@@ -72,12 +83,27 @@ create table held_import_row (
   resolved_at timestamptz,
   created_at  timestamptz not null default now(),
 
+  -- The answer and the moment it was given, together or neither. `person_id` is
+  -- not in here: it is cleared if that Person is ever deleted, and the answer
+  -- outlives them.
   constraint held_import_row_answered_whole check (
-    (answer is null and person_id is null and resolved_at is null)
-    or (answer is not null and person_id is not null and resolved_at is not null)
+    (answer is null and resolved_at is null) or (answer is not null and resolved_at is not null)
   ),
+  constraint held_import_row_person_named_only_by_an_answer
+    check (person_id is null or answer is not null),
+  -- Exactly the answer that renames somebody carries the name they had. Written
+  -- with `is not distinct from`, so an unanswered row is covered too: plain
+  -- `answer = 'same_person'` is NULL there, and a NULL check passes -- which would
+  -- leave a previous name on a row nobody has answered.
+  constraint held_import_row_renamed_from_is_a_rename
+    check ((renamed_from is not null) = (answer is not distinct from 'same_person')),
+  -- `on delete set null (person_id)`, like `resolved_by` below and for the same
+  -- reason: deleting a Person must not delete the record that an Admin decided who
+  -- this row was. Ticket 16's merge is the first thing that would delete one, and
+  -- it is the ticket that most needs these rows to survive.
   constraint held_import_row_person_fk
-    foreign key (person_id, ministry_id) references person (id, ministry_id) on delete cascade,
+    foreign key (person_id, ministry_id) references person (id, ministry_id)
+    on delete set null (person_id),
   constraint held_import_row_resolver_fk
     foreign key (ministry_id, resolved_by) references ministry_member (ministry_id, user_id)
     on delete set null (resolved_by)
@@ -167,7 +193,22 @@ revoke all on held_import_row from anon, authenticated, service_role;
 -- The Admin's, and nobody else's. A Leader has no business seeing a spreadsheet row
 -- about somebody who may not even be on the Roster yet: this is the pastor deciding
 -- who a congregant is, which is the same judgement `intake_link` is scoped by.
-grant select on held_import_row to authenticated;
+--
+-- Named columns rather than the table, and `phone` is not among them. A table-level
+-- SELECT would put a congregant's number one REST call away from any browser
+-- session -- exactly what `20260910000100_the_leader_dashboard.sql` dropped the
+-- table grant on `person` to stop, and it notes there that a column privilege
+-- cannot be subtracted from a table grant afterwards. `public.contact_to_share`
+-- stays the only path a browser session has to a number, and the function above is
+-- the only path it has to these rows.
+--
+-- `email` is readable, matching the same decision on `person.email`: the same kind
+-- of fact, covered by the same consent, and no surface displays it. Recorded for
+-- ticket 16 there, and it holds here.
+grant select
+  (id, ministry_id, line, full_name, name_key, email, imported_at,
+   answer, person_id, renamed_from, resolved_by, resolved_at, created_at)
+  on held_import_row to authenticated;
 
 create policy held_import_row_read_own_ministry on held_import_row
   for select to authenticated

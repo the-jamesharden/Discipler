@@ -798,18 +798,20 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       // be written as, so this clause names a column. The expression form compiled
       // and matched nothing: a template literal ate the backslash in `\s+`.
       //
-      // What the second upload updates is where the row is: the line and the moment
-      // it arrived move to the file the Admin has in front of them now, because a
-      // report pointing at line 7 of a spreadsheet they replaced last week is a
-      // line number that finds nothing. The email moves with them for the same
-      // reason -- it is the row as the file has it, and the answer is about to
-      // store it.
+      // The newest upload wins every field, because the row is *the row as the file
+      // has it* and the file the Admin is holding is the one they just uploaded: a
+      // report pointing at line 7 of a spreadsheet they replaced last week is a line
+      // number that finds nothing. `full_name` is in there too -- the conflict is on
+      // `name_key`, which is the normalised name, so two spellings the Roster would
+      // treat as one Person land on one row and the answer must write the spelling
+      // that is actually in front of the Admin.
       await client.query(
         `insert into held_import_row
            (id, ministry_id, line, full_name, phone, email, imported_at)
          values ($1, $2, $3, $4, $5, $6, $7)
          on conflict (ministry_id, phone, name_key) where resolved_at is null
          do update set line = excluded.line,
+                       full_name = excluded.full_name,
                        email = excluded.email,
                        imported_at = excluded.imported_at`,
         [row.id, row.ministryId, row.line, row.fullName, row.phone, row.email, row.importedAt],
@@ -862,12 +864,14 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // as it stands.
     await client.query(
       `update held_import_row
-          set answer = $2, person_id = $3, resolved_by = $4, resolved_at = $5
+          set answer = $2, person_id = $3, renamed_from = $4,
+              resolved_by = $5, resolved_at = $6
         where id = $1 and resolved_at is null`,
       [
         resolution.rowId,
         resolution.answer,
         resolution.personId,
+        resolution.renamedFrom,
         resolution.resolvedBy,
         resolution.resolvedAt,
       ],
