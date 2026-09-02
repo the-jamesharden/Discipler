@@ -275,11 +275,16 @@ td .small { margin: 0; }
 
    `stretch` levels the buttons against the tallest of them, so a wrapped label
    does not leave the row looking half-filled. */
-.row-actions.slots { display: grid; grid-template-columns: 4.75rem 7rem 7rem; align-items: stretch; }
-.row-actions.slots > *, .row-actions.slots form { display: block; min-width: 0; height: 100%; }
+.row-actions.slots { display: grid; grid-template-columns: repeat(3, 7.25rem); gap: 0.3rem; }
+.row-actions.slots > *, .row-actions.slots form { display: block; min-width: 0; }
+/* Identical tiles: same width, same height, one line each. Equal columns and not
+   three widths of their own, because tiles that match are what makes the gaps
+   read as a slot nothing filled rather than as a button that came out wrong --
+   and the padding is tighter than `.btn.small` so the longest label still fits on
+   its line instead of widening the column for every row that has no password. */
 .row-actions.slots .btn.small, .row-actions.slots button.small {
-  display: block; width: 100%; height: 100%; text-align: center;
-  white-space: normal; line-height: 1.3;
+  display: block; width: 100%; padding: 0.32rem 0.4rem; text-align: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .slot-empty { display: block; }
 
@@ -338,6 +343,33 @@ input[type="file"] { display: block; margin-bottom: 1rem; font-size: 0.88rem; }
 .option-desc { color: var(--text-light); font-size: 0.85rem; margin-top: 0.15rem; }
 .form-actions { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; margin-top: 1.5rem; }
 .form-actions .btn.sec { font-weight: 500; }
+
+/* A standing explanation, folded away behind the mark that offers it.
+
+   `details` and not a script, like every other control in this stylesheet. The
+   summary is one quiet line an Admin who already knows the rules reads past, and
+   the paragraph it opens is the same `.notice` it replaced -- so nothing is lost
+   for the Admin meeting the screen for the first time, and nothing is in the way
+   of the one forming their fortieth relationship. */
+.info { margin-bottom: 1.25rem; }
+.info > summary {
+  display: inline-flex; align-items: center; gap: 0.45rem; width: fit-content;
+  padding: 0.15rem 0; cursor: pointer; list-style: none;
+  font-size: 0.85rem; color: var(--text-light);
+}
+.info > summary::-webkit-details-marker { display: none; }
+.info > summary:hover { color: var(--primary); }
+.info > summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; border-radius: 4px; }
+.info[open] > summary { color: var(--primary); margin-bottom: 0.65rem; }
+.info-mark {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.2rem; height: 1.2rem; flex-shrink: 0;
+  border: 1px solid var(--accent); border-radius: 50%;
+  font-family: var(--serif); font-size: 0.82rem; font-weight: 700; line-height: 1;
+  color: var(--primary);
+}
+.info > summary:hover .info-mark { border-color: var(--primary); }
+.info .notice { margin-bottom: 0; }
 
 /* A block of questions only some shapes answer, set apart from the ones every
    shape answers. On the pairing form it is the two group questions: an Admin

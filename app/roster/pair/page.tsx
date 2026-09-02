@@ -177,14 +177,36 @@ export default async function PairPage({
             </p>
           ) : null}
 
-          <p className="notice">
-            Choose who will lead and everyone they will disciple. One leader and one
-            participant makes a one-to-one relationship; anything else is a group, and
-            a group can have several leaders. The age band rule governs suggestion
-            only — you may pair across it here. Gender matching cannot be overridden.
-            Creating it does not start it — nothing reaches anybody until every leader
-            accepts.
-          </p>
+          {/*
+            The rules of this screen, behind the mark that offers them. They are
+            true every time and read once: an Admin forming their fortieth
+            relationship should not have to scroll past the same six lines to reach
+            the names, and an Admin meeting the screen for the first time should not
+            have to guess that a group may have several leaders.
+
+            A `details` and not a script, like every other control on these pages.
+            Closed on arrival, which is the whole point -- and closed is safe here
+            because nothing in it is a warning about what the button will do:
+            everything the form refuses, it refuses in words, at the top, after the
+            fact. What is in here is what makes the screen make sense, not what
+            stops somebody getting it wrong.
+          */}
+          <details className="info">
+            <summary>
+              <span className="info-mark" aria-hidden="true">
+                i
+              </span>
+              How pairing works
+            </summary>
+            <p className="notice">
+              Choose who will lead and everyone they will disciple. One leader and one
+              participant makes a one-to-one relationship; anything else is a group, and
+              a group can have several leaders. The age band rule governs suggestion
+              only — you may pair across it here. Gender matching cannot be overridden.
+              Creating it does not start it — nothing reaches anybody until every leader
+              accepts.
+            </p>
+          </details>
 
           <form method="post" action="/roster/pair/create">
             {/*

@@ -229,6 +229,18 @@ export const AWAITING_LEADER_ACCEPTANCE = 'Awaiting Leader Acceptance'
  */
 export const RESET_PASSWORD = 'Reset password'
 
+/**
+ * The same action as `CHANGE_YOUR_PASSWORD`, said short enough to sit in the
+ * Roster's Actions column beside `Reset password`.
+ *
+ * Its own constant rather than the account page's phrase, because the two are
+ * read in different places: `Change your password` is a link in a header with a
+ * whole line to itself, and this is a tile in a column of tiles that all have to
+ * be the same width. Shortening the shared one would make the header vaguer to
+ * fit a table it does not appear in.
+ */
+export const YOUR_PASSWORD = 'Your password'
+
 const PROBLEMS: Record<RowProblem, string> = {
   no_name: 'no name',
   no_phone: 'no phone number',

@@ -1,6 +1,5 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { CHANGE_YOUR_PASSWORD } from '../account/copy'
 import { AdminShell, initialsOf, NotAnAdmin } from '../shell'
 import { resolveAdmin } from '~/platform/supabase/current-admin'
 import { getRosterReader } from '~/service/container'
@@ -49,6 +48,7 @@ import {
   UNNAMED_GROUP,
   WAITING_EXPLANATION,
   WAITING_HEADING,
+  YOUR_PASSWORD,
 } from './copy'
 import { decodeImportReport } from './report'
 import { ClipboardField } from './clipboard-field'
@@ -387,7 +387,7 @@ export default async function RosterPage({
                         {person.holdsAnAccount ? (
                           person.personId === admin.personId ? (
                             <Link className="btn sec small" href="/account">
-                              {CHANGE_YOUR_PASSWORD}
+                              {YOUR_PASSWORD}
                             </Link>
                           ) : (
                             <Link className="btn sec small" href={`/roster/reset/${person.personId}`}>
