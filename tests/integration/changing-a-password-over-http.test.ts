@@ -300,7 +300,9 @@ describe.skipIf(skipUnlessAppIsRunning)('changing your own password over HTTP', 
     // because there was nowhere to point. There is now.
     const own = rowFor(roster, ministry.adminName)
     expect(own).toContain('href="/account"')
-    expect(own).toContain('Change your password')
+    // The row says it short, because it is a tile in a column of tiles. The full
+    // phrase is still on this page, in the header the shell renders.
+    expect(own).toContain('Your password')
     expect(own).not.toContain('You cannot reset your own password')
 
     const { cookie: leadersCookie } = await aSignedInLeader('Tomas Vidal')

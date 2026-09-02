@@ -275,7 +275,7 @@ td .small { margin: 0; }
 
    `stretch` levels the buttons against the tallest of them, so a wrapped label
    does not leave the row looking half-filled. */
-.row-actions.slots { display: grid; grid-template-columns: repeat(3, 7.25rem); gap: 0.3rem; }
+.row-actions.slots { display: grid; grid-template-columns: repeat(3, 7.75rem); gap: 0.3rem; }
 .row-actions.slots > *, .row-actions.slots form { display: block; min-width: 0; }
 /* Identical tiles: same width, same height, one line each. Equal columns and not
    three widths of their own, because tiles that match are what makes the gaps

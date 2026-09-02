@@ -238,6 +238,12 @@ export const RESET_PASSWORD = 'Reset password'
  * whole line to itself, and this is a tile in a column of tiles that all have to
  * be the same width. Shortening the shared one would make the header vaguer to
  * fit a table it does not appear in.
+ *
+ * `Your password` and not `Change password`, which would have read better beside
+ * the `Reset password` on every other account-holding row: at this column's type
+ * it measures 8.04rem against the tile's 7.75rem, and a tile is one line or it is
+ * an ellipsis. The tile is sized to the longest label it has to hold, and the
+ * label is chosen to fit it.
  */
 export const YOUR_PASSWORD = 'Your password'
 

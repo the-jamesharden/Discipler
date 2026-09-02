@@ -113,8 +113,8 @@ describe('what a Ministry may vary', () => {
     expect({ day: seeded.checkin_day, hour: seeded.checkin_hour }).toEqual({ day: 1, hour: 9 })
     // Discipler's words until a Ministry says otherwise, which is a real answer
     // and not an absent one.
-    expect(seeded.leader_noun).toBe('mentor')
-    expect(seeded.participant_noun).toBe('mentee')
+    expect(seeded.leader_noun).toBe('discipler')
+    expect(seeded.participant_noun).toBe('disciple')
     // The safe default for a safeguarding constraint is enforced, never absent.
     expect(seeded.suggest_gender_match).toBe(true)
     // ADR-0001's rule: a 25-34 Leader may be suggested a 35-44 Participant.
@@ -310,7 +310,7 @@ describe('what a Ministry may vary', () => {
 
     await save({ leaderNoun: 'shepherd' }, ministry)
 
-    expect((await settingsOf(other)).leader_noun).toBe('mentor')
+    expect((await settingsOf(other)).leader_noun).toBe('discipler')
   })
 
   /**
