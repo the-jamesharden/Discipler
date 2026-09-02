@@ -1,6 +1,3 @@
-import { createInterface } from 'node:readline'
-import { Writable } from 'node:stream'
-import { provisionMinistry } from '../src/platform/supabase/provisioning'
 
 /**
  * A real Ministry and its first Admin, made by whoever runs Discipler.
@@ -20,8 +17,8 @@ import { provisionMinistry } from '../src/platform/supabase/provisioning'
  *       "Anthem Church" "+15551234567" "Pat Rivera" "+15557654321"
  *
  * The password is asked for on the terminal with echo off, so it is typed by the
- * operator and appears in no shell history and no process list. `DISCIPLER_ADMIN_PASSWORD`
- * in the environment is honoured instead where a prompt is impossible.
+ * operator and appears in no shell history and no process list. Where there is no
+ * terminal, `DISCIPLER_ADMIN_PASSWORD` in the environment is the only way to give it.
  */
 
 const [ministryName, sendingNumber, adminName, adminPhone] = process.argv.slice(2)
@@ -33,18 +30,58 @@ if (!ministryName || !sendingNumber || !adminName || !adminPhone) {
   process.exit(2)
 }
 
+/**
+ * A line from the terminal with echo off: raw mode, so nothing is printed as it is
+ * typed, and Ctrl+C still ends the process.
+ *
+ * A terminal only. When stdin is a pipe, the process under `vite-node` was observed
+ * to end as soon as the pipe closed, before an asynchronous provisioning could
+ * finish: the password was read and the work was cut off half done, with exit 0
+ * and nothing printed. Rather than depend on why, a pipe is refused outright, and
+ * anything driving this without a terminal sets `DISCIPLER_ADMIN_PASSWORD`.
+ */
 const askQuietly = (question: string): Promise<string> =>
-  new Promise((resolve) => {
-    // Everything readline would echo goes nowhere; the question itself is written
-    // straight to the terminal so it still shows.
-    const muted = new Writable({ write: (_chunk, _encoding, done) => done() })
-    const prompt = createInterface({ input: process.stdin, output: muted, terminal: true })
+  new Promise((resolve, reject) => {
+    const { stdin } = process
+
+    if (!stdin.isTTY) {
+      return reject(
+        new Error(
+          'No terminal to ask for the password on. Set DISCIPLER_ADMIN_PASSWORD when running '
+            + 'this without one.',
+        ),
+      )
+    }
+
     process.stderr.write(question)
-    prompt.question('', (answer) => {
-      prompt.close()
+
+    let typed = ''
+    const finish = (outcome: () => void) => {
+      stdin.setRawMode(false)
+      stdin.pause()
+      stdin.removeListener('data', onKey)
       process.stderr.write('\n')
-      resolve(answer)
-    })
+      outcome()
+    }
+    // A chunk is one keystroke when somebody types and a whole line when they
+    // paste, so the return is looked for inside the chunk rather than as the chunk.
+    const onKey = (chunk: string) => {
+      for (const key of chunk) {
+        if (key === '\u0003') {
+          return finish(() => reject(new Error('Interrupted; nothing was created.')))
+        }
+        if (key === '\r' || key === '\n') return finish(() => resolve(typed))
+        if (key === '\u007f' || key === '\b') {
+          typed = typed.slice(0, -1)
+          continue
+        }
+        typed += key
+      }
+    }
+    stdin.setRawMode(true)
+    stdin.setEncoding('utf8')
+    stdin.resume()
+    stdin.on('data', onKey)
   })
 
 const password =
@@ -54,6 +91,10 @@ if (!password) {
   console.error('No password given; nothing was created.')
   process.exit(2)
 }
+
+// Loaded only now, after the password has been read, so a mistyped invocation is
+// refused before the platform modules and their credentials are touched at all.
+const { provisionMinistry } = await import('../src/platform/supabase/provisioning')
 
 const provisioned = await provisionMinistry({
   name: ministryName,
