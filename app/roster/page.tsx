@@ -1,6 +1,5 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { CHANGE_YOUR_PASSWORD } from '../account/copy'
 import { AdminShell, initialsOf, NotAnAdmin } from '../shell'
 import { resolveAdmin } from '~/platform/supabase/current-admin'
 import { getRosterReader } from '~/service/container'
@@ -49,6 +48,7 @@ import {
   UNNAMED_GROUP,
   WAITING_EXPLANATION,
   WAITING_HEADING,
+  YOUR_PASSWORD,
 } from './copy'
 import { decodeImportReport } from './report'
 import { ClipboardField } from './clipboard-field'
@@ -325,7 +325,7 @@ export default async function RosterPage({
                           completed Intake -- planning while waiting on them is the
                           whole reason it is here -- and it makes nobody pairable. */}
                       <td>
-                        <div className="row-actions">
+                        <div className="row-actions stack">
                         {person.eligibleToLead ? <span className="pill n" style={{ marginLeft: 0 }}>Eligible to lead</span> : null}
                         <form method="post" action="/roster/eligibility">
                           <input type="hidden" name="personId" value={person.personId} />
@@ -351,12 +351,24 @@ export default async function RosterPage({
                           number and an availability that has changed -- are as likely
                           before Intake as after it. */}
                       <td>
-                        <div className="row-actions">
+                        {/* Three slots, in the same order on every row, and an
+                            empty one where an action does not apply. The actions a
+                            row carries vary -- only a `ready_to_pair` Person can be
+                            paired, and only somebody with an account can have a
+                            password reset -- so a list that simply closed up the
+                            gaps put `Intake link` in a different place on almost
+                            every row, and an Admin scanning the column had to read
+                            each button to find the one they wanted. Holding the
+                            gap open costs a little width and makes the column
+                            scannable down its own edges. */}
+                        <div className="row-actions slots">
                         {person.participationStatus === 'ready_to_pair' ? (
                           <Link className="btn sec small" href={`/roster/pair?with=${person.personId}`}>
                             Pair
                           </Link>
-                        ) : null}
+                        ) : (
+                          <span className="slot-empty" aria-hidden="true" />
+                        )}
                         <form method="post" action="/roster/intake-link">
                           <input type="hidden" name="personId" value={person.personId} />
                           <button type="submit" className="sec small">
@@ -375,14 +387,16 @@ export default async function RosterPage({
                         {person.holdsAnAccount ? (
                           person.personId === admin.personId ? (
                             <Link className="btn sec small" href="/account">
-                              {CHANGE_YOUR_PASSWORD}
+                              {YOUR_PASSWORD}
                             </Link>
                           ) : (
                             <Link className="btn sec small" href={`/roster/reset/${person.personId}`}>
                               {RESET_PASSWORD}
                             </Link>
                           )
-                        ) : null}
+                        ) : (
+                          <span className="slot-empty" aria-hidden="true" />
+                        )}
                         </div>
                         {issuedFor === person.personId && issuedLink ? (
                           <div className="toast" role="status" style={{ marginTop: '0.75rem', marginBottom: 0 }}>

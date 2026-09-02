@@ -376,7 +376,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
   it('shows the offer on the Roster row, beside the plan it is not', async () => {
     const { html } = await getPage('/roster', cookie)
 
-    expect(html).toContain('Offered to mentor')
+    expect(html).toContain('Offered to disciple')
     // Only the mentor answer is said. It is the one an Admin might act on, and a
     // word in every other row would make a column of state out of one signal.
     expect(html).not.toContain('Asked to be mentored')

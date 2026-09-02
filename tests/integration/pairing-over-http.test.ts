@@ -302,7 +302,11 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
   it('asks what kind of group this is, with nothing answered for the Admin', async () => {
     const { html } = await getPage('/roster/pair', cookie)
 
-    expect(html).toContain('what kind of group is it')
+    // The question moved into a panel of its own, headed once, so the legend no
+    // longer repeats the condition -- and it is asserted with the capital it now
+    // carries as the first word of its own heading.
+    expect(html).toContain('If this is a group')
+    expect(html).toContain('What kind of group is it')
     // Three answers and no default. A preselected radio would answer a safeguarding
     // question on the Admin's behalf, which is the whole of what "ask outright" rules
     // out -- so no `declaredGender` input arrives checked.

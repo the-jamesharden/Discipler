@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { PairingRefusal } from '~/domain/errors'
-import { REFUSALS, pairingRefusalMessage } from '../../app/roster/copy'
+import { REFUSALS, pairingRefusalMessage, roleHeading } from '../../app/roster/copy'
 
 /**
  * A refusal that reaches the Admin as a constraint name, or as nothing at all, is
@@ -111,5 +111,30 @@ describe('what a refused pairing says to an Admin', () => {
   it('falls back rather than rendering a blank alert for a code it does not know', () => {
     expect(pairingRefusalMessage('something_else_entirely')).toBeTruthy()
     expect(pairingRefusalMessage(undefined)).toBeUndefined()
+  })
+})
+
+/**
+ * The two lists on the pairing form are headed by the Ministry's own words for the
+ * two roles, so the form and the messages that Ministry sends cannot say different
+ * things about the same person.
+ */
+describe('the words the pairing form heads its two lists with', () => {
+  it('capitalises the noun a Ministry stores lowercase', () => {
+    expect(roleHeading('discipler')).toBe('Discipler')
+    expect(roleHeading('disciple')).toBe('Disciple')
+  })
+
+  it('leaves the rest of the noun exactly as the Ministry typed it', () => {
+    // Only the first letter is a heading's to change. A Ministry that wrote three
+    // words meant three words, and title-casing them would be this screen
+    // retitling somebody else's vocabulary.
+    expect(roleHeading('small group leader')).toBe('Small group leader')
+    expect(roleHeading('MENTOR')).toBe('MENTOR')
+    expect(roleHeading('d-group leader')).toBe('D-group leader')
+  })
+
+  it('is unchanged by a noun that already starts capitalised', () => {
+    expect(roleHeading('Discipler')).toBe('Discipler')
   })
 })

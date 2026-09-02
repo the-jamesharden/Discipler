@@ -177,7 +177,7 @@ export const IMPORT_IS_NEVER_CONSENT =
  * every other row would make a column of state out of a signal, and *asked to be
  * mentored* is what every Person on this Roster is already presumed to want.
  */
-export const OFFERED_TO_MENTOR = 'Offered to mentor'
+export const OFFERED_TO_MENTOR = 'Offered to disciple'
 
 /**
  * Whether this is their first time, per candidate, on the pairing screen. Both
@@ -192,6 +192,22 @@ export const OFFERED_TO_MENTOR = 'Offered to mentor'
  */
 export const firstTimeLabel = (firstTime: boolean): string =>
   firstTime ? 'New to this' : 'Has done this before'
+
+/**
+ * A Ministry's word for one of the two roles, as a heading over the people who
+ * hold it.
+ *
+ * The pairing form used to head its two lists `Leading` and `Discipling`, which
+ * said what the Admin was doing rather than what this Ministry calls the person
+ * they are choosing -- and a Ministry whose every message says `discipler` read
+ * one word on the form and another in the text that went out. The nouns are stored
+ * as they were typed, lowercase by convention and free-form by design, so only the
+ * first letter is touched: `discipler` heads a list as `Discipler`, and a Ministry
+ * that typed `small group leader` gets `Small group leader` rather than a heading
+ * that has retitled their words for them.
+ */
+export const roleHeading = (noun: string): string =>
+  noun.charAt(0).toUpperCase() + noun.slice(1)
 
 /**
  * Said beside the relationship rather than beside the Person, because it is a fact
@@ -212,6 +228,24 @@ export const AWAITING_LEADER_ACCEPTANCE = 'Awaiting Leader Acceptance'
  * that the product does not know its own state.
  */
 export const RESET_PASSWORD = 'Reset password'
+
+/**
+ * The same action as `CHANGE_YOUR_PASSWORD`, said short enough to sit in the
+ * Roster's Actions column beside `Reset password`.
+ *
+ * Its own constant rather than the account page's phrase, because the two are
+ * read in different places: `Change your password` is a link in a header with a
+ * whole line to itself, and this is a tile in a column of tiles that all have to
+ * be the same width. Shortening the shared one would make the header vaguer to
+ * fit a table it does not appear in.
+ *
+ * `Your password` and not `Change password`, which would have read better beside
+ * the `Reset password` on every other account-holding row: at this column's type
+ * it measures 8.04rem against the tile's 7.75rem, and a tile is one line or it is
+ * an ellipsis. The tile is sized to the longest label it has to hold, and the
+ * label is chosen to fit it.
+ */
+export const YOUR_PASSWORD = 'Your password'
 
 const PROBLEMS: Record<RowProblem, string> = {
   no_name: 'no name',

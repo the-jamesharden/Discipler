@@ -112,7 +112,7 @@ describe.skipIf(skipUnlessAppIsRunning)('resetting a password over HTTP', () => 
     // account-holding row has an action.
     expect(own).not.toContain(`/roster/reset/${ministry.adminPersonId}`)
     expect(own).toContain('href="/account"')
-    expect(own).toContain('Change your password')
+    expect(own).toContain('Your password')
   })
 
   it('names the Person, warns about the sign-out, and shows no phone number', async () => {
