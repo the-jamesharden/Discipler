@@ -263,6 +263,31 @@ td .small { margin: 0; }
    widening it off the screen. */
 .row-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
 .row-actions form { display: inline; }
+
+/* The Actions column: one slot per action, held open whether or not that row
+   carries it, so the same action sits under itself all the way down.
+
+   Fixed widths and not `1fr`, because each cell is its own grid -- a table does
+   not align a grid in one row against a grid in the next -- so the only thing
+   that lines two rows up is both asking for the same width. Sized to their own
+   labels: Pair is one short word, and the password action is the long one and
+   wraps inside its slot rather than widening the column for every other row.
+
+   `stretch` levels the buttons against the tallest of them, so a wrapped label
+   does not leave the row looking half-filled. */
+.row-actions.slots { display: grid; grid-template-columns: 4.75rem 7rem 7rem; align-items: stretch; }
+.row-actions.slots > *, .row-actions.slots form { display: block; min-width: 0; height: 100%; }
+.row-actions.slots .btn.small, .row-actions.slots button.small {
+  display: block; width: 100%; height: 100%; text-align: center;
+  white-space: normal; line-height: 1.3;
+}
+.slot-empty { display: block; }
+
+/* Eligible to lead: the pill above the toggle rather than beside it, and the
+   toggle a fixed width -- its two labels are different lengths, and left to
+   themselves they made a ragged edge down the middle of the table. */
+.row-actions.stack { flex-direction: column; align-items: flex-start; }
+.row-actions.stack button.small { width: 9.5rem; text-align: center; white-space: normal; }
 .person { display: flex; align-items: center; gap: 0.6rem; }
 .avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--primary); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 0.78rem; font-weight: 700; flex-shrink: 0; }
 .rs { display: inline-block; font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.2rem 0.55rem; border-radius: 3px; white-space: nowrap; }
@@ -313,6 +338,25 @@ input[type="file"] { display: block; margin-bottom: 1rem; font-size: 0.88rem; }
 .option-desc { color: var(--text-light); font-size: 0.85rem; margin-top: 0.15rem; }
 .form-actions { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; margin-top: 1.5rem; }
 .form-actions .btn.sec { font-weight: 500; }
+
+/* A block of questions only some shapes answer, set apart from the ones every
+   shape answers. On the pairing form it is the two group questions: an Admin
+   forming a one-to-one should see that neither of them is theirs before reading
+   a word, and the panel is what says so.
+
+   One device and not three -- a tinted ground inside a hairline, no shadow --
+   because it is an aside within a card and not a second card on top of one.
+   The gap above it is what separates it; the rule inside it separates its own
+   two questions from each other. */
+.aside { margin-top: 2.25rem; padding: 1.35rem 1.5rem; background: rgba(45, 80, 22, 0.05); border: 1px solid var(--accent); border-radius: 8px; }
+.aside-title { font-size: 1.15rem; margin-bottom: 0.15rem; }
+.aside > .subtle { margin-top: 0; margin-bottom: 1.25rem; }
+.aside fieldset { margin-bottom: 0; }
+.aside fieldset .choices { margin-bottom: 0; }
+.aside-legend { font-size: 1rem; color: var(--text); }
+.aside-part { border-top: 1px solid var(--border); margin-top: 1.35rem; padding-top: 1.35rem; }
+.aside .field:last-of-type { margin-bottom: 0.85rem; }
+.aside .check:last-child { margin-bottom: 0; }
 
 /* ---- the wizard's progress bar ---- */
 
