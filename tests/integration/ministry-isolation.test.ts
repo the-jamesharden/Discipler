@@ -1,5 +1,4 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { createTestClock } from '~/domain/clock'
 import { createPostgresEffectStore } from '~/platform/supabase/effect-store'
 import {
   addPerson,
@@ -31,27 +30,6 @@ describe('two Ministries operating concurrently', () => {
     await addPerson(riverside, 'Ada Rowe')
     await addPerson(northgate, 'Ben Okafor')
 
-    const store = createPostgresEffectStore(localSupabase().databaseUrl)
-    const clock = createTestClock(new Date('2026-03-02T09:00:00Z'))
-    try {
-      for (const ministry of [riverside, northgate]) {
-        await store.transact(ministry.id, (sink) =>
-          sink.appendHistory([
-            {
-              ministryId: ministry.id,
-              occurredAt: clock.now(),
-              type: 'ministry.opened',
-              subjectType: 'ministry',
-              subjectId: ministry.id,
-              payload: { name: ministry.name },
-            },
-          ]),
-        )
-      }
-    } finally {
-      await store.close()
-    }
-
     asRiverside = await signInAs(riverside)
     asNorthgate = await signInAs(northgate)
   })
@@ -77,10 +55,11 @@ describe('two Ministries operating concurrently', () => {
   })
 
   it('each sees only its own history', async () => {
+    // Each Ministry's history begins with its own opening, written by
+    // provisioning -- so there is exactly one event here and it is Northgate's.
     const { data } = await asNorthgate.from('ministry_event').select('ministry_id, type')
 
-    expect(data).toHaveLength(1)
-    expect(data?.[0]?.ministry_id).toBe(northgate.id)
+    expect(data).toEqual([{ ministry_id: northgate.id, type: 'ministry.opened' }])
   })
 
   it('asking for the other Ministry by id returns nothing rather than its data', async () => {
@@ -237,7 +216,8 @@ describe('the write side', () => {
     const asNorthgate = await signInAs(northgate)
     const { data } = await asNorthgate.from('ministry_event').select('type')
 
-    expect(data).toEqual([])
+    // Only its own opening, which was there before anything was refused.
+    expect(data).toEqual([{ type: 'ministry.opened' }])
   })
 })
 

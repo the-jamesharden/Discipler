@@ -887,6 +887,22 @@ password, and a lost password requires an Admin reset until they ship.
 
 See `docs/adr/0008-the-phone-number-is-the-sign-in-credential.md`.
 
+## Settled: A Ministry Opens From a Ministry Setup Link
+
+A Ministry comes into existence when its first Admin opens a Ministry Setup Link.
+Whoever runs Discipler mints the link with the church's name, the number it sends from, and the phone its Admin will sign in with, and sends it to the Admin by hand.
+The Admin opens it, sees the church and the number, types their name and a password, and that one submit creates their account, the Ministry, their place on its Roster and their Admin access, and spends the link.
+
+There is no sign-up surface.
+A Ministry exists because an operator said so; the link only moves the typing of the password to the person who owns it.
+
+The link keeps every property of an Invitation Link: possession of it is the whole authentication, the phone is displayed and never typed, it runs out after a fixed window, it is spent by account creation and not by being opened, and minting again for the same phone replaces it.
+A number that already signs somebody in is refused when the link is minted, so the operator hears it rather than the pastor.
+
+A Ministry opening is the first event in its history, `ministry.opened`, and the arrival of its first Admin is part of that event rather than a second one.
+
+See `docs/adr/0019-a-ministry-opens-from-a-link.md`.
+
 ## Settled: The Follow-Up Item Kinds
 
 Care Needed draws on **three** sources, not one: derived relationship states (`Stalled`,

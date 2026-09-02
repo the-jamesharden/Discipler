@@ -89,6 +89,31 @@ describe('provisioning a Ministry and its first Admin', () => {
     expect(rows).toEqual([{ tier: 'admin' }])
   })
 
+  it('writes the opening down as the first event in the history', async () => {
+    const ministry = await createMinistryWithAdmin('Opened Chapel', 'Opened It')
+
+    const { rows } = await pool.query<{
+      type: string
+      subject_type: string
+      subject_id: string
+      payload: { name: string; adminPersonId: string }
+    }>(`select type, subject_type, subject_id, payload from ministry_event where ministry_id = $1`, [
+      ministry.id,
+    ])
+
+    // One event for one act. The Admin's arrival is inside the opening rather
+    // than beside it, because a Ministry with no Admin is not a state the
+    // product has -- see `docs/adr/0019-a-ministry-opens-from-a-link.md`.
+    expect(rows).toEqual([
+      {
+        type: 'ministry.opened',
+        subject_type: 'ministry',
+        subject_id: ministry.id,
+        payload: { name: 'Opened Chapel', adminPersonId: ministry.adminPersonId },
+      },
+    ])
+  })
+
   it('reads a number typed the way an operator would type it', async () => {
     // The same reading the Roster, the Intake form and the sign-in form use. A
     // second one here would drift, and the way it would fail is an Admin whose

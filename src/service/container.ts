@@ -22,6 +22,10 @@ import { supabaseDiscipleshipGoalReader } from '~/platform/supabase/discipleship
 import { supabaseLeaderDashboardReader } from '~/platform/supabase/leader-dashboard'
 import { supabaseMinistrySettingsReader } from '~/platform/supabase/ministry-settings'
 import {
+  createSupabaseMinistrySetup,
+  type SupabaseMinistrySetup,
+} from '~/platform/supabase/ministry-setup'
+import {
   createPostgresMinistryDirectory,
   type PostgresMinistryDirectory,
 } from '~/platform/supabase/ministry-directory'
@@ -46,6 +50,7 @@ import type {
   MessageTransport,
   MinistryDirectory,
   MinistrySettingsReader,
+  MinistrySetup,
   OutboundQueue,
   OverviewReader,
   RosterReader,
@@ -94,6 +99,7 @@ let commandService: CommandService | undefined
 let commandStore: PostgresEffectStore | undefined
 let intakeReader: PostgresIntakeReader | undefined
 let invitationReader: PostgresInvitationReader | undefined
+let ministrySetup: SupabaseMinistrySetup | undefined
 let inboundReader: PostgresInboundReader | undefined
 let outboundQueue: PostgresOutboundQueue | undefined
 let ministryDirectory: PostgresMinistryDirectory | undefined
@@ -133,6 +139,17 @@ export const getInvitationReader = (): InvitationReader => {
     invitationReader = createPostgresInvitationReader(commandDatabaseUrl())
   }
   return invitationReader
+}
+
+/**
+ * The Ministry Setup Link's page is served to a pastor with no account and no
+ * Ministry yet, so it runs on the same trusted connection provisioning does. It
+ * is where a real Ministry comes from; the seed and the fixtures go straight to
+ * provisioning because they have no link to spend.
+ */
+export const getMinistrySetup = (): MinistrySetup => {
+  if (!ministrySetup) ministrySetup = createSupabaseMinistrySetup(commandDatabaseUrl())
+  return ministrySetup
 }
 
 /**

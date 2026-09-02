@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createTestClock } from '~/domain/clock'
 import { goalWording } from '~/domain/discipleship-goals'
 import { GoalRefused, IntakeRefused } from '~/domain/errors'
-import type { IdSource } from '~/domain/ids'
+import { ministryId, type IdSource } from '~/domain/ids'
 import { discipleshipGoalId } from '~/domain/intake'
 import { createPostgresEffectStore } from '~/platform/supabase/effect-store'
 import { createCommandService } from '~/service/command-service'
@@ -362,15 +362,23 @@ describe('a Ministry’s Discipleship Goal options', () => {
   })
 
   it('lets a Ministry be deleted with its options, which is not an edit', async () => {
-    const closing = await createMinistryWithAdmin('Southbank Chapel')
+    // A bare row, not a provisioned Ministry. Every Ministry the product opens
+    // carries its opening in an append-only history, and that history refuses the
+    // cascade before the floor is ever asked -- so a provisioned Ministry cannot
+    // be deleted by anything, which is the history rule and not this trigger's.
+    // What this proves is narrower: the floor itself tells a cascade from an
+    // edit, on the one kind of row where the cascade gets that far.
+    const { rows } = await pool.query<{ id: string }>(
+      `insert into ministry (name) values ('Southbank Chapel') returning id`,
+    )
+    const closing = { id: ministryId(rows[0]!.id) }
+    expect(await theList(closing as MinistryFixture)).not.toEqual([])
 
-    // The cascade takes the list with the form nobody will open again. A floor that
-    // could not tell that from an edit would make a Ministry undeletable.
     await expect(
       pool.query(`delete from ministry where id = $1`, [closing.id]),
     ).resolves.toBeDefined()
 
-    expect(await theList(closing)).toEqual([])
+    expect(await theList(closing as MinistryFixture)).toEqual([])
   })
 
   it('never lets one Ministry’s edit reach another’s list', async () => {

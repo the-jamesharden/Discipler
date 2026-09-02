@@ -86,6 +86,27 @@ export class InvitationRefused extends Error {
 }
 
 /**
+ * Why a Ministry Setup Link would not open a Ministry. The same three answers an
+ * Invitation Link gives, for the same page-shaped reason: each is a different
+ * sentence, and none of them names the church to somebody whose token did not
+ * resolve.
+ */
+export type MinistrySetupRefusal =
+  /** Nothing answers to that token. */
+  | 'setup.not_found'
+  /** The window has passed. The operator mints again; nobody self-serves. */
+  | 'setup.expired'
+  /** Already spent opening a Ministry. Their way in is to sign in. */
+  | 'setup.already_used'
+
+export class MinistrySetupRefused extends Error {
+  constructor(readonly refusal: MinistrySetupRefusal) {
+    super(refusal)
+    this.name = 'MinistrySetupRefused'
+  }
+}
+
+/**
  * The import read the Roster and the database disagreed with what it read, which
  * can only happen when something else wrote between the two. The import is refused
  * whole rather than partly applied, so the Admin re-uploads the same file and gets

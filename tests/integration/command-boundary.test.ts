@@ -15,9 +15,13 @@ describe('driving the command boundary against a real Ministry', () => {
   let pool: pg.Pool
   const clock = createTestClock(new Date('2026-03-02T09:00:00Z'))
 
+  // What the command boundary added. A Ministry's history begins with its own
+  // opening, written by provisioning before any command runs, and that one is
+  // not the boundary's to be counted against.
   const countRows = async (table: 'ministry_event' | 'outbound_message') => {
     const { rows } = await pool.query(
-      `select count(*)::int as n from ${table} where ministry_id = $1`,
+      `select count(*)::int as n from ${table} where ministry_id = $1
+        ${table === 'ministry_event' ? "and type <> 'ministry.opened'" : ''}`,
       [ministry.id],
     )
     return rows[0].n as number

@@ -64,6 +64,8 @@ import type {
   SerialisationOfAMessage,
 } from '~/domain/outstanding-reply'
 import type { InvitationToken, NewInvitation } from '~/domain/invitations'
+import type { MinistrySetupState, NewMinistrySetup } from '~/domain/ministry-setup'
+import type { MinistrySetupRefusal } from '~/domain/errors'
 import type { HistoryEvent, NewHistoryEvent } from '~/domain/history'
 import type { AgeBand, DeclaredSide, DiscipleshipGoalId, Gender } from '~/domain/intake'
 import type {
@@ -1226,6 +1228,54 @@ export interface InvitationReader {
    * tells its holder anything about a Ministry they have not proved they belong to.
    */
   readInvitationPage(token: string): Promise<InvitationPage | null>
+}
+
+/**
+ * What the Ministry Setup Link's page shows. Only what its holder is being asked
+ * to agree to: the church they are opening and the number they will sign in with.
+ */
+export interface MinistrySetupPage {
+  readonly ministryName: string
+  /** Displayed, never requested. A forwarded link cannot re-point the account. */
+  readonly adminPhone: string
+  readonly state: MinistrySetupState
+}
+
+/**
+ * How a Ministry comes into existence. Three acts, none of them behind a session:
+ * an operator mints a link, its holder opens it, and its holder spends it opening
+ * their Ministry. There is no fourth -- no sign-up -- and there is not meant to be.
+ */
+export interface MinistrySetup {
+  /**
+   * Minted by whoever runs Discipler, with the numbers read the way the product
+   * reads them. A second mint for the same phone replaces the first, which is the
+   * only way a link is ever taken back. Throws rather than refuses: there is an
+   * operator at a terminal, not a person at a page.
+   */
+  issue(link: {
+    readonly ministryName: string
+    readonly sendingNumber: string
+    readonly adminPhone: string
+  }): Promise<NewMinistrySetup>
+  /**
+   * Resolving does not consume, like an Invitation Link. Null when nothing
+   * answers to the token, which says nothing about whether one ever existed.
+   */
+  read(token: string): Promise<MinistrySetupPage | null>
+  /**
+   * The one submit: a name and a password become an account, a Ministry, its
+   * first Admin's Person row and their membership, in one transaction that also
+   * spends the link. A refusal is the account's or the link's, and is wording on
+   * the page; anything else is a fault.
+   */
+  open(
+    token: string,
+    admin: { readonly fullName: string; readonly password: string },
+  ): Promise<
+    | { readonly ministryId: MinistryId }
+    | { readonly refusal: MinistrySetupRefusal | AccountCreationRefusal }
+  >
 }
 
 /**

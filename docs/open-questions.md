@@ -319,26 +319,20 @@ Groups formed before ticket 29 have no name until an Admin gives them one.
 The second consumer of the name is the group Intake link, which offers a group by name and nothing else.
 See `docs/adr/0017-picking-a-group-joins-it.md`.
 
-## Open: whether provisioning a Ministry is itself a ministry event
+## Resolved: provisioning a Ministry is a ministry event, and provisioning records it
 
-Raised by ticket 24, which made provisioning product code and deliberately did not
-answer this.
+A Ministry opening is the first event in its history, `ministry.opened`, with the Ministry as its subject and its first Admin's Person id in the payload.
+Provisioning writes it directly, beside the command boundary rather than through it, because there is no Ministry to scope a command to until the row exists.
+The first Admin's arrival is inside the opening rather than a second event, because the transaction makes them one act and a Ministry with no Admin is not a state the product has.
 
-`provisionMinistry` writes four things -- a Ministry, an account, the Admin's Person
-row, and their `ministry_member` row -- and records no history for any of them. Every
-other Person reaches a Roster through the command boundary and leaves an event
-behind, so the Admin is the one Person on a Roster whose arrival is not written down.
+What made it answerable was the Ministry Setup Link: once a real Ministry is opened by its Admin spending a link rather than by an operator running a script, the opening is plainly something that happened to the Ministry.
+`tests/integration/ministry-isolation.test.ts` no longer writes the event by hand.
 
-It is not simply an oversight to correct. History is scoped to a Ministry, and there
-is no Ministry to scope a command to until the row the command would be scoped to
-exists, so a `ministry.opened` event is a genuine question about where the boundary
-starts rather than a missing call. `tests/integration/ministry-isolation.test.ts`
-already writes a `ministry.opened` event by hand to have something to assert
-isolation against, which is the closest thing to a decision anybody has made.
+Settled 2026-09-01.
+Recorded in `docs/product-rules.md` under *Settled: A Ministry Opens From a Ministry Setup Link* and in `docs/adr/0019-a-ministry-opens-from-a-link.md`.
 
-What needs answering: whether a Ministry opening and its first Admin arriving are
-ministry events in their own right; and if they are, whether provisioning records
-them directly or the command boundary grows a way to open a Ministry.
+Still undecided, and narrower: whether a phone that already signs somebody in may open a second Ministry on the same account.
+The mint refuses it today, while the operator can still act.
 
 ## Open: what happens when a Person's Intake contradicts a relationship they are already in
 
