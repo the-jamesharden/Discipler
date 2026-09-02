@@ -14,7 +14,9 @@ import type {
   RelationshipSnapshot,
   UnacceptedRelationship,
 } from '~/domain/boundary'
-import type { CheckInSnapshot } from '~/domain/check-in'
+import type { CheckInSnapshot, Satisfaction } from '~/domain/check-in'
+import type { CheckInCounts } from '~/domain/overview'
+import type { IsoWeek } from '~/domain/week'
 import type { ConcernResolution, ConcernViewing, NewConcern } from '~/domain/concerns'
 import type {
   CheckInAnswer,
@@ -1098,7 +1100,7 @@ export interface IntakePrefill {
   readonly gender: Gender | null
   readonly goalId: DiscipleshipGoalId | null
   /**
-   * Slot keys as the grid submits them -- `monday:midday`. Deliberately the form's
+   * Slot keys as the grid submits them -- `monday:08`. Deliberately the form's
    * own wire shape rather than `AvailabilitySlot`, because this is what the form
    * takes back: `IntakeFormFields.availability` is the same list of strings, and a
    * prefill in a different shape would be parsed on the way in and re-encoded on
@@ -1262,6 +1264,17 @@ export interface FollowUpCareItem {
 }
 
 /**
+ * One person in a relationship a care item is about, with the id the reveal
+ * needs. Names alone are what the sentence is written from; the id is what
+ * `contactToShare` is asked with, one Person at a time.
+ */
+export interface CareMember {
+  readonly personId: PersonId
+  readonly fullName: string
+  readonly role: MemberRole
+}
+
+/**
  * One relationship whose *derived* state asks for attention -- today, a Stalled
  * one. Not a stored row and nothing to close: it clears itself the moment the
  * Leader answers, which is exactly why it could never have been a Follow-Up Item.
@@ -1278,6 +1291,8 @@ export interface RelationshipCareItem {
   /** Who to call, and who the relationship is for. */
   readonly leaderNames: readonly string[]
   readonly participantNames: readonly string[]
+  /** Everyone still in it, for the one-at-a-time reveal. */
+  readonly members: readonly CareMember[]
   /** Unresolved Concerns standing beside it. A Stalled relationship may have some. */
   readonly openConcerns: number
 }
@@ -1305,6 +1320,8 @@ export interface ConcernCareItem {
   /** Newest first. The count the badge shows is this length. */
   readonly concerns: readonly OutstandingConcern[]
   readonly participantNames: readonly string[]
+  /** Everyone still in it, for the one-at-a-time reveal. */
+  readonly members: readonly CareMember[]
 }
 
 /**
@@ -1347,4 +1364,88 @@ export interface CareNeededReader {
    * it, because the two callers are not the same principal.
    */
   contactToShare(ministryId: MinistryId, personId: PersonId): Promise<ContactDetails | null>
+}
+
+/**
+ * The Overview tab's ports.
+ *
+ * One relationship as the Overview lists it: who is in it, when it started, and
+ * what its history derives -- the same derivation Care Needed runs, so the two
+ * surfaces cannot disagree about which relationships are Stalled.
+ */
+export interface OverviewRelationship {
+  readonly relationshipId: RelationshipId
+  readonly leaderNames: readonly string[]
+  readonly participantNames: readonly string[]
+  /** Null while it is Awaiting Leader Acceptance. */
+  readonly acceptedAt: Date | null
+  readonly state: RelationshipState
+  /** Empty unless the state is Stalled. */
+  readonly reasons: readonly CareReason[]
+  /** Unresolved Concerns standing beside it, whatever its state. */
+  readonly openConcerns: number
+}
+
+export interface Overview {
+  /**
+   * Every relationship that has not ended, in a stable order. An unaccepted one
+   * is included only once it has waited the five days ticket 07 surfaces it at;
+   * the ones still hidden are counted beside the list because the page prints it.
+   */
+  readonly relationships: readonly OverviewRelationship[]
+  readonly unsurfacedUnaccepted: number
+  /** Accepted, not paused, not ended. */
+  readonly active: number
+  readonly paused: number
+  /** Over every relationship-week on record. */
+  readonly counts: CheckInCounts
+  /** Relationship-weeks in the current ISO week, in the Ministry's timezone, with an `answeredAt`. */
+  readonly completedThisWeek: number
+}
+
+export interface OverviewReader {
+  /**
+   * The whole tab in one read, against one reading of the clock. Read through the
+   * signed-in Admin's session, so the policies are what scope it to their
+   * Ministry; an empty Ministry comes back as zeros and an empty list rather than
+   * as a failure.
+   */
+  readOverview(ministryId: MinistryId): Promise<Overview>
+}
+
+/**
+ * The Check-Ins tab's ports: this ISO week's relationship-weeks, one per
+ * relationship a Check-In Sequence covered this week.
+ */
+export interface CheckInThisWeek {
+  readonly relationshipId: RelationshipId
+  readonly leaderNames: readonly string[]
+  readonly participantNames: readonly string[]
+  /**
+   * When the question about this relationship went out, or null where the
+   * sequence covering it has not reached it yet.
+   */
+  readonly sentAt: Date | null
+  readonly answeredAt: Date | null
+  readonly met: boolean | null
+  readonly satisfaction: Satisfaction | null
+  /** Whether the Concern this week's answer raised is still unresolved. */
+  readonly concernOpen: boolean
+}
+
+export interface ThisWeeksCheckIns {
+  readonly week: IsoWeek
+  /** When this week's first sequence opened, or null where none has. */
+  readonly sentAt: Date | null
+  readonly checkIns: readonly CheckInThisWeek[]
+}
+
+export interface CheckInsReader {
+  /**
+   * The current ISO week's relationship-weeks, in the Ministry's own timezone.
+   * Nothing here carries Concern text: the words are reached one Person at a
+   * time through `CommandService.openConcern`, and the authenticated role holds
+   * no grant on that column.
+   */
+  readThisWeeksCheckIns(ministryId: MinistryId): Promise<ThisWeeksCheckIns>
 }

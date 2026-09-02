@@ -81,7 +81,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person reopening their own Intake', (
     expect(html).toContain('Ada Bello')
     // The slot they chose comes back ticked, which is what makes this a correction
     // rather than filling the whole form in again.
-    expect(html).toMatch(/<input[^>]*checked=""[^>]*value="monday:midday"/)
+    expect(html).toMatch(/<input[^>]*checked=""[^>]*value="monday:12"/)
   })
 
   it('takes a corrected number without filing a second Person', async () => {
@@ -101,7 +101,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person reopening their own Intake', (
         smsConsent: 'yes',
         contactSharing: 'granted',
       },
-      ['thursday:evening'],
+      ['thursday:18'],
     )
 
     expect(response.status).toBe(303)
@@ -130,7 +130,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person reopening their own Intake', (
         goalId: await goalId(),
         contactSharing: 'granted',
       },
-      ['monday:midday'],
+      ['monday:12'],
     )
 
     expect(location).toContain('refused=intake.sms_consent_required')

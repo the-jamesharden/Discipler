@@ -1,4 +1,4 @@
-import type { DayBlock, Weekday } from '~/domain/intake'
+import { SLOT_HOURS, type SlotHour, type Weekday } from '~/domain/intake'
 
 /**
  * The Leader Dashboard's wording, kept beside the page that renders it for the
@@ -19,30 +19,21 @@ export const weekdayLabel: Record<Weekday, string> = {
 }
 
 /**
- * Named blocks, not clock times. A person answering *when could you meet* is
- * describing the shape of their day and not committing to an hour, so a label that
- * said "6-9am" would be promising a precision the answer does not have. See
- * `docs/adr/0006-the-availability-grid.md`.
+ * The hours, spelled the way a person says them. `08` is *8am* and `13` is *1pm*:
+ * the twelve column headings, and the word that names a slot in a sentence. Built
+ * from the domain's list rather than written out, so a grid that gained an hour
+ * would gain a heading with it. See `docs/adr/0018-the-hourly-grid.md`.
  */
-export const dayBlockLabel: Record<DayBlock, string> = {
-  early_morning: 'Early morning',
-  morning: 'Morning',
-  midday: 'Midday',
-  afternoon: 'Afternoon',
-  evening: 'Evening',
-}
+export const hourLabel: Record<SlotHour, string> = Object.fromEntries(
+  SLOT_HOURS.map((hour) => {
+    const twentyFour = Number.parseInt(hour, 10)
+    const twelve = twentyFour % 12 === 0 ? 12 : twentyFour % 12
+    return [hour, `${twelve}${twentyFour < 12 ? 'am' : 'pm'}`]
+  }),
+) as Record<SlotHour, string>
 
-/** The short form for the column headings, where the full one will not fit. */
-export const dayBlockShortLabel: Record<DayBlock, string> = {
-  early_morning: 'Early',
-  morning: 'Morning',
-  midday: 'Midday',
-  afternoon: 'Afternoon',
-  evening: 'Evening',
-}
-
-export const slotLabel = (day: Weekday, block: DayBlock): string =>
-  `${weekdayLabel[day]} ${dayBlockLabel[block].toLowerCase()}`
+export const slotLabel = (day: Weekday, hour: SlotHour): string =>
+  `${weekdayLabel[day]} ${hourLabel[hour]}`
 
 /**
  * What the grid says about the slot it highlights, and about the case where it has

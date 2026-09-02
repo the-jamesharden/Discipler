@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { currentAdmin } from '~/platform/supabase/current-admin'
 import { getRosterReader } from '~/service/container'
+import { PageShell, SignOut } from '../../shell'
 import { firstTimeLabel, pairingRefusalMessage } from '../copy'
 import { DECLARED_GENDER_OPTIONS } from '../declared-gender'
 
@@ -16,6 +17,11 @@ export const dynamic = 'force-dynamic'
  *
  * Creating a relationship does not start it. The form says so, because an Admin who
  * expects a text to go out and sees nothing happen will create it a second time.
+ *
+ * The design drew this as a modal with one Leader dropdown; this page is a
+ * superset of it -- several Leaders, several Participants, a declared gender, a
+ * name and the approval switch -- and a page survives a refresh and a back button,
+ * which a modal does not.
  */
 
 export default async function PairPage({
@@ -73,18 +79,12 @@ export default async function PairPage({
    * to this, which is the whole of what this answer is for.
    *
    * It ranks nobody and refuses nobody, which is what keeps it outside ADR-0001.
-   * That ADR fixes the *suggestion* inputs at four and constrains any fifth; this is
-   * not one -- nothing on this screen suggests anybody, and the candidate list is
-   * deliberately unfiltered because pastoral judgment is never subordinate to a
-   * filtered list. Ticket 04 does not inherit this as a ranking input, and would
-   * need an amendment to ADR-0001 to make it one.
-   *
    * Silent where nobody was asked. The two answers are said outright, so a blank is
    * *the form did not ask* rather than a quiet *no*.
    */
   const firstTimeNote = (firstTime: boolean | null) =>
     firstTime === null ? null : (
-      <span className="subtle">{` — ${firstTimeLabel(firstTime)}`}</span>
+      <span className="muted">{` — ${firstTimeLabel(firstTime)}`}</span>
     )
 
   /**
@@ -102,33 +102,39 @@ export default async function PairPage({
   const askedFirstBefore = [query.joinRequiresApproval ?? []].flat()[0] === 'yes'
 
   return (
-    <main>
-      <h1>Form a relationship</h1>
-      <p className="subtle">{admin.ministryName}</p>
-
+    <PageShell
+      title="Form a relationship"
+      subtitle={admin.ministryName}
+      back={{ href: '/roster', label: 'Back to the Roster' }}
+      actions={<SignOut />}
+    >
       {candidates.length < 2 ? (
-        <div className="panel">
+        <div className="card">
           <p className="empty">
             At least two people need to have completed Intake before anyone can be
             paired.
           </p>
           <p>
-            <Link href="/roster">Back to the Roster</Link>
+            <Link className="btn sec" href="/roster">
+              Back to the Roster
+            </Link>
           </p>
         </div>
       ) : (
-        <div className="panel">
+        <div className="card">
           {refusal ? (
-            <p className="error" role="alert">
+            <p className="toast error" role="alert">
               {refusal}
             </p>
           ) : null}
 
-          <p className="subtle">
+          <p className="notice">
             Choose who will lead and everyone they will disciple. One leader and one
             participant makes a one-to-one relationship; anything else is a group, and
-            a group can have several leaders. Creating it does not start it —
-            nothing reaches anybody until every leader accepts.
+            a group can have several leaders. The age band rule governs suggestion
+            only — you may pair across it here. Gender matching cannot be overridden.
+            Creating it does not start it — nothing reaches anybody until every leader
+            accepts.
           </p>
 
           <form method="post" action="/roster/pair/create">
@@ -142,7 +148,7 @@ export default async function PairPage({
             <fieldset>
               <legend>Leading</legend>
               {candidates.map((person) => (
-                <label key={`leader:${person.personId}`} htmlFor={`leader:${person.personId}`}>
+                <label key={`leader:${person.personId}`} className="check" htmlFor={`leader:${person.personId}`}>
                   <input
                     id={`leader:${person.personId}`}
                     type="checkbox"
@@ -150,8 +156,10 @@ export default async function PairPage({
                     value={person.personId}
                     defaultChecked={preselectedLeaders.has(person.personId)}
                   />
-                  {person.fullName}
-                  {firstTimeNote(person.firstTime)}
+                  <span>
+                    {person.fullName}
+                    {firstTimeNote(person.firstTime)}
+                  </span>
                 </label>
               ))}
             </fieldset>
@@ -161,6 +169,7 @@ export default async function PairPage({
               {candidates.map((person) => (
                 <label
                   key={`participant:${person.personId}`}
+                  className="check"
                   htmlFor={`participant:${person.personId}`}
                 >
                   <input
@@ -170,8 +179,10 @@ export default async function PairPage({
                     value={person.personId}
                     defaultChecked={preselectedParticipants.has(person.personId)}
                   />
-                  {person.fullName}
-                  {firstTimeNote(person.firstTime)}
+                  <span>
+                    {person.fullName}
+                    {firstTimeNote(person.firstTime)}
+                  </span>
                 </label>
               ))}
             </fieldset>
@@ -200,21 +211,24 @@ export default async function PairPage({
                 that cannot be changed afterwards. Two people on their own are matched
                 by gender automatically — leave this alone.
               </p>
-              {DECLARED_GENDER_OPTIONS.map((declaration) => (
-                <label
-                  key={declaration.value}
-                  htmlFor={`declaredGender:${declaration.value}`}
-                >
-                  <input
-                    id={`declaredGender:${declaration.value}`}
-                    type="radio"
-                    name="declaredGender"
-                    value={declaration.value}
-                    defaultChecked={declaredBefore === declaration.value}
-                  />
-                  {declaration.label}
-                </label>
-              ))}
+              <div className="choices">
+                {DECLARED_GENDER_OPTIONS.map((declaration) => (
+                  <label
+                    key={declaration.value}
+                    className="option centred-text"
+                    htmlFor={`declaredGender:${declaration.value}`}
+                  >
+                    <input
+                      id={`declaredGender:${declaration.value}`}
+                      type="radio"
+                      name="declaredGender"
+                      value={declaration.value}
+                      defaultChecked={declaredBefore === declaration.value}
+                    />
+                    {declaration.label}
+                  </label>
+                ))}
+              </div>
             </fieldset>
 
             {/*
@@ -231,28 +245,33 @@ export default async function PairPage({
                 its leader is asked about each week. Two people on their own need no
                 name — leave this blank.
               </p>
-              <label htmlFor="name">Group name</label>
-              <input id="name" name="name" defaultValue={namedBefore} />
-              <label htmlFor="joinRequiresApproval">
+              <div className="field">
+                <label className="label" htmlFor="name">
+                  Group name
+                </label>
+                <input id="name" name="name" defaultValue={namedBefore} />
+              </div>
+              <label className="check" htmlFor="joinRequiresApproval">
                 <input
                   id="joinRequiresApproval"
                   type="checkbox"
                   name="joinRequiresApproval"
                   value="yes"
                   defaultChecked={askedFirstBefore}
-                />{' '}
-                Ask me before anyone joins through the group link
+                />
+                <span>Ask me before anyone joins through the group link</span>
               </label>
             </fieldset>
 
-            <button type="submit">Create relationship</button>
+            <div className="form-actions">
+              <Link className="btn sec" href="/roster">
+                Cancel
+              </Link>
+              <button type="submit">Create relationship</button>
+            </div>
           </form>
-
-          <p>
-            <Link href="/roster">Back to the Roster</Link>
-          </p>
         </div>
       )}
-    </main>
+    </PageShell>
   )
 }

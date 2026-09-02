@@ -9,18 +9,15 @@ import {
 } from './fields'
 
 /**
- * The Intake form itself, rendered by both ways in: the Ministry-wide link anybody
- * may open, and the tokenized link an Admin sends one Person so they can correct
- * what it says.
+ * The Intake form on one page, rendered by the tokenized link an Admin sends one
+ * Person so they can correct what it says.
  *
- * One component, because it is one form. The two routes differ in where the
- * submission goes and in whether the fields arrive with answers already in them --
- * not in what is asked, which is the thing a second copy would eventually disagree
- * about.
- *
- * The fields themselves live in `fields.tsx`, because there is a second form now:
- * the discipleship wizard asks these same questions across several screens. This
- * page is the order they are asked in here, and nothing else.
+ * One component, because it is one form: the same fields the discipleship wizard
+ * spreads across screens, prefilled. The fields themselves live in `fields.tsx`,
+ * because there are two forms now and the wording a consent record points at by
+ * version must not exist twice. This page is the order they are asked in here,
+ * and nothing else. It wears the wizard's design because it is the wizard's form,
+ * with the answers already in it (decision 9 of ticket 31).
  */
 
 export const IntakeForm = ({
@@ -41,12 +38,15 @@ export const IntakeForm = ({
     <input type="hidden" name="via" value={via} />
 
     <ContactFields prefill={prefill} />
-    <AvailabilityGrid availability={prefill.availability} />
-    <GoalField goals={goals} prefill={prefill} />
     <AgeBandField prefill={prefill} />
     <GenderField prefill={prefill} />
+    <AvailabilityGrid availability={prefill.availability} />
+    <GoalField goals={goals} prefill={prefill} />
     <Agreements ministryName={ministryName} prefill={prefill} />
 
-    <button type="submit">Submit</button>
+    <div className="form-actions">
+      <span />
+      <button type="submit">Submit</button>
+    </div>
   </form>
 )

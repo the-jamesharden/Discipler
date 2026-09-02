@@ -1,13 +1,15 @@
+import Link from 'next/link'
 import type { ReactNode } from 'react'
 import type { AnswersOf, ChoiceLists, IntakeVia, Wizard } from './wizard-machine'
 
 /**
- * The two pieces every screen of every wizard is built from: the hidden inputs
- * that carry the earlier answers forward, and the GET form that wraps a screen and
- * names the one after it. Written once because there are two wizards now, and a
- * screen that carried its answers differently from the other wizard's screens
- * would go wrong in the one direction that matters -- somebody's answers, on
- * their way forward, silently.
+ * The pieces every screen of every wizard is built from: the hidden inputs that
+ * carry the earlier answers forward, the GET form that wraps a screen and names
+ * the one after it, and the card the Make design draws them in -- wordmark,
+ * subtitle, progress bar, Back and Continue. Written once because there are two
+ * wizards now, and a screen that carried its answers differently from the other
+ * wizard's screens would go wrong in the one direction that matters -- somebody's
+ * answers, on their way forward, silently.
  */
 
 /**
@@ -56,6 +58,57 @@ export const Hidden = <L extends ChoiceLists>({
 }
 
 /**
+ * The design's progress bar: *Step N of M* and a filled track. Percentages of
+ * the steps before this one, as the Make project draws it, so the first screen
+ * reads 0% and the confirmation reads 100%.
+ */
+export const Progress = ({ at, of }: { readonly at: number; readonly of: number }) => {
+  const done = Math.round(((at - 1) / of) * 100)
+  return (
+    <div className="progress">
+      <div className="progress-labels">
+        <strong>{`Step ${at} of ${of}`}</strong>
+        <span>{`${done}%`}</span>
+      </div>
+      <div
+        className="progress-track"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={done}
+        aria-label={`Step ${at} of ${of}`}
+      >
+        <div className="progress-fill" style={{ width: `${done}%` }} />
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Back and the button that moves on, in one row. Back is a link and not a form
+ * control, because going back changes nothing: it is the same page with the
+ * answers still in the URL.
+ */
+export const FormActions = ({
+  back,
+  action,
+}: {
+  readonly back: string | null
+  readonly action: string
+}) => (
+  <div className="form-actions">
+    {back ? (
+      <Link className="btn sec" href={back}>
+        Back
+      </Link>
+    ) : (
+      <span />
+    )}
+    <button type="submit">{action}</button>
+  </div>
+)
+
+/**
  * The shell every step but the last shares: a GET back to the wizard's own page,
  * carrying every answer this screen is neither asking for nor rewording, and
  * naming the screen after it on Continue.
@@ -71,6 +124,7 @@ export const StepForm = <L extends ChoiceLists>({
   answers,
   via,
   here,
+  back,
   children,
 }: {
   readonly wizard: Wizard<L>
@@ -78,12 +132,14 @@ export const StepForm = <L extends ChoiceLists>({
   readonly answers: AnswersOf<L>
   readonly via: IntakeVia
   readonly here: string
+  /** The way to the previous screen, or null on the first. */
+  readonly back: string | null
   readonly children: ReactNode
 }) => (
   <form method="get" action={here}>
     <Hidden wizard={wizard} answers={answers} via={via} dropping={wizard.notCarriedAt(at)} />
     <input type="hidden" name="step" value={String(at + 1)} />
     {children}
-    <button type="submit">Continue</button>
+    <FormActions back={back} action="Continue" />
   </form>
 )

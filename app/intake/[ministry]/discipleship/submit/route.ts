@@ -71,11 +71,20 @@ export async function POST(
   }
 
   const done = new URLSearchParams()
-  // The side, so the last page can say what it is they are waiting for. It is one
-  // of two words and neither is anybody's name.
+  // The side, so the last page can say what it is they are waiting for, and the
+  // rest of what the confirmation card summarises: each one is a word from a short
+  // list the done page checks against, or a count. The name and the number are not
+  // among them -- those are not going in a URL -- and the done page says so in
+  // words instead.
   if (form.declaredSide === 'mentor' || form.declaredSide === 'mentee') {
     done.set('side', form.declaredSide)
   }
+  if (form.ageBand) done.set('ageBand', form.ageBand)
+  if (form.gender) done.set('gender', form.gender)
+  if (form.experience) done.set('experience', form.experience)
+  const ticked = new Set(form.availability)
+  done.set('hours', String(ticked.size))
+  done.set('days', String(new Set([...ticked].map((key) => key.split(':')[0])).size))
 
   return NextResponse.redirect(
     new URL(`/intake/${page.ministryId}/discipleship/done?${done}`, request.url),

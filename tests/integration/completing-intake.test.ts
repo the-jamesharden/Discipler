@@ -49,7 +49,7 @@ describe('Completing Intake', () => {
     ageBand: '25-34',
     gender: 'female',
     goalId: await firstGoalId(),
-    availability: ['monday:midday', 'thursday:evening'],
+    availability: ['monday:12', 'thursday:18'],
     smsConsent: true,
     contactSharing: 'granted',
     source: 'pastor_link',
@@ -236,23 +236,23 @@ describe('Completing Intake', () => {
       form: await form({
         fullName: 'Marcus Bell',
         phone: '5552340005',
-        availability: ['tuesday:early_morning', 'saturday:afternoon', 'saturday:evening'],
+        availability: ['tuesday:08', 'saturday:14', 'saturday:18'],
       }),
     })
 
     const { rows } = await pool.query(
-      `select a.day, a.block from intake_availability a
+      `select a.day, a.hour from intake_availability a
          join intake_submission i on i.id = a.intake_submission_id
          join person p on p.id = i.person_id
         where a.ministry_id = $1 and p.full_name = 'Marcus Bell'
-        order by a.day, a.block`,
+        order by a.day, a.hour`,
       [ministry.id],
     )
 
     expect(rows).toEqual([
-      { day: 'tuesday', block: 'early_morning' },
-      { day: 'saturday', block: 'afternoon' },
-      { day: 'saturday', block: 'evening' },
+      { day: 'tuesday', hour: '08' },
+      { day: 'saturday', hour: '14' },
+      { day: 'saturday', hour: '18' },
     ])
   })
 

@@ -85,7 +85,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
     // depends on the answer that has not been given yet.
     expect(html).not.toContain('name="ageBand"')
     expect(html).not.toContain('name="smsConsent"')
-    expect(html).not.toContain('monday:midday')
+    expect(html).not.toContain('monday:12')
   })
 
   it('will not open a later screen than the answers reach', async () => {
@@ -113,14 +113,14 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
     expect(mentor.html).toContain('Yes, I’ve done this before')
 
     const four = await open({ step: '4', side: 'mentor', ...answered })
-    expect(four.html).toContain('monday:early_morning')
-    expect(four.html).toContain('sunday:evening')
+    expect(four.html).toContain('monday:08')
+    expect(four.html).toContain('sunday:19')
 
     const five = await open({
       step: '5',
       side: 'mentor',
       ...answered,
-      availability: ['wednesday:evening'],
+      availability: ['wednesday:18'],
     })
     expect(five.html).toContain('name="fullName"')
     expect(five.html).toContain('name="phone"')
@@ -144,7 +144,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
     // The one screen with no `required` field on it, because a checkbox set cannot
     // express *at least one of these*.
     expect(html).toContain('Please select at least one time that could work.')
-    expect(html).toContain('monday:midday')
+    expect(html).toContain('monday:12')
   })
 
   it('keeps the later answers when somebody goes back to correct an earlier one', async () => {
@@ -155,13 +155,13 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
       ageBand: '35-44',
       gender: 'male',
       experience: 'done_before',
-      availability: ['friday:evening'],
+      availability: ['friday:18'],
     })
 
     // The screen asks age and gender, so it does not carry them as hidden --
     // but the answers after it are still on their way to the one POST.
     expect(html).toContain('name="experience" value="done_before"')
-    expect(html).toContain('name="availability" value="friday:evening"')
+    expect(html).toContain('name="availability" value="friday:18"')
   })
 
   it('will not carry a first-time answer back onto the other side’s question', async () => {
@@ -176,14 +176,14 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
       ageBand: '25-34',
       gender: 'female',
       experience: 'done_before',
-      availability: ['friday:evening'],
+      availability: ['friday:18'],
     })
 
     expect(html).not.toContain('name="experience"')
     // Everything the side does not word is still on its way forward.
     expect(html).toContain('name="ageBand" value="25-34"')
     expect(html).toContain('name="gender" value="female"')
-    expect(html).toContain('name="availability" value="friday:evening"')
+    expect(html).toContain('name="availability" value="friday:18"')
 
     // And the question is put again rather than skipped: the wizard cannot reach
     // the grid until it has an answer worded for the side now declared.
@@ -192,7 +192,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
       side: 'mentor',
       ageBand: '25-34',
       gender: 'female',
-      availability: ['friday:evening'],
+      availability: ['friday:18'],
     })
     expect(after.html).toContain('Have you mentored someone before?')
   })
@@ -232,7 +232,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
         smsConsent: 'yes',
         contactSharing: 'granted',
       },
-      ['tuesday:morning', 'saturday:midday'],
+      ['tuesday:09', 'saturday:12'],
     )
 
     expect(response.status).toBe(303)
@@ -297,7 +297,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
         goalId: await goalId(),
         contactSharing: 'granted',
       },
-      ['monday:midday'],
+      ['monday:12'],
     )
 
     expect(response.status).toBe(303)
@@ -305,7 +305,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
     expect(location).toContain('intake.sms_consent_required')
     // The way back keeps the screens they already answered.
     expect(location).toContain('side=mentee')
-    expect(location).toContain('availability=monday%3Amidday')
+    expect(location).toContain('availability=monday%3A12')
     // And carries nothing they typed on the screen that was refused.
     expect(location).not.toContain('Nadia')
     expect(location).not.toContain('0201')
@@ -325,7 +325,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
         smsConsent: 'yes',
         contactSharing: 'granted',
       },
-      ['monday:midday'],
+      ['monday:12'],
     )
 
     expect(location).toContain('intake.side_unknown')

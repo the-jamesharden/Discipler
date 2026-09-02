@@ -59,7 +59,9 @@ describe.skipIf(skipUnlessAppIsRunning)('resetting a password over HTTP', () => 
    * other Person in a relationship is printed inside this row too.
    */
   const rowFor = (html: string, name: string): string => {
-    const cell = html.indexOf(`<td>${name}</td>`)
+    // The name is inside the row's first cell, beside an avatar, so the match is
+    // on the name and not on a bare cell.
+    const cell = html.indexOf(`<span>${name}<`)
     if (cell === -1) throw new Error(`No row for ${name}`)
     const end = html.indexOf('</tr>', cell)
     return html.slice(cell, end === -1 ? undefined : end)

@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { SHORTEST_PASSWORD } from '~/domain/accounts'
 import { getInvitationReader } from '~/service/container'
+import { Centred } from '../../shell'
 import { asList, invitationProblemMessage } from '../copy'
 
 /**
@@ -43,43 +44,44 @@ export default async function InvitationPage({
    */
   if (state === 'consumed' && done === 'accepted') {
     return (
-      <main>
-        <h1>You’re all set</h1>
-        <p className="subtle">{ministryName}</p>
-        <div className="panel">
-          <p>
-            We’ll text you each week to see how it’s going. Sign in any time with your
-            phone number and the password you just set.
-          </p>
+      <Centred subtitle={ministryName}>
+        <div className="tick" aria-hidden="true">
+          ✓
         </div>
-      </main>
+        <h1 style={{ textAlign: 'center' }}>You’re all set</h1>
+        <p className="muted" style={{ textAlign: 'center' }}>
+          We’ll text you each week to see how it’s going. Sign in any time with your
+          phone number and the password you just set.
+        </p>
+        <p style={{ textAlign: 'center', marginTop: '1.5rem' }}>
+          <a className="btn" href="/login">
+            Sign in
+          </a>
+        </p>
+      </Centred>
     )
   }
 
   if (done === 'disputed') {
     return (
-      <main>
-        <h1>Thanks — we’ve passed that on</h1>
-        <p className="subtle">{ministryName}</p>
-        <div className="panel">
-          <p>
-            Nothing has changed on your account. Someone from the ministry will be in
-            touch to put the number right.
-          </p>
-        </div>
-      </main>
+      <Centred subtitle={ministryName}>
+        <h1 style={{ textAlign: 'center' }}>Thanks — we’ve passed that on</h1>
+        <p className="muted" style={{ textAlign: 'center' }}>
+          Nothing has changed on your account. Someone from the ministry will be in
+          touch to put the number right.
+        </p>
+      </Centred>
     )
   }
 
   return (
-    <main>
+    <Centred subtitle={ministryName}>
       {/* The reveal, above everything. Nothing below is asked until this is read. */}
       <h1>{`You’ve been matched with ${asList(matchedWith)}`}</h1>
-      <p className="subtle">{ministryName}</p>
 
-      <div className="panel">
+      <div>
         {problem ? (
-          <p className="error" role="alert">
+          <p className="toast error" role="alert">
             {problem}
           </p>
         ) : null}
@@ -95,15 +97,17 @@ export default async function InvitationPage({
             {state === 'live' ? (
               <>
                 <form method="post" action={`/invitation/${token}/accept`}>
-                  <label htmlFor="fullName">Your name</label>
-                  <input
-                    id="fullName"
-                    name="fullName"
-                    type="text"
-                    required
-                    defaultValue={fullName}
-                    autoComplete="name"
-                  />
+                  <div className="field">
+                    <label className="label" htmlFor="fullName">Your name</label>
+                    <input
+                      id="fullName"
+                      name="fullName"
+                      type="text"
+                      required
+                      defaultValue={fullName}
+                      autoComplete="name"
+                    />
+                  </div>
 
                   {/*
                     Only for somebody who has none. A Leader may lead any number of
@@ -112,8 +116,8 @@ export default async function InvitationPage({
                     would be asking for something that cannot be used.
                   */}
                   {userId ? null : (
-                    <>
-                      <label htmlFor="password">Choose a password</label>
+                    <div className="field">
+                      <label className="label" htmlFor="password">Choose a password</label>
                       <input
                         id="password"
                         name="password"
@@ -122,7 +126,7 @@ export default async function InvitationPage({
                         minLength={SHORTEST_PASSWORD}
                         autoComplete="new-password"
                       />
-                    </>
+                    </div>
                   )}
 
                   {/*
@@ -130,7 +134,7 @@ export default async function InvitationPage({
                     of their own check-ins, and there is no input here a forwarded
                     link could use to re-point an account.
                   */}
-                  <p>
+                  <p className="notice">
                     We’ll text you at <strong>{phone ?? 'a number we don’t have on file'}</strong>.
                     {userId
                       ? ' You’ll sign in with that number and the password you already set.'
@@ -140,13 +144,14 @@ export default async function InvitationPage({
                   <button type="submit">Accept and start</button>
                 </form>
 
-                <form method="post" action={`/invitation/${token}/dispute`}>
-                  <button type="submit">That’s not my number</button>
+                <form method="post" action={`/invitation/${token}/dispute`} className="card-note">
+                  <p className="muted">Is the number above wrong?</p>
+                  <button type="submit" className="sec small">That’s not my number</button>
                 </form>
               </>
             ) : (
               <>
-                <p role="alert">
+                <p className="toast error" role="alert">
                   {invitationProblemMessage(
                     state === 'expired' ? 'invitation.expired' : 'invitation.already_used',
                   )}
@@ -157,7 +162,7 @@ export default async function InvitationPage({
                   that raises it must not be the thing that expired.
                 */}
                 <form method="post" action={`/invitation/${token}/dispute`}>
-                  <button type="submit">That’s not my number</button>
+                  <button type="submit" className="sec">That’s not my number</button>
                 </form>
               </>
             )}
@@ -177,6 +182,6 @@ export default async function InvitationPage({
           </p>
         )}
       </div>
-    </main>
+    </Centred>
   )
 }

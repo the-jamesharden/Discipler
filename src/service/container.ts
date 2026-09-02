@@ -17,6 +17,7 @@ import {
   type PostgresInvitationReader,
 } from '~/platform/supabase/invitation-reader'
 import { createSupabaseCareNeededReader } from '~/platform/supabase/care-needed-reader'
+import { createSupabaseCheckInsReader } from '~/platform/supabase/check-ins-reader'
 import { supabaseDiscipleshipGoalReader } from '~/platform/supabase/discipleship-goals'
 import { supabaseLeaderDashboardReader } from '~/platform/supabase/leader-dashboard'
 import { supabaseMinistrySettingsReader } from '~/platform/supabase/ministry-settings'
@@ -28,6 +29,7 @@ import {
   createPostgresOutboundQueue,
   type PostgresOutboundQueue,
 } from '~/platform/supabase/outbound-queue'
+import { createSupabaseOverviewReader } from '~/platform/supabase/overview-reader'
 import { createTwilioTransport } from '~/platform/twilio/message-transport'
 import { supabaseAccounts } from '~/platform/supabase/accounts'
 import { supabaseRosterReader } from '~/platform/supabase/roster-reader'
@@ -35,6 +37,7 @@ import { createCommandService, type CommandService } from './command-service'
 import type {
   Accounts,
   CareNeededReader,
+  CheckInsReader,
   DiscipleshipGoalReader,
   LeaderDashboardReader,
   InboundReader,
@@ -44,6 +47,7 @@ import type {
   MinistryDirectory,
   MinistrySettingsReader,
   OutboundQueue,
+  OverviewReader,
   RosterReader,
 } from './ports'
 
@@ -234,6 +238,22 @@ export const getMinistrySettingsReader = (): MinistrySettingsReader =>
  */
 export const getCareNeededReader = (): CareNeededReader =>
   createSupabaseCareNeededReader(systemClock)
+
+/**
+ * The Overview reads through the signed-in Admin's session, so the policies on
+ * `relationship`, the check-in tables and `concern` are what scope it to their
+ * Ministry rather than anything this container passes down. The clock is passed
+ * down, because which unaccepted relationships have waited long enough to surface,
+ * and which ISO week is this week, are both computed at the moment of the read.
+ */
+export const getOverviewReader = (): OverviewReader => createSupabaseOverviewReader(systemClock)
+
+/**
+ * The Check-Ins tab reads through the signed-in Admin's session for the same
+ * reason, and takes the clock because *this week* is a reading of it against the
+ * Ministry's own timezone.
+ */
+export const getCheckInsReader = (): CheckInsReader => createSupabaseCheckInsReader(systemClock)
 
 /**
  * The Leader Dashboard reads through the signed-in user's session and takes no

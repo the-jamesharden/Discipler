@@ -158,3 +158,17 @@ when no SMS provider is configured, so `[auth.sms.twilio]` is enabled in
 `supabase/config.toml` with credentials substituted from the environment. Discipler
 asks it to send nothing -- one-time codes are post-launch -- and its own outbound SMS
 does not go through it at all. The new variables are in `.env.example`.
+
+### Amended by ticket 31 - the overlay's axes are swapped - 2026-09-01
+
+This ticket fixed the overlay as days down the vertical axis and times across the horizontal, and shipped that way.
+Ticket 31 reverses it: time of day down, days across, on every availability grid in the product, so the overlay reads the same way as the Intake grid a person filled in.
+The shading rules, the per-person dots and the recommended-slot outline are unchanged.
+The redraw and its tests are ticket 31's work; nothing here reopens.
+
+### The axes stay as shipped, and the columns become hours - 2026-09-01
+
+The amendment above is withdrawn: James reversed it the same day.
+Days run down the vertical axis and time of day across, exactly as this ticket fixed it.
+What does change under ticket 31 is the columns: the grid becomes hourly, 8am to 8pm, twelve columns instead of five named blocks, which supersedes ADR-0006.
+The shading rules, the per-person dots and the recommended-slot outline are unchanged.

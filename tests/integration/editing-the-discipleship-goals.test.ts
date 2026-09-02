@@ -155,7 +155,7 @@ describe('a Ministry’s Discipleship Goal options', () => {
     const goal = await optionCalled('Healing and recovery')
     const person = await addPerson(ministry, 'Nadia Farouk', {
       phone: aNumber(),
-      answers: { goalId: goal, availability: [{ day: 'tuesday', block: 'evening' }] },
+      answers: { goalId: goal, availability: [{ day: 'tuesday', hour: '19' }] },
     })
 
     await service().execute({
@@ -536,7 +536,7 @@ describe('a Ministry’s Discipleship Goal options', () => {
         form: {
           fullName: 'Tessa Bright',
           phone: '5551230000',
-          availability: ['monday:midday'],
+          availability: ['monday:12'],
           ageBand: '25-34',
           gender: 'female',
           goalId: retired,

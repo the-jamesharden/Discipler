@@ -55,7 +55,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Ministry settings screen', () => {
    * rendered rather than against the whole response.
    */
   const asRendered = (html: string) =>
-    html.slice(html.indexOf('<main>'), html.indexOf('</main>'))
+    html.slice(html.indexOf('<main'), html.indexOf('</main>'))
 
   const filled = {
     name: 'Riverside Chapel',

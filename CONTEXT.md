@@ -39,7 +39,7 @@ _Avoid_: Pair, pairing record, pairing (as a noun), group (as a distinct entity)
 The process by which a person provides the information and consent needed to enter a ministry.
 
 **Availability Slot**:
-One of the thirty-five selectable windows on the intake grid: each day of the week divided into early morning, morning, midday, afternoon, and evening.
+One of the eighty-four selectable windows on the intake grid: each day of the week divided into one-hour slots from 8am to 8pm. See `docs/adr/0018-the-hourly-grid.md`.
 
 **Discipleship Goal**:
 The single outcome a participant selects at intake to describe what they are seeking from discipleship. The options offered are the ministry's own. An option is a row and answers point at it, so rewording one is not asking a new question; removing one blanks the answers that pointed at it, taking a stated goal off every live surface. ADR-0014 records why that is allowed and how the record survives it: the blanked answers are written into the removal event before the delete runs.
@@ -251,7 +251,7 @@ The chronological record of ministry activity associated with a discipleship rel
 Longer-term ministry insight derived from the ministry's historical activity and participant context.
 
 **Ministry Timezone**:
-The single clock a Ministry's data is interpreted against. Availability blocks, the Check-In Cadence, the week boundary behind the care counters, and the monthly opt-out rule all resolve against it. A property of the Ministry, never of a Person.
+The single clock a Ministry's data is interpreted against. Availability slots, the Check-In Cadence, the week boundary behind the care counters, and the monthly opt-out rule all resolve against it. A property of the Ministry, never of a Person.
 
 **Nudge**:
 The action that reveals a Participant's contact details on a Follow-Up Item so an Admin can reach them directly. It sends nothing. Discipler says who needs a call; the Admin makes it.

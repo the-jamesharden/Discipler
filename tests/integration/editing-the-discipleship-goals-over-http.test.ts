@@ -54,7 +54,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Discipleship Goal settings', () => 
    * rendered rather than against the whole response.
    */
   const asRendered = (html: string) =>
-    html.slice(html.indexOf('<main>'), html.indexOf('</main>'))
+    html.slice(html.indexOf('<main'), html.indexOf('</main>'))
 
   const theList = async (of: MinistryFixture = ministry) => {
     const { rows } = await pool.query<{ label: string }>(
@@ -145,7 +145,8 @@ describe.skipIf(skipUnlessAppIsRunning)('the Discipleship Goal settings', () => 
       const { response, html } = await getPage(`/settings/goals?error=${code}`, cookie)
 
       expect(response.status).toBe(200)
-      expect(asRendered(html)).toContain('Discipleship Goals')
+      // The heading is in the page's header, above `main`; the alert would be inside it.
+      expect(html).toContain('Discipleship Goals')
       expect(asRendered(html)).not.toContain('role="alert"')
     }
   })

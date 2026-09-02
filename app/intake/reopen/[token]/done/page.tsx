@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { getIntakeReader } from '~/service/container'
+import { Centred } from '../../../../shell'
 
 /**
  * What a Person sees after correcting their own details.
@@ -19,15 +20,16 @@ export default async function ReopenIntakeDonePage({
   if (!page) notFound()
 
   return (
-    <main>
-      <h1>Thanks — that’s updated</h1>
-      <div className="panel">
-        <p>
-          {page.ministryName} has your new details. Nothing else changes: if you are
-          already meeting with someone, you still are.
-        </p>
-        <p className="subtle">You can close this page.</p>
+    <Centred>
+      <div className="tick" aria-hidden="true">
+        ✓
       </div>
-    </main>
+      <h1 style={{ textAlign: 'center' }}>Thanks — that’s updated</h1>
+      <p className="muted" style={{ textAlign: 'center' }}>
+        {page.ministryName} has your new details. Nothing else changes: if you are
+        already meeting with someone, you still are.
+      </p>
+      <p className="card-note">You can close this page.</p>
+    </Centred>
   )
 }

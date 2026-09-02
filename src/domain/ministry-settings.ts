@@ -71,7 +71,7 @@ export interface MinistrySettings {
   readonly fromName: string | null
   /**
    * The single clock this Ministry's data is interpreted against. Every
-   * availability block, the check-in cadence, the ISO week boundary behind the
+   * availability slot, the check-in cadence, the ISO week boundary behind the
    * care counters, and the *first check-in of each calendar month* rule all
    * resolve against it.
    */

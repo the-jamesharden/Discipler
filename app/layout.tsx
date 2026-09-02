@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { FONTS_URL } from './fonts'
 
 export const metadata = {
   title: 'Discipler',
@@ -9,6 +10,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="stylesheet" href={FONTS_URL} />
         {/*
           Linked from `public/` rather than imported into this file, which is a
           decision and not a preference. Two things render Discipler's HTML: every

@@ -1,5 +1,12 @@
 import pg from 'pg'
-import { discipleshipGoalId, type AgeBand, type Gender } from '~/domain/intake'
+import {
+  discipleshipGoalId,
+  slotKey,
+  type AgeBand,
+  type Gender,
+  type SlotHour,
+  type Weekday,
+} from '~/domain/intake'
 import { intakeLinkState } from '~/domain/intake-link'
 import { ministryId, personId, relationshipId } from '~/domain/ids'
 import type {
@@ -70,9 +77,11 @@ const prefillFor = async (
   )
   const submission = submissions[0]
 
+  // Both columns are enums the domain declares, so a row is already a slot: the
+  // database will not hold a day or an hour the grid does not draw.
   const { rows: slots } = submission
-    ? await client.query<{ day: string; block: string }>(
-        `select day, block from intake_availability where intake_submission_id = $1`,
+    ? await client.query<{ day: Weekday; hour: SlotHour }>(
+        `select day, hour from intake_availability where intake_submission_id = $1`,
         [submission.id],
       )
     : { rows: [] }
@@ -95,7 +104,9 @@ const prefillFor = async (
     goalId: submission?.discipleship_goal_id
       ? discipleshipGoalId(submission.discipleship_goal_id)
       : null,
-    availability: slots.map((slot) => `${slot.day}:${slot.block}`),
+    // Keyed by the domain and not by a template string beside it, so the form is
+    // prefilled with the same spelling it submits.
+    availability: slots.map(slotKey),
     // Never asked stays never asked. Rendering it as `declined` would put an answer
     // in front of the Person that they never gave.
     contactSharing: currentSharing === null ? null : currentSharing ? 'granted' : 'declined',

@@ -12,11 +12,11 @@ import { asEmail, asPhoneNumber, type PhoneNumber } from './roster'
  */
 
 /**
- * A week is seven days of five blocks: thirty-five slots. The blocks are named
- * rather than clock times because a Person selecting *when could work* is answering
- * about the shape of their day, not committing to an hour, and because pairing
- * counts shared slots -- a count only means something when both sides used the same
- * grid. See `docs/adr/0006-the-availability-grid.md`.
+ * A week is seven days of twelve one-hour slots, 8am to 8pm: eighty-four slots.
+ * Hours rather than named blocks, because the design is hourly and the product
+ * owner decided it. Pairing counts shared slots -- a count only means something
+ * when both sides used the same grid. See `docs/adr/0018-the-hourly-grid.md`,
+ * which supersedes ADR-0006.
  */
 export const WEEKDAYS = [
   'monday',
@@ -28,15 +28,39 @@ export const WEEKDAYS = [
   'sunday',
 ] as const
 
-export const DAY_BLOCKS = ['early_morning', 'morning', 'midday', 'afternoon', 'evening'] as const
+/** The first hour a slot can start, and the hour the last slot ends. */
+export const FIRST_HOUR = 8
+export const LAST_HOUR = 20
+
+/**
+ * The hour each slot starts, 24-hour and zero-padded, so a key sorts in the order
+ * of the day and reads the same in a URL, a hidden input and a database row.
+ */
+export const SLOT_HOURS = [
+  '08',
+  '09',
+  '10',
+  '11',
+  '12',
+  '13',
+  '14',
+  '15',
+  '16',
+  '17',
+  '18',
+  '19',
+] as const
 
 export type Weekday = (typeof WEEKDAYS)[number]
-export type DayBlock = (typeof DAY_BLOCKS)[number]
+export type SlotHour = (typeof SLOT_HOURS)[number]
 
 export interface AvailabilitySlot {
   readonly day: Weekday
-  readonly block: DayBlock
+  readonly hour: SlotHour
 }
+
+/** `monday:08`. The key the form submits, the URL carries and the overlay slices by. */
+export const slotKey = (slot: AvailabilitySlot): string => `${slot.day}:${slot.hour}`
 
 /**
  * Collected as a range, never as an exact age or a date of birth. The suggestion
@@ -119,7 +143,7 @@ export interface IntakeFormFields {
   readonly ageBand: string | null
   readonly gender: string | null
   readonly goalId: string | null
-  /** Slot keys as the grid submits them -- `monday:midday`. */
+  /** Slot keys as the grid submits them -- `monday:08`. */
   readonly availability: readonly string[]
   readonly smsConsent: boolean
   readonly contactSharing: string | null
@@ -178,15 +202,15 @@ export interface IntakeSubmissionDraft {
 export const isOneOf = <T extends string>(allowed: readonly T[], value: unknown): value is T =>
   allowed.includes(value as T)
 
-const readSlot = (key: string): AvailabilitySlot | null => {
-  const [day, block] = key.split(':')
-  return isOneOf(WEEKDAYS, day) && isOneOf(DAY_BLOCKS, block) ? { day, block } : null
+export const readSlot = (key: string): AvailabilitySlot | null => {
+  const [day, hour] = key.split(':')
+  return isOneOf(WEEKDAYS, day) && isOneOf(SLOT_HOURS, hour) ? { day, hour } : null
 }
 
 /**
- * Whether a key is one of the thirty-five the grid submits, and not something a
+ * Whether a key is one of the eighty-four the grid submits, and not something a
  * hand-written URL invented. The key format is this module's -- a screen carrying
- * slots between steps asks here rather than rebuilding `${day}:${block}` beside it,
+ * slots between steps asks here rather than rebuilding `${day}:${hour}` beside it,
  * because two spellings of the same key would disagree in exactly one direction:
  * silently, and only about somebody's availability.
  */

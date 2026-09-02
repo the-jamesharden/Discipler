@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { getIntakeReader } from '~/service/container'
+import { Centred } from '../../../shell'
 import {
   doneMessageWithoutAGroup,
   JOINED_HEADING,
@@ -36,31 +37,23 @@ export default async function GroupIntakeDonePage({
   const group = page.groups.find((each) => each.relationshipId === asked) ?? null
   const joined = firstValue(query.outcome) === 'joined'
 
-  if (!group) {
-    return (
-      <main>
-        <h1>You’re all set</h1>
-        <div className="panel">
-          <p>{doneMessageWithoutAGroup(page.ministryName)}</p>
-          <p>We’ve sent you a text to confirm.</p>
-          <p className="subtle">You can close this page.</p>
-        </div>
-      </main>
-    )
-  }
+  const heading = !group ? 'You’re all set' : joined ? JOINED_HEADING : REQUESTED_HEADING
+  const message = !group
+    ? doneMessageWithoutAGroup(page.ministryName)
+    : joined
+      ? joinedMessage(group.name, group.leaderFirstNames)
+      : requestedMessage(page.ministryName, group.name)
 
   return (
-    <main>
-      <h1>{joined ? JOINED_HEADING : REQUESTED_HEADING}</h1>
-      <div className="panel">
-        <p>
-          {joined
-            ? joinedMessage(group.name, group.leaderFirstNames)
-            : requestedMessage(page.ministryName, group.name)}
-        </p>
-        <p>We’ve sent you a text to confirm.</p>
-        <p className="subtle">You can close this page.</p>
+    <Centred>
+      <div className="tick" aria-hidden="true">
+        ✓
       </div>
-    </main>
+      <h1 style={{ textAlign: 'center' }}>{heading}</h1>
+      <p className="muted" style={{ textAlign: 'center' }}>
+        {message} We’ve sent you a text to confirm.
+      </p>
+      <p className="card-note">You can close this page.</p>
+    </Centred>
   )
 }

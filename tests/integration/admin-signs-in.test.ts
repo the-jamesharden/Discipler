@@ -45,17 +45,17 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin signing in', () => {
     expect(response.headers.get('location')).toContain('/login')
   })
 
-  it('reaches the Roster once signed in', async () => {
+  it('reaches the Overview once signed in', async () => {
     const { response, cookie } = await signIn(riverside)
 
     // Sign-in lands on `/`, which asks what this session holds before it sends them
-    // anywhere: an Admin gets the Roster, and everybody else gets their own
+    // anywhere: an Admin gets the Overview, and everybody else gets their own
     // relationships. Following the redirect is how the test asks the same question.
     expect(response.headers.get('location')).toContain('/')
     expect(cookie).not.toBe('')
 
     const { response: home } = await getPage('/', cookie)
-    expect(home.headers.get('location')).toContain('/roster')
+    expect(home.headers.get('location')).toContain('/overview')
 
     const { response: roster, html } = await getRoster(cookie)
 

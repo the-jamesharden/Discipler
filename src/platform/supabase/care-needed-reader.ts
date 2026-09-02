@@ -5,29 +5,24 @@ import {
   readFollowUpPayload,
   type FollowUpKind,
 } from '~/domain/follow-up'
-import {
-  concernId,
-  followUpItemId,
-  personId,
-  relationshipId,
-  type MinistryId,
-  type PersonId,
-} from '~/domain/ids'
-import { readStandingPause, type StandingPause } from '~/domain/pause'
-import { phoneNumber } from '~/domain/roster'
-import {
-  deriveRelationshipState,
-  type RaisedConcern,
-  type RelationshipWeek,
-} from '~/domain/relationship-state'
+import { followUpItemId, personId, relationshipId, type MinistryId } from '~/domain/ids'
+import { deriveRelationshipState } from '~/domain/relationship-state'
 import type {
+  CareMember,
   CareNeededItem,
   CareNeededReader,
-  ContactDetails,
   FollowUpCareItem,
-  OutstandingConcern,
 } from '~/service/ports'
 import { readContactToShare } from './contact-to-share'
+import {
+  concernsOf,
+  instant,
+  membersOf,
+  NOBODY_IN_IT,
+  pausesOf,
+  timeZoneOf,
+  weeksOf,
+} from './relationship-history'
 import { lookup, rows, text } from './rows'
 import { createSupabaseServerClient } from './server-client'
 
@@ -203,219 +198,6 @@ export const readOpenFollowUpItems = async (
 }
 
 /**
- * Append one value to the list a key holds, making the list if it has none.
- * Written once because the alternative -- `map.set(k, [...(map.get(k) ?? []), v])`
- * -- was appearing at every grouping site and rebuilding the whole array each
- * time round the loop.
- */
-const gather = <T>(into: Map<string, T[]>, key: string, value: T): void => {
-  const standing = into.get(key)
-  if (standing) standing.push(value)
-  else into.set(key, [value])
-}
-
-/** The one lookup both grouping reads want: a Person's name, by id. */
-const namesOf = (supabase: SupabaseClient, ids: readonly (string | null)[]) =>
-  lookup(supabase, 'person', 'full_name', ids, text, couldNotRead)
-
-const instant = (value: unknown): Date | null =>
-  typeof value === 'string' ? new Date(value) : null
-
-/**
- * Who is in each live relationship, by role, for the sentence Care Needed writes.
- * Open memberships only: somebody who has left is not who an Admin is calling
- * about.
- */
-const membersOf = async (
-  supabase: SupabaseClient,
-  ministryId: MinistryId,
-): Promise<Map<string, { leaders: string[]; participants: string[] }>> => {
-  const { data, error } = await supabase
-    .from('relationship_member')
-    .select('relationship_id, person_id, role')
-    .eq('ministry_id', ministryId)
-    .is('ended_at', null)
-
-  if (error) throw couldNotRead(error)
-
-  const memberships = rows(data)
-  const nameOf = await namesOf(
-    supabase,
-    memberships.map((row) => text(row.person_id)),
-  )
-
-  const byRelationship = new Map<string, { leaders: string[]; participants: string[] }>()
-  for (const row of memberships) {
-    const relationship = text(row.relationship_id)
-    const person = text(row.person_id)
-    if (!relationship || !person) continue
-
-    const side = byRelationship.get(relationship) ?? { leaders: [], participants: [] }
-    const name = nameOf.get(person)
-    if (name) (row.role === 'leader' ? side.leaders : side.participants).push(name)
-    byRelationship.set(relationship, side)
-  }
-
-  return byRelationship
-}
-
-/**
- * Every relationship-week this Ministry has on record, grouped by relationship.
- *
- * The whole history and not a recent window. Truncating it would silently shorten
- * a duration -- a relationship reporting no meeting for fourteen weeks would say
- * *twelve* with nothing on any screen to show why -- and a wrong number on a care
- * surface is worse than a slow one. If this ever costs anything the answer is an
- * index or a projection, never a cut-off.
- *
- * The ISO week each row falls in is computed here, against the Ministry's own
- * timezone, and the counting is left entirely to `deriveRelationshipState`.
- */
-const weeksOf = async (
-  supabase: SupabaseClient,
-  ministryId: MinistryId,
-): Promise<Map<string, RelationshipWeek[]>> => {
-  const { data, error } = await supabase.rpc('relationship_weeks', {
-    target_ministry_id: ministryId,
-  })
-
-  if (error) throw couldNotRead(error)
-
-  const byRelationship = new Map<string, RelationshipWeek[]>()
-  for (const row of rows(data)) {
-    const relationship = text(row.relationship_id)
-    const openedAt = instant(row.opened_at)
-    if (!relationship || !openedAt) continue
-
-    const answeredAt = instant(row.answered_at)
-
-    gather(byRelationship, relationship, {
-      // When the conversation opened, for every relationship it covered --
-      // including the ones it never reached. A silent Leader's fourth
-      // relationship accrues its counter on the week it was covered in, not on
-      // the week its question would have arrived had the sequence got that far.
-      openedAt,
-      // Null while the conversation is still running, which is what stops a week
-      // being counted as silence the moment it opens.
-      closedAt: instant(row.closed_at),
-      outcome:
-        row.reported_not_meeting === true
-          ? 'did_not_meet'
-          : answeredAt
-            ? 'met'
-            : 'unanswered',
-      answeredAt,
-    })
-  }
-
-  return byRelationship
-}
-
-/**
- * The Pause standing on each relationship right now, by relationship.
- *
- * A Pause is two events -- `relationship.paused` and `relationship.resumed` -- and
- * what stands is the later of them, which is a `distinct on` and not something
- * PostgREST can be asked for. So it comes through the same kind of function
- * `relationship_weeks` does, and the rule it feeds stays in
- * `deriveRelationshipState`.
- *
- * This read is what keeps a Leader on holiday out of the care queue. Without it
- * the derivation reads the weeks *before* the pause and reports a relationship
- * that was Stalled when it was paused as Stalled today -- which is the whole
- * condition the ticket exists to mask.
- *
- * Which is also why a drifted period is not quietly dropped here. `readStandingPause`
- * throws, exactly as it does on the command connection the tick runs on, so the two
- * cannot answer one bad row differently -- and the answer dropping it would give,
- * *this relationship is not paused*, is the wrong one shown confidently on the
- * surface that exists to stop exactly that. Compare the Follow-Up payload above,
- * which *is* dropped: an unrenderable item is one row, not a rule that has stopped
- * being true.
- */
-const pausesOf = async (
-  supabase: SupabaseClient,
-  ministryId: MinistryId,
-): Promise<Map<string, StandingPause>> => {
-  const { data, error } = await supabase.rpc('relationship_pauses', {
-    target_ministry_id: ministryId,
-  })
-
-  if (error) throw couldNotRead(error)
-
-  const byRelationship = new Map<string, StandingPause>()
-  for (const row of rows(data)) {
-    const relationship = text(row.relationship_id)
-    const pausedAt = instant(row.paused_at)
-    if (!relationship || !pausedAt) continue
-
-    byRelationship.set(
-      relationship,
-      readStandingPause({ relationshipId: relationship, pausedAt, periodWeeks: row.period_weeks }),
-    )
-  }
-
-  return byRelationship
-}
-
-/**
- * Every Concern this Ministry holds, resolved ones included: the derivation needs
- * the resolved ones to know they are no longer outstanding, and the unresolved
- * ones to know whether one was raised this week.
- *
- * `detail` is not in the select list and could not be read if it were -- the
- * authenticated role holds no grant on that column. The words are reached one at a
- * time through `CommandService.openConcern`, which records the viewing in the same
- * transaction that returns them.
- */
-const concernsOf = async (
-  supabase: SupabaseClient,
-  ministryId: MinistryId,
-): Promise<{
-  readonly raised: Map<string, RaisedConcern[]>
-  readonly outstanding: Map<string, OutstandingConcern[]>
-}> => {
-  const { data, error } = await supabase
-    .from('concern')
-    .select('id, relationship_id, raised_by, raised_at, resolved_at')
-    .eq('ministry_id', ministryId)
-    .order('raised_at', { ascending: false })
-
-  if (error) throw couldNotRead(error)
-
-  const found = rows(data)
-  const nameOf = await namesOf(
-    supabase,
-    found.map((row) => text(row.raised_by)),
-  )
-
-  const raised = new Map<string, RaisedConcern[]>()
-  const outstanding = new Map<string, OutstandingConcern[]>()
-
-  for (const row of found) {
-    const relationship = text(row.relationship_id)
-    const raisedAt = instant(row.raised_at)
-    const id = text(row.id)
-    const raisedBy = text(row.raised_by)
-    if (!relationship || !raisedAt || !id || !raisedBy) continue
-
-    const resolvedAt = instant(row.resolved_at)
-    gather(raised, relationship, { raisedAt, resolvedAt })
-
-    if (resolvedAt === null) {
-      gather(outstanding, relationship, {
-        id: concernId(id),
-        raisedAt,
-        raisedBy: personId(raisedBy),
-        raisedByName: nameOf.get(raisedBy) ?? null,
-      })
-    }
-  }
-
-  return { raised, outstanding }
-}
-
-/**
  * The whole surface: the three sources, read against one signed-in client and one
  * reading of the clock, so two items in the same list cannot disagree about what
  * day it is or which week it is.
@@ -425,18 +207,10 @@ export const readCareNeeded = async (
   ministryId: MinistryId,
   clock: Clock,
 ): Promise<readonly CareNeededItem[]> => {
-  const { data: settings, error } = await supabase
-    .from('ministry')
-    .select('timezone')
-    .eq('id', ministryId)
-    .maybeSingle()
-
-  if (error) throw couldNotRead(error)
-
   // A Ministry an Admin does not belong to comes back empty from the policy, and
   // there is nothing to derive a week against. Empty rather than a guessed zone:
   // every counter below is anchored to one, and the wrong zone is a wrong answer.
-  const timeZone = text((settings ?? {}).timezone)
+  const timeZone = await timeZoneOf(supabase, ministryId, couldNotRead)
   if (!timeZone) return []
 
   const now = clock.now()
@@ -452,14 +226,20 @@ export const readCareNeeded = async (
 
   const [followUps, members, weeks, concerns, pauses] = await Promise.all([
     readOpenFollowUpItems(supabase, ministryId, clock),
-    membersOf(supabase, ministryId),
-    weeksOf(supabase, ministryId),
-    concernsOf(supabase, ministryId),
-    pausesOf(supabase, ministryId),
+    membersOf(supabase, ministryId, couldNotRead),
+    weeksOf(supabase, ministryId, couldNotRead),
+    concernsOf(supabase, ministryId, couldNotRead),
+    pausesOf(supabase, ministryId, couldNotRead),
   ])
 
-  const namesFor = (relationship: string) =>
-    members.get(relationship) ?? { leaders: [], participants: [] }
+  const namesFor = (relationship: string) => members.get(relationship) ?? NOBODY_IN_IT
+
+  const membersFor = (relationship: string): CareMember[] =>
+    namesFor(relationship).people.map((person) => ({
+      personId: personId(person.personId),
+      fullName: person.fullName,
+      role: person.role,
+    }))
 
   const needingAttention: CareNeededItem[] = []
 
@@ -509,6 +289,7 @@ export const readCareNeeded = async (
       reasons: derived.reasons,
       leaderNames: leaders,
       participantNames: participants,
+      members: membersFor(id),
       openConcerns: derived.openConcerns,
     })
   }
@@ -524,6 +305,7 @@ export const readCareNeeded = async (
       relationshipId: relationshipId(relationship),
       concerns: outstanding,
       participantNames: namesFor(relationship).participants,
+      members: membersFor(relationship),
     }),
   )
 

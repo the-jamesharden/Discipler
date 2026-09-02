@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { getIntakeReader } from '~/service/container'
+import { Centred } from '../../shell'
 import { groupHeading, refusalMessages } from '../copy'
 import { GroupIntakeWizard, NoGroups } from '../group-wizard'
 import { groupWizard } from '../group-wizard-answers'
@@ -58,40 +59,37 @@ export default async function GroupIntakePage({
   )
 
   return (
-    <main>
-      <h1>{groupHeading(page.ministryName)}</h1>
-      <p className="subtle">
-        A few questions, once. There is nothing to download and no account to create.
-      </p>
+    <Centred>
+      <p className="visually-hidden">{groupHeading(page.ministryName)}</p>
+      {problems.length > 0 ? (
+        <div className="toast error" role="alert">
+          <p>Please check the following:</p>
+          <ul>
+            {problems.map((problem) => (
+              <li key={problem}>{problem}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
-      <div className="panel">
-        {problems.length > 0 ? (
-          <div className="error" role="alert">
-            <p>Please check the following:</p>
-            <ul>
-              {problems.map((problem) => (
-                <li key={problem}>{problem}</li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-
-        {page.groups.length === 0 ? (
-          // Every Ministry's day-one state, said before anybody is asked anything.
+      {page.groups.length === 0 ? (
+        // Every Ministry's day-one state, said before anybody is asked anything.
+        <>
+          <p className="sub">{groupHeading(page.ministryName)}</p>
           <NoGroups ministryName={page.ministryName} discipleshipLink={discipleshipLink} />
-        ) : (
-          <GroupIntakeWizard
-            step={step}
-            answers={answers}
-            groups={offered}
-            here={here}
-            submitTo={`${here}/submit`}
-            ministryName={page.ministryName}
-            discipleshipLink={discipleshipLink}
-            via={via}
-          />
-        )}
-      </div>
-    </main>
+        </>
+      ) : (
+        <GroupIntakeWizard
+          step={step}
+          answers={answers}
+          groups={offered}
+          here={here}
+          submitTo={`${here}/submit`}
+          ministryName={page.ministryName}
+          discipleshipLink={discipleshipLink}
+          via={via}
+        />
+      )}
+    </Centred>
   )
 }

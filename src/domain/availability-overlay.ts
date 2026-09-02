@@ -1,9 +1,10 @@
 import type { PersonId } from './ids'
 import {
-  DAY_BLOCKS,
+  SLOT_HOURS,
+  slotKey,
   WEEKDAYS,
   type AvailabilitySlot,
-  type DayBlock,
+  type SlotHour,
   type Weekday,
 } from './intake'
 
@@ -11,11 +12,11 @@ import {
  * The Availability Overlay: everyone in one relationship drawn on one grid, so a
  * Leader can see where a meeting fits.
  *
- * It is the same grid Intake collects on -- seven days by five named blocks -- and
- * that is not a coincidence to be maintained by hand. An overlay drawn on a
+ * It is the same grid Intake collects on -- seven days by twelve hourly slots --
+ * and that is not a coincidence to be maintained by hand. An overlay drawn on a
  * different grid from the one the answers were given on is not an overlay of
- * anything, so the axes are `WEEKDAYS` and `DAY_BLOCKS` themselves rather than a
- * copy of them. See `docs/adr/0006-the-availability-grid.md`.
+ * anything, so the axes are `WEEKDAYS` and `SLOT_HOURS` themselves rather than a
+ * copy of them. See `docs/adr/0018-the-hourly-grid.md`.
  *
  * **Nothing here schedules anything.** The overlay names the slot with the greatest
  * overlap the Leader also marked and stops. The Leader chooses the time and sends
@@ -70,7 +71,7 @@ export type SlotShading = 'mutual' | 'participant_only' | 'unshaded'
 
 export interface OverlaySlot {
   readonly day: Weekday
-  readonly block: DayBlock
+  readonly hour: SlotHour
   /** Everyone who marked it, in the order `people` draws them. Leader included. */
   readonly available: readonly PersonId[]
   readonly leaderIsAvailable: boolean
@@ -83,7 +84,7 @@ export interface OverlaySlot {
 export interface AvailabilityOverlay {
   /** The reading Leader first, then everyone else in the order they were given. */
   readonly people: readonly OverlayPerson[]
-  /** Thirty-five cells, day-major: one row per day with the blocks along it. */
+  /** Eighty-four cells, day-major: one row per day with the hours along it. */
   readonly slots: readonly OverlaySlot[]
   /**
    * The slot with the greatest overlap the Leader also marked, or null where no
@@ -98,9 +99,8 @@ export interface AvailabilityOverlay {
   readonly everyoneCanMeet: boolean
 }
 
-/** `monday:midday`. The key both the Intake form and this module slice a slot by. */
-const keyOf = (slot: { readonly day: string; readonly block: string }): string =>
-  `${slot.day}:${slot.block}`
+/** `monday:08`. The key both the Intake form and this module slice a slot by. */
+const keyOf = slotKey
 
 /**
  * The slots one Person marked, as a set of keys. A set rather than the array,
@@ -143,8 +143,8 @@ export const drawOverlay = (
   // tell a Leader where people are free and never where they are not, which is half
   // the question -- and the rows would not line up between two relationships.
   const cells = WEEKDAYS.flatMap((day) =>
-    DAY_BLOCKS.map((block) => {
-      const key = keyOf({ day, block })
+    SLOT_HOURS.map((hour) => {
+      const key = keyOf({ day, hour })
       const leaderIsAvailable = leaderMarked.has(key)
 
       const available: PersonId[] = leaderIsAvailable ? [you.personId] : []
@@ -155,7 +155,7 @@ export const drawOverlay = (
         present += 1
       })
 
-      return { day, block, available, leaderIsAvailable, others: present }
+      return { day, hour, available, leaderIsAvailable, others: present }
     }),
   )
 
@@ -182,7 +182,7 @@ export const drawOverlay = (
     cells.some((cell) => cell.leaderIsAvailable && cell.others === others.length)
 
   const isRecommended = (cell: (typeof cells)[number]) =>
-    best !== null && cell.day === best.day && cell.block === best.block
+    best !== null && cell.day === best.day && cell.hour === best.hour
 
   // Who green and yellow are a reading about, where the grid holds exactly one
   // Participant. A co-Leader is neither what opens the shading nor what it speaks
@@ -198,7 +198,7 @@ export const drawOverlay = (
       shading: shadingFor(cell, soleParticipant),
       recommended: isRecommended(cell),
     })),
-    recommended: best ? { day: best.day, block: best.block } : null,
+    recommended: best ? { day: best.day, hour: best.hour } : null,
     everyoneCanMeet,
   }
 }

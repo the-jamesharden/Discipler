@@ -8,7 +8,7 @@ const wellFormed: IntakeFormFields = {
   ageBand: '25-34',
   gender: 'female',
   goalId: '00000000-0000-4000-8000-000000000009',
-  availability: ['monday:midday', 'thursday:evening'],
+  availability: ['monday:12', 'thursday:18'],
   smsConsent: true,
   contactSharing: 'granted',
   source: 'pastor_link',
@@ -35,8 +35,8 @@ describe('Reading the Intake form', () => {
         gender: 'female',
         goalId: '00000000-0000-4000-8000-000000000009',
         availability: [
-          { day: 'monday', block: 'midday' },
-          { day: 'thursday', block: 'evening' },
+          { day: 'monday', hour: '12' },
+          { day: 'thursday', hour: '18' },
         ],
         smsConsent: true,
         contactSharingConsent: true,
@@ -70,7 +70,7 @@ describe('What the Intake form refuses', () => {
   })
 
   it('refuses a slot it cannot read rather than quietly dropping it', () => {
-    expect(refusalsOf({ availability: ['monday:midday', 'someday:whenever'] })).toEqual([
+    expect(refusalsOf({ availability: ['monday:12', 'someday:whenever'] })).toEqual([
       'intake.availability_unreadable',
     ])
   })

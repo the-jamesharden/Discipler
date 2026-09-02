@@ -5,6 +5,7 @@ import { personId as asPersonId } from '~/domain/ids'
 import { resolveAdmin } from '~/platform/supabase/current-admin'
 import { getRandomSource, getRosterReader } from '~/service/container'
 import { CHANGE_YOUR_PASSWORD } from '../../../account/copy'
+import { PageShell, SignOut } from '../../../shell'
 import {
   NOTHING_IS_SENT,
   passwordResetRefusalMessage,
@@ -65,22 +66,22 @@ export default async function ResetPasswordPage({
 
   if (refusal) {
     return (
-      <main>
-        <h1>Reset a password</h1>
-        <p className="subtle">{admin.ministryName}</p>
-        <div className="panel">
-          <p className="error" role="alert">{passwordResetRefusalMessage(refusal)}</p>
+      <PageShell
+        title="Reset a password"
+        subtitle={admin.ministryName}
+        back={{ href: '/roster', label: 'Back to the Roster' }}
+        actions={<SignOut />}
+      >
+        <div className="card">
+          <p className="toast error" role="alert">{passwordResetRefusalMessage(refusal)}</p>
           {/* The sentence above says *change it yourself*; this is where. */}
           {refusal === 'account.cannot_reset_yourself' ? (
             <p>
-              <Link href="/account">{CHANGE_YOUR_PASSWORD}</Link>
+              <Link className="btn sec" href="/account">{CHANGE_YOUR_PASSWORD}</Link>
             </p>
           ) : null}
-          <p>
-            <Link href="/roster">Back to the Roster</Link>
-          </p>
         </div>
-      </main>
+      </PageShell>
     )
   }
 
@@ -102,13 +103,15 @@ export default async function ResetPasswordPage({
   const candidate = generatePassword(getRandomSource())
 
   return (
-    <main>
-      <h1>{resetHeading(target.fullName)}</h1>
-      <p className="subtle">{admin.ministryName}</p>
-
-      <div className="panel">
-        <p>{resetWarning(target.fullName)}</p>
-        <p className="subtle">{NOTHING_IS_SENT}</p>
+    <PageShell
+      title={resetHeading(target.fullName)}
+      subtitle={admin.ministryName}
+      back={{ href: '/roster', label: 'Back to the Roster' }}
+      actions={<SignOut />}
+    >
+      <div className="card">
+        <p className="notice">{resetWarning(target.fullName)}</p>
+        <p className="card-lead">{NOTHING_IS_SENT}</p>
 
         <form method="post" action={`/roster/reset/${target.personId}/done`}>
           {/* The password itself, not a token that stands for one. There is nowhere
@@ -116,13 +119,14 @@ export default async function ResetPasswordPage({
               storage of a password nobody has yet agreed to set is worse than a
               hidden field on a screen only this Admin is looking at. */}
           <input type="hidden" name="password" value={candidate} />
-          <button type="submit">{RESET_ACTION}</button>
+          <div className="form-actions">
+            <Link className="btn sec" href="/roster">
+              Cancel
+            </Link>
+            <button type="submit">{RESET_ACTION}</button>
+          </div>
         </form>
       </div>
-
-      <p>
-        <Link href="/roster">Back to the Roster</Link>
-      </p>
-    </main>
+    </PageShell>
   )
 }

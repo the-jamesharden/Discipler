@@ -1025,9 +1025,9 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
 
     for (const slot of intake.availability) {
       await client.query(
-        `insert into intake_availability (ministry_id, intake_submission_id, day, block)
+        `insert into intake_availability (ministry_id, intake_submission_id, day, hour)
          values ($1, $2, $3, $4)`,
-        [intake.ministryId, submissionId, slot.day, slot.block],
+        [intake.ministryId, submissionId, slot.day, slot.hour],
       )
     }
 

@@ -24,7 +24,7 @@ const wizardForm: IntakeFormFields = {
   ageBand: '25-34',
   gender: 'female',
   goalId: '00000000-0000-4000-8000-000000000009',
-  availability: ['monday:midday'],
+  availability: ['monday:12'],
   smsConsent: true,
   contactSharing: 'granted',
   source: 'pastor_link',
@@ -58,7 +58,7 @@ describe('what the wizard records', () => {
           ageBand: '25-34',
           gender: 'female',
           firstTime: true,
-          availability: [{ day: 'monday', block: 'midday' }],
+          availability: [{ day: 'monday', hour: '12' }],
           goalId: '00000000-0000-4000-8000-000000000009',
         },
       })

@@ -8,6 +8,7 @@ import {
 } from '~/domain/ministry-settings'
 import { resolveAdmin } from '~/platform/supabase/current-admin'
 import { getMinistrySettingsReader } from '~/service/container'
+import { NotAnAdmin, PageShell, SignOut } from '../shell'
 import {
   DAYS,
   gapLabel,
@@ -17,19 +18,6 @@ import {
 } from './copy'
 
 export const dynamic = 'force-dynamic'
-
-const NotAnAdmin = () => (
-  <main>
-    <h1>Ministry Settings</h1>
-    <p className="subtle">Discipler</p>
-    <div className="panel">
-      <p className="empty">
-        This account is not an Admin of a Ministry. Ask whoever invited you to add
-        you to yours.
-      </p>
-    </div>
-  </main>
-)
 
 const HOURS = Array.from(
   { length: QUIET_HOURS.latest - QUIET_HOURS.earliest + 1 },
@@ -67,7 +55,7 @@ export default async function MinistrySettingsPage({
 }) {
   const resolution = await resolveAdmin()
 
-  if (resolution.status === 'not-an-admin') return <NotAnAdmin />
+  if (resolution.status === 'not-an-admin') return <NotAnAdmin title="Ministry Settings" />
   if (resolution.status === 'signed-out') redirect('/login')
 
   const admin = resolution.admin
@@ -81,60 +69,65 @@ export default async function MinistrySettingsPage({
   const readsAs = speakingName(settings)
 
   return (
-    <main>
-      <h1>Ministry Settings</h1>
-      <p className="subtle">{settings.name}</p>
-
-      <p>
-        <Link href="/roster">Back to the Roster</Link>
-        {' · '}
-        <Link href="/settings/goals">Discipleship Goals</Link>
-      </p>
-
+    <PageShell
+      title="Ministry Settings"
+      subtitle={settings.name}
+      back={{ href: '/overview', label: 'Back to the overview' }}
+      actions={
+        <>
+          <Link href="/settings/goals">Discipleship Goals</Link>
+          <SignOut />
+        </>
+      }
+    >
       {refusals.length > 0 ? (
-        <div className="panel">
-          <p className="error" role="alert">
-            Nothing was saved. {refusals.join(' ')}
-          </p>
-        </div>
+        <p className="toast error" role="alert">
+          Nothing was saved. {refusals.join(' ')}
+        </p>
       ) : null}
 
       {query.saved === 'yes' && refusals.length === 0 ? (
-        <p role="status">Saved.</p>
+        <p className="toast" role="status">
+          Saved.
+        </p>
       ) : null}
 
       {/* One form over all three sections. The sections are headings inside it,
           not separate saves. */}
       <form method="post" action="/settings/save">
-        <div className="panel">
-          <h2>Ministry</h2>
+        <div className="card">
+          <h2 className="card-title">Ministry</h2>
 
-          <label htmlFor="name">Ministry name</label>
-          <p className="subtle">What this ministry is called on your own screens.</p>
-          <input
-            id="name"
-            name="name"
-            type="text"
-            defaultValue={settings.name}
-            data-preview="readsAs"
-            required
-          />
+          <div className="field">
+            <label className="label" htmlFor="name">Ministry name</label>
+            <p className="subtle">What this ministry is called on your own screens.</p>
+            <input
+              id="name"
+              name="name"
+              type="text"
+              defaultValue={settings.name}
+              data-preview="readsAs"
+              required
+            />
+          </div>
 
-          <label htmlFor="fromName">Messages read as</label>
-          <p className="subtle">
-            The name in front of every text you send. Leave it blank to use the
-            ministry name.
-          </p>
-          <input
-            id="fromName"
-            name="fromName"
-            type="text"
-            defaultValue={settings.fromName ?? ''}
-            placeholder={settings.name}
-            data-preview="readsAs"
-          />
+          <div className="field">
+            <label className="label" htmlFor="fromName">Messages read as</label>
+            <p className="subtle">
+              The name in front of every text you send. Leave it blank to use the
+              ministry name.
+            </p>
+            <input
+              id="fromName"
+              name="fromName"
+              type="text"
+              defaultValue={settings.fromName ?? ''}
+              placeholder={settings.name}
+              data-preview="readsAs"
+            />
+          </div>
 
-          <label htmlFor="timezone">Timezone</label>
+          <label className="label" htmlFor="timezone">Timezone</label>
           {/* Said plainly, because it looks like the least important field on this
               page and is the most load-bearing: nothing else in the product carries
               a clock, so every rule below resolves against this one. */}
@@ -158,32 +151,36 @@ export default async function MinistrySettingsPage({
           </datalist>
         </div>
 
-        <div className="panel">
-          <h2>Language</h2>
-          <p className="subtle">
+        <div className="card">
+          <h2 className="card-title">Language</h2>
+          <p className="card-lead">
             Your people are called what you call them. These words go into the texts
             below exactly as you write them.
           </p>
 
-          <label htmlFor="leaderNoun">A person leading is a…</label>
-          <input
-            id="leaderNoun"
-            name="leaderNoun"
-            type="text"
-            defaultValue={settings.leaderNoun}
-            data-preview="leaderNoun"
-            required
-          />
+          <div className="field">
+            <label className="label" htmlFor="leaderNoun">A person leading is a…</label>
+            <input
+              id="leaderNoun"
+              name="leaderNoun"
+              type="text"
+              defaultValue={settings.leaderNoun}
+              data-preview="leaderNoun"
+              required
+            />
+          </div>
 
-          <label htmlFor="participantNoun">A person being discipled is a…</label>
-          <input
-            id="participantNoun"
-            name="participantNoun"
-            type="text"
-            defaultValue={settings.participantNoun}
-            data-preview="participantNoun"
-            required
-          />
+          <div className="field">
+            <label className="label" htmlFor="participantNoun">A person being discipled is a…</label>
+            <input
+              id="participantNoun"
+              name="participantNoun"
+              type="text"
+              defaultValue={settings.participantNoun}
+              data-preview="participantNoun"
+              required
+            />
+          </div>
 
           {/* The preview, composed by the same functions that compose the messages
               that actually go out -- prefix, opt-out disclosure and all. Rendered
@@ -209,8 +206,8 @@ export default async function MinistrySettingsPage({
           ))}
         </div>
 
-        <div className="panel">
-          <h2>Pairing</h2>
+        <div className="card">
+          <h2 className="card-title">Pairing</h2>
 
           {/* Deliberately not a row in a list of toggles beside the age gap. One is
               a safeguarding rule a ministry turns off on purpose and the other is a
@@ -221,7 +218,7 @@ export default async function MinistrySettingsPage({
             is enforced everywhere, including when you pair two people by hand.
             Groups are unaffected — a group is what it was declared as.
           </p>
-          <label htmlFor="suggestGenderMatch">
+          <label className="check" htmlFor="suggestGenderMatch">
             <input
               id="suggestGenderMatch"
               name="suggestGenderMatch"
@@ -229,7 +226,7 @@ export default async function MinistrySettingsPage({
               value="yes"
               defaultChecked={settings.suggestGenderMatch}
             />
-            {' Match gender in one-to-ones'}
+            <span>Match gender in one-to-ones</span>
           </label>
           <p className="subtle">
             Turning this off permits mixed one-to-ones throughout this ministry.
@@ -240,7 +237,7 @@ export default async function MinistrySettingsPage({
               setting is a single integer and an integer with no stated direction is
               read as symmetric -- which would exclude most of a ministry's real
               pairings. */}
-          <label htmlFor="suggestMaxAgeBandGap">
+          <label className="label" htmlFor="suggestMaxAgeBandGap">
             How many age bands a participant may be <strong>above</strong> their
             leader
           </label>
@@ -268,7 +265,7 @@ export default async function MinistrySettingsPage({
             goes out as it was.
           </p>
 
-          <label htmlFor="checkinDay">Day</label>
+          <label className="label" htmlFor="checkinDay">Day</label>
           <select
             id="checkinDay"
             name="checkinDay"
@@ -281,7 +278,7 @@ export default async function MinistrySettingsPage({
             ))}
           </select>
 
-          <label htmlFor="checkinHour">Hour</label>
+          <label className="label" htmlFor="checkinHour">Hour</label>
           <select
             id="checkinHour"
             name="checkinHour"
@@ -300,7 +297,10 @@ export default async function MinistrySettingsPage({
           </p>
         </div>
 
-        <button type="submit">Save settings</button>
+        <div className="form-actions">
+          <span />
+          <button type="submit">Save settings</button>
+        </div>
       </form>
 
       {/* Progressive enhancement and nothing more. The preview above is already
@@ -348,7 +348,6 @@ export default async function MinistrySettingsPage({
           `,
         }}
       />
-
-    </main>
+    </PageShell>
   )
 }

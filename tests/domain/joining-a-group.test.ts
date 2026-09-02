@@ -67,7 +67,7 @@ const groupForm: IntakeFormFields = {
   ageBand: '25-34',
   gender: 'female',
   goalId: null,
-  availability: ['tuesday:evening'],
+  availability: ['tuesday:19'],
   smsConsent: true,
   contactSharing: 'granted',
   source: 'pastor_link',

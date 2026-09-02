@@ -62,7 +62,7 @@ describe('A Person can change their mind about a consent', () => {
         ageBand: '25-34',
         gender: 'female',
         goalId: await firstGoalId(),
-        availability: ['monday:midday'],
+        availability: ['monday:12'],
         smsConsent: true,
         contactSharing: 'granted',
         source: 'pastor_link',

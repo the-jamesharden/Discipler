@@ -119,9 +119,11 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
     // relationship is printed inside this row too, so searching the page for
     // "Ezra Kimani" finds whichever row mentions him first -- which is the row of
     // the man he leads.
+    // The name cell is the first cell of the row and carries the avatar beside
+    // the name, so the match is on the name inside that first cell.
     const row = html
       .split('<tr')
-      .find((candidate) => candidate.startsWith(`><td>${name}</td>`))
+      .find((candidate) => candidate.slice(0, candidate.indexOf('</td>')).includes(`<span>${name}<`))
     expect(row, `no row on the Roster for ${name}`).toBeDefined()
     // Tags stripped, so the assertions read the sentence an Admin reads rather than
     // the markup it is carried in -- a label split across a `<span>` is the same

@@ -104,7 +104,7 @@ describe('reopening a Person’s Intake', () => {
         ageBand: '25-34',
         gender: 'female',
         goalId: await firstGoalId(),
-        availability: ['monday:midday'],
+        availability: ['monday:12'],
         smsConsent: true,
         contactSharing: 'granted',
         source: 'pastor_link',
@@ -134,8 +134,8 @@ describe('reopening a Person’s Intake', () => {
 
   /** The latest submission's slots, which is what "their availability" means. */
   const availabilityOf = async (person: string) => {
-    const { rows } = await pool.query<{ day: string; block: string }>(
-      `select a.day, a.block
+    const { rows } = await pool.query<{ day: string; hour: string }>(
+      `select a.day, a.hour
          from intake_availability a
         where a.intake_submission_id = (
           select s.id from intake_submission s
@@ -143,10 +143,10 @@ describe('reopening a Person’s Intake', () => {
            order by s.submitted_at desc, s.created_at desc, s.id desc
            limit 1
         )
-        order by a.day, a.block`,
+        order by a.day, a.hour`,
       [person],
     )
-    return rows.map((row) => `${row.day}:${row.block}`)
+    return rows.map((row) => `${row.day}:${row.hour}`)
   }
 
   it('gives the form back with what the Person already told this Ministry', async () => {
@@ -162,7 +162,7 @@ describe('reopening a Person’s Intake', () => {
       fullName: 'Ada Bello',
       ageBand: '25-34',
       gender: 'female',
-      availability: ['monday:midday'],
+      availability: ['monday:12'],
       // The decision that currently stands, so the Person can see what they are
       // changing rather than being asked as if for the first time.
       contactSharing: 'granted',
@@ -235,13 +235,13 @@ describe('reopening a Person’s Intake', () => {
 
     await resubmit(token, {
       fullName: 'Femi Balogun',
-      availability: ['thursday:evening', 'saturday:morning'],
+      availability: ['thursday:18', 'saturday:09'],
     })
 
     // In weekday order, which is what the enum orders by.
     expect(await availabilityOf(person)).toEqual([
-      'thursday:evening',
-      'saturday:morning',
+      'thursday:18',
+      'saturday:09',
     ])
 
     // Both submissions stand. History is append-only, and what somebody said in

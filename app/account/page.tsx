@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { currentUser } from '~/platform/supabase/current-user'
+import { PageShell, SignOut } from '../shell'
 import {
   CHANGE_ACTION,
   CHANGE_YOUR_PASSWORD,
@@ -41,13 +42,15 @@ export default async function AccountPage({
   const refusals = passwordChangeRefusalMessages(error)
 
   return (
-    <main>
-      <h1>{CHANGE_YOUR_PASSWORD}</h1>
-      <p className="subtle">Discipler</p>
-
-      <div className="panel">
+    <PageShell
+      title={CHANGE_YOUR_PASSWORD}
+      subtitle="Discipler"
+      back={{ href: '/', label: 'Back' }}
+      actions={<SignOut />}
+    >
+      <div className="card">
         {refusals.length > 0 ? (
-          <p className="error" role="alert">
+          <p className="toast error" role="alert">
             {refusals.join(' ')}
           </p>
         ) : null}
@@ -56,44 +59,50 @@ export default async function AccountPage({
           {/* Required, because sessions here run to about a year and *signed in*
               is a weak proof of presence. Without it a borrowed unlocked phone is a
               permanent account takeover. */}
-          <label htmlFor="currentPassword">Current password</label>
-          <input
-            id="currentPassword"
-            name="currentPassword"
-            type="password"
-            required
-            autoComplete="current-password"
-          />
+          <div className="field">
+            <label className="label" htmlFor="currentPassword">Current password</label>
+            <input
+              id="currentPassword"
+              name="currentPassword"
+              type="password"
+              required
+              autoComplete="current-password"
+            />
+          </div>
 
           {/* Twice, where the invitation form takes it once, and the difference is
               deliberate. Success ends every session, so a mistyped new password
               locks the person out until an Admin resets them -- and for a
               Ministry's sole Admin there is no path at all. The second field is the
               only guard the product can offer before the door closes. */}
-          <label htmlFor="newPassword">New password</label>
-          <input
-            id="newPassword"
-            name="newPassword"
-            type="password"
-            required
-            autoComplete="new-password"
-          />
+          <div className="field">
+            <label className="label" htmlFor="newPassword">New password</label>
+            <input
+              id="newPassword"
+              name="newPassword"
+              type="password"
+              required
+              autoComplete="new-password"
+            />
+          </div>
 
-          <label htmlFor="newPasswordAgain">New password again</label>
-          <input
-            id="newPasswordAgain"
-            name="newPasswordAgain"
-            type="password"
-            required
-            autoComplete="new-password"
-          />
+          <div className="field">
+            <label className="label" htmlFor="newPasswordAgain">New password again</label>
+            <input
+              id="newPasswordAgain"
+              name="newPasswordAgain"
+              type="password"
+              required
+              autoComplete="new-password"
+            />
+          </div>
 
           {/* Before the button, not after it. */}
-          <p>{SIGNS_YOU_OUT_EVERYWHERE}</p>
+          <p className="notice">{SIGNS_YOU_OUT_EVERYWHERE}</p>
 
           <button type="submit">{CHANGE_ACTION}</button>
         </form>
       </div>
-    </main>
+    </PageShell>
   )
 }

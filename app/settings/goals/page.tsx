@@ -2,22 +2,10 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { resolveAdmin } from '~/platform/supabase/current-admin'
 import { getDiscipleshipGoalReader } from '~/service/container'
+import { NotAnAdmin, PageShell, SignOut } from '../../shell'
 import { chosenByLabel, refusalMessage, removalWarning } from './copy'
 
 export const dynamic = 'force-dynamic'
-
-const NotAnAdmin = () => (
-  <main>
-    <h1>Discipleship Goals</h1>
-    <p className="subtle">Discipler</p>
-    <div className="panel">
-      <p className="empty">
-        This account is not an Admin of a Ministry. Ask whoever invited you to add
-        you to yours.
-      </p>
-    </div>
-  </main>
-)
 
 /**
  * The list of Discipleship Goals this Ministry offers at Intake, and the screen
@@ -42,7 +30,7 @@ export default async function DiscipleshipGoalsPage({
 }) {
   const resolution = await resolveAdmin()
 
-  if (resolution.status === 'not-an-admin') return <NotAnAdmin />
+  if (resolution.status === 'not-an-admin') return <NotAnAdmin title="Discipleship Goals" />
   if (resolution.status === 'signed-out') redirect('/login')
 
   const admin = resolution.admin
@@ -56,27 +44,26 @@ export default async function DiscipleshipGoalsPage({
   const refusal = refusalMessage(query.error)
 
   return (
-    <main>
-      <h1>Discipleship Goals</h1>
-      <p className="subtle">{admin.ministryName}</p>
-
-      <p>
-        <Link href="/roster">Back to the Roster</Link>
-      </p>
-
-      <div className="panel">
-        <p className="subtle">
+    <PageShell
+      title="Discipleship Goals"
+      subtitle={admin.ministryName}
+      back={{ href: '/settings', label: 'Back to Ministry settings' }}
+      actions={<SignOut />}
+    >
+      <div className="card">
+        <p className="card-lead">
           These are the options Intake asks everyone to choose from. They are this
           ministry’s own — set them before a semester begins, in the order you most
           want people to consider them.
         </p>
 
         {refusal ? (
-          <p className="error" role="alert">
+          <p className="toast error" role="alert">
             {refusal}
           </p>
         ) : null}
 
+        <div className="tbl-wrap">
         <table>
           <thead>
             <tr>
@@ -96,15 +83,16 @@ export default async function DiscipleshipGoalsPage({
                 <td>
                   <form method="post" action="/settings/goals/rename">
                     <input type="hidden" name="goalId" value={goal.id} />
-                    <label htmlFor={`label-${goal.id}`}>Wording</label>
+                    <label className="visually-hidden" htmlFor={`label-${goal.id}`}>Wording</label>
                     <input
                       id={`label-${goal.id}`}
                       name="label"
                       type="text"
                       defaultValue={goal.label}
                       required
+                      style={{ width: 'auto', minWidth: '14rem', marginRight: '0.5rem' }}
                     />
-                    <button type="submit">Save wording</button>
+                    <button type="submit" className="sec small">Save wording</button>
                   </form>
                 </td>
                 <td>{chosenByLabel(goal.chosenBy)}</td>
@@ -116,14 +104,14 @@ export default async function DiscipleshipGoalsPage({
                     <form method="post" action="/settings/goals/move">
                       <input type="hidden" name="goalId" value={goal.id} />
                       <input type="hidden" name="direction" value="up" />
-                      <button type="submit">{`Move “${goal.label}” up`}</button>
+                      <button type="submit" className="sec small">{`Move “${goal.label}” up`}</button>
                     </form>
                   ) : null}
                   {index < goals.length - 1 ? (
                     <form method="post" action="/settings/goals/move">
                       <input type="hidden" name="goalId" value={goal.id} />
                       <input type="hidden" name="direction" value="down" />
-                      <button type="submit">{`Move “${goal.label}” down`}</button>
+                      <button type="submit" className="sec small">{`Move “${goal.label}” down`}</button>
                     </form>
                   ) : null}
                 </td>
@@ -132,12 +120,12 @@ export default async function DiscipleshipGoalsPage({
                     control that removes is inside that warning. */}
                 <td>
                   {goals.length > 1 ? (
-                    <Link href={`/settings/goals?removing=${goal.id}`}>Remove</Link>
+                    <Link className="btn sec small danger" href={`/settings/goals?removing=${goal.id}`}>Remove</Link>
                   ) : (
                     // The last option is not offered for removal at all, and the
                     // reason is said rather than left to a control that does
                     // nothing. The boundary and the database refuse it too.
-                    <span className="subtle">
+                    <span className="muted">
                       The only option left — Intake could not be served without it
                     </span>
                   )}
@@ -146,10 +134,11 @@ export default async function DiscipleshipGoalsPage({
             ))}
           </tbody>
         </table>
+        </div>
 
         {removing ? (
-          <div role="alert">
-            <h2>{`Remove “${removing.label}”?`}</h2>
+          <div role="alert" className="notice" style={{ marginTop: '1.25rem' }}>
+            <h3>{`Remove “${removing.label}”?`}</h3>
             <p>{removalWarning(removing.label, removing.chosenBy)}</p>
             <form method="post" action="/settings/goals/remove">
               <input type="hidden" name="goalId" value={removing.id} />
@@ -159,24 +148,26 @@ export default async function DiscipleshipGoalsPage({
               <input type="hidden" name="confirm" value="yes" />
               <button type="submit">{`Yes, remove “${removing.label}” and lose those answers`}</button>
             </form>
-            <p>
-              <Link href="/settings/goals">Keep it</Link>
+            <p style={{ marginTop: '0.75rem' }}>
+              <Link className="btn sec" href="/settings/goals">Keep it</Link>
             </p>
           </div>
         ) : null}
       </div>
 
-      <div className="panel">
-        <h2>Add an option</h2>
-        <p className="subtle">
+      <div className="card">
+        <h2 className="card-title">Add an option</h2>
+        <p className="card-lead">
           It goes to the bottom of the list, where you can move it up.
         </p>
         <form method="post" action="/settings/goals/add">
-          <label htmlFor="label">Wording</label>
-          <input id="label" name="label" type="text" required />
+          <div className="field">
+            <label className="label" htmlFor="label">Wording</label>
+            <input id="label" name="label" type="text" required />
+          </div>
           <button type="submit">Add</button>
         </form>
       </div>
-    </main>
+    </PageShell>
   )
 }

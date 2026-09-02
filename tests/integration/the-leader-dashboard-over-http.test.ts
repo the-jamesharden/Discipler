@@ -29,8 +29,8 @@ import { getPage, signInAs, skipUnlessAppIsRunning } from '../support/app'
 
 const slots = (...keys: string[]): readonly AvailabilitySlot[] =>
   keys.map((key) => {
-    const [day, block] = key.split(':')
-    return { day, block } as AvailabilitySlot
+    const [day, hour] = key.split(':')
+    return { day, hour } as AvailabilitySlot
   })
 
 describe.skipIf(skipUnlessAppIsRunning)('a Leader reading their own relationships', () => {
@@ -83,25 +83,25 @@ describe.skipIf(skipUnlessAppIsRunning)('a Leader reading their own relationship
     riverside = await createMinistryWithAdmin('Riverside Chapel')
 
     karen = await addPersonWithAccount(riverside, 'Karen Whitfield', 'leader', {
-      answers: { availability: slots('monday:midday', 'wednesday:evening') },
+      answers: { availability: slots('monday:12', 'wednesday:18') },
     })
     mo = await addPersonWithAccount(riverside, 'Mo Farah', 'leader', {
-      answers: { availability: slots('monday:midday') },
+      answers: { availability: slots('monday:12') },
     })
 
     // Emily can meet when Karen can, and once when she cannot: green on Monday and
     // yellow on Thursday, which is the asymmetry the one-to-one overlay exists for.
     emily = await addPerson(riverside, 'Emily Johnson', {
       phone: '+15552349911',
-      answers: { availability: slots('monday:midday', 'thursday:morning') },
+      answers: { availability: slots('monday:12', 'thursday:09') },
     })
     marcus = await addPerson(riverside, 'Marcus Webb', {
       phone: '+15558110042',
-      answers: { availability: slots('wednesday:evening') },
+      answers: { availability: slots('wednesday:18') },
     })
     dani = await addPerson(riverside, 'Dani Osei', {
       phone: '+15554472310',
-      answers: { availability: slots('wednesday:evening') },
+      answers: { availability: slots('wednesday:18') },
     })
 
     karensOneToOne = await lead(karen.personId, 'one_to_one', [emily])
@@ -141,7 +141,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Leader reading their own relationship
     expect(html).not.toContain('Karen Whitfield')
   })
 
-  it('draws the grid with the days down and the blocks across', async () => {
+  it('draws the grid with the days down and the hours across', async () => {
     const html = await dashboardFor(karen)
 
     for (const day of ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']) {
@@ -149,21 +149,21 @@ describe.skipIf(skipUnlessAppIsRunning)('a Leader reading their own relationship
     }
     // The row headings are the days, which is what puts them on the vertical axis.
     expect(html).toContain('<th scope="row">Monday</th>')
-    expect(html).toContain('<th scope="col">Midday</th>')
+    expect(html).toContain('<th scope="col">12pm</th>')
   })
 
   it('names the best overlap and says nothing about booking it', async () => {
     const html = await dashboardFor(karen)
 
-    // Karen and Emily both marked Monday midday. It is a suggestion and the sentence
+    // Karen and Emily both marked Monday 12pm. It is a suggestion and the sentence
     // says whose decision the time is.
-    expect(html).toContain('Monday midday')
+    expect(html).toContain('Monday 12pm')
     expect(html).toContain('You choose the time')
   })
 
   it('says plainly when no slot works for everyone including them', async () => {
     // Karen's group: Marcus and Dani can do Wednesday evening and so can she, but Mo
-    // marked only Monday midday -- so nothing gathers all four.
+    // marked only Monday 12pm -- so nothing gathers all four.
     const html = await dashboardFor(karen)
 
     expect(html).toContain('no slot works for everyone including you')
@@ -235,11 +235,11 @@ describe.skipIf(skipUnlessAppIsRunning)('a Leader reading their own relationship
     // of what makes this case real: see `docs/adr/0009-one-account-per-human.md`.
     const greaves = adminAsPerson(church)
     await completeIntake(church, greaves.personId, ['sms', 'contact_sharing'], 'pastor_link', {
-      availability: slots('tuesday:evening'),
+      availability: slots('tuesday:19'),
     })
 
     const ada = await addPerson(church, 'Ada Rowe', {
-      answers: { availability: slots('tuesday:evening') },
+      answers: { availability: slots('tuesday:19') },
     })
 
     const relationshipId = await createRelationship(church, 'one_to_one')
@@ -290,14 +290,14 @@ describe.skipIf(skipUnlessAppIsRunning)('a Leader reading their own relationship
     // report a time as working for everyone when one of the two Leaders cannot come.
     const church = await createMinistryWithAdmin('Two Leaders Chapel')
     const first = await addPersonWithAccount(church, 'Nadia Reyes', 'leader', {
-      answers: { availability: slots('monday:midday') },
+      answers: { availability: slots('monday:12') },
     })
     const second = await addPersonWithAccount(church, 'Priya Raman', 'leader', {
-      answers: { availability: slots('friday:evening') },
+      answers: { availability: slots('friday:18') },
     })
     const participant = await addPerson(church, 'Tom Barrow', {
       phone: '+15557778888',
-      answers: { availability: slots('monday:midday') },
+      answers: { availability: slots('monday:12') },
     })
 
     const relationshipId = await createRelationship(church, 'group')
@@ -319,7 +319,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Leader reading their own relationship
 
     // Monday gathers Nadia and Tom but not Priya, so it is the best overlap and it
     // is not a time everyone can make -- and the page says both.
-    expect(html).toContain('Monday midday')
+    expect(html).toContain('Monday 12pm')
     expect(html).toContain('no slot works for everyone including you')
   })
 })

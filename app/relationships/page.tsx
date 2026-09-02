@@ -1,13 +1,13 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { CHANGE_YOUR_PASSWORD } from '../account/copy'
-import { DAY_BLOCKS, WEEKDAYS } from '~/domain/intake'
+import { PageShell, SignOut } from '../shell'
+import { SLOT_HOURS, WEEKDAYS } from '~/domain/intake'
 import { resolveAdmin } from '~/platform/supabase/current-admin'
 import { getLeaderDashboardReader } from '~/service/container'
 import type { RelationshipLed } from '~/service/ports'
 import {
-  dayBlockShortLabel,
   emptyDashboard,
+  hourLabel,
   numberWithheld,
   noMaterial,
   overlaySummary,
@@ -27,6 +27,12 @@ export const dynamic = 'force-dynamic'
  * There is no third surface in V1 and this is not one for Participants: being
  * discipled grants no surface at all. A Person who leads two relationships and is a
  * Participant in a third sees the two, and nothing of the third.
+ *
+ * The design's state pill -- Healthy, Stalled, Needs Care -- is not shown here. The
+ * reader carries only `paused`, on purpose: how a relationship is doing is the
+ * Admin's reading and lives on Care Needed. Email is not shown either; a contact
+ * is a name and a number, and the number is null where the Person has not agreed
+ * to share it.
  */
 
 /**
@@ -39,7 +45,7 @@ export const dynamic = 'force-dynamic'
  * failing, which is the right way round -- an unreadable pair of colours is a worse
  * screen, not a broken one.
  */
-const PERSON_COLOURS = ['#2f5d50', '#8a5a2b', '#3a5a8f', '#7a3a63', '#4b6b2a', '#8f3b3b']
+const PERSON_COLOURS = ['#2d5016', '#8a5a2b', '#3a5a8f', '#7a3a63', '#4b6b2a', '#8f3b3b']
 
 const colourFor = (index: number) => PERSON_COLOURS[index % PERSON_COLOURS.length]!
 
@@ -47,29 +53,59 @@ const Overlay = ({ relationship }: { relationship: RelationshipLed }) => {
   const { overlay } = relationship
   const otherCount = overlay.people.length - 1
   const colourOf = new Map(overlay.people.map((person, index) => [person.personId, index]))
+  const oneParticipant =
+    overlay.people.filter((person) => person.role === 'participant').length === 1
 
   // Green and yellow are the one-Participant reading and are drawn as fills; every
   // cell also carries one dot per person available in it. On a co-led group with a
   // single Participant both appear at once, which is the point: the fill answers
   // *can you and Ruth meet*, and the dots say who else marked the slot.
-  const shadeOf = (shading: string) =>
-    shading === 'mutual' ? '#cfe8d8' : shading === 'participant_only' ? '#f7e6b5' : undefined
+  const classOf = (slot: (typeof overlay.slots)[number]) =>
+    [
+      slot.shading === 'mutual' ? 'all' : slot.shading === 'participant_only' ? 'partial' : '',
+      slot.recommended ? 'best' : '',
+    ]
+      .filter((name) => name !== '')
+      .join(' ')
 
   return (
     <>
-      <div className="grid-scroll">
-        <table className="overlay">
-          <caption className="subtle">
+      <ul className="avail-legend">
+        {oneParticipant ? (
+          <>
+            <li>
+              <i style={{ background: 'var(--green-fit)' }} /> You both prefer this time
+            </li>
+            <li>
+              <i style={{ background: 'var(--yellow-fit)' }} /> They are free, you are not
+            </li>
+          </>
+        ) : null}
+        <li>
+          <i style={{ background: 'var(--cell)' }} /> Not available
+        </li>
+        <li>
+          <i style={{ boxShadow: 'inset 0 0 0 2px var(--primary)', background: 'transparent' }} />{' '}
+          Your best overlap
+        </li>
+      </ul>
+
+      <div className="grid-wrap">
+        <table className="avail">
+          <caption className="visually-hidden">
             Everyone’s availability, on one grid. Nothing here schedules anything.
           </caption>
           <thead>
             <tr>
               {/* Days down the vertical axis and times of day across the horizontal,
-                  which is the axis assignment the spec fixes. */}
-              <th scope="col">Day</th>
-              {DAY_BLOCKS.map((block) => (
-                <th key={block} scope="col">
-                  {dayBlockShortLabel[block]}
+                  which is the axis assignment ticket 31 fixed: twelve hourly columns
+                  from 8am to 8pm. */}
+              <th scope="col">
+                <span className="visually-hidden">Day</span>
+              </th>
+              {SLOT_HOURS.map((hour) => (
+                <th key={hour} scope="col">
+                  {hourLabel[hour]}
                 </th>
               ))}
             </tr>
@@ -78,21 +114,17 @@ const Overlay = ({ relationship }: { relationship: RelationshipLed }) => {
             {WEEKDAYS.map((day) => (
               <tr key={day}>
                 <th scope="row">{weekdayLabel[day]}</th>
-                {DAY_BLOCKS.map((block) => {
+                {SLOT_HOURS.map((hour) => {
                   const slot = overlay.slots.find(
-                    (cell) => cell.day === day && cell.block === block,
+                    (cell) => cell.day === day && cell.hour === hour,
                   )!
                   return (
-                    <td
-                      key={block}
-                      className={slot.recommended ? 'slot recommended' : 'slot'}
-                      style={{ background: shadeOf(slot.shading) }}
-                    >
+                    <td key={hour} className={classOf(slot)}>
                       {/* The cell says who is in it in words as well as in colour.
                           A grid whose only content is a fill is unreadable to
                           anybody not seeing the colours. */}
                       <span className="visually-hidden">
-                        {`${slotLabel(day, block)}: `}
+                        {`${slotLabel(day, hour)}: `}
                         {slot.available.length === 0
                           ? 'nobody'
                           : slot.available
@@ -136,10 +168,10 @@ const Overlay = ({ relationship }: { relationship: RelationshipLed }) => {
           its own reads as *this is the time* -- and where no slot gathers everyone
           including the Leader, that would be a recommendation Discipler must not
           make. */}
-      <p role="status">
+      <p className="muted" role="status">
         {overlaySummary({
           recommended: overlay.recommended
-            ? slotLabel(overlay.recommended.day, overlay.recommended.block)
+            ? slotLabel(overlay.recommended.day, overlay.recommended.hour)
             : null,
           everyoneCanMeet: overlay.everyoneCanMeet,
           otherCount,
@@ -150,72 +182,83 @@ const Overlay = ({ relationship }: { relationship: RelationshipLed }) => {
 }
 
 const Relationship = ({ relationship }: { relationship: RelationshipLed }) => {
-  const participants = relationship.contacts.filter((contact) => contact.role === 'participant')
+  const others = relationship.contacts.filter((contact) => !contact.isYou)
+  const participants = others.filter((contact) => contact.role === 'participant')
+  const heading = participants.length === 1 ? 'Your mentee' : 'Your group'
 
   return (
-    <div className="panel">
-      <h2>
-        {participants.length === 0
-          ? 'This relationship'
-          : participants.map((contact) => contact.fullName).join(', ')}
-      </h2>
-      <p className="subtle">{relationship.ministryName}</p>
+    <div className="lead-block">
+      <div className="lead-grid">
+        <div className="card">
+          <div className="card-head">
+            <h2 className="card-title">{heading}</h2>
+            <span className="muted">{relationship.ministryName}</span>
+          </div>
 
-      {/* A paused relationship stays on the list, visibly marked, for the whole
-          pause. Pausing never removes, archives, ends or hides it, and everyone in
-          it stays where they are. */}
-      {relationship.paused ? (
-        <p className="badge" role="status">
-          {pausedLabel} — {pausedExplanation}
-        </p>
-      ) : null}
-
-      <h3>Availability</h3>
-      <Overlay relationship={relationship} />
-
-      <h3>Material</h3>
-      {relationship.material ? (
-        <>
-          <p>{relationship.material.title}</p>
-          {relationship.material.body ? (
-            <p className="material-body">{relationship.material.body}</p>
-          ) : null}
-          {relationship.material.pdfUrl ? (
-            <p>
-              <a href={relationship.material.pdfUrl}>
-                {relationship.material.pdfFilename ?? 'Download the PDF'}
-              </a>
+          {/* A paused relationship stays on the list, visibly marked, for the whole
+              pause. Pausing never removes, archives, ends or hides it, and everyone in
+              it stays where they are. */}
+          {relationship.paused ? (
+            <p className="notice" role="status">
+              <span className="pill paused">{pausedLabel}</span> {pausedExplanation}
             </p>
           ) : null}
-        </>
-      ) : (
-        <p className="empty">{noMaterial}</p>
-      )}
 
-      <h3>Who is in this</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Phone</th>
-          </tr>
-        </thead>
-        <tbody>
-          {relationship.contacts.map((contact) => (
-            <tr key={contact.personId}>
-              <td>
-                {contact.fullName}
-                {contact.isYou ? ' (you)' : contact.role === 'leader' ? ' (co-leader)' : ''}
-              </td>
+          {others.length === 0 ? (
+            <p className="empty">Nobody else is in this relationship at the moment.</p>
+          ) : null}
+
+          {others.map((contact) => (
+            <div key={contact.personId} className="mentee-card">
+              <div className="mentee-top">
+                <div>
+                  <div className="mentee-name">{contact.fullName}</div>
+                  <div className="mentee-since">
+                    {contact.role === 'leader' ? 'Leads this with you (co-leader)' : 'Being discipled'}
+                  </div>
+                </div>
+              </div>
               {/* Checked at the moment of display, never assumed from enrolment.
                   One sentence covers declined, withdrawn, never asked and no number
                   on file, because a Leader who could tell them apart would be
                   reading a consent decision by inference. */}
-              <td>{contact.phone ?? <span className="empty">{numberWithheld}</span>}</td>
-            </tr>
+              <div className="mentee-contact">
+                {contact.phone ?? <span className="muted">{numberWithheld}</span>}
+              </div>
+            </div>
           ))}
-        </tbody>
-      </table>
+
+          {/* Drawn inline rather than behind a button. The page already draws it
+              and it is the one thing a Leader comes here for. */}
+          <h3>Availability</h3>
+          <Overlay relationship={relationship} />
+        </div>
+
+        <div className="card">
+          <div className="card-head">
+            <h2 className="card-title">Resources</h2>
+          </div>
+          {relationship.material ? (
+            <div className="mat-panel">
+              <div className="mat-title">{relationship.material.title}</div>
+              {relationship.material.body ? (
+                <p className="material-body">{relationship.material.body}</p>
+              ) : null}
+              {relationship.material.pdfUrl ? (
+                <p className="mat-meta">
+                  <a href={relationship.material.pdfUrl}>
+                    {relationship.material.pdfFilename ?? 'Download the PDF'}
+                  </a>
+                </p>
+              ) : null}
+            </div>
+          ) : (
+            <div className="mat-panel">
+              <p className="empty">{noMaterial}. Your ministry will set one up.</p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -226,26 +269,31 @@ export default async function RelationshipsPage() {
 
   const led = await getLeaderDashboardReader().listRelationshipsLed()
 
+  // Whoever is reading: the first relationship's own contact. Said by first name,
+  // as the design does. A Leader leading nothing has no contact row to read a
+  // name off, and the greeting says nothing rather than guessing one.
+  const me = led[0]?.contacts.find((contact) => contact.isYou)?.fullName ?? null
+  const firstName = me?.split(/\s+/)[0] ?? null
+
   return (
-    <main>
-      <h1>Your relationships</h1>
-      <p className="subtle">Discipler</p>
-
-      {/* The way back, for the one person who has one. A plain Leader has no
-          Roster and is offered no link to it -- which is why the password link is
-          here as well as there: this is the one page a Leader has. */}
-      <p>
-        {resolution.status === 'admin' ? (
-          <>
-            <Link href="/roster">Roster</Link>
-            {' · '}
-          </>
-        ) : null}
-        <Link href="/account">{CHANGE_YOUR_PASSWORD}</Link>
-      </p>
-
+    <PageShell
+      title={firstName ? `Welcome, ${firstName}` : 'Your relationships'}
+      subtitle="Your mentorship dashboard"
+      wide
+      actions={
+        <>
+          {/* The way back, for the one person who has one. A plain Leader has no
+              Admin surface and is offered no link to it -- which is why the
+              password link is here as well as there: this is the one page a Leader
+              has. */}
+          {resolution.status === 'admin' ? <Link href="/overview">Ministry overview</Link> : null}
+          <Link href="/account">Change your password</Link>
+          <SignOut />
+        </>
+      }
+    >
       {led.length === 0 ? (
-        <div className="panel">
+        <div className="card">
           {/* Not an error and not a missing permission. A Leader whose last
               relationship ended reaches exactly this, with nothing revoked. */}
           <p className="empty">{emptyDashboard}</p>
@@ -255,6 +303,6 @@ export default async function RelationshipsPage() {
           <Relationship key={relationship.relationshipId} relationship={relationship} />
         ))
       )}
-    </main>
+    </PageShell>
   )
 }

@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { getIntakeReader } from '~/service/container'
+import { Centred } from '../../../shell'
 import { refusalMessages } from '../../copy'
 import { IntakeWizard } from '../../wizard'
 import {
@@ -16,11 +17,9 @@ import {
  * step-by-step form whose first question is which side the Person is offering to
  * stand on.
  *
- * `/intake/<ministry>` is untouched by this. It keeps working exactly as it does
- * today and keeps writing a null path -- ticket 29 is what turns it into the group
- * form. Two links, because an Admin hands out whichever fits the conversation, and
- * both are printable: neither carries a token, so there is nothing on either that
- * could be secret from anybody.
+ * `/intake/<ministry>` is the group form, since ticket 29. Two links, because an
+ * Admin hands out whichever fits the conversation, and both are printable: neither
+ * carries a token, so there is nothing on either that could be secret from anybody.
  *
  * Like the page beside it, this is ordinary forms and no JavaScript. It is filled
  * in by somebody who will never have an account.
@@ -55,34 +54,28 @@ export default async function DiscipleshipIntakePage({
   const here = `/intake/${page.ministryId}/discipleship`
 
   return (
-    <main>
-      <h1>Join discipleship at {page.ministryName}</h1>
-      <p className="subtle">
-        A few questions, once. There is nothing to download and no account to create.
-      </p>
+    <Centred>
+      <p className="visually-hidden">{`Join discipleship at ${page.ministryName}`}</p>
+      {problems.length > 0 ? (
+        <div className="toast error" role="alert">
+          <p>Please check the following:</p>
+          <ul>
+            {problems.map((problem) => (
+              <li key={problem}>{problem}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
-      <div className="panel">
-        {problems.length > 0 ? (
-          <div className="error" role="alert">
-            <p>Please check the following:</p>
-            <ul>
-              {problems.map((problem) => (
-                <li key={problem}>{problem}</li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-
-        <IntakeWizard
-          step={step}
-          answers={answers}
-          here={here}
-          submitTo={`${here}/submit`}
-          ministryName={page.ministryName}
-          goals={page.goals}
-          via={via}
-        />
-      </div>
-    </main>
+      <IntakeWizard
+        step={step}
+        answers={answers}
+        here={here}
+        submitTo={`${here}/submit`}
+        ministryName={page.ministryName}
+        goals={page.goals}
+        via={via}
+      />
+    </Centred>
   )
 }

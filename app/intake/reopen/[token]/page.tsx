@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { getIntakeReader } from '~/service/container'
+import { Centred } from '../../../shell'
 import { refusalMessages } from '../../copy'
 import { IntakeForm } from '../../form'
 
@@ -35,61 +36,50 @@ export default async function ReopenIntakePage({
 
   if (page.state === 'expired') {
     return (
-      <main>
-        <h1>{page.ministryName}</h1>
-        <div className="panel">
-          <p className="empty">
-            This link has expired. Ask whoever sent it to you for a new one — your
-            answers are still on file and nothing has been lost.
-          </p>
-        </div>
-      </main>
+      <Centred subtitle={page.ministryName}>
+        <p className="empty">
+          This link has expired. Ask whoever sent it to you for a new one — your
+          answers are still on file and nothing has been lost.
+        </p>
+      </Centred>
     )
   }
 
   const problems = refusalMessages(refused)
 
   return (
-    <main>
-      <h1>Your details at {page.ministryName}</h1>
-      <p className="subtle">
+    <Centred subtitle={`Your details at ${page.ministryName}`}>
+      <p className="card-lead">
         Change whatever has moved on — your times, your number — and submit it again.
         There is still no account to create.
       </p>
 
-      <div className="panel">
-        {problems.length > 0 ? (
-          <div className="error" role="alert">
-            <p>Please check the following:</p>
-            <ul>
-              {problems.map((problem) => (
-                <li key={problem}>{problem}</li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
+      {problems.length > 0 ? (
+        <div className="toast error" role="alert">
+          <p>Please check the following:</p>
+          <ul>
+            {problems.map((problem) => (
+              <li key={problem}>{problem}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
-        {/*
-          `link` rather than `qr`, and it decides nothing. The shared form posts the
-          route as a hidden field because the Ministry-wide page cannot know it any
-          other way, and that page's route reads it back; this one does not. It
-          names `pastor_link` itself, because a token already says how the Person
-          arrived -- an Admin sent them their own form -- and a value the visitor
-          could edit must not be what a consent record says about how they agreed.
-
-          So the prop is here to satisfy the shared form, and `link` is the honest
-          answer to what it asks. What the consent record ends up saying is
-          `submit/route.ts`'s, and there is no third value for it either way: a
-          Person reopening their own form has not arrived by some new road.
-        */}
-        <IntakeForm
-          action={`/intake/reopen/${token}/submit`}
-          ministryName={page.ministryName}
-          goals={page.goals}
-          via="link"
-          prefill={page.prefill}
-        />
-      </div>
-    </main>
+      {/*
+        `link` rather than `qr`, and it decides nothing. The shared form posts the
+        route as a hidden field because the Ministry-wide page cannot know it any
+        other way, and that page's route reads it back; this one does not. It
+        names `pastor_link` itself, because a token already says how the Person
+        arrived -- an Admin sent them their own form -- and a value the visitor
+        could edit must not be what a consent record says about how they agreed.
+      */}
+      <IntakeForm
+        action={`/intake/reopen/${token}/submit`}
+        ministryName={page.ministryName}
+        goals={page.goals}
+        via="link"
+        prefill={page.prefill}
+      />
+    </Centred>
   )
 }

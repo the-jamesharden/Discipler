@@ -1,0 +1,2083 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Discipler</title>
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;600;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --primary:#2d5016; --primary-light:#4a7c2e; --accent:#c9a86a;
+  --bg:#f5f1eb; --surface:#fff; --text:#2d2d2d; --text-light:#7a7a7a;
+  --border:#e8dfd5; --shadow:rgba(45,80,22,.08);
+  --green-fit:#7FAF8C; --yellow-fit:#DDBB7A; --red-concern:#dc3545;
+  --amber:#c97a1a; --amber-ink:#97580f; --neutral:#7a7a7a;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);line-height:1.6}
+.container{max-width:1280px;margin:0 auto;padding:2rem 1.5rem}
+h1,h2,h3,.display{font-family:'Crimson Pro',serif;color:var(--primary);font-weight:600}
+button{font-family:inherit}
+:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---- sign in ---- */
+.signin-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem 1.5rem}
+.signin{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:2.5rem;max-width:460px;width:100%;box-shadow:0 8px 32px var(--shadow)}
+.signin h1{font-size:2rem}
+.signin .sub{color:var(--text-light);font-size:.92rem;margin-bottom:1.75rem}
+.role-btn{width:100%;text-align:left;padding:1.15rem 1.25rem;background:var(--surface);border:2px solid var(--border);border-radius:6px;cursor:pointer;margin-bottom:.75rem;transition:all .2s ease;font-size:1rem}
+.role-btn:hover{border-color:var(--primary);background:rgba(45,80,22,.03)}
+.role-btn-title{font-weight:700;color:var(--primary)}
+.role-btn-desc{color:var(--text-light);font-size:.87rem}
+.signin-note{font-size:.8rem;color:var(--text-light);border-top:1px solid var(--border);padding-top:1rem;margin-top:1rem;line-height:1.5}
+
+/* ---- shell ---- */
+.header{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1.75rem}
+.header h2{font-size:1.75rem}
+.header p{color:var(--text-light);font-size:.9rem}
+.ghost-btn{padding:.5rem 1rem;background:transparent;border:1px solid var(--border);border-radius:5px;cursor:pointer;color:var(--text);font-size:.88rem}
+.ghost-btn:hover{border-color:var(--primary);color:var(--primary)}
+.tabs{display:flex;gap:.25rem;border-bottom:2px solid var(--border);margin-bottom:1.75rem;overflow-x:auto}
+.tab-btn{padding:.7rem 1.1rem;background:none;border:none;border-bottom:3px solid transparent;margin-bottom:-2px;cursor:pointer;color:var(--text-light);font-size:.93rem;white-space:nowrap}
+.tab-btn.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:700}
+.tab-badge{display:inline-flex;align-items:center;justify-content:center;min-width:1.2rem;height:1.2rem;padding:0 .35rem;margin-left:.4rem;background:var(--primary);color:#fff;border-radius:10px;font-size:.7rem;font-weight:700}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1.5rem;margin-bottom:1.5rem}
+.card-head{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem}
+.card-title{font-size:1.2rem}
+.muted{color:var(--text-light);font-size:.88rem}
+
+/* ---- stats ---- */
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:1rem;margin-bottom:1.5rem}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1.1rem 1.25rem}
+.stat-label{font-size:.74rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-light);font-weight:700}
+.stat-value{font-family:'Crimson Pro',serif;font-size:2.4rem;color:var(--primary);line-height:1.1;margin:.2rem 0}
+.stat-sub{font-size:.76rem;color:var(--text-light);line-height:1.35}
+.charts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.5rem;margin-bottom:1.5rem}
+.chart-box{height:220px;position:relative}
+.qs-row{display:flex;justify-content:space-between;padding:.55rem 0;border-bottom:1px solid var(--border);font-size:.9rem}
+.qs-row:last-child{border-bottom:none}
+.qs-val{font-weight:700;color:var(--primary)}
+
+/* ---- relationship cards ---- */
+.rel-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1rem}
+.rel-card{padding:1.1rem 1.25rem;border:1px solid var(--border);border-left-width:4px;border-left-color:var(--border);border-radius:6px;background:rgba(45,80,22,.02);cursor:pointer;transition:background .2s ease}
+.rel-card:hover{background:rgba(45,80,22,.05)}
+.rel-card.s-needscare{border-left-color:var(--red-concern);background:linear-gradient(135deg,rgba(220,53,69,.06),rgba(220,53,69,.03))}
+.rel-card.s-stalled{border-left-color:var(--amber);background:linear-gradient(135deg,rgba(201,122,26,.08),rgba(201,122,26,.03))}
+.rel-card.s-paused{border-left-color:var(--neutral);background:rgba(122,122,122,.04);opacity:.8}
+.rel-card.s-awaiting{border-left-color:var(--accent);background:rgba(201,168,106,.06)}
+.rel-leader{font-weight:700}
+.rel-people{font-size:.88rem;color:var(--text);margin-top:.15rem}
+.rel-meta{font-size:.78rem;color:var(--text-light);margin-top:.5rem}
+.rel-reason{font-size:.82rem;margin-top:.5rem;line-height:1.45}
+.rel-reason.needscare{color:#b02a37}
+.rel-reason.stalled{color:var(--amber-ink)}
+.rel-reason.review{color:var(--neutral)}
+.pill{display:inline-block;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:.15rem .5rem;border-radius:3px;vertical-align:middle}
+.pill.healthy{background:rgba(127,175,140,.25);color:#2f6b41}
+.pill.stalled{background:rgba(201,122,26,.16);color:var(--amber-ink)}
+.pill.needscare{background:rgba(220,53,69,.12);color:#b02a37}
+.pill.paused{background:rgba(122,122,122,.16);color:#5f5f5f}
+.pill.awaiting{background:rgba(201,168,106,.22);color:#8a6b28}
+.pill.ended{background:rgba(122,122,122,.1);color:#5f5f5f}
+.pill.n{background:rgba(45,80,22,.08);color:var(--primary);margin-left:.4rem}
+
+/* ---- check-ins ---- */
+.ci-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem}
+.ci-stat{text-align:center;padding:1rem;border:1px solid var(--border);border-radius:6px}
+.ci-stat-val{font-family:'Crimson Pro',serif;font-size:2.2rem;line-height:1;color:var(--primary)}
+.ci-stat-val.pending{color:var(--amber-ink)}
+.ci-stat-val.concern{color:var(--red-concern)}
+.ci-cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.25rem}
+.ci-col-head{display:flex;justify-content:space-between;align-items:center;padding:.6rem .8rem;border-radius:5px;margin-bottom:.75rem;font-weight:700;font-size:.9rem}
+.ci-col-head.a{background:rgba(127,175,140,.18);color:#2f6b41}
+.ci-col-head.b{background:rgba(221,187,122,.22);color:#8a6b28}
+.ci-col-head.c{background:rgba(220,53,69,.1);color:#b02a37}
+.ci-card{padding:.7rem .85rem;border:1px solid var(--border);border-radius:5px;margin-bottom:.5rem;cursor:pointer;font-size:.88rem}
+.ci-card:hover{border-color:var(--primary)}
+.ci-when{font-size:.76rem;color:var(--text-light)}
+.sealed{padding:1.75rem 1.25rem;text-align:center;border:1px dashed var(--border);border-radius:6px;background:rgba(220,53,69,.03)}
+.sealed-count{font-family:'Crimson Pro',serif;font-size:3rem;font-weight:700;color:var(--red-concern);line-height:1}
+.sealed-label{font-weight:600}
+.sealed-note{font-size:.82rem;color:var(--text-light);margin:.7rem 0 1rem;line-height:1.5}
+
+/* ---- suggestions ---- */
+.sug{border:1px solid var(--border);border-radius:8px;padding:1.25rem;margin-bottom:1rem}
+.sug-tier{display:flex;justify-content:space-between;align-items:center;margin-bottom:.85rem}
+.tier{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:.25rem .6rem;border-radius:3px}
+.tier.excellent{background:rgba(127,175,140,.25);color:#2f6b41}
+.tier.good{background:rgba(221,187,122,.25);color:#8a6b28}
+.tier.recommended{background:rgba(45,80,22,.08);color:var(--primary)}
+.sug-names{display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+.sug-name{font-weight:700}
+.sug-role{font-size:.76rem;color:var(--text-light);display:block;font-weight:400}
+.sug-arrow{color:var(--accent);font-size:1.2rem}
+.sug-reason{margin:.85rem 0;padding:.7rem .9rem;background:rgba(45,80,22,.03);border-radius:5px;font-size:.89rem;line-height:1.5}
+.btn{padding:.6rem 1.1rem;background:var(--primary);color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:.9rem}
+.btn:hover{background:var(--primary-light)}
+.btn.sec{background:transparent;color:var(--text);border:1px solid var(--border)}
+.btn.sec:hover{border-color:var(--primary);color:var(--primary);background:transparent}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.nso{margin-top:2.5rem;padding-top:1.5rem;border-top:2px solid var(--border)}
+.nso-row{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.75rem 1rem;border:1px solid var(--border);border-radius:6px;margin-bottom:.6rem;flex-wrap:wrap}
+
+/* ---- follow-up ---- */
+.fu{padding:1.1rem 1.25rem;border:1px solid var(--border);border-left-width:4px;border-radius:6px;margin-bottom:.85rem}
+.fu.care-concern{border-left-color:var(--red-concern)}
+.fu.care-stalled{border-left-color:var(--amber)}
+.fu.review{border-left-color:var(--neutral)}
+.fu-tags{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.45rem}
+.fu-tag{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:.15rem .5rem;border-radius:3px}
+.fu-tag.concern{background:rgba(220,53,69,.12);color:#b02a37}
+.fu-tag.stalled{background:rgba(201,122,26,.16);color:var(--amber-ink)}
+.fu-tag.review{background:rgba(122,122,122,.14);color:#5f5f5f}
+.fu-who{font-weight:700}
+.fu-line{font-size:.88rem;margin-top:.3rem;line-height:1.45}
+.fu-actions{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.9rem}
+.fu-btn{padding:.4rem .8rem;font-size:.82rem;border:1px solid var(--border);background:var(--surface);border-radius:5px;cursor:pointer;color:var(--text)}
+.fu-btn:hover:not(:disabled){border-color:var(--primary);color:var(--primary)}
+.fu-btn.danger:hover:not(:disabled){border-color:var(--red-concern);color:var(--red-concern)}
+.fu-btn:disabled{opacity:.45;cursor:not-allowed}
+
+/* ---- tables ---- */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+th{text-align:left;padding:.6rem .7rem;border-bottom:2px solid var(--border);font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-light)}
+td{padding:.7rem;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:hover td{background:rgba(45,80,22,.02)}
+.rs{display:inline-block;font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:.2rem .55rem;border-radius:3px;white-space:nowrap}
+.rs-nointake{background:rgba(122,122,122,.13);color:#5f5f5f}
+.rs-ready{background:rgba(45,80,22,.1);color:var(--primary)}
+.rs-paired{background:rgba(127,175,140,.22);color:#2f6b41}
+.rs-optedout{background:rgba(220,53,69,.1);color:#a02330}
+.blocked{color:var(--text-light);font-style:italic;font-size:.85rem}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:5px;overflow:hidden;margin-bottom:1.25rem}
+.seg button{padding:.45rem .9rem;background:var(--surface);border:none;cursor:pointer;font-size:.85rem;color:var(--text-light)}
+.seg button.active{background:var(--primary);color:#fff;font-weight:700}
+
+/* ---- availability overlay ---- */
+.grid-wrap{overflow-x:auto;margin:.25rem 0}
+
+/* ---- misc ---- */
+.notice{background:rgba(201,168,106,.12);border:1px solid var(--accent);border-radius:6px;padding:.9rem 1.1rem;font-size:.87rem;margin-bottom:1.25rem;line-height:1.5}
+.empty{padding:2.5rem 1rem;text-align:center;color:var(--text-light)}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:1000;padding:1.5rem}
+.modal{background:var(--surface);border-radius:8px;padding:1.75rem;max-width:560px;width:100%;max-height:88vh;overflow-y:auto}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.1rem}
+.x{background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--text-light);line-height:1}
+.field{margin-bottom:1rem}
+.label{display:block;font-size:.8rem;font-weight:700;margin-bottom:.35rem}
+select,textarea,input[type=text]{width:100%;padding:.6rem;border:1px solid var(--border);border-radius:5px;font-family:inherit;font-size:.9rem;background:var(--surface);color:var(--text)}
+textarea{min-height:90px;resize:vertical}
+.modal-actions{display:flex;gap:.6rem;justify-content:flex-end;margin-top:1.4rem}
+.person-row{display:flex;align-items:center;gap:.75rem;padding:.6rem 0;border-bottom:1px solid var(--border)}
+.avatar{width:34px;height:34px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.78rem;font-weight:700;flex-shrink:0}
+.toasts{position:fixed;top:1.5rem;right:1.5rem;z-index:2000;display:flex;flex-direction:column;gap:.6rem;align-items:flex-end;max-width:400px}
+.toast{background:var(--surface);border:2px solid var(--primary);border-radius:6px;padding:.9rem 1.1rem;box-shadow:0 8px 32px var(--shadow);font-size:.88rem;transition:opacity .3s ease}
+.toast.warn{border-color:var(--accent)}
+.toast.error{border-color:var(--red-concern)}
+.toast-t{font-weight:700;color:var(--primary)}
+.toast.error .toast-t{color:var(--red-concern)}
+.toast-d{color:var(--text-light);font-size:.83rem;line-height:1.45;margin-top:.15rem}
+.sms{background:rgba(45,80,22,.04);border-left:3px solid var(--primary);padding:.6rem .8rem;border-radius:0 5px 5px 0;font-size:.85rem;margin:.4rem 0;line-height:1.5}
+.audit{font-size:.78rem;color:var(--text-light);border-top:1px solid var(--border);margin-top:1rem;padding-top:.7rem}
+.mat-row{display:flex;justify-content:space-between;gap:1rem;padding:.75rem;border:1px solid var(--border);border-radius:6px;margin-bottom:.6rem;flex-wrap:wrap}
+.mat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:1.25rem}
+.mat-tile{background:none;border:none;padding:0;cursor:pointer;text-align:center;font-family:inherit;display:flex;flex-direction:column;align-items:center}
+.mat-folder{position:relative;width:118px;height:118px;border:1px solid var(--border);border-radius:14px;background:rgba(45,80,22,.03);display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:6px;padding:11px;transition:all .2s ease}
+.mat-tile:hover .mat-folder{background:rgba(45,80,22,.07);border-color:var(--primary-light)}
+.mat-chip{border-radius:8px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.66rem;font-weight:700;letter-spacing:.02em}
+.mat-chip.alt{background:var(--accent)}
+.mat-chip.more{background:rgba(45,80,22,.08);color:var(--text-light)}
+.mat-count{position:absolute;top:-8px;right:-8px;min-width:24px;height:24px;padding:0 6px;border-radius:12px;background:var(--primary);color:#fff;font-size:.72rem;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--bg)}
+.mat-dot{position:absolute;top:-6px;left:-6px;width:13px;height:13px;border-radius:50%;border:2px solid var(--bg)}
+.mat-dot.green{background:var(--green-fit)}
+.mat-dot.amber{background:var(--amber)}
+.mat-dot.red{background:var(--red-concern)}
+.mat-dot.grey{background:#b4b4b4}
+.mat-name{font-weight:700;font-size:.92rem;margin-top:.7rem;line-height:1.3;color:var(--text)}
+.mat-sub{font-size:.78rem;color:var(--text-light)}
+.mat-tile.unassigned .mat-folder{border-style:dashed;background:transparent}
+.lead-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
+@media (max-width:860px){.lead-grid{grid-template-columns:1fr}}
+.mentee-card{border:1px solid var(--border);border-radius:8px;padding:1.25rem;background:rgba(45,80,22,.02)}
+.mentee-top{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem}
+.mentee-name{font-family:'Crimson Pro',serif;font-size:1.35rem;font-weight:600;color:var(--text);line-height:1.2}
+.mentee-since{font-size:.84rem;color:var(--text-light);margin-top:.15rem}
+.mentee-contact{margin:.9rem 0 1.1rem;font-size:.9rem}
+.mentee-contact div{margin-bottom:.2rem}
+.wide-btn{width:100%;padding:.7rem;background:transparent;border:1.5px solid var(--primary);border-radius:6px;color:var(--primary);font-weight:700;cursor:pointer;font-family:inherit;font-size:.9rem}
+.wide-btn:hover{background:rgba(45,80,22,.05)}
+.mat-panel{border:1px solid var(--border);border-radius:8px;padding:1.25rem;height:100%;display:flex;flex-direction:column;justify-content:center}
+.mat-title{font-family:'Crimson Pro',serif;font-size:1.3rem;color:var(--primary);line-height:1.25}
+.mat-meta{font-size:.84rem;color:var(--text-light);margin-top:.3rem}
+.avail-legend{display:flex;gap:1.5rem;flex-wrap:wrap;background:rgba(45,80,22,.03);border-radius:6px;padding:.7rem 1rem;font-size:.85rem;margin-bottom:1.1rem}
+.avail-legend span{display:flex;align-items:center;gap:.45rem}
+.avail-legend i{width:16px;height:16px;border-radius:3px;display:inline-block}
+.avail{border-collapse:collapse;font-size:.72rem;width:100%}
+.avail th{padding:.2rem .1rem;font-size:.68rem;color:var(--text-light);font-weight:700;border:none;text-transform:none;letter-spacing:0;text-align:center}
+.avail th.day{text-align:right;padding-right:.6rem;color:var(--text);white-space:nowrap}
+.avail td{padding:0;border:none;height:30px;min-width:30px;background:#e4dfd6}
+.avail td.partial{background:var(--yellow-fit)}
+.avail td.all{background:var(--green-fit)}
+.avail td.best{box-shadow:inset 0 0 0 2px var(--primary)}
+.avail tbody tr:first-child td:nth-child(2){border-top-left-radius:5px}
+.avail tbody tr:first-child td:last-child{border-top-right-radius:5px}
+.avail tbody tr:last-child td:nth-child(2){border-bottom-left-radius:5px}
+.avail tbody tr:last-child td:last-child{border-bottom-right-radius:5px}
+.mat-back{background:none;border:none;color:var(--primary);cursor:pointer;font-family:inherit;font-size:.88rem;padding:0;margin-bottom:1rem}
+.mat-back:hover{text-decoration:underline}
+.drill-head{margin-bottom:1.25rem}
+.drill-head h3{font-size:1.35rem}
+.hist{font-size:.78rem;color:var(--text-light);margin-top:.3rem}
+
+@media (max-width:1100px){
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .charts{grid-template-columns:1fr 1fr}
+  .ci-cols{grid-template-columns:1fr}
+}
+@media (max-width:720px){
+  .stats{grid-template-columns:1fr}
+  .charts{grid-template-columns:1fr}
+  .toasts{left:1rem;right:1rem;max-width:none;align-items:stretch}
+}
+</style>
+</head>
+<body>
+
+<div id="signin" class="signin-wrap">
+  <div class="signin">
+    <h1>Discipler</h1>
+    <p class="sub">Sign in to your ministry</p>
+    <button class="role-btn" onclick="app.signIn('admin')">
+      <div class="role-btn-title">Admin</div>
+      <div class="role-btn-desc">Every admin sees all of this ministry's data</div>
+    </button>
+    <button class="role-btn" onclick="app.signIn('leader')">
+      <div class="role-btn-title">Mentor or group leader</div>
+      <div class="role-btn-desc">See only the relationships you lead</div>
+    </button>
+    <p class="signin-note">People being discipled have no account and no dashboard &mdash; they take part entirely over text.</p>
+  </div>
+</div>
+
+<div id="adminView" style="display:none">
+  <div class="container">
+    <div class="header">
+      <div>
+        <h2>Ministry overview</h2>
+        <p class="muted">Discipleship relationships, week by week</p>
+      </div>
+      <button class="ghost-btn" onclick="app.signOut()">Sign out</button>
+    </div>
+
+    <div class="tabs" id="tabs">
+      <button class="tab-btn active" onclick="app.tab('overview')">Overview</button>
+      <button class="tab-btn" onclick="app.tab('checkins')">Check-Ins</button>
+      <button class="tab-btn" onclick="app.tab('suggested')">Suggested Pairs</button>
+      <button class="tab-btn" onclick="app.tab('followup')">Follow-Up<span class="tab-badge" id="fuBadge" style="display:none"></span></button>
+      <button class="tab-btn" onclick="app.tab('materials')">Materials</button>
+      <button class="tab-btn" onclick="app.tab('roster')">Roster</button>
+    </div>
+
+    <div id="tab-overview">
+      <div class="stats" id="ovStats"></div>
+      <div class="charts">
+        <div class="card"><div class="card-title" style="font-size:1rem;margin-bottom:.75rem">Meeting Completion</div><div class="chart-box" id="boxMeeting"><canvas id="chartMeeting"></canvas></div></div>
+        <div class="card"><div class="card-title" style="font-size:1rem;margin-bottom:.75rem">Check-In Ratings</div><div class="chart-box" id="boxRatings"><canvas id="chartRatings"></canvas></div></div>
+        <div class="card"><div class="card-title" style="font-size:1rem;margin-bottom:.75rem">Quick Stats</div><div id="quickStats"></div></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3 class="card-title">All relationships</h3><span class="muted" id="ovRelCount"></span></div>
+        <div class="rel-grid" id="ovRelList"></div>
+      </div>
+    </div>
+
+    <div id="tab-checkins" style="display:none">
+      <div class="card">
+        <div class="card-head"><h3 class="card-title">This week's check-ins</h3><span class="muted" id="ciWeek"></span></div>
+        <div class="ci-stats" id="ciStats"></div>
+        <div class="ci-cols">
+          <div>
+            <div class="ci-col-head a"><span>Outstanding (A)</span><span id="cntA">0</span></div>
+            <div id="listA"></div>
+          </div>
+          <div>
+            <div class="ci-col-head b"><span>Good (B)</span><span id="cntB">0</span></div>
+            <div id="listB"></div>
+          </div>
+          <div>
+            <div class="ci-col-head c"><span>Concern (C)</span><span id="cntC">0</span></div>
+            <div class="sealed" id="sealedC"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-suggested" style="display:none">
+      <div class="card">
+        <div class="card-head">
+          <h3 class="card-title">Suggested pairs</h3>
+          <span class="muted">One-to-one only. Relationships with more than one participant are formed manually.</span>
+        </div>
+        <div id="sugList"></div>
+        <div id="nsoList"></div>
+      </div>
+    </div>
+
+    <div id="tab-followup" style="display:none">
+      <div class="card">
+        <div class="card-head"><h3 class="card-title">Care needed</h3><span class="muted" id="fuCount"></span></div>
+        <p class="muted" style="margin-bottom:1.25rem">Everything currently needing attention: stalled relationships, unresolved concerns, expired pauses, open swap requests, and relationships waiting more than five days for their leader to accept. Pauses, swaps and slow acceptances are ordinary things &mdash; they are review conditions, not care flags. Nothing here clears itself.</p>
+        <div id="fuList"></div>
+      </div>
+    </div>
+
+    <div id="tab-materials" style="display:none">
+      <div class="card">
+        <div class="card-head"><h3 class="card-title">Materials</h3><span class="muted">One material at a time, assigned to the relationship</span></div>
+        <div class="seg" id="matSeg">
+          <button data-g="all" class="active" onclick="app.matFilter('all')">All</button>
+          <button data-g="M" onclick="app.matFilter('M')">Men's</button>
+          <button data-g="F" onclick="app.matFilter('F')">Women's</button>
+        </div>
+        <div id="matList"></div>
+      </div>
+    </div>
+
+    <div id="tab-roster" style="display:none">
+      <div class="card">
+        <div class="card-head">
+          <h3 class="card-title">Roster</h3>
+          <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">
+            <span class="muted" id="rosterCount"></span>
+            <button class="btn sec" onclick="app.openImport()">Upload CSV</button>
+          </div>
+        </div>
+        <div class="seg" id="rosterSeg">
+          <button data-v="all" class="active" onclick="app.rosterView('all')">Everyone</button>
+          <button data-v="eligible" onclick="app.rosterView('eligible')">Eligible to lead</button>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Status</th><th>Relationship</th></tr></thead>
+            <tbody id="rosterBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="leaderView" style="display:none">
+  <div class="container">
+    <div class="header">
+      <div>
+        <h2 id="leaderName">Welcome</h2>
+        <p class="muted">Your mentorship dashboard</p>
+      </div>
+      <button class="ghost-btn" onclick="app.signOut()">Sign out</button>
+    </div>
+    <div id="leaderRels"></div>
+  </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+<script>
+/* ============================================================================
+   Discipler — demo built strictly from the product docs.
+   Every rule below cites the document that settles it. Where the docs leave a
+   detail open, it is marked OPEN and surfaced in the UI rather than invented.
+   ============================================================================ */
+
+const MINISTRY = { name: 'Anthem Church' };
+
+/* --- product-rules.md: Age Ranges --- */
+const AGE_BANDS = ['18–24', '25–34', '35–44', '45–54', '55–64', '65+'];
+
+/* --- product-flow.md: intake captures a Discipleship Goal.
+   OPEN: the docs never enumerate the goal options. This list is a demo
+   placeholder, not a product decision. --- */
+const GOALS = ['Prayer', 'Scripture', 'Career and calling', 'Family', 'Recovery', 'Leadership'];
+
+/* --- product-rules.md: Pause Is Leader-Controlled, Bounded, and Visible --- */
+const PAUSE_WEEKS = [1, 2, 4, 8, 12];
+const PAUSE_DEFAULT = 2;
+
+/* --- product-rules.md: Stalled Has Two Conditions --- */
+const STALL = { SILENT_UNANSWERED: 2, NOT_MEETING_REPLIES: 3 };
+
+/* --- product-rules.md: Nudge Limits (pilot starting values) --- */
+const NUDGE = { COOLDOWN_HOURS: 12, PER_DAY: 2, PER_WEEK: 4 };
+
+/* --- product-rules.md: An Ending Records an Outcome as Well as a Reason.
+   A required binary outcome — completed or discontinued, exactly two values,
+   because the question a ministry asks later is a count and free text cannot
+   be counted — plus a required free-text reason. `Ended` remains terminal and
+   history is preserved untouched. --- */
+
+/* --- product-rules.md: An Unaccepted Relationship Holds Its People --- */
+const ACCEPT = { REMIND_DAYS: 2, SURFACE_DAYS: 5 };
+
+/* --- product-rules.md: V1 Scope. Three capabilities are deliberately deferred.
+   These are build-scope flags, not product copy: the interfaces they gate are
+   simply absent rather than announced to the user. --- */
+const V1 = { materialAssignment: false, planningCenterApi: false, quarterlyReport: false };
+
+const ROSTER_STATUS = {
+  no_intake: { label: 'No Intake Submitted', cls: 'rs-nointake' },
+  ready:     { label: 'Ready to Pair',       cls: 'rs-ready' },
+  paired:    { label: 'Paired',              cls: 'rs-paired' },
+  opted_out: { label: 'Opted Out',           cls: 'rs-optedout' }
+};
+
+const REL_STATE = {
+  awaiting:  { label: 'Awaiting Acceptance', pill: 'awaiting' },
+  healthy:   { label: 'Healthy',    pill: 'healthy' },
+  stalled:   { label: 'Stalled',    pill: 'stalled' },
+  needscare: { label: 'Needs Care', pill: 'needscare' },
+  paused:    { label: 'Paused',     pill: 'paused' },
+  ended:     { label: 'Ended',      pill: 'ended' }
+};
+
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+/* --- product-rules.md: The Availability Grid Is Seven Days by Five Blocks.
+   Thirty-five slots, named blocks rather than clock times — a person answering
+   "when could you meet" is describing the shape of their day, not committing
+   to an hour. The grid is a shared unit, not a display choice: suggestion
+   ranks on the count of shared cells, and a count only means something when
+   both sides answered on the same grid. --- */
+const TIMES = ['Early AM', 'Morning', 'Midday', 'Afternoon', 'Evening'];
+const SLOTS = DAYS.length * TIMES.length;
+
+/* ---------------------------------------------------------------- helpers */
+const DAY_MS = 86400000;
+function daysAgo(iso) { if (!iso) return null; const d = new Date(iso + 'T00:00:00'); return isNaN(d) ? null : Math.floor((Date.now() - d.getTime()) / DAY_MS); }
+function dateOffset(days) { const t = new Date(); t.setDate(t.getDate() - days); return t.toISOString().slice(0, 10); }
+function fmtDate(iso) { if (!iso) return '—'; const d = new Date(iso + 'T00:00:00'); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function initials(n) { const p = (n || '').trim().split(/\s+/); return ((p[0] || '')[0] || '?') + (p.length > 1 ? p[p.length - 1][0] : ''); }
+
+// Deterministic PRNG so the demo reads identically on every load.
+function mulberry(seed) { return function () { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const rnd = mulberry(20260826);
+const pick = a => a[Math.floor(rnd() * a.length)];
+const chance = p => rnd() < p;
+
+/* ------------------------------------------------------------------- data */
+const DB = { people: [], relationships: [], checkins: [], materials: [], audit: [], nudges: [] };
+
+DB.materials = [
+  { id: 'MAT01', name: 'The Master Plan of Evangelism', kind: 'Book' },
+  { id: 'MAT02', name: 'Praying Like Monks, Living Like Fools', kind: 'Book' },
+  { id: 'MAT03', name: 'Gospel of Mark reading plan', kind: 'Reading plan' },
+  { id: 'MAT04', name: 'Prayer practices', kind: 'Program' }
+];
+
+(function generate() {
+  const FIRST_M = ['David', 'Daniel', 'Tyler', 'Marcus', 'Caleb', 'Noah', 'Ethan', 'Andre', 'Jonah', 'Peter', 'Samuel', 'Isaac', 'Luke', 'Owen', 'Miles', 'Theo'];
+  const FIRST_F = ['Maria', 'Grace', 'Tessa', 'Kendra', 'Rylee', 'Hannah', 'Olivia', 'Sofia', 'Naomi', 'Claire', 'Adaeze', 'Jenna', 'Rosa', 'Priya', 'Imani', 'Elena'];
+  const LAST = ['Chen', 'Garcia', 'Lee', 'Okafor', 'Patel', 'Wilson', 'Castillo', 'Pham', 'Park', 'Bennett', 'Reyes', 'Foster', 'Nguyen', 'Barrett', 'Delgado', 'Mabry', 'Sullivan', 'Copeland', 'Johnson', 'Fields', 'Adeyemi', 'Moreau'];
+
+  let pid = 0;
+  function makePerson(role, gender) {
+    pid++;
+    const first = gender === 'M' ? pick(FIRST_M) : pick(FIRST_F);
+    const name = first + ' ' + pick(LAST);
+    // Leaders skew older than participants, so the age-band rule has real cases.
+    const bandIdx = role === 'leader'
+      ? Math.min(AGE_BANDS.length - 1, 1 + Math.floor(rnd() * 3))
+      : Math.floor(rnd() * 3);
+    /* Real availability comes as a couple of evenings and a weekend morning:
+       one or two adjacent blocks on a few days, biased toward afternoons and
+       evenings, on the shared seven-by-five grid. */
+    const slots = [];
+    const dayCount = 2 + Math.floor(rnd() * 3);
+    const days = [];
+    while (days.length < dayCount) { const d = Math.floor(rnd() * DAYS.length); if (!days.includes(d)) days.push(d); }
+    days.forEach(d => {
+      const start = rnd() < 0.7 ? 3 + Math.floor(rnd() * 2) : Math.floor(rnd() * 3);
+      const len = 1 + Math.floor(rnd() * 2);
+      for (let t = start; t < Math.min(start + len, TIMES.length); t++) {
+        const idx = d * TIMES.length + t;
+        if (!slots.includes(idx)) slots.push(idx);
+      }
+    });
+    return {
+      id: (role === 'leader' ? 'L' : 'P') + String(pid).padStart(3, '0'),
+      name, role, gender,
+      ageBand: AGE_BANDS[bandIdx],
+      goal: pick(GOALS),
+      phone: '(706) 555-' + String(1000 + Math.floor(rnd() * 8999)),
+      email: chance(0.82) ? first.toLowerCase() + '.' + String(pid) + '@example.org' : '',
+      availability: slots.sort((a, b) => a - b),
+      /* Roster membership, intake completion and pairing eligibility are three
+         different facts, and Participation Status is DERIVED, never stored.
+         Eligibility to lead is an explicit per-person flag, independent of
+         whether the person currently leads anything.
+         — product-rules.md: Roles Are Relationship Memberships, Not
+         Properties of a Person / Roster Membership Is Not Consent */
+      eligibleToLead: role === 'leader',
+      optedOut: false,
+      intakeCompletedOn: dateOffset(20 + Math.floor(rnd() * 160)),
+      consents: null,
+      importedOn: null
+    };
+  }
+
+  // Intake is where a person gives both consents themselves.
+  function completeIntake(p) {
+    p.consents = {
+      sms: { given: true, version: 'v1.2', at: p.intakeCompletedOn },
+      contactSharing: { given: true, version: 'v1.2', at: p.intakeCompletedOn }
+    };
+  }
+
+  const leaders = [], participants = [];
+  for (let i = 0; i < 22; i++) { const p = makePerson('leader', i % 2 ? 'F' : 'M'); completeIntake(p); leaders.push(p); DB.people.push(p); }
+  for (let i = 0; i < 58; i++) { const p = makePerson('participant', i % 2 ? 'F' : 'M'); completeIntake(p); participants.push(p); DB.people.push(p); }
+
+  // People at other stages of the roster: uploaded but no intake, and opted out.
+  for (let i = 0; i < 7; i++) {
+    const p = makePerson('participant', i % 2 ? 'F' : 'M');
+    p.intakeCompletedOn = null; p.consents = null;
+    p.availability = []; p.goal = null; p.ageBand = null; p.email = '';
+    p.importedOn = dateOffset(2 + i);
+    DB.people.push(p);
+  }
+  for (let i = 0; i < 3; i++) {
+    const p = makePerson('participant', i % 2 ? 'F' : 'M');
+    p.optedOut = true; DB.people.push(p);
+  }
+
+  /* --- Relationships: one leader and N participants. There is no group
+     entity. — product-rules.md: The Relationship Is the Core Primitive --- */
+  let rid = 0, pool = participants.slice();
+  function makeRel(leader, count, opts) {
+    opts = opts || {};
+    const parts = [];
+    for (let i = 0; i < count && pool.length; i++) {
+      // Gender is an absolute constraint. — product-rules.md: Suggestion Constraints
+      const idx = pool.findIndex(x => x.gender === leader.gender);
+      if (idx === -1) break;
+      parts.push(pool.splice(idx, 1)[0]);
+    }
+    if (!parts.length) return null;
+    rid++;
+    const createdOn = dateOffset(opts.createdDaysAgo != null ? opts.createdDaysAgo : 40 + Math.floor(rnd() * 200));
+    const rel = {
+      id: 'R' + String(rid).padStart(3, '0'),
+      leaderId: leader.id,
+      participantIds: parts.map(p => p.id),
+      lifecycle: opts.lifecycle || 'active',   // awaiting | active | paused | ended
+      createdOn,
+      acceptedOn: opts.lifecycle === 'awaiting' ? null : createdOn,
+      pause: null, swapRequest: null,
+      endedOn: null, endReason: null,
+      materialPeriods: []
+    };
+    /* A relationship's first material period is a REAL period with no
+       material, opened on acceptance and closed by the first real assignment.
+       A report asking which material was in use in a given week gets an
+       answer that says "none" — a fact — rather than no row at all, which is
+       indistinguishable from a defect. Periods never overlap and never leave
+       gaps; a zero-length null period is permitted.
+       — product-rules.md: A Relationship's First Material Period */
+    if (rel.acceptedOn) {
+      if (chance(0.8)) {
+        rel.materialPeriods.push({ materialId: null, start: rel.acceptedOn, end: rel.acceptedOn });
+        rel.materialPeriods.push({ materialId: pick(DB.materials).id, start: rel.acceptedOn, end: null });
+        if (chance(0.35)) {
+          const switchOn = dateOffset(Math.max(7, daysAgo(rel.acceptedOn) - 60));
+          rel.materialPeriods[1].end = switchOn;
+          rel.materialPeriods.push({ materialId: pick(DB.materials).id, start: switchOn, end: null });
+        }
+      } else {
+        rel.materialPeriods.push({ materialId: null, start: rel.acceptedOn, end: null });
+      }
+    }
+    DB.relationships.push(rel);
+    return rel;
+  }
+
+  // Only some leaders are placed. A ministry always has capacity waiting to be
+  // used, and the suggestion pool needs both sides of it.
+  const PLACED = 15;
+  leaders.forEach((l, i) => {
+    if (i >= PLACED) return;
+    // A leader may lead more than one relationship.
+    // — product-rules.md: Leaders May Hold Multiple Relationships
+    const shape = i % 5 === 0 ? [1, 3] : i % 4 === 0 ? [4] : i % 3 === 0 ? [1, 1] : [1];
+    shape.forEach(n => makeRel(l, n));
+  });
+
+  const active = DB.relationships.filter(r => r.lifecycle === 'active');
+
+  // Paused relationships, including two whose period has elapsed.
+  [[0, 4, 40], [1, 8, 22], [2, 12, 10]].forEach(([i, weeks, startedDaysAgo]) => {
+    const r = active[i]; if (!r) return;
+    r.lifecycle = 'paused';
+    r.pause = { weeks, startedOn: dateOffset(startedDaysAgo), expiresOn: dateOffset(startedDaysAgo - weeks * 7) };
+  });
+
+  // Open swap requests. A swap changes no state and moves nobody.
+  [9].forEach((i, k) => { const r = active[i]; if (r) r.swapRequest = { requestedOn: dateOffset(4 + k * 8) }; });
+
+  // Relationships awaiting acceptance, one of them past the five-day mark.
+  makeRel(leaders[3], 1, { lifecycle: 'awaiting', createdDaysAgo: 8 });
+
+  // An ended relationship stays in history and leaves the active counts.
+  const doomed = active[active.length - 1];
+  if (doomed) {
+    doomed.lifecycle = 'ended';
+    doomed.endedOn = dateOffset(15);
+    /* An ending records an outcome AND a free-text reason. Status is derived,
+       so nobody's roster row needs rewriting — their last open participant
+       membership closing is what returns them to Ready to Pair.
+       — product-rules.md: An Ending Records an Outcome as Well as a Reason */
+    doomed.endOutcome = 'completed';
+    doomed.endReason = 'Finished the reading plan together and closed well.';
+  }
+
+  /* --- Week-by-week history. Discipler stores what happened rather than
+     replacing old values. Everything the dashboard shows derives from here.
+     — vision.md: One History, Multiple Uses --- */
+  const WEEKS = 12;
+  const CONCERNS = [
+    'Cancelled twice this month and asked to take a break. Something is going on that she is not saying.',
+    'He mentioned his parents are separating and he is carrying it alone.',
+    'She is struggling to keep going after losing her job and did not want to talk long.',
+    'Attendance has dropped off and he seemed withdrawn when we did meet.',
+    'Asked whether any of this is worth continuing. Worth a call this week.'
+  ];
+
+  /* Behaviour patterns are assigned deterministically to active relationships
+     so every care condition in the docs is actually represented in the demo,
+     rather than left to chance. */
+  const patterns = {}, silentDepth = {};
+  const actives = DB.relationships.filter(r => r.lifecycle === 'active');
+  actives.forEach((r, i) => {
+    /* A ministry that is mostly working is the honest picture, and it is what
+       the Overview is designed for: a few things need a call, the rest are
+       quiet. One of each stall condition so both are demonstrable, and two
+       open concerns — the rarest, most sensitive thing in the product. */
+    patterns[r.id] = i < 2 ? 'silent' : i === 2 ? 'not_meeting' : i < 5 ? 'concerned' : 'healthy';
+    // Silence is reported in days, so the two silent cases run to different
+    // depths rather than both reading the same number.
+    if (i < 2) silentDepth[r.id] = i === 0 ? 2 : 1;
+  });
+
+  DB.relationships.forEach(rel => {
+    const pattern = patterns[rel.id] || 'healthy';
+
+    for (let w = WEEKS - 1; w >= 0; w--) {
+      const sentOn = dateOffset(w * 7 + 1);
+
+      // A relationship awaiting acceptance sends no check-ins and accrues no
+      // silence. A paused one is skipped for the duration of the pause.
+      if (rel.lifecycle === 'awaiting') continue;
+      if (rel.acceptedOn && daysAgo(rel.acceptedOn) < w * 7) continue;
+      if (rel.lifecycle === 'ended' && rel.endedOn && daysAgo(rel.endedOn) > w * 7) continue;
+      if (rel.lifecycle === 'paused' && rel.pause && daysAgo(rel.pause.startedOn) >= w * 7) continue;
+
+      const row = { relId: rel.id, weeksAgo: w, sentOn, answeredOn: null, met: null, rating: null, concernText: null, concernResolved: false, resolvedBy: null, resolvedOn: null };
+
+      let answered, met;
+      if (pattern === 'silent' && w <= (silentDepth[rel.id] != null ? silentDepth[rel.id] : 2)) { answered = false; }
+      else if (pattern === 'not_meeting' && w <= 3) { answered = true; met = 2; }
+      else if (pattern === 'concerned' && w <= 1) { answered = true; met = 1; }
+      else { answered = chance(0.86); met = chance(0.78) ? 1 : 2; }
+
+      if (answered) {
+        row.answeredOn = dateOffset(w * 7);
+        row.met = met;
+        /* A `2` reply ends that relationship's check-in immediately. The
+           satisfaction question is not asked, because a meeting that did not
+           happen has no quality to report. — check-in-rhythm.md */
+        if (met === 1) {
+          /* An open concern belongs only to the designated relationships. Older
+             weeks still raise the occasional concern — a real ministry does —
+             and those were dealt with at the time. They keep the quality rate
+             honest without flagging anything today. */
+          const wantConcern = pattern === 'concerned' && w <= 1;
+          const historical = w >= 3 && rnd() < 0.13;
+          row.rating = (wantConcern || historical) ? 'C' : (rnd() < 0.45 ? 'A' : 'B');
+          if (row.rating === 'C') row.concernText = pick(CONCERNS);
+        }
+      }
+      DB.checkins.push(row);
+    }
+  });
+
+  /* A few people share no availability with any free leader. They are real in
+     every ministry, and the No Schedule Overlap section exists for them. */
+  (function strandSome() {
+    const pairedIds = new Set();
+    DB.relationships.filter(r => r.lifecycle !== 'ended').forEach(r => { pairedIds.add(r.leaderId); r.participantIds.forEach(i => pairedIds.add(i)); });
+    const freeLeaders = DB.people.filter(p => p.eligibleToLead && p.intakeCompletedOn && !p.optedOut);
+    const leaderSlots = new Set();
+    freeLeaders.forEach(l => l.availability.forEach(s => leaderSlots.add(s)));
+    const outside = [];
+    for (let s = 0; s < SLOTS; s++) if (!leaderSlots.has(s)) outside.push(s);
+    if (!outside.length) return;
+    DB.people.filter(p => p.role === 'participant' && p.intakeCompletedOn && !p.optedOut && !pairedIds.has(p.id))
+      .slice(0, 3).forEach((p, i) => { p.availability = [outside[i % outside.length]]; });
+  })();
+
+  /* A relationship that is not meant to be stalled must not drift into it by
+     chance. Two unanswered weeks in a row is the silence threshold, so for any
+     relationship without a designated care pattern, break an accidental run. */
+  (function keepHealthyHealthy() {
+    DB.relationships.forEach(rel => {
+      if ((patterns[rel.id] || 'healthy') === 'silent') return;
+      const rows = DB.checkins.filter(c => c.relId === rel.id).sort((a, b) => a.weeksAgo - b.weeksAgo);
+      for (let i = 0; i < rows.length - 1; i++) {
+        if (!rows[i].answeredOn && !rows[i + 1].answeredOn) {
+          const r = rows[i];
+          r.answeredOn = dateOffset(r.weeksAgo * 7);
+          r.met = 1;
+          r.rating = rnd() < 0.5 ? 'A' : 'B';
+        }
+      }
+    });
+  })();
+
+  /* One paused relationship went quiet before it was paused. Paused masks that
+     state rather than rewriting it, so this one is Stalled again the moment it
+     resumes — the case the pause rules single out. */
+  (function stalledBeforePause() {
+    const rel = DB.relationships.find(r => r.lifecycle === 'paused' && DB.checkins.some(c => c.relId === r.id));
+    if (!rel) return;
+    DB.checkins.filter(c => c.relId === rel.id).sort((a, b) => a.weeksAgo - b.weeksAgo)
+      .slice(0, 2).forEach(c => { c.answeredOn = null; c.met = null; c.rating = null; c.concernText = null; });
+  })();
+
+  // Some concerns have already been dealt with; resolving cleared their text.
+  DB.checkins.filter(c => c.rating === 'C' && c.weeksAgo > 1).forEach(c => {
+    c.concernResolved = true; c.concernText = null;
+    c.resolvedBy = 'Admin'; c.resolvedOn = dateOffset(c.weeksAgo * 7 - 2);
+  });
+})();
+
+/* ==========================================================================
+   Derivation. State, care reasons and durations are derived output, never a
+   UI inference. — product-rules.md: Stalled Reports a Duration Matched to Its Reason
+   ========================================================================== */
+
+const D = {
+  person: id => DB.people.find(p => p.id === id),
+  leader: rel => DB.people.find(p => p.id === rel.leaderId),
+  participants: rel => rel.participantIds.map(id => DB.people.find(p => p.id === id)).filter(Boolean),
+  members: rel => [D.leader(rel)].concat(D.participants(rel)).filter(Boolean),
+
+  /* Participation Status is derived, never stored. `Paired` means the person
+     holds at least one open PARTICIPANT membership and nothing else — leading
+     never sets it, so a person leading two relationships and discipled by
+     nobody reads Ready to Pair. Opted Out outranks Paired on the roster: an
+     admin needs to see what the person told the ministry before they see what
+     the ministry arranged for them.
+     — product-rules.md: Roles Are Relationship Memberships /
+     Opted Out Outranks Paired on the Roster */
+  status(p) {
+    if (p.optedOut) return 'opted_out';
+    if (!p.intakeCompletedOn) return 'no_intake';
+    const discipled = D.liveRels().some(r => r.participantIds.includes(p.id));
+    return discipled ? 'paired' : 'ready';
+  },
+
+  // Copy branches on how many participants a relationship has, never on a
+  // group-versus-one-to-one distinction. — product-flow.md: The core primitive
+  relName(rel) {
+    const parts = D.participants(rel);
+    if (parts.length === 1) return parts[0].name;
+    return parts.map(p => p.name.split(' ')[0]).join(', ');
+  },
+  relLabel(rel) {
+    const n = rel.participantIds.length;
+    return n === 1 ? 'One participant' : n + ' participants';
+  },
+
+  /* `Leader` is the internal primitive. What a person is CALLED depends on how
+     many participants the relationship has: one participant makes them a
+     mentor. This is the same substitution the check-in copy makes, and it
+     branches on participant count — never on a group-versus-one-to-one
+     distinction. — product-flow.md: The core primitive */
+  leaderNoun(rel, caps) {
+    const word = (rel.participantIds || []).length === 1 ? 'mentor' : 'leader';
+    return caps ? word.charAt(0).toUpperCase() + word.slice(1) : word;
+  },
+  participantNoun(rel, caps) {
+    const word = (rel.participantIds || []).length === 1 ? 'mentee' : 'participant';
+    return caps ? word.charAt(0).toUpperCase() + word.slice(1) : word;
+  },
+
+  // The awaiting state names whoever has to accept it.
+  stateLabel(rel, state) {
+    const st = state || D.state(rel);
+    if (st === 'awaiting') return 'Awaiting ' + D.leaderNoun(rel, true) + ' Acceptance';
+    return REL_STATE[st].label;
+  },
+
+  rows(relId) {
+    return DB.checkins.filter(c => c.relId === relId).sort((a, b) => a.weeksAgo - b.weeksAgo);
+  },
+
+  /* --- Stalled: two conditions, two counters. ---
+     Gone silent — two consecutive weekly check-ins with no response.
+     Responding, not meeting — three consecutive `2` replies. */
+  stalled(rel) {
+    const rows = D.rows(rel.id);
+    if (!rows.length) return null;
+
+    let unanswered = 0;
+    for (const r of rows) { if (r.answeredOn) break; unanswered++; }
+    if (unanswered >= STALL.SILENT_UNANSWERED) {
+      const lastAnswered = rows.find(r => r.answeredOn);
+      const days = lastAnswered ? daysAgo(lastAnswered.answeredOn) : daysAgo(rows[rows.length - 1].sentOn);
+      return { condition: 'silent', days, text: 'Gone silent — ' + days + ' days since last contact' };
+    }
+
+    let noMeet = 0;
+    for (const r of rows) {
+      if (!r.answeredOn) break;
+      if (r.met !== 2) break;
+      noMeet++;
+    }
+    if (noMeet >= STALL.NOT_MEETING_REPLIES) {
+      return { condition: 'not_meeting', weeks: noMeet, text: 'Responding, not meeting — ' + noMeet + ' weeks reported as no meeting' };
+    }
+    return null;
+  },
+
+  // A concern raises a badge that persists independently of state until an
+  // admin resolves it. — check-in-rhythm.md: Care thresholds
+  openConcerns(rel) {
+    return DB.checkins.filter(c => c.relId === rel.id && c.rating === 'C' && !c.concernResolved);
+  },
+
+  pauseExpired(rel) {
+    return rel.lifecycle === 'paused' && rel.pause && daysAgo(rel.pause.expiresOn) >= 0;
+  },
+
+  awaitingDays(rel) {
+    return rel.lifecycle === 'awaiting' ? daysAgo(rel.createdOn) : null;
+  },
+
+  /* Paused masks the state the relationship would otherwise derive rather than
+     rewriting its history. — product-rules.md: Pause Is Leader-Controlled */
+  state(rel) {
+    if (rel.lifecycle === 'ended' || rel.lifecycle === 'cancelled') return 'ended';
+    if (rel.lifecycle === 'awaiting') return 'awaiting';
+    if (rel.lifecycle === 'paused') return 'paused';
+    const thisWeek = D.rows(rel.id).find(r => r.weeksAgo === 0);
+    if (thisWeek && thisWeek.rating === 'C') return 'needscare';
+    if (D.stalled(rel)) return 'stalled';
+    return 'healthy';
+  },
+
+  // The state that resurfaces on resume, ignoring the mask.
+  underlyingState(rel) {
+    const saved = rel.lifecycle;
+    rel.lifecycle = 'active';
+    const s = D.state(rel);
+    rel.lifecycle = saved;
+    return s;
+  },
+
+  activeRels() { return DB.relationships.filter(r => r.lifecycle === 'active'); },
+  liveRels() { return DB.relationships.filter(r => r.lifecycle !== 'ended' && r.lifecycle !== 'cancelled'); },
+
+  /* --- The two rates. They must not be conflated. ---
+     Response Rate = check-ins answered / check-ins sent
+     Meeting Rate  = meetings held    / check-ins answered
+     — pastor-dashboard.md */
+  rates(weeks) {
+    const rows = weeks == null ? DB.checkins : DB.checkins.filter(c => c.weeksAgo < weeks);
+    const sent = rows.length;
+    const answered = rows.filter(r => r.answeredOn).length;
+    const held = rows.filter(r => r.met === 1).length;
+    const rated = rows.filter(r => r.rating);
+    const ab = rated.filter(r => r.rating === 'A' || r.rating === 'B').length;
+    return {
+      sent, answered, held, rated: rated.length,
+      responseRate: sent ? Math.round(answered / sent * 100) : 0,
+      meetingRate: answered ? Math.round(held / answered * 100) : 0,
+      qualityRate: rated.length ? Math.round(ab / rated.length * 100) : 0
+    };
+  },
+
+  /* --- Follow-Up: four conditions. The last two are review conditions, not
+     care flags. — pastor-dashboard.md / product-flow.md --- */
+  careItems(rel) {
+    const items = [];
+    if (rel.lifecycle === 'ended' || rel.lifecycle === 'cancelled') return items;
+
+    /* An unaccepted relationship surfaces to the admin after five days along
+       with how long it has been waiting, and an admin can cancel it at any
+       point, returning everyone to Ready to Pair — a person is never held by
+       a timeout nobody noticed.
+       — product-rules.md: An Unaccepted Relationship Holds Its People /
+       The Follow-Up Item Kinds (`relationship_unaccepted`) */
+    if (rel.lifecycle === 'awaiting' && daysAgo(rel.createdOn) >= ACCEPT.SURFACE_DAYS) {
+      const d = daysAgo(rel.createdOn);
+      items.push({
+        condition: 'unaccepted', tone: 'review', tag: 'Awaiting acceptance',
+        short: 'Unaccepted \u00b7 ' + d + 'd',
+        text: D.leader(rel).name + ' has not accepted this relationship; it has waited ' + d +
+              ' days. Everyone in it is held out of the suggestion pool until it is accepted or cancelled.'
+      });
+    }
+
+    if (rel.lifecycle === 'active') {
+      const st = D.stalled(rel);
+      if (st) items.push({
+        condition: 'stalled', tone: 'care', tag: 'Stalled', text: st.text,
+        /* The short form still has to say WHICH condition fired — silent and
+           not-meeting call for different conversations, and an admin needs to
+           know which one they are walking into. */
+        short: st.condition === 'silent' ? 'Silent · ' + st.days + 'd' : 'Not meeting · ' + st.weeks + ' wks'
+      });
+    }
+
+    const concerns = D.openConcerns(rel);
+    if (concerns.length) {
+      items.push({
+        condition: 'concern', tone: 'care', tag: 'Concern',
+        short: concerns.length === 1 ? 'Concern' : concerns.length + ' concerns',
+        text: concerns.length === 1
+          ? 'A concern was raised and has not been resolved'
+          : concerns.length + ' concerns raised and not yet resolved'
+      });
+    }
+
+    if (D.pauseExpired(rel)) {
+      items.push({
+        condition: 'expired_pause', tone: 'review', tag: 'Pause expired',
+        short: 'Pause expired',
+        text: 'Paused for ' + rel.pause.weeks + ' week' + (rel.pause.weeks === 1 ? '' : 's') +
+              '; that period elapsed on ' + fmtDate(rel.pause.expiresOn) +
+              ' and the relationship has not resumed. Still Paused.'
+      });
+    }
+
+    if (rel.swapRequest) {
+      items.push({
+        condition: 'swap', tone: 'review', tag: 'Swap requested',
+        short: 'Swap requested',
+        text: D.leader(rel).name + ' asked to be matched with a different participant on ' +
+              fmtDate(rel.swapRequest.requestedOn) + '. The relationship is unchanged while it waits.'
+      });
+    }
+    return items;
+  },
+
+  followups() {
+    const out = [];
+    DB.relationships.forEach(rel => {
+      const items = D.careItems(rel);
+      if (items.length) out.push({ rel, items });
+    });
+    // Care flags before review conditions.
+    return out.sort((a, b) => (a.items.some(i => i.tone === 'care') ? 0 : 1) - (b.items.some(i => i.tone === 'care') ? 0 : 1));
+  },
+
+  // Unaccepted relationships surface to the admin after five days.
+  // — product-rules.md: An Unaccepted Relationship Holds Its People
+  overdueAcceptances() {
+    return DB.relationships.filter(r => r.lifecycle === 'awaiting' && daysAgo(r.createdOn) >= ACCEPT.SURFACE_DAYS);
+  },
+
+  currentMaterial(rel) {
+    const p = rel.materialPeriods.find(x => !x.end);
+    return p && p.materialId ? DB.materials.find(m => m.id === p.materialId) : null;
+  }
+};
+
+/* ==========================================================================
+   The demo pairing. One mentor with one mentee, chosen for a dashboard that
+   reads the way it will for most leaders most weeks, and given availability
+   spread across the week so the overlay has something to show.
+   ========================================================================== */
+(function seedDemoPair() {
+  const candidates = DB.relationships.filter(r =>
+    r.lifecycle === 'active' &&
+    r.participantIds.length === 1 &&
+    D.state(r) === 'healthy' &&
+    D.currentMaterial(r));
+  const rel = candidates[0] || DB.relationships.find(r => r.lifecycle === 'active' && r.participantIds.length === 1);
+  if (!rel) return;
+
+  DB.demoRelId = rel.id;
+  const mentor = D.leader(rel), mentee = D.participants(rel)[0];
+  if (!mentor || !mentee) return;
+
+  // Block indices on the shared 7x5 grid: 0 Early AM, 1 Morning, 2 Midday,
+  // 3 Afternoon, 4 Evening.
+  const at = (day, ...blocks) => blocks.map(b => day * TIMES.length + b);
+
+  /* Both keep a real week of commitments. Three blocks line up (green); the
+     rest are blocks one of them offered and the other did not (yellow) —
+     which is exactly what the overlay exists to show. */
+  mentee.availability = [].concat(
+    at(0, 4),       // Mon Evening        — shared
+    at(1, 2),       // Tue Midday         — mentee only
+    at(2, 4),       // Wed Evening        — shared
+    at(3, 3),       // Thu Afternoon      — mentee only
+    at(5, 1, 2),    // Sat Morning+Midday — Morning shared
+    at(6, 3)        // Sun Afternoon      — mentee only
+  ).sort((a, b) => a - b);
+
+  mentor.availability = [].concat(
+    at(0, 4),       // Mon Evening
+    at(1, 4),       // Tue Evening
+    at(2, 4),       // Wed Evening
+    at(4, 2),       // Fri Midday
+    at(5, 1),       // Sat Morning
+    at(6, 4)        // Sun Evening
+  ).sort((a, b) => a - b);
+})();
+
+/* ==========================================================================
+   Messaging limits. Enforced per recipient at the sending layer, never at the
+   button. — product-rules.md: No Interface Action Bypasses Messaging Limits
+   ========================================================================== */
+
+const Sending = {
+  // Only leaders answer check-ins, so a nudge is addressed to the leader.
+  // — check-in-rhythm.md: Who answers
+  recipients(rel) { return [D.leader(rel)].filter(Boolean); },
+
+  recent(personId, hours) {
+    const cutoff = Date.now() - hours * 3600000;
+    return DB.nudges.filter(n => n.personId === personId && n.at >= cutoff);
+  },
+
+  /* Three limits govern admin-initiated nudges:
+     a cooldown, a daily cap, and a weekly ceiling. */
+  eligibility(person, rel) {
+    if (rel && rel.lifecycle === 'paused') return { ok: false, why: 'Check-ins are paused for this relationship.' };
+    if (rel && rel.lifecycle === 'awaiting') return { ok: false, why: 'This relationship has not been accepted yet, so it sends nothing.' };
+    if (rel && rel.lifecycle === 'ended') return { ok: false, why: 'This relationship has ended.' };
+    if (person.optedOut) return { ok: false, why: person.name + ' has opted out.' };
+    if (!person.consents || !person.consents.sms.given) return { ok: false, why: person.name + ' has not given SMS consent.' };
+
+    const cd = Sending.recent(person.id, NUDGE.COOLDOWN_HOURS);
+    if (cd.length) {
+      const hrs = Math.max(1, Math.ceil(NUDGE.COOLDOWN_HOURS - (Date.now() - cd[cd.length - 1].at) / 3600000));
+      return { ok: false, why: person.name + ' was nudged within the last ' + NUDGE.COOLDOWN_HOURS + ' hours. Eligible again in about ' + hrs + 'h.' };
+    }
+    if (Sending.recent(person.id, 24).length >= NUDGE.PER_DAY) return { ok: false, why: person.name + ' has reached the daily cap of ' + NUDGE.PER_DAY + '.' };
+    if (Sending.recent(person.id, 168).length >= NUDGE.PER_WEEK) return { ok: false, why: person.name + ' has reached the weekly ceiling of ' + NUDGE.PER_WEEK + '.' };
+    return { ok: true };
+  },
+
+  /* The sending layer. Eligibility is re-checked here, at dispatch, because a
+     recipient can become ineligible between enqueue and send. Twenty clicks
+     cause at most one message. */
+  send(person, rel, body) {
+    const e = Sending.eligibility(person, rel);
+    if (!e.ok) return { sent: false, why: e.why };
+    DB.nudges.push({ personId: person.id, relId: rel.id, at: Date.now() });
+    return { sent: true, message: Sending.envelope(body, person) };
+  },
+
+  /* Every message is the ministry speaking, and carries the ministry name as a
+     prefix without exception. The A2P prefix stacks in front of it on the first
+     message ever sent to a person and after a silence gap.
+     — product-rules.md: Every Message Is the Ministry's Voice */
+  envelope(body, person) {
+    const first = !DB.nudges.some(n => n.personId === person.id && n.at < Date.now() - 1000);
+    const prefix = (first ? 'Discipler: ' : '') + MINISTRY.name + ': ';
+    return prefix + body;
+  }
+};
+
+/* ==========================================================================
+   Audit. Four actions carry a durable record of who performed them and when.
+   — product-rules.md: Audited Actions
+   ========================================================================== */
+const Audit = {
+  record(action, subject, detail) {
+    DB.audit.push({ action, subject, detail: detail || '', by: 'Admin', at: new Date().toISOString() });
+  },
+  for(subject) { return DB.audit.filter(a => a.subject === subject); }
+};
+
+/* ==========================================================================
+   Suggestions. Constraints filter the pool BEFORE anything is ranked, rather
+   than penalising within the ranking. — product-flow.md: Suggestion
+   ========================================================================== */
+
+const Suggest = {
+  /* Two independent pools. The LEADER pool is every person marked eligible to
+     lead — there is no cap on how many relationships a leader already holds,
+     so leading today does not remove anyone from it. The PARTICIPANT pool is
+     every person with completed intake and consent who has not opted out,
+     ranked so people holding no open participant membership are offered
+     first. The pools are never deduplicated against each other: the same
+     person may appear as a leader in one suggestion and a participant in
+     another within the same batch, and that is correct.
+     An unaccepted relationship holds everyone in it out of both pools —
+     suggesting them elsewhere would let two admins double-book the same
+     person. — product-rules.md: Settled: Suggested Pairing /
+     An Unaccepted Relationship Holds Its People */
+  heldByUnaccepted() {
+    const held = new Set();
+    DB.relationships.filter(r => r.lifecycle === 'awaiting').forEach(r => {
+      held.add(r.leaderId); r.participantIds.forEach(i => held.add(i));
+    });
+    return held;
+  },
+
+  leaderPool() {
+    const held = Suggest.heldByUnaccepted();
+    return DB.people.filter(p => p.eligibleToLead && p.intakeCompletedOn && !p.optedOut && !held.has(p.id));
+  },
+
+  /* A participant is in at most one open one-to-one, so anyone already
+     holding one is filtered out of one-to-one suggestion. Someone who is in
+     groups only stays in the pool, ranked after people with no participant
+     membership at all. — product-rules.md: Participation caps */
+  participantPool() {
+    const held = Suggest.heldByUnaccepted();
+    return DB.people.filter(p => {
+      if (!p.intakeCompletedOn || p.optedOut || held.has(p.id)) return false;
+      const inOneToOne = D.liveRels().some(r =>
+        r.lifecycle !== 'awaiting' && r.participantIds.length === 1 && r.participantIds.includes(p.id));
+      return !inOneToOne;
+    });
+  },
+
+  hasParticipantMembership(p) {
+    return D.liveRels().some(r => r.participantIds.includes(p.id));
+  },
+
+  overlap(a, b) { return a.availability.filter(s => b.availability.includes(s)).length; },
+  sharedDays(a, b) {
+    const days = new Set();
+    a.availability.filter(s => b.availability.includes(s)).forEach(s => days.add(Math.floor(s / TIMES.length)));
+    return days.size;
+  },
+
+  /* Gender must match and is absolute — a safeguarding policy that manual
+     pairing cannot override. The age band constraint has a DIRECTION: a
+     participant may be at most one band above their leader, with no limit
+     below (an older person discipling a younger one is the common case), and
+     it governs suggestion only.
+     — product-rules.md: Suggestion Constraints /
+     The Age Band Constraint Has a Direction */
+  passesConstraints(leader, participant) {
+    if (leader.id === participant.id) return false;
+    if (leader.gender !== participant.gender) return false;
+    const li = AGE_BANDS.indexOf(leader.ageBand), pi = AGE_BANDS.indexOf(participant.ageBand);
+    if (li === -1 || pi === -1) return false;
+    return pi <= li + 1;
+  },
+
+  /* Tiers are counts of shared cells and nothing else. Excellent fit requires
+     four or more shared cells SPANNING AT LEAST TWO DISTINCT DAYS — four
+     blocks that are all one Saturday are most of that day, not four separate
+     chances to meet. The Discipleship Goal orders candidates within a tier
+     and never determines which tier they land in.
+     — product-rules.md: Suggestion Tiers Are Counts of Shared Cells /
+     The Discipleship Goal Is a Tiebreaker, Not a Tier Gate */
+  tier(overlap, days) {
+    if (overlap >= 4 && days >= 2) return 'excellent';
+    if (overlap >= 2) return 'good';
+    return 'recommended';
+  },
+  tierLabel(t) { return { excellent: 'Excellent fit', good: 'Good fit', recommended: 'Recommended' }[t]; },
+
+  /* Every suggestion states its reason in plain language. The goal is named
+     only when it matches — the card never names a mismatch, because saying
+     what two people do not have in common is a judgment about them rather
+     than a statement about their calendars. */
+  reason(leader, participant, overlap) {
+    const WORDS = ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'];
+    const n = overlap <= 10 ? WORDS[overlap] : String(overlap);
+    const slots = n + ' shared time slot' + (overlap === 1 ? '' : 's') + '.';
+    return leader.goal === participant.goal
+      ? slots + ' You both selected ' + participant.goal + '.'
+      : slots;
+  },
+
+  all() {
+    const leaders = Suggest.leaderPool();
+    const participants = Suggest.participantPool();
+    const out = [];
+    participants.forEach(p => {
+      leaders.forEach(l => {
+        if (!Suggest.passesConstraints(l, p)) return;
+        const ov = Suggest.overlap(l, p);
+        if (ov === 0) return;   // no overlap is not a fit; it is its own section
+        out.push({
+          leader: l, participant: p, overlap: ov,
+          days: Suggest.sharedDays(l, p),
+          goalMatch: l.goal === p.goal,
+          unheld: Suggest.hasParticipantMembership(p) ? 0 : 1
+        });
+      });
+    });
+    /* Ranked by availability overlap; the Goal separates candidates with the
+       same overlap; people holding no open participant membership are offered
+       first; ties broken by who has waited longest since intake. The ordering
+       must be stable — a list that reshuffles between page loads teaches an
+       admin not to trust it. — product-rules.md: Suggestion Tie-Breaking */
+    out.sort((a, b) =>
+      b.overlap - a.overlap ||
+      (b.goalMatch ? 1 : 0) - (a.goalMatch ? 1 : 0) ||
+      b.unheld - a.unheld ||
+      daysAgo(b.participant.intakeCompletedOn) - daysAgo(a.participant.intakeCompletedOn) ||
+      a.participant.id.localeCompare(b.participant.id));
+
+    /* One card per participant, strongest leader first. Leaders may appear on
+       several cards — there is no cap on how many relationships a leader
+       holds. */
+    const seen = new Set(), top = [];
+    out.forEach(s => {
+      if (seen.has(s.participant.id)) return;
+      seen.add(s.participant.id);
+      top.push(s);
+    });
+    return top;
+  },
+
+  /* People who share no availability with any eligible leader. Listed for
+     visibility, never presented as a fit. */
+  noOverlap() {
+    const leaders = Suggest.leaderPool();
+    return Suggest.participantPool().filter(p =>
+      !p.eligibleToLead &&
+      !leaders.some(l => Suggest.passesConstraints(l, p) && Suggest.overlap(l, p) > 0));
+  }
+};
+
+/* ========================================================================== */
+
+const app = {
+  role: null, currentTab: 'overview', leaderId: null, charts: {},
+
+  init() {},
+
+  toast(title, detail, opts) {
+    opts = opts || {};
+    const el = document.createElement('div');
+    el.className = 'toast' + (opts.tone ? ' ' + opts.tone : '');
+    el.innerHTML = '<div class="toast-t">' + esc(title) + '</div>' + (detail ? '<div class="toast-d">' + esc(detail) + '</div>' : '');
+    document.getElementById('toasts').appendChild(el);
+    setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, opts.duration || 4000);
+  },
+
+  signIn(role) {
+    this.role = role;
+    document.getElementById('signin').style.display = 'none';
+    if (role === 'admin') {
+      document.getElementById('adminView').style.display = 'block';
+      this.tab('overview');
+    } else {
+      // The demo pairing is chosen once, when the data is built.
+      const demo = DB.relationships.find(r => r.id === DB.demoRelId);
+      this.leaderId = demo ? demo.leaderId
+        : DB.people.find(p => p.role === 'leader' && DB.relationships.some(r => r.leaderId === p.id && r.lifecycle !== 'ended')).id;
+      document.getElementById('leaderView').style.display = 'block';
+      this.renderLeader();
+    }
+  },
+  signOut() {
+    this.role = null; this.leaderId = null;
+    document.getElementById('adminView').style.display = 'none';
+    document.getElementById('leaderView').style.display = 'none';
+    document.getElementById('signin').style.display = 'flex';
+  },
+
+
+  tab(name) {
+    this.currentTab = name;
+    const order = ['overview', 'checkins', 'suggested', 'followup', 'materials', 'roster'];
+    const btns = document.querySelectorAll('#tabs .tab-btn');
+    btns.forEach(b => b.classList.remove('active'));
+    const idx = order.indexOf(name);
+    if (idx > -1 && btns[idx]) btns[idx].classList.add('active');
+    order.forEach(t => { const el = document.getElementById('tab-' + t); if (el) el.style.display = t === name ? 'block' : 'none'; });
+    if (name !== 'materials') this._matOpen = null;
+    ({ overview: () => this.renderOverview(), checkins: () => this.renderCheckins(), suggested: () => this.renderSuggested(),
+       followup: () => this.renderFollowup(), materials: () => this.renderMaterials(), roster: () => this.renderRoster() }[name] || (() => {}))();
+    this.updateBadge();
+  },
+
+  updateBadge() {
+    const n = D.followups().length;
+    const b = document.getElementById('fuBadge');
+    b.textContent = n; b.style.display = n ? 'inline-flex' : 'none';
+  },
+
+  /* ------------------------------------------------------------ Overview */
+  renderOverview() {
+    const r = D.rates();
+    const active = D.activeRels().length;
+    const paused = DB.relationships.filter(x => x.lifecycle === 'paused').length;
+    const thisWeek = DB.checkins.filter(c => c.weeksAgo === 0 && c.answeredOn).length;
+    const fu = D.followups().length;
+
+    document.getElementById('ovStats').innerHTML = [
+      ['Active Relationships', active, paused ? paused + ' paused, not counted' : 'Pairs and groups'],
+      ['Meeting Rate', r.meetingRate + '%', 'Meetings held / check-ins answered'],
+      ['Response Rate', r.responseRate + '%', 'Check-ins answered / check-ins sent'],
+      ['This Week', thisWeek, 'Check-ins completed'],
+      ['Needs Follow-Up', fu, 'Stalled, concerns, pauses, swaps, unaccepted']
+    ].map(([l, v, s]) => '<div class="stat"><div class="stat-label">' + l + '</div><div class="stat-value">' + v + '</div><div class="stat-sub">' + s + '</div></div>').join('');
+
+    document.getElementById('quickStats').innerHTML = [
+      ['Total relationships', D.liveRels().length],
+      ['Response completion', r.responseRate + '%'],
+      ['Meeting rate', r.meetingRate + '%'],
+      ['Quality rate', r.qualityRate + '%'],
+      ['Text-message response rate', r.responseRate + '%'],
+      ['Active relationships', active]
+    ].map(([l, v]) => '<div class="qs-row"><span>' + l + '</span><span class="qs-val">' + v + '</span></div>').join('');
+
+    this.drawCharts(r);
+
+    /* The Overview is for triage: who needs a call this week. A card carries the
+       person, who they are with, and — only when something is true — what is
+       true. A healthy relationship shows nothing extra, because the docs put
+       nothing in that position during any week a relationship has responded.
+       Start date, material, participant count and the full care sentence all
+       live one click away in the relationship detail. */
+
+    // Every active and paused relationship is listed. An unaccepted one is the
+    // leader's to handle until it surfaces to the admin at five days.
+    const rels = D.liveRels().filter(x =>
+      x.lifecycle !== 'awaiting' || daysAgo(x.createdOn) >= ACCEPT.SURFACE_DAYS);
+    const hidden = DB.relationships.filter(x => x.lifecycle === 'awaiting' && daysAgo(x.createdOn) < ACCEPT.SURFACE_DAYS).length;
+    document.getElementById('ovRelCount').textContent =
+      active + ' active' + (hidden ? ' · ' + hidden + ' awaiting acceptance, not yet surfaced' : '');
+
+    document.getElementById('ovRelList').innerHTML = rels.map(rel => {
+      const st = D.state(rel);
+      const items = D.careItems(rel);
+
+      // A pill only when the state is worth naming. Healthy stays quiet.
+      const pill = st === 'healthy' ? ''
+        : ' <span class="pill ' + REL_STATE[st].pill + '">' + D.stateLabel(rel, st) + '</span>';
+
+      /* The flag line is driven by the care items, not by state, so an
+         unresolved concern still shows on a relationship that has since
+         answered — a concern badge persists until an admin resolves it. */
+      const flags = items.map(i => i.short).filter(Boolean);
+      const tone = items.some(i => i.condition === 'concern') ? 'needscare'
+        : items.some(i => i.condition === 'stalled') ? 'stalled' : 'review';
+      const flagLine = flags.length
+        ? '<div class="rel-reason ' + tone + '">' + esc(flags.join(' · ')) + '</div>' : '';
+
+      return '<div class="rel-card s-' + st + '" onclick="app.openRel(\'' + rel.id + '\')">' +
+        '<div class="rel-leader">' + esc(D.leader(rel).name) + pill + '</div>' +
+        '<div class="rel-people">with ' + esc(D.relName(rel)) + '</div>' +
+        flagLine + '</div>';
+    }).join('') || '<div class="empty">No relationships yet. Pair someone from the Roster to begin.</div>';
+  },
+
+  drawCharts(r) {
+    const notMet = r.answered - r.held;
+    const counts = { A: 0, B: 0, C: 0 };
+    DB.checkins.forEach(c => { if (c.rating) counts[c.rating]++; });
+
+    /* Charts come from a CDN. If it is unreachable, degrade to a readable
+       number rather than taking the rest of the tab down with it. The fallback
+       writes into the box, never over the canvas, so repeat renders are safe. */
+    const meetingEl = document.getElementById('chartMeeting'), ratingEl = document.getElementById('chartRatings');
+    if (typeof Chart === 'undefined' || !meetingEl || !ratingEl) {
+      const fb = (boxId, big, sub) => {
+        const box = document.getElementById(boxId);
+        if (!box) return;
+        box.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center">' +
+          '<div style="font-family:\'Crimson Pro\',serif;font-size:2.6rem;color:var(--primary);line-height:1">' + big + '</div>' +
+          '<div class="muted">' + sub + '</div></div>';
+      };
+      fb('boxMeeting', r.meetingRate + '%', r.held + ' met · ' + notMet + ' did not');
+      fb('boxRatings', counts.A + ' / ' + (counts.A + counts.B + counts.C), 'rated outstanding');
+      return;
+    }
+    if (this.charts.m) this.charts.m.destroy();
+    if (this.charts.r) this.charts.r.destroy();
+    const opts = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { family: 'DM Sans', size: 11 }, padding: 10 } } } };
+    this.charts.m = new Chart(meetingEl, { type: 'doughnut', data: { labels: ['Met', 'Did not meet'], datasets: [{ data: [r.held, notMet], backgroundColor: ['#7FAF8C', '#dc3545'], borderWidth: 0 }] }, options: opts });
+    // A renders green, B yellow, C red. — pastor-dashboard.md
+    this.charts.r = new Chart(ratingEl, { type: 'doughnut', data: { labels: ['Outstanding (A)', 'Good (B)', 'Concern (C)'], datasets: [{ data: [counts.A, counts.B, counts.C], backgroundColor: ['#7FAF8C', '#DDBB7A', '#dc3545'], borderWidth: 0 }] }, options: opts });
+  },
+
+  /* ------------------------------------------------------------ Check-Ins */
+  renderCheckins() {
+    const wk = DB.checkins.filter(c => c.weeksAgo === 0);
+    const answered = wk.filter(c => c.answeredOn);
+    const A = answered.filter(c => c.rating === 'A'), B = answered.filter(c => c.rating === 'B');
+    const C = answered.filter(c => c.rating === 'C');
+    const openC = C.filter(c => !c.concernResolved);
+
+    document.getElementById('ciWeek').textContent = 'Sent ' + fmtDate(wk.length ? wk[0].sentOn : dateOffset(1));
+    document.getElementById('ciStats').innerHTML =
+      '<div class="ci-stat"><div class="ci-stat-val">' + answered.length + '</div><div class="muted">Completed</div></div>' +
+      '<div class="ci-stat"><div class="ci-stat-val pending">' + (wk.length - answered.length) + '</div><div class="muted">Pending</div></div>' +
+      '<div class="ci-stat"><div class="ci-stat-val concern">' + openC.length + '</div><div class="muted">Concerns</div></div>';
+
+    document.getElementById('cntA').textContent = A.length;
+    document.getElementById('cntB').textContent = B.length;
+    document.getElementById('cntC').textContent = C.length;
+
+    const card = c => {
+      const rel = DB.relationships.find(r => r.id === c.relId);
+      return '<div class="ci-card" onclick="app.openRel(\'' + rel.id + '\')">' +
+        '<div>' + esc(D.leader(rel).name) + ' → ' + esc(D.relName(rel)) + '</div>' +
+        '<div class="ci-when">' + fmtDate(c.answeredOn) + '</div></div>';
+    };
+    document.getElementById('listA').innerHTML = A.length ? A.map(card).join('') : '<div class="empty">Nothing yet this week</div>';
+    document.getElementById('listB').innerHTML = B.length ? B.map(card).join('') : '<div class="empty">Nothing yet this week</div>';
+
+    /* Concerns are never presented as a browsable list. An admin reaches
+       concern text one person at a time, from Follow-Up or that relationship's
+       own history. — product-rules.md: Concern Text Is Handled Differently */
+    document.getElementById('sealedC').innerHTML = openC.length
+      ? '<div class="sealed-count">' + openC.length + '</div>' +
+        '<div class="sealed-label">' + (openC.length === 1 ? 'concern raised' : 'concerns raised') + ' this week</div>' +
+        '<p class="sealed-note">Concern text is not listed here. Open each person from Follow-Up to read what was said.</p>' +
+        '<button class="btn sec" style="width:100%" onclick="app.tab(\'followup\')">Go to Follow-Up</button>'
+      : '<div class="sealed-label">No open concerns this week</div>';
+  },
+
+  /* ----------------------------------------------------------- Suggested */
+  renderSuggested() {
+    const list = Suggest.all();
+    document.getElementById('sugList').innerHTML = list.length ? list.map(s => {
+      // Visible tier labels and no numeric score. — pastor-dashboard.md
+      const t = Suggest.tier(s.overlap, s.days);
+      return '<div class="sug">' +
+        '<div class="sug-tier"><span class="tier ' + t + '">' + Suggest.tierLabel(t) + '</span></div>' +
+        '<div class="sug-names">' +
+          '<div><span class="sug-name">' + esc(s.leader.name) + '</span><span class="sug-role">Mentor · ' + s.leader.ageBand + ' · ' + esc(s.leader.goal) + '</span></div>' +
+          '<span class="sug-arrow">→</span>' +
+          '<div><span class="sug-name">' + esc(s.participant.name) + '</span><span class="sug-role">Mentee · ' + s.participant.ageBand + ' · ' + esc(s.participant.goal) + '</span></div>' +
+        '</div>' +
+        '<div class="sug-reason">' + esc(Suggest.reason(s.leader, s.participant, s.overlap)) + '</div>' +
+        '<button class="btn" onclick="app.createRel(\'' + s.leader.id + '\',[\'' + s.participant.id + '\'])">Create relationship</button>' +
+      '</div>';
+    }).join('') : '<div class="empty">No suggestions right now. Everyone eligible is already in a relationship.</div>';
+
+    const nso = Suggest.noOverlap();
+    document.getElementById('nsoList').innerHTML = nso.length
+      ? '<div class="nso"><h3 class="card-title" style="font-size:1.1rem">No Schedule Overlap</h3>' +
+        '<p class="muted" style="margin:.35rem 0 1rem">These people share no availability with any eligible leader, so they cannot be ranked. Listed for visibility, not as a fit — you can still pair them manually.</p>' +
+        nso.map(p => '<div class="nso-row"><div><div style="font-weight:600">' + esc(p.name) + '</div>' +
+          '<div class="muted">' + p.ageBand + ' · ' + esc(p.goal) + ' · intake ' + fmtDate(p.intakeCompletedOn) + '</div></div>' +
+          '<button class="btn sec" onclick="app.openManualPair(\'' + p.id + '\')">Pair manually</button></div>').join('') + '</div>'
+      : '';
+  },
+
+  /* ----------------------------------------------------------- Follow-Up */
+  renderFollowup() {
+    const items = D.followups();
+    document.getElementById('fuCount').textContent = items.length + (items.length === 1 ? ' item' : ' items');
+    document.getElementById('fuList').innerHTML = items.length ? items.map(({ rel, items: list }) => {
+      const cls = list.some(i => i.condition === 'concern') ? 'care-concern'
+        : list.some(i => i.condition === 'stalled') ? 'care-stalled' : 'review';
+      const st = D.state(rel);
+      const recips = Sending.recipients(rel);
+      const nudgeOk = recips.some(p => Sending.eligibility(p, rel).ok);
+      const nudgeWhy = recips.length ? Sending.eligibility(recips[0], rel).why : 'No recipient';
+
+      return '<div class="fu ' + cls + '">' +
+        '<div class="fu-tags">' +
+          list.map(i => '<span class="fu-tag ' + (i.tone === 'care' ? (i.condition === 'concern' ? 'concern' : 'stalled') : 'review') + '">' + i.tag + '</span>').join('') +
+          '<span class="fu-who">' + esc(D.leader(rel).name) + ' & ' + esc(D.relName(rel)) + '</span>' +
+          '<span class="pill ' + REL_STATE[st].pill + '">' + D.stateLabel(rel, st) + '</span>' +
+        '</div>' +
+        list.map(i => '<div class="fu-line">' + esc(i.text) + '</div>').join('') +
+        '<div class="fu-actions">' +
+          '<button class="fu-btn" onclick="app.openRel(\'' + rel.id + '\')">See contact details</button>' +
+          '<button class="fu-btn" onclick="app.resolve(\'' + rel.id + '\')">Resolve</button>' +
+          '<button class="fu-btn" ' + (nudgeOk ? '' : 'disabled title="' + esc(nudgeWhy || '') + '"') + ' onclick="app.nudge(\'' + rel.id + '\')">Nudge</button>' +
+          (rel.lifecycle === 'paused' ? '<button class="fu-btn" onclick="app.resume(\'' + rel.id + '\')">Resume relationship</button>' : '') +
+          (rel.lifecycle === 'awaiting'
+            ? '<button class="fu-btn danger" onclick="app.cancelRel(\'' + rel.id + '\')">Cancel relationship</button>'
+            : '<button class="fu-btn danger" onclick="app.openEnd(\'' + rel.id + '\')">End relationship</button>') +
+        '</div></div>';
+    }).join('') : '<div class="empty">Nothing needs attention right now.</div>';
+    this.updateBadge();
+  },
+
+  /* ----------------------------------------------------------- Materials */
+  /* ------------------------------------------------------------ Materials
+     A read-only visualisation of assignment history. Nothing on this screen
+     changes an assignment: the interface for that is deferred from V1 and
+     materials are configured during pilot support. */
+
+  matFilter(g) {
+    this._matG = g;
+    document.querySelectorAll('#matSeg button').forEach(b => b.classList.toggle('active', b.dataset.g === g));
+    this.renderMaterials();
+  },
+
+  matRels() {
+    const g = this._matG || 'all';
+    // Gender matching is absolute, so every relationship has one gender: its
+    // leader's. That is what the filter reads.
+    return D.liveRels().filter(rel => g === 'all' || (D.leader(rel) || {}).gender === g);
+  },
+
+  // Worst live condition across a set, using the dashboard's colour discipline:
+  // red is only ever a concern, stalled reads amber, review conditions neutral.
+  matHealth(rels) {
+    let dot = 'green';
+    rels.forEach(rel => {
+      const items = D.careItems(rel);
+      if (items.some(i => i.condition === 'concern')) dot = 'red';
+      else if (items.some(i => i.condition === 'stalled') && dot !== 'red') dot = 'amber';
+      else if (items.length && dot === 'green') dot = 'grey';
+    });
+    return dot;
+  },
+
+  renderMaterials() {
+    if (this._matOpen !== undefined && this._matOpen !== null) return this.renderMaterialDrill();
+
+    const rels = this.matRels();
+
+    // Group by what each relationship is working through right now.
+    const groups = [];
+    DB.materials.forEach(m => {
+      const inUse = rels.filter(r => { const c = D.currentMaterial(r); return c && c.id === m.id; });
+      if (inUse.length) groups.push({ key: m.id, name: m.name, kind: m.kind, rels: inUse });
+    });
+    const none = rels.filter(r => !D.currentMaterial(r));
+    if (none.length) groups.push({ key: '__none', name: 'No material assigned', kind: '', rels: none, unassigned: true });
+
+    if (!groups.length) {
+      document.getElementById('matList').innerHTML = '<div class="empty">No relationships match this filter.</div>';
+      return;
+    }
+
+    document.getElementById('matList').innerHTML = '<div class="mat-grid">' + groups.map(g => {
+      const shown = g.rels.slice(0, 3);
+      const extra = g.rels.length - shown.length;
+      const chips = shown.map((r, i) =>
+        '<span class="mat-chip' + (i % 2 ? ' alt' : '') + '">' + esc(initials(D.leader(r).name)) + '</span>').join('') +
+        (extra > 0 ? '<span class="mat-chip more">+' + extra + '</span>' : '');
+      return '<button class="mat-tile' + (g.unassigned ? ' unassigned' : '') + '" onclick="app.openMaterial(\'' + g.key + '\')">' +
+        '<div class="mat-folder">' +
+          '<span class="mat-dot ' + this.matHealth(g.rels) + '"></span>' +
+          '<span class="mat-count">' + g.rels.length + '</span>' + chips +
+        '</div>' +
+        '<div class="mat-name">' + esc(g.name) + '</div>' +
+        '<div class="mat-sub">' + g.rels.length + (g.rels.length === 1 ? ' relationship' : ' relationships') + '</div>' +
+      '</button>';
+    }).join('') + '</div>';
+  },
+
+  openMaterial(key) { this._matOpen = key; this.renderMaterials(); },
+  closeMaterial() { this._matOpen = null; this.renderMaterials(); },
+
+  renderMaterialDrill() {
+    const key = this._matOpen;
+    const mat = key === '__none' ? null : DB.materials.find(m => m.id === key);
+    const rels = this.matRels().filter(r => {
+      const c = D.currentMaterial(r);
+      return key === '__none' ? !c : (c && c.id === key);
+    });
+
+    const title = mat ? mat.name : 'No material assigned';
+    const sub = mat
+      ? mat.kind + ' · ' + rels.length + (rels.length === 1 ? ' relationship' : ' relationships') + ' working through it now'
+      : rels.length + (rels.length === 1 ? ' relationship is' : ' relationships are') + ' not working through anything yet';
+
+    document.getElementById('matList').innerHTML =
+      '<button class="mat-back" onclick="app.closeMaterial()">&larr; All materials</button>' +
+      '<div class="drill-head"><h3 class="card-title">' + esc(title) + '</h3><p class="muted">' + esc(sub) + '</p></div>' +
+      (rels.length ? '<div class="rel-grid">' + rels.map(rel => {
+        const st = D.state(rel);
+        const items = D.careItems(rel);
+        const flags = items.map(i => i.short).filter(Boolean);
+        const tone = items.some(i => i.condition === 'concern') ? 'needscare'
+          : items.some(i => i.condition === 'stalled') ? 'stalled' : 'review';
+        const since = mat ? (rel.materialPeriods.find(p => !p.end) || {}).start : null;
+        // Zero-length null periods are real rows in history, but not worth a
+        // line in a card; a genuine no-material stretch is.
+        const prev = rel.materialPeriods.filter(p => p.end && p.start !== p.end).map(p => {
+          const m = p.materialId ? DB.materials.find(x => x.id === p.materialId) : null;
+          return (m ? m.name : 'No material') + ' (' + fmtDate(p.start) + '–' + fmtDate(p.end) + ')';
+        });
+        return '<div class="rel-card s-' + st + '" onclick="app.openRel(\'' + rel.id + '\')">' +
+          '<div class="rel-leader">' + esc(D.leader(rel).name) +
+            ' <span class="pill ' + REL_STATE[st].pill + '">' + D.stateLabel(rel, st) + '</span></div>' +
+          '<div class="rel-people">with ' + esc(D.relName(rel)) + '</div>' +
+          '<div class="rel-meta">' + D.leaderNoun(rel, true) + ' · ' + D.relLabel(rel) +
+            (since ? ' · since ' + fmtDate(since) : '') + '</div>' +
+          (prev.length ? '<div class="hist">Previously: ' + esc(prev.join(' · ')) + '</div>' : '') +
+          (flags.length ? '<div class="rel-reason ' + tone + '">' + esc(flags.join(' · ')) + '</div>' : '') +
+        '</div>';
+      }).join('') + '</div>' : '<div class="empty">Nothing here under this filter.</div>');
+  },
+
+  /* -------------------------------------------------------------- Roster */
+  rosterView(v) { this._rv = v; document.querySelectorAll('#rosterSeg button').forEach(b => b.classList.toggle('active', b.dataset.v === v)); this.renderRoster(); },
+  renderRoster() {
+    /* One full people list. Roles are relationship memberships, not a
+       property of a person — so there is no Leaders table and no Participants
+       table, only the ministry's people and an explicit eligible-to-lead
+       flag. A person may lead relationships and be discipled in another; the
+       status column carries only whether they are being discipled, and Opted
+       Out outranks Paired. — product-rules.md: Roles Are Relationship
+       Memberships / Opted Out Outranks Paired on the Roster */
+    const v = this._rv || 'all';
+    const people = DB.people.filter(p => v === 'all' || p.eligibleToLead);
+    document.getElementById('rosterCount').textContent = people.length + ' people';
+    document.getElementById('rosterBody').innerHTML = people.map(p => {
+      const status = D.status(p);
+      const leads = D.liveRels().filter(r => r.leaderId === p.id);
+      const memberOf = D.liveRels().filter(r => r.participantIds.includes(p.id));
+
+      const bits = [];
+      leads.forEach(r => { bits.push('Leads ' + esc(D.relName(r)) + '<span class="pill n">' + D.relLabel(r) + '</span>'); });
+      memberOf.forEach(r => { bits.push('With ' + esc(D.leader(r).name) + '<span class="pill n">' + D.relLabel(r) + '</span>'); });
+
+      let cell = bits.join('<br>');
+      if (status === 'no_intake') {
+        cell = '<span class="blocked">Awaiting intake</span>';
+      } else if (status === 'opted_out') {
+        // Opting out ends nothing, so an opted-out person's relationships
+        // still show; only the status column carries what they told us.
+        cell = (cell ? cell + '<br>' : '') + '<span class="blocked">Excluded from pairing</span>';
+      } else if (!memberOf.length) {
+        // Ready to Pair — including someone who leads two relationships and
+        // is discipled by nobody. Leading never sets Paired.
+        cell = (cell ? cell + '<br>' : '<span class="muted">Unpaired</span> ') +
+          '<button class="btn sec" style="padding:.25rem .6rem;font-size:.78rem" onclick="app.openManualPair(\'' + p.id + '\')">Pair</button>';
+      }
+      const s = ROSTER_STATUS[status];
+      return '<tr><td class="muted">' + p.id + '</td>' +
+        '<td><div style="display:flex;align-items:center;gap:.6rem"><div class="avatar">' + initials(p.name) + '</div>' + esc(p.name) +
+        (p.eligibleToLead ? ' <span class="pill n">Eligible to lead</span>' : '') + '</div></td>' +
+        '<td class="muted">' + (p.email ? esc(p.email) : '—') + '</td>' +
+        '<td class="muted">' + esc(p.phone) + '</td>' +
+        '<td><span class="rs ' + s.cls + '">' + s.label + '</span></td>' +
+        '<td>' + cell + '</td></tr>';
+    }).join('');
+  }
+};
+
+/* ==========================================================================
+   Actions, detail views and the leader dashboard.
+   ========================================================================== */
+
+Object.assign(app, {
+
+  modal(title, bodyHtml, actionsHtml) {
+    const bg = document.createElement('div');
+    bg.className = 'modal-bg';
+    bg.innerHTML = '<div class="modal"><div class="modal-head"><h3 class="card-title">' + esc(title) + '</h3>' +
+      '<button class="x" onclick="this.closest(\'.modal-bg\').remove()">&times;</button></div>' +
+      bodyHtml + (actionsHtml ? '<div class="modal-actions">' + actionsHtml + '</div>' : '') + '</div>';
+    bg.addEventListener('click', e => { if (e.target === bg) bg.remove(); });
+    document.body.appendChild(bg);
+    return bg;
+  },
+  closeModals() { document.querySelectorAll('.modal-bg').forEach(m => m.remove()); },
+
+  /* --------------------------------------------------- relationship detail */
+  openRel(id) {
+    const rel = DB.relationships.find(r => r.id === id);
+    if (!rel) return;
+    const st = D.state(rel);
+    const items = D.careItems(rel);
+    const concerns = D.openConcerns(rel);
+
+    const people = D.members(rel).map(p =>
+      '<div class="person-row"><div class="avatar">' + initials(p.name) + '</div>' +
+      '<div><div style="font-weight:600">' + esc(p.name) + ' <span class="muted">' + (p.id === rel.leaderId ? D.leaderNoun(rel, true) : D.participantNoun(rel, true)) + '</span></div>' +
+      '<div class="muted">' + esc(p.phone) + (p.email ? ' · ' + esc(p.email) : '') + '</div></div></div>').join('');
+
+    const hist = D.rows(rel.id).slice(0, 6).map(r => {
+      const label = !r.answeredOn ? 'No response'
+        : r.met === 2 ? 'Reported no meeting'
+        : 'Met · ' + (r.rating === 'A' ? 'Outstanding' : r.rating === 'B' ? 'Good' : 'Concern');
+      return '<div class="qs-row"><span class="muted">' + (r.weeksAgo === 0 ? 'This week' : r.weeksAgo + ' weeks ago') + '</span><span>' + label + '</span></div>';
+    }).join('');
+
+    const concernBtn = concerns.length
+      ? '<button class="btn sec" onclick="app.viewConcerns(\'' + rel.id + '\')">Read ' + concerns.length + ' concern' + (concerns.length === 1 ? '' : 's') + '</button>'
+      : '';
+
+    this.modal(D.leader(rel).name + ' & ' + D.relName(rel),
+      '<p><span class="pill ' + REL_STATE[st].pill + '">' + D.stateLabel(rel, st) + '</span> ' +
+        '<span class="muted">' + D.relLabel(rel) + ' · started ' + fmtDate(rel.createdOn) + '</span></p>' +
+      (rel.lifecycle === 'paused' ? '<div class="notice" style="margin-top:1rem">Paused for ' + rel.pause.weeks + ' weeks on ' + fmtDate(rel.pause.startedOn) + ', through ' + fmtDate(rel.pause.expiresOn) + '. Check-ins are suppressed and no silence accrues. Underneath, this relationship is <strong>' + D.stateLabel(rel, D.underlyingState(rel)) + '</strong> — that is what resurfaces on resume.</div>' : '') +
+      (items.length ? '<div class="notice" style="margin-top:1rem">' + esc(items.map(i => i.text).join(' · ')) + '</div>' : '') +
+      '<h3 class="card-title" style="font-size:1rem;margin:1.25rem 0 .25rem">Who is in it</h3>' + people +
+      '<h3 class="card-title" style="font-size:1rem;margin:1.25rem 0 .25rem">Recent weeks</h3>' + (hist || '<p class="muted">No check-ins yet.</p>') +
+      '<p class="muted" style="margin-top:1rem">' +
+        (D.currentMaterial(rel) ? 'Working through <strong>' + esc(D.currentMaterial(rel).name) + '</strong>' : 'No material assigned') +
+      '</p>',
+      concernBtn + '<button class="btn" onclick="app.closeModals()">Close</button>');
+  },
+
+  /* Concern text is reached one person at a time, and viewing it is audited.
+     — product-rules.md: Audited Actions */
+  viewConcerns(id) {
+    const rel = DB.relationships.find(r => r.id === id);
+    const concerns = D.openConcerns(rel);
+    Audit.record('concern_viewed', rel.id, concerns.length + ' concern(s)');
+    this.closeModals();
+    this.modal('Concern · ' + D.leader(rel).name + ' & ' + D.relName(rel),
+      '<p class="muted" style="margin-bottom:1rem">Raised in the weekly check-in. Resolving clears this text by default, so the ministry does not accumulate a permanent file of someone\'s hardest weeks.</p>' +
+      concerns.map(c => '<div class="sms"><div class="muted" style="margin-bottom:.25rem">' + fmtDate(c.answeredOn) + '</div>' + esc(c.concernText || '(text cleared)') + '</div>').join('') +
+      '<div class="audit">This view was recorded: concern text viewed by Admin, ' + new Date().toLocaleString() + '.</div>',
+      '<button class="btn sec" onclick="app.closeModals()">Close</button>' +
+      '<button class="btn" onclick="app.resolve(\'' + rel.id + '\')">Resolve and clear</button>');
+  },
+
+  /* ---------------------------------------------------------- the five actions */
+  resolve(id) {
+    const rel = DB.relationships.find(r => r.id === id);
+    if (!rel) return;
+    const notes = [];
+
+    const concerns = D.openConcerns(rel);
+    concerns.forEach(c => {
+      c.concernResolved = true;
+      c.concernText = null;            // cleared by default
+      c.resolvedBy = 'Admin'; c.resolvedOn = dateOffset(0);
+    });
+    if (concerns.length) { Audit.record('concern_resolved', rel.id, concerns.length + ' cleared'); notes.push('concern text cleared'); }
+
+    // Resolving a swap request records the review and leaves the relationship in place.
+    if (rel.swapRequest) { rel.swapRequest = null; rel.swapReviewedOn = dateOffset(0); notes.push('swap request reviewed, relationship left in place'); }
+
+    // An expired pause is not resolved by expiring; the admin decides.
+    if (D.pauseExpired(rel)) { rel.pauseReviewedOn = dateOffset(0); rel.pause.expiresOn = null; notes.push('expired pause reviewed'); }
+
+    this.closeModals();
+    this.toast('Resolved', notes.length ? notes.join(' · ') : 'Item cleared');
+    this.refresh();
+  },
+
+  nudge(id) {
+    const rel = DB.relationships.find(r => r.id === id);
+    if (!rel) return;
+    const recipients = Sending.recipients(rel);
+    const sent = [], blocked = [];
+    recipients.forEach(p => {
+      const res = Sending.send(p, rel, 'Just checking in — did you meet with ' + D.relName(rel) + ' this week? Reply 1 for yes, 2 for no.');
+      (res.sent ? sent : blocked).push({ p, res });
+    });
+    if (!sent.length) {
+      this.toast('Not sent', blocked.length ? blocked[0].res.why : 'No eligible recipient', { tone: 'warn', duration: 5200 });
+      this.renderFollowup();
+      return;
+    }
+    this.toast('Nudge sent', sent[0].res.message, { duration: 6000 });
+    this.renderFollowup();
+  },
+
+  /* Resume lifts the pause and releases the Starter Message. The underlying
+     state resurfaces; resuming never sets Healthy on its own. */
+  resume(id) {
+    const rel = DB.relationships.find(r => r.id === id);
+    if (!rel || rel.lifecycle !== 'paused') return;
+    rel.lifecycle = 'active';
+    rel.pause = null;
+    rel.resumedOn = dateOffset(0);
+    const now = D.state(rel);
+    this.toast('Relationship resumed',
+      'Starter Message released. Underlying state resurfaced as ' + D.stateLabel(rel, now) +
+      (now === 'stalled' ? ' — it stays there until an answered check-in clears it.' : '.'),
+      { duration: 6000 });
+    this.refresh();
+  },
+
+  openEnd(id) {
+    const rel = DB.relationships.find(r => r.id === id);
+    if (!rel) return;
+    this.modal('End relationship',
+      '<p style="margin-bottom:.75rem">' + esc(D.leader(rel).name) + ' & ' + esc(D.relName(rel)) + '</p>' +
+      '<p class="muted" style="margin-bottom:1rem">Ending preserves the history untouched. Everyone in it returns to <strong>Ready to Pair</strong> unless they have opted out, and you pair them from the Roster as usual.</p>' +
+      '<div class="field"><label class="label" for="endOutcome">Outcome</label>' +
+      '<select id="endOutcome">' +
+        '<option value="completed">Completed &mdash; it finished well</option>' +
+        '<option value="discontinued">Discontinued &mdash; it did not run its course</option>' +
+      '</select></div>' +
+      '<div class="field"><label class="label" for="endReason">Reason</label>' +
+      '<textarea id="endReason" placeholder="Required. In your own words &mdash; the outcome above is what gets counted later."></textarea></div>',
+      '<button class="btn sec" onclick="app.closeModals()">Cancel</button>' +
+      '<button class="btn" onclick="app.confirmEnd(\'' + rel.id + '\')">End relationship</button>');
+  },
+
+  confirmEnd(id) {
+    const rel = DB.relationships.find(r => r.id === id);
+    const outcome = document.getElementById('endOutcome');
+    const reason = document.getElementById('endReason');
+    if (!rel || !outcome || !reason) return;
+    if (!reason.value.trim()) {
+      this.toast('Reason required', 'An ending records an outcome and a written reason.', { tone: 'warn' });
+      return;
+    }
+    rel.lifecycle = 'ended';
+    rel.endedOn = dateOffset(0);
+    rel.endOutcome = outcome.value;
+    rel.endReason = reason.value.trim();
+    rel.swapRequest = null;
+    /* Participation Status is derived, so ending a relationship returns its
+       people to Ready to Pair with no status write at all — their last open
+       participant membership closing IS the return. */
+    Audit.record('relationship_ended', rel.id, outcome.value);
+    this.closeModals();
+    this.toast('Relationship ended', 'Recorded as ' + outcome.value + '. Everyone returns to Ready to Pair unless they have opted out.');
+    this.refresh();
+  },
+
+  /* An admin can cancel an unaccepted relationship at any point, returning
+     everyone to Ready to Pair and the suggestion pool immediately. It never
+     activated, sent nothing to participants, and has no check-in history —
+     cancelling is not an ending and records no outcome.
+     — product-rules.md: An Unaccepted Relationship Holds Its People */
+  cancelRel(id) {
+    const rel = DB.relationships.find(r => r.id === id);
+    if (!rel || rel.lifecycle !== 'awaiting') return;
+    rel.lifecycle = 'cancelled';
+    rel.cancelledOn = dateOffset(0);
+    this.closeModals();
+    this.toast('Relationship cancelled', 'Everyone in it returned to Ready to Pair and re-entered the suggestion pool.');
+    this.refresh();
+  },
+
+  /* ------------------------------------------------------------- pairing */
+  createRel(leaderId, participantIds) {
+    const leader = D.person(leaderId);
+    const parts = participantIds.map(D.person);
+    // Gender is absolute and manual pairing cannot override it.
+    const bad = parts.find(p => p.gender !== leader.gender);
+    if (bad) { this.toast('Cannot pair', 'Gender matching is an absolute safeguarding constraint and cannot be overridden.', { tone: 'error', duration: 5200 }); return; }
+
+    const rel = {
+      id: 'R' + String(DB.relationships.length + 1).padStart(3, '0'),
+      leaderId, participantIds: participantIds.slice(),
+      lifecycle: 'awaiting',            // creating does not activate it
+      createdOn: dateOffset(0), acceptedOn: null,
+      pause: null, swapRequest: null, endedOn: null, endReason: null, materialPeriods: []
+    };
+    DB.relationships.push(rel);
+    /* Everyone leaves the suggestion pool the moment it is created, before
+       acceptance — the pools read unaccepted memberships directly, so no
+       status is written anywhere. */
+    this.closeModals();
+    this.toast('Relationship created — awaiting acceptance',
+      'Discipler: ' + MINISTRY.name + ': Hi ' + leader.name.split(' ')[0] + ' — you have been paired with ' + D.relName(rel) + '. Tap to see your pairing and get started.',
+      { duration: 7000 });
+    this.refresh();
+  },
+
+  openManualPair(personId) {
+    const person = D.person(personId);
+    // An admin may pair anyone eligible, at any time, including forming a
+    // relationship with many participants. Gender still cannot be overridden.
+    // Manual pairing may cross the age band rule but never gender, and a
+    // leader already leading stays available — there is no cap.
+    const leaders = Suggest.leaderPool().filter(l => l.id !== person.id && l.gender === person.gender);
+    const body = leaders.length
+      ? '<p class="muted" style="margin-bottom:1rem">Pairing ' + esc(person.name) + ' (' + person.ageBand + ', ' + esc(person.goal) + '). The age band rule governs suggestion only — you may pair across it here. Gender matching cannot be overridden.</p>' +
+        '<div class="field"><label class="label" for="pairLeader">Leader</label><select id="pairLeader">' +
+        leaders.map(l => '<option value="' + l.id + '">' + esc(l.name) + ' · ' + l.ageBand + ' · ' + Suggest.overlap(l, person) + ' shared slots</option>').join('') +
+        '</select></div>'
+      : '<p class="muted">No eligible leader is currently unpaired for ' + esc(person.name) + '.</p>';
+    this.modal('Pair manually', body,
+      '<button class="btn sec" onclick="app.closeModals()">Cancel</button>' +
+      (leaders.length ? '<button class="btn" onclick="app.confirmManualPair(\'' + person.id + '\')">Create relationship</button>' : ''));
+  },
+  confirmManualPair(personId) {
+    const sel = document.getElementById('pairLeader');
+    if (sel) this.createRel(sel.value, [personId]);
+  },
+
+  /* -------------------------------------------------------------- import */
+  openImport() {
+    this.modal('Upload CSV',
+      '<div class="notice">An upload adds names, phone numbers and emails and nothing more. People land as <strong>No Intake Submitted</strong>, cannot be paired, and receive nothing until they complete intake themselves. <strong>Importing a person is never consent.</strong></div>' +
+      '<div class="field"><label class="label" for="csv">Paste rows: Name, Phone, Email</label>' +
+      '<textarea id="csv" spellcheck="false" placeholder="Jordan Ellis, (706) 555-0142, jordan@example.org"></textarea></div>',
+      '<button class="btn sec" onclick="app.closeModals()">Cancel</button>' +
+      '<button class="btn" onclick="app.runImport()">Upload</button>');
+  },
+  runImport() {
+    const ta = document.getElementById('csv');
+    if (!ta) return;
+    const rows = ta.value.split('\n').map(l => l.trim()).filter(Boolean);
+    if (!rows.length) { this.toast('Nothing to upload', 'Paste at least one row first.', { tone: 'warn' }); return; }
+    let added = 0;
+    rows.forEach(line => {
+      const [name, phone, email] = line.split(',').map(s => (s || '').trim());
+      if (!name) return;
+      if (DB.people.some(p => p.name.toLowerCase() === name.toLowerCase())) return;
+      DB.people.push({
+        id: 'P' + String(DB.people.length + 1).padStart(3, '0'),
+        name, role: 'participant', gender: null, ageBand: null, goal: null,
+        phone: phone || '', email: email || '', availability: [],
+        eligibleToLead: false, optedOut: false,   // never Ready to Pair on import
+        intakeCompletedOn: null, consents: null, importedOn: dateOffset(0)
+      });
+      added++;
+    });
+    this.closeModals();
+    this.toast('Uploaded', added + ' added as No Intake Submitted. Nobody receives a message until they complete intake.', { duration: 5600 });
+    this.rosterView('all');
+  },
+
+  /* ----------------------------------------------- availability overlay */
+  /* One grid per relationship: days of the week down the vertical axis, times
+     of day across the horizontal. Green where everyone including the leader is
+     free, yellow where a participant is free and the leader is not. The
+     asymmetry is deliberate — it shows exactly where the other person can meet
+     and you said you could not. Nothing here schedules anything.
+     — leader-dashboard.md: The availability overlay */
+  overlayGrid(rel) {
+    const leader = D.leader(rel);
+    const parts = D.participants(rel);
+    const one = parts.length === 1;
+
+    let best = -1, bestCount = 0;
+    for (let sl = 0; sl < SLOTS; sl++) {
+      const n = parts.filter(p => p.availability.includes(sl)).length;
+      if (leader.availability.includes(sl) && n > bestCount) { bestCount = n; best = sl; }
+    }
+
+    let html = '<div class="avail-legend">' +
+      '<span><i style="background:var(--green-fit)"></i>' + (one ? 'You both prefer this time' : 'Everyone is free') + '</span>' +
+      '<span><i style="background:var(--yellow-fit)"></i>' + (one ? 'They are free, you are not' : 'Some are free') + '</span>' +
+      '<span><i style="background:#e4dfd6"></i>Not available</span></div>';
+
+    html += '<div class="grid-wrap"><table class="avail"><thead><tr><th></th>' +
+      TIMES.map(t => '<th>' + t + '</th>').join('') + '</tr></thead><tbody>';
+
+    DAYS.forEach((d, di) => {
+      html += '<tr><th class="day">' + d + '</th>';
+      TIMES.forEach((t, ti) => {
+        const sl = di * TIMES.length + ti;
+        const pn = parts.filter(p => p.availability.includes(sl)).length;
+        const lead = leader.availability.includes(sl);
+        let cls = '';
+        if (pn > 0 && lead) cls = pn === parts.length ? 'all' : 'partial';
+        else if (pn > 0) cls = 'partial';
+        if (sl === best && bestCount > 0) cls += ' best';
+        const title = d + ' ' + t + ' · ' + (lead ? 'you are free' : 'you are not free') +
+          ' · ' + pn + ' of ' + parts.length + ' free';
+        html += '<td class="' + cls.trim() + '" title="' + title + '"></td>';
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+
+    /* Discipler highlights the best slot the leader also marked, but the leader
+       chooses the time and sends the invitation themselves. Where nothing works
+       for everyone including the leader, the grid says so plainly. */
+    html += bestCount > 0
+      ? '<p class="muted" style="margin-top:.9rem">Best overlap is <strong>' +
+        DAYS[Math.floor(best / TIMES.length)] + ' ' + TIMES[best % TIMES.length] +
+        '</strong>. Pick a time and send the invitation yourself.</p>'
+      : '<p class="muted" style="margin-top:.9rem">No slot works for everyone including you. You can still choose a time and invite them.</p>';
+    return html;
+  },
+
+  openAvailability(id) {
+    const rel = DB.relationships.find(r => r.id === id);
+    if (!rel) return;
+    this.modal('When you are both free', this.overlayGrid(rel),
+      '<button class="btn sec" onclick="app.closeModals()">Close</button>');
+  },
+
+  /* ---------------------------------------------------- leader dashboard */
+  renderLeader() {
+    const leader = D.person(this.leaderId);
+    document.getElementById('leaderName').textContent = 'Welcome, ' + leader.name.split(' ')[0];
+    const rels = DB.relationships.filter(r => r.leaderId === leader.id && r.lifecycle !== 'ended');
+
+    if (!rels.length) {
+      document.getElementById('leaderRels').innerHTML =
+        '<div class="card"><div class="empty">You are not walking with anyone right now. Your ministry will let you know when that changes.</div></div>';
+      return;
+    }
+
+    /* Three things and nothing else: who is in it with their contact details,
+       the material assigned to it, and the availability overlay.
+       — leader-dashboard.md: What the dashboard holds */
+    document.getElementById('leaderRels').innerHTML = rels.map(rel => {
+      const st = D.state(rel);
+      const mat = D.currentMaterial(rel);
+      const one = rel.participantIds.length === 1;
+      const heading = one ? 'Your ' + D.participantNoun(rel) : 'Your group';
+
+      if (rel.lifecycle === 'awaiting') {
+        return '<div class="card"><div class="card-head"><h3 class="card-title">' + heading + '</h3>' +
+          '<span class="pill awaiting">' + D.stateLabel(rel, st) + '</span></div>' +
+          '<p class="muted" style="margin-bottom:1rem">You have been matched with ' + esc(D.relName(rel)) +
+          '. Accepting activates the relationship and sends everyone the opening message.</p>' +
+          '<button class="btn" onclick="app.accept(\'' + rel.id + '\')">Accept relationship</button></div>';
+      }
+
+      const people = D.participants(rel).map(p =>
+        '<div class="mentee-card" style="margin-bottom:.75rem">' +
+          '<div class="mentee-top">' +
+            '<div><div class="mentee-name">' + esc(p.name) + '</div>' +
+            '<div class="mentee-since">Since ' + fmtDate(rel.acceptedOn || rel.createdOn) + '</div></div>' +
+            '<span class="pill ' + REL_STATE[st].pill + '">' + D.stateLabel(rel, st) + '</span>' +
+          '</div>' +
+          '<div class="mentee-contact">' +
+            '<div>' + esc(p.phone) + '</div>' +
+            (p.email ? '<div class="muted">' + esc(p.email) + '</div>' : '') +
+          '</div>' +
+          '<button class="wide-btn" onclick="app.openAvailability(\'' + rel.id + '\')">When you are both free</button>' +
+        '</div>').join('');
+
+      return '<div class="lead-grid">' +
+        '<div class="card"><div class="card-head"><h3 class="card-title">' + heading + '</h3></div>' +
+          (rel.lifecycle === 'paused'
+            ? '<div class="notice">Paused through ' + fmtDate(rel.pause.expiresOn) +
+              '. Your weekly check-ins are suppressed until you reply RESUME or your ministry resumes it. Nobody has moved.</div>'
+            : '') +
+          people +
+        '</div>' +
+        '<div class="card"><div class="card-head"><h3 class="card-title">Resources</h3></div>' +
+          '<div class="mat-panel">' +
+            (mat
+              ? '<div class="mat-title">' + esc(mat.name) + '</div><div class="mat-meta">' + esc(mat.kind) + '</div>'
+              : '<div class="muted" style="text-align:center">No material assigned yet. Your ministry will set one up.</div>') +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  },
+
+  accept(id) {
+    const rel = DB.relationships.find(r => r.id === id);
+    if (!rel || rel.lifecycle !== 'awaiting') return;
+    // Acceptance activates the relationship and releases the Starter Message.
+    rel.lifecycle = 'active';
+    rel.acceptedOn = dateOffset(0);
+    /* The first material period opens on acceptance, with no material — a
+       real row, so "which material was in use that week" always has an
+       answer. — product-rules.md: A Relationship's First Material Period */
+    rel.materialPeriods.push({ materialId: null, start: rel.acceptedOn, end: null });
+    this.toast('Relationship activated',
+      MINISTRY.name + ': You are now walking with ' + D.relName(rel) + '. We will check in each week.',
+      { duration: 6000 });
+    this.renderLeader();
+  },
+
+  refresh() {
+    if (this.role === 'admin') this.tab(this.currentTab);
+    else if (this.role === 'leader') this.renderLeader();
+  }
+});
+
+app.init();
+
+</script>
+</body>
+</html>

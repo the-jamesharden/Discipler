@@ -115,18 +115,18 @@ describe.skipIf(skipUnlessAppIsRunning)('joining a group through the link', () =
     expect(one.html).not.toContain('name="groupId"')
 
     const two = await open({ step: '2', ageBand: '25-34', gender: 'female' })
-    expect(two.html).toContain('monday:early_morning')
+    expect(two.html).toContain('monday:08')
 
     // The list is filtered on the gender answered: a men's group is not offered to
     // a woman, and a mixed one is offered to everybody.
-    const three = await open({ step: '3', ageBand: '25-34', gender: 'female', availability: ['monday:midday'] })
+    const three = await open({ step: '3', ageBand: '25-34', gender: 'female', availability: ['monday:12'] })
     expect(three.html).toContain('Which group would you like to join?')
     expect(three.html).toContain(`value="${women.id}"`)
     expect(three.html).toContain(`value="${mixed.id}"`)
     expect(three.html).not.toContain(`value="${men.id}"`)
 
     const four = await open({
-      step: '4', ageBand: '25-34', gender: 'female', availability: ['monday:midday'], groupId: women.id,
+      step: '4', ageBand: '25-34', gender: 'female', availability: ['monday:12'], groupId: women.id,
     })
     expect(four.html).toContain('name="fullName"')
     expect(four.html).toContain('name="smsConsent"')
@@ -137,10 +137,10 @@ describe.skipIf(skipUnlessAppIsRunning)('joining a group through the link', () =
   it('drops the group chosen when the gender is answered again', async () => {
     const women = await aGroup({ name: `Women ${++numbered}` })
     const { html } = await open({
-      step: '1', ageBand: '25-34', gender: 'female', availability: ['monday:midday'], groupId: women.id,
+      step: '1', ageBand: '25-34', gender: 'female', availability: ['monday:12'], groupId: women.id,
     })
     expect(html).not.toContain('name="groupId"')
-    expect(html).toContain('name="availability" value="monday:midday"')
+    expect(html).toContain('name="availability" value="monday:12"')
   })
 
   it('will not carry a group nobody was offered, and says so at the group screen', async () => {
@@ -148,7 +148,7 @@ describe.skipIf(skipUnlessAppIsRunning)('joining a group through the link', () =
     // A man's group in a woman's URL: the group never survives the read, so the
     // wizard stops at the group screen rather than at the one after it.
     const { html } = await open({
-      step: '4', ageBand: '25-34', gender: 'female', availability: ['monday:midday'], groupId: men.id,
+      step: '4', ageBand: '25-34', gender: 'female', availability: ['monday:12'], groupId: men.id,
     })
     expect(html).toContain('Which group would you like to join?')
     expect(html).not.toContain('name="fullName"')
@@ -163,7 +163,7 @@ describe.skipIf(skipUnlessAppIsRunning)('joining a group through the link', () =
         via: 'qr', ageBand: '25-34', gender: 'female', groupId: group.id,
         fullName, phone: aNumber(), smsConsent: 'yes', contactSharing: 'granted',
       },
-      { availability: ['tuesday:evening'] },
+      { availability: ['tuesday:19'] },
     )
     expect(response.status).toBe(303)
     expect(location).toContain('/done')
@@ -197,7 +197,7 @@ describe.skipIf(skipUnlessAppIsRunning)('joining a group through the link', () =
         via: 'link', ageBand: '35-44', gender: 'female', groupId: group.id,
         fullName, phone: aNumber(), smsConsent: 'yes', contactSharing: 'granted',
       },
-      { availability: ['tuesday:evening'] },
+      { availability: ['tuesday:19'] },
     )
     expect(location).toContain('outcome=requested')
     expect(await membersOf(group.id)).not.toContain(fullName)

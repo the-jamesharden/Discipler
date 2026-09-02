@@ -8,7 +8,7 @@ import {
   type MinistryId,
   type PersonId,
 } from '~/domain/ids'
-import { DAY_BLOCKS, WEEKDAYS, type AvailabilitySlot } from '~/domain/intake'
+import { SLOT_HOURS, WEEKDAYS, type AvailabilitySlot } from '~/domain/intake'
 import type { MemberRole } from '~/domain/relationships'
 import { phoneNumber } from '~/domain/roster'
 import type {
@@ -49,8 +49,8 @@ const couldNotRead = (error: { readonly message: string }): Error =>
 const isWeekday = (value: unknown): value is AvailabilitySlot['day'] =>
   WEEKDAYS.includes(value as AvailabilitySlot['day'])
 
-const isDayBlock = (value: unknown): value is AvailabilitySlot['block'] =>
-  DAY_BLOCKS.includes(value as AvailabilitySlot['block'])
+const isSlotHour = (value: unknown): value is AvailabilitySlot['hour'] =>
+  SLOT_HOURS.includes(value as AvailabilitySlot['hour'])
 
 /**
  * `kind` is deliberately absent, here and on the port. This screen branches on the
@@ -130,10 +130,10 @@ const ministryNames = (supabase: SupabaseClient, ministries: readonly string[]) 
  * table that says whose submission it was.
  *
  * A slot the enums do not recognise is dropped rather than thrown over. It can only
- * arrive from a `day_block` added to the database and not to `DAY_BLOCKS`, and the
+ * arrive from a `slot_hour` added to the database and not to `SLOT_HOURS`, and the
  * grid the overlay draws is the one the domain declares -- a cell the renderer has
  * no column for cannot be shown, and losing the whole screen over it would be worse
- * than a Leader seeing the thirty-five slots that do line up.
+ * than a Leader seeing the eighty-four slots that do line up.
  */
 const availabilityFor = async (
   supabase: SupabaseClient,
@@ -148,10 +148,10 @@ const availabilityFor = async (
   const byPerson = new Map<string, AvailabilitySlot[]>()
   for (const row of rows(data)) {
     const person = text(row.person_id)
-    if (!person || !isWeekday(row.day) || !isDayBlock(row.block)) continue
+    if (!person || !isWeekday(row.day) || !isSlotHour(row.hour)) continue
 
     const standing = byPerson.get(person)
-    const slot = { day: row.day, block: row.block }
+    const slot = { day: row.day, hour: row.hour }
     if (standing) standing.push(slot)
     else byPerson.set(person, [slot])
   }

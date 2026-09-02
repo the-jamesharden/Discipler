@@ -4,6 +4,7 @@ import { PasswordResetRefused } from '~/domain/errors'
 import { personId as asPersonId } from '~/domain/ids'
 import { currentAdmin } from '~/platform/supabase/current-admin'
 import { getAccounts, getCommandService, getRosterReader } from '~/service/container'
+import { escapeHtml, htmlDocument } from '../../../../document'
 import {
   RECORD_FAILED,
   resetDoneHeading,
@@ -38,40 +39,6 @@ export const dynamic = 'force-dynamic'
  * whatever an Admin typed, and this response is a full document rather than a React
  * tree that would have escaped it for us.
  */
-
-/** The five characters that cannot appear literally in HTML text or an attribute. */
-const escapeHtml = (text: string): string =>
-  text.replace(
-    /[&<>"']/g,
-    (character) =>
-      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]
-      ?? character,
-  )
-
-const page = (body: string) =>
-  new Response(
-    '<!doctype html>'
-      + '<html lang="en"><head>'
-      + '<meta charset="utf-8">'
-      + '<meta name="viewport" content="width=device-width, initial-scale=1">'
-      + '<title>Discipler</title>'
-      // The same stylesheet the layout links, from the same URL. See
-      // `app/layout.tsx` for why it is served from `public/` rather than imported:
-      // this response is the second thing in the product that renders a document,
-      // and it cannot be told the hashed path a bundled import sits behind.
-      + '<link rel="stylesheet" href="/discipler.css">'
-      + `</head><body>${body}</body></html>`,
-    {
-      status: 200,
-      headers: {
-        'content-type': 'text/html; charset=utf-8',
-        // A live credential is on this page. Never held in a shared cache, and
-        // never in a private one either: the next person at this machine pressing
-        // Back must not be handed somebody's password.
-        'cache-control': 'private, no-store, max-age=0, must-revalidate',
-      },
-    },
-  )
 
 export async function POST(
   request: NextRequest,
@@ -152,21 +119,24 @@ export async function POST(
     )
   }
 
-  return page(
-    '<main>'
+  return htmlDocument(
+    '<div class="container narrow">'
+      + '<header class="header"><div>'
       + `<h1>${escapeHtml(resetDoneHeading(target.fullName))}</h1>`
-      + `<p class="subtle">${escapeHtml(admin.ministryName)}</p>`
-      + '<div class="panel">'
-      + `<p>${escapeHtml(resetDoneInstruction(target.fullName))}</p>`
+      + `<p>${escapeHtml(admin.ministryName)}</p>`
+      + '</div><div class="header-actions"><a href="/roster">Back to the Roster</a></div></header>'
+      + '<main><div class="card">'
+      + `<p class="notice">${escapeHtml(resetDoneInstruction(target.fullName))}</p>`
       // A readonly field rather than a paragraph, for the reason the Intake link on
       // the Roster is one: what an Admin does with this is select it, and a sentence
       // is not something a browser lets them copy cleanly. Not a copy button, which
       // would leave somebody's password sitting on a clipboard until the next copy.
+      + '<div class="field">'
       + `<input type="text" readonly value="${escapeHtml(password)}" aria-label="The new password">`
-      + `<p class="subtle">${escapeHtml(SIGNED_OUT_EVERYWHERE)}</p>`
-      + (recorded ? '' : `<p class="error" role="alert">${escapeHtml(RECORD_FAILED)}</p>`)
       + '</div>'
-      + '<p><a href="/roster">Back to the Roster</a></p>'
-      + '</main>',
+      + `<p class="muted">${escapeHtml(SIGNED_OUT_EVERYWHERE)}</p>`
+      + (recorded ? '' : `<p class="toast error" role="alert">${escapeHtml(RECORD_FAILED)}</p>`)
+      + '</div></main>'
+      + '</div>',
   )
 }

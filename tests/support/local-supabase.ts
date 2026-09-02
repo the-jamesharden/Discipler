@@ -232,14 +232,14 @@ export const completeIntake = async (
     .single()
   if (error) throw new Error(`Could not record Intake: ${error.message}`)
 
-  const availability = answers.availability ?? [{ day: 'monday', block: 'midday' }]
+  const availability = answers.availability ?? [{ day: 'monday', hour: '12' }]
   if (availability.length > 0) {
     const { error: slotError } = await admin.from('intake_availability').insert(
       availability.map((slot) => ({
         ministry_id: ministry.id,
         intake_submission_id: submission.id,
         day: slot.day,
-        block: slot.block,
+        hour: slot.hour,
       })),
     )
     if (slotError) throw new Error(`Could not record availability: ${slotError.message}`)

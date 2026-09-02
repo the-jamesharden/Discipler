@@ -34,14 +34,14 @@ import {
 
 const slots = (...keys: string[]): readonly AvailabilitySlot[] =>
   keys.map((key) => {
-    const [day, block] = key.split(':')
-    return { day, block } as AvailabilitySlot
+    const [day, hour] = key.split(':')
+    return { day, hour } as AvailabilitySlot
   })
 
 interface AvailabilityRow {
   person_id: string
   day: string
-  block: string
+  hour: string
 }
 
 describe('what the Leader Dashboard may read', () => {
@@ -73,25 +73,25 @@ describe('what the Leader Dashboard may read', () => {
   const slotsOf = (rows: readonly AvailabilityRow[], person: string) =>
     rows
       .filter((row) => row.person_id === person)
-      .map((row) => `${row.day}:${row.block}`)
+      .map((row) => `${row.day}:${row.hour}`)
       .sort()
 
   beforeAll(async () => {
     riverside = await createMinistryWithAdmin('Riverside Chapel')
 
     karen = await addPersonWithAccount(riverside, 'Karen Whitfield', 'leader', {
-      answers: { availability: slots('monday:midday', 'wednesday:evening') },
+      answers: { availability: slots('monday:12', 'wednesday:18') },
     })
     mo = await addPersonWithAccount(riverside, 'Mo Farah', 'leader', {
-      answers: { availability: slots('monday:midday') },
+      answers: { availability: slots('monday:12') },
     })
     ada = await addPerson(riverside, 'Ada Rowe', {
       phone: '+15552349911',
-      answers: { availability: slots('monday:midday', 'thursday:morning') },
+      answers: { availability: slots('monday:12', 'thursday:09') },
     })
     ben = await addPerson(riverside, 'Ben Okafor', {
       phone: '+15558110042',
-      answers: { availability: slots('wednesday:evening') },
+      answers: { availability: slots('wednesday:18') },
     })
 
     const lead = async (
@@ -132,8 +132,8 @@ describe('what the Leader Dashboard may read', () => {
     it('gives a Leader everyone in a relationship they lead, themselves included', async () => {
       const rows = await availabilityFor(asKaren, karensOneToOne)
 
-      expect(slotsOf(rows, karen.personId)).toEqual(['monday:midday', 'wednesday:evening'])
-      expect(slotsOf(rows, ada)).toEqual(['monday:midday', 'thursday:morning'])
+      expect(slotsOf(rows, karen.personId)).toEqual(['monday:12', 'wednesday:18'])
+      expect(slotsOf(rows, ada)).toEqual(['monday:12', 'thursday:09'])
       expect([...new Set(rows.map((row) => row.person_id))].sort()).toEqual(
         [karen.personId, ada].sort(),
       )
@@ -175,10 +175,10 @@ describe('what the Leader Dashboard may read', () => {
       // permanently available at a time they went back and unticked.
       const church = await createMinistryWithAdmin('Second Thoughts Chapel')
       const leader = await addPersonWithAccount(church, 'Nadia Reyes', 'leader', {
-        answers: { availability: slots('monday:midday') },
+        answers: { availability: slots('monday:12') },
       })
       const changed = await addPerson(church, 'Tom Barrow', {
-        answers: { availability: slots('friday:evening') },
+        answers: { availability: slots('friday:18') },
       })
 
       const relationship = await createRelationship(church, 'one_to_one')
@@ -198,17 +198,17 @@ describe('what the Leader Dashboard may read', () => {
       })
 
       await completeIntake(church, changed, ['sms', 'contact_sharing'], 'pastor_link', {
-        availability: slots('saturday:morning'),
+        availability: slots('saturday:09'),
       })
 
       const rows = await availabilityFor(await signInWith(leader), relationship)
-      expect(slotsOf(rows, changed)).toEqual(['saturday:morning'])
+      expect(slotsOf(rows, changed)).toEqual(['saturday:09'])
     })
 
     it('leaves the availability table itself shut to a Leader', async () => {
       // The function is the widening, and it is the whole of it. Without this the
       // grid would be reachable one REST call at a time for the whole congregation.
-      const { data } = await asKaren.from('intake_availability').select('day, block')
+      const { data } = await asKaren.from('intake_availability').select('day, hour')
       expect(data).toEqual([])
     })
   })

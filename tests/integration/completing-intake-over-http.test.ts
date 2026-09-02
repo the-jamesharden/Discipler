@@ -74,7 +74,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person completing Intake from a link'
     expect(html).toContain('name="gender"')
 
     const last = await fetch(
-      `${baseUrl}/intake/${ministry.id}?step=4&ageBand=35-44&gender=female&availability=monday:midday&groupId=${groupId}`,
+      `${baseUrl}/intake/${ministry.id}?step=4&ageBand=35-44&gender=female&availability=monday:12&groupId=${groupId}`,
       { redirect: 'manual' },
     ).then((r) => r.text())
     expect(last).toContain('name="smsConsent"')
@@ -94,7 +94,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person completing Intake from a link'
         contactSharing: 'granted',
         via: 'qr',
       },
-      ['wednesday:evening', 'saturday:midday'],
+      ['wednesday:18', 'saturday:12'],
     )
 
     expect(response.status).toBe(303)
@@ -157,7 +157,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person completing Intake from a link'
         contactSharing: 'granted',
         via: 'admin_attested',
       },
-      ['monday:midday'],
+      ['monday:12'],
     )
 
     // An Admin attesting on a congregant's behalf is not a route to Intake, and a

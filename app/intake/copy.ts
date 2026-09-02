@@ -1,4 +1,4 @@
-import type { DayBlock, DeclaredSide, IntakeRefusal, Weekday } from '~/domain/intake'
+import { SLOT_HOURS, type DeclaredSide, type IntakeRefusal, type SlotHour, type Weekday } from '~/domain/intake'
 import { asList } from '~/domain/outbound-copy'
 
 /**
@@ -17,13 +17,38 @@ export const weekdayLabel: Record<Weekday, string> = {
   sunday: 'Sun',
 }
 
-export const dayBlockLabel: Record<DayBlock, string> = {
-  early_morning: 'Early morning',
-  morning: 'Morning',
-  midday: 'Midday',
-  afternoon: 'Afternoon',
-  evening: 'Evening',
+/**
+ * The twelve column headings, as a person says an hour: `08` is *8am*, `13` is
+ * *1pm*. Built from the domain's list rather than written out, so a grid that
+ * gained an hour would gain a heading with it. See `docs/adr/0018-the-hourly-grid.md`.
+ */
+export const hourLabel: Record<SlotHour, string> = Object.fromEntries(
+  SLOT_HOURS.map((hour) => {
+    const twentyFour = Number.parseInt(hour, 10)
+    const twelve = twentyFour % 12 === 0 ? 12 : twentyFour % 12
+    return [hour, `${twelve}${twentyFour < 12 ? 'am' : 'pm'}`]
+  }),
+) as Record<SlotHour, string>
+
+/** The full name of a day, for a screen reader naming a cell. */
+export const weekdayFullLabel: Record<Weekday, string> = {
+  monday: 'Monday',
+  tuesday: 'Tuesday',
+  wednesday: 'Wednesday',
+  thursday: 'Thursday',
+  friday: 'Friday',
+  saturday: 'Saturday',
+  sunday: 'Sunday',
 }
+
+/**
+ * What the grid says under itself: how many hours are ticked, across how many
+ * days. The Make wizard's line, counting hours.
+ */
+export const selectedSummary = (hours: number, days: number): string =>
+  hours === 0
+    ? 'No hours selected yet.'
+    : `${hours} hour${hours === 1 ? '' : 's'} selected across ${days} day${days === 1 ? '' : 's'}.`
 
 const REFUSALS: Record<IntakeRefusal, string> = {
   'intake.name_missing': 'Please give your name.',
@@ -126,6 +151,33 @@ export const sideLabel: Record<DeclaredSide, string> = {
 
 export const SIDE_QUESTION = 'I’m joining as…'
 
+/** The line under each side, from the Make design. */
+export const sideDescription: Record<DeclaredSide, string> = {
+  mentor: 'I am ready to walk alongside and invest in someone else.',
+  mentee: 'I am looking for someone to help guide me in my faith.',
+}
+
+/**
+ * What the card says under the wordmark on each screen, by step. Read by step
+ * number here and nowhere else: the screens are told apart by name, and this is
+ * a line of copy that follows the number on the progress bar.
+ */
+export const stepSubtitle: Record<number, string> = {
+  1: 'Welcome — let’s get you connected.',
+  2: 'Tell us a little about yourself.',
+  3: 'A bit about your experience.',
+  4: 'When are you generally available to meet?',
+  5: 'Nearly there — how we reach you, and what you are hoping for.',
+}
+
+/** The same lines for the group form's four screens. */
+export const groupStepSubtitle: Record<number, string> = {
+  1: 'Tell us a little about yourself.',
+  2: 'When are you generally available to meet?',
+  3: 'Which group would you like to join?',
+  4: 'Nearly there — how we reach you.',
+}
+
 /**
  * The one screen whose question is not the same sentence for both sides. It is
  * still the same question: has this Person done this before.
@@ -142,6 +194,9 @@ export const firstTimeQuestion: Record<DeclaredSide, string> = {
  */
 export const DONE_BEFORE_ANSWER = 'Yes, I’ve done this before'
 export const FIRST_TIME_ANSWER = 'No, this is my first time'
+export const DONE_BEFORE_DESCRIPTION = 'I have experience in this role.'
+export const FIRST_TIME_DESCRIPTION = 'I am new to this — and that is perfectly fine.'
+export const FIRST_TIME_HELP = 'This helps us match you thoughtfully.'
 
 export const DONE_HEADING = 'You’re on the list'
 

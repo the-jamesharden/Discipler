@@ -570,19 +570,19 @@ the ministry prefix, together with the opt-out and rate disclosure.
 Nothing else reaches a congregant before their leader has accepted. The mentor and
 mentee reveals still follow pairing approval, unchanged.
 
-## Settled: The Availability Grid Is Seven Days by Five Blocks
+## Settled: The Availability Grid Is Seven Days by Twelve Hours
 
-Thirty-five slots: each day of the week, divided into early morning, morning, midday,
-afternoon, and evening.
+Eighty-four slots: each day of the week, divided into one-hour slots from 8am to 8pm.
+One slot per hour, named by the hour it starts.
+Time of day runs across and the days run down, on the Intake form and on the Leader Dashboard's overlay alike.
 
-Named blocks rather than clock times, because a person answering *when could you
-meet* is describing the shape of their day rather than committing to an hour. Five
-blocks rather than three, so that an early coffee, a mid-morning and a lunch meeting
-are not the same answer.
+Hours rather than named blocks, because the design is hourly and the product owner decided it on 2026-09-01.
+ADR-0006 chose named blocks on the argument that a person saying when they could meet is describing the shape of their day rather than committing to an hour; the design draws hours, and the backend matches the design.
+See `docs/adr/0018-the-hourly-grid.md`, which records the two costs that came with the change.
 
-The grid is a shared unit, not a display choice. Suggestion ranks on the count of
-shared slots, and a count only means something when both sides answered on the same
-grid — so changing the granularity invalidates every availability already collected.
+The grid is a shared unit, not a display choice.
+Suggestion ranks on the count of shared slots, and a count only means something when both sides answered on the same grid - so changing the granularity invalidates every availability already collected.
+The move from five blocks to twelve hours paid that price: nothing collected on the block grid was carried over, and the people it belonged to are asked again.
 
 ## Settled: Each Ministry Owns Its Discipleship Goal Options
 
@@ -599,8 +599,8 @@ Goals are never shared or compared across ministries.
 
 ## Settled: Suggestion Tiers Are Counts of Shared Cells
 
-The availability grid is seven days by five blocks, so an overlap is a count out of
-thirty-five shared cells. The tiers are that count and nothing else:
+The availability grid is seven days by twelve hours, so an overlap is a count out of eighty-four shared cells.
+The tiers are that count and nothing else:
 
 - **Excellent fit** — four or more shared cells, spanning at least two distinct days.
 - **Good fit** — two or three shared cells.
@@ -611,6 +611,12 @@ thirty-five shared cells. The tiers are that count and nothing else:
 The two-distinct-days requirement on Excellent fit is what stops four cells that are
 all one Saturday from reading as strongly as four cells across a week. Four blocks on
 one day is most of that day, not four separate chances to meet.
+
+> **Reopened 2026-09-01.** The cutoffs above were set against thirty-five cells and
+> read differently against eighty-four: two people who are both free all Saturday now
+> share twelve cells. They are not re-decided here. See `docs/open-questions.md` under
+> *Open: the suggestion tier cutoffs on an hourly grid* and
+> `docs/adr/0018-the-hourly-grid.md`.
 
 > **Conflicts with `docs/adr/0001-pairing-suggestion-inputs.md`,** which defines
 > **Excellent fit** as meaningful overlap *plus a matching Discipleship Goal* and
@@ -624,7 +630,7 @@ one day is most of that day, not four separate chances to meet.
 There is one settings surface, three sections, one form:
 
 - **Ministry** — display name, timezone, `from_name`. The timezone matters more than
-  it looks: every availability block, the check-in cadence, the ISO week boundary, and
+  it looks: every availability slot, the check-in cadence, the ISO week boundary, and
   the monthly opt-out rule are all resolved against it.
 - **Language** — `leader_noun` and `participant_noun`, with a live message preview
   underneath. This is the section that earns the tab: it is where a ministry sees its

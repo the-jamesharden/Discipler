@@ -2,7 +2,9 @@
 
 ## Status
 
-accepted
+superseded by 0018-the-hourly-grid.md
+
+Superseded on 2026-09-01: the grid became seven days by twelve one-hour slots, 8am to 8pm, and the rest of this record stands as the history of why five blocks were chosen and what changing them was predicted to cost.
 
 ## Context
 

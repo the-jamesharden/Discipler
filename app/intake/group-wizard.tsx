@@ -1,6 +1,11 @@
 import Link from 'next/link'
 import type { JoinableGroup } from '~/service/ports'
-import { NO_GROUPS_ALTERNATIVE, NO_GROUPS_HEADING, noGroupsMessage } from './copy'
+import {
+  groupStepSubtitle,
+  NO_GROUPS_ALTERNATIVE,
+  NO_GROUPS_HEADING,
+  noGroupsMessage,
+} from './copy'
 import {
   AgeBandField,
   Agreements,
@@ -13,12 +18,13 @@ import {
 import {
   GROUP_AGE_AND_GENDER_STEP,
   GROUP_AVAILABILITY_STEP,
+  GROUP_LAST_STEP,
   GROUP_STEP,
   groupWizard,
   type GroupWizardAnswers,
 } from './group-wizard-answers'
 import type { IntakeVia } from './wizard-machine'
-import { Hidden, StepForm } from './wizard-shell'
+import { FormActions, Hidden, Progress, StepForm } from './wizard-shell'
 
 /**
  * The group form: the wizard behind the Ministry's original Intake link. Four
@@ -30,7 +36,11 @@ import { Hidden, StepForm } from './wizard-shell'
  * That filtering is the page's, because the page is what reads the answers and
  * the list together; what this component knows is that an empty list on the group
  * screen means there is nothing to offer, and says so rather than drawing an empty
- * dropdown that cannot be submitted.
+ * list that cannot be submitted.
+ *
+ * It has no design of its own yet: the group form's design is coming from James
+ * (decision 9 of ticket 31), and until it lands this wizard wears the discipleship
+ * wizard's screens, which are the same system.
  */
 export const GroupIntakeWizard = ({
   step,
@@ -57,70 +67,71 @@ export const GroupIntakeWizard = ({
   const at = Math.min(Math.max(step, wizard.FIRST_STEP), wizard.furthestStep(answers))
 
   const back =
-    at === wizard.FIRST_STEP ? null : (
-      <p>
-        <Link href={`${here}?${wizard.answersAsQuery(answers, via, at - 1)}`}>Back</Link>
-      </p>
-    )
+    at === wizard.FIRST_STEP ? null : `${here}?${wizard.answersAsQuery(answers, via, at - 1)}`
+
+  const screen = (children: React.ReactNode) => (
+    <>
+      <p className="sub">{groupStepSubtitle[at] ?? ''}</p>
+      <Progress at={at} of={GROUP_LAST_STEP} />
+      {children}
+    </>
+  )
 
   if (at === GROUP_AGE_AND_GENDER_STEP) {
-    return (
-      <StepForm wizard={wizard} at={at} answers={answers} via={via} here={here}>
+    return screen(
+      <StepForm wizard={wizard} at={at} answers={answers} via={via} here={here} back={back}>
         {/* Gender first, because the list of groups on the third screen is
             filtered on it -- which is also why answering it again drops the
             group already chosen rather than carrying it under a different list. */}
         <AgeBandField prefill={{ ...NOTHING_PREFILLED, ageBand: answers.ageBand }} />
         <GenderField prefill={{ ...NOTHING_PREFILLED, gender: answers.gender }} />
-      </StepForm>
+      </StepForm>,
     )
   }
 
   if (at === GROUP_AVAILABILITY_STEP) {
-    return (
-      <>
-        <StepForm wizard={wizard} at={at} answers={answers} via={via} here={here}>
-          <AvailabilityGrid availability={answers.availability} />
-        </StepForm>
-        {back}
-      </>
+    return screen(
+      <StepForm wizard={wizard} at={at} answers={answers} via={via} here={here} back={back}>
+        <AvailabilityGrid availability={answers.availability} />
+      </StepForm>,
     )
   }
 
   if (at === GROUP_STEP) {
     if (groups.length === 0) {
-      return (
+      return screen(
         <>
           <NoGroups ministryName={ministryName} discipleshipLink={discipleshipLink} />
-          {back}
-        </>
+          {back ? (
+            <p>
+              <Link className="btn sec" href={back}>
+                Back
+              </Link>
+            </p>
+          ) : null}
+        </>,
       )
     }
-    return (
-      <>
-        <StepForm wizard={wizard} at={at} answers={answers} via={via} here={here}>
-          <GroupField groups={groups} chosen={answers.groupId} />
-        </StepForm>
-        {back}
-      </>
+    return screen(
+      <StepForm wizard={wizard} at={at} answers={answers} via={via} here={here} back={back}>
+        <GroupField groups={groups} chosen={answers.groupId} />
+      </StepForm>,
     )
   }
 
-  return (
-    <>
-      {/* The only POST, and the only write. The consents are here rather than
-          earlier because the checkbox that grants consent belongs on the same
-          screen as the write it authorises. No Goal: nobody who has named a group
-          is being ranked. */}
-      <form method="post" action={submitTo}>
-        <Hidden wizard={wizard} answers={answers} via={via} />
+  return screen(
+    // The only POST, and the only write. The consents are here rather than
+    // earlier because the checkbox that grants consent belongs on the same
+    // screen as the write it authorises. No Goal: nobody who has named a group
+    // is being ranked.
+    <form method="post" action={submitTo}>
+      <Hidden wizard={wizard} answers={answers} via={via} />
 
-        <ContactFields prefill={NOTHING_PREFILLED} />
-        <Agreements ministryName={ministryName} prefill={NOTHING_PREFILLED} />
+      <ContactFields prefill={NOTHING_PREFILLED} />
+      <Agreements ministryName={ministryName} prefill={NOTHING_PREFILLED} />
 
-        <button type="submit">Submit</button>
-      </form>
-      {back}
-    </>
+      <FormActions back={back} action="Submit" />
+    </form>,
   )
 }
 

@@ -58,7 +58,7 @@ describe('the list the group form steps through', () => {
 describe('what the group form reads back off its own URL', () => {
   it('keeps a group only when it was one of the ones offered', () => {
     const answers = groupWizard.readAnswers(
-      { ageBand: '25-34', gender: 'female', groupId: offered[0], availability: ['monday:midday'] },
+      { ageBand: '25-34', gender: 'female', groupId: offered[0], availability: ['monday:12'] },
       { groupId: offered },
     )
     expect(answers.groupId).toBe(offered[0])
@@ -77,7 +77,7 @@ describe('what the group form reads back off its own URL', () => {
   it('drops anything a hand-written URL invented rather than rendering it back', () => {
     expect(
       groupWizard.readAnswers(
-        { ageBand: '12', gender: '<script>', groupId: 'anything', availability: ['funday:midday'] },
+        { ageBand: '12', gender: '<script>', groupId: 'anything', availability: ['funday:12'] },
         { groupId: offered },
       ),
     ).toEqual({ ageBand: null, gender: null, groupId: null, availability: [] })
@@ -91,11 +91,11 @@ describe('which screen somebody is entitled to see', () => {
 
     expect(read({})).toBe(GROUP_AGE_AND_GENDER_STEP)
     expect(read({ ageBand: '25-34', gender: 'female' })).toBe(GROUP_AVAILABILITY_STEP)
-    expect(read({ ageBand: '25-34', gender: 'female', availability: 'monday:midday' })).toBe(
+    expect(read({ ageBand: '25-34', gender: 'female', availability: 'monday:12' })).toBe(
       GROUP_STEP,
     )
     expect(
-      read({ ageBand: '25-34', gender: 'female', availability: 'monday:midday', groupId: offered[0]! }),
+      read({ ageBand: '25-34', gender: 'female', availability: 'monday:12', groupId: offered[0]! }),
     ).toBe(GROUP_LAST_STEP)
   })
 
@@ -114,14 +114,14 @@ describe('which screen somebody is entitled to see', () => {
 
   it('goes back with the answers still in hand', () => {
     const answers = groupWizard.readAnswers(
-      { ageBand: '45-54', gender: 'male', groupId: offered[1]!, availability: ['tuesday:morning'] },
+      { ageBand: '45-54', gender: 'male', groupId: offered[1]!, availability: ['tuesday:09'] },
       { groupId: offered },
     )
     const back = groupWizard.answersAsQuery(answers, 'qr', GROUP_STEP)
     expect(back.get('step')).toBe(String(GROUP_STEP))
     expect(back.get('groupId')).toBe(offered[1])
     expect(back.get('via')).toBe('qr')
-    expect(back.getAll('availability')).toEqual(['tuesday:morning'])
+    expect(back.getAll('availability')).toEqual(['tuesday:09'])
   })
 })
 

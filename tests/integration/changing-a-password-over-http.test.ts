@@ -93,7 +93,9 @@ describe.skipIf(skipUnlessAppIsRunning)('changing your own password over HTTP', 
 
   /** One Person's row and nothing either side of it. */
   const rowFor = (html: string, name: string): string => {
-    const cell = html.indexOf(`<td>${name}</td>`)
+    // The name is inside the row's first cell, beside an avatar, so the match is
+    // on the name and not on a bare cell.
+    const cell = html.indexOf(`<span>${name}<`)
     if (cell === -1) throw new Error(`No row for ${name}`)
     const end = html.indexOf('</tr>', cell)
     return html.slice(cell, end === -1 ? undefined : end)
@@ -122,7 +124,9 @@ describe.skipIf(skipUnlessAppIsRunning)('changing your own password over HTTP', 
 
     const warning = html.indexOf('signs you out everywhere, including here')
     expect(warning).toBeGreaterThan(-1)
-    expect(warning).toBeLessThan(html.indexOf('<button'))
+    // The button that changes it, not the first button on the page: the header
+    // carries sign-out.
+    expect(warning).toBeLessThan(html.indexOf('>Change the password<'))
   })
 
   it('sends a visitor with no session to sign in', async () => {

@@ -141,6 +141,28 @@ export const admissionRefusalMessage = (code: string | undefined): string | unde
   )
 }
 
+/** How many people the Roster shows under the current switch. */
+export const peopleCount = (count: number): string =>
+  count === 1 ? '1 person' : `${count} people`
+
+/**
+ * The pill beside each relationship on a row: how many people are in it, counting
+ * everyone. A one-to-one is said as such rather than as *2 people*, because that
+ * is what the product calls it.
+ */
+export const relationshipSizeLabel = (people: number): string =>
+  people <= 2 ? 'One-to-one' : `${people} people`
+
+/**
+ * Said above the import, in the design's own words, because it is exactly the
+ * product rule: an upload adds names and numbers and nothing more, and nobody
+ * receives anything until they complete Intake themselves.
+ */
+export const IMPORT_IS_NEVER_CONSENT =
+  'An upload adds names, phone numbers and emails and nothing more. People land as '
+  + 'No Intake Submitted, cannot be paired, and receive nothing until they complete '
+  + 'Intake themselves. Importing a person is never consent.'
+
 /**
  * The one signal the declared side puts on a Roster row: this Person offered to
  * mentor somebody.

@@ -103,7 +103,7 @@ describe('what the wizard reads back off its own URL', () => {
     ageBand: '35-44',
     gender: 'male',
     experience: 'done_before',
-    availability: ['monday:midday', 'friday:evening'],
+    availability: ['monday:12', 'friday:18'],
   }
 
   it('keeps only the answers it actually offered', () => {
@@ -112,7 +112,7 @@ describe('what the wizard reads back off its own URL', () => {
       ageBand: '35-44',
       gender: 'male',
       experience: 'done_before',
-      availability: ['monday:midday', 'friday:evening'],
+      availability: ['monday:12', 'friday:18'],
     })
   })
 
@@ -123,14 +123,14 @@ describe('what the wizard reads back off its own URL', () => {
         ageBand: '12',
         gender: 'unspecified',
         experience: 'sometimes',
-        availability: ['monday:midday', 'funday:midday', 'monday:teatime'],
+        availability: ['monday:12', 'funday:12', 'monday:teatime'],
       }),
     ).toEqual({
       side: null,
       ageBand: null,
       gender: null,
       experience: null,
-      availability: ['monday:midday'],
+      availability: ['monday:12'],
     })
   })
 })
@@ -198,7 +198,7 @@ describe('the list the wizard steps through', () => {
       ageBand: '25-34',
       gender: 'female',
       experience: 'done_before',
-      availability: ['monday:midday'],
+      availability: ['monday:12'],
     })
 
     // What the side screen sends on: everything it neither asks for nor rewords.
@@ -213,7 +213,7 @@ describe('the list the wizard steps through', () => {
     // worded from nothing, so re-answering the side has no claim on them.
     expect(afterSwitchingSides.ageBand).toBe('25-34')
     expect(afterSwitchingSides.gender).toBe('female')
-    expect(afterSwitchingSides.availability).toEqual(['monday:midday'])
+    expect(afterSwitchingSides.availability).toEqual(['monday:12'])
     expect(furthestStep(afterSwitchingSides)).toBe(FIRST_TIME_STEP)
   })
 })
@@ -249,7 +249,7 @@ describe('which screen somebody is entitled to see', () => {
           ageBand: '25-34',
           gender: 'female',
           experience: 'first_time',
-          availability: 'monday:midday',
+          availability: 'monday:12',
         }),
       ),
     ).toBe(LAST_STEP)
@@ -268,14 +268,14 @@ describe('which screen somebody is entitled to see', () => {
       ageBand: '45-54',
       gender: 'male',
       experience: 'first_time',
-      availability: ['tuesday:morning'],
+      availability: ['tuesday:09'],
     })
     const back = answersAsQuery(answers, 'qr', 3)
 
     expect(back.get('step')).toBe('3')
     expect(back.get('side')).toBe('mentor')
     expect(back.get('via')).toBe('qr')
-    expect(back.getAll('availability')).toEqual(['tuesday:morning'])
+    expect(back.getAll('availability')).toEqual(['tuesday:09'])
   })
 })
 
@@ -300,7 +300,7 @@ describe('the one screen a browser will not stop somebody leaving unanswered', (
     expect(
       stuckOnAvailability('5', {
         ...upToTheGrid,
-        availability: ['monday:midday'],
+        availability: ['monday:12'],
       }),
     ).toBe(false)
   })

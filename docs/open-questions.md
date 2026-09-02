@@ -120,6 +120,17 @@ a week.
 Settled 2026-08-27. Recorded in `docs/product-rules.md` under *Settled: Suggestion
 Tiers Are Counts of Shared Cells*.
 
+Reopened 2026-09-01 by `docs/adr/0018-the-hourly-grid.md`; see *Open: the suggestion tier cutoffs on an hourly grid* below.
+
+## Open: the suggestion tier cutoffs on an hourly grid
+
+The cutoffs above - Excellent fit at 4+ shared cells across 2 distinct days, Good fit at 2-3, Recommended at exactly 1 - were counts out of thirty-five.
+On 2026-09-01 the grid became seven days by twelve one-hour slots, 8am to 8pm, and a count is now out of eighty-four; see `docs/adr/0018-the-hourly-grid.md`.
+The same numbers read differently against the larger denominator: two people who are both free all Saturday now share twelve cells where they shared one block before, and four shared hours is a much smaller fraction of a week than four shared blocks was.
+Nothing here decides what the new cutoffs are, and the ones recorded in `docs/product-rules.md` are marked as reopened rather than replaced.
+Ticket 04 cannot ship until they are re-decided.
+This is decision 11 of ticket 31.
+
 ## Resolved: what the Discipleship Goal does now
 
 **It is a tiebreaker.** The Goal orders candidates within a tier and never determines
@@ -370,6 +381,26 @@ is a new kind of actor this product does not have), a second Admin required at
 provisioning (which makes a one-pastor church impossible to set up), or nothing at all
 until codes ship (which means the pilot's answer to a locked-out sole Admin is somebody
 running SQL). Each is a different bet about who the first pilot Ministries are.
+
+## Open: the Admin relationship detail
+
+The design prototype opens a relationship detail behind every card: every member's
+number and email, six weeks of check-in history and the Material. Ticket 31 left it out.
+There is no reader for it, and the numbers on it would bypass the one-at-a-time consent
+read that `public.contact_to_share` is (ADR-0010). What needs answering: whether a reader
+returning names, the six-week history and the Material with no contact details is
+wanted, and where it lives -- a page under Follow-Up, or a page of its own. Until then
+each Overview card links to the relationship's Follow-Up item where one exists, and to
+nothing where none does. This is decision 10 of ticket 31.
+
+## Open: one Discipleship Goal or several
+
+The Figma Make wizard multi-selects goals; the backend records one Ministry-owned goal as
+the suggestion tiebreaker (ticket 21, ADR-0014), and several would change the data model
+and ADR-0014's counting. Ticket 31 kept one, drawn as the design's option buttons, so the
+screen changes and nothing underneath it does. What needs answering: whether several
+goals are wanted at all, and if so what the tiebreaker becomes. This is decision 7 of
+ticket 31.
 
 ## Deferred with the quarterly report
 
