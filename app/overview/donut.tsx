@@ -6,8 +6,11 @@
  * One circle per segment, each a stroke on the same ring. The circumference is
  * made 100 units by the radius, so a segment's dash length is its percentage and
  * its offset is the percentage drawn before it. A ring with nothing to show is
- * drawn grey with the empty state in its centre, so an empty Ministry's Overview
- * has a chart-shaped nothing rather than a hole.
+ * drawn grey, so an empty Ministry's Overview has a chart-shaped nothing rather
+ * than a hole.
+ *
+ * The figure and the counts sit beside the ring, not on it: the ring is left
+ * clear, and the numbers read as a column next to it.
  */
 
 export interface DonutSegment {
@@ -22,13 +25,13 @@ const RADIUS = 15.9155
 export const Donut = ({
   title,
   segments,
-  centre,
+  figure,
   emptyLabel,
 }: {
   readonly title: string
   readonly segments: readonly DonutSegment[]
-  /** The number in the middle: a rate, usually. */
-  readonly centre: string
+  /** The headline figure beside the ring: a rate, usually. */
+  readonly figure: string
   readonly emptyLabel: string
 }) => {
   const total = segments.reduce((sum, segment) => sum + segment.value, 0)
@@ -36,7 +39,7 @@ export const Donut = ({
 
   return (
     <div className="chart-box">
-      <svg className="donut" viewBox="0 0 42 42" role="img" aria-label={`${title}: ${centre}`}>
+      <svg className="donut" viewBox="0 0 42 42" role="img" aria-label={`${title}: ${figure}`}>
         <circle cx="21" cy="21" r={RADIUS} fill="transparent" stroke="var(--cell)" strokeWidth="5" />
         {total > 0
           ? segments.map((segment) => {
@@ -60,22 +63,22 @@ export const Donut = ({
               ) : null
             })
           : null}
-        <text x="21" y="23" className="donut-centre" fontSize="8">
-          {centre}
-        </text>
       </svg>
-      <ul className="donut-legend">
-        {total === 0 ? (
-          <li className="muted">{emptyLabel}</li>
-        ) : (
-          segments.map((segment) => (
-            <li key={segment.label}>
-              <i style={{ background: segment.colour }} aria-hidden="true" />
-              {`${segment.label}: ${segment.value}`}
-            </li>
-          ))
-        )}
-      </ul>
+      <div className="donut-figures">
+        <p className="donut-figure">{figure}</p>
+        <ul className="donut-legend">
+          {total === 0 ? (
+            <li className="muted">{emptyLabel}</li>
+          ) : (
+            segments.map((segment) => (
+              <li key={segment.label}>
+                <i style={{ background: segment.colour }} aria-hidden="true" />
+                {`${segment.label}: ${segment.value}`}
+              </li>
+            ))
+          )}
+        </ul>
+      </div>
     </div>
   )
 }

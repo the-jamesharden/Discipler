@@ -8,7 +8,7 @@ import {
 } from '~/domain/ministry-settings'
 import { resolveAdmin } from '~/platform/supabase/current-admin'
 import { getMinistrySettingsReader } from '~/service/container'
-import { NotAnAdmin, PageShell, SignOut } from '../shell'
+import { AccountMenu, NotAnAdmin, PageShell } from '../shell'
 import {
   DAYS,
   gapLabel,
@@ -76,7 +76,7 @@ export default async function MinistrySettingsPage({
       actions={
         <>
           <Link href="/settings/goals">Discipleship Goals</Link>
-          <SignOut />
+          <AccountMenu ministry />
         </>
       }
     >

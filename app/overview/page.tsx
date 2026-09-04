@@ -128,7 +128,7 @@ export default async function OverviewPage() {
           <h2 className="card-title">{MEETING_COMPLETION}</h2>
           <Donut
             title={MEETING_COMPLETION}
-            centre={`${rates.meeting}%`}
+            figure={`${rates.meeting}%`}
             emptyLabel={NO_CHECK_INS_YET}
             segments={[
               { label: 'Met', value: overview.counts.held, colour: 'var(--green-fit)' },
@@ -140,7 +140,7 @@ export default async function OverviewPage() {
           <h2 className="card-title">{CHECK_IN_RATINGS}</h2>
           <Donut
             title={CHECK_IN_RATINGS}
-            centre={rated === 0 ? '0' : `${overview.counts.rated.outstanding}/${rated}`}
+            figure={rated === 0 ? '0' : `${overview.counts.rated.outstanding}/${rated}`}
             emptyLabel={NO_CHECK_INS_YET}
             segments={[
               { label: 'Outstanding (A)', value: overview.counts.rated.outstanding, colour: 'var(--green-fit)' },

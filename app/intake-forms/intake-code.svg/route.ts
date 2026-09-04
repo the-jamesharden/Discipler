@@ -14,7 +14,7 @@ import { qrCodeCaption } from '../copy'
  * held in a shared cache, because the one thing keyed on is the same for everybody.
  *
  * A missing session is answered with 404 rather than a redirect to sign in. This URL
- * is loaded as an image by the Roster; sending an <img> to a login page produces a
+ * is loaded as an image by Intake forms; sending an <img> to a login page produces a
  * broken image and an HTML document nobody will ever see.
  */
 
@@ -32,7 +32,7 @@ export async function GET() {
   return new Response(svg, {
     headers: {
       'content-type': 'image/svg+xml; charset=utf-8',
-      // Displayed inline on the Roster and saved from here under a name an Admin
+      // Displayed inline on Intake forms and saved from here under a name an Admin
       // will recognise in a folder of downloads.
       'content-disposition': 'inline; filename="intake-qr-code.svg"',
       'cache-control': 'private, no-store',

@@ -82,7 +82,7 @@ What a relationship says it is for — men, women, or nobody in particular — s
 _Avoid_: Reading an undeclared relationship as "not yet decided" — it declares nothing, which is a settled answer
 
 **Group Name**:
-What a Ministry calls a group, typed by an Admin when forming it and editable from the Roster afterwards. A label, not a ministry event: renaming overwrites no history. It is what the group Intake link offers and what the weekly check-in asks about; an unnamed group is on no link and is asked about by listing its people. A one-to-one has none.
+What a Ministry calls a group, typed by an Admin when forming it and editable from Intake forms afterwards. A label, not a ministry event: renaming overwrites no history. It is what the group Intake link offers and what the weekly check-in asks about; an unnamed group is on no link and is asked about by listing its people. A one-to-one has none.
 _Avoid_: Naming a one-to-one, or reading an unnamed group as broken -- it predates the name
 
 **Group Intake Link**:
@@ -90,7 +90,7 @@ The Ministry's original Intake link, `/intake/<ministry>`, which since ticket 29
 _Avoid_: "the Intake link" without saying which
 
 **Join Approval**:
-A per-group switch an Admin sets when forming a group or from the Roster afterwards. Off, a Person who picks the group on the Group Intake Link is in it when they submit; on, their submission raises a Join Request and an Admin admits them. Off by default, and not a safety binding -- the Gender Rule holds on a join either way -- so it is editable. See `docs/adr/0017-picking-a-group-joins-it.md`.
+A per-group switch an Admin sets when forming a group or from Intake forms afterwards. Off, a Person who picks the group on the Group Intake Link is in it when they submit; on, their submission raises a Join Request and an Admin admits them. Off by default, and not a safety binding -- the Gender Rule holds on a join either way -- so it is editable. See `docs/adr/0017-picking-a-group-joins-it.md`.
 _Avoid_: Approval as the default, or as a Ministry-wide setting
 
 **Join Request**:

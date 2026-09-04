@@ -27,7 +27,7 @@ export async function GET() {
 
   // Captioned with the Ministry and the form, which is the whole of *labelled
   // clearly enough that an Admin printing one for a room knows which one they
-  // printed*. The label is in the file rather than beside it on the Roster,
+  // printed*. The label is in the file rather than beside it on the page,
   // because the file is what gets opened on its own and put on paper.
   const svg = await renderQrCode(
     ministryDiscipleshipIntakeQrLink(appBaseUrl(), admin.ministryId),

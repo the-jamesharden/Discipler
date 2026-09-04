@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { PageShell, SignOut } from '../shell'
+import { AccountMenu, PageShell } from '../shell'
 import { SLOT_HOURS, WEEKDAYS } from '~/domain/intake'
 import { resolveAdmin } from '~/platform/supabase/current-admin'
 import { getLeaderDashboardReader } from '~/service/container'
@@ -283,12 +283,10 @@ export default async function RelationshipsPage() {
       actions={
         <>
           {/* The way back, for the one person who has one. A plain Leader has no
-              Admin surface and is offered no link to it -- which is why the
-              password link is here as well as there: this is the one page a Leader
-              has. */}
+              Admin surface and is offered no link to it -- and their menu offers
+              no Ministry group either: this is the one page a Leader has. */}
           {resolution.status === 'admin' ? <Link href="/overview">Ministry overview</Link> : null}
-          <Link href="/account">Change your password</Link>
-          <SignOut />
+          <AccountMenu ministry={resolution.status === 'admin'} />
         </>
       }
     >

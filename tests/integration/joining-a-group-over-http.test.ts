@@ -52,7 +52,7 @@ describe.skipIf(skipUnlessAppIsRunning)('joining a group through the link', () =
     const response = await fetch(`${baseUrl}${path}`, {
       method: 'POST',
       redirect: 'manual',
-      headers: { 'content-type': 'application/x-www-form-urlencoded', ...(path.startsWith('/roster') ? { cookie } : {}) },
+      headers: { 'content-type': 'application/x-www-form-urlencoded', ...(path.startsWith('/roster') || path.startsWith('/intake-forms') ? { cookie } : {}) },
       body,
     })
     return { response, location: response.headers.get('location') ?? '' }
@@ -188,7 +188,7 @@ describe.skipIf(skipUnlessAppIsRunning)('joining a group through the link', () =
     }
   })
 
-  it('asks rather than joins for a guarded group, and lets the Admin admit from the Roster', async () => {
+  it('asks rather than joins for a guarded group, and lets the Admin admit from Intake forms', async () => {
     const group = await aGroup({ name: `Guarded ${++numbered}`, joinRequiresApproval: true })
     const fullName = `Nadia ${++numbered}`
     const { location } = await post(
@@ -206,16 +206,16 @@ describe.skipIf(skipUnlessAppIsRunning)('joining a group through the link', () =
     expect(done).toContain('You’re on the list')
     expect(done).not.toContain('Your leader is')
 
-    const roster = await getPage('/roster', cookie)
-    expect(roster.html).toContain('Waiting to join a group')
-    expect(roster.html).toContain(fullName)
-    const itemId = roster.html.match(new RegExp(`name="itemId" value="([0-9a-f-]{36})"`))?.[1]
+    const page = await getPage('/intake-forms', cookie)
+    expect(page.html).toContain('Waiting to join a group')
+    expect(page.html).toContain(fullName)
+    const itemId = page.html.match(new RegExp(`name="itemId" value="([0-9a-f-]{36})"`))?.[1]
     expect(itemId).toBeTruthy()
 
     const { rows: person } = await pool.query<{ id: string }>(
       `select id from person where full_name = $1 and ministry_id = $2`, [fullName, ministry.id],
     )
-    const admitted = await post('/roster/join-requests/admit', { itemId: itemId!, personId: person[0]!.id })
+    const admitted = await post('/intake-forms/join-requests/admit', { itemId: itemId!, personId: person[0]!.id })
     expect(admitted.response.status).toBe(303)
     expect(admitted.location).toContain(`admitted=${person[0]!.id}`)
     expect(await membersOf(group.id)).toContain(fullName)
@@ -227,12 +227,16 @@ describe.skipIf(skipUnlessAppIsRunning)('joining a group through the link', () =
     expect(after.html).not.toContain(`name="itemId" value="${itemId}"`)
   })
 
-  it('lets the Admin name a group and close its door from the Roster', async () => {
+  it('lets the Admin name a group and close its door from Intake forms', async () => {
     const group = await aGroup({ name: null })
+    const page = await getPage('/intake-forms', cookie)
+    expect(page.html).toContain('Unnamed group')
+    // And nowhere else: the Roster is a list of people since ticket 32.
     const roster = await getPage('/roster', cookie)
-    expect(roster.html).toContain('Unnamed group')
+    expect(roster.html).not.toContain('Unnamed group')
+    expect(roster.html).not.toContain('Waiting to join a group')
 
-    const saved = await post('/roster/groups/configure', {
+    const saved = await post('/intake-forms/groups/configure', {
       relationshipId: group.id, name: `Named ${numbered}`, joinRequiresApproval: 'yes',
     })
     expect(saved.location).toContain(`configured=${group.id}`)
@@ -240,7 +244,7 @@ describe.skipIf(skipUnlessAppIsRunning)('joining a group through the link', () =
     const { rows } = await pool.query(`select name, join_requires_approval from relationship where id = $1`, [group.id])
     expect(rows[0]).toEqual({ name: `Named ${numbered}`, join_requires_approval: true })
 
-    const blank = await post('/roster/groups/configure', { relationshipId: group.id, name: '   ' })
+    const blank = await post('/intake-forms/groups/configure', { relationshipId: group.id, name: '   ' })
     expect(blank.location).toContain('groupError=group.name_missing')
   })
 
@@ -266,7 +270,7 @@ describe.skipIf(skipUnlessAppIsRunning)('joining a group through the link', () =
   })
 
   it('captions the original QR code for the form it now opens', async () => {
-    const code = await fetch(`${baseUrl}/roster/intake-code.svg`, { headers: { cookie }, redirect: 'manual' })
+    const code = await fetch(`${baseUrl}/intake-forms/intake-code.svg`, { headers: { cookie }, redirect: 'manual' })
     expect(code.status).toBe(200)
     expect(await code.text()).toContain('Join a group')
   })

@@ -12,13 +12,13 @@ import { getCommandService } from '~/service/container'
  */
 export async function POST(request: NextRequest) {
   const admin = await currentAdmin()
-  if (!admin) return NextResponse.redirect(new URL('/roster', request.url), { status: 303 })
+  if (!admin) return NextResponse.redirect(new URL('/intake-forms', request.url), { status: 303 })
 
   const form = await request.formData()
   const item = form.get('itemId')
   const person = form.get('personId')
   if (typeof item !== 'string' || item === '') {
-    return NextResponse.redirect(new URL('/roster', request.url), { status: 303 })
+    return NextResponse.redirect(new URL('/intake-forms', request.url), { status: 303 })
   }
 
   try {
@@ -31,12 +31,12 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof FollowUpRefused) {
       const params = new URLSearchParams({ joinError: error.refusal })
-      return NextResponse.redirect(new URL(`/roster?${params}`, request.url), { status: 303 })
+      return NextResponse.redirect(new URL(`/intake-forms?${params}`, request.url), { status: 303 })
     }
     throw error
   }
 
   const params = new URLSearchParams()
   if (typeof person === 'string' && person !== '') params.set('declined', person)
-  return NextResponse.redirect(new URL(`/roster?${params}`, request.url), { status: 303 })
+  return NextResponse.redirect(new URL(`/intake-forms?${params}`, request.url), { status: 303 })
 }
