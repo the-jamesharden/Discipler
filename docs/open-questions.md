@@ -311,7 +311,7 @@ Settled 2026-08-30. Recorded in ticket 12, and in `docs/product-rules.md` under 
 
 Settled 2026-09-01, by ticket 29.
 
-An Admin names a group when forming it, and may rename it from the Roster afterwards.
+An Admin names a group when forming it, and may rename it afterwards.
 The name is a label and not a ministry event, so a rename overwrites no history.
 The weekly question asks about a named group by name -- *did you meet with Tuesday Men's Group this week* -- and about an unnamed one, and every one-to-one, by listing the people in it, which is what ticket 08a shipped.
 Groups formed before ticket 29 have no name until an Admin gives them one.

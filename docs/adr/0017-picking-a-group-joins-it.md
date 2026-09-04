@@ -7,7 +7,7 @@ accepted
 ## Decision
 
 **A Person who picks a group on the Ministry's group Intake link is in that group the moment they submit, unless the pastor has set that group to ask first.**
-The switch is per group, off by default, and editable from the Roster.
+The switch is per group, off by default, and editable afterwards.
 A group set to ask first raises a `group_join_requested` Follow-Up Item instead, and an Admin admits the Person or closes the request.
 
 Three things follow from it and are decided with it.
@@ -60,7 +60,7 @@ So unlike `kind` and `declared_gender` the switch is not immutable.
 - The first path that adds a Participant to a relationship after formation exists, so the database now holds a one-to-one to one open Participant (`one_to_one_one_open_participant`), a cap of the same kind as the two ADR-0004 named.
 - The Care Needed view has no page yet.
   The item is raised into `follow_up_item` where that view will read it.
-  Until then the Roster carries a panel of people waiting, with the two answers on it, and deciding whether that panel moves is Care Needed's ticket rather than this one's.
+  Until then a panel of people waiting, with the two answers on it, sits beside the group link they asked through, and deciding whether that panel moves to Care Needed is that view's ticket rather than this one's.
 - A Ministry with no named, accepted group has a link that says so and points at the discipleship form.
   That is every Ministry on day one.
 - A group still needs at least one Participant when it is formed.
