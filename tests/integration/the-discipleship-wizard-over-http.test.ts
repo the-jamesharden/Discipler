@@ -348,17 +348,17 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
   })
 
   it('hands the Admin both links and both QR codes, each labelled', async () => {
-    const { html } = await getPage('/roster', cookie)
+    const { html } = await getPage('/intake-forms', cookie)
 
     expect(html).toContain(`/intake/${ministry.id}/discipleship`)
     expect(html).toContain('The discipleship link')
-    expect(html).toContain('/roster/discipleship-code.svg')
+    expect(html).toContain('/intake-forms/discipleship-code.svg')
     // Both squares, so an Admin printing one knows which one they printed.
-    expect(html).toContain('/roster/intake-code.svg')
+    expect(html).toContain('/intake-forms/intake-code.svg')
     expect(html).toContain('discipleship-intake-qr-code.svg')
     expect(html).toContain('intake-qr-code.svg')
 
-    const code = await fetch(`${baseUrl}/roster/discipleship-code.svg`, {
+    const code = await fetch(`${baseUrl}/intake-forms/discipleship-code.svg`, {
       headers: { cookie },
       redirect: 'manual',
     })
@@ -366,7 +366,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
     expect(code.headers.get('content-type')).toContain('image/svg+xml')
 
     // Captioned in the file itself, because the file is what an Admin opens on its
-    // own and prints. A square with the label only on the Roster beside it is a
+    // own and prints. A square with the label only on the page beside it is a
     // square nobody in the room can tell from the other one.
     const drawn = await code.text()
     expect(drawn).toContain('<svg')
@@ -381,9 +381,9 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
     // word in every other row would make a column of state out of one signal.
     expect(html).not.toContain('Asked to be mentored')
     expect(html).not.toContain('Not asked')
-    // The Admin's column is untouched by the Person's answer: the button on
+    // The Admin's decision is untouched by the Person's answer: the button on
     // Solomon's row still offers to mark him eligible.
-    expect(html).toContain('No — mark eligible')
+    expect(html).toContain('Mark eligible to lead')
   })
 
   it('shows the pairing surface whether each candidate is new to this', async () => {

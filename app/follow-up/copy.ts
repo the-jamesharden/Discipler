@@ -77,7 +77,7 @@ export const followUpLine = (
     case 'match_declined':
       return `${who} said the match is not right. The relationship is unchanged while it waits.`
     case 'group_join_requested':
-      return `${who} asked to join a group you have set to ask first. Admit or decline them from the Roster.`
+      return `${who} asked to join a group you have set to ask first. Admit or decline them from Intake forms.`
   }
 }
 

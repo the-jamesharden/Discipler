@@ -5,7 +5,7 @@ import { personId as asPersonId } from '~/domain/ids'
 import { resolveAdmin } from '~/platform/supabase/current-admin'
 import { getRandomSource, getRosterReader } from '~/service/container'
 import { CHANGE_YOUR_PASSWORD } from '../../../account/copy'
-import { PageShell, SignOut } from '../../../shell'
+import { AccountMenu, PageShell } from '../../../shell'
 import {
   NOTHING_IS_SENT,
   passwordResetRefusalMessage,
@@ -70,7 +70,7 @@ export default async function ResetPasswordPage({
         title="Reset a password"
         subtitle={admin.ministryName}
         back={{ href: '/roster', label: 'Back to the Roster' }}
-        actions={<SignOut />}
+        actions={<AccountMenu ministry />}
       >
         <div className="card">
           <p className="toast error" role="alert">{passwordResetRefusalMessage(refusal)}</p>
@@ -107,7 +107,7 @@ export default async function ResetPasswordPage({
       title={resetHeading(target.fullName)}
       subtitle={admin.ministryName}
       back={{ href: '/roster', label: 'Back to the Roster' }}
-      actions={<SignOut />}
+      actions={<AccountMenu ministry />}
     >
       <div className="card">
         <p className="notice">{resetWarning(target.fullName)}</p>

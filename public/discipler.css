@@ -85,8 +85,34 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; }
 .header-actions { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; font-size: 0.88rem; }
 .header-actions form { display: inline; }
 
-.ghost-btn { padding: 0.5rem 1rem; background: transparent; border: 1px solid var(--border); border-radius: 5px; cursor: pointer; color: var(--text); font-size: 0.88rem; }
+.ghost-btn { display: inline-block; padding: 0.5rem 1rem; background: transparent; border: 1px solid var(--border); border-radius: 5px; cursor: pointer; color: var(--text); font-size: 0.88rem; text-decoration: none; line-height: normal; }
 .ghost-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+/* The Account menu: a details element, open and closed by its summary and by
+   nothing else, so it works before any script and after none. */
+.account { position: relative; }
+.account > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.9rem; border: 1px solid var(--border); border-radius: 5px; font-size: 0.88rem; color: var(--text); background: transparent; line-height: normal; }
+.account > summary::-webkit-details-marker { display: none; }
+.account > summary:hover, .account[open] > summary { border-color: var(--primary); color: var(--primary); }
+.account > summary svg { width: 1rem; height: 1rem; }
+.account > summary .chevron { width: 0.7rem; height: 0.7rem; transition: transform 0.15s; }
+.account[open] > summary .chevron { transform: rotate(180deg); }
+.account-menu { position: absolute; right: 0; top: calc(100% + 0.4rem); min-width: 240px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 32px var(--shadow); padding: 0.35rem 0; z-index: 5; }
+.account-group { padding: 0.35rem 0; }
+.account-group + .account-group { border-top: 1px solid var(--border); }
+.account-label { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-light); font-weight: 700; padding: 0.3rem 1rem 0.2rem; }
+.account-menu form { display: block; }
+.account-menu a, .account-menu .ghost-btn { display: block; width: 100%; text-align: left; padding: 0.5rem 1rem; color: var(--text); text-decoration: none; font-size: 0.9rem; font-weight: 400; background: none; border: 0; border-radius: 0; line-height: 1.4; white-space: nowrap; }
+.account-menu a:hover, .account-menu .ghost-btn:hover { background: var(--bg); color: var(--primary); }
+
+/* A popup under a button: the Roster's import. The same details element as the
+   Account menu, for the same reason, holding a small form rather than links. */
+.popover { position: relative; }
+.popover > summary { list-style: none; }
+.popover > summary::-webkit-details-marker { display: none; }
+.popover[open] > summary { border-color: var(--primary); color: var(--primary); }
+.popover-panel { position: absolute; right: 0; top: calc(100% + 0.5rem); width: 28rem; max-width: calc(100vw - 3rem); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 32px var(--shadow); padding: 1.25rem 1.5rem; z-index: 5; text-align: left; font-weight: 400; }
+.popover-panel .card-title { margin-bottom: 0.75rem; }
 
 .tabs { display: flex; gap: 0.25rem; border-bottom: 2px solid var(--border); margin-bottom: 1.75rem; overflow-x: auto; list-style: none; }
 .tab { display: inline-block; padding: 0.7rem 1.1rem; border-bottom: 3px solid transparent; margin-bottom: -2px; color: var(--text-light); font-size: 0.93rem; white-space: nowrap; text-decoration: none; }
@@ -136,12 +162,13 @@ td .empty, li .empty { padding: 0; text-align: left; }
 .charts { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
 .charts .card { margin-bottom: 0; }
 .charts .card-title { font-size: 1rem; margin-bottom: 0.75rem; }
-.chart-box { display: flex; align-items: center; justify-content: center; gap: 1.25rem; min-height: 200px; flex-wrap: wrap; }
-.donut { width: 150px; height: 150px; }
-.donut-legend { list-style: none; font-size: 0.82rem; }
+.chart-box { display: flex; align-items: center; justify-content: center; gap: 1.5rem; min-height: 200px; flex-wrap: wrap; }
+.donut { width: 150px; height: 150px; flex-shrink: 0; }
+.donut-figures { display: flex; flex-direction: column; gap: 0.5rem; }
+.donut-figure { font-family: var(--serif); font-size: 2.4rem; line-height: 1.1; color: var(--primary); margin: 0; }
+.donut-legend { list-style: none; font-size: 0.82rem; margin: 0; padding: 0; }
 .donut-legend li { display: flex; align-items: center; gap: 0.45rem; margin-bottom: 0.3rem; }
-.donut-legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
-.donut-centre { font-family: var(--serif); font-size: 1.6rem; fill: var(--primary); text-anchor: middle; }
+.donut-legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
 .qs-row { display: flex; justify-content: space-between; padding: 0.55rem 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
 .qs-row:last-child { border-bottom: none; }
 .qs-val { font-weight: 700; color: var(--primary); }
@@ -370,7 +397,7 @@ table.avail td.pick:has(input:focus-visible) { outline: 2px solid var(--primary)
 .mat-meta { font-size: 0.84rem; color: var(--text-light); margin-top: 0.3rem; }
 .material-body { white-space: pre-wrap; margin-top: 0.75rem; font-size: 0.9rem; }
 
-/* ---- the Roster's QR codes and copyable links ---- */
+/* ---- Intake forms' QR codes and copyable links ---- */
 
 img.qr { display: block; max-width: 100%; height: auto; background: #ffffff; border: 1px solid var(--border); border-radius: 7px; margin-bottom: 1rem; }
 .copyable { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }

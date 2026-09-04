@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { resolveAdmin } from '~/platform/supabase/current-admin'
 import { getDiscipleshipGoalReader } from '~/service/container'
-import { NotAnAdmin, PageShell, SignOut } from '../../shell'
+import { AccountMenu, NotAnAdmin, PageShell } from '../../shell'
 import { chosenByLabel, refusalMessage, removalWarning } from './copy'
 
 export const dynamic = 'force-dynamic'
@@ -48,7 +48,7 @@ export default async function DiscipleshipGoalsPage({
       title="Discipleship Goals"
       subtitle={admin.ministryName}
       back={{ href: '/settings', label: 'Back to Ministry settings' }}
-      actions={<SignOut />}
+      actions={<AccountMenu ministry />}
     >
       <div className="card">
         <p className="card-lead">

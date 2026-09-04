@@ -5,28 +5,10 @@ import { AdminShell, initialsOf, NotAnAdmin } from '../shell'
 import { resolveAdmin } from '~/platform/supabase/current-admin'
 import { getRosterReader } from '~/service/container'
 import { personId } from '~/domain/ids'
-import {
-  intakeReopenLink,
-  ministryDiscipleshipIntakeLink,
-  ministryIntakeLink,
-} from '~/domain/outbound-copy'
+import { intakeReopenLink } from '~/domain/outbound-copy'
 import { appBaseUrl } from '~/platform/supabase/credentials'
 import {
-  ADMIT,
-  admissionRefusalMessage,
-  admitted as admittedMessage,
-  alreadyIn as alreadyInMessage,
-  askedToJoin,
   AWAITING_LEADER_ACCEPTANCE,
-  DECLINE,
-  declinedRequest,
-  declaredGenderLabel,
-  GROUP_NAME_HINT,
-  GROUP_NAME_LABEL,
-  GROUP_SAVED,
-  groupRefusalMessage,
-  GROUPS_EXPLANATION,
-  GROUPS_HEADING,
   HELD_ROWS_EXPLANATION,
   HELD_ROWS_HEADING,
   IMPORT_IS_NEVER_CONSENT,
@@ -37,31 +19,18 @@ import {
   participationStatusLabel,
   peopleCount,
   relationshipSizeLabel,
-  REQUIRE_APPROVAL_LABEL,
   RESET_PASSWORD,
   rosterRoleLabel,
   rowProblemMessage,
   samePersonAnswer,
   samePersonConsequence,
-  SAVE_GROUP,
   SOMEONE_ELSE_ANSWER,
   SOMEONE_ELSE_CONSEQUENCE,
-  UNNAMED_GROUP,
-  WAITING_EXPLANATION,
-  WAITING_HEADING,
 } from './copy'
+import { INTAKE_FORMS } from '../intake-forms/copy'
 import { decodeImportReport } from './report'
-import { ClipboardField } from './clipboard-field'
 
 export const dynamic = 'force-dynamic'
-
-/**
- * How large the code is drawn on the Roster, in CSS pixels. The square scales, so
- * this is a display decision and it lives here rather than in the stylesheet: it is
- * the number that decides whether an Admin can hold a phone up to their own screen,
- * which is one of the two things the code is for.
- */
-const QR_CODE_ON_SCREEN = 320
 
 /**
  * The Everyone / Eligible-to-lead switch: a query parameter on this page, filtered
@@ -89,15 +58,6 @@ export default async function RosterPage({
     reinvited?: string
     /** Why an answer to a held import row could not be applied. A code, never prose. */
     rowError?: string
-    /** The group whose name or door was just saved, and why one could not be. */
-    configured?: string
-    groupError?: string
-    group?: string
-    /** Whose request to join a group was just answered, and why one could not be. */
-    admitted?: string
-    alreadyIn?: string
-    declined?: string
-    joinError?: string
   }>
 }) {
   const resolution = await resolveAdmin()
@@ -114,11 +74,6 @@ export default async function RosterPage({
   // moment an Admin navigated away, which is the silent drop the reporting exists
   // to prevent.
   const held = await getRosterReader().heldImportRows(admin.ministryId)
-  // The Ministry's groups and whoever is waiting to join one, read with the Roster
-  // for the reason the held rows are: a request that appeared only on a redirect
-  // would expire the moment an Admin navigated away.
-  const groups = await getRosterReader().listGroups(admin.ministryId)
-  const waiting = await getRosterReader().openJoinRequests(admin.ministryId)
   const query = await searchParams
 
   // One Person's link, and only when an Admin has just asked for theirs. Reading
@@ -137,16 +92,6 @@ export default async function RosterPage({
     ? { url: intakeReopenLink(appBaseUrl(), issued.token), expiresAt: issued.expiresAt }
     : null
 
-  // The Ministry's own Intake link. Composed from the session rather than read from
-  // anywhere: it is the Ministry's identifier and the configured host, and there is
-  // nothing about it to store. The QR code's variant of it is composed by the route
-  // that draws the code, which is the only thing that needs it.
-  const intakeLink = ministryIntakeLink(appBaseUrl(), admin.ministryId)
-  // The second one, composed the same way for the same reason. Two links because
-  // an Admin sends whichever fits the conversation: this one opens the wizard that
-  // asks first whether somebody is offering to mentor or asking to be mentored.
-  const discipleshipLink = ministryDiscipleshipIntakeLink(appBaseUrl(), admin.ministryId)
-
   const report = decodeImportReport(query)
   const failure = importFailureMessage(query.error)
   const rowFailure = importRowRefusalMessage(query.rowError)
@@ -162,31 +107,54 @@ export default async function RosterPage({
   // cannot tell a text that went out from one that did not. The route only
   // redirects with `reinvited` when a message was actually enqueued.
   const reinvited = roster.find((person) => person.personId === query.reinvited)?.fullName ?? null
-  // Looked up the same way, for the same reason: a name in the query string is
-  // whatever somebody typed there, and the Roster is what says whose it is.
-  const admittedName = roster.find((person) => person.personId === query.admitted)?.fullName ?? null
-  const declinedName = roster.find((person) => person.personId === query.declined)?.fullName ?? null
-  const alreadyInName = roster.find((person) => person.personId === query.alreadyIn)?.fullName ?? null
-  const groupFailure = groupRefusalMessage(query.groupError)
-  const joinFailure = admissionRefusalMessage(query.joinError)
 
   const view = rosterView(query.show)
   const shown = view === 'eligible' ? roster.filter((person) => person.eligibleToLead) : roster
 
   return (
     <AdminShell admin={admin} current="roster">
-      {/* The table first, because the Roster is a list of people. Everything the
-          design has no home for -- the import, the rows and requests waiting on an
-          Admin, the groups, the two links and their codes -- follows it as its own
-          card, in the order an Admin acts on them (decision 4 of ticket 31). */}
+      {/* The table first, because the Roster is a list of people, and the import
+          in a popup over it. The one card below is the import rows waiting on an
+          Admin. The groups, the join requests, the two Intake links and their codes
+          followed the table too until ticket 32 gave them a page of their own. */}
       <div className="card">
         <div className="card-head">
           <h2 className="card-title">Roster</h2>
           <div className="actions" style={{ marginTop: 0 }}>
             <span className="muted">{peopleCount(shown.length)}</span>
-            <a className="btn sec" href="#import">
-              Upload CSV
-            </a>
+            {/* The import, in a popup under its own button rather than a card of its
+                own below the table (ticket 32, decision 7). A details element, like
+                the Account menu, so it opens and closes with no script; it is open
+                already when the last upload was refused, so the file field is in
+                front of the Admin with the reason beside it. */}
+            <details className="popover" open={failure !== undefined}>
+              <summary className="btn sec">Upload CSV</summary>
+              <div className="popover-panel">
+                <h2 className="card-title">Import from a spreadsheet</h2>
+                <p className="notice">{IMPORT_IS_NEVER_CONSENT}</p>
+                <p className="card-lead">
+                  A CSV with a column of names and a column of phone numbers; an email
+                  column is optional.
+                </p>
+                {/* Why the last upload was refused, beside the field to try again
+                    with. The report of one that went through is above the table
+                    instead, because that one needs no second attempt. */}
+                {failure ? (
+                  <p className="toast error" role="alert">
+                    {failure}
+                  </p>
+                ) : null}
+                <form method="post" action="/roster/import" encType="multipart/form-data">
+                  <div className="field">
+                    <label className="label" htmlFor="file">
+                      Spreadsheet
+                    </label>
+                    <input id="file" name="file" type="file" accept=".csv,text/csv" required />
+                  </div>
+                  <button type="submit">Import</button>
+                </form>
+              </div>
+            </details>
           </div>
         </div>
 
@@ -218,8 +186,65 @@ export default async function RosterPage({
           <p className="toast" role="status">{`A new invitation has been sent to ${reinvited}.`}</p>
         ) : null}
 
+        {/* What the last upload did, here rather than in the popup that started it:
+            the upload redirects back to this page, and its report has to be in
+            front of the Admin without a button to press first. */}
+        {report ? (
+          <div className="toast" role="status">
+            {/* Each sentence is one string rather than an assembly of fragments, so
+                it reads as a sentence in the markup too and can be asserted on. */}
+            <p>
+              {report.added === 1
+                ? '1 person was added.'
+                : `${report.added} people were added.`}
+            </p>
+            {report.refused.length > 0 ? (
+              <>
+                <p>
+                  {report.refused.length === 1
+                    ? '1 row was not imported:'
+                    : `${report.refused.length} rows were not imported:`}
+                </p>
+                <ul>
+                  {report.refused.map(({ line, problem }) => (
+                    <li key={`${line}:${problem}`}>
+                      {`Line ${line} — ${rowProblemMessage(problem)}`}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
+            {/* The report says the row was refused; the panel below is where it can
+                be answered. Pointing at it rather than repeating the answers here:
+                two places offering the same two buttons would be two places for an
+                Admin to answer the same question, and the panel is the one that
+                survives navigating away from this redirect. */}
+            {report.refused.some(({ problem }) => problem === 'same_number_different_name') ? (
+              <p>{`Rows on a number the Roster already holds are waiting for you under “${HELD_ROWS_HEADING}” below.`}</p>
+            ) : null}
+            {report.hidden.length > 0 ? (
+              <>
+                {/* Counted by reason, not just counted: "340 more" tells an Admin
+                    nothing to act on, "340 more with no phone number" tells them
+                    their export is missing a column. */}
+                <p className="muted">and more that this report had no room to list:</p>
+                <ul>
+                  {report.hidden.map(({ problem, count }) => (
+                    <li key={problem}>
+                      {`${count} more — ${rowProblemMessage(problem)}`}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
+          </div>
+        ) : null}
+
         {roster.length === 0 ? (
-          <p className="empty">Nobody is on this Roster yet. Import a spreadsheet below, or send the Intake link.</p>
+          <p className="empty">
+            Nobody is on this Roster yet. Upload a spreadsheet, or send one of the{' '}
+            <Link href="/intake-forms">{INTAKE_FORMS}</Link>.
+          </p>
         ) : shown.length === 0 ? (
           <p className="empty">Nobody is marked eligible to lead yet. Mark somebody from their row under Everyone.</p>
         ) : (
@@ -231,7 +256,6 @@ export default async function RosterPage({
                     <th>Name</th>
                     <th>Status</th>
                     <th>Relationship</th>
-                    <th>Eligible to lead</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -257,6 +281,11 @@ export default async function RosterPage({
                                 answer is said. */}
                             {person.declaredSide === 'mentor' ? (
                               <span className="pill n">{OFFERED_TO_MENTOR}</span>
+                            ) : null}
+                            {/* And what an Admin decided: a plan, recorded here and
+                                read by nothing else until Suggested Pairs ships. */}
+                            {person.eligibleToLead ? (
+                              <span className="pill n">Eligible to lead</span>
                             ) : null}
                           </span>
                         </div>
@@ -320,26 +349,6 @@ export default async function RosterPage({
                           </ul>
                         )}
                       </td>
-                      {/* A plan an Admin records, and never a fact about the Person.
-                          Offered on every row, including somebody who has not
-                          completed Intake -- planning while waiting on them is the
-                          whole reason it is here -- and it makes nobody pairable. */}
-                      <td>
-                        <div className="row-actions">
-                        {person.eligibleToLead ? <span className="pill n" style={{ marginLeft: 0 }}>Eligible to lead</span> : null}
-                        <form method="post" action="/roster/eligibility">
-                          <input type="hidden" name="personId" value={person.personId} />
-                          <input
-                            type="hidden"
-                            name="eligible"
-                            value={person.eligibleToLead ? 'no' : 'yes'}
-                          />
-                          <button type="submit" className="sec small">
-                            {person.eligibleToLead ? 'Yes — withdraw' : 'No — mark eligible'}
-                          </button>
-                        </form>
-                        </div>
-                      </td>
                       {/* An unpaired Person carries the Pair action on their own row,
                           so an Admin can act on what they are already looking at. It
                           opens the one pairing screen with this Person preselected;
@@ -361,6 +370,23 @@ export default async function RosterPage({
                           <input type="hidden" name="personId" value={person.personId} />
                           <button type="submit" className="sec small">
                             Intake link
+                          </button>
+                        </form>
+                        {/* A plan an Admin records, and never a fact about the Person.
+                            Offered on every row, including somebody who has not
+                            completed Intake -- planning while waiting on them is the
+                            whole reason it is here -- and it makes nobody pairable.
+                            Manual pairing never reads it; it is the leader pool the
+                            suggestion engine will draw from. */}
+                        <form method="post" action="/roster/eligibility">
+                          <input type="hidden" name="personId" value={person.personId} />
+                          <input
+                            type="hidden"
+                            name="eligible"
+                            value={person.eligibleToLead ? 'no' : 'yes'}
+                          />
+                          <button type="submit" className="sec small">
+                            {person.eligibleToLead ? 'Withdraw eligibility' : 'Mark eligible to lead'}
                           </button>
                         </form>
                         {/* Offered only where there is an account to reset, which
@@ -424,86 +450,7 @@ export default async function RosterPage({
         )}
       </div>
 
-      <div className="card" id="import">
-        <div className="card-head">
-          <h2 className="card-title">Import from a spreadsheet</h2>
-        </div>
-        <p className="notice">{IMPORT_IS_NEVER_CONSENT}</p>
-        <p className="card-lead">
-          A CSV with a column of names and a column of phone numbers; an email column
-          is optional.
-        </p>
-
-        {failure ? (
-          <p className="toast error" role="alert">
-            {failure}
-          </p>
-        ) : null}
-
-        {report ? (
-          <div className="toast" role="status">
-            {/* Each sentence is one string rather than an assembly of fragments, so
-                it reads as a sentence in the markup too and can be asserted on. */}
-            <p>
-              {report.added === 1
-                ? '1 person was added.'
-                : `${report.added} people were added.`}
-            </p>
-            {report.refused.length > 0 ? (
-              <>
-                <p>
-                  {report.refused.length === 1
-                    ? '1 row was not imported:'
-                    : `${report.refused.length} rows were not imported:`}
-                </p>
-                <ul>
-                  {report.refused.map(({ line, problem }) => (
-                    <li key={`${line}:${problem}`}>
-                      {`Line ${line} — ${rowProblemMessage(problem)}`}
-                    </li>
-                  ))}
-                </ul>
-              </>
-            ) : null}
-            {/* The report says the row was refused; the panel below is where it can
-                be answered. Pointing at it rather than repeating the answers here:
-                two places offering the same two buttons would be two places for an
-                Admin to answer the same question, and the panel is the one that
-                survives navigating away from this redirect. */}
-            {report.refused.some(({ problem }) => problem === 'same_number_different_name') ? (
-              <p>{`Rows on a number the Roster already holds are waiting for you under “${HELD_ROWS_HEADING}” below.`}</p>
-            ) : null}
-            {report.hidden.length > 0 ? (
-              <>
-                {/* Counted by reason, not just counted: "340 more" tells an Admin
-                    nothing to act on, "340 more with no phone number" tells them
-                    their export is missing a column. */}
-                <p className="muted">and more that this report had no room to list:</p>
-                <ul>
-                  {report.hidden.map(({ problem, count }) => (
-                    <li key={problem}>
-                      {`${count} more — ${rowProblemMessage(problem)}`}
-                    </li>
-                  ))}
-                </ul>
-              </>
-            ) : null}
-          </div>
-        ) : null}
-
-        <form method="post" action="/roster/import" encType="multipart/form-data">
-          <div className="field">
-            <label className="label" htmlFor="file">
-              Spreadsheet
-            </label>
-            <input id="file" name="file" type="file" accept=".csv,text/csv" required />
-          </div>
-          <button type="submit">Import</button>
-        </form>
-      </div>
-
-      {/* Its own card, below the import that produced it. Not folded into the
-          import report: the report says what one upload did and is gone on the
+      {/* Its own card, below the table. Not folded into the import report: the report says what one upload did and is gone on the
           next navigation, and these outlive it by design -- a row nobody has
           answered is still waiting a week later. */}
       {held.length > 0 ? (
@@ -563,232 +510,6 @@ export default async function RosterPage({
         </div>
       ) : null}
 
-      {/* Whoever picked a group that asks first. Shown only when somebody has:
-          a heading over nothing is noise on a page that is already long. The
-          two answers are two forms, each carrying exactly the answer it means. */}
-      {waiting.length > 0 || joinFailure || admittedName || alreadyInName || declinedName ? (
-        <div className="card">
-          <div className="card-head">
-            <h2 className="card-title">{WAITING_HEADING}</h2>
-          </div>
-          <p className="card-lead">{WAITING_EXPLANATION}</p>
-
-          {joinFailure ? (
-            <p className="toast error" role="alert">
-              {joinFailure}
-            </p>
-          ) : null}
-          {admittedName ? <p className="toast" role="status">{admittedMessage(admittedName)}</p> : null}
-          {alreadyInName ? <p className="toast" role="status">{alreadyInMessage(alreadyInName)}</p> : null}
-          {declinedName ? <p className="toast" role="status">{declinedRequest(declinedName)}</p> : null}
-
-          {waiting.map((request) => (
-            <div key={request.itemId} className="mentee-card">
-              <h3>{request.fullName}</h3>
-              <p className="subtle">
-                {[
-                  askedToJoin(request.groupName),
-                  request.gender ? declaredGenderLabel[request.gender] : null,
-                  request.ageBand,
-                  `asked ${request.raisedAt.toISOString().slice(0, 10)}`,
-                ]
-                  .filter((part) => part !== null)
-                  .join(' · ')}
-              </p>
-              <div className="actions">
-                <form method="post" action="/roster/join-requests/admit">
-                  <input type="hidden" name="itemId" value={request.itemId} />
-                  <input type="hidden" name="personId" value={request.personId} />
-                  <button type="submit">{ADMIT}</button>
-                </form>
-                <form method="post" action="/roster/join-requests/decline">
-                  <input type="hidden" name="itemId" value={request.itemId} />
-                  <input type="hidden" name="personId" value={request.personId} />
-                  <button type="submit" className="sec">
-                    {DECLINE}
-                  </button>
-                </form>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : null}
-
-      {/* Every live group, for the two things an Admin decides about each: what it
-          is called, and whether picking it on the link asks. Its own card because
-          the Roster is a list of people and a group is on it once per member. */}
-      <div className="card">
-        <div className="card-head">
-          <h2 className="card-title">{GROUPS_HEADING}</h2>
-        </div>
-        <p className="card-lead">{GROUPS_EXPLANATION}</p>
-
-        {groupFailure ? (
-          <p className="toast error" role="alert">
-            {groupFailure}
-          </p>
-        ) : null}
-
-        {groups.length === 0 ? (
-          <p className="empty">No groups yet. Form one from the Roster above.</p>
-        ) : (
-          groups.map((group) => (
-            <form key={group.relationshipId} method="post" action="/roster/groups/configure" className="mentee-card">
-              <input type="hidden" name="relationshipId" value={group.relationshipId} />
-              <h3>{group.name ?? UNNAMED_GROUP}</h3>
-              <p className="subtle">
-                {`${declaredGenderLabel[group.declaredGender ?? 'mixed']} · `}
-                {`${rosterRoleLabel.leader} ${group.leaderNames.join(', ')} · `}
-                {group.participantNames.length === 0
-                  ? 'nobody else in it yet'
-                  : `with ${group.participantNames.join(', ')}`}
-                {group.accepted ? null : ` — ${AWAITING_LEADER_ACCEPTANCE}`}
-              </p>
-              {query.configured === group.relationshipId ? <p className="toast" role="status">{GROUP_SAVED}</p> : null}
-              <div className="field">
-                <label className="label" htmlFor={`name:${group.relationshipId}`}>{GROUP_NAME_LABEL}</label>
-                <input
-                  id={`name:${group.relationshipId}`}
-                  name="name"
-                  required
-                  defaultValue={group.name ?? ''}
-                />
-                <p className="subtle">{GROUP_NAME_HINT}</p>
-              </div>
-              <label className="check" htmlFor={`approval:${group.relationshipId}`}>
-                <input
-                  id={`approval:${group.relationshipId}`}
-                  type="checkbox"
-                  name="joinRequiresApproval"
-                  value="yes"
-                  defaultChecked={group.joinRequiresApproval}
-                />
-                <span>{REQUIRE_APPROVAL_LABEL}</span>
-              </label>
-              <button type="submit">{SAVE_GROUP}</button>
-            </form>
-          ))
-        )}
-      </div>
-
-      <div className="two-up">
-        {/* The Admin's half of the Intake sentence. The form and both routes to it
-            have existed since ticket 03; what did not exist was any way for a pastor
-            to obtain either one short of knowing the Ministry's identifier and typing
-            the URL. */}
-        <div className="card">
-          <div className="card-head">
-            <h2 className="card-title">The group link</h2>
-          </div>
-          <p className="card-lead">
-            One link, for everybody who wants to join one of this Ministry’s groups. It
-            does not know who opens it, so it asks — their age, gender, when they could
-            meet, and which group — which is what lets the same link be sent to one
-            person and put in front of a room. A group appears on it once you have
-            named it above. Picking a group joins it, unless you have set that group
-            to ask you first. It is not the Intake link on a Person’s row: that
-            one is theirs alone, arrives with their answers already in it, and runs out.
-          </p>
-
-          <label className="label" htmlFor="intakeLink">The link to send</label>
-          {/* A field rather than a sentence, because what an Admin does with this is
-              paste it into a text message -- and a button beside it, because the
-              criterion is that they can *copy* it and selecting a field by hand is not
-              something the page offers them. The field is still a field underneath: a
-              browser running no script leaves an Admin exactly where they were. */}
-          <ClipboardField id="intakeLink" value={intakeLink} />
-          <p className="subtle">
-            Intake completed through this link is recorded as sent by a pastor.
-          </p>
-
-          <h3>The QR code</h3>
-          <p className="subtle">
-            The same form, reached by scanning. Intake completed this way is recorded
-            as scanned from a QR code, which is a different record from the one above —
-            a compliance review asks which of the two a Person agreed through, so it is
-            worth knowing which one you handed out.
-          </p>
-          {/* Drawn by the route rather than inlined here, so the square an Admin
-              prints and the square they are looking at cannot come to differ.
-
-              The code carries the same link with `?via=qr` on it, and that link is
-              deliberately not offered as a second field to copy: a link texted from
-              here would record every Person who followed it as having scanned a code
-              nobody printed, which is the one distinction this panel exists to keep
-              honest. */}
-          <img
-            className="qr"
-            src="/roster/intake-code.svg"
-            alt={`QR code opening the group form for ${admin.ministryName}`}
-            width={QR_CODE_ON_SCREEN}
-            height={QR_CODE_ON_SCREEN}
-          />
-          <p className="links">
-            {/* Two actions rather than a tab and some knowledge of the browser. Saving
-                is the download, which names the file on the way out so an Admin
-                recognises it later in a folder of downloads. Printing is the tab: a
-                browser printing the square on its own puts it on the paper at whatever
-                size the paper is, which is what the Roster around it would prevent. */}
-            <a href="/roster/intake-code.svg" download="intake-qr-code.svg">
-              Save the QR code
-            </a>
-            <span>·</span>
-            <a href="/roster/intake-code.svg" target="_blank" rel="noreferrer">
-              Open it on its own, to print
-            </a>
-          </p>
-        </div>
-
-        {/* The second link, and the second code. They are handed out side by side and
-            the difference between them is what an Admin has to be able to see before
-            they print one: this one asks which side of a discipleship relationship
-            somebody is offering to stand on, and the one beside it does not ask. */}
-        <div className="card">
-          <div className="card-head">
-            <h2 className="card-title">The discipleship link</h2>
-          </div>
-          <p className="card-lead">
-            A step-by-step form for discipleship. Its first question is whether the
-            person is joining as a mentor or as someone to be mentored, and both are
-            then asked the same things — their age, gender, whether this is their first
-            time, when they could meet, and what they are hoping for. Answering{' '}
-            <em>mentor</em> shows on their Roster row above. It does not make them
-            eligible to lead: that stays yours to decide.
-          </p>
-
-          <label className="label" htmlFor="discipleshipLink">The link to send</label>
-          <ClipboardField id="discipleshipLink" value={discipleshipLink} />
-          <p className="subtle">
-            Intake completed through this link is recorded as sent by a pastor, exactly
-            like the link beside it.
-          </p>
-
-          <h3>The discipleship QR code</h3>
-          <p className="subtle">
-            The same wizard, reached by scanning — and a different square from the one
-            beside it. Printing the wrong one puts the wrong form in front of a room.
-          </p>
-          <img
-            className="qr"
-            src="/roster/discipleship-code.svg"
-            alt={`QR code opening the discipleship form for ${admin.ministryName}`}
-            width={QR_CODE_ON_SCREEN}
-            height={QR_CODE_ON_SCREEN}
-          />
-          <p className="links">
-            <a
-              href="/roster/discipleship-code.svg"
-              download="discipleship-intake-qr-code.svg"
-            >
-              Save the discipleship QR code
-            </a>
-            <span>·</span>
-            <a href="/roster/discipleship-code.svg" target="_blank" rel="noreferrer">
-              Open it on its own, to print
-            </a>
-          </p>
-        </div>
-      </div>
     </AdminShell>
   )
 }

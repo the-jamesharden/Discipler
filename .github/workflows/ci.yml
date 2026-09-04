@@ -49,19 +49,32 @@ jobs:
       - name: Show the applied migrations
         run: supabase migration list --local
 
-      # The app reads these three. NEXT_PUBLIC_* are inlined by `next build`, so
-      # they have to be in the environment before the build step, not just before
-      # the server starts. The test suite does not use them -- it shells out to
-      # `supabase status` itself -- but the running app has no other source.
+      # Everything the running app reads, per .env.example. NEXT_PUBLIC_* are
+      # inlined by `next build`, so they have to be in the environment before the
+      # build step, not just before the server starts. The test suite discovers the
+      # stack's keys by shelling out to `supabase status` itself, but the running
+      # app has no other source.
+      #
+      # The two secrets at the end are not credentials for anything: the webhook
+      # refuses unsigned requests and the tick refuses an unauthorised caller, and
+      # the suite signs with whatever the app was started with. Any non-empty
+      # value exercises both routes; unset, both refuse everybody and their tests
+      # fail. The app's own base URL is the test suite's APP_URL, so the links it
+      # composes open against the server the tests are driving.
       - name: Export the local stack's credentials
         run: |
           set -euo pipefail
           status="$(supabase status -o json)"
+          app_url="http://127.0.0.1:3000"
           {
             echo "NEXT_PUBLIC_SUPABASE_URL=$(jq -r .API_URL <<<"$status")"
             echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$(jq -r .ANON_KEY <<<"$status")"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$(jq -r .SERVICE_ROLE_KEY <<<"$status")"
             echo "DATABASE_URL=$(jq -r .DB_URL <<<"$status")"
-            echo "APP_URL=http://127.0.0.1:3000"
+            echo "NEXT_PUBLIC_APP_URL=$app_url"
+            echo "APP_URL=$app_url"
+            echo "TWILIO_AUTH_TOKEN=ci-only-twilio-auth-token"
+            echo "CRON_SECRET=ci-only-cron-secret"
           } >> "$GITHUB_ENV"
 
       - name: Typecheck

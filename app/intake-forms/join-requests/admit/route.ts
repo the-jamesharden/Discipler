@@ -7,22 +7,22 @@ import { getCommandService } from '~/service/container'
 /**
  * An Admin admitting somebody who asked to join a group. The body names the item
  * and nothing else the command acts on: who and which group are read off the item
- * inside the transaction. The Person's id travels only so the Roster can say whose
+ * inside the transaction. The Person's id travels only so Intake forms can say whose
  * admission just landed, and is looked up there rather than rendered.
  */
 export async function POST(request: NextRequest) {
   const admin = await currentAdmin()
-  if (!admin) return NextResponse.redirect(new URL('/roster', request.url), { status: 303 })
+  if (!admin) return NextResponse.redirect(new URL('/intake-forms', request.url), { status: 303 })
 
   const form = await request.formData()
   const item = form.get('itemId')
   const person = form.get('personId')
   if (typeof item !== 'string' || item === '') {
-    return NextResponse.redirect(new URL('/roster', request.url), { status: 303 })
+    return NextResponse.redirect(new URL('/intake-forms', request.url), { status: 303 })
   }
 
   // Whether anybody actually joined, read off what the command decided: a request
-  // from somebody already in the group is closed and joins nobody, and the Roster
+  // from somebody already in the group is closed and joins nobody, and the page
   // must not say a Leader was told when nobody was.
   let joined = false
   try {
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       || error instanceof PairingRefused
     ) {
       const params = new URLSearchParams({ joinError: error.refusal })
-      return NextResponse.redirect(new URL(`/roster?${params}`, request.url), { status: 303 })
+      return NextResponse.redirect(new URL(`/intake-forms?${params}`, request.url), { status: 303 })
     }
     throw error
   }
@@ -52,5 +52,5 @@ export async function POST(request: NextRequest) {
   if (typeof person === 'string' && person !== '') {
     params.set(joined ? 'admitted' : 'alreadyIn', person)
   }
-  return NextResponse.redirect(new URL(`/roster?${params}`, request.url), { status: 303 })
+  return NextResponse.redirect(new URL(`/intake-forms?${params}`, request.url), { status: 303 })
 }

@@ -7,12 +7,12 @@ import { getCommandService } from '~/service/container'
 /**
  * An Admin naming a group and choosing whether joining it asks. One form and one
  * save, like the settings form: both fields arrive together and land together.
- * An ordinary form POST, like everything on the Roster, so it works before
+ * An ordinary form POST, like everything on Intake forms, so it works before
  * JavaScript has loaded.
  */
 export async function POST(request: NextRequest) {
   const admin = await currentAdmin()
-  if (!admin) return NextResponse.redirect(new URL('/roster', request.url), { status: 303 })
+  if (!admin) return NextResponse.redirect(new URL('/intake-forms', request.url), { status: 303 })
 
   const form = await request.formData()
   const relationship = form.get('relationshipId')
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
   const joinRequiresApproval = form.get('joinRequiresApproval') === 'yes'
 
   if (typeof relationship !== 'string' || relationship === '') {
-    return NextResponse.redirect(new URL('/roster', request.url), { status: 303 })
+    return NextResponse.redirect(new URL('/intake-forms', request.url), { status: 303 })
   }
 
   try {
@@ -37,13 +37,13 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof GroupRefused) {
       const params = new URLSearchParams({ groupError: error.refusal })
-      return NextResponse.redirect(new URL(`/roster?${params}`, request.url), { status: 303 })
+      return NextResponse.redirect(new URL(`/intake-forms?${params}`, request.url), { status: 303 })
     }
     throw error
   }
 
   return NextResponse.redirect(
-    new URL(`/roster?${new URLSearchParams({ configured: relationship })}`, request.url),
+    new URL(`/intake-forms?${new URLSearchParams({ configured: relationship })}`, request.url),
     { status: 303 },
   )
 }

@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { currentAdmin } from '~/platform/supabase/current-admin'
 import { getRosterReader } from '~/service/container'
-import { PageShell, SignOut } from '../../shell'
+import { AccountMenu, PageShell } from '../../shell'
 import { firstTimeLabel, pairingRefusalMessage } from '../copy'
 import { DECLARED_GENDER_OPTIONS } from '../declared-gender'
 
@@ -106,7 +106,7 @@ export default async function PairPage({
       title="Form a relationship"
       subtitle={admin.ministryName}
       back={{ href: '/roster', label: 'Back to the Roster' }}
-      actions={<SignOut />}
+      actions={<AccountMenu ministry />}
     >
       {candidates.length < 2 ? (
         <div className="card">

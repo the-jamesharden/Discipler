@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
-import { currentUser } from '~/platform/supabase/current-user'
-import { PageShell, SignOut } from '../shell'
+import { resolveAdmin } from '~/platform/supabase/current-admin'
+import { AccountMenu, PageShell } from '../shell'
 import {
   CHANGE_ACTION,
   CHANGE_YOUR_PASSWORD,
@@ -24,8 +24,9 @@ export const dynamic = 'force-dynamic'
  * Reachable by anyone holding a session, including one that resolves to no
  * Ministry membership at all. The credential is theirs and not the Ministry's, and
  * a membership check would leave an orphaned account with a password it can never
- * change. That is why this is not under `/settings`, which is Admin-gated, and why
- * it asks `currentUser` rather than `resolveAdmin`.
+ * change. That is why this is not under `/settings`, which is Admin-gated: it asks
+ * `resolveAdmin` only to decide what the Account menu offers, and turns nobody with
+ * a session away.
  *
  * Nothing typed is carried across the round trip. A refusal comes back as codes on
  * the query string and every field starts empty again.
@@ -35,8 +36,8 @@ export default async function AccountPage({
 }: {
   searchParams: Promise<{ error?: string }>
 }) {
-  const user = await currentUser()
-  if (!user) redirect('/login')
+  const resolution = await resolveAdmin()
+  if (resolution.status === 'signed-out') redirect('/login')
 
   const { error } = await searchParams
   const refusals = passwordChangeRefusalMessages(error)
@@ -46,7 +47,7 @@ export default async function AccountPage({
       title={CHANGE_YOUR_PASSWORD}
       subtitle="Discipler"
       back={{ href: '/', label: 'Back' }}
-      actions={<SignOut />}
+      actions={<AccountMenu ministry={resolution.status === 'admin'} />}
     >
       <div className="card">
         {refusals.length > 0 ? (

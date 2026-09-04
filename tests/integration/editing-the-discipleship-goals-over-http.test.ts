@@ -80,10 +80,10 @@ describe.skipIf(skipUnlessAppIsRunning)('the Discipleship Goal settings', () => 
     const { html } = await getPage('/settings/goals', cookie)
 
     for (const label of await theList()) expect(html).toContain(label)
-    // It is reachable from the screen an Admin is already on, or it is a page
-    // nobody finds.
-    const { html: roster } = await getPage('/roster', cookie)
-    expect(roster).toContain('/settings/goals')
+    // It is reachable from the screen it belongs under, or it is a page nobody
+    // finds. Ministry Settings, since ticket 32; the header carried it before.
+    const { html: settings } = await getPage('/settings', cookie)
+    expect(settings).toContain('/settings/goals')
   })
 
   it('adds, rewords and reorders an option from the page', async () => {

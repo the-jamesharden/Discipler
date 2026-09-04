@@ -2,9 +2,14 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import { ministryId } from '~/domain/ids'
 import { ministryIntakeQrLink } from '~/domain/outbound-copy'
 import { renderQrCode } from '~/platform/qr/qr-code'
-import { qrCodeCaption } from '../../app/roster/copy'
-import { createMinistryWithAdmin, type MinistryFixture } from '../support/local-supabase'
-import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app'
+import { qrCodeCaption } from '../../app/intake-forms/copy'
+import {
+  addPersonWithAccount,
+  aTestPhoneNumber,
+  createMinistryWithAdmin,
+  type MinistryFixture,
+} from '../support/local-supabase'
+import { baseUrl, getPage, signIn, signInAs, skipUnlessAppIsRunning } from '../support/app'
 
 /**
  * The Admin's half of the Intake sentence. Ticket 03 built the form and both routes
@@ -12,9 +17,10 @@ import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app
  * to know the Ministry's identifier and type the URL -- which is not a route a
  * pastor has.
  *
- * Everything here is driven the way an Admin drives it: sign in, open the Roster,
- * read the link off the page, and then open that link the way somebody they sent it
- * to would.
+ * Everything here is driven the way an Admin drives it: sign in, open Intake forms
+ * from the Account menu, read the link off the page, and then open that link the way
+ * somebody they sent it to would. The links sat at the foot of the Roster until
+ * ticket 32 gave them this page.
  */
 
 describe.skipIf(skipUnlessAppIsRunning)('the Ministry Intake Link an Admin can send', () => {
@@ -35,7 +41,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Ministry Intake Link an Admin can s
   /** The link as the page actually renders it, rather than as this file assumes it. */
   const linkOnThePage = (html: string, of: MinistryFixture): string => {
     const found = new RegExp(`https?://[^"]*/intake/${of.id}`).exec(html)
-    if (!found) throw new Error('The Roster did not show this Ministry’s Intake link')
+    if (!found) throw new Error('Intake forms did not show this Ministry’s Intake link')
     return found[0]
   }
 
@@ -55,10 +61,34 @@ describe.skipIf(skipUnlessAppIsRunning)('the Ministry Intake Link an Admin can s
     ministryIntakeQrLink(new URL(link).origin, ministryId(of.id))
 
   const qrCode = (as: string) =>
-    fetch(`${baseUrl}/roster/intake-code.svg`, { redirect: 'manual', headers: { cookie: as } })
+    fetch(`${baseUrl}/intake-forms/intake-code.svg`, { redirect: 'manual', headers: { cookie: as } })
+
+  it('is reached from the Account menu on the screen an Admin is already on', async () => {
+    // A page nobody finds is no page. The Roster carried the links until ticket 32;
+    // now it carries the way to them, in the menu every Admin page shares.
+    const { html: roster } = await getPage('/roster', cookie)
+    expect(roster).toContain('href="/intake-forms"')
+    expect(roster).not.toContain('The group link')
+    expect(roster).not.toContain('intake-code.svg')
+  })
+
+  it('is the Admin’s page and not a Leader’s', async () => {
+    const leader = await addPersonWithAccount(ministry, 'Dana Whitfield', 'leader', {
+      phone: aTestPhoneNumber(),
+    })
+    const { cookie: leadersCookie } = await signInAs(leader)
+
+    const { html } = await getPage('/intake-forms', leadersCookie)
+    expect(html).toContain('This account is not an Admin of a Ministry')
+    expect(html).not.toContain(`/intake/${ministry.id}`)
+
+    const { response } = await getPage('/intake-forms', '')
+    expect(response.status).toBe(307)
+    expect(response.headers.get('location')).toContain('/login')
+  })
 
   it('shows the Ministry’s Intake link where an Admin can copy it', async () => {
-    const { html } = await getPage('/roster', cookie)
+    const { html } = await getPage('/intake-forms', cookie)
     const link = linkOnThePage(html, ministry)
 
     // In a field rather than in prose, because the thing an Admin does with it is
@@ -73,7 +103,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Ministry Intake Link an Admin can s
   })
 
   it('says which consent each of the two routes records', async () => {
-    const { html } = await getPage('/roster', cookie)
+    const { html } = await getPage('/intake-forms', cookie)
 
     // `consent_record.source` is `pastor_link` or `qr_code` and a compliance review
     // asks which. The Admin choosing between the two is the person deciding it, so
@@ -83,10 +113,10 @@ describe.skipIf(skipUnlessAppIsRunning)('the Ministry Intake Link an Admin can s
   })
 
   it('renders the QR code, and the code opens the same link saying it was scanned', async () => {
-    const { html } = await getPage('/roster', cookie)
+    const { html } = await getPage('/intake-forms', cookie)
     const link = linkOnThePage(html, ministry)
 
-    expect(html).toContain('src="/roster/intake-code.svg"')
+    expect(html).toContain('src="/intake-forms/intake-code.svg"')
 
     const response = await qrCode(cookie)
     expect(response.status).toBe(200)
@@ -100,10 +130,10 @@ describe.skipIf(skipUnlessAppIsRunning)('the Ministry Intake Link an Admin can s
   })
 
   it('draws the code on the page big enough to hold a phone up to', async () => {
-    const { html } = await getPage('/roster', cookie)
+    const { html } = await getPage('/intake-forms', cookie)
 
     // The square scales, so the size in the file decides nothing here. What decides
-    // whether an Admin can scan their own screen is what the Roster asks for, and
+    // whether an Admin can scan their own screen is what the page asks for, and
     // that is the half of the criterion a test of the encoder cannot reach.
     const tag = /<img[^>]*class="qr"[^>]*>/.exec(html)
     expect(tag).not.toBeNull()
@@ -114,7 +144,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Ministry Intake Link an Admin can s
   })
 
   it('does not offer the code’s own link as a second thing to send', async () => {
-    const { html } = await getPage('/roster', cookie)
+    const { html } = await getPage('/intake-forms', cookie)
 
     // A field holding `?via=qr` would be texted, and every Person who followed it
     // would be recorded as having scanned a code nobody printed -- which is the one
@@ -123,7 +153,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Ministry Intake Link an Admin can s
   })
 
   it('offers the code on its own, so it can be printed or saved', async () => {
-    const { html } = await getPage('/roster', cookie)
+    const { html } = await getPage('/intake-forms', cookie)
 
     // Two actions the page provides, rather than a tab and the Admin's knowledge of
     // their browser: the download saves it, the tab is where it is printed from.
@@ -151,14 +181,14 @@ describe.skipIf(skipUnlessAppIsRunning)('the Ministry Intake Link an Admin can s
   })
 
   it('is not served to somebody with no session', async () => {
-    const response = await fetch(`${baseUrl}/roster/intake-code.svg`, { redirect: 'manual' })
+    const response = await fetch(`${baseUrl}/intake-forms/intake-code.svg`, { redirect: 'manual' })
 
     expect(response.status).not.toBe(200)
     expect(response.headers.get('content-type') ?? '').not.toContain('image/svg+xml')
   })
 
   it('hands the Admin a link that actually opens their Ministry’s form', async () => {
-    const { html } = await getPage('/roster', cookie)
+    const { html } = await getPage('/intake-forms', cookie)
     const link = linkOnThePage(html, ministry)
 
     // The point of the ticket, asserted end to end: what the page hands over is not

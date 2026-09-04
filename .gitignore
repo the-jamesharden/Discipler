@@ -32,3 +32,6 @@ supabase/.branches/
 
 # Agent scratch
 .claude/agent-memory/
+.vercel
+.env*.local
+.lavish/

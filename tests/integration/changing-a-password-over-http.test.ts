@@ -289,10 +289,11 @@ describe.skipIf(skipUnlessAppIsRunning)('changing your own password over HTTP', 
     }
   })
 
-  it('is linked from the Roster, from the Admin’s own row, and from the relationships a Leader sees', async () => {
+  it('is linked from the Account menu, from the Admin’s own row, and from the relationships a Leader sees', async () => {
     const { cookie } = await signIn(ministry)
     const { html: roster } = await getPage('/roster', cookie)
 
+    // In the menu the Roster's header carries, since ticket 32.
     expect(roster).toContain('href="/account"')
     expect(roster).toContain('Change your password')
 

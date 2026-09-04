@@ -287,7 +287,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
     await addPerson(ministry, 'Priya Raman', { intake: false, phone: number() })
 
     const before = await getPage('/roster', cookie)
-    expect(before.html).toContain('No — mark eligible')
+    expect(before.html).toContain('Mark eligible to lead')
 
     const person = before.html.match(
       /name="personId" value="([0-9a-f-]{36})"[\s\S]{0,200}?value="yes"/,
@@ -301,7 +301,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
     expect(response.status).toBe(303)
 
     const after = await getPage('/roster', cookie)
-    expect(after.html).toContain('Yes — withdraw')
+    expect(after.html).toContain('Withdraw eligibility')
   })
 
   it('hands the Admin a link that reopens that Person’s own Intake', async () => {
