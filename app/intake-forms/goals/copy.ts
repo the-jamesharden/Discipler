@@ -2,7 +2,7 @@ import type { GoalRefusal } from '~/domain/errors'
 import { refusalIn } from '../../refusals'
 
 /**
- * Everything the Discipleship Goal settings say in words, in one place. The
+ * Everything the goals card on Intake forms says in words, in one place. The
  * boundary deals in codes and the screen decides how to say them, for the same
  * reason the Roster's copy is its own module: rewording what an Admin reads is a
  * different reason to change than anything the domain changes for.

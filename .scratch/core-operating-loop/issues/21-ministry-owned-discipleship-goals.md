@@ -130,3 +130,8 @@ in two ways, and both are rules about what a *Person reading the form* would see
 *Open:* whether a Ministry should ever be *stopped* from offering two similarly-worded
 options, or merely warned. The strict reading was taken because the loose one produces a
 form nobody meant to publish, and the database index cannot express either rule.
+
+### Superseded by ticket 34
+
+Where the screen lives changed on 2026-09-04.
+The list is the goals question card on Intake forms, edited through the routes under `/intake-forms/goals/`, and there is no page of its own.
