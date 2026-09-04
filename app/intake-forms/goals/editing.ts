@@ -6,9 +6,15 @@ import { GoalRefused } from '~/domain/errors'
  * the import and the pairing, so the whole screen works before JavaScript has
  * loaded -- and each of them ends in the same place, because the list is the only
  * thing an Admin is looking at.
+ *
+ * The list is the goals card on Intake forms since ticket 34, so the way back is
+ * that page with the card in view. Anything the edit has to say travels in the
+ * query string under names the page reserves for this card, beside the ones the
+ * group and join-request routes use.
  */
 
-const LIST = '/settings/goals'
+const LIST = '/intake-forms'
+const CARD = '#goals'
 
 /** Back to the list, optionally saying what happened to the edit. */
 export const backToTheList = (
@@ -16,7 +22,7 @@ export const backToTheList = (
   params?: Record<string, string>,
 ): NextResponse => {
   const query = params ? `?${new URLSearchParams(params)}` : ''
-  return NextResponse.redirect(new URL(`${LIST}${query}`, request.url), { status: 303 })
+  return NextResponse.redirect(new URL(`${LIST}${query}${CARD}`, request.url), { status: 303 })
 }
 
 /**
@@ -34,7 +40,7 @@ export const applying = async (
     await edit()
   } catch (error) {
     if (error instanceof GoalRefused) {
-      return backToTheList(request, { error: error.refusal })
+      return backToTheList(request, { goalError: error.refusal })
     }
     throw error
   }

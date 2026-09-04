@@ -6,10 +6,12 @@ import {
 } from '~/domain/outbound-copy'
 import { resolveAdmin } from '~/platform/supabase/current-admin'
 import { appBaseUrl } from '~/platform/supabase/credentials'
-import { getRosterReader } from '~/service/container'
+import { getDiscipleshipGoalReader, getRosterReader } from '~/service/container'
 import { AWAITING_LEADER_ACCEPTANCE, rosterRoleLabel } from '../roster/copy'
 import { AccountMenu, NotAnAdmin, PageShell } from '../shell'
 import { ClipboardField } from './clipboard-field'
+import { GoalsCard } from './goals-card'
+import { refusalMessage as goalRefusalMessage } from './goals/copy'
 import {
   ADMIT,
   admissionRefusalMessage,
@@ -73,6 +75,9 @@ export default async function IntakeFormsPage({
     alreadyIn?: string
     declined?: string
     joinError?: string
+    /** The goal option an Admin has asked to remove, and why a goal edit was refused. */
+    removing?: string
+    goalError?: string
   }>
 }) {
   const resolution = await resolveAdmin()
@@ -92,6 +97,10 @@ export default async function IntakeFormsPage({
   // expire the moment an Admin navigated away.
   const groups = await getRosterReader().listGroups(admin.ministryId)
   const waiting = await getRosterReader().openJoinRequests(admin.ministryId)
+  // The options behind the one question both forms ask that the Ministry writes
+  // itself. Edited from here since ticket 34, because it is a property of the
+  // forms handed out from this page.
+  const goals = await getDiscipleshipGoalReader().listDiscipleshipGoals(admin.ministryId)
   const query = await searchParams
 
   // Looked up on the Roster rather than echoed, like every other name a surface
@@ -104,6 +113,10 @@ export default async function IntakeFormsPage({
   const alreadyInName = nameOf(query.alreadyIn)
   const groupFailure = groupRefusalMessage(query.groupError)
   const joinFailure = admissionRefusalMessage(query.joinError)
+  // Looked up on the list rather than echoed, like every other name a surface here
+  // says: an option this Ministry does not offer warns about nothing.
+  const removing = goals.find((goal) => goal.id === query.removing) ?? null
+  const goalFailure = goalRefusalMessage(query.goalError)
 
   return (
     <PageShell
@@ -279,6 +292,10 @@ export default async function IntakeFormsPage({
           ))}
         </div>
       ) : null}
+
+      {/* The goals question, between the forms and the groups: it is asked on both
+          forms, where the groups belong to the group link alone. */}
+      <GoalsCard goals={goals} removing={removing} refusal={goalFailure} />
 
       {/* Every live group, for the two things an Admin decides about each: what it
           is called, and whether picking it on the link asks. Here rather than on

@@ -9,8 +9,10 @@ import {
 import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app'
 
 /**
- * The settings screen an Admin edits the list from, driven the way an Admin drives
- * it.
+ * The goals card on Intake forms, where an Admin edits the list, driven the way an
+ * Admin drives it. The card is the one question on both forms a Ministry writes
+ * itself, which is why it lives with the forms since ticket 34 and not under
+ * Ministry Settings.
  *
  * The warning is the whole reason this suite exists. Three of the four edits cost
  * nobody anything and could be proved anywhere; removing takes answers off every
@@ -20,7 +22,7 @@ import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app
  * has no page to warn anybody on.
  */
 
-describe.skipIf(skipUnlessAppIsRunning)('the Discipleship Goal settings', () => {
+describe.skipIf(skipUnlessAppIsRunning)('the goals question on Intake forms', () => {
   let ministry: MinistryFixture
   let pool: pg.Pool
 
@@ -77,30 +79,32 @@ describe.skipIf(skipUnlessAppIsRunning)('the Discipleship Goal settings', () => 
   it('shows the Ministry its own list, in its own order', async () => {
     const { cookie } = await signIn(ministry)
 
-    const { html } = await getPage('/settings/goals', cookie)
+    const { html } = await getPage('/intake-forms', cookie)
 
     for (const label of await theList()) expect(html).toContain(label)
-    // It is reachable from the screen it belongs under, or it is a page nobody
-    // finds. Ministry Settings, since ticket 32; the header carried it before.
+    // Said as the question it is, on the page the forms are handed out from -- and
+    // no longer as a page of its own under Ministry Settings.
+    expect(html).toContain('The goals question')
+    expect(html).toContain('What are you hoping for?')
     const { html: settings } = await getPage('/settings', cookie)
-    expect(settings).toContain('/settings/goals')
+    expect(settings).not.toContain('/settings/goals')
   })
 
   it('adds, rewords and reorders an option from the page', async () => {
     const { cookie } = await signIn(ministry)
 
-    await post('/settings/goals/add', cookie, { label: 'Grief and loss' })
+    await post('/intake-forms/goals/add', cookie, { label: 'Grief and loss' })
     expect(await theList()).toContain('Grief and loss')
 
     const added = await optionCalled('Grief and loss')
-    await post('/settings/goals/rename', cookie, {
+    await post('/intake-forms/goals/rename', cookie, {
       goalId: added,
       label: 'Grief and bereavement',
     })
     expect(await theList()).toContain('Grief and bereavement')
 
     const before = await theList()
-    await post('/settings/goals/move', cookie, { goalId: added, direction: 'up' })
+    await post('/intake-forms/goals/move', cookie, { goalId: added, direction: 'up' })
     const after = await theList()
     expect(after[after.length - 2]).toBe('Grief and bereavement')
     expect(after[after.length - 1]).toBe(before[before.length - 2])
@@ -109,12 +113,16 @@ describe.skipIf(skipUnlessAppIsRunning)('the Discipleship Goal settings', () => 
   it('says why an edit was refused, in words rather than in a code', async () => {
     const { cookie } = await signIn(ministry)
 
-    const { location } = await post('/settings/goals/add', cookie, {
+    const { location } = await post('/intake-forms/goals/add', cookie, {
       label: 'marriage AND family',
     })
-    expect(location).toContain('error=goal.already_offered')
+    expect(location).toContain('goalError=goal.already_offered')
 
+    // Back to the card, not to a page of its own: the query says what happened and
+    // the fragment puts the card in view.
     const back = new URL(location)
+    expect(back.pathname).toBe('/intake-forms')
+    expect(back.hash).toBe('#goals')
     const { html } = await getPage(`${back.pathname}${back.search}`, cookie)
     expect(html).toContain('already offers an option worded like that')
   })
@@ -126,7 +134,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Discipleship Goal settings', () => 
     // screen renders its own wording from a code it knows, and renders nothing
     // from one it does not -- never the string it was handed.
     const { html } = await getPage(
-      `/settings/goals?error=${encodeURIComponent('<b>anything at all</b>')}`,
+      `/intake-forms?goalError=${encodeURIComponent('<b>anything at all</b>')}`,
       cookie,
     )
 
@@ -139,14 +147,13 @@ describe.skipIf(skipUnlessAppIsRunning)('the Discipleship Goal settings', () => 
 
     // `__proto__`, `toString` and `valueOf` are all *in* a plain object without
     // being refusals, so a membership test that walked the prototype chain would
-    // hand this page an object or a function to render and take the settings screen
-    // down for anybody who followed a mangled link.
+    // hand this page an object or a function to render and take Intake forms down
+    // for anybody who followed a mangled link.
     for (const code of ['__proto__', 'toString', 'valueOf', 'constructor']) {
-      const { response, html } = await getPage(`/settings/goals?error=${code}`, cookie)
+      const { response, html } = await getPage(`/intake-forms?goalError=${code}`, cookie)
 
       expect(response.status).toBe(200)
-      // The heading is in the page's header, above `main`; the alert would be inside it.
-      expect(html).toContain('Discipleship Goals')
+      expect(html).toContain('The goals question')
       expect(asRendered(html)).not.toContain('role="alert"')
     }
   })
@@ -160,7 +167,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Discipleship Goal settings', () => 
 
     // Pressing Remove opens the warning. It is a link, and reaching this page has
     // removed nothing.
-    const { html } = await getPage(`/settings/goals?removing=${goal}`, cookie)
+    const { html } = await getPage(`/intake-forms?removing=${goal}`, cookie)
 
     expect(html).toContain('2 people have chosen')
     expect(html).toContain('Healing and recovery')
@@ -174,7 +181,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Discipleship Goal settings', () => 
 
     // A post naming the option and nothing else -- a stale form, a copied link, a
     // second tab. It lands on the warning rather than on the removal.
-    const { location } = await post('/settings/goals/remove', cookie, { goalId: goal })
+    const { location } = await post('/intake-forms/goals/remove', cookie, { goalId: goal })
 
     expect(location).toContain(`removing=${goal}`)
     expect(await theList()).toContain('Healing and recovery')
@@ -184,7 +191,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Discipleship Goal settings', () => 
     const { cookie } = await signIn(ministry)
     const goal = await optionCalled('Healing and recovery')
 
-    await post('/settings/goals/remove', cookie, { goalId: goal, confirm: 'yes' })
+    await post('/intake-forms/goals/remove', cookie, { goalId: goal, confirm: 'yes' })
 
     expect(await theList()).not.toContain('Healing and recovery')
 
@@ -212,34 +219,34 @@ describe.skipIf(skipUnlessAppIsRunning)('the Discipleship Goal settings', () => 
     const { cookie } = await signIn(alone)
 
     for (const label of (await theList(alone)).slice(0, -1)) {
-      await post('/settings/goals/remove', cookie, {
+      await post('/intake-forms/goals/remove', cookie, {
         goalId: await optionCalled(label, alone),
         confirm: 'yes',
       })
     }
     const last = (await theList(alone))[0]!
 
-    const { html } = await getPage('/settings/goals', cookie)
+    const { html } = await getPage('/intake-forms', cookie)
     expect(html).toContain('The only option left')
 
     // And the refusal is not merely a control that was not rendered: the post an
     // Admin could still make is refused, and says so.
-    const { location } = await post('/settings/goals/remove', cookie, {
+    const { location } = await post('/intake-forms/goals/remove', cookie, {
       goalId: await optionCalled(last, alone),
       confirm: 'yes',
     })
-    expect(location).toContain('error=goal.last_one')
+    expect(location).toContain('goalError=goal.last_one')
     expect(await theList(alone)).toEqual([last])
   })
 
   it('shows an Admin their own Ministry’s list and never another’s', async () => {
     const other = await createMinistryWithAdmin('Westhill Church')
-    await post('/settings/goals/add', (await signIn(other)).cookie, {
+    await post('/intake-forms/goals/add', (await signIn(other)).cookie, {
       label: 'Something only Westhill offers',
     })
 
     const { cookie } = await signIn(ministry)
-    const { html } = await getPage('/settings/goals', cookie)
+    const { html } = await getPage('/intake-forms', cookie)
 
     expect(html).toContain(ministry.name)
     expect(html).not.toContain('Something only Westhill offers')
