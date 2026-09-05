@@ -1118,13 +1118,13 @@ export interface IntakePrefill {
 }
 
 /**
- * What the settings surface needs to show a Ministry its own list. Read through
- * the signed-in Admin's session, so the policies are what scope it -- an Admin
- * sees their Ministry's options and no other Ministry's, and goals are never
- * shared or compared across Ministries.
+ * What the goals card on Intake forms needs to show a Ministry its own list.
+ * Read through the signed-in Admin's session, so the policies are what scope it
+ * -- an Admin sees their Ministry's options and no other Ministry's, and goals
+ * are never shared or compared across Ministries.
  *
  * `OfferedGoal` and not a shape of this surface's own. One option is one concept
- * whichever side of the seam is looking at it, and the settings surface warning an
+ * whichever side of the seam is looking at it, and the goals card warning an
  * Admin and the command boundary writing the number into history read the same
  * `discipleship_goal_options` definition -- so a second type here would only be
  * two names for one row, waiting to disagree about what `chosenBy` counts.

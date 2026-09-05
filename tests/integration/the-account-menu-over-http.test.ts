@@ -36,7 +36,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Account menu', () => {
   })
 
   it('is on every Admin page, beside the one visible way to the Leader surface', async () => {
-    for (const path of ['/overview', '/roster', '/settings', '/settings/goals', '/intake-forms', '/account']) {
+    for (const path of ['/overview', '/roster', '/settings', '/intake-forms', '/account']) {
       const { html } = await getPage(path, cookie)
       const head = header(html)
 
@@ -73,13 +73,17 @@ describe.skipIf(skipUnlessAppIsRunning)('the Account menu', () => {
     expect(header(html).match(/href="\/settings"/g)).toHaveLength(1)
   })
 
-  it('leaves Discipleship Goals to the Settings page it belongs under', async () => {
-    const { html: roster } = await getPage('/roster', cookie)
-    expect(header(roster)).not.toContain('/settings/goals')
-
-    const { html: settings } = await getPage('/settings', cookie)
-    expect(header(settings)).toContain('href="/settings/goals"')
-    expect(header(settings)).toContain('Discipleship Goals')
+  it('carries no link to the goals list, which is a card on Intake forms', async () => {
+    // Ticket 32 left Discipleship Goals under Ministry Settings; ticket 34 made it
+    // the goals question on Intake forms, so no header anywhere points at a page
+    // of its own.
+    for (const path of ['/roster', '/settings', '/intake-forms']) {
+      const { html } = await getPage(path, cookie)
+      expect(header(html)).not.toContain('/settings/goals')
+      expect(header(html)).not.toContain('Discipleship Goals')
+    }
+    const { html: forms } = await getPage('/intake-forms', cookie)
+    expect(forms).toContain('id="goals"')
   })
 
   it('offers a Leader only what is theirs, with no group to name', async () => {

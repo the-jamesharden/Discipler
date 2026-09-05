@@ -110,8 +110,11 @@ import {
 import { calendarMonthOf } from './week'
 import {
   alreadyOffered,
+  asShown,
   nextPosition,
   offeredGoal,
+  namesTheWholeList,
+  orderAfterDragging,
   orderAfterMoving,
   readGoalWording,
   type GoalWording,
@@ -4020,6 +4023,42 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             subjectType: 'discipleship_goal',
             subjectId: goal.id,
             payload: { direction: command.direction, order: [...order] },
+          }),
+        ],
+        rejections: [],
+      }
+    }
+
+    case 'goal.reorder': {
+      const goals = theOptionsOnOffer(context)
+
+      // The list the Admin let go of has to be the list the Ministry offers now:
+      // every option once, and nothing else. A page somebody else has edited since
+      // it was drawn is an ordinary thing to happen, and it is refused rather than
+      // applied with a position quietly dropped or invented.
+      if (!namesTheWholeList(goals, command.order)) throw new GoalRefused('goal.list_changed')
+
+      const order = orderAfterDragging(goals, command.order)
+
+      // Dropped where it was picked up. Nothing happened, so nothing is written
+      // and history says nothing, as with `goal.move` on the top option.
+      if (!order) return { effects: [], rejections: [] }
+
+      const now = context.clock.now()
+
+      return {
+        effects: [
+          reorderDiscipleshipGoals({ ministryId: command.ministryId, order }),
+          // About the list rather than one option, so the subject is the Ministry
+          // -- and both orders, because the one being overwritten is what nothing
+          // else keeps.
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'discipleship_goal.reordered',
+            subjectType: 'ministry',
+            subjectId: command.ministryId,
+            payload: { from: asShown(goals), to: [...order] },
           }),
         ],
         rejections: [],
