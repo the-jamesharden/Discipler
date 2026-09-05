@@ -110,6 +110,7 @@ import {
 import { calendarMonthOf } from './week'
 import {
   alreadyOffered,
+  asShown,
   nextPosition,
   offeredGoal,
   namesTheWholeList,
@@ -4044,9 +4045,6 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       if (!order) return { effects: [], rejections: [] }
 
       const now = context.clock.now()
-      const from = [...goals]
-        .sort((one, other) => one.position - other.position)
-        .map((option) => option.id)
 
       return {
         effects: [
@@ -4060,7 +4058,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             type: 'discipleship_goal.reordered',
             subjectType: 'ministry',
             subjectId: command.ministryId,
-            payload: { from, to: [...order] },
+            payload: { from: asShown(goals), to: [...order] },
           }),
         ],
         rejections: [],

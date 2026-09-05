@@ -109,6 +109,14 @@ export const nextPosition = (goals: readonly OfferedGoal[]): number =>
   goals.reduce((highest, goal) => Math.max(highest, goal.position), 0) + 1
 
 /**
+ * The ids in the order the list is shown: by position, which is the one order the
+ * Ministry has. Every reordering starts from it and every record of one names it,
+ * so it is said here once.
+ */
+export const asShown = (goals: readonly OfferedGoal[]): readonly DiscipleshipGoalId[] =>
+  [...goals].sort((one, other) => one.position - other.position).map((option) => option.id)
+
+/**
  * The whole list in the order it will be shown after one option moves one place,
  * or null where nothing moves: the first option asked upwards, or the last asked
  * downwards.
@@ -130,8 +138,8 @@ export const orderAfterMoving = (
   goal: OfferedGoal,
   direction: GoalDirection,
 ): readonly DiscipleshipGoalId[] | null => {
-  const shown = [...goals].sort((one, other) => one.position - other.position)
-  const from = shown.findIndex((option) => option.id === goal.id)
+  const shown = asShown(goals)
+  const from = shown.indexOf(goal.id)
   if (from < 0) {
     throw new Error(`Discipleship Goal ${goal.id} is not on the list it is being moved in`)
   }
@@ -143,12 +151,8 @@ export const orderAfterMoving = (
   const [option] = moved.splice(from, 1)
   moved.splice(to, 0, option!)
 
-  return moved.map((option) => option.id)
+  return moved
 }
-
-/** The ids in the order the list is shown, which every reordering starts from. */
-const asShown = (goals: readonly OfferedGoal[]): readonly DiscipleshipGoalId[] =>
-  [...goals].sort((one, other) => one.position - other.position).map((option) => option.id)
 
 /**
  * Whether an order an Admin dragged names this list and nothing else: every
