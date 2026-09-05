@@ -26,6 +26,8 @@ His words: the discipleship goals page needs to go on the intake form, and "disc
    Before the script has run, the rows carry the up and down buttons instead, so the ordering still works without it.
 7. The cross removes nothing by itself.
    It opens the same warning the Remove button opened, naming who has chosen the option, and only the button inside that warning removes (ADR-0014).
+8. Also taken in the Lavish review of 2026-09-05: on a phone the row keeps its shape and its type shrinks, rather than the row being restructured.
+   A long option can still scroll inside its field there, which is ordinary text-field behaviour; the rule is in `public/discipler.css`.
 
 ## What this touches below the routes
 
