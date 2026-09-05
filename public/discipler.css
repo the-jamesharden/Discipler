@@ -195,9 +195,9 @@ button.goal-handle:active { cursor: grabbing; }
 /* A phone. The row keeps its shape and the type shrinks, so the wording stays
    legible beside its button instead of being cut to a few characters. */
 @media (max-width: 480px) {
-  .goal-row { font-size: 0.8rem; gap: 0.45rem; }
+  .goal-row { column-gap: 0.45rem; }
   .goal-wording { gap: 0.35rem; }
-  .goal-wording input { font-size: 0.8rem; padding: 0.4rem 0.5rem; }
+  .goal-wording input[type="text"] { font-size: 0.8rem; padding: 0.4rem 0.5rem; }
   .goal-wording button.small { font-size: 0.7rem; padding: 0.3rem 0.5rem; }
   .goal-chosen { font-size: 0.74rem; }
   .goal-x { width: 24px; height: 24px; font-size: 1rem; }
