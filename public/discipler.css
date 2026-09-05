@@ -192,6 +192,16 @@ button.goal-handle:active { cursor: grabbing; }
   .goal-row { grid-template-columns: auto minmax(0, 1fr) auto; row-gap: 0.35rem; }
   .goal-chosen, .goal-move { grid-column: 2; }
 }
+/* A phone. The row keeps its shape and the type shrinks, so the wording stays
+   legible beside its button instead of being cut to a few characters. */
+@media (max-width: 480px) {
+  .goal-row { font-size: 0.8rem; gap: 0.45rem; }
+  .goal-wording { gap: 0.35rem; }
+  .goal-wording input { font-size: 0.8rem; padding: 0.4rem 0.5rem; }
+  .goal-wording button.small { font-size: 0.7rem; padding: 0.3rem 0.5rem; }
+  .goal-chosen { font-size: 0.74rem; }
+  .goal-x { width: 24px; height: 24px; font-size: 1rem; }
+}
 .qs-row { display: flex; justify-content: space-between; padding: 0.55rem 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
 .qs-row:last-child { border-bottom: none; }
 .qs-val { font-weight: 700; color: var(--primary); }
