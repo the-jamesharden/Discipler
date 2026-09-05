@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { GoalRefused } from '~/domain/errors'
 
 /**
- * What the four edit routes share. Each of them is an ordinary form POST, like
+ * What the edit routes share. Each of them is an ordinary form POST, like
  * the import and the pairing, so the whole screen works before JavaScript has
  * loaded -- and each of them ends in the same place, because the list is the only
  * thing an Admin is looking at.

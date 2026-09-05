@@ -49,6 +49,10 @@ export const dynamic = 'force-dynamic'
  * about it: a group is on the link once it is named, and a request exists because
  * somebody picked a group on the link that asks first.
  *
+ * The goals question joined them with ticket 34: its options are a property of the
+ * forms handed out here, so the card that edits them sits between the links and
+ * the groups.
+ *
  * Nothing about the links changed in the move. Each is composed from the session
  * rather than read from anywhere: it is the Ministry's identifier and the configured
  * host, and there is nothing about it to store. The QR code's variant of each is

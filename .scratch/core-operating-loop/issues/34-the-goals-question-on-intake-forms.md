@@ -35,7 +35,8 @@ No migration: the effect that rewrites positions already existed for `goal.move`
 ## Where it lands
 
 - `app/intake-forms/goals-card.tsx`: the card, from the markup of the old page.
-- `app/intake-forms/goals/`: the four routes, the shared redirect helper and the copy, moved from `app/settings/goals/`; the old page is gone.
+- `app/intake-forms/goals/`: the four routes, the shared redirect helper and the copy, moved from `app/settings/goals/`, and `reorder/`, new; the old page is gone.
+- `public/discipler.css`: the rows, the cross and the handle, and the rule that hides the up and down buttons once the script has run.
 - `app/intake-forms/page.tsx`: reads the list and renders the card.
 - `app/settings/page.tsx`: the link is gone.
 - `tests/integration/editing-the-discipleship-goals-over-http.test.ts` and `the-account-menu-over-http.test.ts` follow the move.

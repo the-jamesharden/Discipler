@@ -2367,10 +2367,10 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       `select pg_advisory_xact_lock(hashtextextended(app.command_ministry_id()::text, 0))`,
     )
 
-    // The same function the settings surface reads, so the count an Admin was
-    // warned with and the count history records come from one definition rather
-    // than from two queries waiting to disagree. It gates on the Ministry this
-    // connection declared it is acting for.
+    // The same function the goals card on Intake forms reads, so the count an
+    // Admin was warned with and the count history records come from one
+    // definition rather than from two queries waiting to disagree. It gates on
+    // the Ministry this connection declared it is acting for.
     const { rows } = await client.query<{
       id: string
       label: string
@@ -2382,7 +2382,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     )
 
     return rows.map((row) => {
-      // The same reading of `count(*)` the settings surface uses, and deliberately
+      // The same reading of `count(*)` the goals card's reader uses, and deliberately
       // not a `Number()` of its own: the two had drifted into different strictness
       // over one SQL function, and this is the lenient side -- the one that writes
       // the number into `discipleship_goal.removed`, where it is the only record

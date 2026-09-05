@@ -234,7 +234,7 @@ export const getRosterReader = (): RosterReader => supabaseRosterReader
 /**
  * The Ministry's own list of Discipleship Goal options, read through the
  * signed-in Admin's session -- so the policies say which Ministry's list it is,
- * and the settings surface never has to.
+ * and the goals card on Intake forms never has to.
  */
 export const getDiscipleshipGoalReader = (): DiscipleshipGoalReader =>
   supabaseDiscipleshipGoalReader

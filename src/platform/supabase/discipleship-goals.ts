@@ -5,7 +5,7 @@ import { count, rows, text } from './rows'
 import { createSupabaseServerClient } from './server-client'
 
 /**
- * What the settings surface shows a Ministry about its own list.
+ * What the goals card on Intake forms shows a Ministry about its own list.
  *
  * Read through the signed-in Admin's session, like the Roster, so the policies
  * are what scope it rather than a `where` clause this file could forget --
