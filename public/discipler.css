@@ -169,6 +169,28 @@ td .empty, li .empty { padding: 0; text-align: left; }
 .donut-legend { list-style: none; font-size: 0.82rem; margin: 0; padding: 0; }
 .donut-legend li { display: flex; align-items: center; gap: 0.45rem; margin-bottom: 0.3rem; }
 .donut-legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
+/* The goals question: one row per option, the cross on the left, the wording in
+   the middle, the handle on the right. The up and down buttons are for a page
+   whose script has not run; the script hides them and shows the handle. */
+.goal-list { list-style: none; margin: 0 0 1.5rem; padding: 0; border-top: 1px solid var(--border); }
+.goal-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto auto; gap: 0.75rem; align-items: center; padding: 0.55rem 0; border-bottom: 1px solid var(--border); background: var(--surface); }
+.goal-row.dragging { opacity: 0.45; }
+.goal-x { display: inline-flex; width: 28px; height: 28px; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: 50%; color: var(--text-light); text-decoration: none; font-size: 1.15rem; line-height: 1; flex-shrink: 0; }
+a.goal-x:hover, a.goal-x:focus-visible { border-color: var(--red-concern); color: var(--red-concern); }
+.goal-x.last { border-style: dashed; color: var(--cell); cursor: not-allowed; }
+.goal-wording { display: flex; gap: 0.5rem; align-items: center; min-width: 0; }
+.goal-wording input { flex: 1 1 12rem; min-width: 0; }
+.goal-chosen { white-space: nowrap; }
+.goal-move { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+.goal-handle, button.goal-handle { display: none; cursor: grab; background: transparent; color: var(--text-light); border: 1px solid transparent; border-radius: 5px; padding: 0.15rem 0.35rem; font-size: 1.2rem; line-height: 1; letter-spacing: -0.2em; touch-action: none; user-select: none; }
+button.goal-handle:hover, button.goal-handle:focus-visible { background: transparent; border-color: var(--border); color: var(--primary); }
+button.goal-handle:active { cursor: grabbing; }
+.goal-list.js .goal-move { display: none; }
+.goal-list.js .goal-handle { display: inline-block; }
+@media (max-width: 720px) {
+  .goal-row { grid-template-columns: auto minmax(0, 1fr) auto; row-gap: 0.35rem; }
+  .goal-chosen, .goal-move { grid-column: 2; }
+}
 .qs-row { display: flex; justify-content: space-between; padding: 0.55rem 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
 .qs-row:last-child { border-bottom: none; }
 .qs-val { font-weight: 700; color: var(--primary); }

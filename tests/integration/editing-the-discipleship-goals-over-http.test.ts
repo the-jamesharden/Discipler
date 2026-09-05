@@ -86,6 +86,13 @@ describe.skipIf(skipUnlessAppIsRunning)('the goals question on Intake forms', ()
     // no longer as a page of its own under Ministry Settings.
     expect(html).toContain('The goals question')
     expect(html).toContain('What are you hoping for?')
+    // Each row carries the cross that opens the removal warning and the handle
+    // the drag starts from, and nothing removes in one press.
+    const rendered = asRendered(html)
+    expect(rendered.match(/class="goal-x"/g)).toHaveLength((await theList()).length)
+    expect(rendered.match(/class="goal-handle"/g)).toHaveLength((await theList()).length)
+    expect(rendered).toContain(`href="/intake-forms?removing=`)
+    expect(rendered).toContain('action="/intake-forms/goals/reorder"')
     const { html: settings } = await getPage('/settings', cookie)
     expect(settings).not.toContain('/settings/goals')
   })
@@ -108,6 +115,38 @@ describe.skipIf(skipUnlessAppIsRunning)('the goals question on Intake forms', ()
     const after = await theList()
     expect(after[after.length - 2]).toBe('Grief and bereavement')
     expect(after[after.length - 1]).toBe(before[before.length - 2])
+  })
+
+  it('takes the whole order the Admin dragged the list into', async () => {
+    const { cookie } = await signIn(ministry)
+    const before = await theList()
+    const ids = await Promise.all(before.map((label) => optionCalled(label)))
+
+    // The card's script posts one `order` field per option, top to bottom.
+    const reversed = new URLSearchParams()
+    for (const id of [...ids].reverse()) reversed.append('order', id)
+    const response = await fetch(`${baseUrl}/intake-forms/goals/reorder`, {
+      method: 'POST',
+      redirect: 'manual',
+      headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' },
+      body: reversed,
+    })
+
+    expect(response.headers.get('location')).toContain('/intake-forms')
+    expect(await theList()).toEqual([...before].reverse())
+
+    // A page drawn before the list changed: one option short. Refused in words,
+    // and the list is left as it stands.
+    const stale = new URLSearchParams()
+    for (const id of ids.slice(1)) stale.append('order', id)
+    const refused = await fetch(`${baseUrl}/intake-forms/goals/reorder`, {
+      method: 'POST',
+      redirect: 'manual',
+      headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' },
+      body: stale,
+    })
+    expect(refused.headers.get('location')).toContain('goalError=goal.list_changed')
+    expect(await theList()).toEqual([...before].reverse())
   })
 
   it('says why an edit was refused, in words rather than in a code', async () => {

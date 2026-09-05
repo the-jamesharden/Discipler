@@ -14,6 +14,8 @@ const REFUSALS: Record<GoalRefusal, string> = {
   'goal.already_offered': 'This ministry already offers an option worded like that.',
   'goal.last_one':
     'This is the only option left. Intake asks everyone to choose one, so add another before removing this.',
+  'goal.list_changed':
+    'The list changed while you were rearranging it. This is how it stands now.',
 }
 
 /**

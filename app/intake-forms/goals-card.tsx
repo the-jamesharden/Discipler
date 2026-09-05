@@ -6,19 +6,23 @@ import { chosenByLabel, removalWarning } from './goals/copy'
  * The one question on both Intake forms that a Ministry writes itself: *What are
  * you hoping for?*, answered from this list. Every other question on the forms is
  * Discipler's; this one's options are the Ministry's own, set before a semester
- * begins, in the order they most want people to consider them. The seeded list
- * carries no product meaning and exists so a new Ministry is never unable to serve
- * its own form.
+ * begins, in the order they most want people to consider them.
  *
  * A card on Intake forms rather than a page under Ministry Settings, since ticket
  * 34: the list is a property of the forms an Admin hands out, and this is the page
  * those forms are handed out from.
  *
+ * One row per option. On the left, the cross that removes it; in the middle, its
+ * wording; on the right, the handle it is dragged by. The drag is the card's one
+ * piece of script, and it posts the whole order the moment the option is let go,
+ * so the list an Admin is looking at is the list the Ministry has. Before the
+ * script has run -- or without it -- the same rows carry the up and down buttons
+ * the page offered before, so the ordering still works.
+ *
  * Removing is the one act here that costs anybody anything, so it is the one act
- * that takes two presses. The control opens a warning saying how many people have
- * chosen the option and that their answer goes with it; only the button inside
- * that warning removes. Nothing here removes an option in one press, because the
- * answers it loses cannot be got back.
+ * that takes two presses. The cross removes nothing: it reopens this page with the
+ * warning open on that option, saying how many people have chosen it and that
+ * their answer goes with it, and only the button inside that warning removes.
  */
 export const GoalsCard = ({
   goals,
@@ -47,80 +51,91 @@ export const GoalsCard = ({
       </p>
     ) : null}
 
-    <div className="tbl-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Option</th>
-            <th>Chosen by</th>
-            <th>Order</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {goals.map((goal, index) => (
-            <tr key={goal.id}>
-              {/* Reworded in place, because the option is a row and the answers
-                  point at the row. A ministry that decides *Career* should read
-                  *Career and calling* has not asked anybody a new question, and
-                  nobody who chose it loses anything. */}
-              <td>
-                <form method="post" action="/intake-forms/goals/rename">
-                  <input type="hidden" name="goalId" value={goal.id} />
-                  <label className="visually-hidden" htmlFor={`label-${goal.id}`}>Wording</label>
-                  <input
-                    id={`label-${goal.id}`}
-                    name="label"
-                    type="text"
-                    defaultValue={goal.label}
-                    required
-                    style={{ width: 'auto', minWidth: '14rem', marginRight: '0.5rem' }}
-                  />
-                  <button type="submit" className="sec small">Save wording</button>
-                </form>
-              </td>
-              <td>{chosenByLabel(goal.chosenBy)}</td>
-              {/* Up and down rather than a drag, so the ordering works before
-                  JavaScript has loaded — and the ends offer nothing to press,
-                  because the top option cannot go higher. */}
-              <td>
-                {index > 0 ? (
-                  <form method="post" action="/intake-forms/goals/move">
-                    <input type="hidden" name="goalId" value={goal.id} />
-                    <input type="hidden" name="direction" value="up" />
-                    <button type="submit" className="sec small">{`Move “${goal.label}” up`}</button>
-                  </form>
-                ) : null}
-                {index < goals.length - 1 ? (
-                  <form method="post" action="/intake-forms/goals/move">
-                    <input type="hidden" name="goalId" value={goal.id} />
-                    <input type="hidden" name="direction" value="down" />
-                    <button type="submit" className="sec small">{`Move “${goal.label}” down`}</button>
-                  </form>
-                ) : null}
-              </td>
-              {/* A link and not a form. Pressing it removes nothing: it reloads
-                  this page with the warning open on this option, and the only
-                  control that removes is inside that warning. */}
-              <td>
-                {goals.length > 1 ? (
-                  <Link className="btn sec small danger" href={`/intake-forms?removing=${goal.id}#goals`}>
-                    Remove
-                  </Link>
-                ) : (
-                  // The last option is not offered for removal at all, and the
-                  // reason is said rather than left to a control that does
-                  // nothing. The boundary and the database refuse it too.
-                  <span className="muted">
-                    The only option left — Intake could not be served without it
-                  </span>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <p className="subtle">
+      Drag an option by its handle to change the order people see it in. The cross
+      removes an option, after a warning about who has chosen it.
+    </p>
+
+    {/* Not a table: a row is one option and its three controls, and the drag
+        needs the rows to be the things that move. The list is outside every
+        form on it, because a form cannot hold another. */}
+    <ol className="goal-list" data-goal-list>
+      {goals.map((goal, index) => (
+        <li key={goal.id} className="goal-row" data-goal-id={goal.id}>
+          {/* A link and not a form. Pressing it removes nothing: it reloads this
+              page with the warning open on this option, and the only control
+              that removes is inside that warning. The last option is not offered
+              for removal at all; the boundary and the database refuse it too. */}
+          {goals.length > 1 ? (
+            <Link
+              className="goal-x"
+              href={`/intake-forms?removing=${goal.id}#goals`}
+              aria-label={`Remove “${goal.label}”`}
+              title={`Remove “${goal.label}”`}
+            >
+              ×
+            </Link>
+          ) : (
+            <span
+              className="goal-x last"
+              title="The only option left — Intake could not be served without it"
+              aria-hidden="true"
+            >
+              ×
+            </span>
+          )}
+
+          {/* Reworded in place, because the option is a row and the answers
+              point at the row. A ministry that decides *Career* should read
+              *Career and calling* has not asked anybody a new question, and
+              nobody who chose it loses anything. */}
+          <form method="post" action="/intake-forms/goals/rename" className="goal-wording">
+            <input type="hidden" name="goalId" value={goal.id} />
+            <label className="visually-hidden" htmlFor={`label-${goal.id}`}>Wording</label>
+            <input id={`label-${goal.id}`} name="label" type="text" defaultValue={goal.label} required />
+            <button type="submit" className="sec small">Save wording</button>
+          </form>
+
+          <span className="goal-chosen muted">{chosenByLabel(goal.chosenBy)}</span>
+
+          {/* Up and down, for a page whose script has not run. The script hides
+              these and shows the handle instead; the ends offer nothing to press,
+              because the top option cannot go higher. */}
+          <span className="goal-move">
+            {index > 0 ? (
+              <form method="post" action="/intake-forms/goals/move">
+                <input type="hidden" name="goalId" value={goal.id} />
+                <input type="hidden" name="direction" value="up" />
+                <button type="submit" className="sec small">{`Move “${goal.label}” up`}</button>
+              </form>
+            ) : null}
+            {index < goals.length - 1 ? (
+              <form method="post" action="/intake-forms/goals/move">
+                <input type="hidden" name="goalId" value={goal.id} />
+                <input type="hidden" name="direction" value="down" />
+                <button type="submit" className="sec small">{`Move “${goal.label}” down`}</button>
+              </form>
+            ) : null}
+          </span>
+
+          {/* The handle. A button so it can take focus: the arrow keys move the
+              row and Enter posts the order, for whoever is not holding a mouse. */}
+          <button
+            type="button"
+            className="goal-handle"
+            aria-label={`Drag “${goal.label}” to change its place. Arrow keys move it; Enter saves the order.`}
+            title="Drag to reorder"
+          >
+            ⋮⋮
+          </button>
+        </li>
+      ))}
+    </ol>
+
+    {/* The order, posted whole. Filled in by the script when a drag ends; empty
+        and hidden otherwise. */}
+    <form method="post" action="/intake-forms/goals/reorder" id="goal-order" className="goal-order" hidden />
+    <script dangerouslySetInnerHTML={{ __html: DRAG_TO_REORDER }} />
 
     {removing ? (
       <div role="alert" className="notice" style={{ marginTop: '1.25rem' }}>
@@ -141,7 +156,7 @@ export const GoalsCard = ({
     ) : null}
 
     <h3>Add an option</h3>
-    <p className="subtle">It goes to the bottom of the list, where you can move it up.</p>
+    <p className="subtle">It goes to the bottom of the list, where you can drag it up.</p>
     <form method="post" action="/intake-forms/goals/add">
       <div className="field">
         <label className="label" htmlFor="label">Wording</label>
@@ -151,3 +166,75 @@ export const GoalsCard = ({
     </form>
   </div>
 )
+
+/**
+ * The drag, and nothing else: the rows are the list, the handle starts a drag,
+ * a row being dragged over moves aside, and letting go posts the whole order.
+ * The same order is posted when Enter is pressed on a handle that the arrow
+ * keys have moved. Nothing is posted when the row lands where it started.
+ *
+ * Plain script rather than a client component, because the card is rendered on
+ * the server and this is the only thing on the page that needs a browser.
+ */
+const DRAG_TO_REORDER = `
+(() => {
+  const list = document.querySelector('[data-goal-list]');
+  const form = document.getElementById('goal-order');
+  if (!list || !form) return;
+  list.classList.add('js');
+  const rows = () => Array.from(list.querySelectorAll('.goal-row'));
+  const order = () => rows().map((row) => row.dataset.goalId).join(',');
+  const before = order();
+  const post = () => {
+    if (order() === before) return;
+    form.querySelectorAll('input').forEach((input) => input.remove());
+    for (const row of rows()) {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'order';
+      input.value = row.dataset.goalId;
+      form.appendChild(input);
+    }
+    form.submit();
+  };
+  let dragging = null;
+  for (const row of rows()) {
+    const handle = row.querySelector('.goal-handle');
+    handle.addEventListener('pointerdown', () => { row.draggable = true; });
+    handle.addEventListener('pointerup', () => { row.draggable = false; });
+    row.addEventListener('dragstart', (event) => {
+      dragging = row;
+      row.classList.add('dragging');
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', row.dataset.goalId);
+    });
+    row.addEventListener('dragover', (event) => {
+      if (!dragging || dragging === row) return;
+      event.preventDefault();
+      const box = row.getBoundingClientRect();
+      const below = event.clientY > box.top + box.height / 2;
+      list.insertBefore(dragging, below ? row.nextSibling : row);
+    });
+    row.addEventListener('dragend', () => {
+      row.classList.remove('dragging');
+      row.draggable = false;
+      dragging = null;
+      post();
+    });
+    handle.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowUp' && row.previousElementSibling) {
+        event.preventDefault();
+        list.insertBefore(row, row.previousElementSibling);
+        handle.focus();
+      } else if (event.key === 'ArrowDown' && row.nextElementSibling) {
+        event.preventDefault();
+        list.insertBefore(row.nextElementSibling, row);
+        handle.focus();
+      } else if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        post();
+      }
+    });
+  }
+})();
+`

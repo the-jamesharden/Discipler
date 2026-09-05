@@ -146,6 +146,50 @@ export const orderAfterMoving = (
   return moved.map((option) => option.id)
 }
 
+/** The ids in the order the list is shown, which every reordering starts from. */
+const asShown = (goals: readonly OfferedGoal[]): readonly DiscipleshipGoalId[] =>
+  [...goals].sort((one, other) => one.position - other.position).map((option) => option.id)
+
+/**
+ * Whether an order an Admin dragged names this list and nothing else: every
+ * option the Ministry offers, once each, and no option it does not.
+ *
+ * Anything else is a page that no longer matches the list -- somebody added or
+ * removed an option in another tab since it was drawn -- and applying it would
+ * silently drop or invent positions. That is `goal.list_changed`, refused by the
+ * caller, which is a different thing to say to an Admin than *not found*.
+ */
+export const namesTheWholeList = (
+  goals: readonly OfferedGoal[],
+  order: readonly DiscipleshipGoalId[],
+): boolean => {
+  const offered = new Set(goals.map((option) => option.id))
+  return (
+    order.length === offered.size
+    && new Set(order).size === order.length
+    && order.every((id) => offered.has(id))
+  )
+}
+
+/**
+ * The whole list in the order an Admin dragged it into, or null where nothing
+ * moved: the order handed over is the order already shown.
+ *
+ * The whole order rather than a diff, for the same reason `orderAfterMoving`
+ * rewrites every position: it is the list the Admin let go of, and writing it all
+ * keeps a drifted list contiguous. Null means *the list is already like that*,
+ * which is not a refusal. The caller checks `namesTheWholeList` first; this
+ * function trusts it.
+ */
+export const orderAfterDragging = (
+  goals: readonly OfferedGoal[],
+  order: readonly DiscipleshipGoalId[],
+): readonly DiscipleshipGoalId[] | null => {
+  const shown = asShown(goals)
+  if (order.every((id, index) => id === shown[index])) return null
+  return [...order]
+}
+
 /**
  * One submission that pointed at an option, as it stood before the removal blanked
  * it.
