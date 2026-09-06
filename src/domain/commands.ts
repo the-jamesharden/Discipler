@@ -472,16 +472,26 @@ export type Command =
       readonly label: string
     }
   /**
-   * One option, one place along the list. Up and down rather than a whole order,
-   * because that is the control an Admin presses and the list it produces is the
-   * boundary's to work out -- a surface that computed the new order would be
-   * deciding a Ministry's own ordering on its behalf.
+   * One option, one place along the list. Up and down is what the page offers
+   * before its script has loaded, and the list it produces is the boundary's to
+   * work out from the press.
    */
   | {
       readonly type: 'goal.move'
       readonly ministryId: MinistryId
       readonly goalId: DiscipleshipGoalId
       readonly direction: GoalDirection
+    }
+  /**
+   * The whole list, in the order an Admin dragged it into (ticket 34). The whole
+   * order and not a move, because a drag can land an option anywhere and the
+   * order is the Admin's own act -- the page transmits it, it does not compute
+   * it. The boundary checks it is this list and nothing else before writing it.
+   */
+  | {
+      readonly type: 'goal.reorder'
+      readonly ministryId: MinistryId
+      readonly order: readonly DiscipleshipGoalId[]
     }
   /**
    * The one edit that costs somebody something. Every Person whose current answer

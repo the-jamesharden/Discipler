@@ -322,6 +322,66 @@ describe('moving a Discipleship Goal option', () => {
   })
 })
 
+describe('dragging a Discipleship Goal option to a new place', () => {
+  it('gives back the whole list in the order it was dragged into', () => {
+    const { effects } = edit({
+      type: 'goal.reorder',
+      ministryId: ministry,
+      order: [marriage, basics, career],
+    })
+
+    expect(reordered(effects)).toEqual([
+      { ministryId: ministry, order: [marriage, basics, career] },
+    ])
+  })
+
+  it('does nothing at all when the option was let go where it was picked up', () => {
+    const { effects } = edit({
+      type: 'goal.reorder',
+      ministryId: ministry,
+      order: [basics, career, marriage],
+    })
+
+    expect(effects).toEqual([])
+  })
+
+  it('records both orders, because the one overwritten is what nothing else keeps', () => {
+    const { effects } = edit({
+      type: 'goal.reorder',
+      ministryId: ministry,
+      order: [career, marriage, basics],
+    })
+
+    expect(history(effects)).toEqual([
+      {
+        ministryId: ministry,
+        occurredAt: at,
+        type: 'discipleship_goal.reordered',
+        subjectType: 'ministry',
+        subjectId: ministry,
+        payload: { from: [basics, career, marriage], to: [career, marriage, basics] },
+      },
+    ])
+  })
+
+  it('refuses an order that is not this list, however it differs', () => {
+    const stranger = discipleshipGoalId('00000000-0000-4000-8000-0000000000ff')
+
+    // One missing, one repeated, and one this Ministry does not offer: a page
+    // drawn before somebody else edited the list, in each of the ways it can be.
+    for (const order of [
+      [basics, career],
+      [basics, career, career],
+      [basics, career, marriage, stranger],
+      [basics, career, stranger],
+    ]) {
+      expect(() => edit({ type: 'goal.reorder', ministryId: ministry, order })).toThrow(
+        new GoalRefused('goal.list_changed'),
+      )
+    }
+  })
+})
+
 describe('removing a Discipleship Goal option', () => {
   it('carries what it cost, because nothing else will be able to say', () => {
     const { effects } = edit({ type: 'goal.remove', ministryId: ministry, goalId: marriage })

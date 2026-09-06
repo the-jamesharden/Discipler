@@ -109,6 +109,14 @@ export const nextPosition = (goals: readonly OfferedGoal[]): number =>
   goals.reduce((highest, goal) => Math.max(highest, goal.position), 0) + 1
 
 /**
+ * The ids in the order the list is shown: by position, which is the one order the
+ * Ministry has. Every reordering starts from it and every record of one names it,
+ * so it is said here once.
+ */
+export const asShown = (goals: readonly OfferedGoal[]): readonly DiscipleshipGoalId[] =>
+  [...goals].sort((one, other) => one.position - other.position).map((option) => option.id)
+
+/**
  * The whole list in the order it will be shown after one option moves one place,
  * or null where nothing moves: the first option asked upwards, or the last asked
  * downwards.
@@ -130,8 +138,8 @@ export const orderAfterMoving = (
   goal: OfferedGoal,
   direction: GoalDirection,
 ): readonly DiscipleshipGoalId[] | null => {
-  const shown = [...goals].sort((one, other) => one.position - other.position)
-  const from = shown.findIndex((option) => option.id === goal.id)
+  const shown = asShown(goals)
+  const from = shown.indexOf(goal.id)
   if (from < 0) {
     throw new Error(`Discipleship Goal ${goal.id} is not on the list it is being moved in`)
   }
@@ -143,7 +151,47 @@ export const orderAfterMoving = (
   const [option] = moved.splice(from, 1)
   moved.splice(to, 0, option!)
 
-  return moved.map((option) => option.id)
+  return moved
+}
+
+/**
+ * Whether an order an Admin dragged names this list and nothing else: every
+ * option the Ministry offers, once each, and no option it does not.
+ *
+ * Anything else is a page that no longer matches the list -- somebody added or
+ * removed an option in another tab since it was drawn -- and applying it would
+ * silently drop or invent positions. That is `goal.list_changed`, refused by the
+ * caller, which is a different thing to say to an Admin than *not found*.
+ */
+export const namesTheWholeList = (
+  goals: readonly OfferedGoal[],
+  order: readonly DiscipleshipGoalId[],
+): boolean => {
+  const offered = new Set(goals.map((option) => option.id))
+  return (
+    order.length === offered.size
+    && new Set(order).size === order.length
+    && order.every((id) => offered.has(id))
+  )
+}
+
+/**
+ * The whole list in the order an Admin dragged it into, or null where nothing
+ * moved: the order handed over is the order already shown.
+ *
+ * The whole order rather than a diff, for the same reason `orderAfterMoving`
+ * rewrites every position: it is the list the Admin let go of, and writing it all
+ * keeps a drifted list contiguous. Null means *the list is already like that*,
+ * which is not a refusal. The caller checks `namesTheWholeList` first; this
+ * function trusts it.
+ */
+export const orderAfterDragging = (
+  goals: readonly OfferedGoal[],
+  order: readonly DiscipleshipGoalId[],
+): readonly DiscipleshipGoalId[] | null => {
+  const shown = asShown(goals)
+  if (order.every((id, index) => id === shown[index])) return null
+  return [...order]
 }
 
 /**

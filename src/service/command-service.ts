@@ -421,7 +421,13 @@ const named = async (unit: UnitOfWork, command: AboutOneRelationship) => {
  * Named once and read both ways: the type the guard narrows to is derived from
  * this list, so a fifth edit cannot be added to one and forgotten in the other.
  */
-const GOAL_LIST_EDITS = ['goal.add', 'goal.rename', 'goal.move', 'goal.remove'] as const
+const GOAL_LIST_EDITS = [
+  'goal.add',
+  'goal.rename',
+  'goal.move',
+  'goal.reorder',
+  'goal.remove',
+] as const
 
 const editsTheGoalList = (
   command: Command,

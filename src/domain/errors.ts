@@ -478,6 +478,8 @@ export type GoalRefusal =
   | 'goal.already_offered'
   /** It is the only option left, and Intake could not then be served. */
   | 'goal.last_one'
+  /** The dragged order names a different list than this Ministry offers now. */
+  | 'goal.list_changed'
 
 export class GoalRefused extends Error {
   constructor(readonly refusal: GoalRefusal) {

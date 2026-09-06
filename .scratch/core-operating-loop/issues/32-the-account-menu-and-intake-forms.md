@@ -10,7 +10,7 @@ Two are about the signed-in person.
 
 **Blocked by:** nothing.
 
-**Status:** claimed
+**Status:** shipped
 
 ## Decisions, taken in the Lavish review of 2026-09-03 (`.lavish/header-links.html`)
 
@@ -29,3 +29,8 @@ Two are about the signed-in person.
 - `app/roster/page.tsx`: the link, group and waiting cards and their reads gone; the import is a popup; the empty state points at Intake forms.
 - `public/discipler.css`: the menu.
 - Tests that read the links off the Roster now read them off Intake forms, and one new file covers the menu.
+
+## Comments
+
+Shipped in PR #2 on 2026-09-04.
+Decision 4 is superseded by ticket 34: Discipleship Goals is no longer a page reached from Ministry Settings but the goals question card on Intake forms.

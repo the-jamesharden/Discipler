@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { AGE_BANDS } from '~/domain/intake'
 import {
@@ -73,12 +72,7 @@ export default async function MinistrySettingsPage({
       title="Ministry Settings"
       subtitle={settings.name}
       back={{ href: '/overview', label: 'Back to the overview' }}
-      actions={
-        <>
-          <Link href="/settings/goals">Discipleship Goals</Link>
-          <AccountMenu ministry />
-        </>
-      }
+      actions={<AccountMenu ministry />}
     >
       {refusals.length > 0 ? (
         <p className="toast error" role="alert">
