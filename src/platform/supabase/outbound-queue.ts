@@ -46,6 +46,17 @@ export const createPostgresOutboundQueue = (
   const pool = new pg.Pool({ connectionString })
 
   /**
+   * Where a drain's lock is held, and nothing else. Its own pool of one, so the
+   * connections a drain works through are never the ones its waiters hold: with
+   * one pool, enough replies arriving together could hold every connection
+   * waiting for a lock whose holder then cannot borrow one to finish with, and
+   * nothing would ever free anything. A second waiter in this process queues here
+   * for the connection; a waiter in another process queues in Postgres for the
+   * lock. Both wait behind a few vendor calls at most.
+   */
+  const drainLocks = new pg.Pool({ connectionString, max: 1 })
+
+  /**
    * Ministry isolation is enforced by the database, and enforcement needs the
    * connection to say who it is acting for. Without this the sending layer would
    * read and write as the owner role, outside every policy -- the one place in
@@ -86,6 +97,46 @@ export const createPostgresOutboundQueue = (
   }
 
   return {
+    async whileDraining<T>(ministryId: MinistryId, drain: () => Promise<T>): Promise<T> {
+      // A session-level advisory lock on one connection held for the whole drain,
+      // and not a transaction-level one: `dispatchQueue` deliberately holds no
+      // transaction open across the vendor's round trip, so a lock scoped to any of
+      // its transactions would be gone before the send. The connection is the
+      // lock's lifetime -- a worker killed mid-drain drops its connection and the
+      // lock with it, so nothing stays held by a process that no longer exists.
+      //
+      // Blocking rather than `try`. A drain that found the lock taken and skipped
+      // would leave the message it came for to the next pass on the hour, which is
+      // exactly the wait a reply's drain exists to remove; the drain it waits behind
+      // is a few vendor calls long.
+      const holder = await drainLocks.connect()
+      let locked = false
+      let connectionIsSuspect: Error | undefined
+
+      try {
+        await holder.query(
+          `select pg_advisory_lock(hashtext('outbound_drain'), hashtext($1))`,
+          [ministryId],
+        )
+        locked = true
+        return await drain()
+      } finally {
+        if (locked) {
+          try {
+            await holder.query(
+              `select pg_advisory_unlock(hashtext('outbound_drain'), hashtext($1))`,
+              [ministryId],
+            )
+          } catch (error) {
+            // A connection that cannot unlock is one the pool must not hand out
+            // again; dropping it is what releases the lock.
+            connectionIsSuspect = error instanceof Error ? error : new Error(String(error))
+          }
+        }
+        holder.release(connectionIsSuspect)
+      }
+    },
+
     async due(ministryId: MinistryId) {
       return inMinistry(ministryId, async (client) => {
         const { rows } = await client.query<{
@@ -314,6 +365,9 @@ export const createPostgresOutboundQueue = (
       )
     },
 
-    close: () => pool.end(),
+    close: async () => {
+      await drainLocks.end()
+      await pool.end()
+    },
   }
 }

@@ -136,6 +136,53 @@ describe.skipIf(skipUnlessAppIsRunning)('the inbound webhook', () => {
     )
   })
 
+  it('sends what the reply produced the moment it is acknowledged, not on the hour', async () => {
+    const leader = await congregant('Miriam Oduya')
+    const participant = await congregant('Seth Barlow')
+    await pairOneToOne(ministry, leader.id, participant.id, {
+      createdAt: new Date('2026-04-01T09:00:00Z'),
+    })
+
+    await createCommandService({
+      clock: createTestClock(new Date()),
+      ids: { next: () => crypto.randomUUID() },
+      store,
+      appBaseUrl: baseUrl,
+    }).execute({ type: 'checkin.start', ministryId: ministry.id, personId: leader.id })
+
+    // The drain is what sends, and the running app has no vendor account to send
+    // through, so a message that reaches Twilio is not what this looks for. A
+    // message with nobody to send it to is withheld by the drain before the vendor
+    // is asked -- and that withholding is only ever written by a drain, so a row
+    // stamped after the reply is the proof the webhook ran one.
+    const { rows } = await pool.query<{ id: string }>(
+      `insert into outbound_message
+         (ministry_id, person_id, to_phone, body, enqueued_at, message_kind)
+       values ($1, null, null, 'ABC Church: a message with nobody to send it to', now(), 'no_reply')
+       returning id`,
+      [ministry.id],
+    )
+    const stray = rows[0]!.id
+
+    expect((await texts(leader.phone, '2')).status).toBe(200)
+
+    // After the acknowledgement rather than before it: the response is what tells
+    // the vendor the text was received, and the send is its own round trip.
+    const withheldReason = async (): Promise<string | null> => {
+      for (let attempt = 0; attempt < 500; attempt++) {
+        const { rows } = await pool.query<{ withheld_reason: string | null }>(
+          `select withheld_reason from outbound_message where id = $1`,
+          [stray],
+        )
+        if (rows[0]?.withheld_reason) return rows[0].withheld_reason
+        await new Promise((resolve) => setTimeout(resolve, 10))
+      }
+      return null
+    }
+
+    expect(await withheldReason()).toBe('recipient_has_no_phone')
+  })
+
   it('opts a Person out on STOP', async () => {
     const leader = await congregant('Rob Tiller')
 

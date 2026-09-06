@@ -64,7 +64,19 @@ export class NoSendingNumber extends Error {
   }
 }
 
-export const dispatchQueue = async ({
+/**
+ * One drain, alone. Two callers reach this -- the scheduler after its tick, and
+ * the webhook after a reply -- and they meet on an ordinary Monday evening: a
+ * Leader replying in the same second the hour turns, or two Leaders replying in
+ * the same second as each other. The queue lets one of them through at a time,
+ * because the per-row lock in `claim` is held for the claim and not for the
+ * vendor's round trip, and a second drain listing the queue in that gap sends the
+ * same text twice. See ADR 0020.
+ */
+export const dispatchQueue = (dispatch: Dispatch): Promise<DispatchOutcome> =>
+  dispatch.queue.whileDraining(dispatch.ministryId, () => drainOnce(dispatch))
+
+const drainOnce = async ({
   queue,
   transport,
   clock,

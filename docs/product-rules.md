@@ -869,6 +869,22 @@ This once carried a second consequence — that a held message consumes no nudge
 — which no longer says anything, because there is no nudge budget for it to spend. A
 hold delays a check-in and nothing else.
 
+## Settled: A Reply Is Answered at Once, and One Drain Runs per Ministry
+
+Everything a reply produces is enqueued by the command that read it and sent by
+nothing but a drain of the queue.
+Until ticket 35 the only drain was the scheduler's, so the next question, the closing
+thank-you and a keyword's menu each left at the top of the following hour.
+The webhook now drains the Ministry's queue after it has acknowledged the text, and
+the conversation goes on in seconds.
+
+Two drains of one Ministry never overlap.
+The row lock the worker takes is held for the claim and not for the vendor's round
+trip, so a second drain listing the queue in that gap sent the same text twice.
+Drains are serialised per Ministry, blocking rather than skipping, so the message a
+reply's drain came for is never left to the next pass on the hour.
+See `docs/adr/0020-one-drain-per-ministry-at-a-time.md`.
+
 ## Settled: The Sign-In Credential Is a Phone Number and a Password
 
 One sign-in form, phone number and password, for every user including Admins. Email is

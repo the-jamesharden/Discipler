@@ -179,6 +179,43 @@ describe('The sending layer checks every recipient', () => {
     expect(sent.filter((message) => message.to === '+15553330003')).toHaveLength(1)
   })
 
+  it('sends each message once when two drains run at the same moment', async () => {
+    // The webhook drains the moment a reply arrives and the scheduler drains on the
+    // hour, so two drains of one Ministry meeting is an ordinary Monday evening --
+    // two Leaders replying in the same second is enough. The row lock alone does
+    // not keep them apart: it is held for the claim and not for the vendor's round
+    // trip, and a second drain that lists the queue in that gap finds a row that is
+    // neither sent nor withheld and sends it again.
+    const person = await intake({ fullName: 'Ada Nwosu', phone: '5553330011' })
+
+    // A vendor that takes long enough for the second drain to look. `sent` still
+    // records what left, so a double send is a second row with the same number.
+    const slow: MessageTransport = {
+      async deliver(from, to, body) {
+        await new Promise((resolve) => setTimeout(resolve, 150))
+        sent.push({ from, to, body })
+      },
+    }
+    const drain = () =>
+      dispatchQueue({ queue, transport: slow, clock, ministryId: ministry.id })
+
+    // The second drain starts while the first is at the vendor, which is the
+    // interleaving the row lock cannot see: the claim has committed and the send
+    // has not been recorded.
+    const later = new Promise<void>((resolve) => setTimeout(resolve, 50))
+    const [first, second] = await Promise.all([drain(), later.then(drain)])
+
+    expect(sent.filter((message) => message.to === '+15553330011')).toHaveLength(1)
+    expect(first.sent + second.sent).toBe(1)
+
+    const { rows } = await pool.query(
+      `select sent_at from outbound_message where person_id = $1`,
+      [person],
+    )
+    expect(rows).toHaveLength(1)
+    expect(rows[0].sent_at).not.toBeNull()
+  })
+
   it('withholds a number the Person never agreed to share, and sends the rest', async () => {
     const shy = await intake({
       fullName: 'Ruth Adeyemi',

@@ -1,6 +1,6 @@
 import type { RandomSource } from '~/domain/accounts'
 import { systemClock } from '~/domain/clock'
-import type { IdSource } from '~/domain/ids'
+import type { IdSource, MinistryId } from '~/domain/ids'
 import { appBaseUrl, commandDatabaseUrl } from '~/platform/supabase/credentials'
 import {
   createPostgresEffectStore,
@@ -38,6 +38,7 @@ import { createTwilioTransport } from '~/platform/twilio/message-transport'
 import { supabaseAccounts } from '~/platform/supabase/accounts'
 import { supabaseRosterReader } from '~/platform/supabase/roster-reader'
 import { createCommandService, type CommandService } from './command-service'
+import { dispatchQueue, type DispatchOutcome } from './outbound-dispatch'
 import type {
   Accounts,
   CareNeededReader,
@@ -187,6 +188,22 @@ export const getMessageTransport = (): MessageTransport => {
   if (!messageTransport) messageTransport = createTwilioTransport()
   return messageTransport
 }
+
+/**
+ * One drain of one Ministry's queue, assembled from the parts above so that its two
+ * callers cannot assemble it differently. The scheduler drains after its tick, and
+ * the webhook drains after a reply: everything a reply produces -- the next
+ * question, the closing thank-you, a keyword's menu -- is enqueued by the command
+ * and sent by nothing but a drain, so a webhook that only enqueued left a Leader
+ * waiting for the next pass on the hour to be asked the next question.
+ */
+export const drainOutboundQueue = (ministryId: MinistryId): Promise<DispatchOutcome> =>
+  dispatchQueue({
+    queue: getOutboundQueue(),
+    transport: getMessageTransport(),
+    clock: systemClock,
+    ministryId,
+  })
 
 /**
  * Which Ministries the scheduler has to run for. The one unscoped read in the app,
