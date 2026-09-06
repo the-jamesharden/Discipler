@@ -1,13 +1,11 @@
 import { timingSafeEqual } from 'node:crypto'
 import { NextResponse, type NextRequest } from 'next/server'
 import type { MinistryId } from '~/domain/ids'
-import { systemClock } from '~/domain/clock'
-import { dispatchQueue, NoSendingNumber } from '~/service/outbound-dispatch'
+import { NoSendingNumber } from '~/service/outbound-dispatch'
 import {
+  drainOutboundQueue,
   getCommandService,
-  getMessageTransport,
   getMinistryDirectory,
-  getOutboundQueue,
 } from '~/service/container'
 
 /**
@@ -79,12 +77,7 @@ const runOneMinistry = async (ministryId: MinistryId): Promise<MinistryOutcome> 
     // one of them sitting until the next pass an hour later.
     await getCommandService().execute({ type: 'scheduled.tick', ministryId })
 
-    const outcome = await dispatchQueue({
-      queue: getOutboundQueue(),
-      transport: getMessageTransport(),
-      clock: systemClock,
-      ministryId,
-    })
+    const outcome = await drainOutboundQueue(ministryId)
 
     return { ministryId, ...outcome, error: null }
   } catch (error) {

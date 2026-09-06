@@ -990,6 +990,20 @@ export interface ContactDetails {
  * be asking the database to answer across all of them.
  */
 export interface OutboundQueue {
+  /**
+   * Runs `drain` as the only drain of this Ministry: a second caller waits for the
+   * first to finish and then runs. Two callers exist -- the scheduler on the hour,
+   * and the webhook the moment a reply arrives -- and the row lock inside `claim`
+   * keeps them off one row only for as long as the claim's own transaction. The
+   * vendor is called after that commits, so a drain that lists the queue during
+   * the round trip finds a row neither sent nor withheld and sends it again. What
+   * keeps a congregant from two copies of one text is that two drains of one
+   * Ministry never overlap at all. See ADR 0020.
+   *
+   * Per Ministry and not global, for the reason every other method here names the
+   * Ministry: one congregation's slow vendor call must not hold another's replies.
+   */
+  whileDraining<T>(ministryId: MinistryId, drain: () => Promise<T>): Promise<T>
   /** Everything enqueued for this Ministry and neither sent nor withheld. */
   due(ministryId: MinistryId): Promise<readonly QueuedMessage[]>
   /**
