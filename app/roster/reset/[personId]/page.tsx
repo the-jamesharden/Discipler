@@ -69,7 +69,7 @@ export default async function ResetPasswordPage({
       <PageShell
         title="Reset a password"
         subtitle={admin.ministryName}
-        back={{ href: '/roster', label: 'Back to the Roster' }}
+        back={{ href: `/roster/${personId}`, label: 'Back to their page' }}
         actions={<AccountMenu ministry />}
       >
         <div className="card">
@@ -106,7 +106,7 @@ export default async function ResetPasswordPage({
     <PageShell
       title={resetHeading(target.fullName)}
       subtitle={admin.ministryName}
-      back={{ href: '/roster', label: 'Back to the Roster' }}
+      back={{ href: `/roster/${target.personId}`, label: 'Back to their page' }}
       actions={<AccountMenu ministry />}
     >
       <div className="card">
@@ -120,7 +120,7 @@ export default async function ResetPasswordPage({
               hidden field on a screen only this Admin is looking at. */}
           <input type="hidden" name="password" value={candidate} />
           <div className="form-actions">
-            <Link className="btn sec" href="/roster">
+            <Link className="btn sec" href={`/roster/${target.personId}`}>
               Cancel
             </Link>
             <button type="submit">{RESET_ACTION}</button>

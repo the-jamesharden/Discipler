@@ -53,8 +53,8 @@ export async function POST(request: NextRequest) {
   // accepted while they were clicking.
   const sent = effects.some((effect) => effect.kind === 'message.enqueue')
 
-  return NextResponse.redirect(
-    new URL(sent ? `/roster?${new URLSearchParams({ reinvited: person })}` : '/roster', request.url),
-    { status: 303 },
-  )
+  const page = `/roster/${encodeURIComponent(person)}`
+  return NextResponse.redirect(new URL(sent ? `${page}?reinvited=1` : page, request.url), {
+    status: 303,
+  })
 }

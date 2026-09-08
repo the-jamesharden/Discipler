@@ -1,12 +1,8 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { CHANGE_YOUR_PASSWORD } from '../account/copy'
 import { AdminShell, initialsOf, NotAnAdmin } from '../shell'
 import { resolveAdmin } from '~/platform/supabase/current-admin'
 import { getRosterReader } from '~/service/container'
-import { personId } from '~/domain/ids'
-import { intakeReopenLink } from '~/domain/outbound-copy'
-import { appBaseUrl } from '~/platform/supabase/credentials'
 import {
   AWAITING_LEADER_ACCEPTANCE,
   HELD_ROWS_EXPLANATION,
@@ -19,7 +15,6 @@ import {
   participationStatusLabel,
   peopleCount,
   relationshipSizeLabel,
-  RESET_PASSWORD,
   rosterRoleLabel,
   rowProblemMessage,
   samePersonAnswer,
@@ -41,10 +36,6 @@ export default async function RosterPage({
     hidden?: string
     error?: string
     paired?: string
-    /** The Person whose Intake link was just issued, so this page shows that one. */
-    intakeLinkFor?: string
-    /** The Leader who was just sent their Invitation Link again. */
-    reinvited?: string
     /** Why an answer to a held import row could not be applied. A code, never prose. */
     rowError?: string
   }>
@@ -65,37 +56,12 @@ export default async function RosterPage({
   const held = await getRosterReader().heldImportRows(admin.ministryId)
   const query = await searchParams
 
-  // One Person's link, and only when an Admin has just asked for theirs. Reading
-  // every row's token would put a page full of credentials on screen, nearly all of
-  // them for rows nobody is acting on -- and the query string carries the Person,
-  // never the token, so the credential stays out of browser history and server logs.
-  const askedAbout = query.intakeLinkFor
-  const issuedFor =
-    askedAbout && roster.some((person) => person.personId === askedAbout)
-      ? personId(askedAbout)
-      : null
-  const issued = issuedFor
-    ? await getRosterReader().liveIntakeLink(admin.ministryId, issuedFor)
-    : null
-  const issuedLink = issued
-    ? { url: intakeReopenLink(appBaseUrl(), issued.token), expiresAt: issued.expiresAt }
-    : null
-
   const report = decodeImportReport(query)
   const failure = importFailureMessage(query.error)
   const rowFailure = importRowRefusalMessage(query.rowError)
   // How many Participants the relationship just created has, so the confirmation can
   // say what landed. Read as a count and never echoed as text.
   const paired = Number.parseInt(query.paired ?? '', 10)
-
-  // Looked up on the Roster rather than echoed, like every other name this page
-  // says: what arrives in the query string is whatever somebody typed there.
-  //
-  // Whether anything was *sent* is not decided here and cannot be -- every no-op
-  // path leaves the Leader on the Roster under their own name, so this lookup
-  // cannot tell a text that went out from one that did not. The route only
-  // redirects with `reinvited` when a message was actually enqueued.
-  const reinvited = roster.find((person) => person.personId === query.reinvited)?.fullName ?? null
 
 
   return (
@@ -156,10 +122,6 @@ export default async function RosterPage({
               ? 'A relationship was created. Its leader has been invited, and nobody else has been contacted yet.'
               : `A relationship with ${paired} participants was created. Its leader has been invited, and nobody else has been contacted yet.`}
           </p>
-        ) : null}
-
-        {reinvited ? (
-          <p className="toast" role="status">{`A new invitation has been sent to ${reinvited}.`}</p>
         ) : null}
 
         {/* What the last upload did, here rather than in the popup that started it:
@@ -236,17 +198,16 @@ export default async function RosterPage({
                 <tbody>
                   {roster.map((person) => (
                     <tr key={person.personId}>
-                      {/* No contact details anywhere on this table, by design: a
-                          number is reached one Person at a time through the
-                          consent check, and never listed (ADR-0010). The initials
-                          are derived from the name. */}
+                      {/* The name opens the Person's own page. The initials are
+                          derived from the name. Contact details follow in the
+                          rebuild of this table (ticket 36, ADR-0021). */}
                       <td>
                         <div className="person">
                           <span className="avatar" aria-hidden="true">
                             {initialsOf(person.fullName)}
                           </span>
-                          <span data-testid="roster-name">
-                            {person.fullName}
+                          <span>
+                            <Link href={`/roster/${person.personId}`} data-testid="roster-name">{person.fullName}</Link>
                             {/* What the Person said about themselves, immediately
                                 beside what an Admin decided about them. The two
                                 are constantly confused and must not be: this one
@@ -294,25 +255,6 @@ export default async function RosterPage({
                                 <span className="pill n">
                                   {relationshipSizeLabel(relationship.withNames.length + 1)}
                                 </span>
-                                {/* Offered on the state and the role together, never
-                                    on either alone. A Participant is sent no link at
-                                    all (ADR-0011), so on their row there is nothing
-                                    to send again -- and on an accepted relationship
-                                    there is nobody left to ask. */}
-                                {relationship.awaitingAcceptance
-                                && relationship.role === 'leader' ? (
-                                  <form action="/roster/reinvite" method="post">
-                                    <input
-                                      type="hidden"
-                                      name="relationshipId"
-                                      value={relationship.relationshipId}
-                                    />
-                                    <input type="hidden" name="personId" value={person.personId} />
-                                    <button type="submit" className="sec small">
-                                      Send a new invitation
-                                    </button>
-                                  </form>
-                                ) : null}
                               </li>
                             ))}
                           </ul>
@@ -324,10 +266,9 @@ export default async function RosterPage({
                           somebody who has not completed Intake cannot be paired and is
                           offered nothing to press.
 
-                          Beside it, the link that reopens their own Intake. Offered on
-                          every row, because the two things it corrects -- a wrong
-                          number and an availability that has changed -- are as likely
-                          before Intake as after it. */}
+                          The one act that belongs to a list. Everything about one
+                          Person -- their Intake link, a new invitation, a password
+                          reset -- is on their own page, behind their name (ticket 36). */}
                       <td>
                         <div className="row-actions">
                         {person.participationStatus === 'ready_to_pair' ? (
@@ -335,47 +276,7 @@ export default async function RosterPage({
                             Pair
                           </Link>
                         ) : null}
-                        <form method="post" action="/roster/intake-link">
-                          <input type="hidden" name="personId" value={person.personId} />
-                          <button type="submit" className="sec small">
-                            Intake link
-                          </button>
-                        </form>
-                        {/* Offered only where there is an account to reset, which
-                            is most of a Roster's rows not having it: an account
-                            exists for a Leader who accepted an Invitation Link and
-                            for an Admin who was provisioned, and for nobody else.
-
-                            On the Admin's own row the action is a different one.
-                            Resetting your own password is not a recovery -- you are
-                            holding a session as you ask -- so the row offers the
-                            self-service change instead. */}
-                        {person.holdsAnAccount ? (
-                          person.personId === admin.personId ? (
-                            <Link className="btn sec small" href="/account">
-                              {CHANGE_YOUR_PASSWORD}
-                            </Link>
-                          ) : (
-                            <Link className="btn sec small" href={`/roster/reset/${person.personId}`}>
-                              {RESET_PASSWORD}
-                            </Link>
-                          )
-                        ) : null}
                         </div>
-                        {issuedFor === person.personId && issuedLink ? (
-                          <div className="toast" role="status" style={{ marginTop: '0.75rem', marginBottom: 0 }}>
-                            {/* Shown rather than sent. The Admin passes it on however
-                                they are already in touch with this Person, which is
-                                the point: texting it to the number on file would reach
-                                whoever holds the number being corrected. */}
-                            <p className="muted">
-                              Send this to {person.fullName}. It opens their own Intake
-                              form with their answers already in it, and works until{' '}
-                              {issuedLink.expiresAt.toISOString().slice(0, 10)}.
-                            </p>
-                            <input type="text" readOnly value={issuedLink.url} aria-label="Their Intake link" />
-                          </div>
-                        ) : null}
                       </td>
                     </tr>
                   ))}

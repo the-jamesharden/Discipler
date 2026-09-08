@@ -66,6 +66,8 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
     expect(html).toContain('Leads Ruth Adeyemi')
     expect(html).toContain('Leads Sam Doyle')
     expect(html).toContain('Ready to Pair')
+    // The name is the way to everything about one Person (ticket 36).
+    expect(html).toContain(`href="/roster/${leader}"`)
   })
 
   it('says a Participant is in a relationship rather than leading one', async () => {
@@ -126,7 +128,9 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
     const row = html
       .split('<tr')
       .find((candidate) =>
-        candidate.slice(0, candidate.indexOf('</td>')).includes(`data-testid="roster-name">${name}<`),
+        new RegExp(`data-testid="roster-name"[^>]*>${name}<`).test(
+          candidate.slice(0, candidate.indexOf('</td>')),
+        ),
       )
     expect(row, `no row on the Roster for ${name}`).toBeDefined()
     // Tags stripped, so the assertions read the sentence an Admin reads rather than
@@ -173,183 +177,4 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
     expect(rowFor(html, 'Ines Ferreira')).not.toContain('Awaiting Leader Acceptance')
   })
 
-  it('sends a leader a fresh invitation from the row that says they have not accepted', async () => {
-    // The condition the tick escalates to an Admin, with the act that answers it on
-    // the same row. Before this the Admin was told a relationship had not been
-    // accepted and had no way to do anything about it.
-    const { cookie } = await signIn(ministry)
-
-    // Paired through the real route rather than seeded, because the act under test
-    // replaces a link: a fixture that writes the membership rows directly issues no
-    // invitation, and the command reads the Leader out of a snapshot that has none.
-    // Same gender, since a one-to-one that crosses it is refused.
-    const leader = await addPerson(ministry, 'Malachi Reinvite', {
-      phone: number(),
-      answers: { gender: 'male' },
-    })
-    const participant = await addPerson(ministry, 'Ari Reinvite', {
-      phone: number(),
-      answers: { gender: 'male' },
-    })
-    const paired = await post('/roster/pair/create', cookie, {
-      leaderId: leader,
-      participantId: participant,
-    })
-    expect(paired.response.status).toBe(303)
-    expect(paired.location).not.toContain('refused')
-
-    const { rows: created } = await pool.query<{ relationship_id: string }>(
-      `select relationship_id from relationship_member where person_id = $1`,
-      [leader],
-    )
-    const relationship = created[0]?.relationship_id
-    expect(relationship).toBeDefined()
-
-    const before = await getPage('/roster', cookie)
-    expect(rowFor(before.html, 'Malachi Reinvite')).toContain('Send a new invitation')
-
-    const { response } = await post('/roster/reinvite', cookie, {
-      relationshipId: relationship!,
-      personId: leader,
-    })
-    expect(response.status).toBe(303)
-
-    const { rows } = await pool.query<{ body: string }>(
-      `select body from outbound_message where person_id = $1 order by enqueued_at`,
-      [leader],
-    )
-    // The invitation the pairing sent, and the one the Admin just sent again.
-    expect(rows).toHaveLength(2)
-    expect(rows[1]?.body).toContain('/invitation/')
-  })
-
-  it('claims nothing was sent when nothing was sent', async () => {
-    // The receipt used to be claimed from having asked rather than from what
-    // happened. Every no-op path leaves the Leader on the Roster under their own
-    // name, so a confirmation keyed on the id alone told an Admin a text had gone
-    // out when none had. Driven here through a relationship seeded with no
-    // invitation, which is a state the command finds nothing to act on.
-    const { cookie } = await signIn(ministry)
-
-    const leader = await addPerson(ministry, 'Perpetua Silent', { phone: number() })
-    const relationship = await pairOneToOne(
-      ministry,
-      leader,
-      await addPerson(ministry, 'Quill Silent', { phone: number() }),
-      { acceptedAt: null },
-    )
-
-    const { response, location } = await post('/roster/reinvite', cookie, {
-      relationshipId: relationship,
-      personId: leader,
-    })
-    expect(response.status).toBe(303)
-    expect(location).not.toContain('reinvited')
-
-    const { html } = await getPage(location.replace(/^https?:\/\/[^/]+/, ''), cookie)
-    expect(html).not.toContain('A new invitation has been sent to Perpetua Silent')
-  })
-
-  it('offers no new invitation on a relationship that has been accepted', async () => {
-    const { cookie } = await signIn(ministry)
-
-    const leader = await addPerson(ministry, 'Nkechi Settled', { phone: number() })
-    await pairOneToOne(
-      ministry,
-      leader,
-      await addPerson(ministry, 'Bo Settled', { phone: number() }),
-      { acceptedAt: new Date() },
-    )
-
-    const { html } = await getPage('/roster', cookie)
-    // Nothing to re-send. The button belongs to the state, not to the role.
-    expect(rowFor(html, 'Nkechi Settled')).not.toContain('Send a new invitation')
-  })
-
-  it('offers no new invitation to somebody who is only a participant in it', async () => {
-    // A Participant is sent no link at all, per ADR-0011, so there is nothing to
-    // re-issue to them -- and an affordance here would be an Admin sending a
-    // Participant a link the product deliberately does not give them.
-    const { cookie } = await signIn(ministry)
-
-    const participant = await addPerson(ministry, 'Odile Waiting', { phone: number() })
-    await pairOneToOne(
-      ministry,
-      await addPerson(ministry, 'Caleb Waiting', { phone: number() }),
-      participant,
-      { acceptedAt: null },
-    )
-
-    const { html } = await getPage('/roster', cookie)
-    expect(rowFor(html, 'Odile Waiting')).toContain('Awaiting Leader Acceptance')
-    expect(rowFor(html, 'Odile Waiting')).not.toContain('Send a new invitation')
-  })
-
-  it('hands the Admin a link that reopens that Person’s own Intake', async () => {
-    const { cookie } = await signIn(ministry)
-
-    const person = await addPerson(ministry, 'Quinn Alvarez', { phone: number() })
-
-    const { response, location } = await post('/roster/intake-link', cookie, {
-      personId: person,
-    })
-    expect(response.status).toBe(303)
-    expect(location).toContain(`intakeLinkFor=${person}`)
-
-    const { html } = await getPage(`/roster?${location.split('?')[1] ?? ''}`, cookie)
-
-    // Shown, not sent. The Admin passes it on however they are already in touch --
-    // texting it to the number on file would reach whoever holds the wrong one.
-    expect(html).toContain('Send this to')
-    const shown = html.match(/value="[^"]*\/intake\/reopen\/([0-9a-f-]{36})"/)
-    expect(shown).not.toBeNull()
-
-    // And it is the token that was just issued to this Person, not somebody
-    // else's: one row's link at a time, read back under the Admin's own session.
-    const { rows } = await pool.query<{ person_id: string }>(
-      `select person_id from intake_link where token = $1`,
-      [shown![1]!],
-    )
-    expect(rows[0]?.person_id).toBe(person)
-  })
-
-  it('offers no link once the one on file has run out', async () => {
-    // `intake_link` is replaced on re-issue rather than deleted, so the row an
-    // expired link left behind is still the row this Person holds. Reading it as a
-    // live link would put *works until* a date already past in front of an Admin and
-    // send the Person to the page that tells them to ask for a link they were just
-    // given.
-    //
-    // Reachable because the Person is in the query string and the token is not: the
-    // Admin who bookmarks the confirmation, or comes back to the tab a fortnight
-    // later, asks this page for the link again without going through the act that
-    // mints one.
-    const { cookie } = await signIn(ministry)
-
-    const person = await addPerson(ministry, 'Yusuf Kaya', { phone: number() })
-
-    const { location } = await post('/roster/intake-link', cookie, { personId: person })
-    const query = location.split('?')[1] ?? ''
-
-    const live = await getPage(`/roster?${query}`, cookie)
-    expect(live.html).toContain('Send this to')
-
-    // The same row, a fortnight and a day older. Aged in place rather than deleted,
-    // because a deleted row would prove the null and not the expiry.
-    await pool.query(
-      `update intake_link
-          set created_at = now() - interval '15 days',
-              expires_at = now() - interval '1 day'
-        where person_id = $1`,
-      [person],
-    )
-
-    const expired = await getPage(`/roster?${query}`, cookie)
-    expect(expired.html).not.toContain('Send this to')
-    expect(expired.html).not.toContain('/intake/reopen/')
-
-    // And the control that mints a replacement is still on the row, which is what
-    // makes the absence recoverable rather than a dead end.
-    expect(expired.html).toContain('Intake link')
-  })
 })

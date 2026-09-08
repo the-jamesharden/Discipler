@@ -463,3 +463,9 @@ blockquote { background: rgba(45, 80, 22, 0.04); border-left: 3px solid var(--pr
   .centred { padding: 1rem; align-items: flex-start; }
   .centred > .card { padding: 1.75rem 1.25rem; }
 }
+
+/* The person page: a label-and-value list (ticket 36). */
+.kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0.4rem 1.25rem; font-size: 0.9rem; margin: 0; }
+.kv dt { color: var(--text-light); }
+.kv dd { margin: 0; }
+@media (max-width: 480px) { .kv { grid-template-columns: minmax(0, 1fr); gap: 0.1rem 0; } .kv dd { margin-bottom: 0.5rem; } }

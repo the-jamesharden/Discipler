@@ -55,3 +55,6 @@ Taken in this session's questions on 2026-09-06 and in the Lavish review of 2026
 ## Comments
 
 **2026-09-07.** Step 1 shipped on the branch: the migration, the ports, the reader, the eligibility removal end to end, and the test-id refactor of the two HTTP helpers as its own commit first.
+
+**2026-09-07.** Step 2 shipped on the branch: `/roster/[personId]` with the Intake link and its result, a new invitation, the reset, and the sentence saying why they are a Discipler or a Disciple; the three routes redirect there; the row keeps Pair and links the name. `app/roster/lists.ts` holds the one rule for who is a Discipler.
+

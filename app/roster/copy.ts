@@ -1,5 +1,6 @@
 import type { ImportRowRefusal, PairingRefusal } from '~/domain/errors'
 import type { ParticipationStatus } from '~/domain/participation'
+import type { DeclaredSide } from '~/domain/intake'
 import type { MemberRole } from '~/domain/relationships'
 import type { RowProblem } from '~/domain/roster'
 import type { ImportFailure } from './report'
@@ -102,6 +103,77 @@ export const firstTimeLabel = (firstTime: boolean): string =>
  * the one on the screen.
  */
 export const AWAITING_LEADER_ACCEPTANCE = 'Awaiting Leader Acceptance'
+
+/**
+ * The same fact in the words the person page says it in, since ticket 36: lower
+ * case and after the names, as a note on the pairing rather than a title. The
+ * Roster row follows in the rebuild; the constant above goes with it.
+ */
+export const AWAITING_ACCEPTANCE = 'awaiting acceptance'
+
+/**
+ * The two sides of a pairing, as an Admin screen names them. Discipler and
+ * Disciple are the product's own words and are said in place of Leader and
+ * Participant on every Admin surface (ticket 36); the nouns a Ministry types are
+ * for its messages and never reach a screen (ADR-0015).
+ */
+export const DISCIPLING = 'Discipling'
+export const DISCIPLED_BY = 'Discipled by'
+
+/**
+ * How big a pairing is, from the live count of Disciples in it and never from
+ * the relationship's kind (ADR-0004). `1:1` is the prototype's own pill; a group
+ * says how many members it has.
+ */
+export const pairingSizeLabel = (disciples: number): string =>
+  disciples <= 1 ? '1:1' : `${disciples} members`
+
+/**
+ * What a Person is on the Roster, and on the strength of what. A Discipler is a
+ * fact -- they lead somebody, or they signed up as one on the form -- and this is
+ * the one sentence that says which, so a Discipler reading Ready to Pair can be
+ * understood rather than reported as a bug.
+ */
+export const whoTheyAre = (person: {
+  readonly relationships: readonly { readonly role: MemberRole }[]
+  readonly declaredSide: DeclaredSide | null
+}): string => {
+  const leads = person.relationships.some((relationship) => relationship.role === 'leader')
+  const discipled = person.relationships.some((relationship) => relationship.role === 'participant')
+  const offered = person.declaredSide === 'mentor'
+
+  const discipler = leads
+    ? offered
+      ? 'A Discipler — disciples somebody, and offered to on their Intake form'
+      : 'A Discipler — disciples somebody'
+    : offered
+      ? 'A Discipler — offered to on their Intake form, and disciples nobody yet'
+      : null
+
+  if (discipler && discipled) return `${discipler}. Also a Disciple — being discipled.`
+  if (discipler) return discipler
+  return discipled ? 'A Disciple — being discipled' : 'A Disciple — not yet paired'
+}
+
+/** The sentence beside a freshly issued Intake link. */
+export const intakeLinkInstruction = (fullName: string, expiresAt: Date): string =>
+  `Send this to ${fullName}. It opens their own Intake form with their answers already in it, and works until ${expiresAt.toISOString().slice(0, 10)}.`
+
+/**
+ * The page was asked for a link and the one on file has run out. Reachable because
+ * the query string carries the fact that one was asked for and not the token: an
+ * Admin who bookmarks the result, or comes back a fortnight later, asks again
+ * without going through the act that mints one.
+ */
+export const NO_INTAKE_LINK_STANDING =
+  'The link that was issued has run out. Press Intake link for a new one.'
+
+export const NO_ACCOUNT =
+  'No account. One arrives when they accept an invitation to disciple somebody.'
+
+/** The receipt for a new invitation, said only when a text actually went out. */
+export const REINVITED = (fullName: string): string =>
+  `A new invitation has been sent to ${fullName}.`
 
 /**
  * The action offered on the row of anybody who holds an account, and only there.

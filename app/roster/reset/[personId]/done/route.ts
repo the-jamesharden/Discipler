@@ -124,7 +124,7 @@ export async function POST(
       + '<header class="header"><div>'
       + `<h1>${escapeHtml(resetDoneHeading(target.fullName))}</h1>`
       + `<p>${escapeHtml(admin.ministryName)}</p>`
-      + '</div><div class="header-actions"><a href="/roster">Back to the Roster</a></div></header>'
+      + `</div><div class="header-actions"><a href="/roster/${encodeURIComponent(target.personId)}">Back to their page</a></div></header>`
       + '<main><div class="card">'
       + `<p class="notice">${escapeHtml(resetDoneInstruction(target.fullName))}</p>`
       // A readonly field rather than a paragraph, for the reason the Intake link on
