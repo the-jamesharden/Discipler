@@ -60,8 +60,9 @@ describe.skipIf(skipUnlessAppIsRunning)('resetting a password over HTTP', () => 
    */
   const rowFor = (html: string, name: string): string => {
     // The name is inside the row's first cell, beside an avatar, so the match is
-    // on the name and not on a bare cell.
-    const cell = html.indexOf(`<span>${name}<`)
+    // on the name and not on a bare cell -- keyed on a test id rather than on the
+    // tag around the name, so the markup can change around it.
+    const cell = html.indexOf(`data-testid="roster-name">${name}<`)
     if (cell === -1) throw new Error(`No row for ${name}`)
     const end = html.indexOf('</tr>', cell)
     return html.slice(cell, end === -1 ? undefined : end)

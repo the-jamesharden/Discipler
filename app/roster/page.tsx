@@ -271,7 +271,7 @@ export default async function RosterPage({
                           <span className="avatar" aria-hidden="true">
                             {initialsOf(person.fullName)}
                           </span>
-                          <span>
+                          <span data-testid="roster-name">
                             {person.fullName}
                             {/* What the Person said about themselves, immediately
                                 beside what an Admin decided about them. The two
