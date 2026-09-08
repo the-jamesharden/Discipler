@@ -6,7 +6,7 @@ The settled product flow. This is a product model, not an implementation specifi
 
 ```text
 ROSTER
-   ├── added by CSV upload, or manually by an admin
+   ├── added by pasting a spreadsheet, or manually by an admin
    └── status: No Intake Submitted
    ↓
 INTAKE  (native Discipler form; reached by a pastor-sent link or a QR code)

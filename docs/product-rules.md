@@ -29,7 +29,7 @@ Suggested pairings do not remove the pastor's ability to pair people manually.
 
 Suggested one-to-one pairings are based on a simple mathematical comparison of overlapping availability slots between two independent pools.
 
-The **leader pool** is every person marked eligible to lead, filtered by the kind of relationship being suggested. There is no cap on how many relationships a leader already holds.
+The **leader pool** is every person who is a Discipler, filtered by the kind of relationship being suggested; who is a Discipler is settled under *Roles Are Relationship Memberships, Not Properties of a Person*, and there is no flag to mark. There is no cap on how many relationships a leader already holds.
 
 The **participant pool** is every person who has completed intake, given consent, and not opted out, ranked so that people holding no open participant membership are offered first.
 
@@ -248,7 +248,7 @@ A kickoff gathering is something a church does in a room. Discipler does not mod
 
 V1 is the operating loop and nothing else: intake, roster, suggestions, acceptance, the sequential check-in rhythm, and care surfacing.
 
-Three capabilities are deliberately deferred. The **Planning Center API** — V1 ships CSV upload, which delivers most of the value without OAuth, People sync, and reconciliation. The **quarterly report** — it produces nothing meaningful until a ministry has multiple quarters behind it, so a pilot cannot exercise it. The **material assignment interface** — assignments are configured during pilot support instead.
+Three capabilities are deliberately deferred. The **Planning Center API** - V1 ships a spreadsheet paste (see *The Import Is a Paste, in One of Two Layouts*), which delivers most of the value without OAuth, People sync, and reconciliation. The **quarterly report** - it produces nothing meaningful until a ministry has multiple quarters behind it, so a pilot cannot exercise it. The **material assignment interface** - assignments are configured during pilot support instead.
 
 Deferring the report defers the *interface*, never the data. The week-by-week history that a report will one day read must be complete and correct from the first week of the pilot, because it cannot be reconstructed later.
 
