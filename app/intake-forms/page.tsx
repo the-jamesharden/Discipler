@@ -207,8 +207,8 @@ export default async function IntakeFormsPage({
             person is joining as a mentor or as someone to be mentored, and both are
             then asked the same things — their age, gender, whether this is their first
             time, when they could meet, and what they are hoping for. Answering{' '}
-            <em>mentor</em> shows on their Roster row. It does not make them eligible
-            to lead: that stays yours to decide.
+            <em>mentor</em> puts them on the Roster as a Discipler. Pairing them with
+            somebody is still yours to decide.
           </p>
 
           <label className="label" htmlFor="discipleshipLink">The link to send</label>

@@ -127,24 +127,6 @@ export type Command =
       readonly personId: PersonId
     }
   /**
-   * An Admin's plan that this Person may lead, recorded before Intake and kept up
-   * to date afterwards. One field and not two: the intended role *is* the
-   * leader-pool flag, because a Person marked intended-leader but not eligible
-   * would be a state nobody could say the meaning of.
-   *
-   * It carries no Admin identity, unlike a pause or an ending. Those suspend or
-   * terminate a Ministry's contact with somebody and the product rules require a
-   * named actor for them; this records an intention that changes nothing about
-   * what reaches anybody, and the history event beside it is the record that it
-   * was set.
-   */
-  | {
-      readonly type: 'person.set_lead_eligibility'
-      readonly ministryId: MinistryId
-      readonly personId: PersonId
-      readonly eligible: boolean
-    }
-  /**
    * One command for all three pairing routes -- accepting a suggestion, pairing two
    * people from the Roster, selecting several people together. They differ in how
    * the Admin arrived at the names, which is a property of the screen and not of

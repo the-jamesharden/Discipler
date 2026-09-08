@@ -32,15 +32,6 @@ import { decodeImportReport } from './report'
 
 export const dynamic = 'force-dynamic'
 
-/**
- * The Everyone / Eligible-to-lead switch: a query parameter on this page, filtered
- * here. Anything else in the query string reads as Everyone.
- */
-const ROSTER_VIEWS = ['all', 'eligible'] as const
-type RosterView = (typeof ROSTER_VIEWS)[number]
-const rosterView = (value: string | undefined): RosterView =>
-  value === 'eligible' ? 'eligible' : 'all'
-
 export default async function RosterPage({
   searchParams,
 }: {
@@ -50,8 +41,6 @@ export default async function RosterPage({
     hidden?: string
     error?: string
     paired?: string
-    /** Everyone, or only the people marked eligible to lead. */
-    show?: string
     /** The Person whose Intake link was just issued, so this page shows that one. */
     intakeLinkFor?: string
     /** The Leader who was just sent their Invitation Link again. */
@@ -108,8 +97,6 @@ export default async function RosterPage({
   // redirects with `reinvited` when a message was actually enqueued.
   const reinvited = roster.find((person) => person.personId === query.reinvited)?.fullName ?? null
 
-  const view = rosterView(query.show)
-  const shown = view === 'eligible' ? roster.filter((person) => person.eligibleToLead) : roster
 
   return (
     <AdminShell admin={admin} current="roster">
@@ -121,7 +108,7 @@ export default async function RosterPage({
         <div className="card-head">
           <h2 className="card-title">Roster</h2>
           <div className="actions" style={{ marginTop: 0 }}>
-            <span className="muted">{peopleCount(shown.length)}</span>
+            <span className="muted">{peopleCount(roster.length)}</span>
             {/* The import, in a popup under its own button rather than a card of its
                 own below the table (ticket 32, decision 7). A details element, like
                 the Account menu, so it opens and closes with no script; it is open
@@ -157,17 +144,6 @@ export default async function RosterPage({
             </details>
           </div>
         </div>
-
-        {/* The Everyone / Eligible-to-lead switch: two links to this same page,
-            so it works before JavaScript has loaded and survives a refresh. */}
-        <nav className="seg" aria-label="Which people to show">
-          <Link href="/roster" aria-current={view === 'all' ? 'true' : undefined}>
-            Everyone
-          </Link>
-          <Link href="/roster?show=eligible" aria-current={view === 'eligible' ? 'true' : undefined}>
-            Eligible to lead
-          </Link>
-        </nav>
 
         {Number.isInteger(paired) && paired > 0 ? (
           <p className="toast" role="status">
@@ -245,8 +221,6 @@ export default async function RosterPage({
             Nobody is on this Roster yet. Upload a spreadsheet, or send one of the{' '}
             <Link href="/intake-forms">{INTAKE_FORMS}</Link>.
           </p>
-        ) : shown.length === 0 ? (
-          <p className="empty">Nobody is marked eligible to lead yet. Mark somebody from their row under Everyone.</p>
         ) : (
           <>
             <div className="tbl-wrap">
@@ -260,7 +234,7 @@ export default async function RosterPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {shown.map((person) => (
+                  {roster.map((person) => (
                     <tr key={person.personId}>
                       {/* No contact details anywhere on this table, by design: a
                           number is reached one Person at a time through the
@@ -281,11 +255,6 @@ export default async function RosterPage({
                                 answer is said. */}
                             {person.declaredSide === 'mentor' ? (
                               <span className="pill n">{OFFERED_TO_MENTOR}</span>
-                            ) : null}
-                            {/* And what an Admin decided: a plan, recorded here and
-                                read by nothing else until Suggested Pairs ships. */}
-                            {person.eligibleToLead ? (
-                              <span className="pill n">Eligible to lead</span>
                             ) : null}
                           </span>
                         </div>
@@ -370,23 +339,6 @@ export default async function RosterPage({
                           <input type="hidden" name="personId" value={person.personId} />
                           <button type="submit" className="sec small">
                             Intake link
-                          </button>
-                        </form>
-                        {/* A plan an Admin records, and never a fact about the Person.
-                            Offered on every row, including somebody who has not
-                            completed Intake -- planning while waiting on them is the
-                            whole reason it is here -- and it makes nobody pairable.
-                            Manual pairing never reads it; it is the leader pool the
-                            suggestion engine will draw from. */}
-                        <form method="post" action="/roster/eligibility">
-                          <input type="hidden" name="personId" value={person.personId} />
-                          <input
-                            type="hidden"
-                            name="eligible"
-                            value={person.eligibleToLead ? 'no' : 'yes'}
-                          />
-                          <button type="submit" className="sec small">
-                            {person.eligibleToLead ? 'Withdraw eligibility' : 'Mark eligible to lead'}
                           </button>
                         </form>
                         {/* Offered only where there is an account to reset, which

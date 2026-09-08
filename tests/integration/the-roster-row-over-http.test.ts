@@ -285,29 +285,6 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
     expect(rowFor(html, 'Odile Waiting')).not.toContain('Send a new invitation')
   })
 
-  it('marks somebody eligible to lead before they have completed Intake', async () => {
-    const { cookie } = await signIn(ministry)
-
-    await addPerson(ministry, 'Priya Raman', { intake: false, phone: number() })
-
-    const before = await getPage('/roster', cookie)
-    expect(before.html).toContain('Mark eligible to lead')
-
-    const person = before.html.match(
-      /name="personId" value="([0-9a-f-]{36})"[\s\S]{0,200}?value="yes"/,
-    )
-    expect(person).not.toBeNull()
-
-    const { response } = await post('/roster/eligibility', cookie, {
-      personId: person![1]!,
-      eligible: 'yes',
-    })
-    expect(response.status).toBe(303)
-
-    const after = await getPage('/roster', cookie)
-    expect(after.html).toContain('Withdraw eligibility')
-  })
-
   it('hands the Admin a link that reopens that Person’s own Intake', async () => {
     const { cookie } = await signIn(ministry)
 

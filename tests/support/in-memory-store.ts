@@ -20,7 +20,6 @@ import type {
   DiscipleshipGoalRenaming,
   IntakeRecord,
   ImportRowResolution,
-  LeadEligibility,
   LeaderAcceptance,
   MaterialAssignment,
   KeywordExchangeClarification,
@@ -100,7 +99,6 @@ export interface InMemoryStore extends EffectStore {
   readonly keywordTargets: readonly KeywordExchangeTarget[]
   readonly keywordClarifications: readonly KeywordExchangeClarification[]
   readonly keywordClosures: readonly KeywordExchangeClosure[]
-  readonly leadEligibilities: readonly LeadEligibility[]
   /** Every settings form this store saved, in the order the effects saved them. */
   readonly settingsSaved: readonly MinistrySettings[]
   /** Every option added, reworded, reordered or removed, in the order it happened. */
@@ -203,7 +201,6 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
   const keywordTargets: KeywordExchangeTarget[] = []
   const keywordClarifications: KeywordExchangeClarification[] = []
   const keywordClosures: KeywordExchangeClosure[] = []
-  const leadEligibilities: LeadEligibility[] = []
   const settingsSaved: MinistrySettings[] = []
   const addedGoals: NewDiscipleshipGoal[] = []
   const renamedGoals: DiscipleshipGoalRenaming[] = []
@@ -319,9 +316,6 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
     get keywordClosures() {
       return [...keywordClosures]
     },
-    get leadEligibilities() {
-      return [...leadEligibilities]
-    },
     get settingsSaved() {
       return [...settingsSaved]
     },
@@ -402,7 +396,6 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       const stagedKeywordTargets: KeywordExchangeTarget[] = []
       const stagedKeywordClarifications: KeywordExchangeClarification[] = []
       const stagedKeywordClosures: KeywordExchangeClosure[] = []
-      const stagedLeadEligibilities: LeadEligibility[] = []
       const stagedSettings: MinistrySettings[] = []
       const stagedAddedGoals: NewDiscipleshipGoal[] = []
       const stagedRenamedGoals: DiscipleshipGoalRenaming[] = []
@@ -458,9 +451,6 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         },
         async closeKeywordExchange(closure) {
           stagedKeywordClosures.push(closure)
-        },
-        async setLeadEligibility(eligibility) {
-          stagedLeadEligibilities.push(eligibility)
         },
         async discipleshipGoals() {
           return store.goals
@@ -697,7 +687,6 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       keywordTargets.push(...stagedKeywordTargets)
       keywordClarifications.push(...stagedKeywordClarifications)
       keywordClosures.push(...stagedKeywordClosures)
-      leadEligibilities.push(...stagedLeadEligibilities)
       settingsSaved.push(...stagedSettings)
       addedGoals.push(...stagedAddedGoals)
       renamedGoals.push(...stagedRenamedGoals)

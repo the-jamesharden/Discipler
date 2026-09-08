@@ -16,7 +16,6 @@ import type {
   DiscipleshipGoalRenaming,
   GroupConfiguration,
   IntakeRecord,
-  LeadEligibility,
   NewParticipantMembership,
   NewDiscipleshipGoal,
   LeaderAcceptance,
@@ -2328,28 +2327,6 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
         where id = $1 and closed_at is null`,
       [closure.exchangeId, closure.closedAt, closure.outcome],
     )
-  },
-
-  async setLeadEligibility(eligibility: LeadEligibility) {
-    // A plain update, and the whole of it. Eligibility is one field because the
-    // intended role *is* the leader-pool flag, so setting it neither reads nor
-    // touches Intake, an account, or a membership -- and withdrawing it is this
-    // same statement with the other value.
-    //
-    // The Ministry is not in the `where` clause and does not need to be: the
-    // policy on `person` scopes this connection to the one Ministry it declared it
-    // is acting for, and a Person of another's is not visible to update.
-    const { rowCount } = await client.query(
-      `update person set eligible_to_lead = $2 where id = $1`,
-      [eligibility.personId, eligibility.eligible],
-    )
-
-    // Nobody was updated, which on this connection means no such Person in this
-    // Ministry. Failing rather than passing quietly, because the Admin pressed a
-    // control on a row and a silent no-op reads to them as *it did not take*.
-    if (rowCount === 0) {
-      throw new Error(`No Person ${eligibility.personId} to mark eligible to lead`)
-    }
   },
 
   async discipleshipGoals(): Promise<readonly OfferedGoal[]> {

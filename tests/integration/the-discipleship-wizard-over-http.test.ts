@@ -240,13 +240,11 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
     expect(location).toContain('side=mentor')
 
     const { rows } = await pool.query(
-      `select participation_status(p) as status, p.eligible_to_lead from person p
+      `select participation_status(p) as status from person p
         where p.ministry_id = $1 and p.full_name = 'Solomon Adeyemi'`,
       [ministry.id],
     )
     expect(rows[0].status).toBe('ready_to_pair')
-    // The answer is a Roster signal and never the Admin's plan.
-    expect(rows[0].eligible_to_lead).toBe(false)
 
     const { rows: consents } = await pool.query(
       `select c.source, c.intake_path, c.declared_side
@@ -381,9 +379,6 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
     // word in every other row would make a column of state out of one signal.
     expect(html).not.toContain('Asked to be mentored')
     expect(html).not.toContain('Not asked')
-    // The Admin's decision is untouched by the Person's answer: the button on
-    // Solomon's row still offers to mark him eligible.
-    expect(html).toContain('Mark eligible to lead')
   })
 
   it('shows the pairing surface whether each candidate is new to this', async () => {

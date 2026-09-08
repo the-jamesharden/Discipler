@@ -133,7 +133,7 @@ Roster membership, intake completion, and pairing eligibility are three separate
 
 A person imported from Planning Center or uploaded by an admin appears on the roster with status `No Intake Submitted`. They cannot be paired, cannot receive a check-in, and are not assumed to want to participate. Only completing intake moves a person to `Ready to Pair`.
 
-Pairing requires completed intake on **both sides** of a relationship. A person who has not completed intake cannot be made a participant and cannot be made a leader. Finding people in that state on a roster is ordinary — an import puts a whole congregation there at once — but that is a fact about the roster, not a licence to pair them. Marking a person eligible to lead is a plan an admin may record early; it does not substitute for intake.
+Pairing requires completed intake on **both sides** of a relationship. A person who has not completed intake cannot be made a participant and cannot be made a leader. Finding people in that state on a roster is ordinary — an import puts a whole congregation there at once — but that is a fact about the roster, not a licence to pair them.
 
 ## Settled: Consent Is Recorded, Versioned, and Enforced at Send Time
 
@@ -166,7 +166,7 @@ Role is a property of relationship membership. **Leader** and **Participant** me
 
 **A person appears in a given relationship at most once at a time, in one role.** Pairing someone with themselves is a database error, not a scorer bug.
 
-**Eligibility to lead is an explicit per-person flag** set by an Admin, independent of whether the person has an account and independent of whether they currently lead anything. It is the same field as the intended role an Admin sets before intake: a plan that becomes eligibility, not two separate facts.
+**There is no eligibility flag.** Ticket 16 recorded one and ticket 36 removed it, at the product owner's direction: a Discipler is a fact, never a mark. Anyone leading an open relationship, anyone who signed up as a leader on the Intake form, and anyone an import paired as the discipler is one; pairing them is the pastor's acceptance, and nothing is recorded ahead of it. The suggestion engine's leader pool (ticket 04) draws on the same facts.
 
 **Participation caps.** A leader leads at most one open group and any number of one-to-ones. A participant is in at most one open one-to-one and any number of groups. Both are enforced as database constraints; see `docs/adr/0004-relationship-kind-as-capacity-declaration.md`.
 
@@ -884,6 +884,22 @@ trip, so a second drain listing the queue in that gap sent the same text twice.
 Drains are serialised per Ministry, blocking rather than skipping, so the message a
 reply's drain came for is never left to the next pass on the hour.
 See `docs/adr/0020-one-drain-per-ministry-at-a-time.md`.
+
+## Settled: The Roster Shows Contact Details to an Admin
+
+Every Roster row shows the person's phone number and email.
+The Admin uploaded them or the person typed them on the Intake form the Admin sent, and a Roster that hides them from the one person who holds them is a Roster an Admin keeps a spreadsheet beside.
+Contact-sharing consent governs whether a number is handed to somebody else, a leader or a participant, and it still does: no message carries a number, and a leader reaches one only through the consent check.
+This reverses ticket 31's reading for the Admin surface only.
+See `docs/adr/0021-the-roster-shows-contact-details.md`.
+
+## Settled: Admin Screens Say Discipler and Disciple
+
+The Roster, the person page and the pairing page say Discipler and Disciple where the model says Leader and Participant, and say pairing, one-to-one and group where it says relationship.
+The words are the product's own and are pluralised freely on a screen.
+They are not the nouns a Ministry types for its messages: ADR-0015 governs message copy and nothing else, and a Ministry's own word never reaches an Admin screen.
+The other Admin tabs follow in a ticket of their own.
+Domain and database identifiers keep their names.
 
 ## Settled: The Sign-In Credential Is a Phone Number and a Password
 

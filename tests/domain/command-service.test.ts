@@ -126,9 +126,6 @@ describe('applying a command\'s effects', () => {
         closeKeywordExchange: async () => {
           throw new Error('no keyword exchange should have been closed')
         },
-        setLeadEligibility: async () => {
-          throw new Error('nobody should have been marked eligible to lead')
-        },
         discipleshipGoals: async () => {
           throw new Error('the goal options should not have been read')
         },

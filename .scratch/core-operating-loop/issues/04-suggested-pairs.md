@@ -129,3 +129,5 @@ there is no scorer yet, and it left the criterion here rather than holding itsel
 - [ ] A suggestion into a group that declared a gender offers only people of that gender
 - [ ] It does so even where `suggest_gender_match` is off, because a declaration is not
       that setting's to disable
+
+**2026-09-07, ticket 36.** The eligibility flag this ticket's leader pool reads is gone. The pool is now everyone who leads an open relationship or whose Intake answer was the mentor side, with Intake, consent and no opt-out as before. An intended pairing (ADR-0022) is not a suggestion and is not fed to the scorer.

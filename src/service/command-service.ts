@@ -154,9 +154,6 @@ export const applyEffects = async (
   const intakeLinks = effects.flatMap((effect) =>
     effect.kind === 'intake_link.issue' ? [effect.link] : [],
   )
-  const eligibilities = effects.flatMap((effect) =>
-    effect.kind === 'person.lead_eligibility' ? [effect.eligibility] : [],
-  )
   const settingsSaves = effects.flatMap((effect) =>
     effect.kind === 'settings.save' ? [effect.saving] : [],
   )
@@ -290,7 +287,6 @@ export const applyEffects = async (
   for (const prompt of prompts) await unit.askCheckInQuestion(prompt)
 
   // Before the history that says it happened, like every other write here.
-  for (const eligibility of eligibilities) await unit.setLeadEligibility(eligibility)
   for (const link of intakeLinks) await unit.issueIntakeLink(link)
 
   // Before the history saying it happened, like every other write here. The

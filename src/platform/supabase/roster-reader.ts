@@ -1,4 +1,5 @@
 import { followUpItemId, importRowId, personId, relationshipId } from '~/domain/ids'
+import { phoneNumber, type PhoneNumber } from '~/domain/roster'
 import { isParticipationStatus, type ParticipationStatus } from '~/domain/participation'
 import { isMemberRole, type MemberRole } from '~/domain/relationships'
 import { intakeLinkState, intakeLinkToken } from '~/domain/intake-link'
@@ -24,7 +25,7 @@ interface MemberRow {
 }
 
 /**
- * `public.roster` returns a derivation beside six columns, so the generated types
+ * `public.roster` returns a derivation beside seven columns, so the generated types
  * do not know about it and the row arrives untyped. Named here once rather than
  * cast at the point of use.
  */
@@ -32,10 +33,11 @@ interface PersonRow {
   readonly id: string
   readonly fullName: string
   readonly participationStatus: ParticipationStatus
-  readonly eligibleToLead: boolean
   readonly declaredSide: DeclaredSide | null
   readonly firstTime: boolean | null
   readonly holdsAnAccount: boolean
+  readonly phone: PhoneNumber | null
+  readonly email: string | null
 }
 
 /**
@@ -50,10 +52,11 @@ const asPersonRow = (row: unknown): PersonRow => {
     person_id: id,
     full_name: fullName,
     participation_status: status,
-    eligible_to_lead: eligible,
     declared_side: side,
     first_time: firstTime,
     holds_an_account: holdsAnAccount,
+    phone,
+    email,
   } = (row ?? {}) as Record<string, unknown>
 
   if (typeof id !== 'string' || id === '') throw new Error('A Roster row arrived with no id')
@@ -66,12 +69,6 @@ const asPersonRow = (row: unknown): PersonRow => {
   // have drifted apart.
   if (!isParticipationStatus(status)) {
     throw new Error(`No Participation Status was derived for ${id}`)
-  }
-  // The column is `not null default false`, so a missing answer is not "nobody has
-  // decided yet" -- it is the select list and this reader having drifted apart, and
-  // rendering it as *not eligible* would quietly empty a Ministry's leader pool.
-  if (typeof eligible !== 'boolean') {
-    throw new Error(`A Roster row arrived with no lead eligibility for ${id}`)
   }
   // Both columns are nullable and null is a real answer -- the Person answered a
   // form that did not ask -- so null passes and everything else is checked. What is
@@ -91,15 +88,27 @@ const asPersonRow = (row: unknown): PersonRow => {
   if (typeof holdsAnAccount !== 'boolean') {
     throw new Error(`A Roster row arrived with no account answer for ${id}`)
   }
+  // Both nullable, and null is a real answer: an imported Person has no email, and
+  // a Person added by hand may have no number yet. Anything but a string or null is
+  // the select list and this reader having drifted apart -- and a Roster whose
+  // contact column had quietly gone blank is the spreadsheet-beside-the-screen
+  // state ADR-0021 exists to end.
+  if (phone !== null && typeof phone !== 'string') {
+    throw new Error(`A Roster row arrived with no phone answer for ${id}`)
+  }
+  if (email !== null && typeof email !== 'string') {
+    throw new Error(`A Roster row arrived with no email answer for ${id}`)
+  }
 
   return {
     id,
     fullName,
     participationStatus: status,
-    eligibleToLead: eligible,
     declaredSide: side,
     firstTime,
     holdsAnAccount,
+    phone: phone === null ? null : phoneNumber(phone),
+    email,
   }
 }
 
@@ -200,10 +209,21 @@ export const supabaseRosterReader: RosterReader = {
       ])
     }
 
+    /** The names of everyone in a relationship holding one role, sorted. */
+    const namesIn = (relationship: string, role: MemberRole): string[] =>
+      [
+        ...new Set(
+          (byRelationship.get(relationship) ?? []).flatMap((member) =>
+            member.role === role ? (nameOf.get(member.person_id) ?? []) : [],
+          ),
+        ),
+      ].sort()
+
     /**
      * One entry per open relationship this Person holds a membership in, each
      * saying what they are in it and who else is. A group shows everyone in it,
-     * which is the same question either way round.
+     * which is the same question either way round -- and beside everyone, the
+     * two sides apart, so the Roster can name the other side of the row it is on.
      */
     const relationshipsFor = (id: string): RosterRelationship[] =>
       memberships
@@ -219,6 +239,11 @@ export const supabaseRosterReader: RosterReader = {
               ),
             ),
           ].sort(),
+          leaderNames: namesIn(membership.relationship_id, 'leader'),
+          participantNames: namesIn(membership.relationship_id, 'participant'),
+          participantCount: (byRelationship.get(membership.relationship_id) ?? []).filter(
+            (member) => member.role === 'participant',
+          ).length,
         }))
         // Led relationships first, then the ones they are in as a Participant, and
         // alphabetically within each. A stable order, so a Roster read twice reads
@@ -234,10 +259,11 @@ export const supabaseRosterReader: RosterReader = {
       fullName: row.fullName,
       relationships: relationshipsFor(row.id),
       participationStatus: row.participationStatus,
-      eligibleToLead: row.eligibleToLead,
       declaredSide: row.declaredSide,
       firstTime: row.firstTime,
       holdsAnAccount: row.holdsAnAccount,
+      phone: row.phone,
+      email: row.email,
     }))
   },
 

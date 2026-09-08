@@ -42,7 +42,6 @@ import {
   resolveConcern,
   saveMinistrySettings,
   setKeywordExchangeTarget,
-  setLeadEligibility,
   sweepOutstandingReplies,
   type Effect,
   type KeywordExchangeOutcome,
@@ -3842,36 +3841,6 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             payload: { resetBy: command.resetBy },
           }),
         ],
-      }
-    }
-
-    case 'person.set_lead_eligibility': {
-      // Nothing is loaded and nothing is consulted. Eligibility is a plan, and
-      // every fact it might have been checked against is a fact it is deliberately
-      // independent of: whether the Person has completed Intake, whether they hold
-      // an account, how many relationships they already lead. The rules that do
-      // depend on those are the pairing ones, and they are enforced where a
-      // membership is written rather than here.
-      const now = context.clock.now()
-
-      return {
-        effects: [
-          setLeadEligibility({
-            ministryId: command.ministryId,
-            personId: command.personId,
-            eligible: command.eligible,
-            decidedAt: now,
-          }),
-          appendHistory({
-            ministryId: command.ministryId,
-            occurredAt: now,
-            type: 'person.lead_eligibility_set',
-            subjectType: 'person',
-            subjectId: command.personId,
-            payload: { eligible: command.eligible },
-          }),
-        ],
-        rejections: [],
       }
     }
 

@@ -63,8 +63,9 @@ _Avoid_: Match, assignment, pairing
 Whether a discipleship relationship was formed as a one-to-one or as a group. Declared when the relationship is created and immutable afterwards. It is a capacity declaration that exists so the participation caps and the two-person half of the Gender Rule can be enforced in the database; it is never read by message copy or by state derivation, both of which follow the live participant count. Which code may read it is ADR-0004's to say.
 _Avoid_: Treating kind as a second entity, or as the answer to "is this a group"
 
-**Eligible to Lead**:
-The per-person flag by which an Admin marks someone as suitable to lead a relationship. It is independent of whether they have an account and of whether they currently lead anything, and it is the same field as the intended role an Admin sets before intake.
+**Discipler** / **Disciple**:
+The two words every Admin screen uses for the people in a discipleship relationship, in place of Leader and Participant, since ticket 36. A Discipler is a fact and never a mark: anyone leading an open relationship, anyone who signed up as a leader on the Intake form, or anyone an import paired as the discipler. Everyone else on the Roster is a Disciple, and a person may be both. The words are the product's own and may be pluralised on a screen; the nouns a Ministry types for its messages are a different thing, see Ministry Language.
+_Avoid_: Eligible to lead, leader pool (there is no flag: pairing somebody is the pastor's acceptance), and using these in message copy, where the Ministry's own nouns go
 
 **Age Band Gap**:
 The number of age bands a participant may be *above* their leader in a suggestion. A ministry setting with a direction: there is no limit below, because an older person discipling a younger one is the ordinary case.

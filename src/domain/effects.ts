@@ -468,21 +468,6 @@ export interface PersonOptOut {
   readonly startedAt: Date
 }
 
-/**
- * An Admin's plan that this Person may lead. Dated on the decision rather than
- * flagged silently, and recorded either way round: withdrawing eligibility is the
- * same fact with the other answer, not the absence of one.
- *
- * The Person, never a relationship. It is independent of whether they hold an
- * account, of whether they have completed Intake, and of how many relationships
- * they already lead -- which is why nothing here names any of those.
- */
-export interface LeadEligibility {
-  readonly ministryId: MinistryId
-  readonly personId: PersonId
-  readonly eligible: boolean
-  readonly decidedAt: Date
-}
 
 /**
  * One Discipleship Goal option, added to the end of the Ministry's list.
@@ -710,10 +695,6 @@ export type Effect =
       readonly clarification: KeywordExchangeClarification
     }
   | { readonly kind: 'keyword.close'; readonly closure: KeywordExchangeClosure }
-  | {
-      readonly kind: 'person.lead_eligibility'
-      readonly eligibility: LeadEligibility
-    }
   | { readonly kind: 'settings.save'; readonly saving: MinistrySettingsSaving }
   | { readonly kind: 'goal.add'; readonly goal: NewDiscipleshipGoal }
   | { readonly kind: 'goal.rename'; readonly renaming: DiscipleshipGoalRenaming }
@@ -731,11 +712,6 @@ export const appendHistory = (event: NewHistoryEvent): Effect => ({
 export const recordIntakeLink = (link: NewIntakeLink): Effect => ({
   kind: 'intake_link.issue',
   link,
-})
-
-export const setLeadEligibility = (eligibility: LeadEligibility): Effect => ({
-  kind: 'person.lead_eligibility',
-  eligibility,
 })
 
 export const saveMinistrySettings = (saving: MinistrySettingsSaving): Effect => ({
