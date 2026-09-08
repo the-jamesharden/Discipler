@@ -173,6 +173,7 @@ import {
   type FollowUpItemId,
   concernId,
   importRowId,
+  intendedPairingId,
   personId,
   relationshipId,
   type IdSource,
@@ -220,6 +221,7 @@ import {
   type RowRejection,
 } from './roster'
 import { readRosterFile } from './roster-csv'
+import { classifyImport, type SideRef } from './roster-import'
 
 /**
  * The single command boundary. It is a pure function: the same command against the
@@ -3403,20 +3405,31 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       if (!context.roster) {
         throw new Error('person.import was handed no Roster to compare against')
       }
+      if (!context.openPlans) {
+        throw new Error('person.import was handed no plans to compare against')
+      }
 
-      const { people, rejected } = readRosterFile(command.csv)
-      const alreadyOnTheRoster = context.roster.people
+      // Read, then decided in one place: `classifyImport` is the same function the
+      // import dialog runs in the browser for its review, over the same reader, so
+      // what the Admin was shown is what happens here (ticket 36).
+      const reading = readRosterFile(command.text, command.mode)
+      const classified = classifyImport(reading, {
+        people: context.roster.people,
+        namesByNumber: context.roster.namesByNumber,
+        openPlans: context.openPlans,
+      })
       const now = context.clock.now()
 
       const effects: Effect[] = []
-      const rejections: RowRejection[] = [...rejected]
+      /** The Person each row became, where it became one; a row already on the Roster is that Person. */
+      const personOfRow: (PersonId | null)[] = []
 
-      for (const row of people) {
+      for (const row of classified.rows) {
         // A row for someone already on the Roster is reported and left alone: a
         // stale export must not overwrite a name or an email the Person themselves
         // gave at Intake.
-        if (alreadyOnTheRoster.has(rosterKey(row))) {
-          rejections.push({ line: row.line, problem: 'already_on_the_roster' })
+        if (row.outcome === 'already_on_the_roster') {
+          personOfRow.push(row.existingId)
           continue
         }
 
@@ -3430,8 +3443,10 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         // re-uploading the file, which is exactly the manual work this product
         // exists to remove. What is kept is the row as the file had it, because the
         // file is gone by the time anybody reads it and both answers need the name.
-        if (context.roster.namesByNumber.has(row.phone)) {
-          rejections.push({ line: row.line, problem: 'same_number_different_name' })
+        // Not kept: who it was paired with. Answer the row, then paste the line
+        // again (ticket 36, decision 13).
+        if (row.outcome === 'held') {
+          personOfRow.push(null)
           effects.push(
             holdImportRow({
               id: importRowId(context.ids.next()),
@@ -3455,6 +3470,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           email: row.email,
           createdAt: now,
         }
+        personOfRow.push(person.id)
 
         // No message of any kind. Being on a Roster is not consent and is not a wish
         // to participate, and Intake is the only thing that grants either.
@@ -3471,10 +3487,39 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         )
       }
 
-      return {
-        effects,
-        rejections: rejections.sort((first, second) => first.line - second.line),
+      // What the rows said about who disciples whom is recorded as a plan and
+      // nothing more: no relationship forms until both have completed Intake, and
+      // then by the pairing rules (ADR-0022).
+      const personOf = (side: SideRef): PersonId | null =>
+        side.kind === 'row' ? (personOfRow[side.index] ?? null) : side.personId
+      for (const pairing of classified.pairings) {
+        if (pairing.outcome !== 'planned' || !pairing.leader || !pairing.participant) continue
+        const leaderId = personOf(pairing.leader)
+        const participantId = personOf(pairing.participant)
+        // Both sides resolved to a Person above; the classifier planned nothing
+        // against a held row.
+        if (!leaderId || !participantId) continue
+        const plan = {
+          id: intendedPairingId(context.ids.next()),
+          ministryId: command.ministryId,
+          leaderId,
+          participantId,
+          plannedAt: now,
+        }
+        effects.push(
+          planIntendedPairing(plan),
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'intended_pairing.planned',
+            subjectType: 'intended_pairing',
+            subjectId: plan.id,
+            payload: { leaderId, participantId, line: pairing.line },
+          }),
+        )
       }
+
+      return { effects, rejections: classified.rejections }
     }
 
     case 'import_row.resolve': {

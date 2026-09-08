@@ -65,7 +65,7 @@ describe('the Follow-Up Item table', () => {
     return rows
   }
 
-  it('holds six kinds, and nothing derived is among them', async () => {
+  it('holds the kinds an Admin acts on, and nothing derived is among them', async () => {
     const { rows } = await pool.query<{ label: string }>(
       `select e.enumlabel as label
          from pg_enum e join pg_type t on t.oid = e.enumtypid
@@ -75,6 +75,8 @@ describe('the Follow-Up Item table', () => {
 
     expect(rows.map((row) => row.label)).toEqual([
       'group_join_requested',
+      // A plan an import made that the pairing rules refused (ADR-0022).
+      'intended_pairing_refused',
       'invitation_number_disputed',
       'match_declined',
       'participant_keyword',

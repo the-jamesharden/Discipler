@@ -103,7 +103,7 @@ export const displayPhone = (phone: string): string => {
  * receives anything until they complete Intake themselves.
  */
 export const IMPORT_IS_NEVER_CONSENT =
-  'An upload adds names, phone numbers and emails and nothing more. People land as '
+  'An import adds names, phone numbers and emails and nothing more. People land as '
   + 'No Intake Submitted, cannot be paired, and receive nothing until they complete '
   + 'Intake themselves. Importing a person is never consent.'
 
@@ -226,6 +226,20 @@ const PROBLEMS: Record<RowProblem, string> = {
   already_on_the_roster: 'already on the Roster',
   same_number_different_name:
     'this number is on the Roster under a different name — check whether it is the same person or someone sharing the number',
+  // The rest are about the pair a row described. The person on the row is still
+  // imported; only the pairing is not planned, and each says what to change.
+  role_unreadable: 'Role must say Discipler or Disciple, so the pair was not planned',
+  paired_with_no_role:
+    'names who they are paired with but no Role says whether they are the Discipler or the Disciple, so the pair was not planned',
+  paired_with_unknown: 'names somebody in Paired with who is neither in these rows nor on the Roster, so the pair was not planned',
+  paired_with_ambiguous:
+    'names somebody in Paired with that two people go by — add their row to the paste, with their number, so the pair can be planned',
+  paired_with_held:
+    'is paired with a row that is waiting on you — answer that row, then paste this line again',
+  paired_with_self: 'pairs a person with themselves',
+  paired_with_conflict: 'pairs two people the other way round from an earlier row',
+  pairing_already_planned:
+    'the Disciple on this row is already planned to be discipled by somebody — a person is in one one-to-one at a time',
 }
 
 export const rowProblemMessage = (problem: RowProblem): string => PROBLEMS[problem]
@@ -313,21 +327,42 @@ export const importRowRefusalMessage = (code: string | undefined): string | unde
 }
 
 const FAILURES: Record<ImportFailure, string> = {
-  no_file: 'Choose a CSV file to import.',
-  too_large: 'That file is larger than this import accepts. Split it and try again.',
-  nothing_to_read: 'That file had no rows in it.',
+  nothing_pasted: 'Paste your rows first, with their header row.',
+  too_large: 'That is more than this import accepts at once. Paste it in parts and try again.',
+  nothing_to_read: 'Nothing was pasted but blank lines.',
   no_name_column:
-    'That file has no column of names. Name the column Name or Full Name and try again.',
+    'These rows have no column of names. Name the column Name or Full Name and try again.',
   no_phone_column:
-    'That file has no column of phone numbers. Name the column Phone or Mobile and try again.',
+    'These rows have no column of phone numbers. Name the column Phone or Mobile and try again.',
+  no_discipler_columns:
+    'These rows have no Discipler and Discipler Phone columns. Add them, or choose People only.',
+  no_disciple_columns:
+    'These rows have no Disciple and Disciple Phone columns. Add them, or choose People only.',
   roster_changed:
     'The Roster changed while this import was running, so none of it was applied. Try it again.',
 }
 
 export const importFailureMessage = (code: string | undefined): string | undefined => {
   if (!code) return undefined
-  return FAILURES[code as ImportFailure] ?? 'That file could not be imported.'
+  return FAILURES[code as ImportFailure] ?? 'Those rows could not be imported.'
 }
+
+/** What an import did, in the sentences the Roster says after the redirect. */
+export const peopleAdded = (added: number): string =>
+  added === 1 ? '1 person was added.' : `${added} people were added.`
+
+/**
+ * Said only when a pair was planned. A plan is not a pairing (ADR-0022), and the
+ * sentence says what it is waiting on rather than leaving *planned* to be read as
+ * *done*.
+ */
+export const pairsPlanned = (planned: number): string =>
+  planned === 1
+    ? '1 pair was planned. It forms itself once both people have completed Intake.'
+    : `${planned} pairs were planned. Each forms itself once both people have completed Intake.`
+
+export const rowsNotImported = (refused: number): string =>
+  refused === 1 ? '1 row was not imported:' : `${refused} rows were not imported:`
 
 /**
  * Why a pairing was refused, in words an Admin can act on. A `Record` rather than a

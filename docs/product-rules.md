@@ -910,6 +910,28 @@ Pairing the same two people by hand fulfils the plan.
 Settling runs one transaction per plan, after every Intake submission, after every import and on the tick.
 See `docs/adr/0022-an-imported-pair-is-a-plan.md`.
 
+## Settled: The Import Is a Paste, in One of Two Layouts
+
+The Roster is imported by pasting rows straight from a spreadsheet, tab-separated or comma-separated, header row first.
+The Admin says which of two layouts the rows are in.
+*Already paired* is one discipler-disciple pair per row: Discipler, Discipler Phone, Discipler Email, Disciple, Disciple Phone, Disciple Email.
+*People only* is one person per row: Name, Phone, Email, and optionally Role and Paired With.
+Leader, Mentor, Participant and Mentee are accepted silently as headings and as Role values, and are never said back.
+
+Role says only which side of a Paired With pair the person takes.
+On a row naming nobody in Paired With it changes nothing, because being paired is what makes a Discipler.
+Paired With is resolved first within the paste, by the same name fold ADR-0005 uses, and then against the Roster.
+A name two people go by is refused on that line rather than guessed; the person on the row is still imported, and only the pair is not planned.
+Both layouts plan one-to-ones only; groups are paired by hand.
+
+An import changes nothing about a person already on the Roster.
+A row held because its number is on the Roster under another name does not keep who it was paired with: the Admin answers the row, then pastes the line again.
+
+The review the dialog shows as the Admin pastes is produced by the same reader and the same classifier the server runs inside its transaction, over the same text, so what is shown is what happens.
+Without script the same dialog imports and the server's report comes back on the Roster.
+Both layouts offer the same alternative: email the spreadsheet to support@trydiscipler.com and it is imported for you.
+The cap on one paste is a constant in the import route.
+
 ## Settled: The Sign-In Credential Is a Phone Number and a Password
 
 One sign-in form, phone number and password, for every user including Admins. Email is

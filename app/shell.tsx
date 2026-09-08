@@ -269,13 +269,7 @@ export const NotAnAdmin = ({ title }: { readonly title: string }) => (
   </PageShell>
 )
 
-/** A person's initials, for the avatar beside their name. Derived from the name. */
-export const initialsOf = (fullName: string): string => {
-  const parts = fullName.trim().split(/\s+/).filter((part) => part !== '')
-  const first = parts[0]?.[0] ?? '?'
-  const last = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? '') : ''
-  return `${first}${last}`.toUpperCase()
-}
+export { initialsOf } from './initials'
 
 /** `Sep 1`, the short date the prototype prints on cards. */
 export const shortDate = (instant: Date): string =>

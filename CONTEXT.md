@@ -56,7 +56,7 @@ A pairing an import recorded the intention of, waiting on both people to complet
 _Avoid_: Calling it a pairing or a relationship before it has formed, a suggestion, or anything that could be retried
 
 **Held Import Row**:
-A spreadsheet row an import would not file because the number on it is already on the roster under a different name. It is kept, not dropped: the row waits on the roster until an admin says whether it is the same person written differently or somebody else sharing the phone, and it keeps their answer afterwards. Only that one ambiguity is held — the other reasons a row is refused are a spreadsheet to fix, not a question anybody can answer. ADR-0005 is why both readings are real.
+A spreadsheet row an import would not file because the number on it is already on the roster under a different name. It is kept, not dropped: the row waits on the roster until an admin says whether it is the same person written differently or somebody else sharing the phone, and it keeps their answer afterwards. Only that one ambiguity is held — the other reasons a row is refused are a spreadsheet to fix, not a question anybody can answer. It does not keep who the row said they were paired with; the admin answers the row, then pastes the line again. ADR-0005 is why both readings are real.
 _Avoid_: Calling it an import error, or a merge
 
 **Suggested Pair**:

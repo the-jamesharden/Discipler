@@ -49,8 +49,13 @@ Taken in this session's questions on 2026-09-06 and in the Lavish review of 2026
 - `supabase/migrations/20260923000100_the_roster_of_disciplers_and_disciples.sql`: the column dropped, `public.roster` recreated with phone and email.
 - `src/service/ports.ts`, `src/platform/supabase/roster-reader.ts`: `RosterEntry.phone/email`, `RosterRelationship.leaderNames/participantNames/participantCount`; the eligibility port gone.
 - `src/domain/commands.ts`, `effects.ts`, `boundary.ts`, `src/service/command-service.ts`, `src/platform/supabase/effect-store.ts`: the eligibility command, effect and write removed.
-- `app/roster/page.tsx`: the toggle, the pill and the per-row form removed (interim); the rebuild follows.
-- `app/roster/[personId]/page.tsx`, `app/roster/lists.ts`, `app/roster/import-dialog.tsx`, `app/roster/import-copy.ts`, `src/domain/roster-import.ts`, `src/domain/intended-pairing.ts`: to come, in the steps of the plan.
+- `app/roster/page.tsx`, `app/roster/lists.ts`, `app/roster/copy.ts`: the two lists, the four numbers, the five columns, the one rule for who is a Discipler, and every word an Admin reads.
+- `app/roster/[personId]/page.tsx`: the person page, with the Intake link, the reset, a new invitation and the sentence saying why.
+- `src/domain/intended-pairing.ts`, `supabase/migrations/20260923000200_intended_pairings.sql`: a plan an import made and how it is settled; ADR-0022.
+- `src/domain/roster-csv.ts`: the reader, both layouts, tab or comma, the heading synonyms, Role and Paired With.
+- `src/domain/roster-import.ts`: the classifier, one function for the command and the dialog.
+- `app/roster/import/route.ts`, `app/roster/report.ts`: the paste posted as a form, the report with the pairs planned.
+- `app/roster/import-dialog.tsx`, `app/roster/import-copy.ts`: the dialog, its live review, and its words.
 
 ## Comments
 
@@ -62,3 +67,6 @@ Taken in this session's questions on 2026-09-06 and in the Lavish review of 2026
 
 **2026-09-08.** Step 4 shipped on the branch: `intended_pairing`, the two settle commands, `formRelationship` shared with the Pair page, the settle after every Intake submission, after an import and on the tick, the `intended_pairing_refused` Follow-Up kind with *Pair by hand* on it, and the plan on both Roster rows. ADR-0022. Nothing writes a plan yet but a test; the import does in step 5.
 
+**2026-09-08.** Steps 5 and 6 shipped on the branch: the import is a paste, tab or comma, in one of two layouts -- *Already paired* (one discipler-disciple pair per row) and *People only* (one person per row, with Role and Paired With if wanted); Leader, Mentor, Participant and Mentee are read silently; Paired With is resolved within the paste and then against the Roster; `classifyImport` is the one function the command runs inside its transaction and the dialog runs in the browser for its review, and a test holds the two to the same answer. The file input is gone; the 2 MB cap is on the pasted text. The dialog is the prototype's three steps with the four tiles and the review table, opened from a link by `:target` (and by the hash after hydration, since the router rewrites the URL), posting the form with script off, with the review then coming back on the Roster as *N people were added. M pairs were planned.* Every new refusal is worded; `app/roster/import-copy.ts` is swept by the vocabulary test too. Held rows do not keep their pairing (decision 13). Step 7 stays for later.
+
+Verified: typecheck, the full suite against a rebuilt server, and the dialog in Chrome (both layouts, the live review, a refusal held open, and a fresh load on `#import`).

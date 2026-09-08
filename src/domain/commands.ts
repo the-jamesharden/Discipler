@@ -16,6 +16,7 @@ import type { IntakeLinkToken } from './intake-link'
 import type { InvitationToken } from './invitations'
 import type { PausePeriodWeeks } from './pause'
 import type { RelationshipOutcome } from './relationships'
+import type { ImportMode } from './roster-csv'
 
 /**
  * Every external trigger enters through this one boundary, and this union is the
@@ -33,15 +34,17 @@ export type Command =
       readonly ministryId: MinistryId
     }
   /**
-   * The spreadsheet itself is the payload, unread. Reading it is a rule about what
-   * Discipler will accept as a Person -- a name, a number it can text -- and that
-   * belongs on the same side of the boundary as every other rule, where it is
-   * driven by tests with no upload anywhere near it.
+   * The pasted rows themselves are the payload, unread, and the layout the Admin
+   * said they are in. Reading them is a rule about what Discipler will accept as
+   * a Person -- a name, a number it can text -- and who it will plan to pair, and
+   * that belongs on the same side of the boundary as every other rule, where it
+   * is driven by tests with no upload anywhere near it.
    */
   | {
       readonly type: 'person.import'
       readonly ministryId: MinistryId
-      readonly csv: string
+      readonly mode: ImportMode
+      readonly text: string
     }
   /**
    * The Admin's answer to a row the import would not guess about. It is a separate

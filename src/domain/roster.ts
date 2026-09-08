@@ -92,6 +92,28 @@ export type RowProblem =
    * says which it is. See docs/adr/0005-a-person-is-a-name-and-a-number.md.
    */
   | 'same_number_different_name'
+  /**
+   * The rest are about who a row says a person is paired with (ticket 36). A row
+   * may name somebody the import cannot place, or place twice, and the pairing is
+   * refused on that line rather than guessed at; the person on the row is still
+   * imported, because a name in a Paired With column is not a reason to lose them.
+   */
+  /** A Role the reader does not know. Discipler or Disciple, and nothing else. */
+  | 'role_unreadable'
+  /** The row says who they are paired with but not which side of it they are. */
+  | 'paired_with_no_role'
+  /** Nobody in the paste, and nobody on the Roster, holds that name. */
+  | 'paired_with_unknown'
+  /** Two people hold that name, in the paste or on the Roster, and the import will not pick one. */
+  | 'paired_with_ambiguous'
+  /** The other side of the pair is a row being held; answer the row, then paste the line again. */
+  | 'paired_with_held'
+  /** A person paired with themselves. */
+  | 'paired_with_self'
+  /** Another row pairs the same two people the other way round. */
+  | 'paired_with_conflict'
+  /** The Disciple already holds a plan, on the Roster or earlier in this paste. */
+  | 'pairing_already_planned'
 
 /**
  * The vocabulary, listed once. What arrives in a query string has to be checked
@@ -108,6 +130,14 @@ export const ROW_PROBLEMS: readonly RowProblem[] = [
   'repeated_in_this_file',
   'already_on_the_roster',
   'same_number_different_name',
+  'role_unreadable',
+  'paired_with_no_role',
+  'paired_with_unknown',
+  'paired_with_ambiguous',
+  'paired_with_held',
+  'paired_with_self',
+  'paired_with_conflict',
+  'pairing_already_planned',
 ]
 
 export const isRowProblem = (value: unknown): value is RowProblem =>

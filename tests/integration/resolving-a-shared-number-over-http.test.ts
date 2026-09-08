@@ -20,14 +20,11 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin answering a held import row', 
   const number = phoneNumbers()
 
   const upload = async (cookie: string, csv: string) => {
-    const form = new FormData()
-    form.set('file', new File([csv], 'congregation.csv', { type: 'text/csv' }))
-
     await fetch(`${baseUrl}/roster/import`, {
       method: 'POST',
       redirect: 'manual',
-      headers: { cookie },
-      body: form,
+      headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ mode: 'people_only', rows: csv }),
     })
   }
 

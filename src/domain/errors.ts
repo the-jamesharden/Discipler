@@ -183,7 +183,21 @@ export class ImportRowResolutionRefused extends Error {
  * Why the file as a whole could not be read. A file problem rejects every row in it,
  * so it is not a `RowProblem` with a line number -- there is no line to point at.
  */
-export type FileProblem = 'nothing_to_read' | 'no_name_column' | 'no_phone_column'
+export type FileProblem =
+  | 'nothing_to_read'
+  | 'no_name_column'
+  | 'no_phone_column'
+  /** The Already paired layout needs a name and a phone column for each side. */
+  | 'no_discipler_columns'
+  | 'no_disciple_columns'
+
+export const FILE_PROBLEMS: readonly FileProblem[] = [
+  'nothing_to_read',
+  'no_name_column',
+  'no_phone_column',
+  'no_discipler_columns',
+  'no_disciple_columns',
+]
 
 export class RosterFileUnreadable extends Error {
   constructor(readonly problem: FileProblem) {

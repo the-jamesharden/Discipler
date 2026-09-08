@@ -37,7 +37,7 @@ describe('resolving a number the Roster already holds', () => {
   const number = phoneNumbers()
 
   const importing = (csv: string) =>
-    service().execute({ type: 'person.import', ministryId: ministry.id, csv })
+    service().execute({ type: 'person.import', ministryId: ministry.id, mode: 'people_only', text: csv })
 
   beforeAll(async () => {
     ministry = await createMinistryWithAdmin('Riverside Chapel')

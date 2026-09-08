@@ -699,6 +699,12 @@ export const createCommandService = ({
               openPlans: await unit.openIntendedPairings(),
             }
           : {}),
+        // An import plans against the plans still standing, read inside the
+        // transaction like the Roster, so two imports naming the same Disciple
+        // cannot both plan them.
+        ...(command.type === 'person.import'
+          ? { openPlans: await unit.openIntendedPairings() }
+          : {}),
         ...(settlesAPlan(command)
           ? await intendedPairingContext(unit, command.intendedPairingId)
           : {}),

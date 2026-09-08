@@ -11,7 +11,6 @@ import {
   EMPTY_LIST,
   HELD_ROWS_EXPLANATION,
   HELD_ROWS_HEADING,
-  IMPORT_IS_NEVER_CONSENT,
   importFailureMessage,
   importRowRefusalMessage,
   isRosterList,
@@ -25,10 +24,13 @@ import {
   PAIR_PEOPLE,
   pairedReceipt,
   pairingSizeLabel,
+  pairsPlanned,
   participationStatusLabel,
+  peopleAdded,
   PLANNED,
   ROSTER_LISTS,
   rowProblemMessage,
+  rowsNotImported,
   samePersonAnswer,
   samePersonConsequence,
   SOMEONE_ELSE_ANSWER,
@@ -40,8 +42,11 @@ import {
   type RosterList,
 } from './copy'
 import { INTAKE_FORMS } from '../intake-forms/copy'
+import { ImportDialog, type ImportReadbackWire } from './import-dialog'
+import { IMPORT_DATASET, IMPORT_DIALOG_ID } from './import-copy'
 import { isDiscipler, onList, plansOn, relationshipsOn, rosterStats } from './lists'
 import { decodeImportReport } from './report'
+import { rosterKey } from '~/domain/roster'
 
 export const dynamic = 'force-dynamic'
 
@@ -96,7 +101,8 @@ export default async function RosterPage({
   const stats = rosterStats(list, shown)
 
   const report = decodeImportReport(query)
-  const failure = importFailureMessage(query.error)
+  // The code, not the sentence: the dialog words it, and opens on it.
+  const failure = importFailureMessage(query.error) === undefined ? undefined : query.error
   const rowFailure = importRowRefusalMessage(query.rowError)
   // How many people the pairing just made has in it, so the receipt can say what
   // landed. Read as a count and never echoed as text.
@@ -105,6 +111,12 @@ export default async function RosterPage({
   /** The other list's link keeps nothing else from the query string: a receipt is about the page it landed on. */
   const listHref = (which: RosterList): string =>
     which === 'disciplers' ? '/roster' : `/roster?${new URLSearchParams({ list: which })}`
+
+  // The Roster as the import review classifies against it, in the browser:
+  // every name and number this page already prints (ADR-0021), and the plans
+  // still waiting. The server's own read, inside its transaction, stays the
+  // authority.
+  const readback = importReadback(roster)
 
   return (
     <AdminShell admin={admin} current="roster">
@@ -123,39 +135,10 @@ export default async function RosterPage({
                 and several people selected together start from nobody in
                 particular. */}
             <Link className="btn sec" href="/roster/pair">{PAIR_PEOPLE}</Link>
-            {/* The import, in a popup under its own button rather than a card of its
-                own below the table (ticket 32, decision 7). A details element, like
-                the Account menu, so it opens and closes with no script; it is open
-                already when the last upload was refused, so the file field is in
-                front of the Admin with the reason beside it. */}
-            <details className="popover" open={failure !== undefined}>
-              <summary className="btn">Upload CSV</summary>
-              <div className="popover-panel">
-                <h2 className="card-title">Import from a spreadsheet</h2>
-                <p className="notice">{IMPORT_IS_NEVER_CONSENT}</p>
-                <p className="card-lead">
-                  A CSV with a column of names and a column of phone numbers; an email
-                  column is optional.
-                </p>
-                {/* Why the last upload was refused, beside the field to try again
-                    with. The report of one that went through is above the table
-                    instead, because that one needs no second attempt. */}
-                {failure ? (
-                  <p className="toast error" role="alert">
-                    {failure}
-                  </p>
-                ) : null}
-                <form method="post" action="/roster/import" encType="multipart/form-data">
-                  <div className="field">
-                    <label className="label" htmlFor="file">
-                      Spreadsheet
-                    </label>
-                    <input id="file" name="file" type="file" accept=".csv,text/csv" required />
-                  </div>
-                  <button type="submit">Import</button>
-                </form>
-              </div>
-            </details>
+            {/* The import, in a dialog over the table (ticket 36). A link to the
+                dialog's own id, so it opens with no script; the dialog itself is
+                at the end of the page. */}
+            <a className="btn" href={`#${IMPORT_DIALOG_ID}`}>{`↑ ${IMPORT_DATASET}`}</a>
           </div>
         </div>
 
@@ -196,18 +179,12 @@ export default async function RosterPage({
           <div className="toast" role="status">
             {/* Each sentence is one string rather than an assembly of fragments, so
                 it reads as a sentence in the markup too and can be asserted on. */}
-            <p>
-              {report.added === 1
-                ? '1 person was added.'
-                : `${report.added} people were added.`}
-            </p>
+            <p>{peopleAdded(report.added)}</p>
+            {/* A plan is not a pairing (ADR-0022); the sentence says what it waits on. */}
+            {report.planned > 0 ? <p>{pairsPlanned(report.planned)}</p> : null}
             {report.refused.length > 0 ? (
               <>
-                <p>
-                  {report.refused.length === 1
-                    ? '1 row was not imported:'
-                    : `${report.refused.length} rows were not imported:`}
-                </p>
+                <p>{rowsNotImported(report.refused.length)}</p>
                 <ul>
                   {report.refused.map(({ line, problem }) => (
                     <li key={`${line}:${problem}`}>
@@ -245,7 +222,7 @@ export default async function RosterPage({
 
         {roster.length === 0 ? (
           <p className="empty">
-            Nobody is on this Roster yet. Upload a spreadsheet, or send one of the{' '}
+            Nobody is on this Roster yet. Import your spreadsheet, or send one of the{' '}
             <Link href="/intake-forms">{INTAKE_FORMS}</Link>.
           </p>
         ) : shown.length === 0 ? (
@@ -379,8 +356,39 @@ export default async function RosterPage({
           ))}
         </div>
       ) : null}
+
+      {/* Fixed over the page, so where it sits in the markup does not matter;
+          last, so a reader without styles meets the Roster first. Open already
+          when the last import was refused, with the reason beside the rows. */}
+      <ImportDialog readback={readback} failure={failure} />
     </AdminShell>
   )
+}
+
+/**
+ * What the review needs to know about the Roster, from what the page already
+ * holds. A Person with no number cannot be matched by an import and is left out.
+ */
+const importReadback = (roster: readonly RosterEntry[]): ImportReadbackWire => {
+  const numbers = new Map<string, string[]>()
+  for (const person of roster) {
+    if (person.phone) numbers.set(person.phone, [...(numbers.get(person.phone) ?? []), person.fullName])
+  }
+  return {
+    people: roster.flatMap((person) =>
+      person.phone
+        ? [{ key: rosterKey({ fullName: person.fullName, phone: person.phone }), id: person.personId, name: person.fullName }]
+        : [],
+    ),
+    numbers: [...numbers].map(([phone, names]) => ({ phone, names })),
+    openPlans: roster.flatMap((person) =>
+      person.intendedPairings.flatMap((plan) =>
+        plan.role === 'leader' && plan.state === 'awaiting_intake'
+          ? [{ leaderId: person.personId, participantId: plan.withPersonId }]
+          : [],
+      ),
+    ),
+  }
 }
 
 /**
@@ -442,21 +450,21 @@ const PairedWith = ({ list, person }: { readonly list: RosterList; readonly pers
 
 const PlanLine = ({ plan }: { readonly plan: RosterIntendedPairing }) => (
   <>
-    {plan.withName}
-    {' '}
+    {/* The name and its pill stay on one line; only the note after them wraps. */}
+    <span className="nowrap">
+      {plan.withName}
+      {' '}
+      <span className={`pill ${plan.state === 'awaiting_intake' ? 'plan' : 'refused'}`}>
+        {plan.state === 'awaiting_intake' ? PLANNED : NOT_MADE}
+      </span>
+    </span>
     {plan.state === 'awaiting_intake' ? (
-      <>
-        <span className="pill plan">{PLANNED}</span>
-        <span className="muted">{` — ${AWAITING_INTAKE}`}</span>
-      </>
+      <span className="muted">{` — ${AWAITING_INTAKE}`}</span>
     ) : (
-      <>
-        <span className="pill refused">{NOT_MADE}</span>
-        <span className="muted">
-          {' — '}
-          <Link href="/follow-up">{SEE_FOLLOW_UP}</Link>
-        </span>
-      </>
+      <span className="muted">
+        {' — '}
+        <Link href="/follow-up">{SEE_FOLLOW_UP}</Link>
+      </span>
     )}
   </>
 )

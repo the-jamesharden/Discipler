@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { PairingRefusal } from '~/domain/errors'
+import { FILE_PROBLEMS } from '~/domain/errors'
 import { ROW_PROBLEMS } from '~/domain/roster'
 import * as copy from '../../app/roster/copy'
+import * as importCopy from '../../app/roster/import-copy'
 
 /**
  * The Roster, the person page and the pairing page speak the customer's language
@@ -43,12 +45,22 @@ const stringsIn = (value: unknown): string[] => {
 
 describe('the Roster speaks the customer’s language', () => {
   it('says Discipler and Disciple, never the model’s words, in every constant', () => {
-    for (const [name, value] of Object.entries(copy)) {
+    for (const [name, value] of Object.entries({ ...copy, ...importCopy })) {
       if (typeof value === 'function') continue
       for (const said of stringsIn(value)) {
         expect(said, `${name}: ${said}`).not.toMatch(FORBIDDEN)
       }
     }
+  })
+
+  it('says it in the import dialog’s own sentences', () => {
+    expect(importCopy.importButtonLabel()).toBe('Import')
+    expect(importCopy.importButtonLabel(6, 3)).toBe('Import 6 people & 3 pairs')
+    expect(importCopy.importButtonLabel(1, 1)).toBe('Import 1 person & 1 pair')
+    expect(importCopy.importButtonLabel(4)).toBe('Import 4 people')
+    expect(importCopy.REVIEW_MORE_ROWS(1)).not.toMatch(FORBIDDEN)
+    expect(copy.pairsPlanned(1)).not.toMatch(FORBIDDEN)
+    expect(copy.pairsPlanned(3)).not.toMatch(FORBIDDEN)
   })
 
   it('says it in every pairing refusal', () => {
@@ -62,7 +74,7 @@ describe('the Roster speaks the customer’s language', () => {
     for (const problem of ROW_PROBLEMS) {
       expect(copy.rowProblemMessage(problem), problem).not.toMatch(FORBIDDEN)
     }
-    for (const failure of ['no_file', 'too_large', 'nothing_to_read', 'no_name_column', 'no_phone_column', 'roster_changed']) {
+    for (const failure of [...FILE_PROBLEMS, 'nothing_pasted', 'too_large', 'roster_changed']) {
       expect(copy.importFailureMessage(failure) ?? '', failure).not.toMatch(FORBIDDEN)
     }
   })

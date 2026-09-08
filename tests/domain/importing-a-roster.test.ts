@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { handleCommand } from '~/domain/boundary'
 import { createTestClock } from '~/domain/clock'
-import { createSequentialIds, ministryId, personId, type PersonId } from '~/domain/ids'
+import { createSequentialIds, intendedPairingId, ministryId, personId, type PersonId } from '~/domain/ids'
 import { phoneNumber, rosterKey, type PhoneNumber } from '~/domain/roster'
+import type { ImportMode } from '~/domain/roster-csv'
 import { file } from '../support/roster'
 
 /**
@@ -14,13 +15,19 @@ import { file } from '../support/roster'
 const ministry = ministryId('11111111-1111-1111-1111-111111111111')
 const at = new Date('2026-03-02T09:00:00Z')
 
-const importing = (csv: string, alreadyOnRoster: { fullName: string; phone: string }[] = []) =>
+const importing = (
+  csv: string,
+  alreadyOnRoster: { fullName: string; phone: string }[] = [],
+  mode: ImportMode = 'people_only',
+) =>
   handleCommand(
-    { type: 'person.import', ministryId: ministry, csv },
+    { type: 'person.import', ministryId: ministry, mode, text: csv },
     {
       ministryId: ministry,
       clock: createTestClock(at),
       ids: createSequentialIds(),
+      // Nothing planned yet; the plans a paste makes are tested below.
+      openPlans: [],
       roster: {
         people: new Map(
           alreadyOnRoster.map(({ fullName, phone }, index) => [
@@ -213,5 +220,136 @@ describe('importing a Roster', () => {
     const result = importing(file('Name,Phone'))
 
     expect(result).toEqual({ effects: [], rejections: [] })
+  })
+})
+
+const plansIn = (result: ReturnType<typeof importing>) =>
+  result.effects.flatMap((effect) => (effect.kind === 'intendedPairing.plan' ? [effect.plan] : []))
+
+describe('importing who disciples whom', () => {
+  it('plans a pair from an Already paired row, between the two people it just added', () => {
+    const result = importing(
+      file(
+        'Discipler,Discipler Phone,Disciple,Disciple Phone',
+        'Sam Rivera,5550143100,Taylor Brooks,5550143101',
+      ),
+      [],
+      'already_paired',
+    )
+
+    expect(peopleIn(result).map((person) => [person.id, person.fullName])).toEqual([
+      ['00000000-0000-4000-8000-000000000001', 'Sam Rivera'],
+      ['00000000-0000-4000-8000-000000000002', 'Taylor Brooks'],
+    ])
+    expect(plansIn(result)).toEqual([
+      {
+        id: '00000000-0000-4000-8000-000000000003',
+        ministryId: ministry,
+        leaderId: '00000000-0000-4000-8000-000000000001',
+        participantId: '00000000-0000-4000-8000-000000000002',
+        plannedAt: at,
+      },
+    ])
+    // Recorded in history like everything else, with the line it came from.
+    expect(
+      result.effects.flatMap((effect) =>
+        effect.kind === 'history.append' && effect.event.type === 'intended_pairing.planned' ? [effect.event] : [],
+      ),
+    ).toEqual([
+      {
+        ministryId: ministry,
+        occurredAt: at,
+        type: 'intended_pairing.planned',
+        subjectType: 'intended_pairing',
+        subjectId: '00000000-0000-4000-8000-000000000003',
+        payload: {
+          leaderId: '00000000-0000-4000-8000-000000000001',
+          participantId: '00000000-0000-4000-8000-000000000002',
+          line: 2,
+        },
+      },
+    ])
+    // A plan, not a relationship: nothing is formed and nobody is texted.
+    expect(result.effects.filter((effect) => effect.kind === 'relationship.create')).toEqual([])
+    expect(result.effects.filter((effect) => effect.kind === 'message.enqueue')).toEqual([])
+  })
+
+  it('plans a pair with somebody already on the Roster, by their name, and changes nothing about them', () => {
+    const result = importing(
+      file('Name,Role,Phone,Paired With', 'Taylor Brooks,Disciple,5550143102,Ruth Adeyemi'),
+      [{ fullName: 'Ruth Adeyemi', phone: '+15550143103' }],
+    )
+
+    expect(peopleIn(result).map((person) => person.fullName)).toEqual(['Taylor Brooks'])
+    expect(plansIn(result)).toMatchObject([
+      { leaderId: '00000000-0000-4000-9000-000000000001', participantId: '00000000-0000-4000-8000-000000000001' },
+    ])
+    expect(result.rejections).toEqual([])
+  })
+
+  it('plans nothing for a row that is being held, and says so on the line', () => {
+    const result = importing(
+      file(
+        'Discipler,Discipler Phone,Disciple,Disciple Phone',
+        'Sam Rivera,5550143104,Tay Brooks,5550143105',
+      ),
+      [{ fullName: 'Taylor Brooks', phone: '+15550143105' }],
+      'already_paired',
+    )
+
+    expect(peopleIn(result).map((person) => person.fullName)).toEqual(['Sam Rivera'])
+    expect(result.effects.filter((effect) => effect.kind === 'importRow.raise')).toHaveLength(1)
+    expect(plansIn(result)).toEqual([])
+    expect(result.rejections).toEqual([
+      { line: 2, problem: 'same_number_different_name' },
+      { line: 2, problem: 'paired_with_held' },
+    ])
+  })
+
+  it('plans against the plans still standing, so a Disciple is never planned twice', () => {
+    const result = handleCommand(
+      {
+        type: 'person.import',
+        ministryId: ministry,
+        mode: 'people_only',
+        text: file('Name,Role,Phone,Paired With', 'Sam Rivera,Discipler,5550143106,Ruth Adeyemi'),
+      },
+      {
+        ministryId: ministry,
+        clock: createTestClock(at),
+        ids: createSequentialIds(),
+        openPlans: [
+          {
+            id: intendedPairingId('00000000-0000-4000-9000-000000000099'),
+            leaderId: personId('00000000-0000-4000-9000-000000000002'),
+            participantId: personId('00000000-0000-4000-9000-000000000001'),
+            plannedAt: at,
+          },
+        ],
+        roster: {
+          people: new Map([[rosterKey({ fullName: 'Ruth Adeyemi', phone: phoneNumber('+15550143107') }), personId('00000000-0000-4000-9000-000000000001')]]),
+          namesByNumber: new Map([[phoneNumber('+15550143107'), ['Ruth Adeyemi']]]),
+          whoCompletedIntake: new Set<PersonId>(),
+        },
+      },
+    )
+
+    expect(peopleIn(result)).toHaveLength(1)
+    expect(plansIn(result)).toEqual([])
+    expect(result.rejections).toEqual([{ line: 2, problem: 'pairing_already_planned' }])
+  })
+
+  it('refuses to run without the plans, as it refuses to run without the Roster', () => {
+    expect(() =>
+      handleCommand(
+        { type: 'person.import', ministryId: ministry, mode: 'people_only', text: file('Name,Phone') },
+        {
+          ministryId: ministry,
+          clock: createTestClock(at),
+          ids: createSequentialIds(),
+          roster: { people: new Map(), namesByNumber: new Map(), whoCompletedIntake: new Set<PersonId>() },
+        },
+      ),
+    ).toThrow(/no plans/)
   })
 })
