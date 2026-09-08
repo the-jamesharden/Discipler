@@ -104,13 +104,15 @@ export const displayPhone = (phone: string): string => {
 
 /**
  * Said above the import, in the design's own words, because it is exactly the
- * product rule: an upload adds names and numbers and nothing more, and nobody
- * receives anything until they complete Intake themselves.
+ * product rule: a paste adds names and numbers, and where it says who disciples
+ * whom it records a plan and pairs nobody (ADR-0022); nobody receives anything
+ * until they complete Intake themselves.
  */
 export const IMPORT_IS_NEVER_CONSENT =
-  'An import adds names, phone numbers and emails and nothing more. People land as '
-  + 'No Intake Submitted, cannot be paired, and receive nothing until they complete '
-  + 'Intake themselves. Importing a person is never consent.'
+  'An import adds names, phone numbers and emails. Where a row says who disciples '
+  + 'whom, the pair is planned, not made: it forms itself once both have completed '
+  + 'Intake. People land as No Intake Submitted, cannot be paired, and receive nothing '
+  + 'until they complete Intake themselves. Importing a person is never consent.'
 
 /**
  * The one signal the declared side puts on a Roster row: this Person offered to

@@ -29,7 +29,10 @@ Suggested pairings do not remove the pastor's ability to pair people manually.
 
 Suggested one-to-one pairings are based on a simple mathematical comparison of overlapping availability slots between two independent pools.
 
-The **leader pool** is every person who is a Discipler, filtered by the kind of relationship being suggested; who is a Discipler is settled under *Roles Are Relationship Memberships, Not Properties of a Person*, and there is no flag to mark. There is no cap on how many relationships a leader already holds.
+The **leader pool** is every person who leads an open relationship or who answered the mentor side at Intake, filtered by the kind of relationship being suggested (ticket 36, decision 4).
+There is no flag to mark.
+A person an import planned as the discipler is a Discipler on the Roster but not in the pool: an intended pairing is not a suggestion and is not fed to the scorer, and the person enters the pool the day the plan forms and they lead.
+There is no cap on how many relationships a leader already holds.
 
 The **participant pool** is every person who has completed intake, given consent, and not opted out, ranked so that people holding no open participant membership are offered first.
 
@@ -166,7 +169,10 @@ Role is a property of relationship membership. **Leader** and **Participant** me
 
 **A person appears in a given relationship at most once at a time, in one role.** Pairing someone with themselves is a database error, not a scorer bug.
 
-**There is no eligibility flag.** Ticket 16 recorded one and ticket 36 removed it, at the product owner's direction: a Discipler is a fact, never a mark. Anyone leading an open relationship, anyone who signed up as a leader on the Intake form, and anyone an import paired as the discipler is one; pairing them is the pastor's acceptance, and nothing is recorded ahead of it. The suggestion engine's leader pool (ticket 04) draws on the same facts.
+**There is no eligibility flag.** Ticket 16 recorded one and ticket 36 removed it, at the product owner's direction: a Discipler is a fact, never a mark.
+Anyone leading an open relationship, anyone who signed up as a leader on the Intake form, and anyone an import paired as the discipler is one; pairing them is the pastor's acceptance, and nothing is recorded ahead of it.
+The suggestion engine's leader pool (ticket 04) reads two of those facts, leading an open relationship or the mentor side at Intake, and not the third: an import-planned discipler does not enter the pool until the plan forms.
+The pool is defined under *Suggested Pairing*.
 
 **Participation caps.** A leader leads at most one open group and any number of one-to-ones. A participant is in at most one open one-to-one and any number of groups. Both are enforced as database constraints; see `docs/adr/0004-relationship-kind-as-capacity-declaration.md`.
 
