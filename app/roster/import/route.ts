@@ -20,7 +20,9 @@ export async function POST(request: NextRequest) {
   if (!admin) return NextResponse.redirect(new URL('/roster', request.url), { status: 303 })
 
   const back = (params: URLSearchParams) =>
-    NextResponse.redirect(new URL(`/roster?${params}`, request.url), { status: 303 })
+    // To the Disciples list, where everyone an upload adds lands: an imported
+    // Person has led nobody and offered nothing on any form yet.
+    NextResponse.redirect(new URL(`/roster?${new URLSearchParams([['list', 'disciples'], ...params])}`, request.url), { status: 303 })
 
   const failed = (reason: ImportFailure) => back(new URLSearchParams({ error: reason }))
 

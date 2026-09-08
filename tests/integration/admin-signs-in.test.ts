@@ -16,7 +16,9 @@ import {
   skipUnlessAppIsRunning,
 } from '../support/app'
 
-const getRoster = (cookie: string) => getPage('/roster', cookie)
+// The Disciples list: an Admin is on their own Roster as a Disciple until they
+// disciple somebody (ticket 36), and so is everybody an upload adds.
+const getRoster = (cookie: string) => getPage('/roster?list=disciples', cookie)
 
 /**
  * The walking skeleton's surface: an Admin signs in and reaches a Roster scoped to

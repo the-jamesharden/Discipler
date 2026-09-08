@@ -469,3 +469,28 @@ blockquote { background: rgba(45, 80, 22, 0.04); border-left: 3px solid var(--pr
 .kv dt { color: var(--text-light); }
 .kv dd { margin: 0; }
 @media (max-width: 480px) { .kv { grid-template-columns: minmax(0, 1fr); gap: 0.1rem 0; } .kv dd { margin-bottom: 0.5rem; } }
+
+/* The Roster's two lists (ticket 36): the prototype's table, in the app's tokens. */
+.stats-line { display: flex; gap: 1.5rem; flex-wrap: wrap; margin: 0 0 1rem; font-size: 0.85rem; color: var(--text-light); }
+.stats-line b { color: var(--primary); font-weight: 700; }
+.roster-table { border: 1px solid var(--border); border-radius: 8px; }
+.roster-table table { font-size: 0.92rem; }
+.roster-table th { padding: 0.85rem 1.1rem; background: var(--primary); color: #fff; font-weight: 700; border-bottom: 0; white-space: nowrap; }
+.roster-table th:first-child { border-top-left-radius: 7px; }
+.roster-table th:last-child { border-top-right-radius: 7px; }
+.roster-table td { padding: 0.8rem 1.1rem; }
+.roster-table tbody tr:last-child td { border-bottom: 0; }
+.roster-table tbody tr:nth-child(even) td { background: rgba(45, 80, 22, 0.02); }
+.roster-table .num { width: 44px; text-align: center; color: var(--text-light); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.roster-table th.num { color: #fff; }
+.roster-table .person > span > a { font-weight: 600; color: var(--text); text-decoration: none; }
+.roster-table .person > span > a:hover { color: var(--primary); text-decoration: underline; }
+.person-sub { display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap; margin-top: 0.25rem; }
+.person-sub .rs { font-size: 0.62rem; padding: 0.15rem 0.45rem; }
+.person-sub .pill.n { margin-left: 0; }
+.roster-table .contact { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.roster-table .contact a { color: var(--text); text-decoration: none; }
+.roster-table .contact a:hover { color: var(--primary); text-decoration: underline; }
+.size { display: inline-block; font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.1rem 0.4rem; border-radius: 3px; color: var(--text-light); border: 1px solid var(--border); vertical-align: middle; white-space: nowrap; }
+@media (max-width: 720px) { .roster-table th, .roster-table td { padding: 0.6rem 0.7rem; } }
+

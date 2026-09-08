@@ -54,7 +54,8 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin importing a spreadsheet', () =
 
     await upload(cookie, file('Name,Phone', `Cara Nolan,${number()}`))
 
-    const { html } = await getPage('/roster', cookie)
+    // On the Disciples list, where everyone an upload adds lands.
+    const { html } = await getPage('/roster?list=disciples', cookie)
     expect(html).toContain('No Intake Submitted')
   })
 

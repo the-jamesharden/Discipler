@@ -60,17 +60,18 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
 
     const { html } = await getPage('/roster', cookie)
 
-    // Both relationships, on his row, each said as a relationship rather than as a
-    // run of names -- which is what stops `Ready to Pair` beside two names reading
-    // as a mistake.
-    expect(html).toContain('Leads Ruth Adeyemi')
-    expect(html).toContain('Leads Sam Doyle')
-    expect(html).toContain('Ready to Pair')
+    // Both pairings, on his row on the Disciplers list, each naming who he
+    // disciples with the size beside it -- which is what stops `Ready to Pair`
+    // beside two names reading as a mistake.
+    const row = rowFor(html, 'Marcus Webb')
+    expect(row).toContain('Ruth Adeyemi 1:1')
+    expect(row).toContain('Sam Doyle 1:1')
+    expect(row).toContain('Ready to Pair')
     // The name is the way to everything about one Person (ticket 36).
     expect(html).toContain(`href="/roster/${leader}"`)
   })
 
-  it('says a Participant is in a relationship rather than leading one', async () => {
+  it('names the other side on each list: who a Disciple is discipled by, who a Discipler disciples', async () => {
     const { cookie } = await signIn(ministry)
 
     const participant = await addPerson(ministry, 'Nadia Farouk', { phone: number() })
@@ -80,12 +81,15 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
       participant,
     )
 
-    const { html } = await getPage('/roster', cookie)
+    // Same pairing, two lists: her row on the Disciples list names him, his row on
+    // the Disciplers list names her, and neither is on the other list.
+    const disciples = await getPage('/roster?list=disciples', cookie)
+    expect(rowFor(disciples.html, 'Nadia Farouk')).toContain('Omar Haddad 1:1')
+    expect(disciples.html).not.toMatch(/roster-name"[^>]*>Omar Haddad</)
 
-    // Her row says she is in one; his says he leads it. Same relationship, two
-    // rows, and the difference between them is the whole point of the column.
-    expect(html).toContain('In a relationship with Omar Haddad')
-    expect(html).toContain('Leads Nadia Farouk')
+    const disciplers = await getPage('/roster', cookie)
+    expect(rowFor(disciplers.html, 'Omar Haddad')).toContain('Nadia Farouk 1:1')
+    expect(disciplers.html).not.toMatch(/roster-name"[^>]*>Nadia Farouk</)
   })
 
   it('reads Opted Out and still lists the relationship they are in', async () => {
@@ -103,35 +107,31 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
     )
     await optOut(ministry, silent)
 
-    const { html } = await getPage('/roster', cookie)
-    const row = html.slice(html.indexOf('Tomas Vidal'))
+    const { html } = await getPage('/roster?list=disciples', cookie)
+    const row = rowFor(html, 'Tomas Vidal')
 
     expect(row).toContain('Opted Out')
-    expect(row).toContain('In a relationship with Uche Nwosu')
+    expect(row).toContain('Uche Nwosu 1:1')
   })
 
   /**
    * One Person's row and nothing either side of it. The looser `slice(indexOf(name))`
    * the suites above use reads to the end of the table, which is enough to prove a
    * label is present and cannot prove one is absent -- and absence is half of what
-   * Awaiting Leader Acceptance has to say.
+   * *awaiting acceptance* has to say.
    */
   const rowFor = (html: string, name: string): string => {
     // Matched on the name *cell*, not on the name. Every other Person in the
     // relationship is printed inside this row too, so searching the page for
     // "Ezra Kimani" finds whichever row mentions him first -- which is the row of
     // the man he leads.
-    // The name cell is the first cell of the row and carries the avatar beside
-    // the name, so the match is on the name inside that first cell -- keyed on a
-    // test id rather than on the tag around the name, so the markup can change
-    // around it (a link, a second line) without this helper following it.
+    // Keyed on the test id the name carries and nothing else about the markup,
+    // so a link around the name, a second line under it or a column before it
+    // change nothing here. Only the name cell carries the id, so a Person named
+    // in somebody else's Paired with cell is not found by it.
     const row = html
       .split('<tr')
-      .find((candidate) =>
-        new RegExp(`data-testid="roster-name"[^>]*>${name}<`).test(
-          candidate.slice(0, candidate.indexOf('</td>')),
-        ),
-      )
+      .find((candidate) => new RegExp(`data-testid="roster-name"[^>]*>${name}<`).test(candidate))
     expect(row, `no row on the Roster for ${name}`).toBeDefined()
     // Tags stripped, so the assertions read the sentence an Admin reads rather than
     // the markup it is carried in -- a label split across a `<span>` is the same
@@ -151,14 +151,12 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
     const participant = await addPerson(ministry, 'Dele Bakare', { phone: number() })
     await pairOneToOne(ministry, leader, participant, { acceptedAt: null })
 
-    const { html } = await getPage('/roster', cookie)
-
-    // On both rows, because it is one fact about the relationship and neither side
-    // of it has started. The Participant has been told nothing yet either.
-    expect(rowFor(html, 'Ezra Kimani')).toContain('Leads Dele Bakare — Awaiting Leader Acceptance')
-    expect(rowFor(html, 'Dele Bakare')).toContain(
-      'In a relationship with Ezra Kimani — Awaiting Leader Acceptance',
-    )
+    // On both rows, because it is one fact about the pairing and neither side of
+    // it has started. The Disciple has been told nothing yet either.
+    const disciplers = await getPage('/roster', cookie)
+    expect(rowFor(disciplers.html, 'Ezra Kimani')).toContain('Dele Bakare 1:1 — awaiting acceptance')
+    const disciples = await getPage('/roster?list=disciples', cookie)
+    expect(rowFor(disciples.html, 'Dele Bakare')).toContain('Ezra Kimani 1:1 — awaiting acceptance')
   })
 
   it('stops saying it once that leader has accepted', async () => {
@@ -170,11 +168,11 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
 
     const { html } = await getPage('/roster', cookie)
 
-    expect(rowFor(html, 'Ines Ferreira')).toContain('Leads Noor Haddad')
+    expect(rowFor(html, 'Ines Ferreira')).toContain('Noor Haddad 1:1')
     // Scoped to her row rather than the page: other suites in this Ministry leave
-    // unaccepted relationships behind, so a page-wide `not.toContain` would pass or
+    // unaccepted pairings behind, so a page-wide `not.toContain` would pass or
     // fail on their fixtures instead of on hers.
-    expect(rowFor(html, 'Ines Ferreira')).not.toContain('Awaiting Leader Acceptance')
+    expect(rowFor(html, 'Ines Ferreira')).not.toContain('awaiting acceptance')
   })
 
 })

@@ -102,7 +102,8 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin answering a held import row', 
     })
     expect(response.status).toBe(303)
 
-    const { html } = await getPage('/roster', cookie)
+    // On the Disciples list, where somebody an upload added is.
+    const { html } = await getPage('/roster?list=disciples', cookie)
     expect(html).toContain('Dave Ellis')
     expect(html).not.toContain('David Ellis')
     // Answered, so the question is gone from the screen and the Roster is the
@@ -120,7 +121,7 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin answering a held import row', 
     })
     expect(response.status).toBe(303)
 
-    const { html } = await getPage('/roster', cookie)
+    const { html } = await getPage('/roster?list=disciples', cookie)
     expect(html).toContain('Sam Okafor')
     expect(html).toContain('Rita Okafor')
     expect(html).not.toContain('Rows waiting on you')

@@ -10,6 +10,15 @@ import { REFUSALS } from '../roster/copy'
  * and the words moved with them.
  */
 
+/**
+ * The two words the Groups panel says about a group's leader, as the Roster said
+ * them until ticket 36. Kept here because this page is now their only reader:
+ * the Roster says Discipler and Disciple, and the sweep of the other Admin
+ * screens is a ticket of its own.
+ */
+export const LEADS = 'Leads'
+export const AWAITING_LEADER_ACCEPTANCE = 'Awaiting Leader Acceptance'
+
 /** The heading, and the words on every link to the page. */
 export const INTAKE_FORMS = 'Intake forms'
 

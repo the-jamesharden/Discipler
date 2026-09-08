@@ -58,3 +58,5 @@ Taken in this session's questions on 2026-09-06 and in the Lavish review of 2026
 
 **2026-09-07.** Step 2 shipped on the branch: `/roster/[personId]` with the Intake link and its result, a new invitation, the reset, and the sentence saying why they are a Discipler or a Disciple; the three routes redirect there; the row keeps Pair and links the name. `app/roster/lists.ts` holds the one rule for who is a Discipler.
 
+**2026-09-08.** Step 3 shipped on the branch: the two lists behind All Disciplers / All Disciples, the four numbers, the five columns with email and the number as a person reads it, the `1:1` and `N members` pills, and the words -- Discipler, Disciple, pairing -- across the Roster, the person page and the Pair page. `tests/app/roster-vocabulary.test.ts` holds the line. Imports and answered held rows land on the Disciples list, where the people they add are.
+

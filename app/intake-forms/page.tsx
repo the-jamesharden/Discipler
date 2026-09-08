@@ -7,7 +7,6 @@ import {
 import { resolveAdmin } from '~/platform/supabase/current-admin'
 import { appBaseUrl } from '~/platform/supabase/credentials'
 import { getDiscipleshipGoalReader, getRosterReader } from '~/service/container'
-import { AWAITING_LEADER_ACCEPTANCE, rosterRoleLabel } from '../roster/copy'
 import { AccountMenu, NotAnAdmin, PageShell } from '../shell'
 import { ClipboardField } from './clipboard-field'
 import { GoalsCard } from './goals-card'
@@ -33,6 +32,8 @@ import {
   UNNAMED_GROUP,
   WAITING_EXPLANATION,
   WAITING_HEADING,
+  AWAITING_LEADER_ACCEPTANCE,
+  LEADS,
 } from './copy'
 
 export const dynamic = 'force-dynamic'
@@ -327,7 +328,7 @@ export default async function IntakeFormsPage({
               <h3>{group.name ?? UNNAMED_GROUP}</h3>
               <p className="subtle">
                 {`${declaredGenderLabel[group.declaredGender ?? 'mixed']} · `}
-                {`${rosterRoleLabel.leader} ${group.leaderNames.join(', ')} · `}
+                {`${LEADS} ${group.leaderNames.join(', ')} · `}
                 {group.participantNames.length === 0
                   ? 'nobody else in it yet'
                   : `with ${group.participantNames.join(', ')}`}
