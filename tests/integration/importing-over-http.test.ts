@@ -37,7 +37,7 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin importing a spreadsheet', () =
       .split('<tr')
       .find((candidate) => new RegExp(`data-testid="roster-name"[^>]*>${name}<`).test(candidate))
     expect(row, `no row for ${name}`).toBeDefined()
-    return row!.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ')
+    return row!.split('</tr>')[0]!.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ')
   }
 
   it('sees the imported people on the Roster', async () => {

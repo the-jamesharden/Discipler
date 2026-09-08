@@ -137,7 +137,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
     // the markup it is carried in -- a label split across a `<span>` is the same
     // words on the screen, and a test that failed over it would be testing the
     // styling.
-    return row!.replace(/<[^>]*>/g, '')
+    return row!.split('</tr>')[0]!.replace(/<[^>]*>/g, '')
   }
 
   it('says on the row that a relationship is still awaiting its leader’s acceptance', async () => {

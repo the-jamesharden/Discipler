@@ -43,7 +43,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Roster’s two lists', () => {
       .split('<tr')
       .find((candidate) => new RegExp(`data-testid="roster-name"[^>]*>${name}<`).test(candidate))
     expect(row, `no row for ${name}`).toBeDefined()
-    return row!.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ')
+    return row!.split('</tr>')[0]!.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ')
   }
 
   const statsLine = (html: string): string =>
