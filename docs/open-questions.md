@@ -407,7 +407,7 @@ These are not unresolved so much as not yet needed. They must be answered before
 
 ## Deferred with Planning Center
 
-V1 ships CSV upload; the Planning Center API is post-V1. When it returns, these need answering:
+V1 ships a spreadsheet paste; the Planning Center API is post-V1. When it returns, these need answering:
 
 - Which system owns contact information when Planning Center is connected
 - What data, if any, flows back to Planning Center

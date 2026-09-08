@@ -71,7 +71,8 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
 
   it('offers a Pair action on the row of somebody waiting to be paired', async () => {
     const nora = await woman('Nora Blake')
-    const { html } = await getPage('/roster', cookie)
+    // On the Disciples list: she leads nobody and offered nothing on a form.
+    const { html } = await getPage('/roster?list=disciples', cookie)
 
     expect(html).toContain('Nora Blake')
     expect(html).toContain(`/roster/pair?with=${nora}`)
@@ -125,8 +126,8 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
     // just happened and stops being evidence of anything the moment the page is
     // reloaded; the row goes on saying it until the Leader actually agrees.
     const { html } = await getPage('/roster?paired=1', cookie)
-    expect(html).toContain('Awaiting Leader Acceptance')
-    expect(html).toContain('Its leader has been invited')
+    expect(html).toContain('awaiting acceptance')
+    expect(html).toContain('The Discipler has been invited')
   })
 
   it('forms one relationship from several people selected together', async () => {
@@ -152,12 +153,16 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
   })
 
   it('shows everyone in a group on each of their Roster rows', async () => {
-    const { html } = await getPage('/roster', cookie)
-
-    // Tara leads Una and Vera. Una's row names both of the others, so group
-    // membership is visible without opening a record.
-    expect(html).toContain('Una Hart')
-    expect(html).toMatch(/Tara Gill, Vera Iles|Vera Iles, Tara Gill/)
+    // Tara disciples Una and Vera. Her row on the Disciplers list names both;
+    // each of theirs on the Disciples list names her and says it is a group, so
+    // group membership is visible without opening a record.
+    const disciplers = await getPage('/roster', cookie)
+    expect(disciplers.html).toContain('Una Hart, Vera Iles')
+    const disciples = await getPage('/roster?list=disciples', cookie)
+    expect(disciples.html).toContain('Una Hart')
+    const una = disciples.html.split('<tr').find((row) => /roster-name"[^>]*>Una Hart</.test(row)) ?? ''
+    expect(una).toContain('Tara Gill')
+    expect(una).toContain('2 members')
   })
 
   it('shows a refused pairing to the Admin rather than silently doing nothing', async () => {
@@ -256,7 +261,7 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
       `/roster/pair?${new URLSearchParams({ error: 'relationship.needs_a_leader' })}`,
       cookie,
     )
-    expect(html).toMatch(/who will lead/i)
+    expect(html).toMatch(/choose the discipler/i)
   })
 
   it('offers a way into pairing that does not start from one Person', async () => {
@@ -264,7 +269,7 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
     // several people selected together start from nobody in particular.
     const { html } = await getPage('/roster', cookie)
     expect(html).toContain('href="/roster/pair"')
-    expect(html).toContain('Form a relationship')
+    expect(html).toContain('Pair people')
   })
 
   it('refuses a pairing with nobody to disciple, and says which thing to fix', async () => {
@@ -281,7 +286,7 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
 
   it('offers no Pair action to somebody who has not completed Intake', async () => {
     const zach = await addPerson(ministry, 'Zach Moore', { intake: false })
-    const { html } = await getPage('/roster', cookie)
+    const { html } = await getPage('/roster?list=disciples', cookie)
 
     expect(html).toContain('Zach Moore')
     expect(html).not.toContain(`/roster/pair?with=${zach}`)

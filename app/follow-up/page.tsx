@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { personId as asPersonId } from '~/domain/ids'
 import { RELATIONSHIP_OUTCOMES } from '~/domain/relationships'
@@ -31,6 +32,7 @@ import {
   stalledLine,
   stalledTag,
   whoIsInIt,
+  PAIR_BY_HAND,
 } from './copy'
 
 export const dynamic = 'force-dynamic'
@@ -153,6 +155,11 @@ const Item = ({ item, revealed }: { readonly item: CareNeededItem; readonly reve
                 {RESUME}
               </button>
             </form>
+          ) : null}
+          {kind === 'intended_pairing_refused' && item.personId ? (
+            <Link className="fu-btn" href={`/roster/pair?with=${item.personId}`}>
+              {PAIR_BY_HAND}
+            </Link>
           ) : null}
           {relationship && kind === 'relationship_unaccepted' ? (
             <form method="post" action="/follow-up/relationship/cancel">

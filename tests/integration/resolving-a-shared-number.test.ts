@@ -37,7 +37,7 @@ describe('resolving a number the Roster already holds', () => {
   const number = phoneNumbers()
 
   const importing = (csv: string) =>
-    service().execute({ type: 'person.import', ministryId: ministry.id, csv })
+    service().execute({ type: 'person.import', ministryId: ministry.id, mode: 'people_only', text: csv })
 
   beforeAll(async () => {
     ministry = await createMinistryWithAdmin('Riverside Chapel')
@@ -282,18 +282,23 @@ describe('resolving a number the Roster already holds', () => {
       ])
     })
 
-    it('never carries a phone number out of the database', async () => {
-      // The Roster shows no contact details -- a number is reached through
-      // `public.contact_to_share` and nowhere else -- and this read is on the same
-      // page under the same rule.
+    it('carries the number the row is held over, to an Admin', async () => {
+      // The question is whether this is the same person or somebody else on this
+      // number, and since ticket 36 (ADR-0021) an Admin answers it with the number
+      // in front of them. It comes out of this function's Admin test and nowhere
+      // else: the test below holds the column grant where ticket 26 left it.
       const phone = await collide('Joy Mensah', 'J Mensah')
 
       const admin = await signInAs(ministry)
-      const { data } = await admin.rpc('held_import_rows', {
+      const { data, error } = await admin.rpc('held_import_rows', {
         target_ministry_id: ministry.id,
       })
+      if (error) throw new Error(error.message)
 
-      expect(JSON.stringify(data)).not.toContain(phone)
+      const held = ((data ?? []) as { full_name: string; phone: string }[]).find(
+        (row) => row.full_name === 'J Mensah',
+      )
+      expect(held?.phone).toBe(`+1${phone}`)
     })
 
     it('cannot read a congregant\'s number off the table, even as an Admin', async () => {

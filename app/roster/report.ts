@@ -15,6 +15,8 @@ import { isRowProblem, type RowProblem, type RowRejection } from '~/domain/roste
 
 export interface ImportReport {
   readonly added: number
+  /** Pairs the import planned (ADR-0022), said apart from the people because they are not pairings yet. */
+  readonly planned: number
   readonly refused: readonly RowRejection[]
   /**
    * Refused rows the report had no room to list, counted by why. A count with no
@@ -44,10 +46,12 @@ const groupByProblem = (
 
 export const encodeImportReport = (
   added: number,
+  planned: number,
   refused: readonly RowRejection[],
 ): URLSearchParams => {
   const listed = refused.slice(0, LISTED_AT_MOST)
   const params = new URLSearchParams({ added: String(added) })
+  if (planned > 0) params.set('planned', String(planned))
 
   const groupsOf = (rejections: readonly RowRejection[], render: (lines: number[]) => string) =>
     [...groupByProblem(rejections)]
@@ -88,6 +92,7 @@ const decodeGroups = (raw: string | undefined): [RowProblem, string[]][] =>
  */
 export const decodeImportReport = (params: {
   added?: string
+  planned?: string
   refused?: string
   hidden?: string
 }): ImportReport | undefined => {
@@ -106,12 +111,12 @@ export const decodeImportReport = (params: {
     .map(([problem, values]) => ({ problem, count: asCount(values[0]) }))
     .filter((group) => group.count > 0)
 
-  return { added: asCount(params.added), refused, hidden }
+  return { added: asCount(params.added), planned: asCount(params.planned), refused, hidden }
 }
 
 /**
  * The import never started, or was abandoned whole. Distinct from a report: no
  * Person reached the Roster, so there is nothing to count. A `FileProblem` is one of
- * these by definition -- an unreadable file rejects every row in it.
+ * these by definition -- rows that cannot be read as a whole reject every row.
  */
-export type ImportFailure = FileProblem | 'no_file' | 'too_large' | 'roster_changed'
+export type ImportFailure = FileProblem | 'nothing_pasted' | 'too_large' | 'roster_changed'

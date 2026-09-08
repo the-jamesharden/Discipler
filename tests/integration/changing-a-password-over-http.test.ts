@@ -92,14 +92,6 @@ describe.skipIf(skipUnlessAppIsRunning)('changing your own password over HTTP', 
       .map((row) => row.split('=', 1)[0]!)
 
   /** One Person's row and nothing either side of it. */
-  const rowFor = (html: string, name: string): string => {
-    // The name is inside the row's first cell, beside an avatar, so the match is
-    // on the name and not on a bare cell.
-    const cell = html.indexOf(`<span>${name}<`)
-    if (cell === -1) throw new Error(`No row for ${name}`)
-    const end = html.indexOf('</tr>', cell)
-    return html.slice(cell, end === -1 ? undefined : end)
-  }
 
   it('asks for the current password and the new one twice, and nothing else', async () => {
     const { cookie } = await signIn(ministry)
@@ -298,8 +290,9 @@ describe.skipIf(skipUnlessAppIsRunning)('changing your own password over HTTP', 
     expect(roster).toContain('Change your password')
 
     // Where 28 rendered plain text saying they cannot reset their own password,
-    // because there was nowhere to point. There is now.
-    const own = rowFor(roster, ministry.adminName)
+    // because there was nowhere to point. There is now -- on the Admin's own page
+    // since ticket 36, behind their name on the Roster.
+    const { html: own } = await getPage(`/roster/${ministry.adminPersonId}`, cookie)
     expect(own).toContain('href="/account"')
     expect(own).toContain('Change your password')
     expect(own).not.toContain('You cannot reset your own password')

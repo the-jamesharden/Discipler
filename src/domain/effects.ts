@@ -1,3 +1,4 @@
+import type { IntendedPairingClosure, NewIntendedPairing } from './intended-pairing'
 import type { GoalWording } from './discipleship-goals'
 import type {
   CheckInPromptId,
@@ -468,21 +469,6 @@ export interface PersonOptOut {
   readonly startedAt: Date
 }
 
-/**
- * An Admin's plan that this Person may lead. Dated on the decision rather than
- * flagged silently, and recorded either way round: withdrawing eligibility is the
- * same fact with the other answer, not the absence of one.
- *
- * The Person, never a relationship. It is independent of whether they hold an
- * account, of whether they have completed Intake, and of how many relationships
- * they already lead -- which is why nothing here names any of those.
- */
-export interface LeadEligibility {
-  readonly ministryId: MinistryId
-  readonly personId: PersonId
-  readonly eligible: boolean
-  readonly decidedAt: Date
-}
 
 /**
  * One Discipleship Goal option, added to the end of the Ministry's list.
@@ -710,10 +696,13 @@ export type Effect =
       readonly clarification: KeywordExchangeClarification
     }
   | { readonly kind: 'keyword.close'; readonly closure: KeywordExchangeClosure }
-  | {
-      readonly kind: 'person.lead_eligibility'
-      readonly eligibility: LeadEligibility
-    }
+  /**
+   * A pairing an import planned, and the closing of one -- fulfilled with what it
+   * became, or refused with why. The plan is what the import records instead of a
+   * relationship; the closure is what settling it writes (ADR-0022).
+   */
+  | { readonly kind: 'intendedPairing.plan'; readonly plan: NewIntendedPairing }
+  | { readonly kind: 'intendedPairing.close'; readonly closure: IntendedPairingClosure }
   | { readonly kind: 'settings.save'; readonly saving: MinistrySettingsSaving }
   | { readonly kind: 'goal.add'; readonly goal: NewDiscipleshipGoal }
   | { readonly kind: 'goal.rename'; readonly renaming: DiscipleshipGoalRenaming }
@@ -733,9 +722,14 @@ export const recordIntakeLink = (link: NewIntakeLink): Effect => ({
   link,
 })
 
-export const setLeadEligibility = (eligibility: LeadEligibility): Effect => ({
-  kind: 'person.lead_eligibility',
-  eligibility,
+export const planIntendedPairing = (plan: NewIntendedPairing): Effect => ({
+  kind: 'intendedPairing.plan',
+  plan,
+})
+
+export const closeIntendedPairing = (closure: IntendedPairingClosure): Effect => ({
+  kind: 'intendedPairing.close',
+  closure,
 })
 
 export const saveMinistrySettings = (saving: MinistrySettingsSaving): Effect => ({

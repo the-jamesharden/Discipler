@@ -1,3 +1,5 @@
+import type { PairingRefusal } from './errors'
+import type { IntendedPairingId } from './ids'
 import type {
   ConcernId,
   FollowUpItemId,
@@ -14,6 +16,7 @@ import type { IntakeLinkToken } from './intake-link'
 import type { InvitationToken } from './invitations'
 import type { PausePeriodWeeks } from './pause'
 import type { RelationshipOutcome } from './relationships'
+import type { ImportMode } from './roster-csv'
 
 /**
  * Every external trigger enters through this one boundary, and this union is the
@@ -31,15 +34,17 @@ export type Command =
       readonly ministryId: MinistryId
     }
   /**
-   * The spreadsheet itself is the payload, unread. Reading it is a rule about what
-   * Discipler will accept as a Person -- a name, a number it can text -- and that
-   * belongs on the same side of the boundary as every other rule, where it is
-   * driven by tests with no upload anywhere near it.
+   * The pasted rows themselves are the payload, unread, and the layout the Admin
+   * said they are in. Reading them is a rule about what Discipler will accept as
+   * a Person -- a name, a number it can text -- and who it will plan to pair, and
+   * that belongs on the same side of the boundary as every other rule, where it
+   * is driven by tests with no upload anywhere near it.
    */
   | {
       readonly type: 'person.import'
       readonly ministryId: MinistryId
-      readonly csv: string
+      readonly mode: ImportMode
+      readonly text: string
     }
   /**
    * The Admin's answer to a row the import would not guess about. It is a separate
@@ -127,29 +132,34 @@ export type Command =
       readonly personId: PersonId
     }
   /**
-   * An Admin's plan that this Person may lead, recorded before Intake and kept up
-   * to date afterwards. One field and not two: the intended role *is* the
-   * leader-pool flag, because a Person marked intended-leader but not eligible
-   * would be a state nobody could say the meaning of.
-   *
-   * It carries no Admin identity, unlike a pause or an ending. Those suspend or
-   * terminate a Ministry's contact with somebody and the product rules require a
-   * named actor for them; this records an intention that changes nothing about
-   * what reaches anybody, and the history event beside it is the record that it
-   * was set.
-   */
-  | {
-      readonly type: 'person.set_lead_eligibility'
-      readonly ministryId: MinistryId
-      readonly personId: PersonId
-      readonly eligible: boolean
-    }
-  /**
    * One command for all three pairing routes -- accepting a suggestion, pairing two
    * people from the Roster, selecting several people together. They differ in how
    * the Admin arrived at the names, which is a property of the screen and not of
    * the relationship being formed.
    */
+  /**
+   * Settling one plan an import made: form the pairing if both have completed
+   * Intake and the rules allow it, refuse it with the reason if they do not, or
+   * wait. Issued by the service for every open plan after an Intake submission,
+   * an import and the scheduled tick, one transaction each, so one refusal never
+   * rolls back another person's relationship (ADR-0022).
+   */
+  | {
+      readonly type: 'intended_pairing.fulfil'
+      readonly ministryId: MinistryId
+      readonly intendedPairingId: IntendedPairingId
+    }
+  /**
+   * The database refused the pairing a fulfilment tried to form -- a cap, or a
+   * race the snapshot could not see -- and the service records that refusal by
+   * its code, in a transaction of its own after the one that was rolled back.
+   */
+  | {
+      readonly type: 'intended_pairing.refuse'
+      readonly ministryId: MinistryId
+      readonly intendedPairingId: IntendedPairingId
+      readonly refusal: PairingRefusal
+    }
   | {
       readonly type: 'relationship.create'
       readonly ministryId: MinistryId

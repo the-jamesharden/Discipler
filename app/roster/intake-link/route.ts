@@ -11,9 +11,9 @@ import { getCommandService } from '~/service/container'
  * the number Discipler holds for them is wrong, and texting the link to that number
  * would reach whoever actually holds it.
  *
- * The redirect names the Person and never the token. The Roster reads the live link
- * back under the Admin's own session, so the credential does not travel through a
- * query string into browser history and server logs.
+ * The redirect names the Person and never the token. The person page reads the live
+ * link back under the Admin's own session, so the credential does not travel through
+ * a query string into browser history and server logs.
  */
 
 export async function POST(request: NextRequest) {
@@ -33,8 +33,10 @@ export async function POST(request: NextRequest) {
     personId: personId(person),
   })
 
+  // To the Person's own page, where the link is read back and shown beside the
+  // act. The Person is in the path; the token is never in the URL.
   return NextResponse.redirect(
-    new URL(`/roster?${new URLSearchParams({ intakeLinkFor: person })}`, request.url),
+    new URL(`/roster/${encodeURIComponent(person)}?intakeLink=1`, request.url),
     { status: 303 },
   )
 }

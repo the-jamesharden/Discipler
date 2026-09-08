@@ -126,8 +126,17 @@ describe('applying a command\'s effects', () => {
         closeKeywordExchange: async () => {
           throw new Error('no keyword exchange should have been closed')
         },
-        setLeadEligibility: async () => {
-          throw new Error('nobody should have been marked eligible to lead')
+        openIntendedPairings: async () => {
+          throw new Error('no plan should have been read')
+        },
+        intendedPairingFor: async () => {
+          throw new Error('no plan should have been read')
+        },
+        planIntendedPairings: async () => {
+          throw new Error('no plan should have been recorded')
+        },
+        closeIntendedPairing: async () => {
+          throw new Error('no plan should have been closed')
         },
         discipleshipGoals: async () => {
           throw new Error('the goal options should not have been read')

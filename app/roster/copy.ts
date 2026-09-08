@@ -1,7 +1,13 @@
 import type { ImportRowRefusal, PairingRefusal } from '~/domain/errors'
 import type { ParticipationStatus } from '~/domain/participation'
-import type { MemberRole } from '~/domain/relationships'
 import type { RowProblem } from '~/domain/roster'
+import {
+  isDiscipledBySomebody,
+  leadsSomebody,
+  offeredToMentor,
+  plannedAs,
+  type RosterFacts,
+} from './lists'
 import type { ImportFailure } from './report'
 
 /**
@@ -22,43 +28,91 @@ export const participationStatusLabel: Record<ParticipationStatus, string> = {
 }
 
 /**
- * What this Person is in each of their relationships, said as a sentence opener
- * rather than as the word `leader`.
- *
- * It is the half of the row that makes the status beside it legible. A man leading
- * two relationships and discipled by nobody reads `Ready to Pair`, and a column of
- * bare names cannot say which of the two he is -- so the row says *leads* and the
- * Admin reads a fact rather than a bug.
+ * The two lists the Roster is, and how each is named above its table. The words
+ * are the product's own (ticket 36): a pastor thinks in who disciples whom, and
+ * the model's Leader and Participant are for the code.
  */
-export const rosterRoleLabel: Record<MemberRole, string> = {
-  leader: 'Leads',
-  // Not "discipled by", because the names beside it are everyone else in the
-  // relationship, and in a group that includes people being discipled alongside
-  // them rather than doing the discipling.
-  participant: 'In a relationship with',
+export type RosterList = 'disciplers' | 'disciples'
+export const ROSTER_LISTS: readonly RosterList[] = ['disciplers', 'disciples']
+export const isRosterList = (value: unknown): value is RosterList =>
+  value === 'disciplers' || value === 'disciples'
+
+export const LIST_LABEL: Record<RosterList, string> = {
+  disciplers: 'All Disciplers',
+  disciples: 'All Disciples',
 }
 
-/** How many people the Roster shows under the current switch. */
-export const peopleCount = (count: number): string =>
-  count === 1 ? '1 person' : `${count} people`
+/** The column heading over the names, which is the list's own word. */
+export const LIST_HEADING: Record<RosterList, string> = {
+  disciplers: 'Discipler',
+  disciples: 'Disciple',
+}
+
+/** *49 disciplers total*, at the top right, in the prototype's own words. */
+export const listCount = (list: RosterList, count: number): string =>
+  count === 1
+    ? `1 ${list === 'disciplers' ? 'discipler' : 'disciple'} total`
+    : `${count} ${list} total`
+
+/** The four numbers under the toggle, each a bold count and a word. */
+export const STATS_LABEL = {
+  total: 'total',
+  paired: 'paired',
+  unpaired: 'unpaired',
+  inGroups: 'in groups',
+} as const
+
+export const EMPTY_LIST: Record<RosterList, string> = {
+  disciplers:
+    'No disciplers yet. Somebody becomes one when they disciple somebody, or when they offer to on the Intake form.',
+  disciples: 'No disciples yet. Everyone on the Roster who is not a discipler is here.',
+}
 
 /**
- * The pill beside each relationship on a row: how many people are in it, counting
- * everyone. A one-to-one is said as such rather than as *2 people*, because that
- * is what the product calls it.
+ * A pairing an import planned, on the row of either person in it (ADR-0022).
+ * *planned* while it waits on Intake; *not made* once the pairing rules refused
+ * it, until the Follow-Up Item that raised is resolved.
  */
-export const relationshipSizeLabel = (people: number): string =>
-  people <= 2 ? 'One-to-one' : `${people} people`
+export const PLANNED = 'planned'
+export const AWAITING_INTAKE = 'awaiting Intake'
+export const NOT_MADE = 'not made'
+export const SEE_FOLLOW_UP = 'see Follow-Up'
+
+export const PAIR_PEOPLE = 'Pair people'
+export const PAIR = 'Pair'
+export const UNPAIRED = 'Unpaired'
+
+/** The receipt the pairing screen redirects to, said about what just happened. */
+export const pairedReceipt = (disciples: number): string =>
+  disciples === 1
+    ? 'They are paired. The Discipler has been invited, and nobody else has been contacted yet.'
+    : `A group of ${disciples} is paired. Its Discipler has been invited, and nobody else has been contacted yet.`
+
+/** Said plainly under the table, because the alternative is an Admin reading a Discipler who is discipled by nobody as a bug. */
+export const STATUS_FOOTNOTE =
+  'Status says whether a person is being discipled. A Discipler who is discipled by nobody reads Ready to Pair.'
+
+/**
+ * A number as a person reads it: a North American number as `(706) 555-0142`,
+ * which is how the church's own spreadsheet had it, and anything else as it is
+ * stored. Display only; the stored value stays E.164 (ADR-0005).
+ */
+export const displayPhone = (phone: string): string => {
+  const us = /^\+1(\d{3})(\d{3})(\d{4})$/.exec(phone)
+  return us ? `(${us[1]}) ${us[2]}-${us[3]}` : phone
+}
 
 /**
  * Said above the import, in the design's own words, because it is exactly the
- * product rule: an upload adds names and numbers and nothing more, and nobody
- * receives anything until they complete Intake themselves.
+ * product rule: a paste adds names and numbers, and where it says who disciples
+ * whom it records a plan and pairs nobody (ADR-0022); nobody receives anything
+ * until they complete Intake themselves.
  */
 export const IMPORT_IS_NEVER_CONSENT =
-  'An upload adds names, phone numbers and emails and nothing more. People land as '
-  + 'No Intake Submitted, cannot be paired, and receive nothing until they complete '
-  + 'Intake themselves. Importing a person is never consent.'
+  'An import adds names, phone numbers and emails. Where a row says who disciples '
+  + 'whom, the pair is planned, not made: it forms itself once both have completed '
+  + 'Intake. People land as No Intake Submitted, cannot be paired, and receive nothing '
+  + 'until they complete Intake themselves. Importing a person is never consent.'
 
 /**
  * The one signal the declared side puts on a Roster row: this Person offered to
@@ -91,17 +145,88 @@ export const firstTimeLabel = (firstTime: boolean): string =>
   firstTime ? 'New to this' : 'Has done this before'
 
 /**
- * Said beside the relationship rather than beside the Person, because it is a fact
- * about the relationship: both sides of the same pairing read the same words, and
- * neither of them is `Paired` differently because of it.
- *
- * The Participation Status column is left alone on purpose. `Paired` answers *is
- * this person being discipled*, and someone whose only relationship has not been
- * accepted yet is -- arranged for, not yet started. Folding acceptance into that
- * column would give one word two jobs and make the derivation in SQL disagree with
- * the one on the screen.
+ * The same fact in the words the person page says it in, since ticket 36: lower
+ * case and after the names, as a note on the pairing rather than a title. The
+ * Roster row follows in the rebuild; the constant above goes with it.
  */
-export const AWAITING_LEADER_ACCEPTANCE = 'Awaiting Leader Acceptance'
+export const AWAITING_ACCEPTANCE = 'awaiting acceptance'
+
+/**
+ * The two sides of a pairing, as an Admin screen names them. Discipler and
+ * Disciple are the product's own words and are said in place of Leader and
+ * Participant on every Admin surface (ticket 36); the nouns a Ministry types are
+ * for its messages and never reach a screen (ADR-0015).
+ */
+export const DISCIPLING = 'Discipling'
+export const DISCIPLED_BY = 'Discipled by'
+
+/**
+ * How big a pairing is, from the live count of Disciples in it and never from
+ * the relationship's kind (ADR-0004). `1:1` is the prototype's own pill; a group
+ * says how many members it has.
+ */
+export const pairingSizeLabel = (disciples: number): string =>
+  disciples <= 1 ? '1:1' : `${disciples} members`
+
+/**
+ * What a Person is on the Roster, and on the strength of what. A Discipler is a
+ * fact -- they lead somebody, they signed up as one on the form, or an import
+ * paired them as one -- and this is the one sentence that says which, so a
+ * Discipler reading Ready to Pair can be understood rather than reported as a bug.
+ *
+ * Read off the same rule the two lists are drawn from (`lists.ts`), never
+ * re-derived here: the page behind a name on the Disciplers list must say
+ * Discipler, whichever of the three facts put them there.
+ */
+export const whoTheyAre = (person: RosterFacts): string => {
+  const leads = leadsSomebody(person)
+  const asDiscipler = [
+    leads ? 'disciples somebody' : null,
+    offeredToMentor(person) ? 'offered to on their Intake form' : null,
+    plannedAs(person, 'leader') ? 'an import paired them as one' : null,
+  ].filter(isSaid)
+  const asDisciple = [
+    isDiscipledBySomebody(person) ? 'being discipled' : null,
+    plannedAs(person, 'participant') ? 'an import paired them to be discipled' : null,
+  ].filter(isSaid)
+
+  const discipler =
+    asDiscipler.length > 0
+      ? `A Discipler - ${listed([...asDiscipler, ...(leads ? [] : ['disciples nobody yet'])])}`
+      : null
+
+  if (discipler && asDisciple.length > 0) return `${discipler}. Also a Disciple - ${listed(asDisciple)}.`
+  if (discipler) return discipler
+  return asDisciple.length > 0 ? `A Disciple - ${listed(asDisciple)}` : 'A Disciple - not yet paired'
+}
+
+const isSaid = (reason: string | null): reason is string => reason !== null
+
+/** Reasons as a sentence lists them: `a`, `a, and b`, `a, b, and c`. */
+const listed = (reasons: readonly string[]): string =>
+  reasons.length <= 2
+    ? reasons.join(', and ')
+    : `${reasons.slice(0, -1).join(', ')}, and ${reasons[reasons.length - 1]}`
+
+/** The sentence beside a freshly issued Intake link. */
+export const intakeLinkInstruction = (fullName: string, expiresAt: Date): string =>
+  `Send this to ${fullName}. It opens their own Intake form with their answers already in it, and works until ${expiresAt.toISOString().slice(0, 10)}.`
+
+/**
+ * The page was asked for a link and the one on file has run out. Reachable because
+ * the query string carries the fact that one was asked for and not the token: an
+ * Admin who bookmarks the result, or comes back a fortnight later, asks again
+ * without going through the act that mints one.
+ */
+export const NO_INTAKE_LINK_STANDING =
+  'The link that was issued has run out. Press Intake link for a new one.'
+
+export const NO_ACCOUNT =
+  'No account. One arrives when they accept an invitation to disciple somebody.'
+
+/** The receipt for a new invitation, said only when a text actually went out. */
+export const REINVITED = (fullName: string): string =>
+  `A new invitation has been sent to ${fullName}.`
 
 /**
  * The action offered on the row of anybody who holds an account, and only there.
@@ -121,6 +246,20 @@ const PROBLEMS: Record<RowProblem, string> = {
   already_on_the_roster: 'already on the Roster',
   same_number_different_name:
     'this number is on the Roster under a different name — check whether it is the same person or someone sharing the number',
+  // The rest are about the pair a row described. The person on the row is still
+  // imported; only the pairing is not planned, and each says what to change.
+  role_unreadable: 'Role must say Discipler or Disciple, so the pair was not planned',
+  paired_with_no_role:
+    'names who they are paired with but no Role says whether they are the Discipler or the Disciple, so the pair was not planned',
+  paired_with_unknown: 'names somebody in Paired with who is neither in these rows nor on the Roster, so the pair was not planned',
+  paired_with_ambiguous:
+    'names somebody in Paired with that two people go by - add their row to the paste, with their number, so the pair can be planned',
+  paired_with_held:
+    'is paired with a row that is waiting on you - answer that row, then paste this line again',
+  paired_with_self: 'pairs a person with themselves',
+  paired_with_conflict: 'pairs two people the other way round from an earlier row',
+  pairing_already_planned:
+    'the Disciple on this row is already planned to be discipled by somebody - a person is in one one-to-one at a time',
 }
 
 export const rowProblemMessage = (problem: RowProblem): string => PROBLEMS[problem]
@@ -208,21 +347,49 @@ export const importRowRefusalMessage = (code: string | undefined): string | unde
 }
 
 const FAILURES: Record<ImportFailure, string> = {
-  no_file: 'Choose a CSV file to import.',
-  too_large: 'That file is larger than this import accepts. Split it and try again.',
-  nothing_to_read: 'That file had no rows in it.',
+  nothing_pasted: 'Paste your rows first, with their header row.',
+  too_large: 'That is more than this import accepts at once. Paste it in parts and try again.',
+  nothing_to_read: 'Nothing was pasted but blank lines.',
   no_name_column:
-    'That file has no column of names. Name the column Name or Full Name and try again.',
+    'These rows have no column of names. Name the column Name or Full Name and try again.',
   no_phone_column:
-    'That file has no column of phone numbers. Name the column Phone or Mobile and try again.',
+    'These rows have no column of phone numbers. Name the column Phone or Mobile and try again.',
+  no_discipler_columns:
+    'These rows have no Discipler and Discipler Phone columns. Add them, or choose People only.',
+  no_disciple_columns:
+    'These rows have no Disciple and Disciple Phone columns. Add them, or choose People only.',
   roster_changed:
     'The Roster changed while this import was running, so none of it was applied. Try it again.',
 }
 
 export const importFailureMessage = (code: string | undefined): string | undefined => {
   if (!code) return undefined
-  return FAILURES[code as ImportFailure] ?? 'That file could not be imported.'
+  return FAILURES[code as ImportFailure] ?? 'Those rows could not be imported.'
 }
+
+/** What an import did, in the sentences the Roster says after the redirect. */
+export const peopleAdded = (added: number): string =>
+  added === 1 ? '1 person was added.' : `${added} people were added.`
+
+/**
+ * Said only when a pair was planned. A plan is not a pairing (ADR-0022), and the
+ * sentence says what it is waiting on rather than leaving *planned* to be read as
+ * *done*.
+ */
+export const pairsPlanned = (planned: number): string =>
+  planned === 1
+    ? '1 pair was planned. It forms itself once both people have completed Intake.'
+    : `${planned} pairs were planned. Each forms itself once both people have completed Intake.`
+
+export const rowsNotImported = (refused: number): string =>
+  refused === 1 ? '1 row was not imported:' : `${refused} rows were not imported:`
+
+/**
+ * Said apart from the rows not imported, because the person on each of these rows
+ * was: only the pair the row described is not planned, and the count says so.
+ */
+export const pairsNotPlanned = (refused: number): string =>
+  refused === 1 ? '1 pair was not planned:' : `${refused} pairs were not planned:`
 
 /**
  * Why a pairing was refused, in words an Admin can act on. A `Record` rather than a
@@ -234,23 +401,23 @@ export const importFailureMessage = (code: string | undefined): string | undefin
  * the Admin somewhere; "constraint violated" does not.
  */
 export const REFUSALS: Record<PairingRefusal, string> = {
-  'relationship.needs_a_leader': 'Choose who will lead this relationship.',
+  'relationship.needs_a_leader': 'Choose the Discipler.',
   'relationship.needs_a_participant':
-    'Choose at least one person to be discipled in this relationship.',
+    'Choose at least one person to be discipled.',
   'relationship.leader_cannot_be_a_participant':
-    'The leader cannot also be a participant in the same relationship.',
+    'The Discipler cannot also be one of the people they disciple.',
   'relationship.person_listed_twice':
-    'Somebody was selected twice. Each person can be in this relationship once.',
+    'Somebody was selected twice. Each person can be in this pairing once.',
   'relationship.person_already_in_this_relationship':
-    'Somebody is already in this relationship.',
+    'Somebody is already in this pairing.',
   // Named as a cap rather than as an error: the Admin has not done anything wrong,
   // they have run into how much this leader is already carrying.
   'relationship.leader_already_leads_a_group':
-    'This leader already leads a group. A leader leads one group at a time, and any '
-    + 'number of one-to-one relationships.',
+    'This Discipler already leads a group. A Discipler leads one group at a time, and '
+    + 'any number of one-to-ones.',
   'relationship.participant_already_in_a_one_to_one':
     'Somebody selected is already being discipled one-to-one. A person is in one '
-    + 'one-to-one relationship at a time, and any number of groups.',
+    + 'one-to-one at a time, and any number of groups.',
   'relationship.person_belongs_to_another_ministry':
     'Somebody selected is not on this Ministry\u2019s Roster.',
   'relationship.participant_has_not_completed_intake':
@@ -259,8 +426,8 @@ export const REFUSALS: Record<PairingRefusal, string> = {
   'relationship.participant_has_opted_out':
     'Somebody selected has opted out, and cannot be paired.',
   'relationship.leader_has_not_completed_intake':
-    'This leader has not completed Intake yet. Send them the Intake link first.',
-  'relationship.leader_has_opted_out': 'This leader has opted out, and cannot lead.',
+    'This Discipler has not completed Intake yet. Send them the Intake link first.',
+  'relationship.leader_has_opted_out': 'This Discipler has opted out, and cannot disciple anybody.',
   // The one refusal with no way around it. Said as a policy rather than as a
   // mistake, because an Admin who reads it as a mistake will go looking for the
   // setting that turns it off, and there is not one on this screen. It names the
@@ -268,8 +435,8 @@ export const REFUSALS: Record<PairingRefusal, string> = {
   // in a group are not refused -- and a sentence that said "a relationship" would
   // hide that from them.
   'relationship.gender_must_match':
-    'A one-to-one relationship must be between two people of the same gender. This is '
-    + 'a safeguarding rule and pairing by hand does not override it. A group can be '
+    'A one-to-one must be between two people of the same gender. This is a '
+    + 'safeguarding rule and pairing by hand does not override it. A group can be '
     + 'mixed, if you say that is what it is.',
   // Names what the Admin themselves declared, because the fix is one of two things
   // and they are the only person who knows which: change who is in it, or say it is
@@ -281,7 +448,7 @@ export const REFUSALS: Record<PairingRefusal, string> = {
   // women reaches this on a pair, where there is nothing to create and taking one of
   // the two out leaves nobody. Saying it is mixed is the fix that works either way.
   'relationship.gender_does_not_match_the_declaration':
-    'Somebody selected is not of the gender this relationship was declared to be. '
+    'Somebody selected is not of the gender this pairing was declared to be. '
     + 'Either change who is in it, or say it is mixed.',
   // Only a group is asked, so the wording says group. An Admin pairing two people
   // never sees this: their relationship’s gender is the gender of the two of them.
@@ -292,10 +459,10 @@ export const REFUSALS: Record<PairingRefusal, string> = {
   // Intake link offers and what the weekly check-in asks about.
   'relationship.needs_a_name':
     'Give this group a name. It is what people will see on the group link, and what '
-    + 'its leader is asked about each week.',
+    + 'its Discipler is asked about each week.',
   'relationship.already_has_a_leader':
-    'A one-to-one relationship has one leader. Add another person to be discipled to '
-    + 'make it a group, and it can then have several.',
+    'A one-to-one has one Discipler. Add another person to be discipled to make it '
+    + 'a group, and it can then have several.',
 }
 
 /**
@@ -307,5 +474,5 @@ export const pairingRefusalMessage = (code: string | undefined): string | undefi
   if (!code) return undefined
   // A code arriving from the query string is whatever somebody typed there. It is
   // looked up, never rendered.
-  return REFUSALS[code as PairingRefusal] ?? 'That relationship could not be created.'
+  return REFUSALS[code as PairingRefusal] ?? 'That pairing could not be made.'
 }

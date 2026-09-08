@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createMinistryWithAdmin } from '../support/local-supabase'
 import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app'
 import { file, phoneNumbers } from '../support/roster'
+import { displayPhone } from '../../app/roster/copy'
 
 /**
  * The half of ticket 26 that only exists on a screen. The domain proves that either
@@ -20,14 +21,11 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin answering a held import row', 
   const number = phoneNumbers()
 
   const upload = async (cookie: string, csv: string) => {
-    const form = new FormData()
-    form.set('file', new File([csv], 'congregation.csv', { type: 'text/csv' }))
-
     await fetch(`${baseUrl}/roster/import`, {
       method: 'POST',
       redirect: 'manual',
-      headers: { cookie },
-      body: form,
+      headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ mode: 'people_only', rows: csv }),
     })
   }
 
@@ -77,7 +75,7 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin answering a held import row', 
     })
 
   it('is offered both answers, on the row, without re-uploading the file', async () => {
-    const { cookie } = await collide('Emily Johnson', 'Em Johnson')
+    const { cookie, phone } = await collide('Emily Johnson', 'Em Johnson')
 
     // A plain Roster load, not the redirect the import came back on. The whole
     // point is that the question outlives the report that pointed at it.
@@ -85,6 +83,9 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin answering a held import row', 
 
     expect(html).toContain('Rows waiting on you')
     expect(html).toContain('Line 2')
+    // The number the row is held over, as a person reads it (ticket 36, ADR-0021):
+    // an Admin deciding who is on a number is shown which number.
+    expect(questionFor(html, 'Em Johnson')).toContain(displayPhone(`+1${phone}`))
     expect(html).toContain('Same person as Emily Johnson')
     expect(html).toContain('Someone else on this number')
   })
@@ -102,7 +103,8 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin answering a held import row', 
     })
     expect(response.status).toBe(303)
 
-    const { html } = await getPage('/roster', cookie)
+    // On the Disciples list, where somebody an upload added is.
+    const { html } = await getPage('/roster?list=disciples', cookie)
     expect(html).toContain('Dave Ellis')
     expect(html).not.toContain('David Ellis')
     // Answered, so the question is gone from the screen and the Roster is the
@@ -120,7 +122,7 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin answering a held import row', 
     })
     expect(response.status).toBe(303)
 
-    const { html } = await getPage('/roster', cookie)
+    const { html } = await getPage('/roster?list=disciples', cookie)
     expect(html).toContain('Sam Okafor')
     expect(html).toContain('Rita Okafor')
     expect(html).not.toContain('Rows waiting on you')

@@ -1,3 +1,13 @@
+import { intendedPairingId, type IntendedPairingId } from '~/domain/ids'
+import type {
+  IntendedPairingClosure,
+  IntendedPairingSnapshot,
+  NewIntendedPairing,
+  OpenIntendedPairing,
+  PairingSideSnapshot,
+} from '~/domain/intended-pairing'
+import { isParticipationStatus } from '~/domain/participation'
+import { GENDERS, isOneOf } from '~/domain/intake'
 import type { PoolClient } from 'pg'
 import pg from 'pg'
 import type {
@@ -16,7 +26,6 @@ import type {
   DiscipleshipGoalRenaming,
   GroupConfiguration,
   IntakeRecord,
-  LeadEligibility,
   NewParticipantMembership,
   NewDiscipleshipGoal,
   LeaderAcceptance,
@@ -1323,6 +1332,136 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     )
   },
 
+  async openIntendedPairings(): Promise<readonly OpenIntendedPairing[]> {
+    const { rows } = await client.query<{
+      id: string
+      leader_id: string
+      participant_id: string
+      planned_at: Date
+    }>(
+      `select id, leader_id, participant_id, planned_at
+         from intended_pairing
+        where closed_at is null
+        order by planned_at, id`,
+    )
+    return rows.map((row) => ({
+      id: intendedPairingId(row.id),
+      leaderId: personId(row.leader_id),
+      participantId: personId(row.participant_id),
+      plannedAt: row.planned_at,
+    }))
+  },
+
+  async intendedPairingFor(id: IntendedPairingId): Promise<IntendedPairingSnapshot | null> {
+    // Locked, because settling it writes it: two settles reaching one plan at once
+    // -- an Intake submission and the tick -- take turns here, and the second reads
+    // the closure the first wrote and does nothing.
+    //
+    // Both people as settling needs to know them, from the same functions the
+    // Roster and the readiness triggers read: the derived status, and the gender on
+    // the latest Intake submission.
+    const { rows } = await client.query<{
+      id: string
+      planned_at: Date
+      closed_at: Date | null
+      outcome: string | null
+      leader_id: string
+      leader_name: string
+      leader_phone: string | null
+      leader_status: string | null
+      leader_gender: string | null
+      participant_id: string
+      participant_name: string
+      participant_phone: string | null
+      participant_status: string | null
+      participant_gender: string | null
+    }>(
+      `select i.id, i.planned_at, i.closed_at, i.outcome,
+              l.id as leader_id, l.full_name as leader_name, l.phone as leader_phone,
+              public.participation_status(l) as leader_status,
+              app.current_gender(l.id) as leader_gender,
+              p.id as participant_id, p.full_name as participant_name, p.phone as participant_phone,
+              public.participation_status(p) as participant_status,
+              app.current_gender(p.id) as participant_gender
+         from intended_pairing i
+         join person l on l.id = i.leader_id
+         join person p on p.id = i.participant_id
+        where i.id = $1
+          for update of i`,
+      [id],
+    )
+
+    const row = rows[0]
+    if (!row) return null
+
+    const side = (
+      person: string,
+      name: string,
+      phone: string | null,
+      status: string | null,
+      gender: string | null,
+    ): PairingSideSnapshot => {
+      // The derivation refuses to answer for a Person the connection may not see,
+      // and the policy on `person` would have hidden them first. Reaching here with
+      // no status means the two have drifted apart, and a plan settled on a guess
+      // would form a pairing nobody checked.
+      if (!isParticipationStatus(status)) {
+        throw new Error(`No Participation Status was derived for ${person}`)
+      }
+      if (gender !== null && !isOneOf(GENDERS, gender)) {
+        throw new Error(`A gender nothing recognises came back for ${person}`)
+      }
+      return { personId: personId(person), fullName: name, phone, participationStatus: status, gender }
+    }
+
+    const outcome = row.outcome
+    if (outcome !== null && outcome !== 'fulfilled' && outcome !== 'refused') {
+      throw new Error(`An outcome nothing recognises came back for plan ${row.id}`)
+    }
+
+    return {
+      id: intendedPairingId(row.id),
+      leader: side(row.leader_id, row.leader_name, row.leader_phone, row.leader_status, row.leader_gender),
+      participant: side(
+        row.participant_id,
+        row.participant_name,
+        row.participant_phone,
+        row.participant_status,
+        row.participant_gender,
+      ),
+      plannedAt: row.planned_at,
+      closedAt: row.closed_at,
+      outcome,
+    }
+  },
+
+  async planIntendedPairings(plans: readonly NewIntendedPairing[]) {
+    for (const plan of plans) {
+      // A second open plan for the same Disciple is refused by the partial unique
+      // index. The import classifies against the open plans it read inside this
+      // same transaction, so reaching that index is a fault to surface, not a
+      // refusal to word.
+      await client.query(
+        `insert into intended_pairing (id, ministry_id, leader_id, participant_id, planned_at)
+         values ($1, $2, $3, $4, $5)`,
+        [plan.id, plan.ministryId, plan.leaderId, plan.participantId, plan.plannedAt],
+      )
+    }
+  },
+
+  async closeIntendedPairing(closure: IntendedPairingClosure) {
+    // `closed_at is null`, and no complaint when nothing matched: the plan closed
+    // between the read and this write, by a settle racing this one or an Admin
+    // pairing by hand. The relationship this closure came with, if any, is refused
+    // by the caps in that case, and the whole transaction goes with it.
+    await client.query(
+      `update intended_pairing
+          set closed_at = $2, outcome = $3, relationship_id = $4, refusal = $5
+        where id = $1 and closed_at is null`,
+      [closure.id, closure.closedAt, closure.outcome, closure.relationshipId, closure.refusal],
+    )
+  },
+
   async raiseFollowUp(item: NewFollowUpItem) {
     // Raising an item that already stands changes nothing. Twenty taps on "not my
     // number" is one condition, and an Admin sees one thing to act on -- while the
@@ -2328,28 +2467,6 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
         where id = $1 and closed_at is null`,
       [closure.exchangeId, closure.closedAt, closure.outcome],
     )
-  },
-
-  async setLeadEligibility(eligibility: LeadEligibility) {
-    // A plain update, and the whole of it. Eligibility is one field because the
-    // intended role *is* the leader-pool flag, so setting it neither reads nor
-    // touches Intake, an account, or a membership -- and withdrawing it is this
-    // same statement with the other value.
-    //
-    // The Ministry is not in the `where` clause and does not need to be: the
-    // policy on `person` scopes this connection to the one Ministry it declared it
-    // is acting for, and a Person of another's is not visible to update.
-    const { rowCount } = await client.query(
-      `update person set eligible_to_lead = $2 where id = $1`,
-      [eligibility.personId, eligibility.eligible],
-    )
-
-    // Nobody was updated, which on this connection means no such Person in this
-    // Ministry. Failing rather than passing quietly, because the Admin pressed a
-    // control on a row and a silent no-op reads to them as *it did not take*.
-    if (rowCount === 0) {
-      throw new Error(`No Person ${eligibility.personId} to mark eligible to lead`)
-    }
   },
 
   async discipleshipGoals(): Promise<readonly OfferedGoal[]> {

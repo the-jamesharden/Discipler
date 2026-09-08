@@ -433,3 +433,5 @@ The two new readers are `OverviewReader.readOverview` and `CheckInsReader.readTh
 The Care Needed helpers the Overview shares were extracted into `src/platform/supabase/relationship-history.ts`.
 The rates are pure functions in `src/domain/overview.ts`.
 The tab badge is read by the Admin shell on every Admin page and handed in by the two pages that already hold the list.
+
+**2026-09-07, ticket 36.** The Roster's *no contact details* decision (lines 90-94) is reversed for the Admin surface: every row shows phone and email through the Roster's own function, ADR-0021. The Leader Dashboard reads are unchanged.

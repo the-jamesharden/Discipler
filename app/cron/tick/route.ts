@@ -2,6 +2,7 @@ import { timingSafeEqual } from 'node:crypto'
 import { NextResponse, type NextRequest } from 'next/server'
 import type { MinistryId } from '~/domain/ids'
 import { NoSendingNumber } from '~/service/outbound-dispatch'
+import type { SettledPairings } from '~/service/command-service'
 import {
   drainOutboundQueue,
   getCommandService,
@@ -65,11 +66,13 @@ interface MinistryOutcome {
    */
   readonly held: number
   readonly failed: number
+  /** The pairings an import planned, settled on this pass. */
+  readonly settled: SettledPairings
   readonly error: string | null
 }
 
 const runOneMinistry = async (ministryId: MinistryId): Promise<MinistryOutcome> => {
-  const nothing = { sent: 0, withheld: 0, held: 0, failed: 0 }
+  const nothing = { sent: 0, withheld: 0, held: 0, failed: 0, settled: { fulfilled: 0, refused: 0, waiting: 0 } }
 
   try {
     // The tick first, then the drain, in that order and in the same run: the tick is
@@ -77,9 +80,14 @@ const runOneMinistry = async (ministryId: MinistryId): Promise<MinistryOutcome> 
     // one of them sitting until the next pass an hour later.
     await getCommandService().execute({ type: 'scheduled.tick', ministryId })
 
+    // Then the pairings an import planned, so one that a submission's own settle
+    // missed -- a route that failed after committing, a race -- is formed on this
+    // pass and its invitation goes out in the drain that follows (ADR-0022).
+    const settled = await getCommandService().settleIntendedPairings(ministryId)
+
     const outcome = await drainOutboundQueue(ministryId)
 
-    return { ministryId, ...outcome, error: null }
+    return { ministryId, ...outcome, settled, error: null }
   } catch (error) {
     // A Ministry nobody has bought a number for yet is the ordinary case here, not a
     // fault: it is set up and not yet sending. Named rather than folded into
@@ -102,7 +110,9 @@ export async function GET(request: NextRequest) {
 
   const ministries = await getMinistryDirectory().everyMinistry()
   const ran: MinistryOutcome[] = []
-  for (const ministryId of ministries) ran.push(await runOneMinistry(ministryId))
+  for (const ministryId of ministries) {
+    ran.push(await runOneMinistry(ministryId))
+  }
 
   // Always 200 once authorised, even where a Ministry failed. The scheduler retries
   // a non-2xx, and retrying the whole run to recover one Ministry would re-drain
@@ -114,6 +124,11 @@ export async function GET(request: NextRequest) {
     withheld: ran.reduce((total, one) => total + one.withheld, 0),
     held: ran.reduce((total, one) => total + one.held, 0),
     failed: ran.reduce((total, one) => total + one.failed, 0),
+    settled: {
+      fulfilled: ran.reduce((total, one) => total + one.settled.fulfilled, 0),
+      refused: ran.reduce((total, one) => total + one.settled.refused, 0),
+      waiting: ran.reduce((total, one) => total + one.settled.waiting, 0),
+    },
     errors: ran.filter((one) => one.error !== null).map((one) => ({
       ministryId: one.ministryId,
       error: one.error,

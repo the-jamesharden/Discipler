@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { readRosterFile } from '~/domain/roster-csv'
 import { RosterFileUnreadable } from '~/domain/errors'
+import { phoneNumber, rosterKey } from '~/domain/roster'
 import { file } from '../support/roster'
 
 /**
@@ -166,5 +167,208 @@ describe('reading a Roster file', () => {
   it('refuses a file whose header row is missing, rather than eating the first Person', () => {
     // Without a header the first congregant is silently consumed as column names.
     expect(() => readRosterFile(file('Emily Johnson,5550142013'))).toThrow(RosterFileUnreadable)
+  })
+
+  it('reads a paste from a spreadsheet, which is tab-separated', () => {
+    const { people, rejected } = readRosterFile(
+      'Name\tPhone\tEmail\nJohnson, Emily\t(555) 014-2015\temily@example.test\n',
+    )
+
+    expect(rejected).toEqual([])
+    expect(people).toEqual([
+      { line: 2, fullName: 'Johnson, Emily', phone: '+15550142015', email: 'emily@example.test' },
+    ])
+  })
+
+  it('reads nothing about pairs from rows that say nothing about them', () => {
+    const { pairings } = readRosterFile(file('Name,Phone', 'Emily Johnson,5550142016'))
+    expect(pairings).toEqual([])
+  })
+})
+
+/**
+ * People only, with the two optional columns (ticket 36): Role says which side of
+ * a Paired With pair the person takes, and on a row naming nobody it changes
+ * nothing, because being paired is what makes a Discipler.
+ */
+describe('reading who is paired with whom, one person per row', () => {
+  const key = (fullName: string, phone: string) => rosterKey({ fullName, phone: phoneNumber(phone) })
+
+  it('pairs a row with another row of the paste, from either side', () => {
+    const { pairings, rejected } = readRosterFile(
+      file(
+        'Name,Role,Phone,Paired With',
+        'Sam Rivera,Discipler,5550142020,Taylor Brooks',
+        'Taylor Brooks,Disciple,5550142021,',
+        'Casey Nguyen,Disciple,5550142022,  alex   MORGAN ',
+        'Alex Morgan,,5550142023,',
+      ),
+    )
+
+    expect(rejected).toEqual([])
+    expect(pairings).toEqual([
+      { line: 2, leader: { kind: 'in_file', key: key('Sam Rivera', '+15550142020') }, participant: { kind: 'in_file', key: key('Taylor Brooks', '+15550142021') } },
+      { line: 4, leader: { kind: 'in_file', key: key('Alex Morgan', '+15550142023') }, participant: { kind: 'in_file', key: key('Casey Nguyen', '+15550142022') } },
+    ])
+  })
+
+  it('reads the same pair said from both rows as one pair', () => {
+    const { pairings } = readRosterFile(
+      file(
+        'Name,Role,Phone,Paired With',
+        'Sam Rivera,Discipler,5550142024,Taylor Brooks',
+        'Taylor Brooks,Disciple,5550142025,Sam Rivera',
+      ),
+    )
+    expect(pairings).toHaveLength(1)
+    expect(pairings[0]?.line).toBe(2)
+  })
+
+  it('refuses the same two people paired the other way round on a later row', () => {
+    const { pairings, rejected } = readRosterFile(
+      file(
+        'Name,Role,Phone,Paired With',
+        'Sam Rivera,Discipler,5550142026,Taylor Brooks',
+        'Taylor Brooks,Discipler,5550142027,Sam Rivera',
+      ),
+    )
+    expect(pairings).toHaveLength(1)
+    expect(rejected).toEqual([{ line: 3, problem: 'paired_with_conflict' }])
+  })
+
+  it('leaves a name no row carries for the Roster to answer', () => {
+    const { pairings } = readRosterFile(
+      file('Name,Role,Phone,Paired With', 'Taylor Brooks,Disciple,5550142028,Ruth Adeyemi'),
+    )
+    expect(pairings).toEqual([
+      { line: 2, leader: { kind: 'by_name', name: 'Ruth Adeyemi' }, participant: { kind: 'in_file', key: key('Taylor Brooks', '+15550142028') } },
+    ])
+  })
+
+  it('refuses a name two rows of the paste go by, rather than picking one', () => {
+    const { pairings, rejected, people } = readRosterFile(
+      file(
+        'Name,Role,Phone,Paired With',
+        'Chris Miller,,5550142029,',
+        'Chris Miller,,5550142030,',
+        'Taylor Brooks,Disciple,5550142031,Chris Miller',
+      ),
+    )
+    expect(people).toHaveLength(3)
+    expect(pairings).toEqual([])
+    expect(rejected).toEqual([{ line: 4, problem: 'paired_with_ambiguous' }])
+  })
+
+  it('refuses a pair whose row says no Role, and a Role it cannot read, and keeps the person', () => {
+    const { people, pairings, rejected } = readRosterFile(
+      file(
+        'Name,Role,Phone,Paired With',
+        'Taylor Brooks,,5550142032,Sam Rivera',
+        'Sam Rivera,Pastor,5550142033,',
+      ),
+    )
+    expect(people).toHaveLength(2)
+    expect(pairings).toEqual([])
+    expect(rejected).toEqual([
+      { line: 2, problem: 'paired_with_no_role' },
+      { line: 3, problem: 'role_unreadable' },
+    ])
+  })
+
+  it('accepts the words a church’s own spreadsheet may use for the two sides, silently', () => {
+    const { pairings, rejected } = readRosterFile(
+      file(
+        'Name,Role,Phone,Partner',
+        'Sam Rivera,Mentor,5550142034,Taylor Brooks',
+        'Taylor Brooks,Mentee,5550142035,',
+        'Jordan Lee,Leader,5550142036,Riley Carter',
+        'Riley Carter,Participant,5550142037,',
+      ),
+    )
+    expect(rejected).toEqual([])
+    expect(pairings.map((pairing) => pairing.leader)).toEqual([
+      { kind: 'in_file', key: key('Sam Rivera', '+15550142034') },
+      { kind: 'in_file', key: key('Jordan Lee', '+15550142036') },
+    ])
+  })
+
+  it('reads a Role on a row naming nobody as nothing at all', () => {
+    const { pairings, rejected } = readRosterFile(
+      file('Name,Role,Phone,Paired With', 'Sam Rivera,Discipler,5550142038,'),
+    )
+    expect(pairings).toEqual([])
+    expect(rejected).toEqual([])
+  })
+})
+
+/**
+ * Already paired: one discipler-disciple pair per row, both people read off it.
+ */
+describe('reading rows that are already pairs', () => {
+  const key = (fullName: string, phone: string) => rosterKey({ fullName, phone: phoneNumber(phone) })
+  const paired = (text: string) => readRosterFile(text, 'already_paired')
+
+  it('reads both people and the pair off each row', () => {
+    const { people, pairings, rejected } = paired(
+      'Discipler\tDiscipler Phone\tDiscipler Email\tDisciple\tDisciple Phone\tDisciple Email\n'
+        + 'Sam Rivera\t(706) 555-0101\tsam@example.org\tTaylor Brooks\t(706) 555-0440\t\n',
+    )
+
+    expect(rejected).toEqual([])
+    expect(people).toEqual([
+      { line: 2, fullName: 'Sam Rivera', phone: '+17065550101', email: 'sam@example.org' },
+      { line: 2, fullName: 'Taylor Brooks', phone: '+17065550440', email: null },
+    ])
+    expect(pairings).toEqual([
+      { line: 2, leader: { kind: 'in_file', key: key('Sam Rivera', '+17065550101') }, participant: { kind: 'in_file', key: key('Taylor Brooks', '+17065550440') } },
+    ])
+  })
+
+  it('takes the columns in any order, by the side word and what follows it', () => {
+    const { people, rejected } = paired(
+      file('Mentee Mobile,Mentee Name,Leader,Leader Cell', '5550142040,Riley Carter,Jordan Lee,5550142041'),
+    )
+    expect(rejected).toEqual([])
+    expect(people.map((person) => person.fullName)).toEqual(['Jordan Lee', 'Riley Carter'])
+  })
+
+  it('reads a Discipler on several rows once, leading each of them', () => {
+    const { people, pairings, rejected } = paired(
+      file(
+        'Discipler,Discipler Phone,Disciple,Disciple Phone',
+        'Sam Rivera,5550142042,Taylor Brooks,5550142043',
+        'Sam Rivera,5550142042,Casey Nguyen,5550142044',
+      ),
+    )
+    expect(rejected).toEqual([])
+    expect(people.map((person) => person.fullName)).toEqual(['Sam Rivera', 'Taylor Brooks', 'Casey Nguyen'])
+    expect(pairings).toHaveLength(2)
+  })
+
+  it('refuses the whole row when either side cannot be read', () => {
+    const { people, pairings, rejected } = paired(
+      file(
+        'Discipler,Discipler Phone,Disciple,Disciple Phone',
+        'Sam Rivera,5550142045,,5550142046',
+        ',5550142047,Taylor Brooks,5550142048',
+        'Alex Morgan,ask him,Casey Nguyen,5550142049',
+      ),
+    )
+    expect(people).toEqual([])
+    expect(pairings).toEqual([])
+    expect(rejected).toEqual([
+      { line: 2, problem: 'no_name' },
+      { line: 3, problem: 'no_name' },
+      { line: 4, problem: 'phone_unreadable' },
+    ])
+  })
+
+  it('refuses rows with no columns for one of the two sides', () => {
+    expect(() => paired(file('Name,Phone', 'Sam Rivera,5550142050'))).toThrow(
+      new RosterFileUnreadable('no_discipler_columns'),
+    )
+    expect(() => paired(file('Discipler,Discipler Phone,Disciple', 'Sam Rivera,5550142050,Taylor'))).toThrow(
+      new RosterFileUnreadable('no_disciple_columns'),
+    )
   })
 })

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { FOLLOW_UP_KINDS, type FollowUpPayload } from '~/domain/follow-up'
+import { intendedPairingId } from '~/domain/ids'
 import {
   careOutcomeMessage,
   careRefusalMessage,
@@ -25,6 +26,8 @@ const payloadOf = (kind: FollowUpPayload['kind']): FollowUpPayload => {
       return { kind, requestedBy: 'leader' }
     case 'participant_keyword':
       return { kind, keyword: 'HELP' }
+    case 'intended_pairing_refused':
+      return { kind, intendedPairingId: intendedPairingId('plan-1'), refusal: 'relationship.gender_must_match' }
     default:
       return { kind }
   }

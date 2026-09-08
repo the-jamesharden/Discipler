@@ -195,3 +195,5 @@ would both open the door with neither able to revoke the other. The first cut of
 replaced the link on every press, which meant an Admin who closed the tab and came
 back could only recover the link by silently breaking the one they had already sent.
 It is idempotent while a link stands.
+
+**2026-09-07, ticket 36.** The eligibility to lead flag, its command and its control are removed at the product owner's direction: a Discipler is a fact, never a mark. The Intake link, the derived status and the relationships column stay as built here.

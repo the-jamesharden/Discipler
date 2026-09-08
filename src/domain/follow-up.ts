@@ -1,4 +1,5 @@
-import type { FollowUpItemId, MinistryId, PersonId, RelationshipId } from './ids'
+import { isPairingRefusal, type PairingRefusal } from './errors'
+import { intendedPairingId, type FollowUpItemId, type IntendedPairingId, type MinistryId, type PersonId, type RelationshipId } from './ids'
 import { isPausePeriod, type PausePeriodWeeks } from './pause'
 import { isMemberRole, type MemberRole } from './relationships'
 
@@ -46,6 +47,14 @@ export const FOLLOW_UP_KINDS = [
    * says the same Person asking for the same group twice is one thing to act on.
    */
   'group_join_requested',
+  /**
+   * A pairing an import planned could not be made once both had completed Intake
+   * -- the pairing rules refused it. Raised on the Disciple, so the Admin who
+   * opens it is looking at the person waiting to be discipled; it carries which
+   * plan and the refusal, and is resolved by pairing them by hand or letting it
+   * go. Never retried (ticket 36, ADR-0022).
+   */
+  'intended_pairing_refused',
 ] as const
 
 export type FollowUpKind = (typeof FOLLOW_UP_KINDS)[number]
@@ -76,6 +85,11 @@ export type FollowUpPayload =
   | { readonly kind: 'invitation_number_disputed' }
   | { readonly kind: 'match_declined' }
   | { readonly kind: 'group_join_requested' }
+  | {
+      readonly kind: 'intended_pairing_refused'
+      readonly intendedPairingId: IntendedPairingId
+      readonly refusal: PairingRefusal
+    }
 
 /**
  * What the item is about: a relationship, a Person, or both. Two nullable typed
@@ -128,6 +142,8 @@ export const followUpPayload = (
       return { requestedBy: item.requestedBy }
     case 'participant_keyword':
       return { keyword: item.keyword }
+    case 'intended_pairing_refused':
+      return { intendedPairingId: item.intendedPairingId, refusal: item.refusal }
     default:
       return {}
   }
@@ -165,6 +181,13 @@ export const readFollowUpPayload = (kind: FollowUpKind, raw: unknown): FollowUpP
         throw new Error('A participant_keyword follow-up item arrived without its keyword')
       }
       return { kind, keyword }
+    }
+    case 'intended_pairing_refused': {
+      const { intendedPairingId: plan, refusal } = payload
+      if (typeof plan !== 'string' || plan === '' || !isPairingRefusal(refusal)) {
+        throw new Error('An intended_pairing_refused follow-up item arrived without its plan or its reason')
+      }
+      return { kind, intendedPairingId: intendedPairingId(plan), refusal }
     }
     default:
       return { kind }

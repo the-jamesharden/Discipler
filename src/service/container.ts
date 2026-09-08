@@ -206,6 +206,22 @@ export const drainOutboundQueue = (ministryId: MinistryId): Promise<DispatchOutc
   })
 
 /**
+ * Settles the pairings an import planned for one Ministry, and never fails the
+ * page that called it. Three routes call this after a Person's own act -- an
+ * Intake submission through any of the three forms -- and one after an import;
+ * the scheduled tick calls the service directly and reports the counts. A plan is
+ * an Admin's arrangement, and a fault in settling it is logged for the Admin's
+ * benefit rather than shown to the Person who just completed their form.
+ */
+export const settlePlannedPairings = async (ministryId: MinistryId): Promise<void> => {
+  try {
+    await getCommandService().settleIntendedPairings(ministryId)
+  } catch (error) {
+    console.error(`Could not settle the planned pairings in ministry ${ministryId}`, error)
+  }
+}
+
+/**
  * Which Ministries the scheduler has to run for. The one unscoped read in the app,
  * kept to ids for that reason -- see the port.
  */

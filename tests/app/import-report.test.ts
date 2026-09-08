@@ -8,8 +8,8 @@ import type { RowRejection } from '~/domain/roster'
  * refused row leaves the report without a reason attached to it.
  */
 
-const roundTrip = (added: number, refused: readonly RowRejection[]) =>
-  decodeImportReport(Object.fromEntries(encodeImportReport(added, refused)))
+const roundTrip = (added: number, refused: readonly RowRejection[], planned = 0) =>
+  decodeImportReport(Object.fromEntries(encodeImportReport(added, planned, refused)))
 
 describe('an import report', () => {
   it('carries every refused row back with its line and its reason', () => {
@@ -19,13 +19,21 @@ describe('an import report', () => {
       { line: 9, problem: 'already_on_the_roster' },
     ]
 
-    expect(roundTrip(14, refused)).toEqual({ added: 14, refused, hidden: [] })
+    expect(roundTrip(14, refused)).toEqual({ added: 14, planned: 0, refused, hidden: [] })
   })
 
   it('carries no name and no phone number, only line numbers', () => {
-    const params = encodeImportReport(1, [{ line: 7, problem: 'no_phone' }]).toString()
+    const params = encodeImportReport(1, 0, [{ line: 7, problem: 'no_phone' }]).toString()
 
     expect(params).toBe('added=1&refused=no_phone%3A7')
+  })
+
+  it('carries how many pairs were planned, apart from the people, and only when there were any', () => {
+    // A plan is not a pairing (ADR-0022): the report counts it on its own so the
+    // Roster can say what it is waiting on rather than folding it into *added*.
+    expect(roundTrip(6, [], 3)).toEqual({ added: 6, planned: 3, refused: [], hidden: [] })
+    expect(encodeImportReport(2, 0, []).toString()).toBe('added=2')
+    expect(encodeImportReport(6, 3, []).toString()).toBe('added=6&planned=3')
   })
 
   it('counts what it had no room to list, by reason rather than as a bare total', () => {
@@ -54,17 +62,18 @@ describe('an import report', () => {
       problem: 'phone_unreadable' as const,
     }))
 
-    expect(encodeImportReport(0, refused).toString().length).toBeLessThan(2048)
+    expect(encodeImportReport(0, 0, refused).toString().length).toBeLessThan(2048)
   })
 
   it('renders nothing for a report somebody invented in the query string', () => {
     const report = decodeImportReport({
       added: '1',
+      planned: 'three',
       refused: '<script>alert(1)</script>:2',
       hidden: 'not_a_problem:9',
     })
 
-    expect(report).toEqual({ added: 1, refused: [], hidden: [] })
+    expect(report).toEqual({ added: 1, planned: 0, refused: [], hidden: [] })
   })
 
   it('is absent altogether when no import has happened', () => {

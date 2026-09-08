@@ -109,7 +109,7 @@ export const GROUP_PATH: IntakePath = INTAKE_PATHS[1]
 /**
  * Which side of a discipleship relationship the Person offered to stand on. A
  * preference they stated and nothing stronger: it produces a signal on their Roster
- * row and never `eligible_to_lead`, which ticket 16 made a plan an Admin records.
+ * row. It is one of the facts that put a Person on the Disciplers list (ticket 36).
  *
  * Deliberately not `MemberRole`. That says what somebody is in a relationship an
  * Admin formed; this says what somebody offered before one existed.

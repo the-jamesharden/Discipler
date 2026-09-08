@@ -3,7 +3,9 @@ import { redirect } from 'next/navigation'
 import { currentAdmin } from '~/platform/supabase/current-admin'
 import { getRosterReader } from '~/service/container'
 import { AccountMenu, PageShell } from '../../shell'
-import { firstTimeLabel, pairingRefusalMessage } from '../copy'
+import { firstTimeLabel, pairingRefusalMessage,
+  PAIR_PEOPLE,
+} from '../copy'
 import { DECLARED_GENDER_OPTIONS } from '../declared-gender'
 
 export const dynamic = 'force-dynamic'
@@ -103,7 +105,7 @@ export default async function PairPage({
 
   return (
     <PageShell
-      title="Form a relationship"
+      title={PAIR_PEOPLE}
       subtitle={admin.ministryName}
       back={{ href: '/roster', label: 'Back to the Roster' }}
       actions={<AccountMenu ministry />}
@@ -129,11 +131,11 @@ export default async function PairPage({
           ) : null}
 
           <p className="notice">
-            Choose who will lead and everyone they will disciple. One leader and one
-            participant makes a one-to-one relationship; anything else is a group, and
-            a group can have several leaders. The age band rule governs suggestion
-            only — you may pair across it here. Gender matching cannot be overridden.
-            Creating it does not start it — nothing reaches anybody until every leader
+            Choose the Discipler and everyone they will disciple. One Discipler and one
+            Disciple makes a one-to-one; anything else is a group, and a group can have
+            several Disciplers. The age band rule governs suggestion only - you may
+            pair across it here. Gender matching cannot be overridden. Pairing them
+            does not start it - nothing reaches anybody until every Discipler
             accepts.
           </p>
 
@@ -146,7 +148,7 @@ export default async function PairPage({
               and the refusal comes back to this form.
             */}
             <fieldset>
-              <legend>Leading</legend>
+              <legend>Discipler</legend>
               {candidates.map((person) => (
                 <label key={`leader:${person.personId}`} className="check" htmlFor={`leader:${person.personId}`}>
                   <input
@@ -165,7 +167,7 @@ export default async function PairPage({
             </fieldset>
 
             <fieldset>
-              <legend>Discipling</legend>
+              <legend>Disciples</legend>
               {candidates.map((person) => (
                 <label
                   key={`participant:${person.personId}`}
@@ -242,7 +244,7 @@ export default async function PairPage({
               <legend>If this is a group, what is it called?</legend>
               <p className="subtle">
                 The name appears on the group link, which anybody may open, and is what
-                its leader is asked about each week. Two people on their own need no
+                its Discipler is asked about each week. Two people on their own need no
                 name — leave this blank.
               </p>
               <div className="field">
@@ -267,7 +269,7 @@ export default async function PairPage({
               <Link className="btn sec" href="/roster">
                 Cancel
               </Link>
-              <button type="submit">Create relationship</button>
+              <button type="submit">Pair them</button>
             </div>
           </form>
         </div>

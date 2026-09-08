@@ -4,10 +4,10 @@ import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app
 import { file, phoneNumbers } from '../support/roster'
 
 /**
- * The headline of the ticket, driven the way an Admin does it: choose a file, press
- * Import, and see the congregation on the Roster. Over HTTP against the running app,
- * because a report an Admin cannot read is the failure this ticket exists to prevent
- * and no unit test can tell you whether it reached the page.
+ * The headline of the ticket, driven the way an Admin does it: paste the rows,
+ * press Import, and see the congregation on the Roster. Over HTTP against the
+ * running app, because a report an Admin cannot read is the failure this ticket
+ * exists to prevent and no unit test can tell you whether it reached the page.
  */
 
 describe.skipIf(skipUnlessAppIsRunning)('an Admin importing a spreadsheet', () => {
@@ -19,18 +19,25 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin importing a spreadsheet', () =
     ministry = await createMinistryWithAdmin('Riverside Chapel')
   })
 
-  const upload = async (cookie: string, csv: string) => {
-    const form = new FormData()
-    form.set('file', new File([csv], 'congregation.csv', { type: 'text/csv' }))
-
+  /** The dialog's form, as a browser posts it: the layout and the pasted rows. */
+  const upload = async (cookie: string, rows: string, mode = 'people_only') => {
     const response = await fetch(`${baseUrl}/roster/import`, {
       method: 'POST',
       redirect: 'manual',
-      headers: { cookie },
-      body: form,
+      headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ mode, rows }),
     })
 
     return { response, location: response.headers.get('location') ?? '' }
+  }
+
+  /** One Person's row on the Roster, tags stripped. */
+  const rowOf = (html: string, name: string): string => {
+    const row = html
+      .split('<tr')
+      .find((candidate) => new RegExp(`data-testid="roster-name"[^>]*>${name}<`).test(candidate))
+    expect(row, `no row for ${name}`).toBeDefined()
+    return row!.split('</tr>')[0]!.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ')
   }
 
   it('sees the imported people on the Roster', async () => {
@@ -54,7 +61,8 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin importing a spreadsheet', () =
 
     await upload(cookie, file('Name,Phone', `Cara Nolan,${number()}`))
 
-    const { html } = await getPage('/roster', cookie)
+    // On the Disciples list, where everyone an upload adds lands.
+    const { html } = await getPage('/roster?list=disciples', cookie)
     expect(html).toContain('No Intake Submitted')
   })
 
@@ -74,7 +82,7 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin importing a spreadsheet', () =
     expect(html).toContain('the phone number could not be read')
   })
 
-  it('is told when the file has no column it can use, and imports none of it', async () => {
+  it('is told when the rows have no column it can use, and imports none of them', async () => {
     const { cookie } = await signIn(ministry)
 
     const { location } = await upload(
@@ -84,9 +92,114 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin importing a spreadsheet', () =
 
     expect(location).toContain('error=no_name_column')
 
+    // The dialog is open already, with the reason inside it beside the rows.
     const { html } = await getPage(`/roster?${location.split('?')[1] ?? ''}`, cookie)
+    expect(html).toMatch(/class="modal-bg open"/)
     expect(html).toContain('no column of names')
     expect(html).not.toContain('Zebedee Unread')
+  })
+
+  it('is told to paste something when nothing was', async () => {
+    const { cookie } = await signIn(ministry)
+
+    const { location } = await upload(cookie, '   \n')
+    expect(location).toContain('error=nothing_pasted')
+  })
+
+  it('carries the import dialog on the Roster, opened from a link with no script', async () => {
+    const { cookie } = await signIn(ministry)
+    const { html } = await getPage('/roster', cookie)
+
+    expect(html).toContain('href="#import"')
+    expect(html).toContain('Import Dataset')
+    expect(html).toMatch(/<div[^>]*id="import"[^>]*class="modal-bg"/)
+    expect(html).toContain('Already paired')
+    expect(html).toContain('People only')
+    expect(html).toContain('<textarea name="rows"')
+    expect(html).toContain('mailto:support@trydiscipler.com')
+    // Without script the review is the server's, and the page says so.
+    expect(html).toContain('Review and confirm happens after you press Import')
+    expect(html).not.toContain('type="file"')
+  })
+
+  it('plans the pairs an Already paired paste describes, and says so on both rows', async () => {
+    const { cookie } = await signIn(ministry)
+
+    const { location } = await upload(
+      cookie,
+      [
+        'Discipler\tDiscipler Phone\tDiscipler Email\tDisciple\tDisciple Phone\tDisciple Email',
+        `Sam Rivera\t${number()}\tsam@example.test\tTaylor Brooks\t${number()}\t`,
+      ].join('\n'),
+      'already_paired',
+    )
+
+    expect(location).toContain('added=2')
+    expect(location).toContain('planned=1')
+
+    const { html } = await getPage(`/roster?${location.split('?')[1] ?? ''}`, cookie)
+    expect(html).toContain('2 people were added.')
+    expect(html).toContain('1 pair was planned.')
+
+    // Sam is a Discipler by the plan; Taylor is the Disciple; both say *planned*.
+    const disciplers = await getPage('/roster', cookie)
+    expect(rowOf(disciplers.html, 'Sam Rivera')).toContain('Taylor Brooks planned')
+    expect(rowOf(disciplers.html, 'Sam Rivera')).toContain('awaiting Intake')
+    const disciples = await getPage('/roster?list=disciples', cookie)
+    expect(rowOf(disciples.html, 'Taylor Brooks')).toContain('Sam Rivera planned')
+    expect(disciples.html).not.toMatch(/data-testid="roster-name"[^>]*>Sam Rivera</)
+  })
+
+  it('plans a pair from a People only paste naming somebody already on the Roster', async () => {
+    const { cookie } = await signIn(ministry)
+    await upload(cookie, file('Name,Phone', `Ruth Adeyemi,${number()}`))
+
+    const { location } = await upload(
+      cookie,
+      file('Name,Role,Phone,Paired With', `Omar Haddad,Disciple,${number()},Ruth Adeyemi`),
+    )
+
+    expect(location).toContain('added=1')
+    expect(location).toContain('planned=1')
+    const { html } = await getPage('/roster', cookie)
+    expect(rowOf(html, 'Ruth Adeyemi')).toContain('Omar Haddad planned')
+  })
+
+  it('is told, by line, about a pair it would not plan, and still imports the person', async () => {
+    const { cookie } = await signIn(ministry)
+
+    const { location } = await upload(
+      cookie,
+      file('Name,Role,Phone,Paired With', `Lone Row,Disciple,${number()},Nobody Here`),
+    )
+
+    expect(location).toContain('added=1')
+    expect(location).not.toContain('planned=')
+    const { html } = await getPage(`/roster?${location.split('?')[1] ?? ''}`, cookie)
+    expect(html).toContain('Line 2')
+    expect(html).toContain('neither in these rows nor on the Roster')
+  })
+
+  it('counts a pair it would not plan apart from the rows it did not import', async () => {
+    const { cookie } = await signIn(ministry)
+
+    const { location } = await upload(
+      cookie,
+      file(
+        'Name,Role,Phone,Paired With',
+        `Ivy Chen,Disciple,${number()},Nobody Here`,
+        `Jonah Reyes,,${number()},`,
+        `No Number,,,`,
+      ),
+    )
+
+    expect(location).toContain('added=2')
+    const { html } = await getPage(`/roster?${location.split('?')[1] ?? ''}`, cookie)
+    expect(html).toContain('2 people were added.')
+    expect(html).toContain('1 row was not imported:')
+    expect(html).toContain('1 pair was not planned:')
+    expect(html).toContain('Line 4 - no phone number')
+    expect(html).toContain('Line 2 - names somebody in Paired with')
   })
 
   it('renders nothing at all for an invented report in the query string', async () => {

@@ -1,3 +1,4 @@
+import { pairingRefusalMessage } from '../roster/copy'
 import type {
   CancellationRefusal,
   ConcernRefusal,
@@ -32,6 +33,9 @@ export const CARE_NEEDED_LEAD =
 
 export const NOTHING_NEEDS_ATTENTION = 'Nothing needs attention right now.'
 
+/** On a refused plan: the act that answers it. */
+export const PAIR_BY_HAND = 'Pair by hand'
+
 export const itemCount = (count: number): string =>
   count === 1 ? '1 item' : `${count} items`
 
@@ -44,6 +48,7 @@ export const followUpTag: Record<FollowUpPayload['kind'], string> = {
   invitation_number_disputed: 'Not their number',
   match_declined: 'Match declined',
   group_join_requested: 'Wants to join a group',
+  intended_pairing_refused: 'Pair not made',
 }
 
 const plural = (count: number, one: string, many: string) => (count === 1 ? one : many)
@@ -78,6 +83,10 @@ export const followUpLine = (
       return `${who} said the match is not right. The relationship is unchanged while it waits.`
     case 'group_join_requested':
       return `${who} asked to join a group you have set to ask first. Admit or decline them from Intake forms.`
+    case 'intended_pairing_refused':
+      // The refusal in the Pair page's own words, so the Admin reads the same
+      // sentence they would have read pairing by hand -- and then does that.
+      return `${who} was imported paired with somebody, and once both had completed Intake the pairing could not be made. ${pairingRefusalMessage(payload.refusal) ?? ''} Pair them by hand from the Roster, or resolve this.`
   }
 }
 

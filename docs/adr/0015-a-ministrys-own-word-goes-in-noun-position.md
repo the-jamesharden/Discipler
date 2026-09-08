@@ -105,3 +105,10 @@ so that nothing downstream has to remember which of the two a message carries. N
 *speak as the display name*, and it is deliberately null rather than a copy of the name —
 a Ministry that renames itself has renamed itself, and a copy would leave its messages
 speaking as whoever it used to be until somebody noticed.
+
+## Scope note, 2026-09-07 (ticket 36)
+
+These two rules govern message copy and nothing else.
+Admin screens use the product's own words, Discipler and Disciple, and pluralise them freely; a Ministry's typed noun never reaches a screen, so nothing here is asked to bend for one.
+See `docs/product-rules.md`, *Admin Screens Say Discipler and Disciple*.
+

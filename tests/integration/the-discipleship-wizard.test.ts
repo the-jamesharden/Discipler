@@ -224,14 +224,13 @@ describe('what the Roster derives from the wizard', () => {
     return row
   }
 
-  it('shows the side a Person offered to stand on, and marks nobody eligible to lead', async () => {
+  it('shows the side a Person offered to stand on', async () => {
     await submit({ fullName: 'Ruth Adeyemi', phone: '5552342001', declaredSide: 'mentor' })
 
     const row = await rosterRow('Ruth Adeyemi')
+    // The answer is the Person's own, and since ticket 36 it is one of the facts
+    // that put them on the Disciplers list. Nothing an Admin sets stands beside it.
     expect(row.declared_side).toBe('mentor')
-    // Ticket 16 made this a plan an Admin records, explicitly not self-declared.
-    // Answering `mentor` on a form is not the Admin deciding anything.
-    expect(row.eligible_to_lead).toBe(false)
   })
 
   it('changes the signal when the Person answers the other side', async () => {

@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { IntakeRefused, PairingRefused } from '~/domain/errors'
 import { GROUP_PATH, type IntakeFormFields } from '~/domain/intake'
-import { getCommandService, getIntakeReader } from '~/service/container'
+import { getCommandService, getIntakeReader, settlePlannedPairings } from '~/service/container'
 import { groupWizard } from '../../group-wizard-answers'
 import { consentSourceOf, submittedIntakeForm, textField } from '../../submitted-form'
 import { readVia } from '../../wizard-machine'
@@ -79,6 +79,11 @@ export async function POST(
     if (error instanceof PairingRefused) return backToTheForm(['intake.group_unavailable'])
     throw error
   }
+
+  // A pairing an import planned may have been waiting on exactly this submission.
+  // Settled at once rather than on the hour (ADR-0022), after the submission's own
+  // transaction and never inside it.
+  await settlePlannedPairings(page.ministryId)
 
   // What the last page can say: which group, and whether they are in it or
   // waiting. Read off the page rather than off the body, and carried as the

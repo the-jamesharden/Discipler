@@ -91,6 +91,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the scheduled tick, as the scheduler ru
       sent: number
       withheld: number
       failed: number
+      settled: { fulfilled: number; refused: number; waiting: number }
       errors: { ministryId: string; error: string }[]
     }
 
@@ -99,6 +100,10 @@ describe.skipIf(skipUnlessAppIsRunning)('the scheduled tick, as the scheduler ru
     // other congregation's week unasked.
     expect(outcome.ministries).toBeGreaterThan(0)
     expect(Number.isInteger(outcome.sent)).toBe(true)
+    // The pairings imports planned are settled on every pass, before the drain
+    // that carries their invitations (ADR-0022).
+    expect(Number.isInteger(outcome.settled.fulfilled)).toBe(true)
+    expect(Number.isInteger(outcome.settled.waiting)).toBe(true)
   })
 
   it('reports a Ministry with no number as unprovisioned rather than failing the run', { timeout: enoughForEveryMinistry }, async () => {

@@ -20,10 +20,12 @@ export async function POST(request: NextRequest) {
   // import rows to answer. Both land where the page itself would send them.
   if (!admin) return NextResponse.redirect(new URL('/roster', request.url), { status: 303 })
 
+  // To the Disciples list, where the Person an answer adds or renames is.
   const back = (params?: URLSearchParams) =>
-    NextResponse.redirect(new URL(params ? `/roster?${params}` : '/roster', request.url), {
-      status: 303,
-    })
+    NextResponse.redirect(
+      new URL(`/roster?${new URLSearchParams([['list', 'disciples'], ...(params ?? [])])}`, request.url),
+      { status: 303 },
+    )
 
   const form = await request.formData()
   const row = form.get('rowId')

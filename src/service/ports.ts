@@ -1,3 +1,11 @@
+import type {
+  IntendedPairingClosure,
+  IntendedPairingSnapshot,
+  NewIntendedPairing,
+  OpenIntendedPairing,
+} from '~/domain/intended-pairing'
+import type { IntendedPairingId } from '~/domain/ids'
+import type { PairingRefusal } from '~/domain/errors'
 import type { AccountCreationRefusal, PasswordChangeRefusal } from '~/domain/accounts'
 import type {
   HeldImportRow,
@@ -28,7 +36,6 @@ import type {
   DiscipleshipGoalRenaming,
   ImportRowResolution,
   IntakeRecord,
-  LeadEligibility,
   LeaderAcceptance,
   MaterialAssignment,
   KeywordExchangeClarification,
@@ -245,6 +252,18 @@ export interface UnitOfWork {
    */
   raiseFollowUp(item: NewFollowUpItem): Promise<void>
   /**
+   * The pairings an import planned (ADR-0022). Every plan still standing, read by
+   * the settle and by an Admin pairing by hand; one plan under its own row lock,
+   * with both people as settling it needs to know them; the plans an import
+   * records; and the closing of one, as fulfilled or refused. A closure that finds
+   * the plan already closed changes nothing: two settles racing is ordinary, and
+   * the database refuses the duplicate pairing the loser would have formed.
+   */
+  openIntendedPairings(): Promise<readonly OpenIntendedPairing[]>
+  intendedPairingFor(id: IntendedPairingId): Promise<IntendedPairingSnapshot | null>
+  planIntendedPairings(plans: readonly NewIntendedPairing[]): Promise<void>
+  closeIntendedPairing(closure: IntendedPairingClosure): Promise<void>
+  /**
    * Refuses with a `FollowUpRefused` when the item is gone or already closed. Two
    * Admins clicking Resolve on the same row is ordinary, and only the database can
    * see which of them got there first.
@@ -403,12 +422,6 @@ export interface UnitOfWork {
   /** An exchange that is no longer open, and why. */
   closeKeywordExchange(closure: KeywordExchangeClosure): Promise<void>
 
-  /**
-   * An Admin's plan that this Person may lead. Set either way round -- withdrawing
-   * it is the same write with the other answer -- and it stands alone: it neither
-   * reads nor changes Intake, an account, or any membership.
-   */
-  setLeadEligibility(eligibility: LeadEligibility): Promise<void>
 
   /**
    * This Ministry's settings as they stand, loaded on `settings.update`'s behalf.
@@ -747,6 +760,16 @@ export interface RosterRelationship {
   /** Everyone else in it, whatever their role. A group shows all of them. */
   readonly withNames: readonly string[]
   /**
+   * The same people, split by what they are in it. The Roster names the other
+   * side -- a Discipler's row names who they disciple, a Disciple's row names who
+   * disciples them -- and the count is what says *group* on a row, from the live
+   * memberships and never from the relationship's kind (ADR-0004).
+   */
+  readonly leaderNames: readonly string[]
+  readonly participantNames: readonly string[]
+  /** Open participant memberships, this Person's included where they are one. */
+  readonly participantCount: number
+  /**
    * Derived from `relationship.accepted_at`, never stored as a status. It is the
    * absence of an acceptance rather than a state anybody sets, which is why it
    * belongs on the relationship and not beside the Participation Status: it says
@@ -768,13 +791,6 @@ export interface RosterEntry {
   /** Every open relationship they are in, each with their role in it. */
   readonly relationships: readonly RosterRelationship[]
   /**
-   * An Admin's plan that this Person may lead, recorded before Intake and kept
-   * afterwards. Stored, unlike the status beside it, and deliberately independent
-   * of it: it does not make them pairable, does not stand in for Intake, and says
-   * nothing about what they already lead.
-   */
-  readonly eligibleToLead: boolean
-  /**
    * Which side this Person last offered to stand on at Intake, and null where no
    * form has ever asked them.
    *
@@ -783,9 +799,10 @@ export interface RosterEntry {
    * that asked nothing changes nothing, because null there means *not asked* and
    * never *withdrawn*.
    *
-   * It sits beside `eligibleToLead` and is the weaker of the two claims by design:
-   * this is a preference the Person stated, that one is a plan an Admin recorded.
-   * Answering `mentor` does not set it and must not.
+   * A preference the Person stated, and one of the three facts that put them on
+   * the Disciplers list (ticket 36): leading somebody, having offered to on the
+   * form, or an import having paired them as one. Nothing an Admin sets stands
+   * beside it any more; pairing them is the acceptance.
    */
   readonly declaredSide: DeclaredSide | null
   /**
@@ -809,6 +826,30 @@ export interface RosterEntry {
    * credentials.
    */
   readonly holdsAnAccount: boolean
+  /**
+   * Their contact details, as the Roster shows them to an Admin (ADR-0021). Read
+   * through the Roster's own function and its Admin test, never through a column
+   * grant: a Leader session holds no path to a number but the consent check.
+   */
+  readonly phone: PhoneNumber | null
+  readonly email: string | null
+  /**
+   * The pairings an import planned for this Person that are still worth showing:
+   * the ones waiting on Intake, and the refused ones whose Follow-Up Item an Admin
+   * has not yet resolved. Each says which side of it this Person is.
+   */
+  readonly intendedPairings: readonly RosterIntendedPairing[]
+}
+
+/** One planned pairing as a Roster row shows it, from one side. */
+export interface RosterIntendedPairing {
+  readonly id: IntendedPairingId
+  /** This Person's side of it. */
+  readonly role: MemberRole
+  readonly withPersonId: PersonId
+  readonly withName: string
+  readonly state: 'awaiting_intake' | 'refused'
+  readonly refusal: PairingRefusal | null
 }
 
 /** The account one Person holds, for the Admin who is about to reset it. */
@@ -832,6 +873,12 @@ export interface UnansweredImportRow {
   readonly line: number
   /** The name in the file: what either answer is about to put on a Person. */
   readonly fullName: string
+  /**
+   * The number the row is held over. Shown to the Admin since ticket 36
+   * (ADR-0021): the question is whether this is the same person or somebody else
+   * on this number, and it is answered by an Admin who can see which number.
+   */
+  readonly phone: PhoneNumber
   readonly importedAt: Date
   /**
    * Everyone the Roster already holds on this row's number, and what it holds them

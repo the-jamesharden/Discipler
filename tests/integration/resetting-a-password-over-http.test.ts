@@ -53,20 +53,6 @@ describe.skipIf(skipUnlessAppIsRunning)('resetting a password over HTTP', () => 
     }
   }
 
-  /**
-   * One Person's row and nothing either side of it, so an absent action is
-   * assertable and not merely unfound. The name cell is what is matched on: every
-   * other Person in a relationship is printed inside this row too.
-   */
-  const rowFor = (html: string, name: string): string => {
-    // The name is inside the row's first cell, beside an avatar, so the match is
-    // on the name and not on a bare cell.
-    const cell = html.indexOf(`<span>${name}<`)
-    if (cell === -1) throw new Error(`No row for ${name}`)
-    const end = html.indexOf('</tr>', cell)
-    return html.slice(cell, end === -1 ? undefined : end)
-  }
-
   /** The candidate password the reset screen minted into its hidden field. */
   const candidateIn = (html: string): string => {
     const match = /<input type="hidden" name="password" value="([^"]+)"/.exec(html)
@@ -92,24 +78,26 @@ describe.skipIf(skipUnlessAppIsRunning)('resetting a password over HTTP', () => 
     // arrives only with an accepted Invitation Link.
     const imported = await addPerson(ministry, 'Ruth Adeyemi', { phone: number() })
 
-    const { html } = await getPage('/roster', cookie)
+    // On the Person's own page since ticket 36; the row carries the name that
+    // opens it and nothing else about the account.
+    const withAccount = await getPage(`/roster/${leader.personId}`, cookie)
+    expect(withAccount.html).toContain(`/roster/reset/${leader.personId}`)
 
-    expect(rowFor(html, 'Marcus Webb')).toContain(`/roster/reset/${leader.personId}`)
-    expect(rowFor(html, 'Ruth Adeyemi')).not.toContain('/roster/reset/')
+    const without = await getPage(`/roster/${imported}`, cookie)
+    expect(without.html).not.toContain('/roster/reset/')
     // Not a control that is always there and refuses most of the time: that teaches
     // an Admin the product does not know its own state.
-    expect(rowFor(html, 'Ruth Adeyemi')).not.toContain('Reset password')
+    expect(without.html).not.toContain('Reset password')
   })
 
   it('offers the Admin their own change instead of a reset on their own row', async () => {
     const { cookie } = await signIn(ministry)
-    const { html } = await getPage('/roster', cookie)
-    const own = rowFor(html, ministry.adminName)
+    const { html: own } = await getPage(`/roster/${ministry.adminPersonId}`, cookie)
 
     // Not a reset: resetting your own password is not a recovery, because you are
-    // holding a session as you ask. The row carries the one action that applies to
+    // holding a session as you ask. The page carries the one action that applies to
     // the Admin's own account, so nothing here is blank where every other
-    // account-holding row has an action.
+    // account-holding page has an action.
     expect(own).not.toContain(`/roster/reset/${ministry.adminPersonId}`)
     expect(own).toContain('href="/account"')
     expect(own).toContain('Change your password')
@@ -125,10 +113,8 @@ describe.skipIf(skipUnlessAppIsRunning)('resetting a password over HTTP', () => 
 
     expect(html).toContain('Reset Sam Doyle’s password')
     expect(html).toContain('will be signed out everywhere')
-    // The Roster shows no contact details and a number is reached through
-    // `public.contact_to_share` and nowhere else. A reset was asked for by somebody
-    // already in contact, so a second reveal path here would quietly widen the one
-    // disclosure this product deliberately narrowed.
+    // The number is on the Person's own page for an Admin (ADR-0021); the reset
+    // screen is about the credential and repeats nothing else about them.
     expect(html).not.toContain(leader.phone)
     expect(html).not.toContain(leader.phone.replace('+', ''))
   })
@@ -236,8 +222,8 @@ describe.skipIf(skipUnlessAppIsRunning)('resetting a password over HTTP', () => 
       phone: number(),
     })
 
-    const roster = await getPage('/roster', cookie)
-    expect(rowFor(roster.html, 'Grace Mbeki')).toContain(`/roster/reset/${peer.personId}`)
+    const page = await getPage(`/roster/${peer.personId}`, cookie)
+    expect(page.html).toContain(`/roster/reset/${peer.personId}`)
 
     const { html: screen } = await getPage(`/roster/reset/${peer.personId}`, cookie)
     const candidate = candidateIn(screen)

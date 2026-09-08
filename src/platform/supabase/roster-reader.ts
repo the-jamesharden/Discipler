@@ -1,4 +1,8 @@
 import { followUpItemId, importRowId, personId, relationshipId } from '~/domain/ids'
+import { phoneNumber, type PhoneNumber } from '~/domain/roster'
+import { isPairingRefusal } from '~/domain/errors'
+import { intendedPairingId } from '~/domain/ids'
+import type { RosterIntendedPairing } from '~/service/ports'
 import { isParticipationStatus, type ParticipationStatus } from '~/domain/participation'
 import { isMemberRole, type MemberRole } from '~/domain/relationships'
 import { intakeLinkState, intakeLinkToken } from '~/domain/intake-link'
@@ -24,7 +28,7 @@ interface MemberRow {
 }
 
 /**
- * `public.roster` returns a derivation beside six columns, so the generated types
+ * `public.roster` returns a derivation beside seven columns, so the generated types
  * do not know about it and the row arrives untyped. Named here once rather than
  * cast at the point of use.
  */
@@ -32,10 +36,11 @@ interface PersonRow {
   readonly id: string
   readonly fullName: string
   readonly participationStatus: ParticipationStatus
-  readonly eligibleToLead: boolean
   readonly declaredSide: DeclaredSide | null
   readonly firstTime: boolean | null
   readonly holdsAnAccount: boolean
+  readonly phone: PhoneNumber | null
+  readonly email: string | null
 }
 
 /**
@@ -50,10 +55,11 @@ const asPersonRow = (row: unknown): PersonRow => {
     person_id: id,
     full_name: fullName,
     participation_status: status,
-    eligible_to_lead: eligible,
     declared_side: side,
     first_time: firstTime,
     holds_an_account: holdsAnAccount,
+    phone,
+    email,
   } = (row ?? {}) as Record<string, unknown>
 
   if (typeof id !== 'string' || id === '') throw new Error('A Roster row arrived with no id')
@@ -66,12 +72,6 @@ const asPersonRow = (row: unknown): PersonRow => {
   // have drifted apart.
   if (!isParticipationStatus(status)) {
     throw new Error(`No Participation Status was derived for ${id}`)
-  }
-  // The column is `not null default false`, so a missing answer is not "nobody has
-  // decided yet" -- it is the select list and this reader having drifted apart, and
-  // rendering it as *not eligible* would quietly empty a Ministry's leader pool.
-  if (typeof eligible !== 'boolean') {
-    throw new Error(`A Roster row arrived with no lead eligibility for ${id}`)
   }
   // Both columns are nullable and null is a real answer -- the Person answered a
   // form that did not ask -- so null passes and everything else is checked. What is
@@ -91,15 +91,27 @@ const asPersonRow = (row: unknown): PersonRow => {
   if (typeof holdsAnAccount !== 'boolean') {
     throw new Error(`A Roster row arrived with no account answer for ${id}`)
   }
+  // Both nullable, and null is a real answer: an imported Person has no email, and
+  // a Person added by hand may have no number yet. Anything but a string or null is
+  // the select list and this reader having drifted apart -- and a Roster whose
+  // contact column had quietly gone blank is the spreadsheet-beside-the-screen
+  // state ADR-0021 exists to end.
+  if (phone !== null && typeof phone !== 'string') {
+    throw new Error(`A Roster row arrived with no phone answer for ${id}`)
+  }
+  if (email !== null && typeof email !== 'string') {
+    throw new Error(`A Roster row arrived with no email answer for ${id}`)
+  }
 
   return {
     id,
     fullName,
     participationStatus: status,
-    eligibleToLead: eligible,
     declaredSide: side,
     firstTime,
     holdsAnAccount,
+    phone: phone === null ? null : phoneNumber(phone),
+    email,
   }
 }
 
@@ -192,6 +204,39 @@ export const supabaseRosterReader: RosterReader = {
       return !accepted
     }
 
+    // The pairings an import planned, still standing or refused and unresolved,
+    // through their own function and its Admin test. Each lands on both rows,
+    // from that row's side.
+    const { data: planned, error: plannedError } = await supabase.rpc('intended_pairings', {
+      target_ministry_id: ministryId,
+    })
+    if (plannedError) throw new Error(`Could not read the planned pairings: ${plannedError.message}`)
+
+    const plansFor = (id: string): RosterIntendedPairing[] =>
+      ((planned ?? []) as unknown[]).flatMap((raw) => {
+        const row = (raw ?? {}) as Record<string, unknown>
+        const { id: planId, leader_id: leader, participant_id: participant, outcome, refusal } = row
+        if (typeof planId !== 'string' || typeof leader !== 'string' || typeof participant !== 'string') {
+          throw new Error('A planned pairing arrived with no id or no people')
+        }
+        if (leader !== id && participant !== id) return []
+        const refused = outcome === 'refused'
+        if (refused && !isPairingRefusal(refusal)) {
+          throw new Error(`A refused plan arrived with a reason nothing recognises: ${planId}`)
+        }
+        const other = leader === id ? participant : leader
+        return [
+          {
+            id: intendedPairingId(planId),
+            role: leader === id ? 'leader' : 'participant',
+            withPersonId: personId(other),
+            withName: nameOf.get(other) ?? 'Somebody no longer on the Roster',
+            state: refused ? 'refused' : 'awaiting_intake',
+            refusal: refused && isPairingRefusal(refusal) ? refusal : null,
+          } satisfies RosterIntendedPairing,
+        ]
+      })
+
     const byRelationship = new Map<string, MemberRow[]>()
     for (const row of memberships) {
       byRelationship.set(row.relationship_id, [
@@ -200,10 +245,21 @@ export const supabaseRosterReader: RosterReader = {
       ])
     }
 
+    /** The names of everyone in a relationship holding one role, sorted. */
+    const namesIn = (relationship: string, role: MemberRole): string[] =>
+      [
+        ...new Set(
+          (byRelationship.get(relationship) ?? []).flatMap((member) =>
+            member.role === role ? (nameOf.get(member.person_id) ?? []) : [],
+          ),
+        ),
+      ].sort()
+
     /**
      * One entry per open relationship this Person holds a membership in, each
      * saying what they are in it and who else is. A group shows everyone in it,
-     * which is the same question either way round.
+     * which is the same question either way round -- and beside everyone, the
+     * two sides apart, so the Roster can name the other side of the row it is on.
      */
     const relationshipsFor = (id: string): RosterRelationship[] =>
       memberships
@@ -219,6 +275,11 @@ export const supabaseRosterReader: RosterReader = {
               ),
             ),
           ].sort(),
+          leaderNames: namesIn(membership.relationship_id, 'leader'),
+          participantNames: namesIn(membership.relationship_id, 'participant'),
+          participantCount: (byRelationship.get(membership.relationship_id) ?? []).filter(
+            (member) => member.role === 'participant',
+          ).length,
         }))
         // Led relationships first, then the ones they are in as a Participant, and
         // alphabetically within each. A stable order, so a Roster read twice reads
@@ -234,10 +295,12 @@ export const supabaseRosterReader: RosterReader = {
       fullName: row.fullName,
       relationships: relationshipsFor(row.id),
       participationStatus: row.participationStatus,
-      eligibleToLead: row.eligibleToLead,
       declaredSide: row.declaredSide,
       firstTime: row.firstTime,
       holdsAnAccount: row.holdsAnAccount,
+      phone: row.phone,
+      email: row.email,
+      intendedPairings: plansFor(row.id),
     }))
   },
 
@@ -303,9 +366,10 @@ export const supabaseRosterReader: RosterReader = {
     const supabase = await createSupabaseServerClient()
 
     // A function rather than a table read, for the two reasons `roster` is one: the
-    // Admin test is written into it, and it carries the names on each row's number
-    // -- which the table alone cannot, because reaching them means joining on a
-    // phone number no browser session may read.
+    // Admin test is written into it, and it carries the number and the names on it
+    // -- which the table alone cannot, because `authenticated` holds no SELECT on
+    // the phone column and the Admin test inside the function is the only way a
+    // number reaches this screen (ADR-0021).
     const { data, error } = await supabase.rpc('held_import_rows', {
       target_ministry_id: ministryId,
     })
@@ -323,6 +387,7 @@ export const supabaseRosterReader: RosterReader = {
         row_id: id,
         line,
         full_name: fullName,
+        phone,
         imported_at: importedAt,
         person_id: person,
         person_name: personName,
@@ -341,6 +406,9 @@ export const supabaseRosterReader: RosterReader = {
       if (typeof fullName !== 'string' || fullName === '') {
         throw new Error(`A held import row arrived with no name: ${id}`)
       }
+      if (typeof phone !== 'string' || phone === '') {
+        throw new Error(`A held import row arrived with no phone number: ${id}`)
+      }
       if (typeof importedAt !== 'string') {
         throw new Error(`A held import row arrived with no import date: ${id}`)
       }
@@ -351,6 +419,7 @@ export const supabaseRosterReader: RosterReader = {
           rowId: importRowId(id),
           line,
           fullName,
+          phone: phoneNumber(phone),
           importedAt: new Date(importedAt),
           onThisNumber: [],
         }

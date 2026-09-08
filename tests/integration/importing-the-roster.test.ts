@@ -36,7 +36,7 @@ describe('importing a Roster', () => {
   const number = phoneNumbers()
 
   const importing = (csv: string) =>
-    service().execute({ type: 'person.import', ministryId: ministry.id, csv })
+    service().execute({ type: 'person.import', ministryId: ministry.id, mode: 'people_only', text: csv })
 
   beforeAll(async () => {
     ministry = await createMinistryWithAdmin('Riverside Chapel')
@@ -241,6 +241,58 @@ describe('importing a Roster', () => {
     expect(error?.message).toMatch(/has not consented/)
   })
 
+  it('plans the pairs an Already paired paste describes, against the real database', async () => {
+    const sam = number()
+    const taylor = number()
+
+    const outcome = await service().execute({
+      type: 'person.import',
+      ministryId: ministry.id,
+      mode: 'already_paired',
+      text: [
+        'Discipler\tDiscipler Phone\tDisciple\tDisciple Phone',
+        `Sam Rivera\t${sam}\tTaylor Brooks\t${taylor}`,
+      ].join('\n'),
+    })
+
+    expect(outcome.rejections).toEqual([])
+    const leader = await personByPhone(sam)
+    const participant = await personByPhone(taylor)
+    const { rows } = await pool.query(
+      `select leader_id, participant_id, closed_at from intended_pairing
+        where ministry_id = $1 and leader_id = $2`,
+      [ministry.id, leader.id],
+    )
+    expect(rows).toEqual([{ leader_id: leader.id, participant_id: participant.id, closed_at: null }])
+
+    // A plan and nothing more: neither is Ready to Pair, nothing is formed and
+    // nobody is texted (ADR-0022).
+    expect(leader.status).toBe('no_intake_submitted')
+    const { rows: members } = await pool.query(
+      `select 1 from relationship_member where person_id = any($1)`,
+      [[leader.id, participant.id]],
+    )
+    expect(members).toHaveLength(0)
+
+    // Pasted again, the people are already on the Roster and the Disciple is
+    // already planned for: nothing is written twice.
+    const again = await service().execute({
+      type: 'person.import',
+      ministryId: ministry.id,
+      mode: 'already_paired',
+      text: ['Discipler\tDiscipler Phone\tDisciple\tDisciple Phone', `Sam Rivera\t${sam}\tTaylor Brooks\t${taylor}`].join('\n'),
+    })
+    expect(again.rejections).toEqual([
+      { line: 2, problem: 'already_on_the_roster' },
+      { line: 2, problem: 'pairing_already_planned' },
+    ])
+    const { rows: plans } = await pool.query(
+      `select count(*)::int as plans from intended_pairing where ministry_id = $1 and leader_id = $2`,
+      [ministry.id, leader.id],
+    )
+    expect(plans[0].plans).toBe(1)
+  })
+
   it('imports into one Ministry and no other, even for the same number', async () => {
     const shared = number()
     const northgate = await createMinistryWithAdmin('Northgate Community Church')
@@ -249,7 +301,8 @@ describe('importing a Roster', () => {
     await createCommandService({ clock, ids, store,   appBaseUrl: 'https://discipler.test', }).execute({
       type: 'person.import',
       ministryId: northgate.id,
-      csv: file('Name,Phone', `Two Congregations,${shared}`),
+      mode: 'people_only',
+      text: file('Name,Phone', `Two Congregations,${shared}`),
     })
 
     // One human, two Ministries, two Person rows that share nothing.

@@ -21,6 +21,7 @@ import {
   resolveImportRow,
   departFromRelationship,
   endRelationship,
+  closeIntendedPairing,
   createRelationship,
   configureGroup,
   joinRelationship,
@@ -29,6 +30,7 @@ import {
   issueInvitationLink,
   reissueInvitationLink,
   recordIntakeLink,
+  planIntendedPairing,
   raiseFollowUpItem,
   recordCheckInAnswer,
   recordIntake,
@@ -42,12 +44,16 @@ import {
   resolveConcern,
   saveMinistrySettings,
   setKeywordExchangeTarget,
-  setLeadEligibility,
   sweepOutstandingReplies,
   type Effect,
   type KeywordExchangeOutcome,
   type NewCheckInPrompt,
 } from './effects'
+import {
+  fulfilmentDecision,
+  type IntendedPairingSnapshot,
+  type OpenIntendedPairing,
+} from './intended-pairing'
 import {
   LAST_WEEKS_QUESTION,
   outstandingReplyCutoffs,
@@ -68,6 +74,7 @@ import {
   PairingRefused,
   PasswordResetRefused,
   PauseRefused,
+  type PairingRefusal,
 } from './errors'
 import {
   CLARIFICATIONS_PER_QUESTION,
@@ -166,6 +173,7 @@ import {
   type FollowUpItemId,
   concernId,
   importRowId,
+  intendedPairingId,
   personId,
   relationshipId,
   type IdSource,
@@ -189,6 +197,7 @@ import {
   readGroupName,
   type MemberRole,
   type NewMembership,
+  type NewRelationship,
 } from './relationships'
 import {
   DEFAULT_PAUSE_PERIOD_WEEKS,
@@ -212,6 +221,7 @@ import {
   type RowRejection,
 } from './roster'
 import { readRosterFile } from './roster-csv'
+import { classifyImport, type SideRef } from './roster-import'
 
 /**
  * The single command boundary. It is a pure function: the same command against the
@@ -339,6 +349,16 @@ export interface CommandContext {
    * Absent is *not loaded*, which a submission naming a group refuses to run on.
    */
   readonly groupToJoin?: RelationshipSnapshot | null
+  /**
+   * The plan being settled, loaded under its own row lock; null where the id
+   * names none. Loaded for `intended_pairing.fulfil` and `.refuse` only.
+   */
+  readonly intendedPairing?: IntendedPairingSnapshot | null
+  /**
+   * Every plan still standing, so an Admin pairing two people by hand fulfils the
+   * plan an import made for them. Loaded for `relationship.create`.
+   */
+  readonly openPlans?: readonly OpenIntendedPairing[]
   /**
    * The open request an admission names, loaded on `relationship.admit`'s behalf,
    * with the group it is about arriving as `relationship` and the Person who asked
@@ -1989,6 +2009,204 @@ const exchangeOwnsTheReply = (
   !awaiting ||
   exchange.promptedAt.getTime() >= (awaiting.remindedAt ?? awaiting.askedAt).getTime()
 
+/**
+ * What forming a relationship comes to, wherever the decision to form it was made.
+ * Two callers: an Admin on the Pair page, and a plan an import made being settled
+ * once both people have completed Intake. It is the same pairing either way -- the
+ * same refusals, the same kind and declaration rules, the same invitation to every
+ * Discipler -- so the ticket that made imported pairs possible does not get to own
+ * a second way of forming one (ADR-0022).
+ */
+const formRelationship = (
+  context: CommandContext,
+  forming: {
+    readonly ministryId: MinistryId
+    readonly leaderIds: readonly PersonId[]
+    readonly participantIds: readonly PersonId[]
+    readonly declaredGender: Gender | null | undefined
+    readonly name: string | null | undefined
+    readonly joinRequiresApproval: boolean | undefined
+  },
+  now: Date,
+): { readonly relationship: NewRelationship; readonly effects: Effect[] } => {
+  const { leaderIds, participantIds, declaredGender } = forming
+  const ministryName = context.ministryName
+  const baseUrl = context.appBaseUrl
+  if (!ministryName) {
+    throw new Error('Forming a relationship was handed no Ministry to speak for')
+  }
+  if (!baseUrl) {
+    throw new Error('Forming a relationship was handed nowhere for its links to point')
+  }
+
+  if (leaderIds.length === 0) {
+    throw new PairingRefused('relationship.needs_a_leader')
+  }
+  if (participantIds.length === 0) {
+    throw new PairingRefused('relationship.needs_a_participant')
+  }
+  if (participantIds.some((id) => leaderIds.includes(id))) {
+    throw new PairingRefused('relationship.leader_cannot_be_a_participant')
+  }
+  // Both roles, in one check: a person named twice is named twice whether it
+  // happened on one side of the relationship or on both.
+  const everyone = [...leaderIds, ...participantIds]
+  if (new Set(everyone).size !== everyone.length) {
+    throw new PairingRefused('relationship.person_listed_twice')
+  }
+  // A group says what it is, once, and there is no default to fall back on: a
+  // silent *mixed* would be the product deciding a safeguarding question on the
+  // Admin's behalf, and a silent binding would bind people to something nobody
+  // chose. `undefined` is nobody answered; `null` is somebody answered mixed.
+  //
+  // Refused here rather than by the form's `required`, for the reason the leader
+  // checkboxes drop theirs: the browser cannot know which shape is being formed
+  // until the boxes are ticked, and half-enforcing it there would leave the real
+  // rule in two places.
+  if (
+    needsAGenderDeclaration(leaderIds.length, participantIds.length) &&
+    declaredGender === undefined
+  ) {
+    throw new PairingRefused('relationship.needs_a_gender_declaration')
+  }
+  // A group is called something, because the group Intake link offers it by
+  // name and the weekly check-in asks about it by name. A one-to-one has no
+  // name: it is called by the two people in it, and a name typed for one is
+  // dropped rather than kept -- unlike the declaration above, which binds the
+  // same way whatever the shape, a name on a pair would change what the weekly
+  // question calls two people.
+  const isAGroup = needsAName(leaderIds.length, participantIds.length)
+  const name = isAGroup ? readGroupName(forming.name) : null
+  if (isAGroup && name === null) {
+    throw new PairingRefused('relationship.needs_a_name')
+  }
+
+  const relationship: NewRelationship = {
+    id: relationshipId(context.ids.next()),
+    ministryId: forming.ministryId,
+    // Derived once, from the shape being paired, and frozen. The counts are the
+    // fact; the kind is a record of what they were at formation, kept so the
+    // participation caps and the gender rule can be expressed in the database.
+    kind: kindFor(leaderIds.length, participantIds.length),
+    // What the Admin declared, or nothing where nobody was asked. A one-to-one
+    // reaching here with a declaration keeps it: it binds identically and
+    // weakens nothing, since the absolute match between its two people holds
+    // whatever is on the column.
+    declaredGender: declaredGender ?? null,
+    name,
+    // Off unless the Admin said otherwise, and off for a one-to-one whatever
+    // was said, since the group link never offers one. The default is a
+    // product decision and lives in the ADR, not in a form's initial state.
+    joinRequiresApproval: isAGroup && (forming.joinRequiresApproval ?? false),
+    createdAt: now,
+    members: membersOf(leaderIds, participantIds, now),
+  }
+
+  // Creating a relationship does not activate it: `accepted_at` stays null and
+  // it reads as awaiting acceptance. Every Leader is invited, and nothing at all
+  // reaches a Participant -- they hear nothing until *every* Leader has agreed to
+  // lead them, because nobody co-leads something they did not agree to.
+  const effects: Effect[] = [
+    createRelationship(relationship),
+    appendHistory({
+      ministryId: forming.ministryId,
+      occurredAt: now,
+      type: 'relationship.created',
+      subjectType: 'relationship',
+      subjectId: relationship.id,
+      payload: {
+        leaderIds: [...leaderIds],
+        participantIds: [...participantIds],
+        participantCount: participantIds.length,
+        name,
+        joinRequiresApproval: relationship.joinRequiresApproval,
+      },
+    }),
+  ]
+
+  for (const leaderId of leaderIds) {
+    const leader = whoIs(context, leaderId)
+
+    // Individualised: one token per Leader, so a co-leader's link is not a way
+    // into anybody else's acceptance.
+    const invitation = issueInvitation({
+      ministryId: forming.ministryId,
+      relationshipId: relationship.id,
+      personId: leaderId,
+      token: invitationToken(context.ids.next()),
+      at: now,
+    })
+
+    effects.push(
+      issueInvitationLink(invitation),
+      enqueueMessage({
+        ministryId: forming.ministryId,
+        personId: leaderId,
+        toPhone: leader.phone,
+        body: invitationMessage({
+          ministryName,
+          fullName: leader.fullName,
+          leaderNoun: theWordFor(context).leaderNoun,
+          link: invitationLink(baseUrl, invitation.token),
+        }),
+        enqueuedAt: now,
+        // No message to a Leader contains a phone number.
+        disclosesPersonId: null,
+        kind: 'no_reply',
+      }),
+    )
+  }
+
+  return { relationship, effects }
+}
+
+/**
+ * A plan the pairing rules refused, closed with its reason, and never silent: the
+ * Follow-Up Item is raised on the Disciple, so the Admin who opens it is looking
+ * at the person waiting to be discipled, and stands until they pair by hand or
+ * let it go. A closed plan is never retried (ADR-0022).
+ */
+const refuseIntendedPairing = (
+  context: CommandContext,
+  plan: IntendedPairingSnapshot,
+  refusal: PairingRefusal,
+  now: Date,
+): Effect[] => [
+  closeIntendedPairing({
+    ministryId: context.ministryId,
+    id: plan.id,
+    outcome: 'refused',
+    closedAt: now,
+    relationshipId: null,
+    refusal,
+  }),
+  raiseFollowUpItem({
+    ministryId: context.ministryId,
+    kind: 'intended_pairing_refused',
+    relationshipId: null,
+    personId: plan.participant.personId,
+    raisedAt: now,
+    intendedPairingId: plan.id,
+    refusal,
+  }),
+  appendHistory({
+    ministryId: context.ministryId,
+    occurredAt: now,
+    type: 'intended_pairing.refused',
+    subjectType: 'intended_pairing',
+    subjectId: plan.id,
+    payload: { leaderId: plan.leader.personId, participantId: plan.participant.personId, refusal },
+  }),
+  appendHistory({
+    ministryId: context.ministryId,
+    occurredAt: now,
+    type: 'follow_up.intended_pairing_refused',
+    subjectType: 'person',
+    subjectId: plan.participant.personId,
+    payload: { intendedPairingId: plan.id, refusal },
+  }),
+]
+
 export const handleCommand = (command: Command, context: CommandContext): CommandResult => {
   switch (command.type) {
     case 'scheduled.tick': {
@@ -3187,20 +3405,31 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       if (!context.roster) {
         throw new Error('person.import was handed no Roster to compare against')
       }
+      if (!context.openPlans) {
+        throw new Error('person.import was handed no plans to compare against')
+      }
 
-      const { people, rejected } = readRosterFile(command.csv)
-      const alreadyOnTheRoster = context.roster.people
+      // Read, then decided in one place: `classifyImport` is the same function the
+      // import dialog runs in the browser for its review, over the same reader, so
+      // what the Admin was shown is what happens here (ticket 36).
+      const reading = readRosterFile(command.text, command.mode)
+      const classified = classifyImport(reading, {
+        people: context.roster.people,
+        namesByNumber: context.roster.namesByNumber,
+        openPlans: context.openPlans,
+      })
       const now = context.clock.now()
 
       const effects: Effect[] = []
-      const rejections: RowRejection[] = [...rejected]
+      /** The Person each row became, where it became one; a row already on the Roster is that Person. */
+      const personOfRow: (PersonId | null)[] = []
 
-      for (const row of people) {
+      for (const row of classified.rows) {
         // A row for someone already on the Roster is reported and left alone: a
         // stale export must not overwrite a name or an email the Person themselves
         // gave at Intake.
-        if (alreadyOnTheRoster.has(rosterKey(row))) {
-          rejections.push({ line: row.line, problem: 'already_on_the_roster' })
+        if (row.outcome === 'already_on_the_roster') {
+          personOfRow.push(row.existingId)
           continue
         }
 
@@ -3214,8 +3443,10 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         // re-uploading the file, which is exactly the manual work this product
         // exists to remove. What is kept is the row as the file had it, because the
         // file is gone by the time anybody reads it and both answers need the name.
-        if (context.roster.namesByNumber.has(row.phone)) {
-          rejections.push({ line: row.line, problem: 'same_number_different_name' })
+        // Not kept: who it was paired with. Answer the row, then paste the line
+        // again (ticket 36, decision 13).
+        if (row.outcome === 'held') {
+          personOfRow.push(null)
           effects.push(
             holdImportRow({
               id: importRowId(context.ids.next()),
@@ -3239,6 +3470,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           email: row.email,
           createdAt: now,
         }
+        personOfRow.push(person.id)
 
         // No message of any kind. Being on a Roster is not consent and is not a wish
         // to participate, and Intake is the only thing that grants either.
@@ -3255,10 +3487,39 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         )
       }
 
-      return {
-        effects,
-        rejections: rejections.sort((first, second) => first.line - second.line),
+      // What the rows said about who disciples whom is recorded as a plan and
+      // nothing more: no relationship forms until both have completed Intake, and
+      // then by the pairing rules (ADR-0022).
+      const personOf = (side: SideRef): PersonId | null =>
+        side.kind === 'row' ? (personOfRow[side.index] ?? null) : side.personId
+      for (const pairing of classified.pairings) {
+        if (pairing.outcome !== 'planned' || !pairing.leader || !pairing.participant) continue
+        const leaderId = personOf(pairing.leader)
+        const participantId = personOf(pairing.participant)
+        // Both sides resolved to a Person above; the classifier planned nothing
+        // against a held row.
+        if (!leaderId || !participantId) continue
+        const plan = {
+          id: intendedPairingId(context.ids.next()),
+          ministryId: command.ministryId,
+          leaderId,
+          participantId,
+          plannedAt: now,
+        }
+        effects.push(
+          planIntendedPairing(plan),
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'intended_pairing.planned',
+            subjectType: 'intended_pairing',
+            subjectId: plan.id,
+            payload: { leaderId, participantId, line: pairing.line },
+          }),
+        )
       }
+
+      return { effects, rejections: classified.rejections }
     }
 
     case 'import_row.resolve': {
@@ -3845,36 +4106,6 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       }
     }
 
-    case 'person.set_lead_eligibility': {
-      // Nothing is loaded and nothing is consulted. Eligibility is a plan, and
-      // every fact it might have been checked against is a fact it is deliberately
-      // independent of: whether the Person has completed Intake, whether they hold
-      // an account, how many relationships they already lead. The rules that do
-      // depend on those are the pairing ones, and they are enforced where a
-      // membership is written rather than here.
-      const now = context.clock.now()
-
-      return {
-        effects: [
-          setLeadEligibility({
-            ministryId: command.ministryId,
-            personId: command.personId,
-            eligible: command.eligible,
-            decidedAt: now,
-          }),
-          appendHistory({
-            ministryId: command.ministryId,
-            occurredAt: now,
-            type: 'person.lead_eligibility_set',
-            subjectType: 'person',
-            subjectId: command.personId,
-            payload: { eligible: command.eligible },
-          }),
-        ],
-        rejections: [],
-      }
-    }
-
     case 'settings.update': {
       const were = context.settings
       if (!were) throw new Error('settings.update was handed no settings to change')
@@ -4120,136 +4351,131 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
 
     case 'relationship.create': {
       const { leaderIds, participantIds, declaredGender } = command
-      const ministryName = context.ministryName
-      const baseUrl = context.appBaseUrl
-      if (!ministryName) {
-        throw new Error('relationship.create was handed no Ministry to speak for')
-      }
-      if (!baseUrl) {
-        throw new Error('relationship.create was handed nowhere for its links to point')
-      }
-
-      if (leaderIds.length === 0) {
-        throw new PairingRefused('relationship.needs_a_leader')
-      }
-      if (participantIds.length === 0) {
-        throw new PairingRefused('relationship.needs_a_participant')
-      }
-      if (participantIds.some((id) => leaderIds.includes(id))) {
-        throw new PairingRefused('relationship.leader_cannot_be_a_participant')
-      }
-      // Both roles, in one check: a person named twice is named twice whether it
-      // happened on one side of the relationship or on both.
-      const everyone = [...leaderIds, ...participantIds]
-      if (new Set(everyone).size !== everyone.length) {
-        throw new PairingRefused('relationship.person_listed_twice')
-      }
-      // A group says what it is, once, and there is no default to fall back on: a
-      // silent *mixed* would be the product deciding a safeguarding question on the
-      // Admin's behalf, and a silent binding would bind people to something nobody
-      // chose. `undefined` is nobody answered; `null` is somebody answered mixed.
-      //
-      // Refused here rather than by the form's `required`, for the reason the leader
-      // checkboxes drop theirs: the browser cannot know which shape is being formed
-      // until the boxes are ticked, and half-enforcing it there would leave the real
-      // rule in two places.
-      if (
-        needsAGenderDeclaration(leaderIds.length, participantIds.length) &&
-        declaredGender === undefined
-      ) {
-        throw new PairingRefused('relationship.needs_a_gender_declaration')
-      }
-      // A group is called something, because the group Intake link offers it by
-      // name and the weekly check-in asks about it by name. A one-to-one has no
-      // name: it is called by the two people in it, and a name typed for one is
-      // dropped rather than kept -- unlike the declaration above, which binds the
-      // same way whatever the shape, a name on a pair would change what the weekly
-      // question calls two people.
-      const isAGroup = needsAName(leaderIds.length, participantIds.length)
-      const name = isAGroup ? readGroupName(command.name) : null
-      if (isAGroup && name === null) {
-        throw new PairingRefused('relationship.needs_a_name')
-      }
-
       const now = context.clock.now()
-      const relationship = {
-        id: relationshipId(context.ids.next()),
-        ministryId: command.ministryId,
-        // Derived once, from the shape being paired, and frozen. The counts are the
-        // fact; the kind is a record of what they were at formation, kept so the
-        // participation caps and the gender rule can be expressed in the database.
-        kind: kindFor(leaderIds.length, participantIds.length),
-        // What the Admin declared, or nothing where nobody was asked. A one-to-one
-        // reaching here with a declaration keeps it: it binds identically and
-        // weakens nothing, since the absolute match between its two people holds
-        // whatever is on the column.
-        declaredGender: declaredGender ?? null,
-        name,
-        // Off unless the Admin said otherwise, and off for a one-to-one whatever
-        // was said, since the group link never offers one. The default is a
-        // product decision and lives in the ADR, not in a form's initial state.
-        joinRequiresApproval: isAGroup && (command.joinRequiresApproval ?? false),
-        createdAt: now,
-        members: membersOf(leaderIds, participantIds, now),
-      }
 
-      // Creating a relationship does not activate it: `accepted_at` stays null and
-      // it reads as Awaiting Leader Acceptance. Every Leader is invited, and
-      // nothing at all reaches a Participant -- they hear nothing until *every*
-      // Leader has agreed to lead them, because nobody co-leads something they did
-      // not agree to.
-      const effects: Effect[] = [
-        createRelationship(relationship),
-        appendHistory({
+      const { relationship, effects } = formRelationship(
+        context,
+        {
           ministryId: command.ministryId,
-          occurredAt: now,
-          type: 'relationship.created',
-          subjectType: 'relationship',
-          subjectId: relationship.id,
-          payload: {
-            leaderIds: [...leaderIds],
-            participantIds: [...participantIds],
-            participantCount: participantIds.length,
-            name,
-            joinRequiresApproval: relationship.joinRequiresApproval,
-          },
-        }),
-      ]
+          leaderIds,
+          participantIds,
+          declaredGender,
+          name: command.name,
+          joinRequiresApproval: command.joinRequiresApproval,
+        },
+        now,
+      )
 
-      for (const leaderId of leaderIds) {
-        const leader = whoIs(context, leaderId)
-
-        // Individualised: one token per Leader, so a co-leader's link is not a way
-        // into anybody else's acceptance.
-        const invitation = issueInvitation({
-          ministryId: command.ministryId,
-          relationshipId: relationship.id,
-          personId: leaderId,
-          token: invitationToken(context.ids.next()),
-          at: now,
-        })
-
-        effects.push(
-          issueInvitationLink(invitation),
-          enqueueMessage({
-            ministryId: command.ministryId,
-            personId: leaderId,
-            toPhone: leader.phone,
-            body: invitationMessage({
-              ministryName,
-              fullName: leader.fullName,
-              leaderNoun: theWordFor(context).leaderNoun,
-              link: invitationLink(baseUrl, invitation.token),
+      // A plan an import made for two people the Admin has just paired by hand is
+      // fulfilled by that act. Closed here, in the same transaction, so the row
+      // that said *planned* says *paired* the moment the Admin looks back at it
+      // and no settle has to notice afterwards.
+      for (const plan of context.openPlans ?? []) {
+        if (leaderIds.includes(plan.leaderId) && participantIds.includes(plan.participantId)) {
+          effects.push(
+            closeIntendedPairing({
+              ministryId: command.ministryId,
+              id: plan.id,
+              outcome: 'fulfilled',
+              closedAt: now,
+              relationshipId: relationship.id,
+              refusal: null,
             }),
-            enqueuedAt: now,
-            // No message to a Leader contains a phone number.
-            disclosesPersonId: null,
-            kind: 'no_reply',
-          }),
-        )
+            appendHistory({
+              ministryId: command.ministryId,
+              occurredAt: now,
+              type: 'intended_pairing.fulfilled',
+              subjectType: 'intended_pairing',
+              subjectId: plan.id,
+              payload: { relationshipId: relationship.id, by: 'admin' },
+            }),
+          )
+        }
       }
 
       return { rejections: [], effects }
+    }
+
+    case 'intended_pairing.fulfil': {
+      const plan = context.intendedPairing
+      if (plan === undefined) {
+        throw new Error('intended_pairing.fulfil was handed nothing about the plan')
+      }
+      if (plan === null) {
+        throw new Error('intended_pairing.fulfil was handed an id that names no plan')
+      }
+      // Settled already, by an earlier settle or by an Admin pairing them by hand.
+      // Nothing to do and nothing to say: the settle asks about every open plan
+      // it read a moment ago, and one closing in between is ordinary.
+      if (plan.closedAt !== null) return { rejections: [], effects: [] }
+
+      const now = context.clock.now()
+      const decision = fulfilmentDecision(plan)
+
+      if (decision.kind === 'wait') return { rejections: [], effects: [] }
+
+      if (decision.kind === 'refuse') {
+        return {
+          rejections: [],
+          effects: refuseIntendedPairing(context, plan, decision.refusal, now),
+        }
+      }
+
+      // Formed by the same rules and with the same invitation as pairing by hand:
+      // one Discipler, one Disciple, a one-to-one, which is asked no declaration
+      // and takes no name.
+      const { relationship, effects } = formRelationship(
+        context,
+        {
+          ministryId: context.ministryId,
+          leaderIds: [plan.leader.personId],
+          participantIds: [plan.participant.personId],
+          declaredGender: undefined,
+          name: null,
+          joinRequiresApproval: false,
+        },
+        now,
+      )
+
+      effects.push(
+        closeIntendedPairing({
+          ministryId: context.ministryId,
+          id: plan.id,
+          outcome: 'fulfilled',
+          closedAt: now,
+          relationshipId: relationship.id,
+          refusal: null,
+        }),
+        appendHistory({
+          ministryId: context.ministryId,
+          occurredAt: now,
+          type: 'intended_pairing.fulfilled',
+          subjectType: 'intended_pairing',
+          subjectId: plan.id,
+          payload: { relationshipId: relationship.id, by: 'intake' },
+        }),
+      )
+
+      return { rejections: [], effects }
+    }
+
+    case 'intended_pairing.refuse': {
+      // The database refused what a fulfilment tried to form -- a cap, a race --
+      // and rolled that transaction back. This one records the refusal by its
+      // code, exactly as the fulfilment would have had the snapshot seen it.
+      const plan = context.intendedPairing
+      if (plan === undefined) {
+        throw new Error('intended_pairing.refuse was handed nothing about the plan')
+      }
+      if (plan === null) {
+        throw new Error('intended_pairing.refuse was handed an id that names no plan')
+      }
+      if (plan.closedAt !== null) return { rejections: [], effects: [] }
+
+      return {
+        rejections: [],
+        effects: refuseIntendedPairing(context, plan, command.refusal, context.clock.now()),
+      }
     }
 
     case 'relationship.accept': {

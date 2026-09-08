@@ -29,7 +29,10 @@ Suggested pairings do not remove the pastor's ability to pair people manually.
 
 Suggested one-to-one pairings are based on a simple mathematical comparison of overlapping availability slots between two independent pools.
 
-The **leader pool** is every person marked eligible to lead, filtered by the kind of relationship being suggested. There is no cap on how many relationships a leader already holds.
+The **leader pool** is every person who leads an open relationship or who answered the mentor side at Intake, filtered by the kind of relationship being suggested (ticket 36, decision 4).
+There is no flag to mark.
+A person an import planned as the discipler is a Discipler on the Roster but not in the pool: an intended pairing is not a suggestion and is not fed to the scorer, and the person enters the pool the day the plan forms and they lead.
+There is no cap on how many relationships a leader already holds.
 
 The **participant pool** is every person who has completed intake, given consent, and not opted out, ranked so that people holding no open participant membership are offered first.
 
@@ -133,7 +136,7 @@ Roster membership, intake completion, and pairing eligibility are three separate
 
 A person imported from Planning Center or uploaded by an admin appears on the roster with status `No Intake Submitted`. They cannot be paired, cannot receive a check-in, and are not assumed to want to participate. Only completing intake moves a person to `Ready to Pair`.
 
-Pairing requires completed intake on **both sides** of a relationship. A person who has not completed intake cannot be made a participant and cannot be made a leader. Finding people in that state on a roster is ordinary — an import puts a whole congregation there at once — but that is a fact about the roster, not a licence to pair them. Marking a person eligible to lead is a plan an admin may record early; it does not substitute for intake.
+Pairing requires completed intake on **both sides** of a relationship. A person who has not completed intake cannot be made a participant and cannot be made a leader. Finding people in that state on a roster is ordinary - an import puts a whole congregation there at once - but that is a fact about the roster, not a licence to pair them.
 
 ## Settled: Consent Is Recorded, Versioned, and Enforced at Send Time
 
@@ -166,7 +169,10 @@ Role is a property of relationship membership. **Leader** and **Participant** me
 
 **A person appears in a given relationship at most once at a time, in one role.** Pairing someone with themselves is a database error, not a scorer bug.
 
-**Eligibility to lead is an explicit per-person flag** set by an Admin, independent of whether the person has an account and independent of whether they currently lead anything. It is the same field as the intended role an Admin sets before intake: a plan that becomes eligibility, not two separate facts.
+**There is no eligibility flag.** Ticket 16 recorded one and ticket 36 removed it, at the product owner's direction: a Discipler is a fact, never a mark.
+Anyone leading an open relationship, anyone who signed up as a leader on the Intake form, and anyone an import paired as the discipler is one; pairing them is the pastor's acceptance, and nothing is recorded ahead of it.
+The suggestion engine's leader pool (ticket 04) reads two of those facts, leading an open relationship or the mentor side at Intake, and not the third: an import-planned discipler does not enter the pool until the plan forms.
+The pool is defined under *Suggested Pairing*.
 
 **Participation caps.** A leader leads at most one open group and any number of one-to-ones. A participant is in at most one open one-to-one and any number of groups. Both are enforced as database constraints; see `docs/adr/0004-relationship-kind-as-capacity-declaration.md`.
 
@@ -248,7 +254,7 @@ A kickoff gathering is something a church does in a room. Discipler does not mod
 
 V1 is the operating loop and nothing else: intake, roster, suggestions, acceptance, the sequential check-in rhythm, and care surfacing.
 
-Three capabilities are deliberately deferred. The **Planning Center API** — V1 ships CSV upload, which delivers most of the value without OAuth, People sync, and reconciliation. The **quarterly report** — it produces nothing meaningful until a ministry has multiple quarters behind it, so a pilot cannot exercise it. The **material assignment interface** — assignments are configured during pilot support instead.
+Three capabilities are deliberately deferred. The **Planning Center API** - V1 ships a spreadsheet paste (see *The Import Is a Paste, in One of Two Layouts*), which delivers most of the value without OAuth, People sync, and reconciliation. The **quarterly report** - it produces nothing meaningful until a ministry has multiple quarters behind it, so a pilot cannot exercise it. The **material assignment interface** - assignments are configured during pilot support instead.
 
 Deferring the report defers the *interface*, never the data. The week-by-week history that a report will one day read must be complete and correct from the first week of the pilot, because it cannot be reconstructed later.
 
@@ -884,6 +890,53 @@ trip, so a second drain listing the queue in that gap sent the same text twice.
 Drains are serialised per Ministry, blocking rather than skipping, so the message a
 reply's drain came for is never left to the next pass on the hour.
 See `docs/adr/0020-one-drain-per-ministry-at-a-time.md`.
+
+## Settled: The Roster Shows Contact Details to an Admin
+
+Every Roster row shows the person's phone number and email.
+The Admin uploaded them or the person typed them on the Intake form the Admin sent, and a Roster that hides them from the one person who holds them is a Roster an Admin keeps a spreadsheet beside.
+Contact-sharing consent governs whether a number is handed to somebody else, a leader or a participant, and it still does: no message carries a number, and a leader reaches one only through the consent check.
+This reverses ticket 31's reading for the Admin surface only.
+See `docs/adr/0021-the-roster-shows-contact-details.md`.
+
+## Settled: Admin Screens Say Discipler and Disciple
+
+The Roster, the person page and the pairing page say Discipler and Disciple where the model says Leader and Participant, and say pairing, one-to-one and group where it says relationship.
+The words are the product's own and are pluralised freely on a screen.
+They are not the nouns a Ministry types for its messages: ADR-0015 governs message copy and nothing else, and a Ministry's own word never reaches an Admin screen.
+The other Admin tabs follow in a ticket of their own.
+Domain and database identifiers keep their names.
+
+## Settled: Importing a Pair Plans It
+
+An import may say who disciples whom, and what it records is an intended pairing, never a relationship.
+Pairing requires completed Intake on both sides and importing a person is never consent, so the plan waits on both Intakes and then forms itself by the pairing rules, with the same invitation pairing by hand sends.
+A plan the rules refuse raises a Follow-Up Item on the person waiting to be discipled and is never retried; the Admin pairs by hand or resolves it.
+Pairing the same two people by hand fulfils the plan.
+Settling runs one transaction per plan, after every Intake submission, after every import and on the tick.
+See `docs/adr/0022-an-imported-pair-is-a-plan.md`.
+
+## Settled: The Import Is a Paste, in One of Two Layouts
+
+The Roster is imported by pasting rows straight from a spreadsheet, tab-separated or comma-separated, header row first.
+The Admin says which of two layouts the rows are in.
+*Already paired* is one discipler-disciple pair per row: Discipler, Discipler Phone, Discipler Email, Disciple, Disciple Phone, Disciple Email.
+*People only* is one person per row: Name, Phone, Email, and optionally Role and Paired With.
+Leader, Mentor, Participant and Mentee are accepted silently as headings and as Role values, and are never said back.
+
+Role says only which side of a Paired With pair the person takes.
+On a row naming nobody in Paired With it changes nothing, because being paired is what makes a Discipler.
+Paired With is resolved first within the paste, by the same name fold ADR-0005 uses, and then against the Roster.
+A name two people go by is refused on that line rather than guessed; the person on the row is still imported, and only the pair is not planned.
+Both layouts plan one-to-ones only; groups are paired by hand.
+
+An import changes nothing about a person already on the Roster.
+A row held because its number is on the Roster under another name does not keep who it was paired with: the Admin answers the row, then pastes the line again.
+
+The review the dialog shows as the Admin pastes is produced by the same reader and the same classifier the server runs inside its transaction, over the same text, so what is shown is what happens.
+Without script the same dialog imports and the server's report comes back on the Roster.
+Both layouts offer the same alternative: email the spreadsheet to support@trydiscipler.com and it is imported for you.
+The cap on one paste is a constant in the import route.
 
 ## Settled: The Sign-In Credential Is a Phone Number and a Password
 
