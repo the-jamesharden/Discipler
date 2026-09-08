@@ -9,6 +9,7 @@ import {
   type MinistryFixture,
 } from '../support/local-supabase'
 import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app'
+import { displayPhone } from '../../app/roster/copy'
 
 /**
  * One Person's own page, driven the way an Admin reaches it: from the name on the
@@ -60,8 +61,10 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s own page', () => {
 
     expect(html).toContain('Quinn Alvarez')
     // Every row shows contact details to an Admin since ticket 36 (ADR-0021), and
-    // so does the page behind it.
-    expect(html).toContain(phone)
+    // so does the page behind it, written the way the row writes it and dialled
+    // as stored.
+    expect(html).toContain(displayPhone(phone))
+    expect(html).toContain(`tel:${phone}`)
     expect(html).toContain('quinn@example.org')
     expect(html).toContain('Ready to Pair')
     // Somebody who leads nobody and offered nothing on the form is a Disciple.

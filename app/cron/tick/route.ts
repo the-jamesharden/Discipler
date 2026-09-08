@@ -71,10 +71,7 @@ interface MinistryOutcome {
   readonly error: string | null
 }
 
-const runOneMinistry = async (
-  ministryId: MinistryId,
-  holdsOpenPlans: boolean,
-): Promise<MinistryOutcome> => {
+const runOneMinistry = async (ministryId: MinistryId): Promise<MinistryOutcome> => {
   const nothing = { sent: 0, withheld: 0, held: 0, failed: 0, settled: { fulfilled: 0, refused: 0, waiting: 0 } }
 
   try {
@@ -85,11 +82,8 @@ const runOneMinistry = async (
 
     // Then the pairings an import planned, so one that a submission's own settle
     // missed -- a route that failed after committing, a race -- is formed on this
-    // pass and its invitation goes out in the drain that follows (ADR-0022). Only
-    // where there is one to settle: the directory said which Ministries hold any.
-    const settled = holdsOpenPlans
-      ? await getCommandService().settleIntendedPairings(ministryId)
-      : { fulfilled: 0, refused: 0, waiting: 0 }
+    // pass and its invitation goes out in the drain that follows (ADR-0022).
+    const settled = await getCommandService().settleIntendedPairings(ministryId)
 
     const outcome = await drainOutboundQueue(ministryId)
 
@@ -115,10 +109,9 @@ export async function GET(request: NextRequest) {
   }
 
   const ministries = await getMinistryDirectory().everyMinistry()
-  const withPlans = await getMinistryDirectory().ministriesWithOpenPlans()
   const ran: MinistryOutcome[] = []
   for (const ministryId of ministries) {
-    ran.push(await runOneMinistry(ministryId, withPlans.has(ministryId)))
+    ran.push(await runOneMinistry(ministryId))
   }
 
   // Always 200 once authorised, even where a Ministry failed. The scheduler retries

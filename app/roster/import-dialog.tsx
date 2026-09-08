@@ -13,7 +13,8 @@ import {
   type SideRef,
 } from '~/domain/roster-import'
 import { initialsOf } from '../initials'
-import { displayPhone, IMPORT_IS_NEVER_CONSENT, importFailureMessage, rowProblemMessage, rowsNotImported } from './copy'
+import { RefusedRows } from './refused-rows'
+import { displayPhone, IMPORT_IS_NEVER_CONSENT, importFailureMessage } from './copy'
 import {
   CANCEL,
   CLEAR,
@@ -313,12 +314,7 @@ const Review = ({ review }: { readonly review: ReviewState }) => {
 
       {rejections.length > 0 ? (
         <div className="review-refused">
-          <p>{rowsNotImported(rejections.length)}</p>
-          <ul>
-            {rejections.map(({ line, problem }) => (
-              <li key={`${line}:${problem}`}>{`Line ${line} - ${rowProblemMessage(problem)}`}</li>
-            ))}
-          </ul>
+          <RefusedRows rejections={rejections} />
         </div>
       ) : null}
     </>

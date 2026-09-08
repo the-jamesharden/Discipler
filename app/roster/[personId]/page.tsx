@@ -13,6 +13,7 @@ import {
   AWAITING_ACCEPTANCE,
   DISCIPLED_BY,
   DISCIPLING,
+  displayPhone,
   firstTimeLabel,
   intakeLinkInstruction,
   NO_ACCOUNT,
@@ -110,7 +111,7 @@ export default async function PersonPage({
             <dt>Email</dt>
             <dd>{person.email ? <a href={`mailto:${person.email}`}>{person.email}</a> : '-'}</dd>
             <dt>Phone</dt>
-            <dd>{person.phone ? <a href={`tel:${person.phone}`}>{person.phone}</a> : '-'}</dd>
+            <dd>{person.phone ? <a href={`tel:${person.phone}`}>{displayPhone(person.phone)}</a> : '-'}</dd>
             <dt>At Intake</dt>
             <dd>{atIntake(person)}</dd>
           </dl>

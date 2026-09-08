@@ -143,6 +143,25 @@ export const ROW_PROBLEMS: readonly RowProblem[] = [
 export const isRowProblem = (value: unknown): value is RowProblem =>
   ROW_PROBLEMS.includes(value as RowProblem)
 
+/**
+ * The problems that refuse the pairing a row described and not the person on it.
+ * A report that counted these among the rows not imported would say a person was
+ * lost when they were not; the screens count them apart as pairs not planned.
+ */
+export const PAIRING_PROBLEMS: readonly RowProblem[] = [
+  'role_unreadable',
+  'paired_with_no_role',
+  'paired_with_unknown',
+  'paired_with_ambiguous',
+  'paired_with_held',
+  'paired_with_self',
+  'paired_with_conflict',
+  'pairing_already_planned',
+]
+
+export const isPairingProblem = (problem: RowProblem): boolean =>
+  PAIRING_PROBLEMS.includes(problem)
+
 export interface RowRejection {
   /** 1-based, counting the header, so it matches what the spreadsheet shows. */
   readonly line: number

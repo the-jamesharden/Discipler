@@ -30,7 +30,6 @@ import {
   PLANNED,
   ROSTER_LISTS,
   rowProblemMessage,
-  rowsNotImported,
   samePersonAnswer,
   samePersonConsequence,
   SOMEONE_ELSE_ANSWER,
@@ -45,6 +44,7 @@ import { INTAKE_FORMS } from '../intake-forms/copy'
 import { ImportDialog, type ImportReadbackWire } from './import-dialog'
 import { IMPORT_DATASET, IMPORT_DIALOG_ID } from './import-copy'
 import { isDiscipler, onList, plansOn, relationshipsOn, rosterStats } from './lists'
+import { RefusedRows } from './refused-rows'
 import { decodeImportReport } from './report'
 import { rosterKey } from '~/domain/roster'
 
@@ -182,18 +182,7 @@ export default async function RosterPage({
             <p>{peopleAdded(report.added)}</p>
             {/* A plan is not a pairing (ADR-0022); the sentence says what it waits on. */}
             {report.planned > 0 ? <p>{pairsPlanned(report.planned)}</p> : null}
-            {report.refused.length > 0 ? (
-              <>
-                <p>{rowsNotImported(report.refused.length)}</p>
-                <ul>
-                  {report.refused.map(({ line, problem }) => (
-                    <li key={`${line}:${problem}`}>
-                      {`Line ${line} — ${rowProblemMessage(problem)}`}
-                    </li>
-                  ))}
-                </ul>
-              </>
-            ) : null}
+            <RefusedRows rejections={report.refused} />
             {/* The report says the row was refused; the panel below is where it can
                 be answered. Pointing at it rather than repeating the answers here:
                 two places offering the same two buttons would be two places for an
@@ -211,7 +200,7 @@ export default async function RosterPage({
                 <ul>
                   {report.hidden.map(({ problem, count }) => (
                     <li key={problem}>
-                      {`${count} more — ${rowProblemMessage(problem)}`}
+                      {`${count} more - ${rowProblemMessage(problem)}`}
                     </li>
                   ))}
                 </ul>

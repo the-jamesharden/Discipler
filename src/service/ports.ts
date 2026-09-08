@@ -660,13 +660,6 @@ export interface EffectStore {
  */
 export interface MinistryDirectory {
   everyMinistry(): Promise<readonly MinistryId[]>
-  /**
-   * The Ministries holding at least one plan an import made that is still
-   * standing. The tick settles plans per Ministry, one transaction each, and a
-   * pilot's database has a Ministry per fixture: asking every one of them costs a
-   * transaction apiece for nothing, and this one read says which few to ask.
-   */
-  ministriesWithOpenPlans(): Promise<ReadonlySet<MinistryId>>
 }
 
 /**

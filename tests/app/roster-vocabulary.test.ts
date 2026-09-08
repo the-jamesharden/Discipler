@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { PairingRefusal } from '~/domain/errors'
-import { FILE_PROBLEMS } from '~/domain/errors'
+import { FILE_PROBLEMS, PAIRING_REFUSALS } from '~/domain/errors'
 import { ROW_PROBLEMS } from '~/domain/roster'
 import * as copy from '../../app/roster/copy'
 import * as importCopy from '../../app/roster/import-copy'
@@ -14,26 +13,6 @@ import * as importCopy from '../../app/roster/import-copy'
  */
 
 const FORBIDDEN = /\b(leaders?|participants?|eligib\w*|relationships?)\b/i
-
-const REFUSALS: readonly PairingRefusal[] = [
-  'relationship.needs_a_leader',
-  'relationship.needs_a_participant',
-  'relationship.leader_cannot_be_a_participant',
-  'relationship.person_listed_twice',
-  'relationship.person_already_in_this_relationship',
-  'relationship.leader_already_leads_a_group',
-  'relationship.participant_already_in_a_one_to_one',
-  'relationship.person_belongs_to_another_ministry',
-  'relationship.participant_has_not_completed_intake',
-  'relationship.participant_has_opted_out',
-  'relationship.leader_has_not_completed_intake',
-  'relationship.leader_has_opted_out',
-  'relationship.gender_must_match',
-  'relationship.gender_does_not_match_the_declaration',
-  'relationship.needs_a_gender_declaration',
-  'relationship.needs_a_name',
-  'relationship.already_has_a_leader',
-]
 
 /** Every string an export holds, however it holds it. */
 const stringsIn = (value: unknown): string[] => {
@@ -64,7 +43,7 @@ describe('the Roster speaks the customer’s language', () => {
   })
 
   it('says it in every pairing refusal', () => {
-    for (const refusal of REFUSALS) {
+    for (const refusal of PAIRING_REFUSALS) {
       const said = copy.pairingRefusalMessage(refusal) ?? ''
       expect(said, refusal).not.toMatch(FORBIDDEN)
     }

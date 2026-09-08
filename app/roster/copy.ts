@@ -383,6 +383,13 @@ export const rowsNotImported = (refused: number): string =>
   refused === 1 ? '1 row was not imported:' : `${refused} rows were not imported:`
 
 /**
+ * Said apart from the rows not imported, because the person on each of these rows
+ * was: only the pair the row described is not planned, and the count says so.
+ */
+export const pairsNotPlanned = (refused: number): string =>
+  refused === 1 ? '1 pair was not planned:' : `${refused} pairs were not planned:`
+
+/**
  * Why a pairing was refused, in words an Admin can act on. A `Record` rather than a
  * lookup with a default, so that adding a refusal to `PairingRefusal` and forgetting
  * to word it fails the build rather than falling through to "that pairing could not
@@ -465,5 +472,5 @@ export const pairingRefusalMessage = (code: string | undefined): string | undefi
   if (!code) return undefined
   // A code arriving from the query string is whatever somebody typed there. It is
   // looked up, never rendered.
-  return REFUSALS[code as PairingRefusal] ?? 'That relationship could not be created.'
+  return REFUSALS[code as PairingRefusal] ?? 'That pairing could not be made.'
 }

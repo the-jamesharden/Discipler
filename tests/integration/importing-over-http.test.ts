@@ -180,6 +180,28 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin importing a spreadsheet', () =
     expect(html).toContain('neither in these rows nor on the Roster')
   })
 
+  it('counts a pair it would not plan apart from the rows it did not import', async () => {
+    const { cookie } = await signIn(ministry)
+
+    const { location } = await upload(
+      cookie,
+      file(
+        'Name,Role,Phone,Paired With',
+        `Ivy Chen,Disciple,${number()},Nobody Here`,
+        `Jonah Reyes,,${number()},`,
+        `No Number,,,`,
+      ),
+    )
+
+    expect(location).toContain('added=2')
+    const { html } = await getPage(`/roster?${location.split('?')[1] ?? ''}`, cookie)
+    expect(html).toContain('2 people were added.')
+    expect(html).toContain('1 row was not imported:')
+    expect(html).toContain('1 pair was not planned:')
+    expect(html).toContain('Line 4 - no phone number')
+    expect(html).toContain('Line 2 - names somebody in Paired with')
+  })
+
   it('renders nothing at all for an invented report in the query string', async () => {
     const { cookie } = await signIn(ministry)
 

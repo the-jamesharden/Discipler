@@ -33,13 +33,6 @@ export const createPostgresMinistryDirectory = (
       return rows.map((row) => ministryId(row.id))
     },
 
-    async ministriesWithOpenPlans(): Promise<ReadonlySet<MinistryId>> {
-      const { rows } = await pool.query<{ ministry_id: string }>(
-        `select distinct ministry_id from intended_pairing where closed_at is null`,
-      )
-      return new Set(rows.map((row) => ministryId(row.ministry_id)))
-    },
-
     close: () => pool.end(),
   }
 }
