@@ -154,9 +154,9 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
     // On both rows, because it is one fact about the pairing and neither side of
     // it has started. The Disciple has been told nothing yet either.
     const disciplers = await getPage('/roster', cookie)
-    expect(rowFor(disciplers.html, 'Ezra Kimani')).toContain('Dele Bakare 1:1 — awaiting acceptance')
+    expect(rowFor(disciplers.html, 'Ezra Kimani')).toContain('Dele Bakare 1:1 - awaiting acceptance')
     const disciples = await getPage('/roster?list=disciples', cookie)
-    expect(rowFor(disciples.html, 'Dele Bakare')).toContain('Ezra Kimani 1:1 — awaiting acceptance')
+    expect(rowFor(disciples.html, 'Dele Bakare')).toContain('Ezra Kimani 1:1 - awaiting acceptance')
   })
 
   it('stops saying it once that leader has accepted', async () => {

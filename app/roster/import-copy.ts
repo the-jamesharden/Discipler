@@ -69,7 +69,7 @@ export const PASTE_HERE = 'Paste here...'
 export const TILE_LABEL = {
   newDisciplers: 'New disciplers',
   newDisciples: 'New disciples',
-  pairsCreated: 'Pairs created',
+  pairsPlanned: 'Pairs created',
   alreadyInRoster: 'Already in roster',
 } as const
 

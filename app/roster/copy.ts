@@ -1,8 +1,13 @@
 import type { ImportRowRefusal, PairingRefusal } from '~/domain/errors'
 import type { ParticipationStatus } from '~/domain/participation'
-import type { DeclaredSide } from '~/domain/intake'
-import type { MemberRole } from '~/domain/relationships'
 import type { RowProblem } from '~/domain/roster'
+import {
+  isDiscipledBySomebody,
+  leadsSomebody,
+  offeredToMentor,
+  plannedAs,
+  type RosterFacts,
+} from './lists'
 import type { ImportFailure } from './report'
 
 /**
@@ -163,30 +168,43 @@ export const pairingSizeLabel = (disciples: number): string =>
 
 /**
  * What a Person is on the Roster, and on the strength of what. A Discipler is a
- * fact -- they lead somebody, or they signed up as one on the form -- and this is
- * the one sentence that says which, so a Discipler reading Ready to Pair can be
- * understood rather than reported as a bug.
+ * fact -- they lead somebody, they signed up as one on the form, or an import
+ * paired them as one -- and this is the one sentence that says which, so a
+ * Discipler reading Ready to Pair can be understood rather than reported as a bug.
+ *
+ * Read off the same rule the two lists are drawn from (`lists.ts`), never
+ * re-derived here: the page behind a name on the Disciplers list must say
+ * Discipler, whichever of the three facts put them there.
  */
-export const whoTheyAre = (person: {
-  readonly relationships: readonly { readonly role: MemberRole }[]
-  readonly declaredSide: DeclaredSide | null
-}): string => {
-  const leads = person.relationships.some((relationship) => relationship.role === 'leader')
-  const discipled = person.relationships.some((relationship) => relationship.role === 'participant')
-  const offered = person.declaredSide === 'mentor'
+export const whoTheyAre = (person: RosterFacts): string => {
+  const leads = leadsSomebody(person)
+  const asDiscipler = [
+    leads ? 'disciples somebody' : null,
+    offeredToMentor(person) ? 'offered to on their Intake form' : null,
+    plannedAs(person, 'leader') ? 'an import paired them as one' : null,
+  ].filter(isSaid)
+  const asDisciple = [
+    isDiscipledBySomebody(person) ? 'being discipled' : null,
+    plannedAs(person, 'participant') ? 'an import paired them to be discipled' : null,
+  ].filter(isSaid)
 
-  const discipler = leads
-    ? offered
-      ? 'A Discipler — disciples somebody, and offered to on their Intake form'
-      : 'A Discipler — disciples somebody'
-    : offered
-      ? 'A Discipler — offered to on their Intake form, and disciples nobody yet'
+  const discipler =
+    asDiscipler.length > 0
+      ? `A Discipler - ${listed([...asDiscipler, ...(leads ? [] : ['disciples nobody yet'])])}`
       : null
 
-  if (discipler && discipled) return `${discipler}. Also a Disciple — being discipled.`
+  if (discipler && asDisciple.length > 0) return `${discipler}. Also a Disciple - ${listed(asDisciple)}.`
   if (discipler) return discipler
-  return discipled ? 'A Disciple — being discipled' : 'A Disciple — not yet paired'
+  return asDisciple.length > 0 ? `A Disciple - ${listed(asDisciple)}` : 'A Disciple - not yet paired'
 }
+
+const isSaid = (reason: string | null): reason is string => reason !== null
+
+/** Reasons as a sentence lists them: `a`, `a, and b`, `a, b, and c`. */
+const listed = (reasons: readonly string[]): string =>
+  reasons.length <= 2
+    ? reasons.join(', and ')
+    : `${reasons.slice(0, -1).join(', ')}, and ${reasons[reasons.length - 1]}`
 
 /** The sentence beside a freshly issued Intake link. */
 export const intakeLinkInstruction = (fullName: string, expiresAt: Date): string =>
@@ -233,13 +251,13 @@ const PROBLEMS: Record<RowProblem, string> = {
     'names who they are paired with but no Role says whether they are the Discipler or the Disciple, so the pair was not planned',
   paired_with_unknown: 'names somebody in Paired with who is neither in these rows nor on the Roster, so the pair was not planned',
   paired_with_ambiguous:
-    'names somebody in Paired with that two people go by — add their row to the paste, with their number, so the pair can be planned',
+    'names somebody in Paired with that two people go by - add their row to the paste, with their number, so the pair can be planned',
   paired_with_held:
-    'is paired with a row that is waiting on you — answer that row, then paste this line again',
+    'is paired with a row that is waiting on you - answer that row, then paste this line again',
   paired_with_self: 'pairs a person with themselves',
   paired_with_conflict: 'pairs two people the other way round from an earlier row',
   pairing_already_planned:
-    'the Disciple on this row is already planned to be discipled by somebody — a person is in one one-to-one at a time',
+    'the Disciple on this row is already planned to be discipled by somebody - a person is in one one-to-one at a time',
 }
 
 export const rowProblemMessage = (problem: RowProblem): string => PROBLEMS[problem]

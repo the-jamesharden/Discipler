@@ -56,7 +56,7 @@ export interface ImportCounts {
   /** Every other new row. */
   readonly newDisciples: number
   /** Said as the prototype says it, though nothing is created at import (ADR-0022). */
-  readonly pairsCreated: number
+  readonly pairsPlanned: number
   readonly alreadyOnTheRoster: number
 }
 
@@ -167,7 +167,7 @@ export const classifyImport = (
     counts: {
       newDisciplers: newRows.filter((index) => disciplerRows.has(index)).length,
       newDisciples: newRows.filter((index) => !disciplerRows.has(index)).length,
-      pairsCreated: pairings.filter((pairing) => pairing.outcome === 'planned').length,
+      pairsPlanned: pairings.filter((pairing) => pairing.outcome === 'planned').length,
       alreadyOnTheRoster: rows.filter((row) => row.outcome === 'already_on_the_roster').length,
     },
   }

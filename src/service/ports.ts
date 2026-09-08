@@ -880,6 +880,12 @@ export interface UnansweredImportRow {
   readonly line: number
   /** The name in the file: what either answer is about to put on a Person. */
   readonly fullName: string
+  /**
+   * The number the row is held over. Shown to the Admin since ticket 36
+   * (ADR-0021): the question is whether this is the same person or somebody else
+   * on this number, and it is answered by an Admin who can see which number.
+   */
+  readonly phone: PhoneNumber
   readonly importedAt: Date
   /**
    * Everyone the Roster already holds on this row's number, and what it holds them

@@ -133,9 +133,9 @@ export default async function PairPage({
           <p className="notice">
             Choose the Discipler and everyone they will disciple. One Discipler and one
             Disciple makes a one-to-one; anything else is a group, and a group can have
-            several Disciplers. The age band rule governs suggestion only — you may
+            several Disciplers. The age band rule governs suggestion only - you may
             pair across it here. Gender matching cannot be overridden. Pairing them
-            does not start it — nothing reaches anybody until every Discipler
+            does not start it - nothing reaches anybody until every Discipler
             accepts.
           </p>
 

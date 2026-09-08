@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createMinistryWithAdmin } from '../support/local-supabase'
 import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app'
 import { file, phoneNumbers } from '../support/roster'
+import { displayPhone } from '../../app/roster/copy'
 
 /**
  * The half of ticket 26 that only exists on a screen. The domain proves that either
@@ -74,7 +75,7 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin answering a held import row', 
     })
 
   it('is offered both answers, on the row, without re-uploading the file', async () => {
-    const { cookie } = await collide('Emily Johnson', 'Em Johnson')
+    const { cookie, phone } = await collide('Emily Johnson', 'Em Johnson')
 
     // A plain Roster load, not the redirect the import came back on. The whole
     // point is that the question outlives the report that pointed at it.
@@ -82,6 +83,9 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin answering a held import row', 
 
     expect(html).toContain('Rows waiting on you')
     expect(html).toContain('Line 2')
+    // The number the row is held over, as a person reads it (ticket 36, ADR-0021):
+    // an Admin deciding who is on a number is shown which number.
+    expect(questionFor(html, 'Em Johnson')).toContain(displayPhone(`+1${phone}`))
     expect(html).toContain('Same person as Emily Johnson')
     expect(html).toContain('Someone else on this number')
   })

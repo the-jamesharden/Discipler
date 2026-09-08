@@ -1,3 +1,4 @@
+import type { DeclaredSide } from '~/domain/intake'
 import type { MemberRole } from '~/domain/relationships'
 import type { RosterEntry, RosterIntendedPairing, RosterRelationship } from '~/service/ports'
 import type { RosterList } from './copy'
@@ -10,27 +11,41 @@ import type { RosterList } from './copy'
  *
  * **A Discipler is a fact, never a mark.** Ticket 36, in James's words: the
  * pairing of the people is the confirmation that they are accepted by the pastor.
- * So two things make a Discipler today and nothing an Admin sets ahead of them
- * does: leading an open relationship, or having signed up as a leader on the
- * Intake form, or an import having paired them as one. Everyone else on the Roster is a Disciple
- * -- including somebody imported and never heard from, who is waiting to be cared
- * for -- and a person may be both, which is the discipleship-multiplication case
- * working and not a bug to tidy away.
+ * So three things make a Discipler today and nothing an Admin sets ahead of them
+ * does: leading an open relationship, having signed up as a leader on the Intake
+ * form, or an import having paired them as one. Everyone else on the Roster is a
+ * Disciple -- including somebody imported and never heard from, who is waiting to
+ * be cared for -- and a person may be both, which is the discipleship-
+ * multiplication case working and not a bug to tidy away.
  */
-export const leadsSomebody = (person: RosterEntry): boolean =>
+
+/**
+ * The facts the rule reads, and nothing else. A Roster row is one of these; so is
+ * what the person page hands the sentence that says why, and what a test builds
+ * without a row.
+ */
+export interface RosterFacts {
+  readonly relationships: readonly { readonly role: MemberRole }[]
+  readonly declaredSide: DeclaredSide | null
+  readonly intendedPairings: readonly { readonly role: MemberRole }[]
+}
+
+export const leadsSomebody = (person: RosterFacts): boolean =>
   person.relationships.some((relationship) => relationship.role === 'leader')
 
-export const isDiscipledBySomebody = (person: RosterEntry): boolean =>
+export const isDiscipledBySomebody = (person: RosterFacts): boolean =>
   person.relationships.some((relationship) => relationship.role === 'participant')
 
 /** A plan an import made puts each person on the list of the side they are on. */
-export const plannedAs = (person: RosterEntry, role: MemberRole): boolean =>
+export const plannedAs = (person: RosterFacts, role: MemberRole): boolean =>
   person.intendedPairings.some((plan) => plan.role === role)
 
-export const isDiscipler = (person: RosterEntry): boolean =>
-  leadsSomebody(person) || person.declaredSide === 'mentor' || plannedAs(person, 'leader')
+export const offeredToMentor = (person: RosterFacts): boolean => person.declaredSide === 'mentor'
 
-export const isDisciple = (person: RosterEntry): boolean =>
+export const isDiscipler = (person: RosterFacts): boolean =>
+  leadsSomebody(person) || offeredToMentor(person) || plannedAs(person, 'leader')
+
+export const isDisciple = (person: RosterFacts): boolean =>
   isDiscipledBySomebody(person) || plannedAs(person, 'participant') || !isDiscipler(person)
 
 /** The role a Person holds on the list being looked at. */

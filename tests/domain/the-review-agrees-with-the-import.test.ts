@@ -100,7 +100,7 @@ describe('the review and the import agree', () => {
       const { review, outcome, written } = bothSides(paste.text, paste.mode)
 
       expect(written.people).toBe(review.counts.newDisciplers + review.counts.newDisciples)
-      expect(written.plans).toBe(review.counts.pairsCreated)
+      expect(written.plans).toBe(review.counts.pairsPlanned)
       expect(written.held).toBe(review.rows.filter((row) => row.outcome === 'held').length)
       expect(outcome.rejections).toEqual(review.rejections)
     })
@@ -109,7 +109,7 @@ describe('the review and the import agree', () => {
   it('is a real disagreement it would catch: the counts are not trivially zero', () => {
     const { review, written } = bothSides(PASTES[1]!.text, PASTES[1]!.mode)
     expect(written).toEqual({ people: 1, held: 1, plans: 1 })
-    expect(review.counts).toEqual({ newDisciplers: 0, newDisciples: 1, pairsCreated: 1, alreadyOnTheRoster: 2 })
+    expect(review.counts).toEqual({ newDisciplers: 0, newDisciples: 1, pairsPlanned: 1, alreadyOnTheRoster: 2 })
     expect(review.rejections.map((each) => each.problem)).toEqual([
       'already_on_the_roster',
       'same_number_different_name',

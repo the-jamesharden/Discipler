@@ -366,9 +366,10 @@ export const supabaseRosterReader: RosterReader = {
     const supabase = await createSupabaseServerClient()
 
     // A function rather than a table read, for the two reasons `roster` is one: the
-    // Admin test is written into it, and it carries the names on each row's number
-    // -- which the table alone cannot, because reaching them means joining on a
-    // phone number no browser session may read.
+    // Admin test is written into it, and it carries the number and the names on it
+    // -- which the table alone cannot, because `authenticated` holds no SELECT on
+    // the phone column and the Admin test inside the function is the only way a
+    // number reaches this screen (ADR-0021).
     const { data, error } = await supabase.rpc('held_import_rows', {
       target_ministry_id: ministryId,
     })
@@ -386,6 +387,7 @@ export const supabaseRosterReader: RosterReader = {
         row_id: id,
         line,
         full_name: fullName,
+        phone,
         imported_at: importedAt,
         person_id: person,
         person_name: personName,
@@ -404,6 +406,9 @@ export const supabaseRosterReader: RosterReader = {
       if (typeof fullName !== 'string' || fullName === '') {
         throw new Error(`A held import row arrived with no name: ${id}`)
       }
+      if (typeof phone !== 'string' || phone === '') {
+        throw new Error(`A held import row arrived with no phone number: ${id}`)
+      }
       if (typeof importedAt !== 'string') {
         throw new Error(`A held import row arrived with no import date: ${id}`)
       }
@@ -414,6 +419,7 @@ export const supabaseRosterReader: RosterReader = {
           rowId: importRowId(id),
           line,
           fullName,
+          phone: phoneNumber(phone),
           importedAt: new Date(importedAt),
           onThisNumber: [],
         }

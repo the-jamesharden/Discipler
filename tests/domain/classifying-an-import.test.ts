@@ -55,7 +55,7 @@ describe('classifying the rows', () => {
       { line: 3, problem: 'already_on_the_roster' },
       { line: 4, problem: 'same_number_different_name' },
     ])
-    expect(counts).toEqual({ newDisciplers: 0, newDisciples: 1, pairsCreated: 0, alreadyOnTheRoster: 1 })
+    expect(counts).toEqual({ newDisciplers: 0, newDisciples: 1, pairsPlanned: 0, alreadyOnTheRoster: 1 })
   })
 
   it('keeps the reader’s own refusals, in line order', () => {
@@ -79,7 +79,7 @@ describe('classifying the pairings', () => {
     expect(pairings).toEqual([
       { line: 2, leader: { kind: 'row', index: 0 }, participant: { kind: 'row', index: 1 }, outcome: 'planned', reason: null },
     ])
-    expect(counts).toEqual({ newDisciplers: 1, newDisciples: 1, pairsCreated: 1, alreadyOnTheRoster: 0 })
+    expect(counts).toEqual({ newDisciplers: 1, newDisciples: 1, pairsPlanned: 1, alreadyOnTheRoster: 0 })
   })
 
   it('pairs a new row with somebody already on the Roster, by their row or by their name', () => {
@@ -91,7 +91,7 @@ describe('classifying the pairings', () => {
       onRoster([{ fullName: 'Ruth Adeyemi', phone: '+17065550999', id: existing }]),
     )
     expect(byRow.pairings[0]).toMatchObject({ outcome: 'planned', participant: { kind: 'person', personId: existing } })
-    expect(byRow.counts).toEqual({ newDisciplers: 1, newDisciples: 0, pairsCreated: 1, alreadyOnTheRoster: 1 })
+    expect(byRow.counts).toEqual({ newDisciplers: 1, newDisciples: 0, pairsPlanned: 1, alreadyOnTheRoster: 1 })
 
     const byName = classifyImport(
       reading({
@@ -148,7 +148,7 @@ describe('classifying the pairings', () => {
     )
     expect(pairings.map((pairing) => pairing.outcome)).toEqual(['planned', 'not_recordable'])
     expect(pairings[1]?.reason).toBe('pairing_already_planned')
-    expect(counts.pairsCreated).toBe(1)
+    expect(counts.pairsPlanned).toBe(1)
 
     const alreadyPlanned = classifyImport(
       reading({ people: [sam], pairings: [{ line: 2, leader: { kind: 'in_file', key: rosterKey(sam) }, participant: { kind: 'by_name', name: 'Ruth Adeyemi' } }] }),
@@ -183,6 +183,6 @@ describe('classifying the pairings', () => {
     expect(pairings[0]).toMatchObject({ outcome: 'planned', leader: { personId: existing }, participant: { personId: other } })
     // One line, one reason, however many people it named.
     expect(rejections).toEqual([{ line: 2, problem: 'already_on_the_roster' }])
-    expect(counts).toEqual({ newDisciplers: 0, newDisciples: 0, pairsCreated: 1, alreadyOnTheRoster: 2 })
+    expect(counts).toEqual({ newDisciplers: 0, newDisciples: 0, pairsPlanned: 1, alreadyOnTheRoster: 2 })
   })
 })

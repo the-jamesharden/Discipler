@@ -279,10 +279,10 @@ export default async function RosterPage({
                           number is shown as a person reads it and stored as the
                           system does. */}
                       <td className="contact">
-                        {person.email ? <a href={`mailto:${person.email}`}>{person.email}</a> : '—'}
+                        {person.email ? <a href={`mailto:${person.email}`}>{person.email}</a> : '-'}
                       </td>
                       <td className="contact">
-                        {person.phone ? <a href={`tel:${person.phone}`}>{displayPhone(person.phone)}</a> : '—'}
+                        {person.phone ? <a href={`tel:${person.phone}`}>{displayPhone(person.phone)}</a> : '-'}
                       </td>
                       <td>
                         <PairedWith list={list} person={person} />
@@ -317,9 +317,13 @@ export default async function RosterPage({
           {held.map((row) => (
             <div key={row.rowId} className="mentee-card">
               {/* The line and the name in the file, which is what places the row in
-                  the spreadsheet the Admin uploaded, and the names below say which
-                  number this is. */}
-              <h3>{`Line ${row.line} — “${row.fullName}”`}</h3>
+                  the spreadsheet the Admin uploaded, and the number the row is held
+                  over (ADR-0021): the question is who is on it, and an Admin answers
+                  that with the number in front of them. */}
+              <h3>{`Line ${row.line} - “${row.fullName}”`}</h3>
+              <p className="muted">
+                <a href={`tel:${row.phone}`}>{displayPhone(row.phone)}</a>
+              </p>
 
               {row.onThisNumber.length === 0 ? (
                 <p className="subtle">{NOBODY_ON_THIS_NUMBER}</p>
@@ -459,10 +463,10 @@ const PlanLine = ({ plan }: { readonly plan: RosterIntendedPairing }) => (
       </span>
     </span>
     {plan.state === 'awaiting_intake' ? (
-      <span className="muted">{` — ${AWAITING_INTAKE}`}</span>
+      <span className="muted">{` - ${AWAITING_INTAKE}`}</span>
     ) : (
       <span className="muted">
-        {' — '}
+        {' - '}
         <Link href="/follow-up">{SEE_FOLLOW_UP}</Link>
       </span>
     )}
@@ -479,7 +483,7 @@ const PairingLine = ({ list, pairing }: { readonly list: RosterList; readonly pa
       {/* Derived from the absence of an acceptance, not read from a status column
           -- there is not one. It is the difference between a pairing an Admin has
           arranged and one that has actually started, and both sides read it. */}
-      {pairing.awaitingAcceptance ? <span className="muted">{` — ${AWAITING_ACCEPTANCE}`}</span> : null}
+      {pairing.awaitingAcceptance ? <span className="muted">{` - ${AWAITING_ACCEPTANCE}`}</span> : null}
     </>
   )
 }

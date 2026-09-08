@@ -133,7 +133,7 @@ Roster membership, intake completion, and pairing eligibility are three separate
 
 A person imported from Planning Center or uploaded by an admin appears on the roster with status `No Intake Submitted`. They cannot be paired, cannot receive a check-in, and are not assumed to want to participate. Only completing intake moves a person to `Ready to Pair`.
 
-Pairing requires completed intake on **both sides** of a relationship. A person who has not completed intake cannot be made a participant and cannot be made a leader. Finding people in that state on a roster is ordinary — an import puts a whole congregation there at once — but that is a fact about the roster, not a licence to pair them.
+Pairing requires completed intake on **both sides** of a relationship. A person who has not completed intake cannot be made a participant and cannot be made a leader. Finding people in that state on a roster is ordinary - an import puts a whole congregation there at once - but that is a fact about the roster, not a licence to pair them.
 
 ## Settled: Consent Is Recorded, Versioned, and Enforced at Send Time
 

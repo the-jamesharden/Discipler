@@ -105,7 +105,7 @@ export const ImportDialog = ({
   const open = refused || openedByHash
   const label =
     review.kind === 'classified'
-      ? importButtonLabel(review.classification.rows.length, review.classification.counts.pairsCreated)
+      ? importButtonLabel(review.classification.rows.length, review.classification.counts.pairsPlanned)
       : importButtonLabel()
 
   return (
@@ -254,7 +254,7 @@ const Review = ({ review }: { readonly review: ReviewState }) => {
       <div className="tiles">
         <div className="tile"><div className="tile-value">{counts.newDisciplers}</div><div className="tile-label">{TILE_LABEL.newDisciplers}</div></div>
         <div className="tile"><div className="tile-value">{counts.newDisciples}</div><div className="tile-label">{TILE_LABEL.newDisciples}</div></div>
-        <div className="tile"><div className="tile-value">{counts.pairsCreated}</div><div className="tile-label">{TILE_LABEL.pairsCreated}</div></div>
+        <div className="tile"><div className="tile-value">{counts.pairsPlanned}</div><div className="tile-label">{TILE_LABEL.pairsPlanned}</div></div>
         <div className="tile"><div className={`tile-value${counts.alreadyOnTheRoster === 0 ? ' dim' : ''}`}>{counts.alreadyOnTheRoster}</div><div className="tile-label">{TILE_LABEL.alreadyInRoster}</div></div>
       </div>
 
@@ -290,7 +290,7 @@ const Review = ({ review }: { readonly review: ReviewState }) => {
                       </span>
                     </td>
                     <td className="contact">{displayPhone(row.phone)}</td>
-                    <td className="contact">{row.email ?? '—'}</td>
+                    <td className="contact">{row.email ?? '-'}</td>
                     <td>
                       {plans.length === 0 ? (
                         <span className="blocked">{REVIEW_UNPAIRED}</span>
@@ -316,7 +316,7 @@ const Review = ({ review }: { readonly review: ReviewState }) => {
           <p>{rowsNotImported(rejections.length)}</p>
           <ul>
             {rejections.map(({ line, problem }) => (
-              <li key={`${line}:${problem}`}>{`Line ${line} — ${rowProblemMessage(problem)}`}</li>
+              <li key={`${line}:${problem}`}>{`Line ${line} - ${rowProblemMessage(problem)}`}</li>
             ))}
           </ul>
         </div>

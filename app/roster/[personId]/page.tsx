@@ -100,16 +100,17 @@ export default async function PersonPage({
             </span>
           </div>
           {/* What they are on the Roster, and why. A Discipler is a fact -- they
-              lead somebody, or they offered to on the form -- and this is the one
-              place that says which fact, so an Admin reading a Discipler who is
-              discipled by nobody as Ready to Pair can see what the word rests on. */}
+              lead somebody, they offered to on the form, or an import paired them
+              as one -- and this is the one place that says which fact, so an Admin
+              reading a Discipler who is discipled by nobody as Ready to Pair can
+              see what the word rests on. */}
           <dl className="kv">
             <dt>On the Roster as</dt>
             <dd>{whoTheyAre(person)}</dd>
             <dt>Email</dt>
-            <dd>{person.email ? <a href={`mailto:${person.email}`}>{person.email}</a> : '—'}</dd>
+            <dd>{person.email ? <a href={`mailto:${person.email}`}>{person.email}</a> : '-'}</dd>
             <dt>Phone</dt>
-            <dd>{person.phone ? <a href={`tel:${person.phone}`}>{person.phone}</a> : '—'}</dd>
+            <dd>{person.phone ? <a href={`tel:${person.phone}`}>{person.phone}</a> : '-'}</dd>
             <dt>At Intake</dt>
             <dd>{atIntake(person)}</dd>
           </dl>
@@ -143,7 +144,7 @@ export default async function PersonPage({
                     : `${DISCIPLED_BY} ${relationship.leaderNames.join(', ')}`}
                   <span className="pill n">{pairingSizeLabel(relationship.participantCount)}</span>
                   {relationship.awaitingAcceptance ? (
-                    <span className="muted">{` — ${AWAITING_ACCEPTANCE}`}</span>
+                    <span className="muted">{` - ${AWAITING_ACCEPTANCE}`}</span>
                   ) : null}
                   {/* Offered on the state and the role together, never on either
                       alone. A Disciple is sent no link at all (ADR-0011), so there

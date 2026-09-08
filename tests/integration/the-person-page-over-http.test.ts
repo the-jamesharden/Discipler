@@ -65,7 +65,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s own page', () => {
     expect(html).toContain('quinn@example.org')
     expect(html).toContain('Ready to Pair')
     // Somebody who leads nobody and offered nothing on the form is a Disciple.
-    expect(html).toContain('A Disciple — not yet paired')
+    expect(html).toContain('A Disciple - not yet paired')
     expect(html).toContain('Back to the Roster')
   })
 
@@ -77,7 +77,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s own page', () => {
     await pairOneToOne(ministry, leader, await addPerson(ministry, 'Ruth Adeyemi', { phone: number() }))
 
     const led = await getPage(`/roster/${leader}`, cookie)
-    expect(led.html).toContain('A Discipler — disciples somebody')
+    expect(led.html).toContain('A Discipler - disciples somebody')
     expect(led.html).toContain('Discipling Ruth Adeyemi')
     expect(led.html).toContain('1:1')
 

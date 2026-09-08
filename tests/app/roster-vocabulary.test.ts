@@ -80,11 +80,18 @@ describe('the Roster speaks the customer’s language', () => {
   })
 
   it('says it about a Person, whoever they are', () => {
-    const relationships = (roles: readonly ('leader' | 'participant')[]) => roles.map((role) => ({ role }))
+    const sides = (roles: readonly ('leader' | 'participant')[]) => roles.map((role) => ({ role }))
+    const shapes = [[], ['leader'], ['participant'], ['leader', 'participant']] as const
     for (const declaredSide of [null, 'mentor', 'mentee'] as const) {
-      for (const roles of [[], ['leader'], ['participant'], ['leader', 'participant']] as const) {
-        const said = copy.whoTheyAre({ relationships: relationships(roles), declaredSide })
-        expect(said, `${declaredSide} ${roles.join('+')}`).not.toMatch(FORBIDDEN)
+      for (const roles of shapes) {
+        for (const planned of shapes) {
+          const said = copy.whoTheyAre({
+            relationships: sides(roles),
+            declaredSide,
+            intendedPairings: sides(planned),
+          })
+          expect(said, `${declaredSide} ${roles.join('+')} planned ${planned.join('+')}`).not.toMatch(FORBIDDEN)
+        }
       }
     }
     expect(copy.pairedReceipt(1)).not.toMatch(FORBIDDEN)

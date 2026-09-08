@@ -33,7 +33,7 @@ _Avoid_: Using these as names for relationship roles, or introducing Group Leade
 
 **Discipleship Relationship**:
 The ministry relationship Discipler supports and follows over time: M leaders and N participants. A one-to-one is one leader and one participant; every other shape is a group, and a group may be led by more than one person. There is no separate group concept.
-_Avoid_: Pair, pairing record, pairing (as a noun), group (as a distinct entity)
+_Avoid_: Pair, pairing record, group (as a distinct entity); and pairing as a noun anywhere but an Admin screen, where it is the word for one since ticket 36 (see Pair)
 
 **Intake**:
 The process by which a person provides the information and consent needed to enter a ministry.
@@ -56,7 +56,7 @@ A pairing an import recorded the intention of, waiting on both people to complet
 _Avoid_: Calling it a pairing or a relationship before it has formed, a suggestion, or anything that could be retried
 
 **Held Import Row**:
-A spreadsheet row an import would not file because the number on it is already on the roster under a different name. It is kept, not dropped: the row waits on the roster until an admin says whether it is the same person written differently or somebody else sharing the phone, and it keeps their answer afterwards. Only that one ambiguity is held — the other reasons a row is refused are a spreadsheet to fix, not a question anybody can answer. It does not keep who the row said they were paired with; the admin answers the row, then pastes the line again. ADR-0005 is why both readings are real.
+A spreadsheet row an import would not file because the number on it is already on the roster under a different name. It is kept, not dropped: the row waits on the roster until an admin says whether it is the same person written differently or somebody else sharing the phone, and it keeps their answer afterwards. Only that one ambiguity is held - the other reasons a row is refused are a spreadsheet to fix, not a question anybody can answer. It does not keep who the row said they were paired with; the admin answers the row, then pastes the line again. ADR-0005 is why both readings are real.
 _Avoid_: Calling it an import error, or a merge
 
 **Suggested Pair**:
@@ -103,8 +103,8 @@ The Follow-Up Item raised when a Person picks a group whose Join Approval is on.
 _Avoid_: Application, waitlist
 
 **Pair**:
-Verb only. The pastor's act of placing people into a discipleship relationship.
-_Avoid_: Using "pair" or "pairing" as a noun for the relationship
+The pastor's act of placing people into a discipleship relationship. A verb in the model and in every message. On the Roster, the person page and the pairing page, since ticket 36, a *pairing* is also the noun for a Discipleship Relationship, one-to-one or group, said in place of "relationship" because it is the customer's word; ticket 36 records the decision.
+_Avoid_: Using "pair" or "pairing" as a noun in code, in the model, or in message copy
 
 **Leader Dashboard**:
 The leader-facing web surface, entered by phone number and password. One-time codes are a post-launch addition. It carries the availability overlay, assigned materials, and the contact details of the people in the relationship.
@@ -164,8 +164,8 @@ The second form a Ministry hands out, on its own Ministry Intake Link and its ow
 _Avoid_: calling it a mentor link and a mentee link (there is one link and the side is an answer inside it), and a separate form (the questions are the same ones, in the same words, asked over more screens)
 
 **Declared Side**:
-Mentor or Mentee, as a Person answered it on the Discipleship Intake Wizard. It is a preference they stated and never a decision anybody made about them: it shows on their roster row and it does not make them Eligible to Lead, which remains a plan an Admin records. It is read back from their latest intake that asked, so answering the other side later changes what their row says, and a form that asked nothing changes nothing.
-_Avoid_: a role (that is Leader or Participant, decided at pairing), Eligible to Lead (an Admin's plan, never self-declared), and treating an unanswered side as a refusal to offer
+Mentor or Mentee, as a Person answered it on the Discipleship Intake Wizard. It is a preference they stated and never a decision anybody made about them: it shows on their roster row, and answering Mentor is one of the facts that makes them a Discipler (see Discipler / Disciple), ahead of any pairing. It is read back from their latest intake that asked, so answering the other side later changes what their row says, and a form that asked nothing changes nothing.
+_Avoid_: a role (that is Leader or Participant, decided at pairing), a mark an Admin set (there is none), and treating an unanswered side as a refusal to offer
 
 **First-Time Answer**:
 Whether a person said this is their first time — being discipled, or mentoring, whichever Declared Side they offered. The question is worded from the side, and the answer is carried as two words rather than as yes and no, because the form words them as statements and a `yes` meaning *first time* reads backwards. It is read on the pairing screen, per candidate, and nowhere else: it ranks nobody and refuses nobody.
