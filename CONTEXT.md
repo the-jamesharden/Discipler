@@ -51,6 +51,10 @@ _Avoid_: Answer count, submission count, usage, popularity
 **Roster**:
 The pastor-facing set of people in a ministry and their current participation status.
 
+**Intended Pairing**:
+A pairing an import recorded the intention of, waiting on both people to complete Intake. It is not a relationship, sends nothing and counts as nothing; it forms itself by the pairing rules the moment both have completed Intake, or is refused with the reason and raises a Follow-Up Item, and is never retried. An Admin pairing the same two people by hand fulfils it. See `docs/adr/0022-an-imported-pair-is-a-plan.md`.
+_Avoid_: Calling it a pairing or a relationship before it has formed, a suggestion, or anything that could be retried
+
 **Held Import Row**:
 A spreadsheet row an import would not file because the number on it is already on the roster under a different name. It is kept, not dropped: the row waits on the roster until an admin says whether it is the same person written differently or somebody else sharing the phone, and it keeps their answer afterwards. Only that one ambiguity is held — the other reasons a row is refused are a spreadsheet to fix, not a question anybody can answer. ADR-0005 is why both readings are real.
 _Avoid_: Calling it an import error, or a merge

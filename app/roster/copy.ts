@@ -63,6 +63,16 @@ export const EMPTY_LIST: Record<RosterList, string> = {
   disciples: 'No disciples yet. Everyone on the Roster who is not a discipler is here.',
 }
 
+/**
+ * A pairing an import planned, on the row of either person in it (ADR-0022).
+ * *planned* while it waits on Intake; *not made* once the pairing rules refused
+ * it, until the Follow-Up Item that raised is resolved.
+ */
+export const PLANNED = 'planned'
+export const AWAITING_INTAKE = 'awaiting Intake'
+export const NOT_MADE = 'not made'
+export const SEE_FOLLOW_UP = 'see Follow-Up'
+
 export const PAIR_PEOPLE = 'Pair people'
 export const PAIR = 'Pair'
 export const UNPAIRED = 'Unpaired'

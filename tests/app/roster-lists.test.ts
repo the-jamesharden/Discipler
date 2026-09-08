@@ -26,6 +26,7 @@ const person = (
   holdsAnAccount: false,
   phone: null,
   email: null,
+  intendedPairings: [],
   ...over,
 })
 

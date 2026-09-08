@@ -1,3 +1,11 @@
+import type {
+  IntendedPairingClosure,
+  IntendedPairingSnapshot,
+  NewIntendedPairing,
+  OpenIntendedPairing,
+} from '~/domain/intended-pairing'
+import type { IntendedPairingId } from '~/domain/ids'
+import type { PairingRefusal } from '~/domain/errors'
 import type { AccountCreationRefusal, PasswordChangeRefusal } from '~/domain/accounts'
 import type {
   HeldImportRow,
@@ -243,6 +251,18 @@ export interface UnitOfWork {
    * number" is one condition, and the Admin sees one thing to act on.
    */
   raiseFollowUp(item: NewFollowUpItem): Promise<void>
+  /**
+   * The pairings an import planned (ADR-0022). Every plan still standing, read by
+   * the settle and by an Admin pairing by hand; one plan under its own row lock,
+   * with both people as settling it needs to know them; the plans an import
+   * records; and the closing of one, as fulfilled or refused. A closure that finds
+   * the plan already closed changes nothing: two settles racing is ordinary, and
+   * the database refuses the duplicate pairing the loser would have formed.
+   */
+  openIntendedPairings(): Promise<readonly OpenIntendedPairing[]>
+  intendedPairingFor(id: IntendedPairingId): Promise<IntendedPairingSnapshot | null>
+  planIntendedPairings(plans: readonly NewIntendedPairing[]): Promise<void>
+  closeIntendedPairing(closure: IntendedPairingClosure): Promise<void>
   /**
    * Refuses with a `FollowUpRefused` when the item is gone or already closed. Two
    * Admins clicking Resolve on the same row is ordinary, and only the database can
@@ -640,6 +660,13 @@ export interface EffectStore {
  */
 export interface MinistryDirectory {
   everyMinistry(): Promise<readonly MinistryId[]>
+  /**
+   * The Ministries holding at least one plan an import made that is still
+   * standing. The tick settles plans per Ministry, one transaction each, and a
+   * pilot's database has a Ministry per fixture: asking every one of them costs a
+   * transaction apiece for nothing, and this one read says which few to ask.
+   */
+  ministriesWithOpenPlans(): Promise<ReadonlySet<MinistryId>>
 }
 
 /**
@@ -813,6 +840,23 @@ export interface RosterEntry {
    */
   readonly phone: PhoneNumber | null
   readonly email: string | null
+  /**
+   * The pairings an import planned for this Person that are still worth showing:
+   * the ones waiting on Intake, and the refused ones whose Follow-Up Item an Admin
+   * has not yet resolved. Each says which side of it this Person is.
+   */
+  readonly intendedPairings: readonly RosterIntendedPairing[]
+}
+
+/** One planned pairing as a Roster row shows it, from one side. */
+export interface RosterIntendedPairing {
+  readonly id: IntendedPairingId
+  /** This Person's side of it. */
+  readonly role: MemberRole
+  readonly withPersonId: PersonId
+  readonly withName: string
+  readonly state: 'awaiting_intake' | 'refused'
+  readonly refusal: PairingRefusal | null
 }
 
 /** The account one Person holds, for the Admin who is about to reset it. */

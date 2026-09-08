@@ -56,6 +56,33 @@ export type PairingRefusal =
   // 500 -- the silent no-op with the volume turned up.
   | 'relationship.already_has_a_leader'
 
+/**
+ * Every code above, as a list, so a refusal read back from a row -- a refused
+ * plan's, a Follow-Up Item's -- can be checked rather than cast.
+ */
+export const PAIRING_REFUSALS: readonly PairingRefusal[] = [
+  'relationship.needs_a_leader',
+  'relationship.needs_a_participant',
+  'relationship.leader_cannot_be_a_participant',
+  'relationship.person_listed_twice',
+  'relationship.person_already_in_this_relationship',
+  'relationship.leader_already_leads_a_group',
+  'relationship.participant_already_in_a_one_to_one',
+  'relationship.person_belongs_to_another_ministry',
+  'relationship.participant_has_not_completed_intake',
+  'relationship.participant_has_opted_out',
+  'relationship.leader_has_not_completed_intake',
+  'relationship.leader_has_opted_out',
+  'relationship.gender_must_match',
+  'relationship.gender_does_not_match_the_declaration',
+  'relationship.needs_a_gender_declaration',
+  'relationship.needs_a_name',
+  'relationship.already_has_a_leader',
+]
+
+export const isPairingRefusal = (value: unknown): value is PairingRefusal =>
+  PAIRING_REFUSALS.some((refusal) => refusal === value)
+
 export class PairingRefused extends Error {
   constructor(readonly refusal: PairingRefusal) {
     super(refusal)

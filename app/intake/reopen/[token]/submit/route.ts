@@ -3,7 +3,7 @@ import { IntakeRefused } from '~/domain/errors'
 import type { IntakeFormFields } from '~/domain/intake'
 import { submittedIntakeForm } from '../../../submitted-form'
 import { intakeLinkToken } from '~/domain/intake-link'
-import { getCommandService, getIntakeReader } from '~/service/container'
+import { getCommandService, getIntakeReader, settlePlannedPairings } from '~/service/container'
 
 /**
  * The same form POST the Ministry-wide route handles, submitted by somebody the
@@ -55,6 +55,11 @@ export async function POST(
     }
     throw error
   }
+
+  // A pairing an import planned may have been waiting on exactly this submission.
+  // Settled at once rather than on the hour (ADR-0022), after the submission's own
+  // transaction and never inside it.
+  await settlePlannedPairings(page.ministryId)
 
   // Its own confirmation, and not the one a first submission lands on. That page
   // promises a text, and the Welcome Message is first contact -- which for almost

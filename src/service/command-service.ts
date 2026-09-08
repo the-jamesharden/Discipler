@@ -1,6 +1,8 @@
 import { handleCommand, type CommandResult } from '~/domain/boundary'
 import type { Clock } from '~/domain/clock'
 import type { Command } from '~/domain/commands'
+import { PairingRefused } from '~/domain/errors'
+import type { IntendedPairingId, MinistryId } from '~/domain/ids'
 import type { Effect } from '~/domain/effects'
 import {
   CancellationRefused,
@@ -52,6 +54,24 @@ export interface CommandService {
   openConcern(
     command: Extract<Command, { readonly type: 'concern.view' }>,
   ): Promise<string | null>
+
+  /**
+   * Settles every plan an import made that is still standing: forms the ones both
+   * people have completed Intake for, refuses the ones the rules refuse, leaves
+   * the rest waiting. One transaction per plan, so one refusal never rolls back
+   * another person's relationship -- and the database's own refusal of a pairing
+   * (a cap, a race the snapshot could not see) is caught here and recorded by its
+   * code in a transaction of its own, exactly as the Pair page's route catches
+   * the same refusal. Called after an Intake submission, after an import, and by
+   * the scheduled tick (ADR-0022).
+   */
+  settleIntendedPairings(ministryId: MinistryId): Promise<SettledPairings>
+}
+
+export interface SettledPairings {
+  readonly fulfilled: number
+  readonly refused: number
+  readonly waiting: number
 }
 
 export const applyEffects = async (
@@ -93,6 +113,12 @@ export const applyEffects = async (
   )
   const followUps = effects.flatMap((effect) =>
     effect.kind === 'followUp.raise' ? [effect.item] : [],
+  )
+  const plans = effects.flatMap((effect) =>
+    effect.kind === 'intendedPairing.plan' ? [effect.plan] : [],
+  )
+  const planClosures = effects.flatMap((effect) =>
+    effect.kind === 'intendedPairing.close' ? [effect.closure] : [],
   )
   const resolutions = effects.flatMap((effect) =>
     effect.kind === 'followUp.resolve' ? [effect.resolution] : [],
@@ -195,6 +221,10 @@ export const applyEffects = async (
   if (people.length > 0) await unit.createPeople(people)
   for (const relationship of relationships) await unit.createRelationship(relationship)
 
+  // After the relationship a fulfilled plan names, which its foreign key needs,
+  // and before the Follow-Up Item a refused one raises, which points back at it.
+  for (const closure of planClosures) await unit.closeIntendedPairing(closure)
+
   // After the people, and before the answers that name them. An import files what
   // it could and holds what it would not guess about, in that order; an answer
   // renames or creates a Person and then records which Person the row became, and
@@ -202,6 +232,11 @@ export const applyEffects = async (
   if (heldRows.length > 0) await unit.holdImportRows(heldRows)
   for (const renaming of renamings) await unit.renamePerson(renaming)
   for (const resolution of answeredRows) await unit.resolveImportRow(resolution)
+
+  // After the people a plan names, which its foreign keys need, and before the
+  // Intake record: a plan waits on Intake, and the order here is the order of the
+  // story.
+  if (plans.length > 0) await unit.planIntendedPairings(plans)
 
   // Before the messages, and not merely inside the same transaction. The outbound
   // queue refuses a message to anybody with no SMS consent on file, so a Welcome
@@ -457,7 +492,14 @@ const isTokenDriven = (
  * sends names people and never roles.
  */
 const namesARole = (command: Command): boolean =>
-  command.type === 'relationship.create' || command.type === 'relationship.accept'
+  command.type === 'relationship.create' ||
+  command.type === 'relationship.accept' ||
+  command.type === 'intended_pairing.fulfil'
+
+const settlesAPlan = (
+  command: Command,
+): command is Extract<Command, { type: 'intended_pairing.fulfil' | 'intended_pairing.refuse' }> =>
+  command.type === 'intended_pairing.fulfil' || command.type === 'intended_pairing.refuse'
 
 /**
  * Every message these commands enqueue speaks in the Ministry's voice.
@@ -576,6 +618,25 @@ const joinRequestContext = async (unit: UnitOfWork, itemId: FollowUpItemId) => {
  * that offers the answers -- which is a form post composed by hand, not something
  * an Admin can act on.
  */
+/**
+ * One plan under its own lock, and the two people's names and numbers, which the
+ * invitation a fulfilment sends needs. Loaded together because settling is one
+ * transaction per plan and the snapshot is what it decides on.
+ */
+const intendedPairingContext = async (unit: UnitOfWork, id: IntendedPairingId) => {
+  const intendedPairing = await unit.intendedPairingFor(id)
+  if (!intendedPairing) return { intendedPairing: null }
+  return {
+    intendedPairing,
+    contacts: {
+      people: await unit.contactsFor([
+        intendedPairing.leader.personId,
+        intendedPairing.participant.personId,
+      ]),
+    },
+  }
+}
+
 const heldRow = async (unit: UnitOfWork, row: ImportRowId) => {
   const held = await unit.heldImportRow(row)
   if (!held) throw new Error('import_row.resolve was handed an id that names no row')
@@ -587,7 +648,8 @@ export const createCommandService = ({
   ids,
   store,
   appBaseUrl,
-}: CommandServiceDependencies): CommandService => ({
+}: CommandServiceDependencies): CommandService => {
+  const service: CommandService = {
   async execute(command) {
     // The whole command -- the state it reads, the decision it makes and the rows it
     // writes -- happens in one transaction. Deciding an import against a Roster read
@@ -634,7 +696,11 @@ export const createCommandService = ({
                   ...command.participantIds,
                 ]),
               },
+              openPlans: await unit.openIntendedPairings(),
             }
+          : {}),
+        ...(settlesAPlan(command)
+          ? await intendedPairingContext(unit, command.intendedPairingId)
           : {}),
         ...(isTokenDriven(command)
           ? { invitation: await resolved(unit, command.token) }
@@ -752,4 +818,38 @@ export const createCommandService = ({
       return unit.concernDetailFor(command.concernId)
     })
   },
-})
+
+  async settleIntendedPairings(ministryId) {
+    const open = await store.transact(ministryId, (unit) => unit.openIntendedPairings())
+    const settled = { fulfilled: 0, refused: 0, waiting: 0 }
+
+    for (const plan of open) {
+      try {
+        const { effects } = await service.execute({
+          type: 'intended_pairing.fulfil',
+          ministryId,
+          intendedPairingId: plan.id,
+        })
+        if (effects.some((effect) => effect.kind === 'relationship.create')) settled.fulfilled++
+        else if (effects.some((effect) => effect.kind === 'intendedPairing.close')) settled.refused++
+        else settled.waiting++
+      } catch (error) {
+        // The database refused the pairing the fulfilment formed and rolled it
+        // back. Recorded in a transaction of its own; anything else is a fault.
+        if (!(error instanceof PairingRefused)) throw error
+        await service.execute({
+          type: 'intended_pairing.refuse',
+          ministryId,
+          intendedPairingId: plan.id,
+          refusal: error.refusal,
+        })
+        settled.refused++
+      }
+    }
+
+    return settled
+  },
+  }
+
+  return service
+}

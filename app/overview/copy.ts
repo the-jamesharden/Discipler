@@ -54,6 +54,7 @@ export const shortFollowUp: Record<FollowUpPayload['kind'], (waitedDays: number 
   invitation_number_disputed: () => 'Number disputed',
   match_declined: () => 'Match declined',
   group_join_requested: () => 'Wants to join',
+  intended_pairing_refused: () => 'Pair not made',
 }
 
 export const withPeople = (participantNames: readonly string[]): string =>

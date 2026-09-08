@@ -11,6 +11,7 @@ export type RelationshipId = Branded<string, 'RelationshipId'>
 export type EventId = Branded<string, 'EventId'>
 export type OutboundMessageId = Branded<string, 'OutboundMessageId'>
 export type FollowUpItemId = Branded<string, 'FollowUpItemId'>
+export type IntendedPairingId = Branded<string, 'IntendedPairingId'>
 export type ConcernId = Branded<string, 'ConcernId'>
 export type MaterialId = Branded<string, 'MaterialId'>
 /**
@@ -31,6 +32,8 @@ export const eventId = (value: string): EventId => value as EventId
 export const outboundMessageId = (value: string): OutboundMessageId =>
   value as OutboundMessageId
 export const followUpItemId = (value: string): FollowUpItemId => value as FollowUpItemId
+export const intendedPairingId = (value: string): IntendedPairingId =>
+  value as IntendedPairingId
 export const concernId = (value: string): ConcernId => value as ConcernId
 export const materialId = (value: string): MaterialId => value as MaterialId
 export const importRowId = (value: string): ImportRowId => value as ImportRowId

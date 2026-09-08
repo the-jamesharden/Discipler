@@ -1,5 +1,5 @@
 import type { MemberRole } from '~/domain/relationships'
-import type { RosterEntry, RosterRelationship } from '~/service/ports'
+import type { RosterEntry, RosterIntendedPairing, RosterRelationship } from '~/service/ports'
 import type { RosterList } from './copy'
 
 /**
@@ -12,8 +12,7 @@ import type { RosterList } from './copy'
  * pairing of the people is the confirmation that they are accepted by the pastor.
  * So two things make a Discipler today and nothing an Admin sets ahead of them
  * does: leading an open relationship, or having signed up as a leader on the
- * Intake form. (An import that pairs somebody as the discipler will be the third,
- * with the planned pairings of step 4.) Everyone else on the Roster is a Disciple
+ * Intake form, or an import having paired them as one. Everyone else on the Roster is a Disciple
  * -- including somebody imported and never heard from, who is waiting to be cared
  * for -- and a person may be both, which is the discipleship-multiplication case
  * working and not a bug to tidy away.
@@ -24,11 +23,15 @@ export const leadsSomebody = (person: RosterEntry): boolean =>
 export const isDiscipledBySomebody = (person: RosterEntry): boolean =>
   person.relationships.some((relationship) => relationship.role === 'participant')
 
+/** A plan an import made puts each person on the list of the side they are on. */
+export const plannedAs = (person: RosterEntry, role: MemberRole): boolean =>
+  person.intendedPairings.some((plan) => plan.role === role)
+
 export const isDiscipler = (person: RosterEntry): boolean =>
-  leadsSomebody(person) || person.declaredSide === 'mentor'
+  leadsSomebody(person) || person.declaredSide === 'mentor' || plannedAs(person, 'leader')
 
 export const isDisciple = (person: RosterEntry): boolean =>
-  isDiscipledBySomebody(person) || !isDiscipler(person)
+  isDiscipledBySomebody(person) || plannedAs(person, 'participant') || !isDiscipler(person)
 
 /** The role a Person holds on the list being looked at. */
 export const roleOn: Record<RosterList, MemberRole> = {
@@ -38,6 +41,10 @@ export const roleOn: Record<RosterList, MemberRole> = {
 
 export const onList = (list: RosterList, person: RosterEntry): boolean =>
   list === 'disciplers' ? isDiscipler(person) : isDisciple(person)
+
+/** The plans this row is about: the ones the Person is on the list's side of. */
+export const plansOn = (list: RosterList, person: RosterEntry): readonly RosterIntendedPairing[] =>
+  person.intendedPairings.filter((plan) => plan.role === roleOn[list])
 
 /** The relationships this row is about: the ones the Person holds in the list's role. */
 export const relationshipsOn = (

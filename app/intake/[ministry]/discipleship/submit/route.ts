@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { IntakeRefused } from '~/domain/errors'
 import type { IntakeFormFields } from '~/domain/intake'
-import { getCommandService, getIntakeReader } from '~/service/container'
+import { getCommandService, getIntakeReader, settlePlannedPairings } from '~/service/container'
 import { answersAsQuery, LAST_STEP, readVia, readWizardAnswers } from '../../../wizard-answers'
 import { consentSourceOf, submittedIntakeForm, textField } from '../../../submitted-form'
 
@@ -69,6 +69,11 @@ export async function POST(
     }
     throw error
   }
+
+  // A pairing an import planned may have been waiting on exactly this submission.
+  // Settled at once rather than on the hour (ADR-0022), after the submission's own
+  // transaction and never inside it.
+  await settlePlannedPairings(page.ministryId)
 
   const done = new URLSearchParams()
   // The side, so the last page can say what it is they are waiting for, and the

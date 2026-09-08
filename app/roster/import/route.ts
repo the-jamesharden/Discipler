@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { RosterFileUnreadable, RosterImportRefused } from '~/domain/errors'
 import { currentAdmin } from '~/platform/supabase/current-admin'
-import { getCommandService } from '~/service/container'
+import { getCommandService, settlePlannedPairings } from '~/service/container'
 import { encodeImportReport, type ImportFailure } from '../report'
 
 /**
@@ -40,6 +40,10 @@ export async function POST(request: NextRequest) {
     })
 
     const added = outcome.effects.filter((effect) => effect.kind === 'person.create').length
+
+    // Whatever this import planned is settled at once: two people already past
+    // Intake are paired on the spot (ADR-0022).
+    await settlePlannedPairings(admin.ministryId)
 
     return back(encodeImportReport(added, outcome.rejections))
   } catch (error) {

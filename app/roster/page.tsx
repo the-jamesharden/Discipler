@@ -3,9 +3,10 @@ import { redirect } from 'next/navigation'
 import { AdminShell, initialsOf, NotAnAdmin } from '../shell'
 import { resolveAdmin } from '~/platform/supabase/current-admin'
 import { getRosterReader } from '~/service/container'
-import type { RosterEntry, RosterRelationship } from '~/service/ports'
+import type { RosterEntry, RosterIntendedPairing, RosterRelationship } from '~/service/ports'
 import {
   AWAITING_ACCEPTANCE,
+  AWAITING_INTAKE,
   displayPhone,
   EMPTY_LIST,
   HELD_ROWS_EXPLANATION,
@@ -18,17 +19,20 @@ import {
   LIST_LABEL,
   listCount,
   NOBODY_ON_THIS_NUMBER,
+  NOT_MADE,
   OFFERED_TO_MENTOR,
   PAIR,
   PAIR_PEOPLE,
   pairedReceipt,
   pairingSizeLabel,
   participationStatusLabel,
+  PLANNED,
   ROSTER_LISTS,
   rowProblemMessage,
   samePersonAnswer,
   samePersonConsequence,
   SOMEONE_ELSE_ANSWER,
+  SEE_FOLLOW_UP,
   SOMEONE_ELSE_CONSEQUENCE,
   STATS_LABEL,
   STATUS_FOOTNOTE,
@@ -36,7 +40,7 @@ import {
   type RosterList,
 } from './copy'
 import { INTAKE_FORMS } from '../intake-forms/copy'
-import { isDiscipler, onList, relationshipsOn, rosterStats } from './lists'
+import { isDiscipler, onList, plansOn, relationshipsOn, rosterStats } from './lists'
 import { decodeImportReport } from './report'
 
 export const dynamic = 'force-dynamic'
@@ -388,8 +392,9 @@ export default async function RosterPage({
  */
 const PairedWith = ({ list, person }: { readonly list: RosterList; readonly person: RosterEntry }) => {
   const pairings = relationshipsOn(list, person)
+  const plans = plansOn(list, person)
 
-  if (pairings.length === 0) {
+  if (pairings.length === 0 && plans.length === 0) {
     return (
       <>
         <span className="blocked">{UNPAIRED}</span>
@@ -423,9 +428,38 @@ const PairedWith = ({ list, person }: { readonly list: RosterList; readonly pers
           <PairingLine list={list} pairing={pairing} />
         </li>
       ))}
+      {/* What an import planned and nothing has formed yet: waiting on Intake, or
+          refused and standing on the Follow-Up tab until an Admin acts. Neither
+          counts as paired; both say so on the row (ADR-0022). */}
+      {plans.map((plan) => (
+        <li key={plan.id}>
+          <PlanLine plan={plan} />
+        </li>
+      ))}
     </ul>
   )
 }
+
+const PlanLine = ({ plan }: { readonly plan: RosterIntendedPairing }) => (
+  <>
+    {plan.withName}
+    {' '}
+    {plan.state === 'awaiting_intake' ? (
+      <>
+        <span className="pill plan">{PLANNED}</span>
+        <span className="muted">{` — ${AWAITING_INTAKE}`}</span>
+      </>
+    ) : (
+      <>
+        <span className="pill refused">{NOT_MADE}</span>
+        <span className="muted">
+          {' — '}
+          <Link href="/follow-up">{SEE_FOLLOW_UP}</Link>
+        </span>
+      </>
+    )}
+  </>
+)
 
 const PairingLine = ({ list, pairing }: { readonly list: RosterList; readonly pairing: RosterRelationship }) => {
   const otherSide = list === 'disciplers' ? pairing.participantNames : pairing.leaderNames

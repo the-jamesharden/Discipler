@@ -1,5 +1,8 @@
 import { followUpItemId, importRowId, personId, relationshipId } from '~/domain/ids'
 import { phoneNumber, type PhoneNumber } from '~/domain/roster'
+import { isPairingRefusal } from '~/domain/errors'
+import { intendedPairingId } from '~/domain/ids'
+import type { RosterIntendedPairing } from '~/service/ports'
 import { isParticipationStatus, type ParticipationStatus } from '~/domain/participation'
 import { isMemberRole, type MemberRole } from '~/domain/relationships'
 import { intakeLinkState, intakeLinkToken } from '~/domain/intake-link'
@@ -201,6 +204,39 @@ export const supabaseRosterReader: RosterReader = {
       return !accepted
     }
 
+    // The pairings an import planned, still standing or refused and unresolved,
+    // through their own function and its Admin test. Each lands on both rows,
+    // from that row's side.
+    const { data: planned, error: plannedError } = await supabase.rpc('intended_pairings', {
+      target_ministry_id: ministryId,
+    })
+    if (plannedError) throw new Error(`Could not read the planned pairings: ${plannedError.message}`)
+
+    const plansFor = (id: string): RosterIntendedPairing[] =>
+      ((planned ?? []) as unknown[]).flatMap((raw) => {
+        const row = (raw ?? {}) as Record<string, unknown>
+        const { id: planId, leader_id: leader, participant_id: participant, outcome, refusal } = row
+        if (typeof planId !== 'string' || typeof leader !== 'string' || typeof participant !== 'string') {
+          throw new Error('A planned pairing arrived with no id or no people')
+        }
+        if (leader !== id && participant !== id) return []
+        const refused = outcome === 'refused'
+        if (refused && !isPairingRefusal(refusal)) {
+          throw new Error(`A refused plan arrived with a reason nothing recognises: ${planId}`)
+        }
+        const other = leader === id ? participant : leader
+        return [
+          {
+            id: intendedPairingId(planId),
+            role: leader === id ? 'leader' : 'participant',
+            withPersonId: personId(other),
+            withName: nameOf.get(other) ?? 'Somebody no longer on the Roster',
+            state: refused ? 'refused' : 'awaiting_intake',
+            refusal: refused && isPairingRefusal(refusal) ? refusal : null,
+          } satisfies RosterIntendedPairing,
+        ]
+      })
+
     const byRelationship = new Map<string, MemberRow[]>()
     for (const row of memberships) {
       byRelationship.set(row.relationship_id, [
@@ -264,6 +300,7 @@ export const supabaseRosterReader: RosterReader = {
       holdsAnAccount: row.holdsAnAccount,
       phone: row.phone,
       email: row.email,
+      intendedPairings: plansFor(row.id),
     }))
   },
 

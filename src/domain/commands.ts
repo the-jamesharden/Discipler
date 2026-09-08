@@ -1,3 +1,5 @@
+import type { PairingRefusal } from './errors'
+import type { IntendedPairingId } from './ids'
 import type {
   ConcernId,
   FollowUpItemId,
@@ -132,6 +134,29 @@ export type Command =
    * the Admin arrived at the names, which is a property of the screen and not of
    * the relationship being formed.
    */
+  /**
+   * Settling one plan an import made: form the pairing if both have completed
+   * Intake and the rules allow it, refuse it with the reason if they do not, or
+   * wait. Issued by the service for every open plan after an Intake submission,
+   * an import and the scheduled tick, one transaction each, so one refusal never
+   * rolls back another person's relationship (ADR-0022).
+   */
+  | {
+      readonly type: 'intended_pairing.fulfil'
+      readonly ministryId: MinistryId
+      readonly intendedPairingId: IntendedPairingId
+    }
+  /**
+   * The database refused the pairing a fulfilment tried to form -- a cap, or a
+   * race the snapshot could not see -- and the service records that refusal by
+   * its code, in a transaction of its own after the one that was rolled back.
+   */
+  | {
+      readonly type: 'intended_pairing.refuse'
+      readonly ministryId: MinistryId
+      readonly intendedPairingId: IntendedPairingId
+      readonly refusal: PairingRefusal
+    }
   | {
       readonly type: 'relationship.create'
       readonly ministryId: MinistryId

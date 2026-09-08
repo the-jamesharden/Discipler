@@ -1,3 +1,4 @@
+import type { IntendedPairingClosure, NewIntendedPairing } from './intended-pairing'
 import type { GoalWording } from './discipleship-goals'
 import type {
   CheckInPromptId,
@@ -695,6 +696,13 @@ export type Effect =
       readonly clarification: KeywordExchangeClarification
     }
   | { readonly kind: 'keyword.close'; readonly closure: KeywordExchangeClosure }
+  /**
+   * A pairing an import planned, and the closing of one -- fulfilled with what it
+   * became, or refused with why. The plan is what the import records instead of a
+   * relationship; the closure is what settling it writes (ADR-0022).
+   */
+  | { readonly kind: 'intendedPairing.plan'; readonly plan: NewIntendedPairing }
+  | { readonly kind: 'intendedPairing.close'; readonly closure: IntendedPairingClosure }
   | { readonly kind: 'settings.save'; readonly saving: MinistrySettingsSaving }
   | { readonly kind: 'goal.add'; readonly goal: NewDiscipleshipGoal }
   | { readonly kind: 'goal.rename'; readonly renaming: DiscipleshipGoalRenaming }
@@ -712,6 +720,16 @@ export const appendHistory = (event: NewHistoryEvent): Effect => ({
 export const recordIntakeLink = (link: NewIntakeLink): Effect => ({
   kind: 'intake_link.issue',
   link,
+})
+
+export const planIntendedPairing = (plan: NewIntendedPairing): Effect => ({
+  kind: 'intendedPairing.plan',
+  plan,
+})
+
+export const closeIntendedPairing = (closure: IntendedPairingClosure): Effect => ({
+  kind: 'intendedPairing.close',
+  closure,
 })
 
 export const saveMinistrySettings = (saving: MinistrySettingsSaving): Effect => ({

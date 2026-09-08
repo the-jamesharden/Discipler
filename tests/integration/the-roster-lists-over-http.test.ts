@@ -191,6 +191,64 @@ describe.skipIf(skipUnlessAppIsRunning)('the Roster’s two lists', () => {
     expect(statsLine(disciples.html)).toBe('5 total 3 paired 2 unpaired 2 in groups')
   })
 
+  it('shows a pairing an import planned on both rows, and says not made once it is refused', async () => {
+    // A Ministry of its own, so the numbers are these two people and nobody else.
+    const own = await createMinistryWithAdmin('Planned Chapel')
+    const { cookie } = await signIn(own)
+
+    // Two people an import brought in paired, neither past Intake yet. The plan
+    // puts Sam among the Disciplers and Taylor among the Disciples, each row naming
+    // the other and saying it is planned and waiting.
+    const sam = await addPerson(own, 'Sam Rivera', { phone: number(), intake: false })
+    const taylor = await addPerson(own, 'Taylor Brooks', { phone: number(), intake: false })
+    const plan = crypto.randomUUID()
+    await pool.query(
+      `insert into intended_pairing (id, ministry_id, leader_id, participant_id, planned_at)
+       values ($1, $2, $3, $4, now())`,
+      [plan, own.id, sam, taylor],
+    )
+
+    const disciplers = await getPage('/roster', cookie)
+    const asDiscipler = rowOf(disciplers.html, 'Sam Rivera')
+    expect(asDiscipler).toContain('Taylor Brooks')
+    expect(asDiscipler).toContain('planned')
+    expect(asDiscipler).toContain('awaiting Intake')
+    // Not paired: a plan is not a pairing. Sam is the one Discipler here.
+    expect(statsLine(disciplers.html)).toBe('1 total 0 paired 1 unpaired 0 in groups')
+
+    const disciples = await getPage('/roster?list=disciples', cookie)
+    const asDisciple = rowOf(disciples.html, 'Taylor Brooks')
+    expect(asDisciple).toContain('Sam Rivera')
+    expect(asDisciple).toContain('planned')
+
+    // Refused, with its Follow-Up Item still open: the row says not made and
+    // points at the tab where the Admin acts on it.
+    await pool.query(
+      `update intended_pairing
+          set closed_at = now(), outcome = 'refused', refusal = 'relationship.gender_must_match'
+        where id = $1`,
+      [plan],
+    )
+    await pool.query(
+      `insert into follow_up_item (ministry_id, kind, person_id, relationship_id, raised_at, payload)
+       values ($1, 'intended_pairing_refused', $2, null, now(),
+               jsonb_build_object('intendedPairingId', $3::text, 'refusal', 'relationship.gender_must_match'))`,
+      [own.id, taylor, plan],
+    )
+    const refused = await getPage('/roster?list=disciples', cookie)
+    const row = rowOf(refused.html, 'Taylor Brooks')
+    expect(row).toContain('not made')
+    expect(refused.html).toContain('href="/follow-up"')
+
+    // Resolved, and the plan is gone from the row.
+    await pool.query(
+      `update follow_up_item set resolved_at = now() where payload ->> 'intendedPairingId' = $1`,
+      [plan],
+    )
+    const after = await getPage('/roster?list=disciples', cookie)
+    expect(rowOf(after.html, 'Taylor Brooks')).not.toContain('not made')
+  })
+
   it('says why a Discipler who is discipled by nobody reads Ready to Pair', async () => {
     const { cookie } = await signIn(ministry)
     const { html } = await getPage('/roster', cookie)

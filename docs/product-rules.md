@@ -901,6 +901,15 @@ They are not the nouns a Ministry types for its messages: ADR-0015 governs messa
 The other Admin tabs follow in a ticket of their own.
 Domain and database identifiers keep their names.
 
+## Settled: Importing a Pair Plans It
+
+An import may say who disciples whom, and what it records is an intended pairing, never a relationship.
+Pairing requires completed Intake on both sides and importing a person is never consent, so the plan waits on both Intakes and then forms itself by the pairing rules, with the same invitation pairing by hand sends.
+A plan the rules refuse raises a Follow-Up Item on the person waiting to be discipled and is never retried; the Admin pairs by hand or resolves it.
+Pairing the same two people by hand fulfils the plan.
+Settling runs one transaction per plan, after every Intake submission, after every import and on the tick.
+See `docs/adr/0022-an-imported-pair-is-a-plan.md`.
+
 ## Settled: The Sign-In Credential Is a Phone Number and a Password
 
 One sign-in form, phone number and password, for every user including Admins. Email is

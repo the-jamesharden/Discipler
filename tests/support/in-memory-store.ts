@@ -1,4 +1,10 @@
 import type {
+  IntendedPairingClosure,
+  IntendedPairingSnapshot,
+  NewIntendedPairing,
+  OpenIntendedPairing,
+} from '~/domain/intended-pairing'
+import type {
   IntakeLinkSnapshot,
   InvitationSnapshot,
   PausedRelationship,
@@ -77,6 +83,12 @@ export interface InMemoryStore extends EffectStore {
   readonly invitations: readonly NewInvitation[]
   readonly acceptances: readonly LeaderAcceptance[]
   readonly followUps: readonly NewFollowUpItem[]
+  /** Every plan an import recorded, and every closing of one, in the order the effects made them. */
+  readonly plans: readonly NewIntendedPairing[]
+  readonly planClosures: readonly IntendedPairingClosure[]
+  /** Seeded: the plan a settle finds under its lock, and the plans still standing. */
+  intendedPairing?: IntendedPairingSnapshot | null
+  openPlans: readonly OpenIntendedPairing[]
   readonly resolutions: readonly FollowUpResolution[]
   readonly cancellations: readonly RelationshipCancellation[]
   readonly endings: readonly RelationshipEnding[]
@@ -187,6 +199,8 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
   const invitations: NewInvitation[] = []
   const acceptances: LeaderAcceptance[] = []
   const followUps: NewFollowUpItem[] = []
+  const plans: NewIntendedPairing[] = []
+  const planClosures: IntendedPairingClosure[] = []
   const sequences: NewCheckInSequence[] = []
   const prompts: NewCheckInPrompt[] = []
   const checkInAnswers: CheckInAnswer[] = []
@@ -253,6 +267,13 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
     get followUps() {
       return [...followUps]
     },
+    get plans() {
+      return [...plans]
+    },
+    get planClosures() {
+      return [...planClosures]
+    },
+    openPlans: [],
     get resolutions() {
       return [...resolutions]
     },
@@ -396,6 +417,8 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       const stagedKeywordTargets: KeywordExchangeTarget[] = []
       const stagedKeywordClarifications: KeywordExchangeClarification[] = []
       const stagedKeywordClosures: KeywordExchangeClosure[] = []
+      const stagedPlans: NewIntendedPairing[] = []
+      const stagedPlanClosures: IntendedPairingClosure[] = []
       const stagedSettings: MinistrySettings[] = []
       const stagedAddedGoals: NewDiscipleshipGoal[] = []
       const stagedRenamedGoals: DiscipleshipGoalRenaming[] = []
@@ -515,6 +538,18 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         },
         async raiseFollowUp(item) {
           stagedFollowUps.push(item)
+        },
+        async openIntendedPairings() {
+          return [...store.openPlans, ...stagedPlans.map((plan) => ({ id: plan.id, leaderId: plan.leaderId, participantId: plan.participantId, plannedAt: plan.plannedAt }))]
+        },
+        async intendedPairingFor() {
+          return store.intendedPairing ?? null
+        },
+        async planIntendedPairings(planned) {
+          stagedPlans.push(...planned)
+        },
+        async closeIntendedPairing(closure) {
+          stagedPlanClosures.push(closure)
         },
         async resolveFollowUp(resolution) {
           stagedResolutions.push(resolution)
@@ -687,6 +722,8 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       keywordTargets.push(...stagedKeywordTargets)
       keywordClarifications.push(...stagedKeywordClarifications)
       keywordClosures.push(...stagedKeywordClosures)
+      plans.push(...stagedPlans)
+      planClosures.push(...stagedPlanClosures)
       settingsSaved.push(...stagedSettings)
       addedGoals.push(...stagedAddedGoals)
       renamedGoals.push(...stagedRenamedGoals)

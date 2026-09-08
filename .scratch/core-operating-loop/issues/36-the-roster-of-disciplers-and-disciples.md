@@ -60,3 +60,5 @@ Taken in this session's questions on 2026-09-06 and in the Lavish review of 2026
 
 **2026-09-08.** Step 3 shipped on the branch: the two lists behind All Disciplers / All Disciples, the four numbers, the five columns with email and the number as a person reads it, the `1:1` and `N members` pills, and the words -- Discipler, Disciple, pairing -- across the Roster, the person page and the Pair page. `tests/app/roster-vocabulary.test.ts` holds the line. Imports and answered held rows land on the Disciples list, where the people they add are.
 
+**2026-09-08.** Step 4 shipped on the branch: `intended_pairing`, the two settle commands, `formRelationship` shared with the Pair page, the settle after every Intake submission, after an import and on the tick, the `intended_pairing_refused` Follow-Up kind with *Pair by hand* on it, and the plan on both Roster rows. ADR-0022. Nothing writes a plan yet but a test; the import does in step 5.
+

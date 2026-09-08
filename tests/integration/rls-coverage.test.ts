@@ -68,6 +68,7 @@ describe('every ministry-owned table', () => {
       'intake_availability',
       'intake_link',
       'intake_submission',
+  'intended_pairing',
       'invitation',
       'keyword_exchange',
       'material',
