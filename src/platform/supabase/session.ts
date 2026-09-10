@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import { isAuthRetryableFetchError, type SupabaseClient } from '@supabase/supabase-js'
 
 /**
  * Whose session this is, answered without a call to the Auth server.
@@ -24,9 +24,23 @@ import type { SupabaseClient } from '@supabase/supabase-js'
  * holds: `session_is_live` reads the one row the token names. A token that verifies
  * but names a session that is gone is nobody, which is how a reset signs a stolen
  * session out before it can open a page.
+ *
+ * Either half can fail to answer rather than answer, and a fault is never read as
+ * nobody: silence about who is here is not the same as nobody being here, and
+ * reading it as such would send a signed-in Admin to the sign-in page.
  */
 export const signedInUserId = async (supabase: SupabaseClient): Promise<string | null> => {
-  const { data } = await supabase.auth.getClaims()
+  const { data, error: unverified } = await supabase.auth.getClaims()
+
+  // Raised rather than read as signed-out: the signing key is fetched over the
+  // network the first time a process sees it, and a fetch that timed out -- or a
+  // refresh the Auth server could not serve -- says nothing about who holds the
+  // cookie. Every other verdict here is the Auth server's own judgement on the
+  // token, spent or malformed or signed by nobody, and that judgement is nobody.
+  if (unverified && isAuthRetryableFetchError(unverified)) {
+    throw new Error(`Could not verify the session token: ${unverified.message}`)
+  }
+
   const userId = data?.claims.sub
   if (!userId) return null
 
