@@ -6,8 +6,10 @@ import { chosenByLabel, removalWarning } from './goals/copy'
 /**
  * The one question on both Intake forms that a Ministry writes itself: *What are
  * you hoping for?*, answered from this list. Every other question on the forms is
- * Discipler's; this one's options are the Ministry's own, set before a semester
- * begins, in the order they most want people to consider them.
+ * Discipler's; this one's options are the Ministry's own, in the order the list
+ * shows them. The card says only what the list is: the controls explain
+ * themselves, and James had the two sentences of instructions taken off on
+ * 2026-09-06.
  *
  * A card on Intake forms rather than a page under Ministry Settings, since ticket
  * 34: the list is a property of the forms an Admin hands out, and this is the page
@@ -45,8 +47,7 @@ export const GoalsCard = ({
     </div>
     <p className="card-lead">
       Both forms end by asking <em>What are you hoping for?</em> These are the options a
-      person chooses from. They are this ministry’s own — set them before a semester
-      begins, in the order you most want people to consider them.
+      person chooses from.
     </p>
 
     {refusal ? (
@@ -54,11 +55,6 @@ export const GoalsCard = ({
         {refusal}
       </p>
     ) : null}
-
-    <p className="subtle">
-      Drag an option by its handle to change the order people see it in. The cross
-      removes an option, after a warning about who has chosen it.
-    </p>
 
     {/* Not a table: a row is one option and its three controls, and the drag
         needs the rows to be the things that move. The list is outside every

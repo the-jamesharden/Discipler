@@ -42,3 +42,10 @@ No migration: the effect that rewrites positions already existed for `goal.move`
 - `app/intake-forms/page.tsx`: reads the list and renders the card.
 - `app/settings/page.tsx`: the link is gone.
 - `tests/integration/editing-the-discipleship-goals-over-http.test.ts` and `the-account-menu-over-http.test.ts` follow the move.
+
+## Comments
+
+**2026-09-06, James, after the merge.** The two sentences of instructions came off the card: the lead now says only what the list is, and the paragraph about the handle and the cross is gone.
+The controls explain themselves.
+His paste also showed a "1." before the first row; that is the ordered list copied as text, and nothing on the screen, since the list has its numbering hidden.
+
