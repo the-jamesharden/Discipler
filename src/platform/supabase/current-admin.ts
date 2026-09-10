@@ -1,5 +1,6 @@
 import { ministryId, personId, type MinistryId, type PersonId } from '~/domain/ids'
 import { createSupabaseServerClient } from './server-client'
+import { signedInUserId } from './session'
 
 export interface SignedInAdmin {
   readonly userId: string
@@ -39,17 +40,15 @@ export type AdminResolution =
 export const resolveAdmin = async (): Promise<AdminResolution> => {
   const supabase = await createSupabaseServerClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { status: 'signed-out' }
+  const userId = await signedInUserId(supabase)
+  if (!userId) return { status: 'signed-out' }
 
   // Deliberately not `.maybeSingle()`: that raises rather than returns when a
   // person administers more than one Ministry.
   const { data, error } = await supabase
     .from('ministry_member')
     .select('ministry_id, ministry(name)')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .eq('tier', 'admin')
     .order('created_at')
     .limit(1)
@@ -73,7 +72,7 @@ export const resolveAdmin = async (): Promise<AdminResolution> => {
     .from('person')
     .select('id')
     .eq('ministry_id', membership.ministry_id)
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .maybeSingle()
 
   // Raised rather than folded into the null case, for the reason the lookup above
@@ -86,7 +85,7 @@ export const resolveAdmin = async (): Promise<AdminResolution> => {
   return {
     status: 'admin',
     admin: {
-      userId: user.id,
+      userId,
       ministryId: ministryId(membership.ministry_id),
       ministryName: ministry?.name ?? 'Your ministry',
       personId: typeof own?.id === 'string' ? personId(own.id) : null,

@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from './server-client'
+import { signedInUserId } from './session'
 
 /**
  * Who holds this session, and nothing about what they are part of.
@@ -16,10 +17,7 @@ export interface SignedInUser {
 
 export const currentUser = async (): Promise<SignedInUser | null> => {
   const supabase = await createSupabaseServerClient()
+  const userId = await signedInUserId(supabase)
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  return user ? { userId: user.id } : null
+  return userId ? { userId } : null
 }

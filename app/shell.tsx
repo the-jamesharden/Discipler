@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import type { ReactNode } from 'react'
+import type { ComponentProps, ReactNode } from 'react'
 import type { SignedInAdmin } from '~/platform/supabase/current-admin'
 import { getCareNeededReader } from '~/service/container'
 import { CHANGE_YOUR_PASSWORD } from './account/copy'
@@ -15,6 +15,14 @@ import { INTAKE_FORMS } from './intake-forms/copy'
  * JavaScript toggles over one page; here every tab is its own route, which is
  * what the app already has, and the current one is marked with `aria-current`.
  */
+
+/**
+ * A link in the shell, and not prefetched. Every screen here is rendered for the
+ * session that opens it, so a prefetch is a full request through the middleware
+ * for a page nobody has asked for yet -- and the shell carries seven of them, so
+ * a click that showed one page cost eight requests. The click itself is one.
+ */
+const NavLink = (props: ComponentProps<typeof Link>) => <Link prefetch={false} {...props} />
 
 /** The six Admin tabs, left to right and named as the prototype names them. */
 export const ADMIN_TABS = [
@@ -92,13 +100,13 @@ export const AccountMenu = ({ ministry }: { readonly ministry: boolean }) => (
       {ministry ? (
         <div className="account-group">
           <p className="account-label">This Ministry</p>
-          <Link href="/settings">Ministry settings</Link>
-          <Link href="/intake-forms">{INTAKE_FORMS}</Link>
+          <NavLink href="/settings">Ministry settings</NavLink>
+          <NavLink href="/intake-forms">{INTAKE_FORMS}</NavLink>
         </div>
       ) : null}
       <div className="account-group">
         {ministry ? <p className="account-label">You</p> : null}
-        <Link href="/account">{CHANGE_YOUR_PASSWORD}</Link>
+        <NavLink href="/account">{CHANGE_YOUR_PASSWORD}</NavLink>
         <SignOut />
       </div>
     </div>
@@ -121,7 +129,7 @@ export const TabBar = ({
               {tab.label}
             </span>
           ) : (
-            <Link
+            <NavLink
               href={tab.href}
               className="tab"
               aria-current={tab.key === current ? 'page' : undefined}
@@ -132,7 +140,7 @@ export const TabBar = ({
                   {followUpCount}
                 </span>
               ) : null}
-            </Link>
+            </NavLink>
           )}
         </li>
       ))}
@@ -180,9 +188,9 @@ export const AdminShell = async ({
               link is offered unconditionally and answers honestly when they lead
               nothing. Visible beside the menu rather than inside it, because it is
               a place and not a setting (ticket 32, decision 1). */}
-          <Link href="/relationships" className="ghost-btn">
+          <NavLink href="/relationships" className="ghost-btn">
             The relationships you lead
-          </Link>
+          </NavLink>
           <AccountMenu ministry />
         </div>
       </header>
@@ -222,7 +230,7 @@ export const PageShell = ({
         {subtitle ? <p>{subtitle}</p> : null}
       </div>
       <div className="header-actions">
-        {back ? <Link href={back.href}>{back.label}</Link> : null}
+        {back ? <NavLink href={back.href}>{back.label}</NavLink> : null}
         {actions}
       </div>
     </header>
@@ -263,7 +271,7 @@ export const NotAnAdmin = ({ title }: { readonly title: string }) => (
         to yours.
       </p>
       <p>
-        <Link href="/relationships">The relationships you lead</Link>
+        <NavLink href="/relationships">The relationships you lead</NavLink>
       </p>
     </div>
   </PageShell>

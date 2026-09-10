@@ -77,6 +77,16 @@ update itself. If it does not, the sessions are deleted on the command connectio
 this ADR fixes is the outcome, and an integration test that holds a session, changes the
 password, and finds the session refused is what holds it — not any particular call.
 
+**Amended 2026-09-10.** The app no longer asks the Auth server who holds a session on
+every request: the token is verified locally against the server's published signing key,
+and the Auth server is called only to refresh a token about to expire. A token that
+verifies says nothing about whether its session still exists, and GoTrue's revocation
+deletes the session on the server, so on its own local verification would leave a
+revoked token opening pages until it expired. The outcome is held by a second question
+the page asks the database on the connection it already holds — `session_is_live`,
+which reads the one `auth.sessions` row the token names — and the same integration tests
+still hold it. The mechanism is now settled by what the tests observe: the row is gone.
+
 This does not touch the Invitation Link, which authenticates by possession of a phone
 rather than by session, and which
 `docs/adr/0012-re-issuing-a-link-replaces-it.md` already governs.

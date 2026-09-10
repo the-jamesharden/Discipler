@@ -20,6 +20,7 @@ import type {
 import { readContactToShare } from './contact-to-share'
 import { lookup, rows, text } from './rows'
 import { createSupabaseServerClient } from './server-client'
+import { signedInUserId } from './session'
 
 /**
  * The Leader Dashboard's read: the relationships the signed-in person leads, and
@@ -403,17 +404,14 @@ const contactsFor = async (
 export const supabaseLeaderDashboardReader: LeaderDashboardReader = {
   async listRelationshipsLed(): Promise<readonly RelationshipLed[]> {
     const supabase = await createSupabaseServerClient()
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const userId = await signedInUserId(supabase)
 
     // No session is not an error and not an empty dashboard either -- but this
     // reader cannot tell a page which of those it is, so it answers the only thing
     // true of both: there is nobody here leading anything. The page redirects.
-    if (!user) return []
+    if (!userId) return []
 
-    return readRelationshipsLed(supabase, user.id)
+    return readRelationshipsLed(supabase, userId)
   },
 }
 
