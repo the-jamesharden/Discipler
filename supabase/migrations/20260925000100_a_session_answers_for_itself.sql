@@ -14,8 +14,8 @@
 -- every access token the Auth server mints, and a row is live when it exists,
 -- belongs to the caller, and has not been given an end.
 --
--- False and not null for a token without a `session_id` claim, which is what a
--- service-role token is: no session, so no live one.
+-- False and not null for a token carrying no `session_id` claim: no session, so
+-- no live one. The answer is never reached by a caller without the grant below.
 create function public.session_is_live()
 returns boolean
 language sql
@@ -32,5 +32,9 @@ as $$
   );
 $$;
 
-revoke execute on function public.session_is_live() from public, anon;
+-- Granted to a signed-in user and to nobody else. The platform grants execute
+-- on a new function in this schema to `anon` and `service_role` by default, so
+-- both are revoked here rather than assumed: nothing in the app asks this
+-- question except on behalf of somebody holding a session.
+revoke execute on function public.session_is_live() from public, anon, service_role;
 grant execute on function public.session_is_live() to authenticated;
