@@ -82,6 +82,40 @@ describe('resetting somebody’s password', () => {
     expect(after.error).not.toBeNull()
   })
 
+  it('is seen by a page, which checks the token itself and asks only whether the session is live', async () => {
+    const leader = await addPersonWithAccount(ministry, 'Tomas Ferreira', 'leader')
+    const held = await signInWith(leader)
+
+    // A page does not ask the Auth server who holds a token: it verifies the token
+    // against the server's published key and asks the database whether the session
+    // the token names still exists -- `src/platform/supabase/session.ts`. Before the
+    // reset, it does.
+    expect((await held.rpc('session_is_live')).data).toBe(true)
+
+    await supabaseAccounts.setPassword(leader.userId, NEW_PASSWORD)
+
+    // Afterwards the token is unchanged and still verifies -- the Auth server signed
+    // it and it has not expired -- so this answer is the whole of how a reset signs a
+    // held session out of the app, and why the mechanism ADR-0016 left open is now
+    // a row in `auth.sessions` and nothing about the token.
+    expect((await held.rpc('session_is_live')).data).toBe(false)
+  })
+
+  it('answers nobody without a session', async () => {
+    const { apiUrl, anonKey } = localSupabase()
+    const nobody = createClient(apiUrl, anonKey)
+
+    // The function reads the Auth server's own table as definer, so it is granted to
+    // a signed-in user and to nobody else. `anon` is refused outright -- and the
+    // hosted platform grants `anon` execute on a new function by default, which is
+    // why the revoke is written into the migration rather than assumed.
+    expect((await nobody.rpc('session_is_live')).error).not.toBeNull()
+
+    // The service role is refused too. It carries no `session_id` and holds no
+    // session, and nothing in the app asks this question on its behalf.
+    expect((await serviceRoleClient().rpc('session_is_live')).error).not.toBeNull()
+  })
+
   it('leaves the new password working and the old one refused', async () => {
     const leader = await addPersonWithAccount(ministry, 'Ruth Adeyemi', 'leader')
     const wasSignedInWith = leader.password
