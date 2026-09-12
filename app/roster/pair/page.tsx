@@ -1,6 +1,5 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { currentAdmin } from '~/platform/supabase/current-admin'
 import { getRosterReader } from '~/service/container'
 import { AccountMenu, PageShell } from '../../shell'
 import { firstTimeLabel, pairingRefusalMessage,
@@ -38,10 +37,11 @@ export default async function PairPage({
     error?: string
   }>
 }) {
-  const admin = await currentAdmin()
-  if (!admin) redirect('/login')
+  const page = await getRosterReader().readRosterPage('pair')
+  if (page.status !== 'admin') redirect('/login')
 
-  const roster = await getRosterReader().listRoster(admin.ministryId)
+  const { admin } = page
+  const { roster } = page.page
   const query = await searchParams
   const refusal = pairingRefusalMessage(query.error)
 

@@ -11,19 +11,23 @@ import type {
   CareMember,
   CareNeededItem,
   CareNeededReader,
+  ContactDetails,
   FollowUpCareItem,
 } from '~/service/ports'
-import { readContactToShare } from './contact-to-share'
+import { contactDetailsFrom } from './contact-to-share'
+import { adminPage, readPageDocument, resolutionOf, type PageDocument } from './page'
 import {
-  concernsOf,
+  concernsFrom,
+  historyOf,
   instant,
-  membersOf,
+  membersFrom,
+  namesFrom,
   NOBODY_IN_IT,
-  pausesOf,
-  timeZoneOf,
-  weeksOf,
+  pausesFrom,
+  weeksFrom,
+  type HistoryInputs,
 } from './relationship-history'
-import { lookup, rows, text } from './rows'
+import { text } from './rows'
 import { createSupabaseServerClient } from './server-client'
 
 /**
@@ -38,9 +42,8 @@ import { createSupabaseServerClient } from './server-client'
  * relationship can carry one and a Stalled one can carry three.
  *
  * Read through the signed-in client, so the policy on `follow_up_item` is what
- * scopes it to the Admin's Ministry. The `eq` below restates the same fact and is
- * not the thing enforcing it: a Ministry an Admin does not belong to comes back
- * empty whatever this file asks for.
+ * scopes it to the Admin's Ministry: the page's document is read as the Admin,
+ * and a Ministry an Admin does not belong to comes back empty whatever is asked.
  */
 
 interface ItemRow {
@@ -94,68 +97,29 @@ const asItemRow = (row: unknown): ItemRow => {
 }
 
 /**
- * One lookup keyed by id, for the two the item rows need: the Person an item is
- * about, and when its relationship was created. Written once because the two
- * differ only in the table, the column and what they key -- and a second copy of
- * a three-step fetch-check-map is where the two quietly stop matching.
+ * The open Follow-Up Items, out of the page's history. Open items only, enforced
+ * in the function that wrote the document: a resolved one leaves the view and
+ * stays in the table, because how many care items a Ministry raised and how fast
+ * it closed them is a question it should be able to ask later.
+ *
+ * The Person an item is about is named from the same `people` rows every other
+ * derivation names from, and when its relationship was created comes from the
+ * same `relationships` rows -- which is what the wait is computed from below.
  */
-/**
- * How every read in this file fails. From a screen's point of view the seven
- * queries below are one read -- Care Needed either came back or it did not -- and
- * which of them fell over is a server-log question rather than a screen one. The
- * message was written out at each site until one of them drifted.
- */
-const couldNotRead = (error: { readonly message: string }): Error =>
-  new Error(`Could not read Care Needed: ${error.message}`)
-
-/**
- * The query itself, against whichever signed-in client it is handed. Separated
- * from the reader below so a test can drive it with a real session rather than a
- * Next.js request context, which is the one thing `createSupabaseServerClient`
- * needs and the one thing a test cannot supply.
- */
-export const readOpenFollowUpItems = async (
-  supabase: SupabaseClient,
-  ministryId: MinistryId,
+export const followUpItemsFrom = (
+  history: HistoryInputs,
   clock: Clock,
-): Promise<readonly FollowUpCareItem[]> => {
-  // Open items only. A resolved one leaves the view and stays in the table,
-  // because how many care items a Ministry raised and how fast it closed them is
-  // a question it should be able to ask later.
-  const { data, error } = await supabase
-    .from('follow_up_item')
-    .select('id, kind, raised_at, relationship_id, person_id, payload')
-    .eq('ministry_id', ministryId)
-    .is('resolved_at', null)
-    .order('raised_at', { ascending: false })
-
-  if (error) throw couldNotRead(error)
-
-  const items = (data ?? []).map(asItemRow)
+  nameOf: ReadonlyMap<string, string> = namesFrom(history),
+): readonly FollowUpCareItem[] => {
+  const items = history.followUps.map(asItemRow)
   if (items.length === 0) return []
 
-  // Two follow-up reads rather than embedded joins. The subject columns are
-  // composite foreign keys carrying `ministry_id`, and asking PostgREST to resolve
-  // those inline makes the select list depend on which of two keys it decides a
-  // name should travel along.
-  //
-  // The second is when each relationship was created, which is what the wait is
-  // computed from below.
-  const nameOf = await lookup(
-    supabase,
-    'person',
-    'full_name',
-    items.map((i) => i.personId),
-    text,
-    couldNotRead,
-  )
-  const createdAtOf = await lookup(
-    supabase,
-    'relationship',
-    'created_at',
-    items.map((item) => item.relationshipId),
-    instant,
-    couldNotRead,
+  const createdAtOf = new Map(
+    history.relationships.flatMap((row) => {
+      const id = text(row.id)
+      const createdAt = instant(row.created_at)
+      return id !== null && createdAt !== null ? [[id, createdAt] as const] : []
+    }),
   )
 
   // Once for the whole list, so two items read in the same breath cannot disagree
@@ -198,39 +162,25 @@ export const readOpenFollowUpItems = async (
 }
 
 /**
- * The whole surface: the three sources, read against one signed-in client and one
+ * The whole surface: the three sources, out of one page's history and one
  * reading of the clock, so two items in the same list cannot disagree about what
  * day it is or which week it is.
  */
-export const readCareNeeded = async (
-  supabase: SupabaseClient,
-  ministryId: MinistryId,
-  clock: Clock,
-): Promise<readonly CareNeededItem[]> => {
-  // A Ministry an Admin does not belong to comes back empty from the policy, and
-  // there is nothing to derive a week against. Empty rather than a guessed zone:
-  // every counter below is anchored to one, and the wrong zone is a wrong answer.
-  const timeZone = await timeZoneOf(supabase, ministryId, couldNotRead)
+export const careNeededFrom = (history: HistoryInputs, clock: Clock): readonly CareNeededItem[] => {
+  // A Ministry an Admin does not belong to comes back with no zone, and there is
+  // nothing to derive a week against. Empty rather than a guessed zone: every
+  // counter below is anchored to one, and the wrong zone is a wrong answer.
+  const timeZone = history.timeZone
   if (!timeZone) return []
 
   const now = clock.now()
 
-  const { data: relationshipRows, error: relationshipError } = await supabase
-    .from('relationship')
-    .select('id, accepted_at, ended_at')
-    .eq('ministry_id', ministryId)
-
-  if (relationshipError) {
-    throw couldNotRead(relationshipError)
-  }
-
-  const [followUps, members, weeks, concerns, pauses] = await Promise.all([
-    readOpenFollowUpItems(supabase, ministryId, clock),
-    membersOf(supabase, ministryId, couldNotRead),
-    weeksOf(supabase, ministryId, couldNotRead),
-    concernsOf(supabase, ministryId, couldNotRead),
-    pausesOf(supabase, ministryId, couldNotRead),
-  ])
+  const nameOf = namesFrom(history)
+  const followUps = followUpItemsFrom(history, clock, nameOf)
+  const members = membersFrom(history, nameOf)
+  const weeks = weeksFrom(history)
+  const concerns = concernsFrom(history, nameOf)
+  const pauses = pausesFrom(history)
 
   const namesFor = (relationship: string) => members.get(relationship) ?? NOBODY_IN_IT
 
@@ -243,7 +193,7 @@ export const readCareNeeded = async (
 
   const needingAttention: CareNeededItem[] = []
 
-  for (const row of rows(relationshipRows)) {
+  for (const row of history.relationships) {
     const id = text(row.id)
     if (!id) continue
 
@@ -252,7 +202,7 @@ export const readCareNeeded = async (
     // for this Ministry, which is the point: the condition is unreachable unless
     // something has started raising Concerns without answering the week, and the
     // failure this surface exists to prevent is a wrong answer shown confidently.
-    // A dropped row would be exactly that. Compare the Follow-Up payload below,
+    // A dropped row would be exactly that. Compare the Follow-Up payload above,
     // which *is* dropped -- a drifted payload is one unrenderable item, not a rule
     // that has stopped being true.
     const derived = deriveRelationshipState(
@@ -317,17 +267,85 @@ export const readCareNeeded = async (
 }
 
 /**
+ * The page's history for one Ministry, through whichever signed-in client it is
+ * handed, or nothing where the session does not administer that Ministry.
+ *
+ * Kept so a test can drive the derivations with a real session rather than a
+ * Next.js request context, which is the one thing `createSupabaseServerClient`
+ * needs and the one thing a test cannot supply. The Ministry named is the one the
+ * caller is asking about: a page function answers for the session's own Ministry
+ * and no other, so asking about somebody else's reads as the empty Ministry the
+ * policies would have returned.
+ */
+export const historyFor = async (
+  supabase: SupabaseClient,
+  ministryId: MinistryId,
+  page: string = 'overview_page',
+): Promise<HistoryInputs | null> => {
+  const doc = await readPageDocument(supabase, page)
+  const resolution = resolutionOf(doc)
+  if (resolution.status !== 'admin' || resolution.admin.ministryId !== ministryId) return null
+  return historyOf(doc)
+}
+
+/** The open Follow-Up Items alone, for the tests that are about them. */
+export const readOpenFollowUpItems = async (
+  supabase: SupabaseClient,
+  ministryId: MinistryId,
+  clock: Clock,
+): Promise<readonly FollowUpCareItem[]> => {
+  const history = await historyFor(supabase, ministryId)
+  return history ? followUpItemsFrom(history, clock) : []
+}
+
+/** The whole surface, for the tests that drive it with a real session. */
+export const readCareNeeded = async (
+  supabase: SupabaseClient,
+  ministryId: MinistryId,
+  clock: Clock,
+): Promise<readonly CareNeededItem[]> => {
+  const history = await historyFor(supabase, ministryId)
+  return history ? careNeededFrom(history, clock) : []
+}
+
+/**
+ * What `Nudge` revealed, out of the page's document: the row `contact_to_share`
+ * gave for the one Person the reveal named, or null. No row is the answer, not a
+ * failure: the Person has not agreed to share, or has no number, or is not
+ * somebody this caller may ask about. The function does not distinguish them and
+ * neither may this -- an Admin who could tell "withheld" from "no such Person"
+ * would be reading consent by inference.
+ */
+const revealedFrom = (doc: PageDocument, person: string | null): ContactDetails | null => {
+  const row = doc.reveal
+  if (person === null || row === null || row === undefined) return null
+  if (typeof row !== 'object' || Array.isArray(row)) {
+    throw new Error(`Contact details for ${person} came back as something other than a row`)
+  }
+  return contactDetailsFrom(row as Record<string, unknown>, person)
+}
+
+/**
  * Built with a clock rather than reaching for one, because how long an item has
  * waited is a time-dependent rule like any other -- as is which ISO week it is,
  * which both counters are anchored to -- and the composition root is what decides
  * whose clock answers them.
  */
 export const createSupabaseCareNeededReader = (clock: Clock = systemClock): CareNeededReader => ({
-  async listCareNeeded(ministryId) {
-    return readCareNeeded(await createSupabaseServerClient(), ministryId, clock)
+  async readFollowUpPage(reveal) {
+    const doc = await readPageDocument(
+      await createSupabaseServerClient(),
+      'follow_up_page',
+      reveal === null ? undefined : { reveal_person_id: reveal },
+    )
+    return adminPage(doc, () => ({
+      items: careNeededFrom(historyOf(doc), clock),
+      revealed: revealedFrom(doc, reveal),
+    }))
   },
 
-  async contactToShare(ministryId, person) {
-    return readContactToShare(await createSupabaseServerClient(), ministryId, person)
+  async readSuggestedPairsPage() {
+    const doc = await readPageDocument(await createSupabaseServerClient(), 'suggested_pairs_page')
+    return adminPage(doc, () => ({ followUpCount: careNeededFrom(historyOf(doc), clock).length }))
   },
 })

@@ -2,7 +2,6 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { personId as asPersonId } from '~/domain/ids'
 import { RELATIONSHIP_OUTCOMES } from '~/domain/relationships'
-import { resolveAdmin } from '~/platform/supabase/current-admin'
 import { getCareNeededReader } from '~/service/container'
 import type { CareMember, CareNeededItem } from '~/service/ports'
 import { AdminShell, NotAnAdmin } from '../shell'
@@ -244,18 +243,21 @@ export default async function FollowUpPage({
 }: {
   searchParams: Promise<{ done?: string; error?: string; reveal?: string }>
 }) {
-  const resolution = await resolveAdmin()
-  if (resolution.status === 'not-an-admin') return <NotAnAdmin title={CARE_NEEDED_HEADING} />
-  if (resolution.status === 'signed-out') redirect('/login')
-
-  const admin = resolution.admin
   const query = await searchParams
-  const items = await getCareNeededReader().listCareNeeded(admin.ministryId)
 
-  // The one number a reveal answers, read here for the Person the route named
-  // and never carried in the URL: the query string holds the Person, and the
-  // number is read through the consent check at the moment of display.
+  // One read, with the one number a reveal answers inside it: the query string
+  // holds the Person the route named, never the number, and the number is read
+  // through the consent check at the moment of display. Whatever arrives in the
+  // query string is whatever somebody typed there, so the reveal is honoured only
+  // for a Person the list itself names.
   const asked = query.reveal
+  const page = await getCareNeededReader().readFollowUpPage(asked ? asPersonId(asked) : null)
+  if (page.status === 'not-an-admin') return <NotAnAdmin title={CARE_NEEDED_HEADING} />
+  if (page.status === 'signed-out') redirect('/login')
+
+  const { admin } = page
+  const { items, revealed: contact } = page.page
+
   const member = asked
     ? items
         .flatMap((item): readonly CareMember[] =>
@@ -268,13 +270,7 @@ export default async function FollowUpPage({
         .find((each) => each.personId === asked)
     : undefined
   const revealed: Revealed | null = member
-    ? {
-        personId: member.personId,
-        fullName: member.fullName,
-        phone:
-          (await getCareNeededReader().contactToShare(admin.ministryId, asPersonId(member.personId)))
-            ?.phone ?? null,
-      }
+    ? { personId: member.personId, fullName: member.fullName, phone: contact?.phone ?? null }
     : null
 
   const outcome = careOutcomeMessage(query.done)

@@ -1,7 +1,7 @@
 import { isAuthRetryableFetchError, type SupabaseClient } from '@supabase/supabase-js'
 
 /**
- * Whose session this is, answered without a call to the Auth server.
+ * Whose token this is, answered without a call to the Auth server.
  *
  * Every signed-in request used to ask the Auth server who held the cookie -- the
  * middleware once and the page once more -- and a click on a tab, with the links
@@ -16,20 +16,18 @@ import { isAuthRetryableFetchError, type SupabaseClient } from '@supabase/supaba
  * the process; only a token about to expire is refreshed, which is the one call
  * the Auth server is for.
  *
- * What the token cannot say is whether its session still exists. A password
- * change ends every session on the account
- * (`docs/adr/0016-a-password-change-ends-every-session.md`), and it ends them
- * on the server, where the token in somebody's hand does not see it. So the second
- * half of the answer comes from the database on the connection the request already
- * holds: `session_is_live` reads the one row the token names. A token that verifies
- * but names a session that is gone is nobody, which is how a reset signs a stolen
- * session out before it can open a page.
+ * This is the half of the session question the app answers before it reads
+ * anything: a request with no token, or a token the Auth server never signed, is
+ * nobody, and nobody is not sent to the database. The other half -- whether the
+ * session the token names still exists -- is the database's to answer, and every
+ * page function answers it at the top of its document
+ * (`supabase/migrations/20260926000100_a_page_is_one_read.sql`).
  *
- * Either half can fail to answer rather than answer, and a fault is never read as
- * nobody: silence about who is here is not the same as nobody being here, and
- * reading it as such would send a signed-in Admin to the sign-in page.
+ * A fault is never read as nobody: silence about who is here is not the same as
+ * nobody being here, and reading it as such would send a signed-in Admin to the
+ * sign-in page.
  */
-export const signedInUserId = async (supabase: SupabaseClient): Promise<string | null> => {
+export const verifiedTokenSubject = async (supabase: SupabaseClient): Promise<string | null> => {
   const { data, error: unverified } = await supabase.auth.getClaims()
 
   // Raised rather than read as signed-out: the signing key is fetched over the
@@ -41,7 +39,27 @@ export const signedInUserId = async (supabase: SupabaseClient): Promise<string |
     throw new Error(`Could not verify the session token: ${unverified.message}`)
   }
 
-  const userId = data?.claims.sub
+  return data?.claims.sub ?? null
+}
+
+/**
+ * Whose session this is: the token verified locally, then the session it names
+ * confirmed to still exist.
+ *
+ * What the token cannot say is whether its session still exists. A password
+ * change ends every session on the account
+ * (`docs/adr/0016-a-password-change-ends-every-session.md`), and it ends them
+ * on the server, where the token in somebody's hand does not see it. So the second
+ * half of the answer comes from the database on the connection the request already
+ * holds: `session_is_live` reads the one row the token names. A token that verifies
+ * but names a session that is gone is nobody, which is how a reset signs a stolen
+ * session out before it can open a page.
+ *
+ * For the surfaces that read nothing else. A page asks its page function instead,
+ * which answers the same question at the top of the one document it returns.
+ */
+export const signedInUserId = async (supabase: SupabaseClient): Promise<string | null> => {
+  const userId = await verifiedTokenSubject(supabase)
   if (!userId) return null
 
   const { data: live, error } = await supabase.rpc('session_is_live')

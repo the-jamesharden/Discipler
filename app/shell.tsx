@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
-import type { SignedInAdmin } from '~/platform/supabase/current-admin'
-import { getCareNeededReader } from '~/service/container'
+import type { SignedInAdmin } from '~/service/ports'
 import { CHANGE_YOUR_PASSWORD } from './account/copy'
 import { INTAKE_FORMS } from './intake-forms/copy'
 
@@ -145,10 +144,12 @@ export const TabBar = ({
  * surface, the Account menu, and the six tabs with the current one marked.
  *
  * The Follow-Up badge is the length of Care Needed, which is the same number the
- * Overview's Needs Follow-Up tile shows. A page that has already read the list
- * hands the count in so it is read once; every other page lets the shell read it.
+ * Overview's Needs Follow-Up tile shows. Every page hands the count in, because a
+ * page is one read (`.scratch/a-page-is-one-read/spec.md`): the number derives
+ * from the same document the page was drawn from, and the shell reads nothing of
+ * its own -- which is what keeps the badge from being a second read again.
  */
-export const AdminShell = async ({
+export const AdminShell = ({
   admin,
   current,
   title,
@@ -160,11 +161,10 @@ export const AdminShell = async ({
   readonly current: AdminTab | null
   readonly title?: string
   readonly subtitle?: string
-  readonly followUpCount?: number
+  readonly followUpCount: number
   readonly children: ReactNode
 }) => {
-  const badge =
-    followUpCount ?? (await getCareNeededReader().listCareNeeded(admin.ministryId)).length
+  const badge = followUpCount
 
   return (
     <div className="container">

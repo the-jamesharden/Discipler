@@ -1,4 +1,4 @@
-import { followUpItemId, importRowId, personId, relationshipId } from '~/domain/ids'
+import { importRowId, personId, relationshipId } from '~/domain/ids'
 import { phoneNumber, type PhoneNumber } from '~/domain/roster'
 import { isPairingRefusal } from '~/domain/errors'
 import { intendedPairingId } from '~/domain/ids'
@@ -6,19 +6,20 @@ import type { RosterIntendedPairing } from '~/service/ports'
 import { isParticipationStatus, type ParticipationStatus } from '~/domain/participation'
 import { isMemberRole, type MemberRole } from '~/domain/relationships'
 import { intakeLinkState, intakeLinkToken } from '~/domain/intake-link'
-import { AGE_BANDS, DECLARED_SIDES, GENDERS, isOneOf, type DeclaredSide } from '~/domain/intake'
+import { DECLARED_SIDES, isOneOf, type DeclaredSide } from '~/domain/intake'
+import { systemClock, type Clock } from '~/domain/clock'
 import type {
   AccountOnTheRoster,
   IssuedIntakeLink,
-  JoinRequestOnTheRoster,
-  MinistryGroup,
   RosterEntry,
   RosterReader,
   RosterRelationship,
   UnansweredImportRow,
 } from '~/service/ports'
 import type { NameOnTheNumber } from '~/domain/roster'
-import { declaredGenderOf, rows, text } from './rows'
+import { careNeededFrom } from './care-needed-reader'
+import { adminPage, list, readPageDocument, section, type PageDocument } from './page'
+import { historyOf } from './relationship-history'
 import { createSupabaseServerClient } from './server-client'
 
 interface MemberRow {
@@ -115,326 +116,254 @@ const asPersonRow = (row: unknown): PersonRow => {
   }
 }
 
-/** A text[] column as PostgREST hands it back, or nothing where it is not one. */
-const names = (value: unknown): readonly string[] =>
-  Array.isArray(value) ? value.filter((each): each is string => typeof each === 'string') : []
+/**
+ * The Roster, out of the `roster` part of the page's document. The rows come from
+ * `public.roster` -- a function rather than a table read with a computed column.
+ * Two facts drove it there and only one is about tidiness. `participation_status`
+ * is a derivation, not a column -- one SQL function over Intake, consent and open
+ * participant memberships -- and asking for it in the same statement that reads
+ * the people is what stops a caller reading a Roster and forgetting to ask what
+ * each row's status is. Asking PostgREST for it as a computed column made that a
+ * whole-row reference, and since ticket 15 no browser session holds SELECT on
+ * every column of `person`: the number is not one a Roster may read.
+ */
+export const rosterFrom = (doc: PageDocument): readonly RosterEntry[] => {
+  const roster = section(doc, 'roster')
 
-export const supabaseRosterReader: RosterReader = {
-  async listRoster(ministryId): Promise<readonly RosterEntry[]> {
-    const supabase = await createSupabaseServerClient()
+  const people = list(roster, 'rows').map(asPersonRow)
+  const nameOf = new Map(people.map((row) => [row.id, row.fullName]))
 
-    // A function rather than a table read with a computed column. Two facts drove
-    // it there and only one is about tidiness. `participation_status` is a
-    // derivation, not a column -- one SQL function over Intake, consent and open
-    // participant memberships -- and asking for it in the same statement that reads
-    // the people is what stops a caller reading a Roster and forgetting to ask what
-    // each row's status is. Asking PostgREST for it as a computed column made that
-    // a whole-row reference, and since ticket 15 no browser session holds SELECT on
-    // every column of `person`: the number is not one a Roster may read.
-    const { data, error } = await supabase.rpc('roster', { target_ministry_id: ministryId })
+  // Open memberships only: a relationship someone has left says who they were with,
+  // not who they are with. The role comes back with them, because a Person leading
+  // two relationships and a Person being discipled in two are the same list of
+  // names and opposite situations -- and telling them apart on the row is what
+  // makes `Ready to Pair` beside two names read as a fact rather than a bug.
+  const members = list(roster, 'members')
 
-    if (error) throw new Error(`Could not read the Roster: ${error.message}`)
+  // A role this reader does not recognise is dropped rather than guessed at. The
+  // enum has two values and the policies scope the read, so reaching one means the
+  // schema has moved on -- and calling an unknown role `participant` on a Roster
+  // would say a Person is being discipled by somebody they lead.
+  const memberships = (members as unknown as MemberRow[]).filter((row) => isMemberRole(row.role))
 
-    const people = ((data ?? []) as unknown[]).map(asPersonRow)
-    const nameOf = new Map(people.map((row) => [row.id, row.fullName]))
+  // The relationships themselves, for one column: whether each has been accepted.
+  // `accepted_at` is activation and Awaiting Leader Acceptance is its absence --
+  // there is no status column to read, by design, so the Roster derives it here or
+  // it goes on asserting it in a banner and never saying it again.
+  //
+  // The rows the function gave are exactly the relationships the memberships
+  // name, rather than the Ministry's whole set, so this list cannot hold a row
+  // the memberships did not already name.
+  const acceptedById = new Map(
+    (list(roster, 'relationships') as unknown as { id: string; accepted_at: string | null }[]).map(
+      (row) => [row.id, row.accepted_at !== null],
+    ),
+  )
 
-    // Open memberships only: a relationship someone has left says who they were with,
-    // not who they are with. The role comes back with them, because a Person leading
-    // two relationships and a Person being discipled in two are the same list of
-    // names and opposite situations -- and telling them apart on the row is what
-    // makes `Ready to Pair` beside two names read as a fact rather than a bug.
-    const { data: members, error: memberError } = await supabase
-      .from('relationship_member')
-      .select('person_id, relationship_id, role')
-      .eq('ministry_id', ministryId)
-      .is('ended_at', null)
-
-    if (memberError) throw new Error(`Could not read relationships: ${memberError.message}`)
-
-    // A role this reader does not recognise is dropped rather than guessed at. The
-    // enum has two values and the policies scope the read, so reaching one means the
-    // schema has moved on -- and calling an unknown role `participant` on a Roster
-    // would say a Person is being discipled by somebody they lead.
-    const memberships = ((members ?? []) as MemberRow[]).filter((row) => isMemberRole(row.role))
-
-    // The relationships themselves, for one column: whether each has been accepted.
-    // `accepted_at` is activation and Awaiting Leader Acceptance is its absence --
-    // there is no status column to read, by design, so the Roster derives it here or
-    // it goes on asserting it in a banner and never saying it again.
-    //
-    // Asked for by id, from the memberships just read, rather than for the
-    // Ministry's whole set. Both reads come back capped by PostgREST, and two
-    // independently capped reads can disagree about which relationships exist --
-    // which would land in `awaitingAcceptanceOf` as drift and take the Roster down
-    // with it. Asking for exactly the ids in hand cannot produce a row the
-    // memberships did not already name.
-    const named = [...new Set(memberships.map((row) => row.relationship_id))]
-
-    const { data: relationships, error: relationshipError } = await supabase
-      .from('relationship')
-      .select('id, accepted_at')
-      .eq('ministry_id', ministryId)
-      .in('id', named)
-
-    if (relationshipError) {
-      throw new Error(`Could not read relationships: ${relationshipError.message}`)
+  /**
+   * The two reads are policed by predicates written to mirror each other -- a
+   * membership is visible to exactly whoever its relationship is. So a membership
+   * whose relationship did not come back means they have drifted apart, and it is
+   * thrown like the other drift in this file rather than defaulted: reading a
+   * missing row as *accepted* would tell an Admin a relationship had started when
+   * nobody had agreed to it, and reading it as *awaiting* would tell a Leader
+   * their live relationships had all stalled.
+   */
+  const awaitingAcceptanceOf = (relationship: string): boolean => {
+    const accepted = acceptedById.get(relationship)
+    if (accepted === undefined) {
+      throw new Error(`A Roster membership named a relationship that did not come back: ${relationship}`)
     }
+    return !accepted
+  }
 
-    const acceptedById = new Map(
-      ((relationships ?? []) as { id: string; accepted_at: string | null }[]).map((row) => [
-        row.id,
-        row.accepted_at !== null,
-      ]),
-    )
+  // The pairings an import planned, still standing or refused and unresolved,
+  // through their own function and its Admin test. Each lands on both rows,
+  // from that row's side.
+  const planned = list(roster, 'intended_pairings')
 
-    /**
-     * The two reads are policed by predicates written to mirror each other -- a
-     * membership is visible to exactly whoever its relationship is. So a membership
-     * whose relationship did not come back means they have drifted apart, and it is
-     * thrown like the other drift in this file rather than defaulted: reading a
-     * missing row as *accepted* would tell an Admin a relationship had started when
-     * nobody had agreed to it, and reading it as *awaiting* would tell a Leader
-     * their live relationships had all stalled.
-     */
-    const awaitingAcceptanceOf = (relationship: string): boolean => {
-      const accepted = acceptedById.get(relationship)
-      if (accepted === undefined) {
-        throw new Error(`A Roster membership named a relationship that did not come back: ${relationship}`)
+  const plansFor = (id: string): RosterIntendedPairing[] =>
+    planned.flatMap((raw) => {
+      const row = (raw ?? {}) as Record<string, unknown>
+      const { id: planId, leader_id: leader, participant_id: participant, outcome, refusal } = row
+      if (typeof planId !== 'string' || typeof leader !== 'string' || typeof participant !== 'string') {
+        throw new Error('A planned pairing arrived with no id or no people')
       }
-      return !accepted
-    }
-
-    // The pairings an import planned, still standing or refused and unresolved,
-    // through their own function and its Admin test. Each lands on both rows,
-    // from that row's side.
-    const { data: planned, error: plannedError } = await supabase.rpc('intended_pairings', {
-      target_ministry_id: ministryId,
-    })
-    if (plannedError) throw new Error(`Could not read the planned pairings: ${plannedError.message}`)
-
-    const plansFor = (id: string): RosterIntendedPairing[] =>
-      ((planned ?? []) as unknown[]).flatMap((raw) => {
-        const row = (raw ?? {}) as Record<string, unknown>
-        const { id: planId, leader_id: leader, participant_id: participant, outcome, refusal } = row
-        if (typeof planId !== 'string' || typeof leader !== 'string' || typeof participant !== 'string') {
-          throw new Error('A planned pairing arrived with no id or no people')
-        }
-        if (leader !== id && participant !== id) return []
-        const refused = outcome === 'refused'
-        if (refused && !isPairingRefusal(refusal)) {
-          throw new Error(`A refused plan arrived with a reason nothing recognises: ${planId}`)
-        }
-        const other = leader === id ? participant : leader
-        return [
-          {
-            id: intendedPairingId(planId),
-            role: leader === id ? 'leader' : 'participant',
-            withPersonId: personId(other),
-            withName: nameOf.get(other) ?? 'Somebody no longer on the Roster',
-            state: refused ? 'refused' : 'awaiting_intake',
-            refusal: refused && isPairingRefusal(refusal) ? refusal : null,
-          } satisfies RosterIntendedPairing,
-        ]
-      })
-
-    const byRelationship = new Map<string, MemberRow[]>()
-    for (const row of memberships) {
-      byRelationship.set(row.relationship_id, [
-        ...(byRelationship.get(row.relationship_id) ?? []),
-        row,
-      ])
-    }
-
-    /** The names of everyone in a relationship holding one role, sorted. */
-    const namesIn = (relationship: string, role: MemberRole): string[] =>
-      [
-        ...new Set(
-          (byRelationship.get(relationship) ?? []).flatMap((member) =>
-            member.role === role ? (nameOf.get(member.person_id) ?? []) : [],
-          ),
-        ),
-      ].sort()
-
-    /**
-     * One entry per open relationship this Person holds a membership in, each
-     * saying what they are in it and who else is. A group shows everyone in it,
-     * which is the same question either way round -- and beside everyone, the
-     * two sides apart, so the Roster can name the other side of the row it is on.
-     */
-    const relationshipsFor = (id: string): RosterRelationship[] =>
-      memberships
-        .filter((row) => row.person_id === id)
-        .map((membership) => ({
-          relationshipId: relationshipId(membership.relationship_id),
-          role: membership.role,
-          awaitingAcceptance: awaitingAcceptanceOf(membership.relationship_id),
-          withNames: [
-            ...new Set(
-              (byRelationship.get(membership.relationship_id) ?? []).flatMap((other) =>
-                other.person_id === id ? [] : (nameOf.get(other.person_id) ?? []),
-              ),
-            ),
-          ].sort(),
-          leaderNames: namesIn(membership.relationship_id, 'leader'),
-          participantNames: namesIn(membership.relationship_id, 'participant'),
-          participantCount: (byRelationship.get(membership.relationship_id) ?? []).filter(
-            (member) => member.role === 'participant',
-          ).length,
-        }))
-        // Led relationships first, then the ones they are in as a Participant, and
-        // alphabetically within each. A stable order, so a Roster read twice reads
-        // the same way -- `relationship_member` has no order of its own.
-        .sort(
-          (a, b) =>
-            Number(a.role === 'participant') - Number(b.role === 'participant') ||
-            a.withNames.join(', ').localeCompare(b.withNames.join(', ')),
-        )
-
-    return people.map((row) => ({
-      personId: personId(row.id),
-      fullName: row.fullName,
-      relationships: relationshipsFor(row.id),
-      participationStatus: row.participationStatus,
-      declaredSide: row.declaredSide,
-      firstTime: row.firstTime,
-      holdsAnAccount: row.holdsAnAccount,
-      phone: row.phone,
-      email: row.email,
-      intendedPairings: plansFor(row.id),
-    }))
-  },
-
-  async listGroups(ministryId): Promise<readonly MinistryGroup[]> {
-    const supabase = await createSupabaseServerClient()
-
-    // A function, for the reason the Roster is one and for one more: *is this a
-    // group* is the capacity question ADR-0004 fences to the database, and the
-    // function answers it without this file naming what a group is.
-    const { data, error } = await supabase.rpc('ministry_groups', {
-      target_ministry_id: ministryId,
-    })
-    if (error) throw new Error(`Could not read the groups: ${error.message}`)
-
-    return rows(data).map((row) => {
-      const id = text(row.relationship_id)
-      if (!id) throw new Error('A group row arrived with no id')
-      return {
-        relationshipId: relationshipId(id),
-        name: text(row.name),
-        declaredGender: declaredGenderOf(row.declared_gender),
-        joinRequiresApproval: row.join_requires_approval === true,
-        accepted: row.accepted === true,
-        leaderNames: names(row.leader_names),
-        participantNames: names(row.participant_names),
+      if (leader !== id && participant !== id) return []
+      const refused = outcome === 'refused'
+      if (refused && !isPairingRefusal(refusal)) {
+        throw new Error(`A refused plan arrived with a reason nothing recognises: ${planId}`)
       }
-    })
-  },
-
-  async openJoinRequests(ministryId): Promise<readonly JoinRequestOnTheRoster[]> {
-    const supabase = await createSupabaseServerClient()
-
-    const { data, error } = await supabase.rpc('group_join_requests', {
-      target_ministry_id: ministryId,
-    })
-    if (error) throw new Error(`Could not read who is waiting to join: ${error.message}`)
-
-    return rows(data).map((row) => {
-      const item = text(row.item_id)
-      const person = text(row.person_id)
-      const fullName = text(row.full_name)
-      const relationship = text(row.relationship_id)
-      const raisedAt = text(row.raised_at)
-      if (!item || !person || !fullName || !relationship || !raisedAt) {
-        throw new Error('A join request arrived with a piece missing')
-      }
-      const gender = row.gender
-      const ageBand = row.age_band
-      return {
-        itemId: followUpItemId(item),
-        personId: personId(person),
-        fullName,
-        relationshipId: relationshipId(relationship),
-        groupName: text(row.group_name),
-        gender: isOneOf(GENDERS, gender) ? gender : null,
-        ageBand: isOneOf(AGE_BANDS, ageBand) ? ageBand : null,
-        raisedAt: new Date(raisedAt),
-      }
-    })
-  },
-
-  async heldImportRows(ministryId): Promise<readonly UnansweredImportRow[]> {
-    const supabase = await createSupabaseServerClient()
-
-    // A function rather than a table read, for the two reasons `roster` is one: the
-    // Admin test is written into it, and it carries the number and the names on it
-    // -- which the table alone cannot, because `authenticated` holds no SELECT on
-    // the phone column and the Admin test inside the function is the only way a
-    // number reaches this screen (ADR-0021).
-    const { data, error } = await supabase.rpc('held_import_rows', {
-      target_ministry_id: ministryId,
-    })
-
-    if (error) throw new Error(`Could not read the held import rows: ${error.message}`)
-
-    // One row per question per name already on its number, so they are grouped back
-    // into one question each. Insertion order is preserved, and the function orders
-    // by the import instant -- so the oldest unanswered question is first, which is
-    // the one that has been waiting longest.
-    const questions = new Map<string, UnansweredImportRow & { onThisNumber: NameOnTheNumber[] }>()
-
-    for (const row of (data ?? []) as unknown[]) {
-      const {
-        row_id: id,
-        line,
-        full_name: fullName,
-        phone,
-        imported_at: importedAt,
-        person_id: person,
-        person_name: personName,
-      } = (row ?? {}) as Record<string, unknown>
-
-      // Checked rather than asserted, on every field, for the reason the Roster row
-      // beside it is: this is a screen an Admin is about to rename somebody from,
-      // and a question rendered without the line or the name is one they cannot
-      // place in the file they uploaded.
-      if (typeof id !== 'string' || id === '') {
-        throw new Error('A held import row arrived with no id')
-      }
-      if (typeof line !== 'number' || !Number.isInteger(line)) {
-        throw new Error(`A held import row arrived with no line number: ${id}`)
-      }
-      if (typeof fullName !== 'string' || fullName === '') {
-        throw new Error(`A held import row arrived with no name: ${id}`)
-      }
-      if (typeof phone !== 'string' || phone === '') {
-        throw new Error(`A held import row arrived with no phone number: ${id}`)
-      }
-      if (typeof importedAt !== 'string') {
-        throw new Error(`A held import row arrived with no import date: ${id}`)
-      }
-
-      const question =
-        questions.get(id) ??
+      const other = leader === id ? participant : leader
+      return [
         {
-          rowId: importRowId(id),
-          line,
-          fullName,
-          phone: phoneNumber(phone),
-          importedAt: new Date(importedAt),
-          onThisNumber: [],
-        }
-      questions.set(id, question)
+          id: intendedPairingId(planId),
+          role: leader === id ? 'leader' : 'participant',
+          withPersonId: personId(other),
+          withName: nameOf.get(other) ?? 'Somebody no longer on the Roster',
+          state: refused ? 'refused' : 'awaiting_intake',
+          refusal: refused && isPairingRefusal(refusal) ? refusal : null,
+        } satisfies RosterIntendedPairing,
+      ]
+    })
 
-      // The left join says the Roster holds nobody on this number any more, which
-      // leaves *someone else on this number* as the only answer. The question is
-      // still shown: a row that vanished would be the silent expiry this surface
-      // exists to prevent.
-      if (typeof person === 'string' && person !== '' && typeof personName === 'string') {
-        question.onThisNumber.push({ personId: personId(person), fullName: personName })
-      }
+  const byRelationship = new Map<string, MemberRow[]>()
+  for (const row of memberships) {
+    byRelationship.set(row.relationship_id, [
+      ...(byRelationship.get(row.relationship_id) ?? []),
+      row,
+    ])
+  }
+
+  /** The names of everyone in a relationship holding one role, sorted. */
+  const namesIn = (relationship: string, role: MemberRole): string[] =>
+    [
+      ...new Set(
+        (byRelationship.get(relationship) ?? []).flatMap((member) =>
+          member.role === role ? (nameOf.get(member.person_id) ?? []) : [],
+        ),
+      ),
+    ].sort()
+
+  /**
+   * One entry per open relationship this Person holds a membership in, each
+   * saying what they are in it and who else is. A group shows everyone in it,
+   * which is the same question either way round -- and beside everyone, the
+   * two sides apart, so the Roster can name the other side of the row it is on.
+   */
+  const relationshipsFor = (id: string): RosterRelationship[] =>
+    memberships
+      .filter((row) => row.person_id === id)
+      .map((membership) => ({
+        relationshipId: relationshipId(membership.relationship_id),
+        role: membership.role,
+        awaitingAcceptance: awaitingAcceptanceOf(membership.relationship_id),
+        withNames: [
+          ...new Set(
+            (byRelationship.get(membership.relationship_id) ?? []).flatMap((other) =>
+              other.person_id === id ? [] : (nameOf.get(other.person_id) ?? []),
+            ),
+          ),
+        ].sort(),
+        leaderNames: namesIn(membership.relationship_id, 'leader'),
+        participantNames: namesIn(membership.relationship_id, 'participant'),
+        participantCount: (byRelationship.get(membership.relationship_id) ?? []).filter(
+          (member) => member.role === 'participant',
+        ).length,
+      }))
+      // Led relationships first, then the ones they are in as a Participant, and
+      // alphabetically within each. A stable order, so a Roster read twice reads
+      // the same way -- `relationship_member` has no order of its own.
+      .sort(
+        (a, b) =>
+          Number(a.role === 'participant') - Number(b.role === 'participant') ||
+          a.withNames.join(', ').localeCompare(b.withNames.join(', ')),
+      )
+
+  return people.map((row) => ({
+    personId: personId(row.id),
+    fullName: row.fullName,
+    relationships: relationshipsFor(row.id),
+    participationStatus: row.participationStatus,
+    declaredSide: row.declaredSide,
+    firstTime: row.firstTime,
+    holdsAnAccount: row.holdsAnAccount,
+    phone: row.phone,
+    email: row.email,
+    intendedPairings: plansFor(row.id),
+  }))
+}
+
+/**
+ * The import rows still waiting on an answer, out of the `roster` part of the
+ * page's document. The rows come from `held_import_rows`, a function rather than
+ * a table read, for the two reasons `roster` is one: the Admin test is written
+ * into it, and it carries the number and the names on it -- which the table alone
+ * cannot, because `authenticated` holds no SELECT on the phone column and the
+ * Admin test inside the function is the only way a number reaches this screen
+ * (ADR-0021).
+ */
+export const heldImportRowsFrom = (doc: PageDocument): readonly UnansweredImportRow[] => {
+  // One row per question per name already on its number, so they are grouped back
+  // into one question each. Insertion order is preserved, and the function orders
+  // by the import instant -- so the oldest unanswered question is first, which is
+  // the one that has been waiting longest.
+  const questions = new Map<string, UnansweredImportRow & { onThisNumber: NameOnTheNumber[] }>()
+
+  for (const row of list(section(doc, 'roster'), 'held_import_rows')) {
+    const {
+      row_id: id,
+      line,
+      full_name: fullName,
+      phone,
+      imported_at: importedAt,
+      person_id: person,
+      person_name: personName,
+    } = (row ?? {}) as Record<string, unknown>
+
+    // Checked rather than asserted, on every field, for the reason the Roster row
+    // beside it is: this is a screen an Admin is about to rename somebody from,
+    // and a question rendered without the line or the name is one they cannot
+    // place in the file they uploaded.
+    if (typeof id !== 'string' || id === '') {
+      throw new Error('A held import row arrived with no id')
+    }
+    if (typeof line !== 'number' || !Number.isInteger(line)) {
+      throw new Error(`A held import row arrived with no line number: ${id}`)
+    }
+    if (typeof fullName !== 'string' || fullName === '') {
+      throw new Error(`A held import row arrived with no name: ${id}`)
+    }
+    if (typeof phone !== 'string' || phone === '') {
+      throw new Error(`A held import row arrived with no phone number: ${id}`)
+    }
+    if (typeof importedAt !== 'string') {
+      throw new Error(`A held import row arrived with no import date: ${id}`)
     }
 
-    return [...questions.values()]
+    const question =
+      questions.get(id) ??
+      {
+        rowId: importRowId(id),
+        line,
+        fullName,
+        phone: phoneNumber(phone),
+        importedAt: new Date(importedAt),
+        onThisNumber: [],
+      }
+    questions.set(id, question)
+
+    // The left join says the Roster holds nobody on this number any more, which
+    // leaves *someone else on this number* as the only answer. The question is
+    // still shown: a row that vanished would be the silent expiry this surface
+    // exists to prevent.
+    if (typeof person === 'string' && person !== '' && typeof personName === 'string') {
+      question.onThisNumber.push({ personId: personId(person), fullName: personName })
+    }
+  }
+
+  return [...questions.values()]
+}
+
+/**
+ * Built with a clock rather than reaching for one, because the badge's number is
+ * the length of Care Needed, and how long each item there has waited is a
+ * time-dependent rule like any other -- the composition root decides whose clock
+ * answers it, as it does for the tabs that show the list.
+ */
+export const createSupabaseRosterReader = (clock: Clock = systemClock): RosterReader => ({
+  /**
+   * One read for the Roster, the held import rows and the badge's number: all
+   * three derive from one document, and the person page and the Pair page read
+   * the same one under their own names and take the rows they need from it.
+   */
+  async readRosterPage(surface) {
+    const doc = await readPageDocument(await createSupabaseServerClient(), `${surface}_page`)
+    return adminPage(doc, () => ({
+      roster: rosterFrom(doc),
+      held: heldImportRowsFrom(doc),
+      followUpCount: careNeededFrom(historyOf(doc), clock).length,
+    }))
   },
 
   async accountOnTheRoster(ministryId, person): Promise<AccountOnTheRoster | null> {
@@ -516,4 +445,4 @@ export const supabaseRosterReader: RosterReader = {
 
     return { token: intakeLinkToken(token), expiresAt }
   },
-}
+})

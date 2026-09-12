@@ -1,8 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { checkInRates, ratedTotal } from '~/domain/overview'
-import { resolveAdmin } from '~/platform/supabase/current-admin'
-import { getCareNeededReader, getOverviewReader } from '~/service/container'
+import { getOverviewReader } from '~/service/container'
 import type { CareNeededItem, OverviewRelationship } from '~/service/ports'
 import { AdminShell, NotAnAdmin } from '../shell'
 import {
@@ -69,17 +68,15 @@ const flagsFor = (
 }
 
 export default async function OverviewPage() {
-  const resolution = await resolveAdmin()
-  if (resolution.status === 'not-an-admin') return <NotAnAdmin title="Ministry overview" />
-  if (resolution.status === 'signed-out') redirect('/login')
+  // One read: the session verdict, the tab and the Care Needed list come from one
+  // document, so the Needs Follow-Up tile, the tab badge and the flag lines on
+  // the cards are all this one list.
+  const page = await getOverviewReader().readOverviewPage()
+  if (page.status === 'not-an-admin') return <NotAnAdmin title="Ministry overview" />
+  if (page.status === 'signed-out') redirect('/login')
 
-  const admin = resolution.admin
-  const [overview, care] = await Promise.all([
-    getOverviewReader().readOverview(admin.ministryId),
-    // Read once and shared: the Needs Follow-Up tile, the tab badge and the flag
-    // lines on the cards are all this one list.
-    getCareNeededReader().listCareNeeded(admin.ministryId),
-  ])
+  const { admin } = page
+  const { overview, care } = page.page
 
   const rates = checkInRates(overview.counts)
   const notMet = overview.counts.answered - overview.counts.held

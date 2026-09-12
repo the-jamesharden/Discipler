@@ -1,5 +1,4 @@
 import { GENDERS, isOneOf, type Gender } from '~/domain/intake'
-import type { SupabaseClient } from '@supabase/supabase-js'
 
 /**
  * Reading a row back, for every adapter in this directory -- whether it arrived
@@ -28,43 +27,6 @@ export const rows = (data: unknown): readonly Record<string, unknown>[] =>
  */
 export const text = (value: unknown): string | null =>
   typeof value === 'string' && value !== '' ? value : null
-
-/**
- * One column of one table, keyed by id -- the follow-up read for a set of ids
- * already in hand.
- *
- * Two things it deliberately does. It asks nothing when there is nothing to ask
- * about, because an `in` filter on an empty list is a round trip whose answer is
- * known. And it drops rows `read` cannot make sense of rather than carrying a
- * placeholder forward: a caller that gets no entry falls back on its own wording,
- * whereas one handed the string `"null"` would print it.
- *
- * `failed` is the caller's, because which read fell over is a question about the
- * screen that asked -- Care Needed and the Leader Dashboard say different things
- * to their own users about the same broken query.
- */
-export const lookup = async <T>(
-  supabase: SupabaseClient,
-  table: string,
-  column: string,
-  ids: readonly (string | null)[],
-  read: (value: unknown) => T | null,
-  failed: (error: { readonly message: string }) => Error,
-): Promise<Map<string, T>> => {
-  const wanted = [...new Set(ids.flatMap((id) => (id ? [id] : [])))]
-  if (wanted.length === 0) return new Map()
-
-  const { data, error } = await supabase.from(table).select(`id, ${column}`).in('id', wanted)
-  if (error) throw failed(error)
-
-  return new Map(
-    rows(data).flatMap((row) => {
-      const id = text(row.id)
-      const value = read(row[column])
-      return id !== null && value !== null ? [[id, value] as const] : []
-    }),
-  )
-}
 
 /**
  * A `count(*)` column as a number, or null where it came back as neither of the

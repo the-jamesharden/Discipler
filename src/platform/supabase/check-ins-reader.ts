@@ -3,10 +3,13 @@ import { systemClock, type Clock } from '~/domain/clock'
 import { relationshipId, type MinistryId } from '~/domain/ids'
 import { isoWeekOf } from '~/domain/week'
 import type { CheckInsReader, CheckInThisWeek, ThisWeeksCheckIns } from '~/service/ports'
+import { careNeededFrom, historyFor } from './care-needed-reader'
+import { adminPage, readPageDocument } from './page'
 import {
-  answersOf,
-  membersOf,
-  timeZoneOf,
+  answersFrom,
+  historyOf,
+  membersFrom,
+  type HistoryInputs,
   type RelationshipWeekAnswer,
 } from './relationship-history'
 import { createSupabaseServerClient } from './server-client'
@@ -25,13 +28,6 @@ import { createSupabaseServerClient } from './server-client'
  * column of that table, and the authenticated role holds no grant on the words.
  * They are reached one Person at a time through `CommandService.openConcern`.
  */
-
-/**
- * How every read in this file fails. Three queries, one screen, one message;
- * which of them fell over is a server-log question rather than a screen one.
- */
-const couldNotRead = (error: { readonly message: string }): Error =>
-  new Error(`Could not read this week's Check-Ins: ${error.message}`)
 
 /**
  * One entry per relationship, when a week holds two rows for one.
@@ -74,31 +70,23 @@ const byNames = (a: CheckInThisWeek, b: CheckInThisWeek): number =>
   a.relationshipId.localeCompare(b.relationshipId)
 
 /**
- * The whole tab, against whichever signed-in client it is handed and one reading
- * of the clock. Separated from the reader below so a test can drive it with a
- * real session rather than a Next.js request context.
+ * The whole tab, out of one page's history and one reading of the clock.
  */
-export const readThisWeeksCheckIns = async (
-  supabase: SupabaseClient,
-  ministryId: MinistryId,
-  clock: Clock,
-): Promise<ThisWeeksCheckIns> => {
+export const checkInsFrom = (history: HistoryInputs | null, clock: Clock): ThisWeeksCheckIns => {
   const now = clock.now()
-  const timeZone = await timeZoneOf(supabase, ministryId, couldNotRead)
+  const timeZone = history?.timeZone ?? null
 
-  // A Ministry the caller cannot see comes back empty from the policy, with no
-  // zone to name a week against. The port promises a week, so the header is named
-  // against UTC and the list is empty -- there is no Ministry's week to be wrong
-  // about, since the policies return nothing of it either way. Compare the
-  // Overview, whose empty state carries no week and so needs no zone at all.
-  if (!timeZone) return { week: isoWeekOf(now, 'UTC'), sentAt: null, checkIns: [] }
+  // A Ministry the caller cannot see comes back with no zone to name a week
+  // against. The port promises a week, so the header is named against UTC and the
+  // list is empty -- there is no Ministry's week to be wrong about, since the
+  // policies return nothing of it either way. Compare the Overview, whose empty
+  // state carries no week and so needs no zone at all.
+  if (!history || !timeZone) return { week: isoWeekOf(now, 'UTC'), sentAt: null, checkIns: [] }
 
   const week = isoWeekOf(now, timeZone)
 
-  const [answers, members] = await Promise.all([
-    answersOf(supabase, ministryId, couldNotRead),
-    membersOf(supabase, ministryId, couldNotRead),
-  ])
+  const answers = answersFrom(history)
+  const members = membersFrom(history)
 
   // The whole history is read and this week is filtered out of it here rather than
   // in SQL, because *which week a row falls in* is a rule about time and every one
@@ -144,12 +132,34 @@ export const readThisWeeksCheckIns = async (
 }
 
 /**
+ * The whole tab against whichever signed-in client it is handed, for the tests
+ * that drive it with a real session rather than a Next.js request context. The
+ * Ministry named is the one the caller is asking about, and asking about one the
+ * session does not administer reads as the empty week the policies would have
+ * returned.
+ */
+export const readThisWeeksCheckIns = async (
+  supabase: SupabaseClient,
+  ministryId: MinistryId,
+  clock: Clock,
+): Promise<ThisWeeksCheckIns> =>
+  checkInsFrom(await historyFor(supabase, ministryId, 'check_ins_page'), clock)
+
+/**
  * Built with a clock rather than reaching for one, because which ISO week it is
  * is a time-dependent rule like any other, and the composition root is what
- * decides whose clock answers it.
+ * decides whose clock answers it. The badge's number derives from the same
+ * document as the week, so the two cannot be read at different moments.
  */
 export const createSupabaseCheckInsReader = (clock: Clock = systemClock): CheckInsReader => ({
-  async readThisWeeksCheckIns(ministryId) {
-    return readThisWeeksCheckIns(await createSupabaseServerClient(), ministryId, clock)
+  async readCheckInsPage() {
+    const doc = await readPageDocument(await createSupabaseServerClient(), 'check_ins_page')
+    return adminPage(doc, () => {
+      const history = historyOf(doc)
+      return {
+        week: checkInsFrom(history, clock),
+        followUpCount: careNeededFrom(history, clock).length,
+      }
+    })
   },
 })

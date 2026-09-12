@@ -386,8 +386,9 @@ describe('the Overview', () => {
       completedThisWeek: 0,
     })
 
-    // And asking for theirs as my Admin reads the same empty state: the policy
-    // returns no Ministry, and there is nothing to be wrong about.
+    // And asking for theirs as my Admin reads the same empty state: a page function
+    // answers for the session's own Ministry rather than for a Ministry id the
+    // caller names, so there is nothing of theirs to be wrong about.
     const asMine = await signInAs(mine.ministry)
     await expect(
       readOverview(asMine, theirs.ministry.id, createTestClock(minutesAfter(at(0), 3))),

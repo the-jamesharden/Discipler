@@ -2,7 +2,6 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { AccountMenu, PageShell } from '../shell'
 import { SLOT_HOURS, WEEKDAYS } from '~/domain/intake'
-import { resolveAdmin } from '~/platform/supabase/current-admin'
 import { getLeaderDashboardReader } from '~/service/container'
 import type { RelationshipLed } from '~/service/ports'
 import {
@@ -264,10 +263,8 @@ const Relationship = ({ relationship }: { relationship: RelationshipLed }) => {
 }
 
 export default async function RelationshipsPage() {
-  const resolution = await resolveAdmin()
+  const { resolution, led } = await getLeaderDashboardReader().readRelationshipsPage()
   if (resolution.status === 'signed-out') redirect('/login')
-
-  const led = await getLeaderDashboardReader().listRelationshipsLed()
 
   // Whoever is reading: the first relationship's own contact. Said by first name,
   // as the design does. A Leader leading nothing has no contact row to read a

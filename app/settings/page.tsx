@@ -5,7 +5,6 @@ import {
   QUIET_HOURS,
   speakingName,
 } from '~/domain/ministry-settings'
-import { resolveAdmin } from '~/platform/supabase/current-admin'
 import { getMinistrySettingsReader } from '~/service/container'
 import { AccountMenu, NotAnAdmin, PageShell } from '../shell'
 import {
@@ -52,13 +51,13 @@ export default async function MinistrySettingsPage({
 }: {
   searchParams: Promise<{ error?: string; saved?: string }>
 }) {
-  const resolution = await resolveAdmin()
+  const resolution = await getMinistrySettingsReader().readSettingsPage()
 
   if (resolution.status === 'not-an-admin') return <NotAnAdmin title="Ministry Settings" />
   if (resolution.status === 'signed-out') redirect('/login')
 
   const admin = resolution.admin
-  const settings = await getMinistrySettingsReader().readMinistrySettings(admin.ministryId)
+  const { settings } = resolution.page
   const query = await searchParams
 
   const refusals = refusalMessages(query.error)

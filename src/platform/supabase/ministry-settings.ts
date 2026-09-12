@@ -1,6 +1,7 @@
 import { roleNoun, type MinistrySettings } from '~/domain/ministry-settings'
 import type { MinistrySettingsReader } from '~/service/ports'
-import { count, rows, text } from './rows'
+import { adminPage, readPageDocument, section } from './page'
+import { count, text } from './rows'
 import { createSupabaseServerClient } from './server-client'
 
 /**
@@ -11,7 +12,8 @@ import { createSupabaseServerClient } from './server-client'
  * file could forget -- `ministry_settings` answers for the Ministry the caller
  * *administers* and for no other, which is how *settings are per Ministry and
  * readable only within that Ministry* stays true of the data instead of true of
- * the page.
+ * the page. One document, `settings_page`, carries the session verdict and the
+ * row together, so the page does not resolve the Admin and then read.
  */
 
 /**
@@ -61,24 +63,18 @@ const asSettings = (row: Record<string, unknown>): MinistrySettings => {
 }
 
 export const supabaseMinistrySettingsReader: MinistrySettingsReader = {
-  async readMinistrySettings(ministryId): Promise<MinistrySettings> {
+  async readSettingsPage() {
     const supabase = await createSupabaseServerClient()
+    const doc = await readPageDocument(supabase, 'settings_page')
 
-    const { data, error } = await supabase.rpc('ministry_settings', {
-      target_ministry_id: ministryId,
+    return adminPage(doc, (page) => {
+      // Not a Ministry with default settings. `ministry_settings` answers an Admin
+      // of that Ministry and nobody else, so an empty answer is a caller who is not
+      // one -- and rendering a blank form for them would offer to save settings they
+      // may not read.
+      if (page.settings === null) throw new Error('This account administers no such Ministry')
+
+      return { settings: asSettings(section(page, 'settings')) }
     })
-
-    if (error) {
-      throw new Error(`Could not read this Ministry's settings: ${error.message}`)
-    }
-
-    const row = rows(data)[0]
-    // Not a Ministry with default settings. `ministry_settings` answers an Admin
-    // of that Ministry and nobody else, so an empty answer is a caller who is not
-    // one -- and rendering a blank form for them would offer to save settings they
-    // may not read.
-    if (!row) throw new Error('This account administers no such Ministry')
-
-    return asSettings(row)
   },
 }

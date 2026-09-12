@@ -1,10 +1,10 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Satisfaction } from '~/domain/check-in'
-import { concernId, personId, type MinistryId } from '~/domain/ids'
+import { concernId, personId } from '~/domain/ids'
 import { readStandingPause, type StandingPause } from '~/domain/pause'
 import type { RaisedConcern, RelationshipWeek } from '~/domain/relationship-state'
 import type { OutstandingConcern } from '~/service/ports'
-import { lookup, rows, text } from './rows'
+import { list, section, type PageDocument } from './page'
+import { rows, text } from './rows'
 
 /**
  * One relationship's history, as every Admin surface that derives from it reads
@@ -18,13 +18,12 @@ import { lookup, rows, text } from './rows'
  * places for that disagreement to start. So each read lives here once, and what
  * each surface does with the rows stays in that surface's file.
  *
- * `failed` is the caller's on every read, the way `lookup` takes it: from a
- * screen's point of view its several queries are one read, and which of them fell
- * over is a server-log question phrased in that screen's name.
+ * Since a page became one read, the rows arrive together in the page's document
+ * under `history` (`app.history_inputs` in the migration), read once per page
+ * rather than once per surface, and the functions here parse them out of it. The
+ * checks are the ones the separate reads had; only where the rows come from is
+ * new.
  */
-
-/** How a read here says it broke: with the caller's wording around the message. */
-export type ReadFailure = (error: { readonly message: string }) => Error
 
 /**
  * Append one value to the list a key holds, making the list if it has none.
@@ -42,38 +41,60 @@ export const gather = <T>(into: Map<string, T[]>, key: string, value: T): void =
 export const instant = (value: unknown): Date | null =>
   typeof value === 'string' ? new Date(value) : null
 
-/** The one lookup the grouping reads share: a Person's name, by id. */
-const namesOf = (
-  supabase: SupabaseClient,
-  ids: readonly (string | null)[],
-  failed: ReadFailure,
-) => lookup(supabase, 'person', 'full_name', ids, text, failed)
+/**
+ * The `history` part of a page's document: the rows the derivations below read.
+ * Each list is required to be present, and a document without one is raised on
+ * rather than read as empty -- a Ministry with no weeks has an empty list, and a
+ * page that was told nothing about weeks is a different thing from that.
+ */
+export interface HistoryInputs {
+  /**
+   * The Ministry's IANA zone, or null where the signed-in caller may not see the
+   * Ministry at all. Every counter downstream is anchored to a week, and a week
+   * is only a week against a zone; each surface decides for itself what an
+   * unreachable Ministry reads as, and none guesses a zone.
+   */
+  readonly timeZone: string | null
+  readonly relationships: readonly Record<string, unknown>[]
+  readonly members: readonly Record<string, unknown>[]
+  readonly people: readonly Record<string, unknown>[]
+  readonly weeks: readonly Record<string, unknown>[]
+  readonly concerns: readonly Record<string, unknown>[]
+  readonly pauses: readonly Record<string, unknown>[]
+  readonly answers: readonly Record<string, unknown>[]
+  readonly followUps: readonly Record<string, unknown>[]
+}
+
+export const historyOf = (doc: PageDocument): HistoryInputs => {
+  const history = section(doc, 'history')
+  return {
+    timeZone: text(history.timezone),
+    relationships: list(history, 'relationships'),
+    members: list(history, 'members'),
+    people: list(history, 'people'),
+    weeks: list(history, 'weeks'),
+    concerns: list(history, 'concerns'),
+    pauses: list(history, 'pauses'),
+    answers: list(history, 'answers'),
+    followUps: list(history, 'follow_ups'),
+  }
+}
 
 /**
- * The Ministry's IANA zone, or null where the signed-in caller may not see the
- * Ministry at all.
- *
- * Every counter downstream is anchored to a week, and a week is only a week
- * against a zone. A Ministry an Admin does not belong to comes back empty from
- * the policy, and the answer is null rather than a guessed zone: the wrong zone is
- * a wrong answer, and each surface decides for itself what an unreachable Ministry
- * reads as.
+ * The one lookup the grouping reads share: a Person's name, by id. The `people`
+ * rows are everyone the history's other rows point at, as the `person` policies
+ * let the caller name them; a row without a usable name is left out rather than
+ * carried forward as a placeholder, so a caller that gets no entry falls back on
+ * its own wording.
  */
-export const timeZoneOf = async (
-  supabase: SupabaseClient,
-  ministryId: MinistryId,
-  failed: ReadFailure,
-): Promise<string | null> => {
-  const { data, error } = await supabase
-    .from('ministry')
-    .select('timezone')
-    .eq('id', ministryId)
-    .maybeSingle()
-
-  if (error) throw failed(error)
-
-  return text((data ?? {}).timezone)
-}
+export const namesFrom = (history: HistoryInputs): Map<string, string> =>
+  new Map(
+    history.people.flatMap((row) => {
+      const id = text(row.id)
+      const name = text(row.full_name)
+      return id !== null && name !== null ? [[id, name] as const] : []
+    }),
+  )
 
 export interface RelationshipMembers {
   readonly leaders: string[]
@@ -93,28 +114,12 @@ export const NOBODY_IN_IT: RelationshipMembers = { leaders: [], participants: []
  * about it. Open memberships only: somebody who has left is not who an Admin is
  * calling about.
  */
-export const membersOf = async (
-  supabase: SupabaseClient,
-  ministryId: MinistryId,
-  failed: ReadFailure,
-): Promise<Map<string, RelationshipMembers>> => {
-  const { data, error } = await supabase
-    .from('relationship_member')
-    .select('relationship_id, person_id, role')
-    .eq('ministry_id', ministryId)
-    .is('ended_at', null)
-
-  if (error) throw failed(error)
-
-  const memberships = rows(data)
-  const nameOf = await namesOf(
-    supabase,
-    memberships.map((row) => text(row.person_id)),
-    failed,
-  )
-
+export const membersFrom = (
+  history: HistoryInputs,
+  nameOf: ReadonlyMap<string, string> = namesFrom(history),
+): Map<string, RelationshipMembers> => {
   const byRelationship = new Map<string, RelationshipMembers>()
-  for (const row of memberships) {
+  for (const row of history.members) {
     const relationship = text(row.relationship_id)
     const person = text(row.person_id)
     if (!relationship || !person) continue
@@ -144,19 +149,9 @@ export const membersOf = async (
  * The ISO week each row falls in is computed downstream, against the Ministry's
  * own timezone, and the counting is left entirely to `deriveRelationshipState`.
  */
-export const weeksOf = async (
-  supabase: SupabaseClient,
-  ministryId: MinistryId,
-  failed: ReadFailure,
-): Promise<Map<string, RelationshipWeek[]>> => {
-  const { data, error } = await supabase.rpc('relationship_weeks', {
-    target_ministry_id: ministryId,
-  })
-
-  if (error) throw failed(error)
-
+export const weeksFrom = (history: HistoryInputs): Map<string, RelationshipWeek[]> => {
   const byRelationship = new Map<string, RelationshipWeek[]>()
-  for (const row of rows(data)) {
+  for (const row of history.weeks) {
     const relationship = text(row.relationship_id)
     const openedAt = instant(row.opened_at)
     if (!relationship || !openedAt) continue
@@ -190,8 +185,8 @@ export const weeksOf = async (
  *
  * A Pause is two events -- `relationship.paused` and `relationship.resumed` -- and
  * what stands is the later of them, which is a `distinct on` and not something
- * PostgREST can be asked for. So it comes through the same kind of function
- * `relationship_weeks` does, and the rule it feeds stays in
+ * PostgREST can be asked for. So it comes through `relationship_pauses`, the same
+ * kind of function `relationship_weeks` is, and the rule it feeds stays in
  * `deriveRelationshipState`.
  *
  * This read is what keeps a Leader on holiday out of the care queue. Without it
@@ -207,19 +202,9 @@ export const weeksOf = async (
  * Care Needed reader, which *is* dropped: an unrenderable item is one row, not a
  * rule that has stopped being true.
  */
-export const pausesOf = async (
-  supabase: SupabaseClient,
-  ministryId: MinistryId,
-  failed: ReadFailure,
-): Promise<Map<string, StandingPause>> => {
-  const { data, error } = await supabase.rpc('relationship_pauses', {
-    target_ministry_id: ministryId,
-  })
-
-  if (error) throw failed(error)
-
+export const pausesFrom = (history: HistoryInputs): Map<string, StandingPause> => {
   const byRelationship = new Map<string, StandingPause>()
-  for (const row of rows(data)) {
+  for (const row of history.pauses) {
     const relationship = text(row.relationship_id)
     const pausedAt = instant(row.paused_at)
     if (!relationship || !pausedAt) continue
@@ -238,38 +223,22 @@ export const pausesOf = async (
  * the resolved ones to know they are no longer outstanding, and the unresolved
  * ones to know whether one was raised this week.
  *
- * `detail` is not in the select list and could not be read if it were -- the
+ * `detail` is not among the columns and could not be read if it were -- the
  * authenticated role holds no grant on that column. The words are reached one at a
  * time through `CommandService.openConcern`, which records the viewing in the same
  * transaction that returns them.
  */
-export const concernsOf = async (
-  supabase: SupabaseClient,
-  ministryId: MinistryId,
-  failed: ReadFailure,
-): Promise<{
+export const concernsFrom = (
+  history: HistoryInputs,
+  nameOf: ReadonlyMap<string, string> = namesFrom(history),
+): {
   readonly raised: Map<string, RaisedConcern[]>
   readonly outstanding: Map<string, OutstandingConcern[]>
-}> => {
-  const { data, error } = await supabase
-    .from('concern')
-    .select('id, relationship_id, raised_by, raised_at, resolved_at')
-    .eq('ministry_id', ministryId)
-    .order('raised_at', { ascending: false })
-
-  if (error) throw failed(error)
-
-  const found = rows(data)
-  const nameOf = await namesOf(
-    supabase,
-    found.map((row) => text(row.raised_by)),
-    failed,
-  )
-
+} => {
   const raised = new Map<string, RaisedConcern[]>()
   const outstanding = new Map<string, OutstandingConcern[]>()
 
-  for (const row of found) {
+  for (const row of history.concerns) {
     const relationship = text(row.relationship_id)
     const raisedAt = instant(row.raised_at)
     const id = text(row.id)
@@ -340,25 +309,15 @@ const satisfactionOf = (value: unknown): Satisfaction | null => {
 
 /**
  * Every relationship-week this Ministry has on record with what was answered for
- * it, in no particular order. The whole history, for the reason `weeksOf` reads
+ * it, in no particular order. The whole history, for the reason `weeksFrom` reads
  * the whole history: a rate over a quietly truncated denominator is a number
  * nothing on the screen could explain.
  *
  * Throws on a row it cannot read rather than leaving it out. A dropped row is a
  * denominator one short, which is the kind of wrong answer a rate cannot show.
  */
-export const answersOf = async (
-  supabase: SupabaseClient,
-  ministryId: MinistryId,
-  failed: ReadFailure,
-): Promise<readonly RelationshipWeekAnswer[]> => {
-  const { data, error } = await supabase.rpc('relationship_week_answers', {
-    target_ministry_id: ministryId,
-  })
-
-  if (error) throw failed(error)
-
-  return rows(data).map((row) => {
+export const answersFrom = (history: HistoryInputs): readonly RelationshipWeekAnswer[] =>
+  rows(history.answers).map((row) => {
     const relationshipId = text(row.relationship_id)
     const sequenceId = text(row.sequence_id)
     const openedAt = instant(row.opened_at)
@@ -386,4 +345,3 @@ export const answersOf = async (
       concernOpen: row.concern_open === true,
     }
   })
-}
