@@ -20,3 +20,6 @@ Done on 2026-09-11.
 `/` and `/account` were already one read through `resolveAdmin` and are untouched.
 Four integration files drive `signed_in_admin`, `settings_page`, `intake_forms_page` and `relationships_page` through signed-in clients, including the ended-session case and the other-Ministry case, and the last one also proves the reader's derivation.
 Not done here: the over-HTTP suites in the acceptance list were not run, because the database and the port are shared with ticket 02 mid-flight; they are the proof that nothing on a screen changed and belong to the run that follows both tickets.
+
+The over-HTTP suites in the acceptance list were run on 2026-09-12 at `b423817`, three full runs in a row against a freshly built server, all green; see the verification note on ticket 02.
+Loaded once against the local stack, `/relationships`, `/settings`, `/intake-forms`, `/` and `/account` each made one `/rest/v1/rpc/` call.
