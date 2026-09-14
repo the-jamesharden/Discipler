@@ -234,6 +234,30 @@ describe.skipIf(skipUnlessAppIsRunning)('the Admin tabs', () => {
       expect(after.html).not.toContain('Liam Okafor')
     })
 
+    it('renders the list unchanged when the reveal names nothing', async () => {
+      const church = await aMinistry('Stale Bookmark Chapel')
+      const { cookie } = await signIn(church.ministry)
+      const person = personId(await addPerson(church.ministry, 'Noor Haddad', { phone: '+15559990003' }))
+      await store.transact(church.ministry.id, (unit) =>
+        unit.raiseFollowUp({
+          ministryId: church.ministry.id,
+          kind: 'participant_keyword',
+          keyword: 'HELP',
+          relationshipId: null,
+          personId: person,
+          raisedAt: new Date(),
+        }),
+      )
+
+      for (const asked of ['anything', 'not-a-uuid', crypto.randomUUID()]) {
+        const { response, html } = await getPage(`/follow-up?reveal=${asked}`, cookie)
+        expect(response.status).toBe(200)
+        expect(html).toContain('Noor Haddad')
+        expect(html).toContain('See contact details')
+        expect(html).not.toContain('+15559990003')
+      }
+    })
+
     it('withholds a number its Person has not agreed to share', async () => {
       const church = await aMinistry('Withheld Chapel')
       const { cookie } = await signIn(church.ministry)

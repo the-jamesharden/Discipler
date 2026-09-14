@@ -218,8 +218,6 @@ export const materialsFrom = (doc: PageDocument, clock: Clock): MaterialsPage =>
       previously: closedPeriodsOf(own),
       gender,
       state: derived.state,
-      reasons: derived.reasons,
-      openConcerns: derived.openConcerns,
     })
   }
 

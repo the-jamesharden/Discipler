@@ -32,8 +32,6 @@ const relationship = (over: Partial<MaterialRelationship> = {}): MaterialRelatio
   previously: [],
   gender: null,
   state: 'healthy',
-  reasons: [],
-  openConcerns: 0,
   ...over,
 })
 

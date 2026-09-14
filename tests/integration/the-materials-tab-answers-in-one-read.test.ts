@@ -204,7 +204,6 @@ describe('the Materials tab answers in one read', () => {
       previously: [{ title: null, startedAt: acceptedAt, endedAt: assignedAt }],
       gender: 'male',
       state: 'healthy',
-      openConcerns: 0,
     })
 
     // The women's group: on no Material since acceptance, nothing before, under

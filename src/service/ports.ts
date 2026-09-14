@@ -1712,8 +1712,6 @@ export interface MaterialRelationship {
    */
   readonly gender: Gender | null
   readonly state: RelationshipState
-  readonly reasons: readonly CareReason[]
-  readonly openConcerns: number
 }
 
 /** What the Materials tab and its folders derive from their document. */

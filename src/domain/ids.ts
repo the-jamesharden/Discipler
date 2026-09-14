@@ -40,6 +40,16 @@ export const importRowId = (value: string): ImportRowId => value as ImportRowId
 export const intakeSubmissionId = (value: string): IntakeSubmissionId =>
   value as IntakeSubmissionId
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+
+/**
+ * A PersonId out of text nobody vouched for, such as a query string: the value
+ * when it has the shape a stored identifier has, and null for anything else,
+ * which names no Person and would fail the database's cast before any gate ran.
+ */
+export const personIdFrom = (value: string | undefined): PersonId | null =>
+  value !== undefined && UUID.test(value) ? personId(value) : null
+
 /**
  * Where new identifiers come from. Injected for the same reason the clock is: a
  * command that mints an id from inside the domain is no longer a pure function of

@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { personId as asPersonId } from '~/domain/ids'
+import { personIdFrom } from '~/domain/ids'
 import { RELATIONSHIP_OUTCOMES } from '~/domain/relationships'
 import { getCareNeededReader } from '~/service/container'
 import type { CareMember, CareNeededItem } from '~/service/ports'
@@ -250,8 +250,8 @@ export default async function FollowUpPage({
   // through the consent check at the moment of display. Whatever arrives in the
   // query string is whatever somebody typed there, so the reveal is honoured only
   // for a Person the list itself names.
-  const asked = query.reveal
-  const page = await getCareNeededReader().readFollowUpPage(asked ? asPersonId(asked) : null)
+  const asked = personIdFrom(query.reveal)
+  const page = await getCareNeededReader().readFollowUpPage(asked)
   if (page.status === 'not-an-admin') return <NotAnAdmin title={CARE_NEEDED_HEADING} />
   if (page.status === 'signed-out') redirect('/login')
 
