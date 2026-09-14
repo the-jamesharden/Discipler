@@ -5,11 +5,10 @@ import { GENDERS, isOneOf, type Gender } from '~/domain/intake'
  * through PostgREST or through the driver.
  *
  * These were written out per file until they drifted: `rows` and `text` stood
- * letter-for-letter in both the Care Needed reader and the Leader Dashboard, and
- * each surface had grown its own id-to-name query on top of them. A helper that
- * means the same thing in two files is one helper, and a difference between the
- * copies is a bug nobody would go looking for -- which is exactly what happened to
- * the two readings of `count(*)` that `count` below now replaces.
+ * letter-for-letter in both the Care Needed reader and the Leader Dashboard. A
+ * helper that means the same thing in two files is one helper, and a difference
+ * between the copies is a bug nobody would go looking for -- which is exactly
+ * what happened to the two readings of `count(*)` that `count` below now replaces.
  */
 
 /**

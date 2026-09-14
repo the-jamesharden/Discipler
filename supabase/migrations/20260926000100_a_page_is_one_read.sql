@@ -8,7 +8,7 @@
 -- and a click that fires several at once is the burst that stalls the origin.
 --
 -- This migration gives each page one function that answers the whole page in
--- one document, `.scratch/a-page-is-one-read/spec.md`. Every one is named for
+-- one document (`docs/adr/0023-a-page-is-one-read.md`). Every one is named for
 -- its page and ends in `_page` (`signed_in_admin` is the one exception, for the
 -- surfaces that need nothing but the verdict): the name is how the smoke loop in
 -- `src/platform/supabase/every-page-function-answers.ts` finds them all, so a

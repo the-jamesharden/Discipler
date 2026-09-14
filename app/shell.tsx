@@ -139,7 +139,7 @@ export const TabBar = ({
  *
  * The Follow-Up badge is the length of Care Needed, which is the same number the
  * Overview's Needs Follow-Up tile shows. Every page hands the count in, because a
- * page is one read (`.scratch/a-page-is-one-read/spec.md`): the number derives
+ * page is one read (`docs/adr/0023-a-page-is-one-read.md`): the number derives
  * from the same document the page was drawn from, and the shell reads nothing of
  * its own -- which is what keeps the badge from being a second read again.
  */

@@ -1508,7 +1508,7 @@ export type AdminResolution =
  * A page's whole answer in one read: the session verdict, and what the page
  * derives from its document where there is an Admin to derive for. Every page
  * reader below returns one, because a page is one read
- * (`.scratch/a-page-is-one-read/spec.md`): the verdict and the data come from the
+ * (`docs/adr/0023-a-page-is-one-read.md`): the verdict and the data come from the
  * same document, so a page does not resolve the Admin and then read.
  */
 export type AdminPage<T> =
