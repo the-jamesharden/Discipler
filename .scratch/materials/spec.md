@@ -4,6 +4,7 @@ Status: ready-for-agent
 
 Raised by James on 2026-09-12 and grilled the same day; the design was approved in Lavish on 2026-09-13.
 The approved design is `.lavish/materials/design.html`, rendered on `public/discipler.css`.
+`.lavish/` is the Lavish workspace on the machine the review ran on and is gitignored, so the design file is not in the repository; the shipped markup under `app/materials/` and the Materials block of `public/discipler.css` are its record here, and the same holds for every `.lavish/` path a ticket cites.
 Every screen there is numbered S-1 to S-8 and every one was approved as drawn, after the review changes were folded in.
 Where this spec and the design file disagree, the design file wins on look and this spec wins on behaviour.
 
