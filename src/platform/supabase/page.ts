@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { ministryId, personId } from '~/domain/ids'
+import { ministryId, personId, type MinistryId } from '~/domain/ids'
 import type { AdminPage, AdminResolution } from '~/service/ports'
 import { text } from './rows'
 import { verifiedTokenSubject } from './session'
@@ -128,4 +128,25 @@ export const list = (doc: PageDocument, key: string): readonly Record<string, un
   const value = doc[key]
   if (!Array.isArray(value)) throw new Error(`The page document has no ${key}`)
   return value as Record<string, unknown>[]
+}
+
+/**
+ * One page's document for one Ministry, through whichever signed-in client it is
+ * handed, or null where the session does not administer that Ministry.
+ *
+ * Kept so a test can drive a reader's derivation with a real session rather than
+ * a Next.js request context, which is the one thing `createSupabaseServerClient`
+ * needs and the one thing a test cannot supply. The Ministry named is the one the
+ * caller is asking about: a page function answers for the session's own Ministry
+ * and no other, so asking about somebody else's reads as the empty Ministry the
+ * policies would have returned.
+ */
+export const documentFor = async (
+  supabase: SupabaseClient,
+  ministry: MinistryId,
+  page: string,
+): Promise<PageDocument | null> => {
+  const doc = await readPageDocument(supabase, page)
+  const resolution = resolutionOf(doc)
+  return resolution.status === 'admin' && resolution.admin.ministryId === ministry ? doc : null
 }

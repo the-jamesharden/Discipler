@@ -15,17 +15,17 @@ import { INTAKE_FORMS } from './intake-forms/copy'
  * what the app already has, and the current one is marked with `aria-current`.
  */
 
-/** The six Admin tabs, left to right and named as the prototype names them. */
+/**
+ * The six Admin tabs, left to right and named as the prototype names them.
+ * Materials was greyed out from ticket 31 until the tab was built
+ * (`.scratch/materials/spec.md`); every tab is a link now.
+ */
 export const ADMIN_TABS = [
   { key: 'overview', href: '/overview', label: 'Overview' },
   { key: 'check-ins', href: '/check-ins', label: 'Check-Ins' },
   { key: 'suggested-pairs', href: '/suggested-pairs', label: 'Suggested Pairs' },
   { key: 'follow-up', href: '/follow-up', label: 'Follow-Up' },
-  /**
-   * Present and greyed out, for now: nothing is built behind it under ticket 31,
-   * so it is a non-navigable item rather than a link that goes nowhere.
-   */
-  { key: 'materials', href: null, label: 'Materials' },
+  { key: 'materials', href: '/materials', label: 'Materials' },
   { key: 'roster', href: '/roster', label: 'Roster' },
 ] as const
 
@@ -115,24 +115,18 @@ export const TabBar = ({
     <ul className="tabs">
       {ADMIN_TABS.map((tab) => (
         <li key={tab.key}>
-          {tab.href === null ? (
-            <span className="tab" aria-disabled="true">
-              {tab.label}
-            </span>
-          ) : (
-            <Link
-              href={tab.href}
-              className="tab"
-              aria-current={tab.key === current ? 'page' : undefined}
-            >
-              {tab.label}
-              {tab.key === 'follow-up' && followUpCount > 0 ? (
-                <span className="tab-badge" aria-label={`${followUpCount} needing attention`}>
-                  {followUpCount}
-                </span>
-              ) : null}
-            </Link>
-          )}
+          <Link
+            href={tab.href}
+            className="tab"
+            aria-current={tab.key === current ? 'page' : undefined}
+          >
+            {tab.label}
+            {tab.key === 'follow-up' && followUpCount > 0 ? (
+              <span className="tab-badge" aria-label={`${followUpCount} needing attention`}>
+                {followUpCount}
+              </span>
+            ) : null}
+          </Link>
         </li>
       ))}
     </ul>

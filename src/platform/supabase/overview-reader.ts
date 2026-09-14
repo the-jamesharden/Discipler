@@ -10,6 +10,7 @@ import { careNeededFrom, historyFor } from './care-needed-reader'
 import { adminPage, readPageDocument } from './page'
 import {
   answersFrom,
+  byNames,
   concernsFrom,
   historyOf,
   instant,
@@ -74,17 +75,6 @@ const countsOf = (answers: readonly RelationshipWeekAnswer[]): CheckInCounts => 
 
   return { sent: answers.length, answered, held, rated }
 }
-
-/**
- * A stable order for the cards: by the Leaders' names, then the Participants',
- * then the id so two relationships between the same people cannot swap places
- * between two reads. Not by urgency -- Care Needed is the surface that ranks, and
- * the Overview is a list an Admin scans for a name.
- */
-const byNames = (a: OverviewRelationship, b: OverviewRelationship): number =>
-  a.leaderNames.join(', ').localeCompare(b.leaderNames.join(', ')) ||
-  a.participantNames.join(', ').localeCompare(b.participantNames.join(', ')) ||
-  a.relationshipId.localeCompare(b.relationshipId)
 
 /**
  * The whole tab, out of one page's history and one reading of the clock.

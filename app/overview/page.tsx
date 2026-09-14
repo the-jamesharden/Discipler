@@ -2,7 +2,6 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { checkInRates, ratedTotal } from '~/domain/overview'
 import { getOverviewReader } from '~/service/container'
-import type { CareNeededItem, OverviewRelationship } from '~/service/ports'
 import { AdminShell, NotAnAdmin } from '../shell'
 import {
   ALL_RELATIONSHIPS,
@@ -13,14 +12,12 @@ import {
   OVERVIEW_SUBTITLE,
   QUICK_STATS,
   relationshipCount,
-  shortConcern,
-  shortFollowUp,
-  shortReason,
   statePill,
   TILES,
   withPeople,
 } from './copy'
 import { Donut } from './donut'
+import { flaggedIn, flagsFor } from './flags'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,35 +35,6 @@ export const dynamic = 'force-dynamic'
  * Follow-Up item where one exists, because there is no relationship detail page.
  */
 
-/** The care items about one relationship, as the short words a card carries. */
-const flagsFor = (
-  relationship: OverviewRelationship,
-  care: readonly CareNeededItem[],
-): { readonly flags: readonly string[]; readonly tone: 'needscare' | 'stalled' | 'review' } => {
-  const mine = care.filter(
-    (item) =>
-      (item.source === 'follow_up' ? item.relationshipId : item.relationshipId)
-      === relationship.relationshipId,
-  )
-  const flags = mine
-    .map((item) =>
-      item.source === 'follow_up'
-        ? shortFollowUp[item.payload.kind](item.waitedDays)
-        : item.source === 'relationship'
-          ? item.reasons.map(shortReason).join(' · ')
-          : shortConcern(item.concerns.length),
-    )
-    // A Needs Care relationship carries no reason of its own; its Concern is the
-    // flag, and it is on the list as a badge already.
-    .filter((flag) => flag !== '')
-  const tone = mine.some((item) => item.source === 'concern')
-    ? 'needscare'
-    : mine.some((item) => item.source === 'relationship')
-      ? 'stalled'
-      : 'review'
-  return { flags, tone }
-}
-
 export default async function OverviewPage() {
   // One read: the session verdict, the tab and the Care Needed list come from one
   // document, so the Needs Follow-Up tile, the tab badge and the flag lines on
@@ -81,9 +49,7 @@ export default async function OverviewPage() {
   const rates = checkInRates(overview.counts)
   const notMet = overview.counts.answered - overview.counts.held
   const rated = ratedTotal(overview.counts)
-  const flagged = new Set(
-    care.flatMap((item) => (item.relationshipId ? [item.relationshipId] : [])),
-  )
+  const flagged = flaggedIn(care)
 
   const tiles = [
     {
@@ -169,7 +135,7 @@ export default async function OverviewPage() {
         ) : (
           <div className="rel-grid">
             {overview.relationships.map((relationship) => {
-              const { flags, tone } = flagsFor(relationship, care)
+              const { flags, tone } = flagsFor(relationship.relationshipId, care)
               const body = (
                 <>
                   <div className="rel-leader">

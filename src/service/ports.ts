@@ -1653,3 +1653,92 @@ export interface CheckInsReader {
    */
   readCheckInsPage(): Promise<AdminPage<CheckInsPage>>
 }
+
+/**
+ * The Materials tab's ports: what the tab and its folders derive from one
+ * document (`.scratch/materials/spec.md`, ticket 01).
+ *
+ * The tab is the Ministry's Materials as folders, each holding the accepted
+ * unended relationships whose running period is on it, and a dashed folder for
+ * the ones on no Material. The reader hands back the Materials and the
+ * relationships; which folder each relationship sits in, and which the filter
+ * keeps, is derived by the page from these -- so the tab and a folder cannot count
+ * the same relationship differently.
+ */
+
+/** One Material on the Ministry's own list, as a folder names it. */
+export interface MaterialOnTheList {
+  readonly materialId: MaterialId
+  readonly title: string
+}
+
+/** One closed period a card lists on its "Previously" line. */
+export interface ClosedMaterialPeriod {
+  /** The Material's title, or null for the stretch with no Material. */
+  readonly title: string | null
+  readonly startedAt: Date
+  readonly endedAt: Date
+}
+
+/**
+ * One accepted, unended relationship as a folder's card shows it: who is in it,
+ * what it is working through now and since when, what it worked through before,
+ * and the state its history derives -- the same derivation the Overview runs, so
+ * the pill and the flag line here say what they say there.
+ */
+export interface MaterialRelationship {
+  readonly relationshipId: RelationshipId
+  readonly leaderNames: readonly string[]
+  readonly participantNames: readonly string[]
+  /** The name the group was given, or null where the relationship has none. */
+  readonly groupName: string | null
+  /**
+   * Whether the card reads as a group: named, or with more than one person being
+   * discipled in it. From the live count and the name, never from the
+   * relationship's kind (ADR-0004).
+   */
+  readonly isAGroup: boolean
+  readonly acceptedAt: Date
+  /** The Material the running period is on, or null on the stretch with none. */
+  readonly runningMaterialId: MaterialId | null
+  /** When the running period began. */
+  readonly since: Date
+  /** The closed periods with a length, earliest first. */
+  readonly previously: readonly ClosedMaterialPeriod[]
+  /**
+   * Which of the two gender folders the filter files it under, or null for All
+   * only: the gender the relationship declared; the Leader's own where a
+   * one-to-one declared none; nothing for a group that declared none.
+   */
+  readonly gender: Gender | null
+  readonly state: RelationshipState
+  readonly reasons: readonly CareReason[]
+  readonly openConcerns: number
+}
+
+/** What the Materials tab and its folders derive from their document. */
+export interface MaterialsPage {
+  /**
+   * The Ministry's IANA zone, which every date on the tab is printed in, or null
+   * where the caller may not see the Ministry at all -- in which case nothing
+   * below is listed and no date is printed.
+   */
+  readonly timeZone: string | null
+  /** The live Materials, in title order. A removed one is not on the list. */
+  readonly materials: readonly MaterialOnTheList[]
+  /** Every accepted, unended relationship, in a stable order. */
+  readonly relationships: readonly MaterialRelationship[]
+  /** The Care Needed list, for the badge and the cards' flag lines. */
+  readonly care: readonly CareNeededItem[]
+}
+
+/** The two surfaces that draw from the tab's document, each read under its own name. */
+export type MaterialsSurface = 'materials' | 'material'
+
+export interface MaterialsReader {
+  /**
+   * The whole tab in one read, against one reading of the clock. The filter is
+   * carried to the function for the edge log and applied by the page.
+   */
+  readMaterialsPage(surface: MaterialsSurface, gender: Gender | null): Promise<AdminPage<MaterialsPage>>
+}

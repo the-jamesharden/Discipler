@@ -51,9 +51,9 @@ Messaging a participant through Discipler is deliberately absent. The admin pick
 
 ## Materials
 
-The Materials tab shows every discipleship relationship and group in the ministry together with the material currently assigned to it, and lets the pastor assign materials from that same view. Assignment history is preserved so later reporting can connect a period's responses to the material in use during it.
+The Materials tab shows the ministry's own list of materials as folders, each holding the relationships and groups working through it now, with a dashed folder last for the ones on no material. A filter of All, Men's and Women's reads what each relationship declared, gives a one-to-one that declared nothing its leader's gender, and files a mixed group under All only. Only accepted, unended relationships appear. Opening a folder lists its relationships as cards: who is in it, the state the Overview derives for it, since when it has been on this material, and every earlier period with dates. Assignment history is preserved so later reporting can connect a period's responses to the material in use during it, and that history line is the one place it is visible.
 
-Material assignment is deferred from V1: the assignment history is recorded, but the admin-facing assignment interface is not built for the pilot. Assignments are configured directly during pilot support.
+Creating and editing a material, and assigning one from a folder's card or from a group's card on Intake forms, follow in `.scratch/materials/spec.md`. Until they ship, assignments are configured directly during pilot support.
 
 ## Roster
 

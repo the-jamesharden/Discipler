@@ -71,9 +71,15 @@ interface PageFunction {
   readonly anon_may_execute: boolean
 }
 
-/** A throwaway value for one argument, so a function with a parameter is still exercised. */
+/**
+ * A throwaway value for one argument, so a function with a parameter is still
+ * exercised. A text argument is passed as null: the one page function that takes
+ * one, `materials_page(gender)`, carries it for the edge log and reads nothing off
+ * it, and null is what a page loaded with no filter sends.
+ */
 const throwawayFor = (fn: string, type: string): string => {
   if (type === 'uuid') return 'gen_random_uuid()'
+  if (type === 'text') return 'null::text'
   throw new Error(`${fn} takes a ${type}, and the loop knows no throwaway value for that type`)
 }
 

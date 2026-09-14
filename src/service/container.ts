@@ -33,6 +33,7 @@ import {
   createPostgresOutboundQueue,
   type PostgresOutboundQueue,
 } from '~/platform/supabase/outbound-queue'
+import { createSupabaseMaterialsReader } from '~/platform/supabase/materials-reader'
 import { createSupabaseOverviewReader } from '~/platform/supabase/overview-reader'
 import { createTwilioTransport } from '~/platform/twilio/message-transport'
 import { supabaseAccounts } from '~/platform/supabase/accounts'
@@ -48,6 +49,7 @@ import type {
   IntakeFormsReader,
   IntakeReader,
   InvitationReader,
+  MaterialsReader,
   MessageTransport,
   MinistryDirectory,
   MinistrySettingsReader,
@@ -304,6 +306,13 @@ export const getOverviewReader = (): OverviewReader => createSupabaseOverviewRea
  * Ministry's own timezone.
  */
 export const getCheckInsReader = (): CheckInsReader => createSupabaseCheckInsReader(systemClock)
+
+/**
+ * The Materials tab reads through the signed-in Admin's session for the same
+ * reason, and takes the clock because which Material period is running is a
+ * question about now, as is the state each card's pill shows.
+ */
+export const getMaterialsReader = (): MaterialsReader => createSupabaseMaterialsReader(systemClock)
 
 /**
  * The Leader Dashboard reads through the signed-in user's session and takes no

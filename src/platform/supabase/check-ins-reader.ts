@@ -7,6 +7,7 @@ import { careNeededFrom, historyFor } from './care-needed-reader'
 import { adminPage, readPageDocument } from './page'
 import {
   answersFrom,
+  byNames,
   historyOf,
   membersFrom,
   type HistoryInputs,
@@ -59,15 +60,6 @@ const oneEntryPerRelationship = (
 
   return [...byRelationship.values()]
 }
-
-/**
- * A stable order for the columns: by the Leaders' names, then the Participants',
- * then the id, so two reads in one week list the same rows the same way round.
- */
-const byNames = (a: CheckInThisWeek, b: CheckInThisWeek): number =>
-  a.leaderNames.join(', ').localeCompare(b.leaderNames.join(', ')) ||
-  a.participantNames.join(', ').localeCompare(b.participantNames.join(', ')) ||
-  a.relationshipId.localeCompare(b.relationshipId)
 
 /**
  * The whole tab, out of one page's history and one reading of the clock.

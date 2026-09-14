@@ -15,7 +15,7 @@ import type {
   FollowUpCareItem,
 } from '~/service/ports'
 import { contactDetailsFrom } from './contact-to-share'
-import { adminPage, readPageDocument, resolutionOf, type PageDocument } from './page'
+import { adminPage, documentFor, readPageDocument, type PageDocument } from './page'
 import {
   concernsFrom,
   historyOf,
@@ -268,24 +268,16 @@ export const careNeededFrom = (history: HistoryInputs, clock: Clock): readonly C
 
 /**
  * The page's history for one Ministry, through whichever signed-in client it is
- * handed, or nothing where the session does not administer that Ministry.
- *
- * Kept so a test can drive the derivations with a real session rather than a
- * Next.js request context, which is the one thing `createSupabaseServerClient`
- * needs and the one thing a test cannot supply. The Ministry named is the one the
- * caller is asking about: a page function answers for the session's own Ministry
- * and no other, so asking about somebody else's reads as the empty Ministry the
- * policies would have returned.
+ * handed, or nothing where the session does not administer that Ministry. For
+ * the tests that drive the derivations with a real session; see `documentFor`.
  */
 export const historyFor = async (
   supabase: SupabaseClient,
   ministryId: MinistryId,
   page: string = 'overview_page',
 ): Promise<HistoryInputs | null> => {
-  const doc = await readPageDocument(supabase, page)
-  const resolution = resolutionOf(doc)
-  if (resolution.status !== 'admin' || resolution.admin.ministryId !== ministryId) return null
-  return historyOf(doc)
+  const doc = await documentFor(supabase, ministryId, page)
+  return doc ? historyOf(doc) : null
 }
 
 /** The open Follow-Up Items alone, for the tests that are about them. */

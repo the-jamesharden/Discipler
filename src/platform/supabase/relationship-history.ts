@@ -345,3 +345,25 @@ export const answersFrom = (history: HistoryInputs): readonly RelationshipWeekAn
       concernOpen: row.concern_open === true,
     }
   })
+
+/**
+ * A stable order for the rows an Admin surface lists: by the Leaders' names, then
+ * the Participants', then the id, so two relationships between the same people
+ * cannot swap places between two reads. Not by urgency -- Care Needed is the
+ * surface that ranks, and the tabs that sort by this are lists an Admin scans for
+ * a name. Shared by the Overview, Check-Ins and the Materials folders, so three
+ * tabs cannot order the same people three ways.
+ */
+export const byNames = <
+  T extends {
+    readonly leaderNames: readonly string[]
+    readonly participantNames: readonly string[]
+    readonly relationshipId: string
+  },
+>(
+  a: T,
+  b: T,
+): number =>
+  a.leaderNames.join(', ').localeCompare(b.leaderNames.join(', ')) ||
+  a.participantNames.join(', ').localeCompare(b.participantNames.join(', ')) ||
+  a.relationshipId.localeCompare(b.relationshipId)
