@@ -1,7 +1,7 @@
 import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { createTestClock } from '~/domain/clock'
+import { systemClock } from '~/domain/clock'
 import { IntakeRefused } from '~/domain/errors'
 import { personId, type IdSource, type MinistryId } from '~/domain/ids'
 import type { IntakeFormFields } from '~/domain/intake'
@@ -43,11 +43,13 @@ describe('reopening a Person’s Intake', () => {
   let admin: SupabaseClient
   let pool: pg.Pool
 
-  const at = new Date('2026-09-14T10:00:00Z')
   const ids: IdSource = { next: () => crypto.randomUUID() }
-  const clock = createTestClock(at)
+  // The system clock rather than a pinned date. `addPerson` stamps the Intake it
+  // completes with the real time, and a correction is only the latest submission if
+  // it lands after that. A fixed date was later than every fixture until the day
+  // the calendar caught up with it.
   const service = () =>
-    createCommandService({ clock, ids, store, appBaseUrl: 'https://discipler.test' })
+    createCommandService({ clock: systemClock, ids, store, appBaseUrl: 'https://discipler.test' })
 
   beforeAll(async () => {
     ministry = await createMinistryWithAdmin('Riverside Chapel')
