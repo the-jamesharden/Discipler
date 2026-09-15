@@ -24,6 +24,8 @@ import {
   closeIntendedPairing,
   createRelationship,
   configureGroup,
+  createMaterial,
+  editMaterial,
   joinRelationship,
   closeOutstandingReply,
   enqueueMessage,
@@ -39,6 +41,7 @@ import {
   raiseConcern,
   recordConcernViewing,
   removeDiscipleshipGoal,
+  removeMaterial,
   renameDiscipleshipGoal,
   reorderDiscipleshipGoals,
   resolveConcern,
@@ -70,6 +73,7 @@ import {
   IntakeRefused,
   InvitationRefused,
   MaterialAssignmentRefused,
+  MaterialRefused,
   MinistrySettingsRefused,
   PairingRefused,
   PasswordResetRefused,
@@ -130,6 +134,16 @@ import {
 } from './discipleship-goals'
 import { passwordResetRefusal } from './accounts'
 import {
+  carriesSomething,
+  materialOnOffer,
+  readMaterialBody,
+  readMaterialTitle,
+  titleAlreadyHeld,
+  type MaterialOnOffer,
+  type MaterialPdf,
+  type MaterialTitle,
+} from './materials'
+import {
   discipleshipGoalId,
   GROUP_PATH,
   readIntakeForm,
@@ -174,6 +188,7 @@ import {
   concernId,
   importRowId,
   intendedPairingId,
+  materialId,
   personId,
   relationshipId,
   type IdSource,
@@ -415,6 +430,14 @@ export interface CommandContext {
    * removal record that it cost nothing while blanking a congregation's answers.
    */
   readonly goalAnswers?: readonly StatedGoal[]
+  /**
+   * Every live Material this Ministry holds, each with how many accepted, unended
+   * relationships are working through it. Loaded on the three `material.*`
+   * commands' behalf, and absent rather than empty for the reason `goals` is: a
+   * list that did not load and a Ministry holding nothing are the same value and
+   * opposite facts, and one of them waves a duplicate title through.
+   */
+  readonly materials?: readonly MaterialOnOffer[]
   /**
    * What the Person an inbound text came from holds, what they last asked for, and
    * whether Discipler may still text them. Loaded on `sms.inbound`'s behalf,
@@ -684,6 +707,55 @@ const theAnswersAboutToGo = (context: CommandContext): readonly StatedGoal[] => 
     throw new Error('No answers were loaded for the Discipleship Goal being removed')
   }
   return context.goalAnswers
+}
+
+/**
+ * The Ministry's own list of Materials, or a loud failure rather than an empty
+ * one. See `CommandContext.materials`.
+ */
+const theMaterialsHeld = (context: CommandContext): readonly MaterialOnOffer[] => {
+  if (!context.materials) {
+    throw new Error('No list of Materials was loaded for this edit')
+  }
+  return context.materials
+}
+
+/**
+ * The live Material an edit names, or a refusal. A refusal rather than a
+ * failure, for the reason `theOptionNamed` refuses: an Admin acting from a page
+ * somebody else has since removed the Material from is an ordinary thing to
+ * happen. A removed Material is off the list, so it is not found here either.
+ */
+const theMaterialNamed = (
+  materials: readonly MaterialOnOffer[],
+  id: MaterialOnOffer['id'],
+): MaterialOnOffer => {
+  const material = materialOnOffer(materials, id)
+  if (!material) throw new MaterialRefused('material.not_on_the_list')
+  return material
+}
+
+/**
+ * The title a Material will carry, checked against the two things that make a
+ * list unusable: a Material with nothing on the title, and two folders an Admin
+ * could not tell apart.
+ */
+const theTitleFor = (
+  materials: readonly MaterialOnOffer[],
+  raw: string,
+  except?: MaterialOnOffer['id'],
+): MaterialTitle => {
+  const title = readMaterialTitle(raw)
+  if (!title) throw new MaterialRefused('material.needs_title')
+  if (titleAlreadyHeld(materials, title, except)) throw new MaterialRefused('material.title_taken')
+  return title
+}
+
+/** The text a Material will carry, checked against the PDF: one of them, or both. */
+const theContentOf = (raw: string | null, pdf: MaterialPdf | null): string | null => {
+  const body = readMaterialBody(raw)
+  if (!carriesSomething(body, pdf)) throw new MaterialRefused('material.needs_content')
+  return body
 }
 
 /**
@@ -4166,6 +4238,123 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             subjectType: 'ministry',
             subjectId: command.ministryId,
             payload: { changedBy: command.changedBy, changes },
+          }),
+        ],
+        rejections: [],
+      }
+    }
+
+    case 'material.create': {
+      const materials = theMaterialsHeld(context)
+      // The title first, then the content: an Admin who typed nothing at all is
+      // told about the title, which is the first box on the form.
+      const title = theTitleFor(materials, command.title)
+      const body = theContentOf(command.body, command.pdf)
+      const now = context.clock.now()
+      const id = materialId(context.ids.next())
+
+      return {
+        effects: [
+          createMaterial({
+            id,
+            ministryId: command.ministryId,
+            title,
+            body,
+            pdf: command.pdf,
+            createdAt: now,
+          }),
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'material.created',
+            subjectType: 'material',
+            subjectId: id,
+            payload: {
+              title,
+              body,
+              pdfFilename: command.pdf?.filename ?? null,
+              createdBy: command.createdBy,
+            },
+          }),
+        ],
+        rejections: [],
+      }
+    }
+
+    case 'material.edit': {
+      const materials = theMaterialsHeld(context)
+      const material = theMaterialNamed(materials, command.materialId)
+      // Compared against every other Material and never against itself, which
+      // is what lets an Admin correct a title's own capitalisation.
+      const title = theTitleFor(materials, command.title, material.id)
+      // Kept, removed or replaced. Removing the PDF from a Material with no
+      // text is what the content rule refuses.
+      const pdf =
+        command.pdf === 'keep' ? material.pdf : command.pdf === 'remove' ? null : command.pdf
+      const body = theContentOf(command.body, pdf)
+      const now = context.clock.now()
+
+      return {
+        effects: [
+          editMaterial({
+            ministryId: command.ministryId,
+            materialId: material.id,
+            title,
+            body,
+            pdf,
+            // What the row stops naming: nothing when kept, the old one otherwise.
+            discarded: command.pdf === 'keep' ? null : material.pdf,
+          }),
+          // What it used to say, which the update is about to overwrite and
+          // which nothing else keeps: a period points at the row, so the row
+          // as it stood is history's alone to remember.
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'material.edited',
+            subjectType: 'material',
+            subjectId: material.id,
+            payload: {
+              from: {
+                title: material.title,
+                body: material.body,
+                pdfFilename: material.pdf?.filename ?? null,
+              },
+              to: { title, body, pdfFilename: pdf?.filename ?? null },
+              changedBy: command.changedBy,
+            },
+          }),
+        ],
+        rejections: [],
+      }
+    }
+
+    case 'material.remove': {
+      const materials = theMaterialsHeld(context)
+      const material = theMaterialNamed(materials, command.materialId)
+
+      // The rule, and not the screen's disabled button: a relationship working
+      // through it would otherwise be on a Material nobody can see on the tab.
+      // The count travels with the refusal so the screen says the number the
+      // rule decided on.
+      if (material.inUseBy > 0) throw new MaterialRefused('material.in_use', material.inUseBy)
+
+      const now = context.clock.now()
+
+      return {
+        effects: [
+          removeMaterial({
+            ministryId: command.ministryId,
+            materialId: material.id,
+            removedAt: now,
+          }),
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'material.removed',
+            subjectType: 'material',
+            subjectId: material.id,
+            payload: { title: material.title, removedBy: command.removedBy },
           }),
         ],
         rejections: [],

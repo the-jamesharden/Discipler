@@ -3,7 +3,6 @@ import { notFound, redirect } from 'next/navigation'
 import { CHANGE_YOUR_PASSWORD } from '../../account/copy'
 import { ClipboardField } from '../../intake-forms/clipboard-field'
 import { AccountMenu, initialsOf, NotAnAdmin, PageShell } from '../../shell'
-import { resolveAdmin } from '~/platform/supabase/current-admin'
 import { getRosterReader } from '~/service/container'
 import { personId as asPersonId } from '~/domain/ids'
 import { intakeReopenLink } from '~/domain/outbound-copy'
@@ -52,20 +51,19 @@ export default async function PersonPage({
     reinvited?: string
   }>
 }) {
-  const resolution = await resolveAdmin()
+  const page = await getRosterReader().readRosterPage('person')
 
-  if (resolution.status === 'not-an-admin') return <NotAnAdmin title="Roster" />
-  if (resolution.status === 'signed-out') redirect('/login')
+  if (page.status === 'not-an-admin') return <NotAnAdmin title="Roster" />
+  if (page.status === 'signed-out') redirect('/login')
 
-  const admin = resolution.admin
+  const { admin } = page
   const { personId } = await params
   const query = await searchParams
 
   // The whole Roster and one row of it. There is no single-Person reader, and one
   // read policed by the Roster's own function is the read that cannot show an
   // Admin a Person of another Ministry.
-  const roster = await getRosterReader().listRoster(admin.ministryId)
-  const person = roster.find((entry) => entry.personId === personId)
+  const person = page.page.roster.find((entry) => entry.personId === personId)
   if (!person) notFound()
 
   // The live link, only when the Admin has just asked for it. Reading it on every

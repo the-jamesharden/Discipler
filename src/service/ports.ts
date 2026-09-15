@@ -38,6 +38,9 @@ import type {
   IntakeRecord,
   LeaderAcceptance,
   MaterialAssignment,
+  MaterialEdit,
+  MaterialRemoval,
+  NewMaterial,
   KeywordExchangeClarification,
   KeywordExchangeClosure,
   KeywordExchangeTarget,
@@ -63,6 +66,7 @@ import type {
   NewFollowUpItem,
 } from '~/domain/follow-up'
 import type { OfferedGoal, StatedGoal } from '~/domain/discipleship-goals'
+import type { MaterialOnOffer } from '~/domain/materials'
 import type { MinistrySettings, MinistryVoice } from '~/domain/ministry-settings'
 import type { IntakeLinkState, IntakeLinkToken, NewIntakeLink } from '~/domain/intake-link'
 import type { InboundSnapshot } from '~/domain/keywords'
@@ -479,6 +483,26 @@ export interface UnitOfWork {
   removeDiscipleshipGoal(removal: DiscipleshipGoalRemoval): Promise<void>
 
   /**
+   * Every live Material this Ministry holds, each with how many accepted,
+   * unended relationships are working through it now. Read inside the unit of
+   * work, so two Admins cannot both create the same title against a list neither
+   * of them can see the other's addition on.
+   */
+  materials(): Promise<readonly MaterialOnOffer[]>
+
+  /** One Material, added to the Ministry's list. */
+  createMaterial(material: NewMaterial): Promise<void>
+
+  /**
+   * One Material, as it will now read. The row is updated rather than replaced,
+   * which is what keeps every period pointing at it.
+   */
+  editMaterial(edit: MaterialEdit): Promise<void>
+
+  /** One Material, flagged as removed. Never deleted: the periods that name it stay. */
+  removeMaterial(removal: MaterialRemoval): Promise<void>
+
+  /**
    * The link that reopens one Person's Intake. Replaces whatever link that Person
    * held: one live link each is what an Admin means by *send them a new one*.
    */
@@ -737,7 +761,18 @@ export interface LeaderDashboardReader {
    * without a second account, and a Leader whose last relationship ends stops seeing
    * the surface without anybody revoking anything.
    */
-  listRelationshipsLed(): Promise<readonly RelationshipLed[]>
+  readRelationshipsPage(): Promise<RelationshipsPage>
+}
+
+/**
+ * What the Leader Dashboard derives from its document: the session verdict, for
+ * the links the header offers an Admin who leads, and the relationships led. A
+ * session that administers nothing still gets its list; only no session at all
+ * gets none.
+ */
+export interface RelationshipsPage {
+  readonly resolution: AdminResolution
+  readonly led: readonly RelationshipLed[]
 }
 
 /**
@@ -930,20 +965,28 @@ export interface JoinRequestOnTheRoster {
   readonly raisedAt: Date
 }
 
-export interface RosterReader {
-  /** Scoped to one Ministry, and enforced as such in the database, not here. */
-  listRoster(ministryId: MinistryId): Promise<readonly RosterEntry[]>
-
+/**
+ * What the Roster derives from its document. The person page and the Pair page
+ * read the same document and take the rows they need from it.
+ */
+export interface RosterPage {
+  /** Scoped to the Admin's Ministry, and enforced as such in the database, not here. */
+  readonly roster: readonly RosterEntry[]
   /**
-   * Every group the Ministry holds that has not ended, named or not, for the panel
-   * an Admin names them from and switches approval on. Its own read rather than a
-   * column on the Roster, because the Roster is a list of people and a group is on
-   * it once per member.
+   * The import rows still waiting on an answer, oldest import first. Read with the
+   * Roster on every load rather than only after an upload: the report is a redirect
+   * and outlives nothing, and a question that appeared only on the redirect would
+   * expire the moment an Admin navigated away.
    */
-  listGroups(ministryId: MinistryId): Promise<readonly MinistryGroup[]>
+  readonly held: readonly UnansweredImportRow[]
+  readonly followUpCount: number
+}
 
-  /** Everybody waiting to be admitted, oldest request first. */
-  openJoinRequests(ministryId: MinistryId): Promise<readonly JoinRequestOnTheRoster[]>
+/** The three surfaces that draw from the Roster's document, each read under its own name. */
+export type RosterSurface = 'roster' | 'person' | 'pair'
+
+export interface RosterReader {
+  readRosterPage(surface: RosterSurface): Promise<AdminPage<RosterPage>>
 
   /**
    * The link this Person currently holds, or null where they hold none and where
@@ -959,14 +1002,6 @@ export interface RosterReader {
     ministryId: MinistryId,
     person: PersonId,
   ): Promise<IssuedIntakeLink | null>
-
-  /**
-   * The import rows still waiting on an answer, oldest import first. Read with the
-   * Roster on every load rather than only after an upload: the report is a redirect
-   * and outlives nothing, and a question that appeared only on the redirect would
-   * expire the moment an Admin navigated away.
-   */
-  heldImportRows(ministryId: MinistryId): Promise<readonly UnansweredImportRow[]>
 
   /**
    * The account this one Person holds, or null where the Roster holds no such
@@ -1190,8 +1225,22 @@ export interface IntakePrefill {
  * `discipleship_goal_options` definition -- so a second type here would only be
  * two names for one row, waiting to disagree about what `chosenBy` counts.
  */
-export interface DiscipleshipGoalReader {
-  listDiscipleshipGoals(ministryId: MinistryId): Promise<readonly OfferedGoal[]>
+/** What Intake forms derives from its document. */
+export interface IntakeFormsPage {
+  /**
+   * Every group the Ministry holds that has not ended, named or not, for the panel
+   * an Admin names them from and switches approval on.
+   */
+  readonly groups: readonly MinistryGroup[]
+  /** Everybody waiting to be admitted, oldest request first. */
+  readonly joinRequests: readonly JoinRequestOnTheRoster[]
+  readonly goals: readonly OfferedGoal[]
+  /** Everyone on the Roster by name, for saying who a query string refers to. */
+  readonly nameOf: ReadonlyMap<PersonId, string>
+}
+
+export interface IntakeFormsReader {
+  readIntakeFormsPage(): Promise<AdminPage<IntakeFormsPage>>
 }
 
 /**
@@ -1207,7 +1256,7 @@ export interface DiscipleshipGoalReader {
  * what this Ministry's settings are.
  */
 export interface MinistrySettingsReader {
-  readMinistrySettings(ministryId: MinistryId): Promise<MinistrySettings>
+  readSettingsPage(): Promise<AdminPage<{ readonly settings: MinistrySettings }>>
 }
 
 /**
@@ -1446,11 +1495,57 @@ export type CareNeededItem =
   | ({ readonly source: 'relationship' } & RelationshipCareItem)
   | ({ readonly source: 'concern' } & ConcernCareItem)
 
-export interface CareNeededReader {
+/**
+ * The signed-in Admin, as every Admin surface is handed them: the one Ministry
+ * they administer and their own row on its Roster.
+ */
+export interface SignedInAdmin {
+  readonly userId: string
+  readonly ministryId: MinistryId
+  readonly ministryName: string
   /**
-   * Everything outstanding in one Ministry, from all three sources: open Follow-Up
-   * Items, relationships whose derived state asks for attention, and unresolved
-   * Concerns.
+   * Their own row on their own Roster, or null where they hold none.
+   *
+   * An Admin is a Person in their own Ministry like everybody else -- provisioning
+   * creates the row, and ADR-0009 is why they are not given a second identity when
+   * they are later invited to lead. The Roster needs to know which row that is,
+   * because it is the one row that must not be offered a password reset.
+   *
+   * Null rather than absent, because it is reachable: a Ministry could hold an
+   * Admin membership for somebody its Roster does not. There is no row of theirs to
+   * treat specially then, which is what null says.
+   */
+  readonly personId: PersonId | null
+}
+
+/**
+ * The three answers a surface can get about the session, because a page that
+ * must tell a visitor with no session apart from a signed-in Leader cannot do it
+ * with a null.
+ */
+export type AdminResolution =
+  | { readonly status: 'admin'; readonly admin: SignedInAdmin }
+  | { readonly status: 'not-an-admin' }
+  | { readonly status: 'signed-out' }
+
+/**
+ * A page's whole answer in one read: the session verdict, and what the page
+ * derives from its document where there is an Admin to derive for. Every page
+ * reader below returns one, because a page is one read
+ * (`docs/adr/0023-a-page-is-one-read.md`): the verdict and the data come from the
+ * same document, so a page does not resolve the Admin and then read.
+ */
+export type AdminPage<T> =
+  | { readonly status: 'admin'; readonly admin: SignedInAdmin; readonly page: T }
+  | { readonly status: 'not-an-admin' }
+  | { readonly status: 'signed-out' }
+
+/** What the Follow-Up tab derives from its document. */
+export interface FollowUpPage {
+  /**
+   * Everything outstanding in the Admin's Ministry, from all three sources: open
+   * Follow-Up Items, relationships whose derived state asks for attention, and
+   * unresolved Concerns.
    *
    * Open items only, and enforced as such in the database rather than here. Each
    * follow-up item carries how long it has waited as of the read, which is why an
@@ -1459,22 +1554,29 @@ export interface CareNeededReader {
    * because how fast a Ministry closes its care items is a question it should be
    * able to ask later.
    */
-  listCareNeeded(ministryId: MinistryId): Promise<readonly CareNeededItem[]>
+  readonly items: readonly CareNeededItem[]
   /**
-   * The details behind `Nudge`: the Participant's number, so the Admin can make the
-   * call themselves. Null where the Person has not currently agreed to share them.
+   * The details behind `Nudge` for the one Person a reveal named: their number, so
+   * the Admin can make the call themselves. Null where nobody was named and where
+   * the Person has not currently agreed to share them.
    *
    * One Person at a time rather than a column on every care item. The list is read
    * to decide who needs a call; a number on every row would disclose the whole
    * Ministry's contact details to answer a question nobody asked of most of them.
-   *
-   * Named like `OutboundQueue.contactToShare` and deliberately not shared with it.
-   * That one runs on the trusted connection the queue is drained on; this one runs
-   * as the signed-in Admin, where the consent rule is reachable only through the
-   * definer function that checks Ministry membership first. Same rule, two paths to
-   * it, because the two callers are not the same principal.
+   * The consent rule is reached through the definer function that checks Ministry
+   * membership first, as the signed-in Admin.
    */
-  contactToShare(ministryId: MinistryId, personId: PersonId): Promise<ContactDetails | null>
+  readonly revealed: ContactDetails | null
+}
+
+export interface CareNeededReader {
+  /** The Follow-Up tab, with the one Person a reveal names or none. */
+  readFollowUpPage(reveal: PersonId | null): Promise<AdminPage<FollowUpPage>>
+  /**
+   * The Suggested Pairs tab. Nothing is built behind it yet, so what it derives is
+   * the number the shell's badge shows.
+   */
+  readSuggestedPairsPage(): Promise<AdminPage<{ readonly followUpCount: number }>>
 }
 
 /**
@@ -1514,6 +1616,15 @@ export interface Overview {
   readonly completedThisWeek: number
 }
 
+/**
+ * What the Overview tab derives from its document: the tab, and the Care Needed
+ * list it shares with the Follow-Up badge and the flag lines on its cards.
+ */
+export interface OverviewPage {
+  readonly overview: Overview
+  readonly care: readonly CareNeededItem[]
+}
+
 export interface OverviewReader {
   /**
    * The whole tab in one read, against one reading of the clock. Read through the
@@ -1521,7 +1632,7 @@ export interface OverviewReader {
    * Ministry; an empty Ministry comes back as zeros and an empty list rather than
    * as a failure.
    */
-  readOverview(ministryId: MinistryId): Promise<Overview>
+  readOverviewPage(): Promise<AdminPage<OverviewPage>>
 }
 
 /**
@@ -1551,6 +1662,12 @@ export interface ThisWeeksCheckIns {
   readonly checkIns: readonly CheckInThisWeek[]
 }
 
+/** What the Check-Ins tab derives from its document: the week, and the badge's number. */
+export interface CheckInsPage {
+  readonly week: ThisWeeksCheckIns
+  readonly followUpCount: number
+}
+
 export interface CheckInsReader {
   /**
    * The current ISO week's relationship-weeks, in the Ministry's own timezone.
@@ -1558,5 +1675,99 @@ export interface CheckInsReader {
    * time through `CommandService.openConcern`, and the authenticated role holds
    * no grant on that column.
    */
-  readThisWeeksCheckIns(ministryId: MinistryId): Promise<ThisWeeksCheckIns>
+  readCheckInsPage(): Promise<AdminPage<CheckInsPage>>
+}
+
+/**
+ * The Materials tab's ports: what the tab and its folders derive from one
+ * document (`.scratch/materials/spec.md`, ticket 01).
+ *
+ * The tab is the Ministry's Materials as folders, each holding the accepted
+ * unended relationships whose running period is on it, and a dashed folder for
+ * the ones on no Material. The reader hands back the Materials and the
+ * relationships; which folder each relationship sits in, and which the filter
+ * keeps, is derived by the page from these -- so the tab and a folder cannot count
+ * the same relationship differently.
+ */
+
+/** One Material on the Ministry's own list, as a folder names it and the edit page fills it in. */
+export interface MaterialOnTheList {
+  readonly materialId: MaterialId
+  readonly title: string
+  /** The Ministry's own typed content, or null where the Material is a PDF alone. */
+  readonly body: string | null
+  /**
+   * The uploaded PDF, by the name it arrived under and its size in bytes, or
+   * null where there is none. The size is null where no object is on the path.
+   */
+  readonly pdf: { readonly filename: string; readonly bytes: number | null } | null
+}
+
+/** One closed period a card lists on its "Previously" line. */
+export interface ClosedMaterialPeriod {
+  /** The Material's title, or null for the stretch with no Material. */
+  readonly title: string | null
+  readonly startedAt: Date
+  readonly endedAt: Date
+}
+
+/**
+ * One accepted, unended relationship as a folder's card shows it: who is in it,
+ * what it is working through now and since when, what it worked through before,
+ * and the state its history derives -- the same derivation the Overview runs, so
+ * the pill and the flag line here say what they say there.
+ */
+export interface MaterialRelationship {
+  readonly relationshipId: RelationshipId
+  readonly leaderNames: readonly string[]
+  readonly participantNames: readonly string[]
+  /** The name the group was given, or null where the relationship has none. */
+  readonly groupName: string | null
+  /**
+   * Whether the card reads as a group: named, or with more than one person being
+   * discipled in it. From the live count and the name, never from the
+   * relationship's kind (ADR-0004).
+   */
+  readonly isAGroup: boolean
+  readonly acceptedAt: Date
+  /** The Material the running period is on, or null on the stretch with none. */
+  readonly runningMaterialId: MaterialId | null
+  /** When the running period began. */
+  readonly since: Date
+  /** The closed periods with a length, earliest first. */
+  readonly previously: readonly ClosedMaterialPeriod[]
+  /**
+   * Which of the two gender folders the filter files it under, or null for All
+   * only: the gender the relationship declared; the Leader's own where a
+   * one-to-one declared none; nothing for a group that declared none.
+   */
+  readonly gender: Gender | null
+  readonly state: RelationshipState
+}
+
+/** What the Materials tab and its folders derive from their document. */
+export interface MaterialsPage {
+  /**
+   * The Ministry's IANA zone, which every date on the tab is printed in, or null
+   * where the caller may not see the Ministry at all -- in which case nothing
+   * below is listed and no date is printed.
+   */
+  readonly timeZone: string | null
+  /** The live Materials, in title order. A removed one is not on the list. */
+  readonly materials: readonly MaterialOnTheList[]
+  /** Every accepted, unended relationship, in a stable order. */
+  readonly relationships: readonly MaterialRelationship[]
+  /** The Care Needed list, for the badge and the cards' flag lines. */
+  readonly care: readonly CareNeededItem[]
+}
+
+/** The four surfaces that draw from the tab's document, each read under its own name. */
+export type MaterialsSurface = 'materials' | 'material' | 'new-material' | 'edit-material'
+
+export interface MaterialsReader {
+  /**
+   * The whole tab in one read, against one reading of the clock. The filter is
+   * carried to the function for the edge log and applied by the page.
+   */
+  readMaterialsPage(surface: MaterialsSurface, gender: Gender | null): Promise<AdminPage<MaterialsPage>>
 }

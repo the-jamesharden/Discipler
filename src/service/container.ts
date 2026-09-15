@@ -18,7 +18,7 @@ import {
 } from '~/platform/supabase/invitation-reader'
 import { createSupabaseCareNeededReader } from '~/platform/supabase/care-needed-reader'
 import { createSupabaseCheckInsReader } from '~/platform/supabase/check-ins-reader'
-import { supabaseDiscipleshipGoalReader } from '~/platform/supabase/discipleship-goals'
+import { supabaseIntakeFormsReader } from '~/platform/supabase/intake-forms-reader'
 import { supabaseLeaderDashboardReader } from '~/platform/supabase/leader-dashboard'
 import { supabaseMinistrySettingsReader } from '~/platform/supabase/ministry-settings'
 import {
@@ -33,21 +33,23 @@ import {
   createPostgresOutboundQueue,
   type PostgresOutboundQueue,
 } from '~/platform/supabase/outbound-queue'
+import { createSupabaseMaterialsReader } from '~/platform/supabase/materials-reader'
 import { createSupabaseOverviewReader } from '~/platform/supabase/overview-reader'
 import { createTwilioTransport } from '~/platform/twilio/message-transport'
 import { supabaseAccounts } from '~/platform/supabase/accounts'
-import { supabaseRosterReader } from '~/platform/supabase/roster-reader'
+import { createSupabaseRosterReader } from '~/platform/supabase/roster-reader'
 import { createCommandService, type CommandService } from './command-service'
 import { dispatchQueue, type DispatchOutcome } from './outbound-dispatch'
 import type {
   Accounts,
   CareNeededReader,
   CheckInsReader,
-  DiscipleshipGoalReader,
   LeaderDashboardReader,
   InboundReader,
+  IntakeFormsReader,
   IntakeReader,
   InvitationReader,
+  MaterialsReader,
   MessageTransport,
   MinistryDirectory,
   MinistrySettingsReader,
@@ -262,15 +264,15 @@ export const closeCommandService = async (): Promise<void> => {
   await directory?.close()
 }
 
-export const getRosterReader = (): RosterReader => supabaseRosterReader
+export const getRosterReader = (): RosterReader => createSupabaseRosterReader(systemClock)
 
 /**
- * The Ministry's own list of Discipleship Goal options, read through the
- * signed-in Admin's session -- so the policies say which Ministry's list it is,
- * and the goals card on Intake forms never has to.
+ * Intake forms reads through the signed-in Admin's session -- the groups, the
+ * join requests, the Ministry's own list of Discipleship Goal options and the
+ * names on the Roster in one document -- so the policies say which Ministry's
+ * list it is, and the page never has to.
  */
-export const getDiscipleshipGoalReader = (): DiscipleshipGoalReader =>
-  supabaseDiscipleshipGoalReader
+export const getIntakeFormsReader = (): IntakeFormsReader => supabaseIntakeFormsReader
 
 /**
  * The settings surface reads through the signed-in Admin's session, so
@@ -304,6 +306,13 @@ export const getOverviewReader = (): OverviewReader => createSupabaseOverviewRea
  * Ministry's own timezone.
  */
 export const getCheckInsReader = (): CheckInsReader => createSupabaseCheckInsReader(systemClock)
+
+/**
+ * The Materials tab reads through the signed-in Admin's session for the same
+ * reason, and takes the clock because which Material period is running is a
+ * question about now, as is the state each card's pill shows.
+ */
+export const getMaterialsReader = (): MaterialsReader => createSupabaseMaterialsReader(systemClock)
 
 /**
  * The Leader Dashboard reads through the signed-in user's session and takes no

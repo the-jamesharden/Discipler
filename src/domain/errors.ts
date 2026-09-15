@@ -372,6 +372,41 @@ export class MaterialAssignmentRefused extends Error {
 }
 
 /**
+ * Why an edit to the Ministry's own list of Materials could not be made.
+ *
+ * The last of them carries a number. A removal is refused while any accepted,
+ * unended relationship is working through the Material, and the screen that says
+ * so says how many -- so the refusal carries the count the rule decided on rather
+ * than leaving the screen to count again and risk a different answer.
+ */
+export type MaterialRefusal =
+  /** No live Material of this Ministry's answers to that id. */
+  | 'material.not_on_the_list'
+  /** A Material with nothing on the title is not a Material. */
+  | 'material.needs_title'
+  /** This Ministry already holds a live Material titled like that. */
+  | 'material.title_taken'
+  /** Neither text nor a PDF: a title pointing at nothing. */
+  | 'material.needs_content'
+  /** A relationship is working through it. Move them first. */
+  | 'material.in_use'
+  /** The file chosen is not a PDF. Refused by the route, before storage. */
+  | 'material.pdf_only'
+  /** The file chosen is larger than a Material may carry. Refused by the route. */
+  | 'material.pdf_too_large'
+
+export class MaterialRefused extends Error {
+  constructor(
+    readonly refusal: MaterialRefusal,
+    /** How many relationships are on it, on `material.in_use` and nowhere else. */
+    readonly inUseBy: number = 0,
+  ) {
+    super(refusal)
+    this.name = 'MaterialRefused'
+  }
+}
+
+/**
  * Why a relationship could not be paused or resumed. One type for both, because
  * they are the two halves of one act and three of the five codes belong to
  * neither half in particular.

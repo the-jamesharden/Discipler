@@ -1,4 +1,6 @@
+import type { Branded } from './branded'
 import type { MaterialId } from './ids'
+import { readWording } from './wording'
 
 /**
  * A Material Assignment is a period, not a column. The relationship was working
@@ -7,15 +9,16 @@ import type { MaterialId } from './ids'
  * *what were they using in March* a question the data can still answer in
  * October.
  *
- * The interface an Admin assigns through is deferred; the history is not, and it
- * cannot be reconstructed afterwards. That is the whole reason this exists before
- * anything that reads it: a week whose Material nobody recorded is a week nothing
- * can ever recover, and getting it wrong silently invalidates every report built
- * on top of it later.
+ * The history landed before anything read it, because it cannot be reconstructed
+ * afterwards: a week whose Material nobody recorded is a week nothing can ever
+ * recover, and getting it wrong silently invalidates every report built on top
+ * of it later. The Ministry's own list -- what an Admin may create, change and
+ * take off it -- is the second half of this module (`.scratch/materials/spec.md`).
  *
- * Nothing here touches a database. The periods come from `material_assignment`,
- * which stores facts; every rule about which period a week belongs to is decided
- * here, where a test can drive a Material changing mid-week in a millisecond.
+ * Nothing here touches a database. The periods come from `material_assignment`
+ * and the list from `material`, which store facts; every rule about which period
+ * a week belongs to, and about what an Admin may do to the list, is decided here,
+ * where a test can drive a Material changing mid-week in a millisecond.
  */
 
 /**
@@ -113,3 +116,118 @@ export const materialForWeek = (
   periods: readonly MaterialPeriod[],
   week: AttributableWeek,
 ): MaterialPeriod | null => materialInUseAt(periods, attributedBy(week))
+
+// ---------------------------------------------------------------------------
+// The Ministry's own list
+// ---------------------------------------------------------------------------
+
+/**
+ * A title that has been through `readMaterialTitle` -- trimmed, its internal
+ * whitespace collapsed, and not empty. Branded for the reason `GoalWording` is:
+ * the difference between what an Admin typed into the box and the title a row
+ * will carry is the whole of this module's input handling, and a plain `string`
+ * loses it.
+ */
+export type MaterialTitle = Branded<string, 'MaterialTitle'>
+
+/** At the platform edge, where the database is the authority on its own column. */
+export const materialTitle = (value: string): MaterialTitle => value as MaterialTitle
+
+/**
+ * The title a Material will carry, or null where there is none. `readWording`'s
+ * rule, shared with the Discipleship Goal options and the Ministry's own name:
+ * `Romans  1-8` and `Romans 1-8` are one title, not two.
+ */
+export const readMaterialTitle = (raw: string): MaterialTitle | null =>
+  readWording(raw) as MaterialTitle | null
+
+/**
+ * The text a Material will carry, or null where there is none. Trimmed at the
+ * ends and nowhere else: the line breaks inside are the Ministry's own -- a plan
+ * for the weeks is a list -- and the Leader is shown the text as written. A
+ * form posts them as CRLF, which is the wire's spelling and not the Ministry's,
+ * so they are stored as plain newlines whichever way they arrived.
+ */
+export const readMaterialBody = (raw: string | null | undefined): string | null => {
+  const body = (raw ?? '').replace(/\r\n?/g, '\n').trim()
+  return body === '' ? null : body
+}
+
+/** The uploaded file a Material carries: where it is in the bucket, and what it was called. */
+export interface MaterialPdf {
+  /** The object key, `<ministry_id>/<uuid>.pdf`. */
+  readonly path: string
+  /** What the Admin's file was called, so a download is handed back under it. */
+  readonly filename: string
+}
+
+/**
+ * One live Material as the Ministry holds it, with how many accepted, unended
+ * relationships are working through it now. The count is what refuses a removal
+ * and what the Remove card says, and it travels with the Material for the reason
+ * `chosenBy` travels with a Discipleship Goal option: the number an Admin was
+ * told is the number the rule decides on.
+ */
+export interface MaterialOnOffer {
+  readonly id: MaterialId
+  readonly title: MaterialTitle
+  readonly body: string | null
+  readonly pdf: MaterialPdf | null
+  /** How many accepted, unended relationships' running period is on it. */
+  readonly inUseBy: number
+}
+
+/**
+ * Whether this Ministry already holds a live Material titled like this, ignoring
+ * the Material being edited. Case-insensitive, stricter than the database's own
+ * partial unique index: two folders differing only in capitalisation are one
+ * Material to an Admin looking at the tab. The exception is what lets an Admin
+ * correct a title's own capitalisation.
+ */
+export const titleAlreadyHeld = (
+  materials: readonly MaterialOnOffer[],
+  title: MaterialTitle,
+  except?: MaterialId,
+): boolean =>
+  materials.some(
+    (material) =>
+      material.id !== except && material.title.toLocaleLowerCase() === title.toLocaleLowerCase(),
+  )
+
+/** The live Material this id names, or undefined where the Ministry offers no such thing. */
+export const materialOnOffer = (
+  materials: readonly MaterialOnOffer[],
+  id: MaterialId,
+): MaterialOnOffer | undefined => materials.find((material) => material.id === id)
+
+/**
+ * Whether a Material is a Material at all: text, a PDF, or both. A title pointing
+ * at nothing would be assignable and would attribute weeks, and a Leader opening
+ * it would find an empty page. The database refuses the same shape a second time.
+ */
+export const carriesSomething = (body: string | null, pdf: MaterialPdf | null): boolean =>
+  body !== null || pdf !== null
+
+/**
+ * The largest PDF a Material may carry, in bytes. Named here rather than on the
+ * page that says it, so the copy and the check cannot drift apart.
+ */
+export const LARGEST_PDF_BYTES = 20 * 1024 * 1024
+
+/** The two ways an upload is refused before storage is touched. */
+export type PdfUploadRefusal = 'material.pdf_only' | 'material.pdf_too_large'
+
+/**
+ * Whether a file an Admin chose may be stored as a Material's PDF. Checked from
+ * what the browser said about the file, before a byte of it reaches the bucket:
+ * a route refusing a 200 MB upload after storing it has already paid for it.
+ */
+export const readPdfUpload = (file: {
+  readonly type: string
+  readonly size: number
+}): PdfUploadRefusal | null =>
+  file.type !== 'application/pdf'
+    ? 'material.pdf_only'
+    : file.size > LARGEST_PDF_BYTES
+      ? 'material.pdf_too_large'
+      : null

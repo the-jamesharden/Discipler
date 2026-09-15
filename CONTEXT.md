@@ -113,8 +113,8 @@ The leader-facing web surface, entered by phone number and password. One-time co
 A single grid on which the availability slots of everyone in a discipleship relationship are drawn together, so a leader can see where meeting times coincide.
 
 **Material**:
-A discipleship resource a relationship works through, such as a book of the Bible or a published discipleship manual. Each is a Ministry's own writing, a document it holds, or both. The list of them belongs to the Ministry, in the same way its Discipleship Goal options do.
-_Avoid_: Program, curriculum
+A discipleship resource a relationship works through, such as a book of the Bible or a published discipleship manual. Each is a row the Ministry holds: a title, its own typed text, an uploaded PDF, or both text and a PDF. The list of them belongs to the Ministry, in the same way its Discipleship Goal options do, and an Admin creates, edits and removes them from the Materials tab. What a title must be, when a Material carries enough to be one and when a removal is refused are decided in the command boundary, and what an upload must be to count as the PDF is decided before it is stored; both live in `src/domain/materials.ts`, and the database refuses the same shapes a second time. Removing is a flag, not a delete: a removed Material leaves the tab and every assign list, and every Material Assignment that named it goes on naming it.
+_Avoid_: Program, curriculum, deleting a Material
 
 **Material Assignment**:
 The period during which a relationship was working through a particular material. Assigned to the relationship, never to a person: a leader in two relationships may be working through two different things. Periods never overlap and never leave gaps, so a relationship's first period runs from acceptance with no material assigned.

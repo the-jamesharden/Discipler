@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { AdminShell, initialsOf, NotAnAdmin } from '../shell'
-import { resolveAdmin } from '~/platform/supabase/current-admin'
 import { getRosterReader } from '~/service/container'
 import type { RosterEntry, RosterIntendedPairing, RosterRelationship } from '~/service/ports'
 import {
@@ -80,20 +79,19 @@ export default async function RosterPage({
     rowError?: string
   }>
 }) {
-  const resolution = await resolveAdmin()
+  // One read: the Roster, the import rows waiting on an answer and the badge's
+  // number come from one document. The held rows are read on every load, not
+  // only after an upload. The import report is a redirect and outlives nothing; a
+  // question that appeared only there would expire the moment an Admin navigated
+  // away, which is the silent drop the reporting exists to prevent.
+  const page = await getRosterReader().readRosterPage('roster')
 
   // Signed in but not an Admin. Sending them back to sign in would only loop.
-  if (resolution.status === 'not-an-admin') return <NotAnAdmin title="Roster" />
-  if (resolution.status === 'signed-out') redirect('/login')
+  if (page.status === 'not-an-admin') return <NotAnAdmin title="Roster" />
+  if (page.status === 'signed-out') redirect('/login')
 
-  const admin = resolution.admin
-
-  const roster = await getRosterReader().listRoster(admin.ministryId)
-  // Read on every load, not only after an upload. The import report is a redirect
-  // and outlives nothing; a question that appeared only there would expire the
-  // moment an Admin navigated away, which is the silent drop the reporting exists
-  // to prevent.
-  const held = await getRosterReader().heldImportRows(admin.ministryId)
+  const { admin } = page
+  const { roster, held, followUpCount } = page.page
   const query = await searchParams
 
   const list = listIn(query.list)
@@ -119,7 +117,7 @@ export default async function RosterPage({
   const readback = importReadback(roster)
 
   return (
-    <AdminShell admin={admin} current="roster">
+    <AdminShell admin={admin} current="roster" followUpCount={followUpCount}>
       {/* The table first, because the Roster is a list of people, and the import
           in a popup over it. The one card below is the import rows waiting on an
           Admin. The groups, the join requests, the two Intake links and their codes

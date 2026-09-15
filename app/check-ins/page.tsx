@@ -1,6 +1,5 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { resolveAdmin } from '~/platform/supabase/current-admin'
 import { getCheckInsReader } from '~/service/container'
 import type { CheckInThisWeek } from '~/service/ports'
 import { AdminShell, NotAnAdmin, shortDate } from '../shell'
@@ -48,12 +47,12 @@ const Column = ({ checkIns }: { readonly checkIns: readonly CheckInThisWeek[] })
   )
 
 export default async function CheckInsPage() {
-  const resolution = await resolveAdmin()
-  if (resolution.status === 'not-an-admin') return <NotAnAdmin title="Check-Ins" />
-  if (resolution.status === 'signed-out') redirect('/login')
+  const page = await getCheckInsReader().readCheckInsPage()
+  if (page.status === 'not-an-admin') return <NotAnAdmin title="Check-Ins" />
+  if (page.status === 'signed-out') redirect('/login')
 
-  const admin = resolution.admin
-  const week = await getCheckInsReader().readThisWeeksCheckIns(admin.ministryId)
+  const { admin } = page
+  const { week, followUpCount } = page.page
 
   const answered = week.checkIns.filter((checkIn) => checkIn.answeredAt !== null)
   const pending = week.checkIns.length - answered.length
@@ -63,7 +62,7 @@ export default async function CheckInsPage() {
   const openConcerns = concern.filter((checkIn) => checkIn.concernOpen).length
 
   return (
-    <AdminShell admin={admin} current="check-ins">
+    <AdminShell admin={admin} current="check-ins" followUpCount={followUpCount}>
       <div className="card">
         <div className="card-head">
           <h2 className="card-title">{THIS_WEEKS_CHECK_INS}</h2>

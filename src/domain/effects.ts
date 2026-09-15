@@ -25,6 +25,7 @@ import type {
   RelationshipKeyword,
 } from './keywords'
 import type { NewIntakeLink } from './intake-link'
+import type { MaterialPdf, MaterialTitle } from './materials'
 import type { MinistrySettings } from './ministry-settings'
 import type { InvitationToken, NewInvitation } from './invitations'
 import type { OutboundMessageKind, OutstandingReplyCutoff } from './outstanding-reply'
@@ -526,6 +527,52 @@ export interface DiscipleshipGoalRemoval {
 }
 
 /**
+ * One Material, added to the Ministry's own list. The id is minted at the
+ * boundary like every other identifier here: the history event beside it names
+ * the Material, and the folder the Admin lands on afterwards is at that id.
+ */
+export interface NewMaterial {
+  readonly id: MaterialId
+  readonly ministryId: MinistryId
+  readonly title: MaterialTitle
+  readonly body: string | null
+  readonly pdf: MaterialPdf | null
+  readonly createdAt: Date
+}
+
+/**
+ * One Material as it will now read. The whole row rather than the fields that
+ * changed, because the row is what a period points at and what a Leader loads:
+ * an edit is the Material saying something new, not a diff to apply.
+ */
+export interface MaterialEdit {
+  readonly ministryId: MinistryId
+  readonly materialId: MaterialId
+  readonly title: MaterialTitle
+  readonly body: string | null
+  readonly pdf: MaterialPdf | null
+  /**
+   * The PDF the row no longer names -- the one removed, or the one replaced --
+   * or null where the edit kept it or there was none. Not a write: the bucket is
+   * the one place the store cannot reach, so the route that uploaded the new
+   * object is the one that deletes the old, once this edit has landed.
+   */
+  readonly discarded: MaterialPdf | null
+}
+
+/**
+ * One Material, taken off the list at an instant. A flag and not a delete: every
+ * period that names it goes on naming it, which is what keeps a card's
+ * "Previously" line, and every report, honest about a Material the Ministry no
+ * longer offers.
+ */
+export interface MaterialRemoval {
+  readonly ministryId: MinistryId
+  readonly materialId: MaterialId
+  readonly removedAt: Date
+}
+
+/**
  * One Ministry's settings, saved.
  *
  * Every field at once and never a patch. It is one form and one save, and a
@@ -708,6 +755,9 @@ export type Effect =
   | { readonly kind: 'goal.rename'; readonly renaming: DiscipleshipGoalRenaming }
   | { readonly kind: 'goal.reorder'; readonly order: DiscipleshipGoalOrder }
   | { readonly kind: 'goal.remove'; readonly removal: DiscipleshipGoalRemoval }
+  | { readonly kind: 'material.create'; readonly material: NewMaterial }
+  | { readonly kind: 'material.edit'; readonly edit: MaterialEdit }
+  | { readonly kind: 'material.remove'; readonly removal: MaterialRemoval }
   | { readonly kind: 'concern.raise'; readonly concern: NewConcern }
   | { readonly kind: 'concern.view'; readonly viewing: ConcernViewing }
   | { readonly kind: 'concern.resolve'; readonly resolution: ConcernResolution }
@@ -754,6 +804,21 @@ export const reorderDiscipleshipGoals = (order: DiscipleshipGoalOrder): Effect =
 
 export const removeDiscipleshipGoal = (removal: DiscipleshipGoalRemoval): Effect => ({
   kind: 'goal.remove',
+  removal,
+})
+
+export const createMaterial = (material: NewMaterial): Effect => ({
+  kind: 'material.create',
+  material,
+})
+
+export const editMaterial = (edit: MaterialEdit): Effect => ({
+  kind: 'material.edit',
+  edit,
+})
+
+export const removeMaterial = (removal: MaterialRemoval): Effect => ({
+  kind: 'material.remove',
   removal,
 })
 

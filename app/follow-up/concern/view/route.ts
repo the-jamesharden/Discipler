@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { concernId as asConcernId } from '~/domain/ids'
-import { currentAdmin } from '~/platform/supabase/current-admin'
 import { getCareNeededReader, getCommandService } from '~/service/container'
 import { escapeHtml, htmlDocument } from '../../../document'
 import { backToFollowUp, refusalCodeOf, refused } from '../../actions'
@@ -24,8 +23,12 @@ export const dynamic = 'force-dynamic'
  * a body naming a Concern this Ministry does not hold opens nothing.
  */
 export async function POST(request: NextRequest) {
-  const admin = await currentAdmin()
-  if (!admin) return NextResponse.redirect(new URL('/login', request.url), { status: 303 })
+  // The Admin and the list the page was drawn from, in one read.
+  const page = await getCareNeededReader().readFollowUpPage(null)
+  if (page.status !== 'admin') {
+    return NextResponse.redirect(new URL('/login', request.url), { status: 303 })
+  }
+  const { admin } = page
 
   const form = await request.formData()
   const asked = form
@@ -36,8 +39,7 @@ export async function POST(request: NextRequest) {
   // Which relationship these are about, and who is in it, read from the same list
   // the page was drawn from -- so the heading names the people the Admin pressed
   // the button under, and a Concern of somebody else's is not opened.
-  const items = await getCareNeededReader().listCareNeeded(admin.ministryId)
-  const item = items.find(
+  const item = page.page.items.find(
     (each) => each.source === 'concern' && each.concerns.some((concern) => asked.includes(concern.id)),
   )
   if (!item || item.source !== 'concern') return refused(request, 'concern.not_found')

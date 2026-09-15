@@ -558,3 +558,36 @@ textarea.paste { width: 100%; min-height: 140px; font-family: ui-monospace, SFMo
 .review-refused ul { margin: 0.35rem 0 0 1.2rem; }
 .modal-actions { display: flex; gap: 0.6rem; justify-content: flex-end; align-items: center; margin-top: 1.4rem; }
 @media (max-width: 600px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .modal { padding: 1.25rem; } }
+
+/* ---- the Materials tab ---- */
+/* Lifted from the v10 prototype where it draws the Materials tab, as
+   `.lavish/materials/design.html` proposes them, renamed nowhere. */
+.mat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1.25rem; }
+.mat-tile { background: none; border: none; padding: 0; cursor: pointer; text-align: center; font-family: inherit; display: flex; flex-direction: column; align-items: center; color: inherit; text-decoration: none; }
+.mat-folder { position: relative; width: 118px; height: 118px; border: 1px solid var(--border); border-radius: 14px; background: rgba(45,80,22,.03); display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 6px; padding: 11px; transition: all .2s ease; }
+.mat-tile:hover .mat-folder { background: rgba(45,80,22,.07); border-color: var(--primary-light); }
+.mat-chip { border-radius: 8px; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: .66rem; font-weight: 700; letter-spacing: .02em; }
+.mat-chip.alt { background: var(--accent); }
+.mat-chip.more { background: rgba(45,80,22,.08); color: var(--text-light); }
+.mat-count { position: absolute; top: -8px; right: -8px; min-width: 24px; height: 24px; padding: 0 6px; border-radius: 12px; background: var(--primary); color: #fff; font-size: .72rem; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid var(--bg); }
+.mat-count.zero { background: var(--surface); color: var(--text-light); border-color: var(--border); }
+.mat-name { font-weight: 700; font-size: .92rem; margin-top: .7rem; line-height: 1.3; color: var(--text); }
+.mat-sub { font-size: .78rem; color: var(--text-light); }
+.mat-tile.unassigned .mat-folder { border-style: dashed; background: transparent; }
+.mat-back { display: inline-block; color: var(--primary); font-size: .88rem; margin-bottom: 1rem; text-decoration: none; }
+.mat-back:hover { text-decoration: underline; }
+.drill-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.drill-head .muted { display: block; margin-top: .15rem; }
+.hist { font-size: .78rem; color: var(--text-light); margin-top: .35rem; font-style: italic; }
+/* New under ticket 03: the assign row at the foot of a drill-in card. The two
+   layout rules apply only to a card holding one, so the Overview's cards, which
+   share `.rel-card` and hold no form, keep their spacing. */
+.rel-grid .rel-card:has(> .mat-assign) { display: flex; flex-direction: column; }
+.rel-card > .mat-assign { display: flex; gap: .5rem; align-items: center; margin-top: auto; padding-top: .75rem; border-top: 1px dashed var(--border); }
+.rel-card:has(> .mat-assign) > :nth-last-child(2) { margin-bottom: .85rem; }
+.mat-assign select { flex: 1; min-width: 0; margin: 0; font-size: .85rem; padding: .4rem .6rem; }
+/* New under ticket 02: the current PDF on the edit form. */
+.pdf-row { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; padding: .6rem .8rem; border: 1px solid var(--border); border-radius: 6px; font-size: .88rem; background: rgba(45,80,22,.02); }
+.pdf-row .name { font-weight: 600; }
+.pdf-row .muted { margin-left: auto; }
+.option.dashed { border-style: dashed; }

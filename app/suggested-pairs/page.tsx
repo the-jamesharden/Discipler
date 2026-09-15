@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { resolveAdmin } from '~/platform/supabase/current-admin'
+import { getCareNeededReader } from '~/service/container'
 import { AdminShell, NotAnAdmin } from '../shell'
 import { NO_SUGGESTIONS, NOT_AVAILABLE_YET, ONE_TO_ONE_ONLY, SUGGESTED_PAIRS } from './copy'
 
@@ -14,12 +14,12 @@ export const dynamic = 'force-dynamic'
  * greyed out.
  */
 export default async function SuggestedPairsPage() {
-  const resolution = await resolveAdmin()
-  if (resolution.status === 'not-an-admin') return <NotAnAdmin title={SUGGESTED_PAIRS} />
-  if (resolution.status === 'signed-out') redirect('/login')
+  const page = await getCareNeededReader().readSuggestedPairsPage()
+  if (page.status === 'not-an-admin') return <NotAnAdmin title={SUGGESTED_PAIRS} />
+  if (page.status === 'signed-out') redirect('/login')
 
   return (
-    <AdminShell admin={resolution.admin} current="suggested-pairs">
+    <AdminShell admin={page.admin} current="suggested-pairs" followUpCount={page.page.followUpCount}>
       <div className="card">
         <div className="card-head">
           <h2 className="card-title">{SUGGESTED_PAIRS}</h2>

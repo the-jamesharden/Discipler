@@ -6,17 +6,22 @@ import { deriveRelationshipState } from '~/domain/relationship-state'
 import { ACCEPTANCE_ESCALATION_DAYS } from '~/domain/relationships'
 import { isoWeekOf } from '~/domain/week'
 import type { Overview, OverviewReader, OverviewRelationship } from '~/service/ports'
+import { careNeededFrom, historyFor } from './care-needed-reader'
+import { adminPage, readPageDocument } from './page'
 import {
-  answersOf,
-  concernsOf,
+  answersFrom,
+  byNames,
+  concernsFrom,
+  historyOf,
   instant,
-  membersOf,
-  pausesOf,
-  timeZoneOf,
-  weeksOf,
+  membersFrom,
+  namesFrom,
+  pausesFrom,
+  weeksFrom,
+  type HistoryInputs,
   type RelationshipWeekAnswer,
 } from './relationship-history'
-import { rows, text } from './rows'
+import { text } from './rows'
 import { createSupabaseServerClient } from './server-client'
 
 /**
@@ -24,7 +29,7 @@ import { createSupabaseServerClient } from './server-client'
  * the two headcounts, and the three rates over every relationship-week on record.
  *
  * The state is `deriveRelationshipState` over exactly the history Care Needed
- * reads -- the same four reads, from the same module -- so the two tabs cannot
+ * reads -- the same rows, from the same document -- so the two tabs cannot
  * disagree about which relationships are Stalled. The rates come from a second
  * function, `relationship_week_answers`, that emits the same rows as
  * `relationship_weeks` with the answers kept apart rather than folded into one
@@ -32,18 +37,9 @@ import { createSupabaseServerClient } from './server-client'
  * denominators and must not be conflated.
  *
  * Read through the signed-in client, so the policies are what scope it to the
- * Admin's Ministry. The `eq` below restates the same fact and is not the thing
- * enforcing it: a Ministry an Admin does not belong to comes back empty whatever
- * this file asks for.
+ * Admin's Ministry: the page's document is read as the Admin, and a Ministry an
+ * Admin does not belong to comes back empty whatever is asked.
  */
-
-/**
- * How every read in this file fails. From a screen's point of view the six
- * queries below are one read -- the Overview either came back or it did not --
- * and which of them fell over is a server-log question rather than a screen one.
- */
-const couldNotRead = (error: { readonly message: string }): Error =>
-  new Error(`Could not read the Overview: ${error.message}`)
 
 /**
  * What an empty Ministry reads as, and what a Ministry the caller cannot see
@@ -81,32 +77,13 @@ const countsOf = (answers: readonly RelationshipWeekAnswer[]): CheckInCounts => 
 }
 
 /**
- * A stable order for the cards: by the Leaders' names, then the Participants',
- * then the id so two relationships between the same people cannot swap places
- * between two reads. Not by urgency -- Care Needed is the surface that ranks, and
- * the Overview is a list an Admin scans for a name.
+ * The whole tab, out of one page's history and one reading of the clock.
  */
-const byNames = (a: OverviewRelationship, b: OverviewRelationship): number =>
-  a.leaderNames.join(', ').localeCompare(b.leaderNames.join(', ')) ||
-  a.participantNames.join(', ').localeCompare(b.participantNames.join(', ')) ||
-  a.relationshipId.localeCompare(b.relationshipId)
-
-/**
- * The whole tab, against whichever signed-in client it is handed and one reading
- * of the clock. Separated from the reader below so a test can drive it with a
- * real session rather than a Next.js request context, which is the one thing
- * `createSupabaseServerClient` needs and the one thing a test cannot supply.
- */
-export const readOverview = async (
-  supabase: SupabaseClient,
-  ministryId: MinistryId,
-  clock: Clock,
-): Promise<Overview> => {
-  // A Ministry an Admin does not belong to comes back empty from the policy, and
-  // there is nothing to derive a week against. The empty state rather than a
-  // guessed zone: every counter below is anchored to one, and the wrong zone is a
-  // wrong answer.
-  const timeZone = await timeZoneOf(supabase, ministryId, couldNotRead)
+export const overviewFrom = (history: HistoryInputs, clock: Clock): Overview => {
+  // A Ministry an Admin does not belong to comes back with no zone, and there is
+  // nothing to derive a week against. The empty state rather than a guessed zone:
+  // every counter below is anchored to one, and the wrong zone is a wrong answer.
+  const timeZone = history.timeZone
   if (!timeZone) return NOTHING_YET
 
   // Once for the whole tab, so the cards and the counts cannot disagree about what
@@ -115,27 +92,19 @@ export const readOverview = async (
   const now = clock.now()
   const thisWeek = isoWeekOf(now, timeZone)
 
-  const { data: relationshipRows, error } = await supabase
-    .from('relationship')
-    .select('id, created_at, accepted_at, ended_at')
-    .eq('ministry_id', ministryId)
-
-  if (error) throw couldNotRead(error)
-
-  const [members, weeks, concerns, pauses, answers] = await Promise.all([
-    membersOf(supabase, ministryId, couldNotRead),
-    weeksOf(supabase, ministryId, couldNotRead),
-    concernsOf(supabase, ministryId, couldNotRead),
-    pausesOf(supabase, ministryId, couldNotRead),
-    answersOf(supabase, ministryId, couldNotRead),
-  ])
+  const nameOf = namesFrom(history)
+  const members = membersFrom(history, nameOf)
+  const weeks = weeksFrom(history)
+  const concerns = concernsFrom(history, nameOf)
+  const pauses = pausesFrom(history)
+  const answers = answersFrom(history)
 
   const relationships: OverviewRelationship[] = []
   let unsurfacedUnaccepted = 0
   let active = 0
   let paused = 0
 
-  for (const row of rows(relationshipRows)) {
+  for (const row of history.relationships) {
     const id = text(row.id)
     const createdAt = instant(row.created_at)
     // Both columns are not-null in the schema. A row arriving without either is
@@ -222,13 +191,37 @@ export const readOverview = async (
 }
 
 /**
+ * The whole tab against whichever signed-in client it is handed, for the tests
+ * that drive it with a real session rather than a Next.js request context. The
+ * Ministry named is the one the caller is asking about, and asking about one the
+ * session does not administer reads as the empty state the policies would have
+ * returned.
+ */
+export const readOverview = async (
+  supabase: SupabaseClient,
+  ministryId: MinistryId,
+  clock: Clock,
+): Promise<Overview> => {
+  const history = await historyFor(supabase, ministryId)
+  return history ? overviewFrom(history, clock) : NOTHING_YET
+}
+
+/**
  * Built with a clock rather than reaching for one, because how long an unaccepted
  * relationship has waited is a time-dependent rule like any other -- as is which
  * ISO week it is, which the this-week count is anchored to -- and the composition
  * root is what decides whose clock answers them.
+ *
+ * One read for the tab, the Care Needed list its cards are flagged from and the
+ * number on the Follow-Up badge: all three derive from the same document, so the
+ * tile, the badge and the flag lines cannot disagree.
  */
 export const createSupabaseOverviewReader = (clock: Clock = systemClock): OverviewReader => ({
-  async readOverview(ministryId) {
-    return readOverview(await createSupabaseServerClient(), ministryId, clock)
+  async readOverviewPage() {
+    const doc = await readPageDocument(await createSupabaseServerClient(), 'overview_page')
+    return adminPage(doc, () => {
+      const history = historyOf(doc)
+      return { overview: overviewFrom(history, clock), care: careNeededFrom(history, clock) }
+    })
   },
 })

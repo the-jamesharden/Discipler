@@ -11,6 +11,11 @@ import { rows, text } from './rows'
  * number a browser session has that consults consent at all. Both arguments are
  * load-bearing there: it answers about a Person in the named Ministry, and only for
  * a caller who belongs to it.
+ *
+ * The Follow-Up tab reaches the same function inside `follow_up_page`, where a
+ * reveal travels with the page rather than as a second read, and parses the row it
+ * gets with `contactDetailsFrom` below. This direct call is how the consent rule is
+ * driven on its own, with a real session, by the tests that are about it.
  */
 export const readContactToShare = async (
   client: SupabaseClient,
@@ -35,13 +40,22 @@ export const readContactToShare = async (
   // "no such Person" would be reading consent by inference.
   if (!row) return null
 
+  return contactDetailsFrom(row, person)
+}
+
+/**
+ * One row of `contact_to_share` as the details it carries, whether it arrived
+ * through its own call or inside a page's document.
+ *
+ * A row that came back malformed is a broken read like any other, and is thrown
+ * rather than folded into null. Both mean "no number" to a caller that cannot tell
+ * them apart, and the one that means a rule has stopped holding must not hide
+ * inside the one that means the Person said no.
+ */
+export const contactDetailsFrom = (row: Record<string, unknown>, person: string): ContactDetails => {
   const fullName = text(row.full_name)
   const phone = text(row.phone)
 
-  // A row that came back malformed is a broken read like any other, and is thrown
-  // rather than folded into the null above. Both mean "no number" to a caller that
-  // cannot tell them apart, and the one that means a rule has stopped holding must
-  // not hide inside the one that means the Person said no.
   if (!fullName || !phone) {
     throw new Error(`Contact details for ${person} came back without a name or a number`)
   }

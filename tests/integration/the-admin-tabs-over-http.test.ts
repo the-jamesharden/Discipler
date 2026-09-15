@@ -99,14 +99,14 @@ describe.skipIf(skipUnlessAppIsRunning)('the Admin tabs', () => {
     })
 
     it('turns a visitor with no session away from every tab', async () => {
-      for (const path of ['/overview', '/check-ins', '/suggested-pairs', '/follow-up', '/roster']) {
+      for (const path of ['/overview', '/check-ins', '/suggested-pairs', '/follow-up', '/materials', '/roster']) {
         const response = await fetch(`${baseUrl}${path}`, { redirect: 'manual' })
         expect(response.status, path).toBe(307)
         expect(response.headers.get('location'), path).toContain('/login')
       }
     })
 
-    it('shows the six tabs in order, with Materials greyed out and the rest links', async () => {
+    it('shows the six tabs in order, every one a link', async () => {
       const { html } = await getPage('/overview', cookie)
 
       const order = ['Overview', 'Check-Ins', 'Suggested Pairs', 'Follow-Up', 'Materials', 'Roster']
@@ -114,9 +114,9 @@ describe.skipIf(skipUnlessAppIsRunning)('the Admin tabs', () => {
       expect(positions.every((position) => position >= 0)).toBe(true)
       expect([...positions].sort((a, b) => a - b)).toEqual(positions)
 
-      expect(html).toContain('aria-disabled="true"')
-      expect(html).not.toContain('href="/materials"')
-      for (const href of ['/overview', '/check-ins', '/suggested-pairs', '/follow-up', '/roster']) {
+      // Materials was greyed out from ticket 31 until its tab was built.
+      expect(html).not.toContain('aria-disabled="true"')
+      for (const href of ['/overview', '/check-ins', '/suggested-pairs', '/follow-up', '/materials', '/roster']) {
         expect(html).toContain(`href="${href}"`)
       }
       // The current one is marked, and the Ministry's name is the heading.
@@ -232,6 +232,30 @@ describe.skipIf(skipUnlessAppIsRunning)('the Admin tabs', () => {
       const after = await getPage('/follow-up?done=resolved', cookie)
       expect(after.html).toContain('Item cleared')
       expect(after.html).not.toContain('Liam Okafor')
+    })
+
+    it('renders the list unchanged when the reveal names nothing', async () => {
+      const church = await aMinistry('Stale Bookmark Chapel')
+      const { cookie } = await signIn(church.ministry)
+      const person = personId(await addPerson(church.ministry, 'Noor Haddad', { phone: '+15559990003' }))
+      await store.transact(church.ministry.id, (unit) =>
+        unit.raiseFollowUp({
+          ministryId: church.ministry.id,
+          kind: 'participant_keyword',
+          keyword: 'HELP',
+          relationshipId: null,
+          personId: person,
+          raisedAt: new Date(),
+        }),
+      )
+
+      for (const asked of ['anything', 'not-a-uuid', crypto.randomUUID()]) {
+        const { response, html } = await getPage(`/follow-up?reveal=${asked}`, cookie)
+        expect(response.status).toBe(200)
+        expect(html).toContain('Noor Haddad')
+        expect(html).toContain('See contact details')
+        expect(html).not.toContain('+15559990003')
+      }
     })
 
     it('withholds a number its Person has not agreed to share', async () => {

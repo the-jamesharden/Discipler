@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
-import type { SignedInAdmin } from '~/platform/supabase/current-admin'
-import { getCareNeededReader } from '~/service/container'
+import type { SignedInAdmin } from '~/service/ports'
 import { CHANGE_YOUR_PASSWORD } from './account/copy'
 import { INTAKE_FORMS } from './intake-forms/copy'
 
@@ -16,17 +15,17 @@ import { INTAKE_FORMS } from './intake-forms/copy'
  * what the app already has, and the current one is marked with `aria-current`.
  */
 
-/** The six Admin tabs, left to right and named as the prototype names them. */
+/**
+ * The six Admin tabs, left to right and named as the prototype names them.
+ * Materials was greyed out from ticket 31 until the tab was built
+ * (`.scratch/materials/spec.md`); every tab is a link now.
+ */
 export const ADMIN_TABS = [
   { key: 'overview', href: '/overview', label: 'Overview' },
   { key: 'check-ins', href: '/check-ins', label: 'Check-Ins' },
   { key: 'suggested-pairs', href: '/suggested-pairs', label: 'Suggested Pairs' },
   { key: 'follow-up', href: '/follow-up', label: 'Follow-Up' },
-  /**
-   * Present and greyed out, for now: nothing is built behind it under ticket 31,
-   * so it is a non-navigable item rather than a link that goes nowhere.
-   */
-  { key: 'materials', href: null, label: 'Materials' },
+  { key: 'materials', href: '/materials', label: 'Materials' },
   { key: 'roster', href: '/roster', label: 'Roster' },
 ] as const
 
@@ -116,24 +115,18 @@ export const TabBar = ({
     <ul className="tabs">
       {ADMIN_TABS.map((tab) => (
         <li key={tab.key}>
-          {tab.href === null ? (
-            <span className="tab" aria-disabled="true">
-              {tab.label}
-            </span>
-          ) : (
-            <Link
-              href={tab.href}
-              className="tab"
-              aria-current={tab.key === current ? 'page' : undefined}
-            >
-              {tab.label}
-              {tab.key === 'follow-up' && followUpCount > 0 ? (
-                <span className="tab-badge" aria-label={`${followUpCount} needing attention`}>
-                  {followUpCount}
-                </span>
-              ) : null}
-            </Link>
-          )}
+          <Link
+            href={tab.href}
+            className="tab"
+            aria-current={tab.key === current ? 'page' : undefined}
+          >
+            {tab.label}
+            {tab.key === 'follow-up' && followUpCount > 0 ? (
+              <span className="tab-badge" aria-label={`${followUpCount} needing attention`}>
+                {followUpCount}
+              </span>
+            ) : null}
+          </Link>
         </li>
       ))}
     </ul>
@@ -145,10 +138,12 @@ export const TabBar = ({
  * surface, the Account menu, and the six tabs with the current one marked.
  *
  * The Follow-Up badge is the length of Care Needed, which is the same number the
- * Overview's Needs Follow-Up tile shows. A page that has already read the list
- * hands the count in so it is read once; every other page lets the shell read it.
+ * Overview's Needs Follow-Up tile shows. Every page hands the count in, because a
+ * page is one read (`docs/adr/0023-a-page-is-one-read.md`): the number derives
+ * from the same document the page was drawn from, and the shell reads nothing of
+ * its own -- which is what keeps the badge from being a second read again.
  */
-export const AdminShell = async ({
+export const AdminShell = ({
   admin,
   current,
   title,
@@ -160,11 +155,10 @@ export const AdminShell = async ({
   readonly current: AdminTab | null
   readonly title?: string
   readonly subtitle?: string
-  readonly followUpCount?: number
+  readonly followUpCount: number
   readonly children: ReactNode
 }) => {
-  const badge =
-    followUpCount ?? (await getCareNeededReader().listCareNeeded(admin.ministryId)).length
+  const badge = followUpCount
 
   return (
     <div className="container">

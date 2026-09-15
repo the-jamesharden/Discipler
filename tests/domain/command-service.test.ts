@@ -156,6 +156,18 @@ describe('applying a command\'s effects', () => {
         removeDiscipleshipGoal: async () => {
           throw new Error('no goal option should have been removed')
         },
+        materials: async () => {
+          throw new Error('the Materials should not have been read')
+        },
+        createMaterial: async () => {
+          throw new Error('no Material should have been created')
+        },
+        editMaterial: async () => {
+          throw new Error('no Material should have been edited')
+        },
+        removeMaterial: async () => {
+          throw new Error('no Material should have been removed')
+        },
         issueIntakeLink: async () => {
           throw new Error('no Intake link should have been issued')
         },

@@ -14,6 +14,7 @@ import type {
 } from '~/domain/boundary'
 import type { CheckInSnapshot } from '~/domain/check-in'
 import type { OfferedGoal, StatedGoal } from '~/domain/discipleship-goals'
+import type { MaterialOnOffer } from '~/domain/materials'
 import type { InboundSnapshot } from '~/domain/keywords'
 import type { ConcernResolution, ConcernViewing, NewConcern } from '~/domain/concerns'
 import type {
@@ -28,6 +29,9 @@ import type {
   ImportRowResolution,
   LeaderAcceptance,
   MaterialAssignment,
+  MaterialEdit,
+  MaterialRemoval,
+  NewMaterial,
   KeywordExchangeClarification,
   KeywordExchangeClosure,
   KeywordExchangeTarget,
@@ -118,6 +122,10 @@ export interface InMemoryStore extends EffectStore {
   readonly renamedGoals: readonly DiscipleshipGoalRenaming[]
   readonly goalOrders: readonly DiscipleshipGoalOrder[]
   readonly removedGoals: readonly DiscipleshipGoalRemoval[]
+  /** Every Material created, edited or removed, in the order it happened. */
+  readonly createdMaterials: readonly NewMaterial[]
+  readonly editedMaterials: readonly MaterialEdit[]
+  readonly removedMaterials: readonly MaterialRemoval[]
   /** Every number whose conversation an effect closed, in order. */
   readonly outstandingReplyClosures: readonly OutstandingReplyClosure[]
   readonly outstandingReplySweeps: readonly OutstandingReplySweep[]
@@ -162,6 +170,8 @@ export interface InMemoryStore extends EffectStore {
   goals: readonly OfferedGoal[]
   /** The submissions a removal would blank. Set by the tests that remove one. */
   goalAnswers: readonly StatedGoal[]
+  /** The live Materials this store answers with. Empty until a test says otherwise. */
+  materials: readonly MaterialOnOffer[]
   /** The Ministry every command in this store speaks for. */
   ministryName: string
   /**
@@ -220,6 +230,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
   const renamedGoals: DiscipleshipGoalRenaming[] = []
   const goalOrders: DiscipleshipGoalOrder[] = []
   const removedGoals: DiscipleshipGoalRemoval[] = []
+  const createdMaterials: NewMaterial[] = []
+  const editedMaterials: MaterialEdit[] = []
+  const removedMaterials: MaterialRemoval[] = []
   const intakeLinks: NewIntakeLink[] = []
   const resolutions: FollowUpResolution[] = []
   const cancellations: RelationshipCancellation[] = []
@@ -352,6 +365,15 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
     get removedGoals() {
       return [...removedGoals]
     },
+    get createdMaterials() {
+      return [...createdMaterials]
+    },
+    get editedMaterials() {
+      return [...editedMaterials]
+    },
+    get removedMaterials() {
+      return [...removedMaterials]
+    },
     get intakeLinks() {
       return [...intakeLinks]
     },
@@ -368,6 +390,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
     accountHeld: null,
     goals: [],
     goalAnswers: [],
+    materials: [],
     unaccepted: [],
     paused: [],
     checkInsDue: [],
@@ -424,6 +447,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       const stagedRenamedGoals: DiscipleshipGoalRenaming[] = []
       const stagedGoalOrders: DiscipleshipGoalOrder[] = []
       const stagedRemovedGoals: DiscipleshipGoalRemoval[] = []
+      const stagedCreatedMaterials: NewMaterial[] = []
+      const stagedEditedMaterials: MaterialEdit[] = []
+      const stagedRemovedMaterials: MaterialRemoval[] = []
       const stagedIntakeLinks: NewIntakeLink[] = []
       const stagedConcerns: NewConcern[] = []
       const stagedViewings: ConcernViewing[] = []
@@ -492,6 +518,18 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         },
         async removeDiscipleshipGoal(removal) {
           stagedRemovedGoals.push(removal)
+        },
+        async materials() {
+          return store.materials
+        },
+        async createMaterial(material) {
+          stagedCreatedMaterials.push(material)
+        },
+        async editMaterial(edit) {
+          stagedEditedMaterials.push(edit)
+        },
+        async removeMaterial(removal) {
+          stagedRemovedMaterials.push(removal)
         },
         async issueIntakeLink(link) {
           stagedIntakeLinks.push(link)
@@ -729,6 +767,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       renamedGoals.push(...stagedRenamedGoals)
       goalOrders.push(...stagedGoalOrders)
       removedGoals.push(...stagedRemovedGoals)
+      createdMaterials.push(...stagedCreatedMaterials)
+      editedMaterials.push(...stagedEditedMaterials)
+      removedMaterials.push(...stagedRemovedMaterials)
       intakeLinks.push(...stagedIntakeLinks)
       return result
     },

@@ -4,9 +4,9 @@ import {
   ministryDiscipleshipIntakeLink,
   ministryIntakeLink,
 } from '~/domain/outbound-copy'
-import { resolveAdmin } from '~/platform/supabase/current-admin'
+import { personId } from '~/domain/ids'
 import { appBaseUrl } from '~/platform/supabase/credentials'
-import { getDiscipleshipGoalReader, getRosterReader } from '~/service/container'
+import { getIntakeFormsReader } from '~/service/container'
 import { AccountMenu, NotAnAdmin, PageShell } from '../shell'
 import { ClipboardField } from './clipboard-field'
 import { GoalsCard } from './goals-card'
@@ -85,7 +85,7 @@ export default async function IntakeFormsPage({
     goalError?: string
   }>
 }) {
-  const resolution = await resolveAdmin()
+  const resolution = await getIntakeFormsReader().readIntakeFormsPage()
 
   if (resolution.status === 'not-an-admin') return <NotAnAdmin title={INTAKE_FORMS} />
   if (resolution.status === 'signed-out') redirect('/login')
@@ -100,19 +100,18 @@ export default async function IntakeFormsPage({
   // The Ministry's groups and whoever is waiting to join one, read on every load
   // rather than only after a redirect: a request that appeared only there would
   // expire the moment an Admin navigated away.
-  const groups = await getRosterReader().listGroups(admin.ministryId)
-  const waiting = await getRosterReader().openJoinRequests(admin.ministryId)
+  const groups = resolution.page.groups
+  const waiting = resolution.page.joinRequests
   // The options behind the one question both forms ask that the Ministry writes
   // itself. Edited from here since ticket 34, because it is a property of the
   // forms handed out from this page.
-  const goals = await getDiscipleshipGoalReader().listDiscipleshipGoals(admin.ministryId)
+  const goals = resolution.page.goals
   const query = await searchParams
 
   // Looked up on the Roster rather than echoed, like every other name a surface
   // here says: what arrives in the query string is whatever somebody typed there.
-  const roster = await getRosterReader().listRoster(admin.ministryId)
   const nameOf = (id: string | undefined) =>
-    roster.find((person) => person.personId === id)?.fullName ?? null
+    id === undefined ? null : (resolution.page.nameOf.get(personId(id)) ?? null)
   const admittedName = nameOf(query.admitted)
   const declinedName = nameOf(query.declined)
   const alreadyInName = nameOf(query.alreadyIn)
