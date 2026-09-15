@@ -59,7 +59,7 @@ export default async function GroupIntakePage({
   )
 
   return (
-    <Centred>
+    <Centred ministryName={page.ministryName}>
       <p className="visually-hidden">{groupHeading(page.ministryName)}</p>
       {problems.length > 0 ? (
         <div className="toast error" role="alert">

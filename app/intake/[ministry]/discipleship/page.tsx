@@ -54,7 +54,7 @@ export default async function DiscipleshipIntakePage({
   const here = `/intake/${page.ministryId}/discipleship`
 
   return (
-    <Centred>
+    <Centred ministryName={page.ministryName}>
       <p className="visually-hidden">{`Join discipleship at ${page.ministryName}`}</p>
       {problems.length > 0 ? (
         <div className="toast error" role="alert">
