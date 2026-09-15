@@ -158,7 +158,7 @@ export const sideDescription: Record<DeclaredSide, string> = {
 }
 
 /**
- * What the card says under the wordmark on each screen, by step. Read by step
+ * What the card says under the Ministry's name on each screen, by step. Read by step
  * number here and nowhere else: the screens are told apart by name, and this is
  * a line of copy that follows the number on the progress bar.
  */

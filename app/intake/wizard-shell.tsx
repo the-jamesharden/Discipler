@@ -5,8 +5,8 @@ import type { AnswersOf, ChoiceLists, IntakeVia, Wizard } from './wizard-machine
 /**
  * The pieces every screen of every wizard is built from: the hidden inputs that
  * carry the earlier answers forward, the GET form that wraps a screen and names
- * the one after it, and the card the Make design draws them in -- wordmark,
- * subtitle, progress bar, Back and Continue. Written once because there are two
+ * the one after it, and the card the Make design draws them in -- the Ministry's
+ * name, subtitle, progress bar, Back and Continue. Written once because there are two
  * wizards now, and a screen that carried its answers differently from the other
  * wizard's screens would go wrong in the one direction that matters -- somebody's
  * answers, on their way forward, silently.
