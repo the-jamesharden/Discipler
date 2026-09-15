@@ -32,3 +32,8 @@ Four places where the spec's words and the repository pulled apart, resolved as 
 
 Also: a fourth alias `edit_material_page()` so the edge log names the edit page, picked up by the page-function loop by name; a multipart form posts a textarea's line breaks as CRLF, and the boundary stores them as newlines; a removed Material's PDF stays in the bucket, because the Material is history and the file is part of it; and the spec's "returns to the page with the typed values kept" carries the title and text on the query string, which is what every other refusal here travels as.
 
+
+**2026-09-15, in review.** PR #10, opened against `the-materials-tab` because PR #8 is still open; it rebases onto `main` once #8 merges.
+Per the spec's deploy order, `20260928000100` went to production on 2026-09-15, and with it the two migrations PR #8 carries (`20260926000100`, `20260927000100`), since a push takes every pending file in order; all three are additive against the code production runs today.
+Verified after the push: every page function on production refuses `anon` and `service_role`, and PostgREST answers "permission denied" rather than "not found" for `edit_material_page`, `new_material_page`, `material_page`, `materials_page` and `signed_in_admin`, so its schema cache sees them.
+`npm run smoke:pages` against production, which executes each page function as a signed-in Admin, awaits James: the script signs in with a password, and the test Ministry's Admin account is his and signs in by SMS code.
