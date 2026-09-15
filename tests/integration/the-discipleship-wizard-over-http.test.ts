@@ -88,6 +88,27 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
     expect(html).not.toContain('monday:12')
   })
 
+  it('is the Ministry’s page, headed with its name and marked as Discipler’s at the foot', async () => {
+    // Opened from a text on a phone, by somebody who came to sign up with their
+    // church and not with Discipler. So the church's name heads the card, and
+    // Discipler's mark sits below it -- an image, because the page is the whole of
+    // Discipler's presence to this Person and a wordmark in the heading would
+    // put the wrong name where they look first.
+    const { html } = await open()
+    const heading = html.match(/<h1[^>]*>([^<]*)<\/h1>/)?.[1]
+
+    expect(heading).toBe('Riverside Chapel')
+    expect(html).toContain('alt="Discipler"')
+    expect(html).not.toContain('class="wordmark"')
+
+    // The same shell at the end of the road: the done page is still the church's.
+    const done = await fetch(`${baseUrl}/intake/${ministry.id}/discipleship/done?side=mentee`, {
+      redirect: 'manual',
+    }).then((response) => response.text())
+    expect(done.match(/<h1[^>]*>([^<]*)<\/h1>/)?.[1]).toBe('Riverside Chapel')
+    expect(done).toContain('alt="Discipler"')
+  })
+
   it('will not open a later screen than the answers reach', async () => {
     const { html } = await open({ step: '5' })
     expect(html).toContain('I’m joining as')
@@ -274,7 +295,11 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
       { redirect: 'manual' },
     ).then((response) => response.text())
     expect(mentee).toContain('You’re on the list')
-    expect(mentee).toContain('a mentor for you')
+    expect(mentee).toContain('Riverside Chapel will be in touch when there is a mentor for you.')
+    expect(mentee).toContain('We’ve texted you to confirm.')
+    // Said once and briefly. What the church will look at is the church's
+    // business, and on a phone the sentence has to fit under a tick.
+    expect(mentee).not.toContain('will look at when you can meet')
 
     const mentor = await fetch(
       `${baseUrl}/intake/${ministry.id}/discipleship/done?side=mentor`,

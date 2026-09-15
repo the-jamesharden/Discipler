@@ -81,7 +81,7 @@ export default async function DiscipleshipIntakeDonePage({
   ]
 
   return (
-    <Centred>
+    <Centred ministryName={page.ministryName}>
       <div className="tick" aria-hidden="true">
         ✓
       </div>
@@ -90,7 +90,7 @@ export default async function DiscipleshipIntakeDonePage({
         {side === null
           ? doneMessageWithoutASide(page.ministryName)
           : doneMessage[side](page.ministryName)}{' '}
-        We’ve sent you a text to confirm.
+        We’ve texted you to confirm.
       </p>
 
       <div className="summary">

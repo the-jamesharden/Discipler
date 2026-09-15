@@ -44,10 +44,12 @@ describe('reopening a Person’s Intake', () => {
   let pool: pg.Pool
 
   const ids: IdSource = { next: () => crypto.randomUUID() }
-  // The system clock rather than a pinned date. `addPerson` stamps the Intake it
-  // completes with the real time, and a correction is only the latest submission if
-  // it lands after that. A fixed date was later than every fixture until the day
-  // the calendar caught up with it.
+  // The real clock, not a frozen one. Every Person here is filed by a fixture that
+  // stamps their first submission and consents with wall-clock time, and the
+  // product reads "their availability" and "their standing decision" as whichever
+  // record is *latest*. A re-submission stamped by a clock stopped at some date
+  // stops being the latest the moment the wall clock passes that date, and the
+  // link the Admin mints from the same clock runs out two weeks after it.
   const service = () =>
     createCommandService({ clock: systemClock, ids, store, appBaseUrl: 'https://discipler.test' })
 

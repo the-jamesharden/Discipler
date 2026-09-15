@@ -158,7 +158,7 @@ export const sideDescription: Record<DeclaredSide, string> = {
 }
 
 /**
- * What the card says under the wordmark on each screen, by step. Read by step
+ * What the card says under the Ministry's name on each screen, by step. Read by step
  * number here and nowhere else: the screens are told apart by name, and this is
  * a line of copy that follows the number on the progress bar.
  */
@@ -211,8 +211,7 @@ export const DONE_HEADING = 'You’re on the list'
  * else's Person. Everything true of both sides is still said.
  */
 export const doneMessageWithoutASide = (ministryName: string): string =>
-  `${ministryName} will look at when you can meet and what you said you are hoping `
-  + 'for, and be in touch.'
+  `${ministryName} will be in touch.`
 
 /**
  * The group form's wording. It shares the fields and the refusals above with the
@@ -261,9 +260,6 @@ export const doneMessageWithoutAGroup = (ministryName: string): string =>
 
 export const doneMessage: Record<DeclaredSide, (ministryName: string) => string> = {
   mentor: (ministryName) =>
-    `${ministryName} will look at when you can meet and what you said you are hoping `
-    + 'for, and be in touch when there is someone for you to mentor.',
-  mentee: (ministryName) =>
-    `${ministryName} will look at when you can meet and what you said you are hoping `
-    + 'for, and be in touch when there is a mentor for you.',
+    `${ministryName} will be in touch when there is someone for you to mentor.`,
+  mentee: (ministryName) => `${ministryName} will be in touch when there is a mentor for you.`,
 }

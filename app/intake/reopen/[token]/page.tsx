@@ -36,7 +36,7 @@ export default async function ReopenIntakePage({
 
   if (page.state === 'expired') {
     return (
-      <Centred subtitle={page.ministryName}>
+      <Centred ministryName={page.ministryName}>
         <p className="empty">
           This link has expired. Ask whoever sent it to you for a new one — your
           answers are still on file and nothing has been lost.
@@ -48,7 +48,7 @@ export default async function ReopenIntakePage({
   const problems = refusalMessages(refused)
 
   return (
-    <Centred subtitle={`Your details at ${page.ministryName}`}>
+    <Centred ministryName={page.ministryName} subtitle="Your details">
       <p className="card-lead">
         Change whatever has moved on — your times, your number — and submit it again.
         There is still no account to create.

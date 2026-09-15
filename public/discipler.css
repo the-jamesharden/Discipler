@@ -70,11 +70,15 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; }
 
 /* A single card centred on the page: sign-in, the Intake wizard, the Invitation
    Link, the done pages. Reached from a text message, usually on a phone. */
-.centred { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem 1.5rem; }
-.centred > .card { width: 100%; max-width: 520px; padding: 2.5rem 2rem; box-shadow: 0 8px 32px var(--shadow); margin: 0; }
+.centred { min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 2rem 1.5rem; }
+/* Block margins of auto: the card sits in the middle of whatever the brand mark leaves. */
+.centred > .card { width: 100%; max-width: 520px; padding: 2.5rem 2rem; box-shadow: 0 8px 32px var(--shadow); margin: auto 0; }
 .centred .wordmark { font-size: 2rem; margin-bottom: 0.25rem; }
+.centred .ministry-mark { font-size: 1.6rem; margin-bottom: 0.25rem; }
+.centred-brand { margin: 2rem 0 0; line-height: 0; align-self: flex-start; }
+.centred-brand img { width: 132px; height: auto; display: block; }
 .centred .sub { color: var(--text-light); font-size: 0.92rem; margin-bottom: 1.75rem; }
-.centred .card > h1:not(.wordmark) { font-size: 1.5rem; margin-bottom: 0.35rem; }
+.centred .card > h1:not(.wordmark, .ministry-mark) { font-size: 1.5rem; margin-bottom: 0.35rem; }
 .card-note { font-size: 0.8rem; color: var(--text-light); border-top: 1px solid var(--border); padding-top: 1rem; margin-top: 1.25rem; line-height: 1.5; }
 
 /* ---- shell ---- */
@@ -369,8 +373,8 @@ input[type="file"] { display: block; margin-bottom: 1rem; font-size: 0.88rem; }
 .option input { position: absolute; opacity: 0; width: 1px; height: 1px; }
 .option:has(input:checked) { border-color: var(--primary); background: rgba(45, 80, 22, 0.06); }
 .option:has(input:focus-visible) { outline: 2px solid var(--primary); outline-offset: 2px; }
-.option-title { font-weight: 700; color: var(--primary); }
-.option-desc { color: var(--text-light); font-size: 0.85rem; margin-top: 0.15rem; }
+.option-title { display: block; font-weight: 700; color: var(--primary); }
+.option-desc { display: block; color: var(--text-light); font-size: 0.85rem; margin-top: 0.15rem; }
 .form-actions { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; margin-top: 1.5rem; }
 .form-actions .btn.sec { font-weight: 500; }
 
@@ -414,6 +418,16 @@ table.avail td.pick input { position: absolute; inset: 0; width: 100%; height: 1
 table.avail td.pick:has(input:checked) { background: rgba(127, 175, 140, 0.65); border-color: var(--primary-light); }
 table.avail td.pick:has(input:focus-visible) { outline: 2px solid var(--primary); outline-offset: 1px; }
 .grid-count { font-size: 0.8rem; color: var(--text-light); margin-top: 0.85rem; }
+/* On a phone the grid still scrolls sideways, but with smaller squares it scrolls
+   less, and the day column stays put so a row is never read without its day. */
+@media (max-width: 480px) {
+  table.avail { min-width: 0; border-spacing: 2px; }
+  table.avail th { font-size: 0.6rem; padding: 0.15rem 0 0.25rem; }
+  table.avail th[scope="row"], table.avail thead th:first-child { position: sticky; left: 0; background: var(--surface); z-index: 1; }
+  table.avail th[scope="row"] { font-size: 0.7rem; padding-right: 0.4rem; }
+  table.avail td { height: 28px; min-width: 28px; border-radius: 3px; }
+  table.avail td.pick label { min-height: 26px; }
+}
 
 /* ---- the Leader Dashboard ---- */
 
@@ -460,8 +474,9 @@ blockquote { background: rgba(45, 80, 22, 0.04); border-left: 3px solid var(--pr
   .charts { grid-template-columns: 1fr; }
   .ci-stats { grid-template-columns: 1fr; }
   .container { padding: 1.25rem 1rem; }
-  .centred { padding: 1rem; align-items: flex-start; }
-  .centred > .card { padding: 1.75rem 1.25rem; }
+  .centred { padding: 1rem; }
+  /* On a phone the card sits at the top and the brand mark at the foot. */
+  .centred > .card { padding: 1.75rem 1.25rem; margin-top: 0; }
 }
 
 /* The person page: a label-and-value list (ticket 36). */

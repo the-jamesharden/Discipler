@@ -45,13 +45,13 @@ export default async function GroupIntakeDonePage({
       : requestedMessage(page.ministryName, group.name)
 
   return (
-    <Centred>
+    <Centred ministryName={page.ministryName}>
       <div className="tick" aria-hidden="true">
         ✓
       </div>
       <h1 style={{ textAlign: 'center' }}>{heading}</h1>
       <p className="muted" style={{ textAlign: 'center' }}>
-        {message} We’ve sent you a text to confirm.
+        {message} We’ve texted you to confirm.
       </p>
       <p className="card-note">You can close this page.</p>
     </Centred>
