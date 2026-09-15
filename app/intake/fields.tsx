@@ -339,7 +339,7 @@ export const Agreements = ({
         required
         defaultChecked={prefill.contactSharing === 'granted'}
       />
-      <span>Yes, that is fine</span>
+      <span>Yes, I consent to sharing my name and phone number</span>
     </label>
     <label className="check">
       <input
@@ -349,7 +349,7 @@ export const Agreements = ({
         required
         defaultChecked={prefill.contactSharing === 'declined'}
       />
-      <span>No, please do not</span>
+      <span>No, I do not consent to sharing my name and phone number</span>
     </label>
   </fieldset>
 )
