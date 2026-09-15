@@ -4,7 +4,7 @@
 
 **Blocked by:** 01
 
-**Status:** claimed
+**Status:** shipped
 
 ## Acceptance
 
@@ -19,3 +19,6 @@ Raised on 2026-09-12 from the grilling of the design, together with the fault it
 Written on 2026-09-12: `src/platform/supabase/every-page-function-answers.ts` holds the loop; the test and `scripts/smoke-pages.ts` both call it. The person and Pair pages got `person_page()` and `pair_page()` in the same migration so the naming rule holds without exception. Not verified on this machine: local ports are exhausted (14,075 sockets in TIME_WAIT at 163 days of uptime), so the new test and the full suite need a reboot before they can run. Types are clean.
 
 Verified on 2026-09-12 after the reboot: `every-page-function-answers.test.ts` passed in each of three consecutive full runs at `b423817`; see the verification note on ticket 02.
+
+**2026-09-15, shipped.**
+Merged to `main` in PR #10, which carries the `a-page-is-one-read` branch.

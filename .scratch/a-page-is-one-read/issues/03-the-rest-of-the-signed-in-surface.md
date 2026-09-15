@@ -4,7 +4,7 @@
 
 **Blocked by:** 01
 
-**Status:** claimed
+**Status:** shipped
 
 ## Acceptance
 
@@ -23,3 +23,6 @@ Not done here: the over-HTTP suites in the acceptance list were not run, because
 
 The over-HTTP suites in the acceptance list were run on 2026-09-12 at `b423817`, three full runs in a row against a freshly built server, all green; see the verification note on ticket 02.
 Loaded once against the local stack, `/relationships`, `/settings`, `/intake-forms`, `/` and `/account` each made one `/rest/v1/rpc/` call.
+
+**2026-09-15, shipped.**
+Merged to `main` in PR #10, which carries the `a-page-is-one-read` branch.

@@ -4,7 +4,7 @@
 
 **Blocked by:** 01
 
-**Status:** claimed
+**Status:** shipped
 
 ## Acceptance
 
@@ -57,3 +57,6 @@ Verified after the push: every page function on production refuses `anon` and `s
 The two-axis code review (standards and spec) found: the reader's JSDoc had drifted onto a new constant; a refused edit restored the text an Admin had cleared rather than keeping the blank they typed; the over-HTTP suite never removed a Material once its relationship had moved on; and CONTEXT.md put the PDF's size rule in the command boundary, where it is not.
 All four are fixed on the branch.
 Left as recorded judgement calls: the in-use count is computed once in SQL for the list and once in TypeScript for the edit page; the edit page's text hint and the "Keep it" link are drawn where the design does not draw them; and title uniqueness is case-insensitive in the boundary but exact in the index.
+
+**2026-09-15, shipped.**
+Merged to `main` in PR #10.

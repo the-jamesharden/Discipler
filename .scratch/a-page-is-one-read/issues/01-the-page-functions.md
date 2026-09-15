@@ -5,7 +5,7 @@ One integration test file per public function under `tests/integration/`, named 
 
 **Blocked by:** nothing
 
-**Status:** claimed
+**Status:** shipped
 
 ## Acceptance
 
@@ -21,3 +21,6 @@ Done on 2026-09-12.
 Every function is `security invoker` with `search_path = ''`, granted to `authenticated` and revoked from `public`, `anon` and `service_role`.
 Five integration files drive them through signed-in clients: `the-admin-tabs-answer-in-one-read`, `the-signed-in-admin-answers-in-one-read`, `the-settings-page-answers-in-one-read`, `the-intake-forms-page-answers-in-one-read` and `the-relationships-page-answers-in-one-read`, each covering the Admin, the Leader who administers nothing, the ended session, the visitor with no session and the Admin of another Ministry.
 The decision and its privilege rule are recorded in `docs/adr/0023-a-page-is-one-read.md`.
+
+**2026-09-15, shipped.**
+Merged to `main` in PR #10, which carries the `a-page-is-one-read` branch.

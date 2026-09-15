@@ -4,7 +4,7 @@
 
 **Blocked by:** 01
 
-**Status:** claimed
+**Status:** shipped
 
 ## Acceptance
 
@@ -26,3 +26,7 @@ Verified on 2026-09-12 at `b423817`, after the reboot that freed the local ports
 Loading each tab once as the seeded Northgate Admin against the local stack, read from the Kong access log because local PostgREST logs at `error` and records no requests: `/overview`, `/check-ins`, `/suggested-pairs`, `/follow-up` (with and without a reveal), `/roster` (both lists), `/roster/[personId]` (with and without the intake link asked for) and `/roster/pair` (with and without a person) each made exactly one `POST /rest/v1/rpc/<page>_page` call and nothing else under `/rest/v1/`.
 `/`, `/account`, `/settings`, `/intake-forms` and `/relationships` were loaded in the same pass and were one call each too.
 Still owed by the deploy, not by this machine: the size of the largest page document read from the production edge log, which the spec says to write here.
+
+**2026-09-15, shipped.**
+Merged to `main` in PR #10, which carries the `a-page-is-one-read` branch.
+Still owed after the deploy: the size of the largest page document, read from the production edge log.

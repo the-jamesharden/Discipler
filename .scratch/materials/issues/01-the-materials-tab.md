@@ -5,7 +5,7 @@ The assign row at the foot of each card, the New material button and the Edit li
 
 **Blocked by:** nothing
 
-**Status:** claimed
+**Status:** shipped
 
 ## Acceptance
 
@@ -33,3 +33,6 @@ Three places where the words of the spec and the repository's rules pulled apart
 - The design's "proposed additions" block landed whole, class names unchanged, except that the two layout rules for the assign row (`display: flex` on the card and the `:nth-last-child(2)` margin) are scoped to a card that holds a `.mat-assign`. Applied to every `.rel-card` they widened the gaps on the Overview's cards, which share the class and hold no form; checked in the browser before and after.
 
 Also: the page-function loop learned a `text` argument (`null::text`), since `materials_page(gender)` is the first page function that takes one; the Leader's gender comes from the most recent Intake submission under the Admin-only policy, ordered as `app.current_gender` orders; dates print in the Ministry's zone with the month spelled by the app so September is `Sep` on every runtime.
+
+**2026-09-15, shipped.**
+Merged to `main` in PR #10, which carries this ticket together with PR #8 and the one-read tickets; PR #8 is closed as superseded.
