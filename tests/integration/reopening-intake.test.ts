@@ -1,7 +1,7 @@
 import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { createTestClock } from '~/domain/clock'
+import { systemClock } from '~/domain/clock'
 import { IntakeRefused } from '~/domain/errors'
 import { personId, type IdSource, type MinistryId } from '~/domain/ids'
 import type { IntakeFormFields } from '~/domain/intake'
@@ -43,11 +43,15 @@ describe('reopening a Person’s Intake', () => {
   let admin: SupabaseClient
   let pool: pg.Pool
 
-  const at = new Date('2026-09-14T10:00:00Z')
   const ids: IdSource = { next: () => crypto.randomUUID() }
-  const clock = createTestClock(at)
+  // The real clock, not a frozen one. Every Person here is filed by a fixture that
+  // stamps their first submission and consents with wall-clock time, and the
+  // product reads "their availability" and "their standing decision" as whichever
+  // record is *latest*. A re-submission stamped by a clock stopped at some date
+  // stops being the latest the moment the wall clock passes that date, and the
+  // link the Admin mints from the same clock runs out two weeks after it.
   const service = () =>
-    createCommandService({ clock, ids, store, appBaseUrl: 'https://discipler.test' })
+    createCommandService({ clock: systemClock, ids, store, appBaseUrl: 'https://discipler.test' })
 
   beforeAll(async () => {
     ministry = await createMinistryWithAdmin('Riverside Chapel')
