@@ -35,6 +35,17 @@ import {
 
 const PAGES = ['materials_page', 'material_page', 'new_material_page', 'edit_material_page'] as const
 
+/** The same document whatever order its lists came back in. */
+const orderless = (doc: Record<string, unknown>): Record<string, unknown> =>
+  Object.fromEntries(
+    Object.entries(doc).map(([key, value]) => [
+      key,
+      Array.isArray(value)
+        ? [...value].sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
+        : value,
+    ]),
+  )
+
 const asDocument = (data: unknown) => data as Record<string, unknown>
 const asRows = (data: unknown) => data as Record<string, unknown>[]
 
@@ -135,9 +146,10 @@ describe('the Materials tab answers in one read', () => {
       ['admin', 'genders', 'history', 'material_periods', 'materials', 'relationships', 'session', 'user_id'],
     )
 
-    // The Overview's history, row for row.
+    // The Overview's history, row for row. Its lists are aggregated with no
+    // order, so two reads may hand the same rows back in a different order.
     const overview = asDocument((await admin.rpc('overview_page')).data)
-    expect(doc.history).toEqual(overview.history)
+    expect(orderless(asDocument(doc.history))).toEqual(orderless(asDocument(overview.history)))
 
     // The Ministry's Materials in title order, live, with no PDF and so no size.
     expect(asRows(doc.materials)).toEqual([
