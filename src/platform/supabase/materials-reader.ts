@@ -257,11 +257,6 @@ export const readMaterials = async (
 }
 
 /**
- * Built with a clock rather than reaching for one, because which period is
- * running now and how long a care item has waited are time-dependent rules like
- * any other, and the composition root decides whose clock answers them.
- */
-/**
  * The function each surface reads under, so the edge log names the page that was
  * loaded. All four answer with the tab's document.
  */
@@ -272,15 +267,20 @@ const PAGE_FUNCTION: Readonly<Record<MaterialsSurface, string>> = {
   'edit-material': 'edit_material_page',
 }
 
+/**
+ * Built with a clock rather than reaching for one, because which period is
+ * running now and how long a care item has waited are time-dependent rules like
+ * any other, and the composition root decides whose clock answers them.
+ */
 export const createSupabaseMaterialsReader = (clock: Clock = systemClock): MaterialsReader => ({
   async readMaterialsPage(surface, gender) {
-    // The tab is read under its own name with the filter beside it, for the edge
-    // log; every other surface is read under its own name and carries no filter,
-    // because the function reads nothing off it either way.
-    const doc =
-      surface === 'materials'
-        ? await readPageDocument(await createSupabaseServerClient(), 'materials_page', { gender })
-        : await readPageDocument(await createSupabaseServerClient(), PAGE_FUNCTION[surface])
+    // Only the tab carries the filter, and only for the edge log: the function
+    // reads nothing off it either way.
+    const doc = await readPageDocument(
+      await createSupabaseServerClient(),
+      PAGE_FUNCTION[surface],
+      surface === 'materials' ? { gender } : undefined,
+    )
     return adminPage(doc, () => materialsFrom(doc, clock))
   },
 })

@@ -21,19 +21,39 @@
 
 ## Comments
 
-**2026-09-14, implementing.** Built on branch `create-edit-and-remove-a-material`, off `the-materials-tab` (PR #8), because the tab, the reader and the page functions this edits are not on `main` yet.
-Migration `20260928000100_create_edit_and_remove_a_material.sql`; the list rules in `src/domain/materials.ts` beside the period rules; the three commands follow the `goal.*` commands in shape, in where their rules live, and in taking the same advisory lock per Ministry; the upload in `src/platform/supabase/material-pdf.ts`; the pages and routes under `app/materials/new/`, `app/materials/create/` and `app/materials/[id]/{edit,save,remove}/`.
+**2026-09-14, implementing.**
+Built on branch `create-edit-and-remove-a-material`, off `the-materials-tab` (PR #8), because the tab, the reader and the page functions this edits are not on `main` yet.
+Migration `20260928000100_create_edit_and_remove_a_material.sql`.
+The list rules sit in `src/domain/materials.ts` beside the period rules.
+The three commands follow the `goal.*` commands in shape, in where their rules live, and in taking the same advisory lock per Ministry.
+The upload lives in `src/platform/supabase/material-pdf.ts`.
+The pages and routes sit under `app/materials/new/`, `app/materials/create/` and `app/materials/[id]/{edit,save,remove}/`.
 Four places where the spec's words and the repository pulled apart, resolved as follows:
 
-- The spec routes `POST /materials/[id]/edit` beside `GET /materials/[id]/edit`. A route handler and a page cannot share one path in the app router, so the edit form posts to `/materials/[id]/save`, beside the page, as `/settings/save` sits beside `/settings`. `POST /materials/create` and `POST /materials/[id]/remove` are as the spec routes them.
-- The edit page shows the PDF's size, which lives on the storage object and not on the row. The page functions gained one column, `pdf_bytes`, read from `storage.objects` under the Admin's own storage policy, so the page stays one read rather than asking the storage API a second time. A row a fixture wrote without an object reads null and the page prints the filename alone.
-- Ticket 14's `unique (ministry_id, title)` counted removed rows. The rule is *unique among the live Materials*, so that constraint is replaced by a partial unique index where `removed is null`, and the store translates it into `material.title_taken` for the race the boundary's read cannot see.
-- The edit effect carries `discarded`, the PDF the row no longer names, so the route deletes the old object after the edit lands without a second read. A deletion that fails after a landed edit is logged rather than reported as a failed save.
+- The spec routes `POST /materials/[id]/edit` beside `GET /materials/[id]/edit`.
+  A route handler and a page cannot share one path in the app router, so the edit form posts to `/materials/[id]/save`, beside the page, as `/settings/save` sits beside `/settings`.
+  `POST /materials/create` and `POST /materials/[id]/remove` are as the spec routes them.
+- The edit page shows the PDF's size, which lives on the storage object and not on the row.
+  The page functions gained one column, `pdf_bytes`, read from `storage.objects` under the Admin's own storage policy, so the page stays one read rather than asking the storage API a second time.
+  A row a fixture wrote without an object reads null and the page prints the filename alone.
+- Ticket 14's `unique (ministry_id, title)` counted removed rows.
+  The rule is *unique among the live Materials*, so that constraint is replaced by a partial unique index where `removed is null`, and the store translates it into `material.title_taken` for the race the boundary's read cannot see.
+- The edit effect carries `discarded`, the PDF the row no longer names, so the route deletes the old object after the edit lands without a second read.
+  A deletion that fails after a landed edit is logged rather than reported as a failed save.
 
-Also: a fourth alias `edit_material_page()` so the edge log names the edit page, picked up by the page-function loop by name; a multipart form posts a textarea's line breaks as CRLF, and the boundary stores them as newlines; a removed Material's PDF stays in the bucket, because the Material is history and the file is part of it; and the spec's "returns to the page with the typed values kept" carries the title and text on the query string, which is what every other refusal here travels as.
+Also: a fourth alias `edit_material_page()` so the edge log names the edit page, picked up by the page-function loop by name.
+A multipart form posts a textarea's line breaks as CRLF, and the boundary stores them as newlines.
+A removed Material's PDF stays in the bucket, because the Material is history and the file is part of it.
+The spec's "returns to the page with the typed values kept" carries the title and text on the query string, which is what every other refusal here travels as.
 
-
-**2026-09-15, in review.** PR #10, opened against `the-materials-tab` because PR #8 is still open; it rebases onto `main` once #8 merges.
-Per the spec's deploy order, `20260928000100` went to production on 2026-09-15, and with it the two migrations PR #8 carries (`20260926000100`, `20260927000100`), since a push takes every pending file in order; all three are additive against the code production runs today.
+**2026-09-15, in review.**
+PR #10, opened against `the-materials-tab` because PR #8 is still open; it rebases onto `main` once #8 merges.
+Per the spec's deploy order, `20260928000100` went to production on 2026-09-15, and with it the two migrations PR #8 carries (`20260926000100`, `20260927000100`), since a push takes every pending file in order.
+All three are additive against the code production runs today.
 Verified after the push: every page function on production refuses `anon` and `service_role`, and PostgREST answers "permission denied" rather than "not found" for `edit_material_page`, `new_material_page`, `material_page`, `materials_page` and `signed_in_admin`, so its schema cache sees them.
 `npm run smoke:pages` against production, which executes each page function as a signed-in Admin, awaits James: the script signs in with a password, and the test Ministry's Admin account is his and signs in by SMS code.
+
+**2026-09-15, reviewed.**
+The two-axis code review (standards and spec) found: the reader's JSDoc had drifted onto a new constant; a refused edit restored the text an Admin had cleared rather than keeping the blank they typed; the over-HTTP suite never removed a Material once its relationship had moved on; and CONTEXT.md put the PDF's size rule in the command boundary, where it is not.
+All four are fixed on the branch.
+Left as recorded judgement calls: the in-use count is computed once in SQL for the list and once in TypeScript for the edit page; the edit page's text hint and the "Keep it" link are drawn where the design does not draw them; and title uniqueness is case-insensitive in the boundary but exact in the index.

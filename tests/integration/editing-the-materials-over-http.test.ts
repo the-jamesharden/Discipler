@@ -303,6 +303,21 @@ describe.skipIf(skipUnlessAppIsRunning)('creating, editing and removing a Materi
       expect(dashboard.html).toContain('Galatians, weeks 1-5')
       expect(dashboard.html).toContain('Bring one question.')
     })
+
+    it('removes it once the relationship has moved on to another', async () => {
+      const philippians = await materialCalled('Philippians, weeks 1-4')
+      await assignMaterial(relationship, philippians.id, ministry.adminUserId)
+
+      const { location } = await post(`/materials/${galatians.id}/remove`, { confirm: 'yes' })
+      expect(new URL(location).pathname).toBe('/materials')
+      expect((await materialCalled('Galatians, weeks 1-5')).removed).toBeInstanceOf(Date)
+
+      // Gone from the tab; the relationship's folder is Philippians' now.
+      const tab = await getPage('/materials', cookie)
+      expect(asRendered(tab.html)).not.toContain('Galatians, weeks 1-5')
+      const folder = await getPage(`/materials/${philippians.id}`, cookie)
+      expect(asRendered(folder.html)).toContain(leader.fullName)
+    })
   })
 
   it('reopens the edit page with the confirmation open, and removes only from inside it', async () => {
@@ -345,18 +360,18 @@ describe.skipIf(skipUnlessAppIsRunning)('creating, editing and removing a Materi
   })
 
   it('turns a visitor with no session away from every page and every route', async () => {
-    const galatians = await materialCalled('Galatians, weeks 1-5')
-    for (const path of ['/materials/new', `/materials/${galatians.id}/edit`]) {
+    const philippians = await materialCalled('Philippians, weeks 1-4')
+    for (const path of ['/materials/new', `/materials/${philippians.id}/edit`]) {
       const response = await fetch(`${baseUrl}${path}`, { redirect: 'manual' })
       expect(response.status, path).toBe(307)
       expect(response.headers.get('location'), path).toContain('/login')
     }
-    for (const path of ['/materials/create', `/materials/${galatians.id}/save`, `/materials/${galatians.id}/remove`]) {
+    for (const path of ['/materials/create', `/materials/${philippians.id}/save`, `/materials/${philippians.id}/remove`]) {
       const { response, location } = await post(path, { title: 'Nothing', body: 'Nothing', confirm: 'yes' }, '')
       expect(response.status, path).toBe(303)
       expect(new URL(location).pathname, path).toBe('/materials')
     }
-    expect((await materialCalled('Galatians, weeks 1-5')).removed).toBeNull()
+    expect((await materialCalled('Philippians, weeks 1-4')).removed).toBeNull()
     await expect(materialCalled('Nothing')).rejects.toThrow()
   })
 })

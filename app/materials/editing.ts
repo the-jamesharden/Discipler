@@ -32,12 +32,16 @@ export const chosenFile = (form: FormData, field: string): File | null => {
   return value instanceof File && value.size > 0 ? value : null
 }
 
-/** What was typed, as the query string carries it back: only the fields that said anything. */
+/**
+ * What was typed, as the query string carries it back: every field the form
+ * sent, a blank included, so an Admin who cleared the text and was refused sees
+ * the blank they typed rather than the text they cleared.
+ */
 export const asTyped = (form: FormData): Record<string, string> => {
   const kept: Record<string, string> = {}
   for (const field of ['title', 'body'] as const) {
     const value = typed(form, field)
-    if (value !== null && value !== '') kept[field] = value
+    if (value !== null) kept[field] = value
   }
   return kept
 }
