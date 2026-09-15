@@ -20,7 +20,7 @@ export default async function ReopenIntakeDonePage({
   if (!page) notFound()
 
   return (
-    <Centred>
+    <Centred ministryName={page.ministryName}>
       <div className="tick" aria-hidden="true">
         ✓
       </div>

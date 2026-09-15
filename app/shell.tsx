@@ -233,21 +233,38 @@ export const PageShell = ({
 /**
  * One card centred on the page. Sign-in, every Intake screen, the Invitation
  * Link and the done pages: the screens somebody opens from a text message on a
- * phone, where a wordmark and one card is the whole of the design.
+ * phone, where one card is the whole of the design.
+ *
+ * A page opened on a Ministry's behalf -- every Intake screen -- carries that
+ * Ministry's name at the top, because that is who the Person came to sign up
+ * with, and Discipler's mark at the foot of the page, small. A page with no
+ * Ministry in it, such as sign-in, is Discipler's own and keeps the wordmark.
  */
 export const Centred = ({
+  ministryName,
   subtitle,
   children,
 }: {
+  /** Whose page this is. Given, it heads the card and the wordmark moves to the foot. */
+  readonly ministryName?: string
   readonly subtitle?: string
   readonly children: ReactNode
 }) => (
   <main className="centred">
     <div className="card">
-      <h1 className="wordmark">Discipler</h1>
+      {ministryName ? (
+        <h1 className="ministry-mark">{ministryName}</h1>
+      ) : (
+        <h1 className="wordmark">Discipler</h1>
+      )}
       {subtitle ? <p className="sub">{subtitle}</p> : null}
       {children}
     </div>
+    {ministryName ? (
+      <p className="centred-brand">
+        <img src="/discipler-logo.png" alt="Discipler" width={450} height={230} />
+      </p>
+    ) : null}
   </main>
 )
 
