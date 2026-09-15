@@ -75,7 +75,7 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; }
 .centred > .card { width: 100%; max-width: 520px; padding: 2.5rem 2rem; box-shadow: 0 8px 32px var(--shadow); margin: auto 0; }
 .centred .wordmark { font-size: 2rem; margin-bottom: 0.25rem; }
 .centred .ministry-mark { font-size: 1.6rem; margin-bottom: 0.25rem; }
-.centred-brand { margin: 2rem 0 0; line-height: 0; }
+.centred-brand { margin: 2rem 0 0; line-height: 0; align-self: flex-start; }
 .centred-brand img { width: 132px; height: auto; display: block; }
 .centred .sub { color: var(--text-light); font-size: 0.92rem; margin-bottom: 1.75rem; }
 .centred .card > h1:not(.wordmark, .ministry-mark) { font-size: 1.5rem; margin-bottom: 0.35rem; }
