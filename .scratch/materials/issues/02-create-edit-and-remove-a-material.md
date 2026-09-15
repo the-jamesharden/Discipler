@@ -4,7 +4,7 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 ## Acceptance
 
@@ -20,3 +20,15 @@
 - `CONTEXT.md`'s Material entry names the row and points at the boundary for its rules, with no cap stated.
 
 ## Comments
+
+**2026-09-14, implementing.** Built on branch `create-edit-and-remove-a-material`, off `the-materials-tab` (PR #8), because the tab, the reader and the page functions this edits are not on `main` yet.
+Migration `20260928000100_create_edit_and_remove_a_material.sql`; the list rules in `src/domain/materials.ts` beside the period rules; the three commands follow the `goal.*` commands in shape, in where their rules live, and in taking the same advisory lock per Ministry; the upload in `src/platform/supabase/material-pdf.ts`; the pages and routes under `app/materials/new/`, `app/materials/create/` and `app/materials/[id]/{edit,save,remove}/`.
+Four places where the spec's words and the repository pulled apart, resolved as follows:
+
+- The spec routes `POST /materials/[id]/edit` beside `GET /materials/[id]/edit`. A route handler and a page cannot share one path in the app router, so the edit form posts to `/materials/[id]/save`, beside the page, as `/settings/save` sits beside `/settings`. `POST /materials/create` and `POST /materials/[id]/remove` are as the spec routes them.
+- The edit page shows the PDF's size, which lives on the storage object and not on the row. The page functions gained one column, `pdf_bytes`, read from `storage.objects` under the Admin's own storage policy, so the page stays one read rather than asking the storage API a second time. A row a fixture wrote without an object reads null and the page prints the filename alone.
+- Ticket 14's `unique (ministry_id, title)` counted removed rows. The rule is *unique among the live Materials*, so that constraint is replaced by a partial unique index where `removed is null`, and the store translates it into `material.title_taken` for the race the boundary's read cannot see.
+- The edit effect carries `discarded`, the PDF the row no longer names, so the route deletes the old object after the edit lands without a second read. A deletion that fails after a landed edit is logged rather than reported as a failed save.
+
+Also: a fourth alias `edit_material_page()` so the edge log names the edit page, picked up by the page-function loop by name; a multipart form posts a textarea's line breaks as CRLF, and the boundary stores them as newlines; a removed Material's PDF stays in the bucket, because the Material is history and the file is part of it; and the spec's "returns to the page with the typed values kept" carries the title and text on the query string, which is what every other refusal here travels as.
+

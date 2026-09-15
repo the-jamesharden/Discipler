@@ -10,6 +10,7 @@ import {
   folderCount,
   MATERIALS,
   MATERIALS_LEAD,
+  NEW_MATERIAL,
   NO_MATERIAL_ASSIGNED,
   NO_MATERIALS_YET,
   type MaterialsFilter,
@@ -29,7 +30,9 @@ export const dynamic = 'force-dynamic'
  * back keeps it. A Material nobody is on is still a folder: the prototype hid
  * those, and here they would otherwise be invisible.
  *
- * The New material button belongs to ticket 02 and is not drawn yet.
+ * The New material button is the one addition to the prototype: it opens the
+ * create page (ticket 02), and sits in the card head where every other card
+ * puts its action.
  */
 
 /** One folder tile: the count, up to three chips and *+N*, the title, and the line beneath. */
@@ -94,6 +97,9 @@ export default async function MaterialsPage({
             <h2 className="card-title">{MATERIALS}</h2>
             <span className="muted">{MATERIALS_LEAD}</span>
           </div>
+          <Link className="btn small" href="/materials/new">
+            {NEW_MATERIAL}
+          </Link>
         </div>
 
         {/* The three filters: three links to this same page. The current one is

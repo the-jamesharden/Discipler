@@ -8,6 +8,7 @@ import { flaggedIn, flagsFor } from '../overview/flags'
 import { AdminShell, NotAnAdmin } from '../shell'
 import {
   ALL_MATERIALS,
+  EDIT_THIS_MATERIAL,
   filterIn,
   filterQuery,
   MATERIALS,
@@ -29,8 +30,8 @@ import { onMaterial, onNoMaterial, underFilter } from './folders'
  *
  * One departure from the Overview card: there the whole card is a link to the
  * Follow-Up item. Here the card will hold a form (ticket 03), so only the
- * Leader's name links, and only where an item exists. The Edit link on a
- * Material's folder belongs to ticket 02 and is not drawn yet.
+ * Leader's name links, and only where an item exists. A Material's folder
+ * carries the way to its edit page in the head; removing lives there too.
  */
 
 /** Which folder: one Material's, by id, or the dashed one. */
@@ -127,6 +128,11 @@ export const FolderPage = async ({
               {material ? workingThroughItNow(inside.length) : notWorkingThroughAnything(inside.length)}
             </span>
           </div>
+          {material ? (
+            <Link className="ghost-btn" href={`/materials/${material.materialId}/edit`}>
+              {EDIT_THIS_MATERIAL}
+            </Link>
+          ) : null}
         </div>
         {inside.length > 0 ? (
           <div className="rel-grid">

@@ -1,10 +1,14 @@
+import type { MaterialRefusal } from '~/domain/errors'
 import { GENDERS, isOneOf, type Gender } from '~/domain/intake'
+import { LARGEST_PDF_BYTES } from '~/domain/materials'
 import type { ClosedMaterialPeriod } from '~/service/ports'
+import { refusalIn } from '../refusals'
 
 /**
- * Everything the Materials tab says in words, as `.lavish/materials/design.html`
- * has it. The reader deals in Materials and relationships; the tab, the folders
- * and the cards decide how to say them.
+ * Everything the Materials tab, its folders and the create and edit pages say in
+ * words, as `.lavish/materials/design.html` has it. The reader deals in Materials
+ * and relationships and the boundary refuses in codes; the screens decide how
+ * to say them.
  */
 
 export const MATERIALS = 'Materials'
@@ -120,3 +124,77 @@ export const previouslyLine = (
 
 /** What the stretch with no Material is called on a history line and in a dropdown. */
 export const NO_MATERIAL = 'No material'
+
+// ---------------------------------------------------------------------------
+// Creating, editing and removing (ticket 02)
+// ---------------------------------------------------------------------------
+
+export const NEW_MATERIAL = 'New material'
+export const BACK_TO_MATERIALS = '← Materials'
+
+export const NEW_MATERIAL_LEAD =
+  'What a relationship works through: a book, a reading plan, a set of practices. Give it a title and either some text, a PDF, or both. Leaders see it on their dashboard once it is assigned.'
+
+export const TITLE_LABEL = 'Title'
+export const TEXT_LABEL = 'Text'
+export const TEXT_PLACEHOLDER =
+  'What the leader reads. A plan for the weeks, questions to bring, anything they should have in front of them.'
+export const TEXT_HINT = 'Shown to the leader as written, line breaks kept.'
+export const PDF_LABEL = 'PDF'
+
+/** The cap, said in megabytes, from the one constant the route checks against. */
+const LARGEST_PDF_MB = Math.round(LARGEST_PDF_BYTES / (1024 * 1024))
+
+export const PDF_HINT = `PDF only, up to ${LARGEST_PDF_MB} MB. The leader downloads it from their dashboard.`
+
+export const CANCEL = 'Cancel'
+export const CREATE_MATERIAL = 'Create material'
+
+export const EDIT_THIS_MATERIAL = 'Edit this material'
+export const REMOVE_THE_PDF = 'Remove the PDF'
+export const REPLACE_IT = 'Replace it'
+export const SAVE_CHANGES = 'Save changes'
+
+export const REMOVE_THIS_MATERIAL = 'Remove this material'
+export const REMOVE_LEAD =
+  'Takes it off the Materials tab and out of every assign list. Its history stays: any week a relationship spent on it still says so.'
+export const REMOVE = 'Remove'
+export const KEEP_IT = 'Keep it'
+
+/** *Remove “Romans”?*, the confirmation's heading; and the one button inside it that removes. */
+export const removalQuestion = (title: string): string => `Remove “${title}”?`
+export const confirmRemoval = (title: string): string => `Yes, remove “${title}”`
+
+/** The notice on the Remove card while anybody is working through the Material. */
+export const inUseNotice = (count: number): string =>
+  count === 1
+    ? '1 relationship is working through it. Move it to another material, or to none, before removing it.'
+    : `${count} relationships are working through it. Move them to another material, or to none, before removing it.`
+
+/**
+ * *1.8 MB*, or *240 KB* under a megabyte: the size beside the current PDF's
+ * name, said the way a file browser says it.
+ */
+export const fileSize = (bytes: number): string =>
+  bytes < 1024 * 1024
+    ? `${Math.max(1, Math.round(bytes / 1024))} KB`
+    : `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+
+const REFUSALS: Record<MaterialRefusal, string> = {
+  'material.not_on_the_list': 'That material is no longer on the list. Somebody may have removed it.',
+  'material.needs_title': 'A material needs a title.',
+  'material.title_taken': 'This ministry already has a material with that title.',
+  'material.needs_content': 'A material needs text, a PDF, or both.',
+  'material.in_use':
+    'Relationships are working through it. Move them to another material, or to none, before removing it.',
+  'material.pdf_only': 'Only a PDF can be attached.',
+  'material.pdf_too_large': `The PDF is larger than ${LARGEST_PDF_MB} MB.`,
+}
+
+/**
+ * The wording for a refusal that came back on the query string, or null for one
+ * this screen does not recognise. The sentences are this screen's; the lookup
+ * is `refusalIn`, shared with every surface that reads a code off a query string.
+ */
+export const refusalMessage = (code: string | undefined): string | null =>
+  refusalIn(REFUSALS, code)

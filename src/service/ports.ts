@@ -38,6 +38,9 @@ import type {
   IntakeRecord,
   LeaderAcceptance,
   MaterialAssignment,
+  MaterialEdit,
+  MaterialRemoval,
+  NewMaterial,
   KeywordExchangeClarification,
   KeywordExchangeClosure,
   KeywordExchangeTarget,
@@ -63,6 +66,7 @@ import type {
   NewFollowUpItem,
 } from '~/domain/follow-up'
 import type { OfferedGoal, StatedGoal } from '~/domain/discipleship-goals'
+import type { MaterialOnOffer } from '~/domain/materials'
 import type { MinistrySettings, MinistryVoice } from '~/domain/ministry-settings'
 import type { IntakeLinkState, IntakeLinkToken, NewIntakeLink } from '~/domain/intake-link'
 import type { InboundSnapshot } from '~/domain/keywords'
@@ -477,6 +481,26 @@ export interface UnitOfWork {
    * it, and refuses to delete the last option a Ministry has.
    */
   removeDiscipleshipGoal(removal: DiscipleshipGoalRemoval): Promise<void>
+
+  /**
+   * Every live Material this Ministry holds, each with how many accepted,
+   * unended relationships are working through it now. Read inside the unit of
+   * work, so two Admins cannot both create the same title against a list neither
+   * of them can see the other's addition on.
+   */
+  materials(): Promise<readonly MaterialOnOffer[]>
+
+  /** One Material, added to the Ministry's list. */
+  createMaterial(material: NewMaterial): Promise<void>
+
+  /**
+   * One Material, as it will now read. The row is updated rather than replaced,
+   * which is what keeps every period pointing at it.
+   */
+  editMaterial(edit: MaterialEdit): Promise<void>
+
+  /** One Material, flagged as removed. Never deleted: the periods that name it stay. */
+  removeMaterial(removal: MaterialRemoval): Promise<void>
 
   /**
    * The link that reopens one Person's Intake. Replaces whatever link that Person
@@ -1666,10 +1690,17 @@ export interface CheckInsReader {
  * the same relationship differently.
  */
 
-/** One Material on the Ministry's own list, as a folder names it. */
+/** One Material on the Ministry's own list, as a folder names it and the edit page fills it in. */
 export interface MaterialOnTheList {
   readonly materialId: MaterialId
   readonly title: string
+  /** The Ministry's own typed content, or null where the Material is a PDF alone. */
+  readonly body: string | null
+  /**
+   * The uploaded PDF, by the name it arrived under and its size in bytes, or
+   * null where there is none. The size is null where no object is on the path.
+   */
+  readonly pdf: { readonly filename: string; readonly bytes: number | null } | null
 }
 
 /** One closed period a card lists on its "Previously" line. */
@@ -1730,8 +1761,8 @@ export interface MaterialsPage {
   readonly care: readonly CareNeededItem[]
 }
 
-/** The two surfaces that draw from the tab's document, each read under its own name. */
-export type MaterialsSurface = 'materials' | 'material'
+/** The four surfaces that draw from the tab's document, each read under its own name. */
+export type MaterialsSurface = 'materials' | 'material' | 'new-material' | 'edit-material'
 
 export interface MaterialsReader {
   /**

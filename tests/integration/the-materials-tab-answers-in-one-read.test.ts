@@ -33,7 +33,7 @@ import {
  * it says nothing to anyone the reads would have refused.
  */
 
-const PAGES = ['materials_page', 'material_page', 'new_material_page'] as const
+const PAGES = ['materials_page', 'material_page', 'new_material_page', 'edit_material_page'] as const
 
 const asDocument = (data: unknown) => data as Record<string, unknown>
 const asRows = (data: unknown) => data as Record<string, unknown>[]
@@ -139,10 +139,10 @@ describe('the Materials tab answers in one read', () => {
     const overview = asDocument((await admin.rpc('overview_page')).data)
     expect(doc.history).toEqual(overview.history)
 
-    // The Ministry's Materials in title order, with the flag ticket 02 fills in.
+    // The Ministry's Materials in title order, live, with no PDF and so no size.
     expect(asRows(doc.materials)).toEqual([
-      { id: prayer, title: 'Prayer practices', body: 'The text of Prayer practices.', pdf_path: null, pdf_filename: null, removed: null },
-      { id: masterPlan, title: 'The Master Plan of Evangelism', body: 'The text of The Master Plan of Evangelism.', pdf_path: null, pdf_filename: null, removed: null },
+      { id: prayer, title: 'Prayer practices', body: 'The text of Prayer practices.', pdf_path: null, pdf_filename: null, pdf_bytes: null, removed: null },
+      { id: masterPlan, title: 'The Master Plan of Evangelism', body: 'The text of The Master Plan of Evangelism.', pdf_path: null, pdf_filename: null, pdf_bytes: null, removed: null },
     ])
 
     // Every period, as the function that emits them gapless gives them.
@@ -167,11 +167,11 @@ describe('the Materials tab answers in one read', () => {
     expect(genders.find((row) => row.person_id === groupLeader.personId)?.gender).toBe('female')
   })
 
-  it('serves a folder and the new page from the same document under their own names', async () => {
+  it('serves a folder, the new page and the edit page from the same document under their own names', async () => {
     const admin = await signInAs(ministry)
     const tab = asDocument((await admin.rpc('materials_page')).data)
 
-    for (const page of ['material_page', 'new_material_page'] as const) {
+    for (const page of ['material_page', 'new_material_page', 'edit_material_page'] as const) {
       const doc = asDocument((await admin.rpc(page)).data)
       expect(doc, page).toEqual(tab)
     }
@@ -247,6 +247,54 @@ describe('the Materials tab answers in one read', () => {
     const page = await readMaterials(admin, ministry.id, createTestClock(new Date()))
     const card = page.relationships.find((each) => each.relationshipId === relationship)
     expect(card).toMatchObject({ runningMaterialId: prayer, since: acceptedAt, previously: [] })
+  })
+
+  it('carries a removed Material with its flag, which the reader keeps off the list and on the history line', async () => {
+    const admin = await signInAs(ministry)
+    // A Material the one-to-one worked through and then left, then removed.
+    const galatians = await addMaterial(ministry, 'Galatians, weeks 1-5')
+    const leftAt = new Date(assignedAt.getTime() + days(7))
+    const backAt = new Date(assignedAt.getTime() + days(14))
+    await assignMaterial(oneToOne, galatians, ministry.adminUserId, leftAt)
+    await assignMaterial(oneToOne, masterPlan, ministry.adminUserId, backAt)
+    await serviceRoleClient().from('material').update({ removed: backAt.toISOString() }).eq('id', galatians)
+
+    const doc = asDocument((await admin.rpc('materials_page')).data)
+    expect(asRows(doc.materials).find((row) => row.id === galatians)).toMatchObject({
+      title: 'Galatians, weeks 1-5',
+      removed: expect.any(String),
+    })
+
+    const page = await readMaterials(admin, ministry.id, createTestClock(new Date(backAt.getTime() + days(1))))
+    expect(page.materials.map((material) => material.title)).toEqual([
+      'Prayer practices',
+      'The Master Plan of Evangelism',
+    ])
+    const card = page.relationships.find((each) => each.relationshipId === oneToOne)
+    expect(card?.previously.map((period) => period.title)).toEqual([null, 'The Master Plan of Evangelism', 'Galatians, weeks 1-5'])
+  })
+
+  it('carries the size of a PDF that is in the bucket, and the filename from the row', async () => {
+    const admin = await signInAs(ministry)
+    const pdfPath = `${ministry.id}/${crypto.randomUUID()}.pdf`
+    const bytes = '%PDF-1.4 a study guide'
+    const uploaded = await serviceRoleClient().storage.from('material').upload(pdfPath, new Blob([bytes], { type: 'application/pdf' }))
+    if (uploaded.error) throw new Error(uploaded.error.message)
+    const withPdf = await addMaterial(ministry, 'Philippians, weeks 1-4', { body: null, pdfPath, pdfFilename: 'philippians.pdf' })
+
+    const doc = asDocument((await admin.rpc('materials_page')).data)
+    expect(asRows(doc.materials).find((row) => row.id === withPdf)).toMatchObject({
+      pdf_filename: 'philippians.pdf',
+      pdf_bytes: bytes.length,
+    })
+
+    const page = await readMaterials(admin, ministry.id, createTestClock(new Date()))
+    expect(page.materials.find((material) => material.materialId === withPdf)).toEqual({
+      materialId: withPdf,
+      title: 'Philippians, weeks 1-4',
+      body: null,
+      pdf: { filename: 'philippians.pdf', bytes: bytes.length },
+    })
   })
 
   it('tells a Leader who administers nothing so, and hands them no Ministry', async () => {

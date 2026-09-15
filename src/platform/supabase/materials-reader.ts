@@ -10,6 +10,7 @@ import type {
   MaterialRelationship,
   MaterialsPage,
   MaterialsReader,
+  MaterialsSurface,
 } from '~/service/ports'
 import { careNeededFrom } from './care-needed-reader'
 import { adminPage, documentFor, list, readPageDocument, type PageDocument } from './page'
@@ -24,7 +25,7 @@ import {
   pausesFrom,
   weeksFrom,
 } from './relationship-history'
-import { declaredGenderOf, text } from './rows'
+import { count, declaredGenderOf, text } from './rows'
 import { createSupabaseServerClient } from './server-client'
 
 /**
@@ -53,10 +54,10 @@ import { createSupabaseServerClient } from './server-client'
 const NOTHING_YET: MaterialsPage = { timeZone: null, materials: [], relationships: [], care: [] }
 
 /**
- * The live Materials, in title order. A removed one (the flag ticket 02 adds) is
- * kept off this list and off nothing else: the periods that name it still name
- * it, which is what keeps a card's "Previously" line honest about a Material
- * the Ministry no longer offers.
+ * The live Materials, in title order, each with what the edit page fills in. A
+ * removed one is kept off this list and off nothing else: the periods that name
+ * it still name it, which is what keeps a card's "Previously" line honest about
+ * a Material the Ministry no longer offers.
  */
 const materialsOn = (doc: PageDocument): readonly MaterialOnTheList[] =>
   list(doc, 'materials')
@@ -71,7 +72,18 @@ const materialsOn = (doc: PageDocument): readonly MaterialOnTheList[] =>
         throw new Error(`A Material arrived with no id or no title: ${JSON.stringify(row)}`)
       }
       if (instant(row.removed) !== null) return []
-      return [{ materialId: materialId(id), title }]
+      // The size is the storage object's and is null where no object is on the
+      // path; the filename is the row's, and the row promises it and the path
+      // arrive together.
+      const pdfFilename = text(row.pdf_filename)
+      return [
+        {
+          materialId: materialId(id),
+          title,
+          body: text(row.body),
+          pdf: pdfFilename ? { filename: pdfFilename, bytes: count(row.pdf_bytes) } : null,
+        },
+      ]
     })
     .sort((a, b) => a.title.localeCompare(b.title) || a.materialId.localeCompare(b.materialId))
 
@@ -249,15 +261,26 @@ export const readMaterials = async (
  * running now and how long a care item has waited are time-dependent rules like
  * any other, and the composition root decides whose clock answers them.
  */
+/**
+ * The function each surface reads under, so the edge log names the page that was
+ * loaded. All four answer with the tab's document.
+ */
+const PAGE_FUNCTION: Readonly<Record<MaterialsSurface, string>> = {
+  materials: 'materials_page',
+  material: 'material_page',
+  'new-material': 'new_material_page',
+  'edit-material': 'edit_material_page',
+}
+
 export const createSupabaseMaterialsReader = (clock: Clock = systemClock): MaterialsReader => ({
   async readMaterialsPage(surface, gender) {
     // The tab is read under its own name with the filter beside it, for the edge
-    // log; a folder is read under its own name and carries no filter, because the
-    // function reads nothing off it either way.
+    // log; every other surface is read under its own name and carries no filter,
+    // because the function reads nothing off it either way.
     const doc =
       surface === 'materials'
         ? await readPageDocument(await createSupabaseServerClient(), 'materials_page', { gender })
-        : await readPageDocument(await createSupabaseServerClient(), 'material_page')
+        : await readPageDocument(await createSupabaseServerClient(), PAGE_FUNCTION[surface])
     return adminPage(doc, () => materialsFrom(doc, clock))
   },
 })

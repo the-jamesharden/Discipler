@@ -10,6 +10,7 @@ import type {
   RelationshipId,
 } from './ids'
 import type { GoalDirection } from './discipleship-goals'
+import type { MaterialPdf } from './materials'
 import type { MinistrySettingsFields } from './ministry-settings'
 import type { DiscipleshipGoalId, Gender, IntakeFormFields } from './intake'
 import type { IntakeLinkToken } from './intake-link'
@@ -458,6 +459,54 @@ export type Command =
       readonly personId: PersonId
       /** Exactly as it arrived. Reading it is the domain's job, not the route's. */
       readonly body: string
+    }
+  /**
+   * The three ways an Admin changes the Ministry's own list of Materials
+   * (`.scratch/materials/spec.md`, ticket 02). Three commands and not one,
+   * because they are three acts an Admin performs on three screens, and only
+   * one of them takes a Material off the list.
+   *
+   * The title and the text arrive as typed: what counts as a title, whether a
+   * blank text is text, and whether a Material with neither is a Material are
+   * rules, and rules live on the domain side of this boundary. The PDF arrives
+   * already stored, as the path it was written to and the name it arrived
+   * under, because the bucket is the one place the domain cannot reach; a
+   * refusal here is what tells the route to delete what it just uploaded.
+   */
+  | {
+      readonly type: 'material.create'
+      readonly ministryId: MinistryId
+      readonly title: string
+      readonly body: string | null
+      readonly pdf: MaterialPdf | null
+      /** The Admin's account, as the session named it. */
+      readonly createdBy: string
+    }
+  /**
+   * A plain edit of the row. A period points at the row, so a retitled Material
+   * is what every history line says from then on, and a Leader sees the new text
+   * or PDF on their next load. The PDF is kept, removed or replaced, and only a
+   * replacement carries a file.
+   */
+  | {
+      readonly type: 'material.edit'
+      readonly ministryId: MinistryId
+      readonly materialId: MaterialId
+      readonly title: string
+      readonly body: string | null
+      readonly pdf: 'keep' | 'remove' | MaterialPdf
+      readonly changedBy: string
+    }
+  /**
+   * Off the tab and out of every assign list; kept in history. Refused while any
+   * accepted, unended relationship is working through it, and there is no
+   * restore -- a Ministry that wants it back creates it again.
+   */
+  | {
+      readonly type: 'material.remove'
+      readonly ministryId: MinistryId
+      readonly materialId: MaterialId
+      readonly removedBy: string
     }
   /**
    * The four ways an Admin changes the list of Discipleship Goals their Ministry

@@ -195,6 +195,15 @@ export const applyEffects = async (
   const removedGoals = effects.flatMap((effect) =>
     effect.kind === 'goal.remove' ? [effect.removal] : [],
   )
+  const createdMaterials = effects.flatMap((effect) =>
+    effect.kind === 'material.create' ? [effect.material] : [],
+  )
+  const editedMaterials = effects.flatMap((effect) =>
+    effect.kind === 'material.edit' ? [effect.edit] : [],
+  )
+  const removedMaterials = effects.flatMap((effect) =>
+    effect.kind === 'material.remove' ? [effect.removal] : [],
+  )
   const concerns = effects.flatMap((effect) =>
     effect.kind === 'concern.raise' ? [effect.concern] : [],
   )
@@ -344,6 +353,14 @@ export const applyEffects = async (
   for (const removal of removedGoals) await unit.removeDiscipleshipGoal(removal)
   for (const order of goalOrders) await unit.reorderDiscipleshipGoals(order)
 
+  // Before the history saying they happened, like every other write here: the
+  // database refuses a second live Material with the same title, and being
+  // refused after history had already recorded the Material would leave a
+  // Ministry's record naming one that never landed.
+  for (const material of createdMaterials) await unit.createMaterial(material)
+  for (const edit of editedMaterials) await unit.editMaterial(edit)
+  for (const removal of removedMaterials) await unit.removeMaterial(removal)
+
   // Before the messages, and that ordering is the whole of what `START` does. The
   // outbound queue refuses anything bound for a Person with an open opt-out, so a
   // re-opt-in applied after the messages it permits would have the database refuse
@@ -464,6 +481,19 @@ const editsTheGoalList = (
   command: Command,
 ): command is Extract<Command, { type: (typeof GOAL_LIST_EDITS)[number] }> =>
   (GOAL_LIST_EDITS as readonly string[]).includes(command.type)
+
+/**
+ * The three ways an Admin edits the Ministry's own list of Materials. Each of
+ * them decides against the whole list -- whether a title is taken, whether the
+ * Material named is still on it, whether anybody is working through it -- so
+ * each of them loads it, as the goal edits load theirs.
+ */
+const MATERIAL_LIST_EDITS = ['material.create', 'material.edit', 'material.remove'] as const
+
+const editsTheMaterialList = (
+  command: Command,
+): command is Extract<Command, { type: (typeof MATERIAL_LIST_EDITS)[number] }> =>
+  (MATERIAL_LIST_EDITS as readonly string[]).includes(command.type)
 
 /**
  * Intake needs two things no other command does: the Ministry's name, because every
@@ -789,6 +819,13 @@ export const createCommandService = ({
         // -- and written into the event that outlives them.
         ...(command.type === 'goal.remove'
           ? { goalAnswers: await unit.answersPointingAt(command.goalId) }
+          : {}),
+        // Read inside the transaction, behind the same advisory lock the goal
+        // list takes, so two Admins cannot both create the same title against a
+        // list neither can see the other's on -- and so the count a removal is
+        // refused with is the count that stood when it was decided.
+        ...(editsTheMaterialList(command)
+          ? { materials: await unit.materials() }
           : {}),
         // Read inside the transaction, behind the same advisory lock the read
         // itself takes, so a reply and a newly-due sequence cannot both find no

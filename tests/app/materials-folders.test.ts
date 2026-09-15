@@ -35,8 +35,13 @@ const relationship = (over: Partial<MaterialRelationship> = {}): MaterialRelatio
   ...over,
 })
 
-const masterPlan: MaterialOnTheList = { materialId: materialId('m-1'), title: 'The Master Plan of Evangelism' }
-const prayer: MaterialOnTheList = { materialId: materialId('m-2'), title: 'Prayer practices' }
+const masterPlan: MaterialOnTheList = {
+  materialId: materialId('m-1'),
+  title: 'The Master Plan of Evangelism',
+  body: 'Read one chapter a week.',
+  pdf: null,
+}
+const prayer: MaterialOnTheList = { materialId: materialId('m-2'), title: 'Prayer practices', body: null, pdf: { filename: 'prayer.pdf', bytes: 1024 } }
 
 describe('the filter', () => {
   it('reads a gender off the query string and nothing else', () => {

@@ -18,6 +18,7 @@ import { createMinistryWithAdmin, localSupabase, signInAs } from '../support/loc
 
 const PAGE_FUNCTIONS = [
   'check_ins_page',
+  'edit_material_page',
   'follow_up_page',
   'intake_forms_page',
   'material_page',

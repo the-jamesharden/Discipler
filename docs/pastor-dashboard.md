@@ -53,7 +53,9 @@ Messaging a participant through Discipler is deliberately absent. The admin pick
 
 The Materials tab shows the ministry's own list of materials as folders, each holding the relationships and groups working through it now, with a dashed folder last for the ones on no material. A filter of All, Men's and Women's reads what each relationship declared, gives a one-to-one that declared nothing its leader's gender, and files a mixed group under All only. Only accepted, unended relationships appear. Opening a folder lists its relationships as cards: who is in it, the state the Overview derives for it, since when it has been on this material, and every earlier period with dates. Assignment history is preserved so later reporting can connect a period's responses to the material in use during it, and that history line is the one place it is visible.
 
-Creating and editing a material, and assigning one from a folder's card or from a group's card on Intake forms, follow in `.scratch/materials/spec.md`. Until they ship, assignments are configured directly during pilot support.
+The tab's New material button opens a page of its own where an admin gives a material a title and either some text, a PDF, or both; a folder's Edit link opens the page where the title and text are changed, the PDF is replaced or removed, and the material is removed from the list. Removing takes two presses and is refused while any relationship is working through the material; a removed material leaves the tab and every assign list, and the weeks relationships spent on it still say so.
+
+Assigning a material from a folder's card or from a group's card on Intake forms follows in `.scratch/materials/spec.md`. Until it ships, assignments are configured directly during pilot support.
 
 ## Roster
 

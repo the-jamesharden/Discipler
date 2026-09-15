@@ -30,6 +30,9 @@ import type {
   NewDiscipleshipGoal,
   LeaderAcceptance,
   MaterialAssignment,
+  MaterialEdit,
+  MaterialRemoval,
+  NewMaterial,
   OutboundMessageDraft,
   OutstandingReplyClosure,
   OutstandingReplySweep,
@@ -58,6 +61,7 @@ import {
   type StatedGoal,
 } from '~/domain/discipleship-goals'
 import { discipleshipGoalId, type Gender } from '~/domain/intake'
+import { materialTitle, type MaterialOnOffer } from '~/domain/materials'
 import {
   roleNoun,
   type MinistrySettings,
@@ -78,6 +82,7 @@ import {
   IntakeRefused,
   InvitationRefused,
   MaterialAssignmentRefused,
+  MaterialRefused,
   PairingRefused,
   RosterImportRefused,
   type CancellationRefusal,
@@ -91,6 +96,7 @@ import {
   followUpItemId,
   importRowId,
   intakeSubmissionId,
+  materialId,
   ministryId,
   personId,
   relationshipId,
@@ -156,6 +162,17 @@ const constraintViolated = (error: unknown): string | undefined =>
 const asGoalRefusal = (error: unknown): GoalRefused | undefined =>
   constraintViolated(error) === 'discipleship_goal_ministry_id_label_key'
     ? new GoalRefused('goal.already_offered')
+    : undefined
+
+/**
+ * A title this Ministry already holds a live Material under, as the database sees
+ * it. The boundary refuses a duplicate against the list it read; reaching here
+ * means somebody else wrote between that read and this write, and the losing
+ * Admin is told the same true thing as the one who saw it on screen.
+ */
+const asMaterialRefusal = (error: unknown): MaterialRefused | undefined =>
+  constraintViolated(error) === 'material_live_title_uniq'
+    ? new MaterialRefused('material.title_taken')
     : undefined
 
 /**
@@ -2637,6 +2654,124 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
 
     if (deleted === 0) {
       throw new Error(`No Discipleship Goal ${removal.goalId} to remove`)
+    }
+  },
+
+  async materials(): Promise<readonly MaterialOnOffer[]> {
+    // The same lock the Discipleship Goal list takes, keyed on the Ministry, and
+    // for the same reason: two Admins -- or one Admin's double submit -- both
+    // reading the list and both deciding against it would both find a title free
+    // and collide on the partial unique index at commit, and two titles differing
+    // only in capitalisation would both land, because the rule that calls those
+    // one Material is the domain's and the index is exact.
+    await client.query(
+      `select pg_advisory_xact_lock(hashtextextended(app.command_ministry_id()::text, 0))`,
+    )
+
+    // Live Materials only: a removed one is off the list, so an edit naming it
+    // is refused as not on the list, and its title is free to use again. The
+    // count is of accepted, unended relationships whose running period is on
+    // it -- the ones the tab files in its folder -- which is what refuses a
+    // removal and what the Remove card says.
+    const { rows } = await client.query<{
+      id: string
+      title: string
+      body: string | null
+      pdf_path: string | null
+      pdf_filename: string | null
+      in_use_by: string
+    }>(
+      `select m.id, m.title, m.body, m.pdf_path, m.pdf_filename,
+              (select count(*)
+                 from material_assignment a
+                 join relationship r on r.id = a.relationship_id
+                where a.material_id = m.id
+                  and a.ended_at is null
+                  and r.accepted_at is not null
+                  and r.ended_at is null) as in_use_by
+         from material m
+        where m.ministry_id = app.command_ministry_id()
+          and m.removed is null
+        order by m.title, m.created_at`,
+    )
+
+    return rows.map((row) => {
+      const inUseBy = count(row.in_use_by)
+      if (inUseBy === null) {
+        throw new Error(`No count of who is working through Material ${row.id} came back`)
+      }
+      // Both halves or neither, which the check constraint on the row promises.
+      const pdfPath = text(row.pdf_path)
+      const pdfFilename = text(row.pdf_filename)
+      if ((pdfPath === null) !== (pdfFilename === null)) {
+        throw new Error(`Material ${row.id} arrived with half a PDF`)
+      }
+      return {
+        id: materialId(row.id),
+        title: materialTitle(row.title),
+        body: text(row.body),
+        pdf: pdfPath && pdfFilename ? { path: pdfPath, filename: pdfFilename } : null,
+        inUseBy,
+      }
+    })
+  },
+
+  async createMaterial(material: NewMaterial) {
+    try {
+      await client.query(
+        `insert into material (id, ministry_id, title, body, pdf_path, pdf_filename, created_at)
+         values ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          material.id,
+          material.ministryId,
+          material.title,
+          material.body,
+          material.pdf?.path ?? null,
+          material.pdf?.filename ?? null,
+          material.createdAt,
+        ],
+      )
+    } catch (error) {
+      // The boundary already refused a duplicate against the list it read. This
+      // is the other Admin, creating the same title in the second between that
+      // read and this insert -- told the same true thing, rather than a 500.
+      throw asMaterialRefusal(error) ?? error
+    }
+  },
+
+  async editMaterial(edit: MaterialEdit) {
+    // An update to the row, never a delete and an insert. Every period points at
+    // the id, so a retitled Material is the same Material on every history line.
+    // A removed Material is not edited: it is off the list, and the boundary has
+    // already refused it as such, so no row here means a race lost since.
+    let edited: number | null = null
+    try {
+      ;({ rowCount: edited } = await client.query(
+        `update material
+            set title = $2, body = $3, pdf_path = $4, pdf_filename = $5
+          where id = $1 and removed is null`,
+        [edit.materialId, edit.title, edit.body, edit.pdf?.path ?? null, edit.pdf?.filename ?? null],
+      ))
+    } catch (error) {
+      throw asMaterialRefusal(error) ?? error
+    }
+
+    if (edited === 0) {
+      throw new Error(`No live Material ${edit.materialId} to edit`)
+    }
+  },
+
+  async removeMaterial(removal: MaterialRemoval) {
+    // A flag and not a delete. `material_assignment_material_fk` is `on delete
+    // restrict` and the command connection holds no delete grant at all, so the
+    // periods that name this Material are safe from every path.
+    const { rowCount } = await client.query(
+      `update material set removed = $2 where id = $1 and removed is null`,
+      [removal.materialId, removal.removedAt],
+    )
+
+    if (rowCount === 0) {
+      throw new Error(`No live Material ${removal.materialId} to remove`)
     }
   },
 
