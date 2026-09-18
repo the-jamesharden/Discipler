@@ -27,6 +27,7 @@ const person = (
   holdsAnAccount: false,
   phone: null,
   email: null,
+  gender: null,
   intendedPairings: [],
   ...over,
 })

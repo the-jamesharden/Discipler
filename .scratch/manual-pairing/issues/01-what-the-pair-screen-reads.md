@@ -41,3 +41,30 @@ It is Admin-gated already and is less disclosing than the phone number the same 
 
 If that trade reads wrong, the alternative is a `candidate_genders` map added to `pair_page()` alone, and the Pair page merging it.
 Say so on this ticket rather than deciding it in ticket 04.
+
+## Comments
+
+### 2026-09-18 - implemented on `what-the-pair-screen-reads`, not yet merged
+
+Gender went on `public.roster()` as the ticket chose, and the `candidate_genders` alternative was not needed.
+
+Calls made while building, for whoever picks up ticket 04:
+
+- `pair_page()` emits `id`, `title` and `removed` per Material, in the order `materials_page()` uses.
+  That is a subset of its rows rather than the whole row, since a select needs no body and no storage lookup for a PDF's size.
+- `MaterialOption` is `{ materialId, title }`, following `MaterialOnTheList`, rather than a literal `id`.
+- The derivation is `rosterPageFrom(doc, clock, surface)`, and it is told which surface it is reading for.
+  The Roster and the person page read `suggestGenderMatch: true` and `materials: []` as the ticket asks.
+  The Pair page's own document arriving without either key is thrown for, like every other drift in that reader, rather than read as those defaults.
+  A null `suggest_gender_match`, which is a Ministry row the session could not see, reads as enforced.
+- One definition of a live Material, `liveMaterialRows`, is now shared by the Materials tab's reader and the Pair page's.
+- `app.current_gender` is granted to `postgres`, which owns it and `public.roster()` alike, so the grant states the dependency and changes nothing.
+  It is revoked from `authenticated` as well as `public` and `anon`.
+- "Pass untouched" holds for every assertion.
+  `tests/app/roster-lists.test.ts` gained one fixture line, `gender: null`, because it builds a whole `RosterEntry` and the field is required.
+
+The over-HTTP bullet is met as far as a ticket with no UI allows.
+The three facts are proven through a signed-in session against `pair_page()` and through the reader's derivation, and the running app is shown to still answer `/roster/pair`, `/roster` and the person page with every new state present.
+Nothing in the HTML carries a gender yet, so ticket 04 should assert it over HTTP once a row is greyed.
+
+Found along the way and fixed in its own commit: `membersFrom` handed names back in heap order, so a group's names could swap between loads and `the-materials-tab-answers-in-one-read` failed intermittently.
