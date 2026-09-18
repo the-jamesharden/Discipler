@@ -74,4 +74,8 @@ Calls made while building, for whoever picks up tickets 03 and 04:
   The Pair page does not read `materialId` from its query string yet.
   Ticket 04 must preselect the Material from it, or a second refusal loses the choice.
 - The `relationship.created` event's payload carries `materialId`, null where none was chosen.
+- Found in review and authorised by the owner: the `relationship.activated` event's payload says what acceptance did with the intention, beside `participantCount`.
+  It carries `intendedMaterial: { materialId, outcome }`, where `outcome` is `assigned` or `skipped_as_removed`, and carries no such key where nothing was intended.
+  The column is cleared at activation and a skip writes no period, so this event is the only record that a chosen Material was dropped, and the only event that says which Material a relationship started on.
+  No new event type and no migration.
 - "Domain tests: the two-period history satisfies `app.reject_broken_material_history`" is proven in `tests/integration/`, which is the only place a deferred constraint trigger can be.

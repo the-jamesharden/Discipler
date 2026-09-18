@@ -158,6 +158,13 @@ const accept = (invitation: InvitationSnapshot, materials?: readonly MaterialOnO
 const assignments = (result: ReturnType<typeof accept>) =>
   result.effects.flatMap((effect) => (effect.kind === 'material.assign' ? [effect.assignment] : []))
 
+const activations = (result: ReturnType<typeof accept>) =>
+  result.effects.flatMap((effect) =>
+    effect.kind === 'history.append' && effect.event.type === 'relationship.activated'
+      ? [effect.event.payload]
+      : [],
+  )
+
 describe('accepting a relationship that carries an intended Material', () => {
   it('opens the history with no Material, then assigns the intended one at the same instant', () => {
     // Two periods at one instant. The opening one closes at its own start and
@@ -178,11 +185,28 @@ describe('accepting a relationship that carries an intended Material', () => {
     const result = accept(invited(romans), [onOffer(hebrews, 'Hebrews')])
 
     expect(assignments(result).map((assignment) => assignment.materialId)).toEqual([null])
-    expect(
-      result.effects.some(
-        (effect) => effect.kind === 'history.append' && effect.event.type === 'relationship.activated',
-      ),
-    ).toBe(true)
+    expect(activations(result)).toHaveLength(1)
+  })
+
+  it('records on the activation that the intended Material was assigned', () => {
+    // The intention is cleared once spent, and no Admin's assignment event is
+    // appended for an act no Admin performed, so this is where history says
+    // which Material the relationship started on.
+    expect(activations(accept(invited(romans), [onOffer(romans, 'Romans')]))).toEqual([
+      { participantCount: 2, intendedMaterial: { materialId: romans, outcome: 'assigned' } },
+    ])
+  })
+
+  it('records on the activation that a removed Material was skipped', () => {
+    // A skip writes no period, so without this the pairing event would say a
+    // Material was chosen and nothing would say it was dropped.
+    expect(activations(accept(invited(romans), [onOffer(hebrews, 'Hebrews')]))).toEqual([
+      { participantCount: 2, intendedMaterial: { materialId: romans, outcome: 'skipped_as_removed' } },
+    ])
+  })
+
+  it('records nothing about a Material on the activation where none was intended', () => {
+    expect(activations(accept(invited(null)))).toEqual([{ participantCount: 2 }])
   })
 
   it('opens the history with the one period, exactly as before, where nothing was intended', () => {

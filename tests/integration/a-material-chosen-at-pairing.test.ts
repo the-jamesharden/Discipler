@@ -130,6 +130,15 @@ describe('a Material chosen at pairing', () => {
     return rows
   }
 
+  const activationsOf = async (relationship: RelationshipId) => {
+    const { rows } = await pool.query<{ payload: Record<string, unknown> }>(
+      `select payload from ministry_event
+        where subject_id = $1 and type = 'relationship.activated'`,
+      [relationship],
+    )
+    return rows.map((row) => row.payload)
+  }
+
   it('waits on the relationship, and is written into its history when the Leader accepts', async () => {
     const romans = materialId(await addMaterial(ministry, 'Romans, chosen at pairing'))
     const david = await roster('David Chose')
@@ -151,6 +160,10 @@ describe('a Material chosen at pairing', () => {
     ])
     // Spent, so nothing re-reading this relationship finds a stale intention.
     expect(await intendedOn(group)).toBeNull()
+    // And the activation says what it was spent on, which outlives the column.
+    expect(await activationsOf(group)).toEqual([
+      { participantCount: 2, intendedMaterial: { materialId: romans, outcome: 'assigned' } },
+    ])
   })
 
   it('binds a one-to-one exactly as it binds a group', async () => {
@@ -199,6 +212,10 @@ describe('a Material chosen at pairing', () => {
       { material_id: null, started_at: at, ended_at: null, assigned_by: null },
     ])
     expect(await intendedOn(group)).toBeNull()
+    // The skip is silent to the Leader and not to history.
+    expect(await activationsOf(group)).toEqual([
+      { participantCount: 2, intendedMaterial: { materialId: leviticus, outcome: 'skipped_as_removed' } },
+    ])
   })
 
   it('opens the one period, exactly as before, where no Material was chosen', async () => {
@@ -209,6 +226,7 @@ describe('a Material chosen at pairing', () => {
     await accept(david)
 
     expect((await periodsOf(group)).map((period) => period.material_id)).toEqual([null])
+    expect(await activationsOf(group)).toEqual([{ participantCount: 2 }])
   })
 
   it('refuses a Material that is removed, or another Ministry’s, and forms nothing', async () => {

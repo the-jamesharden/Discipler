@@ -4751,6 +4751,14 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
 
       if (!activatesRelationship) return { rejections: [], effects }
 
+      // The Material an Admin chose while pairing, and whether it is still on the
+      // Ministry's list as this acceptance decides. The column holding it is
+      // cleared at activation either way, so the event below is the one record of
+      // what became of the choice -- and the only one at all where it was skipped,
+      // since a skip writes no period.
+      const intended = invitation.intendedMaterialId
+      const assignsIntended = intended !== null && isStillOnTheList(context, intended)
+
       effects.push(
         appendHistory({
           ministryId: command.ministryId,
@@ -4758,7 +4766,17 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           type: 'relationship.activated',
           subjectType: 'relationship',
           subjectId: invitation.relationshipId,
-          payload: { participantCount: participants.length },
+          payload: {
+            participantCount: participants.length,
+            ...(intended !== null
+              ? {
+                  intendedMaterial: {
+                    materialId: intended,
+                    outcome: assignsIntended ? 'assigned' : 'skipped_as_removed',
+                  },
+                }
+              : {}),
+          },
         }),
         // The Material history opens here, with a period that has no Material in
         // it. *Periods never leave gaps* includes the time before a Ministry has
@@ -4791,8 +4809,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       //
       // A Material removed since pairing is skipped and nothing is refused.
       // Acceptance is a Leader's act and never fails on an Admin's stale choice.
-      const intended = invitation.intendedMaterialId
-      if (intended !== null && isStillOnTheList(context, intended)) {
+      if (intended !== null && assignsIntended) {
         effects.push(
           assignMaterial({
             ministryId: command.ministryId,
