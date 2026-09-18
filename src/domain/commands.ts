@@ -191,6 +191,14 @@ export type Command =
        * says so.
        */
       readonly joinRequiresApproval?: boolean
+      /**
+       * The Material the Admin chose while forming this. Absent means none. It is
+       * an intention rather than an assignment: Material periods begin at
+       * acceptance and a relationship formed a moment ago is never accepted, so
+       * the choice is held on the relationship and acceptance spends it. Kept
+       * whatever the shape, since a Material binds a one-to-one as it does a group.
+       */
+      readonly materialId?: MaterialId
     }
   /**
    * An Admin changing what a group is called and whether joining it asks. One

@@ -120,6 +120,10 @@ _Avoid_: Program, curriculum, deleting a Material
 The period during which a relationship was working through a particular material. Assigned to the relationship, never to a person: a leader in two relationships may be working through two different things. Periods never overlap and never leave gaps, so a relationship's first period runs from acceptance with no material assigned.
 _Avoid_: Assigning a material to a person
 
+**Intended Material**:
+The Material an Admin chose while forming a relationship, held on the relationship because no Material Assignment can exist before acceptance. It is an intention and not an assignment: it opens no period and nobody is working through it. The acceptance that activates the relationship spends it, which is decided in the command boundary (`src/domain/boundary.ts`, `relationship.accept`), and an accepted relationship carries none.
+_Avoid_: Pre-assignment, default Material, assigning a Material at pairing
+
 **Check-In Rhythm**:
 Discipler's recurring text-message rhythm for gathering information about whether discipleship meetings are happening and how they are going.
 _Avoid_: Twilio Rhythm (Twilio is a delivery vendor, not a domain concept)

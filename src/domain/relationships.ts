@@ -1,5 +1,5 @@
 import type { Gender } from './intake'
-import type { MinistryId, PersonId, RelationshipId } from './ids'
+import type { MaterialId, MinistryId, PersonId, RelationshipId } from './ids'
 
 /**
  * M Leaders and N Participants. A one-to-one is two people -- one Leader, one
@@ -64,6 +64,14 @@ export interface NewRelationship {
    * the group link never offers, and false there.
    */
   readonly joinRequiresApproval: boolean
+  /**
+   * The Material the Admin chose while forming this, or null where none was. An
+   * intention and not an assignment: no Material period exists before acceptance,
+   * so this waits on the relationship, acceptance spends it, and it means nothing
+   * afterwards. Unlike `kind` and `declaredGender` it is not a fact about what
+   * happened and is not frozen.
+   */
+  readonly intendedMaterialId: MaterialId | null
   readonly createdAt: Date
   readonly members: readonly NewMembership[]
 }

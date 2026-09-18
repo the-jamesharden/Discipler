@@ -463,6 +463,11 @@ export const REFUSALS: Record<PairingRefusal, string> = {
   'relationship.already_has_a_leader':
     'A one-to-one has one Discipler. Add another person to be discipled to make it '
     + 'a group, and it can then have several.',
+  // Reached when the list moved under an open form. Nothing was formed, so the
+  // sentence says what to do next rather than what went missing.
+  'relationship.material_is_not_on_the_list':
+    'That Material is no longer on this Ministry’s list. Choose another, or pair '
+    + 'without one.',
 }
 
 /**
