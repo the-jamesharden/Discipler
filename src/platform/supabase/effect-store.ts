@@ -1963,9 +1963,11 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // leave gaps -- is a fact about a whole relationship's rows that no single-row
     // check constraint can state.
     //
-    // Both acts come through here and differ in one argument. Acceptance passes a
-    // null Material, which opens the history; an Admin passes a real one, which
-    // requires it to have been opened already.
+    // Both acts come through here. Acceptance passes a null Material, which opens
+    // the history, and may follow it at the same instant with the Material an
+    // Admin chose at pairing, under no Admin's name; an Admin passes a real one
+    // under their own. A real Material requires the history to have been opened
+    // already, which is why the opening period must come first.
     let answer: DatabaseAssignmentRefusal | null = null
     try {
       const { rows } = await client.query<{ refusal: DatabaseAssignmentRefusal | null }>(

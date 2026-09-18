@@ -325,9 +325,10 @@ export interface ParticipantDeparture {
  * different instant on it, would put a hole in a history that cannot be
  * reconstructed afterwards.
  *
- * Two things emit it, and they differ only in what is in the period. Acceptance
- * opens the one with no Material and no Admin behind it; an Admin assigning opens
- * one with both.
+ * Two things emit it. Acceptance opens the one with no Material and no Admin
+ * behind it, and at the same instant a second carrying the Material an Admin
+ * chose while pairing, where one was chosen and is still on the list: a Material,
+ * and still no Admin. An Admin assigning opens one with both.
  */
 export interface MaterialAssignment {
   readonly ministryId: MinistryId
@@ -347,8 +348,9 @@ export interface MaterialAssignment {
   /**
    * The Admin who decided, checked the way every other Admin act's actor is
    * checked: the composite key onto `ministry_member` refuses somebody who merely
-   * holds an account. Null on the opening period, which no Admin performed --
-   * acceptance opened it.
+   * holds an account. Null on the periods acceptance opens, which no Admin
+   * performed: the opening one, and the one spending a Material chosen at
+   * pairing, whose Admin is on the `relationship.created` event instead.
    */
   readonly assignedBy: string | null
 }

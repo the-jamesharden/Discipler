@@ -341,4 +341,3 @@ describe('a Material chosen at pairing', () => {
     })
   })
 })
-

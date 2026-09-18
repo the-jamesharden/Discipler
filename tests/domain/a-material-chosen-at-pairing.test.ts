@@ -229,4 +229,3 @@ describe('accepting a relationship that carries an intended Material', () => {
     expect(assignments(accept(waiting, [onOffer(romans, 'Romans')]))).toEqual([])
   })
 })
-
