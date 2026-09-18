@@ -869,6 +869,16 @@ export interface RosterEntry {
   readonly phone: PhoneNumber | null
   readonly email: string | null
   /**
+   * The gender on their most recent Intake submission. Null is *never asked*,
+   * never a mismatch: the database's own gender checks step aside for a Person
+   * with no gender on file, and whatever reads this shows the same restraint.
+   *
+   * Read by the pairing surface, to grey rows against what a relationship
+   * declares, and by nothing else. It leaves the database by the Roster
+   * function's Admin test, as the contact details above do.
+   */
+  readonly gender: Gender | null
+  /**
    * The pairings an import planned for this Person that are still worth showing:
    * the ones waiting on Intake, and the refused ones whose Follow-Up Item an Admin
    * has not yet resolved. Each says which side of it this Person is.
@@ -965,9 +975,16 @@ export interface JoinRequestOnTheRoster {
   readonly raisedAt: Date
 }
 
+/** One live Material as the pairing form's select offers it. */
+export interface MaterialOption {
+  readonly materialId: MaterialId
+  readonly title: string
+}
+
 /**
- * What the Roster derives from its document. The person page and the Pair page
- * read the same document and take the rows they need from it.
+ * What the Roster derives from its document. The person page reads the same
+ * document, and the Pair page reads it with two keys of its own beside it; each
+ * takes what it needs.
  */
 export interface RosterPage {
   /** Scoped to the Admin's Ministry, and enforced as such in the database, not here. */
@@ -980,6 +997,19 @@ export interface RosterPage {
    */
   readonly held: readonly UnansweredImportRow[]
   readonly followUpCount: number
+  /**
+   * Whether the Ministry enforces the absolute gender match on a one-to-one.
+   * Read by the Pair surface only, to decide whether Mixed may be offered for a
+   * one-to-one. True wherever the document did not say, which is every surface
+   * but that one: the safe default for a safeguarding constraint is enforced,
+   * which is the reason the column itself defaults true.
+   */
+  readonly suggestGenderMatch: boolean
+  /**
+   * The Ministry's live Materials, in title order. Read by the Pair surface
+   * only, and empty on every other. A removed one is not on the list.
+   */
+  readonly materials: readonly MaterialOption[]
 }
 
 /** The three surfaces that draw from the Roster's document, each read under its own name. */

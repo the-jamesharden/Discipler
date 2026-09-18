@@ -6,19 +6,23 @@ import type { RosterIntendedPairing } from '~/service/ports'
 import { isParticipationStatus, type ParticipationStatus } from '~/domain/participation'
 import { isMemberRole, type MemberRole } from '~/domain/relationships'
 import { intakeLinkState, intakeLinkToken } from '~/domain/intake-link'
-import { DECLARED_SIDES, isOneOf, type DeclaredSide } from '~/domain/intake'
+import { DECLARED_SIDES, GENDERS, isOneOf, type DeclaredSide, type Gender } from '~/domain/intake'
 import { systemClock, type Clock } from '~/domain/clock'
 import type {
   AccountOnTheRoster,
   IssuedIntakeLink,
+  MaterialOption,
   RosterEntry,
+  RosterPage,
   RosterReader,
   RosterRelationship,
+  RosterSurface,
   UnansweredImportRow,
 } from '~/service/ports'
 import type { NameOnTheNumber } from '~/domain/roster'
 import { careNeededFrom } from './care-needed-reader'
 import { adminPage, list, readPageDocument, section, type PageDocument } from './page'
+import { liveMaterialRows } from './materials-reader'
 import { historyOf } from './relationship-history'
 import { createSupabaseServerClient } from './server-client'
 
@@ -29,7 +33,7 @@ interface MemberRow {
 }
 
 /**
- * `public.roster` returns a derivation beside seven columns, so the generated types
+ * `public.roster` returns a derivation beside eight columns, so the generated types
  * do not know about it and the row arrives untyped. Named here once rather than
  * cast at the point of use.
  */
@@ -42,6 +46,7 @@ interface PersonRow {
   readonly holdsAnAccount: boolean
   readonly phone: PhoneNumber | null
   readonly email: string | null
+  readonly gender: Gender | null
 }
 
 /**
@@ -61,6 +66,7 @@ const asPersonRow = (row: unknown): PersonRow => {
     holds_an_account: holdsAnAccount,
     phone,
     email,
+    gender,
   } = (row ?? {}) as Record<string, unknown>
 
   if (typeof id !== 'string' || id === '') throw new Error('A Roster row arrived with no id')
@@ -103,6 +109,14 @@ const asPersonRow = (row: unknown): PersonRow => {
   if (email !== null && typeof email !== 'string') {
     throw new Error(`A Roster row arrived with no email answer for ${id}`)
   }
+  // Nullable, and null is a real answer: nobody has ever asked this Person. What
+  // is caught is the column missing altogether or holding a value the enum has
+  // since grown. Read as *never asked*, either would leave every row on the
+  // pairing form enabled against a declaration, and the first an Admin would
+  // hear of a mismatch is the database refusing it.
+  if (gender !== null && !isOneOf(GENDERS, gender)) {
+    throw new Error(`A Roster row arrived with no gender answer for ${id}`)
+  }
 
   return {
     id,
@@ -113,6 +127,7 @@ const asPersonRow = (row: unknown): PersonRow => {
     holdsAnAccount,
     phone: phone === null ? null : phoneNumber(phone),
     email,
+    gender,
   }
 }
 
@@ -270,6 +285,7 @@ export const rosterFrom = (doc: PageDocument): readonly RosterEntry[] => {
     holdsAnAccount: row.holdsAnAccount,
     phone: row.phone,
     email: row.email,
+    gender: row.gender,
     intendedPairings: plansFor(row.id),
   }))
 }
@@ -346,6 +362,48 @@ export const heldImportRowsFrom = (doc: PageDocument): readonly UnansweredImport
 }
 
 /**
+ * Whether the Ministry enforces the absolute gender match on a one-to-one, off
+ * the key `pair_page` carries. Null is a Ministry row the session could not see,
+ * and reads as enforced: the safe default for a safeguarding constraint is
+ * enforced, which is the reason the column itself defaults true. The key missing
+ * or holding anything else is the function and this reader having drifted apart,
+ * and is thrown for rather than guessed at in either direction.
+ */
+const suggestGenderMatchFrom = (doc: PageDocument): boolean => {
+  const setting = doc.suggest_gender_match
+  if (setting === null) return true
+  if (typeof setting !== 'boolean') {
+    throw new Error(`The page said something other than yes or no about the gender match: ${String(setting)}`)
+  }
+  return setting
+}
+
+/**
+ * Everything the three surfaces derive, from the document of the one named.
+ * Exported so a test can drive the derivation with a real session rather than a
+ * Next.js request context.
+ *
+ * The setting and the Materials are the Pair page's and ride in its document
+ * alone. The Roster and the person page read a document without them, and are
+ * told enforced and nothing to offer -- true and not false, deliberately, for the
+ * reason `suggestGenderMatchFrom` gives. The Pair page's own document arriving
+ * without them is a different thing and is thrown for: a form that quietly
+ * offered no Materials is the wrong answer shown confidently.
+ */
+export const rosterPageFrom = (doc: PageDocument, clock: Clock, surface: RosterSurface): RosterPage => ({
+  roster: rosterFrom(doc),
+  held: heldImportRowsFrom(doc),
+  followUpCount: careNeededFrom(historyOf(doc), clock).length,
+  suggestGenderMatch: surface === 'pair' ? suggestGenderMatchFrom(doc) : true,
+  // Id and title, which is what a select needs. One definition of *live*, shared
+  // with the Materials tab, so the two cannot disagree about what is on offer.
+  materials:
+    surface === 'pair'
+      ? liveMaterialRows(doc).map(({ materialId, title }): MaterialOption => ({ materialId, title }))
+      : [],
+})
+
+/**
  * Built with a clock rather than reaching for one, because the badge's number is
  * the length of Care Needed, and how long each item there has waited is a
  * time-dependent rule like any other -- the composition root decides whose clock
@@ -354,16 +412,13 @@ export const heldImportRowsFrom = (doc: PageDocument): readonly UnansweredImport
 export const createSupabaseRosterReader = (clock: Clock = systemClock): RosterReader => ({
   /**
    * One read for the Roster, the held import rows and the badge's number: all
-   * three derive from one document, and the person page and the Pair page read
-   * the same one under their own names and take the rows they need from it.
+   * three derive from one document. The person page reads the same one under its
+   * own name, and the Pair page reads it with the setting and the Materials
+   * beside it; each takes what it needs.
    */
   async readRosterPage(surface) {
     const doc = await readPageDocument(await createSupabaseServerClient(), `${surface}_page`)
-    return adminPage(doc, () => ({
-      roster: rosterFrom(doc),
-      held: heldImportRowsFrom(doc),
-      followUpCount: careNeededFrom(historyOf(doc), clock).length,
-    }))
+    return adminPage(doc, () => rosterPageFrom(doc, clock, surface))
   },
 
   async accountOnTheRoster(ministryId, person): Promise<AccountOnTheRoster | null> {

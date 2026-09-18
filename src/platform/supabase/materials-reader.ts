@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { systemClock, type Clock } from '~/domain/clock'
-import { materialId, relationshipId, type MinistryId } from '~/domain/ids'
+import { materialId, relationshipId, type MaterialId, type MinistryId } from '~/domain/ids'
 import type { Gender } from '~/domain/intake'
 import { materialInUseAt, type MaterialPeriod } from '~/domain/materials'
 import { deriveRelationshipState } from '~/domain/relationship-state'
@@ -53,13 +53,24 @@ import { createSupabaseServerClient } from './server-client'
  */
 const NOTHING_YET: MaterialsPage = { timeZone: null, materials: [], relationships: [], care: [] }
 
+/** One live Material off a document's `materials`, with the row it was read from. */
+export interface LiveMaterialRow {
+  readonly materialId: MaterialId
+  readonly title: string
+  readonly row: Readonly<Record<string, unknown>>
+}
+
 /**
- * The live Materials, in title order, each with what the edit page fills in. A
- * removed one is kept off this list and off nothing else: the periods that name
- * it still name it, which is what keeps a card's "Previously" line honest about
- * a Material the Ministry no longer offers.
+ * The live Materials on a document's `materials`, in title order. A removed one
+ * is kept off this list and off nothing else: the periods that name it still
+ * name it, which is what keeps a card's "Previously" line honest about a
+ * Material the Ministry no longer offers.
+ *
+ * One definition of *live* for every surface that offers a Material to choose --
+ * the tab's folders and dropdowns here, the pairing form's select on the Pair
+ * page -- so two of them cannot disagree about what a Ministry still offers.
  */
-const materialsOn = (doc: PageDocument): readonly MaterialOnTheList[] =>
+export const liveMaterialRows = (doc: PageDocument): readonly LiveMaterialRow[] =>
   list(doc, 'materials')
     .flatMap((row) => {
       const id = text(row.id)
@@ -72,20 +83,24 @@ const materialsOn = (doc: PageDocument): readonly MaterialOnTheList[] =>
         throw new Error(`A Material arrived with no id or no title: ${JSON.stringify(row)}`)
       }
       if (instant(row.removed) !== null) return []
-      // The size is the storage object's and is null where no object is on the
-      // path; the filename is the row's, and the row promises it and the path
-      // arrive together.
-      const pdfFilename = text(row.pdf_filename)
-      return [
-        {
-          materialId: materialId(id),
-          title,
-          body: text(row.body),
-          pdf: pdfFilename ? { filename: pdfFilename, bytes: count(row.pdf_bytes) } : null,
-        },
-      ]
+      return [{ materialId: materialId(id), title, row }]
     })
     .sort((a, b) => a.title.localeCompare(b.title) || a.materialId.localeCompare(b.materialId))
+
+/** The live Materials, each with what the edit page fills in. */
+const materialsOn = (doc: PageDocument): readonly MaterialOnTheList[] =>
+  liveMaterialRows(doc).map(({ materialId, title, row }) => {
+    // The size is the storage object's and is null where no object is on the
+    // path; the filename is the row's, and the row promises it and the path
+    // arrive together.
+    const pdfFilename = text(row.pdf_filename)
+    return {
+      materialId,
+      title,
+      body: text(row.body),
+      pdf: pdfFilename ? { filename: pdfFilename, bytes: count(row.pdf_bytes) } : null,
+    }
+  })
 
 /**
  * Every period of every relationship, grouped by relationship, as

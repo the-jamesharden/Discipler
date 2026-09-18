@@ -134,6 +134,15 @@ export const membersFrom = (
     byRelationship.set(relationship, side)
   }
 
+  // The memberships come back in no promised order -- `history_inputs` asks for
+  // none, and a heap hands rows back differently after an update -- so the names
+  // a sentence is written from are sorted here. Otherwise the same group reads
+  // "Wendy, Willa" on one load and "Willa, Wendy" on the next.
+  for (const side of byRelationship.values()) {
+    side.leaders.sort((a, b) => a.localeCompare(b))
+    side.participants.sort((a, b) => a.localeCompare(b))
+  }
+
   return byRelationship
 }
 
