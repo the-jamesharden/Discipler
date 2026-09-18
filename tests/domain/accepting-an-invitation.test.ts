@@ -32,6 +32,7 @@ const snapshot = (over: Partial<InvitationSnapshot> = {}): InvitationSnapshot =>
   personId: david,
   expiresAt,
   consumedAt: null,
+  intendedMaterialId: null,
   members: [leader(david, 'David Ellis'), participant(emily, 'Emily Johnson')],
   ...over,
 })

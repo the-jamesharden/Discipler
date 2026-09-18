@@ -1132,8 +1132,9 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       // relationship that had not yet said what it was.
       await client.query(
         `insert into relationship
-           (id, ministry_id, kind, declared_gender, name, join_requires_approval, created_at)
-         values ($1, $2, $3, $4, $5, $6, $7)`,
+           (id, ministry_id, kind, declared_gender, name, join_requires_approval,
+            intended_material_id, created_at)
+         values ($1, $2, $3, $4, $5, $6, $7, $8)`,
         [
           relationship.id,
           relationship.ministryId,
@@ -1141,6 +1142,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
           relationship.declaredGender,
           relationship.name,
           relationship.joinRequiresApproval,
+          relationship.intendedMaterialId,
           relationship.createdAt,
         ],
       )
@@ -1200,6 +1202,28 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     const invitation = found[0]
     if (!invitation) return null
 
+    // A relationship still carrying the Material an Admin chose is about to be
+    // judged against the Ministry's list, which sits behind the Ministry's lock
+    // (`materials`). That lock is taken here, ahead of the row below, because
+    // that is the order the scheduled tick takes the two in: it holds the
+    // Ministry lock and then writes against relationship rows. Row first would
+    // be the other order, a deadlock Postgres settles by aborting one of them,
+    // and a Leader's acceptance must not fail on timing.
+    //
+    // Peeked at without a lock, which is safe in the one direction that matters:
+    // an intention is written when the relationship is formed and only ever
+    // cleared, so none seen here means none below. Every other acceptance takes
+    // no Ministry lock at all, exactly as before.
+    const { rows: peeked } = await client.query(
+      `select 1 from relationship where id = $1 and intended_material_id is not null`,
+      [invitation.relationship_id],
+    )
+    if (peeked.length > 0) {
+      await client.query(
+        `select pg_advisory_xact_lock(hashtextextended(app.command_ministry_id()::text, 0))`,
+      )
+    }
+
     // Acceptances on one relationship are serialised here, and this is the whole
     // reason for the lock. Two co-leaders accepting at once touch disjoint
     // membership rows, so under READ COMMITTED each would read the other's
@@ -1207,9 +1231,14 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // agree, and the relationship would stay Awaiting Leader Acceptance with both
     // tokens spent and no way back. Taking the row the decision is *about* makes
     // the second one wait and then read the first one's acceptance.
-    await client.query(`select id from relationship where id = $1 for update`, [
-      invitation.relationship_id,
-    ])
+    //
+    // The Material an Admin chose at pairing is read off the same locked row, so
+    // the intention acceptance spends is the one that stands as it decides.
+    const { rows: locked } = await client.query<{ intended_material_id: string | null }>(
+      `select intended_material_id from relationship where id = $1 for update`,
+      [invitation.relationship_id],
+    )
+    const intended = locked[0]?.intended_material_id ?? null
 
     // A token naming a relationship its holder has since left resolves to a set
     // they are not in, and the boundary refuses it.
@@ -1226,6 +1255,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       personId: personId(invitation.person_id),
       expiresAt: invitation.expires_at,
       consumedAt: invitation.consumed_at,
+      intendedMaterialId: intended === null ? null : materialId(intended),
       members: members.map((row) => ({
         personId: personId(row.person_id),
         role: row.role,
@@ -1334,8 +1364,13 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // unless every open leader membership really does carry an acceptance, so a
     // co-leader whose acceptance was rolled back cannot leave a relationship
     // activated on their behalf.
+    //
+    // The Material chosen at pairing is spent in the same statement. The domain
+    // has already turned it into a period, or skipped it because it is off the
+    // list, and either way nothing reads it again: an accepted relationship
+    // carries no intention, which the table states as a check of its own.
     await client.query(
-      `update relationship set accepted_at = $2
+      `update relationship set accepted_at = $2, intended_material_id = null
         where id = $1
           and accepted_at is null
           and not exists (

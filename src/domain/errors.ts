@@ -55,6 +55,11 @@ export type PairingRefusal =
   // has not, and an index the store cannot name escapes as a Postgres error and a
   // 500 -- the silent no-op with the volume turned up.
   | 'relationship.already_has_a_leader'
+  // The Material chosen while pairing is not one this Ministry holds now: another
+  // Admin removed it while the form was open, or the id names nothing here at all.
+  // A refusal and not a silent drop, because an Admin who picked a Material and got
+  // a relationship without one has been told nothing went wrong.
+  | 'relationship.material_is_not_on_the_list'
 
 /**
  * Every code above, as a list, so a refusal read back from a row -- a refused
@@ -78,6 +83,7 @@ export const PAIRING_REFUSALS: readonly PairingRefusal[] = [
   'relationship.needs_a_gender_declaration',
   'relationship.needs_a_name',
   'relationship.already_has_a_leader',
+  'relationship.material_is_not_on_the_list',
 ]
 
 export const isPairingRefusal = (value: unknown): value is PairingRefusal =>

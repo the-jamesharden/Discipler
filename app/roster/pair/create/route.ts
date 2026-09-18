@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { PairingRefused } from '~/domain/errors'
-import { personId } from '~/domain/ids'
+import { materialId, personId } from '~/domain/ids'
 import type { Gender } from '~/domain/intake'
 import { declaredGenderFromField, declaredGenderToField } from '../../declared-gender'
 import { currentAdmin } from '~/platform/supabase/current-admin'
@@ -44,6 +44,14 @@ export async function POST(request: NextRequest) {
   const joinRequiresApproval = form.get('joinRequiresApproval') === 'yes'
 
   /**
+   * The Material the Admin chose, or nothing. An empty value is the select's own
+   * *none* and is no choice at all; anything else is passed through unread, and
+   * whether this Ministry holds it is the boundary's to say.
+   */
+  const rawMaterial = form.get('materialId')
+  const chosenMaterial = typeof rawMaterial === 'string' && rawMaterial !== '' ? rawMaterial : null
+
+  /**
    * Back to the form with the selection intact. An Admin who picked five people for a
    * group and hit a refusal should be correcting one choice, not making all five
    * again -- and a refusal that costs more than the mistake did teaches people to
@@ -61,6 +69,7 @@ export async function POST(request: NextRequest) {
     }
     if (name) params.set('name', name)
     if (joinRequiresApproval) params.set('joinRequiresApproval', 'yes')
+    if (chosenMaterial) params.set('materialId', chosenMaterial)
 
     return NextResponse.redirect(new URL(`/roster/pair?${params}`, request.url), {
       status: 303,
@@ -81,6 +90,7 @@ export async function POST(request: NextRequest) {
       ...(declaredGender === undefined ? {} : { declaredGender }),
       name,
       joinRequiresApproval,
+      ...(chosenMaterial === null ? {} : { materialId: materialId(chosenMaterial) }),
     })
   } catch (error) {
     // Every refusal an Admin can act on travels as a code and lands back on the form

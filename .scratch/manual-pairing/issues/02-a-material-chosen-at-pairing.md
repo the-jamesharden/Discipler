@@ -45,3 +45,33 @@ The Admin's choice is recorded in the pairing ministry event as well as on the c
 The column is spent and cleared; the event is history and stays.
 
 Do not reach for `relationship.assign_material` here. It carries an `assignedBy` and an Admin, appends its own history, and refuses unaccepted relationships. This is a different act with a different shape, and routing it through that command would mean loosening the acceptance check that ticket exists to hold.
+
+## Comments
+
+### 2026-09-18 - implemented on `a-material-chosen-at-pairing`, not yet merged
+
+The branch is stacked on `what-the-pair-screen-reads`, so ticket 01's pull request stays ticket 01.
+
+Calls made while building, for whoever picks up tickets 03 and 04:
+
+- The foreign key is composite, `(intended_material_id, ministry_id)` onto `material (id, ministry_id)`, with `on delete set null (intended_material_id)`.
+  The ticket worded a single-column reference.
+  Composite is what every other reference to a Material is, and it makes an intention naming another Ministry's Material impossible whatever the boundary was handed.
+- A check constraint was added that the ticket did not ask for: `relationship_intention_is_spent_at_acceptance`, `accepted_at is null or intended_material_id is null`.
+  It states "cleared when spent" once, where it cannot be forgotten.
+  Activation stamps `accepted_at` and clears the column in one statement in the store, which is the only thing that writes `accepted_at`.
+  The column is cleared at activation whether the Material was assigned or skipped as removed.
+- No grant statement was added.
+  `discipler_command` already holds insert and update on the whole of `relationship`, and the migration says so.
+- The refusal is `relationship.material_is_not_on_the_list`.
+  One code covers a removed Material and one this Ministry never held, since the list a pairing is decided against is the live one.
+  Its sentence avoids the word "relationship", which the Roster's vocabulary test forbids, and does not send the Admin to an assign screen, because no screen assigns a Material yet.
+- The live list of Materials is read, behind the Ministry's lock, only by a `relationship.create` that names a Material and a `relationship.accept` whose relationship still carries one.
+  The lock serialises an acceptance against an Admin removing that Material, so neither decides against a list the other has changed.
+- Found in review and fixed: that acceptance took the relationship's row and then the Ministry lock, the reverse of the order `scheduled.tick` takes them in, which is a deadlock Postgres settles by aborting one of them.
+  The store now takes the Ministry lock first when the relationship carries an intention, and an integration test pins the order.
+- The Pair route reads a `materialId` field and sends it back in the query string on a refusal, which is what let the over-HTTP bullet be met before there is a control.
+  The Pair page does not read `materialId` from its query string yet.
+  Ticket 04 must preselect the Material from it, or a second refusal loses the choice.
+- The `relationship.created` event's payload carries `materialId`, null where none was chosen.
+- "Domain tests: the two-period history satisfies `app.reject_broken_material_history`" is proven in `tests/integration/`, which is the only place a deferred constraint trigger can be.

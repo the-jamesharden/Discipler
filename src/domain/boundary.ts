@@ -192,6 +192,7 @@ import {
   personId,
   relationshipId,
   type IdSource,
+  type MaterialId,
   type MinistryId,
   type PersonId,
   type RelationshipId,
@@ -436,6 +437,10 @@ export interface CommandContext {
    * commands' behalf, and absent rather than empty for the reason `goals` is: a
    * list that did not load and a Ministry holding nothing are the same value and
    * opposite facts, and one of them waves a duplicate title through.
+   *
+   * Loaded as well for the two ends of a Material chosen at pairing, and only
+   * where there is a choice to judge: a `relationship.create` naming one, and a
+   * `relationship.accept` whose invitation still carries one.
    */
   readonly materials?: readonly MaterialOnOffer[]
   /**
@@ -616,6 +621,13 @@ export interface InvitationSnapshot {
   readonly personId: PersonId
   readonly expiresAt: Date
   readonly consumedAt: Date | null
+  /**
+   * The Material an Admin chose while forming this relationship, or null where
+   * none was or it has been spent. As the column holds it: whether that Material
+   * is still on the Ministry's list is decided at the boundary against
+   * `CommandContext.materials`, not here.
+   */
+  readonly intendedMaterialId: MaterialId | null
   /** Everyone holding an open membership, whatever their role. */
   readonly members: readonly InvitedMember[]
 }
@@ -715,10 +727,18 @@ const theAnswersAboutToGo = (context: CommandContext): readonly StatedGoal[] => 
  */
 const theMaterialsHeld = (context: CommandContext): readonly MaterialOnOffer[] => {
   if (!context.materials) {
-    throw new Error('No list of Materials was loaded for this edit')
+    throw new Error('No list of Materials was loaded for this command')
   }
   return context.materials
 }
+
+/**
+ * Whether the Material an Admin chose while pairing is on the Ministry's live
+ * list as this command decides. Asked twice, when the relationship is formed and
+ * when it is accepted, and answered one way: a removed Material is off the list.
+ */
+const isStillOnTheList = (context: CommandContext, id: MaterialId): boolean =>
+  materialOnOffer(theMaterialsHeld(context), id) !== undefined
 
 /**
  * The live Material an edit names, or a refusal. A refusal rather than a
@@ -2098,6 +2118,7 @@ const formRelationship = (
     readonly declaredGender: Gender | null | undefined
     readonly name: string | null | undefined
     readonly joinRequiresApproval: boolean | undefined
+    readonly materialId: MaterialId | undefined
   },
   now: Date,
 ): { readonly relationship: NewRelationship; readonly effects: Effect[] } => {
@@ -2152,6 +2173,13 @@ const formRelationship = (
   if (isAGroup && name === null) {
     throw new PairingRefused('relationship.needs_a_name')
   }
+  // The Material chosen on the form, checked against the live list read in this
+  // transaction. A removed Material is off that list, so one refusal covers a
+  // Material somebody has since removed and one this Ministry never held. Only a
+  // relationship formed with one reads the list at all.
+  if (forming.materialId !== undefined && !isStillOnTheList(context, forming.materialId)) {
+    throw new PairingRefused('relationship.material_is_not_on_the_list')
+  }
 
   const relationship: NewRelationship = {
     id: relationshipId(context.ids.next()),
@@ -2170,6 +2198,10 @@ const formRelationship = (
     // was said, since the group link never offers one. The default is a
     // product decision and lives in the ADR, not in a form's initial state.
     joinRequiresApproval: isAGroup && (forming.joinRequiresApproval ?? false),
+    // Kept whatever the shape. A name on a pair would change what the weekly
+    // question calls two people; a Material binds a one-to-one exactly as it
+    // binds a group, which is the reasoning the declaration above carries.
+    intendedMaterialId: forming.materialId ?? null,
     createdAt: now,
     members: membersOf(leaderIds, participantIds, now),
   }
@@ -2192,6 +2224,10 @@ const formRelationship = (
         participantCount: participantIds.length,
         name,
         joinRequiresApproval: relationship.joinRequiresApproval,
+        // Here as well as on the column. The column is spent at acceptance and
+        // cleared; this is history, and is what still says afterwards which
+        // Material the Admin chose and that an Admin chose it.
+        materialId: relationship.intendedMaterialId,
       },
     }),
   ]
@@ -4551,6 +4587,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           declaredGender,
           name: command.name,
           joinRequiresApproval: command.joinRequiresApproval,
+          materialId: command.materialId,
         },
         now,
       )
@@ -4622,6 +4659,8 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           declaredGender: undefined,
           name: null,
           joinRequiresApproval: false,
+          // A plan an import made names two people and nothing else.
+          materialId: undefined,
         },
         now,
       )
@@ -4740,6 +4779,30 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           assignedBy: null,
         }),
       )
+
+      // The Material an Admin chose while pairing, spent here. A second period at
+      // this same instant, after the opening one, which must stay first: the
+      // opening period closes at its own start, covers nothing and leaves no gap,
+      // which is the zero-length period the Material history permits by name.
+      //
+      // Not `relationship.assign_material`, which is an Admin's act, carries that
+      // Admin and refuses an unaccepted relationship. No Admin performed this one;
+      // the Admin who chose it is on the `relationship.created` event.
+      //
+      // A Material removed since pairing is skipped and nothing is refused.
+      // Acceptance is a Leader's act and never fails on an Admin's stale choice.
+      const intended = invitation.intendedMaterialId
+      if (intended !== null && isStillOnTheList(context, intended)) {
+        effects.push(
+          assignMaterial({
+            ministryId: command.ministryId,
+            relationshipId: invitation.relationshipId,
+            materialId: intended,
+            assignedAt: now,
+            assignedBy: null,
+          }),
+        )
+      }
 
       // **No link for a Participant, and there is nothing for one to do.** An
       // Invitation Link is how somebody is asked a question they have not yet

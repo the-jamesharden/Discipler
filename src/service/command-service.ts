@@ -1,4 +1,4 @@
-import { handleCommand, type CommandResult } from '~/domain/boundary'
+import { handleCommand, type CommandResult, type InvitationSnapshot } from '~/domain/boundary'
 import type { Clock } from '~/domain/clock'
 import type { Command } from '~/domain/commands'
 import { PairingRefused } from '~/domain/errors'
@@ -496,6 +496,21 @@ const editsTheMaterialList = (
   (MATERIAL_LIST_EDITS as readonly string[]).includes(command.type)
 
 /**
+ * Whether a command that is not an edit of the list still decides against it:
+ * forming a relationship with the Material an Admin chose, or accepting one whose
+ * intended Material is still to be spent. Forming or accepting anything else pays
+ * nothing, and takes no lock on the Ministry's list.
+ */
+const consultsTheMaterialList = (
+  command: Command,
+  invitation: InvitationSnapshot | undefined,
+): boolean =>
+  (command.type === 'relationship.create' && command.materialId !== undefined) ||
+  (command.type === 'relationship.accept' &&
+    invitation !== undefined &&
+    invitation.intendedMaterialId !== null)
+
+/**
  * Intake needs two things no other command does: the Ministry's name, because every
  * message it enqueues speaks in that voice, and who has submitted before, because
  * the Welcome Message is first contact and a re-submission must not repeat it.
@@ -686,6 +701,9 @@ export const createCommandService = ({
     // outside the transaction would let two concurrent imports both find it empty.
     return store.transact(command.ministryId, async (unit) => {
       const voice = needsTheMinistryName(command) ? await unit.ministryVoice() : undefined
+      // Resolved ahead of the context rather than inside it, because what it
+      // carries decides whether a second read is owed below.
+      const invitation = isTokenDriven(command) ? await resolved(unit, command.token) : undefined
 
       const result = handleCommand(command, {
         ministryId: command.ministryId,
@@ -738,9 +756,7 @@ export const createCommandService = ({
         ...(settlesAPlan(command)
           ? await intendedPairingContext(unit, command.intendedPairingId)
           : {}),
-        ...(isTokenDriven(command)
-          ? { invitation: await resolved(unit, command.token) }
-          : {}),
+        ...(invitation ? { invitation } : {}),
         // Read inside the transaction like everything else, so the link cannot be
         // re-issued out from under the submission it is authenticating.
         ...(command.type === 'intake.submit' && command.token
@@ -824,7 +840,15 @@ export const createCommandService = ({
         // list takes, so two Admins cannot both create the same title against a
         // list neither can see the other's on -- and so the count a removal is
         // refused with is the count that stood when it was decided.
-        ...(editsTheMaterialList(command)
+        //
+        // The two ends of a Material chosen at pairing read it too, and only when
+        // there is a choice to judge: a relationship formed with one, and the
+        // acceptance of a relationship still carrying one. The lock is the point as much as
+        // the list. It serialises either against an Admin removing that Material,
+        // so a removal and an acceptance cannot both decide against a list the
+        // other has already changed and leave a relationship running on a
+        // Material that is off it.
+        ...(editsTheMaterialList(command) || consultsTheMaterialList(command, invitation)
           ? { materials: await unit.materials() }
           : {}),
         // Read inside the transaction, behind the same advisory lock the read
