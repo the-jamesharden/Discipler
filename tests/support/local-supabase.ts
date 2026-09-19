@@ -643,6 +643,68 @@ export const pairOneToOne = async (
   return relationshipId
 }
 
+/** Somebody a group fixture is formed with. */
+export interface GroupPersonSeed {
+  readonly name: string
+  readonly gender: 'female' | 'male'
+  readonly phone?: string
+}
+
+export interface GroupOptions {
+  readonly name: string | null
+  /** Null is *mixed*. Said at the insert, because it is immutable afterwards. */
+  readonly declaredGender: 'female' | 'male' | null
+  readonly leader: GroupPersonSeed
+  readonly disciples: readonly GroupPersonSeed[]
+  /** Null leaves it Awaiting Leader Acceptance. Now, where it is not said. */
+  readonly acceptedAt?: Date | null
+  readonly joinRequiresApproval?: boolean
+}
+
+/**
+ * A group as it stands after formation: one leader, its Disciples, and what was
+ * said about it when it was formed. Inserted whole rather than through
+ * `createRelationship`, because the declaration is immutable once the row exists
+ * and a test about groups needs to say what one declared at the moment it was
+ * formed. The people are made leader first, then the Disciples in order.
+ */
+export const formGroup = async (
+  ministry: MinistryFixture,
+  options: GroupOptions,
+): Promise<{ id: string; leader: string; disciples: string[] }> => {
+  const seed = (person: GroupPersonSeed) =>
+    addPerson(ministry, person.name, {
+      ...(person.phone ? { phone: person.phone } : {}),
+      answers: { gender: person.gender },
+    })
+  const leader = await seed(options.leader)
+  const disciples: string[] = []
+  for (const person of options.disciples) disciples.push(await seed(person))
+
+  const acceptedAt = options.acceptedAt === undefined ? new Date() : options.acceptedAt
+  const { data, error } = await serviceRoleClient()
+    .from('relationship')
+    .insert({
+      ministry_id: ministry.id,
+      kind: 'group',
+      name: options.name,
+      declared_gender: options.declaredGender,
+      join_requires_approval: options.joinRequiresApproval ?? false,
+      accepted_at: acceptedAt?.toISOString() ?? null,
+    })
+    .select('id')
+    .single()
+  if (error) throw new Error(`Could not form the group ${options.name ?? '(unnamed)'}: ${error.message}`)
+  if (acceptedAt) await openMaterialHistory(ministry, data.id, acceptedAt)
+
+  await addMembership({ ministry, relationshipId: data.id, kind: 'group', personId: leader, role: 'leader' })
+  for (const disciple of disciples) {
+    await addMembership({ ministry, relationshipId: data.id, kind: 'group', personId: disciple, role: 'participant' })
+  }
+
+  return { id: data.id, leader, disciples }
+}
+
 /** A client carrying a real signed-in session for any account, not just the Admin. */
 export const signInWith = async (account: AccountFixture): Promise<SupabaseClient> =>
   signedInWith(account.phone, account.password)

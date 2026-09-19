@@ -16,6 +16,7 @@ import {
   type AccountFixture,
   type MinistryFixture,
 } from '../support/local-supabase'
+import { asDocument, asRows } from '../support/page-document'
 
 /**
  * A page is one read. Each Admin tab has one SQL function that answers the whole
@@ -33,8 +34,6 @@ const TABS = [
   'roster_page',
 ] as const
 
-const asDocument = (data: unknown) => data as Record<string, unknown>
-const asRows = (data: unknown) => data as Record<string, unknown>[]
 
 describe('the Admin tabs answer in one read', () => {
   let ministry: MinistryFixture

@@ -379,6 +379,10 @@ const suggestGenderMatchFrom = (doc: PageDocument): boolean => {
   return setting
 }
 
+/** A list of ids and nothing else, narrowed by the check rather than promised by a cast. */
+const isListOfIds = (value: unknown): value is readonly string[] =>
+  Array.isArray(value) && value.every((each) => typeof each === 'string' && each !== '')
+
 /**
  * The groups an Admin could put somebody into, off the key `pair_page` carries:
  * every open relationship with two or more Disciples, in the order the function
@@ -424,9 +428,7 @@ const groupsFrom = (doc: PageDocument): readonly GroupToJoin[] =>
     if (typeof discipleCount !== 'number' || !Number.isInteger(discipleCount) || discipleCount < 2) {
       throw new Error(`A group arrived without its count of Disciples: ${id}`)
     }
-    if (!Array.isArray(memberIds) || !memberIds.every((member) => typeof member === 'string' && member !== '')) {
-      throw new Error(`A group arrived without who is in it: ${id}`)
-    }
+    if (!isListOfIds(memberIds)) throw new Error(`A group arrived without who is in it: ${id}`)
     if (!Array.isArray(leaders)) throw new Error(`A group arrived without its leaders: ${id}`)
 
     return {
@@ -442,7 +444,7 @@ const groupsFrom = (doc: PageDocument): readonly GroupToJoin[] =>
       discipleCount,
       declaredGender,
       state,
-      memberIds: (memberIds as string[]).map(personId),
+      memberIds: memberIds.map(personId),
     } satisfies GroupToJoin
   })
 

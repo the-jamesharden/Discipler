@@ -17,6 +17,7 @@ import {
   type AccountFixture,
   type MinistryFixture,
 } from '../support/local-supabase'
+import { asDocument, asRows } from '../support/page-document'
 
 /**
  * Three facts the pairing form needs and the Roster's document never carried:
@@ -25,8 +26,6 @@ import {
  * carry them; the Roster's and the person page's do not.
  */
 
-const asDocument = (data: unknown) => data as Record<string, unknown>
-const asRows = (data: unknown) => data as Record<string, unknown>[]
 
 /** A Material the Ministry once offered and no longer does. */
 const addRemovedMaterial = async (ministry: MinistryFixture, title: string): Promise<string> => {

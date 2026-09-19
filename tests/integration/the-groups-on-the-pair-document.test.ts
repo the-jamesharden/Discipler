@@ -12,16 +12,16 @@ import {
   addPersonWithAccount,
   adminAsPerson,
   createMinistryWithAdmin,
+  formGroup,
   localSupabase,
-  openMaterialHistory,
   pairOneToOne,
   pauseRelationship,
-  serviceRoleClient,
   signInAs,
   signInWith,
   type AccountFixture,
   type MinistryFixture,
 } from '../support/local-supabase'
+import { asDocument, asRows } from '../support/page-document'
 
 /**
  * Manual pairing, ticket 08. The groups an Admin could put somebody into, on the
@@ -40,24 +40,17 @@ vi.mock('~/platform/supabase/server-client', () => ({
   createSupabaseServerClient: async () => session.client,
 }))
 
-const asDocument = (data: unknown) => data as Record<string, unknown>
-const asRows = (data: unknown) => data as Record<string, unknown>[]
 
 type Gender = 'female' | 'male'
 
-interface GroupFixture {
-  readonly id: string
-  readonly leader: string
-  readonly disciples: readonly string[]
-}
+type GroupFixture = Awaited<ReturnType<typeof formGroup>>
 
 /**
- * A group as it stands after formation: one leader, its Disciples, and what was
- * said about it when it was formed. Written to the tables directly, as every
- * relationship fixture here is. The declaration is immutable after the insert, so
- * it cannot go through `createRelationship` and an update.
+ * The shared group fixture, with its people named after the group: `Thursday
+ * Leader`, `Thursday Disciple 1`. A leader of their own each time, because
+ * `leader_one_open_group` lets nobody lead two.
  */
-const formGroup = async (
+const labelled = (
   ministry: MinistryFixture,
   label: string,
   options: {
@@ -68,36 +61,14 @@ const formGroup = async (
     readonly leaderGender?: Gender
     readonly accepted?: boolean
   },
-): Promise<GroupFixture> => {
-  const acceptedAt = options.accepted === false ? null : new Date()
-  const { data, error } = await serviceRoleClient()
-    .from('relationship')
-    .insert({
-      ministry_id: ministry.id,
-      kind: 'group',
-      name: options.name,
-      declared_gender: options.declaredGender,
-      accepted_at: acceptedAt?.toISOString() ?? null,
-    })
-    .select('id')
-    .single()
-  if (error) throw new Error(`Could not form the group ${label}: ${error.message}`)
-  if (acceptedAt) await openMaterialHistory(ministry, data.id, acceptedAt)
-
-  // A leader of their own each time: `leader_one_open_group` lets nobody lead two.
-  const leaderGender = options.leaderGender ?? options.declaredGender ?? 'female'
-  const leader = await addPerson(ministry, `${label} Leader`, { answers: { gender: leaderGender } })
-  await addMembership({ ministry, relationshipId: data.id, kind: 'group', personId: leader, role: 'leader' })
-
-  const disciples: string[] = []
-  for (const [index, gender] of options.disciples.entries()) {
-    const disciple = await addPerson(ministry, `${label} Disciple ${index + 1}`, { answers: { gender } })
-    await addMembership({ ministry, relationshipId: data.id, kind: 'group', personId: disciple, role: 'participant' })
-    disciples.push(disciple)
-  }
-
-  return { id: data.id, leader, disciples }
-}
+): Promise<GroupFixture> =>
+  formGroup(ministry, {
+    name: options.name,
+    declaredGender: options.declaredGender,
+    leader: { name: `${label} Leader`, gender: options.leaderGender ?? options.declaredGender ?? 'female' },
+    disciples: options.disciples.map((gender, index) => ({ name: `${label} Disciple ${index + 1}`, gender })),
+    ...(options.accepted === false ? { acceptedAt: null } : {}),
+  })
 
 describe('the groups on the Pair document', () => {
   let ministry: MinistryFixture
@@ -136,20 +107,20 @@ describe('the groups on the Pair document', () => {
     bystander = await addPersonWithAccount(ministry, 'Lena Leader', 'leader')
     pool = new pg.Pool({ connectionString: localSupabase().databaseUrl })
 
-    running = await formGroup(ministry, 'Thursday', {
+    running = await labelled(ministry, 'Thursday', {
       name: 'Thursday Table',
       declaredGender: 'male',
       disciples: ['male', 'male', 'male'],
     })
 
-    paused = await formGroup(ministry, 'Paused', {
+    paused = await labelled(ministry, 'Paused', {
       name: 'Paused Circle',
       declaredGender: 'female',
       disciples: ['female', 'female'],
     })
     await pauseRelationship(ministry, paused.id)
 
-    awaiting = await formGroup(ministry, 'Awaiting', {
+    awaiting = await labelled(ministry, 'Awaiting', {
       name: 'Awaiting Its Leader',
       declaredGender: 'female',
       disciples: ['female', 'female'],
@@ -157,34 +128,34 @@ describe('the groups on the Pair document', () => {
     })
 
     // A 1:2 pair is a group for every rule, and is listed like one.
-    oneToTwo = await formGroup(ministry, 'Pair Of Two', {
+    oneToTwo = await labelled(ministry, 'Pair Of Two', {
       name: 'Claire’s Two',
       declaredGender: 'female',
       disciples: ['female', 'female'],
     })
 
     // Formed before groups had names, and never named since. Declares nothing.
-    unnamed = await formGroup(ministry, 'Unnamed', {
+    unnamed = await labelled(ministry, 'Unnamed', {
       name: null,
       declaredGender: null,
       disciples: ['male', 'male'],
       leaderGender: 'male',
     })
 
-    mixed = await formGroup(ministry, 'Mixed', {
+    mixed = await labelled(ministry, 'Mixed', {
       name: 'Mixed Company',
       declaredGender: null,
       disciples: ['female', 'male'],
     })
 
-    ended = await formGroup(ministry, 'Ended', {
+    ended = await labelled(ministry, 'Ended', {
       name: 'Ended Last Spring',
       declaredGender: 'male',
       disciples: ['male', 'male', 'male'],
     })
     await end(ended, true)
 
-    cancelled = await formGroup(ministry, 'Cancelled', {
+    cancelled = await labelled(ministry, 'Cancelled', {
       name: 'Never Started',
       declaredGender: 'male',
       disciples: ['male', 'male'],
@@ -194,7 +165,7 @@ describe('the groups on the Pair document', () => {
 
     // Formed as a group of two, and one of them has since left. Still a group by
     // `kind`, and one Disciple by count.
-    downToOne = await formGroup(ministry, 'Dwindled', {
+    downToOne = await labelled(ministry, 'Dwindled', {
       name: 'Down To One',
       declaredGender: 'female',
       disciples: ['female'],
@@ -214,7 +185,7 @@ describe('the groups on the Pair document', () => {
     const mentee = await addPerson(ministry, 'Solo Mentee', { answers: { gender: 'female' } })
     oneToOne = await pairOneToOne(ministry, mentor, mentee)
 
-    theirs = await formGroup(other, 'Across The Road', {
+    theirs = await labelled(other, 'Across The Road', {
       name: 'Somebody Else’s Group',
       declaredGender: 'male',
       disciples: ['male', 'male'],
@@ -307,7 +278,7 @@ describe('the groups on the Pair document', () => {
 
     // And the count follows the memberships. Somebody leaves the group of three,
     // and it reads two; the leader is never counted among the Disciples.
-    const counted = await formGroup(ministry, 'Counted', {
+    const counted = await labelled(ministry, 'Counted', {
       name: 'Counted Twice',
       declaredGender: 'male',
       disciples: ['male', 'male', 'male'],
@@ -414,10 +385,8 @@ describe('the groups on the Pair document', () => {
     expect(roster).not.toHaveProperty('groups')
     expect(person).toEqual(roster)
 
-    // The Pair document is the Roster's with its own keys beside it, and the
-    // groups are one of those keys rather than a change to anything shared.
-    const { suggest_gender_match: _setting, materials: _materials, groups: _groups, ...rest } = await pairDocument()
-    expect(rest).toEqual(roster)
+    // That the Pair document is the Roster's with its own keys beside it, and
+    // nothing shared moved, is asserted once, in `what-the-pair-screen-reads.test.ts`.
 
     for (const surface of ['roster', 'person'] as const) {
       const page = rosterPageFrom(asDocument((await admin.rpc(`${surface}_page`)).data), clock, surface)
@@ -494,7 +463,7 @@ describe('the groups on the Pair document', () => {
   it('goes on reading a group as paused after its Pause has run its weeks', async () => {
     // Expiry resumes nothing: a Pause stands until somebody resumes it, here as on
     // every other surface, and when it ran out is decided elsewhere against a clock.
-    const lapsed = await formGroup(ministry, 'Lapsed', {
+    const lapsed = await labelled(ministry, 'Lapsed', {
       name: 'Lapsed Pause',
       declaredGender: 'female',
       disciples: ['female', 'female'],
@@ -562,7 +531,7 @@ describe('the groups on the Pair document', () => {
 
   it('reads a group that is both unaccepted and paused as awaiting its leader', async () => {
     // The order `deriveRelationshipState` settles the two in.
-    const both = await formGroup(ministry, 'Both', {
+    const both = await labelled(ministry, 'Both', {
       name: 'Waiting And Paused',
       declaredGender: 'female',
       disciples: ['female', 'female'],
