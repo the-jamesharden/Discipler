@@ -65,8 +65,8 @@ No product behaviour was decided here: nothing an Admin sees changes, and no rul
 
 ### Implementer, 2026-09-19: what the check cannot predict (for ticket 04)
 
-At the moment it runs, nothing.
-Every `PairingRefusal` the database can raise on formation, the check raises too, because it performs the same writes.
+At the moment it runs, nothing, with one exception corrected further down: `relationship.person_belongs_to_another_ministry` is answered for a Disciple only, and a Discipler the connection cannot see is a thrown `Error`.
+Every other `PairingRefusal` the database can raise on formation, the check raises too, because it performs the same writes.
 That includes the ones the ticket expected to be out of reach: `relationship.gender_must_match`, `relationship.gender_does_not_match_the_declaration`, the four Intake and opt-out codes, `relationship.participant_already_in_a_one_to_one`, `relationship.leader_already_leads_a_group`, `relationship.person_belongs_to_another_ministry`, `relationship.person_already_in_this_relationship` and `relationship.already_has_a_leader`.
 
 What it cannot see is anything that has not happened yet.
@@ -115,8 +115,24 @@ Ticket 04 should expect a thrown `Error`, not a refusal, for a Discipler id that
 Membership rows are inserted one at a time in the order the command names people, and a check takes the same unique-index locks a formation takes.
 Two transactions that contend on two keys in opposite orders deadlock, and Postgres kills one of them with `40P01`, which nothing translates.
 That needs two co-led groups naming the same two Disciplers in opposite orders at the same moment, contending on `leader_one_open_group`.
-It cannot happen for several one-to-ones under one Discipler, which is ticket 04's case: each of those contends on one key only, the Disciple's.
+That sentence first went on to say it could not happen for several one-to-ones under one Discipler, and a later review showed that was wrong: see the second shape below.
 Two real formations could always deadlock this way; what is new is that one of the two can now be a check, which was going to roll back anyway.
-Not fixed here.
-The fix is to insert a relationship's members in one fixed order in `createRelationship`, which changes formation's own store and so is not this ticket's to make without being asked.
+Fixed on 2026-09-19, when James asked for it.
+A test in the integration suite reproduced it first: a co-led group formed while a check names the same two Disciplers the other way round failed on the first round with `deadlock detected`.
+`createRelationship` in `src/platform/supabase/effect-store.ts` now writes a relationship's members in one fixed order, by Person id, so no two transactions can hold one entry each and wait for the other.
+This is the one change this ticket makes to formation's own store, and it changes no rule and no refusal: which rows are written is the same, and only the order of the inserts inside the transaction differs.
+
+**A second shape, and this one is ticket 04's own case.**
+Settling an imported plan (`intended_pairing.fulfil`) locks the plan row and then writes the Disciple's membership.
+Forming or checking the same pair wrote the membership and then closed the plan.
+Opposite orders, so a check of a pair an import had planned could deadlock with the settle of that plan, after an Intake submission or on the tick.
+Reproduced by a test, which failed on its first run with `deadlock detected`, and fixed the same day: a formation that will close plans locks them first (`lockIntendedPairings` on the unit of work, called from `applyEffects` before any membership is written).
+The order everybody takes is the plan, then the memberships by Person id, and ADR-0025 records it.
+
+A check that names a Material holds more than the Material list.
+The advisory lock that read sits behind is keyed by the Ministry, so editing the Discipleship Goals, the tick's read of who is still to accept, and an acceptance that spends a Material all wait for a check to finish.
+Ticket 05 should know that before it checks a Material per Disciple across a set.
+
+Still open, and James's to decide: `.scratch/manual-pairing/spec.md` says the set is "validated through the boundary", and this ticket's *What to build* says "that cannot write".
+ADR-0025 now says how to read both, and neither file was edited.
 

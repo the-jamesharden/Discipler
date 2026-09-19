@@ -13,7 +13,8 @@ The answer is the `PairingRefusal` that formation would have thrown, or nothing 
 No relationship, membership, invitation, history event or outbound message survives a check, whatever it answered.
 
 **It is not the boundary's decision stopped before its effects.**
-That is what the ticket that asked for the check described, and it cannot work here.
+That is what `.scratch/manual-pairing/issues/03-a-pairing-checked-without-being-formed.md` asked for, and what `.scratch/manual-pairing/spec.md` means by a set being "validated through the boundary", and it cannot work here.
+Where either says the check cannot write, read: nothing a check writes is kept.
 The boundary decides only the shape of the request: that there is a Discipler and a Disciple, that nobody is on both sides or listed twice, that a group is declared and named, that a Material chosen is on the Ministry's list.
 Gender, Intake, opt-outs and the participation caps are triggers and indexes on `relationship_member`, and they answer only when a membership row is written.
 A check that stopped before the write would pass a one-to-one across gender.
@@ -36,7 +37,7 @@ Two other ways to check a pairing were considered.
 
 - **Run the boundary's decision and stop before the effects.**
   One copy of every rule, and no write of any kind.
-  It sees seven of the eighteen refusals and none of the ones that protect people.
+  It sees seven of the eighteen refusals, and of the ones that protect people only that a group must declare what it is: not the match between two people, and not a declared group refusing somebody who is not of it.
   A set with a Disciple of another gender in it would pass the check and be refused partway through being formed, which is the outcome the check exists to prevent.
 - **Mirror the database's rules in the boundary so a decide-only check can see them.**
   This is the option ADR-0004 rejected, arriving by a different door.
@@ -53,11 +54,22 @@ The check and formation cannot disagree about a rule, because there is one copy 
 A rule added to the database later is seen by the check with no change to the check.
 
 A check writes, briefly.
-The rows exist inside its transaction and are visible to no other connection, but the locks are real: a concurrent pairing of the same Disciple waits on `participant_one_open_one_to_one` until the check rolls back, and a check that names a Material holds the Material list's advisory lock for as long as it runs.
+The rows exist inside its transaction and are visible to no other connection, but the locks are real: a concurrent pairing of the same Disciple waits on `participant_one_open_one_to_one` until the check rolls back, and a check that names a Material holds the advisory lock the Material list is read behind for as long as it runs.
+That lock is keyed by the Ministry and is not the Material list's alone: editing the Discipleship Goals, the scheduled tick's read of who is still to accept, and an acceptance that spends a Material all wait behind it.
 Each lasts as long as one formation does.
-Because the locks are real, a check can deadlock with a formation wherever two formations could deadlock with each other: membership rows are inserted in the order the command names people, so two co-led groups naming the same two Disciplers in opposite orders contend on `leader_one_open_group` both ways, and Postgres kills one with an error nothing translates.
-Several one-to-ones under one Discipler contend on one key each and cannot.
-Inserting a relationship's members in one fixed order would close it for checks and formations alike.
+Because the locks are real, a check could deadlock with a real transaction wherever two real transactions could deadlock with each other, and Postgres ends a deadlock by killing one side with an error nothing translates.
+The side it killed could be the real one, lost to a check that was only ever going to roll back.
+Two such shapes existed, each was reproduced by a test before it was closed, and each is closed by everybody taking the same locks in the same order.
+
+- **Two co-led groups naming the same two Disciplers in opposite orders.**
+  Membership rows were written in the order a command named people, so each transaction held one entry in `leader_one_open_group` and waited for the other's.
+  The store now writes a relationship's members in one fixed order, by Person id.
+- **Forming or checking a pair that an open imported plan names, while that plan is being settled.**
+  Settling locks the plan and then writes the Disciple's membership; forming wrote the membership and then closed the plan.
+  A formation that will close plans now locks them before it writes a membership: the plan, then the membership, for everybody.
+  This is the shape several one-to-ones under one Discipler can meet, since each of them may be a pair an import planned.
+
+Anything that later takes two of these locks in one transaction takes them in that order: plans, then memberships by Person id.
 A check costs what a formation costs, so judging a set of N is N transactions before the N that form it.
 It also draws ids from the `IdSource` that are never used, which is harmless while ids are random.
 
