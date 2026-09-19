@@ -55,6 +55,9 @@ A rule added to the database later is seen by the check with no change to the ch
 A check writes, briefly.
 The rows exist inside its transaction and are visible to no other connection, but the locks are real: a concurrent pairing of the same Disciple waits on `participant_one_open_one_to_one` until the check rolls back, and a check that names a Material holds the Material list's advisory lock for as long as it runs.
 Each lasts as long as one formation does.
+Because the locks are real, a check can deadlock with a formation wherever two formations could deadlock with each other: membership rows are inserted in the order the command names people, so two co-led groups naming the same two Disciplers in opposite orders contend on `leader_one_open_group` both ways, and Postgres kills one with an error nothing translates.
+Several one-to-ones under one Discipler contend on one key each and cannot.
+Inserting a relationship's members in one fixed order would close it for checks and formations alike.
 A check costs what a formation costs, so judging a set of N is N transactions before the N that form it.
 It also draws ids from the `IdSource` that are never used, which is harmless while ids are random.
 

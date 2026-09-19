@@ -103,3 +103,20 @@ The number skips 0024 because a parked branch, `the-admin-dashboard-may-use-scri
 The same review found that the database test counted rows and so could not see an UPDATE, which left the closing of an imported plan proved only against the fake store.
 The integration suite now checks a pairing that would close an open `intended_pairing`, finds the plan still open afterwards, and finds it closed once the same pairing is formed.
 
+### Implementer, 2026-09-19: two corrections to the comments above, from a second review
+
+**`relationship.person_belongs_to_another_ministry` is answered for a Disciple only.**
+The list above says the check raises it, and for a Discipler that is wrong.
+A Discipler the connection cannot see (another Ministry's, or an id that names nobody) is not returned by `contactsFor`, so `whoIs` in `src/domain/boundary.ts` throws a plain `Error` while the invitation is being composed, before any membership row is written and before `relationship_member_person_fk` can fire.
+`checkPairing` rethrows it, exactly as `execute` does.
+Ticket 04 should expect a thrown `Error`, not a refusal, for a Discipler id that is not this Ministry's.
+
+**A check can deadlock with a real formation, in one narrow shape.**
+Membership rows are inserted one at a time in the order the command names people, and a check takes the same unique-index locks a formation takes.
+Two transactions that contend on two keys in opposite orders deadlock, and Postgres kills one of them with `40P01`, which nothing translates.
+That needs two co-led groups naming the same two Disciplers in opposite orders at the same moment, contending on `leader_one_open_group`.
+It cannot happen for several one-to-ones under one Discipler, which is ticket 04's case: each of those contends on one key only, the Disciple's.
+Two real formations could always deadlock this way; what is new is that one of the two can now be a check, which was going to roll back anyway.
+Not fixed here.
+The fix is to insert a relationship's members in one fixed order in `createRelationship`, which changes formation's own store and so is not this ticket's to make without being asked.
+
