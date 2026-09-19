@@ -24,18 +24,70 @@ So the check has to be the same decision formation makes, stopped before its eff
 
 ## Acceptance
 
-- [ ] The command service can be asked to check a `relationship.create` command, and answers with the same `PairingRefusal` formation would have thrown, or with nothing when formation would have gone ahead.
-- [ ] The check runs the same boundary decision formation runs, against the same context, read the same way.
+- [x] The command service can be asked to check a `relationship.create` command, and answers with the same `PairingRefusal` formation would have thrown, or with nothing when formation would have gone ahead.
+- [x] The check runs the same boundary decision formation runs, against the same context, read the same way.
   There is one copy of every pairing rule after this ticket, as there was before it.
-- [ ] The check cannot write: no relationship, membership, invitation, history event or outbound message exists after it, whatever it answered.
+- [x] The check cannot write: no relationship, membership, invitation, history event or outbound message exists after it, whatever it answered.
   A test proves this against the database and not only against a fake store.
-- [ ] Checking and then forming the same command gives the same answer both times, for a command that passes and for each refusal the pairing suites already cover (gender, Intake not completed, opted out, a Material the Ministry does not hold, an unnamed group, an undeclared group).
-- [ ] Only `relationship.create` can be checked.
+- [x] Checking and then forming the same command gives the same answer both times, for a command that passes and for each refusal the pairing suites already cover (gender, Intake not completed, opted out, a Material the Ministry does not hold, an unnamed group, an undeclared group).
+- [x] Only `relationship.create` can be checked.
   This is not a general dry-run for every command, and nothing else gains one here.
-- [ ] Formation itself is untouched: the existing pairing suites pass without edits.
+- [x] Formation itself is untouched: the existing pairing suites pass without edits.
 
 ## Notes for whoever picks this up
 
 Rules that live only in the database (the partial unique indexes, the two gender triggers) are enforced on write and the check will not see them unless the boundary already mirrors them.
 List on this ticket any refusal the database can raise that the check cannot predict.
 Ticket 04 has to report those honestly when they happen partway through a set, and needs the list.
+
+## Comments
+
+### Implementer, 2026-09-19: the check forms the relationship and rolls it back
+
+`CommandService.checkPairing(command)` answers with the `PairingRefusal` that `execute` would have thrown, or `null`.
+It is not "the boundary decision, stopped before its effects are applied", which is what *Why* above describes, and the reviewer should know that before reading the diff.
+
+The ticket was written believing the boundary decides gender and Intake.
+It does not.
+For `relationship.create` the boundary decides seven things: a Discipler is named, a Disciple is named, nobody is on both sides, nobody is listed twice, a group is declared, a group is named, and the Material is on the list.
+Gender, Intake, opt-outs and the participation caps are triggers and indexes on `relationship_member`, translated to a `PairingRefusal` by constraint name in `src/platform/supabase/effect-store.ts` (`REFUSALS`).
+They answer only when a membership row is written.
+
+So a check that stopped before the write could not meet the fourth criterion (gender, Intake not completed and opted out must agree with formation), and ticket 04's over-HTTP criterion, a Disciple of another gender forming nothing, would have been impossible to meet through it.
+Mirroring those rules in the boundary to make a decide-only check work would have been the second copy of each rule that the second criterion and ADR-0004 rule out.
+
+What was built instead: the check runs formation whole (the same reads, the same `handleCommand`, the same `applyEffects`, through one shared function, `carryOut`) inside `store.transact`, and then throws, so the transaction rolls back.
+`EffectStore.transact` already promises that a throw lands nothing, and every store implements that, so no port changed.
+The database has its say, and nothing is kept.
+`tests/integration/a-pairing-checked-without-being-formed.test.ts` counts `relationship`, `relationship_member`, `invitation`, `ministry_event`, `outbound_message` and `follow_up_item` before and after every check, passing or refused.
+
+No product behaviour was decided here: nothing an Admin sees changes, and no rule was added, moved or reworded.
+
+### Implementer, 2026-09-19: what the check cannot predict (for ticket 04)
+
+At the moment it runs, nothing.
+Every `PairingRefusal` the database can raise on formation, the check raises too, because it performs the same writes.
+That includes the ones the ticket expected to be out of reach: `relationship.gender_must_match`, `relationship.gender_does_not_match_the_declaration`, the four Intake and opt-out codes, `relationship.participant_already_in_a_one_to_one`, `relationship.leader_already_leads_a_group`, `relationship.person_belongs_to_another_ministry`, `relationship.person_already_in_this_relationship` and `relationship.already_has_a_leader`.
+
+What it cannot see is anything that has not happened yet.
+Ticket 04 has to be ready for two things.
+
+1. **One pairing in a set refusing another.**
+   Each check runs against the database as it stands, with none of the set formed.
+   For N x 1:1 under one Discipler there is exactly one way for this to happen: the same Disciple named twice.
+   Both checks pass, and the second formation is refused with `relationship.participant_already_in_a_one_to_one` (`participant_one_open_one_to_one`).
+   A test in the integration suite pins this.
+   Ticket 04 can close it before checking anything, by refusing a set that names a Disciple twice.
+   Nothing else in such a set collides: `leader_one_open_group` counts groups only, so one Discipler may lead any number of one-to-ones, and `relationship_member_one_open_per_person` and `one_to_one_one_open_leader` are both per relationship.
+2. **The world changing between the check and the formation.**
+   Any refusal can appear in that gap, and these are the ones with an ordinary cause:
+   - `relationship.participant_already_in_a_one_to_one`: another Admin, or the settling of an imported plan, pairs that Disciple first.
+   - `relationship.participant_has_opted_out` and `relationship.leader_has_opted_out`: somebody texts STOP.
+   - `relationship.material_is_not_on_the_list`: another Admin removes the Material.
+   - `relationship.gender_must_match`: somebody submits Intake again with a different answer.
+   The gap is as wide as the set is long, since formation is one transaction per pairing.
+   This is the "write still fails partway" case ticket 04 already has a criterion for.
+
+Two smaller facts.
+The deferred constraint triggers are checked at commit, so a check never reaches them; the only one on `relationship_member` (`relationship_has_no_open_membership_after_it_ends`) cannot be raised by forming a new relationship and is not a `PairingRefusal`.
+And a check draws ids from the `IdSource` and takes the locks formation takes (the Material list's advisory lock, when a Material is chosen) for as long as it runs, then releases them on rollback.
