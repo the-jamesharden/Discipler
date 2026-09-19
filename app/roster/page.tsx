@@ -6,6 +6,7 @@ import type { RosterEntry, RosterIntendedPairing, RosterRelationship } from '~/s
 import {
   AWAITING_ACCEPTANCE,
   AWAITING_INTAKE,
+  DEFAULT_LIST,
   displayPhone,
   EMPTY_LIST,
   HELD_ROWS_EXPLANATION,
@@ -50,20 +51,21 @@ import { rosterKey } from '~/domain/roster'
 export const dynamic = 'force-dynamic'
 
 /**
- * The Roster, as a pastor names it: two lists behind a toggle, All Disciplers and
- * All Disciples, each with its four numbers and its five columns. Rebuilt to the
- * prototype James brought in ticket 36. The model's Leader and Participant are
- * for the code; nothing here says either.
+ * The Roster, as a pastor names it: three lists behind a toggle, All, Disciplers
+ * and Disciples, each with its three numbers and its five columns. Rebuilt to the
+ * prototype James brought in ticket 36, and opened on All by Manual pairing,
+ * ticket 06. The model's Leader and Participant are for the code; nothing here
+ * says either.
  *
  * A Discipler is a fact and never a mark -- `lists.ts` is the one rule -- and a
- * person may be on both lists, which is the discipleship-multiplication case
- * working. The name on every row opens the Person's own page, where every act
- * about one Person lives; the row keeps Pair, the one act that belongs to a list.
+ * person may be on both sides, which is the discipleship-multiplication case
+ * working. On All they are one row, holding every pairing they are in. The name on every row opens the Person's own page, where every act about
+ * one Person lives; the row keeps Pair, the one act that belongs to a list.
  */
 
-/** Which list to show. Anything the query string does not say reads as Disciplers. */
+/** Which list to show. Nothing, or anything that is not one of the three, reads as All. */
 const listIn = (value: string | undefined): RosterList =>
-  isRosterList(value) ? value : 'disciplers'
+  isRosterList(value) ? value : DEFAULT_LIST
 
 export default async function RosterPage({
   searchParams,
@@ -106,9 +108,12 @@ export default async function RosterPage({
   // landed. Read as a count and never echoed as text.
   const paired = Number.parseInt(query.paired ?? '', 10)
 
-  /** The other list's link keeps nothing else from the query string: a receipt is about the page it landed on. */
-  const listHref = (which: RosterList): string =>
-    which === 'disciplers' ? '/roster' : `/roster?${new URLSearchParams({ list: which })}`
+  /**
+   * Another list's link keeps nothing else from the query string: a receipt is
+   * about the page it landed on. Each names its list, All included, so the address
+   * says what is being looked at whichever way the default goes.
+   */
+  const listHref = (which: RosterList): string => `/roster?${new URLSearchParams({ list: which })}`
 
   // The Roster as the import review classifies against it, in the browser:
   // every name and number this page already prints (ADR-0021), and the plans
@@ -140,8 +145,8 @@ export default async function RosterPage({
           </div>
         </div>
 
-        {/* The two lists: two links to this same page, so the switch works before
-            JavaScript has loaded and survives a refresh. */}
+        {/* The three lists: three links to this same page, so the switch works
+            before JavaScript has loaded and survives a refresh. */}
         <nav className="seg" aria-label="Which list to show">
           {ROSTER_LISTS.map((which) => (
             <Link key={which} href={listHref(which)} aria-current={list === which ? 'true' : undefined}>
@@ -150,14 +155,12 @@ export default async function RosterPage({
           ))}
         </nav>
 
-        {/* Four numbers about the list being looked at. Paired is an open pairing in
-            this list's role and nothing else; in groups is counted from the live
-            number of people being discipled, never from a kind column. */}
+        {/* Three numbers about the list being looked at. Paired is an open pairing
+            in this list's role and nothing else, and on All in either role. */}
         <p className="stats-line">
           <span><b>{stats.total}</b> {STATS_LABEL.total}</span>
           <span><b>{stats.paired}</b> {STATS_LABEL.paired}</span>
           <span><b>{stats.unpaired}</b> {STATS_LABEL.unpaired}</span>
-          <span><b>{stats.inGroups}</b> {STATS_LABEL.inGroups}</span>
         </p>
 
         {Number.isInteger(paired) && paired > 0 ? (
@@ -212,7 +215,7 @@ export default async function RosterPage({
             Nobody is on this Roster yet. Import your spreadsheet, or send one of the{' '}
             <Link href="/intake-forms">{INTAKE_FORMS}</Link>.
           </p>
-        ) : shown.length === 0 ? (
+        ) : list !== 'all' && shown.length === 0 ? (
           <p className="empty">{EMPTY_LIST[list]}</p>
         ) : (
           <>
@@ -387,7 +390,10 @@ const importReadback = (roster: readonly RosterEntry[]): ImportReadbackWire => {
  * role, naming the other side -- who a Discipler disciples, who a Disciple is
  * discipled by -- with the size pill and, where the Discipler has not yet agreed,
  * a note saying so. A person in no pairing in this role is unpaired here, whatever
- * they hold on the other list, and gets the one act that belongs to a row.
+ * they hold on the other list, and gets the one act that belongs to a row. On All
+ * the lines are every pairing in either role, and unpaired means in none at all.
+ * No line says which way it runs: the toggle above the table answers that, and a
+ * word on every line would be clutter (James, reviewing Manual pairing, ticket 06).
  */
 const PairedWith = ({ list, person }: { readonly list: RosterList; readonly person: RosterEntry }) => {
   const pairings = relationshipsOn(list, person)
@@ -424,7 +430,7 @@ const PairedWith = ({ list, person }: { readonly list: RosterList; readonly pers
     <ul className="bare">
       {pairings.map((pairing) => (
         <li key={pairing.relationshipId}>
-          <PairingLine list={list} pairing={pairing} />
+          <PairingLine pairing={pairing} />
         </li>
       ))}
       {/* What an import planned and nothing has formed yet: waiting on Intake, or
@@ -460,13 +466,20 @@ const PlanLine = ({ plan }: { readonly plan: RosterIntendedPairing }) => (
   </>
 )
 
-const PairingLine = ({ list, pairing }: { readonly list: RosterList; readonly pairing: RosterRelationship }) => {
-  const otherSide = list === 'disciplers' ? pairing.participantNames : pairing.leaderNames
+const PairingLine = ({ pairing }: { readonly pairing: RosterRelationship }) => {
+  // By the role the Person holds in it and not by the list, which on All is no
+  // side at all. On a side's list every pairing shown is in that side's role.
+  const otherSide = pairing.role === 'leader' ? pairing.participantNames : pairing.leaderNames
   return (
     <>
-      {otherSide.join(', ')}
-      {' '}
-      <span className="size">{pairingSizeLabel(pairing.participantCount)}</span>
+      {otherSide.slice(0, -1).map((name) => `${name}, `).join('')}
+      {/* The size stays on the line of the last name: a pill that wraps alone
+          reads as belonging to nobody. */}
+      <span className="nowrap">
+        {otherSide.at(-1)}
+        {' '}
+        <span className="size">{pairingSizeLabel(pairing.participantCount)}</span>
+      </span>
       {/* Derived from the absence of an acceptance, not read from a status column
           -- there is not one. It is the difference between a pairing an Admin has
           arranged and one that has actually started, and both sides read it. */}

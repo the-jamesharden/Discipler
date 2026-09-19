@@ -33,6 +33,10 @@ Start it in the background and read its log; a shell call that blocks on it will
   `locked-tests.sh` checks for the success line and refuses to go on without it.
   The cure is usually `supabase stop --no-backup`, then `supabase start`, then run again.
   The CLI is a global install on this machine, not a project dependency: call `supabase`, never `npx supabase`, which goes to the registry and can stop on a prompt.
+- **`AuthRetryableFetchError` in every `beforeAll`, and a whole suite that is over in under eighty seconds, is Auth not being back yet.**
+  A reset restarts Auth, and Kong cannot reach it for about fifty seconds afterwards; two worktrees with different migrations reset on every handover of the lock.
+  `locked-tests.sh` waits up to two minutes for `/auth/v1/health` to answer through Kong before it runs anything, and says so if it never does.
+  A run from a checkout that does not have that wait yet shows about 82 failed files and 692 skipped tests, and none of it is the code.
 - **`fetch failed` or `EADDRNOTAVAIL` across many suites is the host, not the code.**
   Past about fifty days of uptime macOS stops expiring sockets in TIME_WAIT and the ephemeral ports run out.
   `netstat -an -p tcp | awk 'NR>2{print $6}' | sort | uniq -c | sort -rn | head`; if the counts are in the tens of thousands, stop running tests and tell the person. Only a reboot fixes it.

@@ -140,9 +140,13 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin importing a spreadsheet', () =
     const { html } = await getPage(`/roster?${location.split('?')[1] ?? ''}`, cookie)
     expect(html).toContain('2 people were added.')
     expect(html).toContain('1 pair was planned.')
+    // The receipt lands where it always did, on the Disciples, whatever the
+    // Roster's own default is (Manual pairing, ticket 06 made that All).
+    expect(location).toContain('list=disciples')
+    expect(html).toMatch(/<a (?=[^>]*aria-current="true")[^>]*>Disciples</)
 
     // Sam is a Discipler by the plan; Taylor is the Disciple; both say *planned*.
-    const disciplers = await getPage('/roster', cookie)
+    const disciplers = await getPage('/roster?list=disciplers', cookie)
     expect(rowOf(disciplers.html, 'Sam Rivera')).toContain('Taylor Brooks planned')
     expect(rowOf(disciplers.html, 'Sam Rivera')).toContain('awaiting Intake')
     const disciples = await getPage('/roster?list=disciples', cookie)
@@ -161,8 +165,10 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin importing a spreadsheet', () =
 
     expect(location).toContain('added=1')
     expect(location).toContain('planned=1')
+    // On All, which is where the Roster opens, the plan is on both rows.
     const { html } = await getPage('/roster', cookie)
     expect(rowOf(html, 'Ruth Adeyemi')).toContain('Omar Haddad planned')
+    expect(rowOf(html, 'Omar Haddad')).toContain('Ruth Adeyemi planned')
   })
 
   it('is told, by line, about a pair it would not plan, and still imports the person', async () => {

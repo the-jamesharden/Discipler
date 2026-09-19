@@ -133,6 +133,20 @@ else
   note "database: already holds this checkout's migrations; not resetting"
 fi
 
+# A reset restarts Auth, and Kong cannot reach it for most of a minute afterwards.
+# The build used to cover that; a cached build does not, and a run that starts
+# inside the gap fails every beforeAll with `AuthRetryableFetchError` in about a
+# minute, which reads as eighty broken suites and is none. Wait for it, whether
+# or not this run was the one that reset: the run before may have been.
+SUPABASE_URL="$(sed -n 's/^NEXT_PUBLIC_SUPABASE_URL=//p' .env.local 2>/dev/null | tail -1 || true)"
+SUPABASE_URL="${SUPABASE_URL:-http://127.0.0.1:54321}"
+auth_ready=0
+for _ in $(seq 1 120); do
+  if [ "$(curl -s -o /dev/null -w '%{http_code}' "$SUPABASE_URL/auth/v1/health" || true)" = 200 ]; then auth_ready=1; break; fi
+  sleep 1
+done
+[ "$auth_ready" = 1 ] || die "Auth did not answer on $SUPABASE_URL/auth/v1/health within two minutes. This is the local stack, not a test failure: 'supabase stop --no-backup' then 'supabase start', and run this again."
+
 # --- this checkout's server -----------------------------------------------------
 
 export APP_URL="http://127.0.0.1:$PORT"

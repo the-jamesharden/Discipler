@@ -1,12 +1,12 @@
 import type { DeclaredSide } from '~/domain/intake'
 import type { MemberRole } from '~/domain/relationships'
 import type { RosterEntry, RosterIntendedPairing, RosterRelationship } from '~/service/ports'
-import type { RosterList } from './copy'
+import type { RosterList, RosterSide } from './copy'
 
 /**
- * Which list a Person is on, as the Roster names them, and the four numbers over
+ * Which list a Person is on, as the Roster names them, and the three numbers over
  * each list. Pure over what the reader hands back, so the rule is one function the
- * row, the person page and the two lists all read -- and a test can drive it with
+ * row, the person page and the three lists all read -- and a test can drive it with
  * no database anywhere near it.
  *
  * **A Discipler is a fact, never a mark.** Ticket 36, in James's words: the
@@ -48,45 +48,51 @@ export const isDiscipler = (person: RosterFacts): boolean =>
 export const isDisciple = (person: RosterFacts): boolean =>
   isDiscipledBySomebody(person) || plannedAs(person, 'participant') || !isDiscipler(person)
 
-/** The role a Person holds on the list being looked at. */
-export const roleOn: Record<RosterList, MemberRole> = {
+/** The role a Person holds on one side's list. All is not a side and has no role. */
+export const roleOn: Record<RosterSide, MemberRole> = {
   disciplers: 'leader',
   disciples: 'participant',
 }
 
+/**
+ * All is everybody, once (Manual pairing, ticket 06). Not a third rule: `isDisciple`
+ * already takes whoever `isDiscipler` does not, so everybody on the Roster is on at
+ * least one side, and All is those two lists with nobody said twice.
+ */
 export const onList = (list: RosterList, person: RosterEntry): boolean =>
-  list === 'disciplers' ? isDiscipler(person) : isDisciple(person)
+  list === 'all' || (list === 'disciplers' ? isDiscipler(person) : isDisciple(person))
 
-/** The plans this row is about: the ones the Person is on the list's side of. */
+/** Leading first, so a row on All names who they disciple before who disciples them. Stable within a role. */
+const leadingFirst = <T extends { readonly role: MemberRole }>(held: readonly T[]): readonly T[] => [
+  ...held.filter(({ role }) => role === 'leader'),
+  ...held.filter(({ role }) => role === 'participant'),
+]
+
+/** What a row is about, of what a Person holds: the ones in the list's role, and on All every one. */
+const heldOn = <T extends { readonly role: MemberRole }>(list: RosterList, held: readonly T[]): readonly T[] =>
+  list === 'all' ? leadingFirst(held) : held.filter(({ role }) => role === roleOn[list])
+
+/** The plans this row is about: the ones the Person is on the list's side of, and on All every one. */
 export const plansOn = (list: RosterList, person: RosterEntry): readonly RosterIntendedPairing[] =>
-  person.intendedPairings.filter((plan) => plan.role === roleOn[list])
+  heldOn(list, person.intendedPairings)
 
-/** The relationships this row is about: the ones the Person holds in the list's role. */
+/** The relationships this row is about: the ones the Person holds in the list's role, and on All every one. */
 export const relationshipsOn = (
   list: RosterList,
   person: RosterEntry,
-): readonly RosterRelationship[] =>
-  person.relationships.filter((relationship) => relationship.role === roleOn[list])
-
-/**
- * Whether a relationship is a group, from the live count of people being
- * discipled in it and never from the relationship's kind (ADR-0004). One
- * disciple is a one-to-one; more is a group.
- */
-export const isAGroup = (relationship: RosterRelationship): boolean =>
-  relationship.participantCount > 1
+): readonly RosterRelationship[] => heldOn(list, person.relationships)
 
 export interface RosterStats {
   readonly total: number
-  /** In at least one open relationship in this list's role. A planned pair is not one. */
+  /**
+   * In at least one open relationship in this list's role, and on All in either
+   * role. A planned pair is not one.
+   */
   readonly paired: number
   readonly unpaired: number
-  /** In at least one open relationship, in this list's role, with more than one disciple. */
-  readonly inGroups: number
 }
 
 export const rosterStats = (list: RosterList, people: readonly RosterEntry[]): RosterStats => {
   const paired = people.filter((person) => relationshipsOn(list, person).length > 0).length
-  const inGroups = people.filter((person) => relationshipsOn(list, person).some(isAGroup)).length
-  return { total: people.length, paired, unpaired: people.length - paired, inGroups }
+  return { total: people.length, paired, unpaired: people.length - paired }
 }

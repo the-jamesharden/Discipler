@@ -3,10 +3,10 @@ import { intendedPairingId, personId, relationshipId } from '~/domain/ids'
 import { phoneNumber } from '~/domain/roster'
 import type { RosterEntry, RosterIntendedPairing, RosterRelationship } from '~/service/ports'
 import { displayPhone, whoTheyAre } from '../../app/roster/copy'
-import { isDiscipler, isDisciple, onList, rosterStats } from '../../app/roster/lists'
+import { isDiscipler, isDisciple, onList, plansOn, relationshipsOn, rosterStats } from '../../app/roster/lists'
 
 /**
- * Who is on which list, and the four numbers over each. Pure over the reader's
+ * Who is on which list, and the three numbers over each. Pure over the reader's
  * own type, so the rule is driven with no database anywhere near it.
  *
  * A Discipler is a fact, never a mark (ticket 36): leads somebody, offered to on
@@ -130,30 +130,30 @@ describe('the sentence on the person page', () => {
   })
 })
 
-describe('the four numbers over a list', () => {
+describe('the three numbers over a list', () => {
   it('counts paired as an open pairing in that role, and unpaired as the rest', () => {
     const people = [
       person({ relationships: [pairing('leader')] }),
       person({ declaredSide: 'mentor' }),
       person({ declaredSide: 'mentor', relationships: [pairing('leader', { participantCount: 3 })] }),
     ]
-    expect(rosterStats('disciplers', people)).toEqual({ total: 3, paired: 2, unpaired: 1, inGroups: 1 })
+    expect(rosterStats('disciplers', people)).toEqual({ total: 3, paired: 2, unpaired: 1 })
   })
 
-  it('counts in groups from the live number of disciples, never from a kind', () => {
+  it('counts a group like any other pairing', () => {
     const people = [
       person({ relationships: [pairing('participant', { participantCount: 1 })] }),
       person({ relationships: [pairing('participant', { participantCount: 4 })] }),
       person(),
     ]
-    expect(rosterStats('disciples', people)).toEqual({ total: 3, paired: 2, unpaired: 1, inGroups: 1 })
+    expect(rosterStats('disciples', people)).toEqual({ total: 3, paired: 2, unpaired: 1 })
   })
 
   it('counts a person once however many pairings they hold', () => {
     const busy = person({
       relationships: [pairing('leader'), pairing('leader', { participantCount: 2 }), pairing('leader', { participantCount: 5 })],
     })
-    expect(rosterStats('disciplers', [busy])).toEqual({ total: 1, paired: 1, unpaired: 0, inGroups: 1 })
+    expect(rosterStats('disciplers', [busy])).toEqual({ total: 1, paired: 1, unpaired: 0 })
   })
 
   it('counts only the role of the list being looked at', () => {
@@ -172,5 +172,45 @@ describe('a phone number as a person reads it', () => {
 
   it('leaves any other number as it is stored', () => {
     expect(displayPhone(phoneNumber('+447700900123'))).toBe('+447700900123')
+  })
+})
+
+describe('the All list (Manual pairing, ticket 06)', () => {
+  const both = person({ relationships: [pairing('participant'), pairing('leader')] })
+  const leads = person({ relationships: [pairing('leader')] })
+  const discipled = person({ relationships: [pairing('participant')] })
+  const offered = person({ declaredSide: 'mentor' })
+  const imported = person({ participationStatus: 'no_intake_submitted' })
+  const everybody = [both, leads, discipled, offered, imported]
+
+  it('is everybody on the Roster, each once, including somebody on both sides', () => {
+    expect(onList('disciplers', both) && onList('disciples', both)).toBe(true)
+    const shown = everybody.filter((one) => onList('all', one))
+    expect(shown).toEqual(everybody)
+    expect(shown.filter((one) => one.personId === both.personId)).toHaveLength(1)
+  })
+
+  it('does not change who is on either side', () => {
+    expect(everybody.filter((one) => onList('disciplers', one))).toEqual([both, leads, offered])
+    expect(everybody.filter((one) => onList('disciples', one))).toEqual([both, discipled, imported])
+  })
+
+  it('shows every pairing a person holds, in either role, leading first', () => {
+    expect(relationshipsOn('all', both).map(({ role }) => role)).toEqual(['leader', 'participant'])
+    // The sides still show only their own role.
+    expect(relationshipsOn('disciplers', both).map(({ role }) => role)).toEqual(['leader'])
+    expect(relationshipsOn('disciples', both).map(({ role }) => role)).toEqual(['participant'])
+  })
+
+  it('shows every plan an import made about a person, on whichever side of it they are', () => {
+    const planned = person({ intendedPairings: [plan('participant'), plan('leader')] })
+    expect(plansOn('all', planned).map(({ role }) => role)).toEqual(['leader', 'participant'])
+    expect(plansOn('disciplers', planned).map(({ role }) => role)).toEqual(['leader'])
+    expect(plansOn('disciples', planned).map(({ role }) => role)).toEqual(['participant'])
+  })
+
+  it('counts paired as an open pairing in either role, and a plan as none', () => {
+    const onlyPlanned = person({ intendedPairings: [plan('leader')] })
+    expect(rosterStats('all', [...everybody, onlyPlanned])).toEqual({ total: 6, paired: 3, unpaired: 3 })
   })
 })
