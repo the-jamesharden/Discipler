@@ -84,8 +84,10 @@ ticket_field() { # <path> <branch> <Field name>
 # a Ticket-Path trailer. True forever, including after the branch and the worktree
 # are gone -- which `git branch --merged` is not.
 is_integrated() { # <ticket path> <integration branch>
+  # Not `grep -q`: it exits at the first match, git log dies of SIGPIPE, and under
+  # pipefail that reads as "not integrated".
   git log "$2" --merges --format='%(trailers:key=Ticket-Path,valueonly)' 2>/dev/null |
-    grep -Fxq "$1"
+    grep -Fx "$1" >/dev/null
 }
 
 is_shipped() { # <ticket path> <integration branch>

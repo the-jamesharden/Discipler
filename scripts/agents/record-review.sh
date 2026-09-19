@@ -33,7 +33,7 @@ if [ -d "$TICKET_WORKTREE" ] && [ -n "$(git -C "$TICKET_WORKTREE" status --porce
 fi
 
 grep -q "VERDICT: $VERDICT" "$REVIEW_FILE" || die "the review file does not end in 'VERDICT: $VERDICT'"
-if [ "$VERDICT" = "PASS" ] && sed -n '/^BLOCKING/,/^NON-BLOCKING/p' "$REVIEW_FILE" | grep -Eq '^[[:space:]]*[-*0-9]'; then
+if [ "$VERDICT" = "PASS" ] && sed -n '/^BLOCKING/,/^NON-BLOCKING/p' "$REVIEW_FILE" | grep -E '^[[:space:]]*[-*0-9]' >/dev/null; then
   die "the review lists BLOCKING findings and says PASS. It is one or the other."
 fi
 
