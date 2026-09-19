@@ -148,6 +148,25 @@ const REFUSALS: Record<string, PairingRefusal> = {
   one_to_one_one_open_leader: 'relationship.already_has_a_leader',
 }
 
+/**
+ * A relationship's members, in the one order every transaction writes them in.
+ *
+ * Each membership row takes an entry in the cap indexes above, and a second
+ * transaction naming the same Person waits there until the first is over. Written
+ * in the order a command happened to name people, two co-led groups naming the same
+ * two Disciplers the other way round each hold one and wait for the other, and
+ * Postgres ends it by killing one of them -- which may be the real formation, killed
+ * by a check that was only ever going to roll back (Manual pairing, ticket 03;
+ * ADR-0025). Taking locks in one agreed order is what makes that cycle impossible,
+ * and the Person's id is an order every transaction agrees on without asking.
+ *
+ * Plain comparison and not `localeCompare`: the order has to be the same on every
+ * server, and it means nothing to anybody. Nothing reads these rows back by the
+ * order they were written in.
+ */
+const inLockOrder = <T extends { readonly personId: PersonId }>(members: readonly T[]): T[] =>
+  [...members].sort((a, b) => (a.personId < b.personId ? -1 : a.personId > b.personId ? 1 : 0))
+
 /** The one place that knows where a driver hides the name of what it violated. */
 const constraintViolated = (error: unknown): string | undefined =>
   (error as { constraint?: string } | null)?.constraint
@@ -1147,7 +1166,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
         ],
       )
 
-      for (const member of relationship.members) {
+      for (const member of inLockOrder(relationship.members)) {
         await client.query(
           `insert into relationship_member
              (ministry_id, relationship_id, kind, person_id, role, started_at)

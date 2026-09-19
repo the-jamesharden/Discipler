@@ -63,10 +63,10 @@ describe('a pairing checked without being formed, against the database', () => {
     participantIds: [participant],
   })
 
-  const aGroup = (leader: PersonId, participants: PersonId[]): Pairing => ({
+  const aGroup = (leaders: PersonId | PersonId[], participants: PersonId[]): Pairing => ({
     type: 'relationship.create',
     ministryId: ministry.id,
-    leaderIds: [leader],
+    leaderIds: [leaders].flat(),
     participantIds: participants,
     declaredGender: null,
     name: 'The Tuesday Group',
@@ -255,6 +255,32 @@ describe('a pairing checked without being formed, against the database', () => {
     expect(await refusalFromForming(second)).toBe(
       'relationship.participant_already_in_a_one_to_one',
     )
+  })
+
+  it('never costs a formation its pairing by deadlocking with it', async () => {
+    // A check takes the locks a formation takes (ADR-0025). Two co-led groups that
+    // name the same two Disciplers contend on `leader_one_open_group` twice over,
+    // and if each wrote its members in the order it was handed them, one would
+    // hold the first Discipler and want the second while the other held the second
+    // and wanted the first. Postgres ends that by killing one of the two, and the
+    // one it kills may be the real formation. Several rounds, because which
+    // statement lands first is the scheduler's to decide.
+    for (let round = 0; round < 8; round++) {
+      const first = await man(`Hugo Adler ${round}`)
+      const second = await man(`Ivor Baines ${round}`)
+      const disciples = [await man(`Joel Carr ${round}`), await man(`Kit Doyle ${round}`)]
+
+      const [formed, checked] = await Promise.all([
+        refusalFromForming(aGroup([first, second], disciples)),
+        service().checkPairing(aGroup([second, first], disciples)),
+      ])
+
+      // The formation goes ahead whichever of the two reached the index first. The
+      // check is told whatever was true when its turn came: nothing in its way, or
+      // the group that had just been formed.
+      expect(formed).toBeNull()
+      expect([null, 'relationship.leader_already_leads_a_group']).toContain(checked)
+    }
   })
 
   it('holds nothing open afterwards: the same pairing can be checked again at once', async () => {
