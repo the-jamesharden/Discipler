@@ -24,7 +24,7 @@ import type { NameOnTheNumber } from '~/domain/roster'
 import { careNeededFrom } from './care-needed-reader'
 import { adminPage, list, readPageDocument, section, type PageDocument } from './page'
 import { liveMaterialRows } from './materials-reader'
-import { historyOf, pausesFrom } from './relationship-history'
+import { historyOf } from './relationship-history'
 import { createSupabaseServerClient } from './server-client'
 
 interface MemberRow {
@@ -389,18 +389,13 @@ const suggestGenderMatchFrom = (doc: PageDocument): boolean => {
  * decide whether the group is offered at all, the declaration whether it is
  * greyed, the state what the row says beside its name.
  */
-const groupsFrom = (doc: PageDocument): readonly GroupToJoin[] => {
-  // One definition of *paused* for every surface that reads this document: the
-  // Pause standing on each relationship, from the same list the Overview and Care
-  // Needed derive from, so the popup and the tabs cannot disagree about a group.
-  const pauses = pausesFrom(historyOf(doc))
-
-  return list(doc, 'groups').map((row) => {
+const groupsFrom = (doc: PageDocument): readonly GroupToJoin[] =>
+  list(doc, 'groups').map((row) => {
     const {
       id,
       name,
       declared_gender: declaredGender,
-      accepted_at: acceptedAt,
+      state,
       disciple_count: discipleCount,
       member_ids: memberIds,
       leaders,
@@ -419,9 +414,11 @@ const groupsFrom = (doc: PageDocument): readonly GroupToJoin[] => {
     if (declaredGender !== null && !isOneOf(GENDERS, declaredGender)) {
       throw new Error(`A group arrived with no answer about its declared gender: ${id}`)
     }
-    // Null is Awaiting Leader Acceptance. Missing must not read as either answer.
-    if (acceptedAt !== null && typeof acceptedAt !== 'string') {
-      throw new Error(`A group arrived with no answer about its acceptance: ${id}`)
+    // Null is *running*, which is an answer. The key missing must not read as
+    // that: a group nobody has accepted, shown as running, is a row whose leader
+    // the Admin would expect to hear from.
+    if (state !== null && state !== 'awaiting_leader_acceptance' && state !== 'paused') {
+      throw new Error(`A group arrived with no answer about its state: ${id}`)
     }
     // The function lists nothing with fewer than two, so fewer here is drift too.
     if (typeof discipleCount !== 'number' || !Number.isInteger(discipleCount) || discipleCount < 2) {
@@ -444,13 +441,10 @@ const groupsFrom = (doc: PageDocument): readonly GroupToJoin[] => {
       }),
       discipleCount,
       declaredGender,
-      // Awaiting wins over paused, the order `deriveRelationshipState` settles
-      // them in: a relationship nobody has accepted has nothing running to pause.
-      state: acceptedAt === null ? 'awaiting_leader_acceptance' : pauses.has(id) ? 'paused' : null,
+      state,
       memberIds: (memberIds as string[]).map(personId),
     } satisfies GroupToJoin
   })
-}
 
 /**
  * Everything the three surfaces derive, from the document of the one named.

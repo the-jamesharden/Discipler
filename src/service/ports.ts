@@ -1004,8 +1004,12 @@ export interface GroupToJoin {
   readonly discipleCount: number
   /** What the group declared at formation. Null is *mixed*, as it is everywhere a declaration is carried. */
   readonly declaredGender: Gender | null
-  /** Null while it is running. Awaiting wins over paused, as it does in the derived Relationship State. */
-  readonly state: 'awaiting_leader_acceptance' | 'paused' | null
+  /**
+   * Null while it is running. Two of the derived Relationship States and no
+   * others: an ended one is not listed, and the rest are kinds of running.
+   * Awaiting wins over paused, as it does there.
+   */
+  readonly state: Extract<RelationshipState, 'awaiting_leader_acceptance' | 'paused'> | null
   /**
    * Everybody in it, in either role, so the surface can leave out a group the
    * Person is already in without a second read.

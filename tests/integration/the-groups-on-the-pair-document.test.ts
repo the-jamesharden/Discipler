@@ -1,11 +1,16 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
 import pg from 'pg'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { systemClock } from '~/domain/clock'
-import { rosterPageFrom } from '~/platform/supabase/roster-reader'
+import { personId, type IdSource } from '~/domain/ids'
+import { createPostgresEffectStore } from '~/platform/supabase/effect-store'
+import { createSupabaseRosterReader, rosterPageFrom } from '~/platform/supabase/roster-reader'
+import { createCommandService } from '~/service/command-service'
 import {
   addMembership,
   addPerson,
   addPersonWithAccount,
+  adminAsPerson,
   createMinistryWithAdmin,
   localSupabase,
   openMaterialHistory,
@@ -24,6 +29,16 @@ import {
  * more Disciples, whatever it was formed as, and nothing about anybody else's
  * Ministry. Nothing on any screen changes.
  */
+
+/**
+ * The reader's client is the one a Next.js request would hand it, which a test
+ * cannot supply. It is handed a real signed-in client instead, so the reader can
+ * be driven whole and what it asks the database for can be counted.
+ */
+const session = vi.hoisted(() => ({ client: null as unknown }))
+vi.mock('~/platform/supabase/server-client', () => ({
+  createSupabaseServerClient: async () => session.client,
+}))
 
 const asDocument = (data: unknown) => data as Record<string, unknown>
 const asRows = (data: unknown) => data as Record<string, unknown>[]
@@ -228,12 +243,13 @@ describe('the groups on the Pair document', () => {
   it('lists a running group, a paused one and one still awaiting its leader', async () => {
     const doc = await pairDocument()
 
-    expect(groupOn(doc, running)?.accepted_at).toEqual(expect.any(String))
-    expect(groupOn(doc, paused)?.accepted_at).toEqual(expect.any(String))
-    expect(groupOn(doc, awaiting)?.accepted_at).toBeNull()
+    // Each row of the document says so itself, and says nothing while it runs.
+    expect(groupOn(doc, running)).toHaveProperty('state', null)
+    expect(groupOn(doc, paused)).toHaveProperty('state', 'paused')
+    expect(groupOn(doc, awaiting)).toHaveProperty('state', 'awaiting_leader_acceptance')
 
-    // The Pause rides in the same document, on the list every surface derives
-    // *paused* from, and stands on this group and not on the running one.
+    // *Paused* is decided against the Pauses the same document carries for every
+    // other surface, so a group row and the Overview cannot disagree.
     const pauses = asRows(asDocument(doc.history).pauses).map((row) => row.relationship_id)
     expect(pauses).toContain(paused.id)
     expect(pauses).not.toContain(running.id)
@@ -252,7 +268,7 @@ describe('the groups on the Pair document', () => {
       id: running.id,
       name: 'Thursday Table',
       declared_gender: 'male',
-      accepted_at: expect.any(String),
+      state: null,
       disciple_count: 3,
       leaders: [{ id: running.leader, full_name: 'Thursday Leader' }],
       // Either role, by person id, so the popup can leave out a group somebody is
@@ -342,7 +358,7 @@ describe('the groups on the Pair document', () => {
     // The helper is not a second way in: nothing but a signed-in session may call
     // it, and it is an invoker, so that session's own policies choose the rows.
     const { rows } = await pool.query<{ role: string; may: boolean }>(`
-      select r.role, has_function_privilege(r.role, 'app.pair_groups(uuid)', 'execute') as may
+      select r.role, has_function_privilege(r.role, 'app.pair_groups(uuid, jsonb)', 'execute') as may
         from unnest(array['authenticated', 'anon', 'service_role', 'public']) as r(role)
     `)
     expect(rows).toEqual([
@@ -352,9 +368,42 @@ describe('the groups on the Pair document', () => {
       { role: 'public', may: false },
     ])
     const { rows: definer } = await pool.query<{ prosecdef: boolean }>(
-      `select prosecdef from pg_proc where oid = 'app.pair_groups(uuid)'::regprocedure`,
+      `select prosecdef from pg_proc where oid = 'app.pair_groups(uuid, jsonb)'::regprocedure`,
     )
     expect(definer[0]?.prosecdef).toBe(false)
+  })
+
+  it('hands the helper’s caller no group their own session could not already see', async () => {
+    // Called directly, as a signed-in session, with whichever Ministry it likes.
+    const groupsFor = async (userId: string, target: MinistryFixture): Promise<unknown[]> => {
+      const client = await pool.connect()
+      try {
+        await client.query('begin')
+        await client.query('set local role authenticated')
+        await client.query(`select set_config('request.jwt.claims', $1, true)`, [
+          JSON.stringify({ sub: userId, role: 'authenticated' }),
+        ])
+        const { rows } = await client.query<{ groups: unknown[] }>(
+          `select app.pair_groups($1, '[]'::jsonb) as groups`,
+          [target.id],
+        )
+        return rows[0]!.groups
+      } finally {
+        await client.query('rollback')
+        client.release()
+      }
+    }
+
+    // A Leader who leads none of them, asking about their own Ministry and about
+    // the one across the road; and an Admin asking about a Ministry that is not theirs.
+    expect(await groupsFor(bystander.userId, ministry)).toEqual([])
+    expect(await groupsFor(bystander.userId, other)).toEqual([])
+    expect(await groupsFor(adminAsPerson(ministry).userId, other)).toEqual([])
+
+    // The same call as the Admin of the Ministry it names is the list itself, so
+    // the three empty answers above are the policies and not a helper that is broken.
+    const own = (await groupsFor(adminAsPerson(ministry).userId, ministry)) as Record<string, unknown>[]
+    expect(own.map((row) => row.id)).toContain(running.id)
   })
 
   it('leaves the Roster’s own document as it was', async () => {
@@ -403,6 +452,114 @@ describe('the groups on the Pair document', () => {
     expect(derived(downToOne)).toBeUndefined()
   })
 
+  it('lists a 1:2 pair formed the way an Admin forms one', async () => {
+    // Through the command, so that it is the domain and not this fixture that
+    // makes one leader and two Disciples a group with a name and a declaration.
+    const store = createPostgresEffectStore(localSupabase().databaseUrl)
+    const ids: IdSource = { next: () => crypto.randomUUID() }
+    const service = createCommandService({ clock, ids, store, appBaseUrl: 'https://discipler.test' })
+    try {
+      const claire = await addPerson(ministry, 'Claire Martinez', { answers: { gender: 'female' } })
+      const first = await addPerson(ministry, 'Dana Whitlock', { answers: { gender: 'female' } })
+      const second = await addPerson(ministry, 'Esther Yoon', { answers: { gender: 'female' } })
+
+      await service.execute({
+        type: 'relationship.create',
+        ministryId: ministry.id,
+        leaderIds: [personId(claire)],
+        participantIds: [personId(first), personId(second)],
+        name: 'Claire Martinez’s pair',
+        declaredGender: 'female',
+      })
+
+      const formed = groupsOn(await pairDocument()).find((row) => row.name === 'Claire Martinez’s pair')
+      expect(formed).toMatchObject({
+        declared_gender: 'female',
+        // Formed and not yet accepted: listed all the same.
+        state: 'awaiting_leader_acceptance',
+        disciple_count: 2,
+        leaders: [{ id: claire, full_name: 'Claire Martinez' }],
+        member_ids: [claire, first, second].sort(),
+      })
+
+      const { rows } = await pool.query<{ kind: string }>(`select kind from relationship where id = $1`, [
+        formed?.id,
+      ])
+      expect(rows[0]?.kind).toBe('group')
+    } finally {
+      await store.close()
+    }
+  })
+
+  it('goes on reading a group as paused after its Pause has run its weeks', async () => {
+    // Expiry resumes nothing: a Pause stands until somebody resumes it, here as on
+    // every other surface, and when it ran out is decided elsewhere against a clock.
+    const lapsed = await formGroup(ministry, 'Lapsed', {
+      name: 'Lapsed Pause',
+      declaredGender: 'female',
+      disciples: ['female', 'female'],
+    })
+    await pauseRelationship(ministry, lapsed.id, 1, new Date('2026-01-05T09:00:00Z'))
+
+    const doc = await pairDocument()
+    expect(groupOn(doc, lapsed)).toHaveProperty('state', 'paused')
+    const page = rosterPageFrom(doc, clock, 'pair')
+    expect(page.groups.find((group) => group.relationshipId === lapsed.id)?.state).toBe('paused')
+  })
+
+  it('carries every leader a group has, in the order the document gave them', async () => {
+    // One open leader a relationship is all the database allows today
+    // (`relationship_one_open_leader`), so a second cannot be seeded. The shape is
+    // a list because the spec has decided a group can have several, and the reader
+    // must not be what quietly keeps the first.
+    const doc = await pairDocument()
+    const [first, ...rest] = groupsOn(doc)
+    const coLed = {
+      ...first,
+      leaders: [
+        { id: running.leader, full_name: 'Thursday Leader' },
+        { id: paused.leader, full_name: 'Paused Leader' },
+      ],
+    }
+
+    const page = rosterPageFrom({ ...doc, groups: [coLed, ...rest] }, clock, 'pair')
+    expect(page.groups[0]?.leaders).toEqual([
+      { personId: running.leader, fullName: 'Thursday Leader' },
+      { personId: paused.leader, fullName: 'Paused Leader' },
+    ])
+  })
+
+  it('reads the Pair page, groups and all, in one request to the database', async () => {
+    const calls: string[] = []
+    const real = await signInAs(ministry)
+    session.client = new Proxy(real, {
+      get(target, key) {
+        if (key === 'rpc') {
+          return (name: string, ...rest: unknown[]) => {
+            calls.push(`rpc ${name}`)
+            return (target.rpc as (...args: unknown[]) => unknown)(name, ...rest)
+          }
+        }
+        if (key === 'from') {
+          return (table: string) => {
+            calls.push(`from ${table}`)
+            return target.from(table)
+          }
+        }
+        const value = Reflect.get(target, key, target) as unknown
+        return typeof value === 'function' ? (value as (...args: unknown[]) => unknown).bind(target) : value
+      },
+    }) as SupabaseClient
+
+    const answer = await createSupabaseRosterReader(clock).readRosterPage('pair')
+
+    expect(answer.status).toBe('admin')
+    if (answer.status !== 'admin') return
+    expect(answer.page.groups.map((group) => group.relationshipId)).toContain(running.id)
+    // The groups came in the page's own read, and nothing was asked beside it.
+    expect(calls).toEqual(['rpc pair_page'])
+  })
+
   it('reads a group that is both unaccepted and paused as awaiting its leader', async () => {
     // The order `deriveRelationshipState` settles the two in.
     const both = await formGroup(ministry, 'Both', {
@@ -413,7 +570,9 @@ describe('the groups on the Pair document', () => {
     })
     await pauseRelationship(ministry, both.id)
 
-    const page = rosterPageFrom(await pairDocument(), clock, 'pair')
+    const doc = await pairDocument()
+    expect(groupOn(doc, both)).toHaveProperty('state', 'awaiting_leader_acceptance')
+    const page = rosterPageFrom(doc, clock, 'pair')
     expect(page.groups.find((group) => group.relationshipId === both.id)?.state).toBe(
       'awaiting_leader_acceptance',
     )
@@ -434,10 +593,11 @@ describe('the groups on the Pair document', () => {
       return drifted(row)
     }
 
-    // A missing declaration must not read as mixed, nor a missing acceptance as
-    // either answer, nor a missing name as *nobody named it*.
+    // A missing declaration must not read as mixed, nor a missing state as
+    // running, nor a missing name as *nobody named it*.
     expect(() => rosterPageFrom(lacking('declared_gender'), clock, 'pair')).toThrow(/declared gender/i)
-    expect(() => rosterPageFrom(lacking('accepted_at'), clock, 'pair')).toThrow(/acceptance/i)
+    expect(() => rosterPageFrom(lacking('state'), clock, 'pair')).toThrow(/state/i)
+    expect(() => rosterPageFrom(drifted({ ...first, state: 'ended' }), clock, 'pair')).toThrow(/state/i)
     expect(() => rosterPageFrom(lacking('name'), clock, 'pair')).toThrow(/name/i)
     expect(() => rosterPageFrom(lacking('disciple_count'), clock, 'pair')).toThrow(/count of Disciples/i)
     expect(() => rosterPageFrom(lacking('member_ids'), clock, 'pair')).toThrow(/who is in it/i)
