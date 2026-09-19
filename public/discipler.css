@@ -506,6 +506,8 @@ blockquote { background: rgba(45, 80, 22, 0.04); border-left: 3px solid var(--pr
 .roster-table .contact { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .roster-table .contact a { color: var(--text); text-decoration: none; }
 .roster-table .contact a:hover { color: var(--primary); text-decoration: underline; }
+/* Which way a pairing runs, before the names on the Roster's All list. */
+.dir { color: var(--text-light); font-size: 0.76rem; }
 .size { display: inline-block; font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.1rem 0.4rem; border-radius: 3px; color: var(--text-light); border: 1px solid var(--border); vertical-align: middle; white-space: nowrap; }
 @media (max-width: 720px) { .roster-table th, .roster-table td { padding: 0.6rem 0.7rem; } }
 .pill.plan { background: rgba(201, 168, 106, 0.22); color: #8a6b28; margin-left: 0.25rem; }

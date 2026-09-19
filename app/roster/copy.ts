@@ -1,5 +1,6 @@
 import type { ImportRowRefusal, PairingRefusal } from '~/domain/errors'
 import type { ParticipationStatus } from '~/domain/participation'
+import type { MemberRole } from '~/domain/relationships'
 import type { RowProblem } from '~/domain/roster'
 import {
   isDiscipledBySomebody,
@@ -28,41 +29,68 @@ export const participationStatusLabel: Record<ParticipationStatus, string> = {
 }
 
 /**
- * The two lists the Roster is, and how each is named above its table. The words
+ * The three lists the Roster is, and how each is named above its table. The words
  * are the product's own (ticket 36): a pastor thinks in who disciples whom, and
  * the model's Leader and Participant are for the code.
+ *
+ * All is everybody once, and is where the Roster opens (Manual pairing, ticket
+ * 06): a pastor looking for one person should not have to know which side they
+ * are on first. The two sides are the lists a person is on in one role.
  */
-export type RosterList = 'disciplers' | 'disciples'
-export const ROSTER_LISTS: readonly RosterList[] = ['disciplers', 'disciples']
+export type RosterSide = 'disciplers' | 'disciples'
+export type RosterList = 'all' | RosterSide
+export const ROSTER_LISTS: readonly RosterList[] = ['all', 'disciplers', 'disciples']
 export const isRosterList = (value: unknown): value is RosterList =>
-  value === 'disciplers' || value === 'disciples'
+  value === 'all' || value === 'disciplers' || value === 'disciples'
+
+/** Where the Roster opens, and what an address that names no list of ours shows. */
+export const DEFAULT_LIST: RosterList = 'all'
 
 export const LIST_LABEL: Record<RosterList, string> = {
-  disciplers: 'All Disciplers',
-  disciples: 'All Disciples',
+  all: 'All',
+  disciplers: 'Disciplers',
+  disciples: 'Disciples',
 }
 
-/** The column heading over the names, which is the list's own word. */
+/** The column heading over the names: the side's own word, and on All a word for people. */
 export const LIST_HEADING: Record<RosterList, string> = {
+  all: 'Name',
   disciplers: 'Discipler',
   disciples: 'Disciple',
 }
 
-/** *49 disciplers total*, at the top right, in the prototype's own words. */
-export const listCount = (list: RosterList, count: number): string =>
-  count === 1
-    ? `1 ${list === 'disciplers' ? 'discipler' : 'disciple'} total`
-    : `${count} ${list} total`
+const LIST_NOUN: Record<RosterList, readonly [one: string, many: string]> = {
+  all: ['person', 'people'],
+  disciplers: ['discipler', 'disciplers'],
+  disciples: ['disciple', 'disciples'],
+}
 
-/** The four numbers under the toggle, each a bold count and a word. */
+/** *49 disciplers total*, at the top right, in the prototype's own words; *49 people total* on All. */
+export const listCount = (list: RosterList, count: number): string =>
+  `${count} ${LIST_NOUN[list][count === 1 ? 0 : 1]} total`
+
+/**
+ * The three numbers under the toggle, each a bold count and a word. *In groups*
+ * left with Manual pairing, ticket 06: it means something only within one side.
+ */
 export const STATS_LABEL = {
   total: 'total',
   paired: 'paired',
   unpaired: 'unpaired',
-  inGroups: 'in groups',
 } as const
 
-export const EMPTY_LIST: Record<RosterList, string> = {
+/**
+ * Which way a pairing runs, said before the names on All, where a row is a person
+ * and not one side of them: *disciples* Emily Davis, *discipled by* Grace Lee.
+ * Keyed by the role the row's Person holds in it.
+ */
+export const PAIRING_DIRECTION: Record<MemberRole, string> = {
+  leader: 'disciples',
+  participant: 'discipled by',
+}
+
+/** All has no sentence of its own: with nobody on it the Roster itself is empty, and says so. */
+export const EMPTY_LIST: Record<RosterSide, string> = {
   disciplers:
     'No disciplers yet. Somebody becomes one when they disciple somebody, or when they offer to on the Intake form.',
   disciples: 'No disciples yet. Everyone on the Roster who is not a discipler is here.',
