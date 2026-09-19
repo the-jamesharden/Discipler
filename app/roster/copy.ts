@@ -1,6 +1,5 @@
 import type { ImportRowRefusal, PairingRefusal } from '~/domain/errors'
 import type { ParticipationStatus } from '~/domain/participation'
-import type { MemberRole } from '~/domain/relationships'
 import type { RowProblem } from '~/domain/roster'
 import {
   isDiscipledBySomebody,
@@ -78,16 +77,6 @@ export const STATS_LABEL = {
   paired: 'paired',
   unpaired: 'unpaired',
 } as const
-
-/**
- * Which way a pairing runs, said before the names on All, where a row is a person
- * and not one side of them: *disciples* Emily Davis, *discipled by* Grace Lee.
- * Keyed by the role the row's Person holds in it.
- */
-export const PAIRING_DIRECTION: Record<MemberRole, string> = {
-  leader: 'disciples',
-  participant: 'discipled by',
-}
 
 /** All has no sentence of its own: with nobody on it the Roster itself is empty, and says so. */
 export const EMPTY_LIST: Record<RosterSide, string> = {
@@ -202,7 +191,7 @@ export const pairingSizeLabel = (disciples: number): string =>
  * paired them as one -- and this is the one sentence that says which, so a
  * Discipler reading Ready to Pair can be understood rather than reported as a bug.
  *
- * Read off the same rule the two lists are drawn from (`lists.ts`), never
+ * Read off the same rule the three lists are drawn from (`lists.ts`), never
  * re-derived here: the page behind a name on the Disciplers list must say
  * Discipler, whichever of the three facts put them there.
  */

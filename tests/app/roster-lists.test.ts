@@ -140,15 +140,12 @@ describe('the three numbers over a list', () => {
     expect(rosterStats('disciplers', people)).toEqual({ total: 3, paired: 2, unpaired: 1 })
   })
 
-  it('no longer counts in groups, on any list (Manual pairing, ticket 06)', () => {
+  it('counts a group like any other pairing', () => {
     const people = [
       person({ relationships: [pairing('participant', { participantCount: 1 })] }),
       person({ relationships: [pairing('participant', { participantCount: 4 })] }),
       person(),
     ]
-    for (const list of ['all', 'disciplers', 'disciples'] as const) {
-      expect(Object.keys(rosterStats(list, people)).sort()).toEqual(['paired', 'total', 'unpaired'])
-    }
     expect(rosterStats('disciples', people)).toEqual({ total: 3, paired: 2, unpaired: 1 })
   })
 

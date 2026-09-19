@@ -131,14 +131,14 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
 
     // The receipt lands on All, where the Roster opens (Manual pairing, ticket
     // 06), so both of the people it is about are on the page under it, each row
-    // saying which way the new pairing runs.
+    // naming the other.
     expect(html).toMatch(/<a (?=[^>]*aria-current="true")[^>]*>All</)
     const rowOf = (name: string) =>
       (html.split('<tr').find((row) => new RegExp(`roster-name"[^>]*>${name}<`).test(row)) ?? '')
         .replace(/<[^>]*>/g, ' ')
         .replace(/\s+/g, ' ')
-    expect(rowOf('Rachel Ellis')).toContain('disciples Sarah Frost 1:1 - awaiting acceptance')
-    expect(rowOf('Sarah Frost')).toContain('discipled by Rachel Ellis 1:1 - awaiting acceptance')
+    expect(rowOf('Rachel Ellis')).toContain('Sarah Frost 1:1 - awaiting acceptance')
+    expect(rowOf('Sarah Frost')).toContain('Rachel Ellis 1:1 - awaiting acceptance')
   })
 
   it('forms one relationship from several people selected together', async () => {

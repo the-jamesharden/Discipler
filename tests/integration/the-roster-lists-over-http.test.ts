@@ -69,8 +69,11 @@ describe.skipIf(skipUnlessAppIsRunning)('the Roster’s three lists', () => {
       { label: 'Disciplers', href: '/roster?list=disciplers', current: false },
       { label: 'Disciples', href: '/roster?list=disciples', current: false },
     ])
-    // Directly under the word Roster: nothing between the card's head and the toggle.
-    expect(html).toMatch(/<h2 class="card-title">Roster<\/h2>(?:(?!<\/div><nav)[\s\S])*?<\/div><\/div><nav class="seg"/)
+    // Directly under the word Roster: the card's head holds the title and its
+    // actions and nothing else, and the toggle is the very next thing after it.
+    const head = html.match(/<div class="card-head"><h2 class="card-title">Roster<\/h2><div class="actions"[^>]*>(?:(?!<div|<\/div>)[\s\S])*<\/div><\/div>(<[a-z]+[^>]*>)/)
+    expect(head, 'the Roster card head, then what follows it').not.toBeNull()
+    expect(head![1]).toMatch(/^<nav class="seg"/)
     // The old names for the two sides went with the third list.
     expect(html).not.toContain('All Disciplers')
     expect(html).not.toContain('All Disciples')
@@ -129,11 +132,13 @@ describe.skipIf(skipUnlessAppIsRunning)('the Roster’s three lists', () => {
     expect(all.html).not.toMatch(/\d+ disciplers? total/)
     expect(all.html).not.toMatch(/\d+ disciples? total/)
     for (const heading of ['Email', 'Phone', 'Paired with']) expect(all.html).toContain(`<th>${heading}</th>`)
-    // The direction is All's alone: a side says it once, in its name.
-    expect(rowOf(all.html, 'David Chen')).toContain('disciples Tom Wilson')
-    expect(rowOf(all.html, 'Tom Wilson')).toContain('discipled by David Chen')
-    expect(rowOf(disciplers.html, 'David Chen')).not.toContain('disciples Tom Wilson')
-    expect(rowOf(disciples.html, 'Tom Wilson')).not.toContain('discipled by')
+    // Each names the other, and no line says which way it runs: the toggle above
+    // answers that, and a word on every line is clutter (James, reviewing this
+    // ticket, which first shipped *disciples* / *discipled by* here).
+    expect(rowOf(all.html, 'David Chen')).toContain('Tom Wilson 1:1')
+    expect(rowOf(all.html, 'Tom Wilson')).toContain('David Chen 1:1')
+    expect(rowOf(all.html, 'David Chen')).not.toContain('disciples Tom Wilson')
+    expect(rowOf(all.html, 'Tom Wilson')).not.toContain('discipled by')
   })
 
   it('puts somebody who offered to lead on the Intake form among the Disciplers, unpaired, with Pair', async () => {
@@ -180,13 +185,15 @@ describe.skipIf(skipUnlessAppIsRunning)('the Roster’s three lists', () => {
     expect(asDisciple).toContain('Ruth Adeyemi')
     expect(asDisciple).not.toContain('Emily Davis')
 
-    // On All she is one row, and the one cell says both directions.
+    // On All she is one row, and the one cell holds both pairings: who she
+    // disciples first, then who disciples her, with no word for either.
     const all = await getPage('/roster', cookie)
     expect(names(all.html).filter((name) => name === 'Grace Lee')).toHaveLength(1)
     const once = rowOf(all.html, 'Grace Lee')
-    expect(once).toContain('disciples Emily Davis')
-    expect(once).toContain('discipled by Ruth Adeyemi')
-    expect(once.indexOf('disciples Emily Davis')).toBeLessThan(once.indexOf('discipled by Ruth Adeyemi'))
+    expect(once).toContain('Emily Davis 1:1')
+    expect(once).toContain('Ruth Adeyemi 1:1')
+    expect(once.indexOf('Emily Davis')).toBeLessThan(once.indexOf('Ruth Adeyemi'))
+    expect(once).not.toMatch(/disciples Emily|discipled by/)
     // Nobody is said twice, whichever side or sides they are on.
     expect(new Set(names(all.html)).size).toBe(names(all.html).length)
   })
@@ -214,8 +221,8 @@ describe.skipIf(skipUnlessAppIsRunning)('the Roster’s three lists', () => {
     expect(member).toContain('3 members')
 
     const all = await getPage('/roster', cookie)
-    expect(rowOf(all.html, 'Daniel Okafor')).toContain('disciples Caleb Foster, Ethan Nguyen, Noah Williams 3 members')
-    expect(rowOf(all.html, 'Caleb Foster')).toContain('discipled by Daniel Okafor 3 members')
+    expect(rowOf(all.html, 'Daniel Okafor')).toContain('Caleb Foster, Ethan Nguyen, Noah Williams 3 members')
+    expect(rowOf(all.html, 'Caleb Foster')).toContain('Daniel Okafor 3 members')
   })
 
   it('adds up the three numbers for the list being looked at, and never says in groups', async () => {
@@ -290,14 +297,16 @@ describe.skipIf(skipUnlessAppIsRunning)('the Roster’s three lists', () => {
     expect(asDisciple).toContain('Sam Rivera')
     expect(asDisciple).toContain('planned')
 
-    // On All the plan is on the row of each person it is about, saying which way
-    // it would run, and still counts nobody as paired.
+    // On All the plan is on the row of each person it is about, reading as it
+    // does on the side lists, and still counts nobody as paired.
     const all = await getPage('/roster', cookie)
     const samOnAll = rowOf(all.html, 'Sam Rivera')
-    expect(samOnAll).toContain('disciples Taylor Brooks planned')
+    expect(samOnAll).toContain('Taylor Brooks planned')
+    expect(samOnAll).not.toContain('disciples Taylor')
     expect(samOnAll).toContain('awaiting Intake')
     const taylorOnAll = rowOf(all.html, 'Taylor Brooks')
-    expect(taylorOnAll).toContain('discipled by Sam Rivera planned')
+    expect(taylorOnAll).toContain('Sam Rivera planned')
+    expect(taylorOnAll).not.toContain('discipled by')
     expect(taylorOnAll).toContain('awaiting Intake')
     expect(statsLine(all.html)).toBe('3 total 0 paired 3 unpaired')
 
@@ -318,7 +327,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Roster’s three lists', () => {
     const refused = await getPage('/roster?list=disciples', cookie)
     const row = rowOf(refused.html, 'Taylor Brooks')
     expect(row).toContain('not made')
-    expect(rowOf((await getPage('/roster', cookie)).html, 'Taylor Brooks')).toContain('discipled by Sam Rivera not made')
+    expect(rowOf((await getPage('/roster', cookie)).html, 'Taylor Brooks')).toContain('Sam Rivera not made')
     expect(refused.html).toContain('href="/follow-up"')
 
     // Resolved, and the plan is gone from the row.

@@ -23,7 +23,6 @@ import {
   PAIR,
   PAIR_PEOPLE,
   pairedReceipt,
-  PAIRING_DIRECTION,
   pairingSizeLabel,
   pairsPlanned,
   participationStatusLabel,
@@ -47,7 +46,6 @@ import { IMPORT_DATASET, IMPORT_DIALOG_ID } from './import-copy'
 import { isDiscipler, onList, plansOn, relationshipsOn, rosterStats } from './lists'
 import { RefusedRows } from './refused-rows'
 import { decodeImportReport } from './report'
-import type { MemberRole } from '~/domain/relationships'
 import { rosterKey } from '~/domain/roster'
 
 export const dynamic = 'force-dynamic'
@@ -61,8 +59,7 @@ export const dynamic = 'force-dynamic'
  *
  * A Discipler is a fact and never a mark -- `lists.ts` is the one rule -- and a
  * person may be on both sides, which is the discipleship-multiplication case
- * working. On All they are one row, and each pairing on it says which way it
- * runs. The name on every row opens the Person's own page, where every act about
+ * working. On All they are one row, holding every pairing they are in. The name on every row opens the Person's own page, where every act about
  * one Person lives; the row keeps Pair, the one act that belongs to a list.
  */
 
@@ -394,8 +391,9 @@ const importReadback = (roster: readonly RosterEntry[]): ImportReadbackWire => {
  * discipled by -- with the size pill and, where the Discipler has not yet agreed,
  * a note saying so. A person in no pairing in this role is unpaired here, whatever
  * they hold on the other list, and gets the one act that belongs to a row. On All
- * the lines are every pairing in either role, each saying which way it runs, and
- * unpaired means in none at all.
+ * the lines are every pairing in either role, and unpaired means in none at all.
+ * No line says which way it runs: the toggle above the table answers that, and a
+ * word on every line would be clutter (James, reviewing Manual pairing, ticket 06).
  */
 const PairedWith = ({ list, person }: { readonly list: RosterList; readonly person: RosterEntry }) => {
   const pairings = relationshipsOn(list, person)
@@ -432,7 +430,7 @@ const PairedWith = ({ list, person }: { readonly list: RosterList; readonly pers
     <ul className="bare">
       {pairings.map((pairing) => (
         <li key={pairing.relationshipId}>
-          <PairingLine list={list} pairing={pairing} />
+          <PairingLine pairing={pairing} />
         </li>
       ))}
       {/* What an import planned and nothing has formed yet: waiting on Intake, or
@@ -440,18 +438,17 @@ const PairedWith = ({ list, person }: { readonly list: RosterList; readonly pers
           counts as paired; both say so on the row (ADR-0022). */}
       {plans.map((plan) => (
         <li key={plan.id}>
-          <PlanLine list={list} plan={plan} />
+          <PlanLine plan={plan} />
         </li>
       ))}
     </ul>
   )
 }
 
-const PlanLine = ({ list, plan }: { readonly list: RosterList; readonly plan: RosterIntendedPairing }) => (
+const PlanLine = ({ plan }: { readonly plan: RosterIntendedPairing }) => (
   <>
     {/* The name and its pill stay on one line; only the note after them wraps. */}
     <span className="nowrap">
-      <Direction list={list} role={plan.role} />
       {plan.withName}
       {' '}
       <span className={`pill ${plan.state === 'awaiting_intake' ? 'plan' : 'refused'}`}>
@@ -469,17 +466,15 @@ const PlanLine = ({ list, plan }: { readonly list: RosterList; readonly plan: Ro
   </>
 )
 
-const PairingLine = ({ list, pairing }: { readonly list: RosterList; readonly pairing: RosterRelationship }) => {
+const PairingLine = ({ pairing }: { readonly pairing: RosterRelationship }) => {
   // By the role the Person holds in it and not by the list, which on All is no
   // side at all. On a side's list every pairing shown is in that side's role.
   const otherSide = pairing.role === 'leader' ? pairing.participantNames : pairing.leaderNames
   return (
     <>
-      <Direction list={list} role={pairing.role} />
       {otherSide.slice(0, -1).map((name) => `${name}, `).join('')}
-      {/* The size stays on the line of the last name. On All the direction makes
-          the line longer, and a pill that wraps alone reads as belonging to
-          nobody. */}
+      {/* The size stays on the line of the last name: a pill that wraps alone
+          reads as belonging to nobody. */}
       <span className="nowrap">
         {otherSide.at(-1)}
         {' '}
@@ -492,16 +487,3 @@ const PairingLine = ({ list, pairing }: { readonly list: RosterList; readonly pa
     </>
   )
 }
-
-/**
- * Which way a pairing runs, before the names, on All only (Manual pairing, ticket
- * 06). A side's list says it once, in its name and its heading; All is a list of
- * people, so each line has to: *disciples* Emily Davis, *discipled by* Grace Lee.
- */
-const Direction = ({ list, role }: { readonly list: RosterList; readonly role: MemberRole }) =>
-  list === 'all' ? (
-    <>
-      <span className="dir">{PAIRING_DIRECTION[role]}</span>
-      {' '}
-    </>
-  ) : null

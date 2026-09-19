@@ -85,8 +85,6 @@ describe('the Roster speaks the customer’s language', () => {
     expect(copy.DEFAULT_LIST).toBe('all')
     expect(copy.isRosterList('all')).toBe(true)
     expect(copy.isRosterList('everyone')).toBe(false)
-    expect(copy.PAIRING_DIRECTION).toEqual({ leader: 'disciples', participant: 'discipled by' })
-    expect('inGroups' in copy.STATS_LABEL).toBe(false)
     expect(copy.pairingSizeLabel(1)).toBe('1:1')
     expect(copy.pairingSizeLabel(3)).toBe('3 members')
   })

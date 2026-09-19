@@ -165,10 +165,10 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin importing a spreadsheet', () =
 
     expect(location).toContain('added=1')
     expect(location).toContain('planned=1')
-    // On All, which is where the Roster opens, the plan says which way it runs.
+    // On All, which is where the Roster opens, the plan is on both rows.
     const { html } = await getPage('/roster', cookie)
-    expect(rowOf(html, 'Ruth Adeyemi')).toContain('disciples Omar Haddad planned')
-    expect(rowOf(html, 'Omar Haddad')).toContain('discipled by Ruth Adeyemi planned')
+    expect(rowOf(html, 'Ruth Adeyemi')).toContain('Omar Haddad planned')
+    expect(rowOf(html, 'Omar Haddad')).toContain('Ruth Adeyemi planned')
   })
 
   it('is told, by line, about a pair it would not plan, and still imports the person', async () => {

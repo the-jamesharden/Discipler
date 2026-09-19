@@ -62,26 +62,25 @@ export const roleOn: Record<RosterSide, MemberRole> = {
 export const onList = (list: RosterList, person: RosterEntry): boolean =>
   list === 'all' || (list === 'disciplers' ? isDiscipler(person) : isDisciple(person))
 
-/** Leading first, so a row on All reads *disciples* before *discipled by*. Stable within a role. */
+/** Leading first, so a row on All names who they disciple before who disciples them. Stable within a role. */
 const leadingFirst = <T extends { readonly role: MemberRole }>(held: readonly T[]): readonly T[] => [
   ...held.filter(({ role }) => role === 'leader'),
   ...held.filter(({ role }) => role === 'participant'),
 ]
 
+/** What a row is about, of what a Person holds: the ones in the list's role, and on All every one. */
+const heldOn = <T extends { readonly role: MemberRole }>(list: RosterList, held: readonly T[]): readonly T[] =>
+  list === 'all' ? leadingFirst(held) : held.filter(({ role }) => role === roleOn[list])
+
 /** The plans this row is about: the ones the Person is on the list's side of, and on All every one. */
 export const plansOn = (list: RosterList, person: RosterEntry): readonly RosterIntendedPairing[] =>
-  list === 'all'
-    ? leadingFirst(person.intendedPairings)
-    : person.intendedPairings.filter((plan) => plan.role === roleOn[list])
+  heldOn(list, person.intendedPairings)
 
 /** The relationships this row is about: the ones the Person holds in the list's role, and on All every one. */
 export const relationshipsOn = (
   list: RosterList,
   person: RosterEntry,
-): readonly RosterRelationship[] =>
-  list === 'all'
-    ? leadingFirst(person.relationships)
-    : person.relationships.filter((relationship) => relationship.role === roleOn[list])
+): readonly RosterRelationship[] => heldOn(list, person.relationships)
 
 export interface RosterStats {
   readonly total: number
