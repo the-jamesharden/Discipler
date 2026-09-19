@@ -3,7 +3,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createTestClock } from '~/domain/clock'
 import type { Command } from '~/domain/commands'
 import { PairingRefused, type PairingRefusal } from '~/domain/errors'
-import { materialId, personId, type IdSource, type PersonId } from '~/domain/ids'
+import {
+  intendedPairingId,
+  materialId,
+  personId,
+  type IdSource,
+  type PersonId,
+} from '~/domain/ids'
 import { createPostgresEffectStore } from '~/platform/supabase/effect-store'
 import { createCommandService } from '~/service/command-service'
 import {
@@ -280,6 +286,37 @@ describe('a pairing checked without being formed, against the database', () => {
       // the group that had just been formed.
       expect(formed).toBeNull()
       expect([null, 'relationship.leader_already_leads_a_group']).toContain(checked)
+    }
+  })
+
+  it('never costs an imported plan its settling by deadlocking with it', async () => {
+    // The other pair of locks a check and a real transaction can take in opposite
+    // orders. Settling a plan locks the plan and then writes the Disciple's
+    // membership; forming the same pair by hand wrote the membership and then
+    // closed the plan. Several rounds, for the reason above.
+    for (let round = 0; round < 8; round++) {
+      const leader = await man(`Lewis Egan ${round}`)
+      const participant = await man(`Miles Ford ${round}`)
+      const planId = crypto.randomUUID()
+      await pool.query(
+        `insert into intended_pairing (id, ministry_id, leader_id, participant_id, planned_at)
+         values ($1, $2, $3, $4, now())`,
+        [planId, ministry.id, leader, participant],
+      )
+
+      const [settled, checked] = await Promise.all([
+        service().execute({
+          type: 'intended_pairing.fulfil',
+          ministryId: ministry.id,
+          intendedPairingId: intendedPairingId(planId),
+        }),
+        service().checkPairing(aPair(leader, participant)),
+      ])
+
+      // The plan is settled whichever went first, and the check is told whatever
+      // was true when its turn came.
+      expect(settled.effects.map((effect) => effect.kind)).toContain('relationship.create')
+      expect([null, 'relationship.participant_already_in_a_one_to_one']).toContain(checked)
     }
   })
 

@@ -1520,6 +1520,16 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     }
   },
 
+  async lockIntendedPairings(ids: readonly IntendedPairingId[]) {
+    // Ordered, so two transactions locking the same plans take them the same way
+    // round. The rows are not read: the boundary has already decided from the
+    // snapshot, and `closeIntendedPairing` does nothing to a plan that has closed.
+    await client.query(
+      `select id from intended_pairing where id = any($1::uuid[]) order by id for update`,
+      [ids],
+    )
+  },
+
   async closeIntendedPairing(closure: IntendedPairingClosure) {
     // `closed_at is null`, and no complaint when nothing matched: the plan closed
     // between the read and this write, by a settle racing this one or an Admin

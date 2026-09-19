@@ -259,6 +259,12 @@ export const applyEffects = async (
   // refuse fails as a refusal, rather than after history has already said it
   // happened.
   if (people.length > 0) await unit.createPeople(people)
+  // The plans a formation is about to close, locked before its memberships are
+  // written and not after: the order settling a plan takes them in, so the two can
+  // wait for each other but never on each other.
+  if (relationships.length > 0 && planClosures.length > 0) {
+    await unit.lockIntendedPairings(planClosures.map((closure) => closure.id))
+  }
   for (const relationship of relationships) await unit.createRelationship(relationship)
 
   // After the relationship a fulfilled plan names, which its foreign key needs,

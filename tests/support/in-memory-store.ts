@@ -586,6 +586,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         async planIntendedPairings(planned) {
           stagedPlans.push(...planned)
         },
+        async lockIntendedPairings() {
+          // Nothing to lock: one command at a time is all this store ever runs.
+        },
         async closeIntendedPairing(closure) {
           stagedPlanClosures.push(closure)
         },

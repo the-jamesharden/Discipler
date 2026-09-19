@@ -268,6 +268,18 @@ export interface UnitOfWork {
   planIntendedPairings(plans: readonly NewIntendedPairing[]): Promise<void>
   closeIntendedPairing(closure: IntendedPairingClosure): Promise<void>
   /**
+   * Takes the locks on the plans a command is about to close, before it writes the
+   * relationship that closes them. Settling a plan locks the plan and then writes
+   * the Disciple's membership; an Admin forming the same pair by hand, or a check
+   * of that pairing, would otherwise write the membership and then reach for the
+   * plan, and two transactions taking two locks in opposite orders is a deadlock
+   * Postgres ends by killing one (Manual pairing, ticket 03; ADR-0025). One order
+   * for everybody: the plan, then the membership. A plan this transaction already
+   * holds is locked again at no cost, and one that has since closed is locked all
+   * the same, which is harmless.
+   */
+  lockIntendedPairings(ids: readonly IntendedPairingId[]): Promise<void>
+  /**
    * Refuses with a `FollowUpRefused` when the item is gone or already closed. Two
    * Admins clicking Resolve on the same row is ordinary, and only the database can
    * see which of them got there first.
