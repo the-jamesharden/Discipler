@@ -91,3 +91,15 @@ Ticket 04 has to be ready for two things.
 Two smaller facts.
 The deferred constraint triggers are checked at commit, so a check never reaches them; the only one on `relationship_member` (`relationship_has_no_open_membership_after_it_ends`) cannot be raised by forming a new relationship and is not a `PairingRefusal`.
 And a check draws ids from the `IdSource` and takes the locks formation takes (the Material list's advisory lock, when a Material is chosen) for as long as it runs, then releases them on rollback.
+
+### Implementer, 2026-09-19: the rollback design was approved, and has an ADR
+
+A two-axis review of `integration/manual-pairing...HEAD` found nothing implemented wrong, and said two things plainly.
+Building form-and-rollback against the ticket's *Why* was not the implementer's call to make without asking first, and a decision this surprising had no ADR.
+Both were right.
+James approved the design on 2026-09-19, and it is recorded as `docs/adr/0025-a-pairing-is-checked-by-forming-it-and-rolling-back.md`.
+The number skips 0024 because a parked branch, `the-admin-dashboard-may-use-script`, already holds it.
+
+The same review found that the database test counted rows and so could not see an UPDATE, which left the closing of an imported plan proved only against the fake store.
+The integration suite now checks a pairing that would close an open `intended_pairing`, finds the plan still open afterwards, and finds it closed once the same pairing is formed.
+
