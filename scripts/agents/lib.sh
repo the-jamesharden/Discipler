@@ -21,6 +21,17 @@ GIT_COMMON_DIR="$(cd "$(git rev-parse --git-common-dir)" && pwd -P)"
 # never happens here.
 MAIN_CHECKOUT="$(dirname "$GIT_COMMON_DIR")"
 
+# A worktree carries the scripts as they were when it was cut. A fix made since
+# would never reach it, so a script started from a worktree hands over to the main
+# checkout's copy of itself. The working directory does not change, so the script
+# still acts on the worktree it was called from.
+if [ -z "${AGENT_TOOLING_DELEGATED:-}" ] &&
+  [ "$(git rev-parse --show-toplevel)" != "$MAIN_CHECKOUT" ] &&
+  [ -x "$MAIN_CHECKOUT/scripts/agents/$(basename "$0")" ]; then
+  export AGENT_TOOLING_DELEGATED=1
+  exec "$MAIN_CHECKOUT/scripts/agents/$(basename "$0")" ${@+"$@"}
+fi
+
 # Ticket worktrees live beside the main checkout, never inside it, so no tool that
 # walks the main checkout (tsc, vitest, next build) ever sees a second copy.
 WORKTREES_DIR="${AGENT_WORKTREES_DIR:-$(dirname "$MAIN_CHECKOUT")/discipler-worktrees}"

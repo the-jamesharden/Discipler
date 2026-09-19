@@ -12,7 +12,8 @@
 . "$(dirname "$0")/lib.sh"
 
 ROLE="${1:-}"
-TEMPLATE="$(git rev-parse --show-toplevel)/docs/agents/prompts/$ROLE.md"
+# The main checkout's templates, so a prompt is never an old worktree's copy.
+TEMPLATE="$MAIN_CHECKOUT/docs/agents/prompts/$ROLE.md"
 [ -f "$TEMPLATE" ] || die "no such role '$ROLE'. Roles: implementer, reviewer, fixer, integrator, orchestrator"
 
 if [ "$ROLE" = "orchestrator" ]; then

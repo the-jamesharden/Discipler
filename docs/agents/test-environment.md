@@ -31,7 +31,8 @@ Start it in the background and read its log; a shell call that blocks on it will
   `supabase db reset` intermittently fails with `container is not ready: unhealthy`, and the CLI then rolls the stack back, so no migration applied.
   `Applying migration ...` in the output is not proof of success; the rollback comes after.
   `locked-tests.sh` checks for the success line and refuses to go on without it.
-  The cure is usually `npx supabase stop --no-backup`, then `npx supabase start`, then run again.
+  The cure is usually `supabase stop --no-backup`, then `supabase start`, then run again.
+  The CLI is a global install on this machine, not a project dependency: call `supabase`, never `npx supabase`, which goes to the registry and can stop on a prompt.
 - **`fetch failed` or `EADDRNOTAVAIL` across many suites is the host, not the code.**
   Past about fifty days of uptime macOS stops expiring sockets in TIME_WAIT and the ephemeral ports run out.
   `netstat -an -p tcp | awk 'NR>2{print $6}' | sort | uniq -c | sort -rn | head`; if the counts are in the tens of thousands, stop running tests and tell the person. Only a reboot fixes it.

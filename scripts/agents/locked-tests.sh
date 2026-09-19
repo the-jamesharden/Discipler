@@ -119,12 +119,15 @@ fi
 if [ "$FORCE_RESET" = 1 ] || [ "$WANT" != "$HAVE" ]; then
   note "database: migrations differ from what is applied; resetting from $ROOT"
   rm -f "$SCHEMA_FILE"
-  if npx supabase db reset >"$LOG_DIR/db-reset.log" 2>&1 &&
+  # The CLI is a global install here (Homebrew), not a project dependency. `npx
+  # supabase` would go to the registry and can stop on an install prompt.
+  command -v supabase >/dev/null || die "the supabase CLI is not on PATH"
+  if supabase db reset >"$LOG_DIR/db-reset.log" 2>&1 &&
     grep -Eq 'Reset local database|Finished supabase db reset' "$LOG_DIR/db-reset.log"; then
     printf '%s\n' "$WANT" >"$SCHEMA_FILE"
   else
     tail -20 "$LOG_DIR/db-reset.log" >&2
-    die "the reset did not finish, so no migration can be assumed applied. This is usually a container that was not ready: 'npx supabase stop --no-backup' then 'npx supabase start', and run this again. It is not a test failure."
+    die "the reset did not finish, so no migration can be assumed applied. This is usually a container that was not ready: 'supabase stop --no-backup' then 'supabase start', and run this again. It is not a test failure."
   fi
 else
   note "database: already holds this checkout's migrations; not resetting"
