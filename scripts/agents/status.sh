@@ -19,8 +19,10 @@ printf 'Effort:       %s\nIntegration:  %s @ %s\n\n' \
 READY_LIST=""
 for ticket in $(git ls-tree --name-only "$INTEGRATION" ".scratch/$EFFORT_ARG/issues/"); do
   state="$(ticket_state "$ticket" "$INTEGRATION")"
-  printf '%-34s %s\n' "$state" "$ticket"
-  [ "$state" = "READY" ] && READY_LIST="$READY_LIST $ticket"
+  # The state, then the ticket by its full path; a reason goes on its own line.
+  printf '%-16s %s\n' "${state%% (*}" "$ticket"
+  case "$state" in *" ("*) printf '%-16s   (%s\n' "" "${state#* (}" ;; esac
+  [ "$state" != "READY" ] || READY_LIST="$READY_LIST $ticket"
 done
 
 printf '\nOpen worktrees:\n'

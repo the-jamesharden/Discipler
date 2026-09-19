@@ -91,6 +91,31 @@ schema_hash() { (cd "$ROOT/supabase" && find migrations config.toml -type f | LC
 WANT="$(schema_hash)"
 HAVE="$(cat "$SCHEMA_FILE" 2>/dev/null || true)"
 
+# The first run on a machine has no record. Before wiping a database somebody may
+# be using, ask it: if the versions it has applied are exactly this checkout's
+# migration files, it is already right, and that is recorded without a reset.
+applied_matches_files() {
+  node -e "
+    const fs = require('fs')
+    const url = (fs.readFileSync('.env.local', 'utf8').match(/^DATABASE_URL=(.*)\$/m) || [])[1]
+    const { Client } = require('pg')
+    const client = new Client({ connectionString: url.trim() })
+    client.connect()
+      .then(() => client.query('select version from supabase_migrations.schema_migrations order by 1'))
+      .then((result) => {
+        const applied = JSON.stringify(result.rows.map((row) => row.version))
+        const files = JSON.stringify(fs.readdirSync('supabase/migrations').filter((f) => f.endsWith('.sql')).map((f) => f.split('_')[0]).sort())
+        return client.end().then(() => process.exit(applied === files ? 0 : 1))
+      })
+      .catch(() => process.exit(2))
+  " 2>/dev/null
+}
+if [ -z "$HAVE" ] && [ "$FORCE_RESET" = 0 ] && applied_matches_files; then
+  note "database: no record yet, and it already holds exactly this checkout's migrations; recording that"
+  printf '%s\n' "$WANT" >"$SCHEMA_FILE"
+  HAVE="$WANT"
+fi
+
 if [ "$FORCE_RESET" = 1 ] || [ "$WANT" != "$HAVE" ]; then
   note "database: migrations differ from what is applied; resetting from $ROOT"
   rm -f "$SCHEMA_FILE"
