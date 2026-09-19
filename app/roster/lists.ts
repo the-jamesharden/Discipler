@@ -60,7 +60,7 @@ export const roleOn: Record<RosterSide, MemberRole> = {
  * least one side, and All is those two lists with nobody said twice.
  */
 export const onList = (list: RosterList, person: RosterEntry): boolean =>
-  list === 'all' ? true : list === 'disciplers' ? isDiscipler(person) : isDisciple(person)
+  list === 'all' || (list === 'disciplers' ? isDiscipler(person) : isDisciple(person))
 
 /** Leading first, so a row on All reads *disciples* before *discipled by*. Stable within a role. */
 const leadingFirst = <T extends { readonly role: MemberRole }>(held: readonly T[]): readonly T[] => [
