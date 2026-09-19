@@ -981,9 +981,41 @@ export interface MaterialOption {
   readonly title: string
 }
 
+/** Somebody leading a group an Admin could put a Person into. */
+export interface GroupLeader {
+  readonly personId: PersonId
+  readonly fullName: string
+}
+
+/**
+ * One group an Admin could put somebody into, as the Pair surface lists it: an
+ * open relationship with two or more Disciples, a 1:2 pair included.
+ */
+export interface GroupToJoin {
+  readonly relationshipId: RelationshipId
+  /**
+   * What the Ministry calls it, or null where nobody has named it. Never
+   * backfilled or guessed in the read: how an unnamed row is labelled is the
+   * popup's.
+   */
+  readonly name: string | null
+  readonly leaders: readonly GroupLeader[]
+  /** The live count of open participant memberships, never the relationship's kind (ADR-0004). */
+  readonly discipleCount: number
+  /** What the group declared at formation. Null is *mixed*, as it is everywhere a declaration is carried. */
+  readonly declaredGender: Gender | null
+  /** Null while it is running. Awaiting wins over paused, as it does in the derived Relationship State. */
+  readonly state: 'awaiting_leader_acceptance' | 'paused' | null
+  /**
+   * Everybody in it, in either role, so the surface can leave out a group the
+   * Person is already in without a second read.
+   */
+  readonly memberIds: readonly PersonId[]
+}
+
 /**
  * What the Roster derives from its document. The person page reads the same
- * document, and the Pair page reads it with two keys of its own beside it; each
+ * document, and the Pair page reads it with three keys of its own beside it; each
  * takes what it needs.
  */
 export interface RosterPage {
@@ -1010,6 +1042,12 @@ export interface RosterPage {
    * only, and empty on every other. A removed one is not on the list.
    */
   readonly materials: readonly MaterialOption[]
+  /**
+   * The groups an Admin could put somebody into: running, paused or still
+   * awaiting their leader, never ended or cancelled. Read by the Pair surface
+   * only, and empty on every other.
+   */
+  readonly groups: readonly GroupToJoin[]
 }
 
 /** The three surfaces that draw from the Roster's document, each read under its own name. */

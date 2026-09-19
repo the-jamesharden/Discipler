@@ -23,16 +23,16 @@ The read that feeds the Intake form's group dropdown is not this one: that lists
 
 ## Acceptance
 
-- [ ] The Pair document lists every open relationship with two or more Disciples, 1:2 pairs included.
-- [ ] Running, paused and still awaiting its leader are all listed.
+- [x] The Pair document lists every open relationship with two or more Disciples, 1:2 pairs included.
+- [x] Running, paused and still awaiting its leader are all listed.
   Ended and cancelled are not.
-- [ ] Each group carries: its id, its name, its leaders (id and name), how many Disciples it has, its declared gender with mixed distinct from a value, and its state when it is not running.
-- [ ] Each group carries who is in it, in either role, by person id, so the screen can leave out a group the person is already in without a second read.
-- [ ] A group with no name carries none.
+- [x] Each group carries: its id, its name, its leaders (id and name), how many Disciples it has, its declared gender with mixed distinct from a value, and its state when it is not running.
+- [x] Each group carries who is in it, in either role, by person id, so the screen can leave out a group the person is already in without a second read.
+- [x] A group with no name carries none.
   Nothing is backfilled or guessed in the read; how the row is labelled is the popup's (tickets 18 and 19).
-- [ ] The count of Disciples is the live count of open participant memberships, never the relationship's kind (ADR-0004).
+- [x] The count of Disciples is the live count of open participant memberships, never the relationship's kind (ADR-0004).
   A relationship formed as a group that is down to one Disciple is not listed.
-- [ ] It is still one page read: the groups travel in the Pair document, and no new request is added beside it.
-- [ ] Another Ministry's groups never appear, and the read is reachable only as an Admin of the Ministry, as the rest of the document is.
-- [ ] The Roster's own document is unchanged.
-- [ ] Integration tests cover: a running group, a paused one, one awaiting acceptance, a 1:2, an ended one, one down to a single Disciple, an unnamed one, a mixed one, and two Ministries.
+- [x] It is still one page read: the groups travel in the Pair document, and no new request is added beside it.
+- [x] Another Ministry's groups never appear, and the read is reachable only as an Admin of the Ministry, as the rest of the document is.
+- [x] The Roster's own document is unchanged.
+- [x] Integration tests cover: a running group, a paused one, one awaiting acceptance, a 1:2, an ended one, one down to a single Disciple, an unnamed one, a mixed one, and two Ministries.

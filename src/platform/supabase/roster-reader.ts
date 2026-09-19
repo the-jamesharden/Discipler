@@ -10,6 +10,7 @@ import { DECLARED_SIDES, GENDERS, isOneOf, type DeclaredSide, type Gender } from
 import { systemClock, type Clock } from '~/domain/clock'
 import type {
   AccountOnTheRoster,
+  GroupToJoin,
   IssuedIntakeLink,
   MaterialOption,
   RosterEntry,
@@ -23,7 +24,7 @@ import type { NameOnTheNumber } from '~/domain/roster'
 import { careNeededFrom } from './care-needed-reader'
 import { adminPage, list, readPageDocument, section, type PageDocument } from './page'
 import { liveMaterialRows } from './materials-reader'
-import { historyOf } from './relationship-history'
+import { historyOf, pausesFrom } from './relationship-history'
 import { createSupabaseServerClient } from './server-client'
 
 interface MemberRow {
@@ -379,13 +380,86 @@ const suggestGenderMatchFrom = (doc: PageDocument): boolean => {
 }
 
 /**
+ * The groups an Admin could put somebody into, off the key `pair_page` carries:
+ * every open relationship with two or more Disciples, in the order the function
+ * gave them.
+ *
+ * Checked field by field, as a Roster row is. These are rows an Admin is about to
+ * put a Person into, and each field decides something on the popup: the members
+ * decide whether the group is offered at all, the declaration whether it is
+ * greyed, the state what the row says beside its name.
+ */
+const groupsFrom = (doc: PageDocument): readonly GroupToJoin[] => {
+  // One definition of *paused* for every surface that reads this document: the
+  // Pause standing on each relationship, from the same list the Overview and Care
+  // Needed derive from, so the popup and the tabs cannot disagree about a group.
+  const pauses = pausesFrom(historyOf(doc))
+
+  return list(doc, 'groups').map((row) => {
+    const {
+      id,
+      name,
+      declared_gender: declaredGender,
+      accepted_at: acceptedAt,
+      disciple_count: discipleCount,
+      member_ids: memberIds,
+      leaders,
+    } = row
+
+    if (typeof id !== 'string' || id === '') throw new Error('A group arrived with no id')
+    // Nullable, and null is a real answer: nobody has named this group, and
+    // nothing here names it for them. The column refuses a blank one, so a blank
+    // or a missing key is the function and this reader having drifted apart.
+    if (name !== null && (typeof name !== 'string' || name.trim() === '')) {
+      throw new Error(`A group arrived with no answer about its name: ${id}`)
+    }
+    // Null is *mixed*, which is an answer and opens the group to everybody. The
+    // key missing must not read as that: a men's group shown as mixed would offer
+    // an Admin a row the database is about to refuse.
+    if (declaredGender !== null && !isOneOf(GENDERS, declaredGender)) {
+      throw new Error(`A group arrived with no answer about its declared gender: ${id}`)
+    }
+    // Null is Awaiting Leader Acceptance. Missing must not read as either answer.
+    if (acceptedAt !== null && typeof acceptedAt !== 'string') {
+      throw new Error(`A group arrived with no answer about its acceptance: ${id}`)
+    }
+    // The function lists nothing with fewer than two, so fewer here is drift too.
+    if (typeof discipleCount !== 'number' || !Number.isInteger(discipleCount) || discipleCount < 2) {
+      throw new Error(`A group arrived without its count of Disciples: ${id}`)
+    }
+    if (!Array.isArray(memberIds) || !memberIds.every((member) => typeof member === 'string' && member !== '')) {
+      throw new Error(`A group arrived without who is in it: ${id}`)
+    }
+    if (!Array.isArray(leaders)) throw new Error(`A group arrived without its leaders: ${id}`)
+
+    return {
+      relationshipId: relationshipId(id),
+      name,
+      leaders: leaders.map((raw) => {
+        const { id: leader, full_name: fullName } = (raw ?? {}) as Record<string, unknown>
+        if (typeof leader !== 'string' || leader === '' || typeof fullName !== 'string' || fullName === '') {
+          throw new Error(`A group arrived with a leader who has no id or no name: ${id}`)
+        }
+        return { personId: personId(leader), fullName }
+      }),
+      discipleCount,
+      declaredGender,
+      // Awaiting wins over paused, the order `deriveRelationshipState` settles
+      // them in: a relationship nobody has accepted has nothing running to pause.
+      state: acceptedAt === null ? 'awaiting_leader_acceptance' : pauses.has(id) ? 'paused' : null,
+      memberIds: (memberIds as string[]).map(personId),
+    } satisfies GroupToJoin
+  })
+}
+
+/**
  * Everything the three surfaces derive, from the document of the one named.
  * Exported so a test can drive the derivation with a real session rather than a
  * Next.js request context.
  *
- * The setting and the Materials are the Pair page's and ride in its document
- * alone. The Roster and the person page read a document without them, and are
- * told enforced and nothing to offer -- true and not false, deliberately, for the
+ * The setting, the Materials and the groups are the Pair page's and ride in its
+ * document alone. The Roster and the person page read a document without them,
+ * and are told enforced and nothing to offer -- true and not false, deliberately, for the
  * reason `suggestGenderMatchFrom` gives. The Pair page's own document arriving
  * without them is a different thing and is thrown for: a form that quietly
  * offered no Materials is the wrong answer shown confidently.
@@ -401,6 +475,7 @@ export const rosterPageFrom = (doc: PageDocument, clock: Clock, surface: RosterS
     surface === 'pair'
       ? liveMaterialRows(doc).map(({ materialId, title }): MaterialOption => ({ materialId, title }))
       : [],
+  groups: surface === 'pair' ? groupsFrom(doc) : [],
 })
 
 /**
