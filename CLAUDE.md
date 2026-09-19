@@ -46,3 +46,7 @@ The five canonical triage roles, used verbatim as status strings. See `docs/agen
 
 Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
 
+### Several agents at once
+
+One ticket per branch, worktree and fresh session; review of the exact commit before integration; shared-state tests under one lock. A ticket is always named by its full path. See `docs/agents/workflow.md`, and `docs/agents/test-environment.md` before believing any test run.
+

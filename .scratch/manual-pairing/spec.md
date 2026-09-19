@@ -1,110 +1,212 @@
-# Manual pairing, as the dashboard draws it
+# Manual pairing, as a popup over the Roster
 
 **Status:** needs-triage
 
 ## What this is
 
-`/roster/pair` is the one screen behind every way an Admin forms a relationship by hand.
-It works, and it looks nothing like the product.
-Today it is two long checkbox lists naming every candidate twice, a gender question, a name field and a submit button.
+Every relationship an Admin forms by hand starts from one person's row on the Roster.
+Pressing **Pair** on that row opens a popup over the Roster itself, titled **Pair {name}**, listing only the other side.
+From a Discipler it lists Disciples, any number of whom can be ticked; from a Disciple it lists Disciplers, only one of whom can be chosen.
+Existing groups are listed at the bottom of both, so a Discipler can join a group as a leader and a Disciple can be put straight into one.
+A sentence and a button say exactly what is about to be made.
 
-The design prototype draws the same act as a modal anchored to one person: a scrolling list of real people with faces and contact details, a segmented control that names what is about to be made, a sentence saying it in English, and a button whose label is the thing it will do.
+The Roster around it gets quieter at the same time: an All / Disciplers / Disciples toggle under its title, and nothing on a row that describes internal state.
 
-This effort ports that screen onto the existing command, and extends the domain in the two places where the prototype asks for something the domain cannot yet answer.
+This spec replaces the version of 2026-09-18, which kept `/roster/pair` as a page styled as a modal.
+James reviewed the replacement as a plan with mocks on 2026-09-19 (`.lavish/pair-popup/index.html`, gitignored) and decided every question below there.
 
-**Design source:** `discipler-dashboard (10).html`, `showPairModal` and `_updatePairSummary` (lines 2163-2400), plus the screenshot of the two-checked 1:2 state.
+**Design source:** that plan's mocks, states A to H, plus `discipler-dashboard (10).html`, `showPairModal` and `_updatePairSummary` (lines 2163-2400), for the look of the list and the shape toggle.
 
-## What the prototype does that we do not
+## Already shipped
 
-| Prototype | Repository today |
-| --- | --- |
-| Anchored on one person; only the other role is listed | Every candidate listed twice, as Discipler and as Disciple |
-| Rows carry avatar, name, email and phone | Rows carry a name and a first-time note |
-| Segmented `1:2 pair` / `N x 1:1 pairs` / `Group`, appearing at 2+ checked | No mode; the shape is inferred from the boxes |
-| `N x 1:1 pairs` forms several relationships | `relationship.create` forms exactly one |
-| Live summary sentence and a counting button label | Static text, static button |
-| Group panel carries a Program / book select | No Material until after acceptance |
-| No gender question | Gender asked outright, nothing preselected |
+Two tickets from the first version landed and nothing here undoes them.
 
-## The three rules that shape this
+- **01, what the Pair screen reads** (PR #12): each candidate's gender on `public.roster()`, the Ministry's `suggest_gender_match`, and its live Materials on `pair_page()`.
+- **02, a Material chosen at pairing** (PR #13): `relationship.intended_material_id`, held until the relationship is accepted and written into its Material history at that instant.
 
-These are the facts the port has to be built around.
-Each was read out of the schema rather than assumed.
+## The Roster
 
-### 1. There are two gender rules, not one
+- A three-way toggle directly under the word **Roster**: **All**, **Disciplers**, **Disciples**.
+  All is the default.
+  It stays a set of plain links (`?list=all|disciplers|disciples`), so it survives a refresh and needs no script.
+- Who is on which list does not change: `app/roster/lists.ts` is still the one rule, and a person may be on both.
+- On All, each person appears once, and the Paired with cell says the direction of each pairing: *disciples* Emily Davis, *discipled by* Grace Lee.
+- The stats line keeps total, paired and unpaired on every list and drops *in groups*, which means something only within one side.
+- **Removed:** the participation status chip under every name, the footnote under the table that explains it, and the *Offered to mentor* tag.
+  Participation Status stays in the model and still decides who can be paired.
+  Answering Mentor on Intake still makes somebody a Discipler; the Disciplers toggle already says so without a tag.
+- **Removed:** the *Pair people* button, from the Roster and from Suggested Pairs.
+  Every pairing starts from a row.
+- **Removed, and pinned:** *Eligible to lead* left the app on 2026-09-07 (`b8894d5`) and survives only in the design prototype `.scratch/core-operating-loop/design/discipler-dashboard-v10.html`.
+  A test asserts the words never appear on the Roster.
+- With the chip gone, a row that cannot be paired says why in its Paired with cell: **Awaiting Intake** or **Opted out**, in place of *Unpaired* and a Pair button.
+- **Pair** appears on every Discipler row, including a Discipler who already leads somebody, and on every Disciple row whose person has completed Intake and not opted out.
 
-- **A one-to-one** is bound by an absolute match between its two people, enforced by `relationship_member_gender_matches`, and switched off only by a Ministry setting `suggest_gender_match` (`20260915000100_what_a_ministry_may_vary.sql:97`).
-  Manual pairing may never cross it while it is on.
-- **A group** is bound only by what it declared.
-  A declared men's or women's group binds Leaders and Participants alike; a group declared **mixed** carries no gender constraint at all (`20260916000100_a_group_declares_its_gender.sql:15`).
+## Where the popup lives
 
-So mixed groups are legal and mixed one-to-ones generally are not.
-This is what makes "default the declaration from the Discipler" and "keep mixed groups" compatible instead of contradictory.
+The popup is drawn over the Roster, like the import dialog, at `/roster?pair=<personId>`.
 
-A 1:2 pair is a `group` for both rules: `kindFor(1, 2)` returns `'group'` (`src/domain/relationships.ts:78`), so it declares a gender and carries a name like any other group.
+- A refresh keeps it open, because the state is in the Roster's address.
+- A refused submission redirects to `/roster?pair=<personId>&error=<code>` with every choice in the query string (ticked people, shape, gender, group name, Materials, chosen group), and the popup reopens with the reason and everything restored.
+- `/roster/pair` redirects into `/roster?pair=…`, carrying its query, so the links from the person page and the Follow-Up tab keep working.
+  The old page is deleted.
+- **The toggle decides which side the popup opens on** for somebody who is on both lists.
+  On Disciples it opens as a Disciple; on Disciplers it opens as a Discipler; on All, a Discipler opens as a Discipler.
+- The X, Cancel and the backdrop all close it without saving and return to the Roster as it was.
+- The popup needs JavaScript, as the import dialog does.
+  The form it submits still posts without script.
 
-### 2. A Material cannot be assigned at pairing
+## The popup, from a Discipler
 
-`relationship.assign_material` refuses while `acceptedAt` is null (`src/domain/boundary.ts:3121`), and a just-paired relationship is never accepted.
-Material periods are defined to begin at acceptance and to leave no gaps.
+Title: **Pair Claire Martinez**.
+Beneath it, one line saying who the list is for.
 
-But `20260908000100_material_assignment.sql:292` says outright that assigning a Material *at the instant of acceptance* is permitted and produces a zero-length opening period, and that the period carrying no Material sorts ahead of anything sharing its instant.
+### The list
 
-So the Material picked at pairing is held as an **intended** Material and written at acceptance, beside the opening period that already lands there (`src/domain/boundary.ts:4733`).
-The gapless invariant is untouched.
+- One row per Disciple who has completed Intake and not opted out, with a checkbox, avatar initials, name, and email and phone beneath, each missing detail simply absent.
+- The first-time note the Pair page shows today is kept on the row.
+- A Disciple already in a group is listed, and the row names the group.
+- A Disciple already in a 1:1 is listed, and greyed with *Already in a 1:1 with {name}* while the shape would make a 1:1.
+  They can be ticked for a 1:2 or a Group.
+  This is exactly the database's own rule, `participant_one_open_one_to_one`: one open 1:1 as a participant, any number of groups.
+- A toolbar above the list counts it (*7 disciples · 3 groups*) and offers **Clear**.
+  There is no Select all.
+- Below the Disciples, under a **Groups** heading, the Ministry's groups (see *Joining an existing group*).
+- Ticking a Disciple clears a chosen group, and choosing a group clears every tick.
+  The popup does one thing at a time.
 
-### 3. There is no batch command
+### The shape toggle
 
-`CommandService.execute` takes one command (`src/service/ports.ts:41`).
-`N x 1:1 pairs` is therefore N transactions, and a refusal on the third leaves the first two standing.
-The route pre-validates the whole set and forms nothing unless all of it can be formed.
+- Hidden while zero or one Disciple is ticked.
+- At two: **1:2 pair** · **2 × 1:1 pairs** · **Group**, defaulting to 1:2 pair.
+- At three or more: **1:2 pair** is struck out, *1:2 pair needs exactly two checked* appears beneath the toggle in grey, and the default moves to Group.
+- The N in *N × 1:1 pairs* counts live.
+- Once the Admin picks a segment, it stays picked until it becomes impossible.
 
-## Recorded decisions
+### What each shape asks
 
-Three places where the prototype and the repository pull apart, resolved here rather than in the tickets.
+| Shape | Gender | Name | Material |
+| --- | --- | --- | --- |
+| 1:1 (one ticked) | nothing | nothing | nothing |
+| 1:2 pair | nothing: the Discipler's gender | nothing: generated as `{First} with {First} & {First}` and never shown | one dropdown |
+| N × 1:1 pairs | nothing: each is same-gender | nothing | one dropdown per Disciple |
+| Group | Women's · Men's · Coed toggle | required, placeholder `{First}'s Group` | one dropdown |
 
-**It stays a route, styled as the modal.**
-The prototype draws a modal; the screen defends being a page, because a page survives a refresh and a back button and a modal does not, and because every pairing refusal travels as a redirect back to it with the selection in the query string.
-Both survive: `/roster/pair` keeps its URL and its refusal round trip, and its card is styled as the prototype's centred modal, dimmed backdrop and close control included.
-The alternative, moving it into the Roster as a `:target` overlay like the import dialog, would have put the refusal state of a command on the Roster's URL.
+- Every Material dropdown lists the Ministry's live Materials with **No material** first, and No material is the default.
+- There is no join-approval control.
+  That switch decides whether somebody who picks a group on the Intake form joins at once or waits for an Admin (ADR-0017); it never governed pairing.
+  A group formed here takes the default, off, and the switch stays where groups are configured, on the Intake forms page.
 
-**The Discipler is a header, not a list, once one is chosen.**
-Arriving from a Roster row already names somebody, which is the common path and the one the prototype models.
-That Discipler is shown as a chosen-person header with a Change control that reveals the list; arriving from the bare Pair people button opens with the list showing.
-This keeps several Disciplers possible without putting a second full-length list on the common path.
+### The summary and the button
 
-**The declaration defaults, and the default is overridable.**
-It is preselected from the chosen Discipler rather than left blank, and Disciples who do not match it are shown disabled with the reason on the row.
-Choosing **Mixed** enables the whole list.
-In one-to-one shape Mixed is itself disabled unless the Ministry has `suggest_gender_match` off, because the database would refuse it.
+A sentence above the buttons says what is about to be made, and the primary button's label is the same act:
 
-This narrows what `src/domain/boundary.ts:2130` is protecting: a preselected answer is no longer *nobody was asked*.
-The mitigation is that the declaration is visible, stated in words, and changeable before anything is formed, and that the domain still refuses an unanswered group.
-Worth a human's eye before ticket 04 is picked up.
+| State | Sentence | Button |
+| --- | --- | --- |
+| Nothing chosen | none | **Pair**, disabled |
+| One ticked | Claire Martinez will disciple Sam Lee in a one-on-one. | **Create 1:1 pair** |
+| 1:2 pair | Claire Martinez will disciple Sam Lee and Ana Ruiz together as a 1:2 pair. | **Create 1:2 pair** |
+| N × 1:1 pairs | Claire Martinez will disciple Sam Lee and Ana Ruiz separately, in 2 one-on-ones. | **Create 2 1:1 pairs** |
+| Group | Claire Martinez will lead a women's group of 3: Sam Lee, Ana Ruiz and Rosa Delgado. | **Create group of 3** |
+| A group chosen | Claire Martinez will co-lead Grace's Group with Grace Lee. | **Add as co-leader** |
 
-## Two restraints copied from the database
+The button is also disabled while a Group has no name.
+**Cancel** sits beside it.
 
-**Somebody with no gender on file is never disabled.**
-Both triggers return early on a null gender, on the stated grounds that the readiness rules will refuse the row a moment later with something the Admin can actually act on, and that answering "genders do not match" would send them looking for the wrong problem.
-The screen shows the same restraint.
+## The popup, from a Disciple
 
-**Disabling is computed against the declaration, never against a person.**
-With several Disciplers chosen the declaration defaults from the first, and falls to Mixed if the chosen Disciplers do not share a gender.
-Rows are then greyed against the declaration, which is the rule the database actually enforces.
+Title: **Pair Sam Lee**.
+
+- The list is every Discipler, each row saying how many they already lead (*leads nobody yet*, *leads 1*), then the Groups heading and the groups.
+- Exactly one choice across both sections: round marks, not boxes.
+  A disciple is never given two disciplers here.
+- No shape toggle ever appears, and nothing else is asked.
+  Choosing a Discipler makes a 1:1; choosing a group puts them in it, and the group keeps the Material it has.
+- If this Disciple is already in a 1:1, every Discipler is greyed with the reason and the groups stay open.
+- Sentence and button: *Claire Martinez will disciple Sam Lee in a one-on-one.* **Create 1:1 pair**, or *Sam Lee will join Thursday Table, led by David Chen.* **Add to group**.
+
+## Gender
+
+- **A 1:1**, alone or as one of N × 1:1, is same-gender while the Ministry enforces the match (`suggest_gender_match`), which the database already requires.
+  Nothing is asked; other-gender rows are greyed with the reason.
+- **A 1:2 pair** takes the Discipler's gender as its declaration and asks nothing.
+  Other-gender rows are greyed while 1:2 is selected.
+- **A Group** shows a **Women's · Men's · Coed** toggle directly under the shape toggle, preset from the Discipler.
+  Other-gender rows are greyed with *Women's group: choose Coed to include* until Coed is chosen, and then they open up.
+  That is how a coed group is made by hand.
+  Coed is the screen's word for the model's `declared_gender = null`, mixed.
+- **A group being joined** already has its declaration; rows it rules out are greyed with it (*A men's group*).
+- Somebody with no gender on file is never greyed in any shape.
+  Both database triggers return early on a null gender, so that the readiness rules refuse the row with something the Admin can act on instead of "genders do not match".
+- Greying is computed against the declaration the shape implies, never against one person.
+- Changing the shape or the gender toggle re-checks every row.
+  Anybody ticked who becomes greyed is unticked, and a line in the popup says who, rather than dropping them silently.
+
+The preset keeps the 2026-09-18 decision (D1): the screen answers the gender question on the Admin's behalf, visibly and changeably, and the domain still refuses a group that declared nothing.
+
+## Joining an existing group
+
+Today a group can be joined only through the Intake form or an admitted join request.
+This effort adds the Admin's own way in.
+
+- **Which groups are listed:** every open relationship with two or more Disciples, 1:2 pairs included, whether it is running, paused or still awaiting its leader.
+  Each row gives its name, its leaders, how many Disciples it has, its declared gender, and its state when it is not running.
+  A group the person is already in is not listed.
+- **A Disciple joins a group** as a participant straight away.
+  The same database rules as forming one apply: Intake completed, not opted out, the group's declared gender.
+  The group's leaders are texted that somebody has joined, as a self-join already does.
+  Disciples never accept anything.
+- **A Discipler joins a group** as another leader.
+  They get an invitation link the same way a mentor does when first paired, and accept on it; the group keeps running meanwhile.
+  A group needs every leader's acceptance, which is Leader Acceptance as `CONTEXT.md` already defines it.
+- Both are recorded as ministry events naming the Admin.
+
+## Several leaders, several groups
+
+Decided on 2026-09-19: a group can have more than one leader, and a Discipler can lead or co-lead more than one group.
+
+How this works on screen, and what it means for check-ins and care signals, is **not designed yet**.
+James will take it through design next, now that the gender question is settled.
+Until it is, the database's one-open-group-per-leader limit (`leader_one_open_group`) stands, and the popup greys what it would refuse with *Claire already leads a group*: the 1:2 and Group shapes, and every group row.
+Nothing in this spec should be read as deciding how the limit is lifted.
+
+## Rules the port is built around
+
+These were read out of the schema, not assumed, and still hold.
+
+- **A Material cannot be assigned at pairing.**
+  `relationship.assign_material` refuses unaccepted relationships, so the pick is an intention held on the relationship and spent at acceptance (ticket 02).
+- **There is no batch command.**
+  `CommandService.execute` takes one command, so N × 1:1 pairs is N transactions.
+  The set is validated through the boundary before any is formed, and nothing is formed unless all of it can be.
+  A refusal names the Disciple it is about.
+- **A 1:2 pair is a group** for every rule: `kindFor(1, 2)` is `'group'`, so it carries a name and a declaration, which is why the popup generates both.
 
 ## The tickets
 
-| # | Ticket | Ships |
-| --- | --- | --- |
-| 01 | What the Pair screen reads | Invisible: migration, reader, port |
-| 02 | A Material chosen at pairing | Invisible: column, command field, acceptance |
-| 03 | Separate 1:1 pairs in one submission | Invisible: the route learns the mode |
-| 04 | The pairing form | The whole screen |
+Numbered on from the shipped two, and re-cut on 2026-09-19 so that each fits one implementing session of 250k tokens.
+The files in `.scratch/manual-pairing/issues/` are the tickets; this table only says which part of this spec each group of them carries.
 
-Backends first, then the screen, so that 04 lands on commands that already work and nothing ships a dead control.
+| Tickets | Part of this spec | Ships |
+| --- | --- | --- |
+| 03, 04, 05 | Separate 1:1 pairs in one submission, with a Material per Disciple | Invisible: the route learns the mode |
+| 06, 07 | The Roster's three lists and quieter rows | The Roster |
+| 08, 09, 10, 11 | Joining an existing group | Invisible: two Admin commands and the groups on the Pair document |
+| 12 to 20 | The Pair popup, rewritten, and the old page retired | The popup |
+
+The first three groups are independent of each other.
+The popup lands last, on commands that already work, and its Discipler side is built unlinked until ticket 20, so nothing ships a dead control.
+Ticket 10, the co-leader half, is written against the current one-group limit and is not blocked on the several-leaders design.
+
+## Glossary changes
+
+- **Roster** stops saying it shows "their current participation status".
+- **Declared Side** stops saying "it shows on their roster row".
+- **Pair** gains the popup as where pairing happens, in place of "the pairing page".
 
 ## Out of scope
 
-- The prototype's suggestion flow. Accepting a suggestion posts to this same route and is ticket 04 of another effort.
-- Any change to who is a candidate. The screen still declines to filter its list, for the reason the current page comment gives: pastoral judgment is never subordinate to a filtered list.
-- Editing a relationship after it is formed.
+- **Moving somebody** out of one pairing and into another: a later **Swap** button on the Admin side.
+- **Several leaders and several groups per Discipler**, beyond what is written above: to be designed.
+- The suggestion flow: accepting a suggestion is another effort's ticket, and will open this popup.
+- Editing a relationship after it is formed, other than joining a group.

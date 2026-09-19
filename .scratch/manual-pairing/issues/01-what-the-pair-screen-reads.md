@@ -2,7 +2,7 @@
 
 **What to build:** Three facts the pairing form needs and the Pair page cannot currently see: each candidate's gender, whether the Ministry enforces the absolute one-to-one gender match, and the Ministry's live Materials. No UI changes.
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 ## Why
 
@@ -68,3 +68,6 @@ The three facts are proven through a signed-in session against `pair_page()` and
 Nothing in the HTML carries a gender yet, so ticket 04 should assert it over HTTP once a row is greyed.
 
 Found along the way and fixed in its own commit: `membersFrom` handed names back in heap order, so a group's names could swap between loads and `the-materials-tab-answers-in-one-read` failed intermittently.
+
+**2026-09-19.**
+Shipped in PR #12.

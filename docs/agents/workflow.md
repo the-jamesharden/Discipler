@@ -1,0 +1,117 @@
+# Several agents, one repository
+
+How more than one coding agent works on an effort's tickets at the same time without overwriting each other, and how their work reaches the integration branch only after review.
+The tooling is `scripts/agents/`; the prompts are `docs/agents/prompts/`.
+
+## The rules the tooling holds
+
+| Rule | Held by |
+| --- | --- |
+| A ticket is named by its full path, never a bare number | every script refuses anything that is not `.scratch/<effort>/issues/<NN>-<slug>.md` |
+| One ticket, one branch, one worktree, one fresh session | `start-ticket.sh`; git refuses to check one branch out twice |
+| Agents cannot overwrite each other | a worktree per ticket outside the main checkout, with its own `node_modules`, `.env.local`, build output and read-only design copies; nothing is symlinked |
+| A ticket starts only when its blockers' work is on the integration branch | `start-ticket.sh` reads `Blocked by:` and the `Ticket-Path:` trailers of the merges |
+| Two tickets that edit the same component are not open together | the `Touches:` line; `start-ticket.sh` refuses the second |
+| Review before integration, of the exact commit | a receipt keyed by commit sha in `.git/agent-workflow/reviews/`; `integrate.sh` refuses a head without a PASS |
+| A commit after a review voids it | the receipt is for a sha; the new head has none |
+| Implementers do not merge | the prompts; and a pre-commit hook refuses commits on `integration/*` and `main` |
+| A red combination never becomes history | `integrate.sh` merges with `--no-commit`, tests, and only then commits |
+| Shared-state tests run one at a time, against the right server | `locked-tests.sh`: one `lockf` lock around reset, build, serve, test, stop; a port per worktree |
+
+These stop accidents.
+They do not stop an agent that sets out to forge a receipt or bypass a script; the prompts forbid that, and the person reads the reports.
+
+## Where state lives
+
+Nothing is tracked twice.
+
+| Fact | Source |
+| --- | --- |
+| What a ticket needs first | `Blocked by:` in the ticket, as the integration branch holds it |
+| What it must not overlap | `Touches:` in the ticket |
+| Whether it may be picked up at all | `Status: ready-for-agent` in the ticket |
+| In progress | the branch `agent/<effort>-<NN>-<slug>` exists |
+| Reviewed, and how | `.git/agent-workflow/reviews/<sha>.json` and `<sha>.md`, for the branch's head |
+| Integrated | a merge on `integration/<effort>` with `Ticket-Path: <path>` in its trailers; true after the branch is deleted |
+| Shipped | `Status: shipped` in the ticket, which still means merged to `main` (`triage-labels.md`) |
+
+`scripts/agents/status.sh <effort>` prints all of it: SHIPPED, INTEGRATED, APPROVED, CHANGES REQUIRED, IN PROGRESS, READY, HELD, BLOCKED, NOT READY.
+A ticket's `Status:` line is not touched while it moves through this workflow.
+It changes once, to `shipped`, in the pull request that promotes the integration branch to `main`.
+
+## The roles
+
+**Orchestrator.** Works in the main checkout. Decides what is eligible, creates worktrees, hands out prompts. Never writes product code. `prompts/orchestrator.md`.
+
+**Implementer.** Owns one ticket's worktree and branch. Implements that ticket, tests it, reads its own diff, commits. Never merges. A fresh session per ticket. `prompts/implementer.md`.
+
+**Reviewer.** Reads the ticket and the branch's diff, edits nothing, reports BLOCKING, NON-BLOCKING, TESTS MISSING and a VERDICT, and records a receipt for the commit it read. `prompts/reviewer.md`.
+
+**Fixer.** A fresh implementer session on the same branch, handed the review. About 80k tokens. `prompts/fixer.md`.
+
+**Integrator.** Works in the main checkout. Merges PASSed branches one at a time, resolves conflicts keeping both tickets' behaviour, runs the whole suite on the merged tree, commits only on green. `prompts/integrator.md`.
+
+Implementers, fixers and reviewers are started by the person in their own terminal, with the worktree as the working directory.
+That is deliberate: a session whose working directory is the worktree cannot mistake the main checkout for its own.
+A subagent launched from the main checkout would have to remember to work by absolute path, and the one that forgot would be writing where the integrator works.
+A reviewer may be a subagent, because it writes nothing.
+
+## The life of a ticket
+
+```
+scripts/agents/status.sh manual-pairing
+scripts/agents/start-ticket.sh .scratch/manual-pairing/issues/<NN>-<slug>.md
+        prints:  cd '<worktree>' && claude "$(cat .agent/implementer-prompt.md)"
+
+   implementer commits on agent/manual-pairing-<NN>-<slug>, reports, stops
+
+cd '<worktree>' && claude "$(scripts/agents/prompt.sh reviewer .scratch/manual-pairing/issues/<NN>-<slug>.md)"
+        reviewer records PASS or CHANGES for the head commit
+
+   CHANGES REQUIRED:
+cd '<worktree>' && claude "$(scripts/agents/prompt.sh fixer .scratch/manual-pairing/issues/<NN>-<slug>.md)"
+        new commits on the SAME branch; the old receipt no longer matches; review again
+
+   PASS, from the main checkout:
+claude "$(scripts/agents/prompt.sh integrator .scratch/manual-pairing/issues/<NN>-<slug>.md)"
+        or directly: scripts/agents/integrate.sh .scratch/manual-pairing/issues/<NN>-<slug>.md
+
+scripts/agents/remove-worktree.sh .scratch/manual-pairing/issues/<NN>-<slug>.md
+scripts/agents/status.sh manual-pairing          what that unblocked; new worktrees start from the new integration head
+```
+
+## Tokens
+
+The limit is 250k tokens for one implementing session, and each ticket carries its own estimate on its `Budget:` line.
+The workflow keeps a ticket inside it by never letting one session do two jobs: implementation, review and each round of fixes are separate sessions with separate contexts.
+A session cannot measure its own use, so the stop line on each ticket is a soft guard.
+Where the runtime reports what a finished session cost, the orchestrator writes it under `## Comments` in the ticket; if the early tickets run well over, the later ones are split before they start.
+Nothing in the workflow's correctness depends on that number being available.
+
+## Where parallel work is unsafe
+
+Eligibility is by blockers, not by waves: a ticket may start the moment its own blockers are integrated.
+
+- **The popup.** `.scratch/manual-pairing/issues/12-…` to `20-…` all carry `Touches: popup`, because they edit the same component, its state and its copy. `Blocked by:` already orders most of them; the tag closes the pairs it does not (14 with 18, 16 with 17, 18 with 19, 19 with 20).
+- **Not tagged, on purpose.** `04-…` and `09-…` both add to the pairing route, and several tickets add lines to the Roster's copy and to the refusal codes. These are additive and small, and serialising them would serialise two whole tracks. The integrator keeps both sides.
+- **Migrations.** Only `08-…`, `09-…` and `10-…` add them, and they are in one chain, so no two open branches pick the same timestamp. A future effort with parallel migrations needs a `Touches: migrations` tag.
+- **The machine.** 24 GB, one Supabase stack, and a history of out-of-memory kills. Two or three open worktrees; more buys nothing, because shared tests run one at a time anyway.
+
+## The integration branch and `main`
+
+`integration/<effort>` is cut from `main` and carries the effort's tickets as its first commit.
+Ticket branches are never rebased and never merge the integration branch into themselves: either would change their sha and void their review.
+Drift is the integrator's to absorb, at merge time.
+
+At a milestone worth shipping, the person promotes the integration branch: merge `main` into it if `main` has moved, run the no-mistakes gate, open a pull request, and merge it with a merge commit, never a squash, so the branch and `main` do not diverge.
+That pull request flips the promoted tickets to `Status: shipped`, and migrations still go to production by hand.
+No script here touches `main`, pushes, forces, resets or stashes.
+
+## Setting up a clone
+
+```
+scripts/agents/install-hooks.sh
+```
+
+Hooks live in `.git/` and are not cloned, so this is once per clone.
+Everything else needs only `git`, `bash`, `lockf` (ships with macOS), `npm` and the Supabase CLI.

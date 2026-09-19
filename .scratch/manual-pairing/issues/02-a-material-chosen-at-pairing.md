@@ -4,7 +4,7 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 ## Why
 
@@ -79,3 +79,8 @@ Calls made while building, for whoever picks up tickets 03 and 04:
   The column is cleared at activation and a skip writes no period, so this event is the only record that a chosen Material was dropped, and the only event that says which Material a relationship started on.
   No new event type and no migration.
 - "Domain tests: the two-period history satisfies `app.reject_broken_material_history`" is proven in `tests/integration/`, which is the only place a deferred constraint trigger can be.
+
+**2026-09-19, renumbered.**
+Shipped in PR #13.
+"Ticket 04" in the comments above is the ticket of 2026-09-18, *The pairing form*, which the spec of 2026-09-19 replaced.
+Preselecting the Material after a refusal is now carried by Manual pairing tickets 16 and 17, whose refusal criteria restore every Material choice.
