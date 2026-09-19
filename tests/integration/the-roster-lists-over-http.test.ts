@@ -12,11 +12,12 @@ import {
 import { getPage, signIn, skipUnlessAppIsRunning } from '../support/app'
 
 /**
- * The Roster as two lists, driven the way an Admin reads it: the toggle, the
- * four numbers, the five columns, and the words on them. Ticket 36.
+ * The Roster as three lists, driven the way an Admin reads it: the toggle, the
+ * three numbers, the five columns, and the words on them. Two lists in ticket 36;
+ * All, and All as the default, in Manual pairing, ticket 06.
  */
 
-describe.skipIf(skipUnlessAppIsRunning)('the Roster’s two lists', () => {
+describe.skipIf(skipUnlessAppIsRunning)('the Roster’s three lists', () => {
   let ministry: MinistryFixture
   let pool: pg.Pool
 
@@ -49,15 +50,44 @@ describe.skipIf(skipUnlessAppIsRunning)('the Roster’s two lists', () => {
   const statsLine = (html: string): string =>
     (html.match(/<p class="stats-line">([\s\S]*?)<\/p>/)?.[1] ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
 
-  it('opens on the Disciplers, with a toggle to the Disciples', async () => {
+  /** The toggle's links, in order: what each says, where it goes, and whether it is the one being looked at. */
+  const toggle = (html: string) => {
+    const nav = html.match(/<nav class="seg"[^>]*>([\s\S]*?)<\/nav>/)?.[1] ?? ''
+    return [...nav.matchAll(/<a ([^>]*)>([^<]*)<\/a>/g)].map(([, attributes, label]) => ({
+      label,
+      href: attributes!.match(/href="([^"]*)"/)?.[1],
+      current: /aria-current="true"/.test(attributes!),
+    }))
+  }
+
+  it('opens on All, with three plain links directly under the title', async () => {
     const { cookie } = await signIn(ministry)
     const { html } = await getPage('/roster', cookie)
 
-    expect(html).toContain('All Disciplers')
-    expect(html).toContain('All Disciples')
-    expect(html).toContain('href="/roster?list=disciples"')
-    // The list being looked at is the one marked current.
-    expect(html).toMatch(/<a (?=[^>]*aria-current="true")(?=[^>]*href="\/roster")[^>]*>All Disciplers</)
+    expect(toggle(html)).toEqual([
+      { label: 'All', href: '/roster?list=all', current: true },
+      { label: 'Disciplers', href: '/roster?list=disciplers', current: false },
+      { label: 'Disciples', href: '/roster?list=disciples', current: false },
+    ])
+    // Directly under the word Roster: nothing between the card's head and the toggle.
+    expect(html).toMatch(/<h2 class="card-title">Roster<\/h2>(?:(?!<\/div><nav)[\s\S])*?<\/div><\/div><nav class="seg"/)
+    // The old names for the two sides went with the third list.
+    expect(html).not.toContain('All Disciplers')
+    expect(html).not.toContain('All Disciples')
+  })
+
+  it('shows the list its address names, and All for one it does not know', async () => {
+    const { cookie } = await signIn(ministry)
+    const current = async (path: string) =>
+      toggle((await getPage(path, cookie)).html).filter((link) => link.current).map((link) => link.label)
+
+    expect(await current('/roster?list=all')).toEqual(['All'])
+    expect(await current('/roster?list=disciplers')).toEqual(['Disciplers'])
+    expect(await current('/roster?list=disciples')).toEqual(['Disciples'])
+    expect(await current('/roster?list=everyone')).toEqual(['All'])
+    expect(await current('/roster?list=')).toEqual(['All'])
+    // A refresh is the same address, and the same list.
+    expect(await current('/roster?list=disciples')).toEqual(['Disciples'])
   })
 
   it('lists a Discipler on one side and a Disciple on the other, with the five columns', async () => {
@@ -69,7 +99,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Roster’s two lists', () => {
     const tom = await addPerson(ministry, 'Tom Wilson', { phone: number() })
     await pairOneToOne(ministry, david, tom)
 
-    const disciplers = await getPage('/roster', cookie)
+    const disciplers = await getPage('/roster?list=disciplers', cookie)
     expect(names(disciplers.html)).toContain('David Chen')
     expect(names(disciplers.html)).not.toContain('Tom Wilson')
     expect(disciplers.html).toContain('<th>Discipler</th>')
@@ -87,6 +117,23 @@ describe.skipIf(skipUnlessAppIsRunning)('the Roster’s two lists', () => {
     expect(names(disciples.html)).not.toContain('David Chen')
     expect(disciples.html).toContain('<th>Disciple</th>')
     expect(disciples.html).toMatch(/\d+ disciples? total/)
+
+    // All has both, and its heading and its count read for people, not for a side.
+    const all = await getPage('/roster', cookie)
+    expect(names(all.html)).toContain('David Chen')
+    expect(names(all.html)).toContain('Tom Wilson')
+    expect(all.html).toContain('<th>Name</th>')
+    expect(all.html).not.toContain('<th>Discipler</th>')
+    expect(all.html).not.toContain('<th>Disciple</th>')
+    expect(all.html).toMatch(/\d+ people total/)
+    expect(all.html).not.toMatch(/\d+ disciplers? total/)
+    expect(all.html).not.toMatch(/\d+ disciples? total/)
+    for (const heading of ['Email', 'Phone', 'Paired with']) expect(all.html).toContain(`<th>${heading}</th>`)
+    // The direction is All's alone: a side says it once, in its name.
+    expect(rowOf(all.html, 'David Chen')).toContain('disciples Tom Wilson')
+    expect(rowOf(all.html, 'Tom Wilson')).toContain('discipled by David Chen')
+    expect(rowOf(disciplers.html, 'David Chen')).not.toContain('disciples Tom Wilson')
+    expect(rowOf(disciples.html, 'Tom Wilson')).not.toContain('discipled by')
   })
 
   it('puts somebody who offered to lead on the Intake form among the Disciplers, unpaired, with Pair', async () => {
@@ -100,7 +147,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Roster’s two lists', () => {
       [ministry.id, priya],
     )
 
-    const { html } = await getPage('/roster', cookie)
+    const { html } = await getPage('/roster?list=disciplers', cookie)
     expect(names(html)).toContain('Priya Raman')
     const row = rowOf(html, 'Priya Raman')
     expect(row).toContain('Offered to mentor')
@@ -112,7 +159,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Roster’s two lists', () => {
     expect(names(disciples.html)).not.toContain('Priya Raman')
   })
 
-  it('shows somebody who disciples one person and is discipled by another on both lists', async () => {
+  it('shows somebody who disciples one person and is discipled by another on both sides, and once on All', async () => {
     const { cookie } = await signIn(ministry)
 
     const grace = await addPerson(ministry, 'Grace Lee', { phone: number() })
@@ -121,7 +168,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Roster’s two lists', () => {
     await pairOneToOne(ministry, grace, emily)
     await pairOneToOne(ministry, ruth, grace)
 
-    const disciplers = await getPage('/roster', cookie)
+    const disciplers = await getPage('/roster?list=disciplers', cookie)
     expect(names(disciplers.html)).toContain('Grace Lee')
     const asDiscipler = rowOf(disciplers.html, 'Grace Lee')
     expect(asDiscipler).toContain('Emily Davis')
@@ -132,6 +179,16 @@ describe.skipIf(skipUnlessAppIsRunning)('the Roster’s two lists', () => {
     const asDisciple = rowOf(disciples.html, 'Grace Lee')
     expect(asDisciple).toContain('Ruth Adeyemi')
     expect(asDisciple).not.toContain('Emily Davis')
+
+    // On All she is one row, and the one cell says both directions.
+    const all = await getPage('/roster', cookie)
+    expect(names(all.html).filter((name) => name === 'Grace Lee')).toHaveLength(1)
+    const once = rowOf(all.html, 'Grace Lee')
+    expect(once).toContain('disciples Emily Davis')
+    expect(once).toContain('discipled by Ruth Adeyemi')
+    expect(once.indexOf('disciples Emily Davis')).toBeLessThan(once.indexOf('discipled by Ruth Adeyemi'))
+    // Nobody is said twice, whichever side or sides they are on.
+    expect(new Set(names(all.html)).size).toBe(names(all.html).length)
   })
 
   it('counts a group by the people being discipled in it, and says how many members', async () => {
@@ -145,7 +202,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Roster’s two lists', () => {
       await addMembership({ ministry, relationshipId: group, kind: 'group', personId: member, role: 'participant' })
     }
 
-    const disciplers = await getPage('/roster', cookie)
+    const disciplers = await getPage('/roster?list=disciplers', cookie)
     const row = rowOf(disciplers.html, 'Daniel Okafor')
     expect(row).toContain('Caleb Foster, Ethan Nguyen, Noah Williams')
     expect(row).toContain('3 members')
@@ -155,9 +212,13 @@ describe.skipIf(skipUnlessAppIsRunning)('the Roster’s two lists', () => {
     const member = rowOf(disciples.html, 'Caleb Foster')
     expect(member).toContain('Daniel Okafor')
     expect(member).toContain('3 members')
+
+    const all = await getPage('/roster', cookie)
+    expect(rowOf(all.html, 'Daniel Okafor')).toContain('disciples Caleb Foster, Ethan Nguyen, Noah Williams 3 members')
+    expect(rowOf(all.html, 'Caleb Foster')).toContain('discipled by Daniel Okafor 3 members')
   })
 
-  it('adds up the four numbers for the list being looked at', async () => {
+  it('adds up the three numbers for the list being looked at, and never says in groups', async () => {
     // A Ministry of its own, so the numbers are these people and nobody else's.
     const own = await createMinistryWithAdmin('Counting Chapel')
     const { cookie } = await signIn(own)
@@ -181,14 +242,22 @@ describe.skipIf(skipUnlessAppIsRunning)('the Roster’s two lists', () => {
     await addPerson(own, 'Gia Imported', { phone: number(), intake: false })
 
     // Disciplers: the group's leader, the one-to-one's leader, and the offer.
-    const disciplers = await getPage('/roster', cookie)
-    expect(statsLine(disciplers.html)).toBe('3 total 2 paired 1 unpaired 1 in groups')
+    const disciplers = await getPage('/roster?list=disciplers', cookie)
+    expect(statsLine(disciplers.html)).toBe('3 total 2 paired 1 unpaired')
     expect(disciplers.html).toContain('3 disciplers total')
 
     // Disciples: two members, one one-to-one, one imported, and the Admin's own
     // row, who is on the Roster like anybody else and has not been paired.
     const disciples = await getPage('/roster?list=disciples', cookie)
-    expect(statsLine(disciples.html)).toBe('5 total 3 paired 2 unpaired 2 in groups')
+    expect(statsLine(disciples.html)).toBe('5 total 3 paired 2 unpaired')
+
+    // All: the seven of them and the Admin, once each. Paired is anybody in an
+    // open pairing in either role: the two leaders and the three they disciple.
+    const all = await getPage('/roster', cookie)
+    expect(statsLine(all.html)).toBe('8 total 5 paired 3 unpaired')
+    expect(all.html).toContain('8 people total')
+
+    for (const { html } of [all, disciplers, disciples]) expect(html).not.toContain('in groups')
   })
 
   it('shows a pairing an import planned on both rows, and says not made once it is refused', async () => {
@@ -208,18 +277,29 @@ describe.skipIf(skipUnlessAppIsRunning)('the Roster’s two lists', () => {
       [plan, own.id, sam, taylor],
     )
 
-    const disciplers = await getPage('/roster', cookie)
+    const disciplers = await getPage('/roster?list=disciplers', cookie)
     const asDiscipler = rowOf(disciplers.html, 'Sam Rivera')
     expect(asDiscipler).toContain('Taylor Brooks')
     expect(asDiscipler).toContain('planned')
     expect(asDiscipler).toContain('awaiting Intake')
     // Not paired: a plan is not a pairing. Sam is the one Discipler here.
-    expect(statsLine(disciplers.html)).toBe('1 total 0 paired 1 unpaired 0 in groups')
+    expect(statsLine(disciplers.html)).toBe('1 total 0 paired 1 unpaired')
 
     const disciples = await getPage('/roster?list=disciples', cookie)
     const asDisciple = rowOf(disciples.html, 'Taylor Brooks')
     expect(asDisciple).toContain('Sam Rivera')
     expect(asDisciple).toContain('planned')
+
+    // On All the plan is on the row of each person it is about, saying which way
+    // it would run, and still counts nobody as paired.
+    const all = await getPage('/roster', cookie)
+    const samOnAll = rowOf(all.html, 'Sam Rivera')
+    expect(samOnAll).toContain('disciples Taylor Brooks planned')
+    expect(samOnAll).toContain('awaiting Intake')
+    const taylorOnAll = rowOf(all.html, 'Taylor Brooks')
+    expect(taylorOnAll).toContain('discipled by Sam Rivera planned')
+    expect(taylorOnAll).toContain('awaiting Intake')
+    expect(statsLine(all.html)).toBe('3 total 0 paired 3 unpaired')
 
     // Refused, with its Follow-Up Item still open: the row says not made and
     // points at the tab where the Admin acts on it.
@@ -238,6 +318,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Roster’s two lists', () => {
     const refused = await getPage('/roster?list=disciples', cookie)
     const row = rowOf(refused.html, 'Taylor Brooks')
     expect(row).toContain('not made')
+    expect(rowOf((await getPage('/roster', cookie)).html, 'Taylor Brooks')).toContain('discipled by Sam Rivera not made')
     expect(refused.html).toContain('href="/follow-up"')
 
     // Resolved, and the plan is gone from the row.
@@ -259,7 +340,11 @@ describe.skipIf(skipUnlessAppIsRunning)('the Roster’s two lists', () => {
     const own = await createMinistryWithAdmin('Empty Chapel')
     const { cookie } = await signIn(own)
     // The Admin is on the Roster, as a Disciple; nobody is a Discipler yet.
-    const { html } = await getPage('/roster', cookie)
+    const { html } = await getPage('/roster?list=disciplers', cookie)
     expect(html).toContain('No disciplers yet')
+    // All is never empty while anybody is on the Roster, and the Admin is.
+    const all = await getPage('/roster', cookie)
+    expect(names(all.html)).toHaveLength(1)
+    expect(all.html).not.toContain('No disciplers yet')
   })
 })

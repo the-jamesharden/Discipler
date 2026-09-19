@@ -128,6 +128,17 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
     const { html } = await getPage('/roster?paired=1', cookie)
     expect(html).toContain('awaiting acceptance')
     expect(html).toContain('The Discipler has been invited')
+
+    // The receipt lands on All, where the Roster opens (Manual pairing, ticket
+    // 06), so both of the people it is about are on the page under it, each row
+    // saying which way the new pairing runs.
+    expect(html).toMatch(/<a (?=[^>]*aria-current="true")[^>]*>All</)
+    const rowOf = (name: string) =>
+      (html.split('<tr').find((row) => new RegExp(`roster-name"[^>]*>${name}<`).test(row)) ?? '')
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/\s+/g, ' ')
+    expect(rowOf('Rachel Ellis')).toContain('disciples Sarah Frost 1:1 - awaiting acceptance')
+    expect(rowOf('Sarah Frost')).toContain('discipled by Rachel Ellis 1:1 - awaiting acceptance')
   })
 
   it('forms one relationship from several people selected together', async () => {
@@ -156,8 +167,10 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
     // Tara disciples Una and Vera. Her row on the Disciplers list names both;
     // each of theirs on the Disciples list names her and says it is a group, so
     // group membership is visible without opening a record.
-    const disciplers = await getPage('/roster', cookie)
-    expect(disciplers.html).toContain('Una Hart, Vera Iles')
+    const disciplers = await getPage('/roster?list=disciplers', cookie)
+    // As read, tags aside: the last name and the size share a span so the size
+    // never wraps alone (Manual pairing, ticket 06).
+    expect(disciplers.html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ')).toContain('Una Hart, Vera Iles 2 members')
     const disciples = await getPage('/roster?list=disciples', cookie)
     expect(disciples.html).toContain('Una Hart')
     const una = disciples.html.split('<tr').find((row) => /roster-name"[^>]*>Una Hart</.test(row)) ?? ''

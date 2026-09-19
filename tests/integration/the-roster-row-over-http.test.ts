@@ -58,7 +58,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
     await pairOneToOne(ministry, leader, await addPerson(ministry, 'Ruth Adeyemi', { phone: number() }))
     await pairOneToOne(ministry, leader, await addPerson(ministry, 'Sam Doyle', { phone: number() }))
 
-    const { html } = await getPage('/roster', cookie)
+    const { html } = await getPage('/roster?list=disciplers', cookie)
 
     // Both pairings, on his row on the Disciplers list, each naming who he
     // disciples with the size beside it -- which is what stops `Ready to Pair`
@@ -87,7 +87,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
     expect(rowFor(disciples.html, 'Nadia Farouk')).toContain('Omar Haddad 1:1')
     expect(disciples.html).not.toMatch(/roster-name"[^>]*>Omar Haddad</)
 
-    const disciplers = await getPage('/roster', cookie)
+    const disciplers = await getPage('/roster?list=disciplers', cookie)
     expect(rowFor(disciplers.html, 'Omar Haddad')).toContain('Nadia Farouk 1:1')
     expect(disciplers.html).not.toMatch(/roster-name"[^>]*>Nadia Farouk</)
   })
@@ -153,7 +153,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
 
     // On both rows, because it is one fact about the pairing and neither side of
     // it has started. The Disciple has been told nothing yet either.
-    const disciplers = await getPage('/roster', cookie)
+    const disciplers = await getPage('/roster?list=disciplers', cookie)
     expect(rowFor(disciplers.html, 'Ezra Kimani')).toContain('Dele Bakare 1:1 - awaiting acceptance')
     const disciples = await getPage('/roster?list=disciples', cookie)
     expect(rowFor(disciples.html, 'Dele Bakare')).toContain('Ezra Kimani 1:1 - awaiting acceptance')
@@ -166,7 +166,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
     const participant = await addPerson(ministry, 'Noor Haddad', { phone: number() })
     await pairOneToOne(ministry, leader, participant, { acceptedAt: new Date() })
 
-    const { html } = await getPage('/roster', cookie)
+    const { html } = await getPage('/roster?list=disciplers', cookie)
 
     expect(rowFor(html, 'Ines Ferreira')).toContain('Noor Haddad 1:1')
     // Scoped to her row rather than the page: other suites in this Ministry leave
