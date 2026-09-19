@@ -214,6 +214,32 @@ describe('a pairing checked without being formed, against the database', () => {
     )
   })
 
+  it('leaves a plan an import made open, though forming the same pairing closes it', async () => {
+    // The one effect of formation that is an UPDATE, and so the one the counts
+    // above cannot see.
+    const leader = await man('Felix Wren')
+    const participant = await man('Gideon York')
+    const planId = crypto.randomUUID()
+    await pool.query(
+      `insert into intended_pairing (id, ministry_id, leader_id, participant_id, planned_at)
+       values ($1, $2, $3, $4, now())`,
+      [planId, ministry.id, leader, participant],
+    )
+    const plan = async () => {
+      const { rows } = await pool.query(
+        `select outcome, closed_at, relationship_id from intended_pairing where id = $1`,
+        [planId],
+      )
+      return rows[0]
+    }
+
+    expect(await service().checkPairing(aPair(leader, participant))).toBeNull()
+    expect(await plan()).toEqual({ outcome: null, closed_at: null, relationship_id: null })
+
+    await service().execute(aPair(leader, participant))
+    expect(await plan()).toMatchObject({ outcome: 'fulfilled' })
+  })
+
   it('answers for the database as it stands, and so not for a set', async () => {
     // What ticket 04 has to be ready for. Two pairings of one Disciple each pass
     // alone, because neither check leaves anything for the other to meet -- and
