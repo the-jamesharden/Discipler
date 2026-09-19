@@ -397,6 +397,59 @@ describe.skipIf(skipUnlessAppIsRunning)('the Admin tabs', () => {
       expect(cleared[0]?.detail).toBeNull()
     })
 
+    it('draws the Overview’s two rings as the design does: legend beneath, counts on hover', async () => {
+      const church = await aMinistry('Charted Chapel')
+      const { cookie } = await signIn(church.ministry)
+      const formedAt = new Date(firstWeek.getTime() - weeks(1))
+      const met = await church.congregant('Met Leader')
+      const missed = await church.congregant('Missed Leader')
+      await pairOneToOne(church.ministry, met, await church.congregant('Met Participant'), {
+        createdAt: formedAt,
+        acceptedAt: formedAt,
+      })
+      await pairOneToOne(church.ministry, missed, await church.congregant('Missed Participant'), {
+        createdAt: new Date(formedAt.getTime() + 60_000),
+        acceptedAt: new Date(formedAt.getTime() + 60_000),
+      })
+
+      await church.tickAt(at(0))
+      const answering = new Date(at(0).getTime() + 60_000)
+      await church.replyAt(answering, met, '1')
+      await church.replyAt(new Date(answering.getTime() + 60_000), met, 'A')
+      await church.replyAt(new Date(answering.getTime() + 120_000), missed, '2')
+
+      const { html } = await getPage('/overview', cookie)
+
+      // Said in words for somebody who cannot see the ring, with every count.
+      expect(html).toContain('aria-label="Meeting Completion: Completed 1, Missed 1"')
+      expect(html).toContain('aria-label="Check-In Ratings: Outstanding (A) 1, Good (B) 0, Concern (C) 0"')
+
+      // A segment's count is on hover, and a segment with nothing in it is not drawn.
+      expect(html).toContain('<title>Completed: 1</title>')
+      expect(html).toContain('<title>Missed: 1</title>')
+      expect(html).toContain('<title>Outstanding (A): 1</title>')
+      expect(html).not.toContain('<title>Good (B)')
+
+      // The legend sits beneath each ring and carries the labels alone, every one
+      // of them: no count beside a label, and no headline figure beside the ring.
+      const boxes = html.split('class="chart-box"').slice(1)
+      expect(boxes).toHaveLength(2)
+      for (const box of boxes) {
+        expect(box.indexOf('</svg>')).toBeLessThan(box.indexOf('class="donut-legend"'))
+      }
+      const legends = [...html.matchAll(/<ul class="donut-legend">(.*?)<\/ul>/gs)].map((found) =>
+        found[1]!.replace(/<[^>]+>/g, '|'),
+      )
+      expect(legends).toHaveLength(2)
+      expect(legends[0]).toMatch(/\|Completed\|.*\|Missed\|/)
+      expect(legends[1]).toMatch(/\|Outstanding \(A\)\|.*\|Good \(B\)\|.*\|Concern \(C\)\|/)
+      expect(legends.join('')).not.toMatch(/\d/)
+      expect(html).not.toContain('donut-figure')
+
+      // Still drawn on the server, with no chart library.
+      expect(html).not.toContain('chart.js')
+    })
+
     it('shows a Leader nothing of the Admin tabs', async () => {
       const church = await aMinistry('Leaders Only Chapel')
       const { cookie } = await signIn(church.ministry)

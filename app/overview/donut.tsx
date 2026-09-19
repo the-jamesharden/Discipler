@@ -1,84 +1,85 @@
+import { donutArcs, donutSummary, RADIUS, type DonutSegment } from './donut-geometry'
+
 /**
- * A doughnut drawn on the server as inline SVG, from the numbers each one needs.
- * The prototype loads Chart.js from a CDN and carries a no-Chart fallback; a
- * server-drawn ring needs neither and keeps the no-JavaScript rule.
+ * A doughnut as the design draws it: a thick ring filling its card, the first
+ * segment starting from the left, and the legend centred beneath it with the
+ * labels alone. A segment's count is on hover, as it is in the prototype.
  *
- * One circle per segment, each a stroke on the same ring. The circumference is
- * made 100 units by the radius, so a segment's dash length is its percentage and
- * its offset is the percentage drawn before it. A ring with nothing to show is
- * drawn grey, so an empty Ministry's Overview has a chart-shaped nothing rather
- * than a hole.
+ * Drawn on the server as inline SVG and not by the prototype's charting library:
+ * every part of the design's look is geometry, and geometry needs no script. A
+ * ring that is in the page when it arrives also has nothing to wait for and no
+ * CDN to fail.
  *
- * The figure and the counts sit beside the ring, not on it: the ring is left
- * clear, and the numbers read as a column next to it.
+ * One circle per segment, each a stroke on the same ring; the arithmetic is in
+ * `donut-geometry.ts`. `fill="none"` and not `transparent`, because a transparent
+ * fill is still painted for hit-testing, and the hole would answer a hover with
+ * whichever segment was drawn last.
+ *
+ * A ring with nothing to show is its grey track, so an empty Ministry's Overview
+ * has a chart-shaped nothing rather than a hole.
  */
 
-export interface DonutSegment {
-  readonly label: string
-  readonly value: number
-  readonly colour: string
-}
+export type { DonutSegment } from './donut-geometry'
 
-/** 100 / (2 * pi): a circumference of exactly one hundred units. */
-const RADIUS = 15.9155
+/**
+ * The design's ring is half as thick as it is wide (a 50% cutout). With the
+ * stroke centred on `RADIUS`, that is a width of two thirds of it.
+ */
+const THICKNESS = (RADIUS * 2) / 3
+const SIZE = 44
+const CENTRE = SIZE / 2
 
 export const Donut = ({
   title,
   segments,
-  figure,
   emptyLabel,
 }: {
   readonly title: string
   readonly segments: readonly DonutSegment[]
-  /** The headline figure beside the ring: a rate, usually. */
-  readonly figure: string
   readonly emptyLabel: string
 }) => {
-  const total = segments.reduce((sum, segment) => sum + segment.value, 0)
-  let drawn = 0
+  const arcs = donutArcs(segments)
 
   return (
     <div className="chart-box">
-      <svg className="donut" viewBox="0 0 42 42" role="img" aria-label={`${title}: ${figure}`}>
-        <circle cx="21" cy="21" r={RADIUS} fill="transparent" stroke="var(--cell)" strokeWidth="5" />
-        {total > 0
-          ? segments.map((segment) => {
-              const share = (segment.value / total) * 100
-              // Offset from the top rather than from three o'clock, which is where a
-              // circle's stroke starts: 25 puts the first segment's start at twelve.
-              const offset = 25 - drawn
-              drawn += share
-              return segment.value > 0 ? (
-                <circle
-                  key={segment.label}
-                  cx="21"
-                  cy="21"
-                  r={RADIUS}
-                  fill="transparent"
-                  stroke={segment.colour}
-                  strokeWidth="5"
-                  strokeDasharray={`${share} ${100 - share}`}
-                  strokeDashoffset={offset}
-                />
-              ) : null
-            })
-          : null}
+      <svg
+        className="donut"
+        viewBox={`0 0 ${SIZE} ${SIZE}`}
+        role="img"
+        aria-label={donutSummary(title, segments, emptyLabel)}
+      >
+        <circle cx={CENTRE} cy={CENTRE} r={RADIUS} fill="none" stroke="var(--cell)" strokeWidth={THICKNESS} />
+        {arcs.map((arc) => (
+          <circle
+            key={arc.label}
+            className="donut-arc"
+            cx={CENTRE}
+            cy={CENTRE}
+            r={RADIUS}
+            fill="none"
+            stroke={arc.colour}
+            strokeWidth={THICKNESS}
+            strokeDasharray={`${arc.length} ${100 - arc.length}`}
+            strokeDashoffset={arc.offset}
+          >
+            <title>{`${arc.label}: ${arc.value}`}</title>
+          </circle>
+        ))}
       </svg>
-      <div className="donut-figures">
-        <p className="donut-figure">{figure}</p>
+      {arcs.length === 0 ? (
+        <p className="donut-legend muted">{emptyLabel}</p>
+      ) : (
+        // Every segment is named, the empty ones too: a legend that dropped
+        // "Concern (C)" in a good week would read as a chart that cannot show one.
         <ul className="donut-legend">
-          {total === 0 ? (
-            <li className="muted">{emptyLabel}</li>
-          ) : (
-            segments.map((segment) => (
-              <li key={segment.label}>
-                <i style={{ background: segment.colour }} aria-hidden="true" />
-                {`${segment.label}: ${segment.value}`}
-              </li>
-            ))
-          )}
+          {segments.map((segment) => (
+            <li key={segment.label}>
+              <i style={{ background: segment.colour }} aria-hidden="true" />
+              {segment.label}
+            </li>
+          ))}
         </ul>
-      </div>
+      )}
     </div>
   )
 }

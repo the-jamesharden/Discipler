@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { checkInRates, ratedTotal } from '~/domain/overview'
+import { checkInRates } from '~/domain/overview'
 import { getOverviewReader } from '~/service/container'
 import { AdminShell, NotAnAdmin } from '../shell'
 import {
@@ -48,7 +48,6 @@ export default async function OverviewPage() {
 
   const rates = checkInRates(overview.counts)
   const notMet = overview.counts.answered - overview.counts.held
-  const rated = ratedTotal(overview.counts)
   const flagged = flaggedIn(care)
 
   const tiles = [
@@ -91,11 +90,10 @@ export default async function OverviewPage() {
           <h2 className="card-title">{MEETING_COMPLETION}</h2>
           <Donut
             title={MEETING_COMPLETION}
-            figure={`${rates.meeting}%`}
             emptyLabel={NO_CHECK_INS_YET}
             segments={[
-              { label: 'Met', value: overview.counts.held, colour: 'var(--green-fit)' },
-              { label: 'Did not meet', value: notMet, colour: 'var(--red-concern)' },
+              { label: 'Completed', value: overview.counts.held, colour: 'var(--green-fit)' },
+              { label: 'Missed', value: notMet, colour: 'var(--red-concern)' },
             ]}
           />
         </div>
@@ -103,7 +101,6 @@ export default async function OverviewPage() {
           <h2 className="card-title">{CHECK_IN_RATINGS}</h2>
           <Donut
             title={CHECK_IN_RATINGS}
-            figure={rated === 0 ? '0' : `${overview.counts.rated.outstanding}/${rated}`}
             emptyLabel={NO_CHECK_INS_YET}
             segments={[
               { label: 'Outstanding (A)', value: overview.counts.rated.outstanding, colour: 'var(--green-fit)' },
