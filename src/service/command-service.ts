@@ -70,7 +70,8 @@ export interface CommandService {
   /**
    * Whether forming this relationship would be refused, without forming it: the
    * `PairingRefusal` that `execute` would have thrown for the same command at this
-   * moment, or null where it would have gone ahead (Manual pairing, ticket 03).
+   * moment, or null where it would have gone ahead (Manual pairing, ticket 03;
+   * ADR-0025).
    *
    * It is formation itself -- the same reads, the same boundary decision, the same
    * writes -- in a transaction that is always rolled back. Not the boundary's
