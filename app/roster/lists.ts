@@ -112,16 +112,63 @@ export const reasonOnRow = (list: RosterList, person: RosterEntry): NotPairable 
   return alreadySaid ? null : reason
 }
 
+/** The side of a pairing the Pair popup opens on: whose row was pressed, and so who the list is of. */
+export type PairSide = 'discipler' | 'disciple'
+
 /**
- * Where Pair on a row goes: the Pair page with that Person already chosen, as the
- * Discipler when they are one and as the Disciple otherwise. About the Person and
- * not the list, so their row says the same on All and on either side, and the
- * pairing screen lets the Admin change it.
+ * Which side the popup opens on (Manual pairing, ticket 12). **The toggle decides**
+ * for somebody on both lists: as a Disciple on Disciples, as a Discipler on
+ * Disciplers, and on All a Discipler opens as a Discipler. A list never makes
+ * somebody a side they are not on, so an address typed by hand gets the side they
+ * do hold.
  */
-export const pairHref = (person: RosterEntry): string =>
-  `/roster/pair?${new URLSearchParams(
-    isDiscipler(person) ? { leaderId: person.personId } : { with: person.personId },
-  )}`
+export const opensAs = (list: RosterList, person: RosterFacts): PairSide =>
+  list === 'disciples' && isDisciple(person)
+    ? 'disciple'
+    : isDiscipler(person)
+      ? 'discipler'
+      : 'disciple'
+
+/**
+ * Where Pair on a row goes. A row that opens as a Disciple opens the popup over the
+ * list it was pressed on (Manual pairing, ticket 12). A row that opens as a
+ * Discipler still goes to the old Pair page with them chosen as the Discipler,
+ * until ticket 14 gives that side a popup, so no row opens an empty one.
+ */
+export const pairHref = (list: RosterList, person: RosterEntry): string =>
+  opensAs(list, person) === 'disciple'
+    ? `/roster?${new URLSearchParams({ list, pair: person.personId })}`
+    : `/roster/pair?${new URLSearchParams({ leaderId: person.personId })}`
+
+/**
+ * Who `?pair=` opens the popup for, or null: somebody on this Ministry's Roster
+ * who can be paired. Anything else in the address opens nothing, the rule the row
+ * follows when it offers no Pair.
+ */
+export const whoThePopupIsFor = (
+  roster: readonly RosterEntry[],
+  id: string | undefined,
+): RosterEntry | null => {
+  const person = roster.find((each) => each.personId === id)
+  return person !== undefined && whyNotPairable(person) === null ? person : null
+}
+
+/**
+ * The popup's list from a Disciple: every Discipler, in the Roster's order, and
+ * never the Disciple themselves. Nobody is left out for something the database
+ * would refuse; until ticket 13 greys those rows, the refusal is what says so.
+ */
+export const disciplersFor = (
+  roster: readonly RosterEntry[],
+  disciple: RosterEntry,
+): readonly RosterEntry[] =>
+  roster.filter((each) => isDiscipler(each) && each.personId !== disciple.personId)
+
+/** How many people somebody already leads, across every open relationship they lead. */
+export const leadsCount = (person: Pick<RosterEntry, 'relationships'>): number =>
+  person.relationships
+    .filter(({ role }) => role === 'leader')
+    .reduce((led, { participantCount }) => led + participantCount, 0)
 
 export interface RosterStats {
   readonly total: number

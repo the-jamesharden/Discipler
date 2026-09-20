@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { PairingRefusal } from '~/domain/errors'
-import { REFUSALS, pairingRefusalMessage } from '../../app/roster/copy'
+import { PAIR, PAIR_POPUP, REFUSALS, pairingRefusalMessage } from '../../app/roster/copy'
 
 /**
  * A refusal that reaches the Admin as a constraint name, or as nothing at all, is
@@ -112,5 +112,50 @@ describe('what a refused pairing says to an Admin', () => {
   it('falls back rather than rendering a blank alert for a code it does not know', () => {
     expect(pairingRefusalMessage('something_else_entirely')).toBeTruthy()
     expect(pairingRefusalMessage(undefined)).toBeUndefined()
+  })
+})
+
+describe('what the Pair popup says, from a Disciple (Manual pairing, ticket 12)', () => {
+  it('is titled with the person whose row was pressed, and says who the list is for', () => {
+    expect(PAIR_POPUP.title('Sam Lee')).toBe('Pair Sam Lee')
+    expect(PAIR_POPUP.chooseADiscipler('Sam Lee')).toBe('Choose who will disciple Sam Lee.')
+  })
+
+  it('counts the list in the Roster’s own word, singular for one', () => {
+    expect(PAIR_POPUP.disciplers(4)).toBe('4 disciplers')
+    expect(PAIR_POPUP.disciplers(1)).toBe('1 discipler')
+  })
+
+  it('says how many somebody already leads, and nobody yet for none', () => {
+    expect(PAIR_POPUP.leads(0)).toBe('leads nobody yet')
+    expect(PAIR_POPUP.leads(1)).toBe('leads 1')
+    expect(PAIR_POPUP.leads(3)).toBe('leads 3')
+  })
+
+  it('says what is about to be made, and the button is the same act', () => {
+    expect(PAIR_POPUP.oneToOne('Claire Martinez', 'Sam Lee')).toBe(
+      'Claire Martinez will disciple Sam Lee in a one-on-one.',
+    )
+    expect(PAIR_POPUP.createOneToOne).toBe('Create 1:1 pair')
+    // Nothing chosen: the button reads what the row's button read.
+    expect(PAIR_POPUP.nothingChosen).toBe(PAIR)
+  })
+
+  it('has something to say where there is nobody to choose', () => {
+    expect(PAIR_POPUP.noDisciplers).toBeTruthy()
+  })
+
+  it('says Discipler and Disciple, never the model’s Leader, Participant or mentor', () => {
+    const said = [
+      PAIR_POPUP.title('A'),
+      PAIR_POPUP.chooseADiscipler('A'),
+      PAIR_POPUP.disciplers(2),
+      PAIR_POPUP.leads(2),
+      PAIR_POPUP.oneToOne('A', 'B'),
+      PAIR_POPUP.createOneToOne,
+      PAIR_POPUP.noDisciplers,
+      PAIR_POPUP.close,
+    ]
+    for (const sentence of said) expect(sentence).not.toMatch(/leader|participant|mentor/i)
   })
 })
