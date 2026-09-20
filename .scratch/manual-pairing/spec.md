@@ -206,13 +206,14 @@ The files in `.scratch/manual-pairing/issues/` are the tickets; these tables onl
 | 25 - Groups in the popup, from a Disciple | 18 | 1 | 22, 23 |
 | 26 - The Group shape, and groups from a Discipler | 17, 19 | 2 | 22, 24, 25 |
 | 27 - The old Pair page retires | 20 | 1 | 24, 26 |
-| 11 - A co-leader accepts on a running group | itself | 1 | 22, and James's three answers |
+| 11 - A co-leader accepts on a running group | itself | 1 | 22 |
 
 What may be open together:
 
 1. **21, 22 and 23.**
    21 and 22 can start now; 23 starts when 12 is integrated.
-2. **24 and 25**, and 11 once it is answered.
+2. **24, 25 and 11.**
+   James answered ticket 11's three questions on 2026-09-20, so it waits only on 22.
    Ticket 23 leaves each side of the popup in a file of its own, which is what lets 24 (`Touches: popup-discipler`) and 25 (`Touches: popup-disciple`) be open at once.
 3. **26.**
 4. **27.**
