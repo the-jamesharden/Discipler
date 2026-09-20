@@ -27,6 +27,9 @@ Every effort numbers its tickets from 01, so a number inside your ticket means a
    For implementation work the approved spec is the only product source.
    If the ticket or the spec is ambiguous about product behaviour, stop and say so under `## Comments` in the ticket; do not resolve it from other documents or from what is common.
 2. Implement that ticket and nothing else.
+   If the ticket has a `## Stages` section, you are one of several sessions on this branch, and yours is the first stage that still has an unticked criterion.
+   Read `.agent/handoff.md` if it exists and `git log {{INTEGRATION_BRANCH}}..HEAD` to see what the sessions before you left; finish a stage they left unfinished before starting another.
+   Do that one stage and stop; the stages after it belong to fresh sessions.
    Add or update tests for every acceptance criterion.
    Tick each criterion in the ticket file as you meet it.
    Do not change the ticket's `Status:`, `Blocked by:` or `Touches:` lines.
@@ -52,7 +55,7 @@ Every effort numbers its tickets from 01, so a number inside your ticket means a
 
 {{BUDGET}}
 
-One ticket, one session.
+One ticket, one session, or one stage of a ticket that has stages.
 You cannot measure your own token use exactly, so watch for the signs: a second long investigation, a third test-fix loop, a context warning.
 If you reach the ticket's stop line, commit what is coherent, write what is left in `.agent/handoff.md`, and stop.
 A half-finished ticket that says so is worth more than a finished one nobody can review.
@@ -60,5 +63,6 @@ A half-finished ticket that says so is worth more than a finished one nobody can
 ## When you finish
 
 Reply with: what you built, the summary line of each test run (files, passed, skipped), anything in `.agent/handoff.md`, and the head commit.
+For a ticket with stages, say which stage you finished and whether another is left, so the orchestrator knows whether a review or another session comes next.
 Then stop.
 You do not merge, and you do not ask for your own review.

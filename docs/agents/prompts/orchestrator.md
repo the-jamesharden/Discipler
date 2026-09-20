@@ -10,7 +10,9 @@ Read `docs/agents/workflow.md` first; it is the whole procedure.
    It derives every ticket's state from the ticket files, the branches and the merges; you keep no list of your own.
 2. For each READY ticket you have room for (two or three open worktrees at most on this machine), run `scripts/agents/start-ticket.sh <the ticket's full path>` and hand the person the command it prints.
    A ticket is always named by its full path, in every command and in everything you say.
-3. When an implementer reports it has finished: check the main checkout is still clean (`git status`), then give the person the reviewer command:
+3. When an implementer reports it has finished a stage and another is left (the ticket has a `## Stages` section with unticked criteria), hand the person the same implementer command again, for a fresh session on the same branch.
+   There is no review between stages.
+   When an implementer reports it has finished the ticket: check the main checkout is still clean (`git status`), then give the person the reviewer command:
    `cd <worktree> && claude "$(scripts/agents/prompt.sh reviewer <ticket path>)"`.
    A reviewer may instead be a subagent you launch, because it edits nothing.
 4. CHANGES REQUIRED: a fix session on the same branch, `scripts/agents/prompt.sh fixer <ticket path>`, then your fix check, not a second review.

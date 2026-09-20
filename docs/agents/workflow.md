@@ -8,7 +8,7 @@ The tooling is `scripts/agents/`; the prompts are `docs/agents/prompts/`.
 | Rule | Held by |
 | --- | --- |
 | A ticket is named by its full path, never a bare number | every script refuses anything that is not `.scratch/<effort>/issues/<NN>-<slug>.md` |
-| One ticket, one branch, one worktree, one fresh session | `start-ticket.sh`; git refuses to check one branch out twice |
+| One ticket, one branch, one worktree, and one fresh session for each of its stages | `start-ticket.sh`; git refuses to check one branch out twice; the ticket's `## Stages` |
 | Agents cannot overwrite each other | a worktree per ticket outside the main checkout, with its own `node_modules`, `.env.local`, build output and read-only design copies; nothing is symlinked |
 | A ticket starts only when its blockers' work is on the integration branch | `start-ticket.sh` reads `Blocked by:` and the `Ticket-Path:` trailers of the merges |
 | Two tickets that edit the same component are not open together | the `Touches:` line; `start-ticket.sh` refuses the second |
@@ -88,6 +88,7 @@ scripts/agents/start-ticket.sh .scratch/manual-pairing/issues/<NN>-<slug>.md
         prints:  cd '<worktree>' && claude "$(cat .agent/implementer-prompt.md)"
 
    implementer commits on agent/manual-pairing-<NN>-<slug>, reports, stops
+   a ticket with stages: the same command again, a new session, until the last stage is ticked
 
 cd '<worktree>' && claude "$(scripts/agents/prompt.sh reviewer .scratch/manual-pairing/issues/<NN>-<slug>.md)"
         reviewer records PASS or CHANGES for the head commit
@@ -113,13 +114,30 @@ A session cannot measure its own use, so the stop line on each ticket is a soft 
 Where the runtime reports what a finished session cost, the orchestrator writes it under `## Comments` in the ticket; if the early tickets run well over, the later ones are split before they start.
 Nothing in the workflow's correctness depends on that number being available.
 
+### Stages
+
+A ticket is one branch, one worktree, one review and one integration, and those are what a ticket costs beyond its building.
+A session is 250k tokens, and that is what bounds how much one agent builds well.
+The two are not the same size, so a ticket may say `## Stages` and be built in more than one session.
+
+- A stage is a section of the ticket with acceptance criteria of its own, and it fits one session.
+- A session does the first stage that still has an unticked criterion, commits, reports and stops.
+  The person starts the next one with the same command, `cd '<worktree>' && claude "$(cat .agent/implementer-prompt.md)"`, and it reads what the last one committed, not what it remembered.
+- A session that reaches the stop line inside a stage commits what is coherent, writes `.agent/handoff.md`, and stops; the next session finishes that stage before it starts another.
+- The review is of the whole branch, once, after the last stage, and the fixer and the fix check are unchanged.
+- A stage never waits on another ticket that its ticket's `Blocked by:` does not name.
+  If it would, it is a ticket and not a stage.
+
+Introduced on 2026-09-20, when James asked for `.scratch/manual-pairing/` to be condensed and its thirteen unstarted tickets became eight.
+The first tickets had shown two things: a build came to between 1.3 and 1.8 times its estimate, so no two of them fitted one session; and each ticket cost a worktree, a full review and a whole-suite run whatever its size.
+
 ## Where parallel work is unsafe
 
 Eligibility is by blockers, not by waves: a ticket may start the moment its own blockers are integrated.
 
-- **The popup.** `.scratch/manual-pairing/issues/12-…` to `20-…` all carry `Touches: popup`, because they edit the same component, its state and its copy. `Blocked by:` already orders most of them; the tag closes the pairs it does not (14 with 18, 16 with 17, 18 with 19, 19 with 20).
-- **Not tagged, on purpose.** `04-…` and `09-…` both add to the pairing route, and several tickets add lines to the Roster's copy and to the refusal codes. These are additive and small, and serialising them would serialise two whole tracks. The integrator keeps both sides.
-- **Migrations.** Only `08-…`, `09-…` and `10-…` add them, and they are in one chain, so no two open branches pick the same timestamp. A future effort with parallel migrations needs a `Touches: migrations` tag.
+- **The popup.** It has two sides, and `.scratch/manual-pairing/issues/23-…` leaves each in a file of its own. A ticket carries `Touches: popup-disciple`, `Touches: popup-discipler`, or both, for the side it edits. That is what lets `24-…` (the Discipler's side) and `25-…` (the Disciple's side) be open together; `23-…` and `27-…` carry both tags, and `26-…` follows `24-…` on the Discipler's side. `12-…` carries the older `Touches: popup`, from when the popup was one file, and everything else waits on it through `Blocked by:`.
+- **Not tagged, on purpose.** `21-…` and `22-…` both add to the pairing route, and several tickets add lines to the Roster's copy, its rules, its styles and the refusal codes. These are additive and small, and serialising them would serialise two whole tracks. The integrator keeps both sides.
+- **Migrations.** After `08-…`, only `22-…` adds them, both of its stages on one branch, so no two open branches pick the same timestamp. `11-…` follows it. A future effort with parallel migrations needs a `Touches: migrations` tag.
 - **The machine.** 24 GB, one Supabase stack, and a history of out-of-memory kills. Two or three open worktrees; more buys nothing, because shared tests run one at a time anyway.
 
 ## The integration branch and `main`

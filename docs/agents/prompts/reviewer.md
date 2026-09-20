@@ -18,7 +18,7 @@ If you find yourself wanting to fix something, that is a finding; write it down.
 2. `scripts/agents/review-diff.sh {{TICKET_PATH}}`, then the diff itself, file by file: `git diff {{INTEGRATION_BRANCH}}...{{BRANCH}} -- <path>`.
 3. Only the surrounding code you need in order to judge a line of that diff.
    Do not tour the repository, and do not re-derive the architecture.
-   A target of about 40k tokens for the whole review; a review that needs far more is usually a sign the branch did more than its ticket.
+   A target of about 40k tokens for the whole review, or about 40k for each stage of a ticket that has a `## Stages` section; a review that needs far more is usually a sign the branch did more than its ticket.
 
 ## What you check
 
