@@ -145,7 +145,8 @@ describe('the Admin tabs answer in one read', () => {
 
     const members = await admin
       .from('relationship_member')
-      .select('person_id, relationship_id, role')
+      // Each membership's own acceptance rides along (Manual pairing, ticket 22).
+      .select('person_id, relationship_id, role, accepted_at')
       .eq('ministry_id', ministry.id)
       .is('ended_at', null)
     expect(asRows(roster.members)).toEqual(expect.arrayContaining(asRows(members.data)))

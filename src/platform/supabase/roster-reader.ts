@@ -33,6 +33,8 @@ interface MemberRow {
   person_id: string
   relationship_id: string
   role: MemberRole
+  /** A Leader's own agreement to lead. Null on a Participant, and on a Leader who has not yet. */
+  accepted_at: string | null
 }
 
 /**
@@ -195,6 +197,23 @@ export const rosterFrom = (doc: PageDocument): readonly RosterEntry[] => {
     return !accepted
   }
 
+  /**
+   * Whether this row's own Leader is still to accept, on a relationship that may
+   * already be running: a Discipler an Admin added to a group since it started
+   * (Manual pairing, ticket 22). Until then activation was the last Leader
+   * accepting, so a running relationship had no such Leader and the
+   * relationship's own date said everything.
+   *
+   * A document without the key is drift, thrown like the rest of it here: read as
+   * absent it would say *accepted* about somebody who has agreed to nothing.
+   */
+  const stillToAccept = (membership: MemberRow): boolean => {
+    if (membership.accepted_at === undefined) {
+      throw new Error('A Roster membership came back without its own acceptance')
+    }
+    return membership.role === 'leader' && membership.accepted_at === null
+  }
+
   // The pairings an import planned, still standing or refused and unresolved,
   // through their own function and its Admin test. Each lands on both rows,
   // from that row's side.
@@ -255,7 +274,8 @@ export const rosterFrom = (doc: PageDocument): readonly RosterEntry[] => {
       .map((membership) => ({
         relationshipId: relationshipId(membership.relationship_id),
         role: membership.role,
-        awaitingAcceptance: awaitingAcceptanceOf(membership.relationship_id),
+        awaitingAcceptance:
+          awaitingAcceptanceOf(membership.relationship_id) || stillToAccept(membership),
         withNames: [
           ...new Set(
             (byRelationship.get(membership.relationship_id) ?? []).flatMap((other) =>
