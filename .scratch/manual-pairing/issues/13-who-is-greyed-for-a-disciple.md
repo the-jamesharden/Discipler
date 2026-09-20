@@ -8,11 +8,15 @@ In code and migrations written for this ticket, say "Manual pairing, ticket NN",
 **What to build:** In the popup opened from a Disciple, a Discipler who could not be chosen is greyed with the reason on the row, instead of being offered and then refused.
 This ticket also sets down the greying rule as one tested piece the Discipler's side (tickets 14, 15, 17) reuses.
 
+**Replaced by:** `.scratch/manual-pairing/issues/23-who-is-greyed-and-the-disciplers-side.md`, stage 1, in the cut of 2026-09-20.
+Nothing is built from this file.
+It is kept, and not deleted with the other replaced tickets, only because ticket 12's branch edits it; delete it once ticket 12 is integrated.
+
 **Blocked by:** 12
 
 **Touches:** popup
 
-**Status:** ready-for-agent
+**Status:** wontfix
 
 **Budget:** ~100k of 250k tokens (reads 30, writes 25, test runs 15, browser check 10, gate 20).
 If the session passes 200k before the gate, stop and say so on this ticket rather than pressing on.

@@ -7,7 +7,7 @@ In code and migrations written for this ticket, say "Manual pairing, ticket NN",
 
 **What to build:** What the Invitation Link's page shows, records and sends when the leader accepting was added to a group that has already started.
 
-**Blocked by:** 10
+**Blocked by:** 22
 
 **Status:** ready-for-agent
 

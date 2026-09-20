@@ -36,3 +36,17 @@ The read that feeds the Intake form's group dropdown is not this one: that lists
 - [x] Another Ministry's groups never appear, and the read is reachable only as an Admin of the Ministry, as the rest of the document is.
 - [x] The Roster's own document is unchanged.
 - [x] Integration tests cover: a running group, a paused one, one awaiting acceptance, a 1:2, an ended one, one down to a single Disciple, an unnamed one, a mixed one, and two Ministries.
+
+## Comments
+
+### Orchestrator, 2026-09-20: what the implementing session cost
+
+Read from the session's transcript, as the context the session was carrying, which is what the 250k limit is a limit on.
+
+- Estimate on the **Budget** line: ~130k.
+- At the first commit, with the ticket built and not yet reviewed: 196k.
+- At its peak: 343k, because the same session went on to answer the review and the conversations with James, which `docs/agents/workflow.md` gives to a fresh fixer session.
+- The session stood at 51k before it had read the ticket: the system prompt, the tool and skill lists, `CLAUDE.md` and memory.
+
+Across tickets 03, 06 and 08 the build alone came to between 1.3 and 1.8 times the estimate.
+The tickets cut on 2026-09-20 (21 to 27) keep the old estimates per stage and say so beside them.

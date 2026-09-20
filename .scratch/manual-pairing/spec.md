@@ -184,19 +184,41 @@ These were read out of the schema, not assumed, and still hold.
 
 ## The tickets
 
-Numbered on from the shipped two, and re-cut on 2026-09-19 so that each fits one implementing session of 250k tokens.
-The files in `.scratch/manual-pairing/issues/` are the tickets; this table only says which part of this spec each group of them carries.
+Numbered on from the shipped two.
+Cut on 2026-09-19 into eighteen tickets, 03 to 20, so that each fitted one implementing session of 250k tokens.
+Cut again on 2026-09-20, once 03, 06, 07, 08 and 12 were built: the thirteen that had not started became eight, so that fewer reviews, worktrees and whole-suite runs stand between the effort and `main`.
+No session grew: a condensed ticket is built in **stages**, one fresh session each on the one branch, and reviewed once (`docs/agents/workflow.md`, *Tokens*).
+The files in `.scratch/manual-pairing/issues/` are the tickets; these tables only say which part of this spec each carries, and what may be open together.
 
 | Tickets | Part of this spec | Ships |
 | --- | --- | --- |
-| 03, 04, 05 | Separate 1:1 pairs in one submission, with a Material per Disciple | Invisible: the route learns the mode |
+| 03, 21 | Separate 1:1 pairs in one submission, with a Material per Disciple | Invisible: the route learns the mode |
 | 06, 07 | The Roster's three lists and quieter rows | The Roster |
-| 08, 09, 10, 11 | Joining an existing group | Invisible: two Admin commands and the groups on the Pair document |
-| 12 to 20 | The Pair popup, rewritten, and the old page retired | The popup |
+| 08, 22, 11 | Joining an existing group | Invisible: two Admin commands and the groups on the Pair document |
+| 12, 23 to 27 | The Pair popup, rewritten, and the old page retired | The popup |
 
-The first three groups are independent of each other.
-The popup lands last, on commands that already work, and its Discipler side is built unlinked until ticket 20, so nothing ships a dead control.
-Ticket 10, the co-leader half, is written against the current one-group limit and is not blocked on the several-leaders design.
+| Ticket | Replaces | Stages | Waits for |
+| --- | --- | --- | --- |
+| 21 - Separate one-to-ones, with a Material each | 04, 05 | 2 | 03 |
+| 22 - An Admin puts somebody into a group | 09, 10 | 2 | 08 |
+| 23 - Who is greyed, and the popup from a Discipler | 13, 14 | 2 | 12 |
+| 24 - Two ticked: the shapes and their Materials | 15, 16 | 2 | 21, 23 |
+| 25 - Groups in the popup, from a Disciple | 18 | 1 | 22, 23 |
+| 26 - The Group shape, and groups from a Discipler | 17, 19 | 2 | 22, 24, 25 |
+| 27 - The old Pair page retires | 20 | 1 | 24, 26 |
+| 11 - A co-leader accepts on a running group | itself | 1 | 22, and James's three answers |
+
+What may be open together:
+
+1. **21, 22 and 23.**
+   21 and 22 can start now; 23 starts when 12 is integrated.
+2. **24 and 25**, and 11 once it is answered.
+   Ticket 23 leaves each side of the popup in a file of its own, which is what lets 24 (`Touches: popup-discipler`) and 25 (`Touches: popup-disciple`) be open at once.
+3. **26.**
+4. **27.**
+
+The popup lands last, on commands that already work, and its Discipler side is built unlinked until ticket 27, so nothing ships a dead control.
+Ticket 22's second stage, the co-leader half, is written against the current one-group limit and is not blocked on the several-leaders design.
 
 ## Glossary changes
 
