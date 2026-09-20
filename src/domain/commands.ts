@@ -121,10 +121,10 @@ export type Command =
    * dead link sends them to a page telling them to find an Admin -- and escalates
    * to `relationship_unaccepted` instead. This is what an Admin does about it.
    *
-   * A live link is re-sent rather than replaced, for the reason `intake.reopen`
-   * gives: minting a second token stops the one already on their phone from
-   * working, and the commonest reason to ask is a Leader who lost the text rather
-   * than one holding a dead link.
+   * Every re-issue mints, and the link it replaces stops working: an Invitation
+   * Link authenticates by possession alone, so re-issuing is also how one sent to
+   * the wrong number is taken back. The reasoning, and what it costs a Leader who
+   * only lost the text, is at the command's case in `boundary.ts`.
    */
   | {
       readonly type: 'invitation.reissue'
