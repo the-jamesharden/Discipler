@@ -134,15 +134,16 @@ export const PAIR_POPUP = {
   /**
    * Why a row cannot be chosen, on the row and in one line (Manual pairing, ticket
    * 23). Somebody who cannot be paired reads what their Roster row already reads.
-   * The gender reason says what the one-to-one declares, in the mock's words, and
-   * never what anybody's own gender is.
+   * The gender reason says what the one-to-one declares and never what anybody's
+   * own gender is. It opens as the mock does and is cut to fit one line at phone
+   * width, which the mock's own sentence does not.
    */
   greyed: (greyed: Greyed): string =>
     greyed.why === 'already_in_a_one_to_one'
       ? `Already in a 1:1 with ${greyed.withName}`
       : greyed.why === 'not_pairable'
         ? CANNOT_BE_PAIRED[greyed.reason]
-        : `${greyed.declared === 'male' ? 'Men’s' : 'Women’s'} only: a one-on-one needs the same gender`,
+        : `${greyed.declared === 'male' ? 'Men’s' : 'Women’s'} only: a 1:1 is same-gender`,
 } as const
 
 /** The receipt the pairing screen redirects to, said about what just happened. */

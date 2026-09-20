@@ -299,11 +299,11 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Disciple', () =>
       await Promise.all([offersToMentor(rosa), offersToMentor(unasked)])
 
       const popup = popupIn((await popupAt('disciples', tom)).html)!
-      expectGreyed(popup, rosa, 'Men’s only: a one-on-one needs the same gender')
+      expectGreyed(popup, rosa, 'Men’s only: a 1:1 is same-gender')
       // Greyed is shown, not hidden, and she still reads as who she is.
       expect(optionFor(popup, rosa)).toContain('Rosa Delgado')
       expectGreyed(popup, unasked, 'Awaiting Intake')
-      expect(optionFor(popup, unasked)).not.toContain('same gender')
+      expect(optionFor(popup, unasked)).not.toContain('same-gender')
 
       // The greying removed no rule underneath: posted anyway, the database refuses
       // it as it always did, and the popup comes back with the reason. The choice is
@@ -317,7 +317,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Disciple', () =>
       })
       const refused = popupIn((await getPage(`${location.pathname}${location.search}`, cookie)).html)!
       expect(refused).toMatch(/role="alert"[^>]*>[^<]*gender/i)
-      expectGreyed(refused, rosa, 'Men’s only: a one-on-one needs the same gender')
+      expectGreyed(refused, rosa, 'Men’s only: a 1:1 is same-gender')
       expect(refused).not.toMatch(/checked=""/)
       expect(refused).not.toContain('in a one-on-one.')
       expect(refused).toMatch(/<button[^>]*type="submit"[^>]*>Pair<\/button>/)
