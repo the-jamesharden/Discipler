@@ -52,6 +52,7 @@ import type {
   OutstandingReplyClosure,
   OutstandingReplySweep,
   ParticipantDeparture,
+  NewLeaderMembership,
   NewParticipantMembership,
   GroupConfiguration,
   PersonOptIn,
@@ -353,6 +354,14 @@ export interface UnitOfWork {
    * triggers judge the same insert.
    */
   joinRelationship(membership: NewParticipantMembership): Promise<void>
+  /**
+   * Adds one Leader, with no Acceptance, to a group that already exists, and
+   * touches nothing else about it. Refuses with a `GroupJoinRefused` when they
+   * already lead an open group, and with a `PairingRefused` when the Intake gate,
+   * an opt-out or the group's declared gender refuses the membership, exactly as
+   * formation does: the same triggers and indexes judge the same insert.
+   */
+  addLeaderToGroup(membership: NewLeaderMembership): Promise<void>
   /** What an Admin called a group and whether joining it asks. */
   configureGroup(configuration: GroupConfiguration): Promise<void>
   /**
@@ -819,9 +828,12 @@ export interface RosterRelationship {
   /**
    * Derived from `relationship.accepted_at`, never stored as a status. It is the
    * absence of an acceptance rather than a state anybody sets, which is why it
-   * belongs on the relationship and not beside the Participation Status: it says
-   * nothing about the Person whose row it is on, and both sides of the same
-   * relationship read it the same way.
+   * belongs on the relationship and not beside the Participation Status.
+   *
+   * Both sides of a relationship read it the same way, with one exception: a
+   * Discipler an Admin added to a group that was already running (Manual
+   * pairing, ticket 22). The group is accepted and they have not, so it is true
+   * on their row, from their own membership, and false on everybody else's.
    */
   readonly awaitingAcceptance: boolean
 }

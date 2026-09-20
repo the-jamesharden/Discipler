@@ -256,6 +256,29 @@ export type Command =
       readonly addedBy: string
     }
   /**
+   * An Admin adding a Discipler to a group that already exists, as another Leader
+   * (Manual pairing, ticket 22). They gain an open leader membership with no
+   * Acceptance on it and are sent an Invitation Link, the same way a Leader is
+   * when first paired; nobody else is sent anything.
+   *
+   * The group is left in the state it was in. One that is running goes on
+   * running while they decide, and adding a Leader never moves it back to
+   * Awaiting Leader Acceptance; one still awaiting its Leader now waits for this
+   * one too, because activation is every open leader membership accepting.
+   *
+   * `leader_one_open_group` stands: how a Discipler leads more than one group is
+   * not designed, and this command lifts nothing.
+   */
+  | {
+      readonly type: 'group.add_leader'
+      readonly ministryId: MinistryId
+      /** As the form named it. Whether it is a group this Ministry holds is read inside the transaction. */
+      readonly relationshipId: RelationshipId
+      readonly personId: PersonId
+      /** The Admin's account, as the session named it. */
+      readonly addedBy: string
+    }
+  /**
    * An Admin cancelling a relationship nobody accepted. It ends every open
    * membership, which is the whole of *returning everyone to the suggestion pool*:
    * `participation_status` reads open participant memberships, so closing them is

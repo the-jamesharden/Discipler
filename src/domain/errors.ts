@@ -518,6 +518,16 @@ export type GroupJoinRefusal =
   | 'joining.person_not_found'
   /** Already in it, leading it or being discipled in it. */
   | 'joining.already_in_the_group'
+  /**
+   * A Discipler leads one group at a time, and this one already leads an open
+   * one. Decided by `leader_one_open_group`, which alone can see their other
+   * relationships, and translated where it is caught. A code of this act's own
+   * rather than the pairing's, because the sentence is about one named Person
+   * and not about a selection on a form.
+   */
+  | 'joining.already_leads_a_group'
+  /** The form said neither *as a Disciple* nor *as a leader*. Decided by the route. */
+  | 'joining.role_not_recognised'
 
 export class GroupJoinRefused extends Error {
   constructor(readonly refusal: GroupJoinRefusal) {

@@ -26,6 +26,7 @@ import type {
   DiscipleshipGoalRenaming,
   GroupConfiguration,
   IntakeRecord,
+  NewLeaderMembership,
   NewParticipantMembership,
   NewDiscipleshipGoal,
   LeaderAcceptance,
@@ -78,6 +79,7 @@ import {
   EndingRefused,
   FollowUpRefused,
   GoalRefused,
+  GroupJoinRefused,
   ImportRowResolutionRefused,
   IntakeRefused,
   InvitationRefused,
@@ -1604,7 +1606,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // out of the escalation entirely.
     const { rows: relationships } = await client.query<{
       id: string
-      created_at: Date
+      waiting_since: Date
       item_stands_open: boolean
     }>(
       // Open items only, which is the same rule the partial unique index holds and
@@ -1614,7 +1616,19 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       // that relationship permanently invisible to the surface that exists to stop
       // exactly that, and no later run would ever mention it again.
       `select r.id,
-              r.created_at,
+              -- The clock both thresholds run on. Formation, for a relationship
+              -- nobody has activated, so its Leaders share one. For one that was
+              -- running when a Leader was added to it (Manual pairing, ticket 22)
+              -- formation may be a year ago: it is when the earliest Leader still
+              -- to answer was added.
+              case when r.accepted_at is null then r.created_at
+                   else (select min(w.started_at)
+                           from relationship_member w
+                          where w.relationship_id = r.id
+                            and w.role = 'leader'
+                            and w.ended_at is null
+                            and w.accepted_at is null)
+               end as waiting_since,
               exists (
                 select 1 from follow_up_item f
                  where f.relationship_id = r.id
@@ -1622,7 +1636,17 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
                    and f.resolved_at is null
               ) as item_stands_open
          from relationship r
-        where r.accepted_at is null and r.ended_at is null
+        -- Still to be accepted by somebody: not activated, or running with a
+        -- Leader added since who has not answered. The second is what lets an
+        -- Admin send that Leader a new link, which re-issuing reads from here.
+        where r.ended_at is null
+          and (r.accepted_at is null
+               or exists (select 1
+                            from relationship_member w
+                           where w.relationship_id = r.id
+                             and w.role = 'leader'
+                             and w.ended_at is null
+                             and w.accepted_at is null))
         order by r.created_at`,
     )
 
@@ -1702,7 +1726,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
 
     return relationships.map((row) => ({
       relationshipId: relationshipId(row.id),
-      createdAt: row.created_at,
+      waitingSince: row.waiting_since,
       awaiting: awaitingBy.get(row.id) ?? [],
       itemStandsOpen: row.item_stands_open,
     }))
@@ -1816,6 +1840,37 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
         ],
       )
     } catch (error) {
+      throw asRefusal(error) ?? error
+    }
+  },
+
+  async addLeaderToGroup(membership: NewLeaderMembership) {
+    // One row, as a Leader, with no Acceptance on it, carrying the relationship's
+    // own kind for the reason a join does. Nothing else is written: the
+    // relationship's `accepted_at` is activation and stays what it was, so a
+    // running group goes on running while this Leader decides.
+    try {
+      await client.query(
+        `insert into relationship_member
+           (ministry_id, relationship_id, kind, person_id, role, started_at)
+         select $1, r.id, r.kind, $3, 'leader', $4
+           from relationship r
+          where r.id = $2`,
+        [
+          membership.ministryId,
+          membership.relationshipId,
+          membership.personId,
+          membership.startedAt,
+        ],
+      )
+    } catch (error) {
+      // The one cap this act says in its own words. Only the index can see the
+      // Person's other relationships, so this is where it is decided; what reaches
+      // the Admin is a sentence about one named Discipler, never a Postgres error
+      // and never the pairing form's sentence about a selection.
+      if (constraintViolated(error) === 'leader_one_open_group') {
+        throw new GroupJoinRefused('joining.already_leads_a_group')
+      }
       throw asRefusal(error) ?? error
     }
   },
@@ -2059,7 +2114,20 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     const { rows: led } = await client.query<CheckInRelationshipRow & { paused: boolean }>(
       `select r.id as relationship_id,
               r.created_at,
-              r.accepted_at,
+              -- Accepted, for this Leader: the relationship is running and they
+              -- have agreed to lead it. Until now the two were one fact, because
+              -- activation is the last Leader accepting. A Leader added to a group
+              -- that is already running (Manual pairing, ticket 22) is the first
+              -- for whom they are not: the group is accepted and they have not,
+              -- and what the check-in does with a relationship awaiting acceptance
+              -- -- not asked about, no silence accrued -- is what it does for them.
+              -- From the later of the two, which for a Leader there at formation
+              -- is activation, as it always was. Spelt out rather than left to
+              -- greatest(), which skips a null and would read a relationship still
+              -- awaiting its other Leader as accepted.
+              case when r.accepted_at is null or m.accepted_at is null then null
+                   else greatest(r.accepted_at, m.accepted_at)
+               end as accepted_at,
               r.name,
               -- Paused lives in history rather than in a column, like every
               -- other relationship state here.

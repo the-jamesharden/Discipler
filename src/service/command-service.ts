@@ -167,6 +167,9 @@ export const applyEffects = async (
   const joins = effects.flatMap((effect) =>
     effect.kind === 'relationship.join' ? [effect.membership] : [],
   )
+  const addedLeaders = effects.flatMap((effect) =>
+    effect.kind === 'relationship.add_leader' ? [effect.membership] : [],
+  )
   const groupConfigurations = effects.flatMap((effect) =>
     effect.kind === 'group.configure' ? [effect.configuration] : [],
   )
@@ -318,6 +321,9 @@ export const applyEffects = async (
   // trigger only once the submission and the consent it reads are on the rows.
   // Before the history saying they joined, like every other write here.
   for (const membership of joins) await unit.joinRelationship(membership)
+  // A refused membership rolls the invitation issued above back with it, like
+  // everything else in the transaction; nothing is sent for a Leader not added.
+  for (const membership of addedLeaders) await unit.addLeaderToGroup(membership)
   for (const configuration of groupConfigurations) await unit.configureGroup(configuration)
 
   // After the acceptance that stamps `accepted_at`, because that is the instant the
@@ -569,13 +575,15 @@ const isTokenDriven = (
   command.type === 'invitation.dispute_number'
 
 /**
- * The two commands whose messages call somebody by their role: pairing, which
- * texts each Leader an invitation to be somebody's Leader, and acceptance, which
- * tells both sides what they now are to each other. Everything else Discipler
- * sends names people and never roles.
+ * The commands whose messages call somebody by their role: pairing, which texts
+ * each Leader an invitation to be somebody's Leader, adding a Leader to a group,
+ * which texts them the same invitation, and acceptance, which tells both sides
+ * what they now are to each other. Everything else Discipler sends names people
+ * and never roles.
  */
 const namesARole = (command: Command): boolean =>
   command.type === 'relationship.create' ||
+  command.type === 'group.add_leader' ||
   command.type === 'relationship.accept' ||
   command.type === 'intended_pairing.fulfil'
 
@@ -707,7 +715,7 @@ const joinRequestContext = async (unit: UnitOfWork, itemId: FollowUpItemId) => {
  */
 const groupToAddTo = async (
   unit: UnitOfWork,
-  command: Extract<Command, { type: 'group.add_participant' }>,
+  command: Extract<Command, { type: 'group.add_participant' | 'group.add_leader' }>,
 ) => {
   const groupToJoin = await unit.groupToJoin(command.relationshipId)
   if (!groupToJoin) {
@@ -857,7 +865,7 @@ export const createCommandService = ({
         ...(command.type === 'relationship.admit'
           ? await joinRequestContext(unit, command.itemId)
           : {}),
-        ...(command.type === 'group.add_participant'
+        ...(command.type === 'group.add_participant' || command.type === 'group.add_leader'
           ? await groupToAddTo(unit, command)
           : {}),
         // Loaded so that asking for a link somebody already holds gives them that

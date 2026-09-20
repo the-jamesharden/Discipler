@@ -603,6 +603,28 @@ export const addMembership = async (args: {
    */
   acceptedAt?: Date
 }): Promise<string> => {
+  const startedAt = args.startedAt ?? new Date()
+
+  // A Leader on a relationship that is accepted has accepted it: activation is
+  // every open leader membership agreeing, so acceptance writes both, and a
+  // fixture that stamped only the relationship would seed a Leader no acceptance
+  // could have produced -- one the check-in now reads as not having agreed. Said
+  // once here, so every suite that seeds a running relationship gets a Leader who
+  // leads it. `acceptedAt` overrides it, and an ended membership is left alone.
+  let acceptedAt = args.acceptedAt
+  if (args.role === 'leader' && acceptedAt === undefined && args.endedAt === undefined) {
+    const { data: relationship, error: notRead } = await serviceRoleClient()
+      .from('relationship')
+      .select('accepted_at')
+      .eq('id', args.relationshipId)
+      .single()
+    if (notRead) throw new Error(`Could not read the relationship being led: ${notRead.message}`)
+    // No earlier than the membership starts, which the table requires.
+    if (relationship.accepted_at !== null) {
+      acceptedAt = new Date(Math.max(new Date(relationship.accepted_at).getTime(), startedAt.getTime()))
+    }
+  }
+
   const { data, error } = await serviceRoleClient()
     .from('relationship_member')
     .insert({
@@ -611,9 +633,9 @@ export const addMembership = async (args: {
       kind: args.kind,
       person_id: args.personId,
       role: args.role,
-      started_at: (args.startedAt ?? new Date()).toISOString(),
+      started_at: startedAt.toISOString(),
       ended_at: args.endedAt?.toISOString() ?? null,
-      accepted_at: args.acceptedAt?.toISOString() ?? null,
+      accepted_at: acceptedAt?.toISOString() ?? null,
     })
     .select('id')
     .single()

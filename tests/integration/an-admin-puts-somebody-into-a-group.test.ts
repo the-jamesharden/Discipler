@@ -2,8 +2,14 @@ import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { systemClock } from '~/domain/clock'
 import { GroupJoinRefused, PairingRefused } from '~/domain/errors'
-import { followUpItemId, personId, relationshipId, type IdSource } from '~/domain/ids'
+import {
+  followUpItemId,
+  personId,
+  relationshipId,
+  type IdSource,
+} from '~/domain/ids'
 import { GROUP_PATH } from '~/domain/intake'
+import { invitationToken } from '~/domain/invitations'
 import { groupJoinedMessage, leaderDashboardLink } from '~/domain/outbound-copy'
 import { createPostgresEffectStore } from '~/platform/supabase/effect-store'
 import { createCommandService } from '~/service/command-service'
@@ -16,6 +22,7 @@ import {
   optOut,
   pairOneToOne,
   pauseRelationship,
+  serviceRoleClient,
   type MinistryFixture,
 } from '../support/local-supabase'
 
@@ -385,6 +392,255 @@ describe('an Admin puts a Disciple into a group', () => {
       expect(await openMembership(group.id, request!.person_id)).toHaveLength(1)
       // Told once, when they joined, and not again when the request was closed.
       expect(await messagesTo(group.leader)).toHaveLength(1)
+    })
+  })
+
+  /**
+   * Stage 2: a Discipler added to a group as another leader. They are invited and
+   * the group does not wait for them, which makes it the first relationship that
+   * is accepted with a leader on it who has not.
+   */
+  describe('an Admin adds a Discipler to a group as another leader', () => {
+    const aDiscipler = (gender: Gender = 'male', inMinistry: MinistryFixture = ministry) =>
+      addPerson(inMinistry, named('Claire'), { phone: aTestPhoneNumber(), answers: { gender } })
+
+    const addLeader = (group: string, person: string) =>
+      service().execute({
+        type: 'group.add_leader',
+        ministryId: ministry.id,
+        relationshipId: relationshipId(group),
+        personId: personId(person),
+        addedBy: ministry.adminUserId,
+      })
+
+    const leading = async (group: string, person: string) => {
+      const { rows } = await pool.query<{ role: string; accepted: boolean }>(
+        `select role, accepted_at is not null as accepted from relationship_member
+          where relationship_id = $1 and person_id = $2 and ended_at is null`,
+        [group, person],
+      )
+      return rows
+    }
+
+    const liveInvitations = async (group: string, person: string) => {
+      const { rows } = await pool.query<{ token: string }>(
+        `select token from invitation
+          where relationship_id = $1 and person_id = $2 and consumed_at is null`,
+        [group, person],
+      )
+      return rows.map((row) => row.token)
+    }
+
+    const accept = async (group: string, person: string) => {
+      const [token] = await liveInvitations(group, person)
+      if (!token) throw new Error('no live invitation to accept on')
+      const { data, error } = await serviceRoleClient().auth.admin.createUser({
+        phone: aTestPhoneNumber(),
+        password: 'a-long-enough-password',
+        phone_confirm: true,
+      })
+      if (error) throw new Error(error.message)
+      return service().execute({
+        type: 'relationship.accept',
+        ministryId: ministry.id,
+        token: invitationToken(token),
+        fullName: 'As Given',
+        userId: data.user.id,
+      })
+    }
+
+    it('gives them an open leader membership with no Acceptance, and an invitation, and tells nobody else', async () => {
+      const group = await aGroup()
+      const claire = await aDiscipler()
+      const before = await theGroupItself(group.id)
+
+      await addLeader(group.id, claire)
+
+      expect(await leading(group.id, claire)).toEqual([{ role: 'leader', accepted: false }])
+
+      // The link, and the text that carries it, as a leader gets when first paired.
+      const [token, ...others] = await liveInvitations(group.id, claire)
+      expect(others).toEqual([])
+      const toClaire = await messagesTo(claire)
+      expect(toClaire).toHaveLength(1)
+      expect(toClaire[0]).toContain(`/invitation/${token}`)
+
+      // Nothing to the group's Disciples, and nothing to the leader it already has.
+      expect(await messagesTo(group.leader)).toEqual([])
+      for (const disciple of group.disciples) expect(await messagesTo(disciple)).toEqual([])
+
+      const { rows: events } = await pool.query<{ type: string; payload: unknown }>(
+        `select type, payload from ministry_event
+          where subject_id = $1 and type = 'relationship.leader_added'`,
+        [group.id],
+      )
+      expect(events).toEqual([
+        { type: 'relationship.leader_added', payload: { personId: claire, addedBy: ministry.adminUserId } },
+      ])
+
+      // The group keeps running: its activation, its Material and its name are
+      // what they were, and it has not gone back to awaiting acceptance.
+      const after = await theGroupItself(group.id)
+      expect(after).toEqual(before)
+      expect(after.accepted_at).not.toBeNull()
+    })
+
+    it('leaves a paused group paused', async () => {
+      const group = await aGroup()
+      await pauseRelationship(ministry, group.id)
+      const before = await theGroupItself(group.id)
+
+      await addLeader(group.id, await aDiscipler())
+
+      expect(await theGroupItself(group.id)).toEqual(before)
+    })
+
+    it('makes a group still awaiting its leader wait for this one too', async () => {
+      const first = await aDiscipler()
+      const claire = await aDiscipler()
+      const { effects } = await service().execute({
+        type: 'relationship.create',
+        ministryId: ministry.id,
+        leaderIds: [personId(first)],
+        participantIds: [personId(await aDisciple()), personId(await aDisciple())],
+        declaredGender: 'male',
+        name: named('Awaiting'),
+      })
+      const created = effects.find((effect) => effect.kind === 'relationship.create')
+      if (created?.kind !== 'relationship.create') throw new Error('no group was formed')
+      const group = created.relationship.id
+
+      await addLeader(group, claire)
+      await accept(group, first)
+      // Every open leader membership carries an Acceptance, or it does not activate.
+      expect((await theGroupItself(group)).accepted_at).toBeNull()
+
+      await accept(group, claire)
+      expect((await theGroupItself(group)).accepted_at).not.toBeNull()
+    })
+
+    it('asks them nothing about the group until they accept, and goes on asking the leader who has', async () => {
+      const group = await aGroup()
+      const claire = await aDiscipler()
+      await addLeader(group.id, claire)
+
+      const leads = async (person: string) => {
+        const snapshot = await store.transact(ministry.id, (unit) => unit.checkInFor(personId(person)))
+        return snapshot?.leads.map((led) => ({ id: led.relationshipId, accepted: led.acceptedAt !== null }))
+      }
+
+      // Awaiting acceptance, for her: not asked about, and no silence accrues.
+      expect(await leads(claire)).toEqual([{ id: group.id, accepted: false }])
+      expect(await leads(group.leader)).toEqual([{ id: group.id, accepted: true }])
+    })
+
+    it('lets an Admin send them the link again, as for a leader invited at formation', async () => {
+      const group = await aGroup()
+      const claire = await aDiscipler()
+      await addLeader(group.id, claire)
+      const [token] = await liveInvitations(group.id, claire)
+
+      await service().execute({
+        type: 'invitation.reissue',
+        ministryId: ministry.id,
+        relationshipId: relationshipId(group.id),
+        personId: personId(claire),
+      })
+
+      // As at formation, every re-issue mints: the new text carries a new link, and
+      // the one it replaces stops opening the door.
+      const [reissued, ...others] = await liveInvitations(group.id, claire)
+      expect(others).toEqual([])
+      expect(reissued).not.toBe(token)
+      const toClaire = await messagesTo(claire)
+      expect(toClaire).toHaveLength(2)
+      expect(toClaire[1]).toContain(`/invitation/${reissued}`)
+    })
+
+    it('cancels their membership with the group, when the group nobody accepted is cancelled', async () => {
+      const group = await aGroup({ accepted: false })
+      const claire = await aDiscipler()
+      await addLeader(group.id, claire)
+
+      await service().execute({
+        type: 'relationship.cancel',
+        ministryId: ministry.id,
+        relationshipId: relationshipId(group.id),
+        cancelledBy: ministry.adminUserId,
+      })
+
+      expect(await leading(group.id, claire)).toEqual([])
+      expect((await theGroupItself(group.id)).ended_at).not.toBeNull()
+    })
+
+    describe('what it refuses', () => {
+      it('a Discipler who already leads an open group, in words of its own and never a database error', async () => {
+        const theirs = await aGroup()
+        const another = await aGroup()
+
+        expect(await refusalOf(addLeader(another.id, theirs.leader))).toBe('joining.already_leads_a_group')
+        // Refused whole: no membership, no link, no text.
+        expect(await leading(another.id, theirs.leader)).toEqual([])
+        expect(await liveInvitations(another.id, theirs.leader)).toEqual([])
+        expect(await messagesTo(theirs.leader)).toEqual([])
+      })
+
+      it('nobody for leading two one-to-ones and no group', async () => {
+        const claire = await aDiscipler()
+        await pairOneToOne(ministry, claire, await aDisciple())
+        await pairOneToOne(ministry, claire, await aDisciple())
+        const group = await aGroup()
+
+        await addLeader(group.id, claire)
+
+        expect(await leading(group.id, claire)).toEqual([{ role: 'leader', accepted: false }])
+      })
+
+      it('a woman a men’s group, and takes her for a mixed one', async () => {
+        const mens = await aGroup({ declaredGender: 'male' })
+        const mixed = await aGroup({ declaredGender: null })
+        const claire = await aDiscipler('female')
+
+        expect(await refusalOf(addLeader(mens.id, claire))).toBe(
+          'relationship.gender_does_not_match_the_declaration',
+        )
+        await addLeader(mixed.id, claire)
+        expect(await leading(mixed.id, claire)).toHaveLength(1)
+      })
+
+      it('somebody with no gender on file by the readiness rule, and somebody who has opted out', async () => {
+        const mens = await aGroup({ declaredGender: 'male' })
+        const unasked = await addPerson(ministry, named('Una'), { intake: false })
+        const gone = await aDiscipler()
+        await optOut(ministry, gone)
+
+        expect(await refusalOf(addLeader(mens.id, unasked))).toBe(
+          'relationship.leader_has_not_completed_intake',
+        )
+        expect(await refusalOf(addLeader(mens.id, gone))).toBe('relationship.leader_has_opted_out')
+      })
+
+      it('an ended group, a one-to-one, and a Person already in the group in either role', async () => {
+        const ended = await aGroup()
+        await service().execute({
+          type: 'relationship.end',
+          ministryId: ministry.id,
+          relationshipId: relationshipId(ended.id),
+          reason: 'They stopped meeting.',
+          outcome: 'discontinued',
+          endedBy: ministry.adminUserId,
+        })
+        const oneToOne = await pairOneToOne(ministry, await aDiscipler(), await aDisciple())
+        const group = await aGroup()
+        const claire = await aDiscipler()
+
+        expect(await refusalOf(addLeader(ended.id, claire))).toBe('joining.group_has_ended')
+        expect(await refusalOf(addLeader(oneToOne, claire))).toBe('joining.not_a_group')
+        expect(await refusalOf(addLeader(group.id, group.leader))).toBe('joining.already_in_the_group')
+        expect(await refusalOf(addLeader(group.id, group.disciples[0]!))).toBe(
+          'joining.already_in_the_group',
+        )
+      })
     })
   })
 })

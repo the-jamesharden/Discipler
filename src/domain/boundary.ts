@@ -26,6 +26,7 @@ import {
   configureGroup,
   createMaterial,
   editMaterial,
+  addLeader,
   joinRelationship,
   closeOutstandingReply,
   enqueueMessage,
@@ -505,8 +506,15 @@ export interface IntakeLinkSnapshot {
 
 export interface UnacceptedRelationship {
   readonly relationshipId: RelationshipId
-  /** Both thresholds are measured from here, never from when a Leader was invited. */
-  readonly createdAt: Date
+  /**
+   * Both thresholds are measured from here. For a relationship nobody has
+   * activated it is when the relationship was formed, never when any one Leader
+   * was invited, so its Leaders share one clock. For one that was already
+   * running when a Leader was added to it (Manual pairing, ticket 22), formation
+   * may be a year ago and means nothing: it is when the earliest Leader still to
+   * answer was added.
+   */
+  readonly waitingSince: Date
   readonly awaiting: readonly AwaitingLeader[]
   /**
    * Whether a `relationship_unaccepted` item about it is *open* right now. The
@@ -866,6 +874,38 @@ const tellTheLeadersSomebodyJoined = (
         kind: 'no_reply',
       }),
     )
+}
+
+/**
+ * What putting somebody into a group that already exists decides from, in either
+ * role (Manual pairing, ticket 22): the group, open, and a Person this Ministry
+ * holds who is not already in it.
+ *
+ * The service refuses an id that names no group of this Ministry, and one that
+ * names a one-to-one, before anything reaches here: telling those two apart
+ * takes a second read, and only it can make one.
+ */
+const theGroupAndWhoIsAdded = (
+  context: CommandContext,
+  command: { readonly type: string; readonly personId: PersonId },
+): { readonly group: RelationshipSnapshot; readonly person: PersonContact } => {
+  const group = context.groupToJoin
+  if (!group) throw new Error(`${command.type} was handed no group to add to`)
+  if (group.endedAt !== null) throw new GroupJoinRefused('joining.group_has_ended')
+
+  // Read on the connection acting for this Ministry, so a Person of another
+  // Ministry's is missing here rather than merely unmatched.
+  const person = context.contacts?.people.get(command.personId)
+  if (!person) throw new GroupJoinRefused('joining.person_not_found')
+
+  // In either role. Somebody leading the group is not made a Disciple of it, nor
+  // a Disciple of it its Leader, and the database's one-open-membership rule
+  // would refuse them anyway, in the pairing's words rather than in these.
+  if (group.members.some((member) => member.personId === command.personId)) {
+    throw new GroupJoinRefused('joining.already_in_the_group')
+  }
+
+  return { group, person }
 }
 
 /**
@@ -2254,39 +2294,56 @@ const formRelationship = (
   ]
 
   for (const leaderId of leaderIds) {
-    const leader = whoIs(context, leaderId)
-
-    // Individualised: one token per Leader, so a co-leader's link is not a way
-    // into anybody else's acceptance.
-    const invitation = issueInvitation({
-      ministryId: forming.ministryId,
-      relationshipId: relationship.id,
-      personId: leaderId,
-      token: invitationToken(context.ids.next()),
-      at: now,
-    })
-
-    effects.push(
-      issueInvitationLink(invitation),
-      enqueueMessage({
-        ministryId: forming.ministryId,
-        personId: leaderId,
-        toPhone: leader.phone,
-        body: invitationMessage({
-          ministryName,
-          fullName: leader.fullName,
-          leaderNoun: theWordFor(context).leaderNoun,
-          link: invitationLink(baseUrl, invitation.token),
-        }),
-        enqueuedAt: now,
-        // No message to a Leader contains a phone number.
-        disclosesPersonId: null,
-        kind: 'no_reply',
-      }),
-    )
+    effects.push(...inviteToLead(context, forming.ministryId, relationship.id, leaderId, now))
   }
 
   return { relationship, effects }
+}
+
+/**
+ * One Leader's Invitation Link, issued and texted to them. Written once, so a
+ * Leader added to a group that already exists is invited by the same link and the
+ * same words as one invited when it was formed (Manual pairing, ticket 22).
+ */
+const inviteToLead = (
+  context: CommandContext,
+  ministry: MinistryId,
+  relationship: RelationshipId,
+  leaderId: PersonId,
+  now: Date,
+): readonly Effect[] => {
+  const ministryName = context.ministryName
+  if (!ministryName) throw new Error('An invitation was handed no Ministry to speak for')
+  const leader = whoIs(context, leaderId)
+
+  // Individualised: one token per Leader, so a co-leader's link is not a way
+  // into anybody else's acceptance.
+  const invitation = issueInvitation({
+    ministryId: ministry,
+    relationshipId: relationship,
+    personId: leaderId,
+    token: invitationToken(context.ids.next()),
+    at: now,
+  })
+
+  return [
+    issueInvitationLink(invitation),
+    enqueueMessage({
+      ministryId: ministry,
+      personId: leaderId,
+      toPhone: leader.phone,
+      body: invitationMessage({
+        ministryName,
+        fullName: leader.fullName,
+        leaderNoun: theWordFor(context).leaderNoun,
+        link: invitationLink(theHost(context), invitation.token),
+      }),
+      enqueuedAt: now,
+      // No message to a Leader contains a phone number.
+      disclosesPersonId: null,
+      kind: 'no_reply',
+    }),
+  ]
 }
 
 /**
@@ -2416,11 +2473,10 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       }
 
       for (const relationship of unaccepted) {
-        // From creation, not from when any one Leader was invited. Nothing adds a
-        // member to a relationship after it is formed, so the two are the same
-        // instant today; measuring from the relationship is what keeps them the
-        // same when something does.
-        const waited = now.getTime() - relationship.createdAt.getTime()
+        // One clock per relationship, not one per Leader: from formation while
+        // nobody has activated it, and from when a Leader was added for one that
+        // was already running. Which of the two is the read's to say.
+        const waited = now.getTime() - relationship.waitingSince.getTime()
 
         // One reminder each, and only to the Leaders who have not agreed yet. A
         // co-leader who accepted on day one is not chased for somebody else.
@@ -2487,7 +2543,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
               // How long it had waited when it was raised. What the Admin is shown
               // is read live off `created_at`, because this number is true of the
               // moment it was written and stops being true the next day.
-              payload: { waitedDays: daysSince(relationship.createdAt, now) },
+              payload: { waitedDays: daysSince(relationship.waitingSince, now) },
             }),
           )
         }
@@ -3292,7 +3348,12 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       const pause = relationship.pause
       if (!pause) throw new PauseRefused('pause.not_paused')
 
-      const leaders = relationship.members.filter((member) => member.role === 'leader')
+      // The Leaders who lead it: a Leader added to the group since, who has not
+      // accepted, is told nothing but their invitation, and is not yet somebody the
+      // Participants are meeting with (Manual pairing, ticket 22).
+      const leaders = relationship.members.filter(
+        (member) => member.role === 'leader' && member.acceptedAt !== null,
+      )
       const participants = relationship.members.filter(
         (member) => member.role === 'participant',
       )
@@ -3333,7 +3394,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           //
           // Each side is told the other side's names, like the Starter Message,
           // and neither carries a number.
-          ...relationship.members.map((member) =>
+          ...[...leaders, ...participants].map((member) =>
             enqueueMessage({
               ministryId: command.ministryId,
               personId: member.personId,
@@ -3450,24 +3511,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
     }
 
     case 'group.add_participant': {
-      // The service refuses an id that names no group of this Ministry, and one
-      // that names a one-to-one, before anything reaches here: telling those two
-      // apart takes a second read, and only it can make one.
-      const group = context.groupToJoin
-      if (!group) throw new Error('group.add_participant was handed no group to add to')
-      if (group.endedAt !== null) throw new GroupJoinRefused('joining.group_has_ended')
-
-      // Read on the connection acting for this Ministry, so a Person of another
-      // Ministry's is missing here rather than merely unmatched.
-      const joiner = context.contacts?.people.get(command.personId)
-      if (!joiner) throw new GroupJoinRefused('joining.person_not_found')
-
-      // In either role. Somebody leading the group is not made a Disciple of it,
-      // and the database's one-open-membership rule would refuse them anyway, in
-      // the pairing's words rather than in these.
-      if (group.members.some((member) => member.personId === command.personId)) {
-        throw new GroupJoinRefused('joining.already_in_the_group')
-      }
+      const { group, person: joiner } = theGroupAndWhoIsAdded(context, command)
 
       // Nothing else is decided here. Intake completed, not opted out and the
       // group's declared gender are refused by the insert, by the triggers that
@@ -3495,6 +3539,44 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             payload: { personId: command.personId, addedBy: command.addedBy },
           }),
           ...tellTheLeadersSomebodyJoined(context, group, joiner.fullName, now),
+        ],
+      }
+    }
+
+    case 'group.add_leader': {
+      const { group } = theGroupAndWhoIsAdded(context, command)
+
+      // Whether they already lead an open group is not decided here, because
+      // nothing this command read can see their other relationships:
+      // `leader_one_open_group` refuses the insert, and the store says so in this
+      // act's own code. Intake completed, not opted out and the group's declared
+      // gender are refused by the same insert, as they are at formation.
+      //
+      // The relationship's own row is not touched. A running group stays running
+      // and a paused one paused; one still awaiting its Leader waits for this one
+      // too, because activation is every open leader membership accepting.
+      const now = context.clock.now()
+      return {
+        rejections: [],
+        effects: [
+          addLeader({
+            ministryId: command.ministryId,
+            relationshipId: group.relationshipId,
+            personId: command.personId,
+            startedAt: now,
+          }),
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'relationship.leader_added',
+            subjectType: 'relationship',
+            subjectId: group.relationshipId,
+            payload: { personId: command.personId, addedBy: command.addedBy },
+          }),
+          // The invitation, and nothing to anybody else: not the group's Disciples,
+          // and not its existing Leaders, who are told by hand if they are told
+          // (decided by James on 2026-09-20, Manual pairing, ticket 11).
+          ...inviteToLead(context, command.ministryId, group.relationshipId, command.personId, now),
         ],
       }
     }
