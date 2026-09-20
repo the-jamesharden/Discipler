@@ -75,9 +75,15 @@ It does not say where it goes when the cell already lists a pairing or a plan, a
 The chip used to say *Opted Out* on that row, and `tests/integration/the-roster-row-over-http.test.ts` pinned that an Admin can read it there.
 
 I read the ticket's main clause, *a row that cannot be paired says why in its Paired with cell*, as covering it.
-The reason sits after the lines, where Pair would have been, so every Paired with cell ends in either Pair or the reason there is none.
-One consequence to look at in review: somebody imported into a plan reads *{name} planned - awaiting Intake* and then **Awaiting Intake**.
-The first is about the plan and may be waiting on the other person; the second is about this person.
+The reason sits after the lines, where Pair would have been.
+
+The first review (d131148, CHANGES REQUIRED) accepted that for a pairing, *Uche Nwosu 1:1* and then **Opted out**.
+It refused it for a plan, where the row read *Taylor Brooks planned - awaiting Intake* and then **Awaiting Intake**: the same words twice, on every pair an import brings in, and a reading the ticket does not reach.
+
+James decided it on 2026-09-19: drop the repeat only.
+A row whose plan line already ends in *awaiting Intake* does not say **Awaiting Intake** after it, and still offers no Pair.
+Every other reason stays, because it says something the lines do not: **Opted out** beside a pairing or a plan, and **Awaiting Intake** beside a plan that was refused (*not made - see Follow-Up*).
+`reasonOnRow` in `app/roster/lists.ts` is that rule, and `whyNotPairable` still decides the button.
 
 ### Implementer, 2026-09-19: what stayed, on purpose
 
