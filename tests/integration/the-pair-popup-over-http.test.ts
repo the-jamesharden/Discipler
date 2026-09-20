@@ -1,6 +1,6 @@
 import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app'
+import { getPage, signIn, skipUnlessAppIsRunning } from '../support/app'
 import {
   addPerson,
   createMinistryWithAdmin,
@@ -9,6 +9,18 @@ import {
   pairOneToOne,
   type MinistryFixture,
 } from '../support/local-supabase'
+import {
+  currentList,
+  expectGreyed,
+  expectOpen,
+  freshPhoneNumbers,
+  hiddenIn,
+  offeredAs,
+  offersToMentor as recordMentorOffer,
+  popupIn,
+  postPairing,
+  rowFor,
+} from '../support/pair-popup'
 
 /**
  * The Pair popup over the Roster, opened from a Disciple's row (Manual pairing,
@@ -37,64 +49,18 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Disciple', () =>
     await pool.end()
   })
 
-  let numbered = 0
-  const number = () =>
-    `+1${String((Date.now() % 1_000_000) * 1_000 + ++numbered).padStart(10, '0')}`
+  const number = freshPhoneNumbers()
 
-  /** What answering Mentor on the Intake form records: the fact that makes a Discipler of somebody who leads nobody. */
-  const offersToMentor = (personId: string, of: MinistryFixture = ministry) =>
-    pool.query(
-      `insert into consent_record
-         (ministry_id, person_id, consent, granted, version, source, decided_at, intake_path, declared_side)
-       values ($1, $2, 'sms', true, '2026-09-v1', 'pastor_link', now(), 'discipleship', 'mentor')`,
-      [of.id, personId],
-    )
+  const offersToMentor = (personId: string, inMinistry: MinistryFixture = ministry) =>
+    recordMentorOffer(pool, inMinistry, personId)
 
   const popupAt = (list: string, personId: string, more: Record<string, string> = {}) =>
     getPage(`/roster?${new URLSearchParams({ list, pair: personId, ...more })}`, cookie)
 
-  /** The popup's own markup and nothing of the Roster behind it, or null where there is none. */
-  const popupIn = (html: string): string | null =>
-    html.match(/<div[^>]*data-testid="pair-popup"[\s\S]*?<\/form>/)?.[0] ?? null
-
-  /** One Discipler's row in the popup: its label, from the round mark to the end of it. */
-  const optionFor = (popup: string, personId: string): string => {
-    const option = popup.split('<label').find((each) => each.includes(`value="${personId}"`))
-    expect(option, `no row in the popup for ${personId}`).toBeDefined()
-    return option!.split('</label>')[0]!
-  }
-
-  const attribute = (tag: string, name: string): string | undefined =>
-    tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1]
-
-  const inputsIn = (popup: string): readonly string[] => popup.match(/<input[^>]*>/g) ?? []
-
   /** Everybody the popup offers as the Discipler, by the value its round mark would post. */
-  const chosenFrom = (popup: string): readonly (string | undefined)[] =>
-    inputsIn(popup)
-      .filter((input) => attribute(input, 'name') === 'leaderId')
-      .map((input) => attribute(input, 'value'))
+  const chosenFrom = (popup: string) => offeredAs(popup, 'leaderId')
 
-  /** What the form posts without being asked: who the popup is for, the list behind it, and the Disciple. */
-  const hiddenIn = (popup: string): Record<string, string | undefined> =>
-    Object.fromEntries(
-      inputsIn(popup)
-        .filter((input) => attribute(input, 'type') === 'hidden')
-        .map((input) => [attribute(input, 'name'), attribute(input, 'value')]),
-    )
-
-  const currentList =(html: string): string | undefined =>
-    html.match(/<a[^>]*aria-current="true"[^>]*>([^<]*)<\/a>/)?.[1]
-
-  const submit = async (fields: Record<string, string>) => {
-    const response = await fetch(`${baseUrl}/roster/pair/create`, {
-      method: 'POST',
-      redirect: 'manual',
-      headers: { 'content-type': 'application/x-www-form-urlencoded', cookie },
-      body: new URLSearchParams(fields),
-    })
-    return new URL(response.headers.get('location') ?? '', baseUrl)
-  }
+  const submit = (fields: Record<string, string>) => postPairing(cookie, Object.entries(fields))
 
   it('is drawn over the list the Admin was on, and is not there without `pair`', async () => {
     const sam = await addPerson(ministry, 'Sam Lee', { phone: number() })
@@ -141,7 +107,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Disciple', () =>
     expect(popup).toContain('Pair Dana Whitfield')
     expect(popup).toContain('Choose who will disciple Dana Whitfield.')
 
-    const graceRow = optionFor(popup, grace)
+    const graceRow = rowFor(popup, grace)
     expect(graceRow).toMatch(/type="radio"[^>]*name="leaderId"|name="leaderId"[^>]*type="radio"/)
     expect(graceRow).toContain('GL')
     expect(graceRow).toContain('Grace Lee')
@@ -149,7 +115,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Disciple', () =>
     expect(graceRow).toContain('(706) 555-9638')
     expect(graceRow).toContain('leads 1')
 
-    const bareRow = optionFor(popup, bare)
+    const bareRow = rowFor(popup, bare)
     expect(bareRow).toContain('Noor Haddad')
     expect(bareRow).toContain('leads nobody yet')
     expect(bareRow).not.toContain(' · leads')
@@ -258,7 +224,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Disciple', () =>
     expect(popup).toContain('Pair Tom Wilson')
     expect(popup).toMatch(/role="alert"/)
     expect(popup).not.toContain('relationship.person_already_in_this_relationship')
-    expect(optionFor(popup, discipler)).toMatch(/checked=""/)
+    expect(rowFor(popup, discipler)).toMatch(/checked=""/)
     expect(popup.match(/checked=""/g)).toHaveLength(1)
     expect(popup).toContain('Rafael Delgado will disciple Tom Wilson in a one-on-one.')
     expect(popup).toMatch(/<button[^>]*type="submit"[^>]*>Create 1:1 pair<\/button>/)
@@ -274,23 +240,6 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Disciple', () =>
    * posts, and the database underneath still refuses what it refused before.
    */
   describe('who is greyed', () => {
-    /** A greyed row: shown, its round mark disabled, and its reason tied to it for a screen reader. */
-    const expectGreyed = (popup: string, personId: string, reason: string) => {
-      const row = optionFor(popup, personId)
-      const mark = row.match(/<input[^>]*>/)![0]
-      expect(mark, reason).toMatch(/\sdisabled=""/)
-      expect(mark, reason).not.toMatch(/\schecked=""/)
-      const described = attribute(mark, 'aria-describedby')
-      expect(described, reason).toBeDefined()
-      expect(row, reason).toMatch(new RegExp(`id="${described}"[^>]*>${reason}<`))
-    }
-
-    const expectOpen = (popup: string, personId: string) => {
-      const mark = optionFor(popup, personId).match(/<input[^>]*>/)![0]
-      expect(mark).not.toMatch(/\sdisabled=""/)
-      expect(mark).not.toContain('aria-describedby')
-    }
-
     it('greys a Discipler of another gender, never one with no gender on file for gender, and the database still refuses', async () => {
       const tom = await addPerson(ministry, 'Tom Wilson', { phone: number(), answers: { gender: 'male' } })
       const rosa = await addPerson(ministry, 'Rosa Delgado', { phone: number(), answers: { gender: 'female' } })
@@ -305,9 +254,9 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Disciple', () =>
       const popup = popupIn((await popupAt('disciples', tom)).html)!
       expectGreyed(popup, rosa, 'Men’s only: a 1:1 is same-gender')
       // Greyed is shown, not hidden, and she still reads as who she is.
-      expect(optionFor(popup, rosa)).toContain('Rosa Delgado')
+      expect(rowFor(popup, rosa)).toContain('Rosa Delgado')
       expectGreyed(popup, unasked, 'Awaiting Intake')
-      expect(optionFor(popup, unasked)).not.toContain('same-gender')
+      expect(rowFor(popup, unasked)).not.toContain('same-gender')
 
       // The greying removed no rule underneath: posted anyway, the database refuses
       // it as it always did, and the popup comes back with the reason. The choice is

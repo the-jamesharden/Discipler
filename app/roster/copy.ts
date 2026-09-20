@@ -119,6 +119,12 @@ export const CANNOT_BE_PAIRED: Record<NotPairable, string> = {
  * the same act; with nothing chosen there is no sentence and the button reads what
  * the row's did. Cancel and Clear are the import dialog's own words.
  */
+/** A group as a Disciple's row names it: what the Ministry calls it, and who leads it where nobody has named it. */
+export interface GroupOnARow {
+  readonly name: string | null
+  readonly leaders: readonly { readonly fullName: string }[]
+}
+
 export const PAIR_POPUP = {
   title: (fullName: string): string => `Pair ${fullName}`,
   chooseADiscipler: (disciple: string): string => `Choose who will disciple ${disciple}.`,
@@ -139,7 +145,7 @@ export const PAIR_POPUP = {
   chooseDisciples: (discipler: string): string => `Choose who ${discipler} will disciple.`,
   disciples: (count: number): string => (count === 1 ? '1 disciple' : `${count} disciples`),
   /** The group a Disciple is already in, on their row. One nobody has named is said by who leads it. */
-  inGroup: (group: { readonly name: string | null; readonly leaders: readonly { readonly fullName: string }[] }): string =>
+  inGroup: (group: GroupOnARow): string =>
     `in ${group.name ?? `${asList(group.leaders.map(({ fullName }) => fullName))}’s group`}`,
   /** Two or more ticked has no shape to become yet; the toggle that chooses one replaces this line. */
   shapeIsComing: 'Pairing two or more at once is coming. Tick one for now.',
@@ -153,7 +159,9 @@ export const PAIR_POPUP = {
    */
   greyed: (greyed: Greyed): string =>
     greyed.why === 'already_in_a_one_to_one'
-      ? `Already in a 1:1 with ${greyed.withName}`
+      ? greyed.withName === null
+        ? 'Already in a 1:1'
+        : `Already in a 1:1 with ${greyed.withName}`
       : greyed.why === 'not_pairable'
         ? CANNOT_BE_PAIRED[greyed.reason]
         : `${greyed.declared === 'male' ? 'Men’s' : 'Women’s'} only: a 1:1 is same-gender`,

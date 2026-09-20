@@ -85,15 +85,15 @@ describe('a candidate against a declaration', () => {
 
 describe('what a one-to-one declares', () => {
   it('is the gender of the person it was opened from, while the Ministry enforces the match', () => {
-    expect(declaredByAOneToOne({ enforced: true, openedFrom: person({ gender: 'female' }) })).toBe('female')
+    expect(declaredByAOneToOne({ genderMatchEnforced: true, openedFrom: person({ gender: 'female' }) })).toBe('female')
   })
 
   it('is nothing where the Ministry does not enforce the match', () => {
-    expect(declaredByAOneToOne({ enforced: false, openedFrom: person({ gender: 'female' }) })).toBe('none')
+    expect(declaredByAOneToOne({ genderMatchEnforced: false, openedFrom: person({ gender: 'female' }) })).toBe('none')
   })
 
   it('is nothing where the person it was opened from has no gender on file', () => {
-    expect(declaredByAOneToOne({ enforced: true, openedFrom: person({ gender: null }) })).toBe('none')
+    expect(declaredByAOneToOne({ genderMatchEnforced: true, openedFrom: person({ gender: null }) })).toBe('none')
   })
 })
 
@@ -102,15 +102,15 @@ describe('a Discipler in the popup opened from a Disciple', () => {
 
   it('is greyed for gender in a Ministry that enforces the match, and open in one that does not', () => {
     const claire = person({ gender: 'female' })
-    expect(greyedForADisciple({ enforced: true, disciple: sam, discipler: claire })).toEqual({
+    expect(greyedForADisciple({ genderMatchEnforced: true, disciple: sam, discipler: claire })).toEqual({
       why: 'gender',
       declared: 'male',
     })
-    expect(greyedForADisciple({ enforced: false, disciple: sam, discipler: claire })).toBeNull()
+    expect(greyedForADisciple({ genderMatchEnforced: false, disciple: sam, discipler: claire })).toBeNull()
   })
 
   it('is open with no gender on file', () => {
-    expect(greyedForADisciple({ enforced: true, disciple: sam, discipler: person() })).toBeNull()
+    expect(greyedForADisciple({ genderMatchEnforced: true, disciple: sam, discipler: person() })).toBeNull()
   })
 
   it('is greyed, every one of them, when the Disciple is already in a one-to-one', () => {
@@ -119,8 +119,18 @@ describe('a Discipler in the popup opened from a Disciple', () => {
       relationships: [pairing('participant', { leaderNames: ['David Chen'], participantCount: 1 })],
     })
     const already = { why: 'already_in_a_one_to_one', withName: 'David Chen' }
-    expect(greyedForADisciple({ enforced: true, disciple: paired, discipler: person({ gender: 'male' }) })).toEqual(already)
-    expect(greyedForADisciple({ enforced: false, disciple: paired, discipler: person({ gender: 'female' }) })).toEqual(already)
+    expect(greyedForADisciple({ genderMatchEnforced: true, disciple: paired, discipler: person({ gender: 'male' }) })).toEqual(already)
+    expect(greyedForADisciple({ genderMatchEnforced: false, disciple: paired, discipler: person({ gender: 'female' }) })).toEqual(already)
+  })
+
+  it('is greyed all the same when the one-to-one names nobody leading it', () => {
+    // The database counts the one-to-one whoever leads it, so a row left open for
+    // want of a name would be offered and then refused.
+    const paired = person({ relationships: [pairing('participant', { leaderNames: [], participantCount: 1 })] })
+    expect(greyedForADisciple({ genderMatchEnforced: true, disciple: paired, discipler: person() })).toEqual({
+      why: 'already_in_a_one_to_one',
+      withName: null,
+    })
   })
 
   it('is not greyed because the Disciple is in a group, or leads a one-to-one of their own', () => {
@@ -131,7 +141,7 @@ describe('a Discipler in the popup opened from a Disciple', () => {
         pairing('leader', { participantNames: ['Noah Kim'], participantCount: 1 }),
       ],
     })
-    expect(greyedForADisciple({ enforced: true, disciple: inAGroup, discipler: person({ gender: 'male' }) })).toBeNull()
+    expect(greyedForADisciple({ genderMatchEnforced: true, disciple: inAGroup, discipler: person({ gender: 'male' }) })).toBeNull()
   })
 })
 
@@ -143,7 +153,7 @@ describe('a Disciple in the popup opened from a Discipler', () => {
       gender: 'female',
       relationships: [pairing('participant', { leaderNames: ['David Chen'], participantCount: 1 })],
     })
-    expect(greyedForADiscipler({ enforced: true, discipler: claire, disciple: brianna })).toEqual({
+    expect(greyedForADiscipler({ genderMatchEnforced: true, discipler: claire, disciple: brianna })).toEqual({
       why: 'already_in_a_one_to_one',
       withName: 'David Chen',
     })
@@ -154,22 +164,22 @@ describe('a Disciple in the popup opened from a Discipler', () => {
       gender: 'female',
       relationships: [pairing('participant', { leaderNames: ['Grace Lee'], participantCount: 3 })],
     })
-    expect(greyedForADiscipler({ enforced: true, discipler: claire, disciple: rosa })).toBeNull()
+    expect(greyedForADiscipler({ genderMatchEnforced: true, discipler: claire, disciple: rosa })).toBeNull()
   })
 
   it('is greyed for gender against what the one-to-one declares, the Discipler’s gender', () => {
     const tom = person({ gender: 'male' })
-    expect(greyedForADiscipler({ enforced: true, discipler: claire, disciple: tom })).toEqual({
+    expect(greyedForADiscipler({ genderMatchEnforced: true, discipler: claire, disciple: tom })).toEqual({
       why: 'gender',
       declared: 'female',
     })
-    expect(greyedForADiscipler({ enforced: false, discipler: claire, disciple: tom })).toBeNull()
+    expect(greyedForADiscipler({ genderMatchEnforced: false, discipler: claire, disciple: tom })).toBeNull()
   })
 
   it('is never greyed with no gender on file, and nobody is when the Discipler has none', () => {
-    expect(greyedForADiscipler({ enforced: true, discipler: claire, disciple: person() })).toBeNull()
+    expect(greyedForADiscipler({ genderMatchEnforced: true, discipler: claire, disciple: person() })).toBeNull()
     expect(
-      greyedForADiscipler({ enforced: true, discipler: person(), disciple: person({ gender: 'male' }) }),
+      greyedForADiscipler({ genderMatchEnforced: true, discipler: person(), disciple: person({ gender: 'male' }) }),
     ).toBeNull()
   })
 })

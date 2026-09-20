@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { displayPhone, firstTimeLabel, PAIR_POPUP, type RosterList } from './copy'
+import { displayPhone, firstTimeLabel, PAIR_POPUP, type GroupOnARow, type RosterList } from './copy'
 import { CLEAR } from './import-copy'
 import { PairList, PairPopupShell, PairRow, useHydrated } from './pair-popup'
 
@@ -29,7 +29,7 @@ export interface PairPopupDisciple {
   /** What they said about whether this is their first time, or null where nobody asked. Ranks and filters nobody. */
   readonly firstTime: boolean | null
   /** The groups they are already in, which hides nobody and greys nobody. */
-  readonly groups: readonly { readonly name: string | null; readonly leaders: readonly { readonly fullName: string }[] }[]
+  readonly groups: readonly GroupOnARow[]
   /** Why they cannot be ticked, already in words, or null where they can. */
   readonly greyed: string | null
 }
@@ -56,7 +56,7 @@ export const PairPopupFromADiscipler = ({
   )
   const hydrated = useHydrated()
   const ticked = disciples.filter((each) => tickedIds.includes(each.id))
-  const only = ticked.length === 1 ? ticked[0]! : null
+  const onlyTicked = ticked.length === 1 ? ticked[0]! : null
 
   return (
     <PairPopupShell
@@ -64,9 +64,9 @@ export const PairPopupFromADiscipler = ({
       list={list}
       refusal={refusal}
       posts={{ leaderId: person.id }}
-      summary={only ? PAIR_POPUP.oneToOne(person.fullName, only.fullName) : null}
+      summary={onlyTicked ? PAIR_POPUP.oneToOne(person.fullName, onlyTicked.fullName) : null}
       submit={{
-        label: only ? PAIR_POPUP.createOneToOne : PAIR_POPUP.nothingChosen,
+        label: onlyTicked ? PAIR_POPUP.createOneToOne : PAIR_POPUP.nothingChosen,
         // Two or more is disabled as the server sends it: there is nothing yet for
         // that post to become. Nothing ticked is disabled only where script runs,
         // so an Admin without it can still tick one and post.

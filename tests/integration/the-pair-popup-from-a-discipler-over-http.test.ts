@@ -1,6 +1,6 @@
 import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app'
+import { getPage, signIn, skipUnlessAppIsRunning } from '../support/app'
 import {
   addPerson,
   createMinistryWithAdmin,
@@ -10,6 +10,18 @@ import {
   pairOneToOne,
   type MinistryFixture,
 } from '../support/local-supabase'
+import {
+  currentList,
+  expectGreyed,
+  expectOpen,
+  freshPhoneNumbers,
+  hiddenIn,
+  offeredAs,
+  offersToMentor as recordMentorOffer,
+  popupIn,
+  postPairing,
+  rowFor,
+} from '../support/pair-popup'
 
 /**
  * The Pair popup over the Roster, opened as a Discipler (Manual pairing, ticket
@@ -77,73 +89,18 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     await pool.end()
   })
 
-  let numbered = 0
-  const number = () =>
-    `+1${String((Date.now() % 1_000_000) * 1_000 + ++numbered).padStart(10, '0')}`
+  const number = freshPhoneNumbers()
 
-  /** What answering Mentor on the Intake form records: the fact that makes a Discipler of somebody who leads nobody. */
-  const offersToMentor = (personId: string) =>
-    pool.query(
-      `insert into consent_record
-         (ministry_id, person_id, consent, granted, version, source, decided_at, intake_path, declared_side)
-       values ($1, $2, 'sms', true, '2026-09-v1', 'pastor_link', now(), 'discipleship', 'mentor')`,
-      [ministry.id, personId],
-    )
+  const offersToMentor = (personId: string, inMinistry: MinistryFixture = ministry) =>
+    recordMentorOffer(pool, inMinistry, personId)
 
   const popupAt = (list: string, personId: string, more: [string, string][] = []) =>
     getPage(`/roster?${new URLSearchParams([['list', list], ['pair', personId], ...more])}`, cookie)
 
-  /** The popup's own markup and nothing of the Roster behind it, or null where there is none. */
-  const popupIn = (html: string): string | null =>
-    html.match(/<div[^>]*data-testid="pair-popup"[\s\S]*?<\/form>/)?.[0] ?? null
-
-  /** One Disciple's row in the popup: its label, from the box to the end of it. */
-  const rowFor = (popup: string, personId: string): string => {
-    const row = popup.split('<label').find((each) => each.includes(`value="${personId}"`))
-    expect(row, `no row in the popup for ${personId}`).toBeDefined()
-    return row!.split('</label>')[0]!
-  }
-
-  const attribute = (tag: string, name: string): string | undefined =>
-    tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1]
-
-  const inputsIn = (popup: string): readonly string[] => popup.match(/<input[^>]*>/g) ?? []
-
   /** Everybody the popup offers as a Disciple, by the value their box would post, in the order listed. */
-  const offered = (popup: string): readonly (string | undefined)[] =>
-    inputsIn(popup)
-      .filter((input) => attribute(input, 'name') === 'participantId')
-      .map((input) => attribute(input, 'value'))
+  const offered = (popup: string) => offeredAs(popup, 'participantId')
 
-  const hiddenIn = (popup: string): Record<string, string | undefined> =>
-    Object.fromEntries(
-      inputsIn(popup)
-        .filter((input) => attribute(input, 'type') === 'hidden')
-        .map((input) => [attribute(input, 'name'), attribute(input, 'value')]),
-    )
-
-  const expectGreyed = (popup: string, personId: string, reason: string) => {
-    const row = rowFor(popup, personId)
-    const box = row.match(/<input[^>]*>/)![0]
-    expect(box, reason).toMatch(/\sdisabled=""/)
-    expect(box, reason).not.toMatch(/\schecked=""/)
-    const described = attribute(box, 'aria-describedby')
-    expect(described, reason).toBeDefined()
-    expect(row, reason).toMatch(new RegExp(`id="${described}"[^>]*>${reason}<`))
-  }
-
-  const currentList = (html: string): string | undefined =>
-    html.match(/<a[^>]*aria-current="true"[^>]*>([^<]*)<\/a>/)?.[1]
-
-  const submit = async (fields: [string, string][]) => {
-    const response = await fetch(`${baseUrl}/roster/pair/create`, {
-      method: 'POST',
-      redirect: 'manual',
-      headers: { 'content-type': 'application/x-www-form-urlencoded', cookie },
-      body: new URLSearchParams(fields),
-    })
-    return new URL(response.headers.get('location') ?? '', baseUrl)
-  }
+  const submit = (fields: [string, string][]) => postPairing(cookie, fields)
 
   it('opens on the Discipler’s side on Disciplers and on All, by address, and no row opens it yet', async () => {
     for (const list of ['disciplers', 'all']) {
@@ -177,6 +134,8 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     expect(listed).toEqual(expect.arrayContaining([sam, ana, brianna, tom, rosa]))
     for (const absent of [waiting, left, claire]) expect(listed).not.toContain(absent)
     expect(popup).toContain(`${listed.length} disciples`)
+    // The toolbar counts and clears. There is no Select all.
+    expect(popup).not.toMatch(/select all/i)
 
     const samRow = rowFor(popup, sam)
     expect(samRow).toMatch(/type="checkbox"[^>]*name="participantId"|name="participantId"[^>]*type="checkbox"/)
@@ -194,7 +153,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     // In a group: listed, open, and the row names the group.
     const rosaRow = rowFor(popup, rosa)
     expect(rosaRow).toContain('in Grace’s Group')
-    expect(rosaRow.match(/<input[^>]*>/)![0]).not.toMatch(/\sdisabled=""/)
+    expectOpen(popup, rosa)
 
     // In a one-to-one, and of another gender: listed, and greyed with the reason.
     expectGreyed(popup, brianna, 'Already in a 1:1 with David Chen')
@@ -213,22 +172,20 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     await pool.query(`update ministry set suggest_gender_match = false where id = $1`, [relaxed.id])
     const theirCookie = (await signIn(relaxed)).cookie
     const lead = await addPerson(relaxed, 'Claire Martinez', { answers: { gender: 'female' } })
-    await pool.query(
-      `insert into consent_record
-         (ministry_id, person_id, consent, granted, version, source, decided_at, intake_path, declared_side)
-       values ($1, $2, 'sms', true, '2026-09-v1', 'pastor_link', now(), 'discipleship', 'mentor')`,
-      [relaxed.id, lead],
-    )
+    await offersToMentor(lead, relaxed)
     const man = await addPerson(relaxed, 'Tom Wilson', { answers: { gender: 'male' } })
 
     const { html } = await getPage(`/roster?${new URLSearchParams({ list: 'disciplers', pair: lead })}`, theirCookie)
-    expect(rowFor(popupIn(html)!, man).match(/<input[^>]*>/)![0]).not.toMatch(/\sdisabled=""/)
+    expectOpen(popupIn(html)!, man)
   })
 
   it('says what one tick makes, and that the choice of shape is coming for two', async () => {
     const one = popupIn((await popupAt('disciplers', claire, [['with', sam]])).html)!
     expect(rowFor(one, sam)).toMatch(/checked=""/)
     expect(one.match(/checked=""/g)).toHaveLength(1)
+    // The ticked row takes the selected treatment, and no other row does.
+    expect(rowFor(one, sam)).toContain('class="pair-opt on"')
+    expect(one.match(/class="pair-opt on/g)).toHaveLength(1)
     expect(one).toContain('Claire Martinez will disciple Sam Lee in a one-on-one.')
     expect(one).toMatch(/<button[^>]*type="submit"[^>]*>Create 1:1 pair<\/button>/)
     expect(one).not.toContain('is coming')
@@ -240,6 +197,39 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     expect(two).not.toContain('in a one-on-one.')
     expect(two).toContain('Pairing two or more at once is coming. Tick one for now.')
     expect(two).toMatch(/<button[^>]*type="submit"[^>]*disabled=""[^>]*>Pair<\/button>|<button[^>]*disabled=""[^>]*type="submit"[^>]*>Pair<\/button>/)
+  })
+
+  it('refuses two ticks posted without script, forms nothing, and comes back with both ticks', async () => {
+    // Script keeps the button disabled at two ticks; a browser without it can still
+    // post them. There is no shape for them to become in this ticket, so the route
+    // refuses what it would refuse of any group that said nothing about itself.
+    const location = await submit([
+      ['pair', claire],
+      ['list', 'disciplers'],
+      ['leaderId', claire],
+      ['participantId', sam],
+      ['participantId', ana],
+    ])
+    expect(location.pathname).toBe('/roster')
+    expect(location.searchParams.get('pair')).toBe(claire)
+    expect(location.searchParams.get('error')).toMatch(/^relationship\.needs_a_/)
+    expect(location.searchParams.getAll('with')).toEqual([sam, ana])
+    expect(location.searchParams.has('leaderId')).toBe(false)
+
+    const { html } = await getPage(`${location.pathname}${location.search}`, cookie)
+    const popup = popupIn(html)!
+    expect(popup).toMatch(/role="alert"/)
+    expect(rowFor(popup, sam)).toMatch(/checked=""/)
+    expect(rowFor(popup, ana)).toMatch(/checked=""/)
+    expect(popup).toContain('Pairing two or more at once is coming. Tick one for now.')
+    expect(popup).toMatch(/<button[^>]*disabled=""[^>]*>Pair<\/button>/)
+    expect(currentList(html)).toBe('Disciplers')
+
+    const formed = await pool.query(
+      `select 1 from relationship_member where person_id = any($1::uuid[])`,
+      [[sam, ana]],
+    )
+    expect(formed.rows).toEqual([])
   })
 
   it('forms a one-to-one awaiting acceptance, and the receipt is on the list the Admin was on', async () => {

@@ -174,6 +174,8 @@ describe('why a row in the Pair popup is greyed (Manual pairing, ticket 23)', ()
     expect(PAIR_POPUP.greyed({ why: 'already_in_a_one_to_one', withName: 'David Chen' })).toBe(
       'Already in a 1:1 with David Chen',
     )
+    // And says so without a name where the one-to-one names nobody leading it.
+    expect(PAIR_POPUP.greyed({ why: 'already_in_a_one_to_one', withName: null })).toBe('Already in a 1:1')
   })
 
   it('says the words their Roster row already says where they cannot be paired', () => {

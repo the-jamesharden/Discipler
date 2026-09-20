@@ -11,6 +11,9 @@ import { whyNotPairable } from './lists'
  * **Greying is computed against the declaration the shape implies, never against
  * one person.** The rules are the database's own and the screen invents none: it
  * removes no rule underneath, and the database still refuses what it refused.
+ *
+ * Who is listed at all is each side's own (`disciplersFor`, `disciplesFor`); a row
+ * that is listed and cannot be chosen is greyed here, and never hidden.
  */
 
 /** What a shape declares: a gender, mixed, or nothing asked at all. */
@@ -22,7 +25,7 @@ export type Greyed =
   | { readonly why: 'not_pairable'; readonly reason: NotPairable }
   | { readonly why: 'gender'; readonly declared: Gender }
   /** `participant_one_open_one_to_one`: one open one-to-one as a participant, any number of groups. */
-  | { readonly why: 'already_in_a_one_to_one'; readonly withName: string }
+  | { readonly why: 'already_in_a_one_to_one'; readonly withName: string | null }
 
 export const greyedAgainst = (
   declaration: Declaration,
@@ -51,62 +54,83 @@ export const greyedAgainst = (
  * gender on file, it declares nothing and nobody is greyed for gender.
  */
 export const declaredByAOneToOne = ({
-  enforced,
+  genderMatchEnforced,
   openedFrom,
 }: {
-  readonly enforced: boolean
+  /** Whether the Ministry enforces the gender match on a one-to-one: its `suggest_gender_match`. */
+  readonly genderMatchEnforced: boolean
   readonly openedFrom: Pick<RosterEntry, 'gender'>
-}): Declaration => (enforced && openedFrom.gender !== null ? openedFrom.gender : 'none')
+}): Declaration => (genderMatchEnforced && openedFrom.gender !== null ? openedFrom.gender : 'none')
 
 /**
- * Who already disciples somebody one-to-one, or null. One participant is what says
- * one-to-one on the Roster, from the live memberships (ADR-0004), and the popup
- * reads the same document. Leading a one-to-one is not being in one as a Disciple.
+ * The open one-to-one somebody is in as a Disciple, or null. One participant is
+ * what says one-to-one on the Roster, from the live memberships (ADR-0004), and the
+ * popup reads the same document. Leading a one-to-one is not being in one as a
+ * Disciple. Found whoever leads it: a one-to-one that names nobody still counts
+ * against the database's cap, so its row is still greyed.
  */
-export const alreadyInAOneToOneWith = (person: Pick<RosterEntry, 'relationships'>): string | null => {
+const openOneToOneOf = (
+  person: Pick<RosterEntry, 'relationships'>,
+): { readonly withName: string | null } | null => {
   const oneToOne = person.relationships.find(
     ({ role, participantCount }) => role === 'participant' && participantCount === 1,
   )
-  return oneToOne === undefined ? null : (oneToOne.leaderNames[0] ?? null)
+  return oneToOne === undefined ? null : { withName: oneToOne.leaderNames[0] ?? null }
 }
 
 /**
- * A Discipler's row in the popup opened from a Disciple. A Disciple already in a
- * one-to-one can be given no second one, so every Discipler is greyed with that,
- * whoever they are. Otherwise the row is read against what a one-to-one declares.
+ * A row while what is chosen would make a one-to-one, from either side. A Disciple
+ * already in a one-to-one can be given no second, whoever the other person is.
+ * Otherwise the candidate is read against what a one-to-one declares, which is the
+ * gender of the person the popup was opened from.
+ */
+const greyedInAOneToOne = ({
+  genderMatchEnforced,
+  openedFrom,
+  candidate,
+  disciple,
+}: {
+  readonly genderMatchEnforced: boolean
+  readonly openedFrom: Pick<RosterEntry, 'gender'>
+  readonly candidate: Pick<RosterEntry, 'gender' | 'participationStatus'>
+  /** Whichever of the two would be the Disciple in it. */
+  readonly disciple: Pick<RosterEntry, 'relationships'>
+}): Greyed | null => {
+  const already = openOneToOneOf(disciple)
+  return already !== null
+    ? { why: 'already_in_a_one_to_one', withName: already.withName }
+    : greyedAgainst(declaredByAOneToOne({ genderMatchEnforced, openedFrom }), candidate)
+}
+
+/**
+ * A Discipler's row in the popup opened from a Disciple. If that Disciple is
+ * already in a one-to-one, every Discipler is greyed with it, whoever they are.
+ * Every Discipler is listed, so one who cannot be paired is greyed and never hidden.
  */
 export const greyedForADisciple = ({
-  enforced,
+  genderMatchEnforced,
   disciple,
   discipler,
 }: {
-  readonly enforced: boolean
+  readonly genderMatchEnforced: boolean
   readonly disciple: Pick<RosterEntry, 'gender' | 'relationships'>
   readonly discipler: Pick<RosterEntry, 'gender' | 'participationStatus'>
-}): Greyed | null => {
-  const withName = alreadyInAOneToOneWith(disciple)
-  return withName !== null
-    ? { why: 'already_in_a_one_to_one', withName }
-    : greyedAgainst(declaredByAOneToOne({ enforced, openedFrom: disciple }), discipler)
-}
+}): Greyed | null =>
+  greyedInAOneToOne({ genderMatchEnforced, openedFrom: disciple, candidate: discipler, disciple })
 
 /**
  * A Disciple's row in the popup opened from a Discipler, while what is ticked
- * would make a one-to-one. A Disciple already in one can be given no second;
- * they are open again for a shape that makes a group. Otherwise the row is read
- * against what a one-to-one declares, which is this Discipler's gender.
+ * would make a one-to-one. They are open again for a shape that makes a group.
+ * This side lists only Disciples who can be paired (`disciplesFor`), which is what
+ * its ticket asks, so the cannot-be-paired reason is never the one given here.
  */
 export const greyedForADiscipler = ({
-  enforced,
+  genderMatchEnforced,
   discipler,
   disciple,
 }: {
-  readonly enforced: boolean
+  readonly genderMatchEnforced: boolean
   readonly discipler: Pick<RosterEntry, 'gender'>
   readonly disciple: Pick<RosterEntry, 'gender' | 'participationStatus' | 'relationships'>
-}): Greyed | null => {
-  const withName = alreadyInAOneToOneWith(disciple)
-  return withName !== null
-    ? { why: 'already_in_a_one_to_one', withName }
-    : greyedAgainst(declaredByAOneToOne({ enforced, openedFrom: discipler }), disciple)
-}
+}): Greyed | null =>
+  greyedInAOneToOne({ genderMatchEnforced, openedFrom: discipler, candidate: disciple, disciple })

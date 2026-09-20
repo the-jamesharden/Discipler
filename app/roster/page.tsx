@@ -157,7 +157,7 @@ export default async function RosterPage({
   // Why a row cannot be chosen, already in words, or null where it can. Read
   // against what a one-to-one declares in this Ministry, never offered and then
   // refused.
-  const inWords = (greyed: Greyed | null): string | null => (greyed === null ? null : PAIR_POPUP.greyed(greyed))
+  const greyedInWords = (greyed: Greyed | null): string | null => (greyed === null ? null : PAIR_POPUP.greyed(greyed))
   // Compared against the list and never rendered, like every value from an address.
   const chosenBefore = [query.leaderId ?? []].flat()[0]
   const tickedBefore = [query.with ?? []].flat()
@@ -459,7 +459,7 @@ export default async function RosterPage({
             email: discipler.email,
             phone: discipler.phone,
             leads: leadsCount(discipler),
-            greyed: inWords(greyedForADisciple({ enforced: suggestGenderMatch, disciple: pairing, discipler })),
+            greyed: greyedInWords(greyedForADisciple({ genderMatchEnforced: suggestGenderMatch, disciple: pairing, discipler })),
           }))}
           refusal={pairingRefusalMessage(query.error)}
           chosenBefore={chosenBefore ?? null}
@@ -477,7 +477,7 @@ export default async function RosterPage({
             phone: disciple.phone,
             firstTime: disciple.firstTime,
             groups: groupsOf(disciple, groups).map(({ name, leaders }) => ({ name, leaders })),
-            greyed: inWords(greyedForADiscipler({ enforced: suggestGenderMatch, discipler: pairing, disciple })),
+            greyed: greyedInWords(greyedForADiscipler({ genderMatchEnforced: suggestGenderMatch, discipler: pairing, disciple })),
           }))}
           refusal={pairingRefusalMessage(query.error)}
           tickedBefore={tickedBefore}

@@ -47,17 +47,17 @@ export const PairList = ({
   useEffect(() => {
     listElement.current?.querySelector('input:checked')?.closest('label')?.scrollIntoView({ block: 'nearest' })
   }, [])
-  const hold = (element: HTMLElement | null) => {
+  const keepListElement = (element: HTMLElement | null) => {
     listElement.current = element
   }
   // Boxes are a fieldset, which is the grouping role natively; round marks are a
   // radiogroup, which no element is.
   return exactlyOne ? (
-    <div ref={hold} className="pair-list" role="radiogroup" aria-labelledby="pair-title">
+    <div ref={keepListElement} className="pair-list" role="radiogroup" aria-labelledby="pair-title">
       {children}
     </div>
   ) : (
-    <fieldset ref={hold} className="pair-list" aria-labelledby="pair-title">
+    <fieldset ref={keepListElement} className="pair-list" aria-labelledby="pair-title">
       {children}
     </fieldset>
   )
