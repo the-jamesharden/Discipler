@@ -22,9 +22,11 @@ import {
   NOT_MADE,
   PAIR,
   pairedReceipt,
+  pairedSeparatelyReceipt,
   pairingRefusalMessage,
   pairingSizeLabel,
   pairsPlanned,
+  partlyPairedReceipt,
   peopleAdded,
   PLANNED,
   ROSTER_LISTS,
@@ -38,6 +40,7 @@ import {
   UNPAIRED,
   type RosterList,
 } from './copy'
+import { decodeSeparateReceipt } from './pair/receipt'
 import { INTAKE_FORMS } from '../intake-forms/copy'
 import { ImportDialog, type ImportReadbackWire } from './import-dialog'
 import { IMPORT_DATASET, IMPORT_DIALOG_ID } from './import-copy'
@@ -88,6 +91,14 @@ export default async function RosterPage({
     hidden?: string
     error?: string
     paired?: string
+    /**
+     * A set of separate one-to-ones (Manual pairing, ticket 21): how many were made,
+     * and where it stopped partway, who was not paired and the code of why. Its own
+     * name for the code, because `error` on this page is the import's.
+     */
+    pairs?: string
+    notPaired?: string | string[]
+    pairError?: string
     /** Why an answer to a held import row could not be applied. A code, never prose. */
     rowError?: string
     /** Whose Pair popup is open over this list (Manual pairing, ticket 12). */
@@ -137,6 +148,25 @@ export default async function RosterPage({
   // How many people the pairing just made has in it, so the receipt can say what
   // landed. Read as a count and never echoed as text.
   const paired = Number.parseInt(query.paired ?? '', 10)
+
+  // A set of separate one-to-ones counts the one-to-ones made. Who was not paired
+  // arrives as ids and is named from the whole Roster, whichever list is showing,
+  // so nothing in the address is rendered and an id that names nobody says nothing.
+  const separately = decodeSeparateReceipt(query)
+  const notPaired = (separately?.notPaired ?? []).flatMap((id) => {
+    const person = roster.find((each) => each.personId === id)
+    return person ? [person.fullName] : []
+  })
+  const separateReceipt =
+    separately === undefined
+      ? undefined
+      : notPaired.length > 0
+        ? partlyPairedReceipt({
+            formed: separately.formed,
+            notPaired,
+            reason: pairingRefusalMessage(separately.refusal),
+          })
+        : pairedSeparatelyReceipt(separately.formed)
 
   /**
    * Another list's link keeps nothing else from the query string: a receipt is
@@ -198,6 +228,18 @@ export default async function RosterPage({
             {pairedReceipt(paired)}
           </p>
         ) : null}
+
+        {/* A set that stopped partway is an alert and not a status: part of what the
+            Admin asked for did not happen, and they have something to do about it. */}
+        {separateReceipt === undefined ? null : notPaired.length > 0 ? (
+          <p className="toast error" role="alert">
+            {separateReceipt}
+          </p>
+        ) : (
+          <p className="toast" role="status">
+            {separateReceipt}
+          </p>
+        )}
 
         {/* What the last upload did, here rather than in the popup that started it:
             the upload redirects back to this page, and its report has to be in

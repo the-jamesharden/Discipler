@@ -2,10 +2,13 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { PairingRefused } from '~/domain/errors'
 import { materialId, personId } from '~/domain/ids'
 import type { Gender } from '~/domain/intake'
+import { readPairingMode } from '~/domain/separate-pairings'
 import { DEFAULT_LIST, isRosterList } from '../../copy'
 import { declaredGenderFromField, declaredGenderToField } from '../../declared-gender'
+import { encodeSeparateReceipt } from '../receipt'
 import { currentAdmin } from '~/platform/supabase/current-admin'
 import { getCommandService } from '~/service/container'
+import { formSeparately } from '~/service/separate-pairings'
 
 /**
  * An ordinary form POST, like the import, so pairing works before JavaScript has
@@ -35,6 +38,13 @@ export async function POST(request: NextRequest) {
   const popupFor = chosen('pair')[0]
   const rawList = form.get('list')
   const list = isRosterList(rawList) ? rawList : DEFAULT_LIST
+
+  /**
+   * One relationship of everybody chosen, or a one-to-one with each Disciple
+   * (Manual pairing, ticket 21). Absent, or anything that is not `separate`, is
+   * `together`, which is what this route did before it was asked.
+   */
+  const mode = readPairingMode(form.get('mode'))
 
   /**
    * What the Admin said this relationship is. `undefined` is passed through rather
@@ -69,7 +79,7 @@ export async function POST(request: NextRequest) {
    * again -- and a refusal that costs more than the mistake did teaches people to
    * avoid the screen.
    */
-  const refused = (code: string) => {
+  const refused = (code: string, about: string | null = null) => {
     if (popupFor !== undefined) {
       // Every choice the popup holds, which from a Disciple is the one Discipler.
       const params = new URLSearchParams({ list, pair: popupFor, error: code })
@@ -78,6 +88,13 @@ export async function POST(request: NextRequest) {
     }
 
     const params = new URLSearchParams({ error: code })
+    // Which of several Disciples a separate submission was refused about (Manual
+    // pairing, ticket 21). An id and never a name: the page reads the name off the
+    // Roster, so nothing in an address is rendered.
+    if (about !== null) params.set('about', about)
+    // The mode comes back with the selection, or the corrected form would form one
+    // group of the people it was refused as several one-to-ones of.
+    if (mode === 'separate') params.set('mode', mode)
     for (const id of leaderIds) params.append('leaderId', id)
     for (const id of participantIds) params.append('with', id)
     // Their answer comes back too, for the same reason their selection does. An
@@ -93,6 +110,43 @@ export async function POST(request: NextRequest) {
     return NextResponse.redirect(new URL(`/roster/pair?${params}`, request.url), {
       status: 303,
     })
+  }
+
+  /**
+   * A one-to-one with each Disciple, all of them or none. The set is checked whole
+   * before any of it is formed, and the group's properties -- its declaration, its
+   * name, its door -- are left behind rather than applied to each pairing: a
+   * one-to-one has nothing a name is for, and its gender is its two people's. They
+   * still travel back on a refusal, as part of what the Admin had on screen.
+   *
+   * No Material yet. Each Disciple carries their own, which is this ticket's second
+   * stage, and the one Material a `together` submission takes is not theirs.
+   */
+  if (mode === 'separate') {
+    const outcome = await formSeparately(getCommandService(), {
+      ministryId: admin.ministryId,
+      leaderIds: leaderIds.map(personId),
+      participantIds: participantIds.map(personId),
+    })
+
+    if (outcome.status === 'refused') return refused(outcome.refusal, outcome.about)
+
+    // Some of it landed, which is the outcome the check exists to prevent and cannot
+    // rule out. A fault cannot be thrown without losing the count of what landed, so
+    // it is logged here and the receipt says the rest.
+    if (outcome.status === 'partly_formed' && outcome.refusal === null) {
+      console.error(
+        `A set of one-to-ones in ministry ${admin.ministryId} stopped partway on a fault`,
+        outcome.fault,
+      )
+    }
+
+    // To the Roster either way, where what landed is on the rows. The receipt counts
+    // the one-to-ones formed, and where that is not all of them, says who was not.
+    const receipt = encodeSeparateReceipt(outcome)
+    // From the popup, on the list it was drawn over, as one pairing's receipt is.
+    if (popupFor !== undefined) receipt.set('list', list)
+    return NextResponse.redirect(new URL(`/roster?${receipt}`, request.url), { status: 303 })
   }
 
   // An empty selection is refused by the domain rather than here. The route once

@@ -75,6 +75,10 @@ describe('the Roster speaks the customer’s language', () => {
     }
     expect(copy.pairedReceipt(1)).not.toMatch(FORBIDDEN)
     expect(copy.pairedReceipt(3)).not.toMatch(FORBIDDEN)
+    // A set of separate one-to-ones (Manual pairing, ticket 21).
+    expect(copy.pairedSeparatelyReceipt(3)).not.toMatch(FORBIDDEN)
+    expect(copy.partlyPairedReceipt({ formed: 1, notPaired: ['Ana Ruiz'], reason: undefined })).not.toMatch(FORBIDDEN)
+    expect(copy.refusalAboutOneOfASet('Ana Ruiz', '')).not.toMatch(FORBIDDEN)
     expect(copy.listCount('disciplers', 49)).toBe('49 disciplers total')
     expect(copy.listCount('disciples', 1)).toBe('1 disciple total')
     // All reads for people, not for one side (Manual pairing, ticket 06).
