@@ -1,7 +1,7 @@
 import type { DeclaredSide } from '~/domain/intake'
 import type { MemberRole } from '~/domain/relationships'
 import type { RosterEntry, RosterIntendedPairing, RosterRelationship } from '~/service/ports'
-import type { RosterList, RosterSide } from './copy'
+import type { NotPairable, RosterList, RosterSide } from './copy'
 
 /**
  * Which list a Person is on, as the Roster names them, and the three numbers over
@@ -81,6 +81,47 @@ export const relationshipsOn = (
   list: RosterList,
   person: RosterEntry,
 ): readonly RosterRelationship[] => heldOn(list, person.relationships)
+
+/**
+ * Why a row offers no Pair, or null when nothing is in the way (Manual pairing,
+ * ticket 07). Participation Status is no longer printed under a name, and still
+ * decides this: the database refuses a pairing with somebody who has not completed
+ * Intake or has opted out, on either side of it, so neither row gets anything to
+ * press. One answer for a Discipler and a Disciple, and being paired already is
+ * never a reason: a Discipler may lead another, and a Disciple may join a group.
+ */
+export const whyNotPairable = (person: Pick<RosterEntry, 'participationStatus'>): NotPairable | null =>
+  person.participationStatus === 'no_intake_submitted'
+    ? 'awaiting_intake'
+    : person.participationStatus === 'opted_out'
+      ? 'opted_out'
+      : null
+
+/**
+ * The reason a row prints where Pair would have been, or null. `whyNotPairable`,
+ * said once: a plan this row shows that is still waiting already reads *planned -
+ * awaiting Intake*, and the same words again after it told an Admin nothing (James,
+ * 2026-09-19). Every other reason says something the row's lines do not -- *Opted
+ * out* beside a pairing or a plan, *Awaiting Intake* beside a plan that was refused.
+ * A null here never means Pair: that is `whyNotPairable`'s to answer.
+ */
+export const reasonOnRow = (list: RosterList, person: RosterEntry): NotPairable | null => {
+  const reason = whyNotPairable(person)
+  const alreadySaid =
+    reason === 'awaiting_intake' && plansOn(list, person).some((plan) => plan.state === 'awaiting_intake')
+  return alreadySaid ? null : reason
+}
+
+/**
+ * Where Pair on a row goes: the Pair page with that Person already chosen, as the
+ * Discipler when they are one and as the Disciple otherwise. About the Person and
+ * not the list, so their row says the same on All and on either side, and the
+ * pairing screen lets the Admin change it.
+ */
+export const pairHref = (person: RosterEntry): string =>
+  `/roster/pair?${new URLSearchParams(
+    isDiscipler(person) ? { leaderId: person.personId } : { with: person.personId },
+  )}`
 
 export interface RosterStats {
   readonly total: number

@@ -95,19 +95,27 @@ export const AWAITING_INTAKE = 'awaiting Intake'
 export const NOT_MADE = 'not made'
 export const SEE_FOLLOW_UP = 'see Follow-Up'
 
+/** The Pair page's title. No button says it any more: every pairing starts from a row (Manual pairing, ticket 07). */
 export const PAIR_PEOPLE = 'Pair people'
 export const PAIR = 'Pair'
 export const UNPAIRED = 'Unpaired'
+
+/**
+ * Why a row offers no Pair, said in its Paired with cell where the button would
+ * have been (Manual pairing, ticket 07). Not a status column: the reason there is
+ * nothing to press, now that no chip under the name explains it.
+ */
+export type NotPairable = 'awaiting_intake' | 'opted_out'
+export const CANNOT_BE_PAIRED: Record<NotPairable, string> = {
+  awaiting_intake: 'Awaiting Intake',
+  opted_out: 'Opted out',
+}
 
 /** The receipt the pairing screen redirects to, said about what just happened. */
 export const pairedReceipt = (disciples: number): string =>
   disciples === 1
     ? 'They are paired. The Discipler has been invited, and nobody else has been contacted yet.'
     : `A group of ${disciples} is paired. Its Discipler has been invited, and nobody else has been contacted yet.`
-
-/** Said plainly under the table, because the alternative is an Admin reading a Discipler who is discipled by nobody as a bug. */
-export const STATUS_FOOTNOTE =
-  'Status says whether a person is being discipled. A Discipler who is discipled by nobody reads Ready to Pair.'
 
 /**
  * A number as a person reads it: a North American number as `(706) 555-0142`,
@@ -132,18 +140,16 @@ export const IMPORT_IS_NEVER_CONSENT =
   + 'until they complete Intake themselves. Importing a person is never consent.'
 
 /**
- * The one signal the declared side puts on a Roster row: this Person offered to
- * mentor somebody.
+ * What the person page says of somebody who offered to mentor on the Intake form.
+ * It was a tag on the Roster row until Manual pairing, ticket 07: the answer still
+ * makes them a Discipler, and the Disciplers list says so without a tag.
  *
  * Worded as something they did rather than as something they are. *Offered to
- * mentor* is an answer on a form; *Mentor* would read as a role somebody holds,
- * which is exactly the collapse this column must not invite -- leading is a plan an
- * Admin records in the column beside it, and this one sets nothing there.
+ * mentor* is an answer on a form; *Mentor* would read as a role somebody holds.
  *
- * The mentee answer is not said here, and the unanswered case is not said either.
- * The column exists to surface the offer an Admin might act on; a *Not asked* in
- * every other row would make a column of state out of a signal, and *asked to be
- * mentored* is what every Person on this Roster is already presumed to want.
+ * The mentee answer is not said, and the unanswered case is not said either: a
+ * *Not asked* on every other Person would make state out of a signal, and *asked
+ * to be mentored* is what every Person on this Roster is already presumed to want.
  */
 export const OFFERED_TO_MENTOR = 'Offered to mentor'
 

@@ -2,8 +2,19 @@ import { describe, expect, it } from 'vitest'
 import { intendedPairingId, personId, relationshipId } from '~/domain/ids'
 import { phoneNumber } from '~/domain/roster'
 import type { RosterEntry, RosterIntendedPairing, RosterRelationship } from '~/service/ports'
-import { displayPhone, whoTheyAre } from '../../app/roster/copy'
-import { isDiscipler, isDisciple, onList, plansOn, relationshipsOn, rosterStats } from '../../app/roster/lists'
+import * as copy from '../../app/roster/copy'
+import { CANNOT_BE_PAIRED, displayPhone, whoTheyAre } from '../../app/roster/copy'
+import {
+  isDiscipler,
+  isDisciple,
+  onList,
+  pairHref,
+  plansOn,
+  reasonOnRow,
+  relationshipsOn,
+  rosterStats,
+  whyNotPairable,
+} from '../../app/roster/lists'
 
 /**
  * Who is on which list, and the three numbers over each. Pure over the reader's
@@ -212,5 +223,83 @@ describe('the All list (Manual pairing, ticket 06)', () => {
   it('counts paired as an open pairing in either role, and a plan as none', () => {
     const onlyPlanned = person({ intendedPairings: [plan('leader')] })
     expect(rosterStats('all', [...everybody, onlyPlanned])).toEqual({ total: 6, paired: 3, unpaired: 3 })
+  })
+})
+
+describe('what a row offers (Manual pairing, ticket 07)', () => {
+  it('finds nothing in the way of somebody who has completed Intake and not opted out', () => {
+    expect(whyNotPairable(person({ participationStatus: 'ready_to_pair' }))).toBeNull()
+    // Being discipled does not stop somebody being paired again: a Disciple may
+    // join a group, and a Discipler may lead another.
+    expect(whyNotPairable(person({ participationStatus: 'paired' }))).toBeNull()
+  })
+
+  it('says why somebody cannot be paired, in the words the row prints', () => {
+    const imported = person({ participationStatus: 'no_intake_submitted' })
+    const left = person({ participationStatus: 'opted_out' })
+    expect(whyNotPairable(imported)).toBe('awaiting_intake')
+    expect(whyNotPairable(left)).toBe('opted_out')
+    expect(CANNOT_BE_PAIRED[whyNotPairable(imported)!]).toBe('Awaiting Intake')
+    expect(CANNOT_BE_PAIRED[whyNotPairable(left)!]).toBe('Opted out')
+  })
+
+  it('gives a Discipler the same answer, whoever they already lead (James, 2026-09-19)', () => {
+    // A Discipler keeps Pair when they already lead somebody: leading one person
+    // does not stop them leading another.
+    expect(whyNotPairable(person({ relationships: [pairing('leader')] }))).toBeNull()
+    // And the reason wins over the side: the database refuses a pairing led by
+    // somebody who has not completed Intake or has opted out, so the row offers
+    // nothing to press.
+    const plannedToLead = person({ participationStatus: 'no_intake_submitted', intendedPairings: [plan('leader')] })
+    const offeredThenLeft = person({ participationStatus: 'opted_out', declaredSide: 'mentor' })
+    expect(isDiscipler(plannedToLead) && isDiscipler(offeredThenLeft)).toBe(true)
+    expect(whyNotPairable(plannedToLead)).toBe('awaiting_intake')
+    expect(whyNotPairable(offeredThenLeft)).toBe('opted_out')
+  })
+
+  it('does not say awaiting Intake twice on a row whose plan already says it (James, 2026-09-19)', () => {
+    const refused: RosterIntendedPairing = { ...plan('participant'), state: 'refused', refusal: 'relationship.gender_must_match' }
+    const waiting = person({ participationStatus: 'no_intake_submitted', intendedPairings: [plan('participant')] })
+    const notMade = person({ participationStatus: 'no_intake_submitted', intendedPairings: [refused] })
+    const leftAPlan = person({ participationStatus: 'opted_out', intendedPairings: [plan('participant')] })
+    const leftAPairing = person({ participationStatus: 'opted_out', relationships: [pairing('participant')] })
+
+    // *Taylor Brooks planned - awaiting Intake* has said it; the row still offers no Pair.
+    expect(reasonOnRow('disciples', waiting)).toBeNull()
+    expect(reasonOnRow('all', waiting)).toBeNull()
+    expect(whyNotPairable(waiting)).toBe('awaiting_intake')
+    // Every other reason says something its lines do not.
+    expect(reasonOnRow('disciples', notMade)).toBe('awaiting_intake')
+    expect(reasonOnRow('disciples', leftAPlan)).toBe('opted_out')
+    expect(reasonOnRow('disciples', leftAPairing)).toBe('opted_out')
+    expect(reasonOnRow('all', person({ participationStatus: 'no_intake_submitted' }))).toBe('awaiting_intake')
+    // Only a line this list shows counts: planned to be discipled, she is on the
+    // Disciplers list for another reason, and that row shows no plan line.
+    const both = person({
+      participationStatus: 'no_intake_submitted',
+      intendedPairings: [plan('participant')],
+      declaredSide: 'mentor',
+    })
+    expect(reasonOnRow('disciplers', both)).toBe('awaiting_intake')
+    expect(reasonOnRow('all', person())).toBeNull()
+  })
+
+  it('preselects a Discipler as the Discipler and anybody else as the Disciple', () => {
+    const disciple = person()
+    const discipler = person({ declaredSide: 'mentor' })
+    const both = person({ relationships: [pairing('participant'), pairing('leader')] })
+    // About the Person and never the list, so on All a person who is a Discipler
+    // gets the Discipler's rule, and so does somebody on both sides.
+    expect(pairHref(disciple)).toBe(`/roster/pair?with=${disciple.personId}`)
+    expect(pairHref(discipler)).toBe(`/roster/pair?leaderId=${discipler.personId}`)
+    expect(pairHref(both)).toBe(`/roster/pair?leaderId=${both.personId}`)
+  })
+})
+
+describe('words that left the Roster (Manual pairing, ticket 07)', () => {
+  it('keeps no sentence about the status chip, and never says Eligible to lead', () => {
+    const said = Object.values(copy).flatMap((value) => (typeof value === 'string' ? [value] : []))
+    expect(said.some((sentence) => /Status says whether/.test(sentence))).toBe(false)
+    expect(said.some((sentence) => /eligible to lead/i.test(sentence))).toBe(false)
   })
 })

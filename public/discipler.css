@@ -498,11 +498,12 @@ blockquote { background: rgba(45, 80, 22, 0.04); border-left: 3px solid var(--pr
 .roster-table tbody tr:nth-child(even) td { background: rgba(45, 80, 22, 0.02); }
 .roster-table .num { width: 44px; text-align: center; color: var(--text-light); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
 .roster-table th.num { color: #fff; }
-.roster-table .person > span > a { font-weight: 600; color: var(--text); text-decoration: none; }
-.roster-table .person > span > a:hover { color: var(--primary); text-decoration: underline; }
-.person-sub { display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap; margin-top: 0.25rem; }
-.person-sub .rs { font-size: 0.62rem; padding: 0.15rem 0.45rem; }
-.person-sub .pill.n { margin-left: 0; }
+/* The Paired with cell: what it says, then Pair or the reason there is none, always
+   beside it and never under it. Long lines wrap inside their own side, so a long
+   group never pushes the button onto a line of its own. */
+.paired-with { display: flex; align-items: center; gap: 0.6rem; }
+.paired-with > ul { min-width: 0; }
+.paired-with > .btn, .paired-with > .blocked { flex-shrink: 0; }
 .roster-table .contact { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .roster-table .contact a { color: var(--text); text-decoration: none; }
 .roster-table .contact a:hover { color: var(--primary); text-decoration: underline; }
