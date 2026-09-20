@@ -21,6 +21,7 @@ import {
   NOBODY_ON_THIS_NUMBER,
   NOT_MADE,
   PAIR,
+  joinedGroupReceipt,
   pairedReceipt,
   pairingSizeLabel,
   pairsPlanned,
@@ -74,6 +75,9 @@ export default async function RosterPage({
     hidden?: string
     error?: string
     paired?: string
+    /** Who an Admin has just put into a group, and whether anybody was texted about it. */
+    joined?: string
+    told?: string
     /** Why an answer to a held import row could not be applied. A code, never prose. */
     rowError?: string
   }>
@@ -104,6 +108,11 @@ export default async function RosterPage({
   // How many people the pairing just made has in it, so the receipt can say what
   // landed. Read as a count and never echoed as text.
   const paired = Number.parseInt(query.paired ?? '', 10)
+  // Who was just put into a group (Manual pairing, ticket 22). Found on the whole
+  // Roster and not only the list shown, and their name read off the row: the
+  // address carries an id, and nothing it says is rendered. An id that names
+  // nobody here is no receipt at all.
+  const joined = roster.find((person) => person.personId === query.joined)?.fullName
 
   /**
    * Another list's link keeps nothing else from the query string: a receipt is
@@ -163,6 +172,12 @@ export default async function RosterPage({
                 it would be the one thing on the Roster still saying *awaiting*
                 after the Discipler had accepted and the page was reloaded. */}
             {pairedReceipt(paired)}
+          </p>
+        ) : null}
+
+        {joined !== undefined ? (
+          <p className="toast" role="status">
+            {joinedGroupReceipt(joined, query.told === 'yes')}
           </p>
         ) : null}
 
