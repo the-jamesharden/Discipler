@@ -17,6 +17,7 @@ import {
   type AccountFixture,
   type MinistryFixture,
 } from '../support/local-supabase'
+import { asDocument, asRows } from '../support/page-document'
 
 /**
  * Three facts the pairing form needs and the Roster's document never carried:
@@ -24,9 +25,6 @@ import {
  * gender match, and the Ministry's Materials. The Pair page's document moves to
  * carry them; the Roster's and the person page's do not.
  */
-
-const asDocument = (data: unknown) => data as Record<string, unknown>
-const asRows = (data: unknown) => data as Record<string, unknown>[]
 
 /** A Material the Ministry once offered and no longer does. */
 const addRemovedMaterial = async (ministry: MinistryFixture, title: string): Promise<string> => {
@@ -160,7 +158,7 @@ describe('what the Pair screen reads', () => {
     ])
   })
 
-  it('is the Roster’s document with those two keys beside it, and moves nobody else’s', async () => {
+  it('is the Roster’s document with its own keys beside it, and moves nobody else’s', async () => {
     const admin = await signInAs(ministry)
     const roster = asDocument((await admin.rpc('roster_page')).data)
     const person = asDocument((await admin.rpc('person_page')).data)
@@ -170,7 +168,9 @@ describe('what the Pair screen reads', () => {
     expect(roster).not.toHaveProperty('suggest_gender_match')
     expect(roster).not.toHaveProperty('materials')
 
-    const { suggest_gender_match: _setting, materials: _materials, ...rest } = pair
+    // The groups are the third, from Manual pairing, ticket 08, and have their own
+    // suite in `the-groups-on-the-pair-document.test.ts`.
+    const { suggest_gender_match: _setting, materials: _materials, groups: _groups, ...rest } = pair
     expect(rest).toEqual(roster)
   })
 

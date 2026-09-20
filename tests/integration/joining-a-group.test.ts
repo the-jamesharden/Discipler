@@ -12,8 +12,8 @@ import {
   addPerson,
   createMinistryWithAdmin,
   createRelationship,
+  formGroup,
   localSupabase,
-  openMaterialHistory,
   type MinistryFixture,
 } from '../support/local-supabase'
 
@@ -60,34 +60,19 @@ describe('joining a group', () => {
     readonly declaredGender?: 'male' | 'female' | null
     readonly acceptedAt?: Date | null
   } = {}) => {
-    const leader = await addPerson(ministry, `Ruth ${++numbered}`, {
-      phone: aNumber(),
-      answers: { gender: 'female' },
+    const group = await formGroup(ministry, {
+      name: over.name === undefined ? 'Tuesday Women’s Group' : over.name,
+      declaredGender: over.declaredGender === undefined ? 'female' : over.declaredGender,
+      joinRequiresApproval: over.joinRequiresApproval ?? false,
+      acceptedAt: over.acceptedAt === undefined ? new Date('2026-03-02T09:00:00Z') : over.acceptedAt,
+      leader: { name: `Ruth ${++numbered}`, phone: aNumber(), gender: 'female' },
+      disciples: [{ name: `Emily ${++numbered}`, phone: aNumber(), gender: 'female' }],
     })
-    const first = await addPerson(ministry, `Emily ${++numbered}`, {
-      phone: aNumber(),
-      answers: { gender: 'female' },
-    })
-    const acceptedAt =
-      over.acceptedAt === undefined ? new Date('2026-03-02T09:00:00Z') : over.acceptedAt
-    const { rows } = await pool.query<{ id: string }>(
-      `insert into relationship
-         (ministry_id, kind, accepted_at, name, join_requires_approval, declared_gender)
-       values ($1, 'group', $2, $3, $4, $5)
-       returning id`,
-      [
-        ministry.id,
-        acceptedAt,
-        over.name === undefined ? 'Tuesday Women’s Group' : over.name,
-        over.joinRequiresApproval ?? false,
-        over.declaredGender === undefined ? 'female' : over.declaredGender,
-      ],
-    )
-    const id = rows[0]!.id
-    if (acceptedAt) await openMaterialHistory(ministry, id, acceptedAt)
-    await addMembership({ ministry, relationshipId: id, kind: 'group', personId: leader, role: 'leader' })
-    await addMembership({ ministry, relationshipId: id, kind: 'group', personId: first, role: 'participant' })
-    return { id: relationshipId(id), leader: personId(leader), first: personId(first) }
+    return {
+      id: relationshipId(group.id),
+      leader: personId(group.leader),
+      first: personId(group.disciples[0]!),
+    }
   }
 
   const form = (groupId: string, over: Partial<IntakeFormFields> = {}): IntakeFormFields => ({
