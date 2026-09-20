@@ -91,11 +91,16 @@ describe('the groups on the Pair document', () => {
   // fixtures stamped with the real one is a date bomb.
   const clock = systemClock
 
-  /** Through the one function that ends a relationship, so its memberships close with it. */
+  /**
+   * Through the one function that ends a relationship, so its memberships close
+   * with it. Stamped by this process's clock, which is the one that stamped the
+   * memberships a moment ago: the database's `now()` is another machine's, and a
+   * few milliseconds behind it is a membership that ended before it started.
+   */
   const end = async (group: GroupFixture, expectsAccepted: boolean) => {
     const { rows } = await pool.query<{ refusal: string | null }>(
-      `select app.end_relationship($1, now(), null, $2, 'discontinued', $3) as refusal`,
-      [group.id, expectsAccepted ? 'They stopped meeting.' : 'cancelled', expectsAccepted],
+      `select app.end_relationship($1, $4, null, $2, 'discontinued', $3) as refusal`,
+      [group.id, expectsAccepted ? 'They stopped meeting.' : 'cancelled', expectsAccepted, new Date()],
     )
     if (rows[0]?.refusal) throw new Error(`Could not end the group: ${rows[0].refusal}`)
   }
@@ -288,16 +293,16 @@ describe('the groups on the Pair document', () => {
     expect(groupOn(await pairDocument(), counted)?.disciple_count).toBe(3)
 
     await pool.query(
-      `update relationship_member set ended_at = now() where relationship_id = $1 and person_id = $2`,
-      [counted.id, counted.disciples[0]],
+      `update relationship_member set ended_at = $3 where relationship_id = $1 and person_id = $2`,
+      [counted.id, counted.disciples[0], new Date()],
     )
     const after = groupOn(await pairDocument(), counted)
     expect(after?.disciple_count).toBe(2)
     expect(after?.member_ids).toEqual([counted.leader, counted.disciples[1], counted.disciples[2]].sort())
 
     await pool.query(
-      `update relationship_member set ended_at = now() where relationship_id = $1 and person_id = $2`,
-      [counted.id, counted.disciples[1]],
+      `update relationship_member set ended_at = $3 where relationship_id = $1 and person_id = $2`,
+      [counted.id, counted.disciples[1], new Date()],
     )
     expect(groupOn(await pairDocument(), counted)).toBeUndefined()
   })
