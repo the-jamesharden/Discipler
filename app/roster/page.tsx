@@ -21,6 +21,7 @@ import {
   NOBODY_ON_THIS_NUMBER,
   NOT_MADE,
   PAIR,
+  joinedGroupReceipt,
   pairedReceipt,
   pairedSeparatelyReceipt,
   pairingRefusalMessage,
@@ -99,6 +100,9 @@ export default async function RosterPage({
     pairs?: string
     notPaired?: string | string[]
     pairError?: string
+    /** Who an Admin has just put into a group, and whether anybody was texted about it. */
+    joined?: string
+    told?: string
     /** Why an answer to a held import row could not be applied. A code, never prose. */
     rowError?: string
     /** Whose Pair popup is open over this list (Manual pairing, ticket 12). */
@@ -148,6 +152,11 @@ export default async function RosterPage({
   // How many people the pairing just made has in it, so the receipt can say what
   // landed. Read as a count and never echoed as text.
   const paired = Number.parseInt(query.paired ?? '', 10)
+  // Who was just put into a group (Manual pairing, ticket 22). Found on the whole
+  // Roster and not only the list shown, and their name read off the row: the
+  // address carries an id, and nothing it says is rendered. An id that names
+  // nobody here is no receipt at all.
+  const joined = roster.find((person) => person.personId === query.joined)?.fullName
 
   // A set of separate one-to-ones counts the one-to-ones made. Who was not paired
   // arrives as ids and is named from the whole Roster, whichever list is showing,
@@ -240,6 +249,12 @@ export default async function RosterPage({
             {separateReceipt}
           </p>
         )}
+
+        {joined !== undefined ? (
+          <p className="toast" role="status">
+            {joinedGroupReceipt(joined, query.told === 'yes')}
+          </p>
+        ) : null}
 
         {/* What the last upload did, here rather than in the popup that started it:
             the upload redirects back to this page, and its report has to be in

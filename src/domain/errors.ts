@@ -497,6 +497,35 @@ export class GroupRefused extends Error {
   }
 }
 
+/**
+ * Why an Admin could not put somebody into a group that already exists (Manual
+ * pairing, ticket 22). A family of its own rather than more `GroupRefusal`s,
+ * because it is a separate act worded on a separate surface: those are said on
+ * Intake forms about naming a group, and these on the Roster about joining one.
+ *
+ * These are the ones decided from what the command read. The rules formation is
+ * held to -- Intake completed, not opted out, the group's declared gender -- are
+ * the database's here as they are there, and reach the same surface as a
+ * `PairingRefused`, because they are the same rule refusing the same insert.
+ */
+export type GroupJoinRefusal =
+  /** Nothing this Ministry holds answers to that id: no such group, or another Ministry's. */
+  | 'joining.group_not_found'
+  | 'joining.group_has_ended'
+  /** A one-to-one. It holds one Disciple, and adding a second is not how a group is made. */
+  | 'joining.not_a_group'
+  /** Nobody this Ministry holds answers to that id: no such Person, or another Ministry's. */
+  | 'joining.person_not_found'
+  /** Already in it, leading it or being discipled in it. */
+  | 'joining.already_in_the_group'
+
+export class GroupJoinRefused extends Error {
+  constructor(readonly refusal: GroupJoinRefusal) {
+    super(refusal)
+    this.name = 'GroupJoinRefused'
+  }
+}
+
 export class FollowUpRefused extends Error {
   constructor(readonly refusal: FollowUpRefusal) {
     super(refusal)

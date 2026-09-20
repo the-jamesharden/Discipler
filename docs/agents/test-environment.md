@@ -42,6 +42,10 @@ Start it in the background and read its log; a shell call that blocks on it will
 - **`fetch failed` or `EADDRNOTAVAIL` across many suites is the host, not the code.**
   Past about fifty days of uptime macOS stops expiring sockets in TIME_WAIT and the ephemeral ports run out.
   `netstat -an -p tcp | awk 'NR>2{print $6}' | sort | uniq -c | sort -rn | head`; if the counts are in the tens of thousands, stop running tests and tell the person. Only a reboot fixes it.
+- **`relationship_member_ends_after_it_starts` in a fixture is two clocks, not the code.**
+  The fixtures stamp `started_at` with this process's clock, and SQL `now()` is the database container's.
+  After a heavy build the container can sit a few milliseconds behind, so a membership ended with `now()` a moment after it was added ends before it started, and a whole `beforeAll` goes with it.
+  End things in a test with a time from the process (`new Date()` as a parameter), or through the product's own route or command, never with `now()`.
 - **A test with a clock pinned to a near-future date fails on every branch once that date passes.**
   If a failure is about a date and has nothing to do with your change, check the calendar before the code.
 

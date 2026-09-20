@@ -1,4 +1,4 @@
-import type { ImportRowRefusal, PairingRefusal } from '~/domain/errors'
+import type { GroupJoinRefusal, ImportRowRefusal, PairingRefusal } from '~/domain/errors'
 import { asList } from '~/domain/outbound-copy'
 import type { ParticipationStatus } from '~/domain/participation'
 import type { RowProblem } from '~/domain/roster'
@@ -169,6 +169,23 @@ export const partlyPairedReceipt = ({
   + (reason === undefined
     ? 'Something went wrong partway. Pair them again from here.'
     : `${notPaired[0] ?? 'Somebody'}: ${reason}`)
+
+/**
+ * The receipt for somebody an Admin has just put into a group (Manual pairing,
+ * ticket 22). Their name as the Roster holds it: the address carries an id, and
+ * a name is looked up, never read off the address.
+ *
+ * What happened and not what is true of the group. `told` is whether the command
+ * texted anybody: a Discipler who has not accepted the group yet is sent nothing
+ * but their invitation, so a group still awaiting them is joined in silence, and
+ * the receipt must not say somebody was told when nobody was. The Disciple is
+ * never sent anything, either way.
+ */
+export const joinedGroupReceipt = (fullName: string, told: boolean): string =>
+  `${fullName} is in the group now. `
+  + (told
+    ? 'Its Discipler has been told, and nobody else has been contacted.'
+    : 'Nobody has been contacted about it.')
 
 /**
  * A number as a person reads it: a North American number as `(706) 555-0142`,
@@ -573,3 +590,49 @@ export const pairingRefusalMessage = (code: string | undefined): string | undefi
  */
 export const refusalAboutOneOfASet = (fullName: string, message: string): string =>
   `${fullName}: ${message} None of these one-to-ones was made.`
+
+/**
+ * Why somebody could not be put into a group that already exists (Manual pairing,
+ * ticket 22), for the refusals that act has of its own. A `Record`, so a code added
+ * to `GroupJoinRefusal` and left unworded fails the build.
+ */
+export const GROUP_JOIN_REFUSALS: Record<GroupJoinRefusal, string> = {
+  'joining.group_not_found': 'That group is not one of this Ministry’s. Choose one from the list.',
+  'joining.group_has_ended':
+    'That group has ended, so nobody can be added to it. Choose another group.',
+  'joining.not_a_group':
+    'That pairing is a one-to-one, not a group, so nobody can be added to it. Choose a group.',
+  'joining.person_not_found': 'That person is not on this Ministry’s Roster.',
+  'joining.already_in_the_group': 'They are already in this group.',
+}
+
+/**
+ * The rules forming a group is held to, refusing the same insert here, and said
+ * about this act. The pairing's own sentences are about a selection on a form that
+ * declares what the group is: *say it is mixed* is a fix there, and here the group
+ * said what it is when it was formed and the Admin is choosing which group.
+ *
+ * Only the ones this act can meet. Any other falls through to the pairing's
+ * wording, which is the same rule in the words of the screen that first met it.
+ */
+export const PAIRING_REFUSALS_ON_JOINING: Partial<Record<PairingRefusal, string>> = {
+  'relationship.participant_has_not_completed_intake':
+    'They have not completed Intake yet. Send them the Intake link first, then add them.',
+  'relationship.participant_has_opted_out': 'They have opted out, and cannot be added to a group.',
+  'relationship.gender_does_not_match_the_declaration':
+    'This is a men’s or a women’s group, and they are not of that gender. Choose a '
+    + 'group of their own gender, or a mixed one.',
+  'relationship.person_already_in_this_relationship': 'They are already in this group.',
+  'relationship.person_belongs_to_another_ministry': 'That person is not on this Ministry’s Roster.',
+}
+
+export const groupJoinRefusalMessage = (code: string | undefined): string | undefined => {
+  if (!code) return undefined
+  // Looked up, never rendered, like every other code that arrives in an address.
+  return (
+    GROUP_JOIN_REFUSALS[code as GroupJoinRefusal]
+    ?? PAIRING_REFUSALS_ON_JOINING[code as PairingRefusal]
+    ?? REFUSALS[code as PairingRefusal]
+    ?? 'They could not be added to that group.'
+  )
+}

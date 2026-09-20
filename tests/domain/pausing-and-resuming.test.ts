@@ -38,6 +38,7 @@ const leader: RelationshipMember = {
   role: 'leader',
   fullName: 'David Ellis',
   phone: '+15550101',
+  acceptedAt,
 }
 
 const participant: RelationshipMember = {
@@ -45,6 +46,7 @@ const participant: RelationshipMember = {
   role: 'participant',
   fullName: 'Emily Johnson',
   phone: '+15550200',
+  acceptedAt: null,
 }
 
 const snapshot = (over: Partial<RelationshipSnapshot> = {}): RelationshipSnapshot => ({

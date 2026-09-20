@@ -68,6 +68,7 @@ import {
   DepartureRefused,
   EndingRefused,
   GoalRefused,
+  GroupJoinRefused,
   GroupRefused,
   ImportRowResolutionRefused,
   IntakeRefused,
@@ -363,6 +364,9 @@ export interface CommandContext {
    * two people joining at once cannot both read a door that has since closed.
    * `null` is *no such group*: it does not exist, has ended, or was never a group.
    * Absent is *not loaded*, which a submission naming a group refuses to run on.
+   *
+   * Loaded for `group.add_participant` too, and never null there: the service
+   * refuses an id that names no group before the domain is asked anything.
    */
   readonly groupToJoin?: RelationshipSnapshot | null
   /**
@@ -521,16 +525,21 @@ export interface UnacceptedRelationship {
 /**
  * One member of the relationship an Admin command names, as the database holds
  * them now: who they are, which side of the relationship they are on, and how to
- * reach them. No acceptance date, because a command that names a relationship has
- * already been handed the relationship's own. No invitation link either -- the
- * Participant still holds one, but nothing a command composes puts it in a
- * message, so nothing here needs to read it.
+ * reach them. No invitation link -- the Participant still holds one, but nothing a
+ * command composes puts it in a message, so nothing here needs to read it.
+ *
+ * `acceptedAt` is a Leader's own agreement, and null on every Participant, who
+ * accepts nothing. The relationship's own date is activation and is not the same
+ * fact: a group still awaiting one of two Leaders has one who agreed and one who
+ * did not, and a Leader who has not accepted is sent nothing but their invitation
+ * (Manual pairing, ticket 22).
  */
 export interface RelationshipMember {
   readonly personId: PersonId
   readonly role: MemberRole
   readonly fullName: string
   readonly phone: string | null
+  readonly acceptedAt: Date | null
 }
 
 /**
@@ -812,6 +821,16 @@ const theWordingFor = (
  * The text a group's Leaders get when somebody joins, whichever way they joined.
  * One per Leader with a number; a Leader without one is skipped here the way the
  * queue would skip them, and a Leader who has opted out is refused at the queue.
+ *
+ * Only a Leader who has accepted. Until then they have agreed to nothing and hold
+ * no dashboard for the link to open, and Awaiting Leader Acceptance sends them
+ * their invitation and nothing else. A self-join and an admission only ever meet
+ * a group every Leader has accepted; an Admin's own way in also reaches one still
+ * awaiting its Leader, which is told nothing (Manual pairing, ticket 22).
+ *
+ * The name is null on a group formed before groups were named and not named
+ * since. An Admin may still put somebody into it, so the message has words for
+ * it rather than the command a refusal.
  */
 const tellTheLeadersSomebodyJoined = (
   context: CommandContext,
@@ -821,12 +840,14 @@ const tellTheLeadersSomebodyJoined = (
 ): readonly Effect[] => {
   const ministryName = context.ministryName
   if (!ministryName) throw new Error('A join was handed no Ministry to speak for')
-  if (group.name === null) throw new Error('A join was handed a group with no name to say')
   const dashboardLink = leaderDashboardLink(theHost(context))
   const groupName = group.name
 
   return group.members
-    .filter((member) => member.role === 'leader' && member.phone !== null)
+    .filter(
+      (member) =>
+        member.role === 'leader' && member.acceptedAt !== null && member.phone !== null,
+    )
     .map((leader) =>
       enqueueMessage({
         ministryId: context.ministryId,
@@ -3426,6 +3447,56 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       }
 
       return { rejections: [], effects }
+    }
+
+    case 'group.add_participant': {
+      // The service refuses an id that names no group of this Ministry, and one
+      // that names a one-to-one, before anything reaches here: telling those two
+      // apart takes a second read, and only it can make one.
+      const group = context.groupToJoin
+      if (!group) throw new Error('group.add_participant was handed no group to add to')
+      if (group.endedAt !== null) throw new GroupJoinRefused('joining.group_has_ended')
+
+      // Read on the connection acting for this Ministry, so a Person of another
+      // Ministry's is missing here rather than merely unmatched.
+      const joiner = context.contacts?.people.get(command.personId)
+      if (!joiner) throw new GroupJoinRefused('joining.person_not_found')
+
+      // In either role. Somebody leading the group is not made a Disciple of it,
+      // and the database's one-open-membership rule would refuse them anyway, in
+      // the pairing's words rather than in these.
+      if (group.members.some((member) => member.personId === command.personId)) {
+        throw new GroupJoinRefused('joining.already_in_the_group')
+      }
+
+      // Nothing else is decided here. Intake completed, not opted out and the
+      // group's declared gender are refused by the insert, by the triggers that
+      // refuse them at formation; and whether the group is running, paused or
+      // still awaiting its Leader is left exactly as it was, because nothing
+      // below touches the relationship's own row.
+      const now = context.clock.now()
+      return {
+        rejections: [],
+        effects: [
+          joinRelationship({
+            ministryId: command.ministryId,
+            relationshipId: group.relationshipId,
+            personId: command.personId,
+            startedAt: now,
+          }),
+          // A type of its own, beside the self-join's and the admission's: who
+          // acted is what the event is, not a flag on it.
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'relationship.participant_added',
+            subjectType: 'relationship',
+            subjectId: group.relationshipId,
+            payload: { personId: command.personId, addedBy: command.addedBy },
+          }),
+          ...tellTheLeadersSomebodyJoined(context, group, joiner.fullName, now),
+        ],
+      }
     }
 
     case 'follow_up.resolve': {

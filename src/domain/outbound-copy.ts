@@ -312,15 +312,20 @@ export interface GroupJoinedMessage {
   readonly ministryName: string
   /** Whoever just joined. Their first name is said and nothing else about them. */
   readonly joinerFullName: string
-  /** What the Ministry calls the group they joined. */
-  readonly groupName: string
+  /**
+   * What the Ministry calls the group they joined, or null for one nobody has
+   * named: formed before groups carried names, and joined since by an Admin's hand
+   * (Manual pairing, ticket 22). The reader leads it, so it is *your group*.
+   */
+  readonly groupName: string | null
   readonly dashboardLink: string
 }
 
 /**
  * Sent to a group's Leader the moment somebody joins it -- through the Intake link
- * on an open group, or by an Admin admitting somebody who asked. The Leader was in
- * neither conversation, and this is how they hear.
+ * on an open group, by an Admin admitting somebody who asked, or by an Admin
+ * putting them into it (Manual pairing, ticket 22). The Leader was in none of those
+ * conversations, and this is how they hear.
  *
  * A first name and a link, and no number, for the reason the Starter Message
  * carries none. Nothing is sent to the Person who joined: that is a decision
@@ -338,7 +343,7 @@ export const groupJoinedMessage = ({
     identifyDelivery: false,
     discloseOptOut: true,
     body:
-      `${firstNameOf(joinerFullName) ?? 'Someone'} just joined ${groupName}. `
+      `${firstNameOf(joinerFullName) ?? 'Someone'} just joined ${groupName ?? 'your group'}. `
       + `${WHERE_TO_SEE_THEM} ${dashboardLink}.`,
   })
 
