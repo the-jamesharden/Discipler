@@ -111,6 +111,26 @@ export const CANNOT_BE_PAIRED: Record<NotPairable, string> = {
   opted_out: 'Opted out',
 }
 
+/**
+ * The Pair popup over the Roster, opened from a Disciple's row (Manual pairing,
+ * ticket 12). A sentence says exactly what is about to be made and the button is
+ * the same act; with nothing chosen there is no sentence and the button reads what
+ * the row's did. Cancel and Clear are the import dialog's own words.
+ */
+export const PAIR_POPUP = {
+  title: (fullName: string): string => `Pair ${fullName}`,
+  chooseADiscipler: (disciple: string): string => `Choose who will disciple ${disciple}.`,
+  disciplers: (count: number): string => (count === 1 ? '1 discipler' : `${count} disciplers`),
+  /** People, across everything they lead: a group of three is three. */
+  leads: (people: number): string => (people === 0 ? 'leads nobody yet' : `leads ${people}`),
+  oneToOne: (discipler: string, disciple: string): string =>
+    `${discipler} will disciple ${disciple} in a one-on-one.`,
+  createOneToOne: 'Create 1:1 pair',
+  nothingChosen: PAIR,
+  noDisciplers: 'There is nobody to choose yet. Somebody becomes a discipler when they offer to on the Intake form.',
+  close: 'Close',
+} as const
+
 /** The receipt the pairing screen redirects to, said about what just happened. */
 export const pairedReceipt = (disciples: number): string =>
   disciples === 1
