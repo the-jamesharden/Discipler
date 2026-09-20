@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { initialsOf } from '../initials'
 import { displayPhone, PAIR_POPUP, type RosterList } from './copy'
 import { CANCEL, CLEAR } from './import-copy'
@@ -53,6 +53,13 @@ export const PairPopup = ({
   const [hydrated, setHydrated] = useState(false)
   useEffect(() => setHydrated(true), [])
 
+  // A choice restored from a refusal may sit below the fold of a long list, and
+  // *everything restored* has to be in front of the Admin. Once, on opening.
+  const listElement = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    listElement.current?.querySelector('input:checked')?.closest('label')?.scrollIntoView({ block: 'nearest' })
+  }, [])
+
   const chosen = disciplers.find((each) => each.id === chosenId) ?? null
   const back = `/roster?${new URLSearchParams({ list })}`
 
@@ -100,7 +107,7 @@ export const PairPopup = ({
               ) : null}
             </div>
 
-            <div className="pair-list" role="radiogroup" aria-labelledby="pair-title">
+            <div ref={listElement} className="pair-list" role="radiogroup" aria-labelledby="pair-title">
               {disciplers.map((discipler) => (
                 <label
                   key={discipler.id}

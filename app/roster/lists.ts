@@ -138,7 +138,7 @@ export const opensAs = (list: RosterList, person: RosterFacts): PairSide =>
 export const pairHref = (list: RosterList, person: RosterEntry): string =>
   opensAs(list, person) === 'disciple'
     ? `/roster?${new URLSearchParams({ list, pair: person.personId })}`
-    :`/roster/pair?${new URLSearchParams({ leaderId: person.personId })}`
+    : `/roster/pair?${new URLSearchParams({ leaderId: person.personId })}`
 
 /**
  * Who `?pair=` opens the popup for, or null: somebody on this Ministry's Roster
