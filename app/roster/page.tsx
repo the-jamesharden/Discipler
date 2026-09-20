@@ -40,7 +40,7 @@ import {
 import { INTAKE_FORMS } from '../intake-forms/copy'
 import { ImportDialog, type ImportReadbackWire } from './import-dialog'
 import { IMPORT_DATASET, IMPORT_DIALOG_ID } from './import-copy'
-import { onList, pairHref, plansOn, relationshipsOn, rosterStats, whyNotPairable } from './lists'
+import { onList, pairHref, plansOn, reasonOnRow, relationshipsOn, rosterStats, whyNotPairable } from './lists'
 import { RefusedRows } from './refused-rows'
 import { decodeImportReport } from './report'
 import { rosterKey } from '~/domain/roster'
@@ -374,24 +374,27 @@ const importReadback = (roster: readonly RosterEntry[]): ImportReadbackWire => {
  * cannot be paired is offered nothing to press, and the cell says why where the
  * button would have been: in place of *Unpaired* when they hold nothing, and after
  * their pairings when they do, so an Admin still reads that somebody in a pairing
- * has opted out. `whyNotPairable` is the one rule.
+ * has opted out. A plan still waiting has already said *awaiting Intake*, and its
+ * row does not say it twice. `whyNotPairable` decides the button and `reasonOnRow`
+ * the words, both in `lists.ts`.
  */
 const PairedWith = ({ list, person }: { readonly list: RosterList; readonly person: RosterEntry }) => {
   const pairings = relationshipsOn(list, person)
   const plans = plansOn(list, person)
-  const inTheWay = whyNotPairable(person)
-  const reason = inTheWay ? <span className="blocked">{CANNOT_BE_PAIRED[inTheWay]}</span> : null
+  const canBePaired = whyNotPairable(person) === null
+  const said = reasonOnRow(list, person)
+  const reason = said ? <span className="blocked">{CANNOT_BE_PAIRED[said]}</span> : null
 
   if (pairings.length === 0 && plans.length === 0) {
-    return (
-      reason ?? (
-        <div className="paired-with">
-          <span className="blocked">{UNPAIRED}</span>
-          <Link className="btn small" href={pairHref(person)}>
-            {PAIR}
-          </Link>
-        </div>
-      )
+    return canBePaired ? (
+      <div className="paired-with">
+        <span className="blocked">{UNPAIRED}</span>
+        <Link className="btn small" href={pairHref(person)}>
+          {PAIR}
+        </Link>
+      </div>
+    ) : (
+      reason
     )
   }
 
@@ -418,10 +421,12 @@ const PairedWith = ({ list, person }: { readonly list: RosterList; readonly pers
   return (
     <div className="paired-with">
       {lines}
-      {reason ?? (
+      {canBePaired ? (
         <Link className="btn small sec" href={pairHref(person)}>
           {PAIR}
         </Link>
+      ) : (
+        reason
       )}
     </div>
   )

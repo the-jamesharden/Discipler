@@ -98,6 +98,21 @@ export const whyNotPairable = (person: Pick<RosterEntry, 'participationStatus'>)
       : null
 
 /**
+ * The reason a row prints where Pair would have been, or null. `whyNotPairable`,
+ * said once: a plan this row shows that is still waiting already reads *planned -
+ * awaiting Intake*, and the same words again after it told an Admin nothing (James,
+ * 2026-09-19). Every other reason says something the row's lines do not -- *Opted
+ * out* beside a pairing or a plan, *Awaiting Intake* beside a plan that was refused.
+ * A null here never means Pair: that is `whyNotPairable`'s to answer.
+ */
+export const reasonOnRow = (list: RosterList, person: RosterEntry): NotPairable | null => {
+  const reason = whyNotPairable(person)
+  const alreadySaid =
+    reason === 'awaiting_intake' && plansOn(list, person).some((plan) => plan.state === 'awaiting_intake')
+  return alreadySaid ? null : reason
+}
+
+/**
  * Where Pair on a row goes: the Pair page with that Person already chosen, as the
  * Discipler when they are one and as the Disciple otherwise. About the Person and
  * not the list, so their row says the same on All and on either side, and the

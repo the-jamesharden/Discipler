@@ -10,6 +10,7 @@ import {
   onList,
   pairHref,
   plansOn,
+  reasonOnRow,
   relationshipsOn,
   rosterStats,
   whyNotPairable,
@@ -254,6 +255,33 @@ describe('what a row offers (Manual pairing, ticket 07)', () => {
     expect(isDiscipler(plannedToLead) && isDiscipler(offeredThenLeft)).toBe(true)
     expect(whyNotPairable(plannedToLead)).toBe('awaiting_intake')
     expect(whyNotPairable(offeredThenLeft)).toBe('opted_out')
+  })
+
+  it('does not say awaiting Intake twice on a row whose plan already says it (James, 2026-09-19)', () => {
+    const refused: RosterIntendedPairing = { ...plan('participant'), state: 'refused', refusal: 'relationship.gender_must_match' }
+    const waiting = person({ participationStatus: 'no_intake_submitted', intendedPairings: [plan('participant')] })
+    const notMade = person({ participationStatus: 'no_intake_submitted', intendedPairings: [refused] })
+    const leftAPlan = person({ participationStatus: 'opted_out', intendedPairings: [plan('participant')] })
+    const leftAPairing = person({ participationStatus: 'opted_out', relationships: [pairing('participant')] })
+
+    // *Taylor Brooks planned - awaiting Intake* has said it; the row still offers no Pair.
+    expect(reasonOnRow('disciples', waiting)).toBeNull()
+    expect(reasonOnRow('all', waiting)).toBeNull()
+    expect(whyNotPairable(waiting)).toBe('awaiting_intake')
+    // Every other reason says something its lines do not.
+    expect(reasonOnRow('disciples', notMade)).toBe('awaiting_intake')
+    expect(reasonOnRow('disciples', leftAPlan)).toBe('opted_out')
+    expect(reasonOnRow('disciples', leftAPairing)).toBe('opted_out')
+    expect(reasonOnRow('all', person({ participationStatus: 'no_intake_submitted' }))).toBe('awaiting_intake')
+    // Only a line this list shows counts: planned to be discipled, she is on the
+    // Disciplers list for another reason, and that row shows no plan line.
+    const both = person({
+      participationStatus: 'no_intake_submitted',
+      intendedPairings: [plan('participant')],
+      declaredSide: 'mentor',
+    })
+    expect(reasonOnRow('disciplers', both)).toBe('awaiting_intake')
+    expect(reasonOnRow('all', person())).toBeNull()
   })
 
   it('preselects a Discipler as the Discipler and anybody else as the Disciple', () => {
