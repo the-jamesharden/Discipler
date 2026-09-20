@@ -8,15 +8,17 @@ Read this before running anything under `tests/integration` or `tests/platform`.
 
 | Tests | Touch | Concurrent? |
 | --- | --- | --- |
-| `tests/domain`, `tests/app` | nothing outside the process | Yes, from any number of worktrees. `npx vitest run tests/domain tests/app` |
-| `tests/integration`, `tests/platform` | the one local Supabase stack (ports 54321 to 54329), and for `*-over-http` a built Next server | **No.** Only through `scripts/agents/locked-tests.sh` |
+| `tests/domain`, `tests/app` | nothing outside the process | Yes, any number at once. `npx vitest run tests/domain tests/app` |
+| `tests/integration`, `tests/platform` | the one local Supabase stack (ports 54321 to 54329), and for `*-over-http` a built Next server | **No.** Only through `scripts/locked-tests.sh` |
 
 There is one Supabase stack per machine.
 Its schema is whatever the last `supabase db reset` applied, from whichever checkout ran it.
 The over-HTTP suites drive a real server at `APP_URL`, which defaults to `http://127.0.0.1:3000`; a server built from another checkout answers just as happily and fails, or passes, against code you do not have.
 
-So `scripts/agents/locked-tests.sh` holds one lock around the whole of: reset the database if this checkout's migrations are not the ones applied, build this checkout, serve it on this checkout's own port, run the tests against that port, stop the server.
-Never run `npm test`, `npm start`, `supabase db reset` or anything on port 3000 from a ticket worktree.
+So `scripts/locked-tests.sh` holds one lock around the whole of: reset the database if this checkout's migrations are not the ones applied, build this checkout, serve it on this checkout's own port, run the tests against that port, stop the server.
+The port is 3100 unless `LOCKED_TESTS_PORT` says otherwise, and never 3000.
+The reset, build and server logs are in `.git/locked-tests/logs/`.
+An agent does not run `npm test`, `npm start`, `supabase db reset` or anything on port 3000 to find out whether a change is green.
 
 The script can wait a long time for the lock and then run for minutes.
 The whole suite with a server is about four minutes a run.
@@ -34,7 +36,7 @@ Start it in the background and read its log; a shell call that blocks on it will
   The cure is usually `supabase stop --no-backup`, then `supabase start`, then run again.
   The CLI is a global install on this machine, not a project dependency: call `supabase`, never `npx supabase`, which goes to the registry and can stop on a prompt.
 - **`AuthRetryableFetchError` in every `beforeAll`, and a whole suite that is over in under eighty seconds, is Auth not being back yet.**
-  A reset restarts Auth, and Kong cannot reach it for about fifty seconds afterwards; two worktrees with different migrations reset on every handover of the lock.
+  A reset restarts Auth, and Kong cannot reach it for about fifty seconds afterwards; two checkouts with different migrations reset on every handover of the lock.
   `locked-tests.sh` waits up to two minutes for `/auth/v1/health` to answer through Kong before it runs anything, and says so if it never does.
   A run from a checkout that does not have that wait yet shows about 82 failed files and 692 skipped tests, and none of it is the code.
 - **`fetch failed` or `EADDRNOTAVAIL` across many suites is the host, not the code.**
@@ -52,9 +54,9 @@ Start it in the background and read its log; a shell call that blocks on it will
 - **The first run after a reset is the one most likely to pass.**
   Tests isolate by creating a fresh Ministry each, never by truncating, so the tables grow with every run and the planner changes its plans.
   A query whose order a test depends on can flip on the second or third run.
-  A change is green when the whole suite passes several times back to back with no reset between: `scripts/agents/locked-tests.sh --times 3`.
+  A change is green when the whole suite passes several times back to back with no reset between: `scripts/locked-tests.sh --times 3`.
   This is why the script resets only when migrations differ.
-  The integrator runs the suite once per ticket; the three back-to-back runs happen once, on the integration branch, before it is promoted to `main` (`workflow.md`).
+  The three back-to-back runs are for a branch about to go to `main`; one run is enough while working.
   When a test asserts on more than one row, the query needs an `order by` that actually distinguishes them.
 - **A stale server hides deletions.**
   An old build can keep passing a test for behaviour the current code removed.

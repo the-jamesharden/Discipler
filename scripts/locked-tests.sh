@@ -1,49 +1,63 @@
 #!/usr/bin/env bash
-# The only way a ticket worktree runs tests that share state.
+# The way to run tests that share state: tests/integration and tests/platform.
 #
-#   scripts/agents/locked-tests.sh                              the whole suite, once
-#   scripts/agents/locked-tests.sh --times 3                    the whole suite, three times, no reset between
-#   scripts/agents/locked-tests.sh -- tests/integration/pairing-over-http.test.ts
-#   scripts/agents/locked-tests.sh --no-server -- tests/integration/joining-a-group.test.ts
-#   scripts/agents/locked-tests.sh --reset                      force a database reset first
+#   scripts/locked-tests.sh                              the whole suite, once
+#   scripts/locked-tests.sh --times 3                    the whole suite, three times, no reset between
+#   scripts/locked-tests.sh -- tests/integration/pairing-over-http.test.ts
+#   scripts/locked-tests.sh --no-server -- tests/integration/joining-a-group.test.ts
+#   scripts/locked-tests.sh --reset                      force a database reset first
 #
 # Run it from the checkout whose code is under test. It can wait a long time for
 # the lock and then run for several minutes: start it in the background and read
 # its log, do not sit inside a ten-minute shell timeout.
 #
 # What is shared, and therefore locked: one local Supabase stack on fixed ports,
-# whose schema is whatever the last `supabase db reset` applied. Two worktrees with
-# different migrations cannot both be right about it.
+# whose schema is whatever the last `supabase db reset` applied. Two checkouts with
+# different migrations cannot both be right about it, and nor can two sessions in
+# one checkout that each reset, build and serve.
 #
 # What is held under ONE lock, start to finish:
 #   reset the database if this checkout's migrations are not the ones applied
 #   -> build THIS checkout -> serve it on THIS checkout's port
 #   -> run the tests against that port -> stop the server
-# Locking only the test run would let another worktree reset the database or
-# replace the server between the build and the first assertion.
+# Locking only the test run would let another run reset the database or replace
+# the server between the build and the first assertion.
 #
 # What needs no lock: tests/domain and tests/app. They touch no database and no
-# server, and any number of worktrees may run them at once:
+# server, and any number of them may run at once:
 #   npx vitest run tests/domain tests/app
-. "$(dirname "$0")/lib.sh"
+#
+# Written for the bash 3.2 that ships with macOS. See docs/agents/test-environment.md.
+
+set -euo pipefail
+
+die() { printf 'refused: %s\n' "$*" >&2; exit 1; }
+note() { printf '%s\n' "$*" >&2; }
 
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
+
+# The lock and the record of which schema the database holds live in the shared
+# .git directory: every checkout of this repository sees the same one, and neither
+# belongs on a branch.
+STATE_DIR="$(cd "$(git rev-parse --git-common-dir)" && pwd -P)/locked-tests"
+LOCKS_DIR="$STATE_DIR/locks"
+mkdir -p "$LOCKS_DIR"
 
 # --- the lock -------------------------------------------------------------------
 
 LOCK_FILE="$LOCKS_DIR/shared-env.lock"
 HOLDER_FILE="$LOCKS_DIR/shared-env.holder"
 
-if [ -z "${AGENT_LOCK_HELD:-}" ]; then
+if [ -z "${LOCKED_TESTS_HELD:-}" ]; then
   if [ -f "$HOLDER_FILE" ]; then
     note "waiting for the shared test environment. Held by:"
     sed 's/^/  /' "$HOLDER_FILE" >&2
   fi
   # lockf holds the lock for exactly as long as the command lives, so a crashed or
   # killed run releases it without anybody cleaning up.
-  exec lockf -k -t "${AGENT_LOCK_WAIT_SECONDS:-7200}" "$LOCK_FILE" \
-    env AGENT_LOCK_HELD=1 bash "$0" ${@+"$@"}
+  exec lockf -k -t "${LOCKED_TESTS_WAIT_SECONDS:-7200}" "$LOCK_FILE" \
+    env LOCKED_TESTS_HELD=1 bash "$0" ${@+"$@"}
 fi
 
 # --- arguments ------------------------------------------------------------------
@@ -61,10 +75,13 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-PORT="$(cat "$ROOT/.agent/port" 2>/dev/null || echo 3100)"
-WHO="$(cat "$ROOT/.agent/ticket" 2>/dev/null || echo "$ROOT ($(git rev-parse --abbrev-ref HEAD))")"
-LOG_DIR="$ROOT/.agent"
-[ -d "$LOG_DIR" ] || LOG_DIR="$(mktemp -d)"
+# Never 3000: a server somebody left there answers just as happily, from a build
+# of code this checkout may not have. A second checkout takes a port of its own.
+PORT="${LOCKED_TESTS_PORT:-3100}"
+WHO="$ROOT ($(git rev-parse --abbrev-ref HEAD))"
+# The reset, build and server logs, kept out of the working tree.
+LOG_DIR="$STATE_DIR/logs/$(basename "$ROOT")"
+mkdir -p "$LOG_DIR"
 
 printf 'who:     %s\npid:     %s\nsince:   %s\ncheckout: %s\n' "$WHO" "$$" "$(date)" "$ROOT" >"$HOLDER_FILE"
 
