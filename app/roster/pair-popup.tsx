@@ -29,6 +29,11 @@ export interface PairPopupDiscipler {
   readonly phone: string | null
   /** How many people they already lead. */
   readonly leads: number
+  /**
+   * Why they cannot be chosen, already in words, or null where they can (Manual
+   * pairing, ticket 23). A greyed row is shown, never hidden, and says why.
+   */
+  readonly greyed: string | null
 }
 
 export const PairPopup = ({
@@ -48,7 +53,11 @@ export const PairPopup = ({
   /** The Discipler chosen on a submission that came back refused, or null. */
   readonly chosenBefore: string | null
 }) => {
-  const [chosenId, setChosenId] = useState<string | null>(chosenBefore)
+  // A choice that came back from a refusal and is greyed now is not restored as
+  // chosen: the row says why, and a round mark nobody can press is not pressed.
+  const [chosenId, setChosenId] = useState<string | null>(
+    disciplers.find((each) => each.id === chosenBefore && each.greyed === null)?.id ?? null,
+  )
   // Disabled only where script runs, so an Admin without it can still post.
   const [hydrated, setHydrated] = useState(false)
   useEffect(() => setHydrated(true), [])
@@ -111,28 +120,39 @@ export const PairPopup = ({
               {disciplers.map((discipler) => (
                 <label
                   key={discipler.id}
-                  className={`pair-opt${discipler.id === chosenId ? ' on' : ''}`}
+                  className={`pair-opt${discipler.id === chosenId ? ' on' : ''}${discipler.greyed ? ' off' : ''}`}
                 >
+                  {/* Disabled is the whole of it: no mouse or key presses it, a
+                      screen reader says unavailable and then the reason, and no
+                      form posts it, with script or without. */}
                   <input
                     type="radio"
                     name="leaderId"
                     value={discipler.id}
                     checked={discipler.id === chosenId}
                     onChange={() => setChosenId(discipler.id)}
+                    disabled={discipler.greyed !== null}
+                    aria-describedby={discipler.greyed ? `pair-why-${discipler.id}` : undefined}
                   />
                   <span className="avatar" aria-hidden="true">{initialsOf(discipler.fullName)}</span>
                   <span className="pair-who">
                     <span className="pair-name">{discipler.fullName}</span>
-                    {/* Each missing detail is simply absent: no dash stands in for it. */}
-                    <span className="pair-sub">
-                      {[
-                        discipler.email,
-                        discipler.phone ? displayPhone(discipler.phone) : null,
-                        PAIR_POPUP.leads(discipler.leads),
-                      ]
-                        .filter((detail): detail is string => detail !== null)
-                        .join(' · ')}
-                    </span>
+                    {/* The reason stands where the details would, as the mock has it:
+                        a row nobody can choose has no use for a number to ring. */}
+                    {discipler.greyed ? (
+                      <span className="pair-why" id={`pair-why-${discipler.id}`}>{discipler.greyed}</span>
+                    ) : (
+                      // Each missing detail is simply absent: no dash stands in for it.
+                      <span className="pair-sub">
+                        {[
+                          discipler.email,
+                          discipler.phone ? displayPhone(discipler.phone) : null,
+                          PAIR_POPUP.leads(discipler.leads),
+                        ]
+                          .filter((detail): detail is string => detail !== null)
+                          .join(' · ')}
+                      </span>
+                    )}
                   </span>
                 </label>
               ))}

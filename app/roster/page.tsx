@@ -21,6 +21,7 @@ import {
   NOBODY_ON_THIS_NUMBER,
   NOT_MADE,
   PAIR,
+  PAIR_POPUP,
   invitedToGroupReceipt,
   joinedGroupReceipt,
   pairedReceipt,
@@ -59,6 +60,7 @@ import {
   whoThePopupIsFor,
   whyNotPairable,
 } from './lists'
+import { greyedForADisciple } from './greying'
 import { PairPopup } from './pair-popup'
 import { RefusedRows } from './refused-rows'
 import { decodeImportReport } from './report'
@@ -119,15 +121,20 @@ export default async function RosterPage({
   // only after an upload. The import report is a redirect and outlives nothing; a
   // question that appeared only there would expire the moment an Admin navigated
   // away, which is the silent drop the reporting exists to prevent.
-  const page = await getRosterReader().readRosterPage('roster')
+  //
+  // With the Pair popup asked for, that one document is the Pair surface's: the
+  // Roster's own with the Ministry's gender setting beside it, which is what the
+  // popup greys its rows against (Manual pairing, ticket 23). Still one read.
+  const query = await searchParams
+  const asked = [query.pair ?? []].flat()[0]
+  const page = await getRosterReader().readRosterPage(asked === undefined ? 'roster' : 'pair')
 
   // Signed in but not an Admin. Sending them back to sign in would only loop.
   if (page.status === 'not-an-admin') return <NotAnAdmin title="Roster" />
   if (page.status === 'signed-out') redirect('/login')
 
   const { admin } = page
-  const { roster, held, followUpCount } = page.page
-  const query = await searchParams
+  const { roster, held, followUpCount, suggestGenderMatch } = page.page
 
   const list = listIn(query.list)
   const shown = roster.filter((person) => onList(list, person))
@@ -136,13 +143,19 @@ export default async function RosterPage({
   // The Pair popup, drawn over this list (Manual pairing, ticket 12). Out of the
   // document already read: opening it is no second read. A `pair` that names
   // nobody on this Roster, or somebody who cannot be paired, opens nothing.
-  const asked = [query.pair ?? []].flat()[0]
   const pairing = whoThePopupIsFor(roster, asked)
   // The toggle decides the side. Until ticket 14 gives the Discipler's side a
   // popup, somebody who would open as one goes to the old Pair page with them
   // chosen, where their row's Pair goes, so no address opens an empty popup.
   if (pairing && opensAs(list, pairing) === 'discipler') redirect(pairHref(list, pairing))
   const disciplers = pairing ? disciplersFor(roster, pairing) : []
+  // Why a Discipler's row cannot be chosen, already in words, or null where it
+  // can (Manual pairing, ticket 23). Read against what a one-to-one declares in
+  // this Ministry, never offered and then refused.
+  const whyGreyed = (disciple: RosterEntry, discipler: RosterEntry): string | null => {
+    const greyed = greyedForADisciple({ enforced: suggestGenderMatch, disciple, discipler })
+    return greyed === null ? null : PAIR_POPUP.greyed(greyed)
+  }
   // Compared against the list and never rendered, like every value from an address.
   const chosenBefore = [query.leaderId ?? []].flat()[0]
 
@@ -443,6 +456,7 @@ export default async function RosterPage({
             email: discipler.email,
             phone: discipler.phone,
             leads: leadsCount(discipler),
+            greyed: whyGreyed(pairing, discipler),
           }))}
           refusal={pairingRefusalMessage(query.error)}
           chosenBefore={disciplers.find((each) => each.personId === chosenBefore)?.personId ?? null}

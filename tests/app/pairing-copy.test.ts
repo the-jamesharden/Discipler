@@ -181,9 +181,13 @@ describe('why a row in the Pair popup is greyed (Manual pairing, ticket 23)', ()
     expect(PAIR_POPUP.greyed({ why: 'not_pairable', reason: 'opted_out' })).toBe('Opted out')
   })
 
-  it('says the rule in words where the gender is another, and never who anybody is', () => {
-    expect(PAIR_POPUP.greyed({ why: 'gender', declared: 'female' })).toBe('A 1:1 is same-gender')
-    expect(PAIR_POPUP.greyed({ why: 'gender', declared: 'male' })).toBe('A 1:1 is same-gender')
+  it('says what the one-to-one declares where the gender is another, as the mock words it', () => {
+    expect(PAIR_POPUP.greyed({ why: 'gender', declared: 'male' })).toBe(
+      'Men’s only: a one-on-one needs the same gender',
+    )
+    expect(PAIR_POPUP.greyed({ why: 'gender', declared: 'female' })).toBe(
+      'Women’s only: a one-on-one needs the same gender',
+    )
   })
 })
 

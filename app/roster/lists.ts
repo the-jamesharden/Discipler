@@ -156,7 +156,8 @@ export const whoThePopupIsFor = (
 /**
  * The popup's list from a Disciple: every Discipler, in the Roster's order, and
  * never the Disciple themselves. Nobody is left out for something the database
- * would refuse; until ticket 13 greys those rows, the refusal is what says so.
+ * would refuse: those rows are shown greyed with the reason (Manual pairing,
+ * ticket 23, in `./greying`), and never hidden.
  */
 export const disciplersFor = (
   roster: readonly RosterEntry[],

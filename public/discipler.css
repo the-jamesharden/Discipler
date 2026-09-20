@@ -587,6 +587,12 @@ textarea.paste { width: 100%; min-height: 140px; font-family: ui-monospace, SFMo
 .pair-who { display: block; min-width: 0; }
 .pair-name { display: block; font-size: 0.84rem; font-weight: 700; line-height: 1.25; }
 .pair-sub { display: block; font-size: 0.73rem; color: var(--text-light); overflow-wrap: anywhere; }
+/* A greyed row (Manual pairing, ticket 23): who it is fades as the mock has it, and
+   the reason does not, because it is the one thing on the row still worth reading. */
+.pair-opt.off, .pair-opt.off input { cursor: default; }
+.pair-opt.off:hover { border-color: var(--border); }
+.pair-opt.off input, .pair-opt.off .avatar, .pair-opt.off .pair-name { opacity: 0.5; }
+.pair-why { display: block; font-size: 0.7rem; font-weight: 500; color: var(--amber-ink); }
 .pair-summary { margin-top: 0.9rem; background: rgba(45, 80, 22, 0.06); border-left: 3px solid var(--primary); padding: 0.55rem 0.7rem; font-size: 0.82rem; border-radius: 0 5px 5px 0; }
 
 /* ---- the Materials tab ---- */
