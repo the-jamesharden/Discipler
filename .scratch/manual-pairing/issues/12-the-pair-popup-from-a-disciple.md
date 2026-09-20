@@ -99,3 +99,14 @@ Beyond the letter of the ticket, both small: the row's Pair link and the popup's
 
 Looked at in a browser beside mock E and F at 923px and at 390px: centred both ways to the pixel, serif title over the ruled head, row rhythm and selected row as the mock, **Pair** disabled until a round mark is pressed, the refusal above the list with the choice restored, the import dialog shut behind it.
 One flaw found and fixed: the keyboard focus ring was doubled and clipped by the scrolling list.
+
+### Decided by James, 2026-09-20: the three readings stand
+
+James read the three readings above and said to go with them.
+
+- *leads 1* counts people.
+  Written into the spec under *The popup, from a Disciple*.
+- Mock E's toolbar, the count and **Clear**, stays.
+- Ticket 13 greys a Discipler who has not completed Intake or has opted out, with **Awaiting Intake** or **Opted out**.
+  Written into `.scratch/manual-pairing/issues/13-who-is-greyed-for-a-disciple.md` as a criterion and into the spec.
+  Nothing changes in this ticket: here they are listed and the database refuses them, as the ticket says.

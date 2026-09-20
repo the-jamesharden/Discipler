@@ -34,9 +34,12 @@ The rules are the database's own, so the screen shows them; it does not invent a
   Both database triggers return early on a null gender so that the readiness rules refuse the row with something the Admin can act on, and the screen shows the same restraint.
 - [ ] If this Disciple is already in a one-to-one, every Discipler is greyed with *Already in a 1:1 with {name}*.
   This is `participant_one_open_one_to_one`: one open one-to-one as a participant.
+- [ ] **A Discipler who has not completed Intake, or who has opted out, is greyed** with the words their Roster row already says, **Awaiting Intake** or **Opted out**.
+  Decided by James on 2026-09-20, out of ticket 12's Comments: ticket 12 lists every Discipler and lets the database refuse these two after the click, which is the round trip this ticket exists to remove.
+  This reason is about the candidate and not about a declaration, so it is `whyNotPairable` and `CANNOT_BE_PAIRED` (`app/roster/lists.ts`, `app/roster/copy.ts`), reused and not written a second time, and it is said in place of a gender reason where both hold.
 - [ ] A greyed row cannot be chosen by mouse or keyboard, is announced as unavailable with its reason to a screen reader, and is never submitted.
 - [ ] A greyed row is shown, not hidden.
 - [ ] A choice restored from a refusal that is now greyed is not restored as chosen.
 - [ ] The database still refuses what it refused before; the greying removes no rule underneath.
-- [ ] Over HTTP: another-gender Discipler greyed in an enforcing Ministry and open in one that does not enforce; a null-gender Discipler open; every Discipler greyed for a Disciple already in a one-to-one.
+- [ ] Over HTTP: another-gender Discipler greyed in an enforcing Ministry and open in one that does not enforce; a null-gender Discipler open; every Discipler greyed for a Disciple already in a one-to-one; a Discipler who has not completed Intake, and one who has opted out, greyed with those words.
 - [ ] Looked at in a browser: the greyed treatment reads as unavailable and not as broken, and the reason fits on one line at phone width.

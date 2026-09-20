@@ -123,6 +123,10 @@ Title: **Pair Sam Lee**.
 - No shape toggle ever appears, and nothing else is asked.
   Choosing a Discipler makes a 1:1; choosing a group puts them in it, and the group keeps the Material it has.
 - If this Disciple is already in a 1:1, every Discipler is greyed with the reason and the groups stay open.
+- A Discipler who has not completed Intake, or who has opted out, is greyed with the words their Roster row already says, **Awaiting Intake** or **Opted out**.
+  The database refuses a pairing led by either, and they get no Pair on their own row for the same reason.
+  They are shown, not hidden: the list is still every Discipler (James, 2026-09-20).
+- *leads 1* counts people across everything a Discipler leads, so leading a group of three reads *leads 3* (James, 2026-09-20).
 - Sentence and button: *Claire Martinez will disciple Sam Lee in a one-on-one.* **Create 1:1 pair**, or *Sam Lee will join Thursday Table, led by David Chen.* **Add to group**.
 
 ## Gender
