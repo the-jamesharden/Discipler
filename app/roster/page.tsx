@@ -21,6 +21,7 @@ import {
   NOBODY_ON_THIS_NUMBER,
   NOT_MADE,
   PAIR,
+  invitedToGroupReceipt,
   joinedGroupReceipt,
   pairedReceipt,
   pairedSeparatelyReceipt,
@@ -103,6 +104,8 @@ export default async function RosterPage({
     /** Who an Admin has just put into a group, and whether anybody was texted about it. */
     joined?: string
     told?: string
+    /** Who an Admin has just invited to help lead a group. */
+    invited?: string
     /** Why an answer to a held import row could not be applied. A code, never prose. */
     rowError?: string
     /** Whose Pair popup is open over this list (Manual pairing, ticket 12). */
@@ -157,6 +160,8 @@ export default async function RosterPage({
   // address carries an id, and nothing it says is rendered. An id that names
   // nobody here is no receipt at all.
   const joined = roster.find((person) => person.personId === query.joined)?.fullName
+  // And who was just invited to help lead one, found and named the same way.
+  const invited = roster.find((person) => person.personId === query.invited)?.fullName
 
   // A set of separate one-to-ones counts the one-to-ones made. Who was not paired
   // arrives as ids and is named from the whole Roster, whichever list is showing,
@@ -253,6 +258,12 @@ export default async function RosterPage({
         {joined !== undefined ? (
           <p className="toast" role="status">
             {joinedGroupReceipt(joined, query.told === 'yes')}
+          </p>
+        ) : null}
+
+        {invited !== undefined ? (
+          <p className="toast" role="status">
+            {invitedToGroupReceipt(invited)}
           </p>
         ) : null}
 

@@ -6,6 +6,7 @@ import {
   addPerson,
   createMinistryWithAdmin,
   formGroup,
+  pairOneToOne,
   localSupabase,
   type MinistryFixture,
 } from '../support/local-supabase'
@@ -45,16 +46,17 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin puts a Disciple into a group, 
   const aGroup = async (name: string, declaredGender: Gender | null) => {
     const gender: Gender = declaredGender ?? 'male'
     const leaderName = named('David')
+    const discipleNames = [named('Emil'), named('Felix')] as const
     const group = await formGroup(ministry, {
       name,
       declaredGender,
       leader: { name: leaderName, phone: aTestPhoneNumber(), gender },
       disciples: [
-        { name: named('Emil'), phone: aTestPhoneNumber(), gender },
-        { name: named('Felix'), phone: aTestPhoneNumber(), gender },
+        { name: discipleNames[0], phone: aTestPhoneNumber(), gender },
+        { name: discipleNames[1], phone: aTestPhoneNumber(), gender },
       ],
     })
-    return { ...group, leaderName }
+    return { ...group, leaderName, discipleNames }
   }
 
   const aDisciple = async (gender: Gender) => {
@@ -99,7 +101,9 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin puts a Disciple into a group, 
       .split('<tr')
       .find((candidate) => new RegExp(`data-testid="roster-name"[^>]*>${name}<`).test(candidate))
     expect(row, `no row on the Roster for ${name}`).toBeDefined()
-    return row!.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
+    // The row and nothing after it: the last row of the table would otherwise run
+    // on into whatever the page prints below.
+    return row!.split('</tr>')[0]!.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
   }
 
   it('puts a ready Disciple into a running group, on both rows, with the Discipler texted', async () => {
@@ -221,5 +225,108 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin puts a Disciple into a group, 
     const { html } = await getPage(`/roster?joined=${crypto.randomUUID()}&told=yes`, cookie)
 
     expect(html).not.toContain('is in the group now.')
+  })
+
+  /**
+   * Stage 2, behind the same route: `as=leader` invites a Discipler to help lead,
+   * the way the popup's **Add as co-leader** button will.
+   */
+  describe('a Discipler added as another leader', () => {
+    const aDiscipler = async () => {
+      const name = named('Claire')
+      return { name, id: await addPerson(ministry, name, { phone: aTestPhoneNumber(), answers: { gender: 'male' } }) }
+    }
+
+    const leadsIt = async (group: string, person: string) => {
+      const { rows } = await pool.query<{ accepted: boolean }>(
+        `select accepted_at is not null as accepted from relationship_member
+          where relationship_id = $1 and person_id = $2 and role = 'leader' and ended_at is null`,
+        [group, person],
+      )
+      return rows
+    }
+
+    it('invites a Discipler who leads nobody onto a running group, and the group’s state is unchanged', async () => {
+      const group = await aGroup('Monday Table', 'male')
+      const claire = await aDiscipler()
+      const stateOf = async () =>
+        (await pool.query(`select accepted_at, ended_at, name from relationship where id = $1`, [group.id])).rows[0]
+      const before = await stateOf()
+
+      const { status, location } = await join({
+        personId: claire.id,
+        groupId: group.id,
+        as: 'leader',
+        list: 'disciplers',
+      })
+
+      expect(status).toBe(303)
+      expect(location.pathname).toBe('/roster')
+      expect(Object.fromEntries(location.searchParams)).toEqual({ list: 'disciplers', invited: claire.id })
+      expect(await leadsIt(group.id, claire.id)).toEqual([{ accepted: false }])
+      expect(await stateOf()).toEqual(before)
+
+      // A queued invitation for her, and nothing for anybody else.
+      const [toClaire, ...more] = await queuedFor(claire.id)
+      expect(more).toEqual([])
+      expect(toClaire).toContain('/invitation/')
+      expect(await queuedFor(group.leader)).toEqual([])
+
+      // The receipt says she was invited and that the group carries on, not that
+      // she leads it.
+      const landed = await getPage(`${location.pathname}${location.search}`, cookie)
+      expect(landed.html).toContain(
+        `${claire.name} has been invited to help lead the group, and nobody else has been contacted. `
+        + 'The group carries on meanwhile.',
+      )
+
+      // The Roster shows the group on her Discipler row, awaiting her acceptance,
+      // and on the row of the leader who has accepted it as running.
+      const disciplers = await getPage('/roster?list=disciplers', cookie)
+      const hers = rowFor(disciplers.html, claire.name)
+      // A Discipler's row names who they disciple, so the group is its Disciples.
+      for (const disciple of group.discipleNames) expect(hers).toContain(disciple)
+      expect(hers).toContain('awaiting acceptance')
+      expect(rowFor(disciplers.html, group.leaderName)).not.toContain('awaiting acceptance')
+    })
+
+    it('refuses a Discipler who already leads a group, with a code of its own', async () => {
+      const theirs = await aGroup('Tuesday Table', 'male')
+      const another = await aGroup('Wednesday Table', 'male')
+
+      const { status, location } = await join({ personId: theirs.leader, groupId: another.id, as: 'leader' })
+
+      expect(status).toBe(303)
+      expect(Object.fromEntries(location.searchParams)).toEqual({
+        list: 'all',
+        pair: theirs.leader,
+        groupId: another.id,
+        error: 'joining.already_leads_a_group',
+      })
+      expect(await leadsIt(another.id, theirs.leader)).toEqual([])
+    })
+
+    it('accepts a Discipler with two one-to-ones and no group', async () => {
+      const claire = await aDiscipler()
+      await pairOneToOne(ministry, claire.id, (await aDisciple('male')).id)
+      await pairOneToOne(ministry, claire.id, (await aDisciple('male')).id)
+      const group = await aGroup('Saturday Table', 'male')
+
+      const { location } = await join({ personId: claire.id, groupId: group.id, as: 'leader' })
+
+      expect(location.searchParams.get('invited')).toBe(claire.id)
+      expect(await leadsIt(group.id, claire.id)).toEqual([{ accepted: false }])
+    })
+
+    it('refuses a body that says neither, and adds nobody as anything', async () => {
+      const group = await aGroup('Sunday Table', 'male')
+      const claire = await aDiscipler()
+
+      const { location } = await join({ personId: claire.id, groupId: group.id, as: 'leadr' })
+
+      expect(location.searchParams.get('error')).toBe('joining.role_not_recognised')
+      expect(await leadsIt(group.id, claire.id)).toEqual([])
+      expect(await inTheGroup(group.id, claire.id)).toBe(false)
+    })
   })
 })

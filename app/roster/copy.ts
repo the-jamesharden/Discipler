@@ -188,6 +188,15 @@ export const joinedGroupReceipt = (fullName: string, told: boolean): string =>
     : 'Nobody has been contacted about it.')
 
 /**
+ * The receipt for a Discipler an Admin has just added to a group (Manual pairing,
+ * ticket 22). An invitation and not a fact about who leads: they lead nothing
+ * until they accept, and the group does not wait for them.
+ */
+export const invitedToGroupReceipt = (fullName: string): string =>
+  `${fullName} has been invited to help lead the group, and nobody else has been contacted. `
+  + 'The group carries on meanwhile.'
+
+/**
  * A number as a person reads it: a North American number as `(706) 555-0142`,
  * which is how the church's own spreadsheet had it, and anything else as it is
  * stored. Display only; the stored value stays E.164 (ADR-0005).
@@ -592,6 +601,18 @@ export const refusalAboutOneOfASet = (fullName: string, message: string): string
   `${fullName}: ${message} None of these one-to-ones was made.`
 
 /**
+ * The cap a Discipler added to a group can run into, about the Discipler by name
+ * where the Roster still holds them: the Admin chose one person, and the sentence
+ * is about that person. A function and not a constant for the name's sake, and
+ * declared as one so the `Record` below can use it. Named as a cap and not as an
+ * error, as the pairing's own sentence for it is.
+ */
+export function alreadyLeadsAGroup(fullName: string | undefined): string {
+  return `${fullName ?? 'This Discipler'} already leads a group. A Discipler leads one group at `
+    + 'a time, and any number of one-to-ones.'
+}
+
+/**
  * Why somebody could not be put into a group that already exists (Manual pairing,
  * ticket 22), for the refusals that act has of its own. A `Record`, so a code added
  * to `GroupJoinRefusal` and left unworded fails the build.
@@ -604,6 +625,9 @@ export const GROUP_JOIN_REFUSALS: Record<GroupJoinRefusal, string> = {
     'That pairing is a one-to-one, not a group, so nobody can be added to it. Choose a group.',
   'joining.person_not_found': 'That person is not on this Ministry’s Roster.',
   'joining.already_in_the_group': 'They are already in this group.',
+  'joining.already_leads_a_group': alreadyLeadsAGroup(undefined),
+  'joining.role_not_recognised':
+    'That did not say whether to add them as a Disciple or as a Discipler. Open Pair again and choose.',
 }
 
 /**
@@ -624,10 +648,26 @@ export const PAIRING_REFUSALS_ON_JOINING: Partial<Record<PairingRefusal, string>
     + 'group of their own gender, or a mixed one.',
   'relationship.person_already_in_this_relationship': 'They are already in this group.',
   'relationship.person_belongs_to_another_ministry': 'That person is not on this Ministry’s Roster.',
+  // The same two readiness rules, met by a Discipler being added to lead.
+  'relationship.leader_has_not_completed_intake':
+    'They have not completed Intake yet. Send them the Intake link first, then add them.',
+  'relationship.leader_has_opted_out': 'They have opted out, and cannot be added to a group.',
+  // The index's own code, should it ever arrive in place of this act's.
+  'relationship.leader_already_leads_a_group': alreadyLeadsAGroup(undefined),
 }
 
-export const groupJoinRefusalMessage = (code: string | undefined): string | undefined => {
+/**
+ * `fullName` is who the Admin was adding, as the Roster holds them and never as an
+ * address said it. Only the cap names them; every other sentence says *they*.
+ */
+export const groupJoinRefusalMessage = (
+  code: string | undefined,
+  fullName?: string,
+): string | undefined => {
   if (!code) return undefined
+  if (code === 'joining.already_leads_a_group' || code === 'relationship.leader_already_leads_a_group') {
+    return alreadyLeadsAGroup(fullName)
+  }
   // Looked up, never rendered, like every other code that arrives in an address.
   return (
     GROUP_JOIN_REFUSALS[code as GroupJoinRefusal]

@@ -5,6 +5,7 @@ import {
   PAIRING_REFUSALS_ON_JOINING,
   REFUSALS,
   groupJoinRefusalMessage,
+  invitedToGroupReceipt,
   joinedGroupReceipt,
 } from '../../app/roster/copy'
 
@@ -22,6 +23,8 @@ const OWN: readonly GroupJoinRefusal[] = [
   'joining.not_a_group',
   'joining.person_not_found',
   'joining.already_in_the_group',
+  'joining.already_leads_a_group',
+  'joining.role_not_recognised',
 ]
 
 describe('why somebody could not be put into a group', () => {
@@ -83,5 +86,47 @@ describe('the receipt', () => {
   it('speaks the customer’s language', () => {
     expect(joinedGroupReceipt('Sam Lee', true)).not.toMatch(FORBIDDEN)
     expect(joinedGroupReceipt('Sam Lee', false)).not.toMatch(FORBIDDEN)
+  })
+})
+
+describe('a Discipler added to a group as another leader', () => {
+  it('names the Discipler who already leads a group, where the Roster still holds them', () => {
+    expect(groupJoinRefusalMessage('joining.already_leads_a_group', 'Claire Martinez')).toBe(
+      'Claire Martinez already leads a group. A Discipler leads one group at a time, and any '
+      + 'number of one-to-ones.',
+    )
+    expect(groupJoinRefusalMessage('joining.already_leads_a_group')).toMatch(
+      /^This Discipler already leads a group\./,
+    )
+    // The index's own code says the same thing, should it ever arrive in its place.
+    expect(groupJoinRefusalMessage('relationship.leader_already_leads_a_group', 'Claire Martinez')).toBe(
+      groupJoinRefusalMessage('joining.already_leads_a_group', 'Claire Martinez'),
+    )
+  })
+
+  it('names nobody in any other sentence, whoever was being added', () => {
+    expect(groupJoinRefusalMessage('joining.group_has_ended', 'Claire Martinez')).toBe(
+      groupJoinRefusalMessage('joining.group_has_ended'),
+    )
+  })
+
+  it('says the readiness rules about them, not about a selection on a form', () => {
+    expect(groupJoinRefusalMessage('relationship.leader_has_not_completed_intake')).toBe(
+      'They have not completed Intake yet. Send them the Intake link first, then add them.',
+    )
+    expect(groupJoinRefusalMessage('relationship.leader_has_opted_out')).toBe(
+      'They have opted out, and cannot be added to a group.',
+    )
+  })
+
+  it('says they were invited and that the group carries on, and not that they lead it', () => {
+    const said = invitedToGroupReceipt('Claire Martinez')
+
+    expect(said).toBe(
+      'Claire Martinez has been invited to help lead the group, and nobody else has been '
+      + 'contacted. The group carries on meanwhile.',
+    )
+    expect(said).not.toMatch(/\bleads\b/)
+    expect(said).not.toMatch(FORBIDDEN)
   })
 })
