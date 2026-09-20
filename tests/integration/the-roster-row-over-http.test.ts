@@ -211,6 +211,30 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
       })
     })
 
+    it('says Opted out, and offers no Pair, for a Discipler who has opted out', async () => {
+      // The reason wins over the side (James, 2026-09-19): *Pair on every Discipler
+      // row* means a Discipler keeps it when they already lead somebody, and not
+      // that one the database would refuse to pair is offered a button. The
+      // Discipler who was imported as one and has not completed Intake is in the
+      // three-lists suite, beside the plan that makes them one.
+      const { cookie } = await signIn(ministry)
+      const mentor = await addPerson(ministry, 'Petra Novak', { phone: number() })
+      await pool.query(
+        `insert into consent_record
+           (ministry_id, person_id, consent, granted, version, source, decided_at, intake_path, declared_side)
+         values ($1, $2, 'sms', true, '2026-09-v1', 'pastor_link', now(), 'discipleship', 'mentor')`,
+        [ministry.id, mentor],
+      )
+      await optOut(ministry, mentor)
+
+      await onTheirListAndOnAll(cookie, 'disciplers', (html) => {
+        const row = rowFor(html, 'Petra Novak')
+        expect(row).toContain('Opted out')
+        expect(row).not.toContain('Unpaired')
+        expect(pairLinkFor(html, 'Petra Novak')).toBeNull()
+      })
+    })
+
     it('never says Eligible to lead, a status, or the footnote, on any of the three lists', async () => {
       // *Eligible to lead* left the app on 2026-09-07 and survives only in a design
       // prototype. Pinned, so it cannot come back unnoticed.
