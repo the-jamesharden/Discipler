@@ -40,7 +40,6 @@ vi.mock('~/platform/supabase/server-client', () => ({
   createSupabaseServerClient: async () => session.client,
 }))
 
-
 type Gender = 'female' | 'male'
 
 type GroupFixture = Awaited<ReturnType<typeof formGroup>>
@@ -50,7 +49,7 @@ type GroupFixture = Awaited<ReturnType<typeof formGroup>>
  * Leader`, `Thursday Disciple 1`. A leader of their own each time, because
  * `leader_one_open_group` lets nobody lead two.
  */
-const labelled = (
+const groupLabelled = (
   ministry: MinistryFixture,
   label: string,
   options: {
@@ -107,20 +106,20 @@ describe('the groups on the Pair document', () => {
     bystander = await addPersonWithAccount(ministry, 'Lena Leader', 'leader')
     pool = new pg.Pool({ connectionString: localSupabase().databaseUrl })
 
-    running = await labelled(ministry, 'Thursday', {
+    running = await groupLabelled(ministry, 'Thursday', {
       name: 'Thursday Table',
       declaredGender: 'male',
       disciples: ['male', 'male', 'male'],
     })
 
-    paused = await labelled(ministry, 'Paused', {
+    paused = await groupLabelled(ministry, 'Paused', {
       name: 'Paused Circle',
       declaredGender: 'female',
       disciples: ['female', 'female'],
     })
     await pauseRelationship(ministry, paused.id)
 
-    awaiting = await labelled(ministry, 'Awaiting', {
+    awaiting = await groupLabelled(ministry, 'Awaiting', {
       name: 'Awaiting Its Leader',
       declaredGender: 'female',
       disciples: ['female', 'female'],
@@ -128,34 +127,34 @@ describe('the groups on the Pair document', () => {
     })
 
     // A 1:2 pair is a group for every rule, and is listed like one.
-    oneToTwo = await labelled(ministry, 'Pair Of Two', {
+    oneToTwo = await groupLabelled(ministry, 'Pair Of Two', {
       name: 'Claire’s Two',
       declaredGender: 'female',
       disciples: ['female', 'female'],
     })
 
     // Formed before groups had names, and never named since. Declares nothing.
-    unnamed = await labelled(ministry, 'Unnamed', {
+    unnamed = await groupLabelled(ministry, 'Unnamed', {
       name: null,
       declaredGender: null,
       disciples: ['male', 'male'],
       leaderGender: 'male',
     })
 
-    mixed = await labelled(ministry, 'Mixed', {
+    mixed = await groupLabelled(ministry, 'Mixed', {
       name: 'Mixed Company',
       declaredGender: null,
       disciples: ['female', 'male'],
     })
 
-    ended = await labelled(ministry, 'Ended', {
+    ended = await groupLabelled(ministry, 'Ended', {
       name: 'Ended Last Spring',
       declaredGender: 'male',
       disciples: ['male', 'male', 'male'],
     })
     await end(ended, true)
 
-    cancelled = await labelled(ministry, 'Cancelled', {
+    cancelled = await groupLabelled(ministry, 'Cancelled', {
       name: 'Never Started',
       declaredGender: 'male',
       disciples: ['male', 'male'],
@@ -165,7 +164,7 @@ describe('the groups on the Pair document', () => {
 
     // Formed as a group of two, and one of them has since left. Still a group by
     // `kind`, and one Disciple by count.
-    downToOne = await labelled(ministry, 'Dwindled', {
+    downToOne = await groupLabelled(ministry, 'Dwindled', {
       name: 'Down To One',
       declaredGender: 'female',
       disciples: ['female'],
@@ -185,7 +184,7 @@ describe('the groups on the Pair document', () => {
     const mentee = await addPerson(ministry, 'Solo Mentee', { answers: { gender: 'female' } })
     oneToOne = await pairOneToOne(ministry, mentor, mentee)
 
-    theirs = await labelled(other, 'Across The Road', {
+    theirs = await groupLabelled(other, 'Across The Road', {
       name: 'Somebody Else’s Group',
       declaredGender: 'male',
       disciples: ['male', 'male'],
@@ -202,6 +201,9 @@ describe('the groups on the Pair document', () => {
   const groupsOn = (doc: Record<string, unknown>) => asRows(doc.groups)
   const groupOn = (doc: Record<string, unknown>, group: GroupFixture) =>
     groupsOn(doc).find((row) => row.id === group.id)
+  /** One group as the reader derives it from a document, and from nothing else. */
+  const derivedFrom = (doc: Record<string, unknown>, group: GroupFixture) =>
+    rosterPageFrom(doc, clock, 'pair').groups.find((each) => each.relationshipId === group.id)
 
   it('lists every open relationship with two or more Disciples, a 1:2 pair included', async () => {
     const ids = groupsOn(await pairDocument()).map((row) => row.id)
@@ -214,13 +216,14 @@ describe('the groups on the Pair document', () => {
   it('lists a running group, a paused one and one still awaiting its leader', async () => {
     const doc = await pairDocument()
 
-    // Each row of the document says so itself, and says nothing while it runs.
-    expect(groupOn(doc, running)).toHaveProperty('state', null)
-    expect(groupOn(doc, paused)).toHaveProperty('state', 'paused')
-    expect(groupOn(doc, awaiting)).toHaveProperty('state', 'awaiting_leader_acceptance')
+    // SQL batches and TypeScript derives (ADR-0023), so the document carries the
+    // two facts a state is derived from and no state: when each was accepted, and
+    // the Pauses every other surface reads.
+    expect(groupOn(doc, running)?.accepted_at).toEqual(expect.any(String))
+    expect(groupOn(doc, paused)?.accepted_at).toEqual(expect.any(String))
+    expect(groupOn(doc, awaiting)).toHaveProperty('accepted_at', null)
+    expect(groupOn(doc, running)).not.toHaveProperty('state')
 
-    // *Paused* is decided against the Pauses the same document carries for every
-    // other surface, so a group row and the Overview cannot disagree.
     const pauses = asRows(asDocument(doc.history).pauses).map((row) => row.relationship_id)
     expect(pauses).toContain(paused.id)
     expect(pauses).not.toContain(running.id)
@@ -239,7 +242,7 @@ describe('the groups on the Pair document', () => {
       id: running.id,
       name: 'Thursday Table',
       declared_gender: 'male',
-      state: null,
+      accepted_at: expect.any(String),
       disciple_count: 3,
       leaders: [{ id: running.leader, full_name: 'Thursday Leader' }],
       // Either role, by person id, so the popup can leave out a group somebody is
@@ -262,8 +265,7 @@ describe('the groups on the Pair document', () => {
     const doc = await pairDocument()
     expect(groupOn(doc, unnamed)).toHaveProperty('name', null)
 
-    const page = rosterPageFrom(doc, clock, 'pair')
-    expect(page.groups.find((group) => group.relationshipId === unnamed.id)?.name).toBeNull()
+    expect(derivedFrom(doc, unnamed)?.name).toBeNull()
   })
 
   it('counts open participant memberships, never the kind the relationship was formed as', async () => {
@@ -278,7 +280,7 @@ describe('the groups on the Pair document', () => {
 
     // And the count follows the memberships. Somebody leaves the group of three,
     // and it reads two; the leader is never counted among the Disciples.
-    const counted = await labelled(ministry, 'Counted', {
+    const counted = await groupLabelled(ministry, 'Counted', {
       name: 'Counted Twice',
       declaredGender: 'male',
       disciples: ['male', 'male', 'male'],
@@ -329,7 +331,7 @@ describe('the groups on the Pair document', () => {
     // The helper is not a second way in: nothing but a signed-in session may call
     // it, and it is an invoker, so that session's own policies choose the rows.
     const { rows } = await pool.query<{ role: string; may: boolean }>(`
-      select r.role, has_function_privilege(r.role, 'app.pair_groups(uuid, jsonb)', 'execute') as may
+      select r.role, has_function_privilege(r.role, 'app.pair_groups(uuid)', 'execute') as may
         from unnest(array['authenticated', 'anon', 'service_role', 'public']) as r(role)
     `)
     expect(rows).toEqual([
@@ -339,7 +341,7 @@ describe('the groups on the Pair document', () => {
       { role: 'public', may: false },
     ])
     const { rows: definer } = await pool.query<{ prosecdef: boolean }>(
-      `select prosecdef from pg_proc where oid = 'app.pair_groups(uuid, jsonb)'::regprocedure`,
+      `select prosecdef from pg_proc where oid = 'app.pair_groups(uuid)'::regprocedure`,
     )
     expect(definer[0]?.prosecdef).toBe(false)
   })
@@ -355,7 +357,7 @@ describe('the groups on the Pair document', () => {
           JSON.stringify({ sub: userId, role: 'authenticated' }),
         ])
         const { rows } = await client.query<{ groups: unknown[] }>(
-          `select app.pair_groups($1, '[]'::jsonb) as groups`,
+          `select app.pair_groups($1) as groups`,
           [target.id],
         )
         return rows[0]!.groups
@@ -397,8 +399,8 @@ describe('the groups on the Pair document', () => {
   it('derives every group from the one document, with its state when it is not running', async () => {
     // `rosterPageFrom` is handed a document and no client: whatever it says about
     // the groups came in the page's one read, and no request stands beside it.
-    const page = rosterPageFrom(await pairDocument(), clock, 'pair')
-    const derived = (group: GroupFixture) => page.groups.find((each) => each.relationshipId === group.id)
+    const doc = await pairDocument()
+    const derived = (group: GroupFixture) => derivedFrom(doc, group)
 
     expect(derived(running)).toEqual({
       relationshipId: running.id,
@@ -445,7 +447,7 @@ describe('the groups on the Pair document', () => {
       expect(formed).toMatchObject({
         declared_gender: 'female',
         // Formed and not yet accepted: listed all the same.
-        state: 'awaiting_leader_acceptance',
+        accepted_at: null,
         disciple_count: 2,
         leaders: [{ id: claire, full_name: 'Claire Martinez' }],
         member_ids: [claire, first, second].sort(),
@@ -463,38 +465,41 @@ describe('the groups on the Pair document', () => {
   it('goes on reading a group as paused after its Pause has run its weeks', async () => {
     // Expiry resumes nothing: a Pause stands until somebody resumes it, here as on
     // every other surface, and when it ran out is decided elsewhere against a clock.
-    const lapsed = await labelled(ministry, 'Lapsed', {
+    const lapsed = await groupLabelled(ministry, 'Lapsed', {
       name: 'Lapsed Pause',
       declaredGender: 'female',
       disciples: ['female', 'female'],
     })
     await pauseRelationship(ministry, lapsed.id, 1, new Date('2026-01-05T09:00:00Z'))
 
-    const doc = await pairDocument()
-    expect(groupOn(doc, lapsed)).toHaveProperty('state', 'paused')
-    const page = rosterPageFrom(doc, clock, 'pair')
-    expect(page.groups.find((group) => group.relationshipId === lapsed.id)?.state).toBe('paused')
+    expect(derivedFrom(await pairDocument(), lapsed)?.state).toBe('paused')
   })
 
-  it('carries every leader a group has, in the order the document gave them', async () => {
-    // One open leader a relationship is all the database allows today
-    // (`relationship_one_open_leader`), so a second cannot be seeded. The shape is
-    // a list because the spec has decided a group can have several, and the reader
-    // must not be what quietly keeps the first.
-    const doc = await pairDocument()
-    const [first, ...rest] = groupsOn(doc)
-    const coLed = {
-      ...first,
-      leaders: [
-        { id: running.leader, full_name: 'Thursday Leader' },
-        { id: paused.leader, full_name: 'Paused Leader' },
-      ],
-    }
+  it('carries every leader of a group led by more than one', async () => {
+    // A group has no cap on its leaders (`one_to_one_one_open_leader` is on the
+    // two-person case alone), and the spec has decided a group can have several.
+    const coLed = await groupLabelled(ministry, 'Co-led', {
+      name: 'Led By Two',
+      declaredGender: 'female',
+      disciples: ['female', 'female'],
+    })
+    const second = await addPerson(ministry, 'Co-led Another Leader', { answers: { gender: 'female' } })
+    await addMembership({ ministry, relationshipId: coLed.id, kind: 'group', personId: second, role: 'leader' })
 
-    const page = rosterPageFrom({ ...doc, groups: [coLed, ...rest] }, clock, 'pair')
-    expect(page.groups[0]?.leaders).toEqual([
-      { personId: running.leader, fullName: 'Thursday Leader' },
-      { personId: paused.leader, fullName: 'Paused Leader' },
+    const doc = await pairDocument()
+    expect(groupOn(doc, coLed)).toMatchObject({
+      // By name, then id: a total order.
+      leaders: [
+        { id: second, full_name: 'Co-led Another Leader' },
+        { id: coLed.leader, full_name: 'Co-led Leader' },
+      ],
+      // A second leader is nobody's Disciple, and is somebody in the group.
+      disciple_count: 2,
+      member_ids: [coLed.leader, second, ...coLed.disciples].sort(),
+    })
+    expect(derivedFrom(doc, coLed)?.leaders).toEqual([
+      { personId: second, fullName: 'Co-led Another Leader' },
+      { personId: coLed.leader, fullName: 'Co-led Leader' },
     ])
   })
 
@@ -531,7 +536,7 @@ describe('the groups on the Pair document', () => {
 
   it('reads a group that is both unaccepted and paused as awaiting its leader', async () => {
     // The order `deriveRelationshipState` settles the two in.
-    const both = await labelled(ministry, 'Both', {
+    const both = await groupLabelled(ministry, 'Both', {
       name: 'Waiting And Paused',
       declaredGender: 'female',
       disciples: ['female', 'female'],
@@ -539,12 +544,7 @@ describe('the groups on the Pair document', () => {
     })
     await pauseRelationship(ministry, both.id)
 
-    const doc = await pairDocument()
-    expect(groupOn(doc, both)).toHaveProperty('state', 'awaiting_leader_acceptance')
-    const page = rosterPageFrom(doc, clock, 'pair')
-    expect(page.groups.find((group) => group.relationshipId === both.id)?.state).toBe(
-      'awaiting_leader_acceptance',
-    )
+    expect(derivedFrom(await pairDocument(), both)?.state).toBe('awaiting_leader_acceptance')
   })
 
   it('refuses a document whose groups are missing or say less than the popup needs', async () => {
@@ -562,11 +562,13 @@ describe('the groups on the Pair document', () => {
       return drifted(row)
     }
 
-    // A missing declaration must not read as mixed, nor a missing state as
-    // running, nor a missing name as *nobody named it*.
+    // A missing declaration must not read as mixed, nor a missing acceptance as
+    // either answer, nor a missing name as *nobody named it*.
     expect(() => rosterPageFrom(lacking('declared_gender'), clock, 'pair')).toThrow(/declared gender/i)
-    expect(() => rosterPageFrom(lacking('state'), clock, 'pair')).toThrow(/state/i)
-    expect(() => rosterPageFrom(drifted({ ...first, state: 'ended' }), clock, 'pair')).toThrow(/state/i)
+    expect(() => rosterPageFrom(lacking('accepted_at'), clock, 'pair')).toThrow(/acceptance/i)
+    expect(() => rosterPageFrom(drifted({ ...first, accepted_at: 'yesterday' }), clock, 'pair')).toThrow(
+      /acceptance/i,
+    )
     expect(() => rosterPageFrom(lacking('name'), clock, 'pair')).toThrow(/name/i)
     expect(() => rosterPageFrom(lacking('disciple_count'), clock, 'pair')).toThrow(/count of Disciples/i)
     expect(() => rosterPageFrom(lacking('member_ids'), clock, 'pair')).toThrow(/who is in it/i)

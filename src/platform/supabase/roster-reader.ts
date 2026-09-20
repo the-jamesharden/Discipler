@@ -24,7 +24,9 @@ import type { NameOnTheNumber } from '~/domain/roster'
 import { careNeededFrom } from './care-needed-reader'
 import { adminPage, list, readPageDocument, section, type PageDocument } from './page'
 import { liveMaterialRows } from './materials-reader'
-import { historyOf } from './relationship-history'
+import { settledStateOf } from '~/domain/relationship-state'
+import type { StandingPause } from '~/domain/pause'
+import { historyOf, instant, pausesFrom } from './relationship-history'
 import { createSupabaseServerClient } from './server-client'
 
 interface MemberRow {
@@ -393,13 +395,16 @@ const isListOfIds = (value: unknown): value is readonly string[] =>
  * decide whether the group is offered at all, the declaration whether it is
  * greyed, the state what the row says beside its name.
  */
-const groupsFrom = (doc: PageDocument): readonly GroupToJoin[] =>
+const groupsFrom = (
+  doc: PageDocument,
+  pauses: ReadonlyMap<string, StandingPause>,
+): readonly GroupToJoin[] =>
   list(doc, 'groups').map((row) => {
     const {
       id,
       name,
       declared_gender: declaredGender,
-      state,
+      accepted_at: acceptedAt,
       disciple_count: discipleCount,
       member_ids: memberIds,
       leaders,
@@ -418,12 +423,26 @@ const groupsFrom = (doc: PageDocument): readonly GroupToJoin[] =>
     if (declaredGender !== null && !isOneOf(GENDERS, declaredGender)) {
       throw new Error(`A group arrived with no answer about its declared gender: ${id}`)
     }
-    // Null is *running*, which is an answer. The key missing must not read as
-    // that: a group nobody has accepted, shown as running, is a row whose leader
-    // the Admin would expect to hear from.
-    if (state !== null && state !== 'awaiting_leader_acceptance' && state !== 'paused') {
-      throw new Error(`A group arrived with no answer about its state: ${id}`)
+    // Null is Awaiting Leader Acceptance, which is an answer. The key missing or
+    // holding something that is not an instant must not read as either one.
+    // `instant` hands back an Invalid Date for a string that is not one, so the
+    // time is asked for too: read as accepted, a group nobody has agreed to lead
+    // would be shown as running.
+    const accepted = acceptedAt === null ? null : instant(acceptedAt)
+    if (acceptedAt !== null && (accepted === null || Number.isNaN(accepted.getTime()))) {
+      throw new Error(`A group arrived with no answer about its acceptance: ${id}`)
     }
+    // SQL batches and TypeScript derives (ADR-0023): the one definition of
+    // awaiting and paused, asked of this row and of the Pause standing on it in
+    // the same document, so the popup and the Overview cannot disagree. The
+    // function lists no ended group, and `ended` coming back would be this
+    // reader having handed it an ending it was never given.
+    const state = settledStateOf({
+      endedAt: null,
+      acceptedAt: accepted,
+      pausedAt: pauses.get(id)?.pausedAt ?? null,
+    })
+    if (state === 'ended') throw new Error(`A listed group read as ended: ${id}`)
     // The function lists nothing with fewer than two, so fewer here is drift too.
     if (typeof discipleCount !== 'number' || !Number.isInteger(discipleCount) || discipleCount < 2) {
       throw new Error(`A group arrived without its count of Disciples: ${id}`)
@@ -460,19 +479,23 @@ const groupsFrom = (doc: PageDocument): readonly GroupToJoin[] =>
  * without them is a different thing and is thrown for: a form that quietly
  * offered no Materials is the wrong answer shown confidently.
  */
-export const rosterPageFrom = (doc: PageDocument, clock: Clock, surface: RosterSurface): RosterPage => ({
-  roster: rosterFrom(doc),
-  held: heldImportRowsFrom(doc),
-  followUpCount: careNeededFrom(historyOf(doc), clock).length,
-  suggestGenderMatch: surface === 'pair' ? suggestGenderMatchFrom(doc) : true,
-  // Id and title, which is what a select needs. One definition of *live*, shared
-  // with the Materials tab, so the two cannot disagree about what is on offer.
-  materials:
-    surface === 'pair'
-      ? liveMaterialRows(doc).map(({ materialId, title }): MaterialOption => ({ materialId, title }))
-      : [],
-  groups: surface === 'pair' ? groupsFrom(doc) : [],
-})
+export const rosterPageFrom = (doc: PageDocument, clock: Clock, surface: RosterSurface): RosterPage => {
+  // Parsed once, for the badge's count and for the Pauses the groups are read against.
+  const history = historyOf(doc)
+  return {
+    roster: rosterFrom(doc),
+    held: heldImportRowsFrom(doc),
+    followUpCount: careNeededFrom(history, clock).length,
+    suggestGenderMatch: surface === 'pair' ? suggestGenderMatchFrom(doc) : true,
+    // Id and title, which is what a select needs. One definition of *live*, shared
+    // with the Materials tab, so the two cannot disagree about what is on offer.
+    materials:
+      surface === 'pair'
+        ? liveMaterialRows(doc).map(({ materialId, title }): MaterialOption => ({ materialId, title }))
+        : [],
+    groups: surface === 'pair' ? groupsFrom(doc, pausesFrom(history)) : [],
+  }
+}
 
 /**
  * Built with a clock rather than reaching for one, because the badge's number is
@@ -484,8 +507,8 @@ export const createSupabaseRosterReader = (clock: Clock = systemClock): RosterRe
   /**
    * One read for the Roster, the held import rows and the badge's number: all
    * three derive from one document. The person page reads the same one under its
-   * own name, and the Pair page reads it with the setting and the Materials
-   * beside it; each takes what it needs.
+   * own name, and the Pair page reads it with the setting, the Materials and
+   * the groups beside it; each takes what it needs.
    */
   async readRosterPage(surface) {
     const doc = await readPageDocument(await createSupabaseServerClient(), `${surface}_page`)

@@ -91,7 +91,7 @@ import type {
 } from '~/domain/ids'
 import type { ParticipationStatus } from '~/domain/participation'
 import type { NewRelationship } from '~/domain/relationships'
-import type { CareReason, RelationshipState } from '~/domain/relationship-state'
+import type { CareReason, RelationshipState, SettledRelationshipState } from '~/domain/relationship-state'
 import type { InvitationState } from '~/domain/invitations'
 import type { MemberRole } from '~/domain/relationships'
 import type { NewPerson, PhoneNumber, RosterKey } from '~/domain/roster'
@@ -1005,11 +1005,10 @@ export interface GroupToJoin {
   /** What the group declared at formation. Null is *mixed*, as it is everywhere a declaration is carried. */
   readonly declaredGender: Gender | null
   /**
-   * Null while it is running. Two of the derived Relationship States and no
-   * others: an ended one is not listed, and the rest are kinds of running.
-   * Awaiting wins over paused, as it does there.
+   * Null while it is running. Two of the settled Relationship States and never
+   * the third: an ended group is not listed. Which wins is `settledStateOf`'s.
    */
-  readonly state: Extract<RelationshipState, 'awaiting_leader_acceptance' | 'paused'> | null
+  readonly state: Exclude<SettledRelationshipState, 'ended'> | null
   /**
    * Everybody in it, in either role, so the surface can leave out a group the
    * Person is already in without a second read.

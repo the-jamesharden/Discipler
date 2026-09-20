@@ -34,7 +34,6 @@ const TABS = [
   'roster_page',
 ] as const
 
-
 describe('the Admin tabs answer in one read', () => {
   let ministry: MinistryFixture
   let other: MinistryFixture

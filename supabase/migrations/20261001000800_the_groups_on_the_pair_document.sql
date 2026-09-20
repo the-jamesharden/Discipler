@@ -28,25 +28,21 @@
 -- cancelled one has no open Disciples to count. The count is a consequence of
 -- that invariant and this line is the rule.
 --
--- What each row carries is what the popup says about a group: its name, its
--- declaration, its state when it is not running, who leads it, how many
--- Disciples it has, and everybody in it in either role, so the popup can leave
--- out a group the Person is already in without a second read. The name is whatever the column holds, null included: nothing is
+-- What each row carries is what the relationship has and the rest of the
+-- document does not: its name, its declaration, when it was accepted, who
+-- leads it, how many Disciples it has, and everybody in it in either role, so
+-- the popup can leave out a group the Person is already in without a second
+-- read. The name is whatever the column holds, null included: nothing is
 -- backfilled or guessed here, and how an unnamed row is labelled is the
 -- popup's. `declared_gender` null is *mixed*, as it is on the column.
 --
--- `state` is null while the group is running, `awaiting_leader_acceptance`
--- where nobody has accepted it, and `paused` where a Pause stands on it.
--- Awaiting wins over paused, the order `deriveRelationshipState` settles the two
--- in: a relationship nobody has accepted has nothing running to pause. A Pause
--- whose period has run out still stands until somebody resumes it, as it does on
--- every other surface.
---
--- The Pauses are handed in rather than asked for again. They already ride in
--- this same document under `history.pauses`, from `public.relationship_pauses`,
--- and `pair_page()` passes that list here, so *paused* on a group row and
--- *paused* on the Overview are one evaluation of one question and cannot
--- disagree inside one document.
+-- A group's state is not written here, and that is the rule and not an
+-- omission: SQL batches and TypeScript derives
+-- (`docs/adr/0023-a-page-is-one-read.md`). This row carries `accepted_at`, the
+-- Pause standing on each relationship already rides in this same document under
+-- `history.pauses`, and the reader puts the two to `settledStateOf`, the one
+-- definition of awaiting and paused that every other surface derives from. A
+-- `case` here would be that rule computed in a second place.
 --
 -- `security invoker`, like `app.history_inputs` beside it: the rows come back
 -- under the caller's own policies on `relationship`, `relationship_member` and
@@ -57,7 +53,7 @@
 -- Ordered by name, then formation, then id. The id is what makes the order
 -- total: two unnamed groups formed in one statement share everything else, and
 -- a list a test or a screen reads twice has to read the same way twice.
-create function app.pair_groups(target_ministry_id uuid, standing_pauses jsonb)
+create function app.pair_groups(target_ministry_id uuid)
 returns jsonb
 language sql
 stable
@@ -70,11 +66,7 @@ as $$
         'id', r.id,
         'name', r.name,
         'declared_gender', r.declared_gender,
-        'state', case
-          when r.accepted_at is null then 'awaiting_leader_acceptance'
-          when r.id in (select (p ->> 'relationship_id')::uuid
-                          from jsonb_array_elements(standing_pauses) p) then 'paused'
-        end,
+        'accepted_at', r.accepted_at,
         'disciple_count', live.disciple_count,
         'member_ids', live.member_ids,
         'leaders', coalesce(
@@ -106,20 +98,20 @@ as $$
      and live.disciple_count >= 2;
 $$;
 
-comment on function app.pair_groups(uuid, jsonb) is
+comment on function app.pair_groups(uuid) is
   'The groups an Admin could put somebody into, for the Pair document: every '
   'open relationship in this Ministry with two or more open participant '
   'memberships, 1:2 pairs included, accepted or not, named or not. The count is '
   'live and never the relationship''s kind (ADR-0004). Each carries its name as '
-  'the column holds it, its declared gender with null meaning mixed, its state '
-  'when it is not running, its leaders, its count of Disciples, and everybody '
-  'in it in either role. The state is awaiting_leader_acceptance, paused or '
-  'null, awaiting first; paused is decided against the standing Pauses handed '
-  'in, which are the ones history.pauses carries in the same document. '
-  'Invoker, so the rows are the ones the caller''s policies show.';
+  'the column holds it, its declared gender with null meaning mixed, when it '
+  'was accepted, its leaders, its count of Disciples, and everybody in it in '
+  'either role. Rows only: whether a group is awaiting its leader or paused is '
+  'derived by the reader from accepted_at and history.pauses in the same '
+  'document (ADR-0023). Invoker, so the rows are the ones the caller''s '
+  'policies show.';
 
-revoke execute on function app.pair_groups(uuid, jsonb) from public, anon, service_role;
-grant execute on function app.pair_groups(uuid, jsonb) to authenticated;
+revoke execute on function app.pair_groups(uuid) from public, anon, service_role;
+grant execute on function app.pair_groups(uuid) to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- The Pair page carries them
@@ -169,7 +161,7 @@ begin
 
     -- The groups somebody could be put into: running, paused or still awaiting
     -- their leader, and never an ended or cancelled one.
-    'groups', app.pair_groups(ministry, doc -> 'history' -> 'pauses')
+    'groups', app.pair_groups(ministry)
   );
 end;
 $$;

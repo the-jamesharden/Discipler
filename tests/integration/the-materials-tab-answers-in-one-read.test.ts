@@ -47,7 +47,6 @@ const orderless = (doc: Record<string, unknown>): Record<string, unknown> =>
     ]),
   )
 
-
 describe('the Materials tab answers in one read', () => {
   let ministry: MinistryFixture
   let other: MinistryFixture

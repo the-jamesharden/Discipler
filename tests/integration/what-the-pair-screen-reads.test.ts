@@ -26,7 +26,6 @@ import { asDocument, asRows } from '../support/page-document'
  * carry them; the Roster's and the person page's do not.
  */
 
-
 /** A Material the Ministry once offered and no longer does. */
 const addRemovedMaterial = async (ministry: MinistryFixture, title: string): Promise<string> => {
   const id = await addMaterial(ministry, title)
