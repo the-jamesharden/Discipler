@@ -66,23 +66,24 @@ How that works on screen and for check-ins is **not designed yet**, so stage 2 i
 
 A command behind the same route as stage 1.
 
-- [ ] An Admin command names a group and a Person, and the Person gains an open leader membership on the group with no Acceptance recorded.
-- [ ] They are issued an Invitation Link and sent it, the same way a mentor is when first paired.
-- [ ] **The group keeps running.**
+- [x] An Admin command names a group and a Person, and the Person gains an open leader membership on the group with no Acceptance recorded.
+- [x] They are issued an Invitation Link and sent it, the same way a mentor is when first paired.
+- [x] **The group keeps running.**
   A group already accepted stays in the state it was in; adding a leader never moves it back to Awaiting Leader Acceptance.
-- [ ] A group still awaiting its leader now waits for this leader too: it activates when every open leader membership carries an Acceptance, as `CONTEXT.md` already defines Acceptance.
-- [ ] `leader_one_open_group` stands.
+- [x] A group still awaiting its leader now waits for this leader too: it activates when every open leader membership carries an Acceptance, as `CONTEXT.md` already defines Acceptance.
+- [x] `leader_one_open_group` stands.
   A Discipler who already leads an open group is refused with a code and wording of their own (*{name} already leads a group*), decided at the boundary, never surfaced as a database error.
-- [ ] The group's declared gender binds the new leader as it binds every member.
+- [x] The group's declared gender binds the new leader as it binds every member.
   No gender on file is refused by the readiness rule, never with "genders do not match".
-- [ ] Refused with their own codes: a group that has ended, a relationship that is not a group, and a Person already in the group in either role.
-- [ ] Recorded as a ministry event of its own type naming the Admin, the Person and the group.
-- [ ] The group's participants are sent nothing.
+- [x] Refused with their own codes: a group that has ended, a relationship that is not a group, and a Person already in the group in either role.
+- [x] Recorded as a ministry event of its own type naming the Admin, the Person and the group.
+- [x] The group's participants are sent nothing.
   Whether its existing leaders are told is not in the spec: send them nothing here, and say so in a comment on this ticket so ticket 11's question covers it.
 - [ ] Until they accept, the new leader is treated as any unaccepted leader already is: no check-ins, no care signals, nothing but the invitation.
-- [ ] Cancelling or reissuing their invitation behaves as it does for a leader invited at formation.
-- [ ] The Roster shows the group on the new leader's Discipler row, marked as awaiting their acceptance.
-- [ ] Over HTTP: a Discipler who leads nobody is added to a running group, has a queued invitation, and the group's state is unchanged; a Discipler who already leads a group is refused; a Discipler with two one-to-ones and no group is accepted.
+  **Not ticked.** Check-ins, the joined and resumed texts, re-inviting and the Roster ask the leader's own Acceptance now; what they see on their dashboard and may do by keyword does not, and is a decision for James. See Comments, stage 2.
+- [x] Cancelling or reissuing their invitation behaves as it does for a leader invited at formation.
+- [x] The Roster shows the group on the new leader's Discipler row, marked as awaiting their acceptance.
+- [x] Over HTTP: a Discipler who leads nobody is added to a running group, has a queued invitation, and the group's state is unchanged; a Discipler who already leads a group is refused; a Discipler with two one-to-ones and no group is accepted.
 
 ## Comments
 
@@ -121,3 +122,43 @@ Smaller, and decided:
 - **A test fixture was wrong and is fixed.**
   `formGroup` stamped a group accepted without its leader's own Acceptance, a state acceptance cannot produce.
   It now writes both, as `relationship.accept` does.
+
+### Implementer, stage 2, 2026-09-20: what is built, and one criterion left unticked on purpose
+
+**Read this before ticket 26 gives the command a button.**
+
+The command, the invitation, the refusals, the receipt and the route are built and tested.
+What is not finished is *"until they accept, the new leader is treated as any unaccepted leader already is"*, and it is left unticked.
+
+The ticket reads as if the product already knew what an unaccepted *leader* is.
+It did not: it knew what an unaccepted *relationship* is.
+Activation is the last leader accepting, so until this command a running relationship never had a leader on it who had not agreed, and almost nothing asks the membership.
+This command creates the first one, and a sweep of every read that decides what a leader gets found them all gating on the relationship, or on nothing.
+
+**Gated on the leader's own Acceptance in this stage**, because the criterion names them or another criterion needs them:
+
+- **Check-ins.** `checkInFor` now reads a relationship as accepted *for this leader* only when the relationship and their own membership both are. The existing rule for a relationship awaiting acceptance (not asked about, no silence accrued) then covers them with no new rule.
+- **The text that says a group is running again.** An Admin's resume skips a leader who has not accepted, and does not name them to the Disciples as somebody they are meeting with.
+- **The text that says somebody joined** (stage 1).
+- **Sending their link again.** Re-issuing reads the same snapshot the tick does, and that snapshot only held relationships nobody had activated, so for a co-leader on a running group it silently did nothing. It now also holds a running relationship with a leader still to answer. The tick shares it, so the clock had to be right the moment it widened: a relationship's two thresholds are now measured from `waitingSince`, which is formation for an unactivated relationship (unchanged) and when the leader was added for a running one. Without that, a co-leader added to a year-old group would have been reminded and escalated on the next tick.
+- **The Roster.** `roster_page()` carries each membership's own `accepted_at` (this stage's migration), and the new leader's row reads *awaiting acceptance* while every other row of the group reads as running. The person page's **Send a new invitation** button hangs off the same fact, so it now shows for them.
+
+**Not gated, and yours to decide, because each is a design choice the spec calls not designed yet.**
+Until they are decided, an unaccepted co-leader on a running group:
+
+1. **Sees the group on their Leader dashboard, with its Disciples' names and the numbers those Disciples agreed to share**, if they already hold an account (they lead a one-to-one, or they are an Admin). `app.leads_relationship`, `app.leads_person`, `relationships_page()` and `contact_to_share` ask only for an open leader membership. This is not new: a leader with an account who is invited to a *new* relationship sees it the same way today, before accepting. It is the one I would settle first.
+2. **Can text PAUSE, RESUME or SWAP about the group.** `src/domain/keywords.ts` says in its own words that a keyword acts on the relationship and never on one leader's agreement to lead it, and SWAP on an unaccepted relationship is deliberately a decline. Whether a co-leader who has not agreed may pause a group is the same question from the other side.
+3. **Is told when a leader's RESUME keyword restarts the group.** The keyword path's member projection carries no acceptance, by the same decision as 2.
+4. **Is named as one of the group's leaders on the Admin's own surfaces**: Care Needed, the Overview, Check-Ins, the group lists on Intake forms and the Pair document, and the group Intake link's *led by*. None of these sends them anything.
+
+**For ticket 11, found on the way:**
+
+- **Accepting on a running group re-activates it.** `relationship.accept` decides `activatesRelationship` as *every other leader has accepted*, which is true for a co-leader on a running group. It would append a second `relationship.activated`, open a second Material period, and send the Starter Message to every leader and every Disciple again. The database only guards the column. Ticket 11's first two criteria are exactly this; it is said here because it is a text to real phones, and because ticket 26 waits on 22, 24 and 25 but not on 11.
+- **The five-day item now raises for them**, which James answered yes to on 2026-09-20. Its usual answer, **Cancel**, is refused on a running group (`relationship.already_accepted`), so there is no way to withdraw an unanswered co-leader invitation short of ending the group. *Cancelling behaves as it does for a leader invited at formation* is true and tested for a group still awaiting its leader, where cancelling takes their membership with it; on a running group there was never anything to cancel at formation either.
+
+Smaller, and decided:
+
+- **`as=leader` on `POST /roster/pair/join`.** Absent is a Disciple; anything else the route does not know is refused (`joining.role_not_recognised`), so a misspelt value cannot put a Discipler into a group to be discipled. Success is `/roster?list=…&invited=<personId>`.
+- ***{name} already leads a group* is `joining.already_leads_a_group`**, decided where `leader_one_open_group` is caught, since only the index sees their other relationships. `groupJoinRefusalMessage(code, fullName)` names them from the Roster, never from the address.
+- **The group's existing leaders are sent nothing**, as James decided for ticket 11 on 2026-09-20.
+- **A test fixture now gives a leader on an accepted relationship their own Acceptance** (`addMembership`), as `relationship.accept` does. Without it every seeded leader read as not having agreed the moment check-ins asked the membership.
