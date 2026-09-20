@@ -13,7 +13,11 @@ Read `docs/agents/workflow.md` first; it is the whole procedure.
 3. When an implementer reports it has finished: check the main checkout is still clean (`git status`), then give the person the reviewer command:
    `cd <worktree> && claude "$(scripts/agents/prompt.sh reviewer <ticket path>)"`.
    A reviewer may instead be a subagent you launch, because it edits nothing.
-4. CHANGES REQUIRED: a fix session on the same branch, `scripts/agents/prompt.sh fixer <ticket path>`, then a new review.
+4. CHANGES REQUIRED: a fix session on the same branch, `scripts/agents/prompt.sh fixer <ticket path>`, then your fix check, not a second review.
+   Read `git diff <reviewed sha>..<branch>` beside the review's BLOCKING and TESTS MISSING items, and nothing else.
+   Every item met, and nothing in the diff beyond them: write a short file in the review's shape that names each finding and the commit that answers it, ending `VERDICT: PASS`, and record it with `scripts/agents/record-review.sh <ticket path> PASS <that file>`.
+   An item not met, or a fix that did more than the findings asked: `CHANGES`, and another fix session.
+   You run no tests for this; the fixer ran the touched files, and the integrator runs the whole suite.
    PASS: the integrator, `scripts/agents/prompt.sh integrator <ticket path>`, one ticket at a time.
 5. After each integration, `scripts/agents/remove-worktree.sh <ticket path>`, then back to step 1: what was blocked may now be READY, and new worktrees start from the updated `{{INTEGRATION_BRANCH}}`.
 

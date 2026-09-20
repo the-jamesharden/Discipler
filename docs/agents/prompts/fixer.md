@@ -16,7 +16,7 @@ Every rule of `docs/agents/prompts/implementer.md` applies: you work only in `{{
 - Fix every BLOCKING item and every TESTS MISSING item.
 - A NON-BLOCKING item is yours to take if it is small; otherwise leave it and say so.
 - If you believe a finding is wrong, do not argue by ignoring it.
-  Write why under `## Comments` in the ticket, and leave the code as it is for that item; the next reviewer decides.
+  Write why under `## Comments` in the ticket, and leave the code as it is for that item; the orchestrator's fix check decides.
 - Do not widen the ticket while you are here.
 - New commits only.
   Amending or rebasing would rewrite the commit the review names.
@@ -30,4 +30,6 @@ If answering the review needs far more than that, the ticket was probably too bi
 ## When you finish
 
 Reply with each review item and what you did about it, the summary line of each test run, and the new head commit.
-Your commit makes the old review worthless, on purpose: the branch is unreviewed again until a reviewer passes the new head.
+Your commit leaves the new head without a receipt, on purpose.
+There is no second full review: the orchestrator checks your fix commits against the review's findings, and records the PASS for the new head if each one is met (`docs/agents/workflow.md`, *After a failed review*).
+So keep the fix round to the findings, and say plainly which commit answers which.

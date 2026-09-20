@@ -53,7 +53,8 @@ Start it in the background and read its log; a shell call that blocks on it will
   Tests isolate by creating a fresh Ministry each, never by truncating, so the tables grow with every run and the planner changes its plans.
   A query whose order a test depends on can flip on the second or third run.
   A change is green when the whole suite passes several times back to back with no reset between: `scripts/agents/locked-tests.sh --times 3`.
-  This is why the script resets only when migrations differ, and why the integrator runs three.
+  This is why the script resets only when migrations differ.
+  The integrator runs the suite once per ticket; the three back-to-back runs happen once, on the integration branch, before it is promoted to `main` (`workflow.md`).
   When a test asserts on more than one row, the query needs an `order by` that actually distinguishes them.
 - **A stale server hides deletions.**
   An old build can keep passing a test for behaviour the current code removed.

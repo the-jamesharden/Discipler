@@ -9,8 +9,10 @@ It goes into: `{{INTEGRATION_BRANCH}}`, in the main checkout `{{MAIN_CHECKOUT}}`
 1. `scripts/agents/status.sh {{EFFORT}}` and confirm the ticket reads APPROVED.
    Anything else is not yours to merge.
 2. Start `scripts/agents/integrate.sh {{TICKET_PATH}}` in the background and read its output.
-   It merges without committing, runs the whole suite three times back to back on the merged tree under the shared-environment lock, and commits only if that is green.
-   Expect it to take a quarter of an hour, longer if another worktree holds the lock.
+   It merges without committing, runs the whole suite once on the merged tree under the shared-environment lock, and commits only if that is green.
+   This is the only whole-suite run a ticket gets: the implementer and the reviewer run only the files the ticket touches.
+   Expect it to take about five minutes, longer if another worktree holds the lock.
+   The three back-to-back runs that catch an order-dependent flake happen once, at promotion to `main` (`docs/agents/workflow.md`).
 3. Report what happened, then stop.
 
 ## If there are conflicts

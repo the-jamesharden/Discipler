@@ -36,7 +36,8 @@ Every effort numbers its tickets from 01, so a number inside your ticket means a
 4. Test as `docs/agents/test-environment.md` says.
    `npx vitest run tests/domain tests/app` and `npm run typecheck` need no lock; run them as often as you like.
    Anything under `tests/integration` or `tests/platform` runs only through `scripts/agents/locked-tests.sh`, started in the background, because it may wait for another worktree and then run for minutes.
-   Run the files your ticket touches while you work, and the whole suite once before you finish.
+   Run the files your ticket touches, and any other suite that reads what you changed (`grep` the tests for the copy, route or function you touched).
+   You do not run the whole suite: the integrator does, once, on the merged tree.
    Never run `npm test`, `supabase db reset`, `npm start` or anything on port 3000 yourself.
 5. For a ticket that changes what an Admin sees, look at it in a browser on your own port: `npm run build && node node_modules/next/dist/bin/next start -p {{PORT}}`, and stop that server when you are done.
    Be picky about what you see.

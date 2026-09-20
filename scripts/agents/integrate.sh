@@ -5,7 +5,7 @@
 #   scripts/agents/integrate.sh <ticket path>              merge, test, commit
 #   scripts/agents/integrate.sh <ticket path> --continue   after resolving conflicts or fixing the combination
 #   scripts/agents/integrate.sh <ticket path> --abort      back out, leaving the integration branch as it was
-#   scripts/agents/integrate.sh <ticket path> --times 1    how many back-to-back full runs (default 3)
+#   scripts/agents/integrate.sh <ticket path> --times 3    how many back-to-back full runs (default 1)
 #
 # Run it from the main checkout, on the integration branch, with a clean tree. It
 # takes many minutes: start it in the background and read its output.
@@ -19,7 +19,7 @@
 parse_ticket "${1:-}"
 shift
 MODE="start"
-TIMES=3
+TIMES=1
 VITEST_ARGS=""
 while [ $# -gt 0 ]; do
   case "$1" in

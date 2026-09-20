@@ -14,8 +14,10 @@ The tooling is `scripts/agents/`; the prompts are `docs/agents/prompts/`.
 | Two tickets that edit the same component are not open together | the `Touches:` line; `start-ticket.sh` refuses the second |
 | Review before integration, of the exact commit | a receipt keyed by commit sha in `.git/agent-workflow/reviews/`; `integrate.sh` refuses a head without a PASS |
 | A commit after a review voids it | the receipt is for a sha; the new head has none |
+| One full review per ticket | after a failed review the orchestrator checks the fix against the findings and records the receipt; see *After a failed review* |
+| One whole-suite run per ticket | the implementer and the reviewer run the files the ticket touches; `integrate.sh` runs the whole suite, once, on the merged tree |
 | Implementers do not merge | the prompts; and a pre-commit hook refuses commits on `integration/*` and `main` |
-| A red combination never becomes history | `integrate.sh` merges with `--no-commit`, tests, and only then commits |
+| A red combination never becomes history | `integrate.sh` merges with `--no-commit`, runs the whole suite once, and only then commits |
 | Shared-state tests run one at a time, against the right server | `locked-tests.sh`: one `lockf` lock around reset, build, serve, test, stop; a port per worktree |
 
 These stop accidents.
@@ -49,7 +51,29 @@ It changes once, to `shipped`, in the pull request that promotes the integration
 
 **Fixer.** A fresh implementer session on the same branch, handed the review. About 80k tokens. `prompts/fixer.md`.
 
-**Integrator.** Works in the main checkout. Merges PASSed branches one at a time, resolves conflicts keeping both tickets' behaviour, runs the whole suite on the merged tree, commits only on green. `prompts/integrator.md`.
+**Integrator.** Works in the main checkout. Merges PASSed branches one at a time, resolves conflicts keeping both tickets' behaviour, runs the whole suite once on the merged tree, commits only on green. `prompts/integrator.md`.
+
+## After a failed review
+
+A ticket gets one full review.
+When it says CHANGES REQUIRED, the fixer answers the findings in new commits, and the orchestrator does a fix check in place of a second review.
+The fix check reads `git diff <reviewed sha>..<branch>` beside the review's BLOCKING and TESTS MISSING items, and nothing else.
+Every item met, and nothing in the diff beyond them, is a PASS: the orchestrator writes a short file in the review's shape, naming each finding and the commit that answers it, and records it with `record-review.sh` for the new head.
+An item not met, or a fix that widened the ticket, is CHANGES again and another fix session.
+Decided by James on 2026-09-19, after the second full review of `.scratch/manual-pairing/issues/07-quieter-roster-rows.md` cost as much as the first and found nothing.
+
+## How much is tested, and when
+
+| Who | Runs |
+| --- | --- |
+| Implementer, fixer | typecheck, `tests/domain tests/app`, and the integration files the ticket touches or that read what it changed |
+| Reviewer | the same, for the files the diff adds or changes |
+| Orchestrator's fix check | nothing |
+| Integrator | the whole suite, once, on the merged tree (`integrate.sh`, `--times 1` by default) |
+| Promotion to `main` | the whole suite three times back to back with no reset between (`locked-tests.sh --times 3`), then the no-mistakes gate |
+
+The three back-to-back runs exist to catch a query whose order flips as the tables grow (`test-environment.md`).
+That is a property of the integration branch as a whole, so it is checked once, before promotion, and not once per ticket.
 
 Implementers, fixers and reviewers are started by the person in their own terminal, with the worktree as the working directory.
 That is deliberate: a session whose working directory is the worktree cannot mistake the main checkout for its own.
@@ -70,7 +94,8 @@ cd '<worktree>' && claude "$(scripts/agents/prompt.sh reviewer .scratch/manual-p
 
    CHANGES REQUIRED:
 cd '<worktree>' && claude "$(scripts/agents/prompt.sh fixer .scratch/manual-pairing/issues/<NN>-<slug>.md)"
-        new commits on the SAME branch; the old receipt no longer matches; review again
+        new commits on the SAME branch; the old receipt no longer matches
+        the orchestrator's fix check, not a second review, records the receipt for the new head
 
    PASS, from the main checkout:
 claude "$(scripts/agents/prompt.sh integrator .scratch/manual-pairing/issues/<NN>-<slug>.md)"
@@ -103,7 +128,7 @@ Eligibility is by blockers, not by waves: a ticket may start the moment its own 
 Ticket branches are never rebased and never merge the integration branch into themselves: either would change their sha and void their review.
 Drift is the integrator's to absorb, at merge time.
 
-At a milestone worth shipping, the person promotes the integration branch: merge `main` into it if `main` has moved, run the no-mistakes gate, open a pull request, and merge it with a merge commit, never a squash, so the branch and `main` do not diverge.
+At a milestone worth shipping, the person promotes the integration branch: merge `main` into it if `main` has moved, run `scripts/agents/locked-tests.sh --times 3`, run the no-mistakes gate, open a pull request, and merge it with a merge commit, never a squash, so the branch and `main` do not diverge.
 That pull request flips the promoted tickets to `Status: shipped`, and migrations still go to production by hand.
 No script here touches `main`, pushes, forces, resets or stashes.
 
