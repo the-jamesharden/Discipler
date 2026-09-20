@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getCareNeededReader } from '~/service/container'
 import { AdminShell, NotAnAdmin } from '../shell'
@@ -27,12 +26,10 @@ export default async function SuggestedPairsPage() {
         </div>
         <div className="empty">
           <p>{NO_SUGGESTIONS}</p>
+          {/* No button into pairing from here: every pairing starts from a row on
+              the Roster (Manual pairing, ticket 07), which is what the line below
+              already tells an Admin to do. */}
           <p className="muted">{NOT_AVAILABLE_YET}</p>
-          <p style={{ marginTop: '1rem' }}>
-            <Link className="btn sec" href="/roster/pair">
-              Pair manually
-            </Link>
-          </p>
         </div>
       </div>
     </AdminShell>

@@ -6,6 +6,7 @@ import type { RosterEntry, RosterIntendedPairing, RosterRelationship } from '~/s
 import {
   AWAITING_ACCEPTANCE,
   AWAITING_INTAKE,
+  CANNOT_BE_PAIRED,
   DEFAULT_LIST,
   displayPhone,
   EMPTY_LIST,
@@ -19,13 +20,10 @@ import {
   listCount,
   NOBODY_ON_THIS_NUMBER,
   NOT_MADE,
-  OFFERED_TO_MENTOR,
   PAIR,
-  PAIR_PEOPLE,
   pairedReceipt,
   pairingSizeLabel,
   pairsPlanned,
-  participationStatusLabel,
   peopleAdded,
   PLANNED,
   ROSTER_LISTS,
@@ -36,14 +34,13 @@ import {
   SEE_FOLLOW_UP,
   SOMEONE_ELSE_CONSEQUENCE,
   STATS_LABEL,
-  STATUS_FOOTNOTE,
   UNPAIRED,
   type RosterList,
 } from './copy'
 import { INTAKE_FORMS } from '../intake-forms/copy'
 import { ImportDialog, type ImportReadbackWire } from './import-dialog'
 import { IMPORT_DATASET, IMPORT_DIALOG_ID } from './import-copy'
-import { isDiscipler, onList, plansOn, relationshipsOn, rosterStats } from './lists'
+import { onList, pairHref, plansOn, relationshipsOn, rosterStats, whyNotPairable } from './lists'
 import { RefusedRows } from './refused-rows'
 import { decodeImportReport } from './report'
 import { rosterKey } from '~/domain/roster'
@@ -132,12 +129,8 @@ export default async function RosterPage({
           <h2 className="card-title">Roster</h2>
           <div className="actions" style={{ marginTop: 0 }}>
             <span className="muted">{listCount(list, shown.length)}</span>
-            {/* The way in that does not start from one row. The Pair action on a
-                row opens the same screen with somebody already chosen, but somebody
-                already being discipled has no Pair action and may still disciple,
-                and several people selected together start from nobody in
-                particular. */}
-            <Link className="btn sec" href="/roster/pair">{PAIR_PEOPLE}</Link>
+            {/* No way into pairing from up here: every pairing starts from a row
+                (Manual pairing, ticket 07). */}
             {/* The import, in a dialog over the table (ticket 36). A link to the
                 dialog's own id, so it opens with no script; the dialog itself is
                 at the end of the page. */}
@@ -218,72 +211,52 @@ export default async function RosterPage({
         ) : list !== 'all' && shown.length === 0 ? (
           <p className="empty">{EMPTY_LIST[list]}</p>
         ) : (
-          <>
-            <div className="tbl-wrap roster-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th className="num">#</th>
-                    <th>{LIST_HEADING[list]}</th>
-                    <th>Email</th>
-                    <th>Phone</th>
-                    <th>Paired with</th>
+          <div className="tbl-wrap roster-table">
+            <table>
+              <thead>
+                <tr>
+                  <th className="num">#</th>
+                  <th>{LIST_HEADING[list]}</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>Paired with</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((person, index) => (
+                  <tr key={person.personId}>
+                    <td className="num">{index + 1}</td>
+                    {/* The name opens the Person's own page, and nothing sits under
+                        it: the status chip and the *Offered to mentor* tag explained
+                        the model to a pastor who came to see people (Manual pairing,
+                        ticket 07). The initials are derived from the name. */}
+                    <td>
+                      <div className="person">
+                        <span className="avatar" aria-hidden="true">
+                          {initialsOf(person.fullName)}
+                        </span>
+                        <Link href={`/roster/${person.personId}`} data-testid="roster-name">
+                          {person.fullName}
+                        </Link>
+                      </div>
+                    </td>
+                    {/* Contact details, to an Admin, on every row (ADR-0021). The
+                        number is shown as a person reads it and stored as the
+                        system does. */}
+                    <td className="contact">
+                      {person.email ? <a href={`mailto:${person.email}`}>{person.email}</a> : '-'}
+                    </td>
+                    <td className="contact">
+                      {person.phone ? <a href={`tel:${person.phone}`}>{displayPhone(person.phone)}</a> : '-'}
+                    </td>
+                    <td>
+                      <PairedWith list={list} person={person} />
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {shown.map((person, index) => (
-                    <tr key={person.personId}>
-                      <td className="num">{index + 1}</td>
-                      {/* The name opens the Person's own page. Under it, the one
-                          status chip and the one Intake signal the row carries
-                          (ticket 36, Q2): small, on a second line, so the five
-                          columns of the prototype stay five. The initials are
-                          derived from the name. */}
-                      <td>
-                        <div className="person">
-                          <span className="avatar" aria-hidden="true">
-                            {initialsOf(person.fullName)}
-                          </span>
-                          <div>
-                            <span>
-                              <Link href={`/roster/${person.personId}`} data-testid="roster-name">
-                                {person.fullName}
-                              </Link>
-                            </span>
-                            <div className="person-sub">
-                              <span className={`rs rs-${person.participationStatus}`}>
-                                {participationStatusLabel[person.participationStatus]}
-                              </span>
-                              {/* What the Person said about themselves on the form.
-                                  Only the mentor answer is said: it is the one an
-                                  Admin might act on, and a word on every other row
-                                  would make a column of state out of one signal. */}
-                              {person.declaredSide === 'mentor' ? (
-                                <span className="pill n">{OFFERED_TO_MENTOR}</span>
-                              ) : null}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      {/* Contact details, to an Admin, on every row (ADR-0021). The
-                          number is shown as a person reads it and stored as the
-                          system does. */}
-                      <td className="contact">
-                        {person.email ? <a href={`mailto:${person.email}`}>{person.email}</a> : '-'}
-                      </td>
-                      <td className="contact">
-                        {person.phone ? <a href={`tel:${person.phone}`}>{displayPhone(person.phone)}</a> : '-'}
-                      </td>
-                      <td>
-                        <PairedWith list={list} person={person} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <p className="subtle">{STATUS_FOOTNOTE}</p>
-          </>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
@@ -390,43 +363,39 @@ const importReadback = (roster: readonly RosterEntry[]): ImportReadbackWire => {
  * role, naming the other side -- who a Discipler disciples, who a Disciple is
  * discipled by -- with the size pill and, where the Discipler has not yet agreed,
  * a note saying so. A person in no pairing in this role is unpaired here, whatever
- * they hold on the other list, and gets the one act that belongs to a row. On All
- * the lines are every pairing in either role, and unpaired means in none at all.
- * No line says which way it runs: the toggle above the table answers that, and a
- * word on every line would be clutter (James, reviewing Manual pairing, ticket 06).
+ * they hold on the other list. On All the lines are every pairing in either role,
+ * and unpaired means in none at all. No line says which way it runs: the toggle
+ * above the table answers that, and a word on every line would be clutter (James,
+ * reviewing Manual pairing, ticket 06).
+ *
+ * Every pairing starts here (Manual pairing, ticket 07). Pair is on the row of
+ * everybody who can be paired, a Discipler who already leads somebody included,
+ * because leading one person does not stop them leading another. Somebody who
+ * cannot be paired is offered nothing to press, and the cell says why where the
+ * button would have been: in place of *Unpaired* when they hold nothing, and after
+ * their pairings when they do, so an Admin still reads that somebody in a pairing
+ * has opted out. `whyNotPairable` is the one rule.
  */
 const PairedWith = ({ list, person }: { readonly list: RosterList; readonly person: RosterEntry }) => {
   const pairings = relationshipsOn(list, person)
   const plans = plansOn(list, person)
+  const inTheWay = whyNotPairable(person)
+  const reason = inTheWay ? <span className="blocked">{CANNOT_BE_PAIRED[inTheWay]}</span> : null
 
   if (pairings.length === 0 && plans.length === 0) {
     return (
-      <>
-        <span className="blocked">{UNPAIRED}</span>
-        {/* Offered on the state: somebody who has not completed Intake cannot be
-            paired and is offered nothing to press. Preselected as the Discipler on
-            the Disciplers list and as the Disciple on the other, and the pairing
-            screen lets the Admin change that. */}
-        {person.participationStatus === 'ready_to_pair' ? (
-          <>
-            {' '}
-            <Link
-              className="btn small"
-              href={`/roster/pair?${new URLSearchParams(
-                list === 'disciplers' || isDiscipler(person)
-                  ? { leaderId: person.personId }
-                  : { with: person.personId },
-              )}`}
-            >
-              {PAIR}
-            </Link>
-          </>
-        ) : null}
-      </>
+      reason ?? (
+        <div className="paired-with">
+          <span className="blocked">{UNPAIRED}</span>
+          <Link className="btn small" href={pairHref(person)}>
+            {PAIR}
+          </Link>
+        </div>
+      )
     )
   }
 
-  return (
+  const lines = (
     <ul className="bare">
       {pairings.map((pairing) => (
         <li key={pairing.relationshipId}>
@@ -442,6 +411,19 @@ const PairedWith = ({ list, person }: { readonly list: RosterList; readonly pers
         </li>
       ))}
     </ul>
+  )
+
+  // Quieter beside a pairing than beside *Unpaired*: the row is already about
+  // somebody, and the button is the second thing on it.
+  return (
+    <div className="paired-with">
+      {lines}
+      {reason ?? (
+        <Link className="btn small sec" href={pairHref(person)}>
+          {PAIR}
+        </Link>
+      )}
+    </div>
   )
 }
 
