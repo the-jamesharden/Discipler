@@ -5,14 +5,18 @@ import type { RosterEntry, RosterIntendedPairing, RosterRelationship } from '~/s
 import * as copy from '../../app/roster/copy'
 import { CANNOT_BE_PAIRED, displayPhone, whoTheyAre } from '../../app/roster/copy'
 import {
+  disciplersFor,
   isDiscipler,
   isDisciple,
+  leadsCount,
   onList,
+  opensAs,
   pairHref,
   plansOn,
   reasonOnRow,
   relationshipsOn,
   rosterStats,
+  whoThePopupIsFor,
   whyNotPairable,
 } from '../../app/roster/lists'
 
@@ -284,15 +288,71 @@ describe('what a row offers (Manual pairing, ticket 07)', () => {
     expect(reasonOnRow('all', person())).toBeNull()
   })
 
-  it('preselects a Discipler as the Discipler and anybody else as the Disciple', () => {
-    const disciple = person()
-    const discipler = person({ declaredSide: 'mentor' })
-    const both = person({ relationships: [pairing('participant'), pairing('leader')] })
-    // About the Person and never the list, so on All a person who is a Discipler
-    // gets the Discipler's rule, and so does somebody on both sides.
-    expect(pairHref(disciple)).toBe(`/roster/pair?with=${disciple.personId}`)
-    expect(pairHref(discipler)).toBe(`/roster/pair?leaderId=${discipler.personId}`)
-    expect(pairHref(both)).toBe(`/roster/pair?leaderId=${both.personId}`)
+})
+
+describe('the Pair popup, from a Disciple (Manual pairing, ticket 12)', () => {
+  const disciple = person()
+  const discipler = person({ declaredSide: 'mentor' })
+  const both = person({ relationships: [pairing('participant'), pairing('leader')] })
+
+  it('lets the toggle decide which side somebody on both lists opens on', () => {
+    expect(opensAs('disciples', both)).toBe('disciple')
+    expect(opensAs('disciplers', both)).toBe('discipler')
+    // On All, a Discipler opens as a Discipler.
+    expect(opensAs('all', both)).toBe('discipler')
+    expect(opensAs('all', discipler)).toBe('discipler')
+    expect(opensAs('all', disciple)).toBe('disciple')
+    expect(opensAs('disciples', disciple)).toBe('disciple')
+    // An address typed by hand: a list somebody is not on never makes them that side.
+    expect(opensAs('disciples', discipler)).toBe('discipler')
+    expect(opensAs('disciplers', disciple)).toBe('disciple')
+  })
+
+  it('sends Pair on a Disciple row to the popup over the list it was pressed on', () => {
+    expect(pairHref('disciples', disciple)).toBe(`/roster?list=disciples&pair=${disciple.personId}`)
+    expect(pairHref('all', disciple)).toBe(`/roster?list=all&pair=${disciple.personId}`)
+    expect(pairHref('disciples', both)).toBe(`/roster?list=disciples&pair=${both.personId}`)
+  })
+
+  it('keeps a row that opens as a Discipler on the old Pair page until ticket 14', () => {
+    expect(pairHref('disciplers', discipler)).toBe(`/roster/pair?leaderId=${discipler.personId}`)
+    expect(pairHref('all', discipler)).toBe(`/roster/pair?leaderId=${discipler.personId}`)
+    expect(pairHref('all', both)).toBe(`/roster/pair?leaderId=${both.personId}`)
+    expect(pairHref('disciplers', both)).toBe(`/roster/pair?leaderId=${both.personId}`)
+  })
+
+  it('opens for somebody on the Roster who can be paired, and for nobody else', () => {
+    const waiting = person({ participationStatus: 'no_intake_submitted' })
+    const left = person({ participationStatus: 'opted_out' })
+    const roster = [disciple, discipler, both, waiting, left]
+    expect(whoThePopupIsFor(roster, disciple.personId)).toBe(disciple)
+    expect(whoThePopupIsFor(roster, both.personId)).toBe(both)
+    expect(whoThePopupIsFor(roster, waiting.personId)).toBeNull()
+    expect(whoThePopupIsFor(roster, left.personId)).toBeNull()
+    expect(whoThePopupIsFor(roster, 'nobody-on-this-roster')).toBeNull()
+    expect(whoThePopupIsFor(roster, undefined)).toBeNull()
+  })
+
+  it('lists every Discipler, in the order of the Roster, and never the Disciple themselves', () => {
+    // Nobody is left out for a reason the database would refuse: greyed rows are
+    // ticket 13, and until then the refusal is what stops a wrong one.
+    const waiting = person({ participationStatus: 'no_intake_submitted', declaredSide: 'mentor' })
+    const roster = [disciple, discipler, both, waiting]
+    expect(disciplersFor(roster, disciple)).toEqual([discipler, both, waiting])
+    expect(disciplersFor(roster, both)).toEqual([discipler, waiting])
+  })
+
+  it('counts the people somebody leads, across everything they lead', () => {
+    expect(leadsCount(disciple)).toBe(0)
+    expect(leadsCount(person({ relationships: [pairing('leader')] }))).toBe(1)
+    const busy = person({
+      relationships: [
+        pairing('leader'),
+        pairing('leader', { participantCount: 3 }),
+        pairing('participant', { participantCount: 4 }),
+      ],
+    })
+    expect(leadsCount(busy)).toBe(4)
   })
 })
 
