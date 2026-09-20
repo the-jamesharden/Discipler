@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { PairingRefusal } from '~/domain/errors'
-import { REFUSALS, pairingRefusalMessage } from '../../app/roster/copy'
+import {
+  REFUSALS,
+  pairedSeparatelyReceipt,
+  pairingRefusalMessage,
+  partlyPairedReceipt,
+  refusalAboutOneOfASet,
+} from '../../app/roster/copy'
 
 /**
  * A refusal that reaches the Admin as a constraint name, or as nothing at all, is
@@ -28,6 +34,7 @@ const EVERY_REFUSAL: readonly PairingRefusal[] = [
   'relationship.already_has_a_leader',
   'relationship.needs_a_name',
   'relationship.material_is_not_on_the_list',
+  'relationship.separate_needs_one_leader_and_several_participants',
 ]
 
 describe('what a refused pairing says to an Admin', () => {
@@ -112,5 +119,52 @@ describe('what a refused pairing says to an Admin', () => {
   it('falls back rather than rendering a blank alert for a code it does not know', () => {
     expect(pairingRefusalMessage('something_else_entirely')).toBeTruthy()
     expect(pairingRefusalMessage(undefined)).toBeUndefined()
+  })
+})
+
+/**
+ * Manual pairing, ticket 21. A set of one-to-ones is all or none, so what it says
+ * has two jobs a single pairing's does not: which of several people a refusal is
+ * about, and how much of the set landed.
+ */
+describe('what a set of separate one-to-ones says to an Admin', () => {
+  it('says what separate pairing needs, and what to do with several Disciplers', () => {
+    const said =
+      pairingRefusalMessage('relationship.separate_needs_one_leader_and_several_participants') ?? ''
+    expect(said).toMatch(/one Discipler/)
+    expect(said).toMatch(/two or more/)
+  })
+
+  it('names the Disciple a refusal is about, and says that none of the set was made', () => {
+    const said = refusalAboutOneOfASet('Sam Lee', 'Somebody selected has opted out, and cannot be paired.')
+    expect(said).toBe(
+      'Sam Lee: Somebody selected has opted out, and cannot be paired. '
+      + 'None of these one-to-ones was made.',
+    )
+  })
+
+  it('counts the one-to-ones made, not the people in them', () => {
+    expect(pairedSeparatelyReceipt(3)).toBe(
+      '3 one-to-ones are paired. Their Discipler has been invited to each, and nobody else has '
+      + 'been contacted yet.',
+    )
+    expect(pairedSeparatelyReceipt(1)).toMatch(/^1 one-to-one is paired\./)
+  })
+
+  it('never reports the set where part of it landed: how many were made, and who was not', () => {
+    expect(
+      partlyPairedReceipt({
+        formed: 2,
+        notPaired: ['Ana Ruiz', 'Ruth Okafor'],
+        reason: 'Somebody selected has opted out, and cannot be paired.',
+      }),
+    ).toBe(
+      'Only 2 of 4 one-to-ones were made. Ana Ruiz and Ruth Okafor were not paired. '
+      + 'Ana Ruiz: Somebody selected has opted out, and cannot be paired.',
+    )
+    expect(partlyPairedReceipt({ formed: 1, notPaired: ['Ruth Okafor'], reason: undefined })).toBe(
+      'Only 1 of 2 one-to-ones was made. Ruth Okafor was not paired. '
+      + 'Something went wrong partway. Pair them again from here.',
+    )
   })
 })

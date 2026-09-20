@@ -1,4 +1,5 @@
 import type { ImportRowRefusal, PairingRefusal } from '~/domain/errors'
+import { asList } from '~/domain/outbound-copy'
 import type { ParticipationStatus } from '~/domain/participation'
 import type { RowProblem } from '~/domain/roster'
 import {
@@ -116,6 +117,38 @@ export const pairedReceipt = (disciples: number): string =>
   disciples === 1
     ? 'They are paired. The Discipler has been invited, and nobody else has been contacted yet.'
     : `A group of ${disciples} is paired. Its Discipler has been invited, and nobody else has been contacted yet.`
+
+/**
+ * The receipt for a set of separate one-to-ones (Manual pairing, ticket 21). It
+ * counts the one-to-ones made and not the people in them, because the number above
+ * reads as the size of one group and three one-to-ones are not a group of three.
+ */
+export const pairedSeparatelyReceipt = (pairs: number): string =>
+  `${pairs} ${pairs === 1 ? 'one-to-one is' : 'one-to-ones are'} paired. Their Discipler has `
+  + 'been invited to each, and nobody else has been contacted yet.'
+
+/**
+ * A set that passed its check and was still stopped partway. The one outcome the
+ * set exists to avoid, so it is said as what it is: how many were made out of how
+ * many, who was not, and why where there is a why. Never the number asked for.
+ *
+ * The reason is about the first of those not paired, which is where it stopped.
+ * The names come from the Roster and never from the address.
+ */
+export const partlyPairedReceipt = ({
+  formed,
+  notPaired,
+  reason,
+}: {
+  readonly formed: number
+  readonly notPaired: readonly string[]
+  readonly reason: string | undefined
+}): string =>
+  `Only ${formed} of ${formed + notPaired.length} one-to-ones ${formed === 1 ? 'was' : 'were'} made. `
+  + `${asList(notPaired)} ${notPaired.length === 1 ? 'was' : 'were'} not paired. `
+  + (reason === undefined
+    ? 'Something went wrong partway. Pair them again from here.'
+    : `${notPaired[0] ?? 'Somebody'}: ${reason}`)
 
 /**
  * A number as a person reads it: a North American number as `(706) 555-0142`,
@@ -491,6 +524,12 @@ export const REFUSALS: Record<PairingRefusal, string> = {
   'relationship.material_is_not_on_the_list':
     'That Material is no longer on this Ministry’s list. Choose another, or pair '
     + 'without one.',
+  // Manual pairing, ticket 21. About the submission and nobody in it. It says what
+  // the other shape needs as well, because the Admin it stops chose several
+  // Disciplers on purpose and the way on is a submission each.
+  'relationship.separate_needs_one_leader_and_several_participants':
+    'Pairing separately needs one Discipler and two or more people to be discipled. '
+    + 'With several Disciplers, pair each of them in turn.',
 }
 
 /**
@@ -504,3 +543,13 @@ export const pairingRefusalMessage = (code: string | undefined): string | undefi
   // looked up, never rendered.
   return REFUSALS[code as PairingRefusal] ?? 'That pairing could not be made.'
 }
+
+/**
+ * A refusal of one one-to-one in a set of several (Manual pairing, ticket 21). The
+ * sentences above say *somebody selected*, which is enough beside one Disciple and
+ * not beside four, so the Disciple is named in front of it. And it says none of the
+ * set was made, because an Admin refused about one of four will otherwise wonder
+ * about the other three.
+ */
+export const refusalAboutOneOfASet = (fullName: string, message: string): string =>
+  `${fullName}: ${message} None of these one-to-ones was made.`
