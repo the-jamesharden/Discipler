@@ -244,8 +244,16 @@ export const rosterFrom = (doc: PageDocument): readonly RosterEntry[] => {
       ]
     })
 
+  // Who each relationship is said to hold, which is what every row names. A
+  // Discipler added to a group that was already running is not one of its Leaders
+  // until they accept (Manual pairing, ticket 22), so nobody else's row names
+  // them. Their own row still carries the group, from `memberships`, marked as
+  // awaiting their acceptance.
   const byRelationship = new Map<string, MemberRow[]>()
   for (const row of memberships) {
+    if (row.role === 'leader' && stillToAccept(row) && !awaitingAcceptanceOf(row.relationship_id)) {
+      continue
+    }
     byRelationship.set(row.relationship_id, [
       ...(byRelationship.get(row.relationship_id) ?? []),
       row,

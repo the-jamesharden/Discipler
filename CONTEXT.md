@@ -206,10 +206,10 @@ The state of a relationship whose leader has gone silent, or who is answering to
 The state of a relationship carrying an unresolved concern raised this week. It lasts that week; the concern badge outlives it.
 
 **Awaiting Leader Acceptance**:
-The state of a relationship an admin has created that not all of its leaders have accepted. The relationship exists and is visible to the admin; every leader has been sent an Invitation Link, it sends nothing to participants, and it accrues no silence against anyone.
+The state of a relationship an admin has created that not all of its leaders have accepted. The relationship exists and is visible to the admin; every leader has been sent an Invitation Link, it sends nothing to participants, and it accrues no silence against anyone. A relationship leaves it once, at activation, and never returns: a leader added to a group that is already running is awaiting acceptance themselves, and the group goes on running.
 
 **Acceptance**:
-One leader's act of taking responsibility for a relationship, performed on their Invitation Link's page after seeing who they have been matched with. It is the timestamped record that *that* leader agreed, held on their membership. The relationship activates when every open leader membership carries one, because nobody co-leads something they did not agree to.
+One leader's act of taking responsibility for a relationship, performed on their Invitation Link's page after seeing who they have been matched with. It is the timestamped record that *that* leader agreed, held on their membership. The relationship activates when every open leader membership carries one, because nobody co-leads something they did not agree to. Until a leader has accepted, their membership gives them nothing: no sight of the relationship or its people, no check-in about it and no keyword over it but `SWAP`, which from there is how they decline. A relationship that is running is said to be led only by the leaders who have accepted; one not yet activated names everyone it is waiting for.
 
 **Paused**:
 The state of a relationship that its leader has paused for a selected period. Check-ins for that relationship are suppressed for the duration, membership is unchanged, and nobody returns to the roster as available. The relationship stays visible and visibly marked as paused on both the leader's list of relationships and the admin dashboard. Paused masks the relationship's underlying derived state rather than replacing the history behind it; on resume, that derived state resurfaces.

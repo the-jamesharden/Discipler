@@ -84,7 +84,9 @@ describe('the Admin tabs answer in one read', () => {
     // they saw before the page became one read.
     const members = await admin
       .from('relationship_member')
-      .select('relationship_id, person_id, role')
+      // Each membership's own acceptance rides along: who counts as leading a
+      // running relationship is derived from it (Manual pairing, ticket 22).
+      .select('relationship_id, person_id, role, accepted_at')
       .eq('ministry_id', ministry.id)
       .is('ended_at', null)
     expect(asRows(history.members)).toEqual(expect.arrayContaining(asRows(members.data)))

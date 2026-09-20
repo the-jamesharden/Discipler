@@ -386,13 +386,15 @@ interface KeywordExchangeRow {
  * than it asked about -- which is why the caller reorders and the ordering rule is
  * theirs rather than this query's.
  *
- * The inner select must yield `id` and `held_as`, and nothing else is read from it.
+ * The inner select must yield `id`, `held_as` and `held_accepted_at` -- the role the
+ * Person holds it in and, where they lead it, their own Acceptance -- and nothing
+ * else is read from it.
  * That contract is the parameter's name rather than only this sentence, because it
  * arrives as interpolated SQL and nothing downstream can check it.
  */
 const keywordRelationships = async (
   client: PoolClient,
-  selectingIdAndHeldAs: string,
+  selectingIdHeldAsAndHeldAcceptedAt: string,
   parameters: readonly unknown[],
 ): Promise<readonly KeywordRelationship[]> => {
   const { rows } = await client.query<{
@@ -403,11 +405,21 @@ const keywordRelationships = async (
     ended_at: Date | null
     paused: boolean
   }>(
-    `with held as (${selectingIdAndHeldAs})
+    `with held as (${selectingIdHeldAsAndHeldAcceptedAt})
      select r.id as relationship_id,
             held.held_as,
             r.created_at,
-            r.accepted_at,
+            -- Accepted, for whoever holds it. A Leader who has not accepted a
+            -- relationship that is running -- a Discipler an Admin added to a group
+            -- since it started (Manual pairing, ticket 22) -- has agreed to lead
+            -- nothing, and may not pause or resume it by text: for them it
+            -- reads as awaiting acceptance, and the rules that already refuse those
+            -- keywords on one do the rest. SWAP still reaches it, which from that
+            -- state is how a Leader says no. A Participant accepts nothing, so
+            -- theirs is the relationship's own.
+            case when held.held_as = 'leader' and held.held_accepted_at is null then null
+                 else r.accepted_at
+             end as accepted_at,
             r.ended_at,
             -- Paused lives in history rather than in a column, like every other
             -- relationship state here.
@@ -453,7 +465,14 @@ const keywordRelationships = async (
              ) and app.current_consent(m.person_id, 'sms') is true) as reachable
        from relationship_member m
        join person p on p.id = m.person_id
+       join relationship r on r.id = m.relationship_id
       where m.relationship_id = any($1::uuid[])
+        -- Who the relationship is led by, as every other surface says it: a
+        -- Discipler added to a group that was already running is not one of its
+        -- Leaders until they accept (Manual pairing, ticket 22), so a keyword's
+        -- messages neither reach them nor name them to the people they do not
+        -- yet lead.
+        and (m.role <> 'leader' or app.counts_as_leading(r.accepted_at, m.accepted_at))
       order by m.role, m.started_at, p.full_name, m.person_id`,
     [rows.map((row) => row.relationship_id)],
   )
@@ -2467,7 +2486,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // side may text `SWAP` and a Participant holds nothing else.
     const holds = await keywordRelationships(
       client,
-      `select m.relationship_id as id, m.role as held_as
+      `select m.relationship_id as id, m.role as held_as, m.accepted_at as held_accepted_at
          from relationship_member m
          join relationship r on r.id = m.relationship_id
         where m.person_id = $1
@@ -2507,7 +2526,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
         // in the same relationship. The open one wins, and the most recent closed one
         // stands in where there is none -- either way the role is what a menu needs,
         // and the eligibility rule is what refuses to act on the relationship.
-        `select distinct on (r.id) r.id as id, m.role as held_as
+        `select distinct on (r.id) r.id as id, m.role as held_as, m.accepted_at as held_accepted_at
            from relationship r
            join relationship_member m
              on m.relationship_id = r.id and m.person_id = $2
