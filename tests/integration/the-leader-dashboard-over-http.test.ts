@@ -15,7 +15,7 @@ import {
   type AccountFixture,
   type MinistryFixture,
 } from '../support/local-supabase'
-import { getPage, signInAs, skipUnlessAppIsRunning } from '../support/app'
+import { baseUrl, getPage, signInAs, skipUnlessAppIsRunning } from '../support/app'
 
 /**
  * The Leader Dashboard as a Leader actually reaches it: sign in with a phone number
@@ -118,7 +118,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Leader reading their own relationship
   })
 
   it('turns away a visitor with no session', async () => {
-    const response = await fetch('http://127.0.0.1:3000/relationships', { redirect: 'manual' })
+    const response = await fetch(`${baseUrl}/relationships`, { redirect: 'manual' })
     expect(response.status).toBe(307)
     expect(response.headers.get('location')).toContain('/login')
   })
