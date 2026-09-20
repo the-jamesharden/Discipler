@@ -498,8 +498,6 @@ blockquote { background: rgba(45, 80, 22, 0.04); border-left: 3px solid var(--pr
 .roster-table tbody tr:nth-child(even) td { background: rgba(45, 80, 22, 0.02); }
 .roster-table .num { width: 44px; text-align: center; color: var(--text-light); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
 .roster-table th.num { color: #fff; }
-.roster-table .person > span > a { font-weight: 600; color: var(--text); text-decoration: none; }
-.roster-table .person > span > a:hover { color: var(--primary); text-decoration: underline; }
 /* The Paired with cell: what it says, then Pair or the reason there is none, always
    beside it and never under it. Long lines wrap inside their own side, so a long
    group never pushes the button onto a line of its own. */
