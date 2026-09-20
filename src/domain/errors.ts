@@ -60,6 +60,11 @@ export type PairingRefusal =
   // A refusal and not a silent drop, because an Admin who picked a Material and got
   // a relationship without one has been told nothing went wrong.
   | 'relationship.material_is_not_on_the_list'
+  // Manual pairing, ticket 21. Asked for as separate one-to-ones, and not one
+  // Discipler with two or more Disciples. One Disciple is a one-to-one and needs no
+  // mode; several Disciplers cannot be split into pairs without deciding who goes
+  // with whom, which no screen asks. About the submission and not about a Person.
+  | 'relationship.separate_needs_one_leader_and_several_participants'
 
 /**
  * Every code above, as a list, so a refusal read back from a row -- a refused
@@ -84,6 +89,7 @@ export const PAIRING_REFUSALS: readonly PairingRefusal[] = [
   'relationship.needs_a_name',
   'relationship.already_has_a_leader',
   'relationship.material_is_not_on_the_list',
+  'relationship.separate_needs_one_leader_and_several_participants',
 ]
 
 export const isPairingRefusal = (value: unknown): value is PairingRefusal =>
