@@ -127,9 +127,9 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
     const onTheirListAndOnAll = async (
       cookie: string,
       side: 'disciplers' | 'disciples',
-      check: (html: string) => void,
+      check: (html: string, list: string) => void,
     ) => {
-      for (const list of [side, 'all']) check((await getPage(`/roster?list=${list}`, cookie)).html)
+      for (const list of [side, 'all']) check((await getPage(`/roster?list=${list}`, cookie)).html, list)
     }
 
     it('says Awaiting Intake, and offers nothing to press, for somebody who has not completed Intake', async () => {
@@ -158,13 +158,14 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
       })
     })
 
-    it('offers Pair to a Disciple who has completed Intake, preselected as the Disciple', async () => {
+    it('offers Pair to a Disciple who has completed Intake, opening the popup over the list it is on', async () => {
       const { cookie } = await signIn(ministry)
       const sam = await addPerson(ministry, 'Sam Lee', { phone: number() })
 
-      await onTheirListAndOnAll(cookie, 'disciples', (html) => {
+      // The popup, from a Disciple, on Disciples and on All (Manual pairing, ticket 12).
+      await onTheirListAndOnAll(cookie, 'disciples', (html, list) => {
         expect(rowFor(html, 'Sam Lee')).toContain('Unpaired')
-        expect(pairLinkFor(html, 'Sam Lee')).toBe(`/roster/pair?with=${sam}`)
+        expect(pairLinkFor(html, 'Sam Lee')).toBe(`/roster?list=${list}&pair=${sam}`)
       })
     })
 
@@ -173,9 +174,9 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
       const emily = await addPerson(ministry, 'Emily Davis', { phone: number() })
       await pairOneToOne(ministry, await addPerson(ministry, 'Grace Lee', { phone: number() }), emily)
 
-      await onTheirListAndOnAll(cookie, 'disciples', (html) => {
+      await onTheirListAndOnAll(cookie, 'disciples', (html, list) => {
         expect(rowFor(html, 'Emily Davis')).toContain('Grace Lee 1:1')
-        expect(pairLinkFor(html, 'Emily Davis')).toBe(`/roster/pair?with=${emily}`)
+        expect(pairLinkFor(html, 'Emily Davis')).toBe(`/roster?list=${list}&pair=${emily}`)
       })
     })
 
@@ -261,7 +262,8 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
       .split('<tr')
       .find((candidate) => new RegExp(`data-testid="roster-name"[^>]*>${name}<`).test(candidate))
     expect(row, `no row on the Roster for ${name}`).toBeDefined()
-    const link = row!.split('</tr>')[0]!.match(/<a [^>]*href="(\/roster\/pair[^"]*)"[^>]*>Pair<\/a>/)
+    // The popup over the Roster from a Disciple, the old Pair page from a Discipler.
+    const link = row!.split('</tr>')[0]!.match(/<a [^>]*href="(\/roster[^"]*)"[^>]*>Pair<\/a>/)
     return link ? link[1]!.replace(/&amp;/g, '&') : null
   }
 

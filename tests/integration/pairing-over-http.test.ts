@@ -75,7 +75,8 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
     const { html } = await getPage('/roster?list=disciples', cookie)
 
     expect(html).toContain('Nora Blake')
-    expect(html).toContain(`/roster/pair?with=${nora}`)
+    // The popup over the list, from a Disciple (Manual pairing, ticket 12).
+    expect(html).toContain(`href="/roster?list=disciples&amp;pair=${nora}"`)
   })
 
   it('opens the pairing screen with that Person already chosen', async () => {
@@ -305,6 +306,7 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
     const { html } = await getPage('/roster?list=disciples', cookie)
 
     expect(html).toContain('Zach Moore')
+    expect(html).not.toContain(`pair=${zach}`)
     expect(html).not.toContain(`/roster/pair?with=${zach}`)
   })
 

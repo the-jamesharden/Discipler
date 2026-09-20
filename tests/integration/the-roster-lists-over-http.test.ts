@@ -319,7 +319,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Roster’s three lists', () => {
     expect(samOnAll).not.toContain('Awaiting Intake')
     expect(taylorOnAll).not.toContain('Awaiting Intake')
     expect(all.html).not.toContain(`/roster/pair?leaderId=${sam}`)
-    expect(all.html).not.toContain(`/roster/pair?with=${taylor}`)
+    expect(all.html).not.toContain(`pair=${taylor}`)
     expect(statsLine(all.html)).toBe('3 total 0 paired 3 unpaired')
 
     // Refused, with its Follow-Up Item still open: the row says not made and

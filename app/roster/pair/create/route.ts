@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { PairingRefused } from '~/domain/errors'
 import { materialId, personId } from '~/domain/ids'
 import type { Gender } from '~/domain/intake'
+import { DEFAULT_LIST, isRosterList } from '../../copy'
 import { declaredGenderFromField, declaredGenderToField } from '../../declared-gender'
 import { currentAdmin } from '~/platform/supabase/current-admin'
 import { getCommandService } from '~/service/container'
@@ -23,6 +24,17 @@ export async function POST(request: NextRequest) {
 
   const leaderIds = chosen('leaderId')
   const participantIds = chosen('participantId')
+
+  /**
+   * Whose Pair popup this came from, and the list it was drawn over (Manual
+   * pairing, ticket 12). Present, the answer goes back to the Roster: a refusal
+   * reopens the popup, and the receipt lands on the list the Admin was on. Absent,
+   * this is the old Pair page's form, and its refusals return there until ticket
+   * 20 retires it. Whether `pair` names anybody is the Roster's to say.
+   */
+  const popupFor = chosen('pair')[0]
+  const rawList = form.get('list')
+  const list = isRosterList(rawList) ? rawList : DEFAULT_LIST
 
   /**
    * What the Admin said this relationship is. `undefined` is passed through rather
@@ -58,6 +70,13 @@ export async function POST(request: NextRequest) {
    * avoid the screen.
    */
   const refused = (code: string) => {
+    if (popupFor !== undefined) {
+      // Every choice the popup holds, which from a Disciple is the one Discipler.
+      const params = new URLSearchParams({ list, pair: popupFor, error: code })
+      for (const id of leaderIds) params.append('leaderId', id)
+      return NextResponse.redirect(new URL(`/roster?${params}`, request.url), { status: 303 })
+    }
+
     const params = new URLSearchParams({ error: code })
     for (const id of leaderIds) params.append('leaderId', id)
     for (const id of participantIds) params.append('with', id)
@@ -102,8 +121,9 @@ export async function POST(request: NextRequest) {
 
   // Back to the Roster, where the new relationship is now visible on both rows. It
   // reads as Awaiting Leader Acceptance and has sent nobody anything.
-  return NextResponse.redirect(
-    new URL(`/roster?${new URLSearchParams({ paired: String(participantIds.length) })}`, request.url),
-    { status: 303 },
-  )
+  const receipt = new URLSearchParams({
+    ...(popupFor === undefined ? {} : { list }),
+    paired: String(participantIds.length),
+  })
+  return NextResponse.redirect(new URL(`/roster?${receipt}`, request.url), { status: 303 })
 }

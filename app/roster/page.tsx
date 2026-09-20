@@ -22,6 +22,7 @@ import {
   NOT_MADE,
   PAIR,
   pairedReceipt,
+  pairingRefusalMessage,
   pairingSizeLabel,
   pairsPlanned,
   peopleAdded,
@@ -40,7 +41,20 @@ import {
 import { INTAKE_FORMS } from '../intake-forms/copy'
 import { ImportDialog, type ImportReadbackWire } from './import-dialog'
 import { IMPORT_DATASET, IMPORT_DIALOG_ID } from './import-copy'
-import { onList, pairHref, plansOn, reasonOnRow, relationshipsOn, rosterStats, whyNotPairable } from './lists'
+import {
+  disciplersFor,
+  leadsCount,
+  onList,
+  opensAs,
+  pairHref,
+  plansOn,
+  reasonOnRow,
+  relationshipsOn,
+  rosterStats,
+  whoThePopupIsFor,
+  whyNotPairable,
+} from './lists'
+import { PairPopup } from './pair-popup'
 import { RefusedRows } from './refused-rows'
 import { decodeImportReport } from './report'
 import { rosterKey } from '~/domain/roster'
@@ -76,6 +90,10 @@ export default async function RosterPage({
     paired?: string
     /** Why an answer to a held import row could not be applied. A code, never prose. */
     rowError?: string
+    /** Whose Pair popup is open over this list (Manual pairing, ticket 12). */
+    pair?: string | string[]
+    /** The Discipler chosen in the popup, on a submission that came back refused. */
+    leaderId?: string | string[]
   }>
 }) {
   // One read: the Roster, the import rows waiting on an answer and the badge's
@@ -97,9 +115,24 @@ export default async function RosterPage({
   const shown = roster.filter((person) => onList(list, person))
   const stats = rosterStats(list, shown)
 
+  // The Pair popup, drawn over this list (Manual pairing, ticket 12). Out of the
+  // document already read: opening it is no second read. A `pair` that names
+  // nobody on this Roster, or somebody who cannot be paired, opens nothing.
+  const asked = [query.pair ?? []].flat()[0]
+  const pairing = whoThePopupIsFor(roster, asked)
+  // The toggle decides the side. Until ticket 14 gives the Discipler's side a
+  // popup, somebody who would open as one goes to the old Pair page with them
+  // chosen, where their row's Pair goes, so no address opens an empty popup.
+  if (pairing && opensAs(list, pairing) === 'discipler') redirect(pairHref(list, pairing))
+  const disciplers = pairing ? disciplersFor(roster, pairing) : []
+  // Compared against the list and never rendered, like every value from an address.
+  const chosenBefore = [query.leaderId ?? []].flat()[0]
+
   const report = decodeImportReport(query)
-  // The code, not the sentence: the dialog words it, and opens on it.
-  const failure = importFailureMessage(query.error) === undefined ? undefined : query.error
+  // The code, not the sentence: the dialog words it, and opens on it. An error
+  // beside `pair` is a refused pairing's, and never opens the import.
+  const failure =
+    asked !== undefined || importFailureMessage(query.error) === undefined ? undefined : query.error
   const rowFailure = importRowRefusalMessage(query.rowError)
   // How many people the pairing just made has in it, so the receipt can say what
   // landed. Read as a count and never echoed as text.
@@ -328,6 +361,25 @@ export default async function RosterPage({
           last, so a reader without styles meets the Roster first. Open already
           when the last import was refused, with the reason beside the rows. */}
       <ImportDialog readback={readback} failure={failure} />
+
+      {/* Keyed by the person, so a popup opened for somebody else starts with
+          nothing chosen. */}
+      {pairing ? (
+        <PairPopup
+          key={pairing.personId}
+          person={{ id: pairing.personId, fullName: pairing.fullName }}
+          list={list}
+          disciplers={disciplers.map((discipler) => ({
+            id: discipler.personId,
+            fullName: discipler.fullName,
+            email: discipler.email,
+            phone: discipler.phone,
+            leads: leadsCount(discipler),
+          }))}
+          refusal={pairingRefusalMessage(query.error)}
+          chosenBefore={disciplers.find((each) => each.personId === chosenBefore)?.personId ?? null}
+        />
+      ) : null}
     </AdminShell>
   )
 }
@@ -389,7 +441,7 @@ const PairedWith = ({ list, person }: { readonly list: RosterList; readonly pers
     return canBePaired ? (
       <div className="paired-with">
         <span className="blocked">{UNPAIRED}</span>
-        <Link className="btn small" href={pairHref(person)}>
+        <Link className="btn small" href={pairHref(list, person)} scroll={false}>
           {PAIR}
         </Link>
       </div>
@@ -422,7 +474,7 @@ const PairedWith = ({ list, person }: { readonly list: RosterList; readonly pers
     <div className="paired-with">
       {lines}
       {canBePaired ? (
-        <Link className="btn small sec" href={pairHref(person)}>
+        <Link className="btn small sec" href={pairHref(list, person)} scroll={false}>
           {PAIR}
         </Link>
       ) : (
