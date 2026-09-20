@@ -51,7 +51,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
     return { response, location: response.headers.get('location') ?? '' }
   }
 
-  it('says which relationships they lead, beside the status that reads as a bug', async () => {
+  it('says which relationships they lead, and no status under the name', async () => {
     const { cookie } = await signIn(ministry)
 
     const leader = await addPerson(ministry, 'Marcus Webb', { phone: number() })
@@ -61,12 +61,12 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
     const { html } = await getPage('/roster?list=disciplers', cookie)
 
     // Both pairings, on his row on the Disciplers list, each naming who he
-    // disciples with the size beside it -- which is what stops `Ready to Pair`
-    // beside two names reading as a mistake.
+    // disciples with the size beside it. The chip that read `Ready to Pair` beside
+    // two names, and looked like a mistake, is gone (Manual pairing, ticket 07).
     const row = rowFor(html, 'Marcus Webb')
     expect(row).toContain('Ruth Adeyemi 1:1')
     expect(row).toContain('Sam Doyle 1:1')
-    expect(row).toContain('Ready to Pair')
+    expect(row).not.toContain('Ready to Pair')
     // The name is the way to everything about one Person (ticket 36).
     expect(html).toContain(`href="/roster/${leader}"`)
   })
@@ -92,11 +92,12 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
     expect(disciplers.html).not.toMatch(/roster-name"[^>]*>Nadia Farouk</)
   })
 
-  it('reads Opted Out and still lists the relationship they are in', async () => {
-    // `Opted Out` outranks `Paired`: an Admin needs to see what the Person told the
-    // Ministry before what the Ministry arranged for them. Nothing is hidden either
-    // way, and that is what settles it -- opting out ends no relationship, and the
-    // row still says which one they are in.
+  it('reads Opted out and still lists the relationship they are in', async () => {
+    // An Admin needs to see what the Person told the Ministry as well as what the
+    // Ministry arranged for them. Nothing is hidden either way -- opting out ends
+    // no relationship, and the row still says which one they are in. The chip said
+    // it until Manual pairing, ticket 07; the Paired with cell says it now, where
+    // Pair would have been.
     const { cookie } = await signIn(ministry)
 
     const silent = await addPerson(ministry, 'Tomas Vidal', { phone: number() })
@@ -107,12 +108,138 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
     )
     await optOut(ministry, silent)
 
-    const { html } = await getPage('/roster?list=disciples', cookie)
-    const row = rowFor(html, 'Tomas Vidal')
-
-    expect(row).toContain('Opted Out')
-    expect(row).toContain('Uche Nwosu 1:1')
+    for (const list of ['disciples', 'all']) {
+      const { html } = await getPage(`/roster?list=${list}`, cookie)
+      const row = rowFor(html, 'Tomas Vidal')
+      expect(row).toContain('Uche Nwosu 1:1')
+      expect(row).toContain('Opted out')
+      expect(row).not.toContain('Opted Out')
+      expect(pairLinkFor(html, 'Tomas Vidal')).toBeNull()
+    }
   })
+
+  /**
+   * What each kind of row offers (Manual pairing, ticket 07): five people, each on
+   * their side's list and on All. The same answer on both, because a Person is one
+   * row on All and the rule is about the Person.
+   */
+  describe('what a row offers', () => {
+    const onTheirListAndOnAll = async (
+      cookie: string,
+      side: 'disciplers' | 'disciples',
+      check: (html: string) => void,
+    ) => {
+      for (const list of [side, 'all']) check((await getPage(`/roster?list=${list}`, cookie)).html)
+    }
+
+    it('says Awaiting Intake, and offers nothing to press, for somebody who has not completed Intake', async () => {
+      const { cookie } = await signIn(ministry)
+      await addPerson(ministry, 'Jo Okafor', { phone: number(), intake: false })
+
+      await onTheirListAndOnAll(cookie, 'disciples', (html) => {
+        const row = rowFor(html, 'Jo Okafor')
+        expect(row).toContain('Awaiting Intake')
+        expect(row).not.toContain('Unpaired')
+        expect(row).not.toContain('No Intake Submitted')
+        expect(pairLinkFor(html, 'Jo Okafor')).toBeNull()
+      })
+    })
+
+    it('says Opted out, and offers nothing to press, for somebody who has opted out', async () => {
+      const { cookie } = await signIn(ministry)
+      const gone = await addPerson(ministry, 'Lena Brandt', { phone: number() })
+      await optOut(ministry, gone)
+
+      await onTheirListAndOnAll(cookie, 'disciples', (html) => {
+        const row = rowFor(html, 'Lena Brandt')
+        expect(row).toContain('Opted out')
+        expect(row).not.toContain('Unpaired')
+        expect(pairLinkFor(html, 'Lena Brandt')).toBeNull()
+      })
+    })
+
+    it('offers Pair to a Disciple who has completed Intake, preselected as the Disciple', async () => {
+      const { cookie } = await signIn(ministry)
+      const sam = await addPerson(ministry, 'Sam Lee', { phone: number() })
+
+      await onTheirListAndOnAll(cookie, 'disciples', (html) => {
+        expect(rowFor(html, 'Sam Lee')).toContain('Unpaired')
+        expect(pairLinkFor(html, 'Sam Lee')).toBe(`/roster/pair?with=${sam}`)
+      })
+    })
+
+    it('keeps Pair on a Disciple who is already discipled, because they may still join a group', async () => {
+      const { cookie } = await signIn(ministry)
+      const emily = await addPerson(ministry, 'Emily Davis', { phone: number() })
+      await pairOneToOne(ministry, await addPerson(ministry, 'Grace Lee', { phone: number() }), emily)
+
+      await onTheirListAndOnAll(cookie, 'disciples', (html) => {
+        expect(rowFor(html, 'Emily Davis')).toContain('Grace Lee 1:1')
+        expect(pairLinkFor(html, 'Emily Davis')).toBe(`/roster/pair?with=${emily}`)
+      })
+    })
+
+    it('offers Pair to a Discipler who leads nobody, preselected as the Discipler', async () => {
+      const { cookie } = await signIn(ministry)
+      const claire = await addPerson(ministry, 'Claire Martinez', { phone: number() })
+      // What answering Mentor on the Intake form records, as the three-lists suite
+      // writes it.
+      await pool.query(
+        `insert into consent_record
+           (ministry_id, person_id, consent, granted, version, source, decided_at, intake_path, declared_side)
+         values ($1, $2, 'sms', true, '2026-09-v1', 'pastor_link', now(), 'discipleship', 'mentor')`,
+        [ministry.id, claire],
+      )
+
+      await onTheirListAndOnAll(cookie, 'disciplers', (html) => {
+        const row = rowFor(html, 'Claire Martinez')
+        expect(row).toContain('Unpaired')
+        // The tag went with the chip: the Disciplers list already says it.
+        expect(row).not.toContain('Offered to mentor')
+        expect(pairLinkFor(html, 'Claire Martinez')).toBe(`/roster/pair?leaderId=${claire}`)
+      })
+    })
+
+    it('keeps Pair on a Discipler who already leads somebody', async () => {
+      const { cookie } = await signIn(ministry)
+      const hana = await addPerson(ministry, 'Hana Sato', { phone: number() })
+      await pairOneToOne(ministry, hana, await addPerson(ministry, 'Ivy Moreau', { phone: number() }))
+
+      await onTheirListAndOnAll(cookie, 'disciplers', (html) => {
+        expect(rowFor(html, 'Hana Sato')).toContain('Ivy Moreau 1:1')
+        expect(pairLinkFor(html, 'Hana Sato')).toBe(`/roster/pair?leaderId=${hana}`)
+      })
+    })
+
+    it('never says Eligible to lead, a status, or the footnote, on any of the three lists', async () => {
+      // *Eligible to lead* left the app on 2026-09-07 and survives only in a design
+      // prototype. Pinned, so it cannot come back unnoticed.
+      const { cookie } = await signIn(ministry)
+      for (const list of ['all', 'disciplers', 'disciples']) {
+        const { html } = await getPage(`/roster?list=${list}`, cookie)
+        const table = html.match(/<table>[\s\S]*?<\/table>/)?.[0] ?? ''
+        expect(table, `the ${list} table`).not.toBe('')
+        expect(html).not.toMatch(/eligible to lead/i)
+        expect(html).not.toContain('Status says whether')
+        // In the table and not the page: the import dialog still says how an
+        // imported Person lands, in its own sentence.
+        for (const chip of ['Ready to Pair', 'No Intake Submitted', 'Opted Out', 'Offered to mentor']) {
+          expect(table).not.toContain(chip)
+        }
+        expect(table).not.toContain('class="rs ')
+      }
+    })
+  })
+
+  /** Where Pair on one Person's row goes, or null when the row offers none. */
+  const pairLinkFor = (html: string, name: string): string | null => {
+    const row = html
+      .split('<tr')
+      .find((candidate) => new RegExp(`data-testid="roster-name"[^>]*>${name}<`).test(candidate))
+    expect(row, `no row on the Roster for ${name}`).toBeDefined()
+    const link = row!.split('</tr>')[0]!.match(/<a [^>]*href="(\/roster\/pair[^"]*)"[^>]*>Pair<\/a>/)
+    return link ? link[1]!.replace(/&amp;/g, '&') : null
+  }
 
   /**
    * One Person's row and nothing either side of it. The looser `slice(indexOf(name))`

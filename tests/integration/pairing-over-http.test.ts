@@ -277,12 +277,15 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
     expect(html).toMatch(/choose the discipler/i)
   })
 
-  it('offers a way into pairing that does not start from one Person', async () => {
-    // Somebody already being discipled has no Pair action and may still lead, and
-    // several people selected together start from nobody in particular.
-    const { html } = await getPage('/roster', cookie)
-    expect(html).toContain('href="/roster/pair"')
-    expect(html).toContain('Pair people')
+  it('offers no way into pairing that does not start from one Person', async () => {
+    // Every pairing starts from a row (Manual pairing, ticket 07). The button that
+    // opened the Pair page with nobody chosen is gone from every list; somebody
+    // already being discipled has Pair on their own row now.
+    for (const list of ['all', 'disciplers', 'disciples']) {
+      const { html } = await getPage(`/roster?list=${list}`, cookie)
+      expect(html).not.toContain('href="/roster/pair"')
+      expect(html).not.toContain('Pair people')
+    }
   })
 
   it('refuses a pairing with nobody to disciple, and says which thing to fix', async () => {

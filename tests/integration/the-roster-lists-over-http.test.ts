@@ -155,7 +155,9 @@ describe.skipIf(skipUnlessAppIsRunning)('the Roster’s three lists', () => {
     const { html } = await getPage('/roster?list=disciplers', cookie)
     expect(names(html)).toContain('Priya Raman')
     const row = rowOf(html, 'Priya Raman')
-    expect(row).toContain('Offered to mentor')
+    // Being on this list is what says she offered; the tag that said it a second
+    // time went with Manual pairing, ticket 07.
+    expect(row).not.toContain('Offered to mentor')
     expect(row).toContain('Unpaired')
     // Preselected as the Discipler, since that is what she offered to be.
     expect(html).toContain(`href="/roster/pair?leaderId=${priya}"`)
@@ -339,10 +341,15 @@ describe.skipIf(skipUnlessAppIsRunning)('the Roster’s three lists', () => {
     expect(rowOf(after.html, 'Taylor Brooks')).not.toContain('not made')
   })
 
-  it('says why a Discipler who is discipled by nobody reads Ready to Pair', async () => {
+  it('has no footnote explaining a status, because no row prints one', async () => {
+    // The sentence under the table explained the chip under every name. Both went
+    // with Manual pairing, ticket 07.
     const { cookie } = await signIn(ministry)
-    const { html } = await getPage('/roster', cookie)
-    expect(html).toContain('A Discipler who is discipled by nobody reads Ready to Pair.')
+    for (const list of ['all', 'disciplers', 'disciples']) {
+      const { html } = await getPage(`/roster?list=${list}`, cookie)
+      expect(html).not.toContain('Status says whether a person is being discipled')
+      expect(html).not.toContain('reads Ready to Pair')
+    }
   })
 
   it('offers an empty list its own sentence', async () => {
