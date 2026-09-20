@@ -9,6 +9,7 @@ import {
   plannedAs,
   type RosterFacts,
 } from './lists'
+import type { Greyed } from './greying'
 import type { ImportFailure } from './report'
 
 /**
@@ -130,6 +131,17 @@ export const PAIR_POPUP = {
   nothingChosen: PAIR,
   noDisciplers: 'There is nobody to choose yet. Somebody becomes a discipler when they offer to on the Intake form.',
   close: 'Close',
+  /**
+   * Why a row cannot be chosen, on the row and in one line (Manual pairing, ticket
+   * 23). Somebody who cannot be paired reads what their Roster row already reads.
+   * The gender reason says the rule and never who anybody is.
+   */
+  greyed: (greyed: Greyed): string =>
+    greyed.why === 'already_in_a_one_to_one'
+      ? `Already in a 1:1 with ${greyed.withName}`
+      : greyed.why === 'not_pairable'
+        ? CANNOT_BE_PAIRED[greyed.reason]
+        : 'A 1:1 is same-gender',
 } as const
 
 /** The receipt the pairing screen redirects to, said about what just happened. */

@@ -169,6 +169,24 @@ describe('what the Pair popup says, from a Disciple (Manual pairing, ticket 12)'
   })
 })
 
+describe('why a row in the Pair popup is greyed (Manual pairing, ticket 23)', () => {
+  it('names who they are already in a one-to-one with', () => {
+    expect(PAIR_POPUP.greyed({ why: 'already_in_a_one_to_one', withName: 'David Chen' })).toBe(
+      'Already in a 1:1 with David Chen',
+    )
+  })
+
+  it('says the words their Roster row already says where they cannot be paired', () => {
+    expect(PAIR_POPUP.greyed({ why: 'not_pairable', reason: 'awaiting_intake' })).toBe('Awaiting Intake')
+    expect(PAIR_POPUP.greyed({ why: 'not_pairable', reason: 'opted_out' })).toBe('Opted out')
+  })
+
+  it('says the rule in words where the gender is another, and never who anybody is', () => {
+    expect(PAIR_POPUP.greyed({ why: 'gender', declared: 'female' })).toBe('A 1:1 is same-gender')
+    expect(PAIR_POPUP.greyed({ why: 'gender', declared: 'male' })).toBe('A 1:1 is same-gender')
+  })
+})
+
 /**
  * Manual pairing, ticket 21. A set of one-to-ones is all or none, so what it says
  * has two jobs a single pairing's does not: which of several people a refusal is
