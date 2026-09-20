@@ -81,9 +81,12 @@ export async function POST(request: NextRequest) {
    */
   const refused = (code: string, about: string | null = null) => {
     if (popupFor !== undefined) {
-      // Every choice the popup holds, which from a Disciple is the one Discipler.
+      // Every choice the popup holds: from a Disciple the one Discipler, and from a
+      // Discipler whoever was ticked (Manual pairing, ticket 23). Never the person
+      // the popup is for, who is in the address already as `pair`.
       const params = new URLSearchParams({ list, pair: popupFor, error: code })
-      for (const id of leaderIds) params.append('leaderId', id)
+      for (const id of leaderIds) if (id !== popupFor) params.append('leaderId', id)
+      for (const id of participantIds) if (id !== popupFor) params.append('with', id)
       return NextResponse.redirect(new URL(`/roster?${params}`, request.url), { status: 303 })
     }
 

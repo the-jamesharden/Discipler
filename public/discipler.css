@@ -576,7 +576,7 @@ textarea.paste { width: 100%; min-height: 140px; font-family: ui-monospace, SFMo
 .pair-toolbar { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.76rem; color: var(--text-light); margin-bottom: 0.4rem; }
 .pair-toolbar .link-btn { font-size: 0.76rem; font-weight: 500; }
 /* Room inside the scrolling list for a row's focus ring, which its edge would clip. */
-.pair-list { display: grid; gap: 0.4rem; max-height: min(50vh, 22rem); overflow-y: auto; padding: 3px; margin: 0 -3px; }
+.pair-list { display: grid; gap: 0.4rem; max-height: min(50vh, 22rem); overflow-y: auto; padding: 3px; margin: 0 -3px; border: 0; min-width: 0; }
 .pair-opt { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0.6rem; background: #f3efe8; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
 .pair-opt:hover { border-color: var(--primary-light); }
 .pair-opt.on, .pair-opt:has(input:checked) { background: var(--surface); border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
@@ -593,6 +593,8 @@ textarea.paste { width: 100%; min-height: 140px; font-family: ui-monospace, SFMo
 .pair-opt.off:hover { border-color: var(--border); }
 .pair-opt.off input, .pair-opt.off .avatar, .pair-opt.off .pair-name { opacity: 0.5; }
 .pair-why { display: block; font-size: 0.7rem; font-weight: 500; color: var(--amber-ink); }
+/* What the popup says beneath the list when it cannot act on what is ticked. */
+.pair-hint { font-size: 0.72rem; color: var(--text-light); margin-top: 0.3rem; }
 .pair-summary { margin-top: 0.9rem; background: rgba(45, 80, 22, 0.06); border-left: 3px solid var(--primary); padding: 0.55rem 0.7rem; font-size: 0.82rem; border-radius: 0 5px 5px 0; }
 
 /* ---- the Materials tab ---- */

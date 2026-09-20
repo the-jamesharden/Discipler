@@ -48,7 +48,9 @@ import { INTAKE_FORMS } from '../intake-forms/copy'
 import { ImportDialog, type ImportReadbackWire } from './import-dialog'
 import { IMPORT_DATASET, IMPORT_DIALOG_ID } from './import-copy'
 import {
+  disciplesFor,
   disciplersFor,
+  groupsOf,
   leadsCount,
   onList,
   opensAs,
@@ -60,8 +62,9 @@ import {
   whoThePopupIsFor,
   whyNotPairable,
 } from './lists'
-import { greyedForADisciple } from './greying'
-import { PairPopup } from './pair-popup'
+import { greyedForADisciple, greyedForADiscipler, type Greyed } from './greying'
+import { PairPopupFromADisciple } from './pair-popup-from-a-disciple'
+import { PairPopupFromADiscipler } from './pair-popup-from-a-discipler'
 import { RefusedRows } from './refused-rows'
 import { decodeImportReport } from './report'
 import { rosterKey } from '~/domain/roster'
@@ -114,6 +117,8 @@ export default async function RosterPage({
     pair?: string | string[]
     /** The Discipler chosen in the popup, on a submission that came back refused. */
     leaderId?: string | string[]
+    /** The Disciples ticked in the popup from a Discipler, on a submission that came back refused. */
+    with?: string | string[]
   }>
 }) {
   // One read: the Roster, the import rows waiting on an answer and the badge's
@@ -134,7 +139,7 @@ export default async function RosterPage({
   if (page.status === 'signed-out') redirect('/login')
 
   const { admin } = page
-  const { roster, held, followUpCount, suggestGenderMatch } = page.page
+  const { roster, held, followUpCount, suggestGenderMatch, groups } = page.page
 
   const list = listIn(query.list)
   const shown = roster.filter((person) => onList(list, person))
@@ -144,20 +149,17 @@ export default async function RosterPage({
   // document already read: opening it is no second read. A `pair` that names
   // nobody on this Roster, or somebody who cannot be paired, opens nothing.
   const pairing = whoThePopupIsFor(roster, asked)
-  // The toggle decides the side. Until ticket 14 gives the Discipler's side a
-  // popup, somebody who would open as one goes to the old Pair page with them
-  // chosen, where their row's Pair goes, so no address opens an empty popup.
-  if (pairing && opensAs(list, pairing) === 'discipler') redirect(pairHref(list, pairing))
-  const disciplers = pairing ? disciplersFor(roster, pairing) : []
-  // Why a Discipler's row cannot be chosen, already in words, or null where it
-  // can (Manual pairing, ticket 23). Read against what a one-to-one declares in
-  // this Ministry, never offered and then refused.
-  const whyGreyed = (disciple: RosterEntry, discipler: RosterEntry): string | null => {
-    const greyed = greyedForADisciple({ enforced: suggestGenderMatch, disciple, discipler })
-    return greyed === null ? null : PAIR_POPUP.greyed(greyed)
-  }
+  // The toggle decides the side, and each side is a popup of its own (Manual
+  // pairing, ticket 23). No row opens the Discipler's side until ticket 27: it is
+  // reached by its address, and a Discipler's row keeps opening the old Pair page.
+  const side = pairing ? opensAs(list, pairing) : null
+  // Why a row cannot be chosen, already in words, or null where it can. Read
+  // against what a one-to-one declares in this Ministry, never offered and then
+  // refused.
+  const inWords = (greyed: Greyed | null): string | null => (greyed === null ? null : PAIR_POPUP.greyed(greyed))
   // Compared against the list and never rendered, like every value from an address.
   const chosenBefore = [query.leaderId ?? []].flat()[0]
+  const tickedBefore = [query.with ?? []].flat()
 
   const report = decodeImportReport(query)
   // The code, not the sentence: the dialog words it, and opens on it. An error
@@ -443,23 +445,41 @@ export default async function RosterPage({
           when the last import was refused, with the reason beside the rows. */}
       <ImportDialog readback={readback} failure={failure} />
 
-      {/* Keyed by the person, so a popup opened for somebody else starts with
-          nothing chosen. */}
-      {pairing ? (
-        <PairPopup
-          key={pairing.personId}
+      {/* Keyed by the person and the side, so a popup opened for somebody else, or
+          on the other side, starts with nothing chosen. */}
+      {pairing && side === 'disciple' ? (
+        <PairPopupFromADisciple
+          key={`disciple-${pairing.personId}`}
           person={{ id: pairing.personId, fullName: pairing.fullName }}
           list={list}
-          disciplers={disciplers.map((discipler) => ({
+          disciplers={disciplersFor(roster, pairing).map((discipler) => ({
             id: discipler.personId,
             fullName: discipler.fullName,
             email: discipler.email,
             phone: discipler.phone,
             leads: leadsCount(discipler),
-            greyed: whyGreyed(pairing, discipler),
+            greyed: inWords(greyedForADisciple({ enforced: suggestGenderMatch, disciple: pairing, discipler })),
           }))}
           refusal={pairingRefusalMessage(query.error)}
-          chosenBefore={disciplers.find((each) => each.personId === chosenBefore)?.personId ?? null}
+          chosenBefore={chosenBefore ?? null}
+        />
+      ) : null}
+      {pairing && side === 'discipler' ? (
+        <PairPopupFromADiscipler
+          key={`discipler-${pairing.personId}`}
+          person={{ id: pairing.personId, fullName: pairing.fullName }}
+          list={list}
+          disciples={disciplesFor(roster, pairing).map((disciple) => ({
+            id: disciple.personId,
+            fullName: disciple.fullName,
+            email: disciple.email,
+            phone: disciple.phone,
+            firstTime: disciple.firstTime,
+            groups: groupsOf(disciple, groups).map(({ name, leaders }) => ({ name, leaders })),
+            greyed: inWords(greyedForADiscipler({ enforced: suggestGenderMatch, discipler: pairing, disciple })),
+          }))}
+          refusal={pairingRefusalMessage(query.error)}
+          tickedBefore={tickedBefore}
         />
       ) : null}
     </AdminShell>

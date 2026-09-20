@@ -201,16 +201,20 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Disciple', () =>
     expect(chosenFrom(popup!)).not.toContain(both)
     expect(asDisciple.html).toContain(`href="/roster?list=disciples&amp;pair=${both}"`)
 
-    // As a Discipler on Disciplers and on All: the old Pair page until ticket 14,
-    // from the row and from the address, so nothing opens an empty popup.
+    // As a Discipler on Disciplers and on All. Her row still goes to the old Pair
+    // page until ticket 27 links this side; by its address the popup opens on the
+    // Discipler's side (Manual pairing, ticket 23), and never lists her own name.
     for (const list of ['disciplers', 'all']) {
       const { html } = await getPage(`/roster?list=${list}`, cookie)
       expect(html, list).toContain(`href="/roster/pair?leaderId=${both}"`)
       expect(html, list).not.toContain(`pair=${both}`)
 
-      const { response } = await popupAt(list, both)
-      expect(response.status, list).toBe(307)
-      expect(response.headers.get('location'), list).toBe(`/roster/pair?leaderId=${both}`)
+      const asDiscipler = await popupAt(list, both)
+      expect(asDiscipler.response.status, list).toBe(200)
+      const theirs = popupIn(asDiscipler.html)!
+      expect(theirs, list).toContain('Choose who Hana Sato will disciple.')
+      expect(theirs, list).not.toContain(`name="participantId" value="${both}"`)
+      expect(theirs, list).not.toContain(`value="${both}" name="participantId"`)
     }
   })
 
