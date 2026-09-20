@@ -132,6 +132,19 @@ export const PAIR_POPUP = {
   noDisciplers: 'There is nobody to choose yet. Somebody becomes a discipler when they offer to on the Intake form.',
   close: 'Close',
   /**
+   * From a Discipler (Manual pairing, ticket 23): the list is of Disciples, ticked
+   * with boxes. One tick is the one-to-one the other side makes, in the same
+   * sentence and on the same button.
+   */
+  chooseDisciples: (discipler: string): string => `Choose who ${discipler} will disciple.`,
+  disciples: (count: number): string => (count === 1 ? '1 disciple' : `${count} disciples`),
+  /** The group a Disciple is already in, on their row. One nobody has named is said by who leads it. */
+  inGroup: (group: { readonly name: string | null; readonly leaders: readonly { readonly fullName: string }[] }): string =>
+    `in ${group.name ?? `${asList(group.leaders.map(({ fullName }) => fullName))}’s group`}`,
+  /** Two or more ticked has no shape to become yet; the toggle that chooses one replaces this line. */
+  shapeIsComing: 'Pairing two or more at once is coming. Tick one for now.',
+  noDisciples: 'There is nobody to choose yet. Somebody can be chosen once they have completed Intake.',
+  /**
    * Why a row cannot be chosen, on the row and in one line (Manual pairing, ticket
    * 23). Somebody who cannot be paired reads what their Roster row already reads.
    * The gender reason says what the one-to-one declares and never what anybody's

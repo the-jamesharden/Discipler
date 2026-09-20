@@ -5,7 +5,9 @@ import type { RosterEntry, RosterIntendedPairing, RosterRelationship } from '~/s
 import * as copy from '../../app/roster/copy'
 import { CANNOT_BE_PAIRED, displayPhone, whoTheyAre } from '../../app/roster/copy'
 import {
+  disciplesFor,
   disciplersFor,
+  groupsOf,
   isDiscipler,
   isDisciple,
   leadsCount,
@@ -334,8 +336,8 @@ describe('the Pair popup, from a Disciple (Manual pairing, ticket 12)', () => {
   })
 
   it('lists every Discipler, in the order of the Roster, and never the Disciple themselves', () => {
-    // Nobody is left out for a reason the database would refuse: greyed rows are
-    // ticket 13, and until then the refusal is what stops a wrong one.
+    // Nobody is left out for a reason the database would refuse: those rows are
+    // greyed with the reason (Manual pairing, ticket 23), never hidden.
     const waiting = person({ participationStatus: 'no_intake_submitted', declaredSide: 'mentor' })
     const roster = [disciple, discipler, both, waiting]
     expect(disciplersFor(roster, disciple)).toEqual([discipler, both, waiting])
@@ -353,6 +355,62 @@ describe('the Pair popup, from a Disciple (Manual pairing, ticket 12)', () => {
       ],
     })
     expect(leadsCount(busy)).toBe(4)
+  })
+})
+
+describe('the Pair popup, from a Discipler (Manual pairing, ticket 23)', () => {
+  const claire = person({ fullName: 'Claire Martinez', relationships: [pairing('leader')] })
+
+  it('lists every Disciple who has completed Intake and not opted out, and nobody else', () => {
+    const sam = person()
+    const inAGroup = person({ relationships: [pairing('participant', { participantCount: 3 })] })
+    const inAOneToOne = person({ relationships: [pairing('participant')] })
+    const waiting = person({ participationStatus: 'no_intake_submitted' })
+    const left = person({ participationStatus: 'opted_out' })
+    const onlyADiscipler = person({ declaredSide: 'mentor' })
+    // Discipled by somebody and discipling somebody: a Disciple like any other.
+    const both = person({ relationships: [pairing('leader'), pairing('participant', { participantCount: 2 })] })
+
+    const roster = [sam, claire, inAGroup, waiting, inAOneToOne, left, onlyADiscipler, both]
+    // In the Roster's order. Not filtered beyond that: being paired already, or of
+    // another gender, greys a row and never hides it.
+    expect(disciplesFor(roster, claire)).toEqual([sam, inAGroup, inAOneToOne, both])
+  })
+
+  it('never lists the Discipler themselves', () => {
+    const both = person({ relationships: [pairing('leader'), pairing('participant', { participantCount: 2 })] })
+    expect(disciplesFor([both, person()], both)).not.toContain(both)
+  })
+
+  it('names the groups a Disciple is already in, off the groups the Pair document lists', () => {
+    const rosa = person()
+    const group = (name: string | null, memberIds: readonly RosterEntry['personId'][]) => ({
+      relationshipId: relationshipId(`group-${++counter}`),
+      name,
+      leaders: [{ personId: personId('grace'), fullName: 'Grace Lee' }],
+      discipleCount: 3,
+      declaredGender: null,
+      state: null,
+      memberIds,
+    })
+    const hers = group('Grace’s Group', [personId('grace'), rosa.personId])
+    const unnamed = group(null, [rosa.personId])
+    const somebodyElses = group('Thursday Table', [personId('somebody')])
+    expect(groupsOf(rosa, [hers, somebodyElses, unnamed])).toEqual([hers, unnamed])
+  })
+
+  it('does not count a group they lead as one they are in as a Disciple', () => {
+    const grace = person()
+    const leads = {
+      relationshipId: relationshipId(`group-${++counter}`),
+      name: 'Grace’s Group',
+      leaders: [{ personId: grace.personId, fullName: 'Grace Lee' }],
+      discipleCount: 3,
+      declaredGender: null,
+      state: null,
+      memberIds: [grace.personId],
+    }
+    expect(groupsOf(grace, [leads])).toEqual([])
   })
 })
 

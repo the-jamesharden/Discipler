@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { personId, relationshipId } from '~/domain/ids'
 import type { RosterEntry, RosterRelationship } from '~/service/ports'
-import { declaredByAOneToOne, greyedAgainst, greyedForADisciple } from '../../app/roster/greying'
+import {
+  declaredByAOneToOne,
+  greyedAgainst,
+  greyedForADisciple,
+  greyedForADiscipler,
+} from '../../app/roster/greying'
 
 /**
  * Who is greyed in the Pair popup, and why (Manual pairing, ticket 23). The rule
@@ -127,5 +132,44 @@ describe('a Discipler in the popup opened from a Disciple', () => {
       ],
     })
     expect(greyedForADisciple({ enforced: true, disciple: inAGroup, discipler: person({ gender: 'male' }) })).toBeNull()
+  })
+})
+
+describe('a Disciple in the popup opened from a Discipler', () => {
+  const claire = person({ fullName: 'Claire Martinez', gender: 'female' })
+
+  it('is greyed when already in a one-to-one, which is what one tick would make', () => {
+    const brianna = person({
+      gender: 'female',
+      relationships: [pairing('participant', { leaderNames: ['David Chen'], participantCount: 1 })],
+    })
+    expect(greyedForADiscipler({ enforced: true, discipler: claire, disciple: brianna })).toEqual({
+      why: 'already_in_a_one_to_one',
+      withName: 'David Chen',
+    })
+  })
+
+  it('is open when in a group, however many', () => {
+    const rosa = person({
+      gender: 'female',
+      relationships: [pairing('participant', { leaderNames: ['Grace Lee'], participantCount: 3 })],
+    })
+    expect(greyedForADiscipler({ enforced: true, discipler: claire, disciple: rosa })).toBeNull()
+  })
+
+  it('is greyed for gender against what the one-to-one declares, the Discipler’s gender', () => {
+    const tom = person({ gender: 'male' })
+    expect(greyedForADiscipler({ enforced: true, discipler: claire, disciple: tom })).toEqual({
+      why: 'gender',
+      declared: 'female',
+    })
+    expect(greyedForADiscipler({ enforced: false, discipler: claire, disciple: tom })).toBeNull()
+  })
+
+  it('is never greyed with no gender on file, and nobody is when the Discipler has none', () => {
+    expect(greyedForADiscipler({ enforced: true, discipler: claire, disciple: person() })).toBeNull()
+    expect(
+      greyedForADiscipler({ enforced: true, discipler: person(), disciple: person({ gender: 'male' }) }),
+    ).toBeNull()
   })
 })

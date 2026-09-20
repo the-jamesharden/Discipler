@@ -89,3 +89,24 @@ export const greyedForADisciple = ({
     ? { why: 'already_in_a_one_to_one', withName }
     : greyedAgainst(declaredByAOneToOne({ enforced, openedFrom: disciple }), discipler)
 }
+
+/**
+ * A Disciple's row in the popup opened from a Discipler, while what is ticked
+ * would make a one-to-one. A Disciple already in one can be given no second;
+ * they are open again for a shape that makes a group. Otherwise the row is read
+ * against what a one-to-one declares, which is this Discipler's gender.
+ */
+export const greyedForADiscipler = ({
+  enforced,
+  discipler,
+  disciple,
+}: {
+  readonly enforced: boolean
+  readonly discipler: Pick<RosterEntry, 'gender'>
+  readonly disciple: Pick<RosterEntry, 'gender' | 'participationStatus' | 'relationships'>
+}): Greyed | null => {
+  const withName = alreadyInAOneToOneWith(disciple)
+  return withName !== null
+    ? { why: 'already_in_a_one_to_one', withName }
+    : greyedAgainst(declaredByAOneToOne({ enforced, openedFrom: discipler }), disciple)
+}

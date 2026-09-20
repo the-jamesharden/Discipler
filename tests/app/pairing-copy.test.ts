@@ -187,6 +187,44 @@ describe('why a row in the Pair popup is greyed (Manual pairing, ticket 23)', ()
   })
 })
 
+describe('what the Pair popup says, from a Discipler (Manual pairing, ticket 23)', () => {
+  it('says who the list is for, and counts it in the Roster’s own word', () => {
+    expect(PAIR_POPUP.chooseDisciples('Claire Martinez')).toBe('Choose who Claire Martinez will disciple.')
+    expect(PAIR_POPUP.disciples(7)).toBe('7 disciples')
+    expect(PAIR_POPUP.disciples(1)).toBe('1 disciple')
+  })
+
+  it('names the group a Disciple is already in, and one nobody has named by who leads it', () => {
+    expect(PAIR_POPUP.inGroup({ name: 'Grace’s Group', leaders: [{ fullName: 'Grace Lee' }] })).toBe(
+      'in Grace’s Group',
+    )
+    expect(PAIR_POPUP.inGroup({ name: null, leaders: [{ fullName: 'Grace Lee' }] })).toBe('in Grace Lee’s group')
+    expect(
+      PAIR_POPUP.inGroup({ name: null, leaders: [{ fullName: 'Grace Lee' }, { fullName: 'David Chen' }] }),
+    ).toBe('in Grace Lee and David Chen’s group')
+  })
+
+  it('says the choice of shape is coming where two or more are ticked, and what to do meanwhile', () => {
+    expect(PAIR_POPUP.shapeIsComing).toMatch(/coming/i)
+    expect(PAIR_POPUP.shapeIsComing).toMatch(/one/i)
+  })
+
+  it('has something to say where there is nobody to choose', () => {
+    expect(PAIR_POPUP.noDisciples).toBeTruthy()
+  })
+
+  it('says Discipler and Disciple, never the model’s Leader, Participant or mentor', () => {
+    const said = [
+      PAIR_POPUP.chooseDisciples('A'),
+      PAIR_POPUP.disciples(2),
+      PAIR_POPUP.inGroup({ name: null, leaders: [{ fullName: 'A' }] }),
+      PAIR_POPUP.shapeIsComing,
+      PAIR_POPUP.noDisciples,
+    ]
+    for (const sentence of said) expect(sentence).not.toMatch(/leader|participant|mentor/i)
+  })
+})
+
 /**
  * Manual pairing, ticket 21. A set of one-to-ones is all or none, so what it says
  * has two jobs a single pairing's does not: which of several people a refusal is

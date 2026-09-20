@@ -1,6 +1,6 @@
 import type { DeclaredSide } from '~/domain/intake'
 import type { MemberRole } from '~/domain/relationships'
-import type { RosterEntry, RosterIntendedPairing, RosterRelationship } from '~/service/ports'
+import type { GroupToJoin, RosterEntry, RosterIntendedPairing, RosterRelationship } from '~/service/ports'
 import type { NotPairable, RosterList, RosterSide } from './copy'
 
 /**
@@ -164,6 +164,35 @@ export const disciplersFor = (
   disciple: RosterEntry,
 ): readonly RosterEntry[] =>
   roster.filter((each) => isDiscipler(each) && each.personId !== disciple.personId)
+
+/**
+ * The popup's list from a Discipler (Manual pairing, ticket 23): every Disciple who
+ * has completed Intake and not opted out, in the Roster's order, and never the
+ * Discipler themselves. Not filtered beyond that: everyone who could be paired is
+ * listed, and a row the database would refuse is greyed with the reason, never
+ * hidden. The two left out are the two a Roster row offers no Pair to.
+ */
+export const disciplesFor = (
+  roster: readonly RosterEntry[],
+  discipler: RosterEntry,
+): readonly RosterEntry[] =>
+  roster.filter(
+    (each) => isDisciple(each) && whyNotPairable(each) === null && each.personId !== discipler.personId,
+  )
+
+/**
+ * The groups a Disciple is already in, off the groups the Pair document lists, so
+ * their row can name them. A group they lead is not one they are in as a Disciple.
+ */
+export const groupsOf = (
+  disciple: Pick<RosterEntry, 'personId'>,
+  groups: readonly GroupToJoin[],
+): readonly GroupToJoin[] =>
+  groups.filter(
+    (group) =>
+      group.memberIds.includes(disciple.personId) &&
+      !group.leaders.some((leader) => leader.personId === disciple.personId),
+  )
 
 /** How many people somebody already leads, across every open relationship they lead. */
 export const leadsCount = (person: Pick<RosterEntry, 'relationships'>): number =>
