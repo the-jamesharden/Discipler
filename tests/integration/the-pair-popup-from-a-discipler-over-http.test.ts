@@ -14,8 +14,9 @@ import {
 /**
  * The Pair popup over the Roster, opened as a Discipler (Manual pairing, ticket
  * 23, stage 2), as an Admin's browser receives it: the list of Disciples with
- * boxes, and one tick that makes a one-to-one. No row opens this side until
- * ticket 27, so it is reached here as it is reached today, by its address.
+ * boxes, and one tick that makes a one-to-one. No row opens this side until the
+ * old Pair page retires, so it is reached here as it is reached today, by its
+ * address.
  *
  * What needs script (the sentence following a tick, Clear, the disabled button
  * with nothing ticked) is looked at in a browser; the server renders the same
@@ -158,7 +159,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
       // The X, Cancel and the backdrop, all to the list it was drawn over.
       expect(popup!.match(new RegExp(`href="/roster\\?list=${list}"`, 'g')), list).toHaveLength(3)
 
-      // Her row still goes to the old Pair page until ticket 27, which is untouched.
+      // Her row still goes to the old Pair page, which is untouched, until it retires.
       const roster = (await getPage(`/roster?list=${list}`, cookie)).html
       expect(roster, list).toContain(`href="/roster/pair?leaderId=${claire}"`)
       expect(roster, list).not.toContain(`pair=${claire}`)

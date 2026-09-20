@@ -134,8 +134,8 @@ export const opensAs = (list: RosterList, person: RosterFacts): PairSide =>
  * list it was pressed on (Manual pairing, ticket 12). A row that opens as a
  * Discipler still goes to the old Pair page with them chosen as the Discipler: that
  * side of the popup is built over three tickets and reached only by its address
- * (Manual pairing, ticket 23), so no Admin meets a half-built control, and ticket
- * 27 of the same effort links it.
+ * (Manual pairing, ticket 23), so no Admin meets a half-built control. The ticket
+ * that retires the old Pair page links it.
  */
 export const pairHref = (list: RosterList, person: RosterEntry): string =>
   opensAs(list, person) === 'disciple'

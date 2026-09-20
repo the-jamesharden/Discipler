@@ -316,7 +316,7 @@ describe('the Pair popup, from a Disciple (Manual pairing, ticket 12)', () => {
     expect(pairHref('disciples', both)).toBe(`/roster?list=disciples&pair=${both.personId}`)
   })
 
-  it('keeps a row that opens as a Discipler on the old Pair page until ticket 14', () => {
+  it('keeps a row that opens as a Discipler on the old Pair page until that page retires', () => {
     expect(pairHref('disciplers', discipler)).toBe(`/roster/pair?leaderId=${discipler.personId}`)
     expect(pairHref('all', discipler)).toBe(`/roster/pair?leaderId=${discipler.personId}`)
     expect(pairHref('all', both)).toBe(`/roster/pair?leaderId=${both.personId}`)

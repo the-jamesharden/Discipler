@@ -150,8 +150,9 @@ export default async function RosterPage({
   // nobody on this Roster, or somebody who cannot be paired, opens nothing.
   const pairing = whoThePopupIsFor(roster, asked)
   // The toggle decides the side, and each side is a popup of its own (Manual
-  // pairing, ticket 23). No row opens the Discipler's side until ticket 27: it is
-  // reached by its address, and a Discipler's row keeps opening the old Pair page.
+  // pairing, ticket 23). No row opens the Discipler's side until the old Pair
+  // page retires: it is reached by its address, and a Discipler's row keeps
+  // opening that page.
   const side = pairing ? opensAs(list, pairing) : null
   // Why a row cannot be chosen, already in words, or null where it can. Read
   // against what a one-to-one declares in this Ministry, never offered and then
