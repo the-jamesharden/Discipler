@@ -1,7 +1,7 @@
 import type { DeclaredSide } from '~/domain/intake'
 import type { MemberRole } from '~/domain/relationships'
 import type { RosterEntry, RosterIntendedPairing, RosterRelationship } from '~/service/ports'
-import type { RosterList, RosterSide } from './copy'
+import type { NotPairable, RosterList, RosterSide } from './copy'
 
 /**
  * Which list a Person is on, as the Roster names them, and the three numbers over
@@ -81,6 +81,32 @@ export const relationshipsOn = (
   list: RosterList,
   person: RosterEntry,
 ): readonly RosterRelationship[] => heldOn(list, person.relationships)
+
+/**
+ * Why a row offers no Pair, or null when nothing is in the way (Manual pairing,
+ * ticket 07). Participation Status is no longer printed under a name, and still
+ * decides this: the database refuses a pairing with somebody who has not completed
+ * Intake or has opted out, on either side of it, so neither row gets anything to
+ * press. One answer for a Discipler and a Disciple, and being paired already is
+ * never a reason: a Discipler may lead another, and a Disciple may join a group.
+ */
+export const whyNotPairable = (person: Pick<RosterEntry, 'participationStatus'>): NotPairable | null =>
+  person.participationStatus === 'no_intake_submitted'
+    ? 'awaiting_intake'
+    : person.participationStatus === 'opted_out'
+      ? 'opted_out'
+      : null
+
+/**
+ * Where Pair on a row goes: the Pair page with that Person already chosen, as the
+ * Discipler when they are one and as the Disciple otherwise. About the Person and
+ * not the list, so their row says the same on All and on either side, and the
+ * pairing screen lets the Admin change it.
+ */
+export const pairHref = (person: RosterEntry): string =>
+  `/roster/pair?${new URLSearchParams(
+    isDiscipler(person) ? { leaderId: person.personId } : { with: person.personId },
+  )}`
 
 export interface RosterStats {
   readonly total: number
