@@ -50,6 +50,10 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 export const personIdFrom = (value: string | undefined): PersonId | null =>
   value !== undefined && UUID.test(value) ? personId(value) : null
 
+/** A RelationshipId out of text nobody vouched for, on the same terms. */
+export const relationshipIdFrom = (value: string | undefined): RelationshipId | null =>
+  value !== undefined && UUID.test(value) ? relationshipId(value) : null
+
 /**
  * Where new identifiers come from. Injected for the same reason the clock is: a
  * command that mints an id from inside the domain is no longer a pure function of

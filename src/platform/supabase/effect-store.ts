@@ -327,6 +327,8 @@ interface MemberRow {
   role: MemberRole
   full_name: string
   phone: string | null
+  /** A Leader's own agreement. Null on every Participant, who accepts nothing. */
+  accepted_at: Date | null
 }
 
 // Locked, for the same reason acceptance locks it: the domain decides from what
@@ -356,6 +358,7 @@ const asRelationshipSnapshot = (
     role: row.role,
     fullName: row.full_name,
     phone: row.phone,
+    acceptedAt: row.accepted_at,
   })),
 })
 
@@ -1717,14 +1720,9 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // Whoever already left is not somebody this returns to the pool -- they are
     // already in it. The name and the number ride along because a resume tells
     // everybody here that the relationship is running again, and that message
-    // needs a recipient and the names on the other side of it. `accepted_at`
-    // comes back too and is not read; one ordering rule is worth one column.
-    const { rows: members } = await client.query<{
-      person_id: string
-      role: MemberRole
-      full_name: string
-      phone: string | null
-    }>(openMembersOfRelationship, [id])
+    // needs a recipient and the names on the other side of it. `accepted_at` is
+    // each Leader's own agreement, which a join reads before it texts them.
+    const { rows: members } = await client.query<MemberRow>(openMembersOfRelationship, [id])
 
     // The Pause standing on it right now, read the same way every other caller
     // reads one: the later of `relationship.paused` and `relationship.resumed`.

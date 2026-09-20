@@ -28,8 +28,8 @@ const snapshot = (over: Partial<RelationshipSnapshot> = {}): RelationshipSnapsho
   declaredGender: null,
   pause: null,
   members: [
-    { personId: david, role: 'leader', fullName: 'David Ellis', phone: '+15550101' },
-    { personId: emily, role: 'participant', fullName: 'Emily Johnson', phone: '+15550200' },
+    { personId: david, role: 'leader', fullName: 'David Ellis', phone: '+15550101', acceptedAt: null },
+    { personId: emily, role: 'participant', fullName: 'Emily Johnson', phone: '+15550200', acceptedAt: null },
   ],
   ...over,
 })

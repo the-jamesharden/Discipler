@@ -597,6 +597,11 @@ export const addMembership = async (args: {
   role: 'leader' | 'participant'
   startedAt?: Date
   endedAt?: Date
+  /**
+   * A Leader's own agreement, which acceptance writes beside the relationship's
+   * activation and a fixture has to say for itself. Absent is *has not accepted*.
+   */
+  acceptedAt?: Date
 }): Promise<string> => {
   const { data, error } = await serviceRoleClient()
     .from('relationship_member')
@@ -608,6 +613,7 @@ export const addMembership = async (args: {
       role: args.role,
       started_at: (args.startedAt ?? new Date()).toISOString(),
       ended_at: args.endedAt?.toISOString() ?? null,
+      accepted_at: args.acceptedAt?.toISOString() ?? null,
     })
     .select('id')
     .single()
@@ -697,7 +703,18 @@ export const formGroup = async (
   if (error) throw new Error(`Could not form the group ${options.name ?? '(unnamed)'}: ${error.message}`)
   if (acceptedAt) await openMaterialHistory(ministry, data.id, acceptedAt)
 
-  await addMembership({ ministry, relationshipId: data.id, kind: 'group', personId: leader, role: 'leader' })
+  // An accepted group is one whose Leader agreed, and the agreement is a fact of
+  // their membership: acceptance writes both, so a fixture that stamped only the
+  // relationship would be a group no acceptance could have produced. The
+  // membership starts no later than it was accepted, as the table requires.
+  await addMembership({
+    ministry,
+    relationshipId: data.id,
+    kind: 'group',
+    personId: leader,
+    role: 'leader',
+    ...(acceptedAt ? { startedAt: acceptedAt, acceptedAt } : {}),
+  })
   for (const disciple of disciples) {
     await addMembership({ ministry, relationshipId: data.id, kind: 'group', personId: disciple, role: 'participant' })
   }

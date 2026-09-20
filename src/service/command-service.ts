@@ -9,6 +9,7 @@ import {
   CheckInRefused,
   DepartureRefused,
   EndingRefused,
+  GroupJoinRefused,
   GroupRefused,
   InvitationRefused,
   MaterialAssignmentRefused,
@@ -598,6 +599,7 @@ const needsTheMinistryName = (command: Command): boolean =>
   isIntakeSubmission(command) ||
   // It texts the group's Leaders that somebody joined, in the Ministry's voice.
   command.type === 'relationship.admit' ||
+  command.type === 'group.add_participant' ||
   command.type === 'relationship.create' ||
   command.type === 'relationship.resume' ||
   command.type === 'scheduled.tick' ||
@@ -692,6 +694,31 @@ const joinRequestContext = async (unit: UnitOfWork, itemId: FollowUpItemId) => {
     ...(relationship ? { relationship } : {}),
     contacts: { people: await unit.contactsFor([joinRequest.personId]) },
   }
+}
+
+/**
+ * The group an Admin is putting somebody into, and the name of the Person, which
+ * the text to its Leaders says (Manual pairing, ticket 22).
+ *
+ * `groupToJoin` answers null both for an id that names nothing this Ministry holds
+ * and for one that names a one-to-one, and those are two refusals an Admin acts on
+ * differently. The second read is what tells them apart, and it is only ever made
+ * on the way to refusing: the ordinary path reads the group once.
+ */
+const groupToAddTo = async (
+  unit: UnitOfWork,
+  command: Extract<Command, { type: 'group.add_participant' }>,
+) => {
+  const groupToJoin = await unit.groupToJoin(command.relationshipId)
+  if (!groupToJoin) {
+    throw new GroupJoinRefused(
+      (await unit.relationshipFor(command.relationshipId))
+        ? 'joining.not_a_group'
+        : 'joining.group_not_found',
+    )
+  }
+
+  return { groupToJoin, contacts: { people: await unit.contactsFor([command.personId]) } }
 }
 
 /**
@@ -829,6 +856,9 @@ export const createCommandService = ({
         // domain refuses on the item before it looks for either.
         ...(command.type === 'relationship.admit'
           ? await joinRequestContext(unit, command.itemId)
+          : {}),
+        ...(command.type === 'group.add_participant'
+          ? await groupToAddTo(unit, command)
           : {}),
         // Loaded so that asking for a link somebody already holds gives them that
         // one back rather than minting a second and stopping the first from working.

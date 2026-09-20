@@ -259,6 +259,7 @@ const member = (id: typeof david, role: 'leader' | 'participant'): RelationshipM
   role,
   fullName: 'A Person',
   phone: '+15550101',
+  acceptedAt: role === 'leader' ? acceptedAt : null,
 })
 
 const relationshipSnapshot = (

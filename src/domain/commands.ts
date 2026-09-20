@@ -235,6 +235,27 @@ export type Command =
       readonly admittedBy: string
     }
   /**
+   * An Admin putting a Person into a group that already exists, as a Disciple
+   * (Manual pairing, ticket 22). The same act as an admission without a request
+   * behind it: they are in it at once, they accept nothing and are sent nothing,
+   * and the group's Leaders are texted that somebody has joined, exactly as a
+   * self-join does. The group keeps its Material, its name, its declaration and
+   * its state.
+   *
+   * A command of its own rather than a flag on `relationship.admit`, for the
+   * reason the two events are two types: who acted, and on what, is what the
+   * command is.
+   */
+  | {
+      readonly type: 'group.add_participant'
+      readonly ministryId: MinistryId
+      /** As the form named it. Whether it is a group this Ministry holds is read inside the transaction. */
+      readonly relationshipId: RelationshipId
+      readonly personId: PersonId
+      /** The Admin's account, as the session named it. */
+      readonly addedBy: string
+    }
+  /**
    * An Admin cancelling a relationship nobody accepted. It ends every open
    * membership, which is the whole of *returning everyone to the suggestion pool*:
    * `participation_status` reads open participant memberships, so closing them is
