@@ -269,6 +269,23 @@ describe('two who can be N x 1:1 pairs and cannot be a 1:2 pair', () => {
     expect(greyedOnRow(relaxed, two, tom)).toBeNull()
   })
 
+  it('never offers a row whose tick would not stay: somebody no shape can hold beside who is ticked', () => {
+    // She is already in a one-to-one, so she can only be in a 1:2 pair, and he can
+    // only be one of N x 1:1. No shape holds the two of them. Offered and ticked,
+    // she would untick him under the 1:2 and then herself as a lone one-to-one.
+    const withHer: PairSelectionContext = {
+      ...relaxed,
+      rows: [...relaxed.rows, { id: 'brianna', greyed: { a_one_to_one: 'Already in a 1:1 with David Chen', a_one_to_two: null } }],
+    }
+    const her = withHer.rows[3]!
+    const him = selectionAfter(withHer, nothing, tick('tom'))
+
+    expect(greyedOnRow(withHer, him, her)).toBe('Already in a 1:1 with David Chen')
+    expect(selectionAfter(withHer, him, tick('brianna'))).toEqual(him)
+    // Beside somebody she can be in a 1:2 pair with, she is offered as ever.
+    expect(greyedOnRow(withHer, selectionAfter(withHer, nothing, tick('sam')), her)).toBeNull()
+  })
+
   it('unticks him, and says so, where the Admin picks 1:2 pair all the same', () => {
     const picked = from(tick('sam'), tick('tom'), pick('one_to_two'))
     expect(picked.tickedIds).toEqual(['sam'])
@@ -308,16 +325,18 @@ describe('the Materials each shape holds', () => {
     expect(after(separately, materialFor('sam', 'removed-since')).materialFor).toEqual({})
   })
 
-  it('carries no choice from one shape into the other, and keeps each shape’s own for when the Admin comes back', () => {
+  it('carries no choice from one shape into the other: a 1:2 pair’s dropdown always starts at No material', () => {
     const chosen = after(separately, materialFor('sam', 'mark'), materialFor('ana', 'romans'))
-    // Moving to 1:2 starts the 1:2's dropdown at No material.
+    // Moving from N x 1:1 to 1:2 starts the 1:2's dropdown at No material.
     const together = after(chosen, pick('one_to_two'))
     expect(together.material).toBe('')
 
-    // And what was chosen for the 1:2 is not any Disciple's. Theirs are as they were.
-    const back = after(together, material('mark'), pick('separate'))
-    expect(back.materialFor).toEqual({ sam: 'mark', ana: 'romans' })
-    expect(after(back, pick('one_to_two')).material).toBe('mark')
+    // And it does every time, a round trip through N x 1:1 included.
+    const roundTrip = after(together, material('mark'), pick('separate'), pick('one_to_two'))
+    expect(roundTrip.material).toBe('')
+
+    // What was chosen for the 1:2 is never any Disciple's, and theirs are as they were.
+    expect(after(together, material('mark'), pick('separate')).materialFor).toEqual({ sam: 'mark', ana: 'romans' })
   })
 
   it('leaves the others’ choices as they were when the default, and not the Admin, moves the shape', () => {

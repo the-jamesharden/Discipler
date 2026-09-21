@@ -159,23 +159,6 @@ const readAgainst = (context: PairSelectionContext, ticks: Ticks): ReadAs =>
   readAs(shapeOf(context, ticks)?.selected ?? null)
 
 /**
- * Why a row cannot be ticked now, or null. **A row is read against the shape the
- * ticks would make with it ticked**: a ticked row against the shape there is, and
- * an unticked one against the shape one more tick would make. That is what *while
- * the shape would make a 1:1* means for a row nobody has ticked yet, and it is the
- * only way somebody already in a one-to-one can come to be ticked for a 1:2 pair:
- * the toggle shows at two, and with one ticked the second would make a 1:2.
- */
-export const greyedOnRow = (
-  context: PairSelectionContext,
-  selection: PairSelection,
-  row: PairSelectionRow,
-): string | null => {
-  const tickedIds = selection.tickedIds.includes(row.id) ? selection.tickedIds : [...selection.tickedIds, row.id]
-  return row.greyed[readAgainst(context, { tickedIds, picked: selection.picked })]
-}
-
-/**
  * Changing the shape re-checks every row: anybody ticked whom the shape now greys is
  * unticked, and named, rather than dropped silently. Unticking can move the shape
  * again (two ticked falling to one is a one-to-one), so it goes round until nobody
@@ -204,24 +187,54 @@ const settled = (
 }
 
 /**
- * The Materials that survive a change. Each shape keeps its own and neither is
- * carried into the other: the 1:2 pair's one Material is never any Disciple's, and
- * theirs are never its. Only the selected shape's dropdowns are drawn, so only its
- * choices are posted. Unticking somebody removes their choice and leaves the
- * others' as they were, whether or not the default moved the shape on the way.
- * Below two ticks there is no shape, nothing is asked, and nothing is kept.
+ * Why a row cannot be ticked now, or null. **A row is offered only where ticking it
+ * would leave it ticked**, so it is read against the shape the ticks would make with
+ * it among them, by making them and seeing. That is what *while the shape would
+ * make a 1:1* means for a row nobody has ticked yet, and it is the only way
+ * somebody already in a one-to-one can come to be ticked for a 1:2 pair: the toggle
+ * shows at two, and with one ticked the second would make a 1:2.
+ *
+ * Asked of the re-check itself and not of one shape, because one tick can move the
+ * shape more than once: somebody no shape can hold beside who is ticked would untick
+ * them and then be unticked alone, and is never offered for that. Ticking a row may
+ * still untick somebody else, which the popup says; it never unticks the row ticked.
+ * A row already ticked is never greyed, since the re-check would have unticked it.
+ */
+export const greyedOnRow = (
+  context: PairSelectionContext,
+  selection: PairSelection,
+  row: PairSelectionRow,
+): string | null =>
+  selection.tickedIds.includes(row.id)
+    ? null
+    : (settled(context, [...selection.tickedIds, row.id], selection.picked).unticked.find(({ id }) => id === row.id)
+        ?.why ?? null)
+
+/**
+ * The Materials that survive a change. Neither shape's choice is carried into the
+ * other. The 1:2 pair's one Material is kept only while the shape stays a 1:2 pair,
+ * so its dropdown starts at *No material* every time the shape becomes one. Each
+ * Disciple's own is kept for as long as they are ticked, whatever the shape does
+ * meanwhile: unticking one removes theirs and leaves the others' as they were, even
+ * where it is the default, and not the Admin, that moves the shape on the way. Only
+ * the selected shape's dropdowns are drawn, so only its choices are posted. Below
+ * two ticks there is no shape, nothing is asked, and nothing is kept.
  */
 const materialsAfter = (
   context: PairSelectionContext,
+  before: Ticks | null,
   next: Ticks,
   held: Pick<PairSelection, 'material' | 'materialFor'>,
 ): Pick<PairSelection, 'material' | 'materialFor'> => {
   const onTheList = (materialId: string | undefined): materialId is string =>
     materialId !== undefined && context.materialIds.includes(materialId)
+  const shape = shapeOf(context, next)?.selected ?? null
+  const stayedAOneToTwo =
+    shape === 'one_to_two' && (before === null || shapeOf(context, before)?.selected === 'one_to_two')
 
-  if (shapeOf(context, next) === null) return { material: '', materialFor: {} }
+  if (shape === null) return { material: '', materialFor: {} }
   return {
-    material: onTheList(held.material) ? held.material : '',
+    material: stayedAOneToTwo && onTheList(held.material) ? held.material : '',
     materialFor: Object.fromEntries(
       next.tickedIds.flatMap((id) => (onTheList(held.materialFor[id]) ? [[id, held.materialFor[id]]] : [])),
     ),
@@ -253,8 +266,8 @@ export const selectionFrom = (context: PairSelectionContext, restored: RestoredS
   return {
     ...next,
     // A refused submission chose under one shape, and only that shape's come back.
-    ...materialsAfter(context, next, {
-      material: (shapeOf(context, next)?.selected === 'one_to_two' ? restored.material : null) ?? '',
+    ...materialsAfter(context, null, next, {
+      material: restored.material ?? '',
       materialFor: shapeOf(context, next)?.selected === 'separate' ? Object.fromEntries(restored.materialFor) : {},
     }),
   }
@@ -270,7 +283,7 @@ export const selectionAfter = (
       change.type === 'material'
         ? { material: change.materialId, materialFor: selection.materialFor }
         : { material: selection.material, materialFor: { ...selection.materialFor, [change.id]: change.materialId } }
-    return { ...selection, ...materialsAfter(context, selection, held) }
+    return { ...selection, ...materialsAfter(context, selection, selection, held) }
   }
 
   if (change.type === 'tick') {
@@ -292,7 +305,7 @@ export const selectionAfter = (
           ? []
           : selection.tickedIds
   const next = settled(context, ticked, change.type === 'pick' ? change.shape : selection.picked)
-  return { ...next, ...materialsAfter(context, next, selection) }
+  return { ...next, ...materialsAfter(context, selection, next, selection) }
 }
 
 /** What the pairing route is told: a 1:2 pair is one relationship of them all, which is what it has always made. */

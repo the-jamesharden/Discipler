@@ -85,12 +85,6 @@ export async function POST(request: NextRequest) {
     [...readMaterialPerDisciple(form.entries())].filter(([id]) => participantIds.includes(id)),
   )
 
-  /**
-   * Back to the form with the selection intact. An Admin who picked five people for a
-   * group and hit a refusal should be correcting one choice, not making all five
-   * again -- and a refusal that costs more than the mistake did teaches people to
-   * avoid the screen.
-   */
   /** Every Material chosen, under the field it was posted as: the one, and one per Disciple. */
   const withMaterials = (params: URLSearchParams): URLSearchParams => {
     if (chosenMaterial) params.set('materialId', chosenMaterial)
@@ -98,6 +92,12 @@ export async function POST(request: NextRequest) {
     return params
   }
 
+  /**
+   * Back to the form with the selection intact. An Admin who picked five people for a
+   * group and hit a refusal should be correcting one choice, not making all five
+   * again -- and a refusal that costs more than the mistake did teaches people to
+   * avoid the screen.
+   */
   const refused = (code: string, about: string | null = null) => {
     if (popupFor !== undefined) {
       // Every choice the popup holds: from a Disciple the one Discipler, and from a

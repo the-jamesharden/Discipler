@@ -230,5 +230,8 @@ What the popup reads is the capacity declaration, for the one purpose the declar
 A reader handed `kind` has it to hand for the next branch, correct and convenient, which is how this ADR says the fence fails.
 So the function answers the question and the kind stays behind it.
 The fence test needs no change and no file joins `MAY_READ_KIND`.
-As the first amendment records, the fence does not cover SQL, so the honest list of what reads `kind` is this document: the two cap indexes, the gender trigger, the scorer, and now `roster_page()`.
+As the first amendment records, the fence does not cover SQL, so the honest list of what reads `kind` is this document.
+In constraints: the two cap indexes, the one-open-leader index on a one-to-one, and the gender trigger.
+In the domain: the scorer.
+In reads: `groups_open_to_join()` and `ministry_groups()`, which list the groups a Person can join and the Ministry's groups, and now `roster_page()`.
 

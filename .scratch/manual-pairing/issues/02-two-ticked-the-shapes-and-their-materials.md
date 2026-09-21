@@ -158,7 +158,9 @@ Looked at in Chrome beside mock states B and C at desktop width, with the struck
    The reason is *Women's only: a 1:2 is same-gender*, the one-to-one's sentence at the same length, so it fits one line at phone width.
 5. **Each shape keeps its own Material choices, and only the selected shape's are drawn and posted.**
    The first build started every dropdown over on any change of shape, and the spec review found the collision: with three ticked untouched, unticking one moves the default to 1:2 and wiped the other two's choices, against *leaves the others' choices as they were*.
-   Now the 1:2's one Material is never any Disciple's and theirs are never its, which is *not carried into the other*, and coming back to a shape finds what was chosen there.
+   Now each Disciple's own choice is kept for as long as they are ticked, whatever the shape does meanwhile, and only the selected shape's dropdowns are drawn and posted.
+   The 1:2's one Material is kept only while the shape stays a 1:2, so its dropdown starts at **No material** every time the shape becomes one, as the criterion says in so many words.
+   The review before `main` caught the build between these two: it had the 1:2's Material come back after a round trip through N × 1:1, which changed that criterion without James's say, and it was put right.
    Below two ticks nothing is kept.
    The alternative is the first build's reset.
 6. **Where both hold, the 1:2 segment says *Claire already leads a group* and not the count.**
@@ -233,4 +235,35 @@ The whole suite, once, on the result: 167 files, 2342 passed, 1 skipped (the one
 
 **To ship it:** the migration has to be pushed to production by hand before the code that reads it is deployed, or every Roster read throws.
 `supabase db push` as the plain foreground command, then `smoke:pages`, then merge, as usual.
+
+### Implementer, 2026-09-21: what the review before `main` found
+
+A two-axis review of `main...HEAD`, the whole branch, before it was merged.
+Neither axis found anything to block the merge, and both named the one precondition: the four pending migrations go to production before the code does.
+The spec axis checked *nothing ships a dead control* in the code and found it holds: only rows that open as a Disciple link to the popup, every row that opens as a Discipler still goes to the old Pair page, and nothing links to this ticket's side.
+
+Fixed from it, in this ticket's code:
+
+- **A row is offered only where ticking it would leave it ticked.**
+  Reading 1 read an unticked row against the shape one more tick would make, and the review found the case that breaks: in a Ministry that does not enforce the match, with a man ticked, a woman already in a one-to-one read as open, since a 1:2 would hold her.
+  No shape holds the two of them, so ticking her unticked him under the 1:2 and then her as a lone one-to-one, and the selection was empty.
+  `greyedOnRow` now makes the ticks and sees whether the row stays, so she is greyed with *Already in a 1:1*, and every case reading 1 describes reads as it did.
+- The 1:2's Material after a round trip, under reading 5 above.
+- The reader's lookup of `counts_as_a_group` throws where the key is missing and has no default to fall back on; the ADR's list of what reads `kind` is complete; a doc comment in the route sits on the function it is about again.
+
+**For James, from the same review. None of these is this ticket's to decide.**
+
+1. **A group that has fallen to one Disciple is a group for the two caps, and cannot be joined.**
+   The Pair document lists groups by two or more Disciples, as the spec says (*every open relationship with two or more Disciples*), so such a group is on no list, its Discipler can make only N × 1:1, and its last Disciple's row no longer names it.
+   *Keep it as a group* may mean it should be listed too; that is one condition in `app.pair_groups`, and it belongs with tickets 03 and 04, which draw that list.
+2. **Making a Discipler of somebody who never offered is a longer walk than on `main`.**
+   From a Disciple the popup lists Disciplers only, and says *Somebody becomes a discipler when they offer to on the Intake form*, where `lists.ts` says the pairing is the confirmation.
+   Today the old Pair page still does it, from the person page, the Follow-Up tab and any Discipler's row.
+   Ticket 05 retires that page, and no ticket says what replaces this.
+3. **A Disciple already in a one-to-one has a Pair button whose popup greys every Discipler**, with the reason, until ticket 03 lists the groups they could join.
+   `main` gave that row no button.
+   The spec asks for the button, so it is a dead end for one ticket and not a broken control.
+4. Two migrations from earlier tickets restate their grants less fully than the house style asks: `20261003000100` replaces `app.leads_relationship` and `app.leads_person` with no revoke or grant after them, and revokes `groups_open_to_join` and `ministry_groups` from `public, anon` without `service_role`.
+   Nothing is opened by it: `create or replace` keeps the grants a function had, and the second is copied from `20260920000200`, which is on production already.
+   An applied migration is not edited; a small one restating them would close it.
 

@@ -191,14 +191,14 @@ export const rosterFrom = (doc: PageDocument): readonly RosterEntry[] => {
    * absent it would say *one-to-one* about every group, and the popup would grey
    * everybody in one as already paired.
    */
-  const countsAsAGroupById = new Map(
-    relationshipRows.map((row) => {
-      if (typeof row.counts_as_a_group !== 'boolean') {
-        throw new Error(`A Roster relationship arrived without saying which cap it counts against: ${row.id}`)
-      }
-      return [row.id, row.counts_as_a_group] as const
-    }),
-  )
+  const capById = new Map(relationshipRows.map((row) => [row.id, row.counts_as_a_group]))
+  const countsAsAGroup = (relationship: string): boolean => {
+    const answer = capById.get(relationship)
+    if (typeof answer !== 'boolean') {
+      throw new Error(`A Roster relationship arrived without saying which cap it counts against: ${relationship}`)
+    }
+    return answer
+  }
 
   /**
    * The two reads are policed by predicates written to mirror each other -- a
@@ -316,9 +316,7 @@ export const rosterFrom = (doc: PageDocument): readonly RosterEntry[] => {
         participantCount: (byRelationship.get(membership.relationship_id) ?? []).filter(
           (member) => member.role === 'participant',
         ).length,
-        // Present for every membership that got this far: `awaitingAcceptanceOf`
-        // above has already thrown for a relationship that did not come back.
-        countsAsAGroup: countsAsAGroupById.get(membership.relationship_id) ?? false,
+        countsAsAGroup: countsAsAGroup(membership.relationship_id),
       }))
       // Led relationships first, then the ones they are in as a Participant, and
       // alphabetically within each. A stable order, so a Roster read twice reads
