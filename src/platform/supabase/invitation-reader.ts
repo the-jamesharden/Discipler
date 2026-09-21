@@ -115,6 +115,12 @@ export const createPostgresInvitationReader = (
           [token],
         )
 
+        const withdrawnAs = isWithdrawnAs(held.withdrawn_as) ? held.withdrawn_as : null
+        // The other side of the relationship, never everybody in it. A
+        // Participant shown their co-Participants would be told who else is
+        // being discipled, which nothing in the product permits.
+        const pairedWith = others.filter((row) => row.role !== held.role)
+
         return {
           ministryId: ministryId(ministry),
           ministryName: held.ministry_name,
@@ -124,32 +130,22 @@ export const createPostgresInvitationReader = (
           role: held.role,
           userId: held.user_id,
           state: invitationState(
-            {
-              expiresAt: held.expires_at,
-              consumedAt: held.consumed_at,
-              withdrawnAs: isWithdrawnAs(held.withdrawn_as) ? held.withdrawn_as : null,
-            },
+            { expiresAt: held.expires_at, consumedAt: held.consumed_at, withdrawnAs },
             now(),
           ),
-          withdrawn: held.withdrawn_as !== null,
+          withdrawn: withdrawnAs !== null,
           // How many they were paired with, which is all a withdrawn link keeps of
           // the reveal: the page still says *this group* truthfully, and names
           // nobody to somebody who is no longer on the relationship.
-          pairedWithCount: others.filter((row) => row.role !== held.role).length,
-          // The other side of the relationship, never everybody in it. A
-          // Participant shown their co-Participants would be told who else is
-          // being discipled, which nothing in the product permits.
-          withNames:
-            held.withdrawn_as !== null
-              ? []
-              : others.filter((row) => row.role !== held.role).map((row) => row.full_name),
+          pairedWithCount: pairedWith.length,
+          withNames: withdrawnAs !== null ? [] : pairedWith.map((row) => row.full_name),
           // Who they would be leading with (Manual pairing, recut ticket 01). An
           // Admin may add a Leader to a group already running, so the holder of a
           // link may be joining somebody: a running group names the Leaders who
           // have accepted, and one nobody has activated names everybody it waits
           // on, as every Admin screen does.
           leadingWith:
-            held.role === 'leader' && held.withdrawn_as === null
+            held.role === 'leader' && withdrawnAs === null
               ? others
                   .filter(
                     (row) =>

@@ -533,16 +533,6 @@ describe('a co-leader accepts on a group already running', () => {
     // The tick reads who has not answered, and raises its item a moment later. An
     // acceptance landing in between would leave an item nothing closes, so the
     // raise looks again, behind the lock an acceptance holds.
-    const raiseUnanswered = (group: string) =>
-      store.transact(ministry.id, (unit) =>
-        unit.raiseFollowUp({
-          ministryId: ministry.id,
-          kind: 'relationship_unaccepted',
-          relationshipId: relationshipId(group),
-          personId: null,
-          raisedAt: new Date(),
-        }),
-      )
     const unanswered = async (group: string) =>
       (await openItemsOn(group)).filter((item) => item.kind === 'relationship_unaccepted')
 
@@ -552,7 +542,7 @@ describe('a co-leader accepts on a group already running', () => {
       await addLeader(group.id, claire)
       await accept(group.id, claire)
 
-      await raiseUnanswered(group.id)
+      await raiseUnansweredItem(group.id)
 
       expect(await unanswered(group.id)).toEqual([])
     })
@@ -561,7 +551,7 @@ describe('a co-leader accepts on a group already running', () => {
       const group = await aGroup()
       await addLeader(group.id, await aDiscipler())
 
-      await raiseUnanswered(group.id)
+      await raiseUnansweredItem(group.id)
 
       expect(await unanswered(group.id)).toHaveLength(1)
     })
@@ -597,15 +587,7 @@ describe('a co-leader accepts on a group already running', () => {
           [group.id, claire, new Date()],
         )
 
-        const raising = store.transact(ministry.id, (unit) =>
-          unit.raiseFollowUp({
-            ministryId: ministry.id,
-            kind: 'relationship_unaccepted',
-            relationshipId: relationshipId(group.id),
-            personId: null,
-            raisedAt: new Date(),
-          }),
-        )
+        const raising = raiseUnansweredItem(group.id)
         await untilItWaits()
         await accepting.query('commit')
         await raising
@@ -620,15 +602,7 @@ describe('a co-leader accepts on a group already running', () => {
       const group = await aGroup()
       const claire = await aDiscipler()
       await addLeader(group.id, claire)
-      await store.transact(ministry.id, (unit) =>
-        unit.raiseFollowUp({
-          ministryId: ministry.id,
-          kind: 'relationship_unaccepted',
-          relationshipId: relationshipId(group.id),
-          personId: null,
-          raisedAt: new Date(),
-        }),
-      )
+      await raiseUnansweredItem(group.id)
 
       // The Admin's Resolve, mid-transaction.
       const resolving = await pool.connect()

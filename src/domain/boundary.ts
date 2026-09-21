@@ -2450,6 +2450,29 @@ const refuseIntendedPairing = (
 ]
 
 /**
+ * The *Awaiting acceptance* item, closed by what it was waiting for and not by an
+ * Admin: the acceptance that leaves nobody still to answer, or the withdrawal
+ * that does. It carries no Admin, because no Admin performed it; the event says
+ * what did.
+ */
+const closedByWhatItWaitedFor = (
+  ministry: MinistryId,
+  itemId: FollowUpItemId,
+  now: Date,
+  by: 'acceptance' | 'decline' | 'expiry',
+): Effect[] => [
+  resolveFollowUpItem({ ministryId: ministry, itemId, resolvedBy: null, resolvedAt: now }),
+  appendHistory({
+    ministryId: ministry,
+    occurredAt: now,
+    type: 'follow_up.resolved',
+    subjectType: 'follow_up_item',
+    subjectId: itemId,
+    payload: { resolvedBy: null, by },
+  }),
+]
+
+/**
  * The Leader's Starter Message, which names nobody and sends them to the page
  * that does. A Leader who just accepted typed a name, not a number: the number
  * was displayed and refused as input, so `phone` is still the one on file.
@@ -2692,20 +2715,12 @@ const withdrawalOf = (
   // Left open where the relationship still waits: it is what offers Cancel.
   if (nobodyIsLeftToAnswer && invitation.unansweredItemId !== null) {
     effects.push(
-      resolveFollowUpItem({
-        ministryId: command.ministryId,
-        itemId: invitation.unansweredItemId,
-        resolvedBy: null,
-        resolvedAt: now,
-      }),
-      appendHistory({
-        ministryId: command.ministryId,
-        occurredAt: now,
-        type: 'follow_up.resolved',
-        subjectType: 'follow_up_item',
-        subjectId: invitation.unansweredItemId,
-        payload: { resolvedBy: null, by: withdrawnAs === 'declined' ? 'decline' : 'expiry' },
-      }),
+      ...closedByWhatItWaitedFor(
+        command.ministryId,
+        invitation.unansweredItemId,
+        now,
+        withdrawnAs === 'declined' ? 'decline' : 'expiry',
+      ),
     )
   }
 
@@ -5389,20 +5404,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       // it; the event says what did.
       if (lastToAgree && invitation.unansweredItemId !== null) {
         effects.push(
-          resolveFollowUpItem({
-            ministryId: command.ministryId,
-            itemId: invitation.unansweredItemId,
-            resolvedBy: null,
-            resolvedAt: now,
-          }),
-          appendHistory({
-            ministryId: command.ministryId,
-            occurredAt: now,
-            type: 'follow_up.resolved',
-            subjectType: 'follow_up_item',
-            subjectId: invitation.unansweredItemId,
-            payload: { resolvedBy: null, by: 'acceptance' },
-          }),
+          ...closedByWhatItWaitedFor(command.ministryId, invitation.unansweredItemId, now, 'acceptance'),
         )
       }
 

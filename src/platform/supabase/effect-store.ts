@@ -1526,6 +1526,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
   },
 
   async lapsedInvitations(asOf: Date): Promise<readonly InvitationToken[]> {
+    // Scoped by the policies on this connection, like every other read here.
     // Candidates only, read with no lock: every one of them is decided again by
     // `invitation.expire`, in a transaction of its own and behind the row an
     // acceptance holds. `asOf` is the caller's clock and never `now()`, like
@@ -1537,8 +1538,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
          join relationship_member m
            on m.relationship_id = i.relationship_id
           and m.person_id = i.person_id
-        where i.ministry_id = app.command_ministry_id()
-          and i.consumed_at is null
+        where i.consumed_at is null
           and i.withdrawn_at is null
           and i.expires_at < $1
           and r.ended_at is null

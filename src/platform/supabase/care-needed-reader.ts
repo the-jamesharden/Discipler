@@ -131,6 +131,7 @@ export const followUpItemsFrom = (
       return id === null ? [] : [[id, text(row.accepted_at)] as const]
     }),
   )
+  const isRunning = (relationship: string) => (activatedAtOf.get(relationship) ?? null) !== null
   const awaitingOn = (relationship: string) => ({
     names: history.members
       .filter(
@@ -144,7 +145,7 @@ export const followUpItemsFrom = (
         return name ? [name] : []
       })
       .sort((a, b) => a.localeCompare(b)),
-    running: (activatedAtOf.get(relationship) ?? null) !== null,
+    running: isRunning(relationship),
   })
 
   // What a Leader whose invitation was withdrawn had been invited to, as it
@@ -155,7 +156,7 @@ export const followUpItemsFrom = (
     const leaders = open.filter((row) => row.role === 'leader').length
     return {
       leadsAGroup: leaders > 0 || open.filter((row) => row.role === 'participant').length > 1,
-      running: (activatedAtOf.get(relationship) ?? null) !== null,
+      running: isRunning(relationship),
       ledByNobody: leaders === 0,
     }
   }

@@ -79,8 +79,9 @@ export const declinedTitle = (personName: string | null, leadsAGroup: boolean): 
 
 export const CONTACT_INFO = 'Contact info'
 export const COPY_LINK_TO_REINVITE = 'Copy link to re-invite leader'
-export const LINK_COPIED = 'Link copied. It works for two weeks, and nothing was sent to them.'
-export const COPY_IT_BY_HAND = 'Copy this link and send it to them. It works for two weeks, and nothing was sent to them.'
+const WHAT_THE_LINK_IS = 'It works for two weeks, and nothing was sent to them.'
+export const LINK_COPIED = `Link copied. ${WHAT_THE_LINK_IS}`
+export const COPY_IT_BY_HAND = `Copy this link and send it to them. ${WHAT_THE_LINK_IS}`
 
 const plural = (count: number, one: string, many: string) => (count === 1 ? one : many)
 
