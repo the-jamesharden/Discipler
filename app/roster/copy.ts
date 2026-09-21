@@ -12,7 +12,8 @@ import {
   type RosterFacts,
 } from './lists'
 import type { Greyed } from './greying'
-import type { GroupDeclaration, PairShape, ReadAs, ShapeRuledOut } from './pair-shape'
+import { MIXED, type GroupDeclaration } from './declared-gender'
+import type { PairShape, ReadAs, ShapeRuledOut } from './pair-shape'
 import type { ImportFailure } from './report'
 
 /**
@@ -140,6 +141,9 @@ export interface GroupListed extends GroupOnARow {
 /** What a declaration is called on the screen: whose it is, never what anybody is. */
 const declaredAs = (declared: Gender): string => (declared === 'male' ? 'Men’s' : 'Women’s')
 
+/** The screen's word for the model's mixed, on a group's row and on the gender toggle. */
+const COED = 'Coed'
+
 /** Who leads a group, by name, in the order the document gave. */
 const leadersOf = (group: GroupOnARow): readonly string[] => group.leaders.map(({ fullName }) => fullName)
 
@@ -150,6 +154,17 @@ const leadersOf = (group: GroupOnARow): readonly string[] => group.leaders.map((
  */
 const nameOfAGroup = (group: GroupOnARow): string =>
   group.name ?? (group.leaders.length === 0 ? 'Unnamed group' : `${asList(leadersOf(group))}’s group`)
+
+/**
+ * How a group is said in the popup's sentence, for either side: what it is called,
+ * and its leaders where they are still to be said. Named for its leaders, it has
+ * said them already; named by nobody and led by nobody, it is *the group*, which
+ * reads as a sentence where its label would not.
+ */
+const inASentence = (group: GroupOnARow): { readonly called: string; readonly leaders: string | null } => ({
+  called: group.name === null && group.leaders.length === 0 ? 'the group' : nameOfAGroup(group),
+  leaders: group.name !== null && group.leaders.length > 0 ? asList(leadersOf(group)) : null,
+})
 
 /** A first name out of the one `full_name` Discipler holds. Splitting it is a copy decision, so it is made here. */
 const firstNameOf = (fullName: string): string => fullName.trim().split(/\s+/)[0] ?? ''
@@ -216,7 +231,7 @@ export const PAIR_POPUP = {
    * screen reader. Coed is the screen's word for the model's mixed.
    */
   whatKindOfGroup: 'What kind of group',
-  declares: (declared: GroupDeclaration): string => (declared === 'mixed' ? 'Coed' : declaredAs(declared)),
+  declares: (declared: GroupDeclaration): string => (declared === MIXED ? COED : declaredAs(declared)),
   groupName: 'Group name',
   /** A hint in the empty field, and never submitted as the name. */
   groupNamePlaceholder: (discipler: string): string => `${firstNameOf(discipler)}’s Group`,
@@ -254,17 +269,14 @@ export const PAIR_POPUP = {
   groupDetails: (group: GroupListed): readonly string[] => [
     ...(group.name !== null && group.leaders.length > 0 ? [`led by ${asList(leadersOf(group))}`] : []),
     PAIR_POPUP.disciples(group.discipleCount),
-    group.declaredGender === null ? 'Coed' : declaredAs(group.declaredGender),
+    group.declaredGender === null ? COED : declaredAs(group.declaredGender),
     // Still awaiting its leader is said as the Roster row behind the popup says it.
     ...(group.state === null ? [] : [group.state === 'paused' ? 'paused' : AWAITING_ACCEPTANCE]),
   ],
   /** Every leader is named. A group nobody has named is said by who leads it. */
   joinGroup: (disciple: string, group: GroupOnARow): string => {
-    // Named for its leaders, it has said them already; named by nobody and led by
-    // nobody, it is *the group*, which reads as a sentence where its label would not.
-    const joined = group.name === null && group.leaders.length === 0 ? 'the group' : nameOfAGroup(group)
-    const ledBy = group.name !== null && group.leaders.length > 0 ? `, led by ${asList(leadersOf(group))}` : ''
-    return `${disciple} will join ${joined}${ledBy}.`
+    const { called, leaders } = inASentence(group)
+    return `${disciple} will join ${called}${leaders === null ? '' : `, led by ${leaders}`}.`
   },
   addToGroup: 'Add to group',
   /**
@@ -273,9 +285,8 @@ export const PAIR_POPUP = {
    * named for its leaders has said them already, as `joinGroup` has it.
    */
   coLead: (discipler: string, group: GroupOnARow): string => {
-    const led = group.name === null && group.leaders.length === 0 ? 'the group' : nameOfAGroup(group)
-    const beside = group.name !== null && group.leaders.length > 0 ? ` with ${asList(leadersOf(group))}` : ''
-    return `${discipler} will co-lead ${led}${beside}.`
+    const { called, leaders } = inASentence(group)
+    return `${discipler} will co-lead ${called}${leaders === null ? '' : ` with ${leaders}`}.`
   },
   addAsCoLeader: 'Add as co-leader',
   /**

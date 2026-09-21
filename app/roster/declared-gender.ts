@@ -15,6 +15,16 @@ import { GENDERS, type Gender } from '~/domain/intake'
 export const MIXED = 'mixed'
 
 /**
+ * A declaration as the field spells it: a gender, or mixed, which the Pair popup
+ * calls Coed and the model holds as `declared_gender = null`. What the popup's
+ * gender toggle holds and posts (Manual pairing, recut ticket 04).
+ */
+export type GroupDeclaration = Gender | typeof MIXED
+
+/** What the gender toggle offers, in the order it is drawn: Women's, Men's, Coed. */
+export const GROUP_DECLARATIONS: readonly GroupDeclaration[] = ['female', 'male', MIXED]
+
+/**
  * What arrived in the form field, as a declaration. `undefined` where the radio was
  * left alone -- and where the field held anything else at all, because a value typed
  * into a form post is not a declaration and folding it to `mixed` would answer a
@@ -31,7 +41,7 @@ export const declaredGenderFromField = (field: unknown): Gender | null | undefin
  * only safe while both directions agree, and a name that said "declaration" would
  * describe the argument rather than the result.
  */
-export const declaredGenderToField = (declared: Gender | null): string => declared ?? MIXED
+export const declaredGenderToField = (declared: Gender | null): GroupDeclaration => declared ?? MIXED
 
 /**
  * The label each gender wears on the form. Keyed by `Gender` rather than listed

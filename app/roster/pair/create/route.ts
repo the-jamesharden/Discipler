@@ -72,6 +72,9 @@ export async function POST(request: NextRequest) {
    * *none* and is no choice at all; anything else is passed through unread, and
    * whether this Ministry holds it is the boundary's to say.
    */
+  const rawMaterial = form.get('materialId')
+  const chosenMaterial = typeof rawMaterial === 'string' && rawMaterial !== '' ? rawMaterial : null
+
   /**
    * Whether the popup posted this as a Group (Manual pairing, recut ticket 04).
    * Nothing is formed differently for it: `together` is a 1:2 pair and a Group
@@ -79,9 +82,6 @@ export async function POST(request: NextRequest) {
    * way back, so a refused Group reopens as the Group it was.
    */
   const asAGroup = wasPostedByAGroup(form.get(SHAPE_FIELD))
-
-  const rawMaterial = form.get('materialId')
-  const chosenMaterial = typeof rawMaterial === 'string' && rawMaterial !== '' ? rawMaterial : null
 
   /**
    * The Material chosen for each Disciple of a set of separate one-to-ones (Manual

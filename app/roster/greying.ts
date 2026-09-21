@@ -1,6 +1,7 @@
 import type { Gender } from '~/domain/intake'
 import type { GroupToJoin, RosterEntry } from '~/service/ports'
 import type { NotPairable } from './copy'
+import type { GroupDeclaration } from './declared-gender'
 import { disciplersFor, groupsToJoin, whyNotPairable } from './lists'
 
 /**
@@ -244,7 +245,7 @@ export const greyedInAGroup = ({
   declared,
   disciple,
 }: {
-  readonly declared: Gender | 'mixed'
+  readonly declared: GroupDeclaration
   readonly disciple: Pick<RosterEntry, 'gender' | 'participationStatus'>
 }): Greyed | null => greyedAgainst(declared, disciple)
 

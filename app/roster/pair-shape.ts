@@ -1,7 +1,7 @@
 import type { Gender } from '~/domain/intake'
 import { readPairingMode, type PairingMode } from '~/domain/separate-pairings'
 import { PAIR_POPUP } from './copy'
-import type { MIXED } from './declared-gender'
+import type { GroupDeclaration } from './declared-gender'
 
 /**
  * What two or more ticks become in the Pair popup from a Discipler (Manual pairing,
@@ -34,15 +34,6 @@ export type ShapeRuledOut =
   | 'needs_exactly_two'
   /** `leader_one_open_group`: a 1:2 pair and a Group are each a group for that rule, and this Discipler leads one. */
   | 'already_leads_a_group'
-
-/**
- * What a Group declares, as the declaration's own field spells it: a gender, or
- * mixed, which the screen calls Coed and the model holds as `declared_gender = null`.
- */
-export type GroupDeclaration = Gender | typeof MIXED
-
-/** What the gender toggle offers, in the order it is drawn: Women's, Men's, Coed. */
-export const GROUP_DECLARATIONS: readonly GroupDeclaration[] = ['female', 'male', 'mixed']
 
 export interface ShapeSegment {
   readonly shape: PairShape
@@ -376,7 +367,9 @@ export const selectionFrom = (context: PairSelectionContext, restored: RestoredS
   return {
     ...next,
     groupId: null,
-    name: restored.name,
+    // Only a Group's, as its declaration is: a name that came back beside anything
+    // else is not something the Admin typed here.
+    name: restored.picked === 'group' ? restored.name : '',
     // A refused submission chose under one shape, and only that shape's come back.
     ...materialsAfter(context, null, next, {
       material: restored.material ?? '',

@@ -66,7 +66,7 @@ import {
   whoThePopupIsFor,
   whyNotPairable,
 } from './lists'
-import { declaredGenderFromField, declaredGenderToField } from './declared-gender'
+import { declaredGenderFromField, declaredGenderToField, type GroupDeclaration } from './declared-gender'
 import {
   disciplersShownTo,
   greyedForADisciple,
@@ -80,7 +80,7 @@ import {
 import { PairPopupFromADisciple } from './pair-popup-from-a-disciple'
 import { PairPopupFromADiscipler } from './pair-popup-from-a-discipler'
 import type { PairPopupGroup } from './pair-popup-groups'
-import { GROUP_DECLARATIONS, pickedFrom, READ_AS_A_GROUP, type ReadAs } from './pair-shape'
+import { pickedFrom, READ_AS_A_GROUP, type ReadAs } from './pair-shape'
 import { RefusedRows } from './refused-rows'
 import { decodeImportReport } from './report'
 import { rosterKey } from '~/domain/roster'
@@ -207,6 +207,9 @@ export default async function RosterPage({
   const refusedAbout = roster.find((person) => person.personId === firstOf(query.about))
   const pairingRefusal =
     refusalSaid !== undefined && refusedAbout ? refusalAboutOneOfASet(refusedAbout.fullName, refusalSaid) : refusalSaid
+  // A refused join comes back with its group, from either side, and is worded for that act.
+  const popupRefusal =
+    groupChosenBefore === undefined || !pairing ? pairingRefusal : groupJoinRefusalMessage(query.error, pairing.fullName)
 
   const report = decodeImportReport(query)
   // The code, not the sentence: the dialog words it, and opens on it. An error
@@ -520,8 +523,7 @@ export default async function RosterPage({
             disciplersShownTo({ roster, disciple: pairing, genderMatchEnforced: suggestGenderMatch }).length +
               groupsShownTo(pairing, groups).length
           }
-          // A refused join comes back with its group, and is worded for that act.
-          refusal={groupChosenBefore === undefined ? pairingRefusal : groupJoinRefusalMessage(query.error, pairing.fullName)}
+          refusal={popupRefusal}
           chosenBefore={chosenBefore ?? null}
           groupChosenBefore={groupChosenBefore ?? null}
         />
@@ -561,8 +563,7 @@ export default async function RosterPage({
           declaredGender={pairing.gender === null ? null : declaredGenderToField(pairing.gender)}
           presetGender={pairing.gender}
           materials={materials.map(({ materialId, title }) => ({ id: materialId, title }))}
-          // A refused join comes back with its group, and is worded for that act.
-          refusal={groupChosenBefore === undefined ? pairingRefusal : groupJoinRefusalMessage(query.error, pairing.fullName)}
+          refusal={popupRefusal}
           restored={{
             tickedIds: tickedBefore,
             picked: pickedFrom({ mode: firstOf(query.mode), shape: firstOf(query.shape) }),
@@ -600,15 +601,15 @@ const groupReadings = (
   disciple: RosterEntry,
   inWords: (greyed: Greyed | null, readAs: ReadAs) => string | null,
 ): Record<Exclude<ReadAs, 'a_one_to_one' | 'a_one_to_two'>, string | null> => {
-  const reading = (declared: (typeof GROUP_DECLARATIONS)[number]) =>
+  const reading = (declared: GroupDeclaration) =>
     inWords(greyedInAGroup({ declared, disciple }), READ_AS_A_GROUP[declared])
   return { a_womens_group: reading('female'), a_mens_group: reading('male'), a_coed_group: reading('mixed') }
 }
 
 /** What a refused Group had declared, out of its address: the field's own three words, or nothing. */
-const declaredOnTheWayBack = (field: string | undefined) => {
+const declaredOnTheWayBack = (field: string | undefined): GroupDeclaration | null => {
   const declared = declaredGenderFromField(field)
-  return declared === undefined ? null : declaredGenderToField(declared) as (typeof GROUP_DECLARATIONS)[number]
+  return declared === undefined ? null : declaredGenderToField(declared)
 }
 
 /**

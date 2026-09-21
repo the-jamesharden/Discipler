@@ -11,11 +11,11 @@ import {
   selectionFrom,
   shapeOf,
   shapeToggle,
-  type GroupDeclaration,
   type PairSelection,
   type PairSelectionContext,
   type PairShape,
 } from '../../app/roster/pair-shape'
+import type { GroupDeclaration } from '../../app/roster/declared-gender'
 
 /**
  * Manual pairing, recut tickets 02 and 04. What two or more ticks become in the
@@ -682,9 +682,16 @@ describe('what comes back from a refusal', () => {
     const undeclared = selectionFrom(context, { ...NOTHING_RESTORED, tickedIds: ['sam', 'ana'], picked: 'group' })
     expect(undeclared.declared).toBe('female')
 
-    const notAGroup = selectionFrom(context, { ...NOTHING_RESTORED, tickedIds: ['sam', 'ana'], declared: 'mixed' })
+    // Nor a name: a 1:2 pair's is generated, and is never something the Admin typed.
+    const notAGroup = selectionFrom(context, {
+      ...NOTHING_RESTORED,
+      tickedIds: ['sam', 'ana'],
+      declared: 'mixed',
+      name: 'Claire with Sam & Ana',
+    })
     expect(shapeOf(context, notAGroup)?.selected).toBe('one_to_two')
     expect(notAGroup.declared).toBe('female')
+    expect(notAGroup.name).toBe('')
   })
 
   it('does not restore a Material that has left the list, and keeps the rest', () => {

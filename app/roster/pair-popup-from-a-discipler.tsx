@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { Gender } from '~/domain/intake'
 import { displayPhone, firstTimeLabel, PAIR_POPUP, type GroupOnARow, type RosterList } from './copy'
+import { GROUP_DECLARATIONS } from './declared-gender'
 import { CLEAR } from './import-copy'
 import { AS_A_LEADER, JOIN_AS_FIELD } from './pair/join-as'
 import { materialFieldFor } from './pair/material-per-disciple'
@@ -10,7 +11,6 @@ import { PairList, PairPopupShell, PairRow, useHydrated } from './pair-popup'
 import { PairGroups, type PairPopupGroup } from './pair-popup-groups'
 import {
   canBePosted,
-  GROUP_DECLARATIONS,
   greyedOnRow,
   modeOf,
   postedByAGroup,
