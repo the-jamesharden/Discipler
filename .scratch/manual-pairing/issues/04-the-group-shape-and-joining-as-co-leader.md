@@ -56,7 +56,7 @@ Every one of those conditions is an acceptance criterion below.
 
 ### Greying
 
-- [x] Other-gender rows are not shown until Coed is chosen, and then they fade in.
+- [x] Other-gender rows are not shown until Coed is chosen, and then they are on the list.
   Reworded by James's decision of 2026-09-21; it read *are greyed with Women's group: choose Coed to include (or Men's) until Coed is chosen, and then they open up*.
 - [x] Changing the gender toggle re-checks every row.
   Anybody ticked who becomes greyed is unticked and named in the popup's line, through ticket 02's mechanism.
@@ -107,8 +107,8 @@ Every one of those conditions is an acceptance criterion below.
 
 ### Sentence, button, submit
 
-- [x] *Claire Martinez will co-lead Grace's Group with Grace Lee.* **Add as co-discipler**.
-  Reworded by James's decision of 2026-09-21; the button read **Add as co-leader**, and the Roster's copy never says the model's Leader.
+- [x] *Claire Martinez will co-lead Grace's Group with Grace Lee.* **Add as co-leader**.
+  As first written. It was built as **Add as co-discipler** for an afternoon on 2026-09-21, and James, shown both, chose this.
   Several existing leaders are all named.
 - [x] It posts to old ticket 22's route.
   The Roster's receipt says an invitation was sent and that the group carries on meanwhile; it does not say Claire leads it yet.
@@ -120,6 +120,36 @@ Every one of those conditions is an acceptance criterion below.
 - [x] Looked at in a browser beside mock state G, scrolled to the bottom of the list, at desktop and phone width.
 
 ## Comments
+
+### James, 2026-09-21, in Lavish: the last four answers, all built
+
+Answered on `.lavish/coed-and-the-gender-toggle/index.html`, from mock-ups made of the real popup, and built in `9c835d7`.
+This section is where things stand; the one below it is kept as written and is replaced by this where they differ.
+
+**1. No fade.** "remove the fade it meant something else but it is not worth keeping".
+Whoever gender rules out is simply not drawn, as from a Disciple, and is drawn once a Coed Group opens the row.
+`leftOut` and `.pair-opt.gone` are gone from `PairRow` and the stylesheet, and the list is the grid it was.
+The model is unchanged: `greyedOnRow` still says whether a row is left out, and the popup filters on it.
+In the over-HTTP suites `expectLeftOut` now means no row and no mark in the markup.
+
+**2. The shape toggle is there when the popup opens.**
+Below two ticks it is **1:1 pair** · **Group**, on 1:1 pair (`PAIR_SHAPE` and `SHAPES_BELOW_TWO` in `pair-shape.ts`), and from two it is the three segments as before.
+So `shapeOf` is never null now; the popup hides the toggle only while a group that exists is chosen.
+A Group picked first shows its gender toggle, name and Material at once, says *A group needs two or more checked*, and its button reads **Create group** and waits (`canBePosted`).
+Below two ticks the default is always a 1:1 pair, whoever is ticked, because that is what a row is read against until the Admin says Group: somebody already in a one-to-one is still greyed on opening, and is open as soon as Group is picked.
+Found by the tests while building it: **Clear** has to forget a picked Group and its declaration, or they outlive the ticks now that the toggle is drawn at none.
+The spec's *hidden while zero or one Disciple is ticked* is replaced, and ticket 02's criterion of the same words is history.
+
+**3. A Discipler is not offered the gender segment their own gender rules out.**
+`declarationsOffered` in `pair-shape.ts`: Women's and Coed for a woman, Men's and Coed for a man, all three with no gender on file.
+A press that is not offered changes nothing, and one that comes back in an address is not restored.
+
+**4. The button says *Add as co-leader*, and the Roster's vocabulary test lets that one word through**, as it did before this morning.
+
+Checked: `tests/app` and `tests/domain`, 72 files, 1480 tests, and the whole typecheck.
+Over HTTP through `scripts/locked-tests.sh`, from a clean worktree of the commit: six suites, 88 tests, none failed and none skipped.
+The first run of them caught a bug the unit tests could not: with the toggle always drawn, a 1:1 pair was showing the Material dropdown, and it now asks nothing, as it always did.
+In Chrome, live, from a seeded Ministry: the toggle on opening on **1:1 pair** with somebody already in a one-to-one greyed; **Group** picked with nobody ticked, showing Women's and Coed only, the hint, and **Create group** disabled; Coed taking the count from 11 to 15 with the men on the list; two ticked and a name enabling the button; and **Clear** taking it all back to how it opened.
 
 ### James, 2026-09-21: the four things, answered, and what was built for them
 
