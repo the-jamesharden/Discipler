@@ -73,6 +73,8 @@ In each, what everybody in the group had been sent is read before the Admin adds
 `tests/integration/an-admin-puts-somebody-into-a-group-over-http.test.ts` drives it end to end: the Admin's route, her real link, the real accept form.
 The whole suite ran once on the result: 167 files, 2307 passed, 1 skipped, and 1 failed that is not this ticket's.
 That one was `tests/app/pairing-copy.test.ts`, written red by the session building ticket 02 in this same checkout while the run was in flight; it passes now.
+It ran once more after the fix under *For James* below: 165 of 167 files and 2328 tests passed.
+The two files that failed, `tests/app/pair-shape.test.ts` and `tests/app/pairing-copy.test.ts`, are that same session's tests for ticket 02, red while it builds, and nothing in them is this ticket's.
 The new integration file then ran three times back to back with no reset.
 
 **Decided here, each the conservative reading, with the alternative.**
@@ -88,16 +90,21 @@ The new integration file then ran three times back to back with no reset.
    The group's name is not shown; the ticket did not ask for it.
 3. **Declining is `SWAP` by text, and the item is `swap_requested`.**
    That is what a leader invited at formation has, so it is *the same item*, and it is now tested for a co-leader on a running group.
-   The page has no decline button for anybody, and `match_declined` is a Follow-Up kind nothing raises; neither is this ticket's to change.
+   The page has no decline button for anybody.
+   `match_declined` is a Follow-Up kind nothing raises, and it is kept on purpose: ADR-0011 withdrew the act and kept the value, so that history already holding one still reads.
 4. **`relationship.leader_accepted` is the one event written**, which is how every Acceptance is recorded already.
    *Nothing else about the group's history changes* is read as no activation, no Material period and no pause or resume.
 
 **For James.**
+Both were answered by James on 2026-09-20: *whatever is broken outright, fix; for the other, a new way to unsend the invitation from the person's page, as an addendum to the shortest remaining ticket.*
 
-1. **An open *unanswered invitation* item is not closed when the co-leader accepts.**
-   This is not new: acceptance at formation does not close it either, and an Admin resolves it by hand.
-   It matters a little more here because its usual answer, **Cancel**, is refused on a running group, as the Comment above already says.
-   Closing it on acceptance would be a small change to the one command, for both cases at once.
-2. **There is still no way to withdraw an unanswered co-leader invitation short of ending the group.**
-   Said above by old ticket 22's implementer and unchanged by this ticket, which builds what acceptance does.
-   It is worth deciding before ticket 04 gives **Add as co-leader** its button.
+1. **An open *Awaiting acceptance* item was not closed when the leader accepted. Fixed.**
+   It went on telling an Admin that somebody had not accepted who had, beside a **Cancel** the relationship then refused.
+   The acceptance that leaves nobody still to answer now closes it, at formation and for a co-leader alike, with no Admin on the resolution and a `follow_up.resolved` event that says `by: 'acceptance'`.
+   It is the relationship's item and not one leader's, so it stands while another leader has still to answer.
+   The other half is the tick, which decides from a read and raises its item a moment later: an acceptance landing in between would have left an item nothing closes.
+   The raise now looks again first, behind the row lock an acceptance holds, and raises nothing about a relationship nobody is still to answer.
+   *Still to be accepted by somebody* is said once in the store, for the tick's read and for that look.
+   Tests: `tests/domain/accepting-an-invitation.test.ts`, `tests/integration/the-scheduled-tick.test.ts` for a leader invited at formation, and `tests/integration/a-co-leader-accepts-on-a-running-group.test.ts` for a co-leader, for two co-leaders, and for the late raise.
+2. **There is no way to withdraw an unanswered co-leader invitation short of ending the group. Not built here.**
+   It is the addendum on ticket 05, *Unsending an invitation, from the person's page*, with two questions for James on it.

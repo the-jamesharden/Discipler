@@ -56,3 +56,56 @@ In this cut the Group shape shares old ticket 04 with the co-leader's side of th
 - [ ] The pairing suites that drove the old page over HTTP drive the popup's address instead, and none is deleted for being inconvenient.
 - [ ] Over HTTP: each old link shape redirects where this ticket says.
 - [ ] Looked at in a browser: Pair from a Discipler row, from a Disciple row, from the person page and from Follow-Up each open the right side of the popup.
+
+## Addendum, 2026-09-20 - Unsending an invitation, from the person's page
+
+**Asked for by James on 2026-09-20**, after ticket 01.
+It is on this ticket because this is the shortest one left, not because it belongs with the redirect.
+It depends on nothing else here and can be built and reviewed on its own, ahead of the rest of this ticket.
+It is worth having no later than ticket 04, which is what hands **Add as co-leader** to an Admin.
+
+**What to build:** A way for an Admin to take back an invitation nobody has answered.
+An Admin clicks the Person's name on the Roster, and on their page, beside **Send a new invitation**, is **Unsend invitation**.
+
+### Why
+
+An Admin can add a Discipler to a group as co-leader, and cannot take it back.
+The unanswered invitation's usual answer, **Cancel**, is refused on a running group (`relationship.already_accepted`), rightly: it would end the group.
+So a co-leader invited by mistake, or one who says no, stays on the group as somebody it is waiting for, and the only way out today is to end the group for everybody.
+Ticket 01's Comments and old ticket 22's both say so.
+
+### Acceptance
+
+- [ ] **Unsend invitation** shows on the person page wherever **Send a new invitation** does: for each relationship the Person was invited to lead and has not accepted.
+- [ ] On a group that is running or paused, it ends that Person's unaccepted leader membership and their link stops opening anything.
+  The membership is ended, never deleted: that they were invited, and when, stays in the Ministry's history.
+- [ ] Nothing else about the group changes: its activation, its Material, its name, its declaration, its state, its other leaders and its Disciples.
+- [ ] Nobody is sent anything: not the Person, not the group's leaders, not its Disciples.
+  Somebody opening the link afterwards is told what any link that resolves to nothing is told.
+- [ ] An invitation that has been accepted cannot be unsent, including one accepted while the Admin was clicking.
+  It is refused with a code and wording of its own, and the membership stands.
+- [ ] Recorded as a ministry event of its own type, naming the Admin, the Person and the relationship.
+- [ ] An open *Awaiting acceptance* item about the relationship closes when unsending leaves nobody still to answer, as the last acceptance closes it since ticket 01.
+  It stands while another leader has still to answer.
+- [ ] Afterwards the Roster no longer shows the group on the Person's row, the popup offers them the group again, and they can be invited again.
+- [ ] Where the Person is the only leader of a relationship nobody has activated, there is nothing to unsend that **Cancel** does not already do, and this ticket adds no second way to do it.
+  The button is not shown there, or it is **Cancel** under its own name; say which on this ticket.
+- [ ] The route is an ordinary form post that works without script, returns to the person page with a receipt, and on refusal returns there with the reason.
+- [ ] Integration tests cover: a running group, a paused group, an invitation accepted in the meantime, the item closing and the item standing, and that no message goes to anybody in any of them.
+- [ ] Over HTTP: an Admin unsends a co-leader's invitation from the person page, the link stops working, and the group's state is unchanged.
+- [ ] Looked at in a browser: the button beside **Send a new invitation**, and the person page and the Roster row afterwards.
+
+### For James to answer on this ticket before it is built
+
+Neither is in the spec, and each changes what people are told.
+
+1. **A group nobody has activated, waiting on two leaders, one of whom is unsent.**
+   If the leader who remains has already accepted, every open leader membership now carries an Acceptance, which is what activates a relationship.
+   Does it activate there and then, with its one Starter Message, by an Admin's click and not a leader's?
+   *Recommended:* yes, exactly as the last acceptance would, once.
+   The alternative is to leave it awaiting and make the Admin do something else, and there is nothing else for them to do.
+   It is asked because it sends texts to real phones.
+2. **A leader who declined by texting `SWAP`, whose invitation is then unsent.**
+   Their `swap_requested` item is still open on the Follow-Up tab.
+   *Recommended:* the same act resolves it, naming the Admin, as putting somebody into a group resolves their Join Request for it (ticket 03).
+   The alternative is to leave it for the Admin to resolve by hand.
