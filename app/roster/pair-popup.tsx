@@ -47,6 +47,26 @@ export const PairList = ({
   useEffect(() => {
     listElement.current?.querySelector('input:checked')?.closest('label')?.scrollIntoView({ block: 'nearest' })
   }, [])
+  // The list says when there is more below it (James, 2026-09-21): the groups sit
+  // under the people, and a list that ends cleanly on a row looks finished. While
+  // there is more to scroll to, its bottom edge fades; at the end it does not. Its
+  // scrollbar is always there, in the stylesheet. Measured again whenever it is
+  // scrolled or its size or its rows' size changes, which a shape's controls do.
+  const [moreBelow, setMoreBelow] = useState(false)
+  useEffect(() => {
+    const list = listElement.current
+    if (list === null) return
+    const measure = () => setMoreBelow(list.scrollHeight - list.scrollTop - list.clientHeight > 1)
+    measure()
+    list.addEventListener('scroll', measure, { passive: true })
+    const resized = new ResizeObserver(measure)
+    resized.observe(list)
+    if (list.firstElementChild) resized.observe(list.firstElementChild)
+    return () => {
+      list.removeEventListener('scroll', measure)
+      resized.disconnect()
+    }
+  }, [])
   const keepListElement = (element: HTMLElement | null) => {
     listElement.current = element
   }
@@ -54,7 +74,7 @@ export const PairList = ({
   // radiogroup, which no element is. What scrolls is a plain box around either: a
   // fieldset made to give way inside the popup's column does not clip its rows.
   return (
-    <div ref={keepListElement} className="pair-list">
+    <div ref={keepListElement} className={moreBelow ? 'pair-list more-below' : 'pair-list'}>
       {exactlyOne ? (
         <div className="pair-rows" role="radiogroup" aria-labelledby="pair-title">
           {children}

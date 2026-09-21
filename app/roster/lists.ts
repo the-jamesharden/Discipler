@@ -157,9 +157,10 @@ export const whoThePopupIsFor = (
 
 /**
  * The popup's list from a Disciple: every Discipler, in the Roster's order, and
- * never the Disciple themselves. Nobody is left out for something the database
- * would refuse: those rows are shown greyed with the reason (Manual pairing,
- * ticket 23, in `./greying`), and never hidden.
+ * never the Disciple themselves. Somebody the database would refuse is shown
+ * greyed with the reason (Manual pairing, ticket 23, in `./greying`), with one
+ * exception the page applies on top of this: a Discipler gender rules out is not
+ * listed at all (`leftOutForADisciple`, decided by James on 2026-09-21).
  */
 export const disciplersFor = (
   roster: readonly RosterEntry[],
@@ -200,8 +201,8 @@ export const groupsOf = (
  * The groups the popup offers somebody (Manual pairing, recut ticket 03): every one
  * the Pair document lists, in its order, less any they are already in. In either
  * role, and accepted or not, which is what `memberIds` holds: nobody is offered a
- * group they lead or are invited to lead. One they cannot join is greyed with the
- * reason (`./greying`), and never hidden.
+ * group they lead or are invited to lead. What gender rules out is each side's to
+ * say, in `./greying`: left out from a Disciple, greyed from a Discipler.
  */
 export const groupsToJoin = (
   person: Pick<RosterEntry, 'personId'>,

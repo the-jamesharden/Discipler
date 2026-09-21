@@ -241,7 +241,9 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Disciple', () =>
    * posts, and the database underneath still refuses what it refused before.
    */
   describe('who is greyed', () => {
-    it('greys a Discipler of another gender, never one with no gender on file for gender, and the database still refuses', async () => {
+    // Decided by James on 2026-09-21: from a Disciple, somebody gender rules out is
+    // not shown at all, in place of a greyed row. Every other reason is still greyed.
+    it('leaves out a Discipler of another gender, never one with no gender on file, and the database still refuses', async () => {
       const tom = await addPerson(ministry, 'Tom Wilson', { phone: number(), answers: { gender: 'male' } })
       const rosa = await addPerson(ministry, 'Rosa Delgado', { phone: number(), answers: { gender: 'female' } })
       // A gender is asked on every Intake form, so nobody who has completed Intake
@@ -253,15 +255,17 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Disciple', () =>
       await Promise.all([offersToMentor(rosa), offersToMentor(unasked)])
 
       const popup = popupIn((await popupAt('disciples', tom)).html)!
-      expectGreyed(popup, rosa, 'Men’s only: a 1:1 is same-gender')
-      // Greyed is shown, not hidden, and she still reads as who she is.
-      expect(rowFor(popup, rosa)).toContain('Rosa Delgado')
+      expect(chosenFrom(popup)).not.toContain(rosa)
+      expect(popup).not.toContain('Rosa Delgado')
+      expect(popup).not.toContain('same-gender')
+      // Somebody who cannot be chosen for another reason is shown, greyed, and
+      // counted; she is not.
       expectGreyed(popup, unasked, 'Awaiting Intake')
-      expect(rowFor(popup, unasked)).not.toContain('same-gender')
+      expect(popup).toContain(`${chosenFrom(popup).length} discipler`)
 
-      // The greying removed no rule underneath: posted anyway, the database refuses
-      // it as it always did, and the popup comes back with the reason. The choice is
-      // a greyed row now, so it is not restored as chosen.
+      // Leaving her out removed no rule underneath: posted anyway, the database
+      // refuses it as it always did, and the popup comes back with the reason. The
+      // choice is not on the list, so nothing is restored as chosen.
       const location = await submit({ pair: tom, list: 'all', participantId: tom, leaderId: rosa })
       expect(Object.fromEntries(location.searchParams)).toEqual({
         list: 'all',
@@ -271,7 +275,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Disciple', () =>
       })
       const refused = popupIn((await getPage(`${location.pathname}${location.search}`, cookie)).html)!
       expect(refused).toMatch(/role="alert"[^>]*>[^<]*gender/i)
-      expectGreyed(refused, rosa, 'Men’s only: a 1:1 is same-gender')
+      expect(chosenFrom(refused)).not.toContain(rosa)
       expect(refused).not.toMatch(/checked=""/)
       expect(refused).not.toContain('in a one-on-one.')
       expect(refused).toMatch(/<button[^>]*type="submit"[^>]*>Pair<\/button>/)
@@ -279,7 +283,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Disciple', () =>
       expect(formed.rows).toEqual([])
     })
 
-    it('greys nobody for gender in a Ministry that does not enforce the match', async () => {
+    it('leaves nobody out, and greys nobody, for gender in a Ministry that does not enforce the match', async () => {
       const relaxed = await createMinistryWithAdmin('The Chapel That Does Not Enforce')
       await pool.query(`update ministry set suggest_gender_match = false where id = $1`, [relaxed.id])
       const theirCookie = (await signIn(relaxed)).cookie

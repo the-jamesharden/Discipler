@@ -140,6 +140,14 @@ export interface GroupListed extends GroupOnARow {
 /** Who leads a group, by name, in the order the document gave. */
 const leadersOf = (group: GroupOnARow): readonly string[] => group.leaders.map(({ fullName }) => fullName)
 
+/**
+ * What a group is called wherever the popup names one. One nobody has named is its
+ * leaders' group, *Grace Lee's group*, and never their bare names, which in a list
+ * of people read as a second Grace Lee (decided by James on 2026-09-21).
+ */
+const nameOfAGroup = (group: GroupOnARow): string =>
+  group.name ?? (group.leaders.length === 0 ? 'Unnamed group' : `${asList(leadersOf(group))}’s group`)
+
 /** A first name out of the one `full_name` Discipler holds. Splitting it is a copy decision, so it is made here. */
 const firstNameOf = (fullName: string): string => fullName.trim().split(/\s+/)[0] ?? ''
 
@@ -164,7 +172,7 @@ export const PAIR_POPUP = {
   disciples: (count: number): string => (count === 1 ? '1 disciple' : `${count} disciples`),
   /** The group a Disciple is already in, on their row. One nobody has named is said by who leads it. */
   inGroup: (group: GroupOnARow): string =>
-    `in ${group.name ?? `${asList(leadersOf(group))}’s group`}`,
+    `in ${nameOfAGroup(group)}`,
   /**
    * Two or more ticked (Manual pairing, recut ticket 02): the toggle that asks what
    * to make of them, the sentence and the button for each shape, and the Material
@@ -210,16 +218,12 @@ export const PAIR_POPUP = {
   groupsHeading: 'Groups',
   counts: (people: string, groups: number): string =>
     groups === 0 ? people : `${people} · ${groups === 1 ? '1 group' : `${groups} groups`}`,
-  /**
-   * What a group's row is called. One nobody has named is labelled by its leaders'
-   * names, which is how the Roster's Paired with cell already names a pairing.
-   */
-  groupLabel: (group: GroupOnARow): string =>
-    group.name ?? (leadersOf(group).join(', ') || 'Unnamed group'),
+  /** What a group's row is called: `nameOfAGroup`, as a Disciple's row already says it. */
+  groupLabel: (group: GroupOnARow): string => nameOfAGroup(group),
   /**
    * Beneath it: who leads it, how many Disciples it has, what it declared, and its
    * state when it is not running. Coed is the screen's word for the model's mixed.
-   * A group labelled by its leaders does not say them a second time.
+   * A group named for its leaders does not say them a second time.
    */
   groupDetails: (group: GroupListed): readonly string[] => [
     ...(group.name !== null && group.leaders.length > 0 ? [`led by ${asList(leadersOf(group))}`] : []),
@@ -233,10 +237,12 @@ export const PAIR_POPUP = {
     declared === 'male' ? 'A men’s group' : 'A women’s group',
   /** Every leader is named. A group nobody has named is said by who leads it. */
   joinGroup: (disciple: string, group: GroupOnARow): string => {
-    const ledBy = group.leaders.length === 0 ? null : `led by ${asList(leadersOf(group))}`
-    const joins = group.name === null ? `${disciple} will join the group` : `${disciple} will join ${group.name}`
-    if (ledBy === null) return `${joins}.`
-    return group.name === null ? `${joins} ${ledBy}.` : `${joins}, ${ledBy}.`
+    if (group.name === null) {
+      return group.leaders.length === 0 ? `${disciple} will join the group.` : `${disciple} will join ${nameOfAGroup(group)}.`
+    }
+    return group.leaders.length === 0
+      ? `${disciple} will join ${group.name}.`
+      : `${disciple} will join ${group.name}, led by ${asList(leadersOf(group))}.`
   },
   addToGroup: 'Add to group',
   /**

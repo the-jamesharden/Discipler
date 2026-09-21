@@ -582,6 +582,21 @@ textarea.paste { width: 100%; min-height: 140px; font-family: ui-monospace, SFMo
 .pair-toolbar .link-btn { font-size: 0.76rem; font-weight: 500; }
 /* Room inside the scrolling list for a row's focus ring, which its edge would clip. */
 .pair-list { max-height: min(50vh, 22rem); overflow-y: auto; padding: 3px; margin: 0 -3px; min-width: 0; }
+/* The list says it scrolls (James, 2026-09-21): a light scrollbar that does not hide
+   itself, as macOS would have it, and a fade at the bottom edge while there is more
+   below. The fade leaves the scrollbar's own column alone. */
+.pair-list::-webkit-scrollbar, .pair-per::-webkit-scrollbar { width: 8px; }
+.pair-list::-webkit-scrollbar-track, .pair-per::-webkit-scrollbar-track { background: transparent; }
+.pair-list::-webkit-scrollbar-thumb, .pair-per::-webkit-scrollbar-thumb { background: #d9d0c4; border-radius: 4px; }
+.pair-list::-webkit-scrollbar-thumb:hover, .pair-per::-webkit-scrollbar-thumb:hover { background: #c4b9aa; }
+@supports not selector(::-webkit-scrollbar) { .pair-list, .pair-per { scrollbar-width: thin; scrollbar-color: #d9d0c4 transparent; } }
+.pair-list.more-below {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 2.2rem), transparent), linear-gradient(#000, #000);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 2.2rem), transparent), linear-gradient(#000, #000);
+  -webkit-mask-size: calc(100% - 8px) 100%, 8px 100%; mask-size: calc(100% - 8px) 100%, 8px 100%;
+  -webkit-mask-position: left top, right top; mask-position: left top, right top;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+}
 .pair-rows { display: grid; gap: 0.4rem; margin: 0; padding: 0; border: 0; min-width: 0; }
 .pair-opt { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0.6rem; background: #f3efe8; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
 .pair-opt:hover { border-color: var(--primary-light); }

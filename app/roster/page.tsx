@@ -70,9 +70,10 @@ import { declaredGenderToField } from './declared-gender'
 import {
   greyedForADisciple,
   greyedForADiscipler,
-  greyedForAGroupJoined,
   greyedInAOneToTwo,
+  groupLeftOutForADisciple,
   leadsAGroup,
+  leftOutForADisciple,
   type Greyed,
 } from './greying'
 import { PairPopupFromADisciple } from './pair-popup-from-a-disciple'
@@ -187,9 +188,6 @@ export default async function RosterPage({
   // refused.
   const greyedInWords = (greyed: Greyed | null, readAs?: ReadAs): string | null =>
     greyed === null ? null : PAIR_POPUP.greyed(greyed, readAs)
-  // A group's row is greyed with what the group is; anything else in the rule's own words.
-  const ruledOutInWords = (greyed: Greyed | null): string | null =>
-    greyed?.why === 'gender' ? PAIR_POPUP.ruledOutByTheGroup(greyed.declared) : greyedInWords(greyed)
   // Compared against the list and never rendered, like every value from an address.
   const chosenBefore = firstOf(query.leaderId)
   const groupChosenBefore = firstOf(query.groupId)
@@ -492,7 +490,11 @@ export default async function RosterPage({
           key={`disciple-${pairing.personId}`}
           person={{ id: pairing.personId, fullName: pairing.fullName }}
           list={list}
-          disciplers={disciplersFor(roster, pairing).map((discipler) => ({
+          // A Discipler gender rules out is not listed at all from this side (James,
+          // 2026-09-21); anybody else who cannot be chosen is greyed with the reason.
+          disciplers={disciplersFor(roster, pairing)
+            .filter((discipler) => !leftOutForADisciple({ genderMatchEnforced: suggestGenderMatch, disciple: pairing, discipler }))
+            .map((discipler) => ({
             id: discipler.personId,
             fullName: discipler.fullName,
             email: discipler.email,
@@ -501,16 +503,19 @@ export default async function RosterPage({
             greyed: greyedInWords(greyedForADisciple({ genderMatchEnforced: suggestGenderMatch, disciple: pairing, discipler })),
           }))}
           // Every group the Ministry has that they are not already in (Manual
-          // pairing, recut ticket 03), greyed where its own declaration rules them out.
-          groups={groupsToJoin(pairing, groups).map((group) => ({
-            id: group.relationshipId,
-            name: group.name,
-            leaders: group.leaders.map(({ fullName }) => ({ fullName })),
-            discipleCount: group.discipleCount,
-            declaredGender: group.declaredGender,
-            state: group.state,
-            greyed: ruledOutInWords(greyedForAGroupJoined({ group, joiner: pairing })),
-          }))}
+          // pairing, recut ticket 03). One whose own declaration rules them out is
+          // not listed, as a Discipler gender rules out is not, so none is greyed.
+          groups={groupsToJoin(pairing, groups)
+            .filter((group) => !groupLeftOutForADisciple({ group, disciple: pairing }))
+            .map((group) => ({
+              id: group.relationshipId,
+              name: group.name,
+              leaders: group.leaders.map(({ fullName }) => ({ fullName })),
+              discipleCount: group.discipleCount,
+              declaredGender: group.declaredGender,
+              state: group.state,
+              greyed: null,
+            }))}
           // A refused join comes back with its group, and is worded for that act.
           refusal={groupChosenBefore === undefined ? pairingRefusal : groupJoinRefusalMessage(query.error, pairing.fullName)}
           chosenBefore={chosenBefore ?? null}

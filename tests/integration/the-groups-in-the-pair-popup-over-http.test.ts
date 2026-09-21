@@ -25,13 +25,14 @@ import {
   popupIn,
   rowFor,
 } from '../support/pair-popup'
+import { PAIR_POPUP } from '../../app/roster/copy'
 
 /**
  * The Ministry's groups in the Pair popup opened from a Disciple (Manual pairing,
  * recut ticket 03), as an Admin's browser receives it: a Groups heading under the
- * Disciplers, one row per group the Disciple is not already in, greyed where the
- * group's own declaration rules them out, and **Add to group**, which posts to the
- * route that puts them straight in.
+ * Disciplers, one row per group the Disciple is not already in and whose own
+ * declaration does not rule them out, and **Add to group**, which posts to the route
+ * that puts them straight in.
  *
  * What needs script (choosing a group clearing a chosen Discipler, and the other
  * way round) is looked at in a browser. The server renders the same component, so
@@ -141,9 +142,10 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
     expect(detailsOf(pausedRow)).toBe(`led by ${paused.leaderName} · 2 disciples · Men’s · paused`)
     expect(pausedRow).toContain('>MB<')
 
-    // One nobody has named is labelled by its leaders' names, and does not say them twice.
+    // One nobody has named is its leaders' group, never a second row reading as a
+    // person, and does not say them twice.
     const unnamedRow = rowFor(popup, unnamed.id)
-    expect(unnamedRow).toMatch(new RegExp(`class="pair-name"[^>]*>${unnamed.leaderName}<`))
+    expect(unnamedRow).toMatch(new RegExp(`class="pair-name"[^>]*>${unnamed.leaderName}’s group<`))
     expect(detailsOf(unnamedRow)).toBe('2 disciples · Coed · awaiting acceptance')
 
     // The line under the title counts both: every Discipler listed, and the two groups.
@@ -173,8 +175,10 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
     expect(groupsOffered((await popupFor(sam.id)).popup)).not.toContain(theirs.id)
   })
 
-  describe('who is greyed', () => {
-    it('greys a men’s group for a woman with what the group is, and leaves a Coed one open', async () => {
+  describe('who is left out, and who is greyed', () => {
+    // Decided by James on 2026-09-21: from a Disciple, a group gender rules out is
+    // not shown at all, in place of a greyed row that says *A men's group*.
+    it('leaves out a men’s group for a woman, shows her a Coed one and a women’s one, and counts what it shows', async () => {
       const priya = await aDisciple('female')
       const mens = await aGroup('Men’s Breakfast', 'male')
       const coed = await aGroup('Thursday Table', null)
@@ -182,13 +186,24 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
 
       const { popup } = await popupFor(priya.id)
 
-      // Shown, never hidden: its round mark disabled, and the reason tied to it.
-      expectGreyed(popup, mens.id, 'A men’s group')
-      expect(rowFor(popup, mens.id)).toContain('Men’s Breakfast')
+      expect(groupsOffered(popup)).not.toContain(mens.id)
+      expect(popup).not.toContain('A men’s group')
       expectOpenGroup(popup, coed.id)
       expectOpenGroup(popup, womens.id)
+      // And neither is its Discipler, a man, while the Ministry enforces the match.
+      expect(offeredAs(popup, 'leaderId')).not.toContain(mens.leader)
+      expect(offeredAs(popup, 'leaderId')).toContain(womens.leader)
+      expect(popup).toContain(
+        `${PAIR_POPUP.counts(PAIR_POPUP.disciplers(offeredAs(popup, 'leaderId').length), groupsOffered(popup).length)}<`,
+      )
 
-      // The greying removes no rule underneath: the database still refuses her.
+      // A man is shown the men's group, and not the women's.
+      const sam = await aDisciple('male')
+      const his = (await popupFor(sam.id)).popup
+      expectOpenGroup(his, mens.id)
+      expect(groupsOffered(his)).not.toContain(womens.id)
+
+      // Leaving it out removes no rule underneath: the database still refuses her.
       const refused = await join({ personId: priya.id, groupId: mens.id, list: 'disciples' })
       expect(refused.searchParams.get('error')).toBe('relationship.gender_does_not_match_the_declaration')
     })
@@ -289,7 +304,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
     expect(html.match(/class="modal-bg open"/g)).toHaveLength(1)
   })
 
-  it('round trips a real refusal: the reason in words for this act, and a group now greyed is not restored as chosen', async () => {
+  it('round trips a real refusal: the reason in words for this act, and a group not on the list is not restored', async () => {
     const priya = await aDisciple('female')
     const mens = await aGroup('Men’s Breakfast', 'male')
 
@@ -303,7 +318,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
     expect(popup).toMatch(/role="alert"/)
     // Worded for joining: *say it is mixed* is no fix when the group already said what it is.
     expect(popup).not.toMatch(/say it is mixed/i)
-    expectGreyed(popup, mens.id, 'A men’s group')
+    expect(groupsOffered(popup)).not.toContain(mens.id)
     expect(popup).not.toMatch(/checked=""/)
     expect(popup).toMatch(/<button[^>]*type="submit"[^>]*>Pair<\/button>/)
   })

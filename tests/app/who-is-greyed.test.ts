@@ -8,7 +8,9 @@ import {
   greyedForADiscipler,
   greyedForAGroupJoined,
   greyedInAOneToTwo,
+  groupLeftOutForADisciple,
   leadsAGroup,
+  leftOutForADisciple,
 } from '../../app/roster/greying'
 
 /**
@@ -302,5 +304,57 @@ describe('a group in the popup opened from a Disciple', () => {
       withName: 'David Chen',
     })
     expect(greyedForAGroupJoined({ group: { declaredGender: 'male' }, joiner: paired })).toBeNull()
+  })
+})
+
+/**
+ * Decided by James on 2026-09-21, reviewing recut ticket 03: in the popup opened
+ * from a Disciple, somebody or some group that gender rules out is not shown at
+ * all, in place of a greyed row with a reason. Where the Ministry lets a one-to-one
+ * cross genders, everybody shows. Every other reason is still a greyed row.
+ */
+describe('who is left out of the popup opened from a Disciple', () => {
+  const sam = person({ gender: 'female' })
+
+  it('leaves out a Discipler of another gender while the Ministry enforces the match', () => {
+    expect(leftOutForADisciple({ genderMatchEnforced: true, disciple: sam, discipler: person({ gender: 'male' }) })).toBe(true)
+    expect(leftOutForADisciple({ genderMatchEnforced: true, disciple: sam, discipler: person({ gender: 'female' }) })).toBe(false)
+  })
+
+  it('shows everybody where the Ministry lets a one-to-one cross genders', () => {
+    expect(leftOutForADisciple({ genderMatchEnforced: false, disciple: sam, discipler: person({ gender: 'male' }) })).toBe(false)
+  })
+
+  it('never leaves anybody out for having no gender on file, on either side', () => {
+    expect(leftOutForADisciple({ genderMatchEnforced: true, disciple: sam, discipler: person({ gender: null }) })).toBe(false)
+    expect(
+      leftOutForADisciple({ genderMatchEnforced: true, disciple: person({ gender: null }), discipler: person({ gender: 'male' }) }),
+    ).toBe(false)
+  })
+
+  it('leaves out a Discipler of another gender whatever else is true of them or of the Disciple', () => {
+    const optedOut = person({ gender: 'male', participationStatus: 'opted_out' })
+    expect(leftOutForADisciple({ genderMatchEnforced: true, disciple: sam, discipler: optedOut })).toBe(true)
+    const paired = person({ gender: 'female', relationships: [pairing('participant', { leaderNames: ['Grace Lee'] })] })
+    expect(leftOutForADisciple({ genderMatchEnforced: true, disciple: paired, discipler: person({ gender: 'male' }) })).toBe(true)
+  })
+
+  it('still shows, greyed, a Discipler who cannot be chosen for any other reason', () => {
+    const waiting = person({ gender: null, participationStatus: 'no_intake_submitted' })
+    expect(leftOutForADisciple({ genderMatchEnforced: true, disciple: sam, discipler: waiting })).toBe(false)
+    expect(greyedForADisciple({ genderMatchEnforced: true, disciple: sam, discipler: waiting })).toEqual({
+      why: 'not_pairable',
+      reason: 'awaiting_intake',
+    })
+  })
+
+  it('leaves out a group whose declaration rules the Disciple out, whatever the Ministry says of a one-to-one', () => {
+    expect(groupLeftOutForADisciple({ group: { declaredGender: 'male' }, disciple: sam })).toBe(true)
+    expect(groupLeftOutForADisciple({ group: { declaredGender: 'female' }, disciple: sam })).toBe(false)
+  })
+
+  it('shows a Coed group to everybody, and every group to a Disciple with no gender on file', () => {
+    expect(groupLeftOutForADisciple({ group: { declaredGender: null }, disciple: sam })).toBe(false)
+    expect(groupLeftOutForADisciple({ group: { declaredGender: 'male' }, disciple: person({ gender: null }) })).toBe(false)
   })
 })

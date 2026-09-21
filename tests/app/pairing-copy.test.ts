@@ -344,13 +344,19 @@ describe('the groups in the Pair popup', () => {
     expect(PAIR_POPUP.counts(PAIR_POPUP.disciplers(4), 0)).toBe('4 disciplers')
   })
 
-  it('labels a group by its name, and one nobody has named by its leaders’ names', () => {
+  it('labels a group by its name, and one nobody has named as its leaders’ group, never as a person', () => {
     expect(PAIR_POPUP.groupLabel(thursdayTable)).toBe('Thursday Table')
-    expect(PAIR_POPUP.groupLabel({ name: null, leaders: [{ fullName: 'Grace Lee' }] })).toBe('Grace Lee')
+    expect(PAIR_POPUP.groupLabel({ name: null, leaders: [{ fullName: 'Grace Lee' }] })).toBe('Grace Lee’s group')
     expect(
       PAIR_POPUP.groupLabel({ name: null, leaders: [{ fullName: 'Grace Lee' }, { fullName: 'David Chen' }] }),
-    ).toBe('Grace Lee, David Chen')
+    ).toBe('Grace Lee and David Chen’s group')
     expect(PAIR_POPUP.groupLabel({ name: null, leaders: [] })).toBe('Unnamed group')
+  })
+
+  it('calls an unnamed group the same thing on a Disciple’s row, on its own row and in the sentence', () => {
+    const unnamed = { name: null, leaders: [{ fullName: 'Grace Lee' }] }
+    expect(PAIR_POPUP.inGroup(unnamed)).toBe(`in ${PAIR_POPUP.groupLabel(unnamed)}`)
+    expect(PAIR_POPUP.joinGroup('Sam Lee', unnamed)).toBe(`Sam Lee will join ${PAIR_POPUP.groupLabel(unnamed)}.`)
   })
 
   it('says who leads it, how many Disciples it has and what it declared', () => {
@@ -380,7 +386,7 @@ describe('the groups in the Pair popup', () => {
     expect(AWAITING_ACCEPTANCE).toBe('awaiting acceptance')
   })
 
-  it('does not say the leaders twice on a group labelled by them', () => {
+  it('does not say the leaders twice on a group named for them', () => {
     expect(
       PAIR_POPUP.groupDetails({
         name: null,
@@ -412,7 +418,7 @@ describe('the groups in the Pair popup', () => {
 
   it('says a group nobody has named by who leads it, in the sentence too', () => {
     expect(PAIR_POPUP.joinGroup('Sam Lee', { name: null, leaders: [{ fullName: 'Grace Lee' }] })).toBe(
-      'Sam Lee will join the group led by Grace Lee.',
+      'Sam Lee will join Grace Lee’s group.',
     )
   })
 

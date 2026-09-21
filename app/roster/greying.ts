@@ -27,6 +27,20 @@ export type Greyed =
   /** `participant_one_open_one_to_one`: one open one-to-one as a participant, any number of groups. */
   | { readonly why: 'already_in_a_one_to_one'; readonly withName: string | null }
 
+/**
+ * The gender a declaration holds a candidate to and they are not, or null where it
+ * does not rule them out. No gender on file is never a mismatch: both database
+ * triggers return early on a null gender, so that the readiness rules refuse the
+ * row with something the Admin can act on, and the screen shows the same restraint.
+ */
+const declaredAgainst = (declaration: Declaration, candidate: Pick<RosterEntry, 'gender'>): Gender | null =>
+  declaration !== 'mixed' &&
+  declaration !== 'none' &&
+  candidate.gender !== null &&
+  candidate.gender !== declaration
+    ? declaration
+    : null
+
 export const greyedAgainst = (
   declaration: Declaration,
   candidate: Pick<RosterEntry, 'gender' | 'participationStatus'>,
@@ -36,15 +50,8 @@ export const greyedAgainst = (
   const reason = whyNotPairable(candidate)
   if (reason !== null) return { why: 'not_pairable', reason }
 
-  // No gender on file is never a mismatch: both database triggers return early on
-  // a null gender, so that the readiness rules refuse the row with something the
-  // Admin can act on, and the screen shows the same restraint.
-  return declaration !== 'mixed' &&
-    declaration !== 'none' &&
-    candidate.gender !== null &&
-    candidate.gender !== declaration
-    ? { why: 'gender', declared: declaration }
-    : null
+  const declared = declaredAgainst(declaration, candidate)
+  return declared === null ? null : { why: 'gender', declared }
 }
 
 /**
@@ -121,6 +128,42 @@ export const greyedForADisciple = ({
   greyedInAOneToOne({ genderMatchEnforced, openedFrom: disciple, candidate: discipler, disciple })
 
 /**
+ * Who is not listed at all in the popup opened from a Disciple (decided by James on
+ * 2026-09-21, reviewing recut ticket 03): a Discipler gender rules out is left out,
+ * in place of a greyed row that says why. From this side nothing the Admin can
+ * change would open that row, so it is only in the way. Where the Ministry lets a
+ * one-to-one cross genders, everybody shows.
+ *
+ * Asked of gender alone, whatever else is true of either of them. Every other
+ * reason is still a greyed row and never a missing one (`greyedForADisciple`):
+ * Awaiting Intake, Opted out, and a Disciple already in a one-to-one. The popup
+ * opened from a Discipler still greys for gender, because there a shape can open
+ * the row again.
+ */
+export const leftOutForADisciple = ({
+  genderMatchEnforced,
+  disciple,
+  discipler,
+}: {
+  readonly genderMatchEnforced: boolean
+  readonly disciple: Pick<RosterEntry, 'gender'>
+  readonly discipler: Pick<RosterEntry, 'gender'>
+}): boolean => declaredAgainst(declaredByAOneToOne({ genderMatchEnforced, openedFrom: disciple }), discipler) !== null
+
+/**
+ * And a group whose own declaration rules the Disciple out is not listed either.
+ * A declaration binds its members whatever the Ministry says of a one-to-one, so
+ * this is not read off `suggest_gender_match`; a Coed group is shown to everybody.
+ */
+export const groupLeftOutForADisciple = ({
+  group,
+  disciple,
+}: {
+  readonly group: Pick<GroupToJoin, 'declaredGender'>
+  readonly disciple: Pick<RosterEntry, 'gender'>
+}): boolean => declaredAgainst(group.declaredGender ?? 'mixed', disciple) !== null
+
+/**
  * A Disciple's row in the popup opened from a Discipler, while what is ticked
  * would make a one-to-one. They are open again for a shape that makes a group.
  * This side lists only Disciples who can be paired (`disciplesFor`), which is what
@@ -156,8 +199,11 @@ export const greyedInAOneToTwo = ({
 }): Greyed | null => greyedAgainst(discipler.gender ?? 'none', disciple)
 
 /**
- * A group's row in the popup opened from a Disciple (Manual pairing, recut ticket
- * 03). A group being joined already has its declaration, and a Disciple it rules
+ * A group's row where somebody its declaration rules out still sees it, greyed
+ * (Manual pairing, recut ticket 03). From a Disciple such a group is not listed at
+ * all (`groupLeftOutForADisciple`), so nothing on that side reads this today; it is
+ * the rule the Discipler's side greys a group with, *A men's group*, when it lists
+ * them. A group being joined already has its declaration, and a Person it rules
  * out is greyed with it. A declaration binds its members whatever the Ministry says
  * of a one-to-one, so this is not read off `suggest_gender_match`; a Coed group,
  * which is the model's mixed, greys nobody, and neither does no gender on file.
