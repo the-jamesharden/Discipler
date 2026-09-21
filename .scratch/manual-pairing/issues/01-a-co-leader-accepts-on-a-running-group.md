@@ -1,18 +1,16 @@
-# 11 - A co-leader accepts on a group already running
-
-**Effort:** `manual-pairing`.
-Every ticket number on this page means a file in `.scratch/manual-pairing/issues/`, and the spec is `.scratch/manual-pairing/spec.md`.
-A bare "ticket NN" in existing code, migrations or `CONTEXT.md` (ticket 29, ticket 36) belongs to `core-operating-loop`, which has its own 01 to 36, and is not one of these.
-In code and migrations written for this ticket, say "Manual pairing, ticket NN", as tickets 01 and 02 did.
+# 01 - A co-leader accepts on a group already running
 
 **What to build:** What the Invitation Link's page shows, records and sends when the leader accepting was added to a group that has already started.
+Today that acceptance activates the group a second time and sends the Starter Message again; after this ticket it records the co-leader's Acceptance and nothing else.
 
-**Blocked by:** 22
+**Blocked by:** None - can start immediately.
 
 **Status:** ready-for-agent
 
-**Budget:** ~110k of 250k tokens (reads 40, writes 20, test runs 20, gate 25, overhead 5).
-If the session passes 200k before the gate, stop and say so on this ticket rather than pressing on.
+**Old tickets:** this is old ticket 11, whole; none of it is committed.
+What an unaccepted co-leader is given until they accept was decided by James and built at `69bbe9e`, and is in `06-committed-already.md`.
+Here "old ticket NN" means a ticket of the earlier cuts, 01 to 27, kept under that number in `06-committed-already.md`, and existing code that says "Manual pairing, ticket NN" means those.
+New code says "Manual pairing, recut ticket NN".
 
 ## Decided by James, 2026-09-20
 
@@ -43,3 +41,13 @@ These three were asked of James and answered on 2026-09-20.
 - [ ] A group that was still awaiting its first leader activates only when both have accepted, and sends one Starter Message.
 - [ ] Declining, and an invitation nobody answers, raise the same Follow-Up Item as they do for a leader invited at formation.
 - [ ] Integration tests cover: acceptance on a running group, on a paused group, on a group still awaiting its first leader (in both orders), a declined invitation, and that no message goes to a Disciple or to an existing leader in any of them.
+
+## Comments
+
+### Found while building old ticket 22's second stage
+
+Written by its implementer on 2026-09-20, and kept whole in `06-committed-already.md`.
+The first is why ticket 04's **Add as co-leader** button waits for this ticket.
+
+- **Accepting on a running group re-activates it.** `relationship.accept` decides `activatesRelationship` as *every other leader has accepted*, which is true for a co-leader on a running group. It would append a second `relationship.activated`, open a second Material period, and send the Starter Message to every leader and every Disciple again. The database only guards the column. Old ticket 11's first two criteria are exactly this; it is said here because it is a text to real phones, and because old ticket 26 waits on 22, 24 and 25 but not on 11.
+- **The five-day item now raises for them**, which James answered yes to on 2026-09-20. Its usual answer, **Cancel**, is refused on a running group (`relationship.already_accepted`), so there is no way to withdraw an unanswered co-leader invitation short of ending the group. *Cancelling behaves as it does for a leader invited at formation* is true and tested for a group still awaiting its leader, where cancelling takes their membership with it; on a running group there was never anything to cancel at formation either.

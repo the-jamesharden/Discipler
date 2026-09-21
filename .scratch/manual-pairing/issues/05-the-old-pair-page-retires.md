@@ -1,35 +1,27 @@
-# 27 - The old Pair page retires
-
-**Effort:** `manual-pairing`.
-Every ticket number on this page means a file in `.scratch/manual-pairing/issues/`, and the spec is `.scratch/manual-pairing/spec.md`.
-A bare "ticket NN" in existing code, migrations or `CONTEXT.md` (ticket 29, ticket 36) belongs to `core-operating-loop`, which has its own 01 to 36, and is not one of these.
-In code and migrations written for this ticket, say "Manual pairing, ticket NN", as tickets 01 and 02 did.
+# 05 - The old Pair page retires
 
 **What to build:** Every Pair button opens the popup, `/roster/pair` redirects into it, and the old page is deleted.
-This is the moment the Discipler's side, built unlinked over tickets 23, 24 and 26, becomes what an Admin gets.
+This is the moment the Discipler's side, built unlinked over old ticket 23 and then ticket 02 and ticket 04, becomes what an Admin gets.
 
-**Replaces:** *20 - The old Pair page retires*, in the cut of 2026-09-20.
-Every criterion is below, unchanged.
-It stays a ticket of its own so that the switch is one merge, reviewed alone and reverted alone.
-Where another ticket says ticket 20, it means this ticket.
-
-**Blocked by:** 24, 26
-
-**Touches:** popup-disciple, popup-discipler
+**Blocked by:** 02, 04
+It does not wait on ticket 03.
 
 **Status:** ready-for-agent
 
-**Budget:** ~100k of 250k tokens (reads 35, writes 20, test runs 20, browser check 10, gate 15).
-This effort's first tickets ran about one and a half times over their estimates (see the Comments on 03, 06 and 08), so 200k is the stop line: commit what is coherent, write what is left in `.agent/handoff.md`, and stop.
+**Old tickets:** this is old ticket 27, whole; none of it is committed.
+Every criterion is below, unchanged.
+Here "old ticket NN" means a ticket of the earlier cuts, 01 to 27, kept under that number in `06-committed-already.md`, and existing code that says "Manual pairing, ticket NN" means those.
+New code says "Manual pairing, recut ticket NN".
+It stays a ticket of its own so that the switch is one change, reviewed alone and reverted alone.
+Old ticket 21's Comments, in `06-committed-already.md`, say the old Pair page sends `mode` back as a hidden field; it goes with the page.
 
 ## Why last
 
 The old page can form a one-to-one, a group with a name, a declaration and a Material.
-Once tickets 24 and 26 have landed the popup can do all of that, and nothing is lost by the switch.
+Once old ticket 02 and old ticket 04 have landed the popup can do all of that, and nothing is lost by the switch.
 
 Joining a group is new and the old page never did it, so the switch does not depend on it.
-In the cut of 2026-09-20 the Group shape shares ticket 26 with the co-leader's side of the popup, so this ticket waits for both; that is a consequence of the cut and not a dependency.
-It does not wait on ticket 25 or on ticket 11.
+In this cut the Group shape shares old ticket 04 with the co-leader's side of the popup, so this ticket waits for both; that is a consequence of the cut and not a dependency.
 
 ## Acceptance
 
@@ -45,7 +37,7 @@ It does not wait on ticket 25 or on ticket 11.
 - [ ] A Disciple alone in the old query, which is the Follow-Up tab's link, opens the popup for them on the Disciple's side.
 - [ ] A refusal's query (the error and every restored choice) survives the redirect, so a bookmarked or in-flight refusal still reads.
 - [ ] `/roster/pair` with nobody in its query has nobody to open a popup for, and redirects to the Roster.
-  Nothing links to it that way once ticket 07 has removed *Pair people*.
+  Nothing links to it that way once old ticket 07 has removed *Pair people*.
   This one is a default taken while writing the tickets, not a line of the spec; James can overrule it on this ticket.
 - [ ] The person page and the Follow-Up tab are changed to link to the popup directly, so the redirect serves old links and not the app's own.
 
