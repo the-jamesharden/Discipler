@@ -385,6 +385,10 @@ export interface CommandContext {
    * with the group it is about arriving as `relationship` and the Person who asked
    * in `contacts`. `null` is *no open request of that kind by that id*; absent is
    * *not loaded*.
+   *
+   * Loaded for `group.add_participant` too, as the open request the Person being
+   * added has for that same group, which the act resolves; `null` is *they have
+   * none*. There is at most one: a request dedupes while it stands open.
    */
   readonly joinRequest?: OpenJoinRequest | null
   /**
@@ -3536,9 +3540,38 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       // still awaiting its Leader is left exactly as it was, because nothing
       // below touches the relationship's own row.
       const now = context.clock.now()
+
+      // An open Join Request of theirs for this group is resolved by the same act,
+      // as an admitted one ends, so it leaves Intake forms (Manual pairing, recut
+      // ticket 03; decided by James on 2026-09-20). Silently: the join is still a
+      // join, so its Leaders get the one text below and no other, and the Disciple
+      // gets nothing. A request of theirs for another group is never read here.
+      if (context.joinRequest === undefined) {
+        throw new Error('group.add_participant was not told whether they have an open Join Request for the group')
+      }
+      const request = context.joinRequest
+      if (
+        request !== null &&
+        (request.personId !== command.personId || request.relationshipId !== group.relationshipId)
+      ) {
+        throw new Error('group.add_participant was handed a Join Request about another Person or group')
+      }
+
       return {
         rejections: [],
         effects: [
+          ...(request === null
+            ? []
+            : [
+                // The resolution carries the Admin, and the event below carries
+                // the item, as an admission's do.
+                resolveFollowUpItem({
+                  ministryId: command.ministryId,
+                  itemId: request.itemId,
+                  resolvedBy: command.addedBy,
+                  resolvedAt: now,
+                }),
+              ]),
           joinRelationship({
             ministryId: command.ministryId,
             relationshipId: group.relationshipId,
@@ -3553,7 +3586,11 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             type: 'relationship.participant_added',
             subjectType: 'relationship',
             subjectId: group.relationshipId,
-            payload: { personId: command.personId, addedBy: command.addedBy },
+            payload: {
+              personId: command.personId,
+              addedBy: command.addedBy,
+              ...(request === null ? {} : { itemId: request.itemId }),
+            },
           }),
           ...tellTheLeadersSomebodyJoined(context, group, joiner.fullName, now),
         ],

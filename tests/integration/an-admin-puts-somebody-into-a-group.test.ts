@@ -1,7 +1,7 @@
 import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { systemClock } from '~/domain/clock'
-import { GroupJoinRefused, PairingRefused } from '~/domain/errors'
+import { GroupJoinRefused, GroupRefused, PairingRefused } from '~/domain/errors'
 import {
   followUpItemId,
   personId,
@@ -137,6 +137,16 @@ describe('an Admin puts a Disciple into a group', () => {
       throw error
     }
     throw new Error('Expected a refusal, and the command went through')
+  }
+
+  const refusalOfAdmission = async (attempt: Promise<unknown>) => {
+    try {
+      await attempt
+    } catch (error) {
+      if (error instanceof GroupRefused) return error.refusal
+      throw error
+    }
+    throw new Error('Expected a refusal, and the admission went through')
   }
 
   describe('a ready Disciple and a running group', () => {
@@ -336,21 +346,20 @@ describe('an Admin puts a Disciple into a group', () => {
   })
 
   /**
-   * The spec does not say what becomes of a request to join the same group that
-   * is still open. Nothing is closed on the Admin's behalf: it stays where it was,
-   * and answering it later is what it already is for somebody who got in another
-   * way -- the item is resolved and nobody is joined twice.
+   * Manual pairing, recut ticket 03, decided by James on 2026-09-20: an open request
+   * of theirs to join the same group is resolved by the same act, as an admitted
+   * one ends, so it leaves Intake forms. Silently: the join is still a join, so the
+   * Discipler gets the one text a join sends and no other, and the Disciple gets
+   * nothing. A request of theirs for a different group is left as it is.
    */
   describe('an open request of theirs to join the same group', () => {
-    it('is left open, and admitting it afterwards closes it and joins nobody', async () => {
-      const group = await aGroup({ joinRequiresApproval: true })
-      const fullName = named('Priyan')
-      await service().execute({
+    const asksToJoin = (group: string, fullName: string, phone: string) =>
+      service().execute({
         type: 'intake.submit',
         ministryId: ministry.id,
         form: {
           fullName,
-          phone: aTestPhoneNumber(),
+          phone,
           email: null,
           ageBand: '25-34',
           gender: 'male',
@@ -362,36 +371,83 @@ describe('an Admin puts a Disciple into a group', () => {
           intakePath: GROUP_PATH,
           declaredSide: null,
           experience: null,
-          groupId: group.id,
+          groupId: group,
         },
       })
-      const openRequests = async () => {
-        const { rows } = await pool.query<{ id: string; person_id: string }>(
-          `select id, person_id from follow_up_item
-            where relationship_id = $1 and kind = 'group_join_requested' and resolved_at is null`,
-          [group.id],
-        )
-        return rows
-      }
-      const [request] = await openRequests()
-      expect(request).toBeDefined()
 
-      await add(group.id, request!.person_id)
+    const requestsFor = async (group: string) => {
+      const { rows } = await pool.query<{
+        id: string
+        person_id: string
+        resolved_at: Date | null
+        resolved_by: string | null
+      }>(
+        `select id, person_id, resolved_at, resolved_by from follow_up_item
+          where relationship_id = $1 and kind = 'group_join_requested'`,
+        [group],
+      )
+      return rows
+    }
 
-      expect(await openMembership(group.id, request!.person_id)).toHaveLength(1)
-      expect(await openRequests()).toEqual([request])
+    it('is resolved in the same act by the Admin, with one membership, one text and one event', async () => {
+      const group = await aGroup({ joinRequiresApproval: true })
+      await asksToJoin(group.id, named('Priyan'), aTestPhoneNumber())
+      const [request] = await requestsFor(group.id)
+      expect(request).toMatchObject({ resolved_at: null })
+      const asker = request!.person_id
+      const toldBefore = await messagesTo(asker)
 
-      await service().execute({
-        type: 'relationship.admit',
-        ministryId: ministry.id,
-        itemId: followUpItemId(request!.id),
-        admittedBy: ministry.adminUserId,
-      })
+      await add(group.id, asker)
 
-      expect(await openRequests()).toEqual([])
-      expect(await openMembership(group.id, request!.person_id)).toHaveLength(1)
-      // Told once, when they joined, and not again when the request was closed.
+      // As an admitted request ends: closed, by the Admin, so it has left Intake forms.
+      const [resolved] = await requestsFor(group.id)
+      expect(resolved).toMatchObject({ id: request!.id, resolved_by: ministry.adminUserId })
+      expect(resolved!.resolved_at).not.toBeNull()
+
+      // There is no second membership.
+      expect(await openMembership(group.id, asker)).toEqual([{ role: 'participant', kind: 'group' }])
+
+      // Recorded in the Ministry's history, naming the Admin and the request.
+      const { rows: events } = await pool.query<{ type: string; payload: unknown }>(
+        `select type, payload from ministry_event
+          where subject_id = $1 and type like 'relationship.participant_%'`,
+        [group.id],
+      )
+      expect(events).toEqual([
+        {
+          type: 'relationship.participant_added',
+          payload: { personId: asker, addedBy: ministry.adminUserId, itemId: request!.id },
+        },
+      ])
+
+      // The one text a join already sends, and no other; the Disciple gets nothing.
       expect(await messagesTo(group.leader)).toHaveLength(1)
+      expect(await messagesTo(asker)).toEqual(toldBefore)
+
+      // Nothing is left to admit.
+      expect(
+        await refusalOfAdmission(
+          service().execute({
+            type: 'relationship.admit',
+            ministryId: ministry.id,
+            itemId: followUpItemId(request!.id),
+            admittedBy: ministry.adminUserId,
+          }),
+        ),
+      ).toBe('group.request_not_found')
+    })
+
+    it('leaves a request of theirs for a different group as it is', async () => {
+      const asked = await aGroup({ joinRequiresApproval: true })
+      const joined = await aGroup()
+      await asksToJoin(asked.id, named('Quentin'), aTestPhoneNumber())
+      const [request] = await requestsFor(asked.id)
+
+      await add(joined.id, request!.person_id)
+
+      expect(await openMembership(joined.id, request!.person_id)).toHaveLength(1)
+      expect(await requestsFor(asked.id)).toEqual([request])
+      expect(await openMembership(asked.id, request!.person_id)).toEqual([])
     })
   })
 

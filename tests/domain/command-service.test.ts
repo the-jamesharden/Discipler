@@ -229,6 +229,9 @@ describe('applying a command\'s effects', () => {
         joinRequest: async () => {
           throw new Error('not in this test')
         },
+        joinRequestOf: async () => {
+          throw new Error('not in this test')
+        },
         addLeaderToGroup: async () => {
           throw new Error('not in this test')
         },

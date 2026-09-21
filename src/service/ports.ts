@@ -353,6 +353,14 @@ export interface UnitOfWork {
    */
   joinRequest(itemId: FollowUpItemId): Promise<OpenJoinRequest | null>
   /**
+   * The open `group_join_requested` item one Person has for one group, locked, or
+   * null where they have none. Read so an Admin putting them into that group
+   * resolves it in the same act (Manual pairing, recut ticket 03). At most one: a
+   * request dedupes while it stands open. A request of theirs for another group is
+   * not this one.
+   */
+  joinRequestOf(personId: PersonId, relationshipId: RelationshipId): Promise<OpenJoinRequest | null>
+  /**
    * Adds one Participant to a relationship that already exists -- the mirror of a
    * departure. Refuses with a `PairingRefused` when the caps, the Intake gate or
    * the gender rule refuse the membership, exactly as formation does: the same

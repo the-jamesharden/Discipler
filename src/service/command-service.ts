@@ -733,7 +733,16 @@ const groupToAddTo = async (
     )
   }
 
-  return { groupToJoin, contacts: { people: await unit.contactsFor([command.personId]) } }
+  return {
+    groupToJoin,
+    contacts: { people: await unit.contactsFor([command.personId]) },
+    // A Disciple's open request for this same group, which the act resolves
+    // (Manual pairing, recut ticket 03). A Discipler asked to lead it never made
+    // one: a Join Request is to be discipled in a group.
+    ...(command.type === 'group.add_participant'
+      ? { joinRequest: await unit.joinRequestOf(command.personId, command.relationshipId) }
+      : {}),
+  }
 }
 
 /**

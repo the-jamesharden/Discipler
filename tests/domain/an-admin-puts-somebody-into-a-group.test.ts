@@ -8,7 +8,13 @@ import {
 import { createTestClock } from '~/domain/clock'
 import type { Effect } from '~/domain/effects'
 import { GroupJoinRefused } from '~/domain/errors'
-import { createSequentialIds, ministryId, personId, relationshipId } from '~/domain/ids'
+import {
+  createSequentialIds,
+  followUpItemId,
+  ministryId,
+  personId,
+  relationshipId,
+} from '~/domain/ids'
 import { roleNoun } from '~/domain/ministry-settings'
 import {
   groupJoinedMessage,
@@ -74,7 +80,20 @@ const thursdayTable = (over: Partial<RelationshipSnapshot> = {}): RelationshipSn
   ...over,
 })
 
-const add = (over: Partial<CommandContext> = {}, who = sam) =>
+/** What the command is handed: a running group, and no open Join Request of Sam's for it. */
+const handed = (over: Partial<CommandContext> = {}): CommandContext => ({
+  ministryId: ministry,
+  clock: createTestClock(now),
+  ids: createSequentialIds(),
+  ministryName: 'Riverside Chapel',
+  appBaseUrl: 'https://discipler.test',
+  groupToJoin: thursdayTable(),
+  joinRequest: null,
+  contacts: { people: new Map([[sam, { fullName: 'Sam Lee', phone: '+15550400' }]]) },
+  ...over,
+})
+
+const addWith = (context: CommandContext, who = sam) =>
   handleCommand(
     {
       type: 'group.add_participant',
@@ -83,17 +102,10 @@ const add = (over: Partial<CommandContext> = {}, who = sam) =>
       personId: who,
       addedBy: 'admin-user-1',
     },
-    {
-      ministryId: ministry,
-      clock: createTestClock(now),
-      ids: createSequentialIds(),
-      ministryName: 'Riverside Chapel',
-      appBaseUrl: 'https://discipler.test',
-      groupToJoin: thursdayTable(),
-      contacts: { people: new Map([[sam, { fullName: 'Sam Lee', phone: '+15550400' }]]) },
-      ...over,
-    },
+    context,
   )
+
+const add = (over: Partial<CommandContext> = {}, who = sam) => addWith(handed(over), who)
 
 const messages = (effects: readonly Effect[]) =>
   effects.flatMap((effect) => (effect.kind === 'message.enqueue' ? [effect.message] : []))
@@ -156,6 +168,65 @@ describe('an Admin putting a Disciple into a group', () => {
       'message.enqueue',
       'relationship.join',
     ])
+  })
+})
+
+/**
+ * Manual pairing, recut ticket 03, decided by James on 2026-09-20: an open Join
+ * Request of theirs for this group is resolved by the same act, as an admitted one
+ * ends, and silently. The join is still a join, so the one text its Leaders get is
+ * unchanged; resolving the request adds no message and removes none.
+ */
+describe('an open Join Request of theirs for the same group', () => {
+  const item = followUpItemId('00000000-0000-4000-8000-0000000000f1')
+  const asked = { joinRequest: { itemId: item, personId: sam, relationshipId: group } }
+
+  it('is resolved in the same act, by the Admin', () => {
+    const resolutions = add(asked).effects.flatMap((effect) =>
+      effect.kind === 'followUp.resolve' ? [effect.resolution] : [],
+    )
+
+    expect(resolutions).toEqual([
+      { ministryId: ministry, itemId: item, resolvedBy: 'admin-user-1', resolvedAt: now },
+    ])
+  })
+
+  it('is named in the one event, which still names the Admin, the Person and the group', () => {
+    expect(events(add(asked).effects)).toEqual([
+      expect.objectContaining({
+        type: 'relationship.participant_added',
+        subjectId: group,
+        payload: { personId: sam, addedBy: 'admin-user-1', itemId: item },
+      }),
+    ])
+  })
+
+  it('joins them once, and sends the one text a join already sends and no other', () => {
+    const { effects } = add(asked)
+
+    expect(effects.filter((effect) => effect.kind === 'relationship.join')).toHaveLength(1)
+    expect(messages(effects)).toEqual(messages(add().effects))
+    expect(messages(effects).some((message) => message.personId === sam)).toBe(false)
+  })
+
+  it('writes nothing but the resolution beside what a join writes', () => {
+    expect(add(asked).effects.map((effect) => effect.kind).sort()).toEqual([
+      'followUp.resolve',
+      'history.append',
+      'message.enqueue',
+      'relationship.join',
+    ])
+  })
+
+  it('fails loudly when it was not told whether there is one', () => {
+    const { joinRequest: _notTold, ...context } = handed()
+    expect(() => addWith(context)).toThrow(/open Join Request/)
+  })
+
+  it('fails loudly when handed a request about somebody else or another group', () => {
+    expect(() => add({ joinRequest: { ...asked.joinRequest, personId: emily } })).toThrow(
+      /another Person or group/,
+    )
   })
 })
 

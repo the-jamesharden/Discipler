@@ -1894,6 +1894,30 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     }
   },
 
+  async joinRequestOf(
+    asker: PersonId,
+    group: RelationshipId,
+  ): Promise<OpenJoinRequest | null> {
+    // Open, of the one kind, by this Person and for this group: the partial unique
+    // index a request is raised against holds that to one row. Locked, so an Admin
+    // admitting it at the same moment is refused by the resolution rather than
+    // resolving it a second time.
+    const { rows } = await client.query<{ id: string }>(
+      `select id
+         from follow_up_item
+        where person_id = $1
+          and relationship_id = $2
+          and kind = 'group_join_requested'
+          and resolved_at is null
+          for update`,
+      [asker, group],
+    )
+    const item = rows[0]
+    if (!item) return null
+
+    return { itemId: followUpItemId(item.id), personId: asker, relationshipId: group }
+  },
+
   async joinRelationship(membership: NewParticipantMembership) {
     // One row, as a Participant, carrying the relationship's own kind: the
     // composite key wants it and the domain is fenced from reading it, so it is
