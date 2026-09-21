@@ -12,6 +12,9 @@ Ticket 01 is the fix, so **Add as co-leader** gets no button before it.
 
 **Status:** ready-for-agent
 
+**Built:** 2026-09-21, on `integration/manual-pairing`, not merged to `main`.
+See *Implementer, 2026-09-21* under Comments.
+
 **Old tickets:** this is old ticket 26, whole; none of it is committed.
 Every criterion of it is below, unchanged.
 Here "old ticket NN" means a ticket of the earlier cuts, 01 to 27, kept under that number in `07-committed-already.md`, and existing code that says "Manual pairing, ticket NN" means those.
@@ -32,64 +35,64 @@ Every one of those conditions is an acceptance criterion below.
 
 ### The segment
 
-- [ ] At two ticked: **1:2 pair** · **2 × 1:1 pairs** · **Group**, defaulting to 1:2 pair.
-- [ ] At three or more the default moves to **Group**.
-- [ ] Group is a third segment in ticket 02's toggle state, not a second mechanism; the sticky-pick rule covers it.
-- [ ] A Discipler who already leads a group sees **Group** greyed with *{name} already leads a group*, as 1:2 already is.
+- [x] At two ticked: **1:2 pair** · **2 × 1:1 pairs** · **Group**, defaulting to 1:2 pair.
+- [x] At three or more the default moves to **Group**.
+- [x] Group is a third segment in ticket 02's toggle state, not a second mechanism; the sticky-pick rule covers it.
+- [x] A Discipler who already leads a group sees **Group** greyed with *{name} already leads a group*, as 1:2 already is.
 
 ### What Group asks
 
-- [ ] A **Women's · Men's · Coed** toggle directly under the shape toggle, preset from the Discipler's gender.
+- [x] A **Women's · Men's · Coed** toggle directly under the shape toggle, preset from the Discipler's gender.
   Coed is the screen's word for mixed, the model's `declared_gender = null`.
-- [ ] A Discipler with no gender on file presets nothing, and the button stays disabled until the Admin chooses.
+- [x] A Discipler with no gender on file presets nothing, and the button stays disabled until the Admin chooses.
   The screen never posts a declaration nobody made.
-- [ ] A name, required, with the placeholder `{First}'s Group`.
+- [x] A name, required, with the placeholder `{First}'s Group`.
   The placeholder is a hint and is never submitted as the name.
-- [ ] The primary button is disabled while the name is empty or only spaces.
-- [ ] One Material dropdown, No material first and the default, posted as the group's single Material.
+- [x] The primary button is disabled while the name is empty or only spaces.
+- [x] One Material dropdown, No material first and the default, posted as the group's single Material.
   It is the dropdown ticket 02 built, reused.
-- [ ] **No join-approval control.**
+- [x] **No join-approval control.**
   A group formed here takes the default, off; that switch stays on the Intake forms page (ADR-0017).
 
 ### Greying
 
-- [ ] Other-gender rows are greyed with *Women's group: choose Coed to include* (or *Men's*) until Coed is chosen, and then they open up.
-- [ ] Changing the gender toggle re-checks every row.
+- [x] Other-gender rows are greyed with *Women's group: choose Coed to include* (or *Men's*) until Coed is chosen, and then they open up.
+- [x] Changing the gender toggle re-checks every row.
   Anybody ticked who becomes greyed is unticked and named in the popup's line, through ticket 02's mechanism.
-- [ ] No gender on file is never greyed, under any of the three.
-- [ ] A Disciple already in a one-to-one, or already in another group, can be ticked for a Group.
+- [x] No gender on file is never greyed, under any of the three.
+- [x] A Disciple already in a one-to-one, or already in another group, can be ticked for a Group.
 
 ### Sentence and button
 
-- [ ] *Claire Martinez will lead a women's group of 3: Sam Lee, Ana Ruiz and Rosa Delgado.* **Create group of 3**, with the count and the gender word live.
-- [ ] Coed reads as a coed group, and the sentence never says a gender the toggle does not show.
+- [x] *Claire Martinez will lead a women's group of 3: Sam Lee, Ana Ruiz and Rosa Delgado.* **Create group of 3**, with the count and the gender word live.
+- [x] Coed reads as a coed group, and the sentence never says a gender the toggle does not show.
 
 ### Refusals and checks
 
-- [ ] A refusal restores the ticks, the shape, the gender, the name and the Material.
-- [ ] Posting without a declaration is still refused by the domain; a test posts the form without one and sees the refusal.
-- [ ] Over HTTP: a women's group of three forms with its name and declaration; a Coed group holds both genders; a women's group with a man posted anyway is refused and forms nothing.
-- [ ] Looked at in a browser beside mock state D at desktop and phone width, with the list still usable while the panel is open.
+- [x] A refusal restores the ticks, the shape, the gender, the name and the Material.
+- [x] Posting without a declaration is still refused by the domain; a test posts the form without one and sees the refusal.
+- [x] Over HTTP: a women's group of three forms with its name and declaration; a Coed group holds both genders; a women's group with a man posted anyway is refused and forms nothing.
+- [x] Looked at in a browser beside mock state D at desktop and phone width, with the list still usable while the panel is open.
 
 ## Groups in the popup, from a Discipler
 
 ### The rows
 
-- [ ] A **Groups** heading below the Disciples, then one row per group from old ticket 08's read, with a round mark.
-- [ ] Rows read as ticket 03's do: name, leaders, how many Disciples, declared gender, state when not running, and an unnamed group named as its leaders' group, *Ruth Bader's group* (James, 2026-09-21).
+- [x] A **Groups** heading below the Disciples, then one row per group from old ticket 08's read, with a round mark.
+- [x] Rows read as ticket 03's do: name, leaders, how many Disciples, declared gender, state when not running, and an unnamed group named as its leaders' group, *Ruth Bader's group* (James, 2026-09-21).
   Ticket 03's row is reused: see *Where things are now* in its Comments.
-- [ ] A group this Discipler is already in, in either role, is not listed.
-- [ ] The toolbar counts both: *7 disciples · 3 groups*.
+- [x] A group this Discipler is already in, in either role, is not listed.
+- [x] The toolbar counts both: *7 disciples · 3 groups*.
 
 ### One thing at a time
 
-- [ ] Ticking a Disciple clears a chosen group, and choosing a group clears every tick.
-- [ ] With a group chosen, the shape toggle, the gender toggle, the name and every Material dropdown are hidden.
-- [ ] **Clear** clears a chosen group as well as the ticks.
+- [x] Ticking a Disciple clears a chosen group, and choosing a group clears every tick.
+- [x] With a group chosen, the shape toggle, the gender toggle, the name and every Material dropdown are hidden.
+- [x] **Clear** clears a chosen group as well as the ticks.
 
 ### Greying
 
-- [ ] A group whose declaration rules this Discipler out is not listed at all, and is not counted.
+- [x] A group whose declaration rules this Discipler out is not listed at all, and is not counted.
   Reworded by James's decision of 2026-09-21, made while reviewing ticket 03; it read *is greyed with it (A men's group)*.
   In his words: "hidden for things that are against gender rules ... that woman should not have to see any of the male-only groups."
   The rule is built and tested already, for both sides: `groupLeftOut` in `app/roster/greying.ts`, which the Disciple's side applies in `app/roster/page.tsx`.
@@ -97,24 +100,107 @@ Every one of those conditions is an acceptance criterion below.
   **Not decided by that answer:** the Disciples' own rows on this side.
   They are still greyed for gender as this ticket says, *Women's group: choose Coed to include*, because Coed opens them again and that is how a coed group is made by hand.
   James was asked whether to hide those too and his answer spoke only of groups and of the popup from a Disciple; if he wants them hidden, that is his to say before this ticket's *Gender* criteria are built.
-- [ ] A Discipler who already leads a group sees **every group row** greyed with *{name} already leads a group*, beside the 1:2 and Group shapes that ticket 02 and the Group shape above already grey.
+- [x] A Discipler who already leads a group sees **every group row** greyed with *{name} already leads a group*, beside the 1:2 and Group shapes that ticket 02 and the Group shape above already grey.
   `leader_one_open_group` stands, and nothing here decides how it is lifted.
-- [ ] No gender on file is never greyed.
+- [x] No gender on file is never greyed.
 
 ### Sentence, button, submit
 
-- [ ] *Claire Martinez will co-lead Grace's Group with Grace Lee.* **Add as co-leader**.
+- [x] *Claire Martinez will co-lead Grace's Group with Grace Lee.* **Add as co-leader**.
   Several existing leaders are all named.
-- [ ] It posts to old ticket 22's route.
+- [x] It posts to old ticket 22's route.
   The Roster's receipt says an invitation was sent and that the group carries on meanwhile; it does not say Claire leads it yet.
-- [ ] A refusal reopens the popup with the reason and the chosen group restored.
+- [x] A refusal reopens the popup with the reason and the chosen group restored.
 
 ### Checked
 
-- [ ] Over HTTP: the Groups section for a Discipler who leads nobody and for one who already leads a group; the co-leader round trip; a refusal restored.
-- [ ] Looked at in a browser beside mock state G, scrolled to the bottom of the list, at desktop and phone width.
+- [x] Over HTTP: the Groups section for a Discipler who leads nobody and for one who already leads a group; the co-leader round trip; a refusal restored.
+- [x] Looked at in a browser beside mock state G, scrolled to the bottom of the list, at desktop and phone width.
 
 ## Comments
+
+### Implementer, 2026-09-21: built, what was decided while building, and four things for James
+
+Built straight through, in four commits on `integration/manual-pairing`: `f0b1ac4` (the Group shape), `7ffe950` (the groups under the Disciples, and **Add as co-leader**), `fd9a16b` (a short phone) and `723fd33` (what the two reviews found).
+No migration, no new refusal code, no word sent to a phone, and no rule removed.
+Code and tests written for it say "Manual pairing, recut ticket 04".
+The Discipler's side is still reached only by its address; ticket 05 links it.
+
+**Where things are.**
+
+- `app/roster/pair-shape.ts` holds all of it, pure, as ticket 02 left it: `group` is a third `PairShape`, drawn last (`SHAPES`) and looked for second as a default (`DEFAULTS`), so two are a 1:2 pair, three or more are a Group, and a Discipler who already leads a group gets N × 1:1.
+  The selection gained what a Group is asked, `declared` and `name`, and the one other thing the popup does from here, `groupId`.
+  `canBePosted` is the button's rule.
+  `tests/app/pair-shape.test.ts` drives every criterion that needs script.
+- A Group's rows are read against what its toggle says, three more keys on each row's `greyed` (`READ_AS_A_GROUP`), decided by `greyedInAGroup` in `app/roster/greying.ts` and worded by `PAIR_POPUP.greyed`.
+- How a declaration is spelled, `GroupDeclaration` and `GROUP_DECLARATIONS`, lives with the field it is posted as, in `app/roster/declared-gender.ts`.
+- The gender toggle is three real radios named `declaredGender`, and the name is a text field named `name`, which are the fields the pairing route has always read, so the route forms a Group with no change.
+  It gained only the way back: a Group posts `shape=group`, and a refusal returns that with its declaration and its name, which is how the popup tells a Group from the 1:2 pair two ticks default to.
+  A 1:2 pair's generated name and declaration still never come back.
+- The group rows are ticket 03's `PairGroups`, unedited.
+  `listedGroup` in `app/roster/page.tsx` maps a group for either side, and `app/roster/pair/join-as.ts` names the `as` field and its two words once, for the popup and the join route.
+- New over-HTTP suite: `tests/integration/the-groups-in-the-pair-popup-from-a-discipler-over-http.test.ts`.
+  The Group shape's are in `the-pair-popup-from-a-discipler-over-http.test.ts`.
+
+**Checked.**
+`tests/app`: the five files this touches, 172 tests.
+Typecheck clean for every file of this ticket; the whole tree does not typecheck today because of another session's uncommitted work on ticket 06 in the same checkout, none of it this ticket's.
+Over HTTP through `scripts/locked-tests.sh`, from a clean worktree of `723fd33` so that the other session's work was not in the build: ten suites, 135 tests, none failed and none skipped.
+They are the two Discipler popup suites, the two Disciple popup suites, both `an-admin-puts-somebody-into-a-group` suites, `pairing-over-http`, `a-material-chosen-at-pairing-over-http`, `a-group-declares-its-gender` and `joining-a-group-over-http`.
+The run before it failed four tests on timeouts and no assertion, with the machine's load average near 190 from other sessions; it passed once the machine was quiet.
+The whole suite has not run on this ticket; `scripts/locked-tests.sh --times 3` is owed before this branch goes to `main`.
+Looked at live and hydrated in Chrome beside mock states D and G, at desktop width and in a 390px frame at 844px and 664px high: the struck 1:2 and its hint, Women's preset, the placeholder, the button waiting for a name that is more than spaces, Coed opening a man's row and Women's unticking him with the line, the list still usable with the panel open, the Groups heading and square avatars scrolled to the bottom, a chosen group clearing ticks and the other way round, **Clear**, and every group row and both group shapes greyed for a Discipler who already leads one.
+At 664px high the Group's panel made the box scroll itself by 25px and cut its button; `fd9a16b` stands the labels closer under 700px, for every shape on this side, and it fits.
+
+**Decided here, each the conservative reading, with the alternative.**
+
+1. **The gender toggle is the Group's for as long as the shape is a Group, and the preset again whenever it is not.**
+   The ticket's conditions are that the answer is visible and stated in words.
+   A Coed chosen earlier and still held while a 1:2 pair is on screen would open men's rows with nothing on screen saying why.
+   So every time the shape becomes a Group the toggle starts from the Discipler.
+   The alternative is to remember it for the life of the popup.
+2. **Changing the gender toggle keeps the shape a Group**, as picking the segment would.
+   Found in the model: with a woman and a man ticked as a Coed Group of two, choosing Women's let the default go looking for another shape, and he was unticked with a 1:2 pair's reason while the toggle vanished.
+3. **The one Material follows ticket 02's rule**: kept while the shape stays what it was, and **No material** each time the shape becomes a 1:2 pair or a Group, from the other included.
+4. **The name is kept as typed while ticks and shapes change, and Clear forgets it.**
+   It greys nobody, and losing it to a stray untick costs the Admin retyping.
+   It is restored from a refusal only for a Group.
+5. **With nothing declared, which only a Discipler with no gender on file can reach, no row is greyed for gender and the sentence says *a group of 3*.**
+   Such a Discipler cannot open the popup today, since Intake asks gender, so this is proved on the pure model, as ticket 02's third item was.
+6. **Choosing a group is Clear and then the group**: the ticks, the shape, the name and every Material go.
+   A press on a greyed group, or a tick that is refused, changes nothing.
+7. **With a refused join restored, every Disciple's box is held until script runs**, as ticket 03 holds the Disciplers, because the form points at the join route and a tick beside the group would be posted there and ignored.
+8. **The Roster's vocabulary test lets *co-leader* through, and only that.**
+   `tests/app/roster-vocabulary.test.ts` forbids the model's word Leader anywhere in the Roster's copy, and the button the spec and mock state G give is **Add as co-leader**.
+   The Discipler's own page already says *(co-leader)*.
+   The test now pins both directions: *Add as leader* still fails.
+   The alternative is another word on the button, which is yours.
+9. **A real refused join never comes back with its group still chosen.**
+   Everything that refuses a Discipler either takes the group off their list (ended, already in it, its declaration) or greys every group (they already lead one).
+   So *the chosen group restored* is proved from the address the route redirects to, as ticket 03 did it, and the two real round trips prove the reason in words and that a group not on the list is not restored.
+
+**For James.**
+
+1. **Still open from ticket 03: a Disciple's row of another gender, from a Discipler, is greyed and not hidden.**
+   Built as this ticket's criteria say, *Women's group: choose Coed to include*, because Coed opens the row again.
+   If you want them hidden as they are from a Disciple, it is one filter where the rows are drawn, and the rows would appear when Coed is chosen.
+2. **Coed can only be reached after two same-gender ticks.** Found by the spec review.
+   The toggle shows at two ticks, and while the Ministry enforces the match a man can never be a woman Discipler's first or second tick: he is greyed for a 1:1, for her 1:2 and for her Group as preset.
+   So a coed group is made by ticking two women, picking Group, choosing Coed, and then ticking the men; and a woman Discipler whose Disciples are all men cannot make one at all.
+   This follows from the spec as written (*Hidden while zero or one Disciple is ticked*), and is the same question as 1 from the other side.
+   One way out, if you want it: show the shape toggle from the first tick when Group could apply.
+   That is new UI, so it would be a mock-up first.
+3. **All three gender segments can be picked, whoever the Discipler is.** Found by both reviews.
+   A declaration binds the leader too, so *Men's* under Claire can only end in the database's refusal, *Somebody selected is not of the gender this pairing was declared to be*, where the somebody is Claire.
+   Under a woman it also unticks every woman, which hides the toggle again.
+   The ticket says only *preset from the Discipler, changeable*, and the mock draws three plain segments, so nothing was greyed.
+   The smallest fix is to grey the one segment the Discipler's own gender rules out, which needs a line of words under it, and those are yours.
+4. **Coed is not in `CONTEXT.md`.**
+   The screen says it in two places now, a group's row and the toggle.
+   A glossary line is a domain-modeling change and was left alone.
+
+Left as they are, on purpose, from the standards review: the five small `PairShape` cascades (`segment`, `readAs`, `modeOf`, `holdsOneMaterial`, the sentence), which a per-shape record would gather and which read plainly as they are; `postedByAGroup` as a one-entry record, beside `postedByAOneToTwo`; and the one inline `leadsAGroup(...) ? words : null` in the page, since the rule is `leadsAGroup` in `greying.ts` and the page only words it.
+Fixed from it, in `723fd33`: a doc comment in the pairing route that the new lines had orphaned; the name restored unguarded where the declaration was guarded; the mixed declaration spelled three ways; `coLead` copying `joinGroup`'s two conditions, now `inASentence`; and the refusal's wording chosen twice in the page.
 
 **2026-09-18, D1 decided.**
 James: yes, the declaration defaults from the chosen Discipler.
