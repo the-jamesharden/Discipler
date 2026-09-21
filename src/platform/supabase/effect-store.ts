@@ -307,6 +307,19 @@ const pausedColumn = `coalesce(
 //
 // Open memberships only. Whoever has left is not in the set a token resolves to
 // and is not somebody a resume writes to.
+// Whether a live relationship, aliased `r`, is still to be accepted by somebody:
+// not activated, or running with a Leader added since who has not answered
+// (Manual pairing, ticket 22). Said once, because the tick reads with it and the
+// item the tick raises is checked against it again before it is written.
+const stillToBeAccepted = `r.ended_at is null
+          and (r.accepted_at is null
+               or exists (select 1
+                            from relationship_member w
+                           where w.relationship_id = r.id
+                             and w.role = 'leader'
+                             and w.ended_at is null
+                             and w.accepted_at is null))`
+
 const openMembersOfRelationship = `select m.person_id, m.role, p.full_name, p.phone, m.accepted_at
      from relationship_member m
      join person p on p.id = m.person_id
@@ -1289,6 +1302,19 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     )
     const intended = locked[0]?.intended_material_id ?? null
 
+    // The item five days of silence raised, which the acceptance that leaves
+    // nobody still to answer closes. At most one stands open: the tick raises
+    // none while one does.
+    const { rows: unanswered } = await client.query<{ id: string }>(
+      `select id from follow_up_item
+        where relationship_id = $1
+          and kind = 'relationship_unaccepted'
+          and resolved_at is null
+        order by raised_at, id
+        limit 1`,
+      [invitation.relationship_id],
+    )
+
     // A token naming a relationship its holder has since left resolves to a set
     // they are not in, and the boundary refuses it.
     const { rows: members } = await client.query<{
@@ -1305,6 +1331,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       expiresAt: invitation.expires_at,
       consumedAt: invitation.consumed_at,
       relationshipAcceptedAt: locked[0]?.accepted_at ?? null,
+      unansweredItemId: unanswered[0] ? followUpItemId(unanswered[0].id) : null,
       intendedMaterialId: intended === null ? null : materialId(intended),
       members: members.map((row) => ({
         personId: personId(row.person_id),
@@ -1583,6 +1610,26 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // The index is named rather than left to `on conflict do nothing`, which would
     // swallow a collision on any constraint on the table and turn a real fault into
     // a silent no-op.
+
+    // An unanswered invitation is looked at again before it is said. The tick
+    // decides from a read and raises a moment later, and the acceptance that
+    // closes this item may land in between: raised after it, the item would say
+    // somebody has not accepted who has, and nothing would ever close it.
+    //
+    // The row an acceptance holds is taken first, so one in flight is waited for
+    // and the look after it sees what it wrote. Ministry lock and then this row is
+    // the order the tick and an acceptance already take the two in.
+    if (item.kind === 'relationship_unaccepted') {
+      await client.query(`select 1 from relationship where id = $1 for share`, [
+        item.relationshipId,
+      ])
+      const { rows: stillWaiting } = await client.query(
+        `select 1 from relationship r where r.id = $1 and ${stillToBeAccepted}`,
+        [item.relationshipId],
+      )
+      if (stillWaiting.length === 0) return
+    }
+
     await client.query(
       `insert into follow_up_item
          (ministry_id, kind, person_id, relationship_id, raised_at, payload)
@@ -1662,17 +1709,9 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
                    and f.resolved_at is null
               ) as item_stands_open
          from relationship r
-        -- Still to be accepted by somebody: not activated, or running with a
-        -- Leader added since who has not answered. The second is what lets an
-        -- Admin send that Leader a new link, which re-issuing reads from here.
-        where r.ended_at is null
-          and (r.accepted_at is null
-               or exists (select 1
-                            from relationship_member w
-                           where w.relationship_id = r.id
-                             and w.role = 'leader'
-                             and w.ended_at is null
-                             and w.accepted_at is null))
+        -- A running one with a Leader still to answer is what lets an Admin send
+        -- that Leader a new link, which re-issuing reads from here.
+        where ${stillToBeAccepted}
         order by r.created_at`,
     )
 

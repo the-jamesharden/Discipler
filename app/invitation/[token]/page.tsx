@@ -41,9 +41,6 @@ export default async function InvitationPage({
     participantCount,
   } = invitation
   const problem = invitationProblemMessage(error)
-  // The reader already scoped this to the other side of the relationship: the
-  // Participants to a Leader, the Leaders to a Participant.
-  const matchedWith = withNames
   const coLeaders = leadingWithSentence(leadingWith)
 
   /**
@@ -87,7 +84,11 @@ export default async function InvitationPage({
   return (
     <Centred subtitle={ministryName}>
       {/* The reveal, above everything. Nothing below is asked until this is read. */}
-      <h1>{`You’ve been matched with ${asList(matchedWith)}`}</h1>
+      {/*
+        The reader already scoped `withNames` to the other side of the relationship:
+        the Participants to a Leader, the Leaders to a Participant.
+      */}
+      <h1>{`You’ve been matched with ${asList(withNames)}`}</h1>
 
       <div>
         {problem ? (

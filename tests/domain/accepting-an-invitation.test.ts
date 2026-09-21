@@ -8,7 +8,13 @@ import {
 } from '~/domain/boundary'
 import { createTestClock } from '~/domain/clock'
 import { InvitationRefused } from '~/domain/errors'
-import { createSequentialIds, ministryId, personId, relationshipId } from '~/domain/ids'
+import {
+  createSequentialIds,
+  followUpItemId,
+  ministryId,
+  personId,
+  relationshipId,
+} from '~/domain/ids'
 import { invitationToken } from '~/domain/invitations'
 
 const ministry = ministryId('00000000-0000-4000-8000-0000000000aa')
@@ -33,6 +39,7 @@ const snapshot = (over: Partial<InvitationSnapshot> = {}): InvitationSnapshot =>
   expiresAt,
   consumedAt: null,
   relationshipAcceptedAt: null,
+  unansweredItemId: null,
   intendedMaterialId: null,
   members: [leader(david, 'David Ellis'), participant(emily, 'Emily Johnson')],
   ...over,
@@ -179,6 +186,70 @@ describe('a co-leader accepting on a group already running', () => {
 
     expect(acceptance(result).activatesRelationship).toBe(false)
     expect(enqueued(result)).toEqual([])
+  })
+})
+
+describe('the item an unanswered invitation raised', () => {
+  // After five days the tick tells an Admin somebody has not accepted. It is about
+  // the relationship and not one Leader, so it stands until nobody is left to
+  // answer -- and then it is untrue, and its one action, Cancel, is refused.
+  const item = followUpItemId('00000000-0000-4000-8000-0000000000f1')
+  const activatedAt = new Date('2026-01-05T09:00:00Z')
+  const resolutions = (result: ReturnType<typeof accept>) =>
+    result.effects.flatMap((e) => (e.kind === 'followUp.resolve' ? [e.resolution] : []))
+  const resolvedEvents = (result: ReturnType<typeof accept>) =>
+    result.effects.flatMap((e) =>
+      e.kind === 'history.append' && e.event.type === 'follow_up.resolved' ? [e.event] : [],
+    )
+
+  it('is closed by the acceptance it was waiting for, with no Admin on it', () => {
+    const result = accept(snapshot({ unansweredItemId: item }))
+
+    expect(resolutions(result)).toEqual([
+      { ministryId: ministry, itemId: item, resolvedBy: null, resolvedAt: now },
+    ])
+    expect(resolvedEvents(result)).toMatchObject([
+      { subjectType: 'follow_up_item', subjectId: item, payload: { resolvedBy: null, by: 'acceptance' } },
+    ])
+  })
+
+  it('is closed by a co-leader accepting on a group already running', () => {
+    const result = accept(
+      snapshot({
+        relationshipAcceptedAt: activatedAt,
+        unansweredItemId: item,
+        members: [
+          leader(david, 'David Ellis'),
+          leader(sarah, 'Sarah Kim', activatedAt),
+          participant(emily, 'Emily Johnson'),
+        ],
+      }),
+    )
+
+    expect(resolutions(result).map((resolution) => resolution.itemId)).toEqual([item])
+    // And still nothing is sent, and nothing activates.
+    expect(enqueued(result)).toEqual([])
+    expect(acceptance(result).activatesRelationship).toBe(false)
+  })
+
+  it('stands while another Leader has still to answer', () => {
+    const result = accept(
+      snapshot({
+        unansweredItemId: item,
+        members: [
+          leader(david, 'David Ellis'),
+          leader(sarah, 'Sarah Kim'),
+          participant(emily, 'Emily Johnson'),
+        ],
+      }),
+    )
+
+    expect(resolutions(result)).toEqual([])
+    expect(resolvedEvents(result)).toEqual([])
+  })
+
+  it('is nothing to close where none was raised', () => {
+    expect(resolutions(accept())).toEqual([])
   })
 })
 

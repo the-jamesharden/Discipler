@@ -645,6 +645,13 @@ export interface InvitationSnapshot {
    */
   readonly relationshipAcceptedAt: Date | null
   /**
+   * The open `relationship_unaccepted` item about this relationship, or null
+   * where the tick has raised none. There is at most one: it is the
+   * relationship's and not one Leader's, and the tick raises none while one
+   * stands open.
+   */
+  readonly unansweredItemId: FollowUpItemId | null
+  /**
    * The Material an Admin chose while forming this relationship, or null where
    * none was or it has been spent. As the column holds it: whether that Material
    * is still on the Ministry's list is decided at the boundary against
@@ -4891,9 +4898,10 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       // activation, and a second one would introduce the Participants to a
       // relationship they are already in. The group's existing Leaders are sent
       // nothing either.
-      const activatesRelationship =
-        invitation.relationshipAcceptedAt === null &&
-        leaders.every((leader) => leader.personId === me.personId || leader.acceptedAt !== null)
+      const lastToAgree = leaders.every(
+        (leader) => leader.personId === me.personId || leader.acceptedAt !== null,
+      )
+      const activatesRelationship = invitation.relationshipAcceptedAt === null && lastToAgree
 
       const effects: Effect[] = [
         acceptInvitation({
@@ -4915,6 +4923,32 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           payload: { personId: me.personId, activated: activatesRelationship },
         }),
       ]
+
+      // The item the tick raised after five days of silence, closed by the answer
+      // it was waiting for. It is the relationship's and not one Leader's, so it
+      // stands until nobody is left to answer, whether that activates the
+      // relationship or is a Leader added to one already running. Left open it
+      // would tell an Admin somebody has not accepted who has, beside a Cancel the
+      // relationship now refuses. It carries no Admin, because no Admin performed
+      // it; the event says what did.
+      if (lastToAgree && invitation.unansweredItemId !== null) {
+        effects.push(
+          resolveFollowUpItem({
+            ministryId: command.ministryId,
+            itemId: invitation.unansweredItemId,
+            resolvedBy: null,
+            resolvedAt: now,
+          }),
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'follow_up.resolved',
+            subjectType: 'follow_up_item',
+            subjectId: invitation.unansweredItemId,
+            payload: { resolvedBy: null, by: 'acceptance' },
+          }),
+        )
+      }
 
       if (!activatesRelationship) return { rejections: [], effects }
 

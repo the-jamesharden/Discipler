@@ -221,6 +221,7 @@ const invitation = (over: Partial<InvitationSnapshot> = {}): InvitationSnapshot 
   expiresAt: new Date('2026-03-16T09:00:00Z'),
   consumedAt: null,
   relationshipAcceptedAt: null,
+  unansweredItemId: null,
   intendedMaterialId: null,
   members: [
     invitedLeader(david, 'David Ellis'),

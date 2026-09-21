@@ -91,7 +91,12 @@ describe('a co-leader accepts on a group already running', () => {
     return rows[0].token
   }
 
-  const accept = async (group: string, person: string) => {
+  const accept = async (
+    group: string,
+    person: string,
+    within: MinistryFixture = ministry,
+    clock: Clock = systemClock,
+  ) => {
     const token = await liveToken(group, person)
     const { data, error } = await serviceRoleClient().auth.admin.createUser({
       phone: aTestPhoneNumber(),
@@ -99,9 +104,9 @@ describe('a co-leader accepts on a group already running', () => {
       phone_confirm: true,
     })
     if (error) throw new Error(error.message)
-    return service().execute({
+    return service(clock).execute({
       type: 'relationship.accept',
-      ministryId: ministry.id,
+      ministryId: within.id,
       token: invitationToken(token),
       fullName: 'As Given',
       userId: data.user.id,
@@ -175,6 +180,28 @@ describe('a co-leader accepts on a group already running', () => {
     const sent = new Map<string, readonly string[]>()
     for (const person of [group.leader, ...group.disciples]) sent.set(person, await messagesTo(person))
     return sent
+  }
+
+  /** A group formed by the product and awaiting its first leader, with a co-leader added since. */
+  const formedAwaiting = async () => {
+    const first = await aDiscipler()
+    const disciples = [
+      await addPerson(ministry, named('Emil'), { phone: aTestPhoneNumber(), answers: { gender: 'male' } }),
+      await addPerson(ministry, named('Felix'), { phone: aTestPhoneNumber(), answers: { gender: 'male' } }),
+    ]
+    const { effects } = await service().execute({
+      type: 'relationship.create',
+      ministryId: ministry.id,
+      leaderIds: [personId(first)],
+      participantIds: disciples.map((disciple) => personId(disciple)),
+      declaredGender: 'male',
+      name: named('Awaiting'),
+    })
+    const created = effects.find((effect) => effect.kind === 'relationship.create')
+    if (created?.kind !== 'relationship.create') throw new Error('no group was formed')
+    const claire = await aDiscipler()
+    await addLeader(created.relationship.id, claire)
+    return { id: created.relationship.id as string, first, claire, disciples }
   }
 
   describe('on a group that is running', () => {
@@ -275,27 +302,6 @@ describe('a co-leader accepts on a group already running', () => {
   })
 
   describe('on a group still awaiting its first leader', () => {
-    const formedAwaiting = async () => {
-      const first = await aDiscipler()
-      const disciples = [
-        await addPerson(ministry, named('Emil'), { phone: aTestPhoneNumber(), answers: { gender: 'male' } }),
-        await addPerson(ministry, named('Felix'), { phone: aTestPhoneNumber(), answers: { gender: 'male' } }),
-      ]
-      const { effects } = await service().execute({
-        type: 'relationship.create',
-        ministryId: ministry.id,
-        leaderIds: [personId(first)],
-        participantIds: disciples.map((disciple) => personId(disciple)),
-        declaredGender: 'male',
-        name: named('Awaiting'),
-      })
-      const created = effects.find((effect) => effect.kind === 'relationship.create')
-      if (created?.kind !== 'relationship.create') throw new Error('no group was formed')
-      const claire = await aDiscipler()
-      await addLeader(created.relationship.id, claire)
-      return { id: created.relationship.id as string, first, claire, disciples }
-    }
-
     const expectItActivatedOnce = async (group: Awaited<ReturnType<typeof formedAwaiting>>) => {
       expect((await theGroupItself(group.id)).accepted_at).not.toBeNull()
       expect((await eventTypesOn(group.id)).filter((type) => type === 'relationship.activated')).toHaveLength(1)
@@ -341,38 +347,17 @@ describe('a co-leader accepts on a group already running', () => {
 
   describe('on a group still awaiting its first leader, both at the same moment', () => {
     it('activates once, with one Starter Message', async () => {
-      const first = await aDiscipler()
-      const disciple = await addPerson(ministry, named('Emil'), {
-        phone: aTestPhoneNumber(),
-        answers: { gender: 'male' },
-      })
-      const other = await addPerson(ministry, named('Felix'), {
-        phone: aTestPhoneNumber(),
-        answers: { gender: 'male' },
-      })
-      const { effects } = await service().execute({
-        type: 'relationship.create',
-        ministryId: ministry.id,
-        leaderIds: [personId(first)],
-        participantIds: [personId(disciple), personId(other)],
-        declaredGender: 'male',
-        name: named('Racing'),
-      })
-      const created = effects.find((effect) => effect.kind === 'relationship.create')
-      if (created?.kind !== 'relationship.create') throw new Error('no group was formed')
-      const group = created.relationship.id as string
-      const claire = await aDiscipler()
-      await addLeader(group, claire)
+      const group = await formedAwaiting()
 
       const racers = await Promise.all(
-        [first, claire].map(async (person) => {
+        [group.first, group.claire].map(async (person) => {
           const { data, error } = await serviceRoleClient().auth.admin.createUser({
             phone: aTestPhoneNumber(),
             password: 'a-long-enough-password',
             phone_confirm: true,
           })
           if (error) throw new Error(error.message)
-          return { token: await liveToken(group, person), userId: data.user.id }
+          return { token: await liveToken(group.id, person), userId: data.user.id }
         }),
       )
 
@@ -415,10 +400,9 @@ describe('a co-leader accepts on a group already running', () => {
         ),
       )
 
-      expect((await theGroupItself(group)).accepted_at).not.toBeNull()
-      expect((await eventTypesOn(group)).filter((type) => type === 'relationship.activated')).toHaveLength(1)
-      expect(await messagesTo(disciple)).toHaveLength(1)
-      expect(await messagesTo(other)).toHaveLength(1)
+      expect((await theGroupItself(group.id)).accepted_at).not.toBeNull()
+      expect((await eventTypesOn(group.id)).filter((type) => type === 'relationship.activated')).toHaveLength(1)
+      for (const disciple of group.disciples) expect(await messagesTo(disciple)).toHaveLength(1)
     })
   })
 
@@ -472,6 +456,81 @@ describe('a co-leader accepts on a group already running', () => {
       ])
       // Still running, and still led by the leader it has.
       expect((await theGroupItself(group.id)).accepted_at).not.toBeNull()
+
+      // And the answer it was waiting for closes it, with no Admin on it. **Cancel**
+      // is refused on a running group, so left open it could only be dismissed.
+      on(days(6))
+      await accept(group.id, claire, quiet, clock)
+
+      expect(await openItemsOn(group.id)).toEqual([])
+      const { rows: closed } = await pool.query<{ resolved_by: string | null }>(
+        `select resolved_by from follow_up_item
+          where relationship_id = $1 and kind = 'relationship_unaccepted'`,
+        [group.id],
+      )
+      expect(closed).toEqual([{ resolved_by: null }])
+    })
+
+    it('stands while a second co-leader has still to answer, and closes with the last of them', async () => {
+      const quiet = await createMinistryWithAdmin('The Patient Chapel')
+      const started = new Date()
+      const clock = createTestClock(started)
+      const group = await aGroup({ in: quiet })
+      const claire = await aDiscipler(quiet)
+      const tom = await aDiscipler(quiet)
+      await addLeader(group.id, claire, quiet, clock)
+      await addLeader(group.id, tom, quiet, clock)
+
+      clock.advanceTo(new Date(started.getTime() + days(5)))
+      await service(clock).execute({ type: 'scheduled.tick', ministryId: quiet.id })
+      const unanswered = async () =>
+        (await openItemsOn(group.id)).filter((item) => item.kind === 'relationship_unaccepted')
+      expect(await unanswered()).toHaveLength(1)
+
+      // It is the group's item and not Claire's: Tom has still said nothing.
+      await accept(group.id, claire, quiet, clock)
+      expect(await unanswered()).toHaveLength(1)
+
+      await accept(group.id, tom, quiet, clock)
+      expect(await unanswered()).toEqual([])
+    })
+  })
+
+  describe('a tick that decided before an acceptance and writes after it', () => {
+    // The tick reads who has not answered, and raises its item a moment later. An
+    // acceptance landing in between would leave an item nothing closes, so the
+    // raise looks again, behind the lock an acceptance holds.
+    const raiseUnanswered = (group: string) =>
+      store.transact(ministry.id, (unit) =>
+        unit.raiseFollowUp({
+          ministryId: ministry.id,
+          kind: 'relationship_unaccepted',
+          relationshipId: relationshipId(group),
+          personId: null,
+          raisedAt: new Date(),
+        }),
+      )
+    const unanswered = async (group: string) =>
+      (await openItemsOn(group)).filter((item) => item.kind === 'relationship_unaccepted')
+
+    it('raises nothing about a group everybody has accepted', async () => {
+      const group = await aGroup()
+      const claire = await aDiscipler()
+      await addLeader(group.id, claire)
+      await accept(group.id, claire)
+
+      await raiseUnanswered(group.id)
+
+      expect(await unanswered(group.id)).toEqual([])
+    })
+
+    it('still raises it while somebody has yet to answer', async () => {
+      const group = await aGroup()
+      await addLeader(group.id, await aDiscipler())
+
+      await raiseUnanswered(group.id)
+
+      expect(await unanswered(group.id)).toHaveLength(1)
     })
   })
 
