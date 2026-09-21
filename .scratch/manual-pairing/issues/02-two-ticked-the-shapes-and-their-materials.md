@@ -203,6 +203,7 @@ A refusal's address says `mode=together` for a 1:2 and will for a Group, so tick
 3. **A Discipler with no gender on file cannot open the popup today**, so *posts no declaration* is proved on the pure function and, over HTTP, by posting a 1:2 with no declaration.
    The refusal they would read is the group's: *Say whether this is a men's group, a women's group, or a mixed one.*
    Nothing in this ticket's popup lets an Admin say so; ticket 04's Group shape will.
+   **James, 2026-09-20:** gender is part of Intake, so this works as it is, and nothing here is owed.
 4. **In a Ministry that does not enforce the match, *Other-gender rows are greyed while 1:2 is selected* holds for the two ticked and not for the rows beside them.**
    With a 1:2 selected, an unticked man's row is open, because ticking him makes 3 × 1:1, which he can be one of.
    That follows from reading 1 and is the literal criterion's only exception.
