@@ -1529,6 +1529,16 @@ export interface FollowUpCareItem {
    */
   readonly waitedDays: number | null
   /**
+   * For an invitation nobody has answered, and null on every other kind: the
+   * Leaders still to answer, by name, and whether the relationship is running
+   * meanwhile. An Admin may add a Leader to a group already running (Manual
+   * pairing, ticket 22), and there the item is about somebody invited and not
+   * about a relationship held up: nothing to cancel, and `waitedDays` is null,
+   * because the relationship's age is not how long they have waited and the
+   * history does not carry when their membership began.
+   */
+  readonly awaiting: { readonly names: readonly string[]; readonly running: boolean } | null
+  /**
    * The kind and what it carries, as one value. Not a `kind` field beside a
    * payload: those are two things that can disagree, and only one of them can be
    * narrowed by the compiler at the point a screen reads the period out.

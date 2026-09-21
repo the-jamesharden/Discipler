@@ -132,7 +132,9 @@ const Item = ({ item, revealed }: { readonly item: CareNeededItem; readonly reve
           <span className="fu-tag review">{followUpTag[kind]}</span>
           {item.personName ? <span className="fu-who">{item.personName}</span> : null}
         </div>
-        <p className="fu-line">{followUpLine(item.payload, item.personName, item.waitedDays)}</p>
+        <p className="fu-line">
+          {followUpLine(item.payload, item.personName, item.waitedDays, item.awaiting)}
+        </p>
         <div className="fu-actions">
           {item.personId && kind !== 'relationship_unaccepted' ? (
             <ContactReveal
@@ -160,7 +162,11 @@ const Item = ({ item, revealed }: { readonly item: CareNeededItem; readonly reve
               {PAIR_BY_HAND}
             </Link>
           ) : null}
-          {relationship && kind === 'relationship_unaccepted' ? (
+          {/*
+            Not on a group already running, where cancelling is refused: it would
+            end the group over one Leader who has not answered.
+          */}
+          {relationship && kind === 'relationship_unaccepted' && !item.awaiting?.running ? (
             <form method="post" action="/follow-up/relationship/cancel">
               <input type="hidden" name="relationshipId" value={relationship} />
               <button type="submit" className="fu-btn danger">

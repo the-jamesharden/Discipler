@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { personId, relationshipId } from '~/domain/ids'
 import { eligibleFor, type KeywordRelationship } from '~/domain/keywords'
+import { createTestClock } from '~/domain/clock'
 import { countsAsLeading } from '~/domain/relationships'
+import { followUpItemsFrom } from '~/platform/supabase/care-needed-reader'
 import { membersFrom, type HistoryInputs } from '~/platform/supabase/relationship-history'
 
 /**
@@ -67,6 +69,64 @@ describe('the leaders an Admin’s tabs name', () => {
     const members = drifted.members.map(({ accepted_at: _dropped, ...row }) => row)
 
     expect(() => membersFrom({ ...drifted, members })).toThrow(/without its own acceptance/)
+  })
+})
+
+describe('the item that says an invitation has gone unanswered', () => {
+  // Manual pairing, recut ticket 01. The item was written for a relationship
+  // nobody had activated, and a co-leader on a running group raises it too.
+  const group = '00000000-0000-4000-8000-0000000000b2'
+  const created = '2025-09-01T09:00:00+00:00'
+  const history = (relationshipAcceptedAt: string | null): HistoryInputs => ({
+    timeZone: 'America/New_York',
+    relationships: [{ id: group, created_at: created, accepted_at: relationshipAcceptedAt }],
+    members: [
+      { relationship_id: group, person_id: 'ruth', role: 'leader', accepted_at: relationshipAcceptedAt },
+      { relationship_id: group, person_id: 'claire', role: 'leader', accepted_at: null },
+      { relationship_id: group, person_id: 'emily', role: 'participant', accepted_at: null },
+    ],
+    people: [
+      { id: 'ruth', full_name: 'Ruth Adeyemi' },
+      { id: 'claire', full_name: 'Claire Martinez' },
+      { id: 'emily', full_name: 'Emily Johnson' },
+    ],
+    weeks: [],
+    concerns: [],
+    pauses: [],
+    answers: [],
+    followUps: [
+      {
+        id: '00000000-0000-4000-8000-0000000000f2',
+        kind: 'relationship_unaccepted',
+        raised_at: '2026-03-08T09:00:00+00:00',
+        relationship_id: group,
+        person_id: null,
+        payload: {},
+      },
+    ],
+  })
+  const clock = createTestClock(new Date('2026-03-09T09:00:00Z'))
+  const item = (relationshipAcceptedAt: string | null) =>
+    followUpItemsFrom(history(relationshipAcceptedAt), clock)[0]
+
+  it('names the leaders still to answer, and nobody who has', () => {
+    expect(item(accepted)?.awaiting).toEqual({ names: ['Claire Martinez'], running: true })
+    expect(item(null)?.awaiting).toEqual({ names: ['Claire Martinez', 'Ruth Adeyemi'], running: false })
+  })
+
+  it('counts no days on a running group, whose own age is not how long she has waited', () => {
+    // The group was formed a year ago and Claire was added last week. When her
+    // membership started is not in this document, so no number is shown rather
+    // than the wrong one.
+    expect(item(accepted)?.waitedDays).toBeNull()
+    expect(item(null)?.waitedDays).toBe(189)
+  })
+
+  it('says nothing about who is awaited on any other kind of item', () => {
+    const swap = { ...history(accepted).followUps[0], kind: 'swap_requested', person_id: 'claire', payload: { requestedBy: 'leader' } }
+    const [other] = followUpItemsFrom({ ...history(accepted), followUps: [swap] }, clock)
+
+    expect(other?.awaiting).toBeNull()
   })
 })
 

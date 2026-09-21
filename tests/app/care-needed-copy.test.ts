@@ -33,6 +33,33 @@ const payloadOf = (kind: FollowUpPayload['kind']): FollowUpPayload => {
   }
 }
 
+describe('what Care Needed says of an invitation nobody has answered', () => {
+  const unanswered: FollowUpPayload = { kind: 'relationship_unaccepted' }
+
+  it('names who has not answered, where it knows', () => {
+    expect(followUpLine(unanswered, null, 6, { names: ['Grace Lee'], running: false })).toBe(
+      'Grace Lee has not accepted this relationship; it has waited 6 days. Everyone in it is held out of the suggestion pool until it is accepted or cancelled.',
+    )
+  })
+
+  it('says a running group carries on, and offers no count it cannot make', () => {
+    // Manual pairing, recut ticket 01: a Discipler added to a group already
+    // running. Nothing is held anywhere, and there is nothing to cancel.
+    expect(followUpLine(unanswered, null, null, { names: ['Claire Martinez'], running: true })).toBe(
+      'Claire Martinez was invited to help lead this group and has not answered. The group carries on meanwhile.',
+    )
+    expect(
+      followUpLine(unanswered, null, null, { names: ['Claire Martinez', 'Tom Reyes'], running: true }),
+    ).toBe(
+      'Claire Martinez and Tom Reyes were invited to help lead this group and have not answered. The group carries on meanwhile.',
+    )
+  })
+
+  it('still reads where it knows nobody’s name', () => {
+    expect(followUpLine(unanswered, null, 5)).toContain('The leader has not accepted this relationship')
+  })
+})
+
 describe('what Care Needed says', () => {
   it('has a tag, a sentence and a short form for every Follow-Up kind', () => {
     for (const kind of FOLLOW_UP_KINDS) {

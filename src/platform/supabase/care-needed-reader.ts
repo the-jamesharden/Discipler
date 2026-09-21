@@ -122,6 +122,31 @@ export const followUpItemsFrom = (
     }),
   )
 
+  // Who an unanswered invitation is still waiting for, and whether the
+  // relationship runs meanwhile. Sorted, because the memberships come back in no
+  // promised order and a sentence is written from these.
+  const activatedAtOf = new Map(
+    history.relationships.flatMap((row) => {
+      const id = text(row.id)
+      return id === null ? [] : [[id, text(row.accepted_at)] as const]
+    }),
+  )
+  const awaitingOn = (relationship: string) => ({
+    names: history.members
+      .filter(
+        (row) =>
+          text(row.relationship_id) === relationship &&
+          row.role === 'leader' &&
+          text(row.accepted_at) === null,
+      )
+      .flatMap((row) => {
+        const name = nameOf.get(text(row.person_id) ?? '')
+        return name ? [name] : []
+      })
+      .sort((a, b) => a.localeCompare(b)),
+    running: (activatedAtOf.get(relationship) ?? null) !== null,
+  })
+
   // Once for the whole list, so two items read in the same breath cannot disagree
   // about what day it is -- and from the injected clock, like every other
   // time-dependent rule in this codebase.
@@ -143,6 +168,11 @@ export const followUpItemsFrom = (
       return []
     }
 
+    const awaiting =
+      item.kind === 'relationship_unaccepted' && item.relationshipId
+        ? awaitingOn(item.relationshipId)
+        : null
+
     return [
       {
         id: followUpItemId(item.id),
@@ -154,7 +184,12 @@ export const followUpItemsFrom = (
         // The derived number the view shows, beside the instant it came from. The
         // instant is what the data keeps; freezing this into the payload instead
         // would have an item raised on day five still saying five on the twentieth.
-        waitedDays: createdAt ? daysSince(createdAt, now) : null,
+        //
+        // Not for somebody invited onto a relationship already running: its age
+        // is not how long they have waited, and a group formed last year would
+        // say so of a Leader added last week.
+        waitedDays: createdAt && !awaiting?.running ? daysSince(createdAt, now) : null,
+        awaiting,
         payload,
       },
     ]

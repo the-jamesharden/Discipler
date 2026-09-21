@@ -7,6 +7,7 @@ import type {
   PauseRefusal,
 } from '~/domain/errors'
 import type { FollowUpPayload } from '~/domain/follow-up'
+import { asList } from '~/domain/outbound-copy'
 import type { CareReason, RelationshipState } from '~/domain/relationship-state'
 import type { RelationshipOutcome } from '~/domain/relationships'
 import { refusalIn } from '../refusals'
@@ -62,13 +63,25 @@ export const followUpLine = (
   payload: FollowUpPayload,
   personName: string | null,
   waitedDays: number | null,
+  awaiting: { readonly names: readonly string[]; readonly running: boolean } | null = null,
 ): string => {
   const who = personName ?? 'Somebody'
   switch (payload.kind) {
-    case 'relationship_unaccepted':
-      return `${personName ?? 'The leader'} has not accepted this relationship${
+    case 'relationship_unaccepted': {
+      const awaited = awaiting && awaiting.names.length > 0 ? awaiting.names : null
+      // Somebody an Admin added to a group already running. Nothing is held up
+      // and there is nothing to cancel, so it says neither.
+      if (awaiting?.running && awaited) {
+        return `${asList(awaited)} ${awaited.length === 1 ? 'was' : 'were'} invited to help lead this group and ${
+          awaited.length === 1 ? 'has' : 'have'
+        } not answered. The group carries on meanwhile.`
+      }
+      return `${awaited ? asList(awaited) : (personName ?? 'The leader')} ${
+        awaited && awaited.length > 1 ? 'have' : 'has'
+      } not accepted this relationship${
         waitedDays === null ? '' : `; it has waited ${waitedDays} ${plural(waitedDays, 'day', 'days')}`
       }. Everyone in it is held out of the suggestion pool until it is accepted or cancelled.`
+    }
     case 'pause_expired':
       return `Paused for ${payload.periodWeeks} ${plural(payload.periodWeeks, 'week', 'weeks')}; that period has elapsed and the relationship has not resumed. Still paused, and nobody has moved.`
     case 'swap_requested':
