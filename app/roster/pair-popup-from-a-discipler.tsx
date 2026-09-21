@@ -4,8 +4,10 @@ import { useState } from 'react'
 import type { Gender } from '~/domain/intake'
 import { displayPhone, firstTimeLabel, PAIR_POPUP, type GroupOnARow, type RosterList } from './copy'
 import { CLEAR } from './import-copy'
+import { AS_A_LEADER, JOIN_AS_FIELD } from './pair/join-as'
 import { materialFieldFor } from './pair/material-per-disciple'
 import { PairList, PairPopupShell, PairRow, useHydrated } from './pair-popup'
+import { PairGroups, type PairPopupGroup } from './pair-popup-groups'
 import {
   canBePosted,
   GROUP_DECLARATIONS,
@@ -37,8 +39,14 @@ import {
  * (ADR-0017). What the ticks, the toggles and the dropdowns do is `./pair-shape`,
  * pure and tested there; this file draws what it answers.
  *
+ * Under the Disciples, the Ministry's groups (recut ticket 04). Choosing one adds
+ * the Discipler to it as another leader, by invitation, and the popup does one
+ * thing at a time: ticking a Disciple clears a chosen group, and choosing a group
+ * clears every tick, so nothing a shape asks is on screen beside one.
+ *
  * This file is the Discipler's side and nothing else. What it shares with the
- * Disciple's side is `./pair-popup`. No row opens it yet: it is reached by its
+ * Disciple's side is `./pair-popup`, and the groups are `./pair-popup-groups`. No
+ * row opens it yet: it is reached by its
  * address, and a Discipler's row keeps opening the old Pair page.
  */
 
@@ -63,6 +71,7 @@ export const PairPopupFromADiscipler = ({
   person,
   list,
   disciples,
+  groups,
   leadsAGroup,
   declaredGender,
   presetGender,
@@ -74,6 +83,12 @@ export const PairPopupFromADiscipler = ({
   readonly person: { readonly id: string; readonly fullName: string }
   readonly list: RosterList
   readonly disciples: readonly PairPopupDisciple[]
+  /**
+   * The groups this Discipler could help lead: every one the Ministry has that they
+   * are not already in and whose declaration does not rule them out. Every one is
+   * greyed while they already lead a group.
+   */
+  readonly groups: readonly PairPopupGroup[]
   /** Whether they already lead a group, which rules a 1:2 pair and a Group out: each is a group for that rule. */
   readonly leadsAGroup: boolean
   /** What a 1:2 pair declares, as the declaration's field says it: their gender, or null with none on file. */
@@ -91,11 +106,13 @@ export const PairPopupFromADiscipler = ({
     leadsAGroup,
     presetGender,
     materialIds: materials.map(({ id }) => id),
+    groups,
   }
   const [selection, setSelection] = useState(() => selectionFrom(context, restored))
   const change = (next: PairSelectionChange) => setSelection((before) => selectionAfter(context, before, next))
 
   const hydrated = useHydrated()
+  const group = groups.find(({ id }) => id === selection.groupId) ?? null
   const ticked = disciples.filter((each) => selection.tickedIds.includes(each.id))
   const names = ticked.map(({ fullName }) => fullName)
   const toggle = shapeOf(context, selection)
@@ -108,16 +125,24 @@ export const PairPopupFromADiscipler = ({
     return gone ? [PAIR_POPUP.unticked(gone.fullName, why)] : []
   })
 
-  const making =
-    toggle === null
-      ? first === undefined
+  // The sentence and the button are the same act: a group to help lead, one tick's
+  // one-to-one, or whatever the toggle has two or more ticks become.
+  const sentenceFor = (): { readonly summary: string; readonly label: string } | null => {
+    if (group !== null) return { summary: PAIR_POPUP.coLead(person.fullName, group), label: PAIR_POPUP.addAsCoLeader }
+    if (toggle === null) {
+      return first === undefined
         ? null
         : { summary: PAIR_POPUP.oneToOne(person.fullName, first), label: PAIR_POPUP.createOneToOne }
-      : toggle.selected === 'one_to_two'
-        ? { summary: PAIR_POPUP.oneToTwo(person.fullName, names), label: PAIR_POPUP.createOneToTwo }
-        : toggle.selected === 'group'
-          ? { summary: PAIR_POPUP.group(person.fullName, selection.declared, names), label: PAIR_POPUP.createGroup(names.length) }
-          : { summary: PAIR_POPUP.separately(person.fullName, names), label: PAIR_POPUP.createSeparately(names.length) }
+    }
+    if (toggle.selected === 'one_to_two') {
+      return { summary: PAIR_POPUP.oneToTwo(person.fullName, names), label: PAIR_POPUP.createOneToTwo }
+    }
+    if (toggle.selected === 'group') {
+      return { summary: PAIR_POPUP.group(person.fullName, selection.declared, names), label: PAIR_POPUP.createGroup(names.length) }
+    }
+    return { summary: PAIR_POPUP.separately(person.fullName, names), label: PAIR_POPUP.createSeparately(names.length) }
+  }
+  const making = sentenceFor()
 
   const materialOptions = (
     <>
@@ -134,13 +159,20 @@ export const PairPopupFromADiscipler = ({
       person={person}
       list={list}
       refusal={refusal}
-      posts={{
-        leaderId: person.id,
-        // Named and declared without asking, and neither is shown.
-        ...(oneToTwo ? postedByAOneToTwo({ discipler: person.fullName, disciples: [first, second], declaredGender }) : {}),
-        // A Group is asked both, in the open. It says only that it is one, for the way back from a refusal.
-        ...(toggle?.selected === 'group' ? postedByAGroup : {}),
-      }}
+      // What is chosen decides the act, and so the route and what it is told: a
+      // group that exists is joined, by this Discipler, as another leader of it.
+      postsTo={group ? 'join' : 'create'}
+      posts={
+        group
+          ? { personId: person.id, [JOIN_AS_FIELD]: AS_A_LEADER }
+          : {
+              leaderId: person.id,
+              // Named and declared without asking, and neither is shown.
+              ...(oneToTwo ? postedByAOneToTwo({ discipler: person.fullName, disciples: [first, second], declaredGender }) : {}),
+              // A Group is asked both, in the open. It says only that it is one, for the way back from a refusal.
+              ...(toggle?.selected === 'group' ? postedByAGroup : {}),
+            }
+      }
       summary={making?.summary ?? null}
       submit={{
         label: making?.label ?? PAIR_POPUP.nothingChosen,
@@ -152,13 +184,13 @@ export const PairPopupFromADiscipler = ({
     >
       <p className="pair-intro">{PAIR_POPUP.chooseDisciples(person.fullName)}</p>
 
-      {disciples.length === 0 ? (
+      {disciples.length === 0 && groups.length === 0 ? (
         <p className="empty">{PAIR_POPUP.noDisciples}</p>
       ) : (
         <>
           <div className="pair-toolbar">
-            <span>{PAIR_POPUP.disciples(disciples.length)}</span>
-            {/* Unticks everything. There is no Select all. */}
+            <span>{PAIR_POPUP.counts(PAIR_POPUP.disciples(disciples.length), groups.length)}</span>
+            {/* Unticks everything, and clears a chosen group. There is no Select all. */}
             {hydrated ? (
               <button type="button" className="link-btn" onClick={() => change({ type: 'clear' })}>
                 {CLEAR}
@@ -180,10 +212,19 @@ export const PairPopupFromADiscipler = ({
                   ...disciple.groups.map((group) => PAIR_POPUP.inGroup(group)),
                 ]}
                 greyed={greyedOnRow(context, selection, disciple)}
+                // With a group the server sent chosen, a refused join restored, the
+                // form points at the route that joins, and a Disciple ticked beside
+                // it would be posted there and ignored. Held until script runs.
+                held={!hydrated && group !== null}
                 checked={selection.tickedIds.includes(disciple.id)}
                 onChange={(checked) => change({ type: checked ? 'tick' : 'untick', id: disciple.id })}
               />
             ))}
+            <PairGroups
+              groups={groups}
+              chosenId={group?.id ?? null}
+              onChoose={(id) => change({ type: 'choose_group', id })}
+            />
           </PairList>
         </>
       )}

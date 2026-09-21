@@ -19,6 +19,7 @@ import {
   expectOpen,
   freshPhoneNumbers,
   hiddenIn,
+  inputsIn,
   offeredAs,
   offersToMentor as recordMentorOffer,
   popupIn,
@@ -122,8 +123,12 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
       expect(popup, list).not.toBeNull()
       expect(popup, list).toContain('Pair Claire Martinez')
       expect(popup, list).toContain('Choose who Claire Martinez will disciple.')
+      // Boxes for the Disciples, of whom several can be ticked. The only round marks
+      // are the groups under them, of which one can be chosen (recut ticket 04).
       expect(popup, list).toContain('type="checkbox"')
-      expect(popup, list).not.toContain('type="radio"')
+      for (const round of inputsIn(popup!).filter((input) => attribute(input, 'type') === 'radio')) {
+        expect(attribute(round, 'name'), list).toBe('groupId')
+      }
       expect(currentList(html), list).toBe(list === 'all' ? 'All' : 'Disciplers')
       // The X, Cancel and the backdrop, all to the list it was drawn over.
       expect(popup!.match(new RegExp(`href="/roster\\?list=${list}"`, 'g')), list).toHaveLength(3)

@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { AdminShell, initialsOf, NotAnAdmin } from '../shell'
 import { getRosterReader } from '~/service/container'
-import type { RosterEntry, RosterIntendedPairing, RosterRelationship } from '~/service/ports'
+import type { GroupToJoin, RosterEntry, RosterIntendedPairing, RosterRelationship } from '~/service/ports'
 import {
   AWAITING_ACCEPTANCE,
   AWAITING_INTAKE,
@@ -79,6 +79,7 @@ import {
 } from './greying'
 import { PairPopupFromADisciple } from './pair-popup-from-a-disciple'
 import { PairPopupFromADiscipler } from './pair-popup-from-a-discipler'
+import type { PairPopupGroup } from './pair-popup-groups'
 import { GROUP_DECLARATIONS, pickedFrom, READ_AS_A_GROUP, type ReadAs } from './pair-shape'
 import { RefusedRows } from './refused-rows'
 import { decodeImportReport } from './report'
@@ -511,15 +512,7 @@ export default async function RosterPage({
           // Every group the Ministry has that they are not already in (Manual
           // pairing, recut ticket 03). One whose own declaration rules them out is
           // not listed, as a Discipler gender rules out is not, so none is greyed.
-          groups={groupsShownTo(pairing, groups).map((group) => ({
-            id: group.relationshipId,
-            name: group.name,
-            leaders: group.leaders.map(({ fullName }) => ({ fullName })),
-            discipleCount: group.discipleCount,
-            declaredGender: group.declaredGender,
-            state: group.state,
-            greyed: null,
-          }))}
+          groups={groupsShownTo(pairing, groups).map((group) => listedGroup(group, null))}
           // Whether gender left anybody or any group off the list, so that an empty
           // list does not say why there is nobody when that is not why.
           someLeftOut={
@@ -554,11 +547,22 @@ export default async function RosterPage({
               ...groupReadings(disciple, greyedInWords),
             },
           }))}
+          // Every group the Ministry has that they are not already in, in either
+          // role, and whose declaration does not rule them out, which is not listed
+          // from this side either (recut ticket 04). `leader_one_open_group` stands:
+          // while they already lead a group, every one is greyed with that.
+          groups={groupsShownTo(pairing, groups).map((group) =>
+            listedGroup(
+              group,
+              leadsAGroup(pairing) ? PAIR_POPUP.ruledOut('already_leads_a_group', pairing.fullName) : null,
+            ),
+          )}
           leadsAGroup={leadsAGroup(pairing)}
           declaredGender={pairing.gender === null ? null : declaredGenderToField(pairing.gender)}
           presetGender={pairing.gender}
           materials={materials.map(({ materialId, title }) => ({ id: materialId, title }))}
-          refusal={pairingRefusal}
+          // A refused join comes back with its group, and is worded for that act.
+          refusal={groupChosenBefore === undefined ? pairingRefusal : groupJoinRefusalMessage(query.error, pairing.fullName)}
           restored={{
             tickedIds: tickedBefore,
             picked: pickedFrom({ mode: firstOf(query.mode), shape: firstOf(query.shape) }),
@@ -569,12 +573,24 @@ export default async function RosterPage({
             name: firstOf(query.name) ?? '',
             material: firstOf(query.materialId) ?? null,
             materialFor: [...readMaterialPerDisciple(Object.entries(query))],
+            groupId: groupChosenBefore ?? null,
           }}
         />
       ) : null}
     </AdminShell>
   )
 }
+
+/** A group as either side of the popup lists it, with why it cannot be chosen from that side, or null. */
+const listedGroup = (group: GroupToJoin, greyed: string | null): PairPopupGroup => ({
+  id: group.relationshipId,
+  name: group.name,
+  leaders: group.leaders.map(({ fullName }) => ({ fullName })),
+  discipleCount: group.discipleCount,
+  declaredGender: group.declaredGender,
+  state: group.state,
+  greyed,
+})
 
 /**
  * A Disciple's row against each thing a Group's gender toggle can say, in words, so

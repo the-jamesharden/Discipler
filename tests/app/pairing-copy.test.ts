@@ -330,6 +330,40 @@ describe('what the Pair popup says of a Group (Manual pairing, recut ticket 04)'
   })
 })
 
+describe('what the Pair popup says of a group a Discipler is added to (Manual pairing, recut ticket 04)', () => {
+  const grace = { fullName: 'Grace Lee' }
+  const david = { fullName: 'David Chen' }
+
+  it('says who they will co-lead it with, and the button is the same act', () => {
+    expect(PAIR_POPUP.coLead('Claire Martinez', { name: 'Grace’s Group', leaders: [grace] })).toBe(
+      'Claire Martinez will co-lead Grace’s Group with Grace Lee.',
+    )
+    expect(PAIR_POPUP.addAsCoLeader).toBe('Add as co-leader')
+  })
+
+  it('names every leader the group already has', () => {
+    expect(PAIR_POPUP.coLead('Claire Martinez', { name: 'Thursday Table', leaders: [grace, david] })).toBe(
+      'Claire Martinez will co-lead Thursday Table with Grace Lee and David Chen.',
+    )
+  })
+
+  it('names a group nobody has named as its leaders’ group, and does not say them twice', () => {
+    expect(PAIR_POPUP.coLead('Claire Martinez', { name: null, leaders: [{ fullName: 'Ruth Bader' }] })).toBe(
+      'Claire Martinez will co-lead Ruth Bader’s group.',
+    )
+    // Named by nobody and led by nobody, it is still a sentence.
+    expect(PAIR_POPUP.coLead('Claire Martinez', { name: null, leaders: [] })).toBe('Claire Martinez will co-lead the group.')
+    expect(PAIR_POPUP.coLead('Claire Martinez', { name: 'Thursday Table', leaders: [] })).toBe(
+      'Claire Martinez will co-lead Thursday Table.',
+    )
+  })
+
+  it('counts both in the toolbar, and only the Disciples where there are no groups to offer', () => {
+    expect(PAIR_POPUP.counts(PAIR_POPUP.disciples(7), 3)).toBe('7 disciples · 3 groups')
+    expect(PAIR_POPUP.counts(PAIR_POPUP.disciples(7), 0)).toBe('7 disciples')
+  })
+})
+
 /**
  * Manual pairing, ticket 21. A set of one-to-ones is all or none, so what it says
  * has two jobs a single pairing's does not: which of several people a refusal is

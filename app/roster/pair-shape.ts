@@ -7,7 +7,9 @@ import type { MIXED } from './declared-gender'
  * What two or more ticks become in the Pair popup from a Discipler (Manual pairing,
  * recut tickets 02 and 04): the shape toggle, who is unticked when the shape
  * changes, the Materials each shape holds, and what a Group is asked: what it
- * declares and what it is called.
+ * declares and what it is called. And the one other thing the popup can do from
+ * here, which is choose a group that exists for the Discipler to help lead: the
+ * popup does one thing at a time, so that and the ticks clear each other.
  *
  * All of it is pure and none of it is the component's. The repository has no
  * harness for client script, so what the popup does is decided here, where a test
@@ -150,6 +152,11 @@ export interface PairSelectionContext {
   readonly presetGender: Gender | null
   /** The Ministry's live Materials. A choice of anything else is no choice. */
   readonly materialIds: readonly string[]
+  /**
+   * The groups listed under the Disciples (Manual pairing, recut ticket 04), each
+   * with why it cannot be chosen, already in words, or null where it can.
+   */
+  readonly groups: readonly { readonly id: string; readonly greyed: string | null }[]
 }
 
 /** Everything the Admin has chosen in the popup. What is drawn and what is posted both follow from it. */
@@ -177,12 +184,18 @@ export interface PairSelection {
    * against what the ticks would make now, which may be nothing that greys them.
    */
   readonly unticked: readonly { readonly id: string; readonly why: string }[]
+  /**
+   * The group chosen for the Discipler to help lead, or null. Never beside a tick:
+   * ticking a Disciple clears it, and choosing it clears every tick.
+   */
+  readonly groupId: string | null
 }
 
 export type PairSelectionChange =
   | { readonly type: 'tick'; readonly id: string }
   | { readonly type: 'untick'; readonly id: string }
   | { readonly type: 'clear' }
+  | { readonly type: 'choose_group'; readonly id: string }
   | { readonly type: 'pick'; readonly shape: PairShape }
   | { readonly type: 'declare'; readonly declared: GroupDeclaration }
   | { readonly type: 'name'; readonly name: string }
@@ -325,21 +338,44 @@ export interface RestoredSelection {
   readonly material: string | null
   /** Who each Material was chosen for, and which. */
   readonly materialFor: readonly (readonly [string, string])[]
+  /** The group chosen, on a join that came back refused. It carries nothing else. */
+  readonly groupId: string | null
 }
+
+/** A popup nothing came back to: what it opens with from a row. */
+export const NOTHING_RESTORED: RestoredSelection = {
+  tickedIds: [],
+  picked: null,
+  declared: null,
+  name: '',
+  material: null,
+  materialFor: [],
+  groupId: null,
+}
+
+/** Whether a group is listed and not greyed. A greyed round mark cannot be pressed, with or without the markup. */
+const canBeChosen = (context: PairSelectionContext, groupId: string | null): groupId is string =>
+  context.groups.some(({ id, greyed }) => id === groupId && greyed === null)
 
 /**
  * The selection a popup opens with: nothing, or what a refused submission sends
  * back. A tick that is greyed now is not restored as ticked, and is named like any
  * other; somebody who is not on the list is restored as nobody. A Material that has
- * left the list is not restored, and the rest of the selection is.
+ * left the list is not restored, and the rest of the selection is. A group that
+ * came back from a refused join is chosen again unless it is greyed now or is no
+ * longer listed, and a chosen group is the whole of a selection.
  */
 export const selectionFrom = (context: PairSelectionContext, restored: RestoredSelection): PairSelection => {
+  if (canBeChosen(context, restored.groupId)) {
+    return { ...selectionFrom(context, NOTHING_RESTORED), groupId: restored.groupId }
+  }
   // A Group that came back having declared nothing starts from the preset, as any does.
   const declared = restored.picked === 'group' && restored.declared !== null ? restored.declared : context.presetGender
   const ticks = settled(context, restored.tickedIds, restored.picked, declared)
   const next = { ...ticks, declared: declaredAfter(context, ticks, declared) }
   return {
     ...next,
+    groupId: null,
     name: restored.name,
     // A refused submission chose under one shape, and only that shape's come back.
     ...materialsAfter(context, null, next, {
@@ -363,6 +399,12 @@ export const selectionAfter = (
   }
   // What a Group is called greys nobody and moves nothing.
   if (change.type === 'name') return { ...selection, name: change.name }
+  // One thing at a time: choosing a group clears every tick, and all that went with them.
+  if (change.type === 'choose_group') {
+    return canBeChosen(context, change.id)
+      ? { ...selectionAfter(context, selection, { type: 'clear' }), groupId: change.id }
+      : selection
+  }
 
   if (change.type === 'tick') {
     const row = context.rows.find(({ id }) => id === change.id)
@@ -393,6 +435,8 @@ export const selectionAfter = (
   const next = { ...ticks, declared: declaredAfter(context, ticks, declared) }
   return {
     ...next,
+    // And ticking a Disciple clears a chosen group, as Clear does.
+    groupId: change.type === 'tick' || change.type === 'clear' ? null : selection.groupId,
     // Clear takes the popup back to how it opened, a name typed for a Group included.
     name: change.type === 'clear' ? '' : selection.name,
     ...materialsAfter(context, selection, next, selection),
@@ -400,14 +444,16 @@ export const selectionAfter = (
 }
 
 /**
- * Whether there is anything to post. Nothing ticked makes nothing. A Group is asked
- * two things and its button waits for both: a declaration, which a Discipler with
- * no gender on file presets nothing for, so the screen never posts one nobody made;
- * and a name that is more than spaces, which the placeholder never is.
+ * Whether there is anything to post. A group chosen is asked nothing more. Nothing
+ * ticked makes nothing. A Group is asked two things and its button waits for both:
+ * a declaration, which a Discipler with no gender on file presets nothing for, so
+ * the screen never posts one nobody made; and a name that is more than spaces,
+ * which the placeholder never is.
  */
 export const canBePosted = (context: PairSelectionContext, selection: PairSelection): boolean =>
-  selection.tickedIds.length > 0 &&
-  (shapeOf(context, selection)?.selected !== 'group' || (selection.declared !== null && selection.name.trim() !== ''))
+  selection.groupId !== null ||
+  (selection.tickedIds.length > 0 &&
+    (shapeOf(context, selection)?.selected !== 'group' || (selection.declared !== null && selection.name.trim() !== '')))
 
 /** What the pairing route is told: a 1:2 pair and a Group are each one relationship of them all, which is what it has always made. */
 export const modeOf = (shape: PairShape): PairingMode => (shape === 'separate' ? 'separate' : 'together')

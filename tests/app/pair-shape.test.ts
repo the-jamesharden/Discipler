@@ -3,6 +3,7 @@ import {
   canBePosted,
   greyedOnRow,
   modeOf,
+  NOTHING_RESTORED,
   pickedFrom,
   postedByAGroup,
   postedByAOneToTwo,
@@ -130,6 +131,10 @@ const context: PairSelectionContext = {
   leadsAGroup: false,
   presetGender: 'female',
   materialIds: ['mark', 'romans'],
+  groups: [
+    { id: 'graces-group', greyed: null },
+    { id: 'thursday-table', greyed: null },
+  ],
 }
 
 /**
@@ -146,7 +151,6 @@ const relaxed: PairSelectionContext = {
   ],
 }
 
-const NOTHING_RESTORED = { tickedIds: [], picked: null, declared: null, name: '', material: null, materialFor: [] }
 const nothing = selectionFrom(context, NOTHING_RESTORED)
 
 const after = (selection: PairSelection, ...changes: Parameters<typeof selectionAfter>[2][]): PairSelection =>
@@ -168,6 +172,7 @@ describe('what is ticked, and what the ticks would make', () => {
       material: '',
       materialFor: {},
       unticked: [],
+      groupId: null,
     })
     expect(shapeOf(context, nothing)).toBeNull()
   })
@@ -533,6 +538,60 @@ describe('what a Group declares (Manual pairing, recut ticket 04, D1)', () => {
   })
 })
 
+describe('one thing at a time: a group to help lead, or Disciples to pair (Manual pairing, recut ticket 04)', () => {
+  const choose = (id: string) => ({ type: 'choose_group', id }) as const
+
+  it('chooses one group, and another in its place', () => {
+    const chosen = after(nothing, choose('graces-group'))
+    expect(chosen.groupId).toBe('graces-group')
+    expect(after(chosen, choose('thursday-table')).groupId).toBe('thursday-table')
+    expect(canBePosted(context, chosen)).toBe(true)
+  })
+
+  it('clears every tick, and all that went with them, when a group is chosen', () => {
+    const group = after(nothing, tick('sam'), tick('ana'), tick('rosa'), declare('mixed'), named('Thursday Table'), { type: 'material', materialId: 'mark' })
+    const chosen = after(group, choose('graces-group'))
+
+    expect(chosen).toEqual({ ...nothing, groupId: 'graces-group' })
+    // So the shape toggle, the gender toggle, the name and every dropdown are hidden.
+    expect(shapeOf(context, chosen)).toBeNull()
+  })
+
+  it('clears a chosen group when a Disciple is ticked, and leaves it where the tick is refused', () => {
+    const chosen = after(nothing, choose('graces-group'))
+    expect(after(chosen, tick('sam'))).toEqual(after(nothing, tick('sam')))
+    // A greyed box cannot be ticked, so nothing has been chosen in its place.
+    expect(after(chosen, tick('brianna'))).toEqual(chosen)
+  })
+
+  it('clears a chosen group with Clear, as it clears the ticks', () => {
+    expect(after(nothing, choose('graces-group'), { type: 'clear' })).toEqual(nothing)
+  })
+
+  it('never chooses a group that is greyed, or that is not listed', () => {
+    const leading: PairSelectionContext = {
+      ...context,
+      leadsAGroup: true,
+      groups: context.groups.map((each) => ({ ...each, greyed: 'Claire already leads a group' })),
+    }
+    const opened = selectionFrom(leading, NOTHING_RESTORED)
+    expect(selectionAfter(leading, opened, choose('graces-group'))).toEqual(opened)
+    expect(after(nothing, choose('no-such-group'))).toEqual(nothing)
+    // And the ticks somebody had are left alone by a press that chose nothing.
+    const ticked = selectionAfter(leading, opened, tick('sam'))
+    expect(selectionAfter(leading, ticked, choose('graces-group'))).toEqual(ticked)
+  })
+
+  it('restores the group a refused join chose, and nothing beside it', () => {
+    const restored = selectionFrom(context, { ...NOTHING_RESTORED, tickedIds: ['sam'], groupId: 'thursday-table' })
+    expect(restored).toEqual({ ...nothing, groupId: 'thursday-table' })
+
+    // One that is greyed now, or gone from the list, is not restored as chosen.
+    const gone = selectionFrom(context, { ...NOTHING_RESTORED, groupId: 'ended-since' })
+    expect(gone).toEqual(nothing)
+  })
+})
+
 describe('whether there is anything to post', () => {
   it('is nothing with nothing ticked, and a one-to-one, a 1:2 pair and N x 1:1 pairs as they stand', () => {
     expect(canBePosted(context, nothing)).toBe(false)
@@ -579,6 +638,7 @@ describe('what comes back from a refusal', () => {
       material: '',
       materialFor: { sam: 'mark', ana: 'romans' },
       unticked: [],
+      groupId: null,
     })
   })
 
@@ -614,6 +674,7 @@ describe('what comes back from a refusal', () => {
       material: 'mark',
       materialFor: {},
       unticked: [],
+      groupId: null,
     })
   })
 

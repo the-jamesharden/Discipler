@@ -7,6 +7,7 @@ import {
 } from '~/domain/errors'
 import { personIdFrom, relationshipIdFrom } from '~/domain/ids'
 import { DEFAULT_LIST, isRosterList } from '../../copy'
+import { AS_A_DISCIPLE, AS_A_LEADER, JOIN_AS_FIELD } from '../join-as'
 import { currentAdmin } from '~/platform/supabase/current-admin'
 import { getCommandService } from '~/service/container'
 
@@ -26,9 +27,8 @@ import { getCommandService } from '~/service/container'
  * route meant before it knew the second; anything else it does not know is
  * refused rather than guessed at, because the two are not alike and a body that
  * misspelt *leader* would otherwise put a Discipler into a group to be discipled.
+ * The words are `../join-as`, which the popup posts them from.
  */
-const AS_A_DISCIPLE = 'disciple'
-const AS_A_LEADER = 'leader'
 
 export async function POST(request: NextRequest) {
   const admin = await currentAdmin()
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
 
   const person = field('personId')
   const group = field('groupId')
-  const as = field('as') ?? AS_A_DISCIPLE
+  const as = field(JOIN_AS_FIELD) ?? AS_A_DISCIPLE
   // The list the popup was drawn over, so the answer lands on the list the Admin
   // was on. Anything that names none of the three is All, as it is on the Roster.
   const rawList = field('list')

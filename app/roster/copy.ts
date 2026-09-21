@@ -268,6 +268,17 @@ export const PAIR_POPUP = {
   },
   addToGroup: 'Add to group',
   /**
+   * From a Discipler (Manual pairing, recut ticket 04): choosing a group adds them
+   * to it as another leader, by invitation. Every leader it has is named, and one
+   * named for its leaders has said them already, as `joinGroup` has it.
+   */
+  coLead: (discipler: string, group: GroupOnARow): string => {
+    const led = group.name === null && group.leaders.length === 0 ? 'the group' : nameOfAGroup(group)
+    const beside = group.name !== null && group.leaders.length > 0 ? ` with ${asList(leadersOf(group))}` : ''
+    return `${discipler} will co-lead ${led}${beside}.`
+  },
+  addAsCoLeader: 'Add as co-leader',
+  /**
    * Why a row cannot be chosen, on the row and in one line (Manual pairing, ticket
    * 23). Somebody who cannot be paired reads what their Roster row already reads.
    * The gender reason says what the one-to-one declares and never what anybody's
