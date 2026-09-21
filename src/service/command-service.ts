@@ -1,7 +1,7 @@
 import { handleCommand, type CommandResult, type InvitationSnapshot } from '~/domain/boundary'
 import type { Clock } from '~/domain/clock'
 import type { Command } from '~/domain/commands'
-import { PairingRefused } from '~/domain/errors'
+import { PairingRefused, type PairingRefusal } from '~/domain/errors'
 import type { IntendedPairingId, MinistryId } from '~/domain/ids'
 import type { Effect } from '~/domain/effects'
 import {
@@ -9,6 +9,7 @@ import {
   CheckInRefused,
   DepartureRefused,
   EndingRefused,
+  GroupJoinRefused,
   GroupRefused,
   InvitationRefused,
   MaterialAssignmentRefused,
@@ -66,6 +67,37 @@ export interface CommandService {
    * the scheduled tick (ADR-0022).
    */
   settleIntendedPairings(ministryId: MinistryId): Promise<SettledPairings>
+
+  /**
+   * Whether forming this relationship would be refused, without forming it: the
+   * `PairingRefusal` that `execute` would have thrown for the same command at this
+   * moment, or null where it would have gone ahead (Manual pairing, ticket 03;
+   * ADR-0025).
+   *
+   * It is formation itself -- the same reads, the same boundary decision, the same
+   * writes -- in a transaction that is always rolled back. Not the boundary's
+   * decision alone, because most of what refuses a pairing is not the boundary's:
+   * gender, Intake, opt-outs and the participation caps are triggers and indexes on
+   * `relationship_member`, and they answer only when a row is written. A check that
+   * stopped short of the write would pass a pairing across gender, and one that
+   * mirrored those rules in order to stop short would be the second copy ADR-0004
+   * refuses. So the rows are written, the database has its say, and none of it is
+   * kept: no relationship, membership, invitation, history event or outbound
+   * message survives, whatever the answer.
+   *
+   * What it cannot see is anything that has not happened yet. It answers for the
+   * database as it stands, so a caller checking several pairings before forming
+   * any is told nothing about what forming the first does to the second, nor about
+   * what anybody else does in between. Forming can still be refused after a check
+   * that passed, and a caller has to be ready for that.
+   *
+   * Only `relationship.create`. This is not a dry run for commands in general, and
+   * no other command gains one here. Anything that is not a `PairingRefused` is
+   * thrown as `execute` would throw it.
+   */
+  checkPairing(
+    command: Extract<Command, { readonly type: 'relationship.create' }>,
+  ): Promise<PairingRefusal | null>
 }
 
 export interface SettledPairings {
@@ -134,6 +166,9 @@ export const applyEffects = async (
   )
   const joins = effects.flatMap((effect) =>
     effect.kind === 'relationship.join' ? [effect.membership] : [],
+  )
+  const addedLeaders = effects.flatMap((effect) =>
+    effect.kind === 'relationship.add_leader' ? [effect.membership] : [],
   )
   const groupConfigurations = effects.flatMap((effect) =>
     effect.kind === 'group.configure' ? [effect.configuration] : [],
@@ -228,6 +263,12 @@ export const applyEffects = async (
   // refuse fails as a refusal, rather than after history has already said it
   // happened.
   if (people.length > 0) await unit.createPeople(people)
+  // The plans a formation is about to close, locked before its memberships are
+  // written and not after: the order settling a plan takes them in, so the two can
+  // wait for each other but never on each other.
+  if (relationships.length > 0 && planClosures.length > 0) {
+    await unit.lockIntendedPairings(planClosures.map((closure) => closure.id))
+  }
   for (const relationship of relationships) await unit.createRelationship(relationship)
 
   // After the relationship a fulfilled plan names, which its foreign key needs,
@@ -280,6 +321,9 @@ export const applyEffects = async (
   // trigger only once the submission and the consent it reads are on the rows.
   // Before the history saying they joined, like every other write here.
   for (const membership of joins) await unit.joinRelationship(membership)
+  // A refused membership rolls the invitation issued above back with it, like
+  // everything else in the transaction; nothing is sent for a Leader not added.
+  for (const membership of addedLeaders) await unit.addLeaderToGroup(membership)
   for (const configuration of groupConfigurations) await unit.configureGroup(configuration)
 
   // After the acceptance that stamps `accepted_at`, because that is the instant the
@@ -531,13 +575,15 @@ const isTokenDriven = (
   command.type === 'invitation.dispute_number'
 
 /**
- * The two commands whose messages call somebody by their role: pairing, which
- * texts each Leader an invitation to be somebody's Leader, and acceptance, which
- * tells both sides what they now are to each other. Everything else Discipler
- * sends names people and never roles.
+ * The commands whose messages call somebody by their role: pairing, which texts
+ * each Leader an invitation to be somebody's Leader, adding a Leader to a group,
+ * which texts them the same invitation, and acceptance, which tells both sides
+ * what they now are to each other. Everything else Discipler sends names people
+ * and never roles.
  */
 const namesARole = (command: Command): boolean =>
   command.type === 'relationship.create' ||
+  command.type === 'group.add_leader' ||
   command.type === 'relationship.accept' ||
   command.type === 'intended_pairing.fulfil'
 
@@ -561,6 +607,7 @@ const needsTheMinistryName = (command: Command): boolean =>
   isIntakeSubmission(command) ||
   // It texts the group's Leaders that somebody joined, in the Ministry's voice.
   command.type === 'relationship.admit' ||
+  command.type === 'group.add_participant' ||
   command.type === 'relationship.create' ||
   command.type === 'relationship.resume' ||
   command.type === 'scheduled.tick' ||
@@ -658,6 +705,31 @@ const joinRequestContext = async (unit: UnitOfWork, itemId: FollowUpItemId) => {
 }
 
 /**
+ * The group an Admin is putting somebody into, and the name of the Person, which
+ * the text to its Leaders says (Manual pairing, ticket 22).
+ *
+ * `groupToJoin` answers null both for an id that names nothing this Ministry holds
+ * and for one that names a one-to-one, and those are two refusals an Admin acts on
+ * differently. The second read is what tells them apart, and it is only ever made
+ * on the way to refusing: the ordinary path reads the group once.
+ */
+const groupToAddTo = async (
+  unit: UnitOfWork,
+  command: Extract<Command, { type: 'group.add_participant' | 'group.add_leader' }>,
+) => {
+  const groupToJoin = await unit.groupToJoin(command.relationshipId)
+  if (!groupToJoin) {
+    throw new GroupJoinRefused(
+      (await unit.relationshipFor(command.relationshipId))
+        ? 'joining.not_a_group'
+        : 'joining.group_not_found',
+    )
+  }
+
+  return { groupToJoin, contacts: { people: await unit.contactsFor([command.personId]) } }
+}
+
+/**
  * The held import row an answer names. Absent is a defect rather than a refusal:
  * the row is never deleted, so an id that names none did not come from the report
  * that offers the answers -- which is a form post composed by hand, not something
@@ -688,18 +760,35 @@ const heldRow = async (unit: UnitOfWork, row: ImportRowId) => {
   return held
 }
 
+/**
+ * How a check leaves its transaction. Carries nothing and means nothing went wrong:
+ * it exists to be thrown past `transact`, which rolls back on any throw, and caught
+ * by the one caller that threw it.
+ */
+class CheckedAndRolledBack extends Error {
+  constructor() {
+    super('A checked pairing was rolled back, as every checked pairing is')
+    this.name = 'CheckedAndRolledBack'
+  }
+}
+
 export const createCommandService = ({
   clock,
   ids,
   store,
   appBaseUrl,
 }: CommandServiceDependencies): CommandService => {
-  const service: CommandService = {
-  async execute(command) {
-    // The whole command -- the state it reads, the decision it makes and the rows it
-    // writes -- happens in one transaction. Deciding an import against a Roster read
-    // outside the transaction would let two concurrent imports both find it empty.
-    return store.transact(command.ministryId, async (unit) => {
+  // The whole command -- the state it reads, the decision it makes and the rows it
+  // writes -- happens in one transaction. Deciding an import against a Roster read
+  // outside the transaction would let two concurrent imports both find it empty.
+  //
+  // Named, and handed the unit of work rather than opening one, because there are
+  // two things to do with a transaction this has run in: `execute` commits it, and
+  // `checkPairing` never does (Manual pairing, ticket 03). Both run these same
+  // lines, so neither can read a context or reach a decision the other would not.
+  const carryOut =
+    (command: Command) =>
+    async (unit: UnitOfWork): Promise<CommandResult> => {
       const voice = needsTheMinistryName(command) ? await unit.ministryVoice() : undefined
       // Resolved ahead of the context rather than inside it, because what it
       // carries decides whether a second read is owed below.
@@ -775,6 +864,9 @@ export const createCommandService = ({
         // domain refuses on the item before it looks for either.
         ...(command.type === 'relationship.admit'
           ? await joinRequestContext(unit, command.itemId)
+          : {}),
+        ...(command.type === 'group.add_participant' || command.type === 'group.add_leader'
+          ? await groupToAddTo(unit, command)
           : {}),
         // Loaded so that asking for a link somebody already holds gives them that
         // one back rather than minting a second and stopping the first from working.
@@ -869,7 +961,42 @@ export const createCommandService = ({
       await applyEffects(result.effects, unit)
 
       return result
-    })
+    }
+
+  const service: CommandService = {
+  async execute(command) {
+    return store.transact(command.ministryId, carryOut(command))
+  },
+
+  async checkPairing(command) {
+    // Refused at run time as well as by the type. The type is what a caller in
+    // this codebase meets; this is what a command that arrived as parsed JSON
+    // meets, and rehearsing an acceptance or a tick is not something to find out
+    // the transaction machinery permits.
+    if ((command as Command).type !== 'relationship.create') {
+      throw new Error('Only relationship.create can be checked without being performed')
+    }
+
+    try {
+      await store.transact(command.ministryId, async (unit) => {
+        await carryOut(command)(unit)
+        // Formation went ahead, every row of it, and every trigger and index it
+        // touches has had its say. Throwing is the one way out of `transact` that
+        // cannot commit: the port's contract is all or nothing, and this is nothing.
+        throw new CheckedAndRolledBack()
+      })
+    } catch (error) {
+      if (error instanceof CheckedAndRolledBack) return null
+      // The boundary's refusal or the database's, translated by the store exactly
+      // as it is for `execute`. Rolled back like any refused formation.
+      if (error instanceof PairingRefused) return error.refusal
+      throw error
+    }
+
+    // A store that swallowed the throw above cannot be trusted to have rolled back,
+    // and may have formed a relationship nobody asked for. Loud, because the
+    // alternative is a check that quietly pairs people.
+    throw new Error('A pairing was checked in a transaction that did not roll back')
   },
 
   async openConcern(command) {

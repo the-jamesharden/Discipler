@@ -114,16 +114,25 @@ export type NewFollowUpItem = {
   FollowUpPayload
 
 /**
- * An Admin acting on an item, which is the only thing that closes one. Who and
- * when, and deliberately no note: resolving is one click inline, and a note field
- * would add a writing task to a surface designed not to have one -- while the
- * actions an Admin actually took are recorded as facts of their own.
+ * An Admin acting on an item, which is what closes one. Who and when, and
+ * deliberately no note: resolving is one click inline, and a note field would add
+ * a writing task to a surface designed not to have one -- while the actions an
+ * Admin actually took are recorded as facts of their own.
+ *
+ * One item is closed by the thing it waited for instead. `relationship_unaccepted`
+ * says a Leader has not answered, and the acceptance that leaves nobody still to
+ * answer closes it: left open it would go on saying something untrue, beside a
+ * Cancel the relationship now refuses.
  */
 export interface FollowUpResolution {
   readonly ministryId: MinistryId
   readonly itemId: FollowUpItemId
-  /** The Admin's account. History keeps the fact even if the account later goes. */
-  readonly resolvedBy: string
+  /**
+   * The Admin's account, and history keeps the fact even if the account later
+   * goes. Null where no Admin performed it: a Leader's acceptance closing the
+   * item their silence raised.
+   */
+  readonly resolvedBy: string | null
   readonly resolvedAt: Date
 }
 

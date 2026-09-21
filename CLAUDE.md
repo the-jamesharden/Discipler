@@ -46,3 +46,7 @@ The five canonical triage roles, used verbatim as status strings. See `docs/agen
 
 Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
 
+## Tests that share state
+
+`tests/integration` and `tests/platform` run only through `scripts/locked-tests.sh`. See `docs/agents/test-environment.md` before believing any test run, red or green.
+

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { asList, invitationProblemMessage } from '../../app/invitation/copy'
+import { asList, invitationProblemMessage, leadingWithSentence } from '../../app/invitation/copy'
 import type { InvitationRefusal } from '~/domain/errors'
 import type { AccountRefusal } from '~/domain/accounts'
 
@@ -75,5 +75,22 @@ describe('naming who somebody has been matched with', () => {
 
   it('says something rather than nothing when it has no names to give', () => {
     expect(asList([])).toBe('someone')
+  })
+})
+
+describe('saying who they would be leading with', () => {
+  // Manual pairing, recut ticket 01. A Discipler added to a group is joining
+  // somebody, and decides whether to lead knowing who.
+  it('names the leaders they would be joining', () => {
+    expect(leadingWithSentence(['Grace Lee'])).toBe('You’d be leading with Grace Lee.')
+    expect(leadingWithSentence(['Grace Lee', 'David Chen'])).toBe(
+      'You’d be leading with Grace Lee and David Chen.',
+    )
+  })
+
+  it('says nothing at all to somebody leading alone', () => {
+    // Never *leading with someone*: `asList` has a word for no names, and this
+    // sentence must not borrow it.
+    expect(leadingWithSentence([])).toBeNull()
   })
 })

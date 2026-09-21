@@ -75,7 +75,8 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
     const { html } = await getPage('/roster?list=disciples', cookie)
 
     expect(html).toContain('Nora Blake')
-    expect(html).toContain(`/roster/pair?with=${nora}`)
+    // The popup over the list, from a Disciple (Manual pairing, ticket 12).
+    expect(html).toContain(`href="/roster?list=disciples&amp;pair=${nora}"`)
   })
 
   it('opens the pairing screen with that Person already chosen', async () => {
@@ -128,6 +129,17 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
     const { html } = await getPage('/roster?paired=1', cookie)
     expect(html).toContain('awaiting acceptance')
     expect(html).toContain('The Discipler has been invited')
+
+    // The receipt lands on All, where the Roster opens (Manual pairing, ticket
+    // 06), so both of the people it is about are on the page under it, each row
+    // naming the other.
+    expect(html).toMatch(/<a (?=[^>]*aria-current="true")[^>]*>All</)
+    const rowOf = (name: string) =>
+      (html.split('<tr').find((row) => new RegExp(`roster-name"[^>]*>${name}<`).test(row)) ?? '')
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/\s+/g, ' ')
+    expect(rowOf('Rachel Ellis')).toContain('Sarah Frost 1:1 - awaiting acceptance')
+    expect(rowOf('Sarah Frost')).toContain('Rachel Ellis 1:1 - awaiting acceptance')
   })
 
   it('forms one relationship from several people selected together', async () => {
@@ -156,8 +168,10 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
     // Tara disciples Una and Vera. Her row on the Disciplers list names both;
     // each of theirs on the Disciples list names her and says it is a group, so
     // group membership is visible without opening a record.
-    const disciplers = await getPage('/roster', cookie)
-    expect(disciplers.html).toContain('Una Hart, Vera Iles')
+    const disciplers = await getPage('/roster?list=disciplers', cookie)
+    // As read, tags aside: the last name and the size share a span so the size
+    // never wraps alone (Manual pairing, ticket 06).
+    expect(disciplers.html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ')).toContain('Una Hart, Vera Iles 2 members')
     const disciples = await getPage('/roster?list=disciples', cookie)
     expect(disciples.html).toContain('Una Hart')
     const una = disciples.html.split('<tr').find((row) => /roster-name"[^>]*>Una Hart</.test(row)) ?? ''
@@ -264,12 +278,15 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
     expect(html).toMatch(/choose the discipler/i)
   })
 
-  it('offers a way into pairing that does not start from one Person', async () => {
-    // Somebody already being discipled has no Pair action and may still lead, and
-    // several people selected together start from nobody in particular.
-    const { html } = await getPage('/roster', cookie)
-    expect(html).toContain('href="/roster/pair"')
-    expect(html).toContain('Pair people')
+  it('offers no way into pairing that does not start from one Person', async () => {
+    // Every pairing starts from a row (Manual pairing, ticket 07). The button that
+    // opened the Pair page with nobody chosen is gone from every list; somebody
+    // already being discipled has Pair on their own row now.
+    for (const list of ['all', 'disciplers', 'disciples']) {
+      const { html } = await getPage(`/roster?list=${list}`, cookie)
+      expect(html).not.toContain('href="/roster/pair"')
+      expect(html).not.toContain('Pair people')
+    }
   })
 
   it('refuses a pairing with nobody to disciple, and says which thing to fix', async () => {
@@ -289,6 +306,7 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
     const { html } = await getPage('/roster?list=disciples', cookie)
 
     expect(html).toContain('Zach Moore')
+    expect(html).not.toContain(`pair=${zach}`)
     expect(html).not.toContain(`/roster/pair?with=${zach}`)
   })
 

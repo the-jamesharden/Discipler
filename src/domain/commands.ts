@@ -121,10 +121,10 @@ export type Command =
    * dead link sends them to a page telling them to find an Admin -- and escalates
    * to `relationship_unaccepted` instead. This is what an Admin does about it.
    *
-   * A live link is re-sent rather than replaced, for the reason `intake.reopen`
-   * gives: minting a second token stops the one already on their phone from
-   * working, and the commonest reason to ask is a Leader who lost the text rather
-   * than one holding a dead link.
+   * Every re-issue mints, and the link it replaces stops working: an Invitation
+   * Link authenticates by possession alone, so re-issuing is also how one sent to
+   * the wrong number is taken back. The reasoning, and what it costs a Leader who
+   * only lost the text, is at the command's case in `boundary.ts`.
    */
   | {
       readonly type: 'invitation.reissue'
@@ -233,6 +233,50 @@ export type Command =
       readonly itemId: FollowUpItemId
       /** The Admin's account, as the session named it. */
       readonly admittedBy: string
+    }
+  /**
+   * An Admin putting a Person into a group that already exists, as a Disciple
+   * (Manual pairing, ticket 22). The same act as an admission without a request
+   * behind it: they are in it at once, they accept nothing and are sent nothing,
+   * and the group's Leaders are texted that somebody has joined, exactly as a
+   * self-join does. The group keeps its Material, its name, its declaration and
+   * its state.
+   *
+   * A command of its own rather than a flag on `relationship.admit`, for the
+   * reason the two events are two types: who acted, and on what, is what the
+   * command is.
+   */
+  | {
+      readonly type: 'group.add_participant'
+      readonly ministryId: MinistryId
+      /** As the form named it. Whether it is a group this Ministry holds is read inside the transaction. */
+      readonly relationshipId: RelationshipId
+      readonly personId: PersonId
+      /** The Admin's account, as the session named it. */
+      readonly addedBy: string
+    }
+  /**
+   * An Admin adding a Discipler to a group that already exists, as another Leader
+   * (Manual pairing, ticket 22). They gain an open leader membership with no
+   * Acceptance on it and are sent an Invitation Link, the same way a Leader is
+   * when first paired; nobody else is sent anything.
+   *
+   * The group is left in the state it was in. One that is running goes on
+   * running while they decide, and adding a Leader never moves it back to
+   * Awaiting Leader Acceptance; one still awaiting its Leader now waits for this
+   * one too, because activation is every open leader membership accepting.
+   *
+   * `leader_one_open_group` stands: how a Discipler leads more than one group is
+   * not designed, and this command lifts nothing.
+   */
+  | {
+      readonly type: 'group.add_leader'
+      readonly ministryId: MinistryId
+      /** As the form named it. Whether it is a group this Ministry holds is read inside the transaction. */
+      readonly relationshipId: RelationshipId
+      readonly personId: PersonId
+      /** The Admin's account, as the session named it. */
+      readonly addedBy: string
     }
   /**
    * An Admin cancelling a relationship nobody accepted. It ends every open

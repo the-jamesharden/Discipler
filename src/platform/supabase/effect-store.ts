@@ -26,6 +26,7 @@ import type {
   DiscipleshipGoalRenaming,
   GroupConfiguration,
   IntakeRecord,
+  NewLeaderMembership,
   NewParticipantMembership,
   NewDiscipleshipGoal,
   LeaderAcceptance,
@@ -78,6 +79,7 @@ import {
   EndingRefused,
   FollowUpRefused,
   GoalRefused,
+  GroupJoinRefused,
   ImportRowResolutionRefused,
   IntakeRefused,
   InvitationRefused,
@@ -147,6 +149,25 @@ const REFUSALS: Record<string, PairingRefusal> = {
     'relationship.gender_does_not_match_the_declaration',
   one_to_one_one_open_leader: 'relationship.already_has_a_leader',
 }
+
+/**
+ * A relationship's members, in the one order every transaction writes them in.
+ *
+ * Each membership row takes an entry in the cap indexes above, and a second
+ * transaction naming the same Person waits there until the first is over. Written
+ * in the order a command happened to name people, two co-led groups naming the same
+ * two Disciplers the other way round each hold one and wait for the other, and
+ * Postgres ends it by killing one of them -- which may be the real formation, killed
+ * by a check that was only ever going to roll back (Manual pairing, ticket 03;
+ * ADR-0025). Taking locks in one agreed order is what makes that cycle impossible,
+ * and the Person's id is an order every transaction agrees on without asking.
+ *
+ * Plain comparison and not `localeCompare`: the order has to be the same on every
+ * server, and it means nothing to anybody. Nothing reads these rows back by the
+ * order they were written in.
+ */
+const inLockOrder = <T extends { readonly personId: PersonId }>(members: readonly T[]): T[] =>
+  [...members].sort((a, b) => (a.personId < b.personId ? -1 : a.personId > b.personId ? 1 : 0))
 
 /** The one place that knows where a driver hides the name of what it violated. */
 const constraintViolated = (error: unknown): string | undefined =>
@@ -271,6 +292,19 @@ const pausedColumn = `coalesce(
                 false
               ) as paused`
 
+// Whether a live relationship, aliased `r`, is still to be accepted by somebody:
+// not activated, or running with a Leader added since who has not answered
+// (Manual pairing, ticket 22). Said once, because the tick reads with it and the
+// item the tick raises is checked against it again before it is written.
+const stillToBeAccepted = `r.ended_at is null
+          and (r.accepted_at is null
+               or exists (select 1
+                            from relationship_member w
+                           where w.relationship_id = r.id
+                             and w.role = 'leader'
+                             and w.ended_at is null
+                             and w.accepted_at is null))`
+
 // The open members of the relationship `$1`, in a stable order.
 //
 // Two messages *list* these names in a sentence -- the Starter Message tells a
@@ -308,6 +342,8 @@ interface MemberRow {
   role: MemberRole
   full_name: string
   phone: string | null
+  /** A Leader's own agreement. Null on every Participant, who accepts nothing. */
+  accepted_at: Date | null
 }
 
 // Locked, for the same reason acceptance locks it: the domain decides from what
@@ -337,6 +373,7 @@ const asRelationshipSnapshot = (
     role: row.role,
     fullName: row.full_name,
     phone: row.phone,
+    acceptedAt: row.accepted_at,
   })),
 })
 
@@ -362,13 +399,15 @@ interface KeywordExchangeRow {
  * than it asked about -- which is why the caller reorders and the ordering rule is
  * theirs rather than this query's.
  *
- * The inner select must yield `id` and `held_as`, and nothing else is read from it.
+ * The inner select must yield `id`, `held_as` and `held_accepted_at` -- the role the
+ * Person holds it in and, where they lead it, their own Acceptance -- and nothing
+ * else is read from it.
  * That contract is the parameter's name rather than only this sentence, because it
  * arrives as interpolated SQL and nothing downstream can check it.
  */
 const keywordRelationships = async (
   client: PoolClient,
-  selectingIdAndHeldAs: string,
+  selectingIdHeldAsAndHeldAcceptedAt: string,
   parameters: readonly unknown[],
 ): Promise<readonly KeywordRelationship[]> => {
   const { rows } = await client.query<{
@@ -379,11 +418,21 @@ const keywordRelationships = async (
     ended_at: Date | null
     paused: boolean
   }>(
-    `with held as (${selectingIdAndHeldAs})
+    `with held as (${selectingIdHeldAsAndHeldAcceptedAt})
      select r.id as relationship_id,
             held.held_as,
             r.created_at,
-            r.accepted_at,
+            -- Accepted, for whoever holds it. A Leader who has not accepted a
+            -- relationship that is running -- a Discipler an Admin added to a group
+            -- since it started (Manual pairing, ticket 22) -- has agreed to lead
+            -- nothing, and may not pause or resume it by text: for them it
+            -- reads as awaiting acceptance, and the rules that already refuse those
+            -- keywords on one do the rest. SWAP still reaches it, which from that
+            -- state is how a Leader says no. A Participant accepts nothing, so
+            -- theirs is the relationship's own.
+            case when held.held_as = 'leader' and held.held_accepted_at is null then null
+                 else r.accepted_at
+             end as accepted_at,
             r.ended_at,
             -- Paused lives in history rather than in a column, like every other
             -- relationship state here.
@@ -429,7 +478,14 @@ const keywordRelationships = async (
              ) and app.current_consent(m.person_id, 'sms') is true) as reachable
        from relationship_member m
        join person p on p.id = m.person_id
+       join relationship r on r.id = m.relationship_id
       where m.relationship_id = any($1::uuid[])
+        -- Who the relationship is led by, as every other surface says it: a
+        -- Discipler added to a group that was already running is not one of its
+        -- Leaders until they accept (Manual pairing, ticket 22), so a keyword's
+        -- messages neither reach them nor name them to the people they do not
+        -- yet lead.
+        and (m.role <> 'leader' or app.counts_as_leading(r.accepted_at, m.accepted_at))
       order by m.role, m.started_at, p.full_name, m.person_id`,
     [rows.map((row) => row.relationship_id)],
   )
@@ -1147,7 +1203,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
         ],
       )
 
-      for (const member of relationship.members) {
+      for (const member of inLockOrder(relationship.members)) {
         await client.query(
           `insert into relationship_member
              (ministry_id, relationship_id, kind, person_id, role, started_at)
@@ -1234,11 +1290,38 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     //
     // The Material an Admin chose at pairing is read off the same locked row, so
     // the intention acceptance spends is the one that stands as it decides.
-    const { rows: locked } = await client.query<{ intended_material_id: string | null }>(
-      `select intended_material_id from relationship where id = $1 for update`,
+    //
+    // And so is whether it is already running, which is what stops a Leader added
+    // to a running group from activating it a second time.
+    const { rows: locked } = await client.query<{
+      accepted_at: Date | null
+      intended_material_id: string | null
+    }>(
+      `select accepted_at, intended_material_id from relationship where id = $1 for update`,
       [invitation.relationship_id],
     )
     const intended = locked[0]?.intended_material_id ?? null
+
+    // The item five days of silence raised, which the acceptance that leaves
+    // nobody still to answer closes. At most one stands open: the tick raises
+    // none while one does.
+    //
+    // Locked, because an Admin may be resolving it this instant, and a Leader's
+    // acceptance never fails on an Admin's timing. Their Resolve is waited for and
+    // the row then reads as resolved and drops out of this, so there is nothing
+    // left here to close; ours first, and theirs is told it was already resolved,
+    // which their page has words for. An Admin's resolve takes this row and no
+    // other, so the relationship's row and then this one inverts no order.
+    const { rows: unanswered } = await client.query<{ id: string }>(
+      `select id from follow_up_item
+        where relationship_id = $1
+          and kind = 'relationship_unaccepted'
+          and resolved_at is null
+        order by raised_at, id
+        limit 1
+          for update`,
+      [invitation.relationship_id],
+    )
 
     // A token naming a relationship its holder has since left resolves to a set
     // they are not in, and the boundary refuses it.
@@ -1255,6 +1338,8 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       personId: personId(invitation.person_id),
       expiresAt: invitation.expires_at,
       consumedAt: invitation.consumed_at,
+      relationshipAcceptedAt: locked[0]?.accepted_at ?? null,
+      unansweredItemId: unanswered[0] ? followUpItemId(unanswered[0].id) : null,
       intendedMaterialId: intended === null ? null : materialId(intended),
       members: members.map((row) => ({
         personId: personId(row.person_id),
@@ -1501,6 +1586,16 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     }
   },
 
+  async lockIntendedPairings(ids: readonly IntendedPairingId[]) {
+    // Ordered, so two transactions locking the same plans take them the same way
+    // round. The rows are not read: the boundary has already decided from the
+    // snapshot, and `closeIntendedPairing` does nothing to a plan that has closed.
+    await client.query(
+      `select id from intended_pairing where id = any($1::uuid[]) order by id for update`,
+      [ids],
+    )
+  },
+
   async closeIntendedPairing(closure: IntendedPairingClosure) {
     // `closed_at is null`, and no complaint when nothing matched: the plan closed
     // between the read and this write, by a settle racing this one or an Admin
@@ -1523,6 +1618,26 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // The index is named rather than left to `on conflict do nothing`, which would
     // swallow a collision on any constraint on the table and turn a real fault into
     // a silent no-op.
+
+    // An unanswered invitation is looked at again before it is said. The tick
+    // decides from a read and raises a moment later, and the acceptance that
+    // closes this item may land in between: raised after it, the item would say
+    // somebody has not accepted who has, and nothing would ever close it.
+    //
+    // The row an acceptance holds is taken first, so one in flight is waited for
+    // and the look after it sees what it wrote. Ministry lock and then this row is
+    // the order the tick and an acceptance already take the two in.
+    if (item.kind === 'relationship_unaccepted') {
+      await client.query(`select 1 from relationship where id = $1 for share`, [
+        item.relationshipId,
+      ])
+      const { rows: stillWaiting } = await client.query(
+        `select 1 from relationship r where r.id = $1 and ${stillToBeAccepted}`,
+        [item.relationshipId],
+      )
+      if (stillWaiting.length === 0) return
+    }
+
     await client.query(
       `insert into follow_up_item
          (ministry_id, kind, person_id, relationship_id, raised_at, payload)
@@ -1572,7 +1687,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // out of the escalation entirely.
     const { rows: relationships } = await client.query<{
       id: string
-      created_at: Date
+      waiting_since: Date
       item_stands_open: boolean
     }>(
       // Open items only, which is the same rule the partial unique index holds and
@@ -1582,7 +1697,19 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       // that relationship permanently invisible to the surface that exists to stop
       // exactly that, and no later run would ever mention it again.
       `select r.id,
-              r.created_at,
+              -- The clock both thresholds run on. Formation, for a relationship
+              -- nobody has activated, so its Leaders share one. For one that was
+              -- running when a Leader was added to it (Manual pairing, ticket 22)
+              -- formation may be a year ago: it is when the earliest Leader still
+              -- to answer was added.
+              case when r.accepted_at is null then r.created_at
+                   else (select min(w.started_at)
+                           from relationship_member w
+                          where w.relationship_id = r.id
+                            and w.role = 'leader'
+                            and w.ended_at is null
+                            and w.accepted_at is null)
+               end as waiting_since,
               exists (
                 select 1 from follow_up_item f
                  where f.relationship_id = r.id
@@ -1590,7 +1717,9 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
                    and f.resolved_at is null
               ) as item_stands_open
          from relationship r
-        where r.accepted_at is null and r.ended_at is null
+        -- A running one with a Leader still to answer is what lets an Admin send
+        -- that Leader a new link, which re-issuing reads from here.
+        where ${stillToBeAccepted}
         order by r.created_at`,
     )
 
@@ -1670,7 +1799,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
 
     return relationships.map((row) => ({
       relationshipId: relationshipId(row.id),
-      createdAt: row.created_at,
+      waitingSince: row.waiting_since,
       awaiting: awaitingBy.get(row.id) ?? [],
       itemStandsOpen: row.item_stands_open,
     }))
@@ -1688,14 +1817,9 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // Whoever already left is not somebody this returns to the pool -- they are
     // already in it. The name and the number ride along because a resume tells
     // everybody here that the relationship is running again, and that message
-    // needs a recipient and the names on the other side of it. `accepted_at`
-    // comes back too and is not read; one ordering rule is worth one column.
-    const { rows: members } = await client.query<{
-      person_id: string
-      role: MemberRole
-      full_name: string
-      phone: string | null
-    }>(openMembersOfRelationship, [id])
+    // needs a recipient and the names on the other side of it. `accepted_at` is
+    // each Leader's own agreement, which a join reads before it texts them.
+    const { rows: members } = await client.query<MemberRow>(openMembersOfRelationship, [id])
 
     // The Pause standing on it right now, read the same way every other caller
     // reads one: the later of `relationship.paused` and `relationship.resumed`.
@@ -1789,6 +1913,37 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
         ],
       )
     } catch (error) {
+      throw asRefusal(error) ?? error
+    }
+  },
+
+  async addLeaderToGroup(membership: NewLeaderMembership) {
+    // One row, as a Leader, with no Acceptance on it, carrying the relationship's
+    // own kind for the reason a join does. Nothing else is written: the
+    // relationship's `accepted_at` is activation and stays what it was, so a
+    // running group goes on running while this Leader decides.
+    try {
+      await client.query(
+        `insert into relationship_member
+           (ministry_id, relationship_id, kind, person_id, role, started_at)
+         select $1, r.id, r.kind, $3, 'leader', $4
+           from relationship r
+          where r.id = $2`,
+        [
+          membership.ministryId,
+          membership.relationshipId,
+          membership.personId,
+          membership.startedAt,
+        ],
+      )
+    } catch (error) {
+      // The one cap this act says in its own words. Only the index can see the
+      // Person's other relationships, so this is where it is decided; what reaches
+      // the Admin is a sentence about one named Discipler, never a Postgres error
+      // and never the pairing form's sentence about a selection.
+      if (constraintViolated(error) === 'leader_one_open_group') {
+        throw new GroupJoinRefused('joining.already_leads_a_group')
+      }
       throw asRefusal(error) ?? error
     }
   },
@@ -2032,7 +2187,20 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     const { rows: led } = await client.query<CheckInRelationshipRow & { paused: boolean }>(
       `select r.id as relationship_id,
               r.created_at,
-              r.accepted_at,
+              -- Accepted, for this Leader: the relationship is running and they
+              -- have agreed to lead it. Until now the two were one fact, because
+              -- activation is the last Leader accepting. A Leader added to a group
+              -- that is already running (Manual pairing, ticket 22) is the first
+              -- for whom they are not: the group is accepted and they have not,
+              -- and what the check-in does with a relationship awaiting acceptance
+              -- -- not asked about, no silence accrued -- is what it does for them.
+              -- From the later of the two, which for a Leader there at formation
+              -- is activation, as it always was. Spelt out rather than left to
+              -- greatest(), which skips a null and would read a relationship still
+              -- awaiting its other Leader as accepted.
+              case when r.accepted_at is null or m.accepted_at is null then null
+                   else greatest(r.accepted_at, m.accepted_at)
+               end as accepted_at,
               r.name,
               -- Paused lives in history rather than in a column, like every
               -- other relationship state here.
@@ -2372,7 +2540,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // side may text `SWAP` and a Participant holds nothing else.
     const holds = await keywordRelationships(
       client,
-      `select m.relationship_id as id, m.role as held_as
+      `select m.relationship_id as id, m.role as held_as, m.accepted_at as held_accepted_at
          from relationship_member m
          join relationship r on r.id = m.relationship_id
         where m.person_id = $1
@@ -2412,7 +2580,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
         // in the same relationship. The open one wins, and the most recent closed one
         // stands in where there is none -- either way the role is what a menu needs,
         // and the eligibility rule is what refuses to act on the relationship.
-        `select distinct on (r.id) r.id as id, m.role as held_as
+        `select distinct on (r.id) r.id as id, m.role as held_as, m.accepted_at as held_accepted_at
            from relationship r
            join relationship_member m
              on m.relationship_id = r.id and m.person_id = $2

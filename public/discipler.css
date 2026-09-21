@@ -498,11 +498,12 @@ blockquote { background: rgba(45, 80, 22, 0.04); border-left: 3px solid var(--pr
 .roster-table tbody tr:nth-child(even) td { background: rgba(45, 80, 22, 0.02); }
 .roster-table .num { width: 44px; text-align: center; color: var(--text-light); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
 .roster-table th.num { color: #fff; }
-.roster-table .person > span > a { font-weight: 600; color: var(--text); text-decoration: none; }
-.roster-table .person > span > a:hover { color: var(--primary); text-decoration: underline; }
-.person-sub { display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap; margin-top: 0.25rem; }
-.person-sub .rs { font-size: 0.62rem; padding: 0.15rem 0.45rem; }
-.person-sub .pill.n { margin-left: 0; }
+/* The Paired with cell: what it says, then Pair or the reason there is none, always
+   beside it and never under it. Long lines wrap inside their own side, so a long
+   group never pushes the button onto a line of its own. */
+.paired-with { display: flex; align-items: center; gap: 0.6rem; }
+.paired-with > ul { min-width: 0; }
+.paired-with > .btn, .paired-with > .blocked { flex-shrink: 0; }
 .roster-table .contact { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .roster-table .contact a { color: var(--text); text-decoration: none; }
 .roster-table .contact a:hover { color: var(--primary); text-decoration: underline; }
@@ -558,6 +559,76 @@ textarea.paste { width: 100%; min-height: 140px; font-family: ui-monospace, SFMo
 .review-refused ul { margin: 0.35rem 0 0 1.2rem; }
 .modal-actions { display: flex; gap: 0.6rem; justify-content: flex-end; align-items: center; margin-top: 1.4rem; }
 @media (max-width: 600px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .modal { padding: 1.25rem; } }
+
+/* The Pair popup over the Roster (Manual pairing, ticket 12). The import
+   dialog's backdrop, box, head and actions; below is only what the mock needs
+   beyond them: a narrower box centred on the page, a ruled head under a larger
+   title, and the list of people to choose from. The backdrop is a link under the
+   box, so pressing outside it closes like the X does. */
+.modal-backdrop { position: fixed; inset: 0; cursor: default; }
+.modal.pair { position: relative; max-width: 440px; margin: auto 0; padding: 1.3rem 1.3rem 1.1rem; border-radius: 10px; }
+.modal.pair .modal-head { border-bottom: 2px solid var(--border); padding-bottom: 0.7rem; margin-bottom: 0; }
+.modal.pair .card-title { font-size: 1.35rem; font-weight: 700; }
+.modal.pair .toast { margin: 0.8rem 0 0; box-shadow: none; }
+.modal.pair .empty { padding: 1.5rem 0.5rem; font-size: 0.88rem; }
+.modal.pair .modal-actions { margin-top: 0.9rem; gap: 0.5rem; }
+.pair-intro { font-size: 0.85rem; color: var(--text-light); margin: 0.8rem 0 0.6rem; }
+.pair-toolbar { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.76rem; color: var(--text-light); margin-bottom: 0.4rem; }
+.pair-toolbar .link-btn { font-size: 0.76rem; font-weight: 500; }
+/* Room inside the scrolling list for a row's focus ring, which its edge would clip. */
+.pair-list { max-height: min(50vh, 22rem); overflow-y: auto; padding: 3px; margin: 0 -3px; min-width: 0; }
+.pair-rows { display: grid; gap: 0.4rem; margin: 0; padding: 0; border: 0; min-width: 0; }
+.pair-opt { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0.6rem; background: #f3efe8; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
+.pair-opt:hover { border-color: var(--primary-light); }
+.pair-opt.on, .pair-opt:has(input:checked) { background: var(--surface); border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
+.pair-opt:has(input:focus-visible) { outline: 2px solid var(--primary); outline-offset: 1px; }
+.pair-opt input:focus-visible { outline: none; }
+.pair-opt input { width: 17px; height: 17px; margin: 0; flex-shrink: 0; accent-color: var(--primary); cursor: pointer; }
+.pair-opt .avatar { width: 30px; height: 30px; font-size: 0.68rem; }
+.pair-who { display: block; min-width: 0; }
+.pair-name { display: block; font-size: 0.84rem; font-weight: 700; line-height: 1.25; }
+.pair-sub { display: block; font-size: 0.73rem; color: var(--text-light); overflow-wrap: anywhere; }
+/* A greyed row (Manual pairing, ticket 23): who it is fades as the mock has it, and
+   the reason does not, because it is the one thing on the row still worth reading. */
+.pair-opt.off, .pair-opt.off input { cursor: default; }
+.pair-opt.off:hover { border-color: var(--border); }
+.pair-opt.off input, .pair-opt.off .avatar, .pair-opt.off .pair-name { opacity: 0.5; }
+.pair-why { display: block; font-size: 0.7rem; font-weight: 500; color: var(--amber-ink); }
+/* What the popup says beneath the list when it cannot act on what is ticked. */
+.pair-hint { font-size: 0.72rem; color: var(--text-light); margin-top: 0.3rem; }
+/* Two or more ticked (Manual pairing, recut ticket 02): the toggle that asks what
+   to make of them, as the mock draws it, and the Material dropdowns. The box is a
+   column whose list and per-Disciple panel give way and scroll inside it, so
+   neither pushes the sentence and the buttons off the screen. */
+.modal.pair { display: flex; flex-direction: column; }
+/* Held by its top edge where what is chosen adds controls, so it grows downward
+   and no row moves from under the pointer. The space above gives way on a short
+   screen, where the box needs the height more than the page needs the margin. */
+.modal.pair.grows { --held-at: max(0px, min(12vh, (100vh - 46rem) / 2)); margin: var(--held-at) 0 auto; max-height: calc(100vh - 3rem - var(--held-at)); }
+/* The height a phone actually shows, where a browser knows it: its bars come off
+   100vh only when they hide, and the buttons must not sit under them. */
+@supports (height: 100dvh) { .modal.pair.grows { max-height: calc(100dvh - 3rem - var(--held-at)); } }
+.modal.pair > * { flex-shrink: 0; }
+.modal.pair > .pair-list { flex: 0 1 auto; min-height: 5.5rem; }
+.pair-unticked:empty { margin: 0; }
+.pair-label { display: block; font-size: 0.74rem; font-weight: 700; color: var(--text); margin: 0.85rem 0 0.3rem; }
+.pair-shape { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.pair-shape label { text-align: center; font-size: 0.78rem; padding: 0.42rem 0.2rem; color: var(--text); background: var(--surface); border-right: 1px solid var(--border); cursor: pointer; }
+.pair-shape label:last-child { border-right: 0; }
+.pair-shape label.on { background: var(--primary); color: #fff; font-weight: 700; }
+/* Ruled out: struck through where the count is what rules it out, as the mock has
+   it, and only greyed where it is the Discipler. The hint beneath says which. */
+.pair-shape label.struck, .pair-shape label.off { color: #bbb; background: #faf8f5; cursor: default; }
+.pair-shape label.struck { text-decoration: line-through; }
+.pair-shape input { position: absolute; opacity: 0; width: 0; height: 0; }
+.pair-shape label:has(input:focus-visible) { outline: 2px solid var(--primary); outline-offset: -2px; }
+.modal.pair select { padding: 0.42rem 0.6rem; font-size: 0.82rem; }
+.modal.pair > .pair-per { flex: 0 1 auto; min-height: 4.6rem; }
+.pair-per { max-height: 8.6rem; overflow-y: auto; padding: 3px; margin: 0 -3px; min-width: 0; }
+.pair-per-rows { display: grid; gap: 0.35rem; margin: 0; padding: 0; border: 0; min-width: 0; }
+.pair-per-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 0.5rem; align-items: center; font-size: 0.8rem; }
+.pair-per-row label { overflow-wrap: anywhere; }
+.pair-summary { margin-top: 0.9rem; background: rgba(45, 80, 22, 0.06); border-left: 3px solid var(--primary); padding: 0.55rem 0.7rem; font-size: 0.82rem; border-radius: 0 5px 5px 0; }
 
 /* ---- the Materials tab ---- */
 /* Lifted from the v10 prototype where it draws the Materials tab, as

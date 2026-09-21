@@ -690,6 +690,23 @@ export interface NewParticipantMembership {
 }
 
 /**
+ * One Leader added to a group that already exists (Manual pairing, ticket 22):
+ * the first path that adds a Leader after formation, as joining was the first
+ * that added a Participant. The membership opens with no Acceptance on it, as
+ * every leader membership does, and the relationship's own row is not touched:
+ * a group that is running goes on running while the new Leader decides.
+ *
+ * No actor, for the reason the membership above carries none: who added them is
+ * the history event beside it.
+ */
+export interface NewLeaderMembership {
+  readonly ministryId: MinistryId
+  readonly relationshipId: RelationshipId
+  readonly personId: PersonId
+  readonly startedAt: Date
+}
+
+/**
  * What an Admin called a group and whether joining it asks. Both, always: it is
  * one form and one save, and a rename that landed while the switch was refused is
  * a state nobody chose.
@@ -728,6 +745,7 @@ export type Effect =
   | { readonly kind: 'relationship.end'; readonly ending: RelationshipEnding }
   | { readonly kind: 'relationship.depart'; readonly departure: ParticipantDeparture }
   | { readonly kind: 'relationship.join'; readonly membership: NewParticipantMembership }
+  | { readonly kind: 'relationship.add_leader'; readonly membership: NewLeaderMembership }
   | { readonly kind: 'group.configure'; readonly configuration: GroupConfiguration }
   | { readonly kind: 'material.assign'; readonly assignment: MaterialAssignment }
   | { readonly kind: 'checkin.open'; readonly sequence: NewCheckInSequence }
@@ -831,6 +849,11 @@ export const recordIntake = (intake: IntakeRecord): Effect => ({
 
 export const joinRelationship = (membership: NewParticipantMembership): Effect => ({
   kind: 'relationship.join',
+  membership,
+})
+
+export const addLeader = (membership: NewLeaderMembership): Effect => ({
+  kind: 'relationship.add_leader',
   membership,
 })
 

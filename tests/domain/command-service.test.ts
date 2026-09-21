@@ -138,6 +138,9 @@ describe('applying a command\'s effects', () => {
         closeIntendedPairing: async () => {
           throw new Error('no plan should have been closed')
         },
+        lockIntendedPairings: async () => {
+          throw new Error('no plan should have been locked')
+        },
         discipleshipGoals: async () => {
           throw new Error('the goal options should not have been read')
         },
@@ -224,6 +227,9 @@ describe('applying a command\'s effects', () => {
           throw new Error('not in this test')
         },
         joinRequest: async () => {
+          throw new Error('not in this test')
+        },
+        addLeaderToGroup: async () => {
           throw new Error('not in this test')
         },
         joinRelationship: async () => {

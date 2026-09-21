@@ -56,14 +56,20 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin importing a spreadsheet', () =
     expect(html).toContain('Ben Okafor')
   })
 
-  it('sees them as No Intake Submitted, not as people it may pair', async () => {
+  it('sees them as awaiting Intake, not as people it may pair', async () => {
     const { cookie } = await signIn(ministry)
 
     await upload(cookie, file('Name,Phone', `Cara Nolan,${number()}`))
 
-    // On the Disciples list, where everyone an upload adds lands.
+    // On the Disciples list, where everyone an upload adds lands. Her own row says
+    // why there is nothing to press (Manual pairing, ticket 07); the page as a
+    // whole would not do, since the import dialog on it names the status too.
     const { html } = await getPage('/roster?list=disciples', cookie)
-    expect(html).toContain('No Intake Submitted')
+    const row = html.split('<tr').find((candidate) => />Cara Nolan</.test(candidate))
+    expect(row, 'no row for Cara Nolan').toBeDefined()
+    expect(row).toContain('Awaiting Intake')
+    expect(row).not.toContain('Unpaired')
+    expect(row).not.toContain('href="/roster/pair')
   })
 
   it('is told which rows were not imported, by line', async () => {
@@ -140,9 +146,13 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin importing a spreadsheet', () =
     const { html } = await getPage(`/roster?${location.split('?')[1] ?? ''}`, cookie)
     expect(html).toContain('2 people were added.')
     expect(html).toContain('1 pair was planned.')
+    // The receipt lands where it always did, on the Disciples, whatever the
+    // Roster's own default is (Manual pairing, ticket 06 made that All).
+    expect(location).toContain('list=disciples')
+    expect(html).toMatch(/<a (?=[^>]*aria-current="true")[^>]*>Disciples</)
 
     // Sam is a Discipler by the plan; Taylor is the Disciple; both say *planned*.
-    const disciplers = await getPage('/roster', cookie)
+    const disciplers = await getPage('/roster?list=disciplers', cookie)
     expect(rowOf(disciplers.html, 'Sam Rivera')).toContain('Taylor Brooks planned')
     expect(rowOf(disciplers.html, 'Sam Rivera')).toContain('awaiting Intake')
     const disciples = await getPage('/roster?list=disciples', cookie)
@@ -161,8 +171,10 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin importing a spreadsheet', () =
 
     expect(location).toContain('added=1')
     expect(location).toContain('planned=1')
+    // On All, which is where the Roster opens, the plan is on both rows.
     const { html } = await getPage('/roster', cookie)
     expect(rowOf(html, 'Ruth Adeyemi')).toContain('Omar Haddad planned')
+    expect(rowOf(html, 'Omar Haddad')).toContain('Ruth Adeyemi planned')
   })
 
   it('is told, by line, about a pair it would not plan, and still imports the person', async () => {

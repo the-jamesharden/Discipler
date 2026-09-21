@@ -38,8 +38,8 @@ const snapshot = (over: Partial<RelationshipSnapshot> = {}): RelationshipSnapsho
   declaredGender: null,
   pause: null,
   members: [
-    { personId: david, role: 'leader', fullName: 'David Ellis', phone: '+15550101' },
-    { personId: emily, role: 'participant', fullName: 'Emily Johnson', phone: '+15550200' },
+    { personId: david, role: 'leader', fullName: 'David Ellis', phone: '+15550101', acceptedAt },
+    { personId: emily, role: 'participant', fullName: 'Emily Johnson', phone: '+15550200', acceptedAt: null },
   ],
   ...over,
 })
@@ -86,9 +86,9 @@ const depart = (person: PersonId, relationshipSnapshot = snapshot()) =>
 const group = () =>
   snapshot({
     members: [
-      { personId: david, role: 'leader', fullName: 'David Ellis', phone: '+15550101' },
-      { personId: emily, role: 'participant', fullName: 'Emily Johnson', phone: '+15550200' },
-      { personId: fiona, role: 'participant', fullName: 'Fiona Grant', phone: '+15550300' },
+      { personId: david, role: 'leader', fullName: 'David Ellis', phone: '+15550101', acceptedAt },
+      { personId: emily, role: 'participant', fullName: 'Emily Johnson', phone: '+15550200', acceptedAt: null },
+      { personId: fiona, role: 'participant', fullName: 'Fiona Grant', phone: '+15550300', acceptedAt: null },
     ],
   })
 

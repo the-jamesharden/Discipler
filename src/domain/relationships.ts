@@ -161,3 +161,22 @@ export const RELATIONSHIP_OUTCOMES: readonly RelationshipOutcome[] = [
  */
 export const isRelationshipOutcome = (value: unknown): value is RelationshipOutcome =>
   RELATIONSHIP_OUTCOMES.includes(value as RelationshipOutcome)
+
+/**
+ * Whether an open leader membership is named as one of its relationship's Leaders
+ * (Manual pairing, ticket 22; decided by James on 2026-09-20).
+ *
+ * Always, while nobody has activated the relationship: it has to go on saying who
+ * it is waiting for. Once it is running, only a Leader who has accepted -- an
+ * Admin may add a Discipler to a group that is already running, and until they
+ * accept they are somebody who was invited, not somebody who leads it.
+ *
+ * This is who a relationship is *said to be led by*, on an Admin's screens. What a
+ * Leader is *given* -- sight of the relationship, its people, a check-in about it
+ * -- always takes their own Acceptance, and is not decided here. The SQL that
+ * says the same thing is `app.counts_as_leading`.
+ */
+export const countsAsLeading = (
+  relationshipAcceptedAt: Date | string | null,
+  memberAcceptedAt: Date | string | null,
+): boolean => relationshipAcceptedAt === null || memberAcceptedAt !== null

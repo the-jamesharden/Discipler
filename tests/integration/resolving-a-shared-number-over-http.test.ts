@@ -102,6 +102,9 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin answering a held import row', 
       personId: fieldIn(question, 'personId'),
     })
     expect(response.status).toBe(303)
+    // The answer lands on the Disciples by name, whatever the Roster's own
+    // default is (Manual pairing, ticket 06 made that All).
+    expect(response.headers.get('location')).toContain('/roster?list=disciples')
 
     // On the Disciples list, where somebody an upload added is.
     const { html } = await getPage('/roster?list=disciples', cookie)

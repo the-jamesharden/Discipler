@@ -38,6 +38,7 @@ const leader: RelationshipMember = {
   role: 'leader',
   fullName: 'David Ellis',
   phone: '+15550101',
+  acceptedAt,
 }
 
 const participant: RelationshipMember = {
@@ -45,6 +46,7 @@ const participant: RelationshipMember = {
   role: 'participant',
   fullName: 'Emily Johnson',
   phone: '+15550200',
+  acceptedAt: null,
 }
 
 const snapshot = (over: Partial<RelationshipSnapshot> = {}): RelationshipSnapshot => ({
@@ -278,6 +280,30 @@ describe('an Admin resuming a paused relationship', () => {
     expect(released[0]?.body).toContain('Your discipleship with Emily Johnson has been resumed!')
     expect(released[1]?.body).toContain('Your discipleship with David Ellis has been resumed!')
     expect(released.every((message) => message.enqueuedAt.getTime() === later.getTime())).toBe(true)
+  })
+
+  /**
+   * A Discipler an Admin added to the group since, who has not accepted (Manual
+   * pairing, ticket 22). They are sent nothing but their invitation, and are not
+   * yet somebody the Disciples are meeting with.
+   */
+  it('tells a leader who has not accepted nothing, and names them to nobody', () => {
+    const claire = personId('00000000-0000-4000-8000-0000000000d9')
+    const released = messages(
+      resume(
+        {
+          members: [
+            leader,
+            { personId: claire, role: 'leader', fullName: 'Claire Martinez', phone: '+15550109', acceptedAt: null },
+            participant,
+          ],
+        },
+        later,
+      ),
+    )
+
+    expect(released.map((message) => message.personId)).toEqual([david, emily])
+    expect(released.map((message) => message.body).join(' ')).not.toContain('Claire')
   })
 
   it('does not send the Starter Message', () => {

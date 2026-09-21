@@ -52,6 +52,7 @@ import type {
   OutstandingReplyClosure,
   OutstandingReplySweep,
   ParticipantDeparture,
+  NewLeaderMembership,
   NewParticipantMembership,
   GroupConfiguration,
   PersonOptIn,
@@ -91,7 +92,7 @@ import type {
 } from '~/domain/ids'
 import type { ParticipationStatus } from '~/domain/participation'
 import type { NewRelationship } from '~/domain/relationships'
-import type { CareReason, RelationshipState } from '~/domain/relationship-state'
+import type { CareReason, RelationshipState, SettledRelationshipState } from '~/domain/relationship-state'
 import type { InvitationState } from '~/domain/invitations'
 import type { MemberRole } from '~/domain/relationships'
 import type { NewPerson, PhoneNumber, RosterKey } from '~/domain/roster'
@@ -268,6 +269,18 @@ export interface UnitOfWork {
   planIntendedPairings(plans: readonly NewIntendedPairing[]): Promise<void>
   closeIntendedPairing(closure: IntendedPairingClosure): Promise<void>
   /**
+   * Takes the locks on the plans a command is about to close, before it writes the
+   * relationship that closes them. Settling a plan locks the plan and then writes
+   * the Disciple's membership; an Admin forming the same pair by hand, or a check
+   * of that pairing, would otherwise write the membership and then reach for the
+   * plan, and two transactions taking two locks in opposite orders is a deadlock
+   * Postgres ends by killing one (Manual pairing, ticket 03; ADR-0025). One order
+   * for everybody: the plan, then the membership. A plan this transaction already
+   * holds is locked again at no cost, and one that has since closed is locked all
+   * the same, which is harmless.
+   */
+  lockIntendedPairings(ids: readonly IntendedPairingId[]): Promise<void>
+  /**
    * Refuses with a `FollowUpRefused` when the item is gone or already closed. Two
    * Admins clicking Resolve on the same row is ordinary, and only the database can
    * see which of them got there first.
@@ -341,6 +354,14 @@ export interface UnitOfWork {
    * triggers judge the same insert.
    */
   joinRelationship(membership: NewParticipantMembership): Promise<void>
+  /**
+   * Adds one Leader, with no Acceptance, to a group that already exists, and
+   * touches nothing else about it. Refuses with a `GroupJoinRefused` when they
+   * already lead an open group, and with a `PairingRefused` when the Intake gate,
+   * an opt-out or the group's declared gender refuses the membership, exactly as
+   * formation does: the same triggers and indexes judge the same insert.
+   */
+  addLeaderToGroup(membership: NewLeaderMembership): Promise<void>
   /** What an Admin called a group and whether joining it asks. */
   configureGroup(configuration: GroupConfiguration): Promise<void>
   /**
@@ -805,11 +826,25 @@ export interface RosterRelationship {
   /** Open participant memberships, this Person's included where they are one. */
   readonly participantCount: number
   /**
+   * Which of the two participation caps this counts against: a Discipler leads one
+   * open group at a time and any number of one-to-ones, and a Disciple is in one
+   * open one-to-one and any number of groups. Declared when it was formed and never
+   * changed, so a group that has fallen to one Disciple is still a group here
+   * (ADR-0004, and James on 2026-09-20), whatever `participantCount` says.
+   *
+   * For showing the caps before the click and for nothing else. What a row is
+   * called, and every state, still follows the live count.
+   */
+  readonly countsAsAGroup: boolean
+  /**
    * Derived from `relationship.accepted_at`, never stored as a status. It is the
    * absence of an acceptance rather than a state anybody sets, which is why it
-   * belongs on the relationship and not beside the Participation Status: it says
-   * nothing about the Person whose row it is on, and both sides of the same
-   * relationship read it the same way.
+   * belongs on the relationship and not beside the Participation Status.
+   *
+   * Both sides of a relationship read it the same way, with one exception: a
+   * Discipler an Admin added to a group that was already running (Manual
+   * pairing, ticket 22). The group is accepted and they have not, so it is true
+   * on their row, from their own membership, and false on everybody else's.
    */
   readonly awaitingAcceptance: boolean
 }
@@ -981,9 +1016,44 @@ export interface MaterialOption {
   readonly title: string
 }
 
+/** Somebody leading a group an Admin could put a Person into. */
+export interface GroupLeader {
+  readonly personId: PersonId
+  readonly fullName: string
+}
+
+/**
+ * One group an Admin could put somebody into, as the Pair surface lists it: an
+ * open relationship with two or more Disciples, a 1:2 pair included.
+ */
+export interface GroupToJoin {
+  readonly relationshipId: RelationshipId
+  /**
+   * What the Ministry calls it, or null where nobody has named it. Never
+   * backfilled or guessed in the read: how an unnamed row is labelled is the
+   * popup's.
+   */
+  readonly name: string | null
+  readonly leaders: readonly GroupLeader[]
+  /** The live count of open participant memberships, never the relationship's kind (ADR-0004). */
+  readonly discipleCount: number
+  /** What the group declared at formation. Null is *mixed*, as it is everywhere a declaration is carried. */
+  readonly declaredGender: Gender | null
+  /**
+   * Null while it is running. Two of the settled Relationship States and never
+   * the third: an ended group is not listed. Which wins is `settledStateOf`'s.
+   */
+  readonly state: Exclude<SettledRelationshipState, 'ended'> | null
+  /**
+   * Everybody in it, in either role, so the surface can leave out a group the
+   * Person is already in without a second read.
+   */
+  readonly memberIds: readonly PersonId[]
+}
+
 /**
  * What the Roster derives from its document. The person page reads the same
- * document, and the Pair page reads it with two keys of its own beside it; each
+ * document, and the Pair page reads it with three keys of its own beside it; each
  * takes what it needs.
  */
 export interface RosterPage {
@@ -1010,6 +1080,12 @@ export interface RosterPage {
    * only, and empty on every other. A removed one is not on the list.
    */
   readonly materials: readonly MaterialOption[]
+  /**
+   * The groups an Admin could put somebody into: running, paused or still
+   * awaiting their leader, never ended or cancelled. Read by the Pair surface
+   * only, and empty on every other.
+   */
+  readonly groups: readonly GroupToJoin[]
 }
 
 /** The three surfaces that draw from the Roster's document, each read under its own name. */
@@ -1354,6 +1430,13 @@ export interface InvitationPage {
    * is not policed by.
    */
   readonly withNames: readonly string[]
+  /**
+   * The Leaders its holder would be leading *with*, by `countsAsLeading`: once
+   * the relationship is running only those who have accepted, and until then
+   * everybody it waits on. Empty for somebody leading alone, and always for a
+   * Participant, who is shown their Leaders in `withNames` and nobody else.
+   */
+  readonly leadingWith: readonly string[]
   /** How many Participants it holds. Copy branches on this and never on `kind`. */
   readonly participantCount: number
 }

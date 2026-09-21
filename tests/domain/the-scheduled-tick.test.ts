@@ -40,7 +40,7 @@ const awaiting = (
 
 const unaccepted = (over: Partial<UnacceptedRelationship> = {}): UnacceptedRelationship => ({
   relationshipId: relationship,
-  createdAt,
+  waitingSince: createdAt,
   awaiting: [awaiting(david, 'David Ellis')],
   itemStandsOpen: false,
   ...over,
