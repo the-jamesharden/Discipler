@@ -195,7 +195,7 @@ Decline beside Accept measures the same height, 39.3px, at 80px wide against 154
 **Copy link to re-invite leader** was pressed for real: it says *Link copied*, stays on the tab, and the database shows her back as somebody invited, the old membership and invitation kept beside the new, one copy recorded with the Admin, and still only the one text she was ever sent.
 
 **The whole suite ran once on the result: 171 of 172 files, 2529 tests passed, 1 skipped, which is a standing `it.skip`.**
-The file that failed is `tests/domain/relationship-kind-fence.test.ts`, three tests, none of them this ticket's; see *For James*.
+The file that failed was `tests/domain/relationship-kind-fence.test.ts`, three tests, none of them this ticket's, and since fixed; see *For James*.
 The two new integration files ran before that on their own, and the over-HTTP one against this checkout's own build.
 Not run three times back to back: another session was resetting the shared database from a checkout without this migration between runs.
 
@@ -208,8 +208,7 @@ Accepting on a declined link was refused as *not found*; it is refused as *decli
 1. **The migration to push, and the two columns in it**, above.
 2. **`docs/product-rules.md` still says `match_declined` is a Participant declining, and lists the Follow-Up kinds without `invitation_expired`.**
    It is a product source and this was implementation work, so it is left as it is and said here.
-3. **`tests/domain/relationship-kind-fence.test.ts` is red on `integration/manual-pairing`, and it is not this ticket's.**
-   Ticket 04's popup names its Group shape `'group'` in `app/roster/copy.ts`, `pair-popup-from-a-discipler.tsx` and `pair-shape.ts`, which the fence reads as a relationship's kind.
-   The fence says how it is answered: one exported constant and a line on its allowlist arguing for it.
-   Left to the session building ticket 04, which was committing as this was built.
-
+3. **`tests/domain/relationship-kind-fence.test.ts` was red on `integration/manual-pairing`, and was not this ticket's. Fixed, in a commit of its own.**
+   Ticket 04's popup named its Group shape `'group'` in `app/roster/copy.ts`, `pair-popup-from-a-discipler.tsx` and `pair-shape.ts`, which the fence reads as a relationship's kind; ticket 04's record does not mention it, and its session had finished.
+   Answered the way the fence says: the word is exported once as `GROUP_SHAPE` from `pair-shape.ts`, every comparison goes through it, `copy.ts` no longer says it, and the fence allows that one file the literal with its argument written beside it.
+   No behaviour changed: `tests/domain` and `tests/app` are 72 of 72 files green, and the popup's five over-HTTP suites and this ticket's pass against a fresh build, 77 tests.
