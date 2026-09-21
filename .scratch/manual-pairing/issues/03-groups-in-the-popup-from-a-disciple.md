@@ -8,7 +8,7 @@ Choosing one and pressing **Add to group** puts the Disciple straight into it.
 **Status:** ready-for-agent
 
 **Old tickets:** this is old ticket 25, whole; none of it is committed.
-Every criterion is below, unchanged.
+Every criterion is below, unchanged, and one is added: *An open Join Request*, decided by James on 2026-09-20.
 Here "old ticket NN" means a ticket of the earlier cuts, 01 to 27, kept under that number in `06-committed-already.md`, and existing code that says "Manual pairing, ticket NN" means those.
 New code says "Manual pairing, recut ticket NN".
 Old ticket 08, in `06-committed-already.md`, says what its read leaves to the popup.
@@ -48,6 +48,15 @@ Old ticket 22's Comments, in the same file, give the address a refused join retu
 - [ ] It posts to old ticket 22's route; the Disciple is in the group at once, and the Roster's receipt says so.
 - [ ] A refusal reopens the popup with the reason and the chosen group restored.
 
+### An open Join Request
+
+- [ ] Putting somebody into a group they have an open Join Request for resolves that request in the same act, as an admitted request ends, so it leaves Intake forms.
+  There is no second membership.
+  Nothing is sent and nothing is shown for it: the group's leaders get the one text a join already sends and no other, and the Disciple gets nothing.
+  The resolution is recorded in the Ministry's history, naming the Admin.
+  A request of theirs for a different group is left as it is.
+  Decided by James on 2026-09-20; see Comments.
+
 ### Checked
 
 - [ ] Over HTTP: the Groups section's contents for a Disciple already in one of three groups; a men's group greyed for a woman; the join round trip; a refusal restored.
@@ -64,8 +73,9 @@ When an Admin puts somebody into a group they have an open Join Request for, the
 There is no second membership, and no message is sent to anyone.
 This replaces what the command does today, which leaves the request open on Intake forms, so the test that holds that behaviour changes with it.
 It is built with this ticket, because **Add to group** is what puts the command in an Admin's hands.
+Its criterion is under *An open Join Request*, above.
 
-Three readings were taken in writing this down, each the conservative one, and each James's to overrule:
+Three readings were taken in writing this down, and James confirmed all three on 2026-09-20:
 
 - "Accepted" is what the product calls admitting a Join Request, so the request ends the way an admitted one does and leaves Intake forms.
 - "No message" is about the request.
