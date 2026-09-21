@@ -19,6 +19,7 @@ import {
   reasonOnRow,
   relationshipsOn,
   rosterStats,
+  tagOnName,
   whoThePopupIsFor,
   whyNotPairable,
 } from '../../app/roster/lists'
@@ -265,31 +266,36 @@ describe('what a row offers (Manual pairing, ticket 07)', () => {
     expect(whyNotPairable(offeredThenLeft)).toBe('opted_out')
   })
 
-  it('does not say awaiting Intake twice on a row whose plan already says it (James, 2026-09-19)', () => {
+  it('tags the name of somebody who has not completed Intake, and nobody else (James, 2026-09-21)', () => {
+    // An import files people who have answered nothing, and an Admin looking down
+    // the names has to see which those are.
+    expect(tagOnName(person({ participationStatus: 'no_intake_submitted' }))).toBe('awaiting_intake')
+    expect(CANNOT_BE_PAIRED[tagOnName(person({ participationStatus: 'no_intake_submitted' }))!]).toBe('Awaiting Intake')
+    // Whatever else they hold: planned to lead, or having offered to.
+    expect(tagOnName(person({ participationStatus: 'no_intake_submitted', intendedPairings: [plan('leader')] }))).toBe('awaiting_intake')
+    expect(tagOnName(person({ participationStatus: 'ready_to_pair' }))).toBeNull()
+    expect(tagOnName(person({ participationStatus: 'paired' }))).toBeNull()
+    // Opted out is said where Pair would have been, as it was.
+    expect(tagOnName(person({ participationStatus: 'opted_out' }))).toBeNull()
+  })
+
+  it('does not say Awaiting Intake a second time in the Paired with cell, because the name has (James, 2026-09-21)', () => {
     const refused: RosterIntendedPairing = { ...plan('participant'), state: 'refused', refusal: 'relationship.gender_must_match' }
     const waiting = person({ participationStatus: 'no_intake_submitted', intendedPairings: [plan('participant')] })
     const notMade = person({ participationStatus: 'no_intake_submitted', intendedPairings: [refused] })
     const leftAPlan = person({ participationStatus: 'opted_out', intendedPairings: [plan('participant')] })
     const leftAPairing = person({ participationStatus: 'opted_out', relationships: [pairing('participant')] })
 
-    // *Taylor Brooks planned - awaiting Intake* has said it; the row still offers no Pair.
-    expect(reasonOnRow('disciples', waiting)).toBeNull()
-    expect(reasonOnRow('all', waiting)).toBeNull()
+    // The tag beside the name has said it, on every row and whatever the row holds;
+    // the row still offers no Pair.
+    expect(reasonOnRow(person({ participationStatus: 'no_intake_submitted' }))).toBeNull()
+    expect(reasonOnRow(waiting)).toBeNull()
+    expect(reasonOnRow(notMade)).toBeNull()
     expect(whyNotPairable(waiting)).toBe('awaiting_intake')
-    // Every other reason says something its lines do not.
-    expect(reasonOnRow('disciples', notMade)).toBe('awaiting_intake')
-    expect(reasonOnRow('disciples', leftAPlan)).toBe('opted_out')
-    expect(reasonOnRow('disciples', leftAPairing)).toBe('opted_out')
-    expect(reasonOnRow('all', person({ participationStatus: 'no_intake_submitted' }))).toBe('awaiting_intake')
-    // Only a line this list shows counts: planned to be discipled, she is on the
-    // Disciplers list for another reason, and that row shows no plan line.
-    const both = person({
-      participationStatus: 'no_intake_submitted',
-      intendedPairings: [plan('participant')],
-      declaredSide: 'mentor',
-    })
-    expect(reasonOnRow('disciplers', both)).toBe('awaiting_intake')
-    expect(reasonOnRow('all', person())).toBeNull()
+    // Opted out is said nowhere else on the row, so the cell says it.
+    expect(reasonOnRow(leftAPlan)).toBe('opted_out')
+    expect(reasonOnRow(leftAPairing)).toBe('opted_out')
+    expect(reasonOnRow(person())).toBeNull()
   })
 
 })

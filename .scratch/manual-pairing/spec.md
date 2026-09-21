@@ -35,11 +35,17 @@ Two tickets from the first version landed and nothing here undoes them.
 - **Removed:** the participation status chip under every name, the footnote under the table that explains it, and the *Offered to mentor* tag.
   Participation Status stays in the model and still decides who can be paired.
   Answering Mentor on Intake still makes somebody a Discipler; the Disciplers toggle already says so without a tag.
+- **Back, as one tag beside the name (James, 2026-09-21):** somebody who has not completed Intake is tagged **Awaiting Intake** beside their name, on every list.
+  An import files people who have answered nothing, and they looked like everybody else until an Admin went to pair them.
+  It is read off Participation Status and not off how the person arrived, so it is on anybody who has not completed Intake, whichever layout imported them.
+  No other status is tagged.
 - **Removed:** the *Pair people* button, from the Roster and from Suggested Pairs.
   Every pairing starts from a row.
 - **Removed, and pinned:** *Eligible to lead* left the app on 2026-09-07 (`b8894d5`) and survives only in the design prototype `.scratch/core-operating-loop/design/discipler-dashboard-v10.html`.
   A test asserts the words never appear on the Roster.
-- With the chip gone, a row that cannot be paired says why in its Paired with cell: **Awaiting Intake** or **Opted out**, in place of *Unpaired* and a Pair button.
+- A row that cannot be paired offers no Pair button and says why once.
+  **Awaiting Intake** is the tag beside the name, and the Paired with cell does not say it again: it reads *Unpaired*, or the plans the row holds.
+  **Opted out** is said in the Paired with cell, in place of *Unpaired*.
 - **Pair** appears on every Discipler row, including a Discipler who already leads somebody, and on every Disciple row whose person has completed Intake and not opted out.
 
 ## Where the popup lives

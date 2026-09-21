@@ -84,8 +84,8 @@ export const relationshipsOn = (
 
 /**
  * Why a row offers no Pair, or null when nothing is in the way (Manual pairing,
- * ticket 07). Participation Status is no longer printed under a name, and still
- * decides this: the database refuses a pairing with somebody who has not completed
+ * ticket 07). Participation Status is not printed as a status on the Roster, and
+ * still decides this: the database refuses a pairing with somebody who has not completed
  * Intake or has opted out, on either side of it, so neither row gets anything to
  * press. One answer for a Discipler and a Disciple, and being paired already is
  * never a reason: a Discipler may lead another, and a Disciple may join a group.
@@ -98,18 +98,26 @@ export const whyNotPairable = (person: Pick<RosterEntry, 'participationStatus'>)
       : null
 
 /**
- * The reason a row prints where Pair would have been, or null. `whyNotPairable`,
- * said once: a plan this row shows that is still waiting already reads *planned -
- * awaiting Intake*, and the same words again after it told an Admin nothing (James,
- * 2026-09-19). Every other reason says something the row's lines do not -- *Opted
- * out* beside a pairing or a plan, *Awaiting Intake* beside a plan that was refused.
- * A null here never means Pair: that is `whyNotPairable`'s to answer.
+ * The tag beside a name, or null (James, 2026-09-21): somebody who has not completed
+ * Intake is tagged where an Admin reads the names, because an import files people
+ * who have answered nothing and they look like everybody else until a Pair is
+ * missed. It is `whyNotPairable`'s answer and no second rule, so the tag and the
+ * missing Pair cannot disagree. Opted out is not tagged: the Paired with cell says it.
  */
-export const reasonOnRow = (list: RosterList, person: RosterEntry): NotPairable | null => {
+export const tagOnName = (person: Pick<RosterEntry, 'participationStatus'>): 'awaiting_intake' | null =>
+  whyNotPairable(person) === 'awaiting_intake' ? 'awaiting_intake' : null
+
+/**
+ * The reason a row prints where Pair would have been, or null. `whyNotPairable`,
+ * less what the row has already said: the tag beside the name says *Awaiting
+ * Intake*, and the same words again in the Paired with cell told an Admin nothing
+ * (James, 2026-09-19, of a plan line that said it; the tag now says it on every
+ * such row). *Opted out* is said nowhere else, so it is said here. A null here never
+ * means Pair: that is `whyNotPairable`'s to answer.
+ */
+export const reasonOnRow = (person: Pick<RosterEntry, 'participationStatus'>): NotPairable | null => {
   const reason = whyNotPairable(person)
-  const alreadySaid =
-    reason === 'awaiting_intake' && plansOn(list, person).some((plan) => plan.state === 'awaiting_intake')
-  return alreadySaid ? null : reason
+  return reason === tagOnName(person) ? null : reason
 }
 
 /** The side of a pairing the Pair popup opens on: whose row was pressed, and so who the list is of. */

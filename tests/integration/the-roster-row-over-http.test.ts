@@ -132,14 +132,17 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
       for (const list of [side, 'all']) check((await getPage(`/roster?list=${list}`, cookie)).html, list)
     }
 
-    it('says Awaiting Intake, and offers nothing to press, for somebody who has not completed Intake', async () => {
+    it('tags the name Awaiting Intake, and offers nothing to press, for somebody who has not completed Intake', async () => {
       const { cookie } = await signIn(ministry)
       await addPerson(ministry, 'Jo Okafor', { phone: number(), intake: false })
 
       await onTheirListAndOnAll(cookie, 'disciples', (html) => {
+        // Beside the name, where an Admin reads down the people (James, 2026-09-21).
+        expect(tagFor(html, 'Jo Okafor')).toBe('Awaiting Intake')
+        // Said once: the Paired with cell is left with the fact, and nothing to press.
         const row = rowFor(html, 'Jo Okafor')
-        expect(row).toContain('Awaiting Intake')
-        expect(row).not.toContain('Unpaired')
+        expect(row.split('Awaiting Intake')).toHaveLength(2)
+        expect(row).toContain('Unpaired')
         expect(row).not.toContain('No Intake Submitted')
         expect(pairLinkFor(html, 'Jo Okafor')).toBeNull()
       })
@@ -152,6 +155,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
 
       await onTheirListAndOnAll(cookie, 'disciples', (html) => {
         const row = rowFor(html, 'Lena Brandt')
+        expect(tagFor(html, 'Lena Brandt')).toBeNull()
         expect(row).toContain('Opted out')
         expect(row).not.toContain('Unpaired')
         expect(pairLinkFor(html, 'Lena Brandt')).toBeNull()
@@ -164,6 +168,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
 
       // The popup, from a Disciple, on Disciples and on All (Manual pairing, ticket 12).
       await onTheirListAndOnAll(cookie, 'disciples', (html, list) => {
+        expect(tagFor(html, 'Sam Lee')).toBeNull()
         expect(rowFor(html, 'Sam Lee')).toContain('Unpaired')
         expect(pairLinkFor(html, 'Sam Lee')).toBe(`/roster?list=${list}&pair=${sam}`)
       })
@@ -252,11 +257,22 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
           expect(table).not.toContain(chip)
         }
         expect(table).not.toContain('class="rs ')
+        // One tag came back beside a name (James, 2026-09-21), and it is the only one.
+        const tags = [...table.matchAll(/data-testid="roster-tag"[^>]*>([^<]*)</g)].map((tag) => tag[1])
+        expect(tags.filter((tag) => tag !== 'Awaiting Intake')).toEqual([])
       }
     })
   })
 
   /** Where Pair on one Person's row goes, or null when the row offers none. */
+  /** The tag beside a name, in the name's own cell and directly after it, or null. */
+  const tagFor = (html: string, name: string): string | null => {
+    const tag = html.match(
+      new RegExp(`data-testid="roster-name"[^>]*>${name}</a><span [^>]*data-testid="roster-tag"[^>]*>([^<]*)</span>`),
+    )
+    return tag ? tag[1]! : null
+  }
+
   const pairLinkFor = (html: string, name: string): string | null => {
     const row = html
       .split('<tr')

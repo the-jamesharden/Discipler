@@ -63,6 +63,7 @@ import {
   reasonOnRow,
   relationshipsOn,
   rosterStats,
+  tagOnName,
   whoThePopupIsFor,
   whyNotPairable,
 } from './lists'
@@ -395,15 +396,23 @@ export default async function RosterPage({
                     {/* The name opens the Person's own page, and nothing sits under
                         it: the status chip and the *Offered to mentor* tag explained
                         the model to a pastor who came to see people (Manual pairing,
-                        ticket 07). The initials are derived from the name. */}
+                        ticket 07). One tag came back, beside the name (James,
+                        2026-09-21): somebody who has not completed Intake, who an
+                        import files looking like everybody else. The initials are
+                        derived from the name. */}
                     <td>
                       <div className="person">
                         <span className="avatar" aria-hidden="true">
                           {initialsOf(person.fullName)}
                         </span>
-                        <Link href={`/roster/${person.personId}`} data-testid="roster-name">
-                          {person.fullName}
-                        </Link>
+                        {/* Together, so the tag drops under the name, and not off the
+                            edge, where a phone leaves no room beside it. */}
+                        <div className="person-name">
+                          <Link href={`/roster/${person.personId}`} data-testid="roster-name">
+                            {person.fullName}
+                          </Link>
+                          <NameTag person={person} />
+                        </div>
                       </div>
                     </td>
                     {/* Contact details, to an Admin, on every row (ADR-0021). The
@@ -654,15 +663,16 @@ const importReadback = (roster: readonly RosterEntry[]): ImportReadbackWire => {
  * cannot be paired is offered nothing to press, and the cell says why where the
  * button would have been: in place of *Unpaired* when they hold nothing, and after
  * their pairings when they do, so an Admin still reads that somebody in a pairing
- * has opted out. A plan still waiting has already said *awaiting Intake*, and its
- * row does not say it twice. `whyNotPairable` decides the button and `reasonOnRow`
- * the words, both in `lists.ts`.
+ * has opted out. Somebody who has not completed Intake is tagged beside their name,
+ * so this cell does not say it twice: it reads *Unpaired*, or their plans, with
+ * nothing to press. `whyNotPairable` decides the button, `reasonOnRow` the words
+ * here and `tagOnName` the tag, all in `lists.ts`.
  */
 const PairedWith = ({ list, person }: { readonly list: RosterList; readonly person: RosterEntry }) => {
   const pairings = relationshipsOn(list, person)
   const plans = plansOn(list, person)
   const canBePaired = whyNotPairable(person) === null
-  const said = reasonOnRow(list, person)
+  const said = reasonOnRow(person)
   const reason = said ? <span className="blocked">{CANNOT_BE_PAIRED[said]}</span> : null
 
   if (pairings.length === 0 && plans.length === 0) {
@@ -674,7 +684,8 @@ const PairedWith = ({ list, person }: { readonly list: RosterList; readonly pers
         </Link>
       </div>
     ) : (
-      reason
+      // Unpaired is still the fact where the name has already said why there is no Pair.
+      reason ?? <span className="blocked">{UNPAIRED}</span>
     )
   }
 
@@ -712,6 +723,19 @@ const PairedWith = ({ list, person }: { readonly list: RosterList; readonly pers
   )
 }
 
+/**
+ * The tag beside a name: today only *Awaiting Intake*, in the pill that already
+ * means awaiting. Not the Participation Status chip, which stays off the table.
+ */
+const NameTag = ({ person }: { readonly person: RosterEntry }) => {
+  const tag = tagOnName(person)
+  return tag ? (
+    <span className="pill awaiting" data-testid="roster-tag">
+      {CANNOT_BE_PAIRED[tag]}
+    </span>
+  ) : null
+}
+
 const PlanLine = ({ plan }: { readonly plan: RosterIntendedPairing }) => (
   <>
     {/* The name and its pill stay on one line; only the note after them wraps. */}
@@ -722,10 +746,11 @@ const PlanLine = ({ plan }: { readonly plan: RosterIntendedPairing }) => (
         {plan.state === 'awaiting_intake' ? PLANNED : NOT_MADE}
       </span>
     </span>
+    {/* Each note wraps whole: a dash left alone at the end of a line reads as a mistake. */}
     {plan.state === 'awaiting_intake' ? (
-      <span className="muted">{` - ${AWAITING_INTAKE}`}</span>
+      <span className="muted nowrap">{` - ${AWAITING_INTAKE}`}</span>
     ) : (
-      <span className="muted">
+      <span className="muted nowrap">
         {' - '}
         <Link href="/follow-up">{SEE_FOLLOW_UP}</Link>
       </span>
