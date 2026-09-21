@@ -32,6 +32,7 @@ import {
   partlyPairedReceipt,
   peopleAdded,
   PLANNED,
+  refusalAboutOneOfASet,
   ROSTER_LISTS,
   rowProblemMessage,
   samePersonAnswer,
@@ -43,6 +44,7 @@ import {
   UNPAIRED,
   type RosterList,
 } from './copy'
+import { readMaterialPerDisciple } from './pair/material-per-disciple'
 import { decodeSeparateReceipt } from './pair/receipt'
 import { INTAKE_FORMS } from '../intake-forms/copy'
 import { ImportDialog, type ImportReadbackWire } from './import-dialog'
@@ -62,12 +64,14 @@ import {
   whoThePopupIsFor,
   whyNotPairable,
 } from './lists'
-import { greyedForADisciple, greyedForADiscipler, type Greyed } from './greying'
+import { declaredGenderToField } from './declared-gender'
+import { greyedForADisciple, greyedForADiscipler, greyedInAOneToTwo, leadsAGroup, type Greyed } from './greying'
 import { PairPopupFromADisciple } from './pair-popup-from-a-disciple'
 import { PairPopupFromADiscipler } from './pair-popup-from-a-discipler'
 import { RefusedRows } from './refused-rows'
 import { decodeImportReport } from './report'
 import { rosterKey } from '~/domain/roster'
+import { readPairingMode } from '~/domain/separate-pairings'
 
 export const dynamic = 'force-dynamic'
 
@@ -119,6 +123,16 @@ export default async function RosterPage({
     leaderId?: string | string[]
     /** The Disciples ticked in the popup from a Discipler, on a submission that came back refused. */
     with?: string | string[]
+    /**
+     * What two or more ticks were to become, on a submission that came back refused
+     * (Manual pairing, recut ticket 02): which of several Disciples the refusal is
+     * about, whether it was N x 1:1 pairs, and the one Material of a 1:2 pair. The
+     * Material chosen for each Disciple comes back as `materialId.<personId>`, which
+     * no type can list, and is read by `readMaterialPerDisciple`.
+     */
+    about?: string | string[]
+    mode?: string | string[]
+    materialId?: string | string[]
   }>
 }) {
   // One read: the Roster, the import rows waiting on an answer and the badge's
@@ -139,7 +153,7 @@ export default async function RosterPage({
   if (page.status === 'signed-out') redirect('/login')
 
   const { admin } = page
-  const { roster, held, followUpCount, suggestGenderMatch, groups } = page.page
+  const { roster, held, followUpCount, suggestGenderMatch, groups, materials } = page.page
 
   const list = listIn(query.list)
   const shown = roster.filter((person) => onList(list, person))
@@ -157,10 +171,17 @@ export default async function RosterPage({
   // Why a row cannot be chosen, already in words, or null where it can. Read
   // against what a one-to-one declares in this Ministry, never offered and then
   // refused.
-  const greyedInWords = (greyed: Greyed | null): string | null => (greyed === null ? null : PAIR_POPUP.greyed(greyed))
+  const greyedInWords = (greyed: Greyed | null, making?: '1:1' | '1:2'): string | null =>
+    greyed === null ? null : PAIR_POPUP.greyed(greyed, making)
   // Compared against the list and never rendered, like every value from an address.
   const chosenBefore = [query.leaderId ?? []].flat()[0]
   const tickedBefore = [query.with ?? []].flat()
+  // A refusal of one one-to-one in a set names the Disciple it is about, in front
+  // of the sentence, as the old Pair page does. The name is read off the Roster.
+  const refusalSaid = pairingRefusalMessage(query.error)
+  const refusedAbout = roster.find((person) => person.personId === [query.about ?? []].flat()[0])
+  const pairingRefusal =
+    refusalSaid !== undefined && refusedAbout ? refusalAboutOneOfASet(refusedAbout.fullName, refusalSaid) : refusalSaid
 
   const report = decodeImportReport(query)
   // The code, not the sentence: the dialog words it, and opens on it. An error
@@ -461,7 +482,7 @@ export default async function RosterPage({
             leads: leadsCount(discipler),
             greyed: greyedInWords(greyedForADisciple({ genderMatchEnforced: suggestGenderMatch, disciple: pairing, discipler })),
           }))}
-          refusal={pairingRefusalMessage(query.error)}
+          refusal={pairingRefusal}
           chosenBefore={chosenBefore ?? null}
         />
       ) : null}
@@ -477,10 +498,23 @@ export default async function RosterPage({
             phone: disciple.phone,
             firstTime: disciple.firstTime,
             groups: groupsOf(disciple, groups).map(({ name, leaders }) => ({ name, leaders })),
-            greyed: greyedInWords(greyedForADiscipler({ genderMatchEnforced: suggestGenderMatch, discipler: pairing, disciple })),
+            // Against each thing the ticks can make (Manual pairing, recut ticket 02).
+            // Which of them the row shows follows the ticks, in `./pair-shape`.
+            greyed: {
+              a_one_to_one: greyedInWords(greyedForADiscipler({ genderMatchEnforced: suggestGenderMatch, discipler: pairing, disciple })),
+              a_one_to_two: greyedInWords(greyedInAOneToTwo({ discipler: pairing, disciple }), '1:2'),
+            },
           }))}
-          refusal={pairingRefusalMessage(query.error)}
-          tickedBefore={tickedBefore}
+          leadsAGroup={leadsAGroup(pairing)}
+          declaredGender={pairing.gender === null ? null : declaredGenderToField(pairing.gender)}
+          materials={materials.map(({ materialId, title }) => ({ id: materialId, title }))}
+          refusal={pairingRefusal}
+          restored={{
+            tickedIds: tickedBefore,
+            separate: readPairingMode([query.mode ?? []].flat()[0]) === 'separate',
+            material: [query.materialId ?? []].flat()[0] ?? null,
+            materialFor: [...readMaterialPerDisciple(Object.entries(query))],
+          }}
         />
       ) : null}
     </AdminShell>

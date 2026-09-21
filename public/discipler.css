@@ -576,7 +576,8 @@ textarea.paste { width: 100%; min-height: 140px; font-family: ui-monospace, SFMo
 .pair-toolbar { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.76rem; color: var(--text-light); margin-bottom: 0.4rem; }
 .pair-toolbar .link-btn { font-size: 0.76rem; font-weight: 500; }
 /* Room inside the scrolling list for a row's focus ring, which its edge would clip. */
-.pair-list { display: grid; gap: 0.4rem; max-height: min(50vh, 22rem); overflow-y: auto; padding: 3px; margin: 0 -3px; border: 0; min-width: 0; }
+.pair-list { max-height: min(50vh, 22rem); overflow-y: auto; padding: 3px; margin: 0 -3px; min-width: 0; }
+.pair-rows { display: grid; gap: 0.4rem; margin: 0; padding: 0; border: 0; min-width: 0; }
 .pair-opt { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0.6rem; background: #f3efe8; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
 .pair-opt:hover { border-color: var(--primary-light); }
 .pair-opt.on, .pair-opt:has(input:checked) { background: var(--surface); border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
@@ -595,6 +596,38 @@ textarea.paste { width: 100%; min-height: 140px; font-family: ui-monospace, SFMo
 .pair-why { display: block; font-size: 0.7rem; font-weight: 500; color: var(--amber-ink); }
 /* What the popup says beneath the list when it cannot act on what is ticked. */
 .pair-hint { font-size: 0.72rem; color: var(--text-light); margin-top: 0.3rem; }
+/* Two or more ticked (Manual pairing, recut ticket 02): the toggle that asks what
+   to make of them, as the mock draws it, and the Material dropdowns. The box is a
+   column whose list and per-Disciple panel give way and scroll inside it, so
+   neither pushes the sentence and the buttons off the screen. */
+.modal.pair { display: flex; flex-direction: column; }
+/* Held by its top edge where what is chosen adds controls, so it grows downward
+   and no row moves from under the pointer. The space above gives way on a short
+   screen, where the box needs the height more than the page needs the margin. */
+.modal.pair.grows { --held-at: max(0px, min(12vh, (100vh - 46rem) / 2)); margin: var(--held-at) 0 auto; max-height: calc(100vh - 3rem - var(--held-at)); }
+/* The height a phone actually shows, where a browser knows it: its bars come off
+   100vh only when they hide, and the buttons must not sit under them. */
+@supports (height: 100dvh) { .modal.pair.grows { max-height: calc(100dvh - 3rem - var(--held-at)); } }
+.modal.pair > * { flex-shrink: 0; }
+.modal.pair > .pair-list { flex: 0 1 auto; min-height: 5.5rem; }
+.pair-unticked:empty { margin: 0; }
+.pair-label { display: block; font-size: 0.74rem; font-weight: 700; color: var(--text); margin: 0.85rem 0 0.3rem; }
+.pair-shape { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.pair-shape label { text-align: center; font-size: 0.78rem; padding: 0.42rem 0.2rem; color: var(--text); background: var(--surface); border-right: 1px solid var(--border); cursor: pointer; }
+.pair-shape label:last-child { border-right: 0; }
+.pair-shape label.on { background: var(--primary); color: #fff; font-weight: 700; }
+/* Ruled out: struck through where the count is what rules it out, as the mock has
+   it, and only greyed where it is the Discipler. The hint beneath says which. */
+.pair-shape label.struck, .pair-shape label.off { color: #bbb; background: #faf8f5; cursor: default; }
+.pair-shape label.struck { text-decoration: line-through; }
+.pair-shape input { position: absolute; opacity: 0; width: 0; height: 0; }
+.pair-shape label:has(input:focus-visible) { outline: 2px solid var(--primary); outline-offset: -2px; }
+.modal.pair select { padding: 0.42rem 0.6rem; font-size: 0.82rem; }
+.modal.pair > .pair-per { flex: 0 1 auto; min-height: 4.6rem; }
+.pair-per { max-height: 8.6rem; overflow-y: auto; padding: 3px; margin: 0 -3px; min-width: 0; }
+.pair-per-rows { display: grid; gap: 0.35rem; margin: 0; padding: 0; border: 0; min-width: 0; }
+.pair-per-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 0.5rem; align-items: center; font-size: 0.8rem; }
+.pair-per-row label { overflow-wrap: anywhere; }
 .pair-summary { margin-top: 0.9rem; background: rgba(45, 80, 22, 0.06); border-left: 3px solid var(--primary); padding: 0.55rem 0.7rem; font-size: 0.82rem; border-radius: 0 5px 5px 0; }
 
 /* ---- the Materials tab ---- */

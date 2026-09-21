@@ -1,7 +1,8 @@
 import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { getPage, signIn, skipUnlessAppIsRunning } from '../support/app'
+import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app'
 import {
+  addMaterial,
   addPerson,
   createMinistryWithAdmin,
   formGroup,
@@ -25,14 +26,16 @@ import {
 
 /**
  * The Pair popup over the Roster, opened as a Discipler (Manual pairing, ticket
- * 23, stage 2), as an Admin's browser receives it: the list of Disciples with
- * boxes, and one tick that makes a one-to-one. No row opens this side until the
- * old Pair page retires, so it is reached here as it is reached today, by its
- * address.
+ * 23, stage 2, and recut ticket 02), as an Admin's browser receives it: the list of
+ * Disciples with boxes, one tick that makes a one-to-one, and two or more that
+ * become a 1:2 pair or N x 1:1 pairs, each with its Materials. No row opens this
+ * side until the old Pair page retires, so it is reached here as it is reached
+ * today, by its address.
  *
- * What needs script (the sentence following a tick, Clear, the disabled button
- * with nothing ticked) is looked at in a browser; the server renders the same
- * component, so ticks restored from an address show the rest here.
+ * What needs script (the sentence following a tick, Clear, the toggle following a
+ * pick) is driven without a browser in `tests/app/pair-shape.test.ts` and looked at
+ * in one; the server renders the same component from the same selection, so ticks,
+ * a shape and Materials restored from an address show the rest here.
  */
 
 describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () => {
@@ -49,6 +52,9 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
   let waiting: string
   let left: string
   let rosa: string
+  let grace: string
+  let mark: string
+  let romans: string
 
   beforeAll(async () => {
     ministry = await createMinistryWithAdmin('Popup Chapel, From A Discipler')
@@ -83,6 +89,10 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
       ],
     })
     rosa = group.disciples[0]!
+    grace = group.leader
+    // Two live Materials, which the list offers in title order.
+    mark = await addMaterial(ministry, 'Gospel of Mark')
+    romans = await addMaterial(ministry, 'Romans')
   })
 
   afterAll(async () => {
@@ -179,7 +189,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     expectOpen(popupIn(html)!, man)
   })
 
-  it('says what one tick makes, and that the choice of shape is coming for two', async () => {
+  it('says what one tick makes, and asks nothing else: no toggle, no Material', async () => {
     const one = popupIn((await popupAt('disciplers', claire, [['with', sam]])).html)!
     expect(rowFor(one, sam)).toMatch(/checked=""/)
     expect(one.match(/checked=""/g)).toHaveLength(1)
@@ -188,21 +198,166 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     expect(one.match(/class="pair-opt on/g)).toHaveLength(1)
     expect(one).toContain('Claire Martinez will disciple Sam Lee in a one-on-one.')
     expect(one).toMatch(/<button[^>]*type="submit"[^>]*>Create 1:1 pair<\/button>/)
+    // The toggle is hidden at one tick, and a single one-to-one asks nothing, a
+    // Material included, though the Ministry holds two.
+    expect(one).not.toContain('Pair them as')
+    expect(one).not.toContain('<select')
+    expect(one).not.toMatch(/name="(declaredGender|name|materialId[^"]*|mode)"/)
+    // The placeholder line for two or more ticked is gone.
     expect(one).not.toContain('is coming')
-
-    // Two ticked has no shape to become in this ticket: no sentence, a line saying
-    // so, and a button that is disabled as the server sends it.
-    const two = popupIn((await popupAt('disciplers', claire, [['with', sam], ['with', ana]])).html)!
-    expect(two.match(/checked=""/g)).toHaveLength(2)
-    expect(two).not.toContain('in a one-on-one.')
-    expect(two).toContain('Pairing two or more at once is coming. Tick one for now.')
-    expect(two).toMatch(/<button[^>]*type="submit"[^>]*disabled=""[^>]*>Pair<\/button>|<button[^>]*disabled=""[^>]*type="submit"[^>]*>Pair<\/button>/)
   })
 
-  it('refuses two ticks posted without script, forms nothing, and comes back with both ticks', async () => {
-    // Script keeps the button disabled at two ticks; a browser without it can still
-    // post them. There is no shape for them to become in this ticket, so the route
-    // refuses what it would refuse of any group that said nothing about itself.
+  /** The toggle's segments: what each says, whether it is selected, and whether it can be picked. */
+  const segmentsIn = (popup: string) =>
+    (popup.match(/<div class="pair-shape"[\s\S]*?<\/div>/)?.[0].match(/<label[\s\S]*?<\/label>/g) ?? []).map(
+      (label) => ({
+        says: label.replace(/<[^>]*>/g, ''),
+        mode: label.match(/\svalue="([^"]*)"/)?.[1],
+        selected: /\schecked=""/.test(label),
+        disabled: /\sdisabled=""/.test(label),
+        treatment: label.match(/<label(?: class="([^"]*)")?/)?.[1] ?? '',
+      }),
+    )
+
+  /** Every dropdown: the field it posts, the option it is on, and what it offers, in order. */
+  const dropdownsIn = (popup: string) =>
+    (popup.match(/<select[\s\S]*?<\/select>/g) ?? []).map((select) => ({
+      field: select.match(/\sname="([^"]*)"/)?.[1],
+      labelled: popup.match(new RegExp(`<label[^>]*for="${select.match(/\sid="([^"]*)"/)?.[1]}"[^>]*>([^<]*)<`))?.[1],
+      on: select.match(/<option[^>]*value="([^"]*)"[^>]*selected=""/)?.[1] ?? '',
+      offers: [...select.matchAll(/<option[^>]*>([^<]*)<\/option>/g)].map((option) => option[1]),
+    }))
+
+  it('asks what to make of two ticked, defaulting to a 1:2 pair that is named and declared without asking', async () => {
+    const two = popupIn((await popupAt('disciplers', claire, [['with', sam], ['with', ana]])).html)!
+    expect(two.match(/checked=""/g)).toHaveLength(3)
+    expect(two).toContain('Pair them as')
+    expect(segmentsIn(two)).toEqual([
+      { says: '1:2 pair', mode: 'together', selected: true, disabled: false, treatment: 'on' },
+      { says: '2 × 1:1 pairs', mode: 'separate', selected: false, disabled: false, treatment: '' },
+    ])
+    expect(two).not.toContain('needs exactly two')
+    // Named in the list's order, which is the Roster's, whatever order they were ticked in.
+    expect(two).toContain('Claire Martinez will disciple Ana Ruiz and Sam Lee together as a 1:2 pair.')
+    expect(two).toMatch(/<button[^>]*type="submit"[^>]*>Create 1:2 pair<\/button>/)
+    expect(two).not.toMatch(/<button[^>]*type="submit"[^>]*disabled/)
+
+    // Nothing is asked: the name is generated and never shown, and the declaration
+    // is the Discipler's gender. A 1:2 is a group for every rule, so it carries both.
+    expect(hiddenIn(two)).toEqual({
+      pair: claire,
+      list: 'disciplers',
+      leaderId: claire,
+      name: 'Claire with Ana &amp; Sam',
+      declaredGender: 'female',
+    })
+    expect(two.replace(/<input[^>]*>/g, '')).not.toContain('Claire with Ana')
+
+    // One dropdown, posted as the one Material a relationship holds: No material
+    // first and the default, then the Ministry's live Materials.
+    expect(two).toContain('What are they running?')
+    expect(dropdownsIn(two)).toEqual([
+      { field: 'materialId', labelled: 'What are they running?', on: '', offers: ['No material', 'Gospel of Mark', 'Romans'] },
+    ])
+
+    // Read against what a third tick would make, which is N x 1:1 pairs.
+    expectGreyed(two, brianna, 'Already in a 1:1 with David Chen')
+    expectGreyed(two, tom, 'Women’s only: a 1:1 is same-gender')
+  })
+
+  it('shows one dropdown per ticked Disciple for N × 1:1 pairs, each labelled with their name', async () => {
+    const separately = popupIn(
+      (await popupAt('disciplers', claire, [['with', sam], ['with', ana], ['mode', 'separate']])).html,
+    )!
+    expect(segmentsIn(separately).map(({ says, selected }) => [says, selected])).toEqual([
+      ['1:2 pair', false],
+      ['2 × 1:1 pairs', true],
+    ])
+    expect(separately).toContain('Claire Martinez will disciple Ana Ruiz and Sam Lee separately, in 2 one-on-ones.')
+    expect(separately).toMatch(/<button[^>]*type="submit"[^>]*>Create 2 1:1 pairs<\/button>/)
+    // Nothing of a group is posted: a one-to-one has nothing a name is for.
+    expect(hiddenIn(separately)).toEqual({ pair: claire, list: 'disciplers', leaderId: claire })
+
+    expect(separately).toContain('What is each of them running?')
+    const offers = ['No material', 'Gospel of Mark', 'Romans']
+    expect(dropdownsIn(separately)).toEqual([
+      { field: `materialId.${ana}`, labelled: 'Ana Ruiz', on: '', offers },
+      { field: `materialId.${sam}`, labelled: 'Sam Lee', on: '', offers },
+    ])
+  })
+
+  it('strikes 1:2 pair out at three ticked, says why beneath the toggle, and counts the N', async () => {
+    const three = popupIn(
+      (await popupAt('disciplers', claire, [['with', sam], ['with', ana], ['with', rosa]])).html,
+    )!
+    expect(segmentsIn(three)).toEqual([
+      { says: '1:2 pair', mode: 'together', selected: false, disabled: true, treatment: 'struck' },
+      { says: '3 × 1:1 pairs', mode: 'separate', selected: true, disabled: false, treatment: 'on' },
+    ])
+    expect(three).toMatch(/<p class="pair-hint" id="pair-shape-hint">1:2 pair needs exactly two checked<\/p>/)
+    expect(three).toContain('separately, in 3 one-on-ones.')
+    expect(three).toMatch(/<button[^>]*type="submit"[^>]*>Create 3 1:1 pairs<\/button>/)
+    expect(dropdownsIn(three).map(({ labelled }) => labelled)).toEqual(['Ana Ruiz', 'Rosa Delgado', 'Sam Lee'])
+  })
+
+  it('opens somebody already in a one-to-one for a 1:2 pair, and unticks them, saying who, for N × 1:1', async () => {
+    // With one ticked, a second tick would make a 1:2 pair, which she can be in.
+    const one = popupIn((await popupAt('disciplers', claire, [['with', sam]])).html)!
+    expectOpen(one, brianna)
+    // Another gender is greyed for a 1:2 as for a one-to-one: it declares Claire's.
+    expectGreyed(one, tom, 'Women’s only: a 1:2 is same-gender')
+
+    const together = popupIn((await popupAt('disciplers', claire, [['with', sam], ['with', brianna]])).html)!
+    expect(rowFor(together, brianna)).toMatch(/checked=""/)
+    expect(together).toContain('Claire Martinez will disciple Brianna Frazier and Sam Lee together as a 1:2 pair.')
+    expect(together).not.toContain('was unticked')
+
+    // The same two as N x 1:1: she is greyed, so she is unticked, and a line says
+    // who. That leaves one, so the toggle hides and the one-tick sentence returns.
+    const apart = popupIn(
+      (await popupAt('disciplers', claire, [['with', sam], ['with', brianna], ['mode', 'separate']])).html,
+    )!
+    expect(rowFor(apart, brianna)).not.toMatch(/checked=""/)
+    expect(apart).toMatch(/role="status"[^>]*>Brianna Frazier was unticked: Already in a 1:1 with David Chen\.</)
+    expect(apart).not.toContain('Pair them as')
+    expect(apart).toContain('Claire Martinez will disciple Sam Lee in a one-on-one.')
+  })
+
+  it('greys 1:2 pair for a Discipler who already leads a group, and the default moves to N × 1:1', async () => {
+    const popup = popupIn((await popupAt('disciplers', grace, [['with', sam], ['with', ana]])).html)!
+    expect(segmentsIn(popup)).toEqual([
+      { says: '1:2 pair', mode: 'together', selected: false, disabled: true, treatment: 'off' },
+      { says: '2 × 1:1 pairs', mode: 'separate', selected: true, disabled: false, treatment: 'on' },
+    ])
+    expect(popup).toMatch(/<p class="pair-hint" id="pair-shape-hint">Grace already leads a group<\/p>/)
+    expect(popup).toContain('Grace Lee will disciple Ana Ruiz and Sam Lee separately, in 2 one-on-ones.')
+  })
+
+  it('shows no dropdown and no empty label in a Ministry with no live Materials', async () => {
+    const bare = await createMinistryWithAdmin('The Chapel With No Materials')
+    const theirCookie = (await signIn(bare)).cookie
+    const lead = await addPerson(bare, 'Claire Martinez', { answers: { gender: 'female' } })
+    await offersToMentor(lead, bare)
+    const one = await addPerson(bare, 'Sam Lee', { answers: { gender: 'female' } })
+    const other = await addPerson(bare, 'Ana Ruiz', { answers: { gender: 'female' } })
+
+    for (const mode of ['together', 'separate']) {
+      const { html } = await getPage(
+        `/roster?${new URLSearchParams([['list', 'disciplers'], ['pair', lead], ['with', one], ['with', other], ['mode', mode]])}`,
+        theirCookie,
+      )
+      const popup = popupIn(html)!
+      expect(popup, mode).toContain('Pair them as')
+      expect(popup, mode).not.toContain('<select')
+      expect(popup, mode).not.toMatch(/running\?/)
+    }
+  })
+
+  it('refuses two ticks posted without script, forms nothing, and comes back as the 1:2 pair they default to', async () => {
+    // A browser without script never sees the toggle, so two ticks arrive saying
+    // nothing about themselves, and the route refuses what it would refuse of any
+    // group that did. The popup that comes back has both ticks and, now, the name
+    // and the declaration a 1:2 pair posts, so pressing the button again makes it.
     const location = await submit([
       ['pair', claire],
       ['list', 'disciplers'],
@@ -221,8 +376,8 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     expect(popup).toMatch(/role="alert"/)
     expect(rowFor(popup, sam)).toMatch(/checked=""/)
     expect(rowFor(popup, ana)).toMatch(/checked=""/)
-    expect(popup).toContain('Pairing two or more at once is coming. Tick one for now.')
-    expect(popup).toMatch(/<button[^>]*disabled=""[^>]*>Pair<\/button>/)
+    expect(segmentsIn(popup).find(({ selected }) => selected)?.says).toBe('1:2 pair')
+    expect(hiddenIn(popup)).toMatchObject({ name: 'Claire with Ana &amp; Sam', declaredGender: 'female' })
     expect(currentList(html)).toBe('Disciplers')
 
     const formed = await pool.query(
@@ -288,5 +443,280 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     // And somebody not on the list is restored as nobody.
     const stranger = popupIn((await popupAt('all', claire, [['with', waiting]])).html)!
     expect(stranger).not.toMatch(/checked=""/)
+  })
+
+  /**
+   * What the popup's form posts for each shape, posted as a browser would, into a
+   * Ministry of its own so that what is formed is only what each test formed.
+   */
+  describe('forming what two or more ticks make', () => {
+    let chapel: MinistryFixture
+    let theirCookie: string
+    let gospel: string
+    let letters: string
+
+    beforeAll(async () => {
+      chapel = await createMinistryWithAdmin('Popup Chapel, Two Or More Ticked')
+      theirCookie = (await signIn(chapel)).cookie
+      gospel = await addMaterial(chapel, 'Gospel of Mark')
+      letters = await addMaterial(chapel, 'Romans')
+    })
+
+    const woman = (fullName: string) => addPerson(chapel, fullName, { phone: number(), answers: { gender: 'female' } })
+    const discipler = async (fullName: string) => {
+      const id = await woman(fullName)
+      await offersToMentor(id, chapel)
+      return id
+    }
+    const post = (fields: [string, string][]) => postPairing(theirCookie, fields)
+
+    /** Every open relationship somebody is a Disciple in: what it is called, declares and intends. */
+    const discipledIn = async (disciple: string) =>
+      (
+        await pool.query<{ id: string; name: string | null; declared_gender: string | null; intended: string | null; disciples: string }>(
+          `select r.id, r.name, r.declared_gender, r.intended_material_id as intended,
+                  (select count(*) from relationship_member p
+                    where p.relationship_id = r.id and p.role = 'participant' and p.ended_at is null)::text as disciples
+             from relationship r
+             join relationship_member m on m.relationship_id = r.id
+            where m.person_id = $1 and m.role = 'participant' and m.ended_at is null
+            order by r.id`,
+          [disciple],
+        )
+      ).rows
+
+    const acceptEveryInvitationOf = async (leader: string, fullName: string) => {
+      const { rows } = await pool.query<{ token: string }>(
+        `select token from invitation where person_id = $1 and consumed_at is null order by token`,
+        [leader],
+      )
+      for (const { token } of rows) {
+        const response = await fetch(`${baseUrl}/invitation/${token}/accept`, {
+          method: 'POST',
+          redirect: 'manual',
+          headers: { 'content-type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ fullName, password: 'a-long-enough-password' }),
+        })
+        expect(response.headers.get('location')).toContain('done=accepted')
+      }
+    }
+
+    const historyOf = async (relationshipId: string) =>
+      (
+        await pool.query<{ material_id: string | null }>(
+          `select material_id from material_assignment where relationship_id = $1
+            order by started_at, material_id nulls first`,
+          [relationshipId],
+        )
+      ).rows.map(({ material_id }) => material_id)
+
+    it('forms a 1:2 pair as one relationship with a generated name, the Discipler’s gender and its Material', async () => {
+      const claireHere = await discipler('Claire Martinez')
+      const samHere = await woman('Sam Lee')
+      const anaHere = await woman('Ana Ruiz')
+
+      const receipt = await post([
+        ['pair', claireHere],
+        ['list', 'disciplers'],
+        ['leaderId', claireHere],
+        ['name', 'Claire with Sam & Ana'],
+        ['declaredGender', 'female'],
+        ['participantId', samHere],
+        ['participantId', anaHere],
+        ['mode', 'together'],
+        ['materialId', gospel],
+      ])
+      expect(Object.fromEntries(receipt.searchParams)).toEqual({ list: 'disciplers', paired: '2' })
+
+      const [theirs, ...others] = await discipledIn(samHere)
+      expect(others).toEqual([])
+      expect(theirs).toMatchObject({
+        name: 'Claire with Sam & Ana',
+        declared_gender: 'female',
+        intended: gospel,
+        disciples: '2',
+      })
+      expect((await discipledIn(anaHere)).map(({ id }) => id)).toEqual([theirs!.id])
+
+      // Held as intended, and written at acceptance.
+      await acceptEveryInvitationOf(claireHere, 'Claire Martinez')
+      expect(await historyOf(theirs!.id)).toEqual([null, gospel])
+    })
+
+    it('forms 3 × 1:1 as three one-to-ones, and 2 × 1:1 with a different Material each hold one apiece', async () => {
+      const lead = await discipler('Dana Whitfield')
+      const three = [await woman('Una First'), await woman('Dua Second'), await woman('Tria Third')]
+
+      const receipt = await post([
+        ['pair', lead],
+        ['list', 'all'],
+        ['leaderId', lead],
+        ...three.map((id): [string, string] => ['participantId', id]),
+        ['mode', 'separate'],
+        ...three.map((id): [string, string] => [`materialId.${id}`, '']),
+      ])
+      expect(Object.fromEntries(receipt.searchParams)).toEqual({ pairs: '3', list: 'all' })
+      for (const id of three) {
+        expect(await discipledIn(id)).toMatchObject([{ name: null, intended: null, disciples: '1' }])
+      }
+
+      const two = [await woman('Mara Fourth'), await woman('Nell Fifth')]
+      await post([
+        ['pair', lead],
+        ['list', 'all'],
+        ['leaderId', lead],
+        ['participantId', two[0]!],
+        ['participantId', two[1]!],
+        ['mode', 'separate'],
+        [`materialId.${two[0]}`, gospel],
+        [`materialId.${two[1]}`, letters],
+      ])
+      expect((await discipledIn(two[0]!)).map(({ intended }) => intended)).toEqual([gospel])
+      expect((await discipledIn(two[1]!)).map(({ intended }) => intended)).toEqual([letters])
+    })
+
+    it('forms none of a set with one refusal, and reopens with the ticks, the shape and every Material restored', async () => {
+      const lead = await discipler('Eve Lindqvist')
+      const first = await woman('Fay Open')
+      const second = await woman('Gia Open')
+      const man = await addPerson(chapel, 'Hal Refused', { phone: number(), answers: { gender: 'male' } })
+
+      const back = await post([
+        ['pair', lead],
+        ['list', 'disciplers'],
+        ['leaderId', lead],
+        ['participantId', first],
+        ['participantId', man],
+        ['participantId', second],
+        ['mode', 'separate'],
+        [`materialId.${first}`, gospel],
+        [`materialId.${second}`, letters],
+      ])
+      expect(back.pathname).toBe('/roster')
+      expect([...back.searchParams]).toEqual([
+        ['list', 'disciplers'],
+        ['pair', lead],
+        ['error', 'relationship.gender_must_match'],
+        ['about', man],
+        ['mode', 'separate'],
+        ['with', first],
+        ['with', man],
+        ['with', second],
+        [`materialId.${first}`, gospel],
+        [`materialId.${second}`, letters],
+      ])
+      for (const id of [first, second, man]) expect(await discipledIn(id)).toEqual([])
+
+      // Named, as old ticket 21 names him, and everything else as it was. He is
+      // greyed now, so his tick is not restored, and the line says so.
+      const popup = popupIn((await getPage(`${back.pathname}${back.search}`, theirCookie)).html)!
+      expect(popup).toMatch(/role="alert"[^>]*>Hal Refused: A one-to-one must be between two people of the same gender\./)
+      expect(popup).toContain('None of these one-to-ones was made.')
+      expect(rowFor(popup, first)).toMatch(/checked=""/)
+      expect(rowFor(popup, second)).toMatch(/checked=""/)
+      expectGreyed(popup, man, 'Women’s only: a 1:1 is same-gender')
+      expect(popup).toContain('Hal Refused was unticked: Women’s only: a 1:1 is same-gender.')
+      expect(segmentsIn(popup).find(({ selected }) => selected)?.says).toBe('2 × 1:1 pairs')
+      expect(dropdownsIn(popup).map(({ labelled, on }) => [labelled, on])).toEqual([
+        ['Fay Open', gospel],
+        ['Gia Open', letters],
+      ])
+    })
+
+    it('refuses a Material removed between opening the popup and submitting, with the rest of the selection intact', async () => {
+      const lead = await discipler('Ida Moreno')
+      const first = await woman('Jo Steady')
+      const second = await woman('Kit Steady')
+      const leviticus = await addMaterial(chapel, 'Leviticus, Soon Removed')
+      const removed = await fetch(`${baseUrl}/materials/${leviticus}/remove`, {
+        method: 'POST',
+        redirect: 'manual',
+        headers: { 'content-type': 'application/x-www-form-urlencoded', cookie: theirCookie },
+        body: new URLSearchParams({ confirm: 'yes' }),
+      })
+      expect(removed.status).toBe(303)
+
+      // N x 1:1: the refusal names who it was chosen for, which is which dropdown.
+      const apart = await post([
+        ['pair', lead],
+        ['list', 'disciplers'],
+        ['leaderId', lead],
+        ['participantId', first],
+        ['participantId', second],
+        ['mode', 'separate'],
+        [`materialId.${first}`, gospel],
+        [`materialId.${second}`, leviticus],
+      ])
+      expect(apart.searchParams.get('error')).toBe('relationship.material_is_not_on_the_list')
+      expect(apart.searchParams.get('about')).toBe(second)
+      const reopened = popupIn((await getPage(`${apart.pathname}${apart.search}`, theirCookie)).html)!
+      expect(reopened).toMatch(/role="alert"[^>]*>Kit Steady: That Material is no longer on this Ministry’s list\./)
+      expect(reopened.match(/checked=""/g)).toHaveLength(3)
+      expect(dropdownsIn(reopened).map(({ labelled, on }) => [labelled, on])).toEqual([
+        ['Jo Steady', gospel],
+        // Off the list, so there is nothing to restore it to: No material.
+        ['Kit Steady', ''],
+      ])
+
+      // A 1:2 pair: one dropdown, and the same refusal.
+      const together = await post([
+        ['pair', lead],
+        ['list', 'disciplers'],
+        ['leaderId', lead],
+        ['name', 'Ida with Jo & Kit'],
+        ['declaredGender', 'female'],
+        ['participantId', first],
+        ['participantId', second],
+        ['mode', 'together'],
+        ['materialId', leviticus],
+      ])
+      expect(together.searchParams.get('error')).toBe('relationship.material_is_not_on_the_list')
+      expect(together.searchParams.get('materialId')).toBe(leviticus)
+      const again = popupIn((await getPage(`${together.pathname}${together.search}`, theirCookie)).html)!
+      expect(again).toContain('That Material is no longer on this Ministry’s list.')
+      expect(segmentsIn(again).find(({ selected }) => selected)?.says).toBe('1:2 pair')
+      expect(dropdownsIn(again).map(({ field, on }) => [field, on])).toEqual([['materialId', '']])
+
+      for (const id of [first, second]) expect(await discipledIn(id)).toEqual([])
+    })
+
+    it('restores a 1:2 pair’s Material with its ticks', async () => {
+      const lead = await discipler('Lou Hart')
+      const first = await woman('Mo Restored')
+      const second = await woman('Nan Restored')
+
+      const { html } = await getPage(
+        `/roster?${new URLSearchParams([
+          ['list', 'disciplers'],
+          ['pair', lead],
+          ['error', 'relationship.person_already_in_this_relationship'],
+          ['with', first],
+          ['with', second],
+          ['materialId', letters],
+        ])}`,
+        theirCookie,
+      )
+      expect(dropdownsIn(popupIn(html)!).map(({ field, on }) => [field, on])).toEqual([['materialId', letters]])
+    })
+
+    it('says the domain’s refusal in words where a 1:2 pair posts no declaration, as a Discipler with no gender on file does', async () => {
+      const lead = await discipler('Opal Reyes')
+      const first = await woman('Pia Undeclared')
+      const second = await woman('Quin Undeclared')
+
+      const back = await post([
+        ['pair', lead],
+        ['list', 'disciplers'],
+        ['leaderId', lead],
+        ['name', 'Opal with Pia & Quin'],
+        ['participantId', first],
+        ['participantId', second],
+        ['mode', 'together'],
+      ])
+      expect(back.searchParams.get('error')).toBe('relationship.needs_a_gender_declaration')
+      const popup = popupIn((await getPage(`${back.pathname}${back.search}`, theirCookie)).html)!
+      expect(popup).toMatch(/role="alert"[^>]*>Say whether this is a men’s group, a women’s group, or a mixed one\./)
+      expect(await discipledIn(first)).toEqual([])
+    })
   })
 })

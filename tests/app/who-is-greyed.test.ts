@@ -6,6 +6,8 @@ import {
   greyedAgainst,
   greyedForADisciple,
   greyedForADiscipler,
+  greyedInAOneToTwo,
+  leadsAGroup,
 } from '../../app/roster/greying'
 
 /**
@@ -181,5 +183,58 @@ describe('a Disciple in the popup opened from a Discipler', () => {
     expect(
       greyedForADiscipler({ genderMatchEnforced: true, discipler: person(), disciple: person({ gender: 'male' }) }),
     ).toBeNull()
+  })
+})
+
+/**
+ * Manual pairing, recut ticket 02. A 1:2 pair takes the Discipler's gender as its
+ * declaration and asks nothing, and it is a group for every rule.
+ */
+describe('a Disciple while what is ticked would make a 1:2 pair', () => {
+  const claire = person({ fullName: 'Claire Martinez', gender: 'female' })
+  const tom = person({ gender: 'male' })
+
+  it('is greyed for gender against the Discipler’s, whether or not the Ministry enforces the match', () => {
+    // The declaration binds its members whatever the Ministry's setting says of a
+    // one-to-one, so this is not read off `suggest_gender_match`.
+    expect(greyedInAOneToTwo({ discipler: claire, disciple: tom })).toEqual({ why: 'gender', declared: 'female' })
+    expect(greyedInAOneToTwo({ discipler: claire, disciple: person({ gender: 'female' }) })).toBeNull()
+  })
+
+  it('is open when already in a one-to-one: one open one-to-one, and any number of groups', () => {
+    const brianna = person({
+      gender: 'female',
+      relationships: [pairing('participant', { leaderNames: ['David Chen'], participantCount: 1 })],
+    })
+    expect(greyedInAOneToTwo({ discipler: claire, disciple: brianna })).toBeNull()
+  })
+
+  it('is never greyed with no gender on file, and nobody is when the Discipler has none to declare', () => {
+    expect(greyedInAOneToTwo({ discipler: claire, disciple: person() })).toBeNull()
+    expect(greyedInAOneToTwo({ discipler: person(), disciple: tom })).toBeNull()
+  })
+})
+
+describe('a Discipler who already leads a group', () => {
+  it('is one who leads an open pairing of two or more Disciples, accepted yet or not', () => {
+    expect(leadsAGroup(person({ relationships: [pairing('leader', { participantCount: 2 })] }))).toBe(true)
+    expect(
+      leadsAGroup(person({ relationships: [pairing('leader', { participantCount: 4, awaitingAcceptance: true })] })),
+    ).toBe(true)
+  })
+
+  it('is not one who leads one-to-ones, however many, or who is only in a group', () => {
+    expect(leadsAGroup(person())).toBe(false)
+    expect(
+      leadsAGroup(
+        person({
+          relationships: [
+            pairing('leader', { participantCount: 1 }),
+            pairing('leader', { participantCount: 1 }),
+            pairing('participant', { participantCount: 3 }),
+          ],
+        }),
+      ),
+    ).toBe(false)
   })
 })

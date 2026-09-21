@@ -206,11 +206,6 @@ describe('what the Pair popup says, from a Discipler (Manual pairing, ticket 23)
     ).toBe('in Grace Lee and David Chen’s group')
   })
 
-  it('says the choice of shape is coming where two or more are ticked, and what to do meanwhile', () => {
-    expect(PAIR_POPUP.shapeIsComing).toMatch(/coming/i)
-    expect(PAIR_POPUP.shapeIsComing).toMatch(/one/i)
-  })
-
   it('has something to say where there is nobody to choose', () => {
     expect(PAIR_POPUP.noDisciples).toBeTruthy()
   })
@@ -220,10 +215,61 @@ describe('what the Pair popup says, from a Discipler (Manual pairing, ticket 23)
       PAIR_POPUP.chooseDisciples('A'),
       PAIR_POPUP.disciples(2),
       PAIR_POPUP.inGroup({ name: null, leaders: [{ fullName: 'A' }] }),
-      PAIR_POPUP.shapeIsComing,
       PAIR_POPUP.noDisciples,
     ]
     for (const sentence of said) expect(sentence).not.toMatch(/leader|participant|mentor/i)
+  })
+})
+
+describe('what the Pair popup says of two or more ticked (Manual pairing, recut ticket 02)', () => {
+  it('labels the toggle and its segments, and the N counts', () => {
+    expect(PAIR_POPUP.pairThemAs).toBe('Pair them as')
+    expect(PAIR_POPUP.segment('one_to_two', 2)).toBe('1:2 pair')
+    expect(PAIR_POPUP.segment('one_to_two', 3)).toBe('1:2 pair')
+    expect(PAIR_POPUP.segment('separate', 2)).toBe('2 × 1:1 pairs')
+    expect(PAIR_POPUP.segment('separate', 5)).toBe('5 × 1:1 pairs')
+  })
+
+  it('says why 1:2 pair cannot be picked, by first name where it is about the Discipler', () => {
+    expect(PAIR_POPUP.ruledOut('needs_exactly_two', 'Claire Martinez')).toBe('1:2 pair needs exactly two checked')
+    expect(PAIR_POPUP.ruledOut('already_leads_a_group', 'Claire Martinez')).toBe('Claire already leads a group')
+  })
+
+  it('says exactly what a 1:2 pair makes, and its button is the same act', () => {
+    expect(PAIR_POPUP.oneToTwo('Claire Martinez', ['Sam Lee', 'Ana Ruiz'])).toBe(
+      'Claire Martinez will disciple Sam Lee and Ana Ruiz together as a 1:2 pair.',
+    )
+    expect(PAIR_POPUP.createOneToTwo).toBe('Create 1:2 pair')
+  })
+
+  it('says exactly what N × 1:1 pairs makes, and its button is the same act', () => {
+    expect(PAIR_POPUP.separately('Claire Martinez', ['Sam Lee', 'Ana Ruiz'])).toBe(
+      'Claire Martinez will disciple Sam Lee and Ana Ruiz separately, in 2 one-on-ones.',
+    )
+    expect(PAIR_POPUP.separately('Claire Martinez', ['Sam Lee', 'Ana Ruiz', 'Rosa Delgado'])).toBe(
+      'Claire Martinez will disciple Sam Lee, Ana Ruiz and Rosa Delgado separately, in 3 one-on-ones.',
+    )
+    expect(PAIR_POPUP.createSeparately(2)).toBe('Create 2 1:1 pairs')
+    expect(PAIR_POPUP.createSeparately(3)).toBe('Create 3 1:1 pairs')
+  })
+
+  it('asks what they are running, and No material is what it is called', () => {
+    expect(PAIR_POPUP.whatTheyAreRunning).toBe('What are they running?')
+    expect(PAIR_POPUP.whatEachIsRunning).toBe('What is each of them running?')
+    expect(PAIR_POPUP.noMaterial).toBe('No material')
+  })
+
+  it('says who a change of shape unticked, and why, in the words their row was greyed with', () => {
+    expect(PAIR_POPUP.unticked('Brianna Frazier', 'Already in a 1:1 with David Chen')).toBe(
+      'Brianna Frazier was unticked: Already in a 1:1 with David Chen.',
+    )
+  })
+
+  it('says what a 1:2 pair declares where the gender is another, as short as the one-to-one’s', () => {
+    expect(PAIR_POPUP.greyed({ why: 'gender', declared: 'female' }, '1:2')).toBe('Women’s only: a 1:2 is same-gender')
+    expect(PAIR_POPUP.greyed({ why: 'gender', declared: 'male' }, '1:2')).toBe('Men’s only: a 1:2 is same-gender')
+    // Every other reason is about the person and reads the same whatever is being made.
+    expect(PAIR_POPUP.greyed({ why: 'not_pairable', reason: 'opted_out' }, '1:2')).toBe('Opted out')
   })
 })
 

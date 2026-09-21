@@ -10,6 +10,7 @@ import {
   type RosterFacts,
 } from './lists'
 import type { Greyed } from './greying'
+import { firstNameOf, type PairShape, type ShapeRuledOut } from './pair-shape'
 import type { ImportFailure } from './report'
 
 /**
@@ -147,24 +148,52 @@ export const PAIR_POPUP = {
   /** The group a Disciple is already in, on their row. One nobody has named is said by who leads it. */
   inGroup: (group: GroupOnARow): string =>
     `in ${group.name ?? `${asList(group.leaders.map(({ fullName }) => fullName))}’s group`}`,
-  /** Two or more ticked has no shape to become yet; the toggle that chooses one replaces this line. */
-  shapeIsComing: 'Pairing two or more at once is coming. Tick one for now.',
+  /**
+   * Two or more ticked (Manual pairing, recut ticket 02): the toggle that asks what
+   * to make of them, the sentence and the button for each shape, and the Material
+   * dropdowns. The sentence says exactly what is about to be made and the button is
+   * the same act.
+   */
+  pairThemAs: 'Pair them as',
+  segment: (shape: PairShape, ticked: number): string =>
+    shape === 'one_to_two' ? '1:2 pair' : `${ticked} × 1:1 pairs`,
+  /** Beneath the toggle, in grey. The cap is about the Discipler, by first name as the spec has it. */
+  ruledOut: (why: ShapeRuledOut, discipler: string): string =>
+    why === 'needs_exactly_two'
+      ? '1:2 pair needs exactly two checked'
+      : `${firstNameOf(discipler)} already leads a group`,
+  oneToTwo: (discipler: string, disciples: readonly string[]): string =>
+    `${discipler} will disciple ${asList(disciples)} together as a 1:2 pair.`,
+  createOneToTwo: 'Create 1:2 pair',
+  separately: (discipler: string, disciples: readonly string[]): string =>
+    `${discipler} will disciple ${asList(disciples)} separately, in ${disciples.length} one-on-ones.`,
+  createSeparately: (pairs: number): string => `Create ${pairs} 1:1 pairs`,
+  whatTheyAreRunning: 'What are they running?',
+  whatEachIsRunning: 'What is each of them running?',
+  noMaterial: 'No material',
+  /**
+   * Who a change of shape unticked, so nobody is dropped silently, and why, in the
+   * words their row was greyed with. The reason is said here and not left to the
+   * row, which may have opened again by the time this is read.
+   */
+  unticked: (fullName: string, why: string): string => `${fullName} was unticked: ${why}.`,
   noDisciples: 'There is nobody to choose yet. Somebody can be chosen once they have completed Intake.',
   /**
    * Why a row cannot be chosen, on the row and in one line (Manual pairing, ticket
    * 23). Somebody who cannot be paired reads what their Roster row already reads.
    * The gender reason says what the one-to-one declares and never what anybody's
    * own gender is. It opens as the mock does and is cut to fit one line at phone
-   * width, which the mock's own sentence does not.
+   * width, which the mock's own sentence does not. A 1:2 pair declares the
+   * Discipler's gender, and says so in the same words and the same length.
    */
-  greyed: (greyed: Greyed): string =>
+  greyed: (greyed: Greyed, making: '1:1' | '1:2' = '1:1'): string =>
     greyed.why === 'already_in_a_one_to_one'
       ? greyed.withName === null
         ? 'Already in a 1:1'
         : `Already in a 1:1 with ${greyed.withName}`
       : greyed.why === 'not_pairable'
         ? CANNOT_BE_PAIRED[greyed.reason]
-        : `${greyed.declared === 'male' ? 'Men’s' : 'Women’s'} only: a 1:1 is same-gender`,
+        : `${greyed.declared === 'male' ? 'Men’s' : 'Women’s'} only: a ${making} is same-gender`,
 } as const
 
 /** The receipt the pairing screen redirects to, said about what just happened. */

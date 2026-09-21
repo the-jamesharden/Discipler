@@ -51,15 +51,20 @@ export const PairList = ({
     listElement.current = element
   }
   // Boxes are a fieldset, which is the grouping role natively; round marks are a
-  // radiogroup, which no element is.
-  return exactlyOne ? (
-    <div ref={keepListElement} className="pair-list" role="radiogroup" aria-labelledby="pair-title">
-      {children}
+  // radiogroup, which no element is. What scrolls is a plain box around either: a
+  // fieldset made to give way inside the popup's column does not clip its rows.
+  return (
+    <div ref={keepListElement} className="pair-list">
+      {exactlyOne ? (
+        <div className="pair-rows" role="radiogroup" aria-labelledby="pair-title">
+          {children}
+        </div>
+      ) : (
+        <fieldset className="pair-rows" aria-labelledby="pair-title">
+          {children}
+        </fieldset>
+      )}
     </div>
-  ) : (
-    <fieldset ref={keepListElement} className="pair-list" aria-labelledby="pair-title">
-      {children}
-    </fieldset>
   )
 }
 
@@ -127,6 +132,7 @@ export const PairPopupShell = ({
   posts,
   summary,
   submit,
+  grows = false,
   children,
 }: {
   /** Whose row was pressed: who this popup pairs. */
@@ -141,6 +147,12 @@ export const PairPopupShell = ({
   readonly summary: string | null
   /** The button is the same act as the sentence. */
   readonly submit: { readonly label: string; readonly disabled: boolean }
+  /**
+   * Whether what is chosen adds controls beneath the list (Manual pairing, recut
+   * ticket 02). A box that grows is held by its top edge and not centred, so it
+   * grows downward and no row moves from under the pointer that just ticked it.
+   */
+  readonly grows?: boolean
   /** The side's own: who the list is for, its toolbar and its rows. */
   readonly children: ReactNode
 }) => {
@@ -158,7 +170,7 @@ export const PairPopupShell = ({
           out of the tab order: the X and Cancel already say Close to a keyboard. */}
       <Link className="modal-backdrop" href={back} scroll={false} aria-hidden="true" tabIndex={-1} />
 
-      <form method="post" action="/roster/pair/create" className="modal pair">
+      <form method="post" action="/roster/pair/create" className={grows ? 'modal pair grows' : 'modal pair'}>
         <input type="hidden" name="pair" value={person.id} />
         <input type="hidden" name="list" value={list} />
         {Object.entries(posts).map(([name, value]) => (

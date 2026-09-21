@@ -134,3 +134,30 @@ export const greyedForADiscipler = ({
   readonly disciple: Pick<RosterEntry, 'gender' | 'participationStatus' | 'relationships'>
 }): Greyed | null =>
   greyedInAOneToOne({ genderMatchEnforced, openedFrom: discipler, candidate: disciple, disciple })
+
+/**
+ * A Disciple's row while what is ticked would make a 1:2 pair (Manual pairing,
+ * recut ticket 02). A 1:2 takes the Discipler's gender as its declaration and asks
+ * nothing, and a declaration binds its members whatever the Ministry says of a
+ * one-to-one, so this is not read off `suggest_gender_match`. A Discipler with no
+ * gender on file declares nothing, and nobody is greyed for it.
+ *
+ * It is a group for every rule, so a Disciple already in a one-to-one is open:
+ * `participant_one_open_one_to_one` is one open one-to-one and any number of groups.
+ */
+export const greyedInAOneToTwo = ({
+  discipler,
+  disciple,
+}: {
+  readonly discipler: Pick<RosterEntry, 'gender'>
+  readonly disciple: Pick<RosterEntry, 'gender' | 'participationStatus'>
+}): Greyed | null => greyedAgainst(discipler.gender ?? 'none', disciple)
+
+/**
+ * Whether somebody already leads a group, which is `leader_one_open_group`: one open
+ * group led at a time, and any number of one-to-ones. Read as the Roster reads
+ * *group*, from the live count of Disciples and never a kind (ADR-0004), and counted
+ * whether or not they have accepted it yet, as the index counts it.
+ */
+export const leadsAGroup = (person: Pick<RosterEntry, 'relationships'>): boolean =>
+  person.relationships.some(({ role, participantCount }) => role === 'leader' && participantCount >= 2)
