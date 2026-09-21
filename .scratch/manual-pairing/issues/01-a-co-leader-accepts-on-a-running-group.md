@@ -128,3 +128,13 @@ The reveal is sized under the Ministry, which the first of those left nearly the
 The page's own `asList` is gone, for the one every message is written with.
 Found while showing James the Starter Message: a co-leader who accepts on a running group is sent nothing herself, so she never gets the text with her dashboard link. James's decision named the Disciples and the existing leaders; whether she gets the leader's Starter Message is put to him.
 Also put to him, with mock-ups: a Decline button, what **Copy link** copies, *matched* in the invitation text and the Welcome Message, the tick's stray history event, and whether existing leaders are still told nothing.
+
+**James's second review of 2026-09-21** (`6c1ede1`).
+In his words or on his instruction: the Participant's Starter Message is *You have been paired for discipleship with [mentor name]*; no mentee is named in the Leader's; the invitation text and the Welcome Message say *paired*; the page says *You will be leading with*.
+**A co-leader who accepts on a running group is sent the Leader's Starter Message, and she alone.**
+That amends this ticket's third criterion, which still holds as written: nothing to the Disciples, nothing to the group's existing leaders.
+The tick's `follow_up.relationship_unaccepted` event is written with its item or not at all.
+The Leader's sentence, *You have been paired for discipleship.*, is James's sentence without the name, and is put to him to approve.
+A side effect, put to him as well: the Ministry's word for a person being discipled is now in no message, so its field on Ministry settings saves and does nothing.
+Decline and the two weeks are ticket 05's addendum.
+The whole suite ran once on the result: 164 of 167 files and 2339 tests passed, and the three that failed passed when run again, two of them tests that pinned the old wording and one a random phone-number collision in a fixture.
