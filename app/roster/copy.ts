@@ -205,7 +205,9 @@ export const PAIR_POPUP = {
    */
   pairThemAs: 'Pair them as',
   segment: (shape: PairShape, ticked: number): string =>
-    shape === 'one_to_two' ? '1:2 pair' : shape === 'group' ? 'Group' : `${ticked} × 1:1 pairs`,
+    // The Group shape is what is left: named once, in `./pair-shape`, which this
+    // file reads types from and nothing else.
+    shape === 'one_to_two' ? '1:2 pair' : shape === 'separate' ? `${ticked} × 1:1 pairs` : 'Group',
   /** Beneath the toggle, in grey. The cap is about the Discipler, by first name as the spec has it. */
   ruledOut: (why: ShapeRuledOut, discipler: string): string =>
     why === 'needs_exactly_two'

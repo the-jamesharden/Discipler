@@ -26,7 +26,16 @@ import type { GroupDeclaration } from './declared-gender'
  * and is no shape: nothing is asked and no toggle shows. A Group is a third segment
  * of the one toggle, not a second mechanism (Manual pairing, recut ticket 04).
  */
-export type PairShape = 'one_to_two' | 'separate' | 'group'
+export type PairShape = 'one_to_two' | 'separate' | typeof GROUP_SHAPE
+
+/**
+ * The popup's Group shape, said once. It is the segment an Admin picks and the
+ * value the form posts, and not a relationship's kind: what is formed counts
+ * against whichever cap its members make it, as ADR-0004 has it. The word is here
+ * and nowhere else in `app/`, and every comparison goes through this constant,
+ * which is what `tests/domain/relationship-kind-fence.test.ts` allows this file.
+ */
+export const GROUP_SHAPE = 'group'
 
 /** Why a segment cannot be picked. */
 export type ShapeRuledOut =
@@ -47,14 +56,14 @@ export interface ShapeToggle {
 }
 
 /** The segments, in the order they are drawn. */
-const SHAPES: readonly PairShape[] = ['one_to_two', 'separate', 'group']
+const SHAPES: readonly PairShape[] = ['one_to_two', 'separate', GROUP_SHAPE]
 
 /**
  * The order the default is looked for in: the first that is not ruled out. A 1:2
  * pair at two, a Group at three or more, where a 1:2 pair is ruled out, and N x 1:1
  * pairs where the Discipler already leads a group and can be given neither.
  */
-const DEFAULTS: readonly PairShape[] = ['one_to_two', 'group', 'separate']
+const DEFAULTS: readonly PairShape[] = ['one_to_two', GROUP_SHAPE, 'separate']
 
 const ruledOut = (
   shape: PairShape,
@@ -66,7 +75,7 @@ const ruledOut = (
       // so the count would be the wrong thing to act on.
       leadsAGroup
       ? 'already_leads_a_group'
-      : shape === 'group' || ticked === 2
+      : shape === GROUP_SHAPE || ticked === 2
         ? null
         : 'needs_exactly_two'
 
@@ -122,7 +131,7 @@ export const READ_AS_A_GROUP: Readonly<Record<GroupDeclaration, ReadAs>> = {
 const readAs = (shape: PairShape | null, declared: GroupDeclaration | null): ReadAs =>
   shape === 'one_to_two'
     ? 'a_one_to_two'
-    : shape === 'group'
+    : shape === GROUP_SHAPE
       ? READ_AS_A_GROUP[declared ?? 'mixed']
       : 'a_one_to_one'
 
@@ -251,7 +260,7 @@ const declaredAfter = (
   next: Pick<PairSelection, 'tickedIds' | 'picked'>,
   declared: GroupDeclaration | null,
 ): GroupDeclaration | null =>
-  shapeOf(context, { ...next, declared })?.selected === 'group' ? declared : context.presetGender
+  shapeOf(context, { ...next, declared })?.selected === GROUP_SHAPE ? declared : context.presetGender
 
 /**
  * Why a row cannot be ticked now, or null. **A row is offered only where ticking it
@@ -279,7 +288,7 @@ export const greyedOnRow = (
       )?.why ?? null)
 
 /** The shapes that hold one Material for everybody in them: one relationship, one dropdown. */
-const holdsOneMaterial = (shape: PairShape | null): boolean => shape === 'one_to_two' || shape === 'group'
+const holdsOneMaterial = (shape: PairShape | null): boolean => shape === 'one_to_two' || shape === GROUP_SHAPE
 
 /**
  * The Materials that survive a change. No shape's choice is carried into another.
@@ -361,7 +370,7 @@ export const selectionFrom = (context: PairSelectionContext, restored: RestoredS
     return { ...selectionFrom(context, NOTHING_RESTORED), groupId: restored.groupId }
   }
   // A Group that came back having declared nothing starts from the preset, as any does.
-  const declared = restored.picked === 'group' && restored.declared !== null ? restored.declared : context.presetGender
+  const declared = restored.picked === GROUP_SHAPE && restored.declared !== null ? restored.declared : context.presetGender
   const ticks = settled(context, restored.tickedIds, restored.picked, declared)
   const next = { ...ticks, declared: declaredAfter(context, ticks, declared) }
   return {
@@ -369,7 +378,7 @@ export const selectionFrom = (context: PairSelectionContext, restored: RestoredS
     groupId: null,
     // Only a Group's, as its declaration is: a name that came back beside anything
     // else is not something the Admin typed here.
-    name: restored.picked === 'group' ? restored.name : '',
+    name: restored.picked === GROUP_SHAPE ? restored.name : '',
     // A refused submission chose under one shape, and only that shape's come back.
     ...materialsAfter(context, null, next, {
       material: restored.material ?? '',
@@ -420,8 +429,8 @@ export const selectionAfter = (
   // Only a Group has a gender toggle to change. Saying what it declares is the Admin
   // at work on a Group, so it stays one as a picked segment does: a row the new
   // answer greys is unticked for that reason, and not by the shape moving under it.
-  if (change.type === 'declare' && shapeOf(context, selection)?.selected !== 'group') return selection
-  const picked = change.type === 'pick' ? change.shape : change.type === 'declare' ? 'group' : selection.picked
+  if (change.type === 'declare' && shapeOf(context, selection)?.selected !== GROUP_SHAPE) return selection
+  const picked = change.type === 'pick' ? change.shape : change.type === 'declare' ? GROUP_SHAPE : selection.picked
   const declared = change.type === 'declare' ? change.declared : selection.declared
 
   const ticks = settled(context, ticked, picked, declared)
@@ -446,7 +455,7 @@ export const selectionAfter = (
 export const canBePosted = (context: PairSelectionContext, selection: PairSelection): boolean =>
   selection.groupId !== null ||
   (selection.tickedIds.length > 0 &&
-    (shapeOf(context, selection)?.selected !== 'group' || (selection.declared !== null && selection.name.trim() !== '')))
+    (shapeOf(context, selection)?.selected !== GROUP_SHAPE || (selection.declared !== null && selection.name.trim() !== '')))
 
 /** What the pairing route is told: a 1:2 pair and a Group are each one relationship of them all, which is what it has always made. */
 export const modeOf = (shape: PairShape): PairingMode => (shape === 'separate' ? 'separate' : 'together')
@@ -459,12 +468,12 @@ export const modeOf = (shape: PairShape): PairingMode => (shape === 'separate' ?
  * and a 1:2 pair's generated name never comes back as something the Admin typed.
  */
 export const SHAPE_FIELD = 'shape'
-export const postedByAGroup: Readonly<Record<string, string>> = { [SHAPE_FIELD]: 'group' }
+export const postedByAGroup: Readonly<Record<string, string>> = { [SHAPE_FIELD]: GROUP_SHAPE }
 export const wasPostedByAGroup = (field: unknown): boolean => field === postedByAGroup[SHAPE_FIELD]
 
 /** The shape a refused submission's address can say it was: N x 1:1 pairs, a Group, or neither. */
 export const pickedFrom = ({ mode, shape }: { readonly mode: unknown; readonly shape: unknown }): PairShape | null =>
-  readPairingMode(mode) === 'separate' ? 'separate' : wasPostedByAGroup(shape) ? 'group' : null
+  readPairingMode(mode) === 'separate' ? 'separate' : wasPostedByAGroup(shape) ? GROUP_SHAPE : null
 
 /**
  * What a 1:2 pair posts without being asked: its name, and the Discipler's gender

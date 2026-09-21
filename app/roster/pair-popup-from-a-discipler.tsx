@@ -12,6 +12,7 @@ import { PairGroups, type PairPopupGroup } from './pair-popup-groups'
 import {
   canBePosted,
   greyedOnRow,
+  GROUP_SHAPE,
   modeOf,
   postedByAGroup,
   postedByAOneToTwo,
@@ -137,7 +138,7 @@ export const PairPopupFromADiscipler = ({
     if (toggle.selected === 'one_to_two') {
       return { summary: PAIR_POPUP.oneToTwo(person.fullName, names), label: PAIR_POPUP.createOneToTwo }
     }
-    if (toggle.selected === 'group') {
+    if (toggle.selected === GROUP_SHAPE) {
       return { summary: PAIR_POPUP.group(person.fullName, selection.declared, names), label: PAIR_POPUP.createGroup(names.length) }
     }
     return { summary: PAIR_POPUP.separately(person.fullName, names), label: PAIR_POPUP.createSeparately(names.length) }
@@ -170,7 +171,7 @@ export const PairPopupFromADiscipler = ({
               // Named and declared without asking, and neither is shown.
               ...(oneToTwo ? postedByAOneToTwo({ discipler: person.fullName, disciples: [first, second], declaredGender }) : {}),
               // A Group is asked both, in the open. It says only that it is one, for the way back from a refusal.
-              ...(toggle?.selected === 'group' ? postedByAGroup : {}),
+              ...(toggle?.selected === GROUP_SHAPE ? postedByAGroup : {}),
             }
       }
       summary={making?.summary ?? null}
@@ -269,7 +270,7 @@ export const PairPopupFromADiscipler = ({
         </>
       ) : null}
 
-      {toggle?.selected === 'group' ? (
+      {toggle?.selected === GROUP_SHAPE ? (
         <>
           {/* What the group is, directly under the shape toggle (D1): answered on the
               Admin's behalf from the Discipler, in the open, in words, and theirs to

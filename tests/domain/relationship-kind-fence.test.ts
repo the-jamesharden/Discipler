@@ -46,6 +46,15 @@ const MAY_READ_KIND = ['src/domain/relationships.ts', 'src/platform/supabase/eff
 const MAY_NAME_THE_GROUP_PATH = ['src/domain/intake.ts']
 
 /**
+ * And one more, on the same terms: the Pair popup's Group shape (Manual pairing,
+ * recut ticket 04). It is the segment an Admin picks and the value the form posts,
+ * not a relationship's kind -- what is formed counts against whichever cap its
+ * members make it. Exported once as `GROUP_SHAPE`, so the word appears in that
+ * file and in no other under `app/`; the other three patterns still apply to it.
+ */
+const MAY_NAME_THE_GROUP_SHAPE = ['app/roster/pair-shape.ts']
+
+/**
  * Matched whole rather than as substrings, for the reason ADR-0003 gives: the
  * refusal code `relationship.participant_already_in_a_one_to_one` contains
  * `one_to_one`, and a substring search would flag it as a kind branch when it is
@@ -94,7 +103,7 @@ describe('relationship kind', () => {
 
       for (const { pattern, what } of readsKind) {
         if (
-          MAY_NAME_THE_GROUP_PATH.includes(path)
+          (MAY_NAME_THE_GROUP_PATH.includes(path) || MAY_NAME_THE_GROUP_SHAPE.includes(path))
           && what === "the literal 'group'"
         ) {
           continue
