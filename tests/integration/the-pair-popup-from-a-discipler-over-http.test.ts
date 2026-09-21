@@ -349,6 +349,39 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     expect(popup).toContain('Grace Lee will disciple Ana Ruiz and Sam Lee separately, in 2 one-on-ones.')
   })
 
+  it('keeps a group that has fallen to one Disciple a group, for both caps and from both sides', async () => {
+    const shrunk = await formGroup(ministry, {
+      name: 'Nora’s Group',
+      declaredGender: 'female',
+      leader: { name: 'Nora Lindgren', gender: 'female' },
+      disciples: [
+        { name: 'Olive Last', gender: 'female' },
+        { name: 'Petra Gone', gender: 'female' },
+      ],
+    })
+    const [last, gone] = shrunk.disciples as [string, string]
+    // Ended with this process's clock and never the database's, which can sit behind it.
+    await pool.query(
+      `update relationship_member set ended_at = $1 where relationship_id = $2 and person_id = $3`,
+      [new Date(), shrunk.id, gone],
+    )
+
+    // Its last Disciple is in a group of one, and not in a one-to-one: a Discipler
+    // can tick her, where the head count used to grey her as *Already in a 1:1*.
+    const fromClaire = popupIn((await popupAt('disciplers', claire)).html)!
+    expectOpen(fromClaire, last)
+    expect(rowFor(fromClaire, last)).toContain('Olive Last')
+
+    // And from her own side every Discipler she could be given is open.
+    const fromHer = popupIn((await popupAt('disciples', last)).html)!
+    expectOpen(fromHer, claire)
+
+    // Its Discipler still leads her one group, so a 1:2 pair is ruled out for her.
+    const fromNora = popupIn((await popupAt('disciplers', shrunk.leader, [['with', sam], ['with', ana]])).html)!
+    expect(segmentsIn(fromNora)[0]).toMatchObject({ says: '1:2 pair', disabled: true, treatment: 'off' })
+    expect(fromNora).toContain('Nora already leads a group')
+  })
+
   it('shows no dropdown and no empty label in a Ministry with no live Materials', async () => {
     const bare = await createMinistryWithAdmin('The Chapel With No Materials')
     const theirCookie = (await signIn(bare)).cookie

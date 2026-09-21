@@ -63,17 +63,19 @@ export const declaredByAOneToOne = ({
 }): Declaration => (genderMatchEnforced && openedFrom.gender !== null ? openedFrom.gender : 'none')
 
 /**
- * The open one-to-one somebody is in as a Disciple, or null. One participant is
- * what says one-to-one on the Roster, from the live memberships (ADR-0004), and the
- * popup reads the same document. Leading a one-to-one is not being in one as a
- * Disciple. Found whoever leads it: a one-to-one that names nobody still counts
- * against the database's cap, so its row is still greyed.
+ * The open one-to-one somebody is in as a Disciple, or null. Read from which cap
+ * the pairing counts against, which the Roster's document carries, and never from
+ * how many Disciples it has: a group that has fallen to one Disciple is still a
+ * group, and its last Disciple may be given a one-to-one (ADR-0004). Leading a
+ * one-to-one is not being in one as a Disciple. Found whoever leads it: a
+ * one-to-one that names nobody still counts against the database's cap, so its row
+ * is still greyed.
  */
 const openOneToOneOf = (
   person: Pick<RosterEntry, 'relationships'>,
 ): { readonly withName: string | null } | null => {
   const oneToOne = person.relationships.find(
-    ({ role, participantCount }) => role === 'participant' && participantCount === 1,
+    ({ role, countsAsAGroup }) => role === 'participant' && !countsAsAGroup,
   )
   return oneToOne === undefined ? null : { withName: oneToOne.leaderNames[0] ?? null }
 }
@@ -156,14 +158,9 @@ export const greyedInAOneToTwo = ({
 /**
  * Whether somebody already leads a group, which is what `leader_one_open_group`
  * caps: one open group led at a time, and any number of one-to-ones. Counted
- * whether or not they have accepted it yet, as the index counts it.
- *
- * Read as the Roster reads *group*, from the live count of Disciples and never a
- * kind (ADR-0004), because the Roster's document carries no kind. The index is on
- * the kind, so the two disagree for a group with fewer than two Disciples left: this
- * says they lead none, a 1:2 pair is offered, and the database refuses it in words
- * after the click. It errs towards offering. Making it exact needs the reader to
- * carry the fact, which is a migration, as it is for *Already in a 1:1*.
+ * whether or not they have accepted it yet, as the index counts it, and however
+ * many Disciples it has left: a group that has fallen to one is still the one
+ * group they lead.
  */
 export const leadsAGroup = (person: Pick<RosterEntry, 'relationships'>): boolean =>
-  person.relationships.some(({ role, participantCount }) => role === 'leader' && participantCount >= 2)
+  person.relationships.some(({ role, countsAsAGroup }) => role === 'leader' && countsAsAGroup)

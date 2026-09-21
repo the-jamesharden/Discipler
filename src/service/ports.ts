@@ -826,6 +826,17 @@ export interface RosterRelationship {
   /** Open participant memberships, this Person's included where they are one. */
   readonly participantCount: number
   /**
+   * Which of the two participation caps this counts against: a Discipler leads one
+   * open group at a time and any number of one-to-ones, and a Disciple is in one
+   * open one-to-one and any number of groups. Declared when it was formed and never
+   * changed, so a group that has fallen to one Disciple is still a group here
+   * (ADR-0004, and James on 2026-09-20), whatever `participantCount` says.
+   *
+   * For showing the caps before the click and for nothing else. What a row is
+   * called, and every state, still follows the live count.
+   */
+  readonly countsAsAGroup: boolean
+  /**
    * Derived from `relationship.accepted_at`, never stored as a status. It is the
    * absence of an acceptance rather than a state anybody sets, which is why it
    * belongs on the relationship and not beside the Participation Status.

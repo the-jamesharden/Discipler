@@ -201,3 +201,34 @@ disable for the rule Discipler applies on a Ministry's behalf — the automatic 
 between two people who never declared anything. A declaration is a statement an Admin
 made about one relationship on purpose. A Ministry that permitted mixed one-to-ones has
 not asked for its own women's group to quietly admit a man.
+
+## Amendment - the Pair popup is told which cap a relationship counts against
+
+*2026-09-20, with Manual pairing, recut ticket 02.*
+
+The decision is unchanged and the fence holds: copy and state derivation still may not read `kind`, and no file under `src/` or `app/` reads it that did not before.
+
+What is new is one boolean on the Roster's document.
+`public.roster_page()` says, for each relationship, `counts_as_a_group`, which is `kind = 'group'` answered inside the function.
+`RosterRelationship.countsAsAGroup` carries it, and its only readers are the two rules in `app/roster/greying.ts` that show the participation caps before the click: a Disciple already in a one-to-one is greyed for a second, and a Discipler who already leads a group is not offered a 1:2 pair.
+
+**Why the count would not serve.**
+The popup greys what the database would refuse, so that a refusal is not the first an Admin hears of a rule.
+Both caps are indexes on `kind`, and until now the popup guessed them from the live count of Disciples, because the document carried nothing else.
+For the state this ADR calls distinguishable, a group with one remaining participant, the guess was wrong in both directions.
+Its last Disciple was greyed as already in a one-to-one, which the cap allows them to be given.
+Its Discipler was offered a 1:2 pair, which `leader_one_open_group` then refused after the click.
+James decided on 2026-09-20 that such a group stays a group, which is what this ADR's Consequences already say of the caps; the screen now agrees with the database.
+
+**Why this is not the regression the fence exists to stop.**
+The rejected option, *store `kind` and read it everywhere*, was rejected for copy: a group of one addressed by the group's name.
+Nothing here words anything by kind.
+A row is still called what the live count says, the size pill still counts, and every state is still derived as before.
+What the popup reads is the capacity declaration, for the one purpose the declaration was stored for, which is the same reading the scorer makes when it filters the leader pool.
+
+**Why a boolean and not the column.**
+A reader handed `kind` has it to hand for the next branch, correct and convenient, which is how this ADR says the fence fails.
+So the function answers the question and the kind stays behind it.
+The fence test needs no change and no file joins `MAY_READ_KIND`.
+As the first amendment records, the fence does not cover SQL, so the honest list of what reads `kind` is this document: the two cap indexes, the gender trigger, the scorer, and now `roster_page()`.
+

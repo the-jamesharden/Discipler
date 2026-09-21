@@ -174,10 +174,30 @@ export const rosterFrom = (doc: PageDocument): readonly RosterEntry[] => {
   // The rows the function gave are exactly the relationships the memberships
   // name, rather than the Ministry's whole set, so this list cannot hold a row
   // the memberships did not already name.
-  const acceptedById = new Map(
-    (list(roster, 'relationships') as unknown as { id: string; accepted_at: string | null }[]).map(
-      (row) => [row.id, row.accepted_at !== null],
-    ),
+  const relationshipRows = list(roster, 'relationships') as unknown as {
+    id: string
+    accepted_at: string | null
+    counts_as_a_group?: unknown
+  }[]
+  const acceptedById = new Map(relationshipRows.map((row) => [row.id, row.accepted_at !== null]))
+
+  /**
+   * Which of the two participation caps each relationship counts against, as the
+   * document says it (Manual pairing, recut ticket 02). The database declared it
+   * when the relationship was formed, and this reader is told the answer and
+   * never the kind it came from, which nothing here may read (ADR-0004).
+   *
+   * A document without the key is drift, thrown like the rest of it here: read as
+   * absent it would say *one-to-one* about every group, and the popup would grey
+   * everybody in one as already paired.
+   */
+  const countsAsAGroupById = new Map(
+    relationshipRows.map((row) => {
+      if (typeof row.counts_as_a_group !== 'boolean') {
+        throw new Error(`A Roster relationship arrived without saying which cap it counts against: ${row.id}`)
+      }
+      return [row.id, row.counts_as_a_group] as const
+    }),
   )
 
   /**
@@ -296,6 +316,9 @@ export const rosterFrom = (doc: PageDocument): readonly RosterEntry[] => {
         participantCount: (byRelationship.get(membership.relationship_id) ?? []).filter(
           (member) => member.role === 'participant',
         ).length,
+        // Present for every membership that got this far: `awaitingAcceptanceOf`
+        // above has already thrown for a relationship that did not come back.
+        countsAsAGroup: countsAsAGroupById.get(membership.relationship_id) ?? false,
       }))
       // Led relationships first, then the ones they are in as a Participant, and
       // alphabetically within each. A stable order, so a Roster read twice reads

@@ -42,6 +42,7 @@ const pairing = (
   leaderNames: [],
   participantNames: [],
   participantCount: 1,
+  countsAsAGroup: false,
   awaitingAcceptance: false,
   ...over,
 })
@@ -139,7 +140,7 @@ describe('a Discipler in the popup opened from a Disciple', () => {
     const inAGroup = person({
       gender: 'male',
       relationships: [
-        pairing('participant', { leaderNames: ['David Chen'], participantCount: 3 }),
+        pairing('participant', { leaderNames: ['David Chen'], participantCount: 3, countsAsAGroup: true }),
         pairing('leader', { participantNames: ['Noah Kim'], participantCount: 1 }),
       ],
     })
@@ -164,7 +165,7 @@ describe('a Disciple in the popup opened from a Discipler', () => {
   it('is open when in a group, however many', () => {
     const rosa = person({
       gender: 'female',
-      relationships: [pairing('participant', { leaderNames: ['Grace Lee'], participantCount: 3 })],
+      relationships: [pairing('participant', { leaderNames: ['Grace Lee'], participantCount: 3, countsAsAGroup: true })],
     })
     expect(greyedForADiscipler({ genderMatchEnforced: true, discipler: claire, disciple: rosa })).toBeNull()
   })
@@ -215,11 +216,35 @@ describe('a Disciple while what is ticked would make a 1:2 pair', () => {
   })
 })
 
+/**
+ * A group that has fallen to one Disciple is still a group (James, 2026-09-20), as
+ * the database's two caps have always had it (ADR-0004). So both rules read which
+ * cap a pairing counts against, and never how many Disciples it has left.
+ */
+describe('a group that has fallen to one Disciple', () => {
+  const shrunk = { participantCount: 1, countsAsAGroup: true }
+
+  it('does not grey its last Disciple as already in a one-to-one, from either side', () => {
+    const last = person({
+      gender: 'female',
+      relationships: [pairing('participant', { leaderNames: ['Grace Lee'], ...shrunk })],
+    })
+    const claire = person({ gender: 'female' })
+    expect(greyedForADiscipler({ genderMatchEnforced: true, discipler: claire, disciple: last })).toBeNull()
+    expect(greyedForADisciple({ genderMatchEnforced: true, disciple: last, discipler: claire })).toBeNull()
+  })
+
+  it('still counts as the one group its Discipler leads', () => {
+    expect(leadsAGroup(person({ relationships: [pairing('leader', shrunk)] }))).toBe(true)
+    expect(leadsAGroup(person({ relationships: [pairing('leader', { participantCount: 0, countsAsAGroup: true })] }))).toBe(true)
+  })
+})
+
 describe('a Discipler who already leads a group', () => {
   it('is one who leads an open pairing of two or more Disciples, accepted yet or not', () => {
-    expect(leadsAGroup(person({ relationships: [pairing('leader', { participantCount: 2 })] }))).toBe(true)
+    expect(leadsAGroup(person({ relationships: [pairing('leader', { participantCount: 2, countsAsAGroup: true })] }))).toBe(true)
     expect(
-      leadsAGroup(person({ relationships: [pairing('leader', { participantCount: 4, awaitingAcceptance: true })] })),
+      leadsAGroup(person({ relationships: [pairing('leader', { participantCount: 4, countsAsAGroup: true, awaitingAcceptance: true })] })),
     ).toBe(true)
   })
 
@@ -231,7 +256,7 @@ describe('a Discipler who already leads a group', () => {
           relationships: [
             pairing('leader', { participantCount: 1 }),
             pairing('leader', { participantCount: 1 }),
-            pairing('participant', { participantCount: 3 }),
+            pairing('participant', { participantCount: 3, countsAsAGroup: true }),
           ],
         }),
       ),
