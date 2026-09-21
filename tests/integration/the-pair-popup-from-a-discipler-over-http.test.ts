@@ -187,6 +187,22 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
 
     const { html } = await getPage(`/roster?${new URLSearchParams({ list: 'disciplers', pair: lead })}`, theirCookie)
     expectOpen(popupIn(html)!, man)
+
+    // A 1:2 pair still declares her gender, whatever the Ministry says of a
+    // one-to-one, so he cannot be in hers. Ticked with a woman, the two of them are
+    // 2 x 1:1 untouched, since that is what they can be, and nobody is unticked.
+    const woman = await addPerson(relaxed, 'Sam Lee', { answers: { gender: 'female' } })
+    const two = popupIn(
+      (await getPage(
+        `/roster?${new URLSearchParams([['list', 'disciplers'], ['pair', lead], ['with', woman], ['with', man]])}`,
+        theirCookie,
+      )).html,
+    )!
+    expect(rowFor(two, man)).toMatch(/checked=""/)
+    expect(rowFor(two, woman)).toMatch(/checked=""/)
+    expect(two).not.toContain('was unticked')
+    expect(two).toContain('Claire Martinez will disciple Sam Lee and Tom Wilson separately, in 2 one-on-ones.')
+    expect(two).toMatch(/<label><input type="radio" name="mode" value="together"\/>1:2 pair<\/label>/)
   })
 
   it('says what one tick makes, and asks nothing else: no toggle, no Material', async () => {

@@ -154,10 +154,16 @@ export const greyedInAOneToTwo = ({
 }): Greyed | null => greyedAgainst(discipler.gender ?? 'none', disciple)
 
 /**
- * Whether somebody already leads a group, which is `leader_one_open_group`: one open
- * group led at a time, and any number of one-to-ones. Read as the Roster reads
- * *group*, from the live count of Disciples and never a kind (ADR-0004), and counted
+ * Whether somebody already leads a group, which is what `leader_one_open_group`
+ * caps: one open group led at a time, and any number of one-to-ones. Counted
  * whether or not they have accepted it yet, as the index counts it.
+ *
+ * Read as the Roster reads *group*, from the live count of Disciples and never a
+ * kind (ADR-0004), because the Roster's document carries no kind. The index is on
+ * the kind, so the two disagree for a group with fewer than two Disciples left: this
+ * says they lead none, a 1:2 pair is offered, and the database refuses it in words
+ * after the click. It errs towards offering. Making it exact needs the reader to
+ * carry the fact, which is a migration, as it is for *Already in a 1:1*.
  */
 export const leadsAGroup = (person: Pick<RosterEntry, 'relationships'>): boolean =>
   person.relationships.some(({ role, participantCount }) => role === 'leader' && participantCount >= 2)

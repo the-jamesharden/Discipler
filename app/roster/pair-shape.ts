@@ -1,4 +1,5 @@
 import type { PairingMode } from '~/domain/separate-pairings'
+import { PAIR_POPUP } from './copy'
 
 /**
  * What two or more ticks become in the Pair popup from a Discipler (Manual pairing,
@@ -40,11 +41,11 @@ export interface ShapeToggle {
   readonly selected: PairShape
 }
 
-/** The order the segments are drawn in. */
-const DRAWN: readonly PairShape[] = ['one_to_two', 'separate']
-
-/** The order the default is looked for in: the first that is not ruled out. */
-const DEFAULT_ORDER: readonly PairShape[] = ['one_to_two', 'separate']
+/**
+ * The segments, in the order they are drawn, which is also the order the default
+ * is looked for in: the first that is not ruled out.
+ */
+const SHAPES: readonly PairShape[] = ['one_to_two', 'separate']
 
 const ruledOut = (
   shape: PairShape,
@@ -63,9 +64,11 @@ const ruledOut = (
 /**
  * The toggle, as one function of the ticks, the Admin's pick and what is possible.
  * Null while zero or one Disciple is ticked, which is hidden. What the Admin picked
- * stays picked until it becomes impossible; untouched, the default follows the
- * count. N x 1:1 pairs is never ruled out at two or more, so something is always
- * selected.
+ * stays picked until it becomes impossible. Untouched, the default follows the
+ * count, and passes over a shape that would untick somebody who is ticked where
+ * another would not: two who cannot be a 1:2 pair are 2 x 1:1 until the Admin says
+ * otherwise. N x 1:1 pairs is never ruled out at two or more, so something is
+ * always selected.
  */
 export const shapeToggle = (facts: {
   /** How many Disciples are ticked. */
@@ -73,14 +76,18 @@ export const shapeToggle = (facts: {
   readonly picked: PairShape | null
   /** Whether the Discipler the popup is for already leads a group. */
   readonly leadsAGroup: boolean
+  /** The shapes that grey somebody who is ticked, and so would untick them. */
+  readonly wouldUntick: readonly PairShape[]
 }): ShapeToggle | null => {
   if (facts.ticked < 2) return null
 
   const open = (shape: PairShape): boolean => ruledOut(shape, facts) === null
   const selected =
-    facts.picked !== null && open(facts.picked) ? facts.picked : (DEFAULT_ORDER.find(open) ?? 'separate')
+    facts.picked !== null && open(facts.picked)
+      ? facts.picked
+      : (SHAPES.find((shape) => open(shape) && !facts.wouldUntick.includes(shape)) ?? SHAPES.find(open) ?? 'separate')
 
-  return { segments: DRAWN.map((shape) => ({ shape, ruledOut: ruledOut(shape, facts) })), selected }
+  return { segments: SHAPES.map((shape) => ({ shape, ruledOut: ruledOut(shape, facts) })), selected }
 }
 
 /**
@@ -134,14 +141,22 @@ export type PairSelectionChange =
   | { readonly type: 'material'; readonly materialId: string }
   | { readonly type: 'material_for'; readonly id: string; readonly materialId: string }
 
-const toggleOf = (
-  { leadsAGroup }: PairSelectionContext,
-  { tickedIds, picked }: Pick<PairSelection, 'tickedIds' | 'picked'>,
-): ShapeToggle | null => shapeToggle({ ticked: tickedIds.length, picked, leadsAGroup })
+type Ticks = Pick<PairSelection, 'tickedIds' | 'picked'>
 
-/** The toggle as the selection has it, or null while it is hidden. */
-export const shapeOf = (context: PairSelectionContext, selection: PairSelection): ShapeToggle | null =>
-  toggleOf(context, selection)
+/** The toggle as the ticks and the pick have it, or null while it is hidden. */
+export const shapeOf = (context: PairSelectionContext, { tickedIds, picked }: Ticks): ShapeToggle | null =>
+  shapeToggle({
+    ticked: tickedIds.length,
+    picked,
+    leadsAGroup: context.leadsAGroup,
+    wouldUntick: SHAPES.filter((shape) =>
+      context.rows.some((row) => tickedIds.includes(row.id) && row.greyed[readAs(shape)] !== null),
+    ),
+  })
+
+/** What the ticks make a row be read against: the selected shape, or a one-to-one while there is none. */
+const readAgainst = (context: PairSelectionContext, ticks: Ticks): ReadAs =>
+  readAs(shapeOf(context, ticks)?.selected ?? null)
 
 /**
  * Why a row cannot be ticked now, or null. **A row is read against the shape the
@@ -157,7 +172,7 @@ export const greyedOnRow = (
   row: PairSelectionRow,
 ): string | null => {
   const tickedIds = selection.tickedIds.includes(row.id) ? selection.tickedIds : [...selection.tickedIds, row.id]
-  return row.greyed[readAs(toggleOf(context, { tickedIds, picked: selection.picked })?.selected ?? null)]
+  return row.greyed[readAgainst(context, { tickedIds, picked: selection.picked })]
 }
 
 /**
@@ -173,47 +188,58 @@ const settled = (
   pickedBefore: PairShape | null,
 ): Pick<PairSelection, 'tickedIds' | 'picked' | 'unticked'> => {
   const listed = context.rows.filter(({ id }) => ticked.includes(id))
-  const selected = toggleOf(context, { tickedIds: listed.map(({ id }) => id), picked: pickedBefore })?.selected ?? null
-  const picked = pickedBefore === selected ? pickedBefore : null
+  const ticks = { tickedIds: listed.map(({ id }) => id), picked: pickedBefore }
+  // Forgotten unless it is what is selected: below two ticks nothing is.
+  const picked = pickedBefore !== null && shapeOf(context, ticks)?.selected === pickedBefore ? pickedBefore : null
 
   const greyedNow = listed.flatMap(({ id, greyed }) => {
-    const why = greyed[readAs(selected)]
+    const why = greyed[readAgainst(context, ticks)]
     return why === null ? [] : [{ id, why }]
   })
-  if (greyedNow.length === 0) return { tickedIds: listed.map(({ id }) => id), picked, unticked: [] }
+  if (greyedNow.length === 0) return { tickedIds: ticks.tickedIds, picked, unticked: [] }
 
-  const stillTicked = listed.map(({ id }) => id).filter((id) => !greyedNow.some((gone) => gone.id === id))
+  const stillTicked = ticks.tickedIds.filter((id) => !greyedNow.some((gone) => gone.id === id))
   const rest = settled(context, stillTicked, picked)
   return { ...rest, unticked: [...greyedNow, ...rest.unticked] }
 }
 
 /**
- * The Materials that survive a change. A choice belongs to the shape it was made
- * under and is not carried into another, so a change of shape starts every dropdown
- * at *No material*. Within a shape, unticking somebody removes their choice and
- * leaves the others' as they were.
+ * The Materials that survive a change. Each shape keeps its own and neither is
+ * carried into the other: the 1:2 pair's one Material is never any Disciple's, and
+ * theirs are never its. Only the selected shape's dropdowns are drawn, so only its
+ * choices are posted. Unticking somebody removes their choice and leaves the
+ * others' as they were, whether or not the default moved the shape on the way.
+ * Below two ticks there is no shape, nothing is asked, and nothing is kept.
  */
 const materialsAfter = (
   context: PairSelectionContext,
-  before: PairSelection | null,
-  next: Pick<PairSelection, 'tickedIds' | 'picked'>,
+  next: Ticks,
   held: Pick<PairSelection, 'material' | 'materialFor'>,
 ): Pick<PairSelection, 'material' | 'materialFor'> => {
-  const shape = toggleOf(context, next)?.selected ?? null
-  const shapeBefore = before === null ? shape : (toggleOf(context, before)?.selected ?? null)
   const onTheList = (materialId: string | undefined): materialId is string =>
     materialId !== undefined && context.materialIds.includes(materialId)
 
-  if (shape !== shapeBefore) return { material: '', materialFor: {} }
+  if (shapeOf(context, next) === null) return { material: '', materialFor: {} }
   return {
-    material: shape === 'one_to_two' && onTheList(held.material) ? held.material : '',
-    materialFor:
-      shape === 'separate'
-        ? Object.fromEntries(
-            next.tickedIds.flatMap((id) => (onTheList(held.materialFor[id]) ? [[id, held.materialFor[id]]] : [])),
-          )
-        : {},
+    material: onTheList(held.material) ? held.material : '',
+    materialFor: Object.fromEntries(
+      next.tickedIds.flatMap((id) => (onTheList(held.materialFor[id]) ? [[id, held.materialFor[id]]] : [])),
+    ),
   }
+}
+
+/**
+ * What a submission that came back refused had chosen, as its address says it and
+ * unchecked: the ticks, the shape and every Material. Plain arrays, so the Roster's
+ * page can hand it to the popup as it is.
+ */
+export interface RestoredSelection {
+  readonly tickedIds: readonly string[]
+  /** Whether it was submitted as N x 1:1 pairs. Anything else is the default's to say. */
+  readonly separate: boolean
+  readonly material: string | null
+  /** Who each Material was chosen for, and which. */
+  readonly materialFor: readonly (readonly [string, string])[]
 }
 
 /**
@@ -222,22 +248,14 @@ const materialsAfter = (
  * other; somebody who is not on the list is restored as nobody. A Material that has
  * left the list is not restored, and the rest of the selection is.
  */
-export const selectionFrom = (
-  context: PairSelectionContext,
-  restored: {
-    readonly tickedIds: readonly string[]
-    /** Whether it was submitted as N x 1:1 pairs. Anything else is the default's to say. */
-    readonly separate: boolean
-    readonly material: string | null
-    readonly materialFor: ReadonlyMap<string, string>
-  },
-): PairSelection => {
+export const selectionFrom = (context: PairSelectionContext, restored: RestoredSelection): PairSelection => {
   const next = settled(context, restored.tickedIds, restored.separate ? 'separate' : null)
   return {
     ...next,
-    ...materialsAfter(context, null, next, {
-      material: restored.material ?? '',
-      materialFor: Object.fromEntries(restored.materialFor),
+    // A refused submission chose under one shape, and only that shape's come back.
+    ...materialsAfter(context, next, {
+      material: (shapeOf(context, next)?.selected === 'one_to_two' ? restored.material : null) ?? '',
+      materialFor: shapeOf(context, next)?.selected === 'separate' ? Object.fromEntries(restored.materialFor) : {},
     }),
   }
 }
@@ -252,7 +270,7 @@ export const selectionAfter = (
       change.type === 'material'
         ? { material: change.materialId, materialFor: selection.materialFor }
         : { material: selection.material, materialFor: { ...selection.materialFor, [change.id]: change.materialId } }
-    return { ...selection, ...materialsAfter(context, selection, selection, held) }
+    return { ...selection, ...materialsAfter(context, selection, held) }
   }
 
   if (change.type === 'tick') {
@@ -261,7 +279,7 @@ export const selectionAfter = (
     if (row === undefined || greyedOnRow(context, selection, row) !== null) return selection
   }
   if (change.type === 'pick') {
-    const segment = toggleOf(context, selection)?.segments.find(({ shape }) => shape === change.shape)
+    const segment = shapeOf(context, selection)?.segments.find(({ shape }) => shape === change.shape)
     if (segment === undefined || segment.ruledOut !== null) return selection
   }
 
@@ -274,19 +292,8 @@ export const selectionAfter = (
           ? []
           : selection.tickedIds
   const next = settled(context, ticked, change.type === 'pick' ? change.shape : selection.picked)
-  return { ...next, ...materialsAfter(context, selection, next, selection) }
+  return { ...next, ...materialsAfter(context, next, selection) }
 }
-
-/** A first name out of the one `full_name` Discipler holds. Splitting it is a copy decision, made here and in the words. */
-export const firstNameOf = (fullName: string): string => fullName.trim().split(/\s+/)[0] ?? ''
-
-/**
- * What a 1:2 pair is called: `{First} with {First} & {First}`. A 1:2 is a group for
- * every rule and a group is named, so the popup names it and asks nothing; the name
- * is never shown there. It is what the weekly question calls the three of them.
- */
-export const nameOfAOneToTwo = (discipler: string, disciples: readonly [string, string]): string =>
-  `${firstNameOf(discipler)} with ${firstNameOf(disciples[0])} & ${firstNameOf(disciples[1])}`
 
 /** What the pairing route is told: a 1:2 pair is one relationship of them all, which is what it has always made. */
 export const modeOf = (shape: PairShape): PairingMode => (shape === 'separate' ? 'separate' : 'together')
@@ -307,6 +314,6 @@ export const postedByAOneToTwo = ({
   readonly disciples: readonly [string, string]
   readonly declaredGender: string | null
 }): Readonly<Record<string, string>> => ({
-  name: nameOfAOneToTwo(discipler, disciples),
+  name: PAIR_POPUP.nameOfAOneToTwo(discipler, disciples),
   ...(declaredGender === null ? {} : { declaredGender }),
 })

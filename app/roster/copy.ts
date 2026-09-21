@@ -10,7 +10,7 @@ import {
   type RosterFacts,
 } from './lists'
 import type { Greyed } from './greying'
-import { firstNameOf, type PairShape, type ShapeRuledOut } from './pair-shape'
+import type { PairShape, ReadAs, ShapeRuledOut } from './pair-shape'
 import type { ImportFailure } from './report'
 
 /**
@@ -126,6 +126,9 @@ export interface GroupOnARow {
   readonly leaders: readonly { readonly fullName: string }[]
 }
 
+/** A first name out of the one `full_name` Discipler holds. Splitting it is a copy decision, so it is made here. */
+const firstNameOf = (fullName: string): string => fullName.trim().split(/\s+/)[0] ?? ''
+
 export const PAIR_POPUP = {
   title: (fullName: string): string => `Pair ${fullName}`,
   chooseADiscipler: (disciple: string): string => `Choose who will disciple ${disciple}.`,
@@ -162,6 +165,13 @@ export const PAIR_POPUP = {
     why === 'needs_exactly_two'
       ? '1:2 pair needs exactly two checked'
       : `${firstNameOf(discipler)} already leads a group`,
+  /**
+   * What a 1:2 pair is called: `{First} with {First} & {First}`. A 1:2 is a group for
+   * every rule and a group is named, so the popup names it and asks nothing; the
+   * name is never shown there. It is what the weekly question calls the three.
+   */
+  nameOfAOneToTwo: (discipler: string, disciples: readonly [string, string]): string =>
+    `${firstNameOf(discipler)} with ${firstNameOf(disciples[0])} & ${firstNameOf(disciples[1])}`,
   oneToTwo: (discipler: string, disciples: readonly string[]): string =>
     `${discipler} will disciple ${asList(disciples)} together as a 1:2 pair.`,
   createOneToTwo: 'Create 1:2 pair',
@@ -186,14 +196,14 @@ export const PAIR_POPUP = {
    * width, which the mock's own sentence does not. A 1:2 pair declares the
    * Discipler's gender, and says so in the same words and the same length.
    */
-  greyed: (greyed: Greyed, making: '1:1' | '1:2' = '1:1'): string =>
+  greyed: (greyed: Greyed, readAs: ReadAs = 'a_one_to_one'): string =>
     greyed.why === 'already_in_a_one_to_one'
       ? greyed.withName === null
         ? 'Already in a 1:1'
         : `Already in a 1:1 with ${greyed.withName}`
       : greyed.why === 'not_pairable'
         ? CANNOT_BE_PAIRED[greyed.reason]
-        : `${greyed.declared === 'male' ? 'Men’s' : 'Women’s'} only: a ${making} is same-gender`,
+        : `${greyed.declared === 'male' ? 'Men’s' : 'Women’s'} only: a ${readAs === 'a_one_to_two' ? '1:2' : '1:1'} is same-gender`,
 } as const
 
 /** The receipt the pairing screen redirects to, said about what just happened. */

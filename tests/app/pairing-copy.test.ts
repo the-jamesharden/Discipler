@@ -235,6 +235,11 @@ describe('what the Pair popup says of two or more ticked (Manual pairing, recut 
     expect(PAIR_POPUP.ruledOut('already_leads_a_group', 'Claire Martinez')).toBe('Claire already leads a group')
   })
 
+  it('names a 1:2 pair by first names, the Discipler’s and then the two Disciples’', () => {
+    expect(PAIR_POPUP.nameOfAOneToTwo('Claire Martinez', ['Sam Lee', 'Ana Ruiz'])).toBe('Claire with Sam & Ana')
+    expect(PAIR_POPUP.nameOfAOneToTwo('  Mary Jo   Smith ', ['Cher', 'Ana  Ruiz'])).toBe('Mary with Cher & Ana')
+  })
+
   it('says exactly what a 1:2 pair makes, and its button is the same act', () => {
     expect(PAIR_POPUP.oneToTwo('Claire Martinez', ['Sam Lee', 'Ana Ruiz'])).toBe(
       'Claire Martinez will disciple Sam Lee and Ana Ruiz together as a 1:2 pair.',
@@ -266,10 +271,10 @@ describe('what the Pair popup says of two or more ticked (Manual pairing, recut 
   })
 
   it('says what a 1:2 pair declares where the gender is another, as short as the one-to-one’s', () => {
-    expect(PAIR_POPUP.greyed({ why: 'gender', declared: 'female' }, '1:2')).toBe('Women’s only: a 1:2 is same-gender')
-    expect(PAIR_POPUP.greyed({ why: 'gender', declared: 'male' }, '1:2')).toBe('Men’s only: a 1:2 is same-gender')
+    expect(PAIR_POPUP.greyed({ why: 'gender', declared: 'female' }, 'a_one_to_two')).toBe('Women’s only: a 1:2 is same-gender')
+    expect(PAIR_POPUP.greyed({ why: 'gender', declared: 'male' }, 'a_one_to_two')).toBe('Men’s only: a 1:2 is same-gender')
     // Every other reason is about the person and reads the same whatever is being made.
-    expect(PAIR_POPUP.greyed({ why: 'not_pairable', reason: 'opted_out' }, '1:2')).toBe('Opted out')
+    expect(PAIR_POPUP.greyed({ why: 'not_pairable', reason: 'opted_out' }, 'a_one_to_two')).toBe('Opted out')
   })
 })
 

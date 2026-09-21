@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import {
   greyedOnRow,
   modeOf,
-  nameOfAOneToTwo,
   postedByAOneToTwo,
   selectionAfter,
   selectionFrom,
@@ -21,8 +20,12 @@ import {
  */
 
 describe('the shape toggle', () => {
-  const toggle = (ticked: number, picked: 'one_to_two' | 'separate' | null = null, leadsAGroup = false) =>
-    shapeToggle({ ticked, picked, leadsAGroup })
+  const toggle = (
+    ticked: number,
+    picked: 'one_to_two' | 'separate' | null = null,
+    leadsAGroup = false,
+    wouldUntick: readonly ('one_to_two' | 'separate')[] = [],
+  ) => shapeToggle({ ticked, picked, leadsAGroup, wouldUntick })
 
   it('is hidden while zero or one Disciple is ticked', () => {
     expect(toggle(0)).toBeNull()
@@ -60,6 +63,21 @@ describe('the shape toggle', () => {
     expect(toggle(3, 'one_to_two')?.selected).toBe('separate')
   })
 
+  it('defaults past a shape that would untick somebody who is ticked, and still lets the Admin pick it', () => {
+    // What is possible is part of what the default follows: these two cannot be a
+    // 1:2 pair, so untouched they are 2 x 1:1. Picking 1:2 is the Admin's to do.
+    expect(toggle(2, null, false, ['one_to_two'])).toEqual({
+      segments: [
+        { shape: 'one_to_two', ruledOut: null },
+        { shape: 'separate', ruledOut: null },
+      ],
+      selected: 'separate',
+    })
+    expect(toggle(2, 'one_to_two', false, ['one_to_two'])?.selected).toBe('one_to_two')
+    // Where every shape would untick somebody, the default is the first as ever.
+    expect(toggle(2, null, false, ['one_to_two', 'separate'])?.selected).toBe('one_to_two')
+  })
+
   it('greys 1:2 pair for a Discipler who already leads a group, and the default moves to N x 1:1', () => {
     expect(toggle(2, null, true)).toEqual({
       segments: [
@@ -91,7 +109,7 @@ const context: PairSelectionContext = {
   materialIds: ['mark', 'romans'],
 }
 
-const nothing = selectionFrom(context, { tickedIds: [], separate: false, material: null, materialFor: new Map() })
+const nothing = selectionFrom(context, { tickedIds: [], separate: false, material: null, materialFor: [] })
 
 const after = (selection: PairSelection, ...changes: Parameters<typeof selectionAfter>[2][]): PairSelection =>
   changes.reduce((each, change) => selectionAfter(context, each, change), selection)
@@ -216,6 +234,48 @@ describe('re-checking every row when the shape changes', () => {
   })
 })
 
+/**
+ * A Ministry that does not enforce the match: a man can be in a one-to-one with a
+ * woman Discipler, and cannot be in her 1:2 pair, which declares her gender whatever
+ * the Ministry's setting says of a one-to-one.
+ */
+describe('two who can be N x 1:1 pairs and cannot be a 1:2 pair', () => {
+  const relaxed: PairSelectionContext = {
+    ...context,
+    rows: [
+      { id: 'sam', greyed: OPEN },
+      { id: 'ana', greyed: OPEN },
+      { id: 'tom', greyed: { a_one_to_one: null, a_one_to_two: 'Women’s only: a 1:2 is same-gender' } },
+    ],
+  }
+  const from = (...changes: Parameters<typeof selectionAfter>[2][]) =>
+    changes.reduce((each, change) => selectionAfter(relaxed, each, change), nothing)
+  const tom = relaxed.rows[2]!
+
+  it('can be ticked in either order, and untouched they are 2 x 1:1', () => {
+    for (const order of [['sam', 'tom'], ['tom', 'sam']]) {
+      const two = from(...order.map(tick))
+      expect(two.tickedIds, order.join()).toEqual(['sam', 'tom'])
+      expect(two.unticked, order.join()).toEqual([])
+      expect(shapeOf(relaxed, two)?.selected, order.join()).toBe('separate')
+    }
+    expect(greyedOnRow(relaxed, from(tick('sam')), tom)).toBeNull()
+  })
+
+  it('still defaults to a 1:2 pair for two who can be one, with him open beside them', () => {
+    const two = from(tick('sam'), tick('ana'))
+    expect(shapeOf(relaxed, two)?.selected).toBe('one_to_two')
+    // A third tick would make 3 x 1:1, which he can be one of.
+    expect(greyedOnRow(relaxed, two, tom)).toBeNull()
+  })
+
+  it('unticks him, and says so, where the Admin picks 1:2 pair all the same', () => {
+    const picked = from(tick('sam'), tick('tom'), pick('one_to_two'))
+    expect(picked.tickedIds).toEqual(['sam'])
+    expect(picked.unticked).toEqual([{ id: 'tom', why: 'Women’s only: a 1:2 is same-gender' }])
+  })
+})
+
 describe('the Materials each shape holds', () => {
   const material = (materialId: string) => ({ type: 'material', materialId }) as const
   const materialFor = (id: string, materialId: string) => ({ type: 'material_for', id, materialId }) as const
@@ -248,15 +308,27 @@ describe('the Materials each shape holds', () => {
     expect(after(separately, materialFor('sam', 'removed-since')).materialFor).toEqual({})
   })
 
-  it('carries no choice from one shape into the other', () => {
+  it('carries no choice from one shape into the other, and keeps each shape’s own for when the Admin comes back', () => {
     const chosen = after(separately, materialFor('sam', 'mark'), materialFor('ana', 'romans'))
+    // Moving to 1:2 starts the 1:2's dropdown at No material.
     const together = after(chosen, pick('one_to_two'))
     expect(together.material).toBe('')
-    expect(together.materialFor).toEqual({})
 
+    // And what was chosen for the 1:2 is not any Disciple's. Theirs are as they were.
     const back = after(together, material('mark'), pick('separate'))
-    expect(back.material).toBe('')
-    expect(back.materialFor).toEqual({})
+    expect(back.materialFor).toEqual({ sam: 'mark', ana: 'romans' })
+    expect(after(back, pick('one_to_two')).material).toBe('mark')
+  })
+
+  it('leaves the others’ choices as they were when the default, and not the Admin, moves the shape', () => {
+    const three = after(nothing, tick('sam'), tick('ana'), tick('rosa'))
+    const chosen = after(three, materialFor('sam', 'mark'), materialFor('ana', 'romans'), materialFor('rosa', 'mark'))
+
+    // Untouched, two ticked is a 1:2 pair: Rosa's choice goes with her tick, and
+    // Sam's and Ana's are still theirs when the Admin asks for 2 x 1:1.
+    const two = after(chosen, untick('rosa'))
+    expect(shapeOf(context, two)?.selected).toBe('one_to_two')
+    expect(after(two, pick('separate')).materialFor).toEqual({ sam: 'mark', ana: 'romans' })
   })
 
   it('keeps a choice through a change that leaves the shape as it was', () => {
@@ -277,7 +349,7 @@ describe('what comes back from a refusal', () => {
       tickedIds: ['sam', 'ana'],
       separate: true,
       material: 'mark',
-      materialFor: new Map([['sam', 'mark'], ['ana', 'romans'], ['rosa', 'romans']]),
+      materialFor: [['sam', 'mark'], ['ana', 'romans'], ['rosa', 'romans']],
     })
 
     expect(restored).toEqual({
@@ -295,7 +367,7 @@ describe('what comes back from a refusal', () => {
       tickedIds: ['sam', 'ana'],
       separate: false,
       material: 'romans',
-      materialFor: new Map([['sam', 'mark']]),
+      materialFor: [['sam', 'mark']],
     })
 
     expect(shapeOf(context, restored)?.selected).toBe('one_to_two')
@@ -307,7 +379,7 @@ describe('what comes back from a refusal', () => {
       tickedIds: ['sam', 'ana'],
       separate: true,
       material: null,
-      materialFor: new Map([['sam', 'mark'], ['ana', 'removed-since']]),
+      materialFor: [['sam', 'mark'], ['ana', 'removed-since']],
     })
 
     expect(restored.tickedIds).toEqual(['sam', 'ana'])
@@ -319,7 +391,7 @@ describe('what comes back from a refusal', () => {
       tickedIds: ['sam', 'brianna', 'stranger'],
       separate: true,
       material: null,
-      materialFor: new Map(),
+      materialFor: [],
     })
 
     expect(restored.tickedIds).toEqual(['sam'])
@@ -331,16 +403,9 @@ describe('what comes back from a refusal', () => {
       tickedIds: ['ana', 'sam'],
       separate: false,
       material: null,
-      materialFor: new Map(),
+      materialFor: [],
     })
     expect(restored.tickedIds).toEqual(['sam', 'ana'])
-  })
-})
-
-describe('the name a 1:2 pair is given', () => {
-  it('is first names, the Discipler’s and then the two Disciples’', () => {
-    expect(nameOfAOneToTwo('Claire Martinez', ['Sam Lee', 'Ana Ruiz'])).toBe('Claire with Sam & Ana')
-    expect(nameOfAOneToTwo('  Mary Jo   Smith ', ['Cher', 'Ana  Ruiz'])).toBe('Mary with Cher & Ana')
   })
 })
 

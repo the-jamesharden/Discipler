@@ -68,6 +68,7 @@ import { declaredGenderToField } from './declared-gender'
 import { greyedForADisciple, greyedForADiscipler, greyedInAOneToTwo, leadsAGroup, type Greyed } from './greying'
 import { PairPopupFromADisciple } from './pair-popup-from-a-disciple'
 import { PairPopupFromADiscipler } from './pair-popup-from-a-discipler'
+import type { ReadAs } from './pair-shape'
 import { RefusedRows } from './refused-rows'
 import { decodeImportReport } from './report'
 import { rosterKey } from '~/domain/roster'
@@ -145,7 +146,9 @@ export default async function RosterPage({
   // Roster's own with the Ministry's gender setting beside it, which is what the
   // popup greys its rows against (Manual pairing, ticket 23). Still one read.
   const query = await searchParams
-  const asked = [query.pair ?? []].flat()[0]
+  // An address may say anything twice; the first is the one read.
+  const firstOf = (said: string | string[] | undefined): string | undefined => [said ?? []].flat()[0]
+  const asked = firstOf(query.pair)
   const page = await getRosterReader().readRosterPage(asked === undefined ? 'roster' : 'pair')
 
   // Signed in but not an Admin. Sending them back to sign in would only loop.
@@ -171,15 +174,15 @@ export default async function RosterPage({
   // Why a row cannot be chosen, already in words, or null where it can. Read
   // against what a one-to-one declares in this Ministry, never offered and then
   // refused.
-  const greyedInWords = (greyed: Greyed | null, making?: '1:1' | '1:2'): string | null =>
-    greyed === null ? null : PAIR_POPUP.greyed(greyed, making)
+  const greyedInWords = (greyed: Greyed | null, readAs?: ReadAs): string | null =>
+    greyed === null ? null : PAIR_POPUP.greyed(greyed, readAs)
   // Compared against the list and never rendered, like every value from an address.
-  const chosenBefore = [query.leaderId ?? []].flat()[0]
+  const chosenBefore = firstOf(query.leaderId)
   const tickedBefore = [query.with ?? []].flat()
   // A refusal of one one-to-one in a set names the Disciple it is about, in front
   // of the sentence, as the old Pair page does. The name is read off the Roster.
   const refusalSaid = pairingRefusalMessage(query.error)
-  const refusedAbout = roster.find((person) => person.personId === [query.about ?? []].flat()[0])
+  const refusedAbout = roster.find((person) => person.personId === firstOf(query.about))
   const pairingRefusal =
     refusalSaid !== undefined && refusedAbout ? refusalAboutOneOfASet(refusedAbout.fullName, refusalSaid) : refusalSaid
 
@@ -502,7 +505,7 @@ export default async function RosterPage({
             // Which of them the row shows follows the ticks, in `./pair-shape`.
             greyed: {
               a_one_to_one: greyedInWords(greyedForADiscipler({ genderMatchEnforced: suggestGenderMatch, discipler: pairing, disciple })),
-              a_one_to_two: greyedInWords(greyedInAOneToTwo({ discipler: pairing, disciple }), '1:2'),
+              a_one_to_two: greyedInWords(greyedInAOneToTwo({ discipler: pairing, disciple }), 'a_one_to_two'),
             },
           }))}
           leadsAGroup={leadsAGroup(pairing)}
@@ -511,8 +514,8 @@ export default async function RosterPage({
           refusal={pairingRefusal}
           restored={{
             tickedIds: tickedBefore,
-            separate: readPairingMode([query.mode ?? []].flat()[0]) === 'separate',
-            material: [query.materialId ?? []].flat()[0] ?? null,
+            separate: readPairingMode(firstOf(query.mode)) === 'separate',
+            material: firstOf(query.materialId) ?? null,
             materialFor: [...readMaterialPerDisciple(Object.entries(query))],
           }}
         />

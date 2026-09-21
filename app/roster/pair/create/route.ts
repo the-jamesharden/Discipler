@@ -91,6 +91,13 @@ export async function POST(request: NextRequest) {
    * again -- and a refusal that costs more than the mistake did teaches people to
    * avoid the screen.
    */
+  /** Every Material chosen, under the field it was posted as: the one, and one per Disciple. */
+  const withMaterials = (params: URLSearchParams): URLSearchParams => {
+    if (chosenMaterial) params.set('materialId', chosenMaterial)
+    for (const [id, chosen] of materialPerDisciple) params.set(materialFieldFor(id), chosen)
+    return params
+  }
+
   const refused = (code: string, about: string | null = null) => {
     if (popupFor !== undefined) {
       // Every choice the popup holds: from a Disciple the one Discipler, and from a
@@ -104,9 +111,7 @@ export async function POST(request: NextRequest) {
       if (mode === 'separate') params.set('mode', mode)
       for (const id of leaderIds) if (id !== popupFor) params.append('leaderId', id)
       for (const id of participantIds) if (id !== popupFor) params.append('with', id)
-      if (chosenMaterial) params.set('materialId', chosenMaterial)
-      for (const [id, chosen] of materialPerDisciple) params.set(materialFieldFor(id), chosen)
-      return NextResponse.redirect(new URL(`/roster?${params}`, request.url), { status: 303 })
+      return NextResponse.redirect(new URL(`/roster?${withMaterials(params)}`, request.url), { status: 303 })
     }
 
     const params = new URLSearchParams({ error: code })
@@ -127,10 +132,8 @@ export async function POST(request: NextRequest) {
     }
     if (name) params.set('name', name)
     if (joinRequiresApproval) params.set('joinRequiresApproval', 'yes')
-    if (chosenMaterial) params.set('materialId', chosenMaterial)
-    for (const [id, chosen] of materialPerDisciple) params.set(materialFieldFor(id), chosen)
 
-    return NextResponse.redirect(new URL(`/roster/pair?${params}`, request.url), {
+    return NextResponse.redirect(new URL(`/roster/pair?${withMaterials(params)}`, request.url), {
       status: 303,
     })
   }

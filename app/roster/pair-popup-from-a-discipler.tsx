@@ -15,6 +15,7 @@ import {
   type PairSelectionChange,
   type PairSelectionContext,
   type ReadAs,
+  type RestoredSelection,
 } from './pair-shape'
 
 /**
@@ -73,21 +74,14 @@ export const PairPopupFromADiscipler = ({
   readonly materials: readonly { readonly id: string; readonly title: string }[]
   readonly refusal: string | undefined
   /** What a submission that came back refused had chosen: the ticks, the shape and every Material. */
-  readonly restored: {
-    readonly tickedIds: readonly string[]
-    readonly separate: boolean
-    readonly material: string | null
-    readonly materialFor: readonly (readonly [string, string])[]
-  }
+  readonly restored: RestoredSelection
 }) => {
   const context: PairSelectionContext = {
     rows: disciples,
     leadsAGroup,
     materialIds: materials.map(({ id }) => id),
   }
-  const [selection, setSelection] = useState(() =>
-    selectionFrom(context, { ...restored, materialFor: new Map(restored.materialFor) }),
-  )
+  const [selection, setSelection] = useState(() => selectionFrom(context, restored))
   const change = (next: PairSelectionChange) => setSelection((before) => selectionAfter(context, before, next))
 
   const hydrated = useHydrated()
