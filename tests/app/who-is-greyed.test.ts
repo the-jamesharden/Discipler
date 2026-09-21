@@ -7,6 +7,7 @@ import {
   greyedAgainst,
   greyedForADisciple,
   greyedForADiscipler,
+  greyedInAGroup,
   greyedInAOneToTwo,
   groupLeftOut,
   groupsShownTo,
@@ -225,6 +226,39 @@ describe('a Disciple while what is ticked would make a 1:2 pair', () => {
  * the database's two caps have always had it (ADR-0004). So both rules read which
  * cap a pairing counts against, and never how many Disciples it has left.
  */
+describe('a Disciple while what is ticked would make a Group (Manual pairing, recut ticket 04)', () => {
+  const man = person({ gender: 'male' })
+  const woman = person({ gender: 'female' })
+
+  it('is greyed for gender against what the Group’s toggle says, and never against a person', () => {
+    expect(greyedInAGroup({ declared: 'female', disciple: man })).toEqual({ why: 'gender', declared: 'female' })
+    expect(greyedInAGroup({ declared: 'male', disciple: woman })).toEqual({ why: 'gender', declared: 'male' })
+    expect(greyedInAGroup({ declared: 'female', disciple: woman })).toBeNull()
+  })
+
+  it('is open under Coed, whoever they are: that is how a coed group is made by hand', () => {
+    expect(greyedInAGroup({ declared: 'mixed', disciple: man })).toBeNull()
+    expect(greyedInAGroup({ declared: 'mixed', disciple: woman })).toBeNull()
+  })
+
+  it('is never greyed with no gender on file, under any of the three', () => {
+    for (const declared of ['female', 'male', 'mixed'] as const) {
+      expect(greyedInAGroup({ declared, disciple: person({ gender: null }) }), declared).toBeNull()
+    }
+  })
+
+  it('is open when already in a one-to-one, or already in another group', () => {
+    const inBoth = person({
+      gender: 'female',
+      relationships: [
+        pairing('participant', { leaderNames: ['David Chen'] }),
+        pairing('participant', { participantCount: 4, countsAsAGroup: true }),
+      ],
+    })
+    expect(greyedInAGroup({ declared: 'female', disciple: inBoth })).toBeNull()
+  })
+})
+
 describe('a group that has fallen to one Disciple', () => {
   const shrunk = { participantCount: 1, countsAsAGroup: true }
 

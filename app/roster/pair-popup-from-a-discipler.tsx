@@ -1,13 +1,17 @@
 'use client'
 
 import { useState } from 'react'
+import type { Gender } from '~/domain/intake'
 import { displayPhone, firstTimeLabel, PAIR_POPUP, type GroupOnARow, type RosterList } from './copy'
 import { CLEAR } from './import-copy'
 import { materialFieldFor } from './pair/material-per-disciple'
 import { PairList, PairPopupShell, PairRow, useHydrated } from './pair-popup'
 import {
+  canBePosted,
+  GROUP_DECLARATIONS,
   greyedOnRow,
   modeOf,
+  postedByAGroup,
   postedByAOneToTwo,
   selectionAfter,
   selectionFrom,
@@ -19,16 +23,19 @@ import {
 } from './pair-shape'
 
 /**
- * The Pair popup, from a Discipler (Manual pairing, ticket 23, and recut ticket
- * 02): the list of Disciples with boxes. One tick makes the one-to-one the other
- * side makes, in the same sentence and on the same button, and nothing else is
- * asked: no gender, no name, no Material.
+ * The Pair popup, from a Discipler (Manual pairing, ticket 23, and recut tickets
+ * 02 and 04): the list of Disciples with boxes. One tick makes the one-to-one the
+ * other side makes, in the same sentence and on the same button, and nothing else
+ * is asked: no gender, no name, no Material.
  *
  * Two or more ticked, and a toggle asks what to make of them: a 1:2 pair, which is
- * named and declared without asking, or N x 1:1 pairs, all of them or none. Then
- * the Material: one for a 1:2 pair, and one per Disciple for N x 1:1. What the
- * ticks, the toggle and the dropdowns do is `./pair-shape`, pure and tested there;
- * this file draws what it answers.
+ * named and declared without asking; N x 1:1 pairs, all of them or none; or a
+ * Group, which is asked what it is, Women's, Men's or Coed, preset from the
+ * Discipler, and what it is called. Then the Material: one for a 1:2 pair or a
+ * Group, and one per Disciple for N x 1:1. No join-approval control: a group formed
+ * here takes the default, off, and that switch stays on the Intake forms page
+ * (ADR-0017). What the ticks, the toggles and the dropdowns do is `./pair-shape`,
+ * pure and tested there; this file draws what it answers.
  *
  * This file is the Discipler's side and nothing else. What it shares with the
  * Disciple's side is `./pair-popup`. No row opens it yet: it is reached by its
@@ -58,6 +65,7 @@ export const PairPopupFromADiscipler = ({
   disciples,
   leadsAGroup,
   declaredGender,
+  presetGender,
   materials,
   refusal,
   restored,
@@ -66,19 +74,22 @@ export const PairPopupFromADiscipler = ({
   readonly person: { readonly id: string; readonly fullName: string }
   readonly list: RosterList
   readonly disciples: readonly PairPopupDisciple[]
-  /** Whether they already lead a group, which rules a 1:2 pair out: a 1:2 is a group for every rule. */
+  /** Whether they already lead a group, which rules a 1:2 pair and a Group out: each is a group for that rule. */
   readonly leadsAGroup: boolean
   /** What a 1:2 pair declares, as the declaration's field says it: their gender, or null with none on file. */
   readonly declaredGender: string | null
+  /** What a Group's gender toggle starts on: their gender, or null with none on file, which presets nothing. */
+  readonly presetGender: Gender | null
   /** The Ministry's live Materials, in title order. None, and no dropdown is drawn at all. */
   readonly materials: readonly { readonly id: string; readonly title: string }[]
   readonly refusal: string | undefined
-  /** What a submission that came back refused had chosen: the ticks, the shape and every Material. */
+  /** What a submission that came back refused had chosen: the ticks, the shape, a Group's answers and every Material. */
   readonly restored: RestoredSelection
 }) => {
   const context: PairSelectionContext = {
     rows: disciples,
     leadsAGroup,
+    presetGender,
     materialIds: materials.map(({ id }) => id),
   }
   const [selection, setSelection] = useState(() => selectionFrom(context, restored))
@@ -104,7 +115,9 @@ export const PairPopupFromADiscipler = ({
         : { summary: PAIR_POPUP.oneToOne(person.fullName, first), label: PAIR_POPUP.createOneToOne }
       : toggle.selected === 'one_to_two'
         ? { summary: PAIR_POPUP.oneToTwo(person.fullName, names), label: PAIR_POPUP.createOneToTwo }
-        : { summary: PAIR_POPUP.separately(person.fullName, names), label: PAIR_POPUP.createSeparately(names.length) }
+        : toggle.selected === 'group'
+          ? { summary: PAIR_POPUP.group(person.fullName, selection.declared, names), label: PAIR_POPUP.createGroup(names.length) }
+          : { summary: PAIR_POPUP.separately(person.fullName, names), label: PAIR_POPUP.createSeparately(names.length) }
 
   const materialOptions = (
     <>
@@ -125,13 +138,15 @@ export const PairPopupFromADiscipler = ({
         leaderId: person.id,
         // Named and declared without asking, and neither is shown.
         ...(oneToTwo ? postedByAOneToTwo({ discipler: person.fullName, disciples: [first, second], declaredGender }) : {}),
+        // A Group is asked both, in the open. It says only that it is one, for the way back from a refusal.
+        ...(toggle?.selected === 'group' ? postedByAGroup : {}),
       }}
       summary={making?.summary ?? null}
       submit={{
         label: making?.label ?? PAIR_POPUP.nothingChosen,
         // Nothing ticked is disabled only where script runs, so an Admin without it
-        // can still tick and post.
-        disabled: hydrated && making === null,
+        // can still tick and post. A Group waits for its declaration and its name too.
+        disabled: hydrated && !canBePosted(context, selection),
       }}
       grows
     >
@@ -213,10 +228,48 @@ export const PairPopupFromADiscipler = ({
         </>
       ) : null}
 
+      {toggle?.selected === 'group' ? (
+        <>
+          {/* What the group is, directly under the shape toggle (D1): answered on the
+              Admin's behalf from the Discipler, in the open, in words, and theirs to
+              change before anything is formed. With no gender on file nothing is
+              checked, and nothing is posted that nobody said. The declaration's own
+              field, as real radios, like the segments above. */}
+          <div className="pair-shape pair-declares" role="radiogroup" aria-label={PAIR_POPUP.whatKindOfGroup}>
+            {GROUP_DECLARATIONS.map((declared) => (
+              <label key={declared} className={selection.declared === declared ? 'on' : undefined}>
+                <input
+                  type="radio"
+                  name="declaredGender"
+                  value={declared}
+                  checked={selection.declared === declared}
+                  onChange={() => change({ type: 'declare', declared })}
+                />
+                {PAIR_POPUP.declares(declared)}
+              </label>
+            ))}
+          </div>
+
+          <label className="pair-label" htmlFor="pair-group-name">{PAIR_POPUP.groupName}</label>
+          {/* The placeholder is a hint and is never submitted: an empty field posts
+              an empty name, and the button waits for a real one. */}
+          <input
+            id="pair-group-name"
+            type="text"
+            name="name"
+            value={selection.name}
+            onChange={(event) => change({ type: 'name', name: event.target.value })}
+            placeholder={PAIR_POPUP.groupNamePlaceholder(person.fullName)}
+            autoComplete="off"
+            required
+          />
+        </>
+      ) : null}
+
       {/* A Ministry with no live Materials is asked nothing, and no empty label
           stands where the dropdowns would have been. */}
       {toggle && materials.length > 0 ? (
-        toggle.selected === 'one_to_two' ? (
+        toggle.selected !== 'separate' ? (
           <>
             <label className="pair-label" htmlFor="pair-material">{PAIR_POPUP.whatTheyAreRunning}</label>
             <select

@@ -12,7 +12,7 @@ import {
   type RosterFacts,
 } from './lists'
 import type { Greyed } from './greying'
-import type { PairShape, ReadAs, ShapeRuledOut } from './pair-shape'
+import type { GroupDeclaration, PairShape, ReadAs, ShapeRuledOut } from './pair-shape'
 import type { ImportFailure } from './report'
 
 /**
@@ -190,7 +190,7 @@ export const PAIR_POPUP = {
    */
   pairThemAs: 'Pair them as',
   segment: (shape: PairShape, ticked: number): string =>
-    shape === 'one_to_two' ? '1:2 pair' : `${ticked} × 1:1 pairs`,
+    shape === 'one_to_two' ? '1:2 pair' : shape === 'group' ? 'Group' : `${ticked} × 1:1 pairs`,
   /** Beneath the toggle, in grey. The cap is about the Discipler, by first name as the spec has it. */
   ruledOut: (why: ShapeRuledOut, discipler: string): string =>
     why === 'needs_exactly_two'
@@ -209,6 +209,23 @@ export const PAIR_POPUP = {
   separately: (discipler: string, disciples: readonly string[]): string =>
     `${discipler} will disciple ${asList(disciples)} separately, in ${disciples.length} one-on-ones.`,
   createSeparately: (pairs: number): string => `Create ${pairs} 1:1 pairs`,
+  /**
+   * A Group (Manual pairing, recut ticket 04): what it declares, what it is called,
+   * and the sentence and button that say it. The gender toggle sits directly under
+   * the shape toggle with no label over it, as the mock has it, so it is named for a
+   * screen reader. Coed is the screen's word for the model's mixed.
+   */
+  whatKindOfGroup: 'What kind of group',
+  declares: (declared: GroupDeclaration): string => (declared === 'mixed' ? 'Coed' : declaredAs(declared)),
+  groupName: 'Group name',
+  /** A hint in the empty field, and never submitted as the name. */
+  groupNamePlaceholder: (discipler: string): string => `${firstNameOf(discipler)}’s Group`,
+  /** The count and the gender word are live. It never says a gender the toggle does not show: undeclared, it says none. */
+  group: (discipler: string, declared: GroupDeclaration | null, disciples: readonly string[]): string => {
+    const kind = declared === null ? 'a group' : `a ${PAIR_POPUP.declares(declared).toLowerCase()} group`
+    return `${discipler} will lead ${kind} of ${disciples.length}: ${asList(disciples)}.`
+  },
+  createGroup: (disciples: number): string => `Create group of ${disciples}`,
   whatTheyAreRunning: 'What are they running?',
   whatEachIsRunning: 'What is each of them running?',
   noMaterial: 'No material',
@@ -265,7 +282,10 @@ export const PAIR_POPUP = {
         : `Already in a 1:1 with ${greyed.withName}`
       : greyed.why === 'not_pairable'
         ? CANNOT_BE_PAIRED[greyed.reason]
-        : `${declaredAs(greyed.declared)} only: a ${readAs === 'a_one_to_two' ? '1:2' : '1:1'} is same-gender`,
+        : readAs === 'a_one_to_one' || readAs === 'a_one_to_two'
+          ? `${declaredAs(greyed.declared)} only: a ${readAs === 'a_one_to_two' ? '1:2' : '1:1'} is same-gender`
+          : // A Group says what opens the row again, because on this screen something does.
+            `${declaredAs(greyed.declared)} group: choose Coed to include`,
 } as const
 
 /** The receipt the pairing screen redirects to, said about what just happened. */

@@ -284,6 +284,52 @@ describe('what the Pair popup says of two or more ticked (Manual pairing, recut 
   })
 })
 
+describe('what the Pair popup says of a Group (Manual pairing, recut ticket 04)', () => {
+  it('is the toggle’s third segment, whatever the count', () => {
+    expect(PAIR_POPUP.segment('group', 2)).toBe('Group')
+    expect(PAIR_POPUP.segment('group', 7)).toBe('Group')
+  })
+
+  it('offers Women’s, Men’s and Coed, which is the screen’s word for mixed', () => {
+    expect((['female', 'male', 'mixed'] as const).map(PAIR_POPUP.declares)).toEqual(['Women’s', 'Men’s', 'Coed'])
+    expect(PAIR_POPUP.whatKindOfGroup).not.toMatch(/mixed/i)
+  })
+
+  it('asks for a name, with the Discipler’s first name as a hint', () => {
+    expect(PAIR_POPUP.groupName).toBe('Group name')
+    expect(PAIR_POPUP.groupNamePlaceholder('Claire Martinez')).toBe('Claire’s Group')
+  })
+
+  it('says exactly what a Group makes, with the count and the gender word live, and its button is the same act', () => {
+    const three = ['Sam Lee', 'Ana Ruiz', 'Rosa Delgado']
+    expect(PAIR_POPUP.group('Claire Martinez', 'female', three)).toBe(
+      'Claire Martinez will lead a women’s group of 3: Sam Lee, Ana Ruiz and Rosa Delgado.',
+    )
+    expect(PAIR_POPUP.group('David Chen', 'male', ['Tom Wilson', 'Hal Moss'])).toBe(
+      'David Chen will lead a men’s group of 2: Tom Wilson and Hal Moss.',
+    )
+    expect(PAIR_POPUP.group('Claire Martinez', 'mixed', three)).toBe(
+      'Claire Martinez will lead a coed group of 3: Sam Lee, Ana Ruiz and Rosa Delgado.',
+    )
+    expect(PAIR_POPUP.createGroup(3)).toBe('Create group of 3')
+  })
+
+  it('never says a gender the toggle does not show: undeclared, the sentence says none', () => {
+    const said = PAIR_POPUP.group('Claire Martinez', null, ['Sam Lee', 'Ana Ruiz'])
+    expect(said).toBe('Claire Martinez will lead a group of 2: Sam Lee and Ana Ruiz.')
+    expect(said).not.toMatch(/women|men|coed|mixed/i)
+  })
+
+  it('says what a Group declares where the gender is another, and what would open the row again', () => {
+    expect(PAIR_POPUP.greyed({ why: 'gender', declared: 'female' }, 'a_womens_group')).toBe(
+      'Women’s group: choose Coed to include',
+    )
+    expect(PAIR_POPUP.greyed({ why: 'gender', declared: 'male' }, 'a_mens_group')).toBe(
+      'Men’s group: choose Coed to include',
+    )
+  })
+})
+
 /**
  * Manual pairing, ticket 21. A set of one-to-ones is all or none, so what it says
  * has two jobs a single pairing's does not: which of several people a refusal is

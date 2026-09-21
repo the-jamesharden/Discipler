@@ -230,6 +230,25 @@ export const greyedInAOneToTwo = ({
 }): Greyed | null => greyedAgainst(discipler.gender ?? 'none', disciple)
 
 /**
+ * A Disciple's row while what is ticked would make a Group (Manual pairing, recut
+ * ticket 04), read against what its gender toggle says. The toggle is preset from
+ * the Discipler and the Admin can change it, so the declaration arrives from the
+ * screen and is never worked out from a person here. Mixed, which the screen calls
+ * Coed, rules nobody out, and that is how a coed group is made by hand. Like a 1:2
+ * pair's, it binds whatever the Ministry says of a one-to-one.
+ *
+ * A Group is a group for every rule, so a Disciple already in a one-to-one, or in
+ * another group, is open.
+ */
+export const greyedInAGroup = ({
+  declared,
+  disciple,
+}: {
+  readonly declared: Gender | 'mixed'
+  readonly disciple: Pick<RosterEntry, 'gender' | 'participationStatus'>
+}): Greyed | null => greyedAgainst(declared, disciple)
+
+/**
  * Whether somebody already leads a group, which is what `leader_one_open_group`
  * caps: one open group led at a time, and any number of one-to-ones. Counted
  * whether or not they have accepted it yet, as the index counts it, and however

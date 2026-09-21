@@ -651,7 +651,11 @@ textarea.paste { width: 100%; min-height: 140px; font-family: ui-monospace, SFMo
 .pair-shape label.struck { text-decoration: line-through; }
 .pair-shape input { position: absolute; opacity: 0; width: 0; height: 0; }
 .pair-shape label:has(input:focus-visible) { outline: 2px solid var(--primary); outline-offset: -2px; }
-.modal.pair select { padding: 0.42rem 0.6rem; font-size: 0.82rem; }
+/* A Group (Manual pairing, recut ticket 04): what it declares, in the shape
+   toggle's own treatment and close under it as the mock has it, and what it is
+   called, in a field the size of the dropdown beneath it. */
+.pair-declares { margin-top: 0.4rem; }
+.modal.pair select, .modal.pair input[type="text"] { padding: 0.42rem 0.6rem; font-size: 0.82rem; }
 .modal.pair > .pair-per { flex: 0 1 auto; min-height: 4.6rem; }
 .pair-per { max-height: 8.6rem; overflow-y: auto; padding: 3px; margin: 0 -3px; min-width: 0; }
 .pair-per-rows { display: grid; gap: 0.35rem; margin: 0; padding: 0; border: 0; min-width: 0; }

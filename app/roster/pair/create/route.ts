@@ -5,6 +5,7 @@ import type { Gender } from '~/domain/intake'
 import { readPairingMode } from '~/domain/separate-pairings'
 import { DEFAULT_LIST, isRosterList } from '../../copy'
 import { declaredGenderFromField, declaredGenderToField } from '../../declared-gender'
+import { SHAPE_FIELD, postedByAGroup, wasPostedByAGroup } from '../../pair-shape'
 import { materialFieldFor, readMaterialPerDisciple } from '../material-per-disciple'
 import { encodeSeparateReceipt } from '../receipt'
 import { currentAdmin } from '~/platform/supabase/current-admin'
@@ -71,6 +72,14 @@ export async function POST(request: NextRequest) {
    * *none* and is no choice at all; anything else is passed through unread, and
    * whether this Ministry holds it is the boundary's to say.
    */
+  /**
+   * Whether the popup posted this as a Group (Manual pairing, recut ticket 04).
+   * Nothing is formed differently for it: `together` is a 1:2 pair and a Group
+   * alike, and what either is called and declares is above. It is read only for the
+   * way back, so a refused Group reopens as the Group it was.
+   */
+  const asAGroup = wasPostedByAGroup(form.get(SHAPE_FIELD))
+
   const rawMaterial = form.get('materialId')
   const chosenMaterial = typeof rawMaterial === 'string' && rawMaterial !== '' ? rawMaterial : null
 
@@ -111,6 +120,15 @@ export async function POST(request: NextRequest) {
       if (mode === 'separate') params.set('mode', mode)
       for (const id of leaderIds) if (id !== popupFor) params.append('leaderId', id)
       for (const id of participantIds) if (id !== popupFor) params.append('with', id)
+      // And what a Group was asked: that it was one, what it declared and what it
+      // was called, under the names the old Pair page's refusals give the last two.
+      // Only a Group's: a 1:2 pair's name and declaration are generated, and would
+      // come back as something the Admin had typed.
+      if (asAGroup) {
+        for (const [field, value] of Object.entries(postedByAGroup)) params.set(field, value)
+        if (declaredGender !== undefined) params.set('declaredGender', declaredGenderToField(declaredGender))
+        if (name) params.set('name', name)
+      }
       return NextResponse.redirect(new URL(`/roster?${withMaterials(params)}`, request.url), { status: 303 })
     }
 

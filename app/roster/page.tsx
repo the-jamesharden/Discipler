@@ -66,11 +66,12 @@ import {
   whoThePopupIsFor,
   whyNotPairable,
 } from './lists'
-import { declaredGenderToField } from './declared-gender'
+import { declaredGenderFromField, declaredGenderToField } from './declared-gender'
 import {
   disciplersShownTo,
   greyedForADisciple,
   greyedForADiscipler,
+  greyedInAGroup,
   greyedInAOneToTwo,
   groupsShownTo,
   leadsAGroup,
@@ -78,11 +79,10 @@ import {
 } from './greying'
 import { PairPopupFromADisciple } from './pair-popup-from-a-disciple'
 import { PairPopupFromADiscipler } from './pair-popup-from-a-discipler'
-import type { ReadAs } from './pair-shape'
+import { GROUP_DECLARATIONS, pickedFrom, READ_AS_A_GROUP, type ReadAs } from './pair-shape'
 import { RefusedRows } from './refused-rows'
 import { decodeImportReport } from './report'
 import { rosterKey } from '~/domain/roster'
-import { readPairingMode } from '~/domain/separate-pairings'
 
 export const dynamic = 'force-dynamic'
 
@@ -146,6 +146,14 @@ export default async function RosterPage({
     about?: string | string[]
     mode?: string | string[]
     materialId?: string | string[]
+    /**
+     * What a Group was asked, on a submission that came back refused (Manual pairing,
+     * recut ticket 04): that it was a Group and not the 1:2 pair two ticks default
+     * to, what it declared, and what it was called.
+     */
+    shape?: string | string[]
+    declaredGender?: string | string[]
+    name?: string | string[]
   }>
 }) {
   // One read: the Roster, the import rows waiting on an answer and the badge's
@@ -542,15 +550,23 @@ export default async function RosterPage({
             greyed: {
               a_one_to_one: greyedInWords(greyedForADiscipler({ genderMatchEnforced: suggestGenderMatch, discipler: pairing, disciple })),
               a_one_to_two: greyedInWords(greyedInAOneToTwo({ discipler: pairing, disciple }), 'a_one_to_two'),
+              // And against each thing a Group's gender toggle can say (recut ticket 04).
+              ...groupReadings(disciple, greyedInWords),
             },
           }))}
           leadsAGroup={leadsAGroup(pairing)}
           declaredGender={pairing.gender === null ? null : declaredGenderToField(pairing.gender)}
+          presetGender={pairing.gender}
           materials={materials.map(({ materialId, title }) => ({ id: materialId, title }))}
           refusal={pairingRefusal}
           restored={{
             tickedIds: tickedBefore,
-            separate: readPairingMode(firstOf(query.mode)) === 'separate',
+            picked: pickedFrom({ mode: firstOf(query.mode), shape: firstOf(query.shape) }),
+            // Read as the route reads the field, so anything that is no declaration is none.
+            declared: declaredOnTheWayBack(firstOf(query.declaredGender)),
+            // What the Admin typed, back in the field they typed it in. The one value
+            // from an address this page shows, and only as an input's value.
+            name: firstOf(query.name) ?? '',
             material: firstOf(query.materialId) ?? null,
             materialFor: [...readMaterialPerDisciple(Object.entries(query))],
           }}
@@ -558,6 +574,25 @@ export default async function RosterPage({
       ) : null}
     </AdminShell>
   )
+}
+
+/**
+ * A Disciple's row against each thing a Group's gender toggle can say, in words, so
+ * the popup can follow the toggle without asking the server again.
+ */
+const groupReadings = (
+  disciple: RosterEntry,
+  inWords: (greyed: Greyed | null, readAs: ReadAs) => string | null,
+): Record<Exclude<ReadAs, 'a_one_to_one' | 'a_one_to_two'>, string | null> => {
+  const reading = (declared: (typeof GROUP_DECLARATIONS)[number]) =>
+    inWords(greyedInAGroup({ declared, disciple }), READ_AS_A_GROUP[declared])
+  return { a_womens_group: reading('female'), a_mens_group: reading('male'), a_coed_group: reading('mixed') }
+}
+
+/** What a refused Group had declared, out of its address: the field's own three words, or nothing. */
+const declaredOnTheWayBack = (field: string | undefined) => {
+  const declared = declaredGenderFromField(field)
+  return declared === undefined ? null : declaredGenderToField(declared) as (typeof GROUP_DECLARATIONS)[number]
 }
 
 /**
