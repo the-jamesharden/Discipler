@@ -10,7 +10,14 @@ import {
   previouslyLine,
   relationshipLabel,
 } from '../../app/materials/copy'
-import { chipsFor, foldersOf, onNoMaterial, underFilter } from '../../app/materials/folders'
+import {
+  chipsFor,
+  foldersOf,
+  homeCellsOf,
+  onNoMaterial,
+  pairLabel,
+  underFilter,
+} from '../../app/materials/folders'
 import { initialsOf } from '../../app/initials'
 
 /**
@@ -97,6 +104,30 @@ describe('the folders', () => {
     expect(folderCount(0)).toBe('Nobody working through it')
     expect(folderCount(1)).toBe('1 relationship')
     expect(folderCount(5)).toBe('5 relationships')
+  })
+
+  it('builds home-screen cells: shared Materials as folders, singles otherwise', () => {
+    const a = relationship({ runningMaterialId: masterPlan.materialId, gender: 'male' })
+    const b = relationship({ runningMaterialId: masterPlan.materialId, gender: 'male' })
+    const alone = relationship({
+      runningMaterialId: prayer.materialId,
+      gender: 'female',
+      leaderNames: ['Grace Lee'],
+      participantNames: ['Emily Davis'],
+    })
+    const none = relationship({
+      gender: 'male',
+      leaderNames: ['Tyler Patel'],
+      participantNames: ['Bryce Odom'],
+    })
+    const cells = homeCellsOf([masterPlan, prayer], [a, b, alone, none])
+
+    expect(cells).toHaveLength(3)
+    expect(cells[0]).toMatchObject({ kind: 'folder', material: masterPlan, gender: 'm' })
+    expect(cells[1]).toMatchObject({ kind: 'pair', material: prayer, gender: 'f' })
+    expect(cells[2]).toMatchObject({ kind: 'pair', material: null, gender: 'm' })
+    expect(pairLabel(alone)).toBe('Grace Lee & Emily Davis')
+    expect(pairLabel(none)).toBe('Tyler Patel & Bryce Odom')
   })
 })
 

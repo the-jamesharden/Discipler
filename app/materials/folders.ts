@@ -71,3 +71,71 @@ export const chipsFor = (
   const initials = led.slice(0, CHIPS_ON_A_FOLDER).map((each) => initialsOf(each.leaderNames[0]!))
   return { initials, more: relationships.length - initials.length }
 }
+
+/** Gender tint on a home-screen tile: men's, women's, or mixed/undeclared. */
+export type TileGender = 'm' | 'f' | 'x'
+
+/**
+ * One cell on the Materials home screen (v11 prototype): a shared-program folder
+ * when two or more relationships run the same Material, otherwise a single pair
+ * or group tile. Unassigned relationships are always singles; Materials nobody
+ * is on do not appear.
+ */
+export type HomeCell =
+  | {
+      readonly kind: 'folder'
+      readonly material: MaterialOnTheList
+      readonly relationships: readonly MaterialRelationship[]
+      readonly gender: TileGender
+    }
+  | {
+      readonly kind: 'pair'
+      readonly relationship: MaterialRelationship
+      readonly material: MaterialOnTheList | null
+      readonly gender: TileGender
+    }
+
+const genderOf = (relationship: MaterialRelationship): TileGender =>
+  relationship.gender === 'female' ? 'f' : relationship.gender === 'male' ? 'm' : 'x'
+
+/** The tint a folder takes from everyone inside: one gender, or mixed. */
+export const bucketGender = (relationships: readonly MaterialRelationship[]): TileGender => {
+  const set = new Set(relationships.map(genderOf))
+  if (set.size === 1) return set.has('f') ? 'f' : set.has('m') ? 'm' : 'x'
+  return 'x'
+}
+
+/**
+ * The home-screen cells in program order, then unassigned singles last. A Material
+ * with one relationship is a pair tile; with two or more it is a folder.
+ */
+export const homeCellsOf = (
+  materials: readonly MaterialOnTheList[],
+  relationships: readonly MaterialRelationship[],
+): readonly HomeCell[] => {
+  const cells: HomeCell[] = []
+  for (const material of materials) {
+    const members = relationships.filter((each) => each.runningMaterialId === material.materialId)
+    if (members.length === 0) continue
+    if (members.length >= 2) {
+      cells.push({ kind: 'folder', material, relationships: members, gender: bucketGender(members) })
+    } else {
+      const relationship = members[0]!
+      cells.push({ kind: 'pair', relationship, material, gender: genderOf(relationship) })
+    }
+  }
+  for (const relationship of onNoMaterial(relationships)) {
+    cells.push({ kind: 'pair', relationship, material: null, gender: genderOf(relationship) })
+  }
+  return cells
+}
+
+/** How a pair or group is named under its tile. */
+export const pairLabel = (relationship: MaterialRelationship): string => {
+  if (relationship.isAGroup) {
+    return relationship.groupName?.trim() || relationship.leaderNames.join(', ') || 'Group'
+  }
+  const leader = relationship.leaderNames[0] ?? 'Nobody leading'
+  const participant = relationship.participantNames[0] ?? 'nobody'
+  return `${leader} & ${participant}`
+}

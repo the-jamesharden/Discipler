@@ -83,10 +83,10 @@ describe.skipIf(skipUnlessAppIsRunning)('the Materials tab', () => {
       expect(response.status).toBe(200)
       expect(html).toContain('href="/materials"')
       expect(html).toContain('aria-current="page"')
-      expect(html).toContain('One material at a time, assigned to the relationship')
-      expect(html).toContain('class="seg"')
+      expect(html).toContain('class="seg-toggle"')
       expect(html).toContain('No materials yet. Create one, then assign it from its folder')
-      expect(html).not.toContain('mat-grid')
+      expect(html).toContain('Programs')
+      expect(html).not.toContain('hs-grid')
       expect(html).not.toContain('No material assigned')
     })
 
@@ -130,24 +130,25 @@ describe.skipIf(skipUnlessAppIsRunning)('the Materials tab', () => {
       const words = 'He lost his job and did not want to talk long.'
       await church.replyAt(new Date(answering.getTime() + 120_000), david, words)
 
-      // The tab: one folder with one relationship, the dashed folder with the other.
+      // The tab: unique Material as a pair tile, unassigned as its own tile.
       const tab = await getPage('/materials', cookie)
       expect(tab.response.status).toBe(200)
       expect(tab.html).toContain('The Master Plan of Evangelism')
-      expect(tab.html).toContain('1 relationship</div>')
-      expect(tab.html).toContain('mat-tile unassigned')
-      expect(tab.html).toContain('No material assigned')
-      expect(tab.html).toContain('>DC</span>')
-      expect(tab.html).toContain('>TB</span>')
+      expect(tab.html).toContain('David Chen &amp; Marcus Okafor')
+      expect(tab.html).toContain('Tyler Bennett &amp; Caleb Reyes')
+      expect(tab.html).toContain('No program yet')
+      expect(tab.html).toContain('hs-tile')
+      expect(tab.html).toContain('hs-legend')
+      expect(tab.html).not.toContain('No material assigned')
       expect(tab.html).not.toContain(words)
       expect(tab.html).not.toMatch(/\+1\d{10}/)
 
-      // Under Women's, both folders empty and the dashed one gone.
+      // Under Women's, nothing matches the filter.
       const women = await getPage('/materials?gender=female', cookie)
-      expect(women.html).toContain('Nobody working through it')
-      expect(women.html).not.toContain('No material assigned')
+      expect(women.html).toContain('No pairs or groups match this filter.')
+      expect(women.html).not.toContain('David Chen')
 
-      // Under Men's, the folder links carry the filter.
+      // Under Men's, the pair tiles carry the filter on their links.
       const men = await getPage('/materials?gender=male', cookie)
       expect(men.html).toContain(`href="/materials/${masterPlan}?gender=male"`)
       expect(men.html).toContain('href="/materials/none?gender=male"')
