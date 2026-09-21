@@ -188,11 +188,12 @@ These were read out of the schema, not assumed, and still hold.
 
 ## The tickets
 
-There are six files in `.scratch/manual-pairing/issues/`: five tickets to build, 01 to 05, and `06-committed-already.md`, which holds everything already committed.
-That is the cut of 2026-09-20, made at James's request so that fewer tickets stand between the effort and `main`.
+There are seven files in `.scratch/manual-pairing/issues/`: six tickets to build, 01 to 06, and `07-committed-already.md`, which holds everything already committed.
+Five of them are the cut of 2026-09-20, made at James's request so that fewer tickets stand between the effort and `main`.
+The sixth was added on 2026-09-21: it began as an addendum on ticket 05, and James had it made a ticket of its own, which moved the archive from `06` to `07` so that it stays last.
 Before it the effort was cut three times, into tickets numbered 01 to 27 and briefly 28 to 33.
-Existing code, migrations and commits say "Manual pairing, ticket NN" with those old numbers; ticket 06 keeps each old ticket under its old number and says where every one of them went.
-In the five tickets an earlier ticket is always written "old ticket NN", and new code says "Manual pairing, recut ticket NN".
+Existing code, migrations and commits say "Manual pairing, ticket NN" with those old numbers; ticket 07 keeps each old ticket under its old number and says where every one of them went.
+In the six tickets an earlier ticket is always written "old ticket NN", and new code says "Manual pairing, recut ticket NN".
 Each ticket follows the to-tickets template (what to build, what blocks it, its status, its criteria) and says nothing about how to build it; `/implement` does that.
 The files are the tickets; this table only says which part of this spec each carries, and in what order.
 
@@ -202,8 +203,9 @@ The files are the tickets; this table only says which part of this spec each car
 | 02 - Two ticked: the shapes and their Materials | The shape toggle, the 1:2 pair, N × 1:1 pairs, and a Material for each, from the route to the dropdowns | 24, and 21 stage 2 | Nothing |
 | 03 - Groups in the popup, from a Disciple | Joining an existing group, from a Disciple | 25 | Nothing |
 | 04 - The Group shape, and groups in the popup from a Discipler | The Group shape and its gender toggle; joining an existing group as co-leader | 26 | 01, 02, 03 |
-| 05 - The old Pair page retires | `/roster/pair` redirects into the popup and the old page is deleted; and, as an addendum James decided on 2026-09-21, a leader can decline on their Invitation Link's page, an invitation nobody answers is withdrawn after two weeks, and the Admin is told of either on Follow-Up | 27 | 02, 04; the addendum waits on nothing |
-| 06 - Committed already | Everything built so far | 01, 02, 03, 06, 07, 08, 12, 21 stage 1, 22, 23 | Nothing to build |
+| 05 - The old Pair page retires | `/roster/pair` redirects into the popup and the old page is deleted | 27 | 02, 04 |
+| 06 - Declining an invitation, and one nobody answers is withdrawn after two weeks | Not in this spec as first written: what ends an invitation that is not accepted, decided by James on 2026-09-21 while reviewing ticket 01 | None | Nothing; worth having no later than 04 |
+| 07 - Committed already | Everything built so far | 01, 02, 03, 06, 07, 08, 12, 21 stage 1, 22, 23 | Nothing to build |
 
 01, 02 and 03 can start now; 04 and then 05 follow.
 

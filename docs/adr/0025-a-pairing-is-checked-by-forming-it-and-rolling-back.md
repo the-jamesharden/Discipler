@@ -13,7 +13,7 @@ The answer is the `PairingRefusal` that formation would have thrown, or nothing 
 No relationship, membership, invitation, history event or outbound message survives a check, whatever it answered.
 
 **It is not the boundary's decision stopped before its effects.**
-That is what ticket 03 of manual pairing (now in `.scratch/manual-pairing/issues/06-committed-already.md`) asked for, and what `.scratch/manual-pairing/spec.md` means by a set being "validated through the boundary", and it cannot work here.
+That is what ticket 03 of manual pairing (now in `.scratch/manual-pairing/issues/07-committed-already.md`) asked for, and what `.scratch/manual-pairing/spec.md` means by a set being "validated through the boundary", and it cannot work here.
 Where either says the check cannot write, read: nothing a check writes is kept.
 The boundary decides only the shape of the request: that there is a Discipler and a Disciple, that nobody is on both sides or listed twice, that a group is declared and named, that a Material chosen is on the Ministry's list.
 Gender, Intake, opt-outs and the participation caps are triggers and indexes on `relationship_member`, and they answer only when a membership row is written.

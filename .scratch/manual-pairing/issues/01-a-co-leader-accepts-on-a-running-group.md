@@ -11,8 +11,8 @@ Today that acceptance activates the group a second time and sends the Starter Me
 See *Implementer, 2026-09-20* under Comments.
 
 **Old tickets:** this is old ticket 11, whole; none of it is committed.
-What an unaccepted co-leader is given until they accept was decided by James and built at `69bbe9e`, and is in `06-committed-already.md`.
-Here "old ticket NN" means a ticket of the earlier cuts, 01 to 27, kept under that number in `06-committed-already.md`, and existing code that says "Manual pairing, ticket NN" means those.
+What an unaccepted co-leader is given until they accept was decided by James and built at `69bbe9e`, and is in `07-committed-already.md`.
+Here "old ticket NN" means a ticket of the earlier cuts, 01 to 27, kept under that number in `07-committed-already.md`, and existing code that says "Manual pairing, ticket NN" means those.
 New code says "Manual pairing, recut ticket NN".
 
 ## Decided by James, 2026-09-20
@@ -49,7 +49,7 @@ These three were asked of James and answered on 2026-09-20.
 
 ### Found while building old ticket 22's second stage
 
-Written by its implementer on 2026-09-20, and kept whole in `06-committed-already.md`.
+Written by its implementer on 2026-09-20, and kept whole in `07-committed-already.md`.
 The first is why ticket 04's **Add as co-leader** button waits for this ticket.
 
 - **Accepting on a running group re-activates it.** `relationship.accept` decides `activatesRelationship` as *every other leader has accepted*, which is true for a co-leader on a running group. It would append a second `relationship.activated`, open a second Material period, and send the Starter Message to every leader and every Disciple again. The database only guards the column. Old ticket 11's first two criteria are exactly this; it is said here because it is a text to real phones, and because old ticket 26 waits on 22, 24 and 25 but not on 11.
@@ -119,7 +119,7 @@ Both were answered by James on 2026-09-20: *whatever is broken outright, fix; fo
    Adding that one column would let the item say how long a co-leader has waited, as the tick already measures it.
 2. **There is no way to withdraw an unanswered co-leader invitation short of ending the group. Not built here.**
    James decided against an Unsend button on 2026-09-21: an unanswered invitation is withdrawn by the product after two weeks, and the Admin is told on Follow-Up.
-   It is the addendum on ticket 05, *An invitation nobody answers is withdrawn after two weeks*.
+   It is ticket 06, *Declining an invitation, and one nobody answers is withdrawn after two weeks*, which was an addendum on ticket 05 until James had it made a ticket of its own.
 
 **James's review of 2026-09-21, the rest of it.**
 Done (`3b1a5b7` and the commit after it): the invitation page says *paired* where it said matched, the Ministry heads the card with Discipler's mark small at the foot, and the line *You've been asked to disciple... you can say no* is gone.
@@ -136,5 +136,5 @@ That amends this ticket's third criterion, which still holds as written: nothing
 The tick's `follow_up.relationship_unaccepted` event is written with its item or not at all.
 The Leader's sentence, *You have been paired for discipleship.*, is James's sentence without the name, and is put to him to approve.
 A side effect, put to him as well: the Ministry's word for a person being discipled is now in no message, so its field on Ministry settings saves and does nothing.
-Decline and the two weeks are ticket 05's addendum.
+Decline and the two weeks are ticket 06.
 The whole suite ran once on the result: 164 of 167 files and 2339 tests passed, and the three that failed passed when run again, two of them tests that pinned the old wording and one a random phone-number collision in a fixture.

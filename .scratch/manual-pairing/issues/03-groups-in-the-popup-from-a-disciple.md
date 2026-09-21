@@ -9,9 +9,9 @@ Choosing one and pressing **Add to group** puts the Disciple straight into it.
 
 **Old tickets:** this is old ticket 25, whole; none of it is committed.
 Every criterion is below, unchanged, and one is added: *An open Join Request*, decided by James on 2026-09-20.
-Here "old ticket NN" means a ticket of the earlier cuts, 01 to 27, kept under that number in `06-committed-already.md`, and existing code that says "Manual pairing, ticket NN" means those.
+Here "old ticket NN" means a ticket of the earlier cuts, 01 to 27, kept under that number in `07-committed-already.md`, and existing code that says "Manual pairing, ticket NN" means those.
 New code says "Manual pairing, recut ticket NN".
-Old ticket 08, in `06-committed-already.md`, says what its read leaves to the popup.
+Old ticket 08, in `07-committed-already.md`, says what its read leaves to the popup.
 Old ticket 22's Comments, in the same file, give the address a refused join returns to, `/roster?list=…&pair=<personId>&groupId=<id>&error=<code>`, which is what this reopens on.
 
 **Design source:** the plan's mock state H.

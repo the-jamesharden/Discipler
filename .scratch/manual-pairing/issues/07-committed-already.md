@@ -1,11 +1,12 @@
-# 06 - Committed already
+# 07 - Committed already
 
 **Effort:** `manual-pairing`.
 The spec is `.scratch/manual-pairing/spec.md`.
 A bare "ticket NN" in existing code, migrations or `CONTEXT.md` belongs to `core-operating-loop`, which has its own 01 to 36, and is not one of these.
 
 **What this is:** Everything of this effort that is committed, as of `69bbe9e` on `integration/manual-pairing`, when the tickets were cut into five on 2026-09-20.
-Nothing here is to be built; what is left to build is tickets 01 to 05, beside this file.
+Nothing here is to be built; what is left to build is tickets 01 to 06, beside this file.
+It was `06` until 2026-09-21, when James had ticket 05's addendum made a ticket of its own and this file moved to stay last.
 It is kept because code, migrations, commits and ADR-0025 say "Manual pairing, ticket NN" with the old numbers, and because the Comments hold what was decided while building and what James decided after.
 Each old ticket is below, whole, under its old number, with its headings one level down.
 **Inside this file a "ticket NN" is always an old number**, except in the table just below, whose last column names the new tickets 01 to 05.

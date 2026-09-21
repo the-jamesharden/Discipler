@@ -15,9 +15,9 @@ See *Implementer, 2026-09-20* under Comments.
 
 **Old tickets:** this is old ticket 24, whole, and stage 2 of old ticket 21, *A Material per Disciple*; none of either is committed.
 Every criterion of both is below, unchanged.
-Here "old ticket NN" means a ticket of the earlier cuts, 01 to 27, kept under that number in `06-committed-already.md`, and existing code that says "Manual pairing, ticket NN" means those.
+Here "old ticket NN" means a ticket of the earlier cuts, 01 to 27, kept under that number in `07-committed-already.md`, and existing code that says "Manual pairing, ticket NN" means those.
 New code says "Manual pairing, recut ticket NN".
-Old ticket 02's Comments, in `06-committed-already.md`, name old ticket 16 for restoring a Material after a refusal: that is the last section here.
+Old ticket 02's Comments, in `07-committed-already.md`, name old ticket 16 for restoring a Material after a refusal: that is the last section here.
 Old ticket 21's Comments, in the same file, say how a refusal names its Disciple: the address carries `about=<personId>` and `mode`, and this ticket restores the popup from them.
 The Discipler's side this builds on, the list and one tick, is committed as stage 2 of old ticket 23 and is in the same file.
 
@@ -79,7 +79,7 @@ Here every relationship is formed with no Material, which is the default anyway.
 
 ## A Material per Disciple, behind the route
 
-Read old ticket 03's Comments in `06-committed-already.md` before starting, from *what the check cannot predict (for ticket 04)* to the end; they were written for the session that builds this.
+Read old ticket 03's Comments in `07-committed-already.md` before starting, from *what the check cannot predict (for ticket 04)* to the end; they were written for the session that builds this.
 
 In `separate` mode, each Disciple carries their own Material choice, held as an intention on their one-to-one and spent at acceptance.
 The popup's per-Disciple dropdowns are the section after this one.
@@ -219,7 +219,7 @@ A refusal's address says `mode=together` for a 1:2 and will for a Group, so tick
 
 ### Implementer, 2026-09-20: a group of one is still a group, built
 
-This is the migration the second item above, and old ticket 23's Comments in `06-committed-already.md`, both said it would take.
+This is the migration the second item above, and old ticket 23's Comments in `07-committed-already.md`, both said it would take.
 `20261004000100_which_cap_a_relationship_counts_against.sql` restates `public.roster_page()` with one key more on each relationship row, `counts_as_a_group`, and changes nothing else; `person_page()` and `pair_page()` read that document and carry it with no change of their own.
 `RosterRelationship.countsAsAGroup` carries it, and its only readers are the two rules in `app/roster/greying.ts`.
 A group's last Disciple is no longer greyed as *Already in a 1:1*, from either side of the popup, and its Discipler is no longer offered a 1:2 pair the index would refuse.
