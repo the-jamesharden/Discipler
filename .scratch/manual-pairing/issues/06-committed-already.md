@@ -46,7 +46,7 @@ That is not one of the tracker's status strings, because none of them says built
 | 26 | The Group shape, and groups in the popup from a Discipler | Not built: ticket 04. |
 | 27 | The old Pair page retires | Not built: ticket 05. |
 
-Two things in the Comments below still wait on James, and both are carried into ticket 03 so that they are not lost here: what becomes of an open Join Request when an Admin puts its Person into the same group, and the words *Sam just joined your group.* for a group nobody named.
+Two things in the Comments below were left for James, and both were carried into ticket 03, where he answered them on 2026-09-20: what becomes of an open Join Request when an Admin puts its Person into the same group, and the words *Sam just joined your group.* for a group nobody named.
 Ticket 23's Comments hold six readings made while building its first stage, written for James to read once; none of them stopped the work.
 
 ## 01 - What the Pair screen reads

@@ -55,10 +55,28 @@ Old ticket 22's Comments, in the same file, give the address a refused join retu
 
 ## Comments
 
-### Waiting on James, carried from old ticket 22's first stage
+### Answered by James, 2026-09-20
 
-Neither holds up a criterion above.
-Both were asked on 2026-09-20 and neither has an answer on file.
+Both questions carried from old ticket 22's first stage are answered, and nothing in this ticket waits on James any more.
+
+**1. An open Join Request for the same group is resolved by the same act, silently.**
+When an Admin puts somebody into a group they have an open Join Request for, the request is resolved as accepted.
+There is no second membership, and no message is sent to anyone.
+This replaces what the command does today, which leaves the request open on Intake forms, so the test that holds that behaviour changes with it.
+It is built with this ticket, because **Add to group** is what puts the command in an Admin's hands.
+
+Three readings were taken in writing this down, each the conservative one, and each James's to overrule:
+
+- "Accepted" is what the product calls admitting a Join Request, so the request ends the way an admitted one does and leaves Intake forms.
+- "No message" is about the request.
+  The one text the group's leaders already get when somebody joins is unchanged, because the join is still a join; resolving the request adds no message and removes none.
+- "Silently" means nothing is sent and nothing is shown for it.
+  The resolution is still recorded in the Ministry's history, naming the Admin, as every resolution is.
+
+**2. *Sam just joined your group.* stays as it is for a group nobody has named.**
+An unnamed group is joined and not refused, and the wording is kept.
+
+### The two questions as they were asked, kept for the record
 
 **1. An open Join Request for the same group is left open.**
 The spec does not say what becomes of it, and the criterion asks for that to be said here before anything is chosen, so nothing was chosen: the command closes no item.
