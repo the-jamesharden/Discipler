@@ -32,6 +32,7 @@ const snapshot = (over: Partial<InvitationSnapshot> = {}): InvitationSnapshot =>
   personId: david,
   expiresAt,
   consumedAt: null,
+  relationshipAcceptedAt: null,
   intendedMaterialId: null,
   members: [leader(david, 'David Ellis'), participant(emily, 'Emily Johnson')],
   ...over,
@@ -113,6 +114,71 @@ describe('when the relationship activates', () => {
     )
 
     expect(acceptance(result).activatesRelationship).toBe(true)
+  })
+})
+
+describe('a co-leader accepting on a group already running', () => {
+  // Manual pairing, recut ticket 01; decided by James on 2026-09-20. An Admin
+  // added David to a group Sarah has led since January. Every *other* leader has
+  // accepted, which used to be the whole of the question and would have activated
+  // the group a second time.
+  const activatedAt = new Date('2026-01-05T09:00:00Z')
+  const running = (over: Partial<InvitationSnapshot> = {}) =>
+    snapshot({
+      relationshipAcceptedAt: activatedAt,
+      members: [
+        leader(david, 'David Ellis'),
+        leader(sarah, 'Sarah Kim', activatedAt),
+        participant(emily, 'Emily Johnson'),
+      ],
+      ...over,
+    })
+
+  it('records their Acceptance, and activates nothing', () => {
+    const result = accept(running())
+
+    expect(acceptance(result)).toMatchObject({
+      personId: david,
+      acceptedAt: now,
+      activatesRelationship: false,
+    })
+  })
+
+  it('sends nothing: not to the Disciples, not to the leader it already has, not to them', () => {
+    // The Starter Message went out at activation. A second one would introduce
+    // the Disciples to a relationship they are already in.
+    expect(enqueued(accept(running()))).toEqual([])
+  })
+
+  it('writes their Acceptance into the history and nothing else', () => {
+    // No second `relationship.activated`, and no Material period opened over the
+    // one the group is already in.
+    const result = accept(running({ intendedMaterialId: null }))
+
+    expect(result.effects.map((e) => e.kind)).toEqual(['invitation.accept', 'history.append'])
+    const event = result.effects.find((e) => e.kind === 'history.append')
+    if (event?.kind !== 'history.append') throw new Error('nothing was recorded')
+    expect(event.event).toMatchObject({
+      type: 'relationship.leader_accepted',
+      subjectId: relationship,
+      payload: { personId: david, activated: false },
+    })
+  })
+
+  it('is the same on a group with two co-leaders still to answer', () => {
+    const result = accept(
+      running({
+        members: [
+          leader(david, 'David Ellis'),
+          leader(sarah, 'Sarah Kim', activatedAt),
+          leader(personId('00000000-0000-4000-8000-0000000000d3'), 'Tom Reyes'),
+          participant(emily, 'Emily Johnson'),
+        ],
+      }),
+    )
+
+    expect(acceptance(result).activatesRelationship).toBe(false)
+    expect(enqueued(result)).toEqual([])
   })
 })
 

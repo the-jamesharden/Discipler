@@ -639,6 +639,12 @@ export interface InvitationSnapshot {
   readonly expiresAt: Date
   readonly consumedAt: Date | null
   /**
+   * When the relationship activated, or null while it still awaits a Leader. An
+   * Admin may add a Leader to a group that is already running, so a token can
+   * name one: that Leader's acceptance is theirs alone and activates nothing.
+   */
+  readonly relationshipAcceptedAt: Date | null
+  /**
    * The Material an Admin chose while forming this relationship, or null where
    * none was or it has been spent. As the column holds it: whether that Material
    * is still on the Ministry's list is decided at the boundary against
@@ -4877,9 +4883,17 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
 
       // Every other open leader membership has already accepted, so this one is the
       // last. Activation is the whole set agreeing, not the first of them.
-      const activatesRelationship = leaders.every(
-        (leader) => leader.personId === me.personId || leader.acceptedAt !== null,
-      )
+      //
+      // And it happens once (Manual pairing, recut ticket 01; decided by James on
+      // 2026-09-20). A Leader an Admin added to a group already running is the
+      // last to agree as well, and activates nothing: their Acceptance is recorded
+      // on their own membership and that is all. The Starter Message went out at
+      // activation, and a second one would introduce the Participants to a
+      // relationship they are already in. The group's existing Leaders are sent
+      // nothing either.
+      const activatesRelationship =
+        invitation.relationshipAcceptedAt === null &&
+        leaders.every((leader) => leader.personId === me.personId || leader.acceptedAt !== null)
 
       const effects: Effect[] = [
         acceptInvitation({

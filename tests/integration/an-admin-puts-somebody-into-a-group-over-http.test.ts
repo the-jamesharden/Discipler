@@ -290,6 +290,50 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin puts a Disciple into a group, 
       expect(rowFor(disciplers.html, group.leaderName)).not.toContain('awaiting acceptance')
     })
 
+    // Manual pairing, recut ticket 01: the other end of the invitation above.
+    it('shows her who she would lead and who with, and her acceptance leaves the running group as it was', async () => {
+      const group = await aGroup('Evening Table', 'male')
+      const claire = await aDiscipler()
+      await join({ personId: claire.id, groupId: group.id, as: 'leader' })
+      const stateOf = async () =>
+        (await pool.query(`select accepted_at, ended_at, name from relationship where id = $1`, [group.id])).rows[0]
+      const before = await stateOf()
+
+      const [invitation] = await queuedFor(claire.id)
+      const link = invitation?.match(/\/invitation\/[0-9a-f-]{36}/)?.[0]
+      expect(link, 'her invitation carries no link').toBeDefined()
+
+      // The reveal, with no session: the Disciples, and the leader she would join,
+      // both above anything she is asked for.
+      const page = await fetch(`${baseUrl}${link}`, { redirect: 'manual' })
+      const html = (await page.text()).replace(/<!-- -->/g, '')
+      expect(page.status).toBe(200)
+      for (const disciple of group.discipleNames) expect(html).toContain(disciple)
+      expect(html).toContain(`You’d be leading with ${group.leaderName}.`)
+      expect(html.indexOf(group.leaderName)).toBeLessThan(html.indexOf('name="password"'))
+
+      const accepted = await fetch(`${baseUrl}${link}/accept`, {
+        method: 'POST',
+        redirect: 'manual',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ fullName: claire.name, password: 'a-long-enough-password' }),
+      })
+      expect(accepted.status).toBe(303)
+      expect(accepted.headers.get('location')).toContain('done=accepted')
+
+      // Her Acceptance, and nothing else: the group's activation is the moment it
+      // had, and no Starter Message went to anybody a second time.
+      expect(await leadsIt(group.id, claire.id)).toEqual([{ accepted: true }])
+      expect(await stateOf()).toEqual(before)
+      expect(await queuedFor(claire.id)).toHaveLength(1)
+      expect(await queuedFor(group.leader)).toEqual([])
+      for (const disciple of group.disciples) expect(await queuedFor(disciple)).toEqual([])
+
+      // And the Roster stops saying she is awaited.
+      const disciplers = await getPage('/roster?list=disciplers', cookie)
+      expect(rowFor(disciplers.html, claire.name)).not.toContain('awaiting acceptance')
+    })
+
     it('refuses a Discipler who already leads a group, with a code of its own', async () => {
       const theirs = await aGroup('Tuesday Table', 'male')
       const another = await aGroup('Wednesday Table', 'male')

@@ -57,3 +57,13 @@ export const asList = (names: readonly string[]): string =>
   names.length <= 1
     ? (names[0] ?? 'someone')
     : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+
+/**
+ * Who they would be leading with, under the reveal (Manual pairing, recut ticket
+ * 01). An Admin may add a Discipler to a group that already has a leader, so the
+ * holder of a link decides whether to lead knowing who they would be joining.
+ * Null for somebody leading alone, which is nearly everybody: no sentence, rather
+ * than one about nobody.
+ */
+export const leadingWithSentence = (names: readonly string[]): string | null =>
+  names.length === 0 ? null : `You’d be leading with ${asList(names)}.`

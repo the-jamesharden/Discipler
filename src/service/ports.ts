@@ -1419,6 +1419,13 @@ export interface InvitationPage {
    * is not policed by.
    */
   readonly withNames: readonly string[]
+  /**
+   * The Leaders its holder would be leading *with*, by `countsAsLeading`: once
+   * the relationship is running only those who have accepted, and until then
+   * everybody it waits on. Empty for somebody leading alone, and always for a
+   * Participant, who is shown their Leaders in `withNames` and nobody else.
+   */
+  readonly leadingWith: readonly string[]
   /** How many Participants it holds. Copy branches on this and never on `kind`. */
   readonly participantCount: number
 }

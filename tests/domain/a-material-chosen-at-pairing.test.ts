@@ -141,6 +141,7 @@ const invited = (intendedMaterialId: typeof romans | null): InvitationSnapshot =
   personId: david,
   expiresAt: new Date('2026-03-16T09:00:00Z'),
   consumedAt: null,
+  relationshipAcceptedAt: null,
   intendedMaterialId,
   members: [
     { personId: david, role: 'leader', fullName: 'David Ellis', phone: '+15550100', acceptedAt: null },

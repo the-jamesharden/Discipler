@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import { SHORTEST_PASSWORD } from '~/domain/accounts'
 import { getInvitationReader } from '~/service/container'
 import { Centred } from '../../shell'
-import { asList, invitationProblemMessage } from '../copy'
+import { asList, invitationProblemMessage, leadingWithSentence } from '../copy'
 
 /**
  * The Invitation Link's page. **The match is revealed before any input is
@@ -29,12 +29,22 @@ export default async function InvitationPage({
   // whether one ever existed.
   if (!invitation) notFound()
 
-  const { ministryName, fullName, phone, role, state, userId, withNames, participantCount } =
-    invitation
+  const {
+    ministryName,
+    fullName,
+    phone,
+    role,
+    state,
+    userId,
+    withNames,
+    leadingWith,
+    participantCount,
+  } = invitation
   const problem = invitationProblemMessage(error)
   // The reader already scoped this to the other side of the relationship: the
   // Participants to a Leader, the Leaders to a Participant.
   const matchedWith = withNames
+  const coLeaders = leadingWithSentence(leadingWith)
 
   /**
    * Drawn from the token, not from the query string. `done` only chooses the
@@ -93,6 +103,12 @@ export default async function InvitationPage({
                 ? `You’ve been asked to disciple these ${participantCount} people. It’s an invitation, not an assignment — you can say no.`
                 : 'You’ve been asked to disciple them. It’s an invitation, not an assignment — you can say no.'}
             </p>
+
+            {/*
+              Part of the reveal, so above the form with it: who they would be
+              leading with is something a Leader weighs before agreeing to lead.
+            */}
+            {coLeaders ? <p>{coLeaders}</p> : null}
 
             {state === 'live' ? (
               <>

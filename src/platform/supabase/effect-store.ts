@@ -1277,8 +1277,14 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     //
     // The Material an Admin chose at pairing is read off the same locked row, so
     // the intention acceptance spends is the one that stands as it decides.
-    const { rows: locked } = await client.query<{ intended_material_id: string | null }>(
-      `select intended_material_id from relationship where id = $1 for update`,
+    //
+    // And so is whether it is already running, which is what stops a Leader added
+    // to a running group from activating it a second time.
+    const { rows: locked } = await client.query<{
+      accepted_at: Date | null
+      intended_material_id: string | null
+    }>(
+      `select accepted_at, intended_material_id from relationship where id = $1 for update`,
       [invitation.relationship_id],
     )
     const intended = locked[0]?.intended_material_id ?? null
@@ -1298,6 +1304,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       personId: personId(invitation.person_id),
       expiresAt: invitation.expires_at,
       consumedAt: invitation.consumed_at,
+      relationshipAcceptedAt: locked[0]?.accepted_at ?? null,
       intendedMaterialId: intended === null ? null : materialId(intended),
       members: members.map((row) => ({
         personId: personId(row.person_id),

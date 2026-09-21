@@ -1,7 +1,7 @@
 import pg from 'pg'
 import { ministryId, personId } from '~/domain/ids'
 import { invitationState } from '~/domain/invitations'
-import type { MemberRole } from '~/domain/relationships'
+import { countsAsLeading, type MemberRole } from '~/domain/relationships'
 import type { InvitationPage, InvitationReader } from '~/service/ports'
 
 /**
@@ -61,6 +61,7 @@ export const createPostgresInvitationReader = (
           expires_at: Date
           consumed_at: Date | null
           ministry_name: string
+          relationship_accepted_at: Date | null
         }>(
           `select i.person_id,
                   p.full_name,
@@ -69,10 +70,12 @@ export const createPostgresInvitationReader = (
                   m.role,
                   i.expires_at,
                   i.consumed_at,
-                  n.name as ministry_name
+                  n.name as ministry_name,
+                  r.accepted_at as relationship_accepted_at
              from invitation i
              join person p on p.id = i.person_id
              join ministry n on n.id = i.ministry_id
+             join relationship r on r.id = i.relationship_id
              join relationship_member m
                on m.relationship_id = i.relationship_id
               and m.person_id = i.person_id
@@ -89,8 +92,12 @@ export const createPostgresInvitationReader = (
         // Everyone else in it, with their roles: the reveal is drawn from the
         // other side of the relationship, and the Participant count from all of
         // them.
-        const { rows: others } = await client.query<{ full_name: string; role: MemberRole }>(
-          `select p.full_name, m.role
+        const { rows: others } = await client.query<{
+          full_name: string
+          role: MemberRole
+          accepted_at: Date | null
+        }>(
+          `select p.full_name, m.role, m.accepted_at
              from invitation i
              join relationship_member m on m.relationship_id = i.relationship_id
              join person p on p.id = m.person_id
@@ -117,6 +124,21 @@ export const createPostgresInvitationReader = (
           withNames: others
             .filter((row) => row.role !== held.role)
             .map((row) => row.full_name),
+          // Who they would be leading with (Manual pairing, recut ticket 01). An
+          // Admin may add a Leader to a group already running, so the holder of a
+          // link may be joining somebody: a running group names the Leaders who
+          // have accepted, and one nobody has activated names everybody it waits
+          // on, as every Admin screen does.
+          leadingWith:
+            held.role === 'leader'
+              ? others
+                  .filter(
+                    (row) =>
+                      row.role === 'leader' &&
+                      countsAsLeading(held.relationship_accepted_at, row.accepted_at),
+                  )
+                  .map((row) => row.full_name)
+              : [],
           // Copy branches on the live Participant count, never on the kind the
           // relationship was formed as. The holder counts themselves when they
           // are one.
