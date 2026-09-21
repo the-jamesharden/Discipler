@@ -302,9 +302,10 @@ button.decline-yes:hover { background: var(--red-concern); }
 
 /* ---- follow-up ---- */
 
-/* Its margin is said here, because `.card ul` would otherwise indent the items
-   from the left edge of their card and not from the right. */
-.fu-list { list-style: none; margin: 0; padding: 0; }
+/* Its margin is said here, and as `ul.fu-list` so that it outranks `.card ul`,
+   which would otherwise indent the items from the left edge of their card and
+   not from the right. */
+ul.fu-list { list-style: none; margin: 0; padding: 0; }
 .fu { padding: 1.1rem 1.25rem; border: 1px solid var(--border); border-left-width: 4px; border-radius: 6px; margin-bottom: 0.85rem; }
 .fu.care-concern { border-left-color: var(--red-concern); }
 .fu.care-stalled { border-left-color: var(--amber); }
