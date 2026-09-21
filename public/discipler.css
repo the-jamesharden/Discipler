@@ -686,21 +686,47 @@ textarea.paste { width: 100%; min-height: 140px; font-family: ui-monospace, SFMo
 .pair-per-row label { overflow-wrap: anywhere; }
 .pair-summary { margin-top: 0.9rem; background: rgba(45, 80, 22, 0.06); border-left: 3px solid var(--primary); padding: 0.55rem 0.7rem; font-size: 0.82rem; border-radius: 0 5px 5px 0; }
 
-/* ---- the Materials tab ---- */
-/* Lifted from the v10 prototype where it draws the Materials tab, as
-   `.lavish/materials/design.html` proposes them, renamed nowhere. */
-.mat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1.25rem; }
-.mat-tile { background: none; border: none; padding: 0; cursor: pointer; text-align: center; font-family: inherit; display: flex; flex-direction: column; align-items: center; color: inherit; text-decoration: none; }
-.mat-folder { position: relative; width: 118px; height: 118px; border: 1px solid var(--border); border-radius: 14px; background: rgba(45,80,22,.03); display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 6px; padding: 11px; transition: all .2s ease; }
-.mat-tile:hover .mat-folder { background: rgba(45,80,22,.07); border-color: var(--primary-light); }
-.mat-chip { border-radius: 8px; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: .66rem; font-weight: 700; letter-spacing: .02em; }
-.mat-chip.alt { background: var(--accent); }
-.mat-chip.more { background: rgba(45,80,22,.08); color: var(--text-light); }
-.mat-count { position: absolute; top: -8px; right: -8px; min-width: 24px; height: 24px; padding: 0 6px; border-radius: 12px; background: var(--primary); color: #fff; font-size: .72rem; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid var(--bg); }
-.mat-count.zero { background: var(--surface); color: var(--text-light); border-color: var(--border); }
-.mat-name { font-weight: 700; font-size: .92rem; margin-top: .7rem; line-height: 1.3; color: var(--text); }
-.mat-sub { font-size: .78rem; color: var(--text-light); }
-.mat-tile.unassigned .mat-folder { border-style: dashed; background: transparent; }
+/* ---- the Materials tab (home-screen folders, `.scratch/materials/spec.md` S-1) ---- */
+.mat-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.mat-toolbar-actions { display: flex; gap: 0.7rem; flex-wrap: wrap; align-items: center; }
+.mat-info { position: relative; display: inline-flex; }
+.mat-info-btn { width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--text-light); font-size: 0.85rem; font-weight: 700; font-style: italic; font-family: Georgia, 'Times New Roman', serif; cursor: help; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
+.mat-info-btn:hover, .mat-info-btn:focus-visible { border-color: var(--primary); color: var(--primary); background: var(--surface); }
+.mat-tooltip { position: absolute; top: calc(100% + 8px); left: 0; width: 320px; max-width: 78vw; background: var(--text); color: #fff; font-size: 0.8rem; line-height: 1.45; padding: 0.7rem 0.85rem; border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,0.25); opacity: 0; visibility: hidden; transform: translateY(-4px); transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s; z-index: 60; pointer-events: none; }
+.mat-info:hover .mat-tooltip, .mat-info:focus-within .mat-tooltip { opacity: 1; visibility: visible; transform: translateY(0); }
+.seg-toggle { display: inline-flex; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 3px; gap: 2px; }
+.seg-toggle a { font-family: inherit; font-size: 0.85rem; font-weight: 600; color: var(--text-light); background: none; border: none; padding: 0.4rem 0.95rem; border-radius: 8px; cursor: pointer; transition: all 0.18s ease; text-decoration: none; }
+.seg-toggle a:hover { color: var(--primary); }
+.seg-toggle a[aria-current="true"] { background: var(--surface); color: var(--primary); box-shadow: 0 1px 4px rgba(45,80,22,0.18); }
+.mat-new-btn { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.55rem 1.1rem; background: transparent; border: 2px solid var(--primary); border-radius: 6px; color: var(--primary); font-family: inherit; font-weight: 600; font-size: 0.9rem; text-decoration: none; transition: all 0.3s ease; }
+.mat-new-btn:hover { background: rgba(45, 80, 22, 0.06); }
+.hs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 1.4rem 1rem; }
+.hs-cell { display: flex; flex-direction: column; align-items: center; gap: 0.45rem; }
+.hs-tile { position: relative; width: 100%; max-width: 118px; aspect-ratio: 1 / 1; border-radius: 12px; border: 1px solid var(--border); cursor: pointer; padding: 0; background: var(--surface); text-decoration: none; color: inherit; display: block; }
+.hs-tile:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.gender-m { background: linear-gradient(160deg, rgba(45,80,22,0.10), rgba(45,80,22,0.04)); border-color: rgba(45,80,22,0.28); }
+.gender-f { background: linear-gradient(160deg, rgba(201,168,106,0.18), rgba(201,168,106,0.06)); border-color: rgba(201,168,106,0.5); }
+.gender-x { background: var(--bg); border-color: var(--border); }
+.hs-tile.unassigned { border-style: dashed; background: transparent; }
+.hs-folder-grid { position: absolute; inset: 14%; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 9%; }
+.hs-mini { border-radius: 16%; display: flex; align-items: center; justify-content: center; font-size: 0.62rem; font-weight: 700; color: #fff; background: linear-gradient(135deg, var(--primary), var(--primary-light)); overflow: hidden; }
+.gender-f .hs-mini { background: linear-gradient(135deg, var(--accent), #b08d4e); }
+.gender-x .hs-mini { background: linear-gradient(135deg, #8aa07e, #6f8a63); }
+.hs-mini.more { background: rgba(0,0,0,0.06); color: var(--text-light); }
+.hs-mini svg { width: 66%; height: 66%; }
+.hs-app-icon { position: absolute; inset: 20%; border-radius: 16%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: 700; color: #fff; background: linear-gradient(135deg, var(--primary), var(--primary-light)); }
+.gender-f .hs-app-icon { background: linear-gradient(135deg, var(--accent), #b08d4e); }
+.gender-x .hs-app-icon { background: linear-gradient(135deg, #8aa07e, #6f8a63); }
+.hs-app-icon svg { width: 56%; height: 56%; }
+.hs-count { position: absolute; top: -6px; right: -6px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: var(--primary); color: #fff; font-size: 0.72rem; font-weight: 700; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+.hs-count.zero { background: var(--surface); color: var(--text-light); border: 1px solid var(--border); box-shadow: none; }
+.hs-label { font-size: 0.82rem; font-weight: 600; color: var(--text); text-align: center; line-height: 1.25; max-width: 118px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.hs-sub { font-size: 0.68rem; color: var(--text-light); text-align: center; line-height: 1.2; max-width: 118px; width: 100%; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.hs-sub.muted { font-style: italic; }
+.empty-tile { grid-column: 1 / -1; text-align: center; padding: 2.5rem 1rem; color: var(--text-light); font-style: italic; }
+.hs-legend { display: flex; gap: 1.2rem; flex-wrap: wrap; margin-top: 1.75rem; padding-top: 1.1rem; border-top: 1px solid var(--border); font-size: 0.78rem; color: var(--text-light); }
+.hs-legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.hs-legend .swatch { width: 14px; height: 14px; border-radius: 5px; border-width: 1px; border-style: solid; display: inline-block; }
 .mat-back { display: inline-block; color: var(--primary); font-size: .88rem; margin-bottom: 1rem; text-decoration: none; }
 .mat-back:hover { text-decoration: underline; }
 .drill-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
