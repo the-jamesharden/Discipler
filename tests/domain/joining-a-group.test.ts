@@ -371,6 +371,9 @@ describe('an Admin admitting somebody who asked', () => {
     const toRuth = bodies(effects)[0]!
     expect(toRuth.personId).toBe(ruth)
     expect(toRuth.body).toContain('Priya just joined Tuesday Women’s Group.')
+    // A first name only, and where the rest is, in James's words (2026-09-21).
+    expect(toRuth.body).toContain('Priya just joined Tuesday Women’s Group. See full name and contact info at ')
+    expect(toRuth.body).not.toContain('how to reach them')
     // And nothing to Priya, on admission as on joining.
     expect(bodies(effects).some((message) => message.personId === priya)).toBe(false)
   })

@@ -289,17 +289,11 @@ export const starterMessageToLeader = ({
     discloseOptOut: true,
     body:
       'You have been paired for discipleship. '
-      + `${WHERE_TO_SEE_THEM} ${dashboardLink}. `
+      // *Who you’re meeting with* rather than *your group*, because this goes to a
+      // one-to-one's Leader too.
+      + `See who you’re meeting with and how to reach them at ${dashboardLink}. `
       + 'We’ll check in with you each week to see how it’s going.',
   })
-
-/**
- * The one sentence that points a Leader at their dashboard, said the same way in
- * the Starter Message and in the text that says somebody has joined. *Who you're
- * meeting with* rather than *your group*, because the Starter Message goes to a
- * one-to-one's Leader too.
- */
-const WHERE_TO_SEE_THEM = 'See who you’re meeting with and how to reach them at'
 
 export interface GroupJoinedMessage {
   readonly ministryName: string
@@ -321,7 +315,9 @@ export interface GroupJoinedMessage {
  * conversations, and this is how they hear.
  *
  * A first name and a link, and no number, for the reason the Starter Message
- * carries none. Nothing is sent to the Person who joined: that is a decision
+ * carries none. *See full name and contact info at* is James's wording
+ * (2026-09-21): the first name is how a Leader knows who to look for, and the
+ * rest is on the page, behind their sign-in. Nothing is sent to the Person who joined: that is a decision
  * recorded in `docs/adr/0017-picking-a-group-joins-it.md`, and the Welcome Message
  * they were sent on submitting is a receipt rather than a notice.
  */
@@ -337,7 +333,7 @@ export const groupJoinedMessage = ({
     discloseOptOut: true,
     body:
       `${firstNameOf(joinerFullName) ?? 'Someone'} just joined ${groupName ?? 'your group'}. `
-      + `${WHERE_TO_SEE_THEM} ${dashboardLink}.`,
+      + `See full name and contact info at ${dashboardLink}.`,
   })
 
 export interface StarterMessageToParticipant {

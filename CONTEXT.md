@@ -132,7 +132,7 @@ _Avoid_: Twilio Rhythm (Twilio is a delivery vendor, not a domain concept)
 The message a person receives on completing intake, before any relationship exists.
 
 **Starter Message**:
-The message that opens a discipleship relationship, sent once, when it becomes active. A Participant's names the Leader who will reach out to them; a Leader's names the Participants they are now meeting with. It always carries the ministry's required opt-out and rate disclosure language. It never carries anyone's phone number.
+The message that opens a discipleship relationship, sent once, when it becomes active. A Participant's names the Leader they have been paired with; a Leader's names nobody and points at the page that says who they are meeting with. It always carries the ministry's required opt-out and rate disclosure language. It never carries anyone's phone number.
 _Avoid_: sending it again on resume (that is the Resume Message)
 
 **Resume Message**:

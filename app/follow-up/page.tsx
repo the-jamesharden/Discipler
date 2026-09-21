@@ -8,7 +8,6 @@ import { AdminShell, NotAnAdmin } from '../shell'
 import {
   CANCEL,
   CARE_NEEDED_HEADING,
-  CARE_NEEDED_LEAD,
   careOutcomeMessage,
   careRefusalMessage,
   concernLine,
@@ -289,7 +288,6 @@ export default async function FollowUpPage({
           <h2 className="card-title">{CARE_NEEDED_HEADING}</h2>
           <span className="muted">{itemCount(items.length)}</span>
         </div>
-        <p className="card-lead">{CARE_NEEDED_LEAD}</p>
 
         {refusal ? (
           <p className="toast error" role="alert">

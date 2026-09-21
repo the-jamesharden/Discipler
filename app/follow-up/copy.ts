@@ -18,19 +18,13 @@ import { refusalIn } from '../refusals'
  * wording of an import report.
  *
  * The tone follows the source, which is the prototype's own colour discipline: a
- * Concern reads red, Stalled reads amber, and a Follow-Up Item reads neutral. The
- * prototype's sentence about it is kept under the heading, because it is the
- * product rule said plainly.
+ * Concern reads red, Stalled reads amber, and a Follow-Up Item reads neutral.
+ *
+ * The prototype's paragraph under the heading, which listed every kind of thing
+ * the tab can hold, is gone (James, 2026-09-21): the items say what they are.
  */
 
 export const CARE_NEEDED_HEADING = 'Care needed'
-
-export const CARE_NEEDED_LEAD =
-  'Everything currently needing attention: stalled relationships, unresolved '
-  + 'concerns, expired pauses, open swap requests, relationships waiting more than '
-  + 'five days for their leader to accept, and what people have texted. Pauses, '
-  + 'swaps and slow acceptances are ordinary things — they are review conditions, '
-  + 'not care flags. Nothing here clears itself.'
 
 export const NOTHING_NEEDS_ATTENTION = 'Nothing needs attention right now.'
 
