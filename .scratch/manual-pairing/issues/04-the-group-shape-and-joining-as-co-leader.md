@@ -56,7 +56,8 @@ Every one of those conditions is an acceptance criterion below.
 
 ### Greying
 
-- [x] Other-gender rows are greyed with *Women's group: choose Coed to include* (or *Men's*) until Coed is chosen, and then they open up.
+- [x] Other-gender rows are not shown until Coed is chosen, and then they fade in.
+  Reworded by James's decision of 2026-09-21; it read *are greyed with Women's group: choose Coed to include (or Men's) until Coed is chosen, and then they open up*.
 - [x] Changing the gender toggle re-checks every row.
   Anybody ticked who becomes greyed is unticked and named in the popup's line, through ticket 02's mechanism.
 - [x] No gender on file is never greyed, under any of the three.
@@ -106,7 +107,8 @@ Every one of those conditions is an acceptance criterion below.
 
 ### Sentence, button, submit
 
-- [x] *Claire Martinez will co-lead Grace's Group with Grace Lee.* **Add as co-leader**.
+- [x] *Claire Martinez will co-lead Grace's Group with Grace Lee.* **Add as co-discipler**.
+  Reworded by James's decision of 2026-09-21; the button read **Add as co-leader**, and the Roster's copy never says the model's Leader.
   Several existing leaders are all named.
 - [x] It posts to old ticket 22's route.
   The Roster's receipt says an invitation was sent and that the group carries on meanwhile; it does not say Claire leads it yet.
@@ -118,6 +120,36 @@ Every one of those conditions is an acceptance criterion below.
 - [x] Looked at in a browser beside mock state G, scrolled to the bottom of the list, at desktop and phone width.
 
 ## Comments
+
+### James, 2026-09-21: the four things, answered, and what was built for them
+
+His words: "use the filter and have it actually fade, 2 go with your suggestions, 3 i do not understand, and fix the roster stuff in 4".
+
+**1. Hidden, and it fades.** Built in `8bd2d00` and `89d0edf`.
+From a Discipler, a row gender rules out is not shown, and the toolbar's count leaves it out.
+It stays in the markup so that it can fade back where it stands: `leftOut` on `PairRow` marks it `gone`, hidden from a screen reader, out of the tab order, its mark disabled so no form posts it.
+Which readings leave a row out is `leavesOffTheList` in `app/roster/greying.ts` (gender, and nothing else), sent with each row as `leftOut`, and `greyedOnRow` in `pair-shape.ts` answers both why and whether it is shown.
+The list became a flex column, because a grid keeps both gaps round an empty track and the rows left stood unevenly.
+*Already in a 1:1* is still a greyed row that says why.
+*Women's group: choose Coed to include* is no longer on any row; it is what the popup's line says of somebody the toggle unticks.
+Read as the rows themselves fading in and out; if he meant something else by *fade*, the Lavish page below asks.
+
+**2 and 3. Mock-ups, not built**, in `.lavish/coed-and-the-gender-toggle/index.html`, made from the real popup.
+His answer to 2 was to go with the suggestion, and the suggestion was a mock-up first, since it is a new control.
+Thought through against answer 1, *from the first tick* is not early enough: with men off the list, a Discipler whose Disciples are all men never gets a first tick, so the mock-up has the toggle there on opening, as **1:1 pair** and **Group**.
+3 is said again there beside the real refusal a men's group under Claire gets, with a recommendation to not show the segment her own gender rules out, which is his rule for everything else gender rules out.
+
+**4. The button says *Add as co-discipler*.** Built in `8bd2d00`.
+Read as: put the Roster's vocabulary rule back and change the word.
+`tests/app/roster-vocabulary.test.ts` is as it was before this ticket, and the constant is `PAIR_POPUP.addAsCoDiscipler`.
+The sentence is unchanged.
+A Discipler's own page still says *(co-leader)*; it is outside the Roster's copy and was left alone.
+The Lavish page asks whether he wants another word.
+
+Checked: `tests/app` and `tests/domain`, 72 files, 1473 tests, and the whole typecheck, on the branch.
+Over HTTP through `scripts/locked-tests.sh` from a clean worktree of the commit: six suites, 87 tests, none failed and none skipped.
+In Chrome, live: the men off the list at three ticked, the count going from 11 to 15 under Coed and back, even spacing both ways, the unticked line, and the browser's own transitions on the row in both directions (opacity and height over 220ms, and its visibility held until the fade-out ends).
+A fence test this ticket had left red, `tests/domain/relationship-kind-fence.test.ts`, was found and fixed by ticket 06's session in `4e17c8f`; this ticket's first run covered `tests/app` and not `tests/domain`, which is why it was missed.
 
 ### Implementer, 2026-09-21: built, what was decided while building, and four things for James
 

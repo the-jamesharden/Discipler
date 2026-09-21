@@ -115,7 +115,7 @@ A sentence above the buttons says what is about to be made, and the primary butt
 | 1:2 pair | Claire Martinez will disciple Sam Lee and Ana Ruiz together as a 1:2 pair. | **Create 1:2 pair** |
 | N × 1:1 pairs | Claire Martinez will disciple Sam Lee and Ana Ruiz separately, in 2 one-on-ones. | **Create 2 1:1 pairs** |
 | Group | Claire Martinez will lead a women's group of 3: Sam Lee, Ana Ruiz and Rosa Delgado. | **Create group of 3** |
-| A group chosen | Claire Martinez will co-lead Grace's Group with Grace Lee. | **Add as co-leader** |
+| A group chosen | Claire Martinez will co-lead Grace's Group with Grace Lee. | **Add as co-discipler** |
 
 The button is also disabled while a Group has no name.
 **Cancel** sits beside it.
@@ -136,8 +136,8 @@ Title: **Pair Sam Lee**.
   Nothing an Admin can change from this side would open such a row, so it is only in the way.
   Somebody with no gender on file is never left out.
   Where that leaves the list empty, the popup says only *There is nobody to choose yet.*
-  **Open, and James's to decide:** whether a Disciple's row in the popup from a Discipler is hidden in the same way.
-  It is greyed today, as **Gender** below says, because there Coed opens the row again and that is how a coed group is made by hand; James's words were unqualified, and he has not been asked about that argument.
+  **And from a Discipler too** (James, 2026-09-21, reviewing ticket 04: "use the filter and have it actually fade").
+  There the answer follows the ticks and the toggles, as **Gender** below says: a row gender rules out is not shown, and fades in where it belongs in the list when a Coed Group opens it.
 - A Discipler who has not completed Intake, or who has opted out, is greyed with the words their Roster row already says, **Awaiting Intake** or **Opted out**.
   The database refuses a pairing led by either, and they get no Pair on their own row for the same reason.
   They are shown, not hidden (James, 2026-09-20): only gender leaves anybody off this list.
@@ -147,12 +147,14 @@ Title: **Pair Sam Lee**.
 ## Gender
 
 - **A 1:1**, alone or as one of N × 1:1, is same-gender while the Ministry enforces the match (`suggest_gender_match`), which the database already requires.
-  Nothing is asked; from a Discipler, other-gender rows are greyed with the reason, and from a Disciple they are not listed at all (*The popup, from a Disciple*, above).
+  Nothing is asked; other-gender rows are not shown, from either side (*The popup, from a Disciple*, above).
 - **A 1:2 pair** takes the Discipler's gender as its declaration and asks nothing.
-  Other-gender rows are greyed while 1:2 is selected.
+  Other-gender rows are not shown while 1:2 is selected.
 - **A Group** shows a **Women's · Men's · Coed** toggle directly under the shape toggle, preset from the Discipler.
-  Other-gender rows are greyed with *Women's group: choose Coed to include* until Coed is chosen, and then they open up.
+  Other-gender rows are not shown until Coed is chosen, and then they fade in, and the toolbar's count follows them.
   That is how a coed group is made by hand.
+  This replaces *greyed with Women's group: choose Coed to include*; those words are still what the popup's line says of somebody ticked whom a change of the toggle unticks.
+  **Open, in mock-up with James** (`.lavish/coed-and-the-gender-toggle/index.html`): the toggle only exists at two ticks, so Coed cannot be reached by a Discipler whose Disciples are all of another gender, and the segment a Discipler's own gender rules out can still be pressed.
   Coed is the screen's word for the model's `declared_gender = null`, mixed.
 - **A group being joined** already has its declaration, and a group that rules somebody out is not listed for them at all, from either side of the popup (James, 2026-09-21: "hidden for things that are against gender rules").
   This replaces *rows it rules out are greyed with it (A men's group)*.
@@ -232,7 +234,7 @@ The files are the tickets; this table only says which part of this spec each car
 
 The popup lands last, on commands that already work, and its Discipler side is built unlinked until ticket 05, so nothing ships a dead control.
 Old ticket 22's co-leader half was written against the current one-group limit and is not blocked on the several-leaders design.
-**Add as co-leader** gets its button in ticket 04 only after ticket 01, because until then a co-leader accepting on a running group would activate it a second time and send the Starter Message again.
+**Add as co-discipler** (the mock's *Add as co-leader*, reworded by James on 2026-09-21 so that the Roster never says the model's Leader) gets its button in ticket 04 only after ticket 01, because until then a co-leader accepting on a running group would activate it a second time and send the Starter Message again.
 
 ## Glossary changes
 
