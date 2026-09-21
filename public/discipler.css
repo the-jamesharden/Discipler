@@ -285,6 +285,16 @@ button:hover, .btn:hover { background: var(--primary-light); }
 .btn.small, button.small { padding: 0.3rem 0.7rem; font-size: 0.8rem; white-space: nowrap; }
 .btn.danger:hover, button.danger:hover { border-color: var(--red-concern); color: var(--red-concern); background: transparent; }
 button:disabled { opacity: 0.45; cursor: not-allowed; }
+/* Decline beside Accept on the Invitation Link's page (Manual pairing, recut
+   ticket 06; James, 2026-09-21): the same height and narrower, a muted red
+   outline, so saying no is there and is never the first thing pressed. The
+   border is inside the height a filled button has, which has none. */
+.accept-row { display: flex; align-items: stretch; gap: 0.6rem; flex-wrap: wrap; }
+.accept-row form { display: flex; margin: 0; }
+button.decline { background: transparent; color: var(--red-ink); border: 1px solid rgba(176, 42, 55, 0.4); padding: calc(0.6rem - 1px) 0.8rem; opacity: 0.72; }
+button.decline:hover { background: rgba(220, 53, 69, 0.08); opacity: 1; }
+button.decline-yes { background: var(--red-ink); }
+button.decline-yes:hover { background: var(--red-concern); }
 .link-btn { background: none; border: none; color: var(--primary); padding: 0; font-weight: 500; text-decoration: underline; cursor: pointer; }
 .link-btn:hover { background: none; color: var(--primary-light); }
 .wide-btn { display: block; width: 100%; padding: 0.7rem; background: transparent; border: 1.5px solid var(--primary); border-radius: 6px; color: var(--primary); font-weight: 700; cursor: pointer; font-size: 0.9rem; text-align: center; text-decoration: none; }
@@ -292,7 +302,9 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* ---- follow-up ---- */
 
-.fu-list { list-style: none; }
+/* Its margin is said here, because `.card ul` would otherwise indent the items
+   from the left edge of their card and not from the right. */
+.fu-list { list-style: none; margin: 0; padding: 0; }
 .fu { padding: 1.1rem 1.25rem; border: 1px solid var(--border); border-left-width: 4px; border-radius: 6px; margin-bottom: 0.85rem; }
 .fu.care-concern { border-left-color: var(--red-concern); }
 .fu.care-stalled { border-left-color: var(--amber); }
@@ -316,6 +328,10 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .fu-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--surface); }
 .fu-btn.danger:hover { border-color: var(--red-concern); color: var(--red-concern); }
 .fu-reveal { margin-top: 0.75rem; font-size: 0.9rem; }
+/* What Copy link to re-invite leader says back, on a line of its own under the
+   buttons; the field is only there where the browser refused the clipboard. */
+.fu-actions .fu-copied { flex-basis: 100%; margin: 0; }
+.fu-copied input { display: block; width: 100%; margin: 0.4rem 0 0; }
 .sms { background: rgba(45, 80, 22, 0.04); border-left: 3px solid var(--primary); padding: 0.6rem 0.8rem; border-radius: 0 5px 5px 0; font-size: 0.9rem; margin: 0.4rem 0; line-height: 1.5; white-space: pre-wrap; }
 .audit { font-size: 0.78rem; color: var(--text-light); border-top: 1px solid var(--border); margin-top: 1rem; padding-top: 0.7rem; }
 

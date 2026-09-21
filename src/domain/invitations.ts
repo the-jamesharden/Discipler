@@ -61,24 +61,51 @@ export const issueInvitation = ({
 })
 
 /**
- * Three states rather than a boolean, because the page has to say three different
- * things. A link that has run out sends its holder back to an Admin; a link that
- * has already been used sends them to sign in; a token that names nothing at all
- * is neither, and is not this function's to answer.
+ * How an invitation that was never accepted ended (Manual pairing, recut ticket
+ * 06; decided by James on 2026-09-21). Its Leader declined on the page the link
+ * opens, or nobody answered and the tick withdrew it when its fortnight ran out.
+ * Either way their unaccepted leader membership ended with it.
  */
-export type InvitationState = 'live' | 'expired' | 'consumed'
+export const INVITATION_WITHDRAWALS = ['declined', 'expired'] as const
+
+export type WithdrawnAs = (typeof INVITATION_WITHDRAWALS)[number]
+
+export const isWithdrawnAs = (value: unknown): value is WithdrawnAs =>
+  INVITATION_WITHDRAWALS.some((withdrawal) => withdrawal === value)
+
+/**
+ * Four states rather than a boolean, because the page has to say four different
+ * things. A link that has run out sends its holder back to an Admin; a link that
+ * has already been used sends them to sign in; a link its holder declined says
+ * the Ministry has been told; a token that names nothing at all is none of them,
+ * and is not this function's to answer.
+ */
+export type InvitationState = 'live' | 'expired' | 'consumed' | 'declined'
 
 export interface ResolvedInvitation {
   readonly expiresAt: Date
   readonly consumedAt: Date | null
+  /** How it was withdrawn, or null where it has not been. */
+  readonly withdrawnAs: WithdrawnAs | null
 }
 
 export const invitationState = (
-  { expiresAt, consumedAt }: ResolvedInvitation,
+  { expiresAt, consumedAt, withdrawnAs }: ResolvedInvitation,
   now: Date,
 ): InvitationState => {
   // Consumed wins over expired when a link is both. The Leader has an account;
   // telling them their link ran out would send them to an Admin for nothing.
   if (consumedAt) return 'consumed'
-  return now.getTime() > expiresAt.getTime() ? 'expired' : 'live'
+  if (withdrawnAs === 'declined') return 'declined'
+  // One the tick withdrew had run out, which is all its holder needs to be told.
+  if (withdrawnAs === 'expired') return 'expired'
+  return hasRunOut(expiresAt, now) ? 'expired' : 'live'
 }
+
+/**
+ * Whether a link's window has closed. Said once, because acceptance and the
+ * tick's withdrawal both read it and must never both be true of one instant: a
+ * link is live up to and including its expiry, and run out after it.
+ */
+export const hasRunOut = (expiresAt: Date, now: Date): boolean =>
+  now.getTime() > expiresAt.getTime()

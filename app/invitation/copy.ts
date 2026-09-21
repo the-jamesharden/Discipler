@@ -29,6 +29,8 @@ const PROBLEMS: Record<Problem, string> = {
   'invitation.already_used':
     'You’ve already set up your account with this link. Sign in with your phone number and password.',
   'invitation.not_a_leader': 'This link isn’t yours to accept.',
+  'invitation.declined':
+    'You declined this invitation, so this link doesn’t open it any more. If you’ve changed your mind, let whoever invited you know.',
   'account.password_too_short': PASSWORD_TOO_SHORT,
   'account.no_number_on_file':
     'We don’t have a phone number for you, so there’s nothing to sign you in with. Let whoever invited you know.',
@@ -70,3 +72,27 @@ export const revealHeading = (names: readonly string[]): string =>
  */
 export const leadingWithSentence = (names: readonly string[]): string | null =>
   names.length === 0 ? null : `You will be leading with ${asList(names)}.`
+
+/**
+ * Declining (Manual pairing, recut ticket 06; decided by James on 2026-09-21).
+ * The confirmation is one question in his words and two buttons, and explains
+ * nothing else.
+ */
+export const ACCEPT = 'Accept and start'
+export const DECLINE = 'Decline'
+export const DECLINE_QUESTION = 'Are you sure you want to decline this invitation?'
+export const YES_DECLINE = 'Yes, decline'
+export const GO_BACK = 'Go back'
+
+export const DECLINED_HEADING = 'Thanks for letting us know'
+
+/**
+ * What a declined link says, straight after declining and every time it is
+ * opened again. It branches on how many they were paired with and never on the
+ * kind the relationship was formed as, like the reveal. No name is in it: they
+ * are no longer somebody the relationship is shown to.
+ */
+export const declinedMessage = (ministryName: string, pairedWithCount: number): string =>
+  `We’ve told ${ministryName} you won’t be ${
+    pairedWithCount === 1 ? 'taking this on' : 'leading this group'
+  }. Nothing else is needed from you, and nobody else has been contacted.`

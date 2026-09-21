@@ -13,6 +13,7 @@ import pg from 'pg'
 import type {
   AwaitingLeader,
   IntakeLinkSnapshot,
+  InvitationHeld,
   InvitationSnapshot,
   OpenJoinRequest,
   PausedRelationship,
@@ -29,6 +30,7 @@ import type {
   NewLeaderMembership,
   NewParticipantMembership,
   NewDiscipleshipGoal,
+  InvitationWithdrawal,
   LeaderAcceptance,
   MaterialAssignment,
   MaterialEdit,
@@ -47,7 +49,12 @@ import {
   type NewFollowUpItem,
 } from '~/domain/follow-up'
 import { intakeLinkToken, type IntakeLinkToken, type NewIntakeLink } from '~/domain/intake-link'
-import { invitationToken, type InvitationToken, type NewInvitation } from '~/domain/invitations'
+import {
+  invitationToken,
+  isWithdrawnAs,
+  type InvitationToken,
+  type NewInvitation,
+} from '~/domain/invitations'
 import {
   keywordExchangeId,
   type InboundSnapshot,
@@ -761,6 +768,46 @@ const intakeLinkWhere = async (
     : null
 }
 
+/**
+ * Activation, and the database has the final say on it. The domain decided from a
+ * snapshot read earlier in this transaction; this refuses to stamp unless every
+ * open leader membership really does carry an acceptance, so a co-leader whose
+ * acceptance was rolled back cannot leave a relationship activated on their
+ * behalf. And unless it has a Leader at all: a withdrawn invitation can leave a
+ * relationship with none (Manual pairing, recut ticket 06), and *every Leader it
+ * has* is true of nobody.
+ *
+ * The Material chosen at pairing is spent in the same statement. The domain has
+ * already turned it into a period, or skipped it because it is off the list, and
+ * either way nothing reads it again: an accepted relationship carries no
+ * intention, which the table states as a check of its own.
+ */
+const activateInTheDatabase = async (
+  client: PoolClient,
+  relationship: RelationshipId,
+  at: Date,
+): Promise<void> => {
+  await client.query(
+    `update relationship set accepted_at = $2, intended_material_id = null
+      where id = $1
+        and accepted_at is null
+        and exists (
+          select 1 from relationship_member m
+           where m.relationship_id = relationship.id
+             and m.role = 'leader'
+             and m.ended_at is null
+        )
+        and not exists (
+          select 1 from relationship_member m
+           where m.relationship_id = relationship.id
+             and m.role = 'leader'
+             and m.ended_at is null
+             and m.accepted_at is null
+        )`,
+    [relationship, at],
+  )
+}
+
 const unitFor = (client: PoolClient): UnitOfWork => ({
   async peopleOnRoster() {
     // Scoped by the policy on `person`, not by a ministry_id in this statement: the
@@ -1249,8 +1296,9 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       person_id: string
       expires_at: Date
       consumed_at: Date | null
+      withdrawn_as: string | null
     }>(
-      `select relationship_id, person_id, expires_at, consumed_at
+      `select relationship_id, person_id, expires_at, consumed_at, withdrawn_as
          from invitation where token = $1`,
       [token],
     )
@@ -1338,6 +1386,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       personId: personId(invitation.person_id),
       expiresAt: invitation.expires_at,
       consumedAt: invitation.consumed_at,
+      withdrawnAs: isWithdrawnAs(invitation.withdrawn_as) ? invitation.withdrawn_as : null,
       relationshipAcceptedAt: locked[0]?.accepted_at ?? null,
       unansweredItemId: unanswered[0] ? followUpItemId(unanswered[0].id) : null,
       intendedMaterialId: intended === null ? null : materialId(intended),
@@ -1377,7 +1426,8 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       `update invitation
           set token = $4, created_at = $5, expires_at = $6
         where ministry_id = $1 and relationship_id = $2 and person_id = $3
-          and consumed_at is null`,
+          and consumed_at is null
+          and withdrawn_at is null`,
       [
         invitation.ministryId,
         invitation.relationshipId,
@@ -1407,7 +1457,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // than accepting twice.
     const { rowCount: spent } = await client.query(
       `update invitation set consumed_at = $2
-        where token = $1 and consumed_at is null`,
+        where token = $1 and consumed_at is null and withdrawn_at is null`,
       [acceptance.token, acceptance.acceptedAt],
     )
     if (spent === 0) throw new InvitationRefused('invitation.already_used')
@@ -1443,30 +1493,76 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     if (agreed === 0) throw new InvitationRefused('invitation.already_used')
 
     if (!acceptance.activatesRelationship) return
+    await activateInTheDatabase(client, acceptance.relationshipId, acceptance.acceptedAt)
+  },
 
-    // Activation, and the database has the final say on it. The domain decided
-    // from a snapshot read earlier in this transaction; this refuses to stamp
-    // unless every open leader membership really does carry an acceptance, so a
-    // co-leader whose acceptance was rolled back cannot leave a relationship
-    // activated on their behalf.
-    //
-    // The Material chosen at pairing is spent in the same statement. The domain
-    // has already turned it into a period, or skipped it because it is off the
-    // list, and either way nothing reads it again: an accepted relationship
-    // carries no intention, which the table states as a check of its own.
-    await client.query(
-      `update relationship set accepted_at = $2, intended_material_id = null
-        where id = $1
-          and accepted_at is null
-          and not exists (
-            select 1 from relationship_member m
-             where m.relationship_id = relationship.id
-               and m.role = 'leader'
-               and m.ended_at is null
-               and m.accepted_at is null
-          )`,
-      [acceptance.relationshipId, acceptance.acceptedAt],
+  async withdrawInvitation(withdrawal: InvitationWithdrawal) {
+    // The link first, and exactly once, as an acceptance spends it: a second
+    // press of *Yes, decline* updates no row and is told the link was declined.
+    const { rowCount: withdrawn } = await client.query(
+      `update invitation set withdrawn_at = $2, withdrawn_as = $3
+        where token = $1 and consumed_at is null and withdrawn_at is null`,
+      [withdrawal.token, withdrawal.withdrawnAt, withdrawal.withdrawnAs],
     )
+    if (withdrawn === 0) throw new InvitationRefused('invitation.declined')
+
+    // Their unaccepted leader membership, dated rather than deleted: that they
+    // were invited, and when, stays on the relationship. `accepted_at is null` is
+    // the database's final say that this ends an invitation and never somebody's
+    // leading; no `departed_by`, because no Admin removed them.
+    const { rowCount: left } = await client.query(
+      `update relationship_member set ended_at = $3
+        where relationship_id = $1
+          and person_id = $2
+          and role = 'leader'
+          and ended_at is null
+          and accepted_at is null`,
+      [withdrawal.relationshipId, withdrawal.personId, withdrawal.withdrawnAt],
+    )
+    if (left === 0) throw new InvitationRefused('invitation.already_used')
+
+    if (!withdrawal.activatesRelationship) return
+    await activateInTheDatabase(client, withdrawal.relationshipId, withdrawal.withdrawnAt)
+  },
+
+  async lapsedInvitations(asOf: Date): Promise<readonly InvitationToken[]> {
+    // Candidates only, read with no lock: every one of them is decided again by
+    // `invitation.expire`, in a transaction of its own and behind the row an
+    // acceptance holds. `asOf` is the caller's clock and never `now()`, like
+    // every other question about time.
+    const { rows } = await client.query<{ token: string }>(
+      `select i.token
+         from invitation i
+         join relationship r on r.id = i.relationship_id
+         join relationship_member m
+           on m.relationship_id = i.relationship_id
+          and m.person_id = i.person_id
+        where i.ministry_id = app.command_ministry_id()
+          and i.consumed_at is null
+          and i.withdrawn_at is null
+          and i.expires_at < $1
+          and r.ended_at is null
+          and m.role = 'leader'
+          and m.ended_at is null
+          and m.accepted_at is null
+        order by i.expires_at, i.id`,
+      [asOf],
+    )
+    return rows.map((row) => invitationToken(row.token))
+  },
+
+  async invitationHeldBy(relationship: RelationshipId, person: PersonId): Promise<InvitationHeld> {
+    const { rows } = await client.query<{ expires_at: Date; withdrawn: boolean }>(
+      `select expires_at, withdrawn_at is not null as withdrawn
+         from invitation
+        where relationship_id = $1 and person_id = $2 and consumed_at is null`,
+      [relationship, person],
+    )
+    return {
+      // At most one, which `invitation_one_live_per_person_per_relationship` holds.
+      liveExpiresAt: rows.find((row) => !row.withdrawn)?.expires_at ?? null,
+      everWithdrawn: rows.some((row) => row.withdrawn),
+    }
   },
 
   async openIntendedPairings(): Promise<readonly OpenIntendedPairing[]> {
@@ -1689,6 +1785,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     const { rows: relationships } = await client.query<{
       id: string
       waiting_since: Date
+      already_running: boolean
       item_stands_open: boolean
     }>(
       // Open items only, which is the same rule the partial unique index holds and
@@ -1711,6 +1808,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
                             and w.ended_at is null
                             and w.accepted_at is null)
                end as waiting_since,
+              r.accepted_at is not null as already_running,
               exists (
                 select 1 from follow_up_item f
                  where f.relationship_id = r.id
@@ -1767,6 +1865,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
            on i.relationship_id = m.relationship_id
           and i.person_id = m.person_id
           and i.consumed_at is null
+          and i.withdrawn_at is null
         where m.relationship_id = any($1::uuid[])
           and m.role = 'leader'
           and m.ended_at is null
@@ -1801,6 +1900,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     return relationships.map((row) => ({
       relationshipId: relationshipId(row.id),
       waitingSince: row.waiting_since,
+      alreadyRunning: row.already_running,
       awaiting: awaitingBy.get(row.id) ?? [],
       itemStandsOpen: row.item_stands_open,
     }))

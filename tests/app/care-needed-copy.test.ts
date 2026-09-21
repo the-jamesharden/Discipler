@@ -5,8 +5,10 @@ import {
   careOutcomeMessage,
   careRefusalMessage,
   concernLine,
+  declinedTitle,
   followUpLine,
   followUpTag,
+  READS_AS_A_CONCERN,
   stalledLine,
 } from '../../app/follow-up/copy'
 import { shortFollowUp, shortReason } from '../../app/overview/copy'
@@ -32,6 +34,62 @@ const payloadOf = (kind: FollowUpPayload['kind']): FollowUpPayload => {
       return { kind }
   }
 }
+
+// Manual pairing, recut ticket 06; every word of it decided by James on 2026-09-21.
+describe('what Care Needed says of an invitation that was withdrawn', () => {
+  const group = { leadsAGroup: true, running: true, ledByNobody: false }
+  const oneToOne = { leadsAGroup: false, running: false, ledByNobody: true }
+
+  it('says the two weeks in James’s sentence, with Group leader before the name', () => {
+    expect(followUpLine({ kind: 'invitation_expired' }, 'Claire Martinez', null, null, group)).toBe(
+      'Group leader Claire Martinez has not responded in two weeks, their invite has expired.',
+    )
+    expect(followUpTag.invitation_expired).toBe('Invitation expired')
+  })
+
+  it('says Discipler for a one-to-one, which has no group', () => {
+    expect(
+      followUpLine({ kind: 'invitation_expired' }, 'Claire Martinez', null, null, oneToOne),
+    ).toBe('Discipler Claire Martinez has not responded in two weeks, their invite has expired.')
+    expect(declinedTitle('Claire Martinez', false)).toBe('Discipler Claire Martinez Declined')
+  })
+
+  it('titles a decline Group leader [name] Declined', () => {
+    expect(declinedTitle('Claire Martinez', true)).toBe('Group leader Claire Martinez Declined')
+  })
+
+  it('says a running group carries on, and says so of nothing that is not running', () => {
+    expect(followUpLine({ kind: 'match_declined' }, 'Claire Martinez', null, null, group)).toBe(
+      'Invited to help lead this group. The invitation has been withdrawn, and the group carries on.',
+    )
+    expect(
+      followUpLine({ kind: 'match_declined' }, 'Claire Martinez', null, null, {
+        ...group,
+        running: false,
+      }),
+    ).toBe('Invited to lead this group. The invitation has been withdrawn.')
+  })
+
+  it('says so where declining left it with nobody to lead it', () => {
+    expect(followUpLine({ kind: 'match_declined' }, 'Claire Martinez', null, null, oneToOne)).toBe(
+      'Invited to lead this pairing. The invitation has been withdrawn, and nobody leads it now.',
+    )
+  })
+
+  it('draws those two red, and nothing else a Follow-Up Item can say', () => {
+    expect([...READS_AS_A_CONCERN].sort()).toEqual(['invitation_expired', 'match_declined'])
+  })
+
+  it('says nobody leads a relationship left waiting with no Leader, and still offers no name', () => {
+    const line = followUpLine({ kind: 'relationship_unaccepted' }, null, 15, {
+      names: [],
+      running: false,
+    })
+    expect(line).toContain('Nobody leads this relationship')
+    expect(line).toContain('15 days')
+    expect(line).not.toContain('The leader')
+  })
+})
 
 describe('what Care Needed says of an invitation nobody has answered', () => {
   const unanswered: FollowUpPayload = { kind: 'relationship_unaccepted' }
@@ -71,10 +129,15 @@ describe('what Care Needed says', () => {
 
   it('names the Person on every kind that is about one', () => {
     // A pause running out is about the relationship and names nobody; every other
-    // kind is raised by or about a Person, and the sentence says who.
-    for (const kind of FOLLOW_UP_KINDS.filter((each) => each !== 'pause_expired')) {
+    // kind is raised by or about a Person, and the sentence says who. A Leader who
+    // declined is named in the item's title, which is James's, and not again
+    // under it.
+    for (const kind of FOLLOW_UP_KINDS.filter(
+      (each) => each !== 'pause_expired' && each !== 'match_declined',
+    )) {
       expect(followUpLine(payloadOf(kind), 'Emily Johnson', 5), kind).toContain('Emily Johnson')
     }
+    expect(declinedTitle('Emily Johnson', true)).toContain('Emily Johnson')
   })
 
   it('says how long an unaccepted relationship has waited, as of now', () => {

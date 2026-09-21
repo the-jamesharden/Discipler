@@ -6,6 +6,7 @@ import type {
 } from '~/domain/intended-pairing'
 import type {
   IntakeLinkSnapshot,
+  InvitationHeld,
   InvitationSnapshot,
   PausedRelationship,
   PersonContact,
@@ -27,6 +28,7 @@ import type {
   DiscipleshipGoalRenaming,
   IntakeRecord,
   ImportRowResolution,
+  InvitationWithdrawal,
   LeaderAcceptance,
   MaterialAssignment,
   MaterialEdit,
@@ -54,7 +56,7 @@ import type {
 } from '~/domain/effects'
 import type { FollowUpResolution, NewFollowUpItem } from '~/domain/follow-up'
 import type { NewIntakeLink } from '~/domain/intake-link'
-import type { NewInvitation } from '~/domain/invitations'
+import type { InvitationToken, NewInvitation } from '~/domain/invitations'
 import { eventId, type MinistryId, type PersonId } from '~/domain/ids'
 import {
   DEFAULT_AGE_BAND_GAP,
@@ -87,6 +89,10 @@ export interface InMemoryStore extends EffectStore {
   readonly intakes: readonly IntakeRecord[]
   readonly invitations: readonly NewInvitation[]
   readonly acceptances: readonly LeaderAcceptance[]
+  readonly withdrawals: readonly InvitationWithdrawal[]
+  /** Seeded: the tokens `lapsedInvitations` answers with, and what a re-invitation finds held. */
+  lapsed?: readonly InvitationToken[]
+  invitationHeld?: InvitationHeld
   readonly followUps: readonly NewFollowUpItem[]
   /** Every plan an import recorded, and every closing of one, in the order the effects made them. */
   readonly plans: readonly NewIntendedPairing[]
@@ -213,6 +219,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
   const intakes: IntakeRecord[] = []
   const invitations: NewInvitation[] = []
   const acceptances: LeaderAcceptance[] = []
+  const withdrawals: InvitationWithdrawal[] = []
   const followUps: NewFollowUpItem[] = []
   const plans: NewIntendedPairing[] = []
   const planClosures: IntendedPairingClosure[] = []
@@ -282,6 +289,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
     },
     get acceptances() {
       return [...acceptances]
+    },
+    get withdrawals() {
+      return [...withdrawals]
     },
     get followUps() {
       return [...followUps]
@@ -427,6 +437,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       const stagedIntakes: IntakeRecord[] = []
       const stagedInvitations: NewInvitation[] = []
       const stagedAcceptances: LeaderAcceptance[] = []
+      const stagedWithdrawals: InvitationWithdrawal[] = []
       const stagedFollowUps: NewFollowUpItem[] = []
       const stagedResolutions: FollowUpResolution[] = []
       const stagedCancellations: RelationshipCancellation[] = []
@@ -583,6 +594,15 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         },
         async acceptInvitation(acceptance) {
           stagedAcceptances.push(acceptance)
+        },
+        async withdrawInvitation(withdrawal) {
+          stagedWithdrawals.push(withdrawal)
+        },
+        async lapsedInvitations() {
+          return store.lapsed ?? []
+        },
+        async invitationHeldBy() {
+          return store.invitationHeld ?? { liveExpiresAt: null, everWithdrawn: false }
         },
         async raiseFollowUp(item) {
           if (store.nothingLeftToRaise) return false
@@ -756,6 +776,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       outbox.push(...stagedOutbox)
       invitations.push(...stagedInvitations)
       acceptances.push(...stagedAcceptances)
+      withdrawals.push(...stagedWithdrawals)
       followUps.push(...stagedFollowUps)
       resolutions.push(...stagedResolutions)
       concerns.push(...stagedConcerns)

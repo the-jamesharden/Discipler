@@ -659,6 +659,48 @@ export type Command =
       readonly token: InvitationToken
     }
   /**
+   * A Leader saying no on the page their link opens (Manual pairing, recut ticket
+   * 06; decided by James on 2026-09-21). Their invitation is withdrawn and their
+   * unaccepted leader membership ended, never deleted; an Admin is told on
+   * Follow-Up, and nobody else is told anything. Like every command a token
+   * drives, it consults no session.
+   */
+  | {
+      readonly type: 'invitation.decline'
+      readonly ministryId: MinistryId
+      readonly token: InvitationToken
+    }
+  /**
+   * One invitation nobody answered, withdrawn by the product once its fortnight
+   * has run out (Manual pairing, recut ticket 06). The tick's caller issues one of
+   * these per lapsed invitation, each in a transaction of its own and behind the
+   * row an acceptance holds, so one that was accepted in the same moment is found
+   * accepted here and nothing is withdrawn. No Admin performs it, so it names none.
+   */
+  | {
+      readonly type: 'invitation.expire'
+      readonly ministryId: MinistryId
+      readonly token: InvitationToken
+    }
+  /**
+   * **Copy link to re-invite leader**, on the item the two weeks raise (Manual
+   * pairing, recut ticket 06). It puts the Person back on the relationship as
+   * somebody invited, where their membership was withdrawn, and mints a fresh
+   * invitation for another fortnight either way -- so the link it hands back
+   * always works. It sends nobody anything: the Admin carries the link by hand.
+   *
+   * Every copy is recorded with the Admin who made it, because the link alone is
+   * what lets its holder set the account's password.
+   */
+  | {
+      readonly type: 'invitation.copy_link'
+      readonly ministryId: MinistryId
+      readonly relationshipId: RelationshipId
+      readonly personId: PersonId
+      /** The Admin's account, as the session named it. */
+      readonly copiedBy: string
+    }
+  /**
    * An Admin putting a Leader who has lost their password back in.
    *
    * The password itself is nowhere in this command and is nowhere in what it

@@ -85,6 +85,17 @@ const runOneMinistry = async (ministryId: MinistryId): Promise<MinistryOutcome> 
     // pass and its invitation goes out in the drain that follows (ADR-0022).
     const settled = await getCommandService().settleIntendedPairings(ministryId)
 
+    // Then the invitations nobody answered in their fortnight, withdrawn one
+    // transaction each (Manual pairing, recut ticket 06). Before the drain,
+    // because a withdrawal can activate a relationship and its Starter Message
+    // should go out on this pass. Caught on its own: it is the newest thing here,
+    // and nothing it could fail on is a reason to hold back a week's check-ins.
+    try {
+      await getCommandService().withdrawLapsedInvitations(ministryId)
+    } catch (error) {
+      console.error(`Withdrawing lapsed invitations failed for ministry ${ministryId}`, error)
+    }
+
     const outcome = await drainOutboundQueue(ministryId)
 
     return { ministryId, ...outcome, settled, error: null }

@@ -5,6 +5,7 @@ import { RELATIONSHIP_OUTCOMES } from '~/domain/relationships'
 import { getCareNeededReader } from '~/service/container'
 import type { CareMember, CareNeededItem } from '~/service/ports'
 import { AdminShell, NotAnAdmin } from '../shell'
+import { ReinviteButton } from './reinvite-button'
 import {
   CANCEL,
   CARE_NEEDED_HEADING,
@@ -12,17 +13,23 @@ import {
   careRefusalMessage,
   concernLine,
   concernTag,
+  CONTACT_INFO,
+  COPY_IT_BY_HAND,
+  COPY_LINK_TO_REINVITE,
+  declinedTitle,
   END,
   ENDING_EXPLANATION,
   followUpLine,
   followUpTag,
   itemCount,
+  LINK_COPIED,
   NEEDS_CARE_LINE,
   needsCareTag,
   NOTHING_NEEDS_ATTENTION,
   numberNotShared,
   outcomeLabel,
   readConcerns,
+  READS_AS_A_CONCERN,
   REASON_PLACEHOLDER,
   RESOLVE,
   RESUME,
@@ -125,17 +132,34 @@ const Item = ({ item, revealed }: { readonly item: CareNeededItem; readonly reve
   if (item.source === 'follow_up') {
     const relationship = item.relationshipId
     const kind = item.payload.kind
+    // A Leader whose invitation was withdrawn, by declining or at two weeks. Red,
+    // with the left edge and the tag a Concern has (James, 2026-09-21): until
+    // then red on this tab meant a Concern and nothing else, and everything else
+    // a Follow-Up Item can say is still the grey of something to review.
+    const red = READS_AS_A_CONCERN.has(kind)
     return (
-      <li className="fu review" id={relationship ? `relationship-${relationship}` : `item-${item.id}`}>
+      <li
+        className={red ? 'fu care-concern' : 'fu review'}
+        id={relationship && !red ? `relationship-${relationship}` : `item-${item.id}`}
+      >
         <div className="fu-tags">
-          <span className="fu-tag review">{followUpTag[kind]}</span>
-          {item.personName ? <span className="fu-who">{item.personName}</span> : null}
+          <span className={red ? 'fu-tag concern' : 'fu-tag review'}>{followUpTag[kind]}</span>
+          {kind === 'match_declined' ? (
+            <span className="fu-who">{declinedTitle(item.personName, item.invited?.leadsAGroup ?? true)}</span>
+          ) : item.personName && kind !== 'invitation_expired' ? (
+            <span className="fu-who">{item.personName}</span>
+          ) : null}
         </div>
         <p className="fu-line">
-          {followUpLine(item.payload, item.personName, item.waitedDays, item.awaiting)}
+          {followUpLine(item.payload, item.personName, item.waitedDays, item.awaiting, item.invited)}
         </p>
         <div className="fu-actions">
-          {item.personId && kind !== 'relationship_unaccepted' ? (
+          {/*
+            No number is shown here for either red item. **Contact info** opens
+            their page from the Roster, which shows it behind the same consent
+            rule as everywhere else.
+          */}
+          {item.personId && kind !== 'relationship_unaccepted' && !red ? (
             <ContactReveal
               members={[{ personId: item.personId, fullName: item.personName ?? 'Them', role: 'participant' }]}
               revealed={revealed}
@@ -148,6 +172,20 @@ const Item = ({ item, revealed }: { readonly item: CareNeededItem; readonly reve
               {RESOLVE}
             </button>
           </form>
+          {kind === 'match_declined' && item.personId ? (
+            <Link className="fu-btn" href={`/roster/${item.personId}`}>
+              {CONTACT_INFO}
+            </Link>
+          ) : null}
+          {kind === 'invitation_expired' && relationship && item.personId ? (
+            <ReinviteButton
+              relationshipId={relationship}
+              personId={item.personId}
+              label={COPY_LINK_TO_REINVITE}
+              copied={LINK_COPIED}
+              copyByHand={COPY_IT_BY_HAND}
+            />
+          ) : null}
           {relationship && kind === 'pause_expired' ? (
             <form method="post" action="/follow-up/relationship/resume">
               <input type="hidden" name="relationshipId" value={relationship} />
@@ -173,7 +211,7 @@ const Item = ({ item, revealed }: { readonly item: CareNeededItem; readonly reve
               </button>
             </form>
           ) : null}
-          {relationship && kind !== 'relationship_unaccepted' && kind !== 'group_join_requested' ? (
+          {relationship && kind !== 'relationship_unaccepted' && kind !== 'group_join_requested' && !red ? (
             <EndForm relationshipId={relationship} />
           ) : null}
         </div>
@@ -183,7 +221,9 @@ const Item = ({ item, revealed }: { readonly item: CareNeededItem; readonly reve
 
   if (item.source === 'relationship') {
     // Stalled reads amber and Needs Care reads red, which is the prototype's own
-    // colour discipline: red is only ever a Concern.
+    // colour discipline. Red was only ever a Concern until 2026-09-21, when James
+    // asked that a Leader's declined or expired invitation read red as well; those
+    // two are Follow-Up Items, drawn above.
     const stalled = item.state === 'stalled'
     return (
       <li className={stalled ? 'fu care-stalled' : 'fu care-concern'} id={`relationship-${item.relationshipId}`}>

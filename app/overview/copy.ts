@@ -52,7 +52,8 @@ export const shortFollowUp: Record<FollowUpPayload['kind'], (waitedDays: number 
   swap_requested: () => 'Swap requested',
   participant_keyword: () => 'Texted a keyword',
   invitation_number_disputed: () => 'Number disputed',
-  match_declined: () => 'Match declined',
+  match_declined: () => 'Declined to lead',
+  invitation_expired: () => 'Invitation expired',
   group_join_requested: () => 'Wants to join',
   intended_pairing_refused: () => 'Pair not made',
 }

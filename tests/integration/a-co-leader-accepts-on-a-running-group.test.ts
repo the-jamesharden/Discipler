@@ -166,6 +166,24 @@ describe('a co-leader accepts on a group already running', () => {
     return rows
   }
 
+  /** The *Awaiting acceptance* item, raised as the tick raises it and with no tick. */
+  const raiseUnansweredItem = (
+    group: string,
+    within: MinistryFixture = ministry,
+    // The clock of whoever closes it, where that is not the real one: an item is
+    // resolved no earlier than it was raised.
+    at: Date = new Date(),
+  ) =>
+    store.transact(within.id, (unit) =>
+      unit.raiseFollowUp({
+        ministryId: within.id,
+        kind: 'relationship_unaccepted',
+        relationshipId: relationshipId(group),
+        personId: null,
+        raisedAt: at,
+      }),
+    )
+
   /** Nobody already in the group hears anything: not its Disciples, not its leaders. */
   const expectNobodyElseWasTold = async (
     group: { leader: string; disciples: readonly string[] },
@@ -440,7 +458,12 @@ describe('a co-leader accepts on a group already running', () => {
       await expectNobodyElseWasTold(group, sentBefore)
     })
 
-    it('unanswered for five days, raises the item an unanswered invitation at formation raises', async () => {
+    it('unanswered for five days on a running group, raises nothing any more', async () => {
+      // Recut ticket 06 (James, 2026-09-21): the Unaccepted flag is no longer
+      // raised for a leader added to a relationship already running. The Admin
+      // hears about her once, when the invitation is withdrawn at two weeks, which
+      // `declining-and-the-two-weeks.test.ts` holds.
+      //
       // Its own Ministry and its own clock: the tick reaches everything live in a
       // Ministry, and a clock does not run backwards. Started from now, not from a
       // date, because the fixtures beside it are stamped with the real clock.
@@ -454,22 +477,22 @@ describe('a co-leader accepts on a group already running', () => {
       await addLeader(group.id, claire, quiet, clock)
       const tick = () => service(clock).execute({ type: 'scheduled.tick', ministryId: quiet.id })
 
-      on(days(4))
-      await tick()
-      expect((await openItemsOn(group.id)).filter((item) => item.kind === 'relationship_unaccepted')).toEqual([])
-
       on(days(5))
       await tick()
-      expect((await openItemsOn(group.id)).filter((item) => item.kind === 'relationship_unaccepted')).toEqual([
-        { kind: 'relationship_unaccepted', person_id: null, payload: {} },
-      ])
+      expect(await openItemsOn(group.id)).toEqual([])
       // Still running, and still led by the leader it has.
       expect((await theGroupItself(group.id)).accepted_at).not.toBeNull()
+    })
 
-      // And the answer it was waiting for closes it, with no Admin on it. **Cancel**
-      // is refused on a running group, so left open it could only be dismissed.
-      on(days(6))
-      await accept(group.id, claire, quiet, clock)
+    it('an item already open about her is closed by her answer, with no Admin on it', async () => {
+      // One raised before recut ticket 06 stopped raising them for a running
+      // group. **Cancel** is refused there, so left open it could only be dismissed.
+      const group = await aGroup()
+      const claire = await aDiscipler()
+      await addLeader(group.id, claire)
+      await raiseUnansweredItem(group.id)
+
+      await accept(group.id, claire)
 
       expect(await openItemsOn(group.id)).toEqual([])
       const { rows: closed } = await pool.query<{ resolved_by: string | null }>(
@@ -490,8 +513,9 @@ describe('a co-leader accepts on a group already running', () => {
       await addLeader(group.id, claire, quiet, clock)
       await addLeader(group.id, tom, quiet, clock)
 
-      clock.advanceTo(new Date(started.getTime() + days(5)))
-      await service(clock).execute({ type: 'scheduled.tick', ministryId: quiet.id })
+      // Raised by hand, as a build before recut ticket 06 raised it: the tick no
+      // longer raises one about a group already running.
+      await raiseUnansweredItem(group.id, quiet, started)
       const unanswered = async () =>
         (await openItemsOn(group.id)).filter((item) => item.kind === 'relationship_unaccepted')
       expect(await unanswered()).toHaveLength(1)

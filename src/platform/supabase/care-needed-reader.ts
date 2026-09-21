@@ -147,6 +147,19 @@ export const followUpItemsFrom = (
     running: (activatedAtOf.get(relationship) ?? null) !== null,
   })
 
+  // What a Leader whose invitation was withdrawn had been invited to, as it
+  // stands now. They are no longer among its members, so everybody counted here
+  // is somebody else.
+  const invitedTo = (relationship: string) => {
+    const open = history.members.filter((row) => text(row.relationship_id) === relationship)
+    const leaders = open.filter((row) => row.role === 'leader').length
+    return {
+      leadsAGroup: leaders > 0 || open.filter((row) => row.role === 'participant').length > 1,
+      running: (activatedAtOf.get(relationship) ?? null) !== null,
+      ledByNobody: leaders === 0,
+    }
+  }
+
   // Once for the whole list, so two items read in the same breath cannot disagree
   // about what day it is -- and from the injected clock, like every other
   // time-dependent rule in this codebase.
@@ -190,6 +203,11 @@ export const followUpItemsFrom = (
         // say so of a Leader added last week.
         waitedDays: createdAt && !awaiting?.running ? daysSince(createdAt, now) : null,
         awaiting,
+        invited:
+          (item.kind === 'match_declined' || item.kind === 'invitation_expired') &&
+          item.relationshipId
+            ? invitedTo(item.relationshipId)
+            : null,
         payload,
       },
     ]

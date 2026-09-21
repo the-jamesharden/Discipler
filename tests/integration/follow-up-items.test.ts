@@ -77,6 +77,9 @@ describe('the Follow-Up Item table', () => {
       'group_join_requested',
       // A plan an import made that the pairing rules refused (ADR-0022).
       'intended_pairing_refused',
+      // An invitation nobody answered, withdrawn at two weeks (Manual pairing,
+      // recut ticket 06).
+      'invitation_expired',
       'invitation_number_disputed',
       'match_declined',
       'participant_keyword',

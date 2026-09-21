@@ -27,7 +27,7 @@ import type {
 import type { NewIntakeLink } from './intake-link'
 import type { MaterialPdf, MaterialTitle } from './materials'
 import type { MinistrySettings } from './ministry-settings'
-import type { InvitationToken, NewInvitation } from './invitations'
+import type { InvitationToken, NewInvitation, WithdrawnAs } from './invitations'
 import type { OutboundMessageKind, OutstandingReplyCutoff } from './outstanding-reply'
 import type { MemberRole, NewRelationship, RelationshipOutcome } from './relationships'
 import type { HeldImportRow, ImportRowAnswer, NewPerson, PhoneNumber } from './roster'
@@ -240,6 +240,32 @@ export interface LeaderAcceptance {
    * does the relationship leave Awaiting Leader Acceptance -- nobody co-leads
    * something they did not agree to -- and only then does anything reach a
    * Participant.
+   */
+  readonly activatesRelationship: boolean
+}
+
+/**
+ * One invitation ended without being accepted, which is two facts that are only
+ * true together: the link stops opening the door, and its Leader's unaccepted
+ * membership gains an end date. The membership is never deleted, so that they
+ * were invited, and when, stays in the Ministry's history.
+ *
+ * It carries no actor. A Leader who declines has no account yet, and the tick
+ * that withdraws an unanswered one is nobody; which of the two it was is
+ * `withdrawnAs`, and the history event beside this says the same.
+ */
+export interface InvitationWithdrawal {
+  readonly ministryId: MinistryId
+  readonly relationshipId: RelationshipId
+  readonly personId: PersonId
+  readonly token: InvitationToken
+  readonly withdrawnAt: Date
+  readonly withdrawnAs: WithdrawnAs
+  /**
+   * Whether this leaves a relationship nobody has activated with at least one
+   * Leader, every one of whom has accepted. Only then does it leave Awaiting
+   * Leader Acceptance, exactly as the last Leader's acceptance would have made
+   * it -- once, with its one Starter Message.
    */
   readonly activatesRelationship: boolean
 }
@@ -736,6 +762,7 @@ export type Effect =
   | { readonly kind: 'invitation.reissue'; readonly invitation: NewInvitation }
   | { readonly kind: 'intake_link.issue'; readonly link: NewIntakeLink }
   | { readonly kind: 'invitation.accept'; readonly acceptance: LeaderAcceptance }
+  | { readonly kind: 'invitation.withdraw'; readonly withdrawal: InvitationWithdrawal }
   | {
       readonly kind: 'followUp.raise'
       readonly item: NewFollowUpItem
@@ -999,6 +1026,11 @@ export const reissueInvitationLink = (invitation: NewInvitation): Effect => ({
 export const acceptInvitation = (acceptance: LeaderAcceptance): Effect => ({
   kind: 'invitation.accept',
   acceptance,
+})
+
+export const withdrawInvitation = (withdrawal: InvitationWithdrawal): Effect => ({
+  kind: 'invitation.withdraw',
+  withdrawal,
 })
 
 export const raiseFollowUpItem = (

@@ -2,7 +2,18 @@ import { notFound } from 'next/navigation'
 import { SHORTEST_PASSWORD } from '~/domain/accounts'
 import { getInvitationReader } from '~/service/container'
 import { Centred } from '../../shell'
-import { invitationProblemMessage, leadingWithSentence, revealHeading } from '../copy'
+import {
+  ACCEPT,
+  DECLINE,
+  DECLINE_QUESTION,
+  DECLINED_HEADING,
+  declinedMessage,
+  GO_BACK,
+  invitationProblemMessage,
+  leadingWithSentence,
+  revealHeading,
+  YES_DECLINE,
+} from '../copy'
 
 /**
  * The Invitation Link's page. **The pairing is revealed before any input is
@@ -22,10 +33,10 @@ export default async function InvitationPage({
   searchParams,
 }: {
   params: Promise<{ token: string }>
-  searchParams: Promise<{ error?: string; done?: string }>
+  searchParams: Promise<{ error?: string; done?: string; decline?: string }>
 }) {
   const { token } = await params
-  const { error, done } = await searchParams
+  const { error, done, decline } = await searchParams
   const invitation = await getInvitationReader().readInvitationPage(token)
 
   // A token that resolves to nothing says nothing about a Ministry, or about
@@ -38,6 +49,8 @@ export default async function InvitationPage({
     phone,
     role,
     state,
+    withdrawn,
+    pairedWithCount,
     userId,
     withNames,
     leadingWith,
@@ -71,6 +84,48 @@ export default async function InvitationPage({
     )
   }
 
+  /**
+   * What a declined link says, and all it says, however it is opened (Manual
+   * pairing, recut ticket 06). Drawn from the invitation itself and from no query
+   * string, so it is the same page straight after declining and a month later.
+   */
+  if (state === 'declined') {
+    return (
+      <Centred ministryName={ministryName}>
+        <h1 className="reveal" style={{ textAlign: 'center' }}>
+          {DECLINED_HEADING}
+        </h1>
+        <p className="muted" style={{ textAlign: 'center' }}>
+          {declinedMessage(ministryName, pairedWithCount)}
+        </p>
+      </Centred>
+    )
+  }
+
+  /**
+   * The one confirmation, under the Ministry's name: a question and two buttons,
+   * and nothing else. Only where Decline itself is offered, so a query string
+   * typed onto a spent link asks nothing. **Go back** is a link to this page as
+   * it was, because nothing has changed and there is nothing to post.
+   */
+  if (decline === 'ask' && state === 'live' && role === 'leader') {
+    return (
+      <Centred ministryName={ministryName}>
+        <h1 className="reveal">{DECLINE_QUESTION}</h1>
+        <div className="accept-row" style={{ marginTop: '1.25rem' }}>
+          <form method="post" action={`/invitation/${token}/decline/confirm`}>
+            <button type="submit" className="decline-yes">
+              {YES_DECLINE}
+            </button>
+          </form>
+          <a className="btn sec" href={`/invitation/${token}`}>
+            {GO_BACK}
+          </a>
+        </div>
+      </Centred>
+    )
+  }
+
   if (done === 'disputed') {
     return (
       <Centred ministryName={ministryName}>
@@ -90,7 +145,11 @@ export default async function InvitationPage({
         The reader already scoped `withNames` to the other side of the relationship:
         the Participants to a Leader, the Leaders to a Participant.
       */}
-      <h1 className="reveal">{revealHeading(withNames)}</h1>
+      {/*
+        Not on a link that was withdrawn: its holder is no longer on the
+        relationship, and the reader hands this page nobody's name.
+      */}
+      {withdrawn ? null : <h1 className="reveal">{revealHeading(withNames)}</h1>}
 
       <div>
         {problem ? (
@@ -154,7 +213,25 @@ export default async function InvitationPage({
                       : ' You’ll sign in with that number and this password.'}
                   </p>
 
-                  <button type="submit">Accept and start</button>
+                  {/*
+                    Decline beside Accept, the same height and narrower (James,
+                    2026-09-21). One form and two buttons, so both are ordinary
+                    posts with no script: Decline posts to its own route and
+                    skips the form's validation, because somebody saying no is
+                    not asked for a password first. It changes nothing; the page
+                    it lands on asks the one question.
+                  */}
+                  <div className="accept-row">
+                    <button type="submit">{ACCEPT}</button>
+                    <button
+                      type="submit"
+                      className="decline"
+                      formAction={`/invitation/${token}/decline`}
+                      formNoValidate
+                    >
+                      {DECLINE}
+                    </button>
+                  </div>
                 </form>
 
                 <form method="post" action={`/invitation/${token}/dispute`} className="card-note">
@@ -174,9 +251,11 @@ export default async function InvitationPage({
                   wrong a fortnight later is the same condition, and the affordance
                   that raises it must not be the thing that expired.
                 */}
-                <form method="post" action={`/invitation/${token}/dispute`}>
-                  <button type="submit" className="sec">That’s not my number</button>
-                </form>
+                {withdrawn ? null : (
+                  <form method="post" action={`/invitation/${token}/dispute`}>
+                    <button type="submit" className="sec">That’s not my number</button>
+                  </form>
+                )}
               </>
             )}
           </>

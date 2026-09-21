@@ -1,6 +1,6 @@
 import pg from 'pg'
 import { ministryId, personId } from '~/domain/ids'
-import { invitationState } from '~/domain/invitations'
+import { invitationState, isWithdrawnAs } from '~/domain/invitations'
 import { countsAsLeading, type MemberRole } from '~/domain/relationships'
 import type { InvitationPage, InvitationReader } from '~/service/ports'
 
@@ -60,6 +60,7 @@ export const createPostgresInvitationReader = (
           user_id: string | null
           expires_at: Date
           consumed_at: Date | null
+          withdrawn_as: string | null
           ministry_name: string
           relationship_accepted_at: Date | null
         }>(
@@ -70,6 +71,7 @@ export const createPostgresInvitationReader = (
                   m.role,
                   i.expires_at,
                   i.consumed_at,
+                  i.withdrawn_as,
                   n.name as ministry_name,
                   r.accepted_at as relationship_accepted_at
              from invitation i
@@ -79,14 +81,21 @@ export const createPostgresInvitationReader = (
              join relationship_member m
                on m.relationship_id = i.relationship_id
               and m.person_id = i.person_id
-              and m.ended_at is null
-            where i.token = $1`,
+              -- The membership they hold, or, for an invitation that was
+              -- withdrawn, the one that ended with it: the two are stamped with
+              -- one instant by one write. A declined link still has to say it
+              -- was declined, and to whom.
+              and (m.ended_at is null
+                   or (i.withdrawn_at is not null and m.ended_at = i.withdrawn_at))
+            where i.token = $1
+            order by m.ended_at nulls first
+            limit 1`,
           [token],
         )
 
         const held = rows[0]
-        // A token naming a relationship its holder has left resolves to no open
-        // membership, and there is nothing here for them to act on.
+        // A token naming a relationship its holder has left some other way
+        // resolves to no membership, and there is nothing here for them to act on.
         if (!held) return null
 
         // Everyone else in it, with their roles: the reveal is drawn from the
@@ -115,22 +124,32 @@ export const createPostgresInvitationReader = (
           role: held.role,
           userId: held.user_id,
           state: invitationState(
-            { expiresAt: held.expires_at, consumedAt: held.consumed_at },
+            {
+              expiresAt: held.expires_at,
+              consumedAt: held.consumed_at,
+              withdrawnAs: isWithdrawnAs(held.withdrawn_as) ? held.withdrawn_as : null,
+            },
             now(),
           ),
+          withdrawn: held.withdrawn_as !== null,
+          // How many they were paired with, which is all a withdrawn link keeps of
+          // the reveal: the page still says *this group* truthfully, and names
+          // nobody to somebody who is no longer on the relationship.
+          pairedWithCount: others.filter((row) => row.role !== held.role).length,
           // The other side of the relationship, never everybody in it. A
           // Participant shown their co-Participants would be told who else is
           // being discipled, which nothing in the product permits.
-          withNames: others
-            .filter((row) => row.role !== held.role)
-            .map((row) => row.full_name),
+          withNames:
+            held.withdrawn_as !== null
+              ? []
+              : others.filter((row) => row.role !== held.role).map((row) => row.full_name),
           // Who they would be leading with (Manual pairing, recut ticket 01). An
           // Admin may add a Leader to a group already running, so the holder of a
           // link may be joining somebody: a running group names the Leaders who
           // have accepted, and one nobody has activated names everybody it waits
           // on, as every Admin screen does.
           leadingWith:
-            held.role === 'leader'
+            held.role === 'leader' && held.withdrawn_as === null
               ? others
                   .filter(
                     (row) =>

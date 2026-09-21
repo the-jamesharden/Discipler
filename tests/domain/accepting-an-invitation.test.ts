@@ -38,6 +38,7 @@ const snapshot = (over: Partial<InvitationSnapshot> = {}): InvitationSnapshot =>
   personId: david,
   expiresAt,
   consumedAt: null,
+  withdrawnAs: null,
   relationshipAcceptedAt: null,
   unansweredItemId: null,
   intendedMaterialId: null,
@@ -355,6 +356,20 @@ describe('a token that cannot do what is asked of it', () => {
     expect(() => accept(snapshot({ consumedAt: new Date('2026-03-03T09:00:00Z') }))).toThrow(
       new InvitationRefused('invitation.already_used'),
     )
+  })
+
+  it('refuses a link its holder declined, in words of its own', () => {
+    // Manual pairing, recut ticket 06. Her membership ended with the decline, so
+    // it is said before anybody looks for it: *declined*, and not *not found*.
+    expect(() =>
+      accept(snapshot({ withdrawnAs: 'declined', members: [participant(emily, 'Emily Johnson')] })),
+    ).toThrow(new InvitationRefused('invitation.declined'))
+  })
+
+  it('refuses one the two weeks withdrew as the expired link it is', () => {
+    expect(() =>
+      accept(snapshot({ withdrawnAs: 'expired', members: [participant(emily, 'Emily Johnson')] })),
+    ).toThrow(new InvitationRefused('invitation.expired'))
   })
 
   it('survives being opened and abandoned right up to the expiry', () => {

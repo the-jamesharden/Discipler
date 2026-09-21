@@ -45,23 +45,23 @@ describe('what a token is worth when it is opened', () => {
   const live = anInvitation()
 
   it('is live the moment it is issued', () => {
-    expect(invitationState({ ...live, consumedAt: null }, issuedAt)).toBe('live')
+    expect(invitationState({ ...live, consumedAt: null, withdrawnAs: null }, issuedAt)).toBe('live')
   })
 
   it('survives being opened and abandoned, right up to the expiry', () => {
     const aDayLater = new Date('2026-03-03T09:00:00Z')
-    expect(invitationState({ ...live, consumedAt: null }, aDayLater)).toBe('live')
-    expect(invitationState({ ...live, consumedAt: null }, live.expiresAt)).toBe('live')
+    expect(invitationState({ ...live, consumedAt: null, withdrawnAs: null }, aDayLater)).toBe('live')
+    expect(invitationState({ ...live, consumedAt: null, withdrawnAs: null }, live.expiresAt)).toBe('live')
   })
 
   it('expires once the window has passed', () => {
     const after = new Date(live.expiresAt.getTime() + 1)
-    expect(invitationState({ ...live, consumedAt: null }, after)).toBe('expired')
+    expect(invitationState({ ...live, consumedAt: null, withdrawnAs: null }, after)).toBe('expired')
   })
 
   it('is consumed by account creation, not by being opened', () => {
     const consumedAt = new Date('2026-03-03T09:00:00Z')
-    expect(invitationState({ ...live, consumedAt }, consumedAt)).toBe('consumed')
+    expect(invitationState({ ...live, consumedAt, withdrawnAs: null }, consumedAt)).toBe('consumed')
   })
 
   it('reads as consumed rather than expired when it is both', () => {
@@ -70,6 +70,6 @@ describe('what a token is worth when it is opened', () => {
     // expired would send them back to an Admin for nothing.
     const consumedAt = new Date('2026-03-03T09:00:00Z')
     const longAfter = new Date('2027-01-01T09:00:00Z')
-    expect(invitationState({ ...live, consumedAt }, longAfter)).toBe('consumed')
+    expect(invitationState({ ...live, consumedAt, withdrawnAs: null }, longAfter)).toBe('consumed')
   })
 })

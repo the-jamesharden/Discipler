@@ -148,7 +148,7 @@ A person setting a new password on their own account, from a session they alread
 _Avoid_: Account settings and profile (nothing else about the person is editable here), and Sign out (ending the sessions is a consequence of the change, not a feature of its own)
 
 **Invitation Link**:
-The individualized, SMS-delivered link that reveals a new relationship to a person in it, with no session. Only a Leader is ever sent one. It resolves on its own page rather than in the leader dashboard, because a leader has no account until they accept. Possession of the phone it was sent to is the authentication; it expires after a fixed window and is consumed when the leader creates their account, not when it is opened.
+The individualized, SMS-delivered link that reveals a new relationship to a person in it, with no session. Only a Leader is ever sent one. It resolves on its own page rather than in the leader dashboard, because a leader has no account until they accept. Possession of the phone it was sent to is the authentication; it expires after a fixed window and is consumed when the leader creates their account, not when it is opened. Its holder can decline on it, and one nobody answers is withdrawn when it expires: either ends the leader's membership, which had no Acceptance on it, and tells an admin through a Follow-Up Item.
 _Avoid_: a Participant's Invitation Link (a Participant answers at Intake and is asked nothing further). The Intake Link below is not one: it asks a Person nothing new and reveals nobody else to them.
 
 **Ministry Setup Link**:

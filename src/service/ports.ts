@@ -15,6 +15,7 @@ import type {
 import type { AvailabilityOverlay } from '~/domain/availability-overlay'
 import type {
   IntakeLinkSnapshot,
+  InvitationHeld,
   InvitationSnapshot,
   PausedRelationship,
   PersonContact,
@@ -36,6 +37,7 @@ import type {
   DiscipleshipGoalRenaming,
   ImportRowResolution,
   IntakeRecord,
+  InvitationWithdrawal,
   LeaderAcceptance,
   MaterialAssignment,
   MaterialEdit,
@@ -251,6 +253,22 @@ export interface UnitOfWork {
    * leader membership left to agree.
    */
   acceptInvitation(acceptance: LeaderAcceptance): Promise<void>
+  /**
+   * One invitation ended without being accepted, as one write: the link is marked
+   * withdrawn, its Leader's unaccepted membership gains an end date and is never
+   * deleted, and the relationship is stamped where that leaves it with at least
+   * one Leader and every one of them accepted.
+   */
+  withdrawInvitation(withdrawal: InvitationWithdrawal): Promise<void>
+  /**
+   * The unanswered invitations whose window had closed as of the instant given:
+   * live, unaccepted, on a relationship that has not ended. Candidates, read with
+   * no lock; each is decided again by `invitation.expire` behind the row an
+   * acceptance holds. The instant is the caller's clock, never the database's.
+   */
+  lapsedInvitations(asOf: Date): Promise<readonly InvitationToken[]>
+  /** The invitations one Person has held to one relationship, as a re-invitation reads them. */
+  invitationHeldBy(relationship: RelationshipId, person: PersonId): Promise<InvitationHeld>
   /**
    * Raising an item that already stands changes nothing. Twenty taps on "not my
    * number" is one condition, and the Admin sees one thing to act on.
@@ -1429,6 +1447,19 @@ export interface InvitationPage {
   readonly role: MemberRole
   readonly state: InvitationState
   /**
+   * Whether the invitation was withdrawn without being accepted, by its holder
+   * declining or by its fortnight running out (Manual pairing, recut ticket 06).
+   * Its holder is no longer on the relationship, so the page offers them nothing
+   * to press: what it shows is drawn from the membership that ended with it.
+   */
+  readonly withdrawn: boolean
+  /**
+   * How many people are on the other side of the relationship. On a withdrawn
+   * link it is all that is kept of the reveal: `withNames` and `leadingWith` are
+   * empty there, because its holder is no longer somebody they are shown to.
+   */
+  readonly pairedWithCount: number
+  /**
    * The account this Person already holds, or null. A Leader may lead any number
    * of one-to-ones, so a second invitation reaches somebody who accepted a first
    * one -- and there is exactly one account per Person, not one per relationship.
@@ -1549,6 +1580,19 @@ export interface FollowUpCareItem {
    * history does not carry when their membership began.
    */
   readonly awaiting: { readonly names: readonly string[]; readonly running: boolean } | null
+  /**
+   * For a Leader whose invitation was withdrawn, by declining or at two weeks
+   * (Manual pairing, recut ticket 06), and null on every other kind: what they
+   * were invited to, as the relationship stands now. Whether it is a group, by
+   * who is in it -- several Disciples, or anybody leading it -- and never by the
+   * kind it was formed as; whether it is running; and whether it has been left
+   * with nobody to lead it.
+   */
+  readonly invited: {
+    readonly leadsAGroup: boolean
+    readonly running: boolean
+    readonly ledByNobody: boolean
+  } | null
   /**
    * The kind and what it carries, as one value. Not a `kind` field beside a
    * payload: those are two things that can disagree, and only one of them can be

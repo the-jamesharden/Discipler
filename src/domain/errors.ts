@@ -116,11 +116,37 @@ export type InvitationRefusal =
   | 'invitation.already_used'
   /** Only a Leader accepts. A Participant is told about a match, not asked to ratify it. */
   | 'invitation.not_a_leader'
+  /** Its holder declined it. It opens nothing else, and an Admin invites them again. */
+  | 'invitation.declined'
 
 export class InvitationRefused extends Error {
   constructor(readonly refusal: InvitationRefusal) {
     super(refusal)
     this.name = 'InvitationRefused'
+  }
+}
+
+/**
+ * Why *Copy link to re-invite leader* gave an Admin no link (Manual pairing, recut
+ * ticket 06). What the database refuses of the membership itself -- Intake, an
+ * opt-out, gender, a group they already lead -- is refused in the pairing's and
+ * the joining's own codes, as it is when a Leader is first added.
+ */
+export type ReinvitationRefusal =
+  /** Nothing this Ministry holds answers to that relationship, or to that Person. */
+  | 'reinvite.not_found'
+  | 'reinvite.relationship_has_ended'
+  /** They accepted since the item was raised. There is nobody to invite. */
+  | 'reinvite.already_accepted'
+  /** They are being discipled in it, which is not something an invitation changes. */
+  | 'reinvite.already_in_it'
+  /** No invitation of theirs to this relationship was ever withdrawn, so this is not a re-invitation. */
+  | 'reinvite.never_invited'
+
+export class ReinvitationRefused extends Error {
+  constructor(readonly refusal: ReinvitationRefusal) {
+    super(refusal)
+    this.name = 'ReinvitationRefused'
   }
 }
 

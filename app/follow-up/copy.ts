@@ -1,10 +1,11 @@
-import { pairingRefusalMessage } from '../roster/copy'
+import { groupJoinRefusalMessage, pairingRefusalMessage } from '../roster/copy'
 import type {
   CancellationRefusal,
   ConcernRefusal,
   EndingRefusal,
   FollowUpRefusal,
   PauseRefusal,
+  ReinvitationRefusal,
 } from '~/domain/errors'
 import type { FollowUpPayload } from '~/domain/follow-up'
 import { asList } from '~/domain/outbound-copy'
@@ -19,6 +20,9 @@ import { refusalIn } from '../refusals'
  *
  * The tone follows the source, which is the prototype's own colour discipline: a
  * Concern reads red, Stalled reads amber, and a Follow-Up Item reads neutral.
+ * Two Follow-Up Items read red as a Concern does, because James asked that they
+ * do on 2026-09-21: a Leader who declined, and an invitation withdrawn at two
+ * weeks. See `READS_AS_A_CONCERN`.
  *
  * The prototype's paragraph under the heading, which listed every kind of thing
  * the tab can hold, is gone (James, 2026-09-21): the items say what they are.
@@ -41,10 +45,42 @@ export const followUpTag: Record<FollowUpPayload['kind'], string> = {
   swap_requested: 'Swap requested',
   participant_keyword: 'Texted a keyword',
   invitation_number_disputed: 'Not their number',
-  match_declined: 'Match declined',
+  match_declined: 'Invitation declined',
+  invitation_expired: 'Invitation expired',
   group_join_requested: 'Wants to join a group',
   intended_pairing_refused: 'Pair not made',
 }
+
+/**
+ * The Follow-Up Items drawn red, with the left edge and the tag a Concern has,
+ * and not the grey of a review item (Manual pairing, recut ticket 06; James,
+ * 2026-09-21). Until then red on this tab meant a Concern and nothing else.
+ */
+export const READS_AS_A_CONCERN: ReadonlySet<FollowUpPayload['kind']> = new Set([
+  'match_declined',
+  'invitation_expired',
+])
+
+/**
+ * What somebody invited to lead is called before their name. *Group leader*,
+ * and *Discipler* for a one-to-one, which has no group; the second is a default
+ * taken while the ticket was written, and James's to overrule.
+ *
+ * Decided by who is in it and never by the kind the relationship was formed as,
+ * like every other sentence here: several Disciples, or anybody to lead with,
+ * is a group.
+ */
+export const invitedAs = (leadsAGroup: boolean): string =>
+  leadsAGroup ? 'Group leader' : 'Discipler'
+
+/** The title of the item a decline raises, in James's words: *Group leader [name] Declined*. */
+export const declinedTitle = (personName: string | null, leadsAGroup: boolean): string =>
+  `${invitedAs(leadsAGroup)} ${personName ?? 'somebody'} Declined`
+
+export const CONTACT_INFO = 'Contact info'
+export const COPY_LINK_TO_REINVITE = 'Copy link to re-invite leader'
+export const LINK_COPIED = 'Link copied. It works for two weeks, and nothing was sent to them.'
+export const COPY_IT_BY_HAND = 'Copy this link and send it to them. It works for two weeks, and nothing was sent to them.'
 
 const plural = (count: number, one: string, many: string) => (count === 1 ? one : many)
 
@@ -58,6 +94,11 @@ export const followUpLine = (
   personName: string | null,
   waitedDays: number | null,
   awaiting: { readonly names: readonly string[]; readonly running: boolean } | null = null,
+  invited: {
+    readonly leadsAGroup: boolean
+    readonly running: boolean
+    readonly ledByNobody: boolean
+  } | null = null,
 ): string => {
   const who = personName ?? 'Somebody'
   switch (payload.kind) {
@@ -69,6 +110,14 @@ export const followUpLine = (
         return `${asList(awaited)} ${awaited.length === 1 ? 'was' : 'were'} invited to help lead this group and ${
           awaited.length === 1 ? 'has' : 'have'
         } not answered. The group carries on meanwhile.`
+      }
+      // Its only Leader declined, or never answered and was withdrawn at two
+      // weeks. It does not cancel itself: this is where an Admin cancels it, and
+      // the item about the Leader is where they are invited again.
+      if (!awaited && !personName && awaiting && !awaiting.running) {
+        return `Nobody leads this relationship: whoever was invited to declined or did not answer${
+          waitedDays === null ? '' : `; it has waited ${waitedDays} ${plural(waitedDays, 'day', 'days')}`
+        }. Everyone in it is held out of the suggestion pool until somebody accepts it or it is cancelled.`
       }
       return `${awaited ? asList(awaited) : (personName ?? 'The leader')} ${
         awaited && awaited.length > 1 ? 'have' : 'has'
@@ -86,8 +135,23 @@ export const followUpLine = (
       return `${who} texted ${payload.keyword}. Nothing was changed on their behalf; it is yours to answer.`
     case 'invitation_number_disputed':
       return `${who} said the number Discipler holds is not theirs. Nothing was changed. Until it is put right, their check-ins reach a stranger.`
-    case 'match_declined':
-      return `${who} said the match is not right. The relationship is unchanged while it waits.`
+    case 'match_declined': {
+      const what = invited?.leadsAGroup === false ? 'this pairing' : 'this group'
+      if (invited?.running) {
+        return `Invited to help lead ${what}. The invitation has been withdrawn, and ${
+          invited.leadsAGroup ? 'the group' : 'it'
+        } carries on.`
+      }
+      return `Invited to lead ${what}. The invitation has been withdrawn${
+        invited?.ledByNobody ? ', and nobody leads it now' : ''
+      }.`
+    }
+    case 'invitation_expired':
+      // James's sentence. He wrote *her invite*; the product knows no pronoun for
+      // a Leader, so it says *their*, which he has seen and let stand.
+      return `${invitedAs(invited?.leadsAGroup ?? true)} ${
+        personName ?? 'somebody'
+      } has not responded in two weeks, their invite has expired.`
     case 'group_join_requested':
       return `${who} asked to join a group you have set to ask first. Admit or decline them from Intake forms.`
     case 'intended_pairing_refused':
@@ -226,10 +290,28 @@ const PAUSE_REFUSALS: Record<PauseRefusal, string> = {
   'pause.period_not_selectable': 'That is not one of the pause periods.',
 }
 
+const REINVITATION_REFUSALS: Record<ReinvitationRefusal, string> = {
+  'reinvite.not_found': 'That relationship, or that person, is not on this Roster any more.',
+  'reinvite.relationship_has_ended': 'That relationship has ended, so there is nothing to invite them to.',
+  'reinvite.already_accepted': 'They have accepted since, so there is nobody to invite. Resolve this item.',
+  'reinvite.already_in_it': 'They are being discipled in that relationship, so they cannot be invited to lead it.',
+  'reinvite.never_invited': 'They were never invited to that relationship. Pair them from the Roster instead.',
+}
+
+export const SIGN_IN_AGAIN = 'You have been signed out. Sign in again, then copy the link.'
+
 export const careRefusalMessage = (code: string | undefined): string | null =>
   refusalIn(FOLLOW_UP_REFUSALS, code)
   ?? refusalIn(CONCERN_REFUSALS, code)
   ?? refusalIn(CANCELLATION_REFUSALS, code)
   ?? refusalIn(ENDING_REFUSALS, code)
   ?? refusalIn(PAUSE_REFUSALS, code)
+  ?? refusalIn(REINVITATION_REFUSALS, code)
+  // What the database refuses of a Leader put back on a relationship, in the
+  // words the Roster already says it in when one is first added. Only for the
+  // codes that are its own: it answers anything else with a sentence about a
+  // group, and whatever arrives in an address is whatever somebody typed there.
+  ?? (code && /^(joining|relationship)\.[a-z_]+$/.test(code)
+    ? (groupJoinRefusalMessage(code) ?? null)
+    : null)
   ?? (code ? 'That could not be done.' : null)

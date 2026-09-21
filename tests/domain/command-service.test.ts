@@ -84,6 +84,15 @@ describe('applying a command\'s effects', () => {
         acceptInvitation: async () => {
           throw new Error('nothing should have been accepted')
         },
+        withdrawInvitation: async () => {
+          throw new Error('nothing should have been withdrawn')
+        },
+        lapsedInvitations: async () => {
+          throw new Error('no lapsed invitation should have been read')
+        },
+        invitationHeldBy: async () => {
+          throw new Error('no held invitation should have been read')
+        },
         checkInFor: async () => {
           throw new Error('nobody should have been checked in with')
         },

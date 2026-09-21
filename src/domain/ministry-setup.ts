@@ -1,5 +1,5 @@
 import type { Branded } from './branded'
-import { INVITATION_LIFETIME_DAYS, invitationState, type InvitationState } from './invitations'
+import { hasRunOut, INVITATION_LIFETIME_DAYS, type InvitationState } from './invitations'
 
 /**
  * The Ministry Setup Link: how a Ministry comes into existence.
@@ -66,14 +66,18 @@ export const issueMinistrySetup = ({
 })
 
 /**
- * The same three states as an Invitation Link, decided the same way, because the
- * page has the same three things to say: a link that has run out sends its holder
- * back to the operator, a spent one sends them to sign in, and a token that names
- * nothing is neither.
+ * The three states an Invitation Link had before one could be declined, decided
+ * the same way, because the page has the same three things to say: a link that
+ * has run out sends its holder back to the operator, a spent one sends them to
+ * sign in, and a token that names nothing is neither. Nobody declines a setup
+ * link, so an invitation's fourth state is not one of these.
  */
-export type MinistrySetupState = InvitationState
+export type MinistrySetupState = Exclude<InvitationState, 'declined'>
 
 export const ministrySetupState = (
   link: { readonly expiresAt: Date; readonly consumedAt: Date | null },
   now: Date,
-): MinistrySetupState => invitationState(link, now)
+): MinistrySetupState => {
+  if (link.consumedAt) return 'consumed'
+  return hasRunOut(link.expiresAt, now) ? 'expired' : 'live'
+}

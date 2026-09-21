@@ -13,6 +13,7 @@ import {
   GroupJoinRefused,
   GroupRefused,
   InvitationRefused,
+  ReinvitationRefused,
   MaterialAssignmentRefused,
   PauseRefused,
 } from '~/domain/errors'
@@ -68,6 +69,16 @@ export interface CommandService {
    * the scheduled tick (ADR-0022).
    */
   settleIntendedPairings(ministryId: MinistryId): Promise<SettledPairings>
+
+  /**
+   * Withdraws every invitation in this Ministry that nobody answered before its
+   * fortnight ran out (Manual pairing, recut ticket 06), and answers how many.
+   * One transaction per invitation, as plans are settled, so one failing never
+   * rolls back another -- and each is decided again inside its own transaction,
+   * behind the row an acceptance holds, so an invitation accepted in the same
+   * moment is accepted and is not withdrawn. Called by the scheduled tick's route.
+   */
+  withdrawLapsedInvitations(ministryId: MinistryId): Promise<number>
 
   /**
    * Whether forming this relationship would be refused, without forming it: the
@@ -143,6 +154,9 @@ export const applyEffects = async (
   )
   const acceptances = effects.flatMap((effect) =>
     effect.kind === 'invitation.accept' ? [effect.acceptance] : [],
+  )
+  const withdrawals = effects.flatMap((effect) =>
+    effect.kind === 'invitation.withdraw' ? [effect.withdrawal] : [],
   )
   const followUps = effects.flatMap((effect) => (effect.kind === 'followUp.raise' ? [effect] : []))
   const plans = effects.flatMap((effect) =>
@@ -298,6 +312,10 @@ export const applyEffects = async (
   // the same act that consumes the Leader's, and the one live token per person per
   // relationship index is what would catch the two in the wrong order.
   for (const acceptance of acceptances) await unit.acceptInvitation(acceptance)
+  // Beside the acceptances, for the reason they are here: it stamps the
+  // relationship where it activates it, which the Material period below starts
+  // from, and it ends the membership before the history saying so.
+  for (const withdrawal of withdrawals) await unit.withdrawInvitation(withdrawal)
   for (const invitation of invitations) await unit.issueInvitation(invitation)
   // After the issues, for the same ordering reason: both write the row the one
   // live token per person per relationship index governs, and a re-issue landing
@@ -555,7 +573,11 @@ const consultsTheMaterialList = (
   invitation: InvitationSnapshot | undefined,
 ): boolean =>
   (command.type === 'relationship.create' && command.materialId !== undefined) ||
-  (command.type === 'relationship.accept' &&
+  // A withdrawal can activate a relationship as the last acceptance does, and
+  // spends the intended Material the same way.
+  ((command.type === 'relationship.accept' ||
+    command.type === 'invitation.decline' ||
+    command.type === 'invitation.expire') &&
     invitation !== undefined &&
     invitation.intendedMaterialId !== null)
 
@@ -574,10 +596,20 @@ const isTokenDriven = (
   command: Command,
 ): command is Extract<
   Command,
-  { type: 'relationship.accept' | 'invitation.dispute_number' }
+  {
+    type:
+      | 'relationship.accept'
+      | 'invitation.dispute_number'
+      | 'invitation.decline'
+      | 'invitation.expire'
+  }
 > =>
   command.type === 'relationship.accept' ||
-  command.type === 'invitation.dispute_number'
+  command.type === 'invitation.dispute_number' ||
+  command.type === 'invitation.decline' ||
+  // The tick's, and no Leader's. It is driven by the token all the same: what it
+  // decides from is the invitation as the database holds it, under the same locks.
+  command.type === 'invitation.expire'
 
 /**
  * The commands whose messages call somebody by their role: pairing, which texts
@@ -746,6 +778,25 @@ const groupToAddTo = async (
 }
 
 /**
+ * What *Copy link to re-invite leader* decides from: the relationship under its
+ * lock, the Person's name, and the invitations they have held to it. An id that
+ * names no relationship here is refused before the domain is asked anything, as
+ * a group that is not there is.
+ */
+const reinvitationContext = async (
+  unit: UnitOfWork,
+  command: Extract<Command, { type: 'invitation.copy_link' }>,
+) => {
+  const relationship = await unit.relationshipFor(command.relationshipId)
+  if (!relationship) throw new ReinvitationRefused('reinvite.not_found')
+  return {
+    relationship,
+    contacts: { people: await unit.contactsFor([command.personId]) },
+    invitationHeld: await unit.invitationHeldBy(command.relationshipId, command.personId),
+  }
+}
+
+/**
  * The held import row an answer names. Absent is a defect rather than a refusal:
  * the row is never deleted, so an id that names none did not come from the report
  * that offers the answers -- which is a form post composed by hand, not something
@@ -909,6 +960,9 @@ export const createCommandService = ({
         ...(command.type === 'invitation.reissue'
           ? { unaccepted: await unit.unacceptedRelationships() }
           : {}),
+        ...(command.type === 'invitation.copy_link'
+          ? await reinvitationContext(unit, command)
+          : {}),
         // Read inside the transaction like everything else, so two ticks racing
         // each other cannot both find the same Leader unasked. The cadence read
         // rides along: the tick is the one command that decides a week has come
@@ -1027,6 +1081,20 @@ export const createCommandService = ({
 
       return unit.concernDetailFor(command.concernId)
     })
+  },
+
+  async withdrawLapsedInvitations(ministryId) {
+    const lapsed = await store.transact(ministryId, (unit) =>
+      unit.lapsedInvitations(clock.now()),
+    )
+
+    let withdrawn = 0
+    for (const token of lapsed) {
+      const { effects } = await service.execute({ type: 'invitation.expire', ministryId, token })
+      // Nothing, where it was accepted or re-sent since the read above.
+      if (effects.some((effect) => effect.kind === 'invitation.withdraw')) withdrawn++
+    }
+    return withdrawn
   },
 
   async settleIntendedPairings(ministryId) {

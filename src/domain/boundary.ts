@@ -49,6 +49,7 @@ import {
   saveMinistrySettings,
   setKeywordExchangeTarget,
   sweepOutstandingReplies,
+  withdrawInvitation,
   type Effect,
   type KeywordExchangeOutcome,
   type NewCheckInPrompt,
@@ -80,6 +81,7 @@ import {
   PairingRefused,
   PasswordResetRefused,
   PauseRefused,
+  ReinvitationRefused,
   type PairingRefusal,
 } from './errors'
 import {
@@ -200,10 +202,12 @@ import {
   type RelationshipId,
 } from './ids'
 import {
+  hasRunOut,
   invitationState,
   invitationToken,
   issueInvitation,
   type InvitationToken,
+  type WithdrawnAs,
 } from './invitations'
 import {
   ACCEPTANCE_ESCALATION_DAYS,
@@ -339,6 +343,11 @@ export interface CommandContext {
    * in the product as a race.
    */
   readonly accountToReset?: string | null
+  /**
+   * What the Person a re-invitation names holds to the relationship it names,
+   * loaded on `invitation.copy_link`'s behalf.
+   */
+  readonly invitationHeld?: InvitationHeld
   /**
    * Every relationship in this Ministry that nobody has accepted yet, loaded on
    * the tick's behalf. Absent rather than empty, for the same reason the Roster
@@ -508,6 +517,21 @@ export interface IntakeLinkSnapshot {
   readonly expiresAt: Date
 }
 
+/**
+ * The invitations one Person has held to one relationship, as *Copy link to
+ * re-invite leader* reads them (Manual pairing, recut ticket 06).
+ */
+export interface InvitationHeld {
+  /** When the live invitation they hold runs out, or null where they hold none. */
+  readonly liveExpiresAt: Date | null
+  /**
+   * Whether an invitation of theirs to this relationship was ever withdrawn. It is
+   * what makes this a re-invitation: the button must not become a second way to
+   * add anybody at all to a relationship as its Leader.
+   */
+  readonly everWithdrawn: boolean
+}
+
 export interface UnacceptedRelationship {
   readonly relationshipId: RelationshipId
   /**
@@ -519,6 +543,15 @@ export interface UnacceptedRelationship {
    * answer was added.
    */
   readonly waitingSince: Date
+  /**
+   * Whether it had activated before the Leaders it waits on were added. The
+   * Unaccepted flag is raised only where it had not (Manual pairing, recut ticket
+   * 06; decided by James on 2026-09-21): a relationship nobody has started holds
+   * its Disciples out of Suggested Pairs until somebody acts, and a group already
+   * running holds nobody up, so its Admin hears about a co-leader once, when the
+   * invitation is withdrawn at two weeks. The reminder is sent either way.
+   */
+  readonly alreadyRunning: boolean
   readonly awaiting: readonly AwaitingLeader[]
   /**
    * Whether a `relationship_unaccepted` item about it is *open* right now. The
@@ -642,6 +675,12 @@ export interface InvitationSnapshot {
   readonly personId: PersonId
   readonly expiresAt: Date
   readonly consumedAt: Date | null
+  /**
+   * How it was withdrawn without being accepted, or null where it has not been:
+   * its holder declined, or nobody answered before it ran out (Manual pairing,
+   * recut ticket 06).
+   */
+  readonly withdrawnAs: WithdrawnAs | null
   /**
    * When the relationship activated, or null while it still awaits a Leader. An
    * Admin may add a Leader to a group that is already running, so a token can
@@ -2410,6 +2449,282 @@ const refuseIntendedPairing = (
   }),
 ]
 
+/**
+ * The Leader's Starter Message, which names nobody and sends them to the page
+ * that does. A Leader who just accepted typed a name, not a number: the number
+ * was displayed and refused as input, so `phone` is still the one on file.
+ */
+const starterToLeader = (
+  context: CommandContext,
+  ministry: MinistryId,
+  ministryName: string,
+  leader: InvitedMember,
+  now: Date,
+): Effect =>
+  enqueueMessage({
+    ministryId: ministry,
+    personId: leader.personId,
+    toPhone: leader.phone,
+    body: starterMessageToLeader({
+      ministryName,
+      dashboardLink: leaderDashboardLink(theHost(context)),
+    }),
+    enqueuedAt: now,
+    disclosesPersonId: null,
+    // *You have been paired* asks nothing, so it takes nobody's number --
+    // and a Starter Message that did would block its own relationship's
+    // first check-in.
+    kind: 'no_reply',
+  })
+
+/**
+ * A relationship leaving Awaiting Leader Acceptance: the event, the Material
+ * history opening, and the one Starter Message. Said once, because two things
+ * bring it about and they must not come to differ: the last Leader accepting, and
+ * a Leader's invitation being withdrawn where every Leader left has accepted
+ * (Manual pairing, recut ticket 06). `leaders` is who leads it from this instant.
+ */
+const activationOf = (
+  context: CommandContext,
+  {
+    ministryId: ministry,
+    ministryName,
+    invitation,
+    leaders,
+    participants,
+    now,
+  }: {
+    readonly ministryId: MinistryId
+    readonly ministryName: string
+    readonly invitation: InvitationSnapshot
+    readonly leaders: readonly InvitedMember[]
+    readonly participants: readonly InvitedMember[]
+    readonly now: Date
+  },
+): Effect[] => {
+  const effects: Effect[] = []
+
+  // The Material an Admin chose while pairing, and whether it is still on the
+  // Ministry's list as this activation decides. The column holding it is
+  // cleared at activation either way, so the event below is the one record of
+  // what became of the choice -- and the only one at all where it was skipped,
+  // since a skip writes no period.
+  const intended = invitation.intendedMaterialId
+  const assignsIntended = intended !== null && isStillOnTheList(context, intended)
+
+  effects.push(
+    appendHistory({
+      ministryId: ministry,
+      occurredAt: now,
+      type: 'relationship.activated',
+      subjectType: 'relationship',
+      subjectId: invitation.relationshipId,
+      payload: {
+        participantCount: participants.length,
+        ...(intended !== null
+          ? {
+              intendedMaterial: {
+                materialId: intended,
+                outcome: assignsIntended ? 'assigned' : 'skipped_as_removed',
+              },
+            }
+          : {}),
+      },
+    }),
+    // The Material history opens here, with a period that has no Material in
+    // it. *Periods never leave gaps* includes the time before a Ministry has
+    // assigned anything, and a row saying *none* is a fact a later report can
+    // answer with -- where no row at all is indistinguishable from a defect,
+    // in exactly the history this ticket exists because nobody can
+    // reconstruct.
+    //
+    // At activation rather than at creation, and at this instant rather than
+    // `createdAt`: no check-in week exists before every Leader has agreed, so
+    // a period covering time no meeting could be reported in is noise. It
+    // carries no Admin, because no Admin performed it.
+    assignMaterial({
+      ministryId: ministry,
+      relationshipId: invitation.relationshipId,
+      materialId: null,
+      assignedAt: now,
+      assignedBy: null,
+    }),
+  )
+
+  // The Material an Admin chose while pairing, spent here. A second period at
+  // this same instant, after the opening one, which must stay first: the
+  // opening period closes at its own start, covers nothing and leaves no gap,
+  // which is the zero-length period the Material history permits by name.
+  //
+  // Not `relationship.assign_material`, which is an Admin's act, carries that
+  // Admin and refuses an unaccepted relationship. No Admin performed this one;
+  // the Admin who chose it is on the `relationship.created` event.
+  //
+  // A Material removed since pairing is skipped and nothing is refused.
+  // Acceptance is a Leader's act and never fails on an Admin's stale choice.
+  if (intended !== null && assignsIntended) {
+    effects.push(
+      assignMaterial({
+        ministryId: ministry,
+        relationshipId: invitation.relationshipId,
+        materialId: intended,
+        assignedAt: now,
+        assignedBy: null,
+      }),
+    )
+  }
+
+  // **No link for a Participant, and there is nothing for one to do.** An
+  // Invitation Link is how somebody is asked a question they have not yet
+  // answered, and a Participant has already answered theirs: they completed
+  // Intake and consented to be paired, which is the agreement a Leader's
+  // acceptance is the other half of. Only the Leader is sent one.
+  //
+  // So a Participant does not decline. A match that is not working is a
+  // pastoral matter and reaches Discipler as a swap -- the Admin unpairs and
+  // re-pairs -- rather than as a Participant refusing the relationship on a
+  // web page. Somebody who stops meeting or stops replying says so by the
+  // silence the care rules already read, and an Admin acts on that.
+
+  // The Starter Message. The Participants' names the Leaders, the Leaders'
+  // names nobody, and neither carries a number -- so this message discloses
+  // nobody and one goes to each Participant however many Leaders a group has.
+  const leaderNames = leaders.map((leader) => leader.fullName)
+
+  for (const leader of leaders) {
+    effects.push(starterToLeader(context, ministry, ministryName, leader, now))
+  }
+
+  for (const participant of participants) {
+    effects.push(
+      enqueueMessage({
+        ministryId: ministry,
+        personId: participant.personId,
+        toPhone: participant.phone,
+        body: starterMessageToParticipant({ ministryName, leaderNames }),
+        enqueuedAt: now,
+        disclosesPersonId: null,
+        kind: 'no_reply',
+      }),
+    )
+  }
+
+  return effects
+}
+
+/**
+ * One invitation ended without being accepted, by its Leader declining or by its
+ * fortnight running out (Manual pairing, recut ticket 06; decided by James on
+ * 2026-09-21). The same act either way, and only the item that tells the Admin
+ * differs.
+ *
+ * Nobody is sent anything by it: not the Person, not the relationship's other
+ * Leaders, not its Participants. On a relationship already running nothing else
+ * about it changes. The one message there can be is the Starter Message, where
+ * this is what activates a relationship nobody had activated.
+ */
+const withdrawalOf = (
+  context: CommandContext,
+  command: { readonly ministryId: MinistryId; readonly token: InvitationToken },
+  {
+    me,
+    withdrawnAs,
+    now,
+  }: { readonly me: InvitedMember; readonly withdrawnAs: WithdrawnAs; readonly now: Date },
+): Effect[] => {
+  const { invitation, ministryName } = tokenContext(context)
+
+  const remaining = invitation.members.filter(
+    (member) => member.role === 'leader' && member.personId !== me.personId,
+  )
+  const participants = invitation.members.filter((member) => member.role === 'participant')
+  const everyoneLeftHasAccepted = remaining.every((leader) => leader.acceptedAt !== null)
+
+  // Activation is every Leader it has agreeing, and it has to have one. Where
+  // this was its only Leader it is left with none and stays as it is, for an
+  // Admin to cancel or pair again: it does not cancel itself.
+  const activatesRelationship =
+    invitation.relationshipAcceptedAt === null && remaining.length > 0 && everyoneLeftHasAccepted
+
+  // Whether anybody is still to answer. A relationship nobody has activated goes
+  // on waiting until it activates, with or without a Leader; one already running
+  // waits only on the Leaders added since.
+  const nobodyIsLeftToAnswer =
+    invitation.relationshipAcceptedAt === null ? activatesRelationship : everyoneLeftHasAccepted
+
+  const effects: Effect[] = [
+    withdrawInvitation({
+      ministryId: command.ministryId,
+      relationshipId: invitation.relationshipId,
+      personId: me.personId,
+      token: command.token,
+      withdrawnAt: now,
+      withdrawnAs,
+      activatesRelationship,
+    }),
+    // An event of its own type either way, with no Admin on it, because no Admin
+    // performed it.
+    appendHistory({
+      ministryId: command.ministryId,
+      occurredAt: now,
+      type:
+        withdrawnAs === 'declined'
+          ? 'relationship.leader_declined'
+          : 'relationship.invitation_expired',
+      subjectType: 'relationship',
+      subjectId: invitation.relationshipId,
+      payload: { personId: me.personId, activated: activatesRelationship },
+    }),
+    // How the Admin is told, and the only way: about the Person, on the
+    // relationship, so their page and another invitation are one press away.
+    raiseFollowUpItem({
+      ministryId: command.ministryId,
+      kind: withdrawnAs === 'declined' ? 'match_declined' : 'invitation_expired',
+      personId: me.personId,
+      relationshipId: invitation.relationshipId,
+      raisedAt: now,
+    }),
+  ]
+
+  // The *Awaiting acceptance* item about the same relationship, closed by the
+  // same act where nobody is left to answer, so the Admin has one thing to read
+  // and not two. Exactly as an acceptance closes it, and with no Admin on it.
+  // Left open where the relationship still waits: it is what offers Cancel.
+  if (nobodyIsLeftToAnswer && invitation.unansweredItemId !== null) {
+    effects.push(
+      resolveFollowUpItem({
+        ministryId: command.ministryId,
+        itemId: invitation.unansweredItemId,
+        resolvedBy: null,
+        resolvedAt: now,
+      }),
+      appendHistory({
+        ministryId: command.ministryId,
+        occurredAt: now,
+        type: 'follow_up.resolved',
+        subjectType: 'follow_up_item',
+        subjectId: invitation.unansweredItemId,
+        payload: { resolvedBy: null, by: withdrawnAs === 'declined' ? 'decline' : 'expiry' },
+      }),
+    )
+  }
+
+  if (activatesRelationship) {
+    effects.push(
+      ...activationOf(context, {
+        ministryId: command.ministryId,
+        ministryName,
+        invitation,
+        leaders: remaining,
+        participants,
+        now,
+      }),
+    )
+  }
+
+  return effects
+}
+
 export const handleCommand = (command: Command, context: CommandContext): CommandResult => {
   switch (command.type) {
     case 'scheduled.tick': {
@@ -2540,7 +2855,15 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         // Once the Admin resolves it and the relationship is *still* unaccepted,
         // the condition is true again and is raised again. Resolving records that
         // an Admin acted; it does not make a Leader agree.
-        if (waited >= days(ACCEPTANCE_ESCALATION_DAYS) && !relationship.itemStandsOpen) {
+        //
+        // Not for a Leader added to a relationship already running, *so the Admin
+        // does not get spammed with non-essential things* (James, 2026-09-21):
+        // they are told once, when the invitation is withdrawn at two weeks.
+        if (
+          waited >= days(ACCEPTANCE_ESCALATION_DAYS) &&
+          !relationship.itemStandsOpen &&
+          !relationship.alreadyRunning
+        ) {
           effects.push(
             raiseFollowUpItem({
               ministryId: command.ministryId,
@@ -4373,6 +4696,95 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       }
     }
 
+    case 'invitation.copy_link': {
+      const { relationship, invitationHeld } = context
+      if (!relationship) throw new Error('invitation.copy_link was handed no relationship')
+      if (!invitationHeld) {
+        throw new Error('invitation.copy_link was not told what invitations they have held')
+      }
+      if (relationship.endedAt !== null) {
+        throw new ReinvitationRefused('reinvite.relationship_has_ended')
+      }
+      // Read on the connection acting for this Ministry, so a Person of another
+      // Ministry's is missing here rather than merely unmatched.
+      if (!context.contacts?.people.get(command.personId)) {
+        throw new ReinvitationRefused('reinvite.not_found')
+      }
+
+      const now = context.clock.now()
+      const member = relationship.members.find(
+        (candidate) => candidate.personId === command.personId,
+      )
+      if (member?.role === 'participant') throw new ReinvitationRefused('reinvite.already_in_it')
+      // They accepted since the item was raised: an Admin invited them again, or
+      // they were put back another way. There is nobody left to invite.
+      if (member && member.acceptedAt !== null) {
+        throw new ReinvitationRefused('reinvite.already_accepted')
+      }
+      if (!member && !invitationHeld.everWithdrawn) {
+        throw new ReinvitationRefused('reinvite.never_invited')
+      }
+
+      // Every copy mints, for the reason every re-issue does: the link is the
+      // whole credential, and the one it replaces stops opening the door. So the
+      // link an Admin is handed always works, and for another fortnight.
+      const invitation = issueInvitation({
+        ministryId: command.ministryId,
+        relationshipId: command.relationshipId,
+        personId: command.personId,
+        token: invitationToken(context.ids.next()),
+        at: now,
+      })
+
+      return {
+        rejections: [],
+        effects: [
+          // Back on the relationship as somebody invited, where the two weeks took
+          // them off it. A membership of its own and never the old one reopened,
+          // which would rewrite the time they were not on it. Intake, an opt-out,
+          // gender and the group they may lead since are the insert's to refuse, as
+          // they are when a Leader is first added.
+          ...(member
+            ? []
+            : [
+                addLeader({
+                  ministryId: command.ministryId,
+                  relationshipId: command.relationshipId,
+                  personId: command.personId,
+                  startedAt: now,
+                }),
+              ]),
+          // The withdrawn invitation stays as the record of itself, so a new one
+          // is issued beside it; a live one is replaced in place.
+          invitationHeld.liveExpiresAt === null
+            ? issueInvitationLink(invitation)
+            : reissueInvitationLink(invitation),
+          // **No message.** The Admin carries the link by hand, to somebody a
+          // fortnight of texts did not reach.
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'invitation.link_copied',
+            subjectType: 'relationship',
+            subjectId: command.relationshipId,
+            // The Admin and the Person, because today an Admin never sees a
+            // Leader's link and the link alone is what lets its holder set the
+            // account's password. The window and never the token, as a re-issue
+            // records it: history is read on an Admin surface.
+            payload: {
+              personId: command.personId,
+              copiedBy: command.copiedBy,
+              reinvited: !member,
+              expiresAt: invitation.expiresAt.toISOString(),
+              ...(invitationHeld.liveExpiresAt === null
+                ? {}
+                : { supersededExpiresAt: invitationHeld.liveExpiresAt.toISOString() }),
+            },
+          }),
+        ],
+      }
+    }
+
     case 'person.reset_password': {
       // The password is already set by the time this runs. Setting it is Supabase
       // Auth's and cannot be rolled back with a transaction, so the order is
@@ -4920,6 +5332,9 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       const state = invitationState(invitation, now)
       if (state === 'expired') throw new InvitationRefused('invitation.expired')
       if (state === 'consumed') throw new InvitationRefused('invitation.already_used')
+      // Said before their membership is looked for, which a decline ended: a link
+      // she declined is told so, and not that nothing answers to it.
+      if (state === 'declined') throw new InvitationRefused('invitation.declined')
 
       const me = memberHolding(invitation, invitation.personId)
       // Read off their membership, never off the token. A Participant's link opens
@@ -4991,140 +5406,77 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         )
       }
 
-      // The Leader's Starter Message, which names nobody and sends them to the page
-      // that does. The Leader who just accepted typed a name, not a number: the
-      // number was displayed and refused as input, so `phone` is still the one on
-      // file.
-      const starterToLeader = (leader: InvitedMember): Effect =>
-        enqueueMessage({
-          ministryId: command.ministryId,
-          personId: leader.personId,
-          toPhone: leader.phone,
-          body: starterMessageToLeader({
-            ministryName,
-            dashboardLink: leaderDashboardLink(theHost(context)),
-          }),
-          enqueuedAt: now,
-          disclosesPersonId: null,
-          // *You have been paired* asks nothing, so it takes nobody's number --
-          // and a Starter Message that did would block its own relationship's
-          // first check-in.
-          kind: 'no_reply',
-        })
-
       if (!activatesRelationship) {
         // A Leader added to a relationship already running is sent theirs, and
         // they alone (James, 2026-09-21): without it they never get the link to
         // the page that says who they are leading and how to reach them. The
         // Participants and the Leaders it already has are still sent nothing.
-        if (invitation.relationshipAcceptedAt !== null) effects.push(starterToLeader(me))
+        if (invitation.relationshipAcceptedAt !== null) {
+          effects.push(starterToLeader(context, command.ministryId, ministryName, me, now))
+        }
         return { rejections: [], effects }
       }
 
-      // The Material an Admin chose while pairing, and whether it is still on the
-      // Ministry's list as this acceptance decides. The column holding it is
-      // cleared at activation either way, so the event below is the one record of
-      // what became of the choice -- and the only one at all where it was skipped,
-      // since a skip writes no period.
-      const intended = invitation.intendedMaterialId
-      const assignsIntended = intended !== null && isStillOnTheList(context, intended)
-
       effects.push(
-        appendHistory({
+        ...activationOf(context, {
           ministryId: command.ministryId,
-          occurredAt: now,
-          type: 'relationship.activated',
-          subjectType: 'relationship',
-          subjectId: invitation.relationshipId,
-          payload: {
-            participantCount: participants.length,
-            ...(intended !== null
-              ? {
-                  intendedMaterial: {
-                    materialId: intended,
-                    outcome: assignsIntended ? 'assigned' : 'skipped_as_removed',
-                  },
-                }
-              : {}),
-          },
-        }),
-        // The Material history opens here, with a period that has no Material in
-        // it. *Periods never leave gaps* includes the time before a Ministry has
-        // assigned anything, and a row saying *none* is a fact a later report can
-        // answer with -- where no row at all is indistinguishable from a defect,
-        // in exactly the history this ticket exists because nobody can
-        // reconstruct.
-        //
-        // At activation rather than at creation, and at this instant rather than
-        // `createdAt`: no check-in week exists before every Leader has agreed, so
-        // a period covering time no meeting could be reported in is noise. It
-        // carries no Admin, because no Admin performed it.
-        assignMaterial({
-          ministryId: command.ministryId,
-          relationshipId: invitation.relationshipId,
-          materialId: null,
-          assignedAt: now,
-          assignedBy: null,
+          ministryName,
+          invitation,
+          leaders,
+          participants,
+          now,
         }),
       )
 
-      // The Material an Admin chose while pairing, spent here. A second period at
-      // this same instant, after the opening one, which must stay first: the
-      // opening period closes at its own start, covers nothing and leaves no gap,
-      // which is the zero-length period the Material history permits by name.
-      //
-      // Not `relationship.assign_material`, which is an Admin's act, carries that
-      // Admin and refuses an unaccepted relationship. No Admin performed this one;
-      // the Admin who chose it is on the `relationship.created` event.
-      //
-      // A Material removed since pairing is skipped and nothing is refused.
-      // Acceptance is a Leader's act and never fails on an Admin's stale choice.
-      if (intended !== null && assignsIntended) {
-        effects.push(
-          assignMaterial({
-            ministryId: command.ministryId,
-            relationshipId: invitation.relationshipId,
-            materialId: intended,
-            assignedAt: now,
-            assignedBy: null,
-          }),
-        )
-      }
-
-      // **No link for a Participant, and there is nothing for one to do.** An
-      // Invitation Link is how somebody is asked a question they have not yet
-      // answered, and a Participant has already answered theirs: they completed
-      // Intake and consented to be paired, which is the agreement a Leader's
-      // acceptance is the other half of. Only the Leader is sent one.
-      //
-      // So a Participant does not decline. A match that is not working is a
-      // pastoral matter and reaches Discipler as a swap -- the Admin unpairs and
-      // re-pairs -- rather than as a Participant refusing the relationship on a
-      // web page. Somebody who stops meeting or stops replying says so by the
-      // silence the care rules already read, and an Admin acts on that.
-
-      // The Starter Message. The Participants' names the Leaders, the Leaders'
-      // names nobody, and neither carries a number -- so this message discloses
-      // nobody and one goes to each Participant however many Leaders a group has.
-      const leaderNames = leaders.map((leader) => leader.fullName)
-
-      for (const leader of leaders) effects.push(starterToLeader(leader))
-
-      for (const participant of participants) {
-        effects.push(
-          enqueueMessage({
-            ministryId: command.ministryId,
-            personId: participant.personId,
-            toPhone: participant.phone,
-            body: starterMessageToParticipant({ ministryName, leaderNames }),
-            enqueuedAt: now,
-            disclosesPersonId: null,
-            kind: 'no_reply',
-          }),
-        )
-      }
-
       return { rejections: [], effects }
+    }
+
+    case 'invitation.decline': {
+      const { invitation } = tokenContext(context)
+      const now = context.clock.now()
+
+      // Offered wherever Accept is, and nowhere else: a link that has run out, been
+      // spent or been declined already declines nothing.
+      const state = invitationState(invitation, now)
+      if (state === 'expired') throw new InvitationRefused('invitation.expired')
+      if (state === 'consumed') throw new InvitationRefused('invitation.already_used')
+      if (state === 'declined') throw new InvitationRefused('invitation.declined')
+
+      const me = memberHolding(invitation, invitation.personId)
+      if (me.role !== 'leader') throw new InvitationRefused('invitation.not_a_leader')
+      // An open invitation beside an acceptance is a state nothing produces. Fenced
+      // all the same: declining must never end a membership that has begun leading.
+      if (me.acceptedAt !== null) throw new InvitationRefused('invitation.already_used')
+
+      return {
+        rejections: [],
+        effects: withdrawalOf(context, command, { me, withdrawnAs: 'declined', now }),
+      }
+    }
+
+    case 'invitation.expire': {
+      const { invitation } = tokenContext(context)
+      const now = context.clock.now()
+
+      // Decided again here, behind the row an acceptance holds, and not taken from
+      // the tick's read of who had lapsed. An invitation accepted in the same
+      // moment is found accepted, one an Admin re-sent is found live again, and
+      // either way nothing is withdrawn: a Leader's acceptance never fails on the
+      // product's timing. None of them is a refusal, because nobody is asking.
+      if (invitation.consumedAt !== null || invitation.withdrawnAs !== null) {
+        return { rejections: [], effects: [] }
+      }
+      if (!hasRunOut(invitation.expiresAt, now)) return { rejections: [], effects: [] }
+
+      const me = invitation.members.find((member) => member.personId === invitation.personId)
+      if (!me || me.role !== 'leader' || me.acceptedAt !== null) {
+        return { rejections: [], effects: [] }
+      }
+
+      return {
+        rejections: [],
+        effects: withdrawalOf(context, command, { me, withdrawnAs: 'expired', now }),
+      }
     }
 
     case 'invitation.dispute_number': {
