@@ -118,4 +118,13 @@ Both were answered by James on 2026-09-20: *whatever is broken outright, fix; fo
    **One thing is left for James, because it is a migration:** the right day count needs when the membership began, and `app.history_inputs` does not carry it.
    Adding that one column would let the item say how long a co-leader has waited, as the tick already measures it.
 2. **There is no way to withdraw an unanswered co-leader invitation short of ending the group. Not built here.**
-   It is the addendum on ticket 05, *Unsending an invitation, from the person's page*, with two questions for James on it.
+   James decided against an Unsend button on 2026-09-21: an unanswered invitation is withdrawn by the product after two weeks, and the Admin is told on Follow-Up.
+   It is the addendum on ticket 05, *An invitation nobody answers is withdrawn after two weeks*.
+
+**James's review of 2026-09-21, the rest of it.**
+Done (`3b1a5b7` and the commit after it): the invitation page says *paired* where it said matched, the Ministry heads the card with Discipler's mark small at the foot, and the line *You've been asked to disciple... you can say no* is gone.
+The reveal is sized under the Ministry, which the first of those left nearly the same size as.
+**Resolve** on a co-leader's Follow-Up item is tested over HTTP through the form the page itself renders.
+The page's own `asList` is gone, for the one every message is written with.
+Found while showing James the Starter Message: a co-leader who accepts on a running group is sent nothing herself, so she never gets the text with her dashboard link. James's decision named the Disciples and the existing leaders; whether she gets the leader's Starter Message is put to him.
+Also put to him, with mock-ups: a Decline button, what **Copy link** copies, *matched* in the invitation text and the Welcome Message, the tick's stray history event, and whether existing leaders are still told nothing.

@@ -202,7 +202,7 @@ The files are the tickets; this table only says which part of this spec each car
 | 02 - Two ticked: the shapes and their Materials | The shape toggle, the 1:2 pair, N × 1:1 pairs, and a Material for each, from the route to the dropdowns | 24, and 21 stage 2 | Nothing |
 | 03 - Groups in the popup, from a Disciple | Joining an existing group, from a Disciple | 25 | Nothing |
 | 04 - The Group shape, and groups in the popup from a Discipler | The Group shape and its gender toggle; joining an existing group as co-leader | 26 | 01, 02, 03 |
-| 05 - The old Pair page retires | `/roster/pair` redirects into the popup and the old page is deleted; and, as an addendum James asked for on 2026-09-20, unsending an unanswered invitation from the person's page | 27 | 02, 04; the addendum waits on nothing |
+| 05 - The old Pair page retires | `/roster/pair` redirects into the popup and the old page is deleted; and, as an addendum James decided on 2026-09-21, an invitation nobody answers is withdrawn after two weeks and the Admin is told on Follow-Up | 27 | 02, 04; the addendum waits on nothing |
 | 06 - Committed already | Everything built so far | 01, 02, 03, 06, 07, 08, 12, 21 stage 1, 22, 23 | Nothing to build |
 
 01, 02 and 03 can start now; 04 and then 05 follow.

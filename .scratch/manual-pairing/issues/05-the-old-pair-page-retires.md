@@ -57,55 +57,66 @@ In this cut the Group shape shares old ticket 04 with the co-leader's side of th
 - [ ] Over HTTP: each old link shape redirects where this ticket says.
 - [ ] Looked at in a browser: Pair from a Discipler row, from a Disciple row, from the person page and from Follow-Up each open the right side of the popup.
 
-## Addendum, 2026-09-20 - Unsending an invitation, from the person's page
+## Addendum - An invitation nobody answers is withdrawn after two weeks
 
-**Asked for by James on 2026-09-20**, after ticket 01.
+**Decided by James on 2026-09-21**, reviewing ticket 01, in place of the addendum of 2026-09-20.
+That one asked for an **Unsend invitation** button on the person's page.
+James: *there needs to not be an unsend button; the invite becomes revoked and invalid if it has been two weeks, and the Admin gets notified in the Follow-Up tab, and they can just click Resolve or copy link from that spot on the Follow-Up page.*
+
 It is on this ticket because this is the shortest one left, not because it belongs with the redirect.
 It depends on nothing else here and can be built and reviewed on its own, ahead of the rest of this ticket.
 It is worth having no later than ticket 04, which is what hands **Add as co-leader** to an Admin.
 
-**What to build:** A way for an Admin to take back an invitation nobody has answered.
-An Admin clicks the Person's name on the Roster, and on their page, beside **Send a new invitation**, is **Unsend invitation**.
+**What to build:** An invitation a leader has not answered within two weeks is withdrawn by the product, and the Admin is told on the Follow-Up tab, where they can **Resolve** it or **Copy link**.
+There is no button that withdraws one by hand.
 
 ### Why
 
 An Admin can add a Discipler to a group as co-leader, and cannot take it back.
-The unanswered invitation's usual answer, **Cancel**, is refused on a running group (`relationship.already_accepted`), rightly: it would end the group.
-So a co-leader invited by mistake, or one who says no, stays on the group as somebody it is waiting for, and the only way out today is to end the group for everybody.
-Ticket 01's Comments and old ticket 22's both say so.
+The unanswered invitation's usual answer, **Cancel**, is rightly refused on a running group, since it would end the group; since ticket 01 the Follow-Up item for a running group does not offer it.
+So a co-leader invited by mistake, or one who never answers, stays on the group as somebody it is waiting for, for ever.
+A fortnight is already how long an Invitation Link lives: every invitation carries its own expiry, reset when a new one is sent.
+What is missing is everything after it: today the link stops working and nothing else happens.
+
+### Decided
+
+- **No Unsend button**, on the person's page or anywhere.
+- **Two weeks**, measured by the invitation's own expiry, which is reset by **Send a new invitation**.
+  No day count is shown to the Admin, and no migration is needed to keep the time (James, 2026-09-21).
+- **Where withdrawing a leader leaves a relationship nobody has activated with every remaining leader accepted, it activates there and then, once, with its one Starter Message** (James, 2026-09-21: *yes, go with the new one*).
+  This is an activation by the product's clock and not by a leader's press.
 
 ### Acceptance
 
-- [ ] **Unsend invitation** shows on the person page wherever **Send a new invitation** does: for each relationship the Person was invited to lead and has not accepted.
-- [ ] On a group that is running or paused, it ends that Person's unaccepted leader membership and their link stops opening anything.
+- [ ] When an unanswered invitation reaches its expiry, the leader's unaccepted membership is ended and their link stops opening anything more than it does today.
   The membership is ended, never deleted: that they were invited, and when, stays in the Ministry's history.
-- [ ] Nothing else about the group changes: its activation, its Material, its name, its declaration, its state, its other leaders and its Disciples.
-- [ ] Nobody is sent anything: not the Person, not the group's leaders, not its Disciples.
-  Somebody opening the link afterwards is told what any link that resolves to nothing is told.
-- [ ] An invitation that has been accepted cannot be unsent, including one accepted while the Admin was clicking.
-  It is refused with a code and wording of its own, and the membership stands.
-- [ ] Recorded as a ministry event of its own type, naming the Admin, the Person and the relationship.
-- [ ] An open *Awaiting acceptance* item about the relationship closes when unsending leaves nobody still to answer, as the last acceptance closes it since ticket 01.
-  It stands while another leader has still to answer.
-- [ ] Afterwards the Roster no longer shows the group on the Person's row, the popup offers them the group again, and they can be invited again.
-- [ ] Where the Person is the only leader of a relationship nobody has activated, there is nothing to unsend that **Cancel** does not already do, and this ticket adds no second way to do it.
-  The button is not shown there, or it is **Cancel** under its own name; say which on this ticket.
-- [ ] The route is an ordinary form post that works without script, returns to the person page with a receipt, and on refusal returns there with the reason.
-- [ ] Integration tests cover: a running group, a paused group, an invitation accepted in the meantime, the item closing and the item standing, and that no message goes to anybody in any of them.
-- [ ] Over HTTP: an Admin unsends a co-leader's invitation from the person page, the link stops working, and the group's state is unchanged.
-- [ ] Looked at in a browser: the button beside **Send a new invitation**, and the person page and the Roster row afterwards.
+- [ ] On a group that is running or paused, nothing else about the group changes: its activation, its Material, its name, its declaration, its state, its other leaders and its Disciples.
+- [ ] Nobody is sent anything by the withdrawal itself: not the Person, not the group's leaders, not its Disciples.
+- [ ] The Admin is told by an item on the Follow-Up tab that names the Person and the relationship and says the invitation was withdrawn after two weeks.
+  An open *Awaiting acceptance* item about the same relationship is closed by the same act where nobody is left to answer, as the last acceptance closes it since ticket 01, so the Admin has one thing to read and not two.
+- [ ] The item offers **Resolve** and **Copy link**.
+  What **Copy link** copies is the first question below.
+- [ ] An invitation accepted in the same moment it would have been withdrawn is accepted, and is not withdrawn.
+  A leader's acceptance never fails on the product's timing.
+- [ ] Sending a new invitation before the two weeks are up starts them again.
+- [ ] Recorded as a ministry event of its own type, naming the Person and the relationship, with no Admin on it, because no Admin performed it.
+- [ ] Afterwards the Roster no longer shows the relationship on the Person's row, the popup offers them the group again, and they can be invited again.
+- [ ] Where the Person was the only leader of a relationship nobody has activated, the relationship is left with no leader.
+  It stays for the Admin to cancel or re-pair from the Follow-Up item; it does not cancel itself.
+  This is a default taken while writing the ticket; James can overrule it here.
+- [ ] Integration tests cover: a running group, a paused group, a group awaiting two leaders where the other has accepted (it activates, once, with one Starter Message), an invitation accepted at the moment of expiry, a re-sent invitation, and that no message goes to anybody but that one Starter Message.
+- [ ] Over HTTP: the Follow-Up item appears, **Resolve** clears it, and the Roster row is as above.
+- [ ] Looked at in a browser: the item on the Follow-Up tab, and the person page and the Roster row afterwards.
 
-### For James to answer on this ticket before it is built
+### For James to answer before it is built
 
-Neither is in the spec, and each changes what people are told.
+Put to James with mock-ups on 2026-09-21 (`.lavish/co-leader-acceptance/index.html`, gitignored, round two).
 
-1. **A group nobody has activated, waiting on two leaders, one of whom is unsent.**
-   If the leader who remains has already accepted, every open leader membership now carries an Acceptance, which is what activates a relationship.
-   Does it activate there and then, with its one Starter Message, by an Admin's click and not a leader's?
-   *Recommended:* yes, exactly as the last acceptance would, once.
-   The alternative is to leave it awaiting and make the Admin do something else, and there is nothing else for them to do.
-   It is asked because it sends texts to real phones.
-2. **A leader who declined by texting `SWAP`, whose invitation is then unsent.**
-   Their `swap_requested` item is still open on the Follow-Up tab.
-   *Recommended:* the same act resolves it, naming the Admin, as putting somebody into a group resolves their Join Request for it (ticket 03).
-   The alternative is to leave it for the Admin to resolve by hand.
+1. **What Copy link copies.**
+   At two weeks the link has just stopped working, so it cannot copy that one.
+   *Recommended:* always a working link: the live one while it lives, and after two weeks a fresh one, which invites the Person again for another fortnight.
+   It matters because today an Admin never sees a leader's link, and the link alone is what lets its holder set the account's password; if it is built, every copy is recorded in the Ministry's history with the Admin who made it.
+2. **A Decline button on the invitation page**, which James asked to see as a mock-up before it is built (*no SWAP; a Decline button, greyed, smaller than Accept, red*).
+   It is not a criterion of this ticket until James has chosen from the mock-ups.
+   Proposed: it withdraws the invitation as above, at once and by the leader's own act, and tells the Admin on Follow-Up as `match_declined`, the item kind ADR-0011 kept and nothing raises today.
+3. **What a leader who texts `SWAP` before accepting is told**, once Decline exists. Words to a real phone.
