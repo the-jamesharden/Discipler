@@ -3,11 +3,13 @@ import { personId, relationshipId } from '~/domain/ids'
 import type { RosterEntry, RosterRelationship } from '~/service/ports'
 import {
   declaredByAOneToOne,
+  disciplersShownTo,
   greyedAgainst,
   greyedForADisciple,
   greyedForADiscipler,
   greyedInAOneToTwo,
   groupLeftOut,
+  groupsShownTo,
   leadsAGroup,
   leftOutForADisciple,
 } from '../../app/roster/greying'
@@ -325,5 +327,51 @@ describe('who is left out of the popup opened from a Disciple', () => {
       withName: 'David Chen',
     })
     expect(groupLeftOut({ group: { declaredGender: 'male' }, person: paired })).toBe(false)
+  })
+})
+
+/**
+ * The two lists the popup opened from a Disciple is handed, composed: who the
+ * Roster makes a Discipler and which groups the Pair document lists, less what
+ * gender rules out.
+ */
+describe('what the popup opened from a Disciple lists', () => {
+  const offers = (over: Partial<RosterEntry>) => person({ declaredSide: 'mentor', ...over })
+  const aGroup = (declaredGender: 'male' | 'female' | null, memberIds: readonly RosterEntry['personId'][] = []) => ({
+    relationshipId: relationshipId(`group-${++counter}`),
+    name: 'Thursday Table',
+    leaders: [{ personId: personId('david'), fullName: 'David Chen' }],
+    discipleCount: 3,
+    declaredGender,
+    state: null,
+    memberIds,
+  })
+
+  it('is every Discipler gender does not rule out, in the Roster’s order, greyed ones included', () => {
+    const sam = person({ gender: 'female' })
+    const grace = offers({ gender: 'female' })
+    const david = offers({ gender: 'male' })
+    const left = offers({ gender: 'female', participationStatus: 'opted_out' })
+    const waiting = offers({ gender: null, participationStatus: 'no_intake_submitted' })
+    const roster = [sam, grace, david, left, waiting]
+
+    expect(disciplersShownTo({ roster, disciple: sam, genderMatchEnforced: true })).toEqual([grace, left, waiting])
+    // Shown, and greyed with what their Roster row says: only gender leaves anybody out.
+    expect(greyedForADisciple({ genderMatchEnforced: true, disciple: sam, discipler: left })).toEqual({
+      why: 'not_pairable',
+      reason: 'opted_out',
+    })
+    expect(disciplersShownTo({ roster, disciple: sam, genderMatchEnforced: false })).toEqual([grace, david, left, waiting])
+  })
+
+  it('is every group they are not already in and whose declaration does not rule them out', () => {
+    const sam = person({ gender: 'female' })
+    const coed = aGroup(null)
+    const womens = aGroup('female')
+    const mens = aGroup('male')
+    const hers = aGroup(null, [sam.personId])
+
+    expect(groupsShownTo(sam, [coed, mens, womens, hers])).toEqual([coed, womens])
+    expect(groupsShownTo(person({ gender: null }), [coed, mens, womens])).toEqual([coed, mens, womens])
   })
 })

@@ -155,6 +155,11 @@ describe('what the Pair popup says, from a Disciple (Manual pairing, ticket 12)'
     expect(PAIR_POPUP.noDisciplers).toBeTruthy()
   })
 
+  it('does not say how a discipler comes to be where gender is why nobody is listed', () => {
+    expect(PAIR_POPUP.nobodyToChoose).toBe('There is nobody to choose yet.')
+    expect(PAIR_POPUP.noDisciplers.startsWith(PAIR_POPUP.nobodyToChoose)).toBe(true)
+  })
+
   it('says Discipler and Disciple, never the model’s Leader, Participant or mentor', () => {
     const said = [
       PAIR_POPUP.title('A'),

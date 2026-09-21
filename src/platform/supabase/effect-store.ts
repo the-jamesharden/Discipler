@@ -1894,7 +1894,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     }
   },
 
-  async joinRequestOf(
+  async openJoinRequestFor(
     asker: PersonId,
     group: RelationshipId,
   ): Promise<OpenJoinRequest | null> {

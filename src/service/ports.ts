@@ -359,7 +359,7 @@ export interface UnitOfWork {
    * request dedupes while it stands open. A request of theirs for another group is
    * not this one.
    */
-  joinRequestOf(personId: PersonId, relationshipId: RelationshipId): Promise<OpenJoinRequest | null>
+  openJoinRequestFor(personId: PersonId, relationshipId: RelationshipId): Promise<OpenJoinRequest | null>
   /**
    * Adds one Participant to a relationship that already exists -- the mirror of a
    * departure. Refuses with a `PairingRefused` when the caps, the Intake gate or

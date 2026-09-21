@@ -56,7 +56,12 @@ export const PairList = ({
   useEffect(() => {
     const list = listElement.current
     if (list === null) return
-    const measure = () => setMoreBelow(list.scrollHeight - list.scrollTop - list.clientHeight > 1)
+    const measure = () => {
+      setMoreBelow(list.scrollHeight - list.scrollTop - list.clientHeight > 1)
+      // How wide this browser draws the scrollbar, which the fade leaves alone:
+      // eight pixels where it is styled, nothing where it floats over the rows.
+      list.style.setProperty('--pair-scrollbar', `${list.offsetWidth - list.clientWidth}px`)
+    }
     measure()
     list.addEventListener('scroll', measure, { passive: true })
     const resized = new ResizeObserver(measure)
@@ -66,7 +71,8 @@ export const PairList = ({
       list.removeEventListener('scroll', measure)
       resized.disconnect()
     }
-  }, [])
+    // The rows' element is a different one for round marks and for boxes.
+  }, [exactlyOne])
   const keepListElement = (element: HTMLElement | null) => {
     listElement.current = element
   }
@@ -100,7 +106,7 @@ export const PairRow = ({
   person,
   details,
   greyed,
-  waitsForScript = false,
+  held = false,
   checked,
   onChange,
 }: {
@@ -116,22 +122,22 @@ export const PairRow = ({
   readonly details: readonly (string | null)[]
   /**
    * Why they cannot be chosen, already in words, or null where they can (Manual
-   * pairing, ticket 23). A greyed row is shown, never hidden, and says why.
+   * pairing, ticket 23). A greyed row is shown and says why. Whoever is not to be
+   * shown at all was left off the list before it reached here.
    */
   readonly greyed: string | null
   /**
-   * A mark that means another act than the form's own (Manual pairing, recut ticket
-   * 03): choosing it has to point the form at another route, which only script can
-   * do. Until script runs it cannot be pressed, so a form posted before then never
-   * makes something other than what was marked. One the server sent already chosen
-   * stays open: the server pointed the form at its route too.
+   * Held until script runs, though nothing is wrong with the row (Manual pairing,
+   * recut ticket 03). The form is pointed at one route, and a mark that means the
+   * other act needs script to point it there; until then it cannot be pressed, so a
+   * form posted before script runs never makes something other than what was
+   * marked. Which marks those are is the side's to say: it knows where the form
+   * points. Not greyed, and given no reason: a moment later it is open.
    */
-  readonly waitsForScript?: boolean
+  readonly held?: boolean
   readonly checked: boolean
   readonly onChange: (checked: boolean) => void
-}) => {
-  const hydrated = useHydrated()
-  return (
+}) => (
   <label className={`pair-opt${checked ? ' on' : ''}${greyed ? ' off' : ''}`}>
     {/* Disabled is the whole of it: no mouse or key presses it, a screen reader
         says unavailable and then the reason, and no form posts it, with script or
@@ -142,7 +148,7 @@ export const PairRow = ({
       value={person.id}
       checked={checked}
       onChange={(event) => onChange(event.target.checked)}
-      disabled={greyed !== null || (waitsForScript && !hydrated && !checked)}
+      disabled={greyed !== null || held}
       aria-describedby={greyed ? `pair-why-${person.id}` : undefined}
     />
     <span className={avatar === 'of_a_group' ? 'avatar of-a-group' : 'avatar'} aria-hidden="true">
@@ -169,8 +175,7 @@ export const PairRow = ({
       )}
     </span>
   </label>
-  )
-}
+)
 
 export const PairPopupShell = ({
   person,

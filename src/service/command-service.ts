@@ -740,7 +740,7 @@ const groupToAddTo = async (
     // (Manual pairing, recut ticket 03). A Discipler asked to lead it never made
     // one: a Join Request is to be discipled in a group.
     ...(command.type === 'group.add_participant'
-      ? { joinRequest: await unit.joinRequestOf(command.personId, command.relationshipId) }
+      ? { joinRequest: await unit.openJoinRequestFor(command.personId, command.relationshipId) }
       : {}),
   }
 }

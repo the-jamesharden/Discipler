@@ -1,7 +1,7 @@
 import type { Gender } from '~/domain/intake'
 import type { GroupToJoin, RosterEntry } from '~/service/ports'
 import type { NotPairable } from './copy'
-import { whyNotPairable } from './lists'
+import { disciplersFor, groupsToJoin, whyNotPairable } from './lists'
 
 /**
  * Who is greyed in the Pair popup, and why (Manual pairing, ticket 23). One rule
@@ -12,8 +12,11 @@ import { whyNotPairable } from './lists'
  * one person.** The rules are the database's own and the screen invents none: it
  * removes no rule underneath, and the database still refuses what it refused.
  *
- * Who is listed at all is each side's own (`disciplersFor`, `disciplesFor`); a row
- * that is listed and cannot be chosen is greyed here, and never hidden.
+ * Who the Roster puts on each side's list is `./lists` (`disciplersFor`,
+ * `disciplesFor`, `groupsToJoin`). A row that is listed and cannot be chosen is
+ * greyed here with its reason, with one exception, decided by James on 2026-09-21:
+ * what gender rules out, where nothing on that side of the popup could open it
+ * again, is not listed at all (`leftOutForADisciple`, `groupLeftOut`).
  */
 
 /** What a shape declares: a gender, mixed, or nothing asked at all. */
@@ -114,7 +117,8 @@ const greyedInAOneToOne = ({
 /**
  * A Discipler's row in the popup opened from a Disciple. If that Disciple is
  * already in a one-to-one, every Discipler is greyed with it, whoever they are.
- * Every Discipler is listed, so one who cannot be paired is greyed and never hidden.
+ * One who cannot be paired is greyed and never hidden; only one gender rules out
+ * is not listed, which `disciplersShownTo` has already seen to.
  */
 export const greyedForADisciple = ({
   genderMatchEnforced,
@@ -151,9 +155,11 @@ export const leftOutForADisciple = ({
 }): boolean => declaredAgainst(declaredByAOneToOne({ genderMatchEnforced, openedFrom: disciple }), discipler) !== null
 
 /**
- * And a group whose own declaration rules somebody out is not listed for them,
- * from either side of the popup (James, 2026-09-21: what is against the gender
- * rules is hidden; a woman sees the Coed groups and the women's, never the men's).
+ * And a group whose own declaration rules somebody out is not listed for them
+ * (James, 2026-09-21: what is against the gender rules is hidden; a woman sees the
+ * Coed groups and the women's, never the men's). Written for whoever the popup was
+ * opened from, so the Discipler's side reads it too when it comes to list groups;
+ * today the Disciple's side is its one reader.
  * A declaration binds its members, a leader as much as a Disciple, whatever the
  * Ministry says of a one-to-one, so this is not read off `suggest_gender_match`.
  * A Coed group, which is the model's mixed, is shown to everybody, and so is every
@@ -167,6 +173,26 @@ export const groupLeftOut = ({
   /** Who the popup was opened from: the Disciple to be put into it, or the Discipler to help lead it. */
   readonly person: Pick<RosterEntry, 'gender'>
 }): boolean => declaredAgainst(group.declaredGender ?? 'mixed', person) !== null
+
+/** The Disciplers the popup opened from a Disciple lists: every Discipler, less whoever gender rules out. */
+export const disciplersShownTo = ({
+  roster,
+  disciple,
+  genderMatchEnforced,
+}: {
+  readonly roster: readonly RosterEntry[]
+  readonly disciple: RosterEntry
+  readonly genderMatchEnforced: boolean
+}): readonly RosterEntry[] =>
+  disciplersFor(roster, disciple).filter(
+    (discipler) => !leftOutForADisciple({ genderMatchEnforced, disciple, discipler }),
+  )
+
+/** The groups the popup lists for somebody: every one they are not already in, less any whose declaration rules them out. */
+export const groupsShownTo = (
+  person: Pick<RosterEntry, 'personId' | 'gender'>,
+  groups: readonly GroupToJoin[],
+): readonly GroupToJoin[] => groupsToJoin(person, groups).filter((group) => !groupLeftOut({ group, person }))
 
 /**
  * A Disciple's row in the popup opened from a Discipler, while what is ticked

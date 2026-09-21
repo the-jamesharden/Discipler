@@ -68,12 +68,12 @@ import {
 } from './lists'
 import { declaredGenderToField } from './declared-gender'
 import {
+  disciplersShownTo,
   greyedForADisciple,
   greyedForADiscipler,
   greyedInAOneToTwo,
-  groupLeftOut,
+  groupsShownTo,
   leadsAGroup,
-  leftOutForADisciple,
   type Greyed,
 } from './greying'
 import { PairPopupFromADisciple } from './pair-popup-from-a-disciple'
@@ -492,9 +492,7 @@ export default async function RosterPage({
           list={list}
           // A Discipler gender rules out is not listed at all from this side (James,
           // 2026-09-21); anybody else who cannot be chosen is greyed with the reason.
-          disciplers={disciplersFor(roster, pairing)
-            .filter((discipler) => !leftOutForADisciple({ genderMatchEnforced: suggestGenderMatch, disciple: pairing, discipler }))
-            .map((discipler) => ({
+          disciplers={disciplersShownTo({ roster, disciple: pairing, genderMatchEnforced: suggestGenderMatch }).map((discipler) => ({
             id: discipler.personId,
             fullName: discipler.fullName,
             email: discipler.email,
@@ -505,17 +503,22 @@ export default async function RosterPage({
           // Every group the Ministry has that they are not already in (Manual
           // pairing, recut ticket 03). One whose own declaration rules them out is
           // not listed, as a Discipler gender rules out is not, so none is greyed.
-          groups={groupsToJoin(pairing, groups)
-            .filter((group) => !groupLeftOut({ group, person: pairing }))
-            .map((group) => ({
-              id: group.relationshipId,
-              name: group.name,
-              leaders: group.leaders.map(({ fullName }) => ({ fullName })),
-              discipleCount: group.discipleCount,
-              declaredGender: group.declaredGender,
-              state: group.state,
-              greyed: null,
-            }))}
+          groups={groupsShownTo(pairing, groups).map((group) => ({
+            id: group.relationshipId,
+            name: group.name,
+            leaders: group.leaders.map(({ fullName }) => ({ fullName })),
+            discipleCount: group.discipleCount,
+            declaredGender: group.declaredGender,
+            state: group.state,
+            greyed: null,
+          }))}
+          // Whether gender left anybody or any group off the list, so that an empty
+          // list does not say why there is nobody when that is not why.
+          someLeftOut={
+            disciplersFor(roster, pairing).length + groupsToJoin(pairing, groups).length >
+            disciplersShownTo({ roster, disciple: pairing, genderMatchEnforced: suggestGenderMatch }).length +
+              groupsShownTo(pairing, groups).length
+          }
           // A refused join comes back with its group, and is worded for that act.
           refusal={groupChosenBefore === undefined ? pairingRefusal : groupJoinRefusalMessage(query.error, pairing.fullName)}
           chosenBefore={chosenBefore ?? null}

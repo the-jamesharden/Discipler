@@ -581,10 +581,14 @@ textarea.paste { width: 100%; min-height: 140px; font-family: ui-monospace, SFMo
 .pair-toolbar { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.76rem; color: var(--text-light); margin-bottom: 0.4rem; }
 .pair-toolbar .link-btn { font-size: 0.76rem; font-weight: 500; }
 /* Room inside the scrolling list for a row's focus ring, which its edge would clip. */
-.pair-list { max-height: min(50vh, 22rem); overflow-y: auto; padding: 3px; margin: 0 -3px; min-width: 0; }
+/* A row brought into view, by the keyboard or as a restored choice, stops short of the fade. */
+.pair-list { max-height: min(50vh, 22rem); overflow-y: auto; padding: 3px; margin: 0 -3px; min-width: 0; scroll-padding-bottom: 2.4rem; }
 /* The list says it scrolls (James, 2026-09-21): a light scrollbar that does not hide
    itself, as macOS would have it, and a fade at the bottom edge while there is more
-   below. The fade leaves the scrollbar's own column alone. */
+   below. The scrollbar stays put in Chrome, Edge and Safari on a desktop; Firefox on
+   macOS and every phone float theirs over the rows whatever a page says, and there
+   the fade is the whole of the hint. The fade leaves the scrollbar's own column
+   alone, as wide as this browser draws it, which the list measures. */
 .pair-list::-webkit-scrollbar, .pair-per::-webkit-scrollbar { width: 8px; }
 .pair-list::-webkit-scrollbar-track, .pair-per::-webkit-scrollbar-track { background: transparent; }
 .pair-list::-webkit-scrollbar-thumb, .pair-per::-webkit-scrollbar-thumb { background: #d9d0c4; border-radius: 4px; }
@@ -593,7 +597,8 @@ textarea.paste { width: 100%; min-height: 140px; font-family: ui-monospace, SFMo
 .pair-list.more-below {
   -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 2.2rem), transparent), linear-gradient(#000, #000);
   mask-image: linear-gradient(to bottom, #000 calc(100% - 2.2rem), transparent), linear-gradient(#000, #000);
-  -webkit-mask-size: calc(100% - 8px) 100%, 8px 100%; mask-size: calc(100% - 8px) 100%, 8px 100%;
+  -webkit-mask-size: calc(100% - var(--pair-scrollbar, 0px)) 100%, var(--pair-scrollbar, 0px) 100%;
+  mask-size: calc(100% - var(--pair-scrollbar, 0px)) 100%, var(--pair-scrollbar, 0px) 100%;
   -webkit-mask-position: left top, right top; mask-position: left top, right top;
   -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
 }

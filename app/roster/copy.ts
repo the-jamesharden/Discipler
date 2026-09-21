@@ -1,4 +1,5 @@
 import type { GroupJoinRefusal, ImportRowRefusal, PairingRefusal } from '~/domain/errors'
+import type { Gender } from '~/domain/intake'
 import { asList } from '~/domain/outbound-copy'
 import type { ParticipationStatus } from '~/domain/participation'
 import type { RowProblem } from '~/domain/roster'
@@ -136,6 +137,9 @@ export interface GroupListed extends GroupOnARow {
   readonly state: GroupToJoin['state']
 }
 
+/** What a declaration is called on the screen: whose it is, never what anybody is. */
+const declaredAs = (declared: Gender): string => (declared === 'male' ? 'Men’s' : 'Women’s')
+
 /** Who leads a group, by name, in the order the document gave. */
 const leadersOf = (group: GroupOnARow): readonly string[] => group.leaders.map(({ fullName }) => fullName)
 
@@ -161,6 +165,12 @@ export const PAIR_POPUP = {
   createOneToOne: 'Create 1:1 pair',
   nothingChosen: PAIR,
   noDisciplers: 'There is nobody to choose yet. Somebody becomes a discipler when they offer to on the Intake form.',
+  /**
+   * An empty list where gender left somebody or some group off it (James,
+   * 2026-09-21). The sentence above would say how a discipler comes to be, which is
+   * not why there is nobody here, so only its first half is said.
+   */
+  nobodyToChoose: 'There is nobody to choose yet.',
   close: 'Close',
   /**
    * From a Discipler (Manual pairing, ticket 23): the list is of Disciples, ticked
@@ -217,8 +227,8 @@ export const PAIR_POPUP = {
   groupsHeading: 'Groups',
   counts: (people: string, groups: number): string =>
     groups === 0 ? people : `${people} · ${groups === 1 ? '1 group' : `${groups} groups`}`,
-  /** What a group's row is called: `nameOfAGroup`, as a Disciple's row already says it. */
-  groupLabel: (group: GroupOnARow): string => nameOfAGroup(group),
+  /** What a group's row is called, as a Disciple's row already says it. */
+  groupLabel: nameOfAGroup,
   /**
    * Beneath it: who leads it, how many Disciples it has, what it declared, and its
    * state when it is not running. Coed is the screen's word for the model's mixed.
@@ -226,19 +236,18 @@ export const PAIR_POPUP = {
    */
   groupDetails: (group: GroupListed): readonly string[] => [
     ...(group.name !== null && group.leaders.length > 0 ? [`led by ${asList(leadersOf(group))}`] : []),
-    group.discipleCount === 1 ? '1 disciple' : `${group.discipleCount} disciples`,
-    group.declaredGender === null ? 'Coed' : group.declaredGender === 'male' ? 'Men’s' : 'Women’s',
+    PAIR_POPUP.disciples(group.discipleCount),
+    group.declaredGender === null ? 'Coed' : declaredAs(group.declaredGender),
     // Still awaiting its leader is said as the Roster row behind the popup says it.
     ...(group.state === null ? [] : [group.state === 'paused' ? 'paused' : AWAITING_ACCEPTANCE]),
   ],
   /** Every leader is named. A group nobody has named is said by who leads it. */
   joinGroup: (disciple: string, group: GroupOnARow): string => {
-    if (group.name === null) {
-      return group.leaders.length === 0 ? `${disciple} will join the group.` : `${disciple} will join ${nameOfAGroup(group)}.`
-    }
-    return group.leaders.length === 0
-      ? `${disciple} will join ${group.name}.`
-      : `${disciple} will join ${group.name}, led by ${asList(leadersOf(group))}.`
+    // Named for its leaders, it has said them already; named by nobody and led by
+    // nobody, it is *the group*, which reads as a sentence where its label would not.
+    const joined = group.name === null && group.leaders.length === 0 ? 'the group' : nameOfAGroup(group)
+    const ledBy = group.name !== null && group.leaders.length > 0 ? `, led by ${asList(leadersOf(group))}` : ''
+    return `${disciple} will join ${joined}${ledBy}.`
   },
   addToGroup: 'Add to group',
   /**
@@ -256,7 +265,7 @@ export const PAIR_POPUP = {
         : `Already in a 1:1 with ${greyed.withName}`
       : greyed.why === 'not_pairable'
         ? CANNOT_BE_PAIRED[greyed.reason]
-        : `${greyed.declared === 'male' ? 'Men’s' : 'Women’s'} only: a ${readAs === 'a_one_to_two' ? '1:2' : '1:1'} is same-gender`,
+        : `${declaredAs(greyed.declared)} only: a ${readAs === 'a_one_to_two' ? '1:2' : '1:1'} is same-gender`,
 } as const
 
 /** The receipt the pairing screen redirects to, said about what just happened. */

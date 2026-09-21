@@ -41,6 +41,7 @@ export const PairPopupFromADisciple = ({
   list,
   disciplers,
   groups,
+  someLeftOut,
   refusal,
   chosenBefore,
   groupChosenBefore,
@@ -51,6 +52,8 @@ export const PairPopupFromADisciple = ({
   readonly disciplers: readonly PairPopupDiscipler[]
   /** The groups this Disciple could be put into: every one the Ministry has that they are not already in. */
   readonly groups: readonly PairPopupGroup[]
+  /** Whether gender left anybody or any group off the two lists above: they are not shown, and not counted. */
+  readonly someLeftOut: boolean
   readonly refusal: string | undefined
   /** The Discipler chosen on a submission that came back refused, or null. */
   readonly chosenBefore: string | null
@@ -94,7 +97,7 @@ export const PairPopupFromADisciple = ({
       <p className="pair-intro">{PAIR_POPUP.chooseADiscipler(person.fullName)}</p>
 
       {disciplers.length === 0 && groups.length === 0 ? (
-        <p className="empty">{PAIR_POPUP.noDisciplers}</p>
+        <p className="empty">{someLeftOut ? PAIR_POPUP.nobodyToChoose : PAIR_POPUP.noDisciplers}</p>
       ) : (
         <>
           <div className="pair-toolbar">
@@ -120,6 +123,10 @@ export const PairPopupFromADisciple = ({
                   PAIR_POPUP.leads(each.leads),
                 ]}
                 greyed={each.greyed}
+                // With a group the server sent chosen, a refused join restored, the
+                // form points at the route that joins, and a Discipler marked beside
+                // it would be posted there and ignored. Held until script runs.
+                held={!hydrated && group !== null}
                 checked={each.id === discipler?.id}
                 onChange={() => setChoice({ of: 'a_discipler', id: each.id })}
               />
