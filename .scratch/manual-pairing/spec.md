@@ -48,6 +48,31 @@ Two tickets from the first version landed and nothing here undoes them.
   **Opted out** is said in the Paired with cell, in place of *Unpaired*.
 - **Pair** appears on every Discipler row, including a Discipler who already leads somebody, and on every Disciple row whose person has completed Intake and not opted out.
 
+## Unpair, on a person's page
+
+Decided by James on 2026-09-21, from a mock-up on the real person pages (`.lavish/unpair/index.html`, gitignored).
+Before this, a pairing could be ended only from a Follow-Up item, so a healthy pairing could not be ended at all.
+
+- **Unpair** sits on the Pairings card of a person's page, one beside each pairing, because a person can hold several.
+  It is not on a Roster row.
+- One word for three acts the model already had, and `app/roster/unpair.ts` is the one rule that picks between them.
+  The page draws the button from it and the route reads the Roster again and acts from it.
+- A pairing nobody has accepted is cancelled in one press, and nothing is asked: it never started, so it has no outcome.
+  A group nobody has accepted is cancelled from its Discipler's page after one confirmation, because it is everybody's.
+- A pairing that has started ends, from either person's page, and is asked one thing: **It finished well** or **It did not run its course**, which are the model's `completed` and `discontinued`.
+  The reason is optional here; a blank one is recorded as *Unpaired from the Roster.*, and who did it is recorded beside it as it always was.
+  Follow-Up's **End relationship** still asks for both.
+- A Disciple in a group is taken out of it in one press and the group goes on.
+  Where she is the last Disciple in it, that is an ending and asks the same one thing.
+- From the page of the one Discipler who leads a group, Unpair ends the whole group, and the question names everybody it ends for before it does.
+- Nobody is sent anything and nothing is deleted, whichever act it is.
+- **Not built, and no button is offered on these three lines:**
+  a Discipler who leads a group beside another who has accepted, where the group should go on without them, because a leader cannot leave a relationship yet (`departure.person_is_a_leader`);
+  a Discipler invited to a group that is already running, whose invitation is declined or runs out;
+  and a Disciple in a group nobody has accepted, where cancelling is the whole group's and nobody can leave what has not started.
+- **Seen and left:** the person page names a group by its people and never by its name.
+  The person page's document does not carry the name, so naming it is a change to that read.
+
 ## Where the popup lives
 
 The popup is drawn over the Roster, like the import dialog, at `/roster?pair=<personId>`.

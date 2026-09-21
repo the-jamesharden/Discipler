@@ -353,6 +353,46 @@ export const partlyPairedReceipt = ({
     : `${notPaired[0] ?? 'Somebody'}: ${reason}`)
 
 /**
+ * Unpair, on a person's Pairings card (James, 2026-09-21). One word for three acts
+ * (`./unpair`). The question names who it is about, because a person can hold
+ * several pairings and a group ends for more people than the one on the page.
+ * The outcome is asked as the two things an Admin would say, and they are the
+ * model's `completed` and `discontinued`.
+ */
+export const UNPAIR = {
+  button: 'Unpair',
+  question: ({ person, group, endsItFor }: { readonly person: string; readonly group: boolean; readonly endsItFor: readonly string[] }): string =>
+    group
+      ? `Unpair ${person} from this group? It ends for ${asList(endsItFor)} too.`
+      : `Unpair ${person} and ${asList(endsItFor)}?`,
+  consequence: 'Their history is kept, and nobody is sent anything.',
+  finishedWell: 'It finished well',
+  didNotRunItsCourse: 'It did not run its course',
+  reasonPlaceholder: 'Optional. Anything you want remembered about how it ended.',
+  confirm: 'Yes, unpair',
+  goBack: 'Go back',
+}
+
+/**
+ * What an ending records where the Admin wrote no reason. The database requires
+ * one, and *who* is already recorded beside it as `ended_by`.
+ */
+export const UNPAIRED_BLANK_REASON = 'Unpaired from the Roster.'
+
+/** What the person page says after an Unpair, by what happened. Codes in the address, never prose. */
+export type Unpaired = 'ended' | 'cancelled' | 'left'
+export const UNPAIRED_RECEIPT: Record<Unpaired, string> = {
+  ended: 'Unpaired. The history is kept, and nobody was sent anything.',
+  cancelled: 'Unpaired. It had not started, and nobody was sent anything.',
+  left: 'Unpaired from the group, which goes on without them. Nobody was sent anything.',
+}
+export const isUnpaired = (value: string | undefined): value is Unpaired =>
+  value === 'ended' || value === 'cancelled' || value === 'left'
+
+/** Why an Unpair did not happen. The page was true when it was drawn, and something changed under it. */
+export const UNPAIR_REFUSED = 'That pairing changed while you were looking at it, so nothing was done. Have another look and press Unpair again.'
+
+/**
  * The receipt for somebody an Admin has just put into a group (Manual pairing,
  * ticket 22). Their name as the Roster holds it: the address carries an id, and
  * a name is looked up, never read off the address.

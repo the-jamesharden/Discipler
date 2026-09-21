@@ -793,6 +793,11 @@ unclassifiable.
 
 Ending remains recorded against the acting Admin, and `Ended` remains terminal.
 
+Unpair on a person's page is the one place an ending is asked for its outcome alone (James, 2026-09-21).
+The outcome is the part that is counted, and it is still required there.
+The reason is optional there, and a blank one is recorded as *Unpaired from the Roster.*, so the database's rule that every ending carries a reason holds unchanged.
+Follow-Up's End relationship still asks for both.
+
 ## Settled: A Relationship's First Material Period Is a Real Period With No Material
 
 Material Assignment periods never overlap and never leave gaps, and that includes the
