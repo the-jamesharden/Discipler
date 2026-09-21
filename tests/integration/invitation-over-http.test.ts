@@ -93,9 +93,17 @@ describe.skipIf(skipUnlessAppIsRunning)('a Leader opening their Invitation Link'
 
     expect(response.status).toBe(200)
     // Who, and for which Ministry, above the form.
-    expect(html).toContain('Emily Opens')
-    expect(html).toContain('Riverside Chapel')
-    expect(html).toContain('invitation, not an assignment')
+    expect(html).toContain('You’ve been paired with Emily Opens')
+    expect(html).not.toContain('matched')
+    // The Ministry heads the card, as on every page opened on a Ministry's behalf,
+    // and Discipler's mark is small at the foot (James, 2026-09-21).
+    expect(html).toMatch(/<h1 class="ministry-mark">Riverside Chapel<\/h1>/)
+    expect(html).not.toContain('class="wordmark"')
+    expect(html).toContain('centred-brand')
+    // Nothing between the reveal and the form: the line that said it was an
+    // invitation and not an assignment is gone.
+    expect(html).not.toContain('not an assignment')
+    expect(html).not.toContain('asked to disciple')
     expect(html.indexOf('Emily Opens')).toBeLessThan(html.indexOf('name="password"'))
   })
 

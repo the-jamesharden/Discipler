@@ -90,8 +90,8 @@ export const createPostgresInvitationReader = (
         if (!held) return null
 
         // Everyone else in it, with their roles: the reveal is drawn from the
-        // other side of the relationship, and the Participant count from all of
-        // them.
+        // other side of the relationship, and who they would be leading with
+        // from their own.
         const { rows: others } = await client.query<{
           full_name: string
           role: MemberRole
@@ -139,12 +139,6 @@ export const createPostgresInvitationReader = (
                   )
                   .map((row) => row.full_name)
               : [],
-          // Copy branches on the live Participant count, never on the kind the
-          // relationship was formed as. The holder counts themselves when they
-          // are one.
-          participantCount:
-            others.filter((row) => row.role === 'participant').length +
-            (held.role === 'participant' ? 1 : 0),
         }
       } finally {
         // Nothing here writes, so there is nothing to commit -- and rolling back

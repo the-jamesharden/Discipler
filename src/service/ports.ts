@@ -1437,8 +1437,6 @@ export interface InvitationPage {
    * Participant, who is shown their Leaders in `withNames` and nobody else.
    */
   readonly leadingWith: readonly string[]
-  /** How many Participants it holds. Copy branches on this and never on `kind`. */
-  readonly participantCount: number
 }
 
 export interface InvitationReader {

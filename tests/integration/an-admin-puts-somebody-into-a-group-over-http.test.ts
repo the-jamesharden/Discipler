@@ -334,6 +334,50 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin puts a Disciple into a group, 
       expect(rowFor(disciplers.html, claire.name)).not.toContain('awaiting acceptance')
     })
 
+    it('lets the Admin clear her unanswered invitation with the Resolve button the page gives them', async () => {
+      const group = await aGroup('Morning Table', 'male')
+      const claire = await aDiscipler()
+      await join({ personId: claire.id, groupId: group.id, as: 'leader' })
+      await pool.query(
+        `insert into follow_up_item (ministry_id, kind, relationship_id, raised_at, payload)
+         values ($1, 'relationship_unaccepted', $2, $3, '{}')`,
+        [ministry.id, group.id, new Date()],
+      )
+
+      const before = await getPage('/follow-up', cookie)
+      expect(before.html.replace(/<!-- -->/g, '')).toContain(
+        `${claire.name} was invited to help lead this group and has not answered. The group carries on meanwhile.`,
+      )
+      // A running group is never cancelled over one leader who has not answered.
+      expect(before.html).not.toContain('/follow-up/relationship/cancel')
+
+      // Pressed as the page offers it: the form's own action and its own hidden field.
+      const form = before.html.match(
+        /<form[^>]*action="(\/follow-up\/resolve)"[^>]*>\s*<input[^>]*name="itemId"[^>]*value="([^"]+)"/,
+      )
+      expect(form, 'the page offers no Resolve form').not.toBeNull()
+      const pressed = await fetch(`${baseUrl}${form![1]}`, {
+        method: 'POST',
+        redirect: 'manual',
+        headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ itemId: form![2]! }),
+      })
+      expect(pressed.status).toBe(303)
+      expect(pressed.headers.get('location')).toContain('done=resolved')
+
+      const after = await getPage('/follow-up?done=resolved', cookie)
+      expect(after.html).toContain('Item cleared')
+      expect(after.html).not.toContain(claire.name)
+      const { rows } = await pool.query<{ resolved_by: string | null }>(
+        `select resolved_by from follow_up_item where id = $1`,
+        [form![2]],
+      )
+      expect(rows).toEqual([{ resolved_by: ministry.adminUserId }])
+
+      // Resolving says an Admin looked. It withdraws nothing: she is still invited.
+      expect(await leadsIt(group.id, claire.id)).toEqual([{ accepted: false }])
+    })
+
     it('refuses a Discipler who already leads a group, with a code of its own', async () => {
       const theirs = await aGroup('Tuesday Table', 'male')
       const another = await aGroup('Wednesday Table', 'male')

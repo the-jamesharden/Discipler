@@ -2,13 +2,16 @@ import { notFound } from 'next/navigation'
 import { SHORTEST_PASSWORD } from '~/domain/accounts'
 import { getInvitationReader } from '~/service/container'
 import { Centred } from '../../shell'
-import { asList, invitationProblemMessage, leadingWithSentence } from '../copy'
+import { invitationProblemMessage, leadingWithSentence, revealHeading } from '../copy'
 
 /**
- * The Invitation Link's page. **The match is revealed before any input is
- * requested**: who they have been matched with and for which Ministry are on
+ * The Invitation Link's page. **The pairing is revealed before any input is
+ * requested**: who they have been paired with and for which Ministry are on
  * screen above the form, so a Leader decides whether to lead before they are
  * asked to set a password.
+ *
+ * The Ministry heads the card and Discipler's mark is small at the foot, as on
+ * every page opened on a Ministry's behalf: that is who invited them.
  *
  * There is no session here and none is consulted. Opening it does not consume it.
  */
@@ -38,7 +41,6 @@ export default async function InvitationPage({
     userId,
     withNames,
     leadingWith,
-    participantCount,
   } = invitation
   const problem = invitationProblemMessage(error)
   const coLeaders = leadingWithSentence(leadingWith)
@@ -51,7 +53,7 @@ export default async function InvitationPage({
    */
   if (state === 'consumed' && done === 'accepted') {
     return (
-      <Centred subtitle={ministryName}>
+      <Centred ministryName={ministryName}>
         <div className="tick" aria-hidden="true">
           ✓
         </div>
@@ -71,7 +73,7 @@ export default async function InvitationPage({
 
   if (done === 'disputed') {
     return (
-      <Centred subtitle={ministryName}>
+      <Centred ministryName={ministryName}>
         <h1 style={{ textAlign: 'center' }}>Thanks — we’ve passed that on</h1>
         <p className="muted" style={{ textAlign: 'center' }}>
           Nothing has changed on your account. Someone from the ministry will be in
@@ -82,13 +84,13 @@ export default async function InvitationPage({
   }
 
   return (
-    <Centred subtitle={ministryName}>
+    <Centred ministryName={ministryName}>
       {/* The reveal, above everything. Nothing below is asked until this is read. */}
       {/*
         The reader already scoped `withNames` to the other side of the relationship:
         the Participants to a Leader, the Leaders to a Participant.
       */}
-      <h1>{`You’ve been matched with ${asList(withNames)}`}</h1>
+      <h1>{revealHeading(withNames)}</h1>
 
       <div>
         {problem ? (
@@ -99,12 +101,6 @@ export default async function InvitationPage({
 
         {role === 'leader' ? (
           <>
-            <p>
-              {participantCount > 1
-                ? `You’ve been asked to disciple these ${participantCount} people. It’s an invitation, not an assignment — you can say no.`
-                : 'You’ve been asked to disciple them. It’s an invitation, not an assignment — you can say no.'}
-            </p>
-
             {/*
               Part of the reveal, so above the form with it: who they would be
               leading with is something a Leader weighs before agreeing to lead.

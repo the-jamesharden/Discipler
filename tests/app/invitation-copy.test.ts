@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { asList, invitationProblemMessage, leadingWithSentence } from '../../app/invitation/copy'
+import { invitationProblemMessage, leadingWithSentence, revealHeading } from '../../app/invitation/copy'
 import type { InvitationRefusal } from '~/domain/errors'
 import type { AccountRefusal } from '~/domain/accounts'
 
@@ -64,17 +64,23 @@ describe('what the invitation page says went wrong', () => {
   })
 })
 
-describe('naming who somebody has been matched with', () => {
+describe('the reveal: who somebody has been paired with', () => {
+  it('says paired, which is the product’s word for it (James, 2026-09-21)', () => {
+    expect(revealHeading(['Emily Johnson'])).toBe('You’ve been paired with Emily Johnson')
+    expect(revealHeading(['Emily Johnson'])).not.toContain('matched')
+  })
+
   it('reads the count, never a group-versus-one-to-one flag', () => {
-    expect(asList(['Emily Johnson'])).toBe('Emily Johnson')
-    expect(asList(['Emily Johnson', 'Sarah Kim'])).toBe('Emily Johnson and Sarah Kim')
-    expect(asList(['Emily Johnson', 'Sarah Kim', 'Anna Reed'])).toBe(
-      'Emily Johnson, Sarah Kim and Anna Reed',
+    expect(revealHeading(['Emily Johnson', 'Sarah Kim'])).toBe(
+      'You’ve been paired with Emily Johnson and Sarah Kim',
+    )
+    expect(revealHeading(['Emily Johnson', 'Sarah Kim', 'Anna Reed'])).toBe(
+      'You’ve been paired with Emily Johnson, Sarah Kim and Anna Reed',
     )
   })
 
   it('says something rather than nothing when it has no names to give', () => {
-    expect(asList([])).toBe('someone')
+    expect(revealHeading([])).toBe('You’ve been paired with someone')
   })
 })
 

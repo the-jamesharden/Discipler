@@ -1,5 +1,6 @@
 import type { AccountCreationRefusal } from '~/domain/accounts'
 import type { InvitationRefusal } from '~/domain/errors'
+import { asList } from '~/domain/outbound-copy'
 
 /**
  * The page renders its own wording from codes, like every other surface. Nothing
@@ -49,14 +50,16 @@ export const invitationProblemMessage = (code?: string): string | null => {
 }
 
 /**
- * Who they are meeting with. One name and four are the same sentence with a
- * different list in it -- copy branches on the count and never on the kind the
- * relationship was formed as.
+ * The reveal: who they have been paired with. One name and four are the same
+ * sentence with a different list in it -- copy branches on the count and never on
+ * the kind the relationship was formed as, and the list is the one every message
+ * is written with.
+ *
+ * *Paired*, which is the product's word for it and the Admin's (James,
+ * 2026-09-21); it said *matched*.
  */
-export const asList = (names: readonly string[]): string =>
-  names.length <= 1
-    ? (names[0] ?? 'someone')
-    : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+export const revealHeading = (names: readonly string[]): string =>
+  `You’ve been paired with ${names.length === 0 ? 'someone' : asList(names)}`
 
 /**
  * Who they would be leading with, under the reveal (Manual pairing, recut ticket
