@@ -70,30 +70,79 @@ Old ticket 22's Comments, in the same file, give the address a refused join retu
 
 ## Comments
 
+### Where things are now, for whoever builds ticket 04
+
+Read this and not the older comments below for what the code is called; they are kept as they were written.
+
+- The group rows are `app/roster/pair-popup-groups.tsx`: `PairGroups` (the heading and the rows), `PairGroupRow` and the `PairPopupGroup` type, which keeps a `greyed` reason for the one thing ticket 04 greys a group with, *{name} already leads a group*.
+  It is part of neither side.
+- Which groups the popup lists for somebody is `groupsShownTo(person, groups)` in `app/roster/greying.ts`: every group they are not already in (`groupsToJoin` in `app/roster/lists.ts`), less any whose declaration rules them out (`groupLeftOut`).
+  It is written for whoever the popup was opened from, so the Discipler's side calls it as it stands.
+  No group is greyed for gender any more, and the words *A men's group* no longer exist.
+- Which Disciplers the popup lists from a Disciple is `disciplersShownTo` in the same file, which leaves out whoever gender rules out (`leftOutForADisciple`).
+- A group's name anywhere in the popup is `nameOfAGroup` in `app/roster/copy.ts`, behind `PAIR_POPUP.groupLabel`, `inGroup` and `joinGroup`.
+- The shared shell, `app/roster/pair-popup.tsx`: `postsTo` (`create` or `join`), a square avatar for a group's row, `held` on `PairRow` (a mark that waits for script, decided by the side), and `PairList`, which fades at its bottom edge while there is more below.
+- The command reads the open Join Request through `openJoinRequestFor(personId, relationshipId)` on the unit of work.
+
 ### Decided by James, 2026-09-21, in Lavish (`.lavish/groups-in-the-popup/index.html`)
 
-Five things were put to James beside the real popup, and all five are answered and built (`422ffad`).
+Five things were put to James beside the real popup, and all five are answered and built (`422ffad`, `715167e`, `a192a47`).
 
-1. **Coed** stays, on a group's row. Reading 1 below stands.
-2. ***awaiting acceptance*** stays. Reading 2 below stands.
-3. **A group nobody has named is *Ruth Bader's group***, on its row and in the sentence (*Sam Lee will join Ruth Bader's group.*), which replaces reading 3 below. Its criterion is reworded above.
-   With it James decided something wider, in his own words: "If they're not compatible or able to be paired together because of gender, just don't show them period. If they have the mixed gender setting selected, where one-on-one can be paired across gender, then that should show up here."
-   So from a Disciple, a Discipler of another gender and a group whose declaration rules the Disciple out are **left off the list**, and out of its count, in place of a greyed row.
-   Every other reason is still a greyed row: Awaiting Intake and Opted out, as James decided on 2026-09-20, and a Disciple already in a one-to-one.
-   The rules are `leftOutForADisciple` and `groupLeftOut` in `app/roster/greying.ts`, and the spec says it under *The popup, from a Disciple*.
-   Two criteria above are reworded for it, and old ticket 23's *a greyed row is shown, not hidden* no longer holds for gender on this side; its record in `07-committed-already.md` is left as it was written.
-   **Read as this side only, and then asked.** From a Discipler the greying for gender depends on the shape, and Coed opens those rows again, which is how a coed group is made by hand; hiding them there would take that away.
-   James answered in Lavish the same day: "hidden for things that are against gender rules: if the group is coed and it's a woman opening to be paired, then that woman should not have to see any of the male-only groups. They should see the coed groups, the women's groups, and the women that they can be paired with."
-   That confirms this side as built, and settles group rows on both sides: a group whose declaration rules somebody out is never listed for them, so the rule became one for both sides, `groupLeftOut`, and the greyed-group rule and *A men's group* were removed.
-   Ticket 04's criterion is reworded for it.
-   It does not speak to a Disciple's own row in the popup from a Discipler, which stays greyed until James says otherwise; ticket 04 says so.
-   One edge, left alone: where every Discipler is left out and there are no groups, the popup says *There is nobody to choose yet*, which does not say why.
-4. **One event.** The resolved Join Request is recorded in the join's own event, as an admission's is. Reading 4 below stands.
-5. **The list says it scrolls**: the fade James was shown, and, in his words, "a light scroll bar on the right to make it clear they can scroll down". Both are in the shared list (`PairList`, `.pair-list` in `public/discipler.css`), so both sides have them. The fade shows only while there is more below.
+**1. Coed stays**, on a group's row.
+Reading 1 below stands.
 
-Checked: typecheck clean; `tests/domain tests/app`, 71 files, 1381 tests; the three popup suites and `an-admin-puts-somebody-into-a-group-over-http` through `scripts/locked-tests.sh`; and looked at in a browser at desktop width and at 390px, where the fade goes at the end of the list and the scrollbar costs no sideways scroll.
+**2. *awaiting acceptance* stays.**
+Reading 2 below stands.
+
+**3. A group nobody has named is *Ruth Bader's group***, on its row and in the sentence (*Sam Lee will join Ruth Bader's group.*).
+This replaces reading 3 below, and its criterion is reworded above.
+
+With it James decided something wider, in his own words: "If they're not compatible or able to be paired together because of gender, just don't show them period. If they have the mixed gender setting selected, where one-on-one can be paired across gender, then that should show up here."
+So from a Disciple, a Discipler of another gender and a group whose declaration rules the Disciple out are **left off the list**, and out of its count, in place of a greyed row.
+Every other reason is still a greyed row: Awaiting Intake and Opted out, as James decided on 2026-09-20, and a Disciple already in a one-to-one.
+The spec says it under *The popup, from a Disciple*.
+Two criteria above are reworded for it, and old ticket 23's *a greyed row is shown, not hidden* no longer holds for gender on this side; its record in `07-committed-already.md` is left as it was written.
+Where gender leaves the list empty, the popup says only *There is nobody to choose yet.*, and not how a discipler comes to be, which would not be why.
+
+**Read as this side only, and then asked.**
+From a Discipler the greying for gender depends on the shape, and Coed opens those rows again, which is how a coed group is made by hand; hiding them there would take that away.
+James answered in Lavish the same day: "hidden for things that are against gender rules: if the group is coed and it's a woman opening to be paired, then that woman should not have to see any of the male-only groups. They should see the coed groups, the women's groups, and the women that they can be paired with."
+That confirms this side as built, and settles group rows on both sides: a group whose declaration rules somebody out is never listed for them.
+Ticket 04's criterion is reworded for it.
+**Still open, and James's:** a Disciple's own row in the popup from a Discipler.
+It stays greyed for now, but that is my reading and not his: the spec review of 2026-09-21 points out that "just don't show them period" and "the women that they can be paired with" are unqualified, and that he never agreed to the argument from Coed.
+Ticket 04 and the spec both mark it open, and it should be put to him before ticket 04's *Gender* criteria are built.
+
+**4. One event.**
+The resolved Join Request is recorded in the join's own event, as an admission's is.
+Reading 4 below stands.
+
+**5. The list says it scrolls**: the fade James was shown, and, in his words, "a light scroll bar on the right to make it clear they can scroll down".
+Both are in the shared list (`PairList`, `.pair-list` in `public/discipler.css`), so both sides have them, and the Material list on the Discipler's side has the same scrollbar so the popup has one kind.
+The fade shows only while there is more below, and a row brought into view stops short of it.
+The scrollbar stays put in Chrome, Edge and Safari on a desktop; Firefox on macOS and every phone float theirs over the rows whatever a page says, and there the fade is the whole of the hint.
+
+### After the second review, 2026-09-21
+
+A standards review and a spec review read all of the ticket's commits again.
+The spec review found every criterion met at HEAD.
+Fixed from the two of them, in `a192a47` and the documents:
+a focused or restored row could land inside the fade;
+with a refused join restored, a Discipler could be marked beside the group before script ran and the form would still have joined the group, so those marks are held too, and the hold is decided once per side and not in every row;
+the fade's scrollbar column is measured, not assumed to be eight pixels;
+what the popup lists is composed in two tested functions and no longer inline in the page;
+two tests that named exactly what the popup lists have a Ministry of their own, an assertion that could no longer fail is gone, and an opted-out Discipler of the Disciple's own gender is proved still shown and greyed;
+the spec now carries all of James's decisions and no longer says in three places what they replaced;
+and this ticket's signpost names code that exists.
+Left as they are, on purpose: `CommandContext.joinRequest` serves both the admission and this act, and the page words a refusal for the join when the address carries a `groupId`.
+
+Checked: typecheck clean; `tests/domain tests/app`, 71 files, 1379 tests; through `scripts/locked-tests.sh`, the three popup suites and both `an-admin-puts-somebody-into-a-group` suites; and in a browser, a row brought into view stopping 39px above the list's bottom edge against a 35px fade.
+The whole suite has not run since `0503950`; `scripts/locked-tests.sh --times 3` is owed before this branch goes to `main`.
 
 ### Implementer, 2026-09-21: built, and what was decided while building
+
+As first built, and kept as written.
+Where it speaks of a group greyed with *A men's group*, of `greyedForAGroupJoined`, of `waitsForScript` or of `joinRequestOf`, the two sections above say what replaced them.
 
 Built straight through, in two commits on `integration/manual-pairing`, `aa334a7` (the open Join Request, in the command) and `0503950` (the groups in the popup, and **Add to group**), and a third for what the review found.
 No migration, and no words to a real phone: the one text a join already sends is unchanged.

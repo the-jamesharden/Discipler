@@ -71,7 +71,7 @@ Beneath it, one line saying who the list is for.
   This is exactly the database's own rule, `participant_one_open_one_to_one`: one open 1:1 as a participant, any number of groups.
 - A toolbar above the list counts it (*7 disciples · 3 groups*) and offers **Clear**.
   There is no Select all.
-- The list says it scrolls, on both sides (James, 2026-09-21): a light scrollbar that does not hide itself, and a fade at its bottom edge while there is more below.
+- The list says it scrolls, on both sides (James, 2026-09-21): a light scrollbar that does not hide itself, where the browser lets a page say so, and a fade at its bottom edge while there is more below.
 - Below the Disciples, under a **Groups** heading, the Ministry's groups (see *Joining an existing group*).
 - Ticking a Disciple clears a chosen group, and choosing a group clears every tick.
   The popup does one thing at a time.
@@ -118,7 +118,7 @@ The button is also disabled while a Group has no name.
 
 Title: **Pair Sam Lee**.
 
-- The list is every Discipler, each row saying how many they already lead (*leads nobody yet*, *leads 1*), then the Groups heading and the groups.
+- The list is every Discipler gender does not rule out (see below), each row saying how many they already lead (*leads nobody yet*, *leads 1*), then the Groups heading and the groups.
 - Exactly one choice across both sections: round marks, not boxes.
   A disciple is never given two disciplers here.
 - No shape toggle ever appears, and nothing else is asked.
@@ -129,17 +129,19 @@ Title: **Pair Sam Lee**.
   Where the Ministry lets a one-to-one cross genders, everybody shows.
   Nothing an Admin can change from this side would open such a row, so it is only in the way.
   Somebody with no gender on file is never left out.
-  This replaces, for this side only, *other-gender rows are greyed with the reason* under **Gender** below; in the popup from a Discipler a Disciple's row is still greyed for gender, because there Coed opens it again.
+  Where that leaves the list empty, the popup says only *There is nobody to choose yet.*
+  **Open, and James's to decide:** whether a Disciple's row in the popup from a Discipler is hidden in the same way.
+  It is greyed today, as **Gender** below says, because there Coed opens the row again and that is how a coed group is made by hand; James's words were unqualified, and he has not been asked about that argument.
 - A Discipler who has not completed Intake, or who has opted out, is greyed with the words their Roster row already says, **Awaiting Intake** or **Opted out**.
   The database refuses a pairing led by either, and they get no Pair on their own row for the same reason.
-  They are shown, not hidden: the list is still every Discipler (James, 2026-09-20).
+  They are shown, not hidden (James, 2026-09-20): only gender leaves anybody off this list.
 - *leads 1* counts people across everything a Discipler leads, so leading a group of three reads *leads 3* (James, 2026-09-20).
 - Sentence and button: *Claire Martinez will disciple Sam Lee in a one-on-one.* **Create 1:1 pair**, or *Sam Lee will join Thursday Table, led by David Chen.* **Add to group**.
 
 ## Gender
 
 - **A 1:1**, alone or as one of N × 1:1, is same-gender while the Ministry enforces the match (`suggest_gender_match`), which the database already requires.
-  Nothing is asked; other-gender rows are greyed with the reason.
+  Nothing is asked; from a Discipler, other-gender rows are greyed with the reason, and from a Disciple they are not listed at all (*The popup, from a Disciple*, above).
 - **A 1:2 pair** takes the Discipler's gender as its declaration and asks nothing.
   Other-gender rows are greyed while 1:2 is selected.
 - **A Group** shows a **Women's · Men's · Coed** toggle directly under the shape toggle, preset from the Discipler.
@@ -164,6 +166,7 @@ This effort adds the Admin's own way in.
 - **Which groups are listed:** every open relationship with two or more Disciples, 1:2 pairs included, whether it is running, paused or still awaiting its leader.
   Each row gives its name, its leaders, how many Disciples it has, its declared gender, and its state when it is not running.
   A group the person is already in is not listed.
+- **How a group's row reads** (James, 2026-09-21): a mixed group says **Coed**; one nobody has accepted yet says *awaiting acceptance*, as its Roster rows do; and one nobody has named is its leaders' group, *Ruth Bader's group*, on its row and in the sentence, never their bare names.
 - **A Disciple joins a group** as a participant straight away.
   The same database rules as forming one apply: Intake completed, not opted out, the group's declared gender.
   The group's leaders are texted that somebody has joined, as a self-join already does.
@@ -172,6 +175,10 @@ This effort adds the Admin's own way in.
   They get an invitation link the same way a mentor does when first paired, and accept on it; the group keeps running meanwhile.
   A group needs every leader's acceptance, which is Leader Acceptance as `CONTEXT.md` already defines it.
 - Both are recorded as ministry events naming the Admin.
+- **An open Join Request for the same group** is resolved by the act that puts the Disciple into it, as an admitted request ends, so it leaves Intake forms (James, 2026-09-20).
+  There is no second membership, nothing is sent for it and nothing is shown for it.
+  It is recorded in the join's own event, which names the Admin and the request, as an admission's is, and in no second event (James, 2026-09-21).
+  A request of theirs for a different group is left as it is.
 
 ## Several leaders, several groups
 

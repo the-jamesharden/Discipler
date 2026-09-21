@@ -76,8 +76,8 @@ Every one of those conditions is an acceptance criterion below.
 ### The rows
 
 - [ ] A **Groups** heading below the Disciples, then one row per group from old ticket 08's read, with a round mark.
-- [ ] Rows read as ticket 03's do: name, leaders, how many Disciples, declared gender, state when not running, and an unnamed group labelled by its leaders.
-  Ticket 03's row is reused.
+- [ ] Rows read as ticket 03's do: name, leaders, how many Disciples, declared gender, state when not running, and an unnamed group named as its leaders' group, *Ruth Bader's group* (James, 2026-09-21).
+  Ticket 03's row is reused: see *Where things are now* in its Comments.
 - [ ] A group this Discipler is already in, in either role, is not listed.
 - [ ] The toolbar counts both: *7 disciples · 3 groups*.
 
