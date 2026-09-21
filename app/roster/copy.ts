@@ -1,5 +1,4 @@
 import type { GroupJoinRefusal, ImportRowRefusal, PairingRefusal } from '~/domain/errors'
-import type { Gender } from '~/domain/intake'
 import { asList } from '~/domain/outbound-copy'
 import type { ParticipationStatus } from '~/domain/participation'
 import type { RowProblem } from '~/domain/roster'
@@ -232,9 +231,6 @@ export const PAIR_POPUP = {
     // Still awaiting its leader is said as the Roster row behind the popup says it.
     ...(group.state === null ? [] : [group.state === 'paused' ? 'paused' : AWAITING_ACCEPTANCE]),
   ],
-  /** A group being joined already has its declaration, and a row it rules out is greyed with it. */
-  ruledOutByTheGroup: (declared: Gender): string =>
-    declared === 'male' ? 'A men’s group' : 'A women’s group',
   /** Every leader is named. A group nobody has named is said by who leads it. */
   joinGroup: (disciple: string, group: GroupOnARow): string => {
     if (group.name === null) {

@@ -10,8 +10,9 @@ import { PairRow } from './pair-popup'
  * each side lists groups with it and edits neither this nor the other side.
  *
  * What choosing a group means is the side's: from a Disciple it puts them straight
- * into it. Which groups are offered and which are greyed is decided before they
- * arrive here (`groupsToJoin` in `./lists`, `./greying`), as it is for people.
+ * into it. Which groups are offered, which are left out for gender and which are
+ * greyed is decided before they arrive here (`groupsToJoin` in `./lists`,
+ * `groupLeftOut` in `./greying`), as it is for people.
  */
 
 /** One group as the popup lists it. Nothing the Pair document does not already hold for this Admin. */

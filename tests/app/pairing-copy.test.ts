@@ -398,11 +398,6 @@ describe('the groups in the Pair popup', () => {
     ).toEqual(['3 disciples', 'Coed'])
   })
 
-  it('greys a group whose declaration rules the Disciple out with what the group is', () => {
-    expect(PAIR_POPUP.ruledOutByTheGroup('male')).toBe('A men’s group')
-    expect(PAIR_POPUP.ruledOutByTheGroup('female')).toBe('A women’s group')
-  })
-
   it('says what is about to happen, naming every leader, and the button is the same act', () => {
     expect(PAIR_POPUP.joinGroup('Sam Lee', thursdayTable)).toBe(
       'Sam Lee will join Thursday Table, led by David Chen.',
@@ -434,7 +429,6 @@ describe('the groups in the Pair popup', () => {
       PAIR_POPUP.groupsHeading,
       PAIR_POPUP.counts('2 disciplers', 2),
       ...PAIR_POPUP.groupDetails({ ...thursdayTable, discipleCount: 3, declaredGender: null, state: 'awaiting_leader_acceptance' }),
-      PAIR_POPUP.ruledOutByTheGroup('male'),
       PAIR_POPUP.joinGroup('A', thursdayTable),
       PAIR_POPUP.addToGroup,
     ]

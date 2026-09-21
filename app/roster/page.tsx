@@ -71,7 +71,7 @@ import {
   greyedForADisciple,
   greyedForADiscipler,
   greyedInAOneToTwo,
-  groupLeftOutForADisciple,
+  groupLeftOut,
   leadsAGroup,
   leftOutForADisciple,
   type Greyed,
@@ -506,7 +506,7 @@ export default async function RosterPage({
           // pairing, recut ticket 03). One whose own declaration rules them out is
           // not listed, as a Discipler gender rules out is not, so none is greyed.
           groups={groupsToJoin(pairing, groups)
-            .filter((group) => !groupLeftOutForADisciple({ group, disciple: pairing }))
+            .filter((group) => !groupLeftOut({ group, person: pairing }))
             .map((group) => ({
               id: group.relationshipId,
               name: group.name,

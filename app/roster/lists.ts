@@ -201,8 +201,8 @@ export const groupsOf = (
  * The groups the popup offers somebody (Manual pairing, recut ticket 03): every one
  * the Pair document lists, in its order, less any they are already in. In either
  * role, and accepted or not, which is what `memberIds` holds: nobody is offered a
- * group they lead or are invited to lead. What gender rules out is each side's to
- * say, in `./greying`: left out from a Disciple, greyed from a Discipler.
+ * group they lead or are invited to lead. A group whose declaration rules them
+ * out is left out on top of this, from either side (`groupLeftOut` in `./greying`).
  */
 export const groupsToJoin = (
   person: Pick<RosterEntry, 'personId'>,
