@@ -622,14 +622,17 @@ textarea.paste { width: 100%; min-height: 140px; font-family: ui-monospace, SFMo
   -webkit-mask-position: left top, right top; mask-position: left top, right top;
   -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
 }
-.pair-rows { display: grid; gap: 0.4rem; margin: 0; padding: 0; border: 0; min-width: 0; }
+/* A column that is a flex box and not a grid, so a row that is not shown can give
+   back the gap above it as well as its height: a grid keeps both gaps round an
+   empty track. */
+.pair-rows { display: flex; flex-direction: column; gap: 0.4rem; margin: 0; padding: 0; border: 0; min-width: 0; }
 .pair-opt { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0.6rem; background: #f3efe8; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
 .pair-opt:hover { border-color: var(--primary-light); }
 /* A row gender rules out from a Discipler is not shown (James, 2026-09-21), and a
    Coed Group opens it again: it fades away and back where it stands, so the list
    never jumps. It gives up its height and the gap above it, and is gone from the
    tab order and from a screen reader once it has faded. */
-.pair-opt { max-height: 7rem; transition: opacity 0.22s ease, max-height 0.22s ease, padding 0.22s ease, margin 0.22s ease, border-width 0.22s ease, visibility 0s; }
+.pair-opt { max-height: 5.5rem; transition: opacity 0.22s ease, max-height 0.22s ease, padding 0.22s ease, margin 0.22s ease, border-width 0.22s ease, visibility 0s; }
 .pair-opt.gone { opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; margin-top: -0.4rem; border-width: 0; overflow: hidden; visibility: hidden; pointer-events: none; transition: opacity 0.22s ease, max-height 0.22s ease, padding 0.22s ease, margin 0.22s ease, border-width 0.22s ease, visibility 0s 0.22s; }
 @media (prefers-reduced-motion: reduce) { .pair-opt, .pair-opt.gone { transition: none; } }
 .pair-opt.on, .pair-opt:has(input:checked) { background: var(--surface); border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
