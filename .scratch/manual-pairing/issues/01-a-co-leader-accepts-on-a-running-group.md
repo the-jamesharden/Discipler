@@ -105,6 +105,10 @@ Both were answered by James on 2026-09-20: *whatever is broken outright, fix; fo
    The other half is the tick, which decides from a read and raises its item a moment later: an acceptance landing in between would have left an item nothing closes.
    The raise now looks again first, behind the row lock an acceptance holds, and raises nothing about a relationship nobody is still to answer.
    *Still to be accepted by somebody* is said once in the store, for the tick's read and for that look.
+   A review of the fix found one more: an Admin pressing **Resolve** on the item in the moment the leader accepts made the acceptance fail, and a leader's acceptance never fails on an Admin's timing.
+   Acceptance now takes the item's row when it reads it, so the Admin's Resolve is waited for and there is then nothing left to close.
+   Both overlaps are tested with two connections, and the test of the tick's wait fails with the wait taken out.
+   Left as it is: where that look raises nothing, the tick's `follow_up.relationship_unaccepted` event is still written, saying the tick found the relationship unanswered for five days, which at its read was true. Nothing reads that event.
    Tests: `tests/domain/accepting-an-invitation.test.ts`, `tests/integration/the-scheduled-tick.test.ts` for a leader invited at formation, and `tests/integration/a-co-leader-accepts-on-a-running-group.test.ts` for a co-leader, for two co-leaders, and for the late raise.
 2. **There is no way to withdraw an unanswered co-leader invitation short of ending the group. Not built here.**
    It is the addendum on ticket 05, *Unsending an invitation, from the person's page*, with two questions for James on it.

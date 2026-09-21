@@ -534,6 +534,99 @@ describe('a co-leader accepts on a group already running', () => {
     })
   })
 
+  describe('an acceptance and something else, at the same moment', () => {
+    /** Until `attempt` is waiting on a lock, which is the overlap these are about. */
+    const untilItWaits = async () => {
+      for (let tries = 0; tries < 100; tries += 1) {
+        const { rows } = await pool.query(
+          `select 1 from pg_stat_activity where wait_event_type = 'Lock' and datname = current_database()`,
+        )
+        if (rows.length > 0) return
+        await new Promise((resolve) => setTimeout(resolve, 50))
+      }
+      throw new Error('nothing ever waited, so the two never overlapped')
+    }
+
+    it('the tick’s raise waits for an acceptance in flight, and then raises nothing', async () => {
+      const group = await aGroup()
+      const claire = await aDiscipler()
+      await addLeader(group.id, claire)
+
+      // An acceptance as it stands mid-transaction: the row it locks, and her
+      // Acceptance written and not yet committed.
+      const accepting = await pool.connect()
+      try {
+        await accepting.query('begin')
+        await accepting.query(`select 1 from relationship where id = $1 for update`, [group.id])
+        await accepting.query(
+          `update relationship_member set accepted_at = $3
+            where relationship_id = $1 and person_id = $2 and ended_at is null`,
+          [group.id, claire, new Date()],
+        )
+
+        const raising = store.transact(ministry.id, (unit) =>
+          unit.raiseFollowUp({
+            ministryId: ministry.id,
+            kind: 'relationship_unaccepted',
+            relationshipId: relationshipId(group.id),
+            personId: null,
+            raisedAt: new Date(),
+          }),
+        )
+        await untilItWaits()
+        await accepting.query('commit')
+        await raising
+      } finally {
+        accepting.release()
+      }
+
+      expect((await openItemsOn(group.id)).filter((item) => item.kind === 'relationship_unaccepted')).toEqual([])
+    })
+
+    it('an Admin resolving the item never fails the acceptance that would have closed it', async () => {
+      const group = await aGroup()
+      const claire = await aDiscipler()
+      await addLeader(group.id, claire)
+      await store.transact(ministry.id, (unit) =>
+        unit.raiseFollowUp({
+          ministryId: ministry.id,
+          kind: 'relationship_unaccepted',
+          relationshipId: relationshipId(group.id),
+          personId: null,
+          raisedAt: new Date(),
+        }),
+      )
+
+      // The Admin's Resolve, mid-transaction.
+      const resolving = await pool.connect()
+      try {
+        await resolving.query('begin')
+        await resolving.query(
+          `update follow_up_item set resolved_at = $2, resolved_by = $3
+            where relationship_id = $1 and kind = 'relationship_unaccepted' and resolved_at is null`,
+          [group.id, new Date(), ministry.adminUserId],
+        )
+
+        const accepting = accept(group.id, claire)
+        await untilItWaits()
+        await resolving.query('commit')
+        // A leader's acceptance is theirs, and an Admin's timing never refuses it.
+        await accepting
+      } finally {
+        resolving.release()
+      }
+
+      expect(await acceptanceOf(group.id, claire)).toBeInstanceOf(Date)
+      // Closed once, by the Admin who got there first.
+      const { rows } = await pool.query<{ resolved_by: string | null }>(
+        `select resolved_by from follow_up_item
+          where relationship_id = $1 and kind = 'relationship_unaccepted'`,
+        [group.id],
+      )
+      expect(rows).toEqual([{ resolved_by: ministry.adminUserId }])
+    })
+  })
+
   describe('what their Invitation Link shows before they accept', () => {
     it('who they would be leading, and who they would be leading with', async () => {
       const group = await aGroup()

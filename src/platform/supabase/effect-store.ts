@@ -292,6 +292,19 @@ const pausedColumn = `coalesce(
                 false
               ) as paused`
 
+// Whether a live relationship, aliased `r`, is still to be accepted by somebody:
+// not activated, or running with a Leader added since who has not answered
+// (Manual pairing, ticket 22). Said once, because the tick reads with it and the
+// item the tick raises is checked against it again before it is written.
+const stillToBeAccepted = `r.ended_at is null
+          and (r.accepted_at is null
+               or exists (select 1
+                            from relationship_member w
+                           where w.relationship_id = r.id
+                             and w.role = 'leader'
+                             and w.ended_at is null
+                             and w.accepted_at is null))`
+
 // The open members of the relationship `$1`, in a stable order.
 //
 // Two messages *list* these names in a sentence -- the Starter Message tells a
@@ -307,19 +320,6 @@ const pausedColumn = `coalesce(
 //
 // Open memberships only. Whoever has left is not in the set a token resolves to
 // and is not somebody a resume writes to.
-// Whether a live relationship, aliased `r`, is still to be accepted by somebody:
-// not activated, or running with a Leader added since who has not answered
-// (Manual pairing, ticket 22). Said once, because the tick reads with it and the
-// item the tick raises is checked against it again before it is written.
-const stillToBeAccepted = `r.ended_at is null
-          and (r.accepted_at is null
-               or exists (select 1
-                            from relationship_member w
-                           where w.relationship_id = r.id
-                             and w.role = 'leader'
-                             and w.ended_at is null
-                             and w.accepted_at is null))`
-
 const openMembersOfRelationship = `select m.person_id, m.role, p.full_name, p.phone, m.accepted_at
      from relationship_member m
      join person p on p.id = m.person_id
@@ -1305,13 +1305,21 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // The item five days of silence raised, which the acceptance that leaves
     // nobody still to answer closes. At most one stands open: the tick raises
     // none while one does.
+    //
+    // Locked, because an Admin may be resolving it this instant, and a Leader's
+    // acceptance never fails on an Admin's timing. Their Resolve is waited for and
+    // the row then reads as resolved and drops out of this, so there is nothing
+    // left here to close; ours first, and theirs is told it was already resolved,
+    // which their page has words for. An Admin's resolve takes this row and no
+    // other, so the relationship's row and then this one inverts no order.
     const { rows: unanswered } = await client.query<{ id: string }>(
       `select id from follow_up_item
         where relationship_id = $1
           and kind = 'relationship_unaccepted'
           and resolved_at is null
         order by raised_at, id
-        limit 1`,
+        limit 1
+          for update`,
       [invitation.relationship_id],
     )
 
