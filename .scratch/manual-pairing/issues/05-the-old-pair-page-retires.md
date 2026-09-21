@@ -96,6 +96,8 @@ What is missing is everything after it: today the link stops working and nothing
 - **The two-week item reads** *Group leader [name] has not responded in two weeks, their invite has expired*, with **Resolve** and **Copy link to re-invite leader**.
   James wrote *her invite*; the product does not know a pronoun for a leader, so it says *their*, which he has seen and let stand.
 - **The declined item is titled** *Group leader [name] Declined*, with **Resolve** and **Contact info**, which opens her page from the Roster.
+- **Both items are red, the colour a Concern is, and not the grey of a review item** (James, 2026-09-21, the last thing he added to this ticket).
+  Until now red on the Follow-Up tab has meant a Concern and nothing else, and the page says so in a comment; that comment changes with this.
 - ***Group leader* is said before the name** on both. For a one-to-one, which has no group, it says *Discipler*; this is a default taken while writing the ticket, and James can overrule it here.
 - **Copy link always gives a working link.**
   On the two-week item, which is the only place it now shows, it makes a fresh one and invites her again for another fortnight.
@@ -117,6 +119,7 @@ What is missing is everything after it: today the link stops working and nothing
 - [ ] The Admin is told by a Follow-Up item titled *Group leader [name] Declined*, with **Resolve** and **Contact info**.
   It is the `match_declined` kind, which ADR-0011 kept and nothing has raised since; it carries the Person and the relationship.
 - [ ] **Contact info** opens her page from the Roster. No number is shown on Follow-Up itself.
+- [ ] The item is red, with the left edge and the tag a Concern has, and not grey.
 - [ ] Both steps are ordinary form posts that work without script.
 - [ ] Recorded as a ministry event of its own type, naming the Person and the relationship, with no Admin on it.
 
@@ -125,6 +128,7 @@ What is missing is everything after it: today the link stops working and nothing
 - [ ] When an unanswered invitation reaches its expiry, the leader's unaccepted membership is ended.
   The membership is ended, never deleted: that they were invited, and when, stays in the Ministry's history.
 - [ ] The Admin is told by a Follow-Up item that names the Person, in James's words above, with **Resolve** and **Copy link to re-invite leader**.
+  It is red, as the declined item is.
 - [ ] **Copy link to re-invite leader** makes a fresh invitation for another fortnight, puts her back on the relationship as somebody invited, puts the link on the Admin's clipboard, and sends her nothing.
   It is recorded as a ministry event naming the Admin and the Person.
 - [ ] An invitation accepted in the same moment it would have been withdrawn is accepted, and is not withdrawn.
