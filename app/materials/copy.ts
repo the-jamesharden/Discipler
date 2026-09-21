@@ -12,22 +12,20 @@ import { refusalIn } from '../refusals'
  */
 
 export const MATERIALS = 'Materials'
-export const MATERIALS_LEAD = 'One material at a time, assigned to the relationship'
 
 export const MATERIALS_INFO =
-  "Pairs and bands are sorted into folders by the program they're running. Share a program and they group together; run a unique one and the pair sits on its own. Tap a folder to see who's inside, or the pencil to change a pair's program."
-
-export const PROGRAMS = '📚 Programs'
+  'Relationships are sorted into folders by the Material they are working through. Two or more on the same Material share a folder; one on its own gets a tile of its own. Open a folder to see who is inside.'
 
 export const NO_MATERIALS_YET =
   "No materials yet. Create one, then assign it from its folder or from a group's card on Intake forms."
 
-export const NO_PROGRAM_YET = 'No program yet'
-
 export const MATERIALS_LEGEND =
-  '📁 Folder = a program several pairs share · single tile = a unique or unassigned pair'
+  '📁 Folder = a Material several relationships share · single tile = one relationship, on a Material of its own'
 
-/** The dashed folder for accepted relationships on no Material, and its page's heading. */
+/** The legend's word for the neutral tint: a folder of both genders, or of nobody. */
+export const MIXED_OR_NOBODY = 'Mixed or nobody'
+
+/** The dashed tile for accepted relationships on no Material, and its page's heading. */
 export const NO_MATERIAL_ASSIGNED = 'No material assigned'
 
 /** The three answers on the filter, in the order the design draws them. */

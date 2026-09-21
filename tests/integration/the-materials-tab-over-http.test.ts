@@ -85,7 +85,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Materials tab', () => {
       expect(html).toContain('aria-current="page"')
       expect(html).toContain('class="seg-toggle"')
       expect(html).toContain('No materials yet. Create one, then assign it from its folder')
-      expect(html).toContain('Programs')
+      expect(html).toContain('New material')
       expect(html).not.toContain('hs-grid')
       expect(html).not.toContain('No material assigned')
     })
@@ -130,31 +130,34 @@ describe.skipIf(skipUnlessAppIsRunning)('the Materials tab', () => {
       const words = 'He lost his job and did not want to talk long.'
       await church.replyAt(new Date(answering.getTime() + 120_000), david, words)
 
-      // The tab: unique Material as a pair tile, unassigned as its own tile.
+      // The tab: the one relationship on a Material as a tile of its own, and the
+      // dashed tile for the one on nothing. Each tile's title names the page it opens.
       const tab = await getPage('/materials', cookie)
       expect(tab.response.status).toBe(200)
       expect(tab.html).toContain('The Master Plan of Evangelism')
       expect(tab.html).toContain('David Chen &amp; Marcus Okafor')
-      expect(tab.html).toContain('Tyler Bennett &amp; Caleb Reyes')
-      expect(tab.html).toContain('No program yet')
-      expect(tab.html).toContain('hs-tile')
-      expect(tab.html).toContain('hs-legend')
-      // Each tile's title names the page its link opens, not the pair on it.
       expect(tab.html).toContain('title="Open The Master Plan of Evangelism"')
+      expect(tab.html).toContain('hs-tile gender-m unassigned')
       expect(tab.html).toContain('title="Open No material assigned"')
+      expect(tab.html).toContain('1 relationship<')
+      expect(tab.html).toContain('hs-legend')
+      // Nobody on nothing is named on the tab, and nothing promises an edit it cannot do.
+      expect(tab.html).not.toContain('Tyler Bennett')
+      expect(tab.html).not.toContain('hs-pencil')
+      expect(tab.html).not.toMatch(/program/i)
       expect(tab.html).not.toContain(words)
       expect(tab.html).not.toMatch(/\+1\d{10}/)
 
       // Under Women's, the Material keeps its tile as a folder with nobody in it,
-      // and the unassigned tile goes.
+      // and the dashed tile goes.
       const women = await getPage('/materials?gender=female', cookie)
       expect(women.html).toContain('The Master Plan of Evangelism')
       expect(women.html).toContain('Nobody working through it')
       expect(women.html).toContain('hs-count zero')
       expect(women.html).not.toContain('David Chen')
-      expect(women.html).not.toContain('No program yet')
+      expect(women.html).not.toContain('No material assigned')
 
-      // Under Men's, the pair tiles carry the filter on their links.
+      // Under Men's, the tiles carry the filter on their links.
       const men = await getPage('/materials?gender=male', cookie)
       expect(men.html).toContain(`href="/materials/${masterPlan}?gender=male"`)
       expect(men.html).toContain('href="/materials/none?gender=male"')
@@ -203,7 +206,16 @@ describe.skipIf(skipUnlessAppIsRunning)('the Materials tab', () => {
         await assignMaterial(formed, shared, church.ministry.adminUserId, formedAt)
       }
 
+      // Two more on nothing: one dashed tile with a count of two, not a tile each.
+      for (const name of ['Fay Finn', 'Gwen Gold']) {
+        const leader = await church.congregant(name, 'female')
+        const other = await church.congregant(`Disciple of ${name}`, 'female')
+        await pairOneToOne(church.ministry, leader, other, { createdAt: formedAt, acceptedAt: formedAt })
+      }
+
       const tab = await getPage('/materials', cookie)
+      expect(tab.html.match(/title="Open No material assigned"/g)).toHaveLength(1)
+      expect(tab.html).toContain('2 relationships')
       expect(tab.html).toContain('class="hs-count">5<')
       expect(tab.html).toContain('5 relationships')
       expect(tab.html).toMatch(/\+(<!-- -->)?2</)

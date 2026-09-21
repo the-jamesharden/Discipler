@@ -1,6 +1,6 @@
 /**
- * Makes a new local Ministry with Materials + pairs so the Materials tab looks
- * like the v11 home-screen prototype. Development preview only. Does not reset
+ * Makes a new local Ministry with Materials and one-to-ones so the Materials tab
+ * shows every kind of tile it draws. Development preview only. Does not reset
  * the database, and makes a Ministry of its own each run, so it can be run
  * again and the sign-in it prints is always the one that works.
  */
@@ -15,7 +15,7 @@ import {
 
 publishSupabaseCredentials()
 
-const PAIR_NAMES: readonly (readonly [string, string, 'male' | 'female'])[] = [
+const ONE_TO_ONES: readonly (readonly [string, string, 'male' | 'female'])[] = [
   ['Grace Lee', 'Emily Davis', 'female'],
   ['Tyler Patel', 'Bryce Odom', 'male'],
   ['Wesley Odom', 'Dominic Rivers', 'male'],
@@ -48,7 +48,7 @@ const PAIR_NAMES: readonly (readonly [string, string, 'male' | 'female'])[] = [
   ['Anna Sanders', 'Reagan Lombardi', 'female'],
 ]
 
-const PROGRAMS = [
+const TITLES = [
   'The Master Plan of Evangelism',
   'Wesley Discipleship',
   'Multiply',
@@ -58,9 +58,9 @@ const PROGRAMS = [
 ] as const
 
 /**
- * How many pairs run each program: four folders, one pair on a program of its
- * own, and one program nobody is on. The rest of the pairs stay unassigned, so
- * every kind of tile is on the page.
+ * How many relationships are on each Material: four folders, one relationship on
+ * a Material of its own, and one Material nobody is on. The rest are on nothing,
+ * so every kind of tile is on the page.
  */
 const FOLDER_SIZES = [6, 7, 5, 4, 1, 0] as const
 
@@ -68,27 +68,27 @@ const main = async () => {
   const fixture = await createMinistryWithAdmin('Materials Preview Chapel')
 
   const materialIds: string[] = []
-  for (const title of PROGRAMS) {
+  for (const title of TITLES) {
     materialIds.push(await addMaterial(fixture, title))
   }
 
   const formedAt = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000)
-  const pairs: string[] = []
+  const relationships: string[] = []
 
-  for (const [leaderName, participantName, gender] of PAIR_NAMES) {
+  for (const [leaderName, participantName, gender] of ONE_TO_ONES) {
     const leaderId = await addPerson(fixture, leaderName, { answers: { gender } })
     const participantId = await addPerson(fixture, participantName, { answers: { gender } })
     const relationshipId = await pairOneToOne(fixture, leaderId, participantId, {
       createdAt: formedAt,
       acceptedAt: formedAt,
     })
-    pairs.push(relationshipId)
+    relationships.push(relationshipId)
   }
 
   let offset = 0
   for (let i = 0; i < materialIds.length; i++) {
     const size = FOLDER_SIZES[i]!
-    for (const relationshipId of pairs.slice(offset, offset + size)) {
+    for (const relationshipId of relationships.slice(offset, offset + size)) {
       await assignMaterial(relationshipId, materialIds[i]!, fixture.adminUserId, formedAt)
     }
     offset += size
@@ -100,8 +100,8 @@ const main = async () => {
         ministry: fixture.name,
         signInPhone: fixture.adminPhone,
         signInPassword: fixture.adminPassword,
-        materials: PROGRAMS.length,
-        pairs: pairs.length,
+        materials: TITLES.length,
+        relationships: relationships.length,
         note: 'Sign in, then open /materials',
       },
       null,

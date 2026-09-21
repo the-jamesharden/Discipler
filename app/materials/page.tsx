@@ -12,23 +12,24 @@ import {
   MATERIALS,
   MATERIALS_INFO,
   MATERIALS_LEGEND,
+  MIXED_OR_NOBODY,
+  NEW_MATERIAL,
   NO_MATERIAL_ASSIGNED,
   NO_MATERIALS_YET,
-  NO_PROGRAM_YET,
-  PROGRAMS,
   type MaterialsFilter,
 } from './copy'
-import { homeCellsOf, pairLabel, type HomeCell } from './folders'
+import { homeCellsOf, tileName, type HomeCell, type TileGender } from './folders'
 
 export const dynamic = 'force-dynamic'
 
 /**
- * The Materials tab as the v11 prototype draws it: a home-screen of program
- * folders (shared Materials) and single pair tiles (unique or unassigned), with
- * the gender filter and Programs control in the toolbar.
+ * The Materials tab (`.scratch/materials/spec.md`, S-1): a home screen of
+ * folders for the Materials relationships share, a tile of its own for the one
+ * relationship on a Material, and one dashed tile for everyone on none, with
+ * the gender filter and the New material button in the toolbar.
  */
 
-const PairGlyph = () => (
+const OneToOneGlyph = () => (
   <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
     <path d="M8.5 11a3 3 0 1 0-3-3 3 3 0 0 0 3 3Zm7 0a2.6 2.6 0 1 0-2.6-2.6A2.6 2.6 0 0 0 15.5 11Zm0 1.6a4.9 4.9 0 0 0-1.5.24 4.7 4.7 0 0 1 1.3 3.26V18H21v-1.6c0-2.1-2.6-3.8-5.5-3.8Zm-7 0c-2.9 0-5.5 1.5-5.5 3.7V18h11v-1.6c0-2.2-2.6-3.8-5.5-3.8Z" />
   </svg>
@@ -41,25 +42,35 @@ const GroupGlyph = () => (
 )
 
 const UnitGlyph = ({ relationship }: { readonly relationship: MaterialRelationship }) =>
-  relationship.isAGroup ? <GroupGlyph /> : <PairGlyph />
+  relationship.isAGroup ? <GroupGlyph /> : <OneToOneGlyph />
 
+/**
+ * A folder: the glyphs of up to four relationships inside, or three and *+N*,
+ * with the count on its corner. A Material's folder and the dashed tile for
+ * everyone on no Material are the same drawing, told apart by the border.
+ */
 const FolderCell = ({
-  cell,
-  filter,
+  href,
+  label,
+  relationships,
+  gender,
+  unassigned = false,
 }: {
-  readonly cell: Extract<HomeCell, { kind: 'folder' }>
-  readonly filter: MaterialsFilter
+  readonly href: string
+  readonly label: string
+  readonly relationships: readonly MaterialRelationship[]
+  readonly gender: TileGender
+  readonly unassigned?: boolean
 }) => {
-  const { material, relationships, gender } = cell
   const preview = relationships.slice(0, 4)
   const overflow = relationships.length > 4
 
   return (
     <div className="hs-cell">
       <Link
-        className={`hs-tile gender-${gender}`}
-        href={`/materials/${material.materialId}${filterQuery(filter)}`}
-        title={`Open ${material.title}`}
+        className={`hs-tile gender-${gender}${unassigned ? ' unassigned' : ''}`}
+        href={href}
+        title={`Open ${label}`}
       >
         <div className="hs-folder-grid">
           {preview.map((relationship, index) =>
@@ -76,41 +87,63 @@ const FolderCell = ({
         </div>
         <span className={`hs-count${relationships.length === 0 ? ' zero' : ''}`}>{relationships.length}</span>
       </Link>
-      <div className="hs-label">{material.title}</div>
+      <div className="hs-label">{label}</div>
       <div className="hs-sub">{folderCount(relationships.length)}</div>
     </div>
   )
 }
 
-const PairCell = ({
+const SingleCell = ({
   cell,
   filter,
 }: {
-  readonly cell: Extract<HomeCell, { kind: 'pair' }>
+  readonly cell: Extract<HomeCell, { kind: 'single' }>
   readonly filter: MaterialsFilter
 }) => {
   const { relationship, material, gender } = cell
-  const href = material
-    ? `/materials/${material.materialId}${filterQuery(filter)}`
-    : `/materials/none${filterQuery(filter)}`
-  const label = pairLabel(relationship)
-  const sub = material ? material.title : NO_PROGRAM_YET
 
   return (
     <div className="hs-cell">
-      <Link className={`hs-tile gender-${gender}`} href={href} title={`Open ${material?.title ?? NO_MATERIAL_ASSIGNED}`}>
+      <Link
+        className={`hs-tile gender-${gender}`}
+        href={`/materials/${material.materialId}${filterQuery(filter)}`}
+        title={`Open ${material.title}`}
+      >
         <span className="hs-app-icon">
           <UnitGlyph relationship={relationship} />
         </span>
-        <span className="hs-pencil" aria-hidden="true">
-          ✎
-        </span>
       </Link>
-      <div className="hs-label">{label}</div>
-      <div className={`hs-sub${material ? '' : ' muted'}`}>{sub}</div>
+      <div className="hs-label">{tileName(relationship)}</div>
+      <div className="hs-sub">{material.title}</div>
     </div>
   )
 }
+
+const Cell = ({ cell, filter }: { readonly cell: HomeCell; readonly filter: MaterialsFilter }) => {
+  if (cell.kind === 'single') return <SingleCell cell={cell} filter={filter} />
+  if (cell.kind === 'unassigned') {
+    return (
+      <FolderCell
+        href={`/materials/none${filterQuery(filter)}`}
+        label={NO_MATERIAL_ASSIGNED}
+        relationships={cell.relationships}
+        gender={cell.gender}
+        unassigned
+      />
+    )
+  }
+  return (
+    <FolderCell
+      href={`/materials/${cell.material.materialId}${filterQuery(filter)}`}
+      label={cell.material.title}
+      relationships={cell.relationships}
+      gender={cell.gender}
+    />
+  )
+}
+
+const keyOf = (cell: HomeCell): string =>
+  cell.kind === 'single' ? cell.relationship.relationshipId : cell.kind === 'folder' ? cell.material.materialId : 'none'
 
 export default async function MaterialsPage({
   searchParams,
@@ -157,8 +190,8 @@ export default async function MaterialsPage({
               </Link>
             ))}
           </nav>
-          <Link className="mat-programs-btn" href="/materials/new">
-            {PROGRAMS}
+          <Link className="mat-new-btn" href="/materials/new">
+            {NEW_MATERIAL}
           </Link>
         </div>
       </div>
@@ -168,13 +201,9 @@ export default async function MaterialsPage({
       {cells.length > 0 ? (
         <>
           <div className="hs-grid">
-            {cells.map((cell) =>
-              cell.kind === 'folder' ? (
-                <FolderCell key={cell.material.materialId} cell={cell} filter={filter} />
-              ) : (
-                <PairCell key={cell.relationship.relationshipId} cell={cell} filter={filter} />
-              ),
-            )}
+            {cells.map((cell) => (
+              <Cell key={keyOf(cell)} cell={cell} filter={filter} />
+            ))}
           </div>
           <div className="hs-legend">
             <span>
@@ -184,6 +213,10 @@ export default async function MaterialsPage({
             <span>
               <span className="swatch gender-f" />
               {FILTER_LABEL.female}
+            </span>
+            <span>
+              <span className="swatch gender-x" />
+              {MIXED_OR_NOBODY}
             </span>
             <span>{MATERIALS_LEGEND}</span>
           </div>

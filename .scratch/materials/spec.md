@@ -17,7 +17,8 @@ Product rules deferred the assignment interface from V1 with the words "assignme
 
 ## Solution
 
-The Materials tab becomes the v10 prototype's folder view, made editable from the Ministry's end.
+The Materials tab becomes a folder view, made editable from the Ministry's end.
+It began as the v10 prototype's folder view; on 2026-09-21 James adopted the home-screen tab of PR #14 in its place, and S-1 and S-1b below describe that.
 Three tickets, each with one migration pushed before its code merges, each shipping on its own.
 
 1. The tab, read-only: folders, filter, drill-in, history line.
@@ -28,9 +29,9 @@ The group form's two new exits (a "no group in mind" answer and a switch to the 
 
 ## Settled at the grill
 
-- The Ministry edits its own Materials; look and feel follow the v10 prototype; the one visible addition is the New material button.
+- The Ministry edits its own Materials; the folder pages and forms follow the v10 prototype, and the tab is the home screen of S-1 (decided 2026-09-21); the New material button sits in the tab's toolbar.
 - The filter reads `relationship.declared_gender`; a one-to-one with none declared takes its leader's gender; mixed groups appear under All only.
-- No health dot on a folder (review of 2026-09-13). A folder shows its count and up to three leader-initial chips.
+- No health dot on a folder (review of 2026-09-13). A folder shows its count and a glyph for each of up to four relationships inside, or three and "+N". No names and no initials on a folder.
 - Only accepted, unended relationships appear; an unaccepted one has no history row.
 - Every Material is a folder, including one nobody is on, with a zero count.
 - No kind label (Book, Reading plan, Program). There is no column and nothing filters on it.
@@ -47,14 +48,24 @@ The group form's two new exits (a "no group in mind" answer and a switch to the 
 
 S-1 The tab.
 The Admin shell with Materials current.
-A card headed "Materials" with the muted line "One material at a time, assigned to the relationship" and a small New material button on the right of the card head.
-A `seg` filter All / Men's / Women's, the current one marked, carried as `?gender=` in the URL.
-A `mat-grid` of folders: one per live Material in title order, then the dashed "No material assigned" folder last when any relationship is on no Material.
-Each folder: the count badge top right, up to three chips of leader initials in the folder and a "+N" chip for the rest, the title beneath, and "N relationships" or "Nobody working through it" under that.
+A toolbar: an "i" button on the left whose explanation opens on hover and on focus, and on the right the filter and a New material button.
+The explanation reads "Relationships are sorted into folders by the Material they are working through. Two or more on the same Material share a folder; one on its own gets a tile of its own. Open a folder to see who is inside."
+The filter is All / Men's / Women's, the current one marked, carried as `?gender=` in the URL.
+A grid of square tiles, one per live Material in title order, then one dashed "No material assigned" tile last when the filter keeps any relationship on no Material.
+A Material two or more relationships are on is a folder: a glyph for each of up to four relationships inside, or three and "+N", the count badge top right, the title beneath, and "N relationships" under that.
+A Material nobody is on is an empty folder with a zero count and "Nobody working through it".
+A Material exactly one relationship is on is a single tile: one large glyph, the relationship's name beneath (the Leader and the Disciple for a one-to-one, the group's name for a group), and the Material's title under that.
+Folder or single is decided by everyone on the Material, not by who the filter keeps: under Men's or Women's a shared Material stays a folder and only its count changes, and the one relationship on a Material leaves an empty folder behind when the filter does not keep it.
+The dashed tile is a folder of everyone on no Material, with its count, opening `/materials/none`; nobody on it is named on the tab.
+Every tile links to the page its title names and keeps the filter.
+Tiles are tinted by gender: men's, women's, and a neutral tint for a folder of both or of nobody.
+A legend under the grid names the three tints as Men's, Women's and "Mixed or nobody", and says what a folder and a single tile are.
+No pencil or other edit mark on a tile until assigning (ticket 03) gives it something to do.
+The tab says Material, relationship and group, never Program, pair or band.
 
 S-1b Before any Material exists.
-The same card, the empty line "No materials yet. Create one, then assign it from its folder or from a group's card on Intake forms." and the dashed folder if any relationship is live.
-With no live relationship the dashed folder goes too.
+The same toolbar, the empty line "No materials yet. Create one, then assign it from its folder or from a group's card on Intake forms." and the dashed tile if the filter keeps any live relationship.
+With none the dashed tile and the legend go too.
 
 S-2 A Material's folder, at `/materials/<id>`.
 A back link "← All materials" that keeps the filter.

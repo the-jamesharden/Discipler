@@ -87,10 +87,10 @@ describe.skipIf(skipUnlessAppIsRunning)('creating, editing and removing a Materi
     return (data ?? []).map((object) => `${ministry.id}/${object.name}`)
   }
 
-  it('offers the Programs button on the tab and the Edit link on a folder', async () => {
+  it('offers the New material button on the tab and the Edit link on a folder', async () => {
     const tab = await getPage('/materials', cookie)
     expect(asRendered(tab.html)).toContain('href="/materials/new"')
-    expect(asRendered(tab.html)).toContain('Programs')
+    expect(asRendered(tab.html)).toContain('New material')
 
     const page = await getPage('/materials/new', cookie)
     expect(page.response.status).toBe(200)

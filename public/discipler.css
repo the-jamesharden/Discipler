@@ -630,7 +630,7 @@ textarea.paste { width: 100%; min-height: 140px; font-family: ui-monospace, SFMo
 .pair-per-row label { overflow-wrap: anywhere; }
 .pair-summary { margin-top: 0.9rem; background: rgba(45, 80, 22, 0.06); border-left: 3px solid var(--primary); padding: 0.55rem 0.7rem; font-size: 0.82rem; border-radius: 0 5px 5px 0; }
 
-/* ---- the Materials tab (v11 home-screen folders) ---- */
+/* ---- the Materials tab (home-screen folders, `.scratch/materials/spec.md` S-1) ---- */
 .mat-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
 .mat-toolbar-actions { display: flex; gap: 0.7rem; flex-wrap: wrap; align-items: center; }
 .mat-info { position: relative; display: inline-flex; }
@@ -642,8 +642,8 @@ textarea.paste { width: 100%; min-height: 140px; font-family: ui-monospace, SFMo
 .seg-toggle a { font-family: inherit; font-size: 0.85rem; font-weight: 600; color: var(--text-light); background: none; border: none; padding: 0.4rem 0.95rem; border-radius: 8px; cursor: pointer; transition: all 0.18s ease; text-decoration: none; }
 .seg-toggle a:hover { color: var(--primary); }
 .seg-toggle a[aria-current="true"] { background: var(--surface); color: var(--primary); box-shadow: 0 1px 4px rgba(45,80,22,0.18); }
-.mat-programs-btn { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.55rem 1.1rem; background: transparent; border: 2px solid var(--primary); border-radius: 6px; color: var(--primary); font-family: inherit; font-weight: 600; font-size: 0.9rem; text-decoration: none; transition: all 0.3s ease; }
-.mat-programs-btn:hover { background: rgba(45, 80, 22, 0.06); }
+.mat-new-btn { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.55rem 1.1rem; background: transparent; border: 2px solid var(--primary); border-radius: 6px; color: var(--primary); font-family: inherit; font-weight: 600; font-size: 0.9rem; text-decoration: none; transition: all 0.3s ease; }
+.mat-new-btn:hover { background: rgba(45, 80, 22, 0.06); }
 .hs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 1.4rem 1rem; }
 .hs-cell { display: flex; flex-direction: column; align-items: center; gap: 0.45rem; }
 .hs-tile { position: relative; width: 100%; max-width: 118px; aspect-ratio: 1 / 1; border-radius: 12px; border: 1px solid var(--border); cursor: pointer; padding: 0; background: var(--surface); text-decoration: none; color: inherit; display: block; }
@@ -651,6 +651,7 @@ textarea.paste { width: 100%; min-height: 140px; font-family: ui-monospace, SFMo
 .gender-m { background: linear-gradient(160deg, rgba(45,80,22,0.10), rgba(45,80,22,0.04)); border-color: rgba(45,80,22,0.28); }
 .gender-f { background: linear-gradient(160deg, rgba(201,168,106,0.18), rgba(201,168,106,0.06)); border-color: rgba(201,168,106,0.5); }
 .gender-x { background: var(--bg); border-color: var(--border); }
+.hs-tile.unassigned { border-style: dashed; background: transparent; }
 .hs-folder-grid { position: absolute; inset: 14%; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 9%; }
 .hs-mini { border-radius: 16%; display: flex; align-items: center; justify-content: center; font-size: 0.62rem; font-weight: 700; color: #fff; background: linear-gradient(135deg, var(--primary), var(--primary-light)); overflow: hidden; }
 .gender-f .hs-mini { background: linear-gradient(135deg, var(--accent), #b08d4e); }
@@ -663,7 +664,6 @@ textarea.paste { width: 100%; min-height: 140px; font-family: ui-monospace, SFMo
 .hs-app-icon svg { width: 56%; height: 56%; }
 .hs-count { position: absolute; top: -6px; right: -6px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: var(--primary); color: #fff; font-size: 0.72rem; font-weight: 700; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
 .hs-count.zero { background: var(--surface); color: var(--text-light); border: 1px solid var(--border); box-shadow: none; }
-.hs-pencil { position: absolute; bottom: 6px; right: 6px; width: 26px; height: 26px; border-radius: 50%; background: var(--surface); border: 1px solid var(--border); color: var(--primary); font-size: 0.8rem; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0,0,0,0.12); pointer-events: none; }
 .hs-label { font-size: 0.82rem; font-weight: 600; color: var(--text); text-align: center; line-height: 1.25; max-width: 118px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .hs-sub { font-size: 0.68rem; color: var(--text-light); text-align: center; line-height: 1.2; max-width: 118px; width: 100%; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .hs-sub.muted { font-style: italic; }
