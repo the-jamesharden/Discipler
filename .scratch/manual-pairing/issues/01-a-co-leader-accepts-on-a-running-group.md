@@ -110,5 +110,12 @@ Both were answered by James on 2026-09-20: *whatever is broken outright, fix; fo
    Both overlaps are tested with two connections, and the test of the tick's wait fails with the wait taken out.
    Left as it is: where that look raises nothing, the tick's `follow_up.relationship_unaccepted` event is still written, saying the tick found the relationship unanswered for five days, which at its read was true. Nothing reads that event.
    Tests: `tests/domain/accepting-an-invitation.test.ts`, `tests/integration/the-scheduled-tick.test.ts` for a leader invited at formation, and `tests/integration/a-co-leader-accepts-on-a-running-group.test.ts` for a co-leader, for two co-leaders, and for the late raise.
+   **And the item itself was wrong for a co-leader on a running group**, found on 2026-09-21 by looking at the real Follow-Up tab (`2dd44d4`).
+   It was written for a relationship nobody had activated.
+   For somebody added to a running group it named nobody, counted the group's age as their wait, said everyone was held out of the suggestion pool, and offered a **Cancel** a running group always refuses.
+   It now reads *Claire Martinez was invited to help lead this group and has not answered. The group carries on meanwhile.*, with **Resolve** alone and no day count.
+   For a relationship nobody has activated the sentence is as it was, and names the leaders it waits on.
+   **One thing is left for James, because it is a migration:** the right day count needs when the membership began, and `app.history_inputs` does not carry it.
+   Adding that one column would let the item say how long a co-leader has waited, as the tick already measures it.
 2. **There is no way to withdraw an unanswered co-leader invitation short of ending the group. Not built here.**
    It is the addendum on ticket 05, *Unsending an invitation, from the person's page*, with two questions for James on it.
