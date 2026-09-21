@@ -86,14 +86,17 @@ What is missing is everything after it: today the link stops working and nothing
 - **No Unsend button**, on the person's page or anywhere.
 - **Decline sits beside Accept, the same height and a smaller width**, as a muted red outline.
 - **Pressing it asks her to confirm once**, then withdraws her invitation and tells the Admin on Follow-Up. Nobody else is told.
+  The confirmation is one question, in James's words, *Are you sure you want to decline this invitation?*, and two buttons. It explains nothing else.
 - **`SWAP` from a leader who has not accepted still works quietly as today**: recorded for the Admin, and she is told it was passed on. Nothing about it changes.
 - **Two weeks**, measured by the invitation's own expiry, which **Send a new invitation** resets.
   No day count is shown to the Admin, and no migration is needed to keep the time.
-- **The day 5 *Awaiting acceptance* item goes**, *so the Admin does not get spammed with non-essential things*.
-  For whom is the question below.
-- **The two-week item reads** *[Leader name] has not responded in two weeks, her invite has expired*, with **Resolve** and **Copy link**.
-  The product does not know a pronoun for a leader, so the mock-up says *their invite*; James has been asked.
-- **The declined item is titled** *[Leader name] Declined*, with **Resolve** and **Contact info**, which opens her page from the Roster.
+- **The Unaccepted flag goes for a co-leader**, *so the Admin does not get spammed with non-essential things*: it is no longer raised for a leader added to a relationship already running.
+  A new pairing nobody has started still raises it, because its Disciple is held out of Suggested Pairs until somebody acts.
+  James asked that it be called the *Unaccepted flag*, and not by the day it is raised on; on the Follow-Up tab it is tagged *Awaiting acceptance*, and on the Overview *Unaccepted*.
+- **The two-week item reads** *Group leader [name] has not responded in two weeks, their invite has expired*, with **Resolve** and **Copy link to re-invite leader**.
+  James wrote *her invite*; the product does not know a pronoun for a leader, so it says *their*, which he has seen and let stand.
+- **The declined item is titled** *Group leader [name] Declined*, with **Resolve** and **Contact info**, which opens her page from the Roster.
+- ***Group leader* is said before the name** on both. For a one-to-one, which has no group, it says *Discipler*; this is a default taken while writing the ticket, and James can overrule it here.
 - **Copy link always gives a working link.**
   On the two-week item, which is the only place it now shows, it makes a fresh one and invites her again for another fortnight.
   Every copy is recorded in the Ministry's history with the Admin who made it, because today an Admin never sees a leader's link and the link alone is what lets its holder set the account's password.
@@ -106,12 +109,12 @@ What is missing is everything after it: today the link stops working and nothing
 
 - [ ] The Invitation Link's page offers **Decline** beside **Accept and start**, the same height and narrower, in a muted red, wherever it offers Accept.
   It is not offered on a link that has expired or been spent.
-- [ ] Pressing it shows one confirmation that says who she was invited to lead and with whom, that the link will stop working, that the Ministry will be told, and that nobody else is contacted.
+- [ ] Pressing it shows one confirmation, *Are you sure you want to decline this invitation?*, under the Ministry's name, with **Yes, decline** and **Go back**, and nothing else.
   **Go back** returns to the page as it was, and nothing has changed.
 - [ ] Confirming ends her unaccepted leader membership and her link stops opening anything but what a declined link says.
   The membership is ended, never deleted.
 - [ ] She is shown that the Ministry has been told and nothing else is needed from her. She is sent no text.
-- [ ] The Admin is told by a Follow-Up item titled *[Leader name] Declined*, with **Resolve** and **Contact info**.
+- [ ] The Admin is told by a Follow-Up item titled *Group leader [name] Declined*, with **Resolve** and **Contact info**.
   It is the `match_declined` kind, which ADR-0011 kept and nothing has raised since; it carries the Person and the relationship.
 - [ ] **Contact info** opens her page from the Roster. No number is shown on Follow-Up itself.
 - [ ] Both steps are ordinary form posts that work without script.
@@ -121,14 +124,15 @@ What is missing is everything after it: today the link stops working and nothing
 
 - [ ] When an unanswered invitation reaches its expiry, the leader's unaccepted membership is ended.
   The membership is ended, never deleted: that they were invited, and when, stays in the Ministry's history.
-- [ ] The Admin is told by a Follow-Up item that names the Person, in James's words above, with **Resolve** and **Copy link**.
-- [ ] **Copy link** makes a fresh invitation for another fortnight, puts her back on the relationship as somebody invited, puts the link on the Admin's clipboard, and sends her nothing.
+- [ ] The Admin is told by a Follow-Up item that names the Person, in James's words above, with **Resolve** and **Copy link to re-invite leader**.
+- [ ] **Copy link to re-invite leader** makes a fresh invitation for another fortnight, puts her back on the relationship as somebody invited, puts the link on the Admin's clipboard, and sends her nothing.
   It is recorded as a ministry event naming the Admin and the Person.
 - [ ] An invitation accepted in the same moment it would have been withdrawn is accepted, and is not withdrawn.
   A leader's acceptance never fails on the product's timing.
 - [ ] Sending a new invitation before the two weeks are up starts them again.
 - [ ] Recorded as a ministry event of its own type, naming the Person and the relationship, with no Admin on it, because no Admin performed it.
-- [ ] The day 5 *Awaiting acceptance* item is no longer raised, for whoever James's answer below covers, in the same change that adds the two-week item, so there is never a build in which an Admin is told nothing.
+- [ ] The Unaccepted flag is no longer raised for a leader added to a relationship already running, in the same change that adds the two-week item, so there is never a build in which an Admin is told nothing about her.
+  It is still raised, as today, for a relationship nobody has activated.
   The two-day reminder text to the leader is unchanged.
 
 #### Both
@@ -142,12 +146,13 @@ What is missing is everything after it: today the link stops working and nothing
   It stays for the Admin to cancel or re-pair from the Follow-Up item; it does not cancel itself.
   This is a default taken while writing the ticket; James can overrule it here.
 - [ ] Integration tests cover, for a decline and for the two weeks: a running group, a paused group, a group awaiting two leaders where the other has accepted (it activates, once, with one Starter Message), an acceptance at the same moment, and that no message goes to anybody but that one Starter Message.
-- [ ] Over HTTP: she declines through the page and its confirmation; the Follow-Up items appear; **Resolve** clears each; **Contact info** opens her page; **Copy link** invites her again.
+- [ ] Over HTTP: she declines through the page and its confirmation; the Follow-Up items appear; **Resolve** clears each; **Contact info** opens her page; **Copy link to re-invite leader** invites her again.
 - [ ] Looked at in a browser, at phone width: Decline beside Accept, the confirmation, and both Follow-Up items.
 
-### Open, asked of James on 2026-09-21
+### Nothing is open on this addendum
 
-1. **The day 5 item: gone for whom?**
-   *Recommended:* only for a leader added to a relationship already running, where nothing is waiting on them.
-   A new pairing nobody has started holds its Disciple out of Suggested Pairs until somebody accepts or the Admin cancels, and would otherwise sit unseen for a fortnight.
-2. ***Their invite* or *her invite*** in the two-week item.
+James answered both questions on 2026-09-21: the Unaccepted flag goes for co-leaders only, and *their invite* stands.
+
+Asked of him the same day and **not part of this ticket**: whether a Ministry's texts read *paired for mentorship* or *paired for discipleship*.
+James wants it to follow the Ministry's choice between the two, and Ministry settings holds no such choice today, only two words a Ministry types freely.
+It needs a new setting and a migration, and is put to him as its own question.
