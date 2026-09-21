@@ -187,14 +187,17 @@ describe('accepting an Invitation Link', () => {
     // to disclose anybody -- no message to a Leader contains a phone number.
     expect(toLeader).toHaveLength(2)
     expect(toLeader.every((row) => row.discloses_person_id === null)).toBe(true)
-    expect(toLeader[1]?.body).toContain('Emily Starter')
+    // And it names nobody (James, 2026-09-21): who they are meeting with is on the
+    // page its link opens, behind their sign-in.
+    expect(toLeader[1]?.body).not.toContain('Emily')
+    expect(toLeader[1]?.body).toContain('You have been paired for discipleship. See who you’re meeting with')
 
     // One to the Participant, their first word of any of it. It names the Leader
     // who will be reaching out and discloses nobody: no number is sent to either
     // side, so the send-time contact-sharing check has nothing to withhold.
     expect(toParticipant).toHaveLength(1)
     expect(toParticipant[0]?.discloses_person_id).toBeNull()
-    expect(toParticipant[0]?.body).toContain('David Starter')
+    expect(toParticipant[0]?.body).toContain('You have been paired for discipleship with David Starter.')
   })
 
   it('holds a group closed until every Leader has agreed', async () => {

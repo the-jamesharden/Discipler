@@ -236,11 +236,18 @@ describe('a co-leader accepts on a group already running', () => {
       )
       expect(accepted).toEqual([{ payload: { personId: claire, activated: false } }])
 
-      // No Starter Message, to anybody.
-      expect(effects.filter((effect) => effect.kind === 'message.enqueue')).toEqual([])
+      // No Starter Message to anybody already in the group. She alone is sent the
+      // leader's, after her invitation (James, 2026-09-21): it names nobody, and
+      // carries the link to the page that says who she is leading.
+      expect(
+        effects.flatMap((effect) => (effect.kind === 'message.enqueue' ? [effect.message.personId] : [])),
+      ).toEqual([claire])
       await expectNobodyElseWasTold(group, sentBefore)
-      // The co-leader's own invitation is the only text this whole act ever sent.
-      expect(await messagesTo(claire)).toHaveLength(1)
+      const [invitation, starter, ...more] = await messagesTo(claire)
+      expect(more).toEqual([])
+      expect(invitation).toContain('/invitation/')
+      expect(starter).toContain('https://discipler.test/relationships')
+      for (const name of group.discipleNames) expect(starter).not.toContain(name)
     })
 
     it('spends their link and gives them the account they made', async () => {
@@ -296,7 +303,9 @@ describe('a co-leader accepts on a group already running', () => {
       expect(await eventTypesOn(group.id)).toEqual(
         [...eventsBefore, 'relationship.leader_accepted'].sort(),
       )
-      expect(effects.filter((effect) => effect.kind === 'message.enqueue')).toEqual([])
+      expect(
+        effects.flatMap((effect) => (effect.kind === 'message.enqueue' ? [effect.message.personId] : [])),
+      ).toEqual([claire])
       await expectNobodyElseWasTold(group, sentBefore)
     })
   })

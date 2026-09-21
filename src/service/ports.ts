@@ -255,7 +255,12 @@ export interface UnitOfWork {
    * Raising an item that already stands changes nothing. Twenty taps on "not my
    * number" is one condition, and the Admin sees one thing to act on.
    */
-  raiseFollowUp(item: NewFollowUpItem): Promise<void>
+  /**
+   * False where the store looked again and found nothing left to say, which only
+   * an unanswered invitation does: the Leader accepted between the tick's read
+   * and this write. True otherwise, including where the item already stood open.
+   */
+  raiseFollowUp(item: NewFollowUpItem): Promise<boolean>
   /**
    * The pairings an import planned (ADR-0022). Every plan still standing, read by
    * the settle and by an Admin pairing by hand; one plan under its own row lock,

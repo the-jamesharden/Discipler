@@ -188,6 +188,8 @@ export interface InMemoryStore extends EffectStore {
    * form was saved.
    */
   settings: MinistrySettings
+  /** The real store looked again and the unanswered invitation had been answered. */
+  nothingLeftToRaise?: boolean
   failOn?:
     | 'appendHistory'
     | 'enqueueMessages'
@@ -583,7 +585,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
           stagedAcceptances.push(acceptance)
         },
         async raiseFollowUp(item) {
+          if (store.nothingLeftToRaise) return false
           stagedFollowUps.push(item)
+          return true
         },
         async openIntendedPairings() {
           return [...store.openPlans, ...stagedPlans.map((plan) => ({ id: plan.id, leaderId: plan.leaderId, participantId: plan.participantId, plannedAt: plan.plannedAt }))]

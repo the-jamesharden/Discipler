@@ -95,7 +95,7 @@ export const welcomeMessage = ({ ministryName, fullName, promises }: WelcomeMess
     body:
       (firstName ? `Thanks, ${firstName} — you’re all set.` : 'You’re all set.') +
       (promises === 'a_match'
-        ? ' We’ll text you once you’ve been matched with someone to meet with.'
+        ? ' We’ll text you once you’ve been paired with someone to meet with.'
         : ''),
   })
 }
@@ -245,57 +245,50 @@ export const invitationMessage = ({
   link,
 }: InvitationMessage): string => {
   const firstName = firstNameOf(fullName)
-  const matched = `you’ve been matched with someone to be their ${leaderNoun}.`
+  // *Paired*, the product's word and the page's, where it said matched (James,
+  // 2026-09-21).
+  const paired = `you’ve been paired with someone to be their ${leaderNoun}.`
 
   return composeMessage({
     ministryName,
     identifyDelivery: false,
     discloseOptOut: false,
     body:
-      (firstName ? `${firstName}, ${matched}` : `${matched[0]!.toUpperCase()}${matched.slice(1)}`) +
+      (firstName ? `${firstName}, ${paired}` : `${paired[0]!.toUpperCase()}${paired.slice(1)}`) +
       ` Have a look and let us know: ${link}`,
   })
 }
 
 export interface StarterMessageToLeader {
   readonly ministryName: string
-  /** Everyone they are now meeting with. One name is a one-to-one; several a group. */
-  readonly participantNames: readonly string[]
-  /** What this Ministry calls the reader's own role. */
-  readonly leaderNoun: string
   /** Where they see everyone in it and how to reach them. */
   readonly dashboardLink: string
 }
 
 /**
- * Reads the live Participant count, never a group-versus-one-to-one flag. One
- * name and four names are the same sentence with a different list in it.
+ * **It names nobody** (James, 2026-09-21: *do not say the name of the mentees in
+ * the texts*). Who a Leader is meeting with is on the page the link opens, behind
+ * the sign-in they just set and behind each Person's own contact-sharing
+ * decision, and nowhere in a text. So one Leader and a Leader of four get the
+ * same words, and a Leader added to a group already running gets them too.
  *
- * It carries no phone number and never will. The Leader has the Roster surface
- * and the relationship in front of them; a number in a text to them is the thing
+ * It carries no phone number and never will: a number in a text is the thing
  * `disclosesPersonId` exists to keep out, and the draft this composes leaves it
  * null.
+ *
+ * *You have been paired for discipleship* is the sentence James gave for the
+ * Participant's message, without the name it ends on.
  */
 export const starterMessageToLeader = ({
   ministryName,
-  participantNames,
-  leaderNoun,
   dashboardLink,
 }: StarterMessageToLeader): string =>
   composeMessage({
     ministryName,
     identifyDelivery: false,
     discloseOptOut: true,
-    // The reader's *own* role, which is one person however many are on the other
-    // side of it -- so the noun stays singular and nothing has to pluralise a
-    // word a Ministry typed. `asList` puts the group inside the possessive, which
-    // is the one shape that reads for both a one-to-one and a group of four.
-    //
-    // The link is a URL and not a number: the numbers are on the page it opens,
-    // behind the sign-in the Leader just set and behind each Person's own
-    // contact-sharing decision, which is where a number is allowed to be.
     body:
-      `You’re now ${asList(participantNames)}’s ${leaderNoun}. `
+      'You have been paired for discipleship. '
       + `${WHERE_TO_SEE_THEM} ${dashboardLink}. `
       + 'We’ll check in with you each week to see how it’s going.',
   })
@@ -349,16 +342,17 @@ export const groupJoinedMessage = ({
 
 export interface StarterMessageToParticipant {
   readonly ministryName: string
-  /** Who will be reaching out. Named in the body; their number never is. */
+  /** Who they have been paired with. Named in the body; their number never is. */
   readonly leaderNames: readonly string[]
-  /** What this Ministry calls the reader's own role. */
-  readonly participantNoun: string
 }
 
 /**
- * The first thing a Participant hears about the match, and deliberately the first
- * thing they hear at all after Intake -- nothing reaches them until every Leader
- * has agreed to lead them.
+ * The first thing a Participant hears about the pairing, and deliberately the
+ * first thing they hear at all after Intake -- nothing reaches them until every
+ * Leader has agreed to lead them.
+ *
+ * **The words are James's** (2026-09-21): *you have been paired for discipleship
+ * with [mentor name]*.
  *
  * **It names the Leader and never their number.** Somebody about to be contacted
  * by a stranger is owed the stranger's name, and a Participant who does not have
@@ -375,19 +369,12 @@ export interface StarterMessageToParticipant {
 export const starterMessageToParticipant = ({
   ministryName,
   leaderNames,
-  participantNoun,
 }: StarterMessageToParticipant): string =>
   composeMessage({
     ministryName,
     identifyDelivery: false,
     discloseOptOut: true,
-    // The reader's own role again, for the reason the Leader's message gives:
-    // *David and Ruth is your mentor* is what a group produces from the other
-    // shape, and pluralising a word a Ministry typed is not something copy can do
-    // reliably.
-    body:
-      `Great news! You’re now ${asList(leaderNames)}’s ${participantNoun}, and ` +
-      'they will reach out to you soon to set up a time to meet and kick things off!',
+    body: `You have been paired for discipleship with ${asList(leaderNames)}.`,
   })
 
 export interface ResumedMessage {

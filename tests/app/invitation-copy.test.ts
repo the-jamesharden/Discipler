@@ -88,9 +88,10 @@ describe('saying who they would be leading with', () => {
   // Manual pairing, recut ticket 01. A Discipler added to a group is joining
   // somebody, and decides whether to lead knowing who.
   it('names the leaders they would be joining', () => {
-    expect(leadingWithSentence(['Grace Lee'])).toBe('You’d be leading with Grace Lee.')
+    // *You will be*, in James's words (2026-09-21); it said *You'd be*.
+    expect(leadingWithSentence(['Grace Lee'])).toBe('You will be leading with Grace Lee.')
     expect(leadingWithSentence(['Grace Lee', 'David Chen'])).toBe(
-      'You’d be leading with Grace Lee and David Chen.',
+      'You will be leading with Grace Lee and David Chen.',
     )
   })
 

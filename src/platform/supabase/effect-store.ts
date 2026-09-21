@@ -1635,7 +1635,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
         `select 1 from relationship r where r.id = $1 and ${stillToBeAccepted}`,
         [item.relationshipId],
       )
-      if (stillWaiting.length === 0) return
+      if (stillWaiting.length === 0) return false
     }
 
     await client.query(
@@ -1656,6 +1656,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
         followUpPayload(item),
       ],
     )
+    return true
   },
 
   async resolveFollowUp(resolution: FollowUpResolution) {

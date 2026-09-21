@@ -95,7 +95,7 @@ describe('Completing Intake', () => {
     expect(await statusOf(person)).toBe('ready_to_pair')
     expect(await messagesTo('+15552340001')).toEqual([
       'Discipler: Riverside Chapel: Thanks, Emily — you’re all set. ' +
-        'We’ll text you once you’ve been matched with someone to meet with. ' +
+        'We’ll text you once you’ve been paired with someone to meet with. ' +
         'Msg & data rates may apply. Reply STOP to opt out, HELP for help.',
     ])
   })

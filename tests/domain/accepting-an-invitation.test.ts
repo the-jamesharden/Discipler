@@ -151,10 +151,23 @@ describe('a co-leader accepting on a group already running', () => {
     })
   })
 
-  it('sends nothing: not to the Disciples, not to the leader it already has, not to them', () => {
+  it('sends nothing to the Disciples or to the leader it already has', () => {
     // The Starter Message went out at activation. A second one would introduce
     // the Disciples to a relationship they are already in.
-    expect(enqueued(accept(running()))).toEqual([])
+    const to = enqueued(accept(running())).map((message) => message.personId)
+
+    expect(to).not.toContain(emily)
+    expect(to).not.toContain(sarah)
+  })
+
+  it('sends the one who accepted the leader’s Starter Message, and her alone', () => {
+    // James, 2026-09-21: she needs to get a text. Without it she never receives
+    // the link to the page that says who she is leading and how to reach them.
+    const messages = enqueued(accept(running()))
+
+    expect(messages.map((message) => message.personId)).toEqual([david])
+    expect(messages[0]?.body).toContain('https://discipler.example/relationships')
+    expect(messages[0]).toMatchObject({ kind: 'no_reply', disclosesPersonId: null })
   })
 
   it('writes their Acceptance into the history and nothing else', () => {
@@ -162,7 +175,11 @@ describe('a co-leader accepting on a group already running', () => {
     // one the group is already in.
     const result = accept(running({ intendedMaterialId: null }))
 
-    expect(result.effects.map((e) => e.kind)).toEqual(['invitation.accept', 'history.append'])
+    expect(result.effects.map((e) => e.kind)).toEqual([
+      'invitation.accept',
+      'history.append',
+      'message.enqueue',
+    ])
     const event = result.effects.find((e) => e.kind === 'history.append')
     if (event?.kind !== 'history.append') throw new Error('nothing was recorded')
     expect(event.event).toMatchObject({
@@ -185,7 +202,7 @@ describe('a co-leader accepting on a group already running', () => {
     )
 
     expect(acceptance(result).activatesRelationship).toBe(false)
-    expect(enqueued(result)).toEqual([])
+    expect(enqueued(result).map((message) => message.personId)).toEqual([david])
   })
 })
 
@@ -227,8 +244,8 @@ describe('the item an unanswered invitation raised', () => {
     )
 
     expect(resolutions(result).map((resolution) => resolution.itemId)).toEqual([item])
-    // And still nothing is sent, and nothing activates.
-    expect(enqueued(result)).toEqual([])
+    // And still nothing is sent to anybody else, and nothing activates.
+    expect(enqueued(result).map((message) => message.personId)).toEqual([david])
     expect(acceptance(result).activatesRelationship).toBe(false)
   })
 
@@ -280,8 +297,10 @@ describe('the Starter Message acceptance releases', () => {
     }
   })
 
-  it('names the Leader to the Participant, and the Participant to the Leader', () => {
-    expect(enqueued(result).find((m) => m.personId === david)?.body).toContain('Emily Johnson')
+  it('names the Leader to the Participant, and nobody to the Leader', () => {
+    // James, 2026-09-21: no mentee's name in a text. The Leader's message sends
+    // them to the page that says who, behind their sign-in.
+    expect(enqueued(result).find((m) => m.personId === david)?.body).not.toContain('Emily')
     expect(enqueued(result).find((m) => m.personId === emily)?.body).toContain('David Ellis')
   })
 

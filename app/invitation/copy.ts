@@ -69,4 +69,4 @@ export const revealHeading = (names: readonly string[]): string =>
  * than one about nobody.
  */
 export const leadingWithSentence = (names: readonly string[]): string | null =>
-  names.length === 0 ? null : `You’d be leading with ${asList(names)}.`
+  names.length === 0 ? null : `You will be leading with ${asList(names)}.`

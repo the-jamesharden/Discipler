@@ -309,7 +309,7 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin puts a Disciple into a group, 
       const html = (await page.text()).replace(/<!-- -->/g, '')
       expect(page.status).toBe(200)
       for (const disciple of group.discipleNames) expect(html).toContain(disciple)
-      expect(html).toContain(`You’d be leading with ${group.leaderName}.`)
+      expect(html).toContain(`You will be leading with ${group.leaderName}.`)
       expect(html.indexOf(group.leaderName)).toBeLessThan(html.indexOf('name="password"'))
 
       const accepted = await fetch(`${baseUrl}${link}/accept`, {
@@ -322,10 +322,14 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin puts a Disciple into a group, 
       expect(accepted.headers.get('location')).toContain('done=accepted')
 
       // Her Acceptance, and nothing else: the group's activation is the moment it
-      // had, and no Starter Message went to anybody a second time.
+      // had, and no Starter Message went to anybody a second time. She alone is
+      // sent hers, which names nobody and carries the link to who she is leading.
       expect(await leadsIt(group.id, claire.id)).toEqual([{ accepted: true }])
       expect(await stateOf()).toEqual(before)
-      expect(await queuedFor(claire.id)).toHaveLength(1)
+      const [, starter, ...more] = await queuedFor(claire.id)
+      expect(more).toEqual([])
+      expect(starter).toContain('You have been paired for discipleship. See who you’re meeting with')
+      for (const disciple of group.discipleNames) expect(starter).not.toContain(disciple)
       expect(await queuedFor(group.leader)).toEqual([])
       for (const disciple of group.disciples) expect(await queuedFor(disciple)).toEqual([])
 

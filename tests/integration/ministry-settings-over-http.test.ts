@@ -141,15 +141,21 @@ describe.skipIf(skipUnlessAppIsRunning)('the Ministry settings screen', () => {
     // sits in its own element so the script can keep it in step as an Admin types,
     // which is what makes the preview live rather than merely current.
     expect(page).toContain('>shepherd</span>')
-    expect(page).toContain('>friend</span>')
+    expect(page).toContain('you’ve been paired with someone to be their <span data-preview-word="leaderNoun">shepherd</span>')
+    // The word for a person being discipled is saved and, since 2026-09-21, is in
+    // no message: James's own sentence for the Participant's Starter Message does
+    // not say it. So it is on the form and has no preview to be in.
+    expect(page).toContain('value="friend"')
+    expect(page).not.toContain('>friend</span>')
     // The name the messages read as, in the same shape and for the same reason:
     // *Messages read as* is editable too, and a preview that went on showing the
     // old name would be lying about the half of the message it did not update.
     expect(page).toContain('>Riverside</span>')
     // The message around them, not a fragment of one: the prefix in front and the
-    // carrier disclosure behind, both from the real composed message.
-    expect(page).toContain('Reply STOP to opt out')
-    expect(page).toContain('We’ll check in with you each week')
+    // rest of the real composed invitation behind. It carries no opt-out line,
+    // because it is neither first contact nor the Starter Message.
+    expect(page).toContain('Have a look and let us know: discipler.example/invitation/')
+    expect(page).not.toContain('Reply STOP to opt out')
   })
 
   it('says what was wrong and saves nothing when the form cannot be taken', async () => {

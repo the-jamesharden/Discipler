@@ -75,10 +75,13 @@ const messages = (result: Result) =>
 const raised = (result: Result) =>
   result.effects.flatMap((effect) => (effect.kind === 'followUp.raise' ? [effect.item] : []))
 
+// History on its own, and the history a raise carries to be written with its item.
 const historyOfType = (result: Result, type: string) =>
-  result.effects.flatMap((effect) =>
-    effect.kind === 'history.append' && effect.event.type === type ? [effect.event] : [],
-  )
+  result.effects.flatMap((effect) => {
+    if (effect.kind === 'history.append') return effect.event.type === type ? [effect.event] : []
+    if (effect.kind === 'followUp.raise' && effect.recordedAs?.type === type) return [effect.recordedAs]
+    return []
+  })
 
 describe('the scheduled tick', () => {
   it('reads the clock it was handed and nothing else', () => {

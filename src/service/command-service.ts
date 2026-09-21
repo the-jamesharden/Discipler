@@ -2,6 +2,7 @@ import { handleCommand, type CommandResult, type InvitationSnapshot } from '~/do
 import type { Clock } from '~/domain/clock'
 import type { Command } from '~/domain/commands'
 import { PairingRefused, type PairingRefusal } from '~/domain/errors'
+import type { NewHistoryEvent } from '~/domain/history'
 import type { IntendedPairingId, MinistryId } from '~/domain/ids'
 import type { Effect } from '~/domain/effects'
 import {
@@ -143,9 +144,7 @@ export const applyEffects = async (
   const acceptances = effects.flatMap((effect) =>
     effect.kind === 'invitation.accept' ? [effect.acceptance] : [],
   )
-  const followUps = effects.flatMap((effect) =>
-    effect.kind === 'followUp.raise' ? [effect.item] : [],
-  )
+  const followUps = effects.flatMap((effect) => (effect.kind === 'followUp.raise' ? [effect] : []))
   const plans = effects.flatMap((effect) =>
     effect.kind === 'intendedPairing.plan' ? [effect.plan] : [],
   )
@@ -305,7 +304,12 @@ export const applyEffects = async (
   // before the insert it replaces would be refused by that index rather than
   // replacing anything.
   for (const invitation of reissues) await unit.reissueInvitation(invitation)
-  for (const item of followUps) await unit.raiseFollowUp(item)
+  // History that is only true if its item was raised goes with it or not at all.
+  const recordedWithAnItem: NewHistoryEvent[] = []
+  for (const { item, recordedAs } of followUps) {
+    const stillTrue = await unit.raiseFollowUp(item)
+    if (stillTrue && recordedAs) recordedWithAnItem.push(recordedAs)
+  }
 
   // Before the history that says they happened, like every other write here. An
   // Admin resolving an item somebody else closed a second earlier is refused, and
@@ -422,7 +426,8 @@ export const applyEffects = async (
   // History before messages: a message that goes out unrecorded is worse than a
   // recorded message that failed to send, because only one of the two can be
   // reconstructed.
-  if (history.length > 0) await unit.appendHistory(history)
+  const recorded = [...history, ...recordedWithAnItem]
+  if (recorded.length > 0) await unit.appendHistory(recorded)
   if (messages.length > 0) await unit.enqueueMessages(messages)
 
   // Last of all. The outbound queue refuses a message to anybody with an open
@@ -576,15 +581,17 @@ const isTokenDriven = (
 
 /**
  * The commands whose messages call somebody by their role: pairing, which texts
- * each Leader an invitation to be somebody's Leader, adding a Leader to a group,
- * which texts them the same invitation, and acceptance, which tells both sides
- * what they now are to each other. Everything else Discipler sends names people
- * and never roles.
+ * each Leader an invitation to be somebody's Leader, and adding a Leader to a
+ * group, which texts them the same invitation. Everything else Discipler sends
+ * names people and never roles.
+ *
+ * Acceptance was one of them until 2026-09-21, when the Starter Message stopped
+ * saying a role: it is still in the Ministry's voice, which `isTokenDriven`
+ * already asks for.
  */
 const namesARole = (command: Command): boolean =>
   command.type === 'relationship.create' ||
   command.type === 'group.add_leader' ||
-  command.type === 'relationship.accept' ||
   command.type === 'intended_pairing.fulfil'
 
 const settlesAPlan = (

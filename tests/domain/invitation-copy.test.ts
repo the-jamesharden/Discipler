@@ -71,6 +71,11 @@ describe('the message that carries the Invitation Link', () => {
    * well and *someone to discipler* does not, and the word is whatever a Ministry
    * typed rather than one Discipler chose for them.
    */
+  it('says paired, which is the product’s word and the page’s (James, 2026-09-21)', () => {
+    expect(body).toContain('David, you’ve been paired with someone to be their mentor.')
+    expect(body).not.toContain('matched')
+  })
+
   it('calls the role what this Ministry calls it', () => {
     expect(body).toContain('to be their mentor')
 
@@ -91,15 +96,12 @@ const DASHBOARD = 'https://discipler.test/relationships'
 describe('the Starter Message', () => {
   const toLeader = starterMessageToLeader({
     ministryName: 'Riverside Chapel',
-    participantNames: ['Emily Johnson'],
-    leaderNoun: roleNoun('mentor'),
     dashboardLink: DASHBOARD,
   })
 
   const toParticipant = starterMessageToParticipant({
     ministryName: 'Riverside Chapel',
     leaderNames: ['David Ellis'],
-    participantNoun: roleNoun('mentee'),
   })
 
   it('carries the opt-out and rate disclosure to everyone in the relationship', () => {
@@ -107,41 +109,26 @@ describe('the Starter Message', () => {
     expect(toParticipant).toContain('Reply STOP to opt out')
   })
 
-  it('tells the Leader who they are now meeting with', () => {
-    expect(toLeader).toContain('Emily Johnson')
-  })
-
-  it('names every Participant when the relationship is a group', () => {
-    const group = starterMessageToLeader({
-      ministryName: 'Riverside Chapel',
-      participantNames: ['Emily Johnson', 'Sarah Kim', 'Anna Reed'],
-      leaderNoun: roleNoun('mentor'),
-      dashboardLink: DASHBOARD,
-    })
-
-    expect(group).toContain('Emily Johnson')
-    expect(group).toContain('Sarah Kim')
-    expect(group).toContain('Anna Reed')
-  })
-
   /**
-   * The reader's own role, so the noun is singular however many people are on the
-   * other side of it. *David and Ruth is your mentor* is the sentence a group
-   * would otherwise produce, and no amount of pluralising a word a Ministry typed
-   * would fix it reliably.
+   * James, 2026-09-21: *do not say the name of the mentees in the texts*. Who a
+   * Leader is meeting with is on the page the link opens, behind their sign-in,
+   * and nowhere in a text. So the message takes no names to say.
    */
-  it('calls each side what this Ministry calls it', () => {
-    expect(toLeader).toContain('Emily Johnson\u2019s mentor')
-    expect(toParticipant).toContain('David Ellis\u2019s mentee')
+  it('names nobody to the Leader, and sends them to the page that does', () => {
+    expect(toLeader).toBe(
+      'Riverside Chapel: You have been paired for discipleship. '
+        + 'See who you’re meeting with and how to reach them at https://discipler.test/relationships. '
+        + 'We’ll check in with you each week to see how it’s going. '
+        + 'Msg & data rates may apply. Reply STOP to opt out, HELP for help.',
+    )
+  })
 
-    expect(
-      starterMessageToLeader({
-        ministryName: 'Riverside Chapel',
-        participantNames: ['Emily Johnson', 'Sarah Kim'],
-        leaderNoun: roleNoun('discipleship coach'),
-        dashboardLink: DASHBOARD,
-      }),
-    ).toContain('Emily Johnson and Sarah Kim\u2019s discipleship coach')
+  /** In James's words, 2026-09-21: *you have been paired for discipleship with [mentor name]*. */
+  it('tells the Participant who they have been paired with, in the words James gave', () => {
+    expect(toParticipant).toBe(
+      'Riverside Chapel: You have been paired for discipleship with David Ellis. '
+        + 'Msg & data rates may apply. Reply STOP to opt out, HELP for help.',
+    )
   })
 
   it('sends a Leader no phone number, ever', () => {
@@ -170,7 +157,6 @@ describe('the Starter Message', () => {
     const group = starterMessageToParticipant({
       ministryName: 'Riverside Chapel',
       leaderNames: ['David Ellis', 'Ruth Adeyemi'],
-      participantNoun: roleNoun('mentee'),
     })
 
     expect(group).toContain('David Ellis and Ruth Adeyemi')
@@ -187,7 +173,7 @@ describe('the Starter Message', () => {
     // Nothing is appended to it at dispatch -- it discloses nobody -- so every
     // sentence in it has to stand as sent.
     expect(toParticipant.trimEnd().endsWith(':')).toBe(false)
-    expect(toParticipant).toContain('they will reach out to you soon')
+    expect(toParticipant).toContain('paired for discipleship with David Ellis.')
   })
 })
 

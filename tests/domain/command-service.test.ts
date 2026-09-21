@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createTestClock } from '~/domain/clock'
-import { appendHistory, enqueueMessage } from '~/domain/effects'
-import { ministryId, personId, createSequentialIds } from '~/domain/ids'
+import { appendHistory, enqueueMessage, raiseFollowUpItem } from '~/domain/effects'
+import { ministryId, personId, relationshipId, createSequentialIds } from '~/domain/ids'
 import { applyEffects, createCommandService } from '~/service/command-service'
 import { createInMemoryStore } from '../support/in-memory-store'
 
@@ -294,6 +294,48 @@ describe('applying a command\'s effects', () => {
     // History must not claim something that never reached anyone.
     expect(store.history).toEqual([])
     expect(store.outbox).toEqual([])
+  })
+})
+
+describe('history that is only true if an item was raised', () => {
+  // The tick decides an invitation is unanswered from a read, and the store looks
+  // again before it says so. Where it finds the leader has since accepted it
+  // raises nothing, and the history must not say what the screen never did
+  // (James, 2026-09-21: stop writing it).
+  const unanswered = raiseFollowUpItem(
+    {
+      ministryId: ministry,
+      kind: 'relationship_unaccepted',
+      relationshipId: relationshipId('00000000-0000-4000-8000-0000000000b9'),
+      personId: null,
+      raisedAt: at,
+    },
+    {
+      ministryId: ministry,
+      occurredAt: at,
+      type: 'follow_up.relationship_unaccepted',
+      subjectType: 'relationship',
+      subjectId: '00000000-0000-4000-8000-0000000000b9',
+      payload: { waitedDays: 5 },
+    },
+  )
+
+  it('is written when the item is', async () => {
+    const store = createInMemoryStore()
+
+    await store.transact(ministry, (sink) => applyEffects([unanswered], sink))
+
+    expect(store.history.map((event) => event.type)).toEqual(['follow_up.relationship_unaccepted'])
+  })
+
+  it('is not written when the store found nothing left to say', async () => {
+    const store = createInMemoryStore()
+    store.nothingLeftToRaise = true
+
+    await store.transact(ministry, (sink) => applyEffects([unanswered, someEvent('leader.accepted')], sink))
+
+    // Everything else in the same command is recorded as ever.
+    expect(store.history.map((event) => event.type)).toEqual(['leader.accepted'])
   })
 })
 

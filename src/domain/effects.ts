@@ -736,7 +736,17 @@ export type Effect =
   | { readonly kind: 'invitation.reissue'; readonly invitation: NewInvitation }
   | { readonly kind: 'intake_link.issue'; readonly link: NewIntakeLink }
   | { readonly kind: 'invitation.accept'; readonly acceptance: LeaderAcceptance }
-  | { readonly kind: 'followUp.raise'; readonly item: NewFollowUpItem }
+  | {
+      readonly kind: 'followUp.raise'
+      readonly item: NewFollowUpItem
+      /**
+       * History that is only true if the item was raised, written with it or not
+       * at all. The store looks again before raising an unanswered invitation,
+       * and where the Leader has accepted since the tick read, it raises nothing:
+       * the history must not say what no screen ever did.
+       */
+      readonly recordedAs?: NewHistoryEvent
+    }
   | { readonly kind: 'followUp.resolve'; readonly resolution: FollowUpResolution }
   | {
       readonly kind: 'relationship.cancel'
@@ -991,9 +1001,13 @@ export const acceptInvitation = (acceptance: LeaderAcceptance): Effect => ({
   acceptance,
 })
 
-export const raiseFollowUpItem = (item: NewFollowUpItem): Effect => ({
+export const raiseFollowUpItem = (
+  item: NewFollowUpItem,
+  recordedAs?: NewHistoryEvent,
+): Effect => ({
   kind: 'followUp.raise',
   item,
+  ...(recordedAs ? { recordedAs } : {}),
 })
 
 export const resolveFollowUpItem = (resolution: FollowUpResolution): Effect => ({

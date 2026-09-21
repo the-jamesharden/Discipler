@@ -61,7 +61,7 @@ describe('The Welcome Message', () => {
 
     expect(text).toBe(
       'Discipler: Riverside Chapel: Thanks, Emily — you’re all set. ' +
-        'We’ll text you once you’ve been matched with someone to meet with. ' +
+        'We’ll text you once you’ve been paired with someone to meet with. ' +
         'Msg & data rates may apply. Reply STOP to opt out, HELP for help.',
     )
   })

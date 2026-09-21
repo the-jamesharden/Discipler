@@ -4,10 +4,7 @@ import {
   QUIET_HOURS,
   type MinistrySettingsRefusal,
 } from '~/domain/ministry-settings'
-import {
-  starterMessageToLeader,
-  starterMessageToParticipant,
-} from '~/domain/outbound-copy'
+import { invitationMessage } from '~/domain/outbound-copy'
 import { refusalsIn } from '../refusals'
 
 /**
@@ -121,15 +118,19 @@ const around = (composed: string, to: string): MessagePreview => {
 
 /**
  * Where the preview's link points. The real one hangs off the configured host and
- * this page has no business reading configuration to show wording; the sentence
- * around it is what a Ministry is being shown.
+ * carries a token; the sentence around it is what a Ministry is being shown.
  */
-const PREVIEW_DASHBOARD_LINK = 'discipler.example/relationships'
+const PREVIEW_INVITATION_LINK = 'discipler.example/invitation/…'
 
 /**
- * The two Starter Messages, which are the messages that call somebody by their
- * role -- one for each word, so a Ministry sees both of its own words in the
- * message the person who reads that word actually gets.
+ * The message that calls somebody by their role: the invitation a leader is sent
+ * when they are paired, which says what the Ministry calls a leader.
+ *
+ * It was the two Starter Messages, one for each word. Since 2026-09-21 neither
+ * says a role: the Participant's is James's own sentence, *you have been paired
+ * for discipleship with [mentor name]*, and the Leader's names nobody. So the
+ * word a Ministry gives for a person being discipled is in no message today, and
+ * has no preview. It is still saved; whether the field stays is James's to say.
  *
  * Composed with sentinels rather than with the Ministry's real values, so the page
  * knows *where* each editable word goes without knowing anything about the
@@ -138,20 +139,12 @@ const PREVIEW_DASHBOARD_LINK = 'discipler.example/relationships'
  */
 export const messagePreviews = (): readonly MessagePreview[] => [
   around(
-    starterMessageToLeader({
+    invitationMessage({
       ministryName: NAME,
-      participantNames: ['Emily Johnson'],
+      fullName: 'David Ellis',
       leaderNoun: NOUN,
-      dashboardLink: PREVIEW_DASHBOARD_LINK,
+      link: PREVIEW_INVITATION_LINK,
     }),
-    'What a leader receives when a match is agreed',
-  ),
-  around(
-    starterMessageToParticipant({
-      ministryName: NAME,
-      leaderNames: ['David Ellis'],
-      participantNoun: NOUN,
-    }),
-    'What a participant receives at the same moment',
+    'What a leader receives when they are paired',
   ),
 ]

@@ -2546,8 +2546,11 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
               // waiting on two of them is one thing for an Admin to act on.
               personId: null,
               raisedAt: now,
-            }),
-            appendHistory({
+            },
+            // Written with the item or not at all: the store looks again before it
+            // raises this one, and a Leader who accepted since this read is not
+            // recorded as unanswered a moment after they are recorded as accepting.
+            {
               ministryId: command.ministryId,
               occurredAt: now,
               type: 'follow_up.relationship_unaccepted',
@@ -2557,7 +2560,8 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
               // is read live off `created_at`, because this number is true of the
               // moment it was written and stops being true the next day.
               payload: { waitedDays: daysSince(relationship.waitingSince, now) },
-            }),
+            },
+          ),
           )
         }
       }
@@ -4950,7 +4954,35 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         )
       }
 
-      if (!activatesRelationship) return { rejections: [], effects }
+      // The Leader's Starter Message, which names nobody and sends them to the page
+      // that does. The Leader who just accepted typed a name, not a number: the
+      // number was displayed and refused as input, so `phone` is still the one on
+      // file.
+      const starterToLeader = (leader: InvitedMember): Effect =>
+        enqueueMessage({
+          ministryId: command.ministryId,
+          personId: leader.personId,
+          toPhone: leader.phone,
+          body: starterMessageToLeader({
+            ministryName,
+            dashboardLink: leaderDashboardLink(theHost(context)),
+          }),
+          enqueuedAt: now,
+          disclosesPersonId: null,
+          // *You have been paired* asks nothing, so it takes nobody's number --
+          // and a Starter Message that did would block its own relationship's
+          // first check-in.
+          kind: 'no_reply',
+        })
+
+      if (!activatesRelationship) {
+        // A Leader added to a relationship already running is sent theirs, and
+        // they alone (James, 2026-09-21): without it they never get the link to
+        // the page that says who they are leading and how to reach them. The
+        // Participants and the Leaders it already has are still sent nothing.
+        if (invitation.relationshipAcceptedAt !== null) effects.push(starterToLeader(me))
+        return { rejections: [], effects }
+      }
 
       // The Material an Admin chose while pairing, and whether it is still on the
       // Ministry's list as this acceptance decides. The column holding it is
@@ -5034,37 +5066,12 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       // web page. Somebody who stops meeting or stops replying says so by the
       // silence the care rules already read, and an Admin acts on that.
 
-      // The Starter Message. The Leaders' names the Participants; the
-      // Participants' names the Leaders, and neither carries a number -- so this
-      // message discloses nobody and one goes to each Participant however many
-      // Leaders a group has.
-      //
-      // The Leader who just accepted typed a name, not a number: the number was
-      // displayed and refused as input, so `phone` is still the one on file.
-      const participantNames = participants.map((participant) => participant.fullName)
+      // The Starter Message. The Participants' names the Leaders, the Leaders'
+      // names nobody, and neither carries a number -- so this message discloses
+      // nobody and one goes to each Participant however many Leaders a group has.
       const leaderNames = leaders.map((leader) => leader.fullName)
 
-      for (const leader of leaders) {
-        effects.push(
-          enqueueMessage({
-            ministryId: command.ministryId,
-            personId: leader.personId,
-            toPhone: leader.phone,
-            body: starterMessageToLeader({
-              ministryName,
-              participantNames,
-              leaderNoun: theWordFor(context).leaderNoun,
-              dashboardLink: leaderDashboardLink(theHost(context)),
-            }),
-            enqueuedAt: now,
-            disclosesPersonId: null,
-            // *You have been paired* asks nothing, so it takes nobody's number --
-            // and a Starter Message that did would block its own relationship's
-            // first check-in.
-            kind: 'no_reply',
-          }),
-        )
-      }
+      for (const leader of leaders) effects.push(starterToLeader(leader))
 
       for (const participant of participants) {
         effects.push(
@@ -5072,11 +5079,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             ministryId: command.ministryId,
             personId: participant.personId,
             toPhone: participant.phone,
-            body: starterMessageToParticipant({
-              ministryName,
-              leaderNames,
-              participantNoun: theWordFor(context).participantNoun,
-            }),
+            body: starterMessageToParticipant({ ministryName, leaderNames }),
             enqueuedAt: now,
             disclosesPersonId: null,
             kind: 'no_reply',
