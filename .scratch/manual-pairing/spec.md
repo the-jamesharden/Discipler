@@ -71,6 +71,7 @@ Beneath it, one line saying who the list is for.
   This is exactly the database's own rule, `participant_one_open_one_to_one`: one open 1:1 as a participant, any number of groups.
 - A toolbar above the list counts it (*7 disciples · 3 groups*) and offers **Clear**.
   There is no Select all.
+- The list says it scrolls, on both sides (James, 2026-09-21): a light scrollbar that does not hide itself, and a fade at its bottom edge while there is more below.
 - Below the Disciples, under a **Groups** heading, the Ministry's groups (see *Joining an existing group*).
 - Ticking a Disciple clears a chosen group, and choosing a group clears every tick.
   The popup does one thing at a time.
@@ -123,6 +124,12 @@ Title: **Pair Sam Lee**.
 - No shape toggle ever appears, and nothing else is asked.
   Choosing a Discipler makes a 1:1; choosing a group puts them in it, and the group keeps the Material it has.
 - If this Disciple is already in a 1:1, every Discipler is greyed with the reason and the groups stay open.
+- **What gender rules out is not shown at all from this side** (James, 2026-09-21, reviewing ticket 03).
+  A Discipler of another gender, while the Ministry enforces the match, and a group whose declaration rules this Disciple out, are left off the list and out of its count, in place of a greyed row that says why.
+  Where the Ministry lets a one-to-one cross genders, everybody shows.
+  Nothing an Admin can change from this side would open such a row, so it is only in the way.
+  Somebody with no gender on file is never left out.
+  This replaces, for this side only, *other-gender rows are greyed with the reason* and *rows it rules out are greyed with it* under **Gender** below; the popup from a Discipler still greys, because there Coed opens the row again.
 - A Discipler who has not completed Intake, or who has opted out, is greyed with the words their Roster row already says, **Awaiting Intake** or **Opted out**.
   The database refuses a pairing led by either, and they get no Pair on their own row for the same reason.
   They are shown, not hidden: the list is still every Discipler (James, 2026-09-20).
@@ -140,6 +147,7 @@ Title: **Pair Sam Lee**.
   That is how a coed group is made by hand.
   Coed is the screen's word for the model's `declared_gender = null`, mixed.
 - **A group being joined** already has its declaration; rows it rules out are greyed with it (*A men's group*).
+  From a Disciple such a group is not listed at all: see *The popup, from a Disciple*.
 - Somebody with no gender on file is never greyed in any shape.
   Both database triggers return early on a null gender, so that the readiness rules refuse the row with something the Admin can act on instead of "genders do not match".
 - Greying is computed against the declaration the shape implies, never against one person.

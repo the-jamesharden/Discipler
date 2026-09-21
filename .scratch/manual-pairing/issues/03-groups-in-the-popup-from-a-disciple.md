@@ -25,7 +25,8 @@ Old ticket 22's Comments, in the same file, give the address a refused join retu
 
 - [x] A **Groups** heading below the Disciplers, then one row per group from old ticket 08's read, listed like people.
 - [x] Each row gives the group's name, its leaders, how many Disciples it has, its declared gender, and its state when it is not running (paused, awaiting its leader).
-- [x] A group with no name is labelled by its leaders' names, which is how the Roster's Paired with cell already names a pairing.
+- [x] A group with no name is labelled as its leaders' group, *Ruth Bader's group*, which is how a Disciple's row on the Discipler's side already names it.
+  Reworded by James's decision of 2026-09-21; it read *labelled by its leaders' names, which is how the Roster's Paired with cell already names a pairing*, and in a list of people that read as a second Ruth Bader.
 - [x] A group this Disciple is already in is not listed.
 - [x] A Ministry with no groups shows no heading.
 - [x] The line under the title counts both: *4 disciplers · 3 groups*.
@@ -40,8 +41,10 @@ Old ticket 22's Comments, in the same file, give the address a refused join retu
 
 ### Greying
 
-- [x] A group whose declaration rules this Disciple out is greyed with it (*A men's group*), through old ticket 23's rule with the group's own declaration.
-- [x] A Coed group greys nobody, and a Disciple with no gender on file is never greyed.
+- [x] A group whose declaration rules this Disciple out is not listed at all, and neither is a Discipler of another gender while the Ministry enforces the match.
+  Reworded by James's decision of 2026-09-21; it read *is greyed with it (A men's group), through old ticket 23's rule with the group's own declaration*.
+  The rule that decides it is still old ticket 23's, read against the group's own declaration.
+- [x] A Coed group is shown to everybody, and a Disciple with no gender on file is shown every group.
 - [x] If this Disciple is already in a one-to-one, every Discipler is greyed and **the groups stay open**.
 
 ### Sentence, button, submit
@@ -62,10 +65,29 @@ Old ticket 22's Comments, in the same file, give the address a refused join retu
 
 ### Checked
 
-- [x] Over HTTP: the Groups section's contents for a Disciple already in one of three groups; a men's group greyed for a woman; the join round trip; a refusal restored.
+- [x] Over HTTP: the Groups section's contents for a Disciple already in one of three groups; a men's group left out for a woman; the join round trip; a refusal restored.
 - [x] Looked at in a browser beside mock state H, scrolled to the bottom of the list, at desktop and phone width.
 
 ## Comments
+
+### Decided by James, 2026-09-21, in Lavish (`.lavish/groups-in-the-popup/index.html`)
+
+Five things were put to James beside the real popup, and all five are answered and built (`422ffad`).
+
+1. **Coed** stays, on a group's row. Reading 1 below stands.
+2. ***awaiting acceptance*** stays. Reading 2 below stands.
+3. **A group nobody has named is *Ruth Bader's group***, on its row and in the sentence (*Sam Lee will join Ruth Bader's group.*), which replaces reading 3 below. Its criterion is reworded above.
+   With it James decided something wider, in his own words: "If they're not compatible or able to be paired together because of gender, just don't show them period. If they have the mixed gender setting selected, where one-on-one can be paired across gender, then that should show up here."
+   So from a Disciple, a Discipler of another gender and a group whose declaration rules the Disciple out are **left off the list**, and out of its count, in place of a greyed row.
+   Every other reason is still a greyed row: Awaiting Intake and Opted out, as James decided on 2026-09-20, and a Disciple already in a one-to-one.
+   The rules are `leftOutForADisciple` and `groupLeftOutForADisciple` in `app/roster/greying.ts`, and the spec says it under *The popup, from a Disciple*.
+   Two criteria above are reworded for it, and old ticket 23's *a greyed row is shown, not hidden* no longer holds for gender on this side; its record in `07-committed-already.md` is left as it was written.
+   **Read as this side only.** From a Discipler the greying for gender depends on the shape, and Coed opens those rows again, which is how a coed group is made by hand; hiding them there would take that away. Asked of James in Lavish; ticket 04 should not start its group rows before he answers, since its criterion *A group whose declaration rules this Discipler out is greyed with it* is the same question.
+   One edge, left alone: where every Discipler is left out and there are no groups, the popup says *There is nobody to choose yet*, which does not say why.
+4. **One event.** The resolved Join Request is recorded in the join's own event, as an admission's is. Reading 4 below stands.
+5. **The list says it scrolls**: the fade James was shown, and, in his words, "a light scroll bar on the right to make it clear they can scroll down". Both are in the shared list (`PairList`, `.pair-list` in `public/discipler.css`), so both sides have them. The fade shows only while there is more below.
+
+Checked: typecheck clean; `tests/domain tests/app`, 71 files, 1381 tests; the three popup suites and `an-admin-puts-somebody-into-a-group-over-http` through `scripts/locked-tests.sh`; and looked at in a browser at desktop width and at 390px, where the fade goes at the end of the list and the scrollbar costs no sideways scroll.
 
 ### Implementer, 2026-09-21: built, and what was decided while building
 
