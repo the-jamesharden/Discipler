@@ -44,6 +44,7 @@ const covers = (
   name: null,
   acceptedAt: startedAt,
   paused: false,
+  stillLed: true,
   cadence: { day: 1, hour: 9 },
 })
 

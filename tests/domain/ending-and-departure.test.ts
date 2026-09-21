@@ -82,6 +82,19 @@ const depart = (person: PersonId, relationshipSnapshot = snapshot()) =>
     context({ relationship: relationshipSnapshot }),
   )
 
+const grace = personId('00000000-0000-4000-8000-0000000000a1')
+
+/** A group two Leaders lead, the second added since and, unless said otherwise, accepted. */
+const coLed = ({ graceAcceptedAt = acceptedAt }: { readonly graceAcceptedAt?: Date | null } = {}) =>
+  snapshot({
+    members: [
+      { personId: david, role: 'leader', fullName: 'David Ellis', phone: '+15550101', acceptedAt },
+      { personId: grace, role: 'leader', fullName: 'Grace Lee', phone: '+15550102', acceptedAt: graceAcceptedAt },
+      { personId: emily, role: 'participant', fullName: 'Emily Johnson', phone: '+15550200', acceptedAt: null },
+      { personId: fiona, role: 'participant', fullName: 'Fiona Grant', phone: '+15550300', acceptedAt: null },
+    ],
+  })
+
 /** A group: one Leader and three Participants, which two departures reduce to one. */
 const group = () =>
   snapshot({
@@ -225,11 +238,37 @@ describe('one Participant leaving a relationship', () => {
     )
   })
 
-  it('refuses a Leader, because a relationship without one is over', () => {
+  it('refuses the only Leader who has accepted, because a relationship without one is over', () => {
     // Removing the Leader does not leave a relationship that continues with
     // whoever remains. It is an ending, and an ending records an outcome.
     expect(() => depart(david, group())).toThrow(
-      expect.objectContaining({ refusal: 'departure.person_is_a_leader' }),
+      expect.objectContaining({ refusal: 'departure.would_leave_no_leader' }),
+    )
+    // A Leader invited since, who has not answered, leads nothing yet: she is not
+    // somebody the group can be left with.
+    expect(() => depart(david, coLed({ graceAcceptedAt: null }))).toThrow(
+      expect.objectContaining({ refusal: 'departure.would_leave_no_leader' }),
+    )
+  })
+
+  it('lets a Leader leave a relationship another Leader who has accepted goes on leading (James, 2026-09-21)', () => {
+    const [effect, event] = depart(david, coLed()).effects
+    if (effect?.kind !== 'relationship.depart') throw new Error('nobody left')
+    if (event?.kind !== 'history.append') throw new Error('nothing was recorded')
+
+    expect(effect.departure.personId).toBe(david)
+    expect(effect.departure.departedBy).toBe('admin-user-1')
+    // A fact of its own: a Leader leaving is not a Participant leaving, and history
+    // is append-only, so the difference is said when it happens.
+    expect(event.event.type).toBe('relationship.leader_departed')
+    expect(event.event.payload).toEqual({ personId: david, departedBy: 'admin-user-1' })
+    // Nothing ends, and nobody is told.
+    expect(depart(david, coLed()).effects.map((each) => each.kind)).toEqual(['relationship.depart', 'history.append'])
+  })
+
+  it('refuses a Leader who has not accepted, whose way out is their invitation being withdrawn', () => {
+    expect(() => depart(grace, coLed({ graceAcceptedAt: null }))).toThrow(
+      expect.objectContaining({ refusal: 'departure.leader_has_not_accepted' }),
     )
   })
 
@@ -247,11 +286,18 @@ describe('one Participant leaving a relationship', () => {
     )
   })
 
-  it('refuses a departure from a relationship nobody has accepted', () => {
-    // Nothing has reached a Participant, so there is nothing to leave. Withdrawing
-    // one nobody agreed to takes everybody out of it at once, and is a cancellation.
-    expect(() => depart(emily, { ...group(), acceptedAt: null })).toThrow(
-      expect.objectContaining({ refusal: 'departure.relationship_not_accepted' }),
+  it('lets a Participant out of a group nobody has accepted, which waits on with the rest (James, 2026-09-21)', () => {
+    // Nothing has reached anybody, so there is nothing to take back: the Starter
+    // Message is written from whoever is in it when it starts. Withdrawing the
+    // whole of it is still a cancellation.
+    const waiting = { ...group(), acceptedAt: null }
+    const [effect] = depart(emily, waiting).effects
+    if (effect?.kind !== 'relationship.depart') throw new Error('nobody left')
+    expect(effect.departure.personId).toBe(emily)
+
+    // And its last Participant still cannot leave it: that is the cancellation.
+    expect(() => depart(emily, { ...snapshot(), acceptedAt: null })).toThrow(
+      expect.objectContaining({ refusal: 'departure.would_leave_no_participants' }),
     )
   })
 })

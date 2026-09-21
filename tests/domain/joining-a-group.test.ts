@@ -474,6 +474,7 @@ describe('what a named group is called in the weekly question', () => {
         name,
         acceptedAt: new Date('2026-03-02T09:00:00Z'),
         paused: false,
+        stillLed: true,
         cadence: { day: 1, hour: 9 },
       },
     ],

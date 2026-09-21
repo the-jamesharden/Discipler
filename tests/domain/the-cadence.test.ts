@@ -19,6 +19,7 @@ const leads = (over: Partial<CheckInRelationship> = {}): CheckInRelationship => 
   name: null,
   acceptedAt: at('2026-03-02T09:00:00Z'),
   paused: false,
+  stillLed: true,
   // Monday 8pm, which is where every test below starts.
   cadence: { day: 1, hour: 20 },
   ...over,

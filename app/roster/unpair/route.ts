@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { CancellationRefused, DepartureRefused, EndingRefused } from '~/domain/errors'
+import { CancellationRefused, DepartureRefused, EndingRefused, InvitationRefused } from '~/domain/errors'
 import { personId as asPersonId } from '~/domain/ids'
 import { isRelationshipOutcome } from '~/domain/relationships'
 import { getCommandService, getRosterReader } from '~/service/container'
@@ -16,7 +16,7 @@ import { unpairFor } from '../unpair'
  * cannot see, inside its own transaction, and a refusal comes back as one sentence:
  * every one of them means the pairing changed while the Admin was looking at it.
  *
- * Nobody is sent anything by any of the three, which is the commands' own rule and
+ * Nobody is sent anything by any of the four, which is the commands' own rule and
  * not something this route arranges.
  */
 
@@ -52,6 +52,18 @@ export async function POST(request: NextRequest) {
       return back('cancelled')
     }
 
+    if (unpair.act === 'withdraw') {
+      // Theirs is an invitation and no leading. The service finds it: its token is
+      // a credential, and no page or form ever carries one.
+      const taken = await getCommandService().withdrawInvitationOf(
+        admin.ministryId,
+        relationship.relationshipId,
+        asPersonId(person.personId),
+        admin.userId,
+      )
+      return back(taken ? 'withdrawn' : 'refused')
+    }
+
     if (unpair.act === 'leave') {
       await getCommandService().execute({
         type: 'relationship.depart',
@@ -76,7 +88,12 @@ export async function POST(request: NextRequest) {
     })
     return back('ended')
   } catch (error) {
-    if (error instanceof CancellationRefused || error instanceof EndingRefused || error instanceof DepartureRefused) {
+    if (
+      error instanceof CancellationRefused ||
+      error instanceof EndingRefused ||
+      error instanceof DepartureRefused ||
+      error instanceof InvitationRefused
+    ) {
       return back('refused')
     }
     throw error

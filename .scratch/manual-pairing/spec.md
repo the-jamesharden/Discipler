@@ -55,23 +55,31 @@ Before this, a pairing could be ended only from a Follow-Up item, so a healthy p
 
 - **Unpair** sits on the Pairings card of a person's page, one beside each pairing, because a person can hold several.
   It is not on a Roster row.
-- One word for three acts the model already had, and `app/roster/unpair.ts` is the one rule that picks between them.
+- One word for four acts, and `app/roster/unpair.ts` is the one rule that picks between them.
   The page draws the button from it and the route reads the Roster again and acts from it.
 - A pairing nobody has accepted is cancelled in one press, and nothing is asked: it never started, so it has no outcome.
   A group nobody has accepted is cancelled from its Discipler's page after one confirmation, because it is everybody's.
 - A pairing that has started ends, from either person's page, and is asked one thing: **It finished well** or **It did not run its course**, which are the model's `completed` and `discontinued`.
   The reason is optional here; a blank one is recorded as *Unpaired from the Roster.*, and who did it is recorded beside it as it always was.
   Follow-Up's **End relationship** still asks for both.
-- A Disciple in a group is taken out of it in one press and the group goes on.
-  Where she is the last Disciple in it, that is an ending and asks the same one thing.
+- A Disciple in a group is taken out of it in one press and the group goes on, whether or not anybody has accepted it yet.
+  Where she is the last Disciple in a group that has started, that is an ending and asks the same one thing.
+  Where she is the last in one nobody has accepted, her line offers nothing: that is the whole of it being withdrawn, which is on its Discipler's page.
 - From the page of the one Discipler who leads a group, Unpair ends the whole group, and the question names everybody it ends for before it does.
+- A Discipler who leads a group beside another who has accepted is taken out of it after one confirmation that says who goes on leading it, and the group goes on.
+  This is new in the model: `relationship.depart` takes a Leader where another Leader who has accepted remains, recorded as `relationship.leader_departed`, and the database checks who is left behind the same lock.
+  A Discipler still to answer is nobody a group can be left with.
+- A Discipler invited to a group that is already running holds an invitation and leads nothing.
+  Unpair takes the invitation back in one press (`invitation.withdraw`): the link opens what a link that has run out opens, their unaccepted membership ends, and nothing is raised on Follow-Up, because the Admin who would be told is the one who did it.
+  The invitation row records it as `withdrawn`, which is a migration.
 - Nobody is sent anything and nothing is deleted, whichever act it is.
-- **Not built, and no button is offered on these three lines:**
-  a Discipler who leads a group beside another who has accepted, where the group should go on without them, because a leader cannot leave a relationship yet (`departure.person_is_a_leader`);
-  a Discipler invited to a group that is already running, whose invitation is declined or runs out;
-  and a Disciple in a group nobody has accepted, where cancelling is the whole group's and nobody can leave what has not started.
-- **Seen and left:** the person page names a group by its people and never by its name.
-  The person page's document does not carry the name, so naming it is a change to that read.
+- The line names the group where the Ministry has named it, *Discipling Thursday Table: Ana Ruiz, Mia Chen*, and so does the question.
+  The name rides on the Roster's document, which is a migration.
+- **A conversation already under way steps over what its Leader no longer leads.**
+  A check-in's list of relationships is fixed when it opens, so a pairing ended since, or a group its Leader has left, was still in it, and was still asked about.
+  It is now stepped over exactly as a paused one is, and a question already out about it is taken back at the next tick and not reminded.
+  An answer that arrives first is still recorded, because the week it is about happened.
+  This was true of Follow-Up's End relationship before Unpair existed.
 
 ## Where the popup lives
 

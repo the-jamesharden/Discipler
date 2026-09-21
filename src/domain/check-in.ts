@@ -173,6 +173,15 @@ export interface CheckInRelationship {
   readonly acceptedAt: Date | null
   readonly paused: boolean
   /**
+   * Whether it is still this Person's to be asked about: it has not ended, and
+   * they still hold an open leader membership on it. True of everything they lead
+   * now, by definition. It can only be false of an entry in a conversation's
+   * `covering`, which is fixed when the conversation opens and read fresh after:
+   * a pairing an Admin has since ended, or a group they have since left that
+   * another Leader goes on leading (Unpair, James 2026-09-21).
+   */
+  readonly stillLed: boolean
+  /**
    * When this relationship's check-in falls, already resolved as
    * `coalesce(r.checkin_day, ms.checkin_day)` by the dispatcher's query.
    *
@@ -304,6 +313,14 @@ export interface CheckInSnapshot {
 }
 
 /**
+ * Whether a relationship is asked about at all right now: no Pause stands on it,
+ * and it is still this Person's to be asked about. One answer, because every place
+ * a conversation moves forward steps over both kinds the same way.
+ */
+export const isAskedAbout = (relationship: Pick<CheckInRelationship, 'paused' | 'stillLed'>): boolean =>
+  !relationship.paused && relationship.stillLed
+
+/**
  * Which relationships this week's conversation covers, in the order it asks
  * about them.
  *
@@ -316,7 +333,7 @@ export const relationshipsToAskAbout = (
   leads: readonly CheckInRelationship[],
 ): readonly CheckInRelationship[] =>
   leads
-    .filter((relationship) => relationship.acceptedAt !== null && !relationship.paused)
+    .filter((relationship) => relationship.acceptedAt !== null && isAskedAbout(relationship))
     .slice()
     .sort(
       (a, b) =>

@@ -64,9 +64,10 @@ export const issueInvitation = ({
  * How an invitation that was never accepted ended (Manual pairing, recut ticket
  * 06; decided by James on 2026-09-21). Its Leader declined on the page the link
  * opens, or nobody answered and the tick withdrew it when its fortnight ran out.
- * Either way their unaccepted leader membership ended with it.
+ * Either way their unaccepted leader membership ended with it. And a third way
+ * since Unpair (James, 2026-09-21): an Admin took it back, which is `withdrawn`.
  */
-export const INVITATION_WITHDRAWALS = ['declined', 'expired'] as const
+export const INVITATION_WITHDRAWALS = ['declined', 'expired', 'withdrawn'] as const
 
 export type WithdrawnAs = (typeof INVITATION_WITHDRAWALS)[number]
 
@@ -99,6 +100,9 @@ export const invitationState = (
   if (withdrawnAs === 'declined') return 'declined'
   // One the tick withdrew had run out, which is all its holder needs to be told.
   if (withdrawnAs === 'expired') return 'expired'
+  // And one an Admin took back says the same: it opens nothing, and whoever holds
+  // it and was expecting it asks for a new one. Nothing about why is theirs to read.
+  if (withdrawnAs === 'withdrawn') return 'expired'
   return hasRunOut(expiresAt, now) ? 'expired' : 'live'
 }
 

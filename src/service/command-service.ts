@@ -17,7 +17,7 @@ import {
   MaterialAssignmentRefused,
   PauseRefused,
 } from '~/domain/errors'
-import type { FollowUpItemId, IdSource, ImportRowId, PersonId } from '~/domain/ids'
+import type { FollowUpItemId, IdSource, ImportRowId, PersonId, RelationshipId } from '~/domain/ids'
 import type { IntakeLinkToken } from '~/domain/intake-link'
 import type { InvitationToken } from '~/domain/invitations'
 import type { EffectStore, UnitOfWork } from './ports'
@@ -79,6 +79,21 @@ export interface CommandService {
    * moment is accepted and is not withdrawn. Called by the scheduled tick's route.
    */
   withdrawLapsedInvitations(ministryId: MinistryId): Promise<number>
+
+  /**
+   * An Admin taking back the invitation one Person holds to one relationship
+   * (Unpair, James 2026-09-21), and whether there was one to take back. The token
+   * is found here and never handed to a surface: it is a credential, and the act
+   * is about a Person on a relationship. Decided again inside `invitation.withdraw`,
+   * behind the row an acceptance holds, which throws `InvitationRefused` where the
+   * invitation was answered in the same moment.
+   */
+  withdrawInvitationOf(
+    ministryId: MinistryId,
+    relationshipId: RelationshipId,
+    personId: PersonId,
+    withdrawnBy: string,
+  ): Promise<boolean>
 
   /**
    * Whether forming this relationship would be refused, without forming it: the
@@ -577,7 +592,8 @@ const consultsTheMaterialList = (
   // spends the intended Material the same way.
   ((command.type === 'relationship.accept' ||
     command.type === 'invitation.decline' ||
-    command.type === 'invitation.expire') &&
+    command.type === 'invitation.expire' ||
+    command.type === 'invitation.withdraw') &&
     invitation !== undefined &&
     invitation.intendedMaterialId !== null)
 
@@ -602,11 +618,15 @@ const isTokenDriven = (
       | 'invitation.dispute_number'
       | 'invitation.decline'
       | 'invitation.expire'
+      | 'invitation.withdraw'
   }
 > =>
   command.type === 'relationship.accept' ||
   command.type === 'invitation.dispute_number' ||
   command.type === 'invitation.decline' ||
+  // An Admin's, from a session the route checked. Driven by the token all the
+  // same, for the reason the tick's is.
+  command.type === 'invitation.withdraw' ||
   // The tick's, and no Leader's. It is driven by the token all the same: what it
   // decides from is the invitation as the database holds it, under the same locks.
   command.type === 'invitation.expire'
@@ -1095,6 +1115,16 @@ export const createCommandService = ({
       if (effects.some((effect) => effect.kind === 'invitation.withdraw')) withdrawn++
     }
     return withdrawn
+  },
+
+  async withdrawInvitationOf(ministryId, relationshipId, personId, withdrawnBy) {
+    const token = await store.transact(ministryId, (unit) =>
+      unit.unansweredInvitationOf(relationshipId, personId),
+    )
+    if (token === null) return false
+
+    await service.execute({ type: 'invitation.withdraw', ministryId, token, withdrawnBy })
+    return true
   },
 
   async settleIntendedPairings(ministryId) {

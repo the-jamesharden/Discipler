@@ -278,6 +278,53 @@ describe('ending a relationship, and a Participant leaving one', () => {
     ).rejects.toThrow(expect.objectContaining({ refusal: 'ending.relationship_not_found' }))
   })
 
+  it('stops a conversation already under way from asking about it (Unpair, James 2026-09-21)', async () => {
+    restart()
+    const leader = await roster('Tamsin Reeve')
+    const first = await roster('Ulla Berg')
+    const second = await roster('Vanya Holt')
+    // Formed a day apart, so the conversation asks about Ulla first and Vanya second.
+    // Every membership started when it was accepted, which this suite's clock is
+    // months after: a membership cannot end before it starts.
+    const aOneToOne = async (participant: PersonId, at: Date) => {
+      const id = await createRelationship(ministry, 'one_to_one', { createdAt: at, acceptedAt: at })
+      for (const [person, role] of [[leader, 'leader'], [participant, 'participant']] as const) {
+        await addMembership({ ministry, relationshipId: id, kind: 'one_to_one', personId: person, role, startedAt: at })
+      }
+      return id
+    }
+    const withUlla = await aOneToOne(first, acceptedAt)
+    const withVanya = await aOneToOne(second, new Date(acceptedAt.getTime() + days(1)))
+
+    await service().execute({ type: 'checkin.start', ministryId: ministry.id, personId: leader })
+    const sent = async () =>
+      (
+        await pool.query<{ body: string }>(
+          `select body from outbound_message where person_id = $1 order by enqueued_at, created_at`,
+          [leader],
+        )
+      ).rows.map((row) => row.body)
+    expect((await sent()).at(-1)).toContain('Ulla Berg')
+
+    // Vanya's pairing is ended while Ulla's question is still out.
+    await end(relationshipId(withVanya))
+    await service().execute({ type: 'sms.inbound', ministryId: ministry.id, personId: leader, body: '2' })
+
+    // The answer about Ulla stands, and nothing is asked about a pairing that is over:
+    // the conversation finishes where it would have gone on to Vanya.
+    expect((await sent()).join('\n')).not.toContain('Vanya Holt')
+    const { rows: prompts } = await pool.query<{ relationship_id: string }>(
+      `select relationship_id from checkin_prompt where relationship_id = any($1::uuid[])`,
+      [[withUlla, withVanya]],
+    )
+    expect(new Set(prompts.map((row) => row.relationship_id))).toEqual(new Set([withUlla]))
+    const { rows: open } = await pool.query(
+      `select 1 from checkin_sequence where person_id = $1 and closed_at is null`,
+      [leader],
+    )
+    expect(open).toEqual([])
+  })
+
   it('preserves the ended relationship\'s history exactly as it was recorded', async () => {
     restart()
     const leader = await roster('Uma Blake')
@@ -542,7 +589,7 @@ describe('ending a relationship, and a Participant leaving one', () => {
         expect.objectContaining({ refusal: 'departure.would_leave_no_participants' }),
       )
       await expect(depart(relationship, leader)).rejects.toThrow(
-        expect.objectContaining({ refusal: 'departure.person_is_a_leader' }),
+        expect.objectContaining({ refusal: 'departure.would_leave_no_leader' }),
       )
 
       // Both refused, and nobody left: the relationship is exactly as it was.
@@ -570,7 +617,7 @@ describe('ending a relationship, and a Participant leaving one', () => {
       )
     })
 
-    it('refuses a departure from a relationship nobody has accepted', async () => {
+    it('lets a Participant out of a group nobody has accepted, and refuses its last one', async () => {
       restart()
       const leader = await roster('Wren Adeyemi')
       const first = await roster('Xan Petrov')
@@ -587,12 +634,60 @@ describe('ending a relationship, and a Participant leaving one', () => {
           kind: 'group',
           personId: person,
           role,
+          // Before this suite's clock, because now one of them is closed.
+          startedAt: acceptedAt,
         })
       }
 
-      await expect(depart(relationshipId(relationship), first)).rejects.toThrow(
-        expect.objectContaining({ refusal: 'departure.relationship_not_accepted' }),
+      // Nothing has reached anybody, so there is nothing to take back, and the group
+      // waits on with whoever is left in it (James, 2026-09-21).
+      await depart(relationshipId(relationship), first)
+      const open = (await membershipsOf(relationship)).filter((row) => row.ended_at === null)
+      expect(open.map((row) => row.person_id).sort()).toEqual([leader, second].sort())
+
+      // Its last Participant still cannot leave it: that is a cancellation, behind the lock too.
+      await expect(depart(relationshipId(relationship), second)).rejects.toThrow(
+        expect.objectContaining({ refusal: 'departure.would_leave_no_participants' }),
       )
+    })
+
+    it('lets a Leader leave a group another Leader who has accepted goes on leading (James, 2026-09-21)', async () => {
+      restart()
+      const first = await roster('Hollis Brandt')
+      const second = await roster('Ingrid Solberg')
+      const invited = await roster('Jonas Weir')
+      const relationship = await aGroup(first, [await roster('Kit Marlow'), await roster('Lena Oyelaran')])
+      // A second Leader who has accepted, as the fixture makes one on a running group,
+      // and a third an Admin has just added, who has not answered (ticket 22).
+      await addMembership({ ministry, relationshipId: relationship, kind: 'group', personId: second, role: 'leader' })
+      await service().execute({
+        type: 'group.add_leader',
+        ministryId: ministry.id,
+        relationshipId: relationship,
+        personId: invited,
+        addedBy: ministry.adminUserId,
+      })
+
+      // Invited and not yet leading: theirs is an invitation, not a departure.
+      await expect(depart(relationshipId(relationship), invited)).rejects.toThrow(
+        expect.objectContaining({ refusal: 'departure.leader_has_not_accepted' }),
+      )
+
+      await depart(relationshipId(relationship), first)
+      const rows = await membershipsOf(relationship)
+      expect(rows.find((row) => row.person_id === first)).toMatchObject({ departed_by: ministry.adminUserId })
+      expect(rows.find((row) => row.person_id === first)!.ended_at).not.toBeNull()
+      expect(rows.filter((row) => row.ended_at === null)).toHaveLength(4)
+
+      // And the one who is left cannot: the Leader still to answer leads nothing yet.
+      await expect(depart(relationshipId(relationship), second)).rejects.toThrow(
+        expect.objectContaining({ refusal: 'departure.would_leave_no_leader' }),
+      )
+      const { rows: events } = await pool.query<{ type: string }>(
+        `select type from ministry_event where subject_id = $1 and type like 'relationship.%departed'`,
+        [relationship],
+      )
+      expect(events.map((event) => event.type)).toEqual(['relationship.leader_departed'])
     })
 
     it('records the Admin who removed them, and refuses one from another Ministry', async () => {

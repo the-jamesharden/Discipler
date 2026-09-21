@@ -897,6 +897,7 @@ function aConversationAbout(
       name: null,
       acceptedAt: new Date('2026-05-01T09:00:00Z'),
       paused: false,
+      stillLed: true,
       cadence: { day: 1, hour: 20 },
     },
   ]

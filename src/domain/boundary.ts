@@ -93,6 +93,7 @@ import {
   checkInSequenceId,
   lapseOfOpenQuestion,
   readCheckInReply,
+  isAskedAbout,
   relationshipsToAskAbout,
   type CheckInAdvance,
   type CheckInQuestion,
@@ -1210,7 +1211,7 @@ const abandonSequence = (abandonment: {
   readonly personId: PersonId
   readonly sequenceId: CheckInSequenceId
   readonly at: Date
-  readonly reason: 'displaced' | 'unanswered' | 'opted_out' | 'paused'
+  readonly reason: 'displaced' | 'unanswered' | 'opted_out' | NotAskedAboutBecause
 }): readonly Effect[] => {
   const { ministryId, personId, sequenceId, at, reason } = abandonment
   return [
@@ -1243,6 +1244,7 @@ const withdrawQuestion = (withdrawal: {
   readonly sequenceId: CheckInSequenceId
   readonly relationshipId: RelationshipId
   readonly awaiting: OpenPrompt
+  readonly reason: NotAskedAboutBecause
 }): Effect =>
   appendHistory({
     ministryId: withdrawal.ministryId,
@@ -1254,9 +1256,21 @@ const withdrawQuestion = (withdrawal: {
       sequenceId: withdrawal.sequenceId,
       promptId: withdrawal.awaiting.promptId,
       question: withdrawal.awaiting.question,
-      reason: 'paused',
+      reason: withdrawal.reason,
     },
   })
+
+/**
+ * Why a conversation stops asking about a relationship it covers: a Pause stands
+ * on it, or it is no longer this Leader's to be asked about (it ended, or they left
+ * it). Said on the event, because `relationship_weeks` drops a week only for a
+ * Pause: a question taken back because a pairing ended leaves that week as it
+ * was, and a group's other Leader answers for its week.
+ */
+type NotAskedAboutBecause = 'paused' | 'no_longer_led'
+
+const whyNotAskedAbout = (relationship: CheckInRelationship): NotAskedAboutBecause =>
+  relationship.paused ? 'paused' : 'no_longer_led'
 
 /**
  * The ladder, minus every relationship a Pause reached before its turn did.
@@ -1285,7 +1299,7 @@ const advancePastPaused = (
   // where the first step was a follow-up question on the relationship just
   // paused -- a Leader who answered *yes we met* an hour before the Pause is not
   // then asked how it went.
-  while (advance.kind === 'ask' && advance.relationship.paused) {
+  while (advance.kind === 'ask' && !isAskedAbout(advance.relationship)) {
     advance = advanceCheckIn(sequence, { ...awaiting, position: advance.position }, PASSED_OVER)
   }
 
@@ -1321,6 +1335,8 @@ const takeBackTheQuestion = (
   walking: OpenSequence,
   awaiting: OpenPrompt,
   paused: RelationshipId,
+  /** A Pause, unless the caller says the relationship is no longer this Leader's. */
+  reason: NotAskedAboutBecause = 'paused',
 ): readonly Effect[] => {
   const withdrawn = withdrawQuestion({
     ministryId: asking.ministryId,
@@ -1328,6 +1344,7 @@ const takeBackTheQuestion = (
     sequenceId: asking.sequenceId,
     relationshipId: paused,
     awaiting,
+    reason,
   })
 
   const onward = advancePastPaused(walking, awaiting, PASSED_OVER)
@@ -1340,7 +1357,7 @@ const takeBackTheQuestion = (
         personId: asking.personId,
         sequenceId: asking.sequenceId,
         at: asking.now,
-        reason: 'paused',
+        reason,
       }),
     ]
   }
@@ -1389,7 +1406,7 @@ const openConversationWith = (
     const awaiting = displaced.awaiting
     const askedAbout = awaiting ? displaced.covering[awaiting.position - 1] : undefined
 
-    if (awaiting && askedAbout?.paused) {
+    if (awaiting && askedAbout && !isAskedAbout(askedAbout)) {
       effects.push(
         withdrawQuestion({
           ministryId,
@@ -1397,6 +1414,7 @@ const openConversationWith = (
           sequenceId: displaced.sequenceId,
           relationshipId: askedAbout.relationshipId,
           awaiting,
+          reason: whyNotAskedAbout(askedAbout),
         }),
       )
     }
@@ -1539,8 +1557,19 @@ const chaseTheOpenQuestion = (
   //
   // The snapshot this was handed already reads the relationship as paused -- the
   // tick loaded it after the fact -- so `sequence` is walked as it stands.
-  if (relationship.paused) {
-    return takeBackTheQuestion(asking, sequence, awaiting, relationship.relationshipId)
+  //
+  // And the same for one that is no longer this Leader's to be asked about: an
+  // Admin ended it, or took them out of a group that goes on (Unpair, James
+  // 2026-09-21). A reminder about a pairing that is over is the one text an ending
+  // must not be followed by.
+  if (!isAskedAbout(relationship)) {
+    return takeBackTheQuestion(
+      asking,
+      sequence,
+      awaiting,
+      relationship.relationshipId,
+      whyNotAskedAbout(relationship),
+    )
   }
 
   const lapse = lapseOfOpenQuestion(awaiting, now)
@@ -2459,7 +2488,7 @@ const closedByWhatItWaitedFor = (
   ministry: MinistryId,
   itemId: FollowUpItemId,
   now: Date,
-  by: 'acceptance' | 'decline' | 'expiry',
+  by: 'acceptance' | 'decline' | 'expiry' | 'withdrawal',
 ): Effect[] => [
   resolveFollowUpItem({ ministryId: ministry, itemId, resolvedBy: null, resolvedAt: now }),
   appendHistory({
@@ -2646,6 +2675,20 @@ const activationOf = (
  * about it changes. The one message there can be is the Starter Message, where
  * this is what activates a relationship nobody had activated.
  */
+/** The event each way of withdrawing an invitation is recorded as. */
+const WITHDRAWN_AS_AN_EVENT: Record<WithdrawnAs, string> = {
+  declined: 'relationship.leader_declined',
+  expired: 'relationship.invitation_expired',
+  withdrawn: 'relationship.invitation_withdrawn',
+}
+
+/** What an *Awaiting acceptance* item closed by a withdrawal says closed it. */
+const WITHDRAWN_AS_WHAT_CLOSED_IT: Record<WithdrawnAs, 'decline' | 'expiry' | 'withdrawal'> = {
+  declined: 'decline',
+  expired: 'expiry',
+  withdrawn: 'withdrawal',
+}
+
 const withdrawalOf = (
   context: CommandContext,
   command: { readonly ministryId: MinistryId; readonly token: InvitationToken },
@@ -2653,7 +2696,14 @@ const withdrawalOf = (
     me,
     withdrawnAs,
     now,
-  }: { readonly me: InvitedMember; readonly withdrawnAs: WithdrawnAs; readonly now: Date },
+    withdrawnBy = null,
+  }: {
+    readonly me: InvitedMember
+    readonly withdrawnAs: WithdrawnAs
+    readonly now: Date
+    /** The Admin who took it back, where one did. Nobody, for a decline and for the two weeks. */
+    readonly withdrawnBy?: string | null
+  },
 ): Effect[] => {
   const { invitation, ministryName } = tokenContext(context)
 
@@ -2685,29 +2735,37 @@ const withdrawalOf = (
       withdrawnAs,
       activatesRelationship,
     }),
-    // An event of its own type either way, with no Admin on it, because no Admin
-    // performed it.
+    // An event of its own type each way. No Admin is on a decline or on the two
+    // weeks, because none performed them; the one who took an invitation back is
+    // on theirs, and history is the record of that which survives them leaving.
     appendHistory({
       ministryId: command.ministryId,
       occurredAt: now,
-      type:
-        withdrawnAs === 'declined'
-          ? 'relationship.leader_declined'
-          : 'relationship.invitation_expired',
+      type: WITHDRAWN_AS_AN_EVENT[withdrawnAs],
       subjectType: 'relationship',
       subjectId: invitation.relationshipId,
-      payload: { personId: me.personId, activated: activatesRelationship },
-    }),
-    // How the Admin is told, and the only way: about the Person, on the
-    // relationship, so their page and another invitation are one press away.
-    raiseFollowUpItem({
-      ministryId: command.ministryId,
-      kind: withdrawnAs === 'declined' ? 'match_declined' : 'invitation_expired',
-      personId: me.personId,
-      relationshipId: invitation.relationshipId,
-      raisedAt: now,
+      payload: {
+        personId: me.personId,
+        activated: activatesRelationship,
+        ...(withdrawnAs === 'withdrawn' ? { withdrawnBy } : {}),
+      },
     }),
   ]
+
+  // How the Admin is told, and the only way: about the Person, on the
+  // relationship, so their page and another invitation are one press away. Not
+  // where an Admin took it back: the one who would be told is the one who did it.
+  if (withdrawnAs !== 'withdrawn') {
+    effects.push(
+      raiseFollowUpItem({
+        ministryId: command.ministryId,
+        kind: withdrawnAs === 'declined' ? 'match_declined' : 'invitation_expired',
+        personId: me.personId,
+        relationshipId: invitation.relationshipId,
+        raisedAt: now,
+      }),
+    )
+  }
 
   // The *Awaiting acceptance* item about the same relationship, closed by the
   // same act where nobody is left to answer, so the Admin has one thing to read
@@ -2719,7 +2777,7 @@ const withdrawalOf = (
         command.ministryId,
         invitation.unansweredItemId,
         now,
-        withdrawnAs === 'declined' ? 'decline' : 'expiry',
+        WITHDRAWN_AS_WHAT_CLOSED_IT[withdrawnAs],
       ),
     )
   }
@@ -3508,14 +3566,13 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       if (relationship.endedAt !== null) {
         throw new DepartureRefused('departure.relationship_ended')
       }
-      // Nothing has reached a Participant yet, so there is no relationship for one
-      // to leave. Withdrawing one nobody agreed to is `relationship.cancel`, which
-      // takes everybody out of it at once -- and leaving a Participant out of a
-      // relationship still awaiting its Leader would shorten a Starter Message
-      // nobody has sent yet. The same refusal a Pause carries for this state.
-      if (relationship.acceptedAt === null) {
-        throw new DepartureRefused('departure.relationship_not_accepted')
-      }
+
+      // Whether anybody has accepted it is not asked. One nobody has activated has
+      // sent nothing to anybody, and its Starter Message is written from whoever is
+      // in it when it starts, so a Participant taken out of a group that still waits
+      // takes nothing back (James, 2026-09-21). Withdrawing the whole of it is
+      // `relationship.cancel`, and what is left below still refuses its last
+      // Participant, so a departure never does a cancellation's work.
 
       // Open memberships only, which is what the snapshot holds: somebody who has
       // already left is not in this relationship to leave it a second time.
@@ -3525,29 +3582,45 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       if (!leaving) {
         throw new DepartureRefused('departure.person_is_not_in_this_relationship')
       }
-      // A relationship without its Leader does not continue with whoever remains.
-      // That is a relationship that is over, and ending one records an outcome --
-      // which a departure has nowhere to put.
-      if (leaving.role === 'leader') {
-        throw new DepartureRefused('departure.person_is_a_leader')
-      }
 
-      const remaining = relationship.members.filter(
-        (member) => member.role === 'participant' && member.personId !== command.personId,
-      )
-      // The same refusal in its other shape. Three Participants becoming one is a
-      // relationship carrying on with fewer people in it; one becoming none is a
-      // relationship with nobody being discipled, and there is no check-in question
-      // to ask about nobody.
-      if (remaining.length === 0) {
-        throw new DepartureRefused('departure.would_leave_no_participants')
+      if (leaving.role === 'leader') {
+        // Invited and not yet leading. There is no leading to stop, only an
+        // invitation, and taking that back is `invitation.withdraw`.
+        if (leaving.acceptedAt === null) {
+          throw new DepartureRefused('departure.leader_has_not_accepted')
+        }
+        // A relationship without a Leader does not continue with whoever remains.
+        // That is a relationship that is over, and ending one records an outcome --
+        // which a departure has nowhere to put. Only a Leader who has accepted is
+        // somebody it can be left with: one still to answer leads nothing yet.
+        const goesOnLeading = relationship.members.some(
+          (member) =>
+            member.role === 'leader' &&
+            member.personId !== command.personId &&
+            member.acceptedAt !== null,
+        )
+        if (!goesOnLeading) throw new DepartureRefused('departure.would_leave_no_leader')
+      } else {
+        const remaining = relationship.members.filter(
+          (member) => member.role === 'participant' && member.personId !== command.personId,
+        )
+        // The same refusal in its other shape. Three Participants becoming one is a
+        // relationship carrying on with fewer people in it; one becoming none is a
+        // relationship with nobody being discipled, and there is no check-in question
+        // to ask about nobody.
+        if (remaining.length === 0) {
+          throw new DepartureRefused('departure.would_leave_no_participants')
+        }
       }
 
       // One membership closed, and nothing else. The relationship is untouched, the
-      // weeks this Participant was present for stay attached to it exactly as they
-      // were recorded, and the check-in copy follows the Participants who remain
-      // without anything here telling it to -- `checkInSubject` reads the open
-      // memberships, so there is no group-versus-one-to-one branch to keep in step.
+      // weeks this Person was present for stay attached to it exactly as they were
+      // recorded, and the check-in copy follows the Participants who remain without
+      // anything here telling it to -- `checkInSubject` reads the open memberships,
+      // so there is no group-versus-one-to-one branch to keep in step. A Leader who
+      // leaves falls out of every read the same way, because each of them reads
+      // open memberships, and a conversation of theirs already under way steps over
+      // what they no longer lead (`notAskedAbout`, in `./check-in`).
       //
       // Nobody is told, for the reason an ending tells nobody.
       return {
@@ -3563,7 +3636,12 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           appendHistory({
             ministryId: command.ministryId,
             occurredAt: now,
-            type: 'relationship.participant_departed',
+            // A fact of its own for each: history is append-only, and a Leader
+            // leaving is not a Participant leaving.
+            type:
+              leaving.role === 'leader'
+                ? 'relationship.leader_departed'
+                : 'relationship.participant_departed',
             subjectType: 'relationship',
             subjectId: relationship.relationshipId,
             payload: { personId: command.personId, departedBy: command.departedBy },
@@ -5453,6 +5531,34 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       return {
         rejections: [],
         effects: withdrawalOf(context, command, { me, withdrawnAs: 'declined', now }),
+      }
+    }
+
+    case 'invitation.withdraw': {
+      const { invitation } = tokenContext(context)
+      const now = context.clock.now()
+
+      // Spent or withdrawn already, it is nobody's to take back. One that has run
+      // out and not been swept yet still is: their membership is still open, and
+      // an Admin looking at it is not made to wait for the tick.
+      if (invitation.consumedAt !== null) throw new InvitationRefused('invitation.already_used')
+      if (invitation.withdrawnAs === 'declined') throw new InvitationRefused('invitation.declined')
+      if (invitation.withdrawnAs !== null) throw new InvitationRefused('invitation.expired')
+
+      const me = memberHolding(invitation, invitation.personId)
+      if (me.role !== 'leader') throw new InvitationRefused('invitation.not_a_leader')
+      // Fenced as a decline is: taking an invitation back must never end a
+      // membership that has begun leading. That is a departure, or an ending.
+      if (me.acceptedAt !== null) throw new InvitationRefused('invitation.already_used')
+
+      return {
+        rejections: [],
+        effects: withdrawalOf(context, command, {
+          me,
+          withdrawnAs: 'withdrawn',
+          now,
+          withdrawnBy: command.withdrawnBy,
+        }),
       }
     }
 

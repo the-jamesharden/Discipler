@@ -532,7 +532,7 @@ const keywordRelationships = async (
 }
 
 const asCheckInRelationship = (
-  row: CheckInRelationshipRow & { paused: boolean },
+  row: CheckInRelationshipRow & { paused: boolean; still_led: boolean },
 ): CheckInRelationship => ({
   relationshipId: relationshipId(row.relationship_id),
   role: 'leader',
@@ -541,6 +541,7 @@ const asCheckInRelationship = (
   name: row.name,
   acceptedAt: row.accepted_at,
   paused: row.paused,
+  stillLed: row.still_led,
   cadence: { day: row.checkin_day, hour: row.checkin_hour },
 })
 
@@ -1565,6 +1566,20 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     }
   },
 
+  async unansweredInvitationOf(relationship: RelationshipId, person: PersonId): Promise<InvitationToken | null> {
+    // Scoped by the policies on this connection, like every other read here.
+    const { rows } = await client.query<{ token: string }>(
+      `select token
+         from invitation
+        where relationship_id = $1
+          and person_id = $2
+          and consumed_at is null
+          and withdrawn_at is null`,
+      [relationship, person],
+    )
+    return rows[0] ? invitationToken(rows[0].token) : null
+  },
+
   async openIntendedPairings(): Promise<readonly OpenIntendedPairing[]> {
     const { rows } = await client.query<{
       id: string
@@ -2199,17 +2214,27 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // readmission later inserts a second row -- which the surrogate primary key on
     // `relationship_member` exists to permit.
     //
-    // `role = 'participant'` is not decoration: a Leader's membership is not a
-    // departure's to close, and the boundary refusing it is a sentence for an Admin
-    // rather than a guard on this statement.
+    // Whoever is left is the database's to check as well as the boundary's, behind
+    // the lock above, because two Admins can each read a group with two Leaders and
+    // each take one out: a Participant leaves where another remains, and a Leader
+    // who has accepted leaves where another who has accepted remains. What the
+    // boundary refuses is a sentence for an Admin; this is what keeps a relationship
+    // from being left running with nobody in it, or nobody leading it.
     let left: number | null = null
     try {
       ;({ rowCount: left } = await client.query(
-        `update relationship_member set ended_at = $3, departed_by = $4
-          where relationship_id = $1
-            and person_id = $2
-            and role = 'participant'
-            and ended_at is null`,
+        `update relationship_member m set ended_at = $3, departed_by = $4
+          where m.relationship_id = $1
+            and m.person_id = $2
+            and m.ended_at is null
+            and (m.role = 'participant' or m.accepted_at is not null)
+            and exists (select 1
+                          from relationship_member o
+                         where o.relationship_id = m.relationship_id
+                           and o.person_id <> m.person_id
+                           and o.role = m.role
+                           and o.ended_at is null
+                           and (o.role = 'participant' or o.accepted_at is not null))`,
         [
           departure.relationshipId,
           departure.personId,
@@ -2227,13 +2252,24 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       }
       throw error
     }
+    if (left !== 0) return
 
-    // The relationship is live and this Person holds no open participant membership
-    // on it -- they left already, or they were never in it. With the two states above
-    // ruled out under the lock, that is the only thing left for this to mean.
-    if (left === 0) {
-      throw new DepartureRefused('departure.person_is_not_in_this_relationship')
-    }
+    // Nothing closed, and the relationship is live. Which of the things that can
+    // mean is read off the membership itself, still under the lock, so the refusal
+    // is the true one: they hold none, they were invited and lead nothing yet, or
+    // they are the last of their side.
+    const { rows: held } = await client.query<{ role: 'leader' | 'participant'; accepted: boolean }>(
+      `select role, accepted_at is not null as accepted
+         from relationship_member
+        where relationship_id = $1 and person_id = $2 and ended_at is null`,
+      [departure.relationshipId, departure.personId],
+    )
+    const membership = held[0]
+    if (!membership) throw new DepartureRefused('departure.person_is_not_in_this_relationship')
+    if (membership.role === 'participant') throw new DepartureRefused('departure.would_leave_no_participants')
+    throw new DepartureRefused(
+      membership.accepted ? 'departure.would_leave_no_leader' : 'departure.leader_has_not_accepted',
+    )
   },
 
   async assignMaterial(assignment: MaterialAssignment) {
@@ -2309,7 +2345,9 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // is a rule and lives in the domain, so an unaccepted or paused relationship
     // is loaded here and filtered there -- which is what lets both be proven by a
     // test with no database in it.
-    const { rows: led } = await client.query<CheckInRelationshipRow & { paused: boolean }>(
+    const { rows: led } = await client.query<
+      CheckInRelationshipRow & { paused: boolean; still_led: boolean }
+    >(
       `select r.id as relationship_id,
               r.created_at,
               -- Accepted, for this Leader: the relationship is running and they
@@ -2330,6 +2368,9 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
               -- Paused lives in history rather than in a column, like every
               -- other relationship state here.
               ${pausedColumn},
+              -- What they lead now is theirs by definition: the join below is to
+              -- their open leader membership on a relationship that has not ended.
+              true as still_led,
               ${participantNamesColumn},
               ${cadenceColumns}
          from relationship r
@@ -2391,20 +2432,32 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       // The entries stay; what they say about themselves is read fresh. A Pause
       // taken since the conversation opened is exactly the fact the withdrawal
       // rule turns on, so `paused` is selected here rather than assumed false.
+      //
+      // And whether it is still theirs to be asked about (Unpair, James
+      // 2026-09-21): an Admin may have ended it since, or taken them out of a group
+      // another Leader goes on leading. Read fresh for the same reason a Pause is,
+      // and stepped over by the same walk.
       const { rows: covered } = await client.query<
-        CheckInRelationshipRow & { paused: boolean }
+        CheckInRelationshipRow & { paused: boolean; still_led: boolean }
       >(
         `select r.id as relationship_id,
                 r.created_at,
                 r.accepted_at,
                 r.name,
                 ${pausedColumn},
+                (r.ended_at is null
+                 and exists (select 1
+                               from relationship_member held
+                              where held.relationship_id = r.id
+                                and held.person_id = $2
+                                and held.role = 'leader'
+                                and held.ended_at is null)) as still_led,
                 ${participantNamesColumn},
                 ${cadenceColumns}
            from relationship r
            cross join ministry ms
           where r.id = any($1::uuid[])`,
-        [sequence.covering],
+        [sequence.covering, id],
       )
 
       const byId = new Map(covered.map((row) => [row.relationship_id, row]))

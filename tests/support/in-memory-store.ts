@@ -93,6 +93,8 @@ export interface InMemoryStore extends EffectStore {
   /** Seeded: the tokens `lapsedInvitations` answers with, and what a re-invitation finds held. */
   lapsed?: readonly InvitationToken[]
   invitationHeld?: InvitationHeld
+  /** Seeded: the token an Admin taking an invitation back finds. */
+  unanswered?: InvitationToken | null
   readonly followUps: readonly NewFollowUpItem[]
   /** Every plan an import recorded, and every closing of one, in the order the effects made them. */
   readonly plans: readonly NewIntendedPairing[]
@@ -603,6 +605,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         },
         async invitationHeldBy() {
           return store.invitationHeld ?? { liveExpiresAt: null, everWithdrawn: false }
+        },
+        async unansweredInvitationOf() {
+          return store.unanswered ?? null
         },
         async raiseFollowUp(item) {
           if (store.nothingLeftToRaise) return false

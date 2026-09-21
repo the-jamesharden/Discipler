@@ -10,8 +10,6 @@ import { appBaseUrl } from '~/platform/supabase/credentials'
 import type { RosterEntry, RosterRelationship } from '~/service/ports'
 import {
   AWAITING_ACCEPTANCE,
-  DISCIPLED_BY,
-  DISCIPLING,
   displayPhone,
   firstTimeLabel,
   intakeLinkInstruction,
@@ -19,6 +17,7 @@ import {
   NO_ACCOUNT,
   NO_INTAKE_LINK_STANDING,
   OFFERED_TO_MENTOR,
+  pairingLine,
   pairingSizeLabel,
   participationStatusLabel,
   RESET_PASSWORD,
@@ -153,7 +152,8 @@ export default async function PersonPage({
                   <span className="pairing">
                     <OtherSide relationship={relationship} />
                     {relationship.awaitingAcceptance ? (
-                      <span className="muted">{` - ${AWAITING_ACCEPTANCE}`}</span>
+                      // Wraps whole, as a plan's note does on the Roster.
+                      <span className="muted nowrap">{` - ${AWAITING_ACCEPTANCE}`}</span>
                     ) : null}
                   </span>
                   {/* Offered on the state and the role together, never on either
@@ -240,17 +240,23 @@ export default async function PersonPage({
 }
 
 /**
- * Who the pairing is with, and its size. The size stays on the line of the last
- * name, as it does on the Roster: a pill that wraps alone reads as belonging to nobody.
+ * Who the pairing is with, which group where it has a name, and its size. The size
+ * stays on the line of the last word, as it does on the Roster: a pill that wraps
+ * alone reads as belonging to nobody.
  */
 const OtherSide = ({ relationship }: { readonly relationship: RosterRelationship }) => {
-  const names = relationship.role === 'leader' ? relationship.participantNames : relationship.leaderNames
+  const sentence = pairingLine({
+    role: relationship.role,
+    names: relationship.role === 'leader' ? relationship.participantNames : relationship.leaderNames,
+    groupName: relationship.name,
+  })
+  // Split at the last word, whichever it is: a name, or the end of a group's.
+  const lastWord = sentence.lastIndexOf(' ') + 1
   return (
     <>
-      {`${relationship.role === 'leader' ? DISCIPLING : DISCIPLED_BY} `}
-      {names.slice(0, -1).map((name) => `${name}, `).join('')}
+      {sentence.slice(0, lastWord)}
       <span className="nowrap">
-        {names.at(-1)}
+        {sentence.slice(lastWord)}
         <span className="pill n">{pairingSizeLabel(relationship.participantCount)}</span>
       </span>
     </>
@@ -303,8 +309,10 @@ const UnpairControl = ({
           <strong>
             {UNPAIR.question({
               person: person.fullName,
-              group: relationship.countsAsAGroup || relationship.participantCount > 1,
+              group:
+                relationship.countsAsAGroup || relationship.participantCount > 1 ? { name: relationship.name } : null,
               endsItFor: unpair.endsItFor,
+              ledOnBy: unpair.ledOnBy,
             })}
           </strong>{' '}
           {UNPAIR.consequence}

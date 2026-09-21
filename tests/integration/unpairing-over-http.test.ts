@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app'
 import {
   aTestPhoneNumber,
+  addMembership,
   addPerson,
   createMinistryWithAdmin,
   formGroup,
@@ -164,6 +165,7 @@ describe.skipIf(skipUnlessAppIsRunning)('Unpair, on a person’s page', () => {
     const before = await textsInTheMinistry()
 
     const hers = await lineAbout(mia!, group.id)
+    expect(hers.replace(/<[^>]*>/g, '')).toContain('Discipled by Miriam Hart in Thursday Table')
     expect(hers).toContain('>Unpair</button>')
     expect(await pressUnpair(hers)).toContain(`/roster/${mia}?unpair=left`)
 
@@ -172,7 +174,9 @@ describe.skipIf(skipUnlessAppIsRunning)('Unpair, on a person’s page', () => {
 
     // From the Discipler who leads it, it is everybody's, and the question says whose.
     const leaders = await lineAbout(group.leader, group.id)
-    expect(leaders).toContain('Unpair Miriam Hart from this group? It ends for')
+    // By the name the Ministry gave it, on the line and in the question.
+    expect(leaders.replace(/<[^>]*>/g, '')).toContain('Discipling Thursday Table: ')
+    expect(leaders).toContain('Unpair Miriam Hart from Thursday Table? It ends for')
     expect(leaders).toContain('Zoe Park')
     expect(leaders).toContain('Ana Ruiz')
     expect(leaders).not.toContain('Mia Chen')
@@ -180,6 +184,82 @@ describe.skipIf(skipUnlessAppIsRunning)('Unpair, on a person’s page', () => {
 
     expect(await relationshipRow(group.id)).toMatchObject({ ended: true, outcome: 'discontinued' })
     expect(await openMembers(group.id)).toEqual([])
+    expect(await textsInTheMinistry()).toBe(before)
+  })
+
+  it('takes a Disciple out of a group nobody has accepted, which waits on with the rest', async () => {
+    const group = await formGroup(ministry, {
+      name: null,
+      declaredGender: 'female',
+      acceptedAt: null,
+      leader: { name: 'Naomi Frost', phone: aTestPhoneNumber(), gender: 'female' },
+      disciples: ['Orla Byrne', 'Petra Novak'].map((name) => ({ name, phone: aTestPhoneNumber(), gender: 'female' as const })),
+    })
+    const [orla, petra] = group.disciples
+
+    const hers = await lineAbout(orla!, group.id)
+    expect(hers).toContain('>Unpair</button>')
+    expect(await pressUnpair(hers)).toContain(`/roster/${orla}?unpair=left`)
+    expect((await relationshipRow(group.id)).ended).toBe(false)
+    expect((await openMembers(group.id)).sort()).toEqual([group.leader, petra!].sort())
+
+    // The last one in it is offered nothing: that is the whole of it being
+    // withdrawn, which is on its Discipler's page, behind one confirmation.
+    expect(await lineAbout(petra!, group.id)).not.toContain('action="/roster/unpair"')
+    const leaders = await lineAbout(group.leader, group.id)
+    expect(leaders).toContain('>Yes, unpair</button>')
+    expect(await pressUnpair(leaders)).toContain(`/roster/${group.leader}?unpair=cancelled`)
+    expect(await relationshipRow(group.id)).toMatchObject({ ended: true, reason: 'cancelled' })
+  })
+
+  it('takes a Discipler out of a group another goes on leading, and takes back an invitation nobody has answered', async () => {
+    const group = await formGroup(ministry, {
+      name: 'Morning Table',
+      declaredGender: 'female',
+      leader: { name: 'Rhoda Finch', phone: aTestPhoneNumber(), gender: 'female' },
+      disciples: ['Una Doyle', 'Vera Lind'].map((name) => ({ name, phone: aTestPhoneNumber(), gender: 'female' as const })),
+    })
+    // A second Discipler who has accepted, and a third an Admin has just added.
+    const second = await woman('Sybil Crane')
+    await addMembership({ ministry, relationshipId: group.id, kind: 'group', personId: second, role: 'leader' })
+    const invited = await woman('Thea Marsh')
+    const added = await fetch(`${baseUrl}/roster/pair/join`, {
+      method: 'POST',
+      redirect: 'manual',
+      headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ personId: invited, groupId: group.id, as: 'leader' }),
+    })
+    expect(added.status).toBe(303)
+    const before = await textsInTheMinistry()
+
+    // Hers is an invitation: one press, and the link she was sent opens nothing.
+    const theirs = await lineAbout(invited, group.id)
+    expect(theirs).toContain('>Unpair</button>')
+    expect(await pressUnpair(theirs)).toContain(`/roster/${invited}?unpair=withdrawn`)
+    expect(await openMembers(group.id)).not.toContain(invited)
+    const { rows: invitations } = await pool.query<{ withdrawn_as: string | null }>(
+      `select withdrawn_as from invitation where relationship_id = $1 and person_id = $2`,
+      [group.id, invited],
+    )
+    expect(invitations).toEqual([{ withdrawn_as: 'withdrawn' }])
+    // Nothing is raised about it: the Admin who would be told is the one who did it.
+    const { rows: items } = await pool.query(
+      `select 1 from follow_up_item where person_id = $1 and resolved_at is null`,
+      [invited],
+    )
+    expect(items).toEqual([])
+    expect((await getPage(`/roster/${invited}?unpair=withdrawn`, cookie)).html).toContain('Their invitation no longer works')
+
+    // The first Discipler leaves, and the question says who goes on leading it.
+    const hers = await lineAbout(group.leader, group.id)
+    expect(hers).toContain('Unpair Rhoda Finch from Morning Table? Sybil Crane goes on leading it.')
+    expect(hers).toContain('>Yes, unpair</button>')
+    expect(await pressUnpair(hers)).toContain(`/roster/${group.leader}?unpair=left`)
+    expect((await relationshipRow(group.id)).ended).toBe(false)
+    expect((await openMembers(group.id)).sort()).toEqual([second, ...group.disciples].sort())
+
+    // Which leaves one Discipler, for whom Unpair is the whole group's ending.
+    expect(await lineAbout(second, group.id)).toContain('It ends for')
     expect(await textsInTheMinistry()).toBe(before)
   })
 

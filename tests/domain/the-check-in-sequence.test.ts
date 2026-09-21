@@ -38,6 +38,7 @@ const leads = (
   name: null,
   acceptedAt: startedOn,
   paused: false,
+  stillLed: true,
   cadence: { day: 1, hour: 9 },
   ...over,
 })

@@ -683,6 +683,22 @@ export type Command =
       readonly token: InvitationToken
     }
   /**
+   * An Admin taking back an invitation nobody has answered (Unpair, James
+   * 2026-09-21): a Discipler invited to a group that is already running, whose line
+   * on their page is an invitation and no leading. The same withdrawal a decline
+   * and the two weeks make, by the same token and behind the same locks, so one
+   * accepted in the same moment is found accepted and refused. It raises nothing
+   * on Follow-Up, because the Admin who would be told is the one who did it, and
+   * it names them, as every Admin act does.
+   */
+  | {
+      readonly type: 'invitation.withdraw'
+      readonly ministryId: MinistryId
+      readonly token: InvitationToken
+      /** The Admin's account, as the session named it. */
+      readonly withdrawnBy: string
+    }
+  /**
    * **Copy link to re-invite leader**, on the item the two weeks raise (Manual
    * pairing, recut ticket 06). It puts the Person back on the relationship as
    * somebody invited, where their membership was withdrawn, and mints a fresh

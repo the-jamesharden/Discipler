@@ -2,6 +2,7 @@ import type { GroupJoinRefusal, ImportRowRefusal, PairingRefusal } from '~/domai
 import type { Gender } from '~/domain/intake'
 import { asList } from '~/domain/outbound-copy'
 import type { ParticipationStatus } from '~/domain/participation'
+import type { MemberRole } from '~/domain/relationships'
 import type { RowProblem } from '~/domain/roster'
 import type { GroupToJoin } from '~/service/ports'
 import {
@@ -372,10 +373,27 @@ export const partlyPairedReceipt = ({
  */
 export const UNPAIR = {
   button: 'Unpair',
-  question: ({ person, group, endsItFor }: { readonly person: string; readonly group: boolean; readonly endsItFor: readonly string[] }): string =>
-    group
-      ? `Unpair ${person} from this group? It ends for ${asList(endsItFor)} too.`
-      : `Unpair ${person} and ${asList(endsItFor)}?`,
+  /**
+   * `group` is null for a one-to-one, and carries what the Ministry calls the
+   * group, where it calls it anything. `ledOnBy` is who goes on leading a group a
+   * Discipler is taken out of, and is empty wherever the pairing ends.
+   */
+  question: ({
+    person,
+    group,
+    endsItFor,
+    ledOnBy,
+  }: {
+    readonly person: string
+    readonly group: { readonly name: string | null } | null
+    readonly endsItFor: readonly string[]
+    readonly ledOnBy: readonly string[]
+  }): string =>
+    !group
+      ? `Unpair ${person} and ${asList(endsItFor)}?`
+      : ledOnBy.length > 0
+        ? `Unpair ${person} from ${group.name ?? 'this group'}? ${asList(ledOnBy)} ${ledOnBy.length === 1 ? 'goes' : 'go'} on leading it.`
+        : `Unpair ${person} from ${group.name ?? 'this group'}? It ends for ${asList(endsItFor)} too.`,
   consequence: 'Their history is kept, and nobody is sent anything.',
   finishedWell: 'It finished well',
   didNotRunItsCourse: 'It did not run its course',
@@ -391,14 +409,15 @@ export const UNPAIR = {
 export const UNPAIRED_BLANK_REASON = 'Unpaired from the Roster.'
 
 /** What the person page says after an Unpair, by what happened. Codes in the address, never prose. */
-export type Unpaired = 'ended' | 'cancelled' | 'left'
+export type Unpaired = 'ended' | 'cancelled' | 'left' | 'withdrawn'
 export const UNPAIRED_RECEIPT: Record<Unpaired, string> = {
   ended: 'Unpaired. The history is kept, and nobody was sent anything.',
   cancelled: 'Unpaired. It had not started, and nobody was sent anything.',
   left: 'Unpaired from the group, which goes on without them. Nobody was sent anything.',
+  withdrawn: 'Unpaired. Their invitation no longer works, the group goes on as it was, and nobody was sent anything.',
 }
 export const isUnpaired = (value: string | undefined): value is Unpaired =>
-  value === 'ended' || value === 'cancelled' || value === 'left'
+  value !== undefined && Object.hasOwn(UNPAIRED_RECEIPT, value)
 
 /** Why an Unpair did not happen. The page was true when it was drawn, and something changed under it. */
 export const UNPAIR_REFUSED = 'That pairing changed while you were looking at it, so nothing was done. Have another look and press Unpair again.'
@@ -494,6 +513,24 @@ export const AWAITING_ACCEPTANCE = 'awaiting acceptance'
  */
 export const DISCIPLING = 'Discipling'
 export const DISCIPLED_BY = 'Discipled by'
+
+/**
+ * One pairing on a person's page, as a sentence: who it is with, and which group
+ * where the Ministry has named it (Unpair, 2026-09-21), because a Discipler's page
+ * can hold several and Unpair asks about one of them by that name.
+ */
+export const pairingLine = ({
+  role,
+  names,
+  groupName,
+}: {
+  readonly role: MemberRole
+  readonly names: readonly string[]
+  readonly groupName: string | null
+}): string =>
+  role === 'leader'
+    ? `${DISCIPLING} ${groupName === null ? '' : `${groupName}: `}${names.join(', ')}`
+    : `${DISCIPLED_BY} ${names.join(', ')}${groupName === null ? '' : ` in ${groupName}`}`
 
 /**
  * How big a pairing is, from the live count of Disciples in it and never from

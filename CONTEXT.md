@@ -148,7 +148,7 @@ A person setting a new password on their own account, from a session they alread
 _Avoid_: Account settings and profile (nothing else about the person is editable here), and Sign out (ending the sessions is a consequence of the change, not a feature of its own)
 
 **Invitation Link**:
-The individualized, SMS-delivered link that reveals a new relationship to a person in it, with no session. Only a Leader is ever sent one. It resolves on its own page rather than in the leader dashboard, because a leader has no account until they accept. Possession of the phone it was sent to is the authentication; it expires after a fixed window and is consumed when the leader creates their account, not when it is opened. Its holder can decline on it, and one nobody answers is withdrawn when it expires: either ends the leader's membership, which had no Acceptance on it, and tells an admin through a Follow-Up Item.
+The individualized, SMS-delivered link that reveals a new relationship to a person in it, with no session. Only a Leader is ever sent one. It resolves on its own page rather than in the leader dashboard, because a leader has no account until they accept. Possession of the phone it was sent to is the authentication; it expires after a fixed window and is consumed when the leader creates their account, not when it is opened. Its holder can decline on it, and one nobody answers is withdrawn when it expires: either ends the leader's membership, which had no Acceptance on it, and tells an admin through a Follow-Up Item. An admin can take one back as well, which ends the membership the same way and tells nobody, because the admin did it.
 _Avoid_: a Participant's Invitation Link (a Participant answers at Intake and is asked nothing further). The Intake Link below is not one: it asks a Person nothing new and reveals nobody else to them.
 
 **Ministry Setup Link**:
@@ -218,8 +218,8 @@ The state of a relationship that its leader has paused for a selected period. Ch
 The terminal state of a relationship that has finished. It records an outcome — completed or discontinued — alongside the reason in the ministry's own words, because whether a relationship finished well or broke down is a question the ministry asks in counts. Its history is preserved untouched, and its participants return to the roster as Ready to Pair unless they have opted out or hold another open participant membership.
 
 **Departure**:
-One participant leaving a discipleship relationship that continues without them. Their membership receives an end date rather than being deleted, so the weeks they were present for stay attached to the relationship, and a readmission later is a second membership rather than the first one reopened. A relationship losing its leader or its last participant is not a departure but an ending, because it records an outcome.
-_Avoid_: Removal, unpairing, dropping out
+One person leaving a discipleship relationship that continues without them: a participant where another remains, or a leader where another leader who has accepted goes on leading it. Their membership receives an end date rather than being deleted, so the weeks they were present for stay attached to the relationship, and a readmission later is a second membership rather than the first one reopened. A relationship losing its last leader who has accepted, or its last participant, is not a departure but an ending, because it records an outcome.
+_Avoid_: Removal, dropping out, and unpairing as a word for this alone (Unpair is the admin screen's one word for a cancellation, an ending, a departure and an invitation taken back)
 
 **Keyword Exchange**:
 The short SMS conversation Discipler opens when an inbound keyword needs something resolved before it can act — which relationship it applies to, or how long a pause should run. At most one is open per person at a time, and it expires after twenty-four hours without a reminder.

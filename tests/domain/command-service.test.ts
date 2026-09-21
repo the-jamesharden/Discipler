@@ -93,6 +93,9 @@ describe('applying a command\'s effects', () => {
         invitationHeldBy: async () => {
           throw new Error('no held invitation should have been read')
         },
+        unansweredInvitationOf: async () => {
+          throw new Error('no unanswered invitation should have been read')
+        },
         checkInFor: async () => {
           throw new Error('nobody should have been checked in with')
         },
