@@ -10,6 +10,11 @@ It is worth having no later than ticket 04, which is what hands **Add as co-lead
 
 **Status:** ready-for-agent
 
+**It adds a migration**, which James pushes to production by hand.
+The two-week item is a new kind of Follow-Up Item, and the kinds are the database's `follow_up_kind` enum; the declined item needs none, because `match_declined` is already a value.
+Keeping the two weeks needs no migration, as the Decided section says: an invitation already carries its own expiry.
+Do not build this beside another ticket that adds a migration in the same checkout (`.scratch/text-wording/issues/01` does): the local database is rebuilt whenever the migrations change, and a half-written one from another session fails that rebuild for both.
+
 **Where it came from:** It was an addendum on ticket 05 from 2026-09-20, put there because 05 was the shortest ticket left, and James had it made a ticket of its own on 2026-09-21.
 It is no old ticket: nothing of the earlier cuts, 01 to 27, asked for it.
 It began as **Unsend invitation**, a button on the person's page, which James replaced: *there needs to not be an unsend button; the invite becomes revoked and invalid if it has been two weeks, and the Admin gets notified in the Follow-Up tab*; and *there should be a decline button on the page that is greyed out and smaller than accept that is red*.
