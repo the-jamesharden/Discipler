@@ -228,7 +228,15 @@ describe.skipIf(skipUnlessAppIsRunning)('declining, and the two weeks, over HTTP
       expect(ticked.status).toBe(200)
     }
 
-    it('tells the Admin in red, in James’s words, with Resolve and Copy link to re-invite leader', async () => {
+    /**
+     * The route ticks every Ministry in the database in turn, and a local database
+     * keeps a Ministry per fixture per run until it is reset, so one tick costs the
+     * sum of them and outgrows the default five seconds in a full run. The allowance
+     * and the reason are `the-scheduled-tick-over-http.test.ts`'s.
+     */
+    const enoughForEveryMinistry = 120_000
+
+    it('tells the Admin in red, in James’s words, with Resolve and Copy link to re-invite leader', { timeout: enoughForEveryMinistry }, async () => {
       const { group, claire, name, link } = await invitedToARunningGroup()
       await twoWeeksLater(group.id, claire)
 
@@ -258,7 +266,7 @@ describe.skipIf(skipUnlessAppIsRunning)('declining, and the two weeks, over HTTP
       expect(itemAbout((await getPage('/follow-up', cookie)).html, name)).toBeUndefined()
     })
 
-    it('Copy link to re-invite leader invites her again with a link that works, and sends her nothing', async () => {
+    it('Copy link to re-invite leader invites her again with a link that works, and sends her nothing', { timeout: enoughForEveryMinistry }, async () => {
       const { group, claire, name } = await invitedToARunningGroup()
       await twoWeeksLater(group.id, claire)
       const textsBefore = await textsTo(claire)
