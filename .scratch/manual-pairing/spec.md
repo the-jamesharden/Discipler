@@ -129,7 +129,7 @@ Title: **Pair Sam Lee**.
   Where the Ministry lets a one-to-one cross genders, everybody shows.
   Nothing an Admin can change from this side would open such a row, so it is only in the way.
   Somebody with no gender on file is never left out.
-  This replaces, for this side only, *other-gender rows are greyed with the reason* and *rows it rules out are greyed with it* under **Gender** below; the popup from a Discipler still greys, because there Coed opens the row again.
+  This replaces, for this side only, *other-gender rows are greyed with the reason* under **Gender** below; in the popup from a Discipler a Disciple's row is still greyed for gender, because there Coed opens it again.
 - A Discipler who has not completed Intake, or who has opted out, is greyed with the words their Roster row already says, **Awaiting Intake** or **Opted out**.
   The database refuses a pairing led by either, and they get no Pair on their own row for the same reason.
   They are shown, not hidden: the list is still every Discipler (James, 2026-09-20).
@@ -146,8 +146,8 @@ Title: **Pair Sam Lee**.
   Other-gender rows are greyed with *Women's group: choose Coed to include* until Coed is chosen, and then they open up.
   That is how a coed group is made by hand.
   Coed is the screen's word for the model's `declared_gender = null`, mixed.
-- **A group being joined** already has its declaration; rows it rules out are greyed with it (*A men's group*).
-  From a Disciple such a group is not listed at all: see *The popup, from a Disciple*.
+- **A group being joined** already has its declaration, and a group that rules somebody out is not listed for them at all, from either side of the popup (James, 2026-09-21: "hidden for things that are against gender rules").
+  This replaces *rows it rules out are greyed with it (A men's group)*.
 - Somebody with no gender on file is never greyed in any shape.
   Both database triggers return early on a null gender, so that the readiness rules refuse the row with something the Admin can act on instead of "genders do not match".
 - Greying is computed against the declaration the shape implies, never against one person.

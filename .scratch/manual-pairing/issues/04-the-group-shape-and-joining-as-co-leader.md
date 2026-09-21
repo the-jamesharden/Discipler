@@ -89,7 +89,14 @@ Every one of those conditions is an acceptance criterion below.
 
 ### Greying
 
-- [ ] A group whose declaration rules this Discipler out is greyed with it (*A men's group*).
+- [ ] A group whose declaration rules this Discipler out is not listed at all, and is not counted.
+  Reworded by James's decision of 2026-09-21, made while reviewing ticket 03; it read *is greyed with it (A men's group)*.
+  In his words: "hidden for things that are against gender rules ... that woman should not have to see any of the male-only groups."
+  The rule is built and tested already, for both sides: `groupLeftOut` in `app/roster/greying.ts`, which the Disciple's side applies in `app/roster/page.tsx`.
+  The greyed-group rule and its words, *A men's group*, were removed with it, so there is nothing of that to reuse.
+  **Not decided by that answer:** the Disciples' own rows on this side.
+  They are still greyed for gender as this ticket says, *Women's group: choose Coed to include*, because Coed opens them again and that is how a coed group is made by hand.
+  James was asked whether to hide those too and his answer spoke only of groups and of the popup from a Disciple; if he wants them hidden, that is his to say before this ticket's *Gender* criteria are built.
 - [ ] A Discipler who already leads a group sees **every group row** greyed with *{name} already leads a group*, beside the 1:2 and Group shapes that ticket 02 and the Group shape above already grey.
   `leader_one_open_group` stands, and nothing here decides how it is lifted.
 - [ ] No gender on file is never greyed.
