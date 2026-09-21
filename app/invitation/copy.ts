@@ -60,8 +60,8 @@ export const asList = (names: readonly string[]): string =>
 
 /**
  * Who they would be leading with, under the reveal (Manual pairing, recut ticket
- * 01). An Admin may add a Discipler to a group that already has a leader, so the
- * holder of a link decides whether to lead knowing who they would be joining.
+ * 01). An Admin may add a Leader to a group that already has one, so the holder
+ * of a link decides whether to lead knowing who they would be joining.
  * Null for somebody leading alone, which is nearly everybody: no sentence, rather
  * than one about nobody.
  */

@@ -29,9 +29,9 @@ describe('a co-leader accepts on a group already running', () => {
   let store: ReturnType<typeof createPostgresEffectStore>
   let reader: ReturnType<typeof createPostgresInvitationReader>
   let pool: pg.Pool
+  const ids: IdSource = { next: () => crypto.randomUUID() }
   // The real clock, except where a test is about days passing: a pinned one beside
   // fixtures stamped with the real one is a date bomb.
-  const ids: IdSource = { next: () => crypto.randomUUID() }
   const service = (clock: Clock = systemClock) =>
     createCommandService({ clock, ids, store, appBaseUrl: 'https://discipler.test' })
 
@@ -67,8 +67,13 @@ describe('a co-leader accepts on a group already running', () => {
   const aDiscipler = (within: MinistryFixture = ministry) =>
     addPerson(within, named('Claire'), { phone: aTestPhoneNumber(), answers: { gender: 'male' } })
 
-  const addLeader = (group: string, person: string, within: MinistryFixture = ministry) =>
-    service().execute({
+  const addLeader = (
+    group: string,
+    person: string,
+    within: MinistryFixture = ministry,
+    clock: Clock = systemClock,
+  ) =>
+    service(clock).execute({
       type: 'group.add_leader',
       ministryId: within.id,
       relationshipId: relationshipId(group),
@@ -138,10 +143,12 @@ describe('a co-leader accepts on a group already running', () => {
 
   const eventTypesOn = async (group: string) => {
     const { rows } = await pool.query<{ type: string }>(
-      `select type from ministry_event where subject_id = $1 order by type`,
+      `select type from ministry_event where subject_id = $1`,
       [group],
     )
-    return rows.map((row) => row.type)
+    // Sorted here and never by Postgres, whose collation and JavaScript's
+    // disagree about `.` and `_`.
+    return rows.map((row) => row.type).sort()
   }
 
   const openItemsOn = async (group: string) => {
@@ -174,10 +181,12 @@ describe('a co-leader accepts on a group already running', () => {
     it('records their Acceptance on their own membership, and nothing else about the group changes', async () => {
       const group = await aGroup()
       const claire = await aDiscipler()
+      // Read before the Admin adds her, so *nobody else was told* below covers
+      // the adding as well as the accepting.
+      const sentBefore = await whatTheyHadBeenSent(group)
       await addLeader(group.id, claire)
       const before = await theGroupItself(group.id)
       const eventsBefore = await eventTypesOn(group.id)
-      const sentBefore = await whatTheyHadBeenSent(group)
 
       const { effects } = await accept(group.id, claire)
 
@@ -247,23 +256,25 @@ describe('a co-leader accepts on a group already running', () => {
       const group = await aGroup()
       await pauseRelationship(ministry, group.id)
       const claire = await aDiscipler()
+      const sentBefore = await whatTheyHadBeenSent(group)
       await addLeader(group.id, claire)
       const before = await theGroupItself(group.id)
-      const sentBefore = await whatTheyHadBeenSent(group)
+      const eventsBefore = await eventTypesOn(group.id)
 
       const { effects } = await accept(group.id, claire)
 
       expect(await acceptanceOf(group.id, claire)).toBeInstanceOf(Date)
       expect(await theGroupItself(group.id)).toEqual(before)
+      // Her Acceptance and no activation, and no resume either.
+      expect(await eventTypesOn(group.id)).toEqual(
+        [...eventsBefore, 'relationship.leader_accepted'].sort(),
+      )
       expect(effects.filter((effect) => effect.kind === 'message.enqueue')).toEqual([])
       await expectNobodyElseWasTold(group, sentBefore)
     })
   })
 
   describe('on a group still awaiting its first leader', () => {
-    const starterMessagesTo = async (person: string) =>
-      (await messagesTo(person)).filter((body) => !body.includes('/invitation/'))
-
     const formedAwaiting = async () => {
       const first = await aDiscipler()
       const disciples = [
@@ -288,17 +299,23 @@ describe('a co-leader accepts on a group already running', () => {
     const expectItActivatedOnce = async (group: Awaited<ReturnType<typeof formedAwaiting>>) => {
       expect((await theGroupItself(group.id)).accepted_at).not.toBeNull()
       expect((await eventTypesOn(group.id)).filter((type) => type === 'relationship.activated')).toHaveLength(1)
-      // One Starter Message each, naming both leaders to the Disciples.
-      for (const person of [group.first, group.claire, ...group.disciples]) {
-        expect(await starterMessagesTo(person)).toHaveLength(1)
+      // One Starter Message each, and every text counted rather than filtered:
+      // a leader has their invitation and then it, a Disciple has it alone.
+      for (const leader of [group.first, group.claire]) {
+        const [invitation, starter, ...more] = await messagesTo(leader)
+        expect(invitation).toContain('/invitation/')
+        expect(starter).not.toContain('/invitation/')
+        expect(more).toEqual([])
       }
+      for (const disciple of group.disciples) expect(await messagesTo(disciple)).toHaveLength(1)
     }
 
     const expectItStillWaits = async (group: Awaited<ReturnType<typeof formedAwaiting>>) => {
       expect((await theGroupItself(group.id)).accepted_at).toBeNull()
-      for (const person of [group.first, group.claire, ...group.disciples]) {
-        expect(await starterMessagesTo(person)).toEqual([])
-      }
+      // Each leader has the invitation they were sent and nothing since, and no
+      // Disciple has heard a word.
+      for (const leader of [group.first, group.claire]) expect(await messagesTo(leader)).toHaveLength(1)
+      for (const disciple of group.disciples) expect(await messagesTo(disciple)).toEqual([])
     }
 
     it('activates only when both have accepted, the first leader first', async () => {
@@ -322,13 +339,96 @@ describe('a co-leader accepts on a group already running', () => {
     })
   })
 
+  describe('on a group still awaiting its first leader, both at the same moment', () => {
+    it('activates once, with one Starter Message', async () => {
+      const first = await aDiscipler()
+      const disciple = await addPerson(ministry, named('Emil'), {
+        phone: aTestPhoneNumber(),
+        answers: { gender: 'male' },
+      })
+      const other = await addPerson(ministry, named('Felix'), {
+        phone: aTestPhoneNumber(),
+        answers: { gender: 'male' },
+      })
+      const { effects } = await service().execute({
+        type: 'relationship.create',
+        ministryId: ministry.id,
+        leaderIds: [personId(first)],
+        participantIds: [personId(disciple), personId(other)],
+        declaredGender: 'male',
+        name: named('Racing'),
+      })
+      const created = effects.find((effect) => effect.kind === 'relationship.create')
+      if (created?.kind !== 'relationship.create') throw new Error('no group was formed')
+      const group = created.relationship.id as string
+      const claire = await aDiscipler()
+      await addLeader(group, claire)
+
+      const racers = await Promise.all(
+        [first, claire].map(async (person) => {
+          const { data, error } = await serviceRoleClient().auth.admin.createUser({
+            phone: aTestPhoneNumber(),
+            password: 'a-long-enough-password',
+            phone_confirm: true,
+          })
+          if (error) throw new Error(error.message)
+          return { token: await liveToken(group, person), userId: data.user.id }
+        }),
+      )
+
+      // Both transactions held open until both have begun, as the formation race
+      // in `accepting-an-invitation.test.ts` does it, so the overlap is the one
+      // the row lock exists for and not whatever the event loop produced.
+      const bothInside = (() => {
+        let arrived = 0
+        let open = () => {}
+        const gate = new Promise<void>((resolve) => {
+          open = resolve
+        })
+        return async () => {
+          if (++arrived === 2) open()
+          await gate
+        }
+      })()
+      const racing = createCommandService({
+        clock: systemClock,
+        ids,
+        appBaseUrl: 'https://discipler.test',
+        store: {
+          transact: (forMinistry, work) =>
+            store.transact(forMinistry, async (unit) => {
+              await bothInside()
+              return work(unit)
+            }),
+        },
+      })
+
+      await Promise.all(
+        racers.map((racer) =>
+          racing.execute({
+            type: 'relationship.accept',
+            ministryId: ministry.id,
+            token: invitationToken(racer.token),
+            fullName: 'Racing Leader',
+            userId: racer.userId,
+          }),
+        ),
+      )
+
+      expect((await theGroupItself(group)).accepted_at).not.toBeNull()
+      expect((await eventTypesOn(group)).filter((type) => type === 'relationship.activated')).toHaveLength(1)
+      expect(await messagesTo(disciple)).toHaveLength(1)
+      expect(await messagesTo(other)).toHaveLength(1)
+    })
+  })
+
   describe('an invitation they decline, or never answer', () => {
     it('declined by text, raises the item a leader invited at formation raises, and tells nobody in the group', async () => {
       const group = await aGroup()
       const claire = await aDiscipler()
+      const sentBefore = await whatTheyHadBeenSent(group)
       await addLeader(group.id, claire)
       const before = await theGroupItself(group.id)
-      const sentBefore = await whatTheyHadBeenSent(group)
 
       // SWAP, which from Awaiting Leader Acceptance is how a leader says no.
       await service().execute({
@@ -358,13 +458,7 @@ describe('a co-leader accepts on a group already running', () => {
 
       const group = await aGroup({ in: quiet })
       const claire = await aDiscipler(quiet)
-      await service(clock).execute({
-        type: 'group.add_leader',
-        ministryId: quiet.id,
-        relationshipId: relationshipId(group.id),
-        personId: personId(claire),
-        addedBy: quiet.adminUserId,
-      })
+      await addLeader(group.id, claire, quiet, clock)
       const tick = () => service(clock).execute({ type: 'scheduled.tick', ministryId: quiet.id })
 
       on(days(4))
@@ -390,7 +484,9 @@ describe('a co-leader accepts on a group already running', () => {
       const page = await reader.readInvitationPage(await liveToken(group.id, claire))
 
       expect(page?.role).toBe('leader')
-      expect(page?.withNames).toEqual(group.discipleNames)
+      // Compared as a set: the reader orders by when each membership started,
+      // and a fixture can start two in the same millisecond.
+      expect([...(page?.withNames ?? [])].sort()).toEqual([...group.discipleNames].sort())
       expect(page?.leadingWith).toEqual([group.leaderName])
     })
 
@@ -435,7 +531,7 @@ describe('a co-leader accepts on a group already running', () => {
 
       const page = await reader.readInvitationPage(rows[0]!.token)
 
-      expect(page?.withNames).toEqual(group.discipleNames)
+      expect([...(page?.withNames ?? [])].sort()).toEqual([...group.discipleNames].sort())
       expect(page?.leadingWith).toEqual([])
     })
   })
