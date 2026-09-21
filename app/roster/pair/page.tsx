@@ -8,6 +8,7 @@ import { firstTimeLabel, pairingRefusalMessage,
   refusalAboutOneOfASet,
 } from '../copy'
 import { DECLARED_GENDER_OPTIONS } from '../declared-gender'
+import { materialFieldFor, readMaterialPerDisciple } from './material-per-disciple'
 
 export const dynamic = 'force-dynamic'
 
@@ -55,6 +56,13 @@ export default async function PairPage({
    * popup's N x 1:1 segment is where an Admin chooses it.
    */
   const mode = readPairingMode([query.mode ?? []].flat()[0])
+
+  /**
+   * And every Material it named for a Disciple comes back with it (Manual pairing,
+   * recut ticket 02), sent again the same way and for the same reason. No control
+   * for these here either: the popup's dropdown per Disciple is where they are chosen.
+   */
+  const materialPerDisciple = mode === 'separate' ? [...readMaterialPerDisciple(Object.entries(query))] : []
 
   /**
    * Which of several Disciples the refusal is about. Found on the whole Roster and
@@ -163,6 +171,9 @@ export default async function PairPage({
 
           <form method="post" action="/roster/pair/create">
             {mode === 'separate' ? <input type="hidden" name="mode" value={mode} /> : null}
+            {materialPerDisciple.map(([personId, chosen]) => (
+              <input key={personId} type="hidden" name={materialFieldFor(personId)} value={chosen} />
+            ))}
             {/*
               Checkboxes rather than a radio, because a group may be led by several
               people. The `required` a radio carried is gone with it: a checkbox set

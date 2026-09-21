@@ -5,6 +5,7 @@ import type { Gender } from '~/domain/intake'
 import { readPairingMode } from '~/domain/separate-pairings'
 import { DEFAULT_LIST, isRosterList } from '../../copy'
 import { declaredGenderFromField, declaredGenderToField } from '../../declared-gender'
+import { materialFieldFor, readMaterialPerDisciple } from '../material-per-disciple'
 import { encodeSeparateReceipt } from '../receipt'
 import { currentAdmin } from '~/platform/supabase/current-admin'
 import { getCommandService } from '~/service/container'
@@ -74,6 +75,17 @@ export async function POST(request: NextRequest) {
   const chosenMaterial = typeof rawMaterial === 'string' && rawMaterial !== '' ? rawMaterial : null
 
   /**
+   * The Material chosen for each Disciple of a set of separate one-to-ones (Manual
+   * pairing, recut ticket 02), for the Disciples submitted and nobody else: a
+   * choice for anybody not among them is ignored here as the split ignores it, so
+   * it neither forms anything nor travels back. `together` never reads these, as
+   * `separate` never reads the one Material above.
+   */
+  const materialPerDisciple = new Map(
+    [...readMaterialPerDisciple(form.entries())].filter(([id]) => participantIds.includes(id)),
+  )
+
+  /**
    * Back to the form with the selection intact. An Admin who picked five people for a
    * group and hit a refusal should be correcting one choice, not making all five
    * again -- and a refusal that costs more than the mistake did teaches people to
@@ -85,8 +97,15 @@ export async function POST(request: NextRequest) {
       // Discipler whoever was ticked (Manual pairing, ticket 23). Never the person
       // the popup is for, who is in the address already as `pair`.
       const params = new URLSearchParams({ list, pair: popupFor, error: code })
+      // And what two or more ticks were to become (Manual pairing, recut ticket 02):
+      // who of several the refusal is about, the shape, and every Material chosen,
+      // each under the name the old Pair page's refusals already give it.
+      if (about !== null) params.set('about', about)
+      if (mode === 'separate') params.set('mode', mode)
       for (const id of leaderIds) if (id !== popupFor) params.append('leaderId', id)
       for (const id of participantIds) if (id !== popupFor) params.append('with', id)
+      if (chosenMaterial) params.set('materialId', chosenMaterial)
+      for (const [id, chosen] of materialPerDisciple) params.set(materialFieldFor(id), chosen)
       return NextResponse.redirect(new URL(`/roster?${params}`, request.url), { status: 303 })
     }
 
@@ -109,6 +128,7 @@ export async function POST(request: NextRequest) {
     if (name) params.set('name', name)
     if (joinRequiresApproval) params.set('joinRequiresApproval', 'yes')
     if (chosenMaterial) params.set('materialId', chosenMaterial)
+    for (const [id, chosen] of materialPerDisciple) params.set(materialFieldFor(id), chosen)
 
     return NextResponse.redirect(new URL(`/roster/pair?${params}`, request.url), {
       status: 303,
@@ -122,14 +142,17 @@ export async function POST(request: NextRequest) {
    * one-to-one has nothing a name is for, and its gender is its two people's. They
    * still travel back on a refusal, as part of what the Admin had on screen.
    *
-   * No Material yet. Each Disciple carries their own, which is this ticket's second
-   * stage, and the one Material a `together` submission takes is not theirs.
+   * Each Disciple carries their own Material (Manual pairing, recut ticket 02), and
+   * the one Material a `together` submission takes is not theirs.
    */
   if (mode === 'separate') {
     const outcome = await formSeparately(getCommandService(), {
       ministryId: admin.ministryId,
       leaderIds: leaderIds.map(personId),
       participantIds: participantIds.map(personId),
+      materialIds: new Map(
+        [...materialPerDisciple].map(([id, chosen]) => [personId(id), materialId(chosen)]),
+      ),
     })
 
     if (outcome.status === 'refused') return refused(outcome.refusal, outcome.about)

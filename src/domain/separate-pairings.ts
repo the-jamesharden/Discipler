@@ -1,6 +1,6 @@
 import type { Command } from './commands'
 import type { PairingRefusal } from './errors'
-import type { MinistryId, PersonId } from './ids'
+import type { MaterialId, MinistryId, PersonId } from './ids'
 
 /**
  * Manual pairing, ticket 21. What an Admin who chose one Discipler and several
@@ -21,6 +21,13 @@ export interface SeparateSubmission {
   readonly ministryId: MinistryId
   readonly leaderIds: readonly PersonId[]
   readonly participantIds: readonly PersonId[]
+  /**
+   * The Material chosen for each Disciple, by who it was chosen for (Manual pairing,
+   * recut ticket 02). Absent, or no entry for a Disciple, is none, which is the
+   * default. Each is an intention held on that Disciple's own one-to-one and spent
+   * when it is accepted, as the one Material a `together` submission takes is.
+   */
+  readonly materialIds?: ReadonlyMap<PersonId, MaterialId>
 }
 
 /**
@@ -39,11 +46,18 @@ export interface SeparateSubmission {
  * a name is for, its gender is implied by its two people, and nobody joins one
  * through a link. A one-to-one handed a declaration is held to it, so what the form
  * said about a group is left behind here rather than applied to each pairing.
+ *
+ * What each one-to-one does carry is the Material named for its own Disciple. One
+ * Disciple's choice never spills onto another, and a Material named for somebody
+ * who is not among the Disciples is never looked up, so it is ignored rather than
+ * refused. Whether the Ministry holds a Material is decided where it always is,
+ * when that one-to-one is checked, which is what names the Disciple it was for.
  */
 export const oneToOnesFor = ({
   ministryId,
   leaderIds,
   participantIds,
+  materialIds,
 }: SeparateSubmission):
   | { readonly refusal: PairingRefusal }
   | { readonly pairings: readonly Pairing[] } => {
@@ -57,11 +71,15 @@ export const oneToOnesFor = ({
   }
 
   return {
-    pairings: participantIds.map((participant) => ({
-      type: 'relationship.create',
-      ministryId,
-      leaderIds: [leader],
-      participantIds: [participant],
-    })),
+    pairings: participantIds.map((participant) => {
+      const chosen = materialIds?.get(participant)
+      return {
+        type: 'relationship.create',
+        ministryId,
+        leaderIds: [leader],
+        participantIds: [participant],
+        ...(chosen === undefined ? {} : { materialId: chosen }),
+      }
+    }),
   }
 }

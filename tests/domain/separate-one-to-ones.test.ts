@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createTestClock } from '~/domain/clock'
 import type { Command } from '~/domain/commands'
 import { PairingRefused, type PairingRefusal } from '~/domain/errors'
-import { createSequentialIds, ministryId, personId, type PersonId } from '~/domain/ids'
+import { createSequentialIds, materialId, ministryId, personId, type PersonId } from '~/domain/ids'
 import { oneToOnesFor, readPairingMode } from '~/domain/separate-pairings'
 import { createCommandService } from '~/service/command-service'
 import { formSeparately } from '~/service/separate-pairings'
@@ -24,6 +24,8 @@ const sam = personId('33333333-3333-3333-3333-333333333333')
 const ana = personId('44444444-4444-4444-4444-444444444444')
 const ruth = personId('55555555-5555-5555-5555-555555555555')
 const david = personId('66666666-6666-6666-6666-666666666666')
+const mark = materialId('77777777-7777-7777-7777-777777777777')
+const romans = materialId('88888888-8888-8888-8888-888888888888')
 
 type Pairing = Extract<Command, { readonly type: 'relationship.create' }>
 
@@ -87,6 +89,54 @@ describe('a separate submission, split into one-to-ones', () => {
     expect(
       oneToOnesFor({ ministryId: ministry, leaderIds: [claire], participantIds: [sam, ana, sam] }),
     ).toEqual({ refusal: 'relationship.person_listed_twice' })
+  })
+})
+
+/**
+ * Manual pairing, recut ticket 02. Each Disciple carries their own Material choice,
+ * held as an intention on their own one-to-one.
+ */
+describe('a Material per Disciple in a separate submission', () => {
+  const materialOf = (split: ReturnType<typeof oneToOnesFor>) => {
+    if ('refusal' in split) throw new Error(`refused: ${split.refusal}`)
+    return split.pairings.map((pairing) => [pairing.participantIds[0], pairing.materialId])
+  }
+
+  it('gives each one-to-one the Material named for its own Disciple', () => {
+    const split = oneToOnesFor({
+      ministryId: ministry,
+      leaderIds: [claire],
+      participantIds: [sam, ana],
+      materialIds: new Map([[sam, mark], [ana, romans]]),
+    })
+
+    expect(materialOf(split)).toEqual([[sam, mark], [ana, romans]])
+  })
+
+  it('gives none to a Disciple with none named, and one choice never spills onto another', () => {
+    const split = oneToOnesFor({
+      ministryId: ministry,
+      leaderIds: [claire],
+      participantIds: [sam, ana, ruth],
+      materialIds: new Map([[ana, romans]]),
+    })
+    if ('refusal' in split) throw new Error(`refused: ${split.refusal}`)
+
+    expect(materialOf(split)).toEqual([[sam, undefined], [ana, romans], [ruth, undefined]])
+    // Absent, and not a key holding nothing: absent is what the command reads as none.
+    expect(split.pairings[0]).not.toHaveProperty('materialId')
+    expect(split.pairings[2]).not.toHaveProperty('materialId')
+  })
+
+  it('ignores a Material named for somebody who is not among the Disciples, rather than refusing', () => {
+    const split = oneToOnesFor({
+      ministryId: ministry,
+      leaderIds: [claire],
+      participantIds: [sam, ana],
+      materialIds: new Map([[david, mark], [claire, romans]]),
+    })
+
+    expect(materialOf(split)).toEqual([[sam, undefined], [ana, undefined]])
   })
 })
 
@@ -224,6 +274,30 @@ describe('forming a set of one-to-ones', () => {
     })
 
     await expect(formSeparately(service, theSet)).rejects.toThrow('the connection was lost')
+  })
+
+  it('checks and forms each one-to-one with its own Disciple’s Material, and names who a refused one was chosen for', async () => {
+    const commands: Pairing[] = []
+    const { service } = aScriptedService({ checks: { [ana]: 'relationship.material_is_not_on_the_list' } })
+    const recording = {
+      ...service,
+      checkPairing: async (command: Pairing) => {
+        commands.push(command)
+        return service.checkPairing(command)
+      },
+    }
+
+    const outcome = await formSeparately(recording, {
+      ...theSet,
+      materialIds: new Map([[sam, mark], [ana, romans]]),
+    })
+
+    expect(outcome).toEqual({
+      status: 'refused',
+      refusal: 'relationship.material_is_not_on_the_list',
+      about: ana,
+    })
+    expect(commands.map(({ materialId: chosen }) => chosen)).toEqual([mark, romans])
   })
 
   it('forms real one-to-ones through the command service: one relationship and one invitation each', async () => {
