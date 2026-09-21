@@ -270,6 +270,14 @@ export interface UnitOfWork {
   /** The invitations one Person has held to one relationship, as a re-invitation reads them. */
   invitationHeldBy(relationship: RelationshipId, person: PersonId): Promise<InvitationHeld>
   /**
+   * The token of the invitation one Person holds to one relationship that nobody
+   * has answered and nobody has withdrawn, or null. Still theirs once its window
+   * has closed, until the tick sweeps it. A candidate, read with no lock, for an
+   * Admin taking it back: `invitation.withdraw` decides again behind the row an
+   * acceptance holds. At most one, which the table's own index holds.
+   */
+  unansweredInvitationOf(relationship: RelationshipId, person: PersonId): Promise<InvitationToken | null>
+  /**
    * Raising an item that already stands changes nothing. Twenty taps on "not my
    * number" is one condition, and the Admin sees one thing to act on.
    */
@@ -867,6 +875,11 @@ export interface RosterRelationship {
    * called, and every state, still follows the live count.
    */
   readonly countsAsAGroup: boolean
+  /**
+   * What the Ministry calls it, or null where nobody has named it, which is every
+   * one-to-one. For a person's page to say which group a line is about.
+   */
+  readonly name: string | null
   /**
    * Derived from `relationship.accepted_at`, never stored as a status. It is the
    * absence of an acceptance rather than a state anybody sets, which is why it

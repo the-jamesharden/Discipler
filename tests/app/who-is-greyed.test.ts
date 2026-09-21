@@ -49,6 +49,7 @@ const pairing = (
   participantNames: [],
   participantCount: 1,
   countsAsAGroup: false,
+  name: null,
   awaitingAcceptance: false,
   ...over,
 })

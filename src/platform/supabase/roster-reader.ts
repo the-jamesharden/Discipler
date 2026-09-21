@@ -178,6 +178,7 @@ export const rosterFrom = (doc: PageDocument): readonly RosterEntry[] => {
     id: string
     accepted_at: string | null
     counts_as_a_group?: unknown
+    name?: unknown
   }[]
   const acceptedById = new Map(relationshipRows.map((row) => [row.id, row.accepted_at !== null]))
 
@@ -199,6 +200,9 @@ export const rosterFrom = (doc: PageDocument): readonly RosterEntry[] => {
     }
     return answer
   }
+
+  /** What the Ministry calls each one. Null is the ordinary answer, so a name that is absent reads as none. */
+  const nameById = new Map(relationshipRows.map((row) => [row.id, typeof row.name === 'string' ? row.name : null]))
 
   /**
    * The two reads are policed by predicates written to mirror each other -- a
@@ -317,6 +321,7 @@ export const rosterFrom = (doc: PageDocument): readonly RosterEntry[] => {
           (member) => member.role === 'participant',
         ).length,
         countsAsAGroup: countsAsAGroup(membership.relationship_id),
+        name: nameById.get(membership.relationship_id) ?? null,
       }))
       // Led relationships first, then the ones they are in as a Participant, and
       // alphabetically within each. A stable order, so a Roster read twice reads
