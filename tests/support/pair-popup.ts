@@ -86,6 +86,23 @@ export const expectOpen = (popup: string, personId: string): void => {
   expect(mark).not.toContain('aria-describedby')
 }
 
+/**
+ * A group that can be chosen, as the server sends it (Manual pairing, recut ticket
+ * 03): not greyed, and giving no reason. Its mark waits for script, because choosing
+ * it has to point the form at the route that joins, so until script runs it cannot
+ * be pressed and no form posts it to the route that pairs. One the server sent
+ * already chosen is open as it stands: the server pointed the form there too.
+ */
+export const expectOpenGroup = (popup: string, groupId: string): void => {
+  const row = rowFor(popup, groupId)
+  const mark = markOn(popup, groupId)
+  expect(row).not.toMatch(/class="pair-opt[^"]* off/)
+  expect(row).not.toContain('pair-why')
+  expect(mark).not.toContain('aria-describedby')
+  if (/\schecked=""/.test(mark)) expect(mark).not.toMatch(/\sdisabled=""/)
+  else expect(mark).toMatch(/\sdisabled=""/)
+}
+
 /** Posts the popup's form as a browser would, and answers where it was sent. */
 export const postPairing = async (cookie: string, fields: readonly (readonly [string, string])[]): Promise<URL> => {
   const response = await fetch(`${baseUrl}/roster/pair/create`, {

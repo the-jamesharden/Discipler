@@ -1,6 +1,6 @@
 'use client'
 
-import { PAIR_POPUP } from './copy'
+import { PAIR_POPUP, type GroupListed } from './copy'
 import { PairRow } from './pair-popup'
 
 /**
@@ -14,20 +14,9 @@ import { PairRow } from './pair-popup'
  * arrive here (`groupsToJoin` in `./lists`, `./greying`), as it is for people.
  */
 
-/** The field a chosen group posts as, which is what the route that joins one reads. */
-export const GROUP_FIELD = 'groupId'
-
 /** One group as the popup lists it. Nothing the Pair document does not already hold for this Admin. */
-export interface PairPopupGroup {
+export interface PairPopupGroup extends GroupListed {
   readonly id: string
-  /** What the Ministry calls it, or null where nobody has named it. */
-  readonly name: string | null
-  readonly leaders: readonly { readonly fullName: string }[]
-  readonly discipleCount: number
-  /** What it declared. Null is the model's mixed, which the screen calls Coed. */
-  readonly declaredGender: 'male' | 'female' | null
-  /** Null while it is running. */
-  readonly state: 'paused' | 'awaiting_leader_acceptance' | null
   /** Why it cannot be chosen, already in words, or null where it can. */
   readonly greyed: string | null
 }
@@ -44,8 +33,11 @@ export const PairGroupRow = ({
 }) => (
   <PairRow
     mark="radio"
-    name={GROUP_FIELD}
+    // The field the route that puts somebody into a group reads.
+    name="groupId"
     avatar="of_a_group"
+    // Choosing a group points the form at that route, which takes script.
+    waitsForScript
     person={{ id: group.id, fullName: PAIR_POPUP.groupLabel(group) }}
     details={PAIR_POPUP.groupDetails(group)}
     greyed={group.greyed}

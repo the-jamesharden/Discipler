@@ -416,6 +416,13 @@ describe('the groups in the Pair popup', () => {
     )
   })
 
+  it('still makes a sentence of a group that names nobody leading it', () => {
+    expect(PAIR_POPUP.joinGroup('Sam Lee', { name: 'Thursday Table', leaders: [] })).toBe(
+      'Sam Lee will join Thursday Table.',
+    )
+    expect(PAIR_POPUP.joinGroup('Sam Lee', { name: null, leaders: [] })).toBe('Sam Lee will join the group.')
+  })
+
   it('says Discipler and Disciple, never the model’s Leader, Participant or mentor', () => {
     const said = [
       PAIR_POPUP.groupsHeading,

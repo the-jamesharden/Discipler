@@ -1,7 +1,9 @@
 import type { GroupJoinRefusal, ImportRowRefusal, PairingRefusal } from '~/domain/errors'
+import type { Gender } from '~/domain/intake'
 import { asList } from '~/domain/outbound-copy'
 import type { ParticipationStatus } from '~/domain/participation'
 import type { RowProblem } from '~/domain/roster'
+import type { GroupToJoin } from '~/service/ports'
 import {
   isDiscipledBySomebody,
   leadsSomebody,
@@ -126,6 +128,18 @@ export interface GroupOnARow {
   readonly leaders: readonly { readonly fullName: string }[]
 }
 
+/** A group as the popup lists it among the groups to join (Manual pairing, recut ticket 03): what it is called, and what it is. */
+export interface GroupListed extends GroupOnARow {
+  readonly discipleCount: number
+  /** What it declared. Null is the model's mixed, which the screen calls Coed. */
+  readonly declaredGender: GroupToJoin['declaredGender']
+  /** Null while it is running. */
+  readonly state: GroupToJoin['state']
+}
+
+/** Who leads a group, by name, in the order the document gave. */
+const leadersOf = (group: GroupOnARow): readonly string[] => group.leaders.map(({ fullName }) => fullName)
+
 /** A first name out of the one `full_name` Discipler holds. Splitting it is a copy decision, so it is made here. */
 const firstNameOf = (fullName: string): string => fullName.trim().split(/\s+/)[0] ?? ''
 
@@ -150,7 +164,7 @@ export const PAIR_POPUP = {
   disciples: (count: number): string => (count === 1 ? '1 disciple' : `${count} disciples`),
   /** The group a Disciple is already in, on their row. One nobody has named is said by who leads it. */
   inGroup: (group: GroupOnARow): string =>
-    `in ${group.name ?? `${asList(group.leaders.map(({ fullName }) => fullName))}’s group`}`,
+    `in ${group.name ?? `${asList(leadersOf(group))}’s group`}`,
   /**
    * Two or more ticked (Manual pairing, recut ticket 02): the toggle that asks what
    * to make of them, the sentence and the button for each shape, and the Material
@@ -201,35 +215,28 @@ export const PAIR_POPUP = {
    * names, which is how the Roster's Paired with cell already names a pairing.
    */
   groupLabel: (group: GroupOnARow): string =>
-    group.name ?? (group.leaders.map(({ fullName }) => fullName).join(', ') || 'Unnamed group'),
+    group.name ?? (leadersOf(group).join(', ') || 'Unnamed group'),
   /**
    * Beneath it: who leads it, how many Disciples it has, what it declared, and its
    * state when it is not running. Coed is the screen's word for the model's mixed.
    * A group labelled by its leaders does not say them a second time.
    */
-  groupDetails: (group: GroupOnARow & {
-    readonly discipleCount: number
-    readonly declaredGender: 'male' | 'female' | null
-    readonly state: 'paused' | 'awaiting_leader_acceptance' | null
-  }): readonly string[] => [
-    ...(group.name !== null && group.leaders.length > 0
-      ? [`led by ${asList(group.leaders.map(({ fullName }) => fullName))}`]
-      : []),
+  groupDetails: (group: GroupListed): readonly string[] => [
+    ...(group.name !== null && group.leaders.length > 0 ? [`led by ${asList(leadersOf(group))}`] : []),
     group.discipleCount === 1 ? '1 disciple' : `${group.discipleCount} disciples`,
     group.declaredGender === null ? 'Coed' : group.declaredGender === 'male' ? 'Men’s' : 'Women’s',
     // Still awaiting its leader is said as the Roster row behind the popup says it.
     ...(group.state === null ? [] : [group.state === 'paused' ? 'paused' : AWAITING_ACCEPTANCE]),
   ],
   /** A group being joined already has its declaration, and a row it rules out is greyed with it. */
-  ruledOutByTheGroup: (declared: 'male' | 'female'): string =>
+  ruledOutByTheGroup: (declared: Gender): string =>
     declared === 'male' ? 'A men’s group' : 'A women’s group',
   /** Every leader is named. A group nobody has named is said by who leads it. */
   joinGroup: (disciple: string, group: GroupOnARow): string => {
-    const leaders = asList(group.leaders.map(({ fullName }) => fullName))
-    if (group.name === null) return `${disciple} will join the group led by ${leaders}.`
-    return group.leaders.length === 0
-      ? `${disciple} will join ${group.name}.`
-      : `${disciple} will join ${group.name}, led by ${leaders}.`
+    const ledBy = group.leaders.length === 0 ? null : `led by ${asList(leadersOf(group))}`
+    const joins = group.name === null ? `${disciple} will join the group` : `${disciple} will join ${group.name}`
+    if (ledBy === null) return `${joins}.`
+    return group.name === null ? `${joins} ${ledBy}.` : `${joins}, ${ledBy}.`
   },
   addToGroup: 'Add to group',
   /**

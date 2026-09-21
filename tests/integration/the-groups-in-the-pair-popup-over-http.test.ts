@@ -18,6 +18,7 @@ import {
   detailsOf,
   expectGreyed,
   expectOpen,
+  expectOpenGroup,
   hiddenIn,
   offeredAs,
   offersToMentor,
@@ -184,8 +185,8 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
       // Shown, never hidden: its round mark disabled, and the reason tied to it.
       expectGreyed(popup, mens.id, 'A men’s group')
       expect(rowFor(popup, mens.id)).toContain('Men’s Breakfast')
-      expectOpen(popup, coed.id)
-      expectOpen(popup, womens.id)
+      expectOpenGroup(popup, coed.id)
+      expectOpenGroup(popup, womens.id)
 
       // The greying removes no rule underneath: the database still refuses her.
       const refused = await join({ personId: priya.id, groupId: mens.id, list: 'disciples' })
@@ -204,8 +205,8 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
 
       expectGreyed(popup, mens.leader, `Already in a 1:1 with ${markName}`)
       expectGreyed(popup, coed.leader, `Already in a 1:1 with ${markName}`)
-      expectOpen(popup, mens.id)
-      expectOpen(popup, coed.id)
+      expectOpenGroup(popup, mens.id)
+      expectOpenGroup(popup, coed.id)
     })
   })
 
@@ -226,8 +227,12 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
     const group = await aGroup('Thursday Table', null)
 
     // Nothing chosen yet: the form is the pairing form, and the button reads Pair.
+    // Until script runs no group can be marked, so that form never carries one, and
+    // a Discipler can be, because pairing is the form's own act.
     const fresh = (await popupFor(sam.id)).popup
     expect(attribute(formOf(fresh), 'action')).toBe('/roster/pair/create')
+    expectOpenGroup(fresh, group.id)
+    expectOpen(fresh, group.leader)
     expect(fresh).toMatch(/<button[^>]*type="submit"[^>]*>Pair<\/button>/)
 
     const landed = await join({ personId: sam.id, groupId: group.id, list: 'disciples' })
@@ -271,6 +276,11 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
     // The sentence names the group and every leader, and the button is the same act.
     expect(popup).toContain(`${sam.name} will join Thursday Table, led by ${group.leaderName}.`)
     expect(popup).toMatch(/<button[^>]*type="submit"[^>]*>Add to group<\/button>/)
+
+    // The group the server sent chosen can be pressed as it stands; one not chosen
+    // waits for script, which is what points the form at the route that joins.
+    expectOpenGroup(popup, group.id)
+    expectOpenGroup(popup, second.id)
 
     // Pressed again as it stands, it posts to the route that joins, naming him.
     expect(attribute(formOf(popup), 'action')).toBe('/roster/pair/join')

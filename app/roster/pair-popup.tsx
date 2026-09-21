@@ -80,6 +80,7 @@ export const PairRow = ({
   person,
   details,
   greyed,
+  waitsForScript = false,
   checked,
   onChange,
 }: {
@@ -98,9 +99,19 @@ export const PairRow = ({
    * pairing, ticket 23). A greyed row is shown, never hidden, and says why.
    */
   readonly greyed: string | null
+  /**
+   * A mark that means another act than the form's own (Manual pairing, recut ticket
+   * 03): choosing it has to point the form at another route, which only script can
+   * do. Until script runs it cannot be pressed, so a form posted before then never
+   * makes something other than what was marked. One the server sent already chosen
+   * stays open: the server pointed the form at its route too.
+   */
+  readonly waitsForScript?: boolean
   readonly checked: boolean
   readonly onChange: (checked: boolean) => void
-}) => (
+}) => {
+  const hydrated = useHydrated()
+  return (
   <label className={`pair-opt${checked ? ' on' : ''}${greyed ? ' off' : ''}`}>
     {/* Disabled is the whole of it: no mouse or key presses it, a screen reader
         says unavailable and then the reason, and no form posts it, with script or
@@ -111,7 +122,7 @@ export const PairRow = ({
       value={person.id}
       checked={checked}
       onChange={(event) => onChange(event.target.checked)}
-      disabled={greyed !== null}
+      disabled={greyed !== null || (waitsForScript && !hydrated && !checked)}
       aria-describedby={greyed ? `pair-why-${person.id}` : undefined}
     />
     <span className={avatar === 'of_a_group' ? 'avatar of-a-group' : 'avatar'} aria-hidden="true">
@@ -130,7 +141,7 @@ export const PairRow = ({
           {details
             .filter((detail): detail is string => detail !== null)
             .map((detail, index, shown) => (
-              <span key={detail} className="pair-detail">
+              <span key={index} className="pair-detail">
                 {index < shown.length - 1 ? `${detail} · ` : detail}
               </span>
             ))}
@@ -138,7 +149,8 @@ export const PairRow = ({
       )}
     </span>
   </label>
-)
+  )
+}
 
 export const PairPopupShell = ({
   person,
