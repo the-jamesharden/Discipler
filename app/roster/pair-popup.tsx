@@ -70,11 +70,13 @@ export const PairList = ({
 
 /**
  * One person's row: a mark, their initials, their name, and beneath it what the
- * side says about them, or why they cannot be chosen.
+ * side says about them, or why they cannot be chosen. A group is listed like a
+ * person (Manual pairing, recut ticket 03), on a square so it is not taken for one.
  */
 export const PairRow = ({
   mark,
   name,
+  avatar = 'of_a_person',
   person,
   details,
   greyed,
@@ -85,6 +87,9 @@ export const PairRow = ({
   readonly mark: 'radio' | 'checkbox'
   /** The field the mark posts as. */
   readonly name: string
+  /** Round for a person, square for a group. */
+  readonly avatar?: 'of_a_person' | 'of_a_group'
+  /** Who the row is, or what: a group's row says what the group is called here. */
   readonly person: { readonly id: string; readonly fullName: string }
   /** Each missing detail is simply absent: a null is left out and no dash stands in for it. */
   readonly details: readonly (string | null)[]
@@ -109,7 +114,9 @@ export const PairRow = ({
       disabled={greyed !== null}
       aria-describedby={greyed ? `pair-why-${person.id}` : undefined}
     />
-    <span className="avatar" aria-hidden="true">{initialsOf(person.fullName)}</span>
+    <span className={avatar === 'of_a_group' ? 'avatar of-a-group' : 'avatar'} aria-hidden="true">
+      {initialsOf(person.fullName)}
+    </span>
     <span className="pair-who">
       <span className="pair-name">{person.fullName}</span>
       {/* The reason stands where the details would, as the mock has it: a row
@@ -118,7 +125,15 @@ export const PairRow = ({
         <span className="pair-why" id={`pair-why-${person.id}`}>{greyed}</span>
       ) : (
         <span className="pair-sub">
-          {details.filter((detail): detail is string => detail !== null).join(' · ')}
+          {/* Each detail wraps whole, with its dot behind it, so a line that wraps at
+              phone width never opens on a dot. */}
+          {details
+            .filter((detail): detail is string => detail !== null)
+            .map((detail, index, shown) => (
+              <span key={detail} className="pair-detail">
+                {index < shown.length - 1 ? `${detail} · ` : detail}
+              </span>
+            ))}
         </span>
       )}
     </span>
@@ -130,6 +145,7 @@ export const PairPopupShell = ({
   list,
   refusal,
   posts,
+  postsTo = 'create',
   summary,
   submit,
   grows = false,
@@ -143,6 +159,13 @@ export const PairPopupShell = ({
   readonly refusal: string | undefined
   /** What the form posts without being asked, beside who the popup is for and the list behind it. */
   readonly posts: Readonly<Record<string, string>>
+  /**
+   * Which route takes the form, as what is chosen decides (Manual pairing, recut
+   * ticket 03): the one that forms a relationship out of a selection, or the one
+   * that puts somebody into a group that exists. Which of the two an Admin meant
+   * is the form's action, never a field that happened to be present.
+   */
+  readonly postsTo?: 'create' | 'join'
   /** The sentence saying exactly what is about to be made, or null with nothing to make. */
   readonly summary: string | null
   /** The button is the same act as the sentence. */
@@ -170,7 +193,7 @@ export const PairPopupShell = ({
           out of the tab order: the X and Cancel already say Close to a keyboard. */}
       <Link className="modal-backdrop" href={back} scroll={false} aria-hidden="true" tabIndex={-1} />
 
-      <form method="post" action="/roster/pair/create" className={grows ? 'modal pair grows' : 'modal pair'}>
+      <form method="post" action={`/roster/pair/${postsTo}`} className={grows ? 'modal pair grows' : 'modal pair'}>
         <input type="hidden" name="pair" value={person.id} />
         <input type="hidden" name="list" value={list} />
         {Object.entries(posts).map(([name, value]) => (

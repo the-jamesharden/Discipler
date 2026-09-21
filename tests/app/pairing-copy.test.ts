@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { PairingRefusal } from '~/domain/errors'
 import {
+  AWAITING_ACCEPTANCE,
   PAIR,
   PAIR_POPUP,
   REFUSALS,
@@ -322,5 +323,108 @@ describe('what a set of separate one-to-ones says to an Admin', () => {
       'Only 1 of 2 one-to-ones was made. Ruth Okafor was not paired. '
       + 'Something went wrong partway. Pair them again from here.',
     )
+  })
+})
+
+/**
+ * Manual pairing, recut ticket 03: the Ministry's groups under the Disciplers, in
+ * the popup opened from a Disciple. A group row says its name, who leads it, how
+ * many Disciples it has, what it declared, and its state when it is not running.
+ */
+describe('the groups in the Pair popup', () => {
+  const thursdayTable = { name: 'Thursday Table', leaders: [{ fullName: 'David Chen' }] }
+
+  it('heads them Groups, and counts them beside the people in the line under the title', () => {
+    expect(PAIR_POPUP.groupsHeading).toBe('Groups')
+    expect(PAIR_POPUP.counts(PAIR_POPUP.disciplers(4), 3)).toBe('4 disciplers · 3 groups')
+    expect(PAIR_POPUP.counts(PAIR_POPUP.disciplers(4), 1)).toBe('4 disciplers · 1 group')
+  })
+
+  it('counts no groups where the Ministry has none to offer', () => {
+    expect(PAIR_POPUP.counts(PAIR_POPUP.disciplers(4), 0)).toBe('4 disciplers')
+  })
+
+  it('labels a group by its name, and one nobody has named by its leaders’ names', () => {
+    expect(PAIR_POPUP.groupLabel(thursdayTable)).toBe('Thursday Table')
+    expect(PAIR_POPUP.groupLabel({ name: null, leaders: [{ fullName: 'Grace Lee' }] })).toBe('Grace Lee')
+    expect(
+      PAIR_POPUP.groupLabel({ name: null, leaders: [{ fullName: 'Grace Lee' }, { fullName: 'David Chen' }] }),
+    ).toBe('Grace Lee, David Chen')
+    expect(PAIR_POPUP.groupLabel({ name: null, leaders: [] })).toBe('Unnamed group')
+  })
+
+  it('says who leads it, how many Disciples it has and what it declared', () => {
+    expect(
+      PAIR_POPUP.groupDetails({ ...thursdayTable, discipleCount: 3, declaredGender: null, state: null }),
+    ).toEqual(['led by David Chen', '3 disciples', 'Coed'])
+    expect(
+      PAIR_POPUP.groupDetails({
+        name: 'Grace’s Group',
+        leaders: [{ fullName: 'Grace Lee' }, { fullName: 'Ana Ruiz' }],
+        discipleCount: 4,
+        declaredGender: 'female',
+        state: null,
+      }),
+    ).toEqual(['led by Grace Lee and Ana Ruiz', '4 disciples', 'Women’s'])
+    expect(
+      PAIR_POPUP.groupDetails({ ...thursdayTable, discipleCount: 2, declaredGender: 'male', state: null }),
+    ).toEqual(['led by David Chen', '2 disciples', 'Men’s'])
+  })
+
+  it('says its state only when it is not running', () => {
+    const details = (state: 'paused' | 'awaiting_leader_acceptance') =>
+      PAIR_POPUP.groupDetails({ ...thursdayTable, discipleCount: 3, declaredGender: null, state })
+    expect(details('paused').at(-1)).toBe('paused')
+    // As the Roster row behind the popup already says it.
+    expect(details('awaiting_leader_acceptance').at(-1)).toBe(AWAITING_ACCEPTANCE)
+    expect(AWAITING_ACCEPTANCE).toBe('awaiting acceptance')
+  })
+
+  it('does not say the leaders twice on a group labelled by them', () => {
+    expect(
+      PAIR_POPUP.groupDetails({
+        name: null,
+        leaders: [{ fullName: 'Grace Lee' }],
+        discipleCount: 3,
+        declaredGender: null,
+        state: null,
+      }),
+    ).toEqual(['3 disciples', 'Coed'])
+  })
+
+  it('greys a group whose declaration rules the Disciple out with what the group is', () => {
+    expect(PAIR_POPUP.ruledOutByTheGroup('male')).toBe('A men’s group')
+    expect(PAIR_POPUP.ruledOutByTheGroup('female')).toBe('A women’s group')
+  })
+
+  it('says what is about to happen, naming every leader, and the button is the same act', () => {
+    expect(PAIR_POPUP.joinGroup('Sam Lee', thursdayTable)).toBe(
+      'Sam Lee will join Thursday Table, led by David Chen.',
+    )
+    expect(
+      PAIR_POPUP.joinGroup('Sam Lee', {
+        name: 'Thursday Table',
+        leaders: [{ fullName: 'David Chen' }, { fullName: 'Grace Lee' }, { fullName: 'Ana Ruiz' }],
+      }),
+    ).toBe('Sam Lee will join Thursday Table, led by David Chen, Grace Lee and Ana Ruiz.')
+    expect(PAIR_POPUP.addToGroup).toBe('Add to group')
+  })
+
+  it('says a group nobody has named by who leads it, in the sentence too', () => {
+    expect(PAIR_POPUP.joinGroup('Sam Lee', { name: null, leaders: [{ fullName: 'Grace Lee' }] })).toBe(
+      'Sam Lee will join the group led by Grace Lee.',
+    )
+  })
+
+  it('says Discipler and Disciple, never the model’s Leader, Participant or mentor', () => {
+    const said = [
+      PAIR_POPUP.groupsHeading,
+      PAIR_POPUP.counts('2 disciplers', 2),
+      ...PAIR_POPUP.groupDetails({ ...thursdayTable, discipleCount: 3, declaredGender: null, state: 'awaiting_leader_acceptance' }),
+      PAIR_POPUP.ruledOutByTheGroup('male'),
+      PAIR_POPUP.joinGroup('A', thursdayTable),
+      PAIR_POPUP.addToGroup,
+    ]
+    for (const sentence of said) expect(sentence).not.toMatch(/\bleader\b|participant|mentor/i)
   })
 })

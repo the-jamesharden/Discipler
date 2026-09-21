@@ -196,6 +196,18 @@ export const groupsOf = (
       !group.leaders.some((leader) => leader.personId === disciple.personId),
   )
 
+/**
+ * The groups the popup offers somebody (Manual pairing, recut ticket 03): every one
+ * the Pair document lists, in its order, less any they are already in. In either
+ * role, and accepted or not, which is what `memberIds` holds: nobody is offered a
+ * group they lead or are invited to lead. One they cannot join is greyed with the
+ * reason (`./greying`), and never hidden.
+ */
+export const groupsToJoin = (
+  person: Pick<RosterEntry, 'personId'>,
+  groups: readonly GroupToJoin[],
+): readonly GroupToJoin[] => groups.filter((group) => !group.memberIds.includes(person.personId))
+
 /** How many people somebody already leads, across every open relationship they lead. */
 export const leadsCount = (person: Pick<RosterEntry, 'relationships'>): number =>
   person.relationships

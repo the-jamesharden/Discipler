@@ -6,6 +6,7 @@ import {
   greyedAgainst,
   greyedForADisciple,
   greyedForADiscipler,
+  greyedForAGroupJoined,
   greyedInAOneToTwo,
   leadsAGroup,
 } from '../../app/roster/greying'
@@ -261,5 +262,45 @@ describe('a Discipler who already leads a group', () => {
         }),
       ),
     ).toBe(false)
+  })
+})
+
+/**
+ * Manual pairing, recut ticket 03: a group being joined already has its
+ * declaration, and a row it rules out is greyed with it. The same rule, read
+ * against the group's own declaration and never against anybody in it.
+ */
+describe('a group in the popup opened from a Disciple', () => {
+  it('is greyed for a Disciple its declaration rules out, with what it declared', () => {
+    expect(greyedForAGroupJoined({ group: { declaredGender: 'male' }, joiner: person({ gender: 'female' }) })).toEqual({
+      why: 'gender',
+      declared: 'male',
+    })
+    expect(greyedForAGroupJoined({ group: { declaredGender: 'female' }, joiner: person({ gender: 'male' }) })).toEqual({
+      why: 'gender',
+      declared: 'female',
+    })
+  })
+
+  it('is open to a Disciple of the gender it declared', () => {
+    expect(greyedForAGroupJoined({ group: { declaredGender: 'male' }, joiner: person({ gender: 'male' }) })).toBeNull()
+  })
+
+  it('greys nobody when it is Coed, which is the model’s mixed', () => {
+    expect(greyedForAGroupJoined({ group: { declaredGender: null }, joiner: person({ gender: 'female' }) })).toBeNull()
+    expect(greyedForAGroupJoined({ group: { declaredGender: null }, joiner: person({ gender: 'male' }) })).toBeNull()
+  })
+
+  it('never greys a Disciple with no gender on file', () => {
+    expect(greyedForAGroupJoined({ group: { declaredGender: 'male' }, joiner: person({ gender: null }) })).toBeNull()
+  })
+
+  it('stays open to a Disciple already in a one-to-one, who may be in any number of groups', () => {
+    const paired = person({ gender: 'male', relationships: [pairing('participant', { leaderNames: ['David Chen'] })] })
+    expect(greyedForADisciple({ genderMatchEnforced: true, disciple: paired, discipler: person({ gender: 'male' }) })).toEqual({
+      why: 'already_in_a_one_to_one',
+      withName: 'David Chen',
+    })
+    expect(greyedForAGroupJoined({ group: { declaredGender: 'male' }, joiner: paired })).toBeNull()
   })
 })

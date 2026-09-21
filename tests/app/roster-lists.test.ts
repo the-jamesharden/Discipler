@@ -8,6 +8,7 @@ import {
   disciplesFor,
   disciplersFor,
   groupsOf,
+  groupsToJoin,
   isDiscipler,
   isDisciple,
   leadsCount,
@@ -412,6 +413,39 @@ describe('the Pair popup, from a Discipler (Manual pairing, ticket 23)', () => {
       memberIds: [grace.personId],
     }
     expect(groupsOf(grace, [leads])).toEqual([])
+  })
+})
+
+/**
+ * Manual pairing, recut ticket 03: the groups the popup offers somebody are the
+ * ones the Pair document lists, less any they are already in, in either role.
+ */
+describe('the groups the Pair popup offers somebody', () => {
+  const group = (name: string, memberIds: readonly RosterEntry['personId'][]) => ({
+    relationshipId: relationshipId(`group-${++counter}`),
+    name,
+    leaders: [{ personId: personId('grace'), fullName: 'Grace Lee' }],
+    discipleCount: 3,
+    declaredGender: null,
+    state: null,
+    memberIds,
+  })
+
+  it('leaves out a group they are already in, and keeps the order the document gave', () => {
+    const sam = person()
+    const first = group('Grace’s Group', [personId('grace')])
+    const his = group('Thursday Table', [personId('david'), sam.personId])
+    const last = group('Men’s Breakfast', [personId('mark')])
+    expect(groupsToJoin(sam, [first, his, last])).toEqual([first, last])
+  })
+
+  it('leaves out a group they lead, or are invited to lead', () => {
+    const grace = person()
+    expect(groupsToJoin(grace, [group('Grace’s Group', [grace.personId])])).toEqual([])
+  })
+
+  it('is nothing where the Ministry has no groups', () => {
+    expect(groupsToJoin(person(), [])).toEqual([])
   })
 })
 

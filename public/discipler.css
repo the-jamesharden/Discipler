@@ -590,9 +590,13 @@ textarea.paste { width: 100%; min-height: 140px; font-family: ui-monospace, SFMo
 .pair-opt input:focus-visible { outline: none; }
 .pair-opt input { width: 17px; height: 17px; margin: 0; flex-shrink: 0; accent-color: var(--primary); cursor: pointer; }
 .pair-opt .avatar { width: 30px; height: 30px; font-size: 0.68rem; }
+/* A group is listed like a person, on a square so it is not taken for one (Manual pairing, recut ticket 03). */
+.pair-opt .avatar.of-a-group { border-radius: 7px; background: var(--accent); font-size: 0.66rem; }
+.pair-group-head { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-light); margin: 0.5rem 0 0.1rem; }
 .pair-who { display: block; min-width: 0; }
 .pair-name { display: block; font-size: 0.84rem; font-weight: 700; line-height: 1.25; }
 .pair-sub { display: block; font-size: 0.73rem; color: var(--text-light); overflow-wrap: anywhere; }
+.pair-detail { display: inline-block; max-width: 100%; white-space: pre-wrap; }
 /* A greyed row (Manual pairing, ticket 23): who it is fades as the mock has it, and
    the reason does not, because it is the one thing on the row still worth reading. */
 .pair-opt.off, .pair-opt.off input { cursor: default; }

@@ -1,5 +1,5 @@
 import type { Gender } from '~/domain/intake'
-import type { RosterEntry } from '~/service/ports'
+import type { GroupToJoin, RosterEntry } from '~/service/ports'
 import type { NotPairable } from './copy'
 import { whyNotPairable } from './lists'
 
@@ -154,6 +154,24 @@ export const greyedInAOneToTwo = ({
   readonly discipler: Pick<RosterEntry, 'gender'>
   readonly disciple: Pick<RosterEntry, 'gender' | 'participationStatus'>
 }): Greyed | null => greyedAgainst(discipler.gender ?? 'none', disciple)
+
+/**
+ * A group's row in the popup opened from a Disciple (Manual pairing, recut ticket
+ * 03). A group being joined already has its declaration, and a Disciple it rules
+ * out is greyed with it. A declaration binds its members whatever the Ministry says
+ * of a one-to-one, so this is not read off `suggest_gender_match`; a Coed group,
+ * which is the model's mixed, greys nobody, and neither does no gender on file.
+ *
+ * Being in a one-to-one already is no reason here: `participant_one_open_one_to_one`
+ * is one open one-to-one and any number of groups, so the groups stay open.
+ */
+export const greyedForAGroupJoined = ({
+  group,
+  joiner,
+}: {
+  readonly group: Pick<GroupToJoin, 'declaredGender'>
+  readonly joiner: Pick<RosterEntry, 'gender' | 'participationStatus'>
+}): Greyed | null => greyedAgainst(group.declaredGender ?? 'mixed', joiner)
 
 /**
  * Whether somebody already leads a group, which is what `leader_one_open_group`

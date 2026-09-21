@@ -10,6 +10,7 @@ import {
   DEFAULT_LIST,
   displayPhone,
   EMPTY_LIST,
+  groupJoinRefusalMessage,
   HELD_ROWS_EXPLANATION,
   HELD_ROWS_HEADING,
   importFailureMessage,
@@ -53,6 +54,7 @@ import {
   disciplesFor,
   disciplersFor,
   groupsOf,
+  groupsToJoin,
   leadsCount,
   onList,
   opensAs,
@@ -65,7 +67,14 @@ import {
   whyNotPairable,
 } from './lists'
 import { declaredGenderToField } from './declared-gender'
-import { greyedForADisciple, greyedForADiscipler, greyedInAOneToTwo, leadsAGroup, type Greyed } from './greying'
+import {
+  greyedForADisciple,
+  greyedForADiscipler,
+  greyedForAGroupJoined,
+  greyedInAOneToTwo,
+  leadsAGroup,
+  type Greyed,
+} from './greying'
 import { PairPopupFromADisciple } from './pair-popup-from-a-disciple'
 import { PairPopupFromADiscipler } from './pair-popup-from-a-discipler'
 import type { ReadAs } from './pair-shape'
@@ -122,6 +131,8 @@ export default async function RosterPage({
     pair?: string | string[]
     /** The Discipler chosen in the popup, on a submission that came back refused. */
     leaderId?: string | string[]
+    /** The group chosen in the popup, on a join that came back refused (Manual pairing, recut ticket 03). */
+    groupId?: string | string[]
     /** The Disciples ticked in the popup from a Discipler, on a submission that came back refused. */
     with?: string | string[]
     /**
@@ -176,8 +187,12 @@ export default async function RosterPage({
   // refused.
   const greyedInWords = (greyed: Greyed | null, readAs?: ReadAs): string | null =>
     greyed === null ? null : PAIR_POPUP.greyed(greyed, readAs)
+  // A group's row is greyed with what the group is; anything else in the rule's own words.
+  const ruledOutInWords = (greyed: Greyed | null): string | null =>
+    greyed?.why === 'gender' ? PAIR_POPUP.ruledOutByTheGroup(greyed.declared) : greyedInWords(greyed)
   // Compared against the list and never rendered, like every value from an address.
   const chosenBefore = firstOf(query.leaderId)
+  const groupChosenBefore = firstOf(query.groupId)
   const tickedBefore = [query.with ?? []].flat()
   // A refusal of one one-to-one in a set names the Disciple it is about, in front
   // of the sentence, as the old Pair page does. The name is read off the Roster.
@@ -485,8 +500,21 @@ export default async function RosterPage({
             leads: leadsCount(discipler),
             greyed: greyedInWords(greyedForADisciple({ genderMatchEnforced: suggestGenderMatch, disciple: pairing, discipler })),
           }))}
-          refusal={pairingRefusal}
+          // Every group the Ministry has that they are not already in (Manual
+          // pairing, recut ticket 03), greyed where its own declaration rules them out.
+          groups={groupsToJoin(pairing, groups).map((group) => ({
+            id: group.relationshipId,
+            name: group.name,
+            leaders: group.leaders.map(({ fullName }) => ({ fullName })),
+            discipleCount: group.discipleCount,
+            declaredGender: group.declaredGender,
+            state: group.state,
+            greyed: ruledOutInWords(greyedForAGroupJoined({ group, joiner: pairing })),
+          }))}
+          // A refused join comes back with its group, and is worded for that act.
+          refusal={groupChosenBefore === undefined ? pairingRefusal : groupJoinRefusalMessage(query.error, pairing.fullName)}
           chosenBefore={chosenBefore ?? null}
+          groupChosenBefore={groupChosenBefore ?? null}
         />
       ) : null}
       {pairing && side === 'discipler' ? (

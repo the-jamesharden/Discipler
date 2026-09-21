@@ -11,6 +11,7 @@ import {
 } from '../support/local-supabase'
 import {
   currentList,
+  detailsOf,
   expectGreyed,
   expectOpen,
   freshPhoneNumbers,
@@ -117,8 +118,8 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Disciple', () =>
 
     const bareRow = rowFor(popup, bare)
     expect(bareRow).toContain('Noor Haddad')
-    expect(bareRow).toContain('leads nobody yet')
-    expect(bareRow).not.toContain(' · leads')
+    expect(detailsOf(bareRow)).toBe('leads nobody yet')
+    expect(detailsOf(graceRow)).toBe('grace@example.org · (706) 555-9638 · leads 1')
     expect(bareRow).not.toContain('>-<')
 
     // Exactly one can be chosen, and nothing else is asked: no boxes, no shape, no

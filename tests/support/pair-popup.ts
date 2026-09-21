@@ -35,6 +35,14 @@ export const rowFor = (popup: string, personId: string): string => {
   return row!.split('</label>')[0]!
 }
 
+/**
+ * What a row says beneath its name, as it reads: the details with a dot between
+ * them. Each detail is a piece of markup of its own so that it wraps whole, and
+ * what is asserted is the line an Admin reads, not how it is cut up.
+ */
+export const detailsOf = (row: string): string =>
+  (row.match(/class="pair-sub"[^>]*>([\s\S]*?)<\/span><\/span>/)?.[1] ?? '').replace(/<[^>]*>/g, '')
+
 export const attribute = (tag: string, name: string): string | undefined =>
   tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1]
 

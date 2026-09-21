@@ -1,0 +1,310 @@
+import pg from 'pg'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app'
+import {
+  aTestPhoneNumber,
+  addMembership,
+  addPerson,
+  createMinistryWithAdmin,
+  formGroup,
+  localSupabase,
+  pairOneToOne,
+  pauseRelationship,
+  type MinistryFixture,
+} from '../support/local-supabase'
+import {
+  attribute,
+  currentList,
+  detailsOf,
+  expectGreyed,
+  expectOpen,
+  hiddenIn,
+  offeredAs,
+  offersToMentor,
+  popupIn,
+  rowFor,
+} from '../support/pair-popup'
+
+/**
+ * The Ministry's groups in the Pair popup opened from a Disciple (Manual pairing,
+ * recut ticket 03), as an Admin's browser receives it: a Groups heading under the
+ * Disciplers, one row per group the Disciple is not already in, greyed where the
+ * group's own declaration rules them out, and **Add to group**, which posts to the
+ * route that puts them straight in.
+ *
+ * What needs script (choosing a group clearing a chosen Discipler, and the other
+ * way round) is looked at in a browser. The server renders the same component, so
+ * a group restored from a refusal shows the sentence, the button and where the
+ * form posts here.
+ */
+describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Disciple', () => {
+  let ministry: MinistryFixture
+  let pool: pg.Pool
+  let cookie: string
+  let numbered = 0
+  // Letters only after the first name: a name is matched in markup below, and a
+  // digit run is what a phone number looks like.
+  const letter = (n: number) => String.fromCharCode(97 + (n % 26))
+  const named = (first: string) => {
+    const n = numbered++
+    return `${first} Popgroup${letter(Math.floor(n / 26))}${letter(n)}`
+  }
+
+  beforeAll(async () => {
+    ministry = await createMinistryWithAdmin('Groups Popup Chapel')
+    pool = new pg.Pool({ connectionString: localSupabase().databaseUrl })
+    cookie = (await signIn(ministry)).cookie
+  })
+
+  afterAll(async () => {
+    await pool.end()
+  })
+
+  type Gender = 'male' | 'female'
+
+  const aGroup = async (
+    name: string | null,
+    declaredGender: Gender | null,
+    over: { readonly in?: MinistryFixture; readonly accepted?: boolean } = {},
+  ) => {
+    const gender: Gender = declaredGender ?? 'male'
+    const leaderName = named('David')
+    const group = await formGroup(over.in ?? ministry, {
+      name,
+      declaredGender,
+      ...(over.accepted === false ? { acceptedAt: null } : {}),
+      leader: { name: leaderName, phone: aTestPhoneNumber(), gender },
+      disciples: [
+        { name: named('Emil'), phone: aTestPhoneNumber(), gender },
+        { name: named('Felix'), phone: aTestPhoneNumber(), gender },
+      ],
+    })
+    return { ...group, leaderName }
+  }
+
+  const aDisciple = async (gender: Gender, inMinistry: MinistryFixture = ministry) => {
+    const name = named(gender === 'male' ? 'Sam' : 'Priya')
+    return { name, id: await addPerson(inMinistry, name, { phone: aTestPhoneNumber(), answers: { gender } }) }
+  }
+
+  const popupFor = async (personId: string, more: Record<string, string> = {}, as: string = cookie) => {
+    const page = await getPage(`/roster?${new URLSearchParams({ list: 'disciples', pair: personId, ...more })}`, as)
+    return { ...page, popup: popupIn(page.html)! }
+  }
+
+  /** Every group the popup offers, by the value its round mark would post. */
+  const groupsOffered = (popup: string) => offeredAs(popup, 'groupId')
+
+  const formOf = (popup: string): string => popup.match(/<form[^>]*>/)![0]
+
+  const join = async (fields: Record<string, string>) => {
+    const response = await fetch(`${baseUrl}/roster/pair/join`, {
+      method: 'POST',
+      redirect: 'manual',
+      headers: { 'content-type': 'application/x-www-form-urlencoded', cookie },
+      body: new URLSearchParams(fields),
+    })
+    return new URL(response.headers.get('location') ?? '', baseUrl)
+  }
+
+  it('lists the groups under a Groups heading, below the Disciplers, and leaves out one the Disciple is in', async () => {
+    const sam = await aDisciple('male')
+    const his = await aGroup('Thursday Table', null)
+    await addMembership({ ministry, relationshipId: his.id, kind: 'group', personId: sam.id, role: 'participant' })
+    const paused = await aGroup('Men’s Breakfast', 'male')
+    await pauseRelationship(ministry, paused.id)
+    const unnamed = await aGroup(null, null, { accepted: false })
+
+    const { popup } = await popupFor(sam.id)
+
+    // One row per group he is not already in, each a round mark of its own field.
+    expect([...groupsOffered(popup)].sort()).toEqual([paused.id, unnamed.id].sort())
+    expect(groupsOffered(popup)).not.toContain(his.id)
+    for (const id of [paused.id, unnamed.id]) {
+      expect(attribute(rowFor(popup, id).match(/<input[^>]*>/)![0], 'type')).toBe('radio')
+    }
+
+    // The heading, once, after the last Discipler and before the first group.
+    expect(popup.match(/>Groups</g)).toHaveLength(1)
+    const heading = popup.indexOf('>Groups<')
+    const lastDiscipler = popup.lastIndexOf('name="leaderId"')
+    const firstGroup = popup.indexOf('name="groupId"')
+    expect(lastDiscipler).toBeGreaterThan(-1)
+    expect(heading).toBeGreaterThan(lastDiscipler)
+    expect(firstGroup).toBeGreaterThan(heading)
+
+    // Its name, its leaders, how many Disciples, what it declared, and its state
+    // when it is not running.
+    const pausedRow = rowFor(popup, paused.id)
+    expect(pausedRow).toContain('Men’s Breakfast')
+    expect(detailsOf(pausedRow)).toBe(`led by ${paused.leaderName} · 2 disciples · Men’s · paused`)
+    expect(pausedRow).toContain('>MB<')
+
+    // One nobody has named is labelled by its leaders' names, and does not say them twice.
+    const unnamedRow = rowFor(popup, unnamed.id)
+    expect(unnamedRow).toMatch(new RegExp(`class="pair-name"[^>]*>${unnamed.leaderName}<`))
+    expect(detailsOf(unnamedRow)).toBe('2 disciples · Coed · awaiting acceptance')
+
+    // The line under the title counts both: every Discipler listed, and the two groups.
+    expect(popup).toContain(`${offeredAs(popup, 'leaderId').length} disciplers · 2 groups`)
+  })
+
+  it('shows no heading and counts no groups in a Ministry with none', async () => {
+    const bare = await createMinistryWithAdmin('No Groups Chapel')
+    const bareCookie = (await signIn(bare)).cookie
+    const sam = await aDisciple('male', bare)
+    const claire = await addPerson(bare, named('Claire'), { phone: aTestPhoneNumber(), answers: { gender: 'male' } })
+    await offersToMentor(pool, bare, claire)
+
+    const { popup } = await popupFor(sam.id, {}, bareCookie)
+
+    expect(popup).toContain('1 discipler')
+    expect(popup).not.toContain('>Groups<')
+    expect(popup).not.toMatch(/\d groups?\b/)
+    expect(groupsOffered(popup)).toEqual([])
+  })
+
+  it('never lists another Ministry’s group', async () => {
+    const other = await createMinistryWithAdmin('The Chapel Across The Road')
+    const theirs = await aGroup('Their Table', null, { in: other })
+    const sam = await aDisciple('male')
+
+    expect(groupsOffered((await popupFor(sam.id)).popup)).not.toContain(theirs.id)
+  })
+
+  describe('who is greyed', () => {
+    it('greys a men’s group for a woman with what the group is, and leaves a Coed one open', async () => {
+      const priya = await aDisciple('female')
+      const mens = await aGroup('Men’s Breakfast', 'male')
+      const coed = await aGroup('Thursday Table', null)
+      const womens = await aGroup('Grace’s Group', 'female')
+
+      const { popup } = await popupFor(priya.id)
+
+      // Shown, never hidden: its round mark disabled, and the reason tied to it.
+      expectGreyed(popup, mens.id, 'A men’s group')
+      expect(rowFor(popup, mens.id)).toContain('Men’s Breakfast')
+      expectOpen(popup, coed.id)
+      expectOpen(popup, womens.id)
+
+      // The greying removes no rule underneath: the database still refuses her.
+      const refused = await join({ personId: priya.id, groupId: mens.id, list: 'disciples' })
+      expect(refused.searchParams.get('error')).toBe('relationship.gender_does_not_match_the_declaration')
+    })
+
+    it('greys every Discipler for a Disciple already in a one-to-one, and the groups stay open', async () => {
+      const sam = await aDisciple('male')
+      const markName = named('Mark')
+      const mark = await addPerson(ministry, markName, { phone: aTestPhoneNumber(), answers: { gender: 'male' } })
+      await pairOneToOne(ministry, mark, sam.id)
+      const mens = await aGroup('Saturday Men', 'male')
+      const coed = await aGroup('Sunday Table', null)
+
+      const { popup } = await popupFor(sam.id)
+
+      expectGreyed(popup, mens.leader, `Already in a 1:1 with ${markName}`)
+      expectGreyed(popup, coed.leader, `Already in a 1:1 with ${markName}`)
+      expectOpen(popup, mens.id)
+      expectOpen(popup, coed.id)
+    })
+  })
+
+  it('asks nothing else: no shape, no gender, no name and no Material', async () => {
+    const sam = await aDisciple('male')
+    const group = await aGroup('Thursday Table', null)
+
+    const { popup } = await popupFor(sam.id, { groupId: group.id, error: 'joining.group_has_ended' })
+
+    expect(popup).not.toContain('<select')
+    expect(popup).not.toContain('type="text"')
+    expect(popup).not.toContain('type="checkbox"')
+    expect(popup).not.toContain('name="declaredGender"')
+  })
+
+  it('puts the Disciple straight into the group, and the Roster’s receipt says so', async () => {
+    const sam = await aDisciple('male')
+    const group = await aGroup('Thursday Table', null)
+
+    // Nothing chosen yet: the form is the pairing form, and the button reads Pair.
+    const fresh = (await popupFor(sam.id)).popup
+    expect(attribute(formOf(fresh), 'action')).toBe('/roster/pair/create')
+    expect(fresh).toMatch(/<button[^>]*type="submit"[^>]*>Pair<\/button>/)
+
+    const landed = await join({ personId: sam.id, groupId: group.id, list: 'disciples' })
+    expect(landed.pathname).toBe('/roster')
+    expect(landed.searchParams.get('list')).toBe('disciples')
+    expect(landed.searchParams.get('joined')).toBe(sam.id)
+    expect(landed.searchParams.get('pair')).toBeNull()
+
+    const { rows } = await pool.query<{ role: string }>(
+      `select role from relationship_member
+        where relationship_id = $1 and person_id = $2 and ended_at is null`,
+      [group.id, sam.id],
+    )
+    expect(rows).toEqual([{ role: 'participant' }])
+
+    const { html } = await getPage(`${landed.pathname}${landed.search}`, cookie)
+    expect(popupIn(html)).toBeNull()
+    expect(currentList(html)).toBe('Disciples')
+    expect(html).toContain(`${sam.name} is in the group now.`)
+
+    // And it is no longer offered to him.
+    expect(groupsOffered((await popupFor(sam.id)).popup)).not.toContain(group.id)
+  })
+
+  it('reopens on a refusal with the reason and the chosen group restored', async () => {
+    const sam = await aDisciple('male')
+    const group = await aGroup('Thursday Table', null)
+    const second = await aGroup('Friday Table', null)
+
+    // Whatever was refused, the address carries the code and the group chosen. A
+    // group that can still be chosen comes back chosen.
+    const { html, popup } = await popupFor(sam.id, { groupId: group.id, error: 'joining.group_has_ended' })
+
+    expect(popup).toContain(`Pair ${sam.name}`)
+    expect(popup).toMatch(/role="alert"/)
+    expect(popup).not.toContain('joining.group_has_ended')
+    expect(rowFor(popup, group.id)).toMatch(/checked=""/)
+    expect(rowFor(popup, second.id)).not.toMatch(/checked=""/)
+    expect(popup.match(/checked=""/g)).toHaveLength(1)
+
+    // The sentence names the group and every leader, and the button is the same act.
+    expect(popup).toContain(`${sam.name} will join Thursday Table, led by ${group.leaderName}.`)
+    expect(popup).toMatch(/<button[^>]*type="submit"[^>]*>Add to group<\/button>/)
+
+    // Pressed again as it stands, it posts to the route that joins, naming him.
+    expect(attribute(formOf(popup), 'action')).toBe('/roster/pair/join')
+    expect(hiddenIn(popup)).toMatchObject({ personId: sam.id, list: 'disciples' })
+    expect(currentList(html)).toBe('Disciples')
+    expect(html.match(/class="modal-bg open"/g)).toHaveLength(1)
+  })
+
+  it('round trips a real refusal: the reason in words for this act, and a group now greyed is not restored as chosen', async () => {
+    const priya = await aDisciple('female')
+    const mens = await aGroup('Men’s Breakfast', 'male')
+
+    const refused = await join({ personId: priya.id, groupId: mens.id, list: 'disciples' })
+    expect(refused.pathname).toBe('/roster')
+    expect(refused.searchParams.get('pair')).toBe(priya.id)
+    expect(refused.searchParams.get('groupId')).toBe(mens.id)
+
+    const { html } = await getPage(`${refused.pathname}${refused.search}`, cookie)
+    const popup = popupIn(html)!
+    expect(popup).toMatch(/role="alert"/)
+    // Worded for joining: *say it is mixed* is no fix when the group already said what it is.
+    expect(popup).not.toMatch(/say it is mixed/i)
+    expectGreyed(popup, mens.id, 'A men’s group')
+    expect(popup).not.toMatch(/checked=""/)
+    expect(popup).toMatch(/<button[^>]*type="submit"[^>]*>Pair<\/button>/)
+  })
+
+  it('restores nothing for a `groupId` that is not on the popup’s list', async () => {
+    const sam = await aDisciple('male')
+    await aGroup('Thursday Table', null)
+
+    const { popup } = await popupFor(sam.id, { groupId: crypto.randomUUID(), error: 'joining.group_not_found' })
+
+    expect(popup).toMatch(/role="alert"/)
+    expect(popup).not.toMatch(/checked=""/)
+  })
+})

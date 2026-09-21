@@ -189,6 +189,50 @@ export const PAIR_POPUP = {
   unticked: (fullName: string, why: string): string => `${fullName} was unticked: ${why}.`,
   noDisciples: 'There is nobody to choose yet. Somebody can be chosen once they have completed Intake.',
   /**
+   * The Ministry's groups, under the people (Manual pairing, recut ticket 03),
+   * listed like people. The line under the title counts both, and counts no groups
+   * where there are none to offer, as no heading stands over none.
+   */
+  groupsHeading: 'Groups',
+  counts: (people: string, groups: number): string =>
+    groups === 0 ? people : `${people} · ${groups === 1 ? '1 group' : `${groups} groups`}`,
+  /**
+   * What a group's row is called. One nobody has named is labelled by its leaders'
+   * names, which is how the Roster's Paired with cell already names a pairing.
+   */
+  groupLabel: (group: GroupOnARow): string =>
+    group.name ?? (group.leaders.map(({ fullName }) => fullName).join(', ') || 'Unnamed group'),
+  /**
+   * Beneath it: who leads it, how many Disciples it has, what it declared, and its
+   * state when it is not running. Coed is the screen's word for the model's mixed.
+   * A group labelled by its leaders does not say them a second time.
+   */
+  groupDetails: (group: GroupOnARow & {
+    readonly discipleCount: number
+    readonly declaredGender: 'male' | 'female' | null
+    readonly state: 'paused' | 'awaiting_leader_acceptance' | null
+  }): readonly string[] => [
+    ...(group.name !== null && group.leaders.length > 0
+      ? [`led by ${asList(group.leaders.map(({ fullName }) => fullName))}`]
+      : []),
+    group.discipleCount === 1 ? '1 disciple' : `${group.discipleCount} disciples`,
+    group.declaredGender === null ? 'Coed' : group.declaredGender === 'male' ? 'Men’s' : 'Women’s',
+    // Still awaiting its leader is said as the Roster row behind the popup says it.
+    ...(group.state === null ? [] : [group.state === 'paused' ? 'paused' : AWAITING_ACCEPTANCE]),
+  ],
+  /** A group being joined already has its declaration, and a row it rules out is greyed with it. */
+  ruledOutByTheGroup: (declared: 'male' | 'female'): string =>
+    declared === 'male' ? 'A men’s group' : 'A women’s group',
+  /** Every leader is named. A group nobody has named is said by who leads it. */
+  joinGroup: (disciple: string, group: GroupOnARow): string => {
+    const leaders = asList(group.leaders.map(({ fullName }) => fullName))
+    if (group.name === null) return `${disciple} will join the group led by ${leaders}.`
+    return group.leaders.length === 0
+      ? `${disciple} will join ${group.name}.`
+      : `${disciple} will join ${group.name}, led by ${leaders}.`
+  },
+  addToGroup: 'Add to group',
+  /**
    * Why a row cannot be chosen, on the row and in one line (Manual pairing, ticket
    * 23). Somebody who cannot be paired reads what their Roster row already reads.
    * The gender reason says what the one-to-one declares and never what anybody's

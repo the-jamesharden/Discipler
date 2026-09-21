@@ -13,6 +13,7 @@ import {
 } from '../support/local-supabase'
 import {
   currentList,
+  detailsOf,
   expectGreyed,
   expectOpen,
   freshPhoneNumbers,
@@ -156,8 +157,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
 
     // Each missing detail is simply absent, and the first-time note is the Pair page's.
     const anaRow = rowFor(popup, ana)
-    expect(anaRow).toContain('New to this')
-    expect(anaRow).not.toContain(' · New')
+    expect(detailsOf(anaRow)).toBe('New to this')
     expect(anaRow).not.toContain('>-<')
 
     // In a group: listed, open, and the row names the group.
