@@ -285,9 +285,18 @@ describe('what the Pair popup says of two or more ticked (Manual pairing, recut 
 })
 
 describe('what the Pair popup says of a Group (Manual pairing, recut ticket 04)', () => {
-  it('is the toggle’s third segment, whatever the count', () => {
+  it('is the toggle’s last segment, whatever the count, beside a 1:1 pair below two ticks', () => {
+    expect(PAIR_POPUP.segment('group', 0)).toBe('Group')
     expect(PAIR_POPUP.segment('group', 2)).toBe('Group')
     expect(PAIR_POPUP.segment('group', 7)).toBe('Group')
+    expect(PAIR_POPUP.segment('pair', 0)).toBe('1:1 pair')
+    expect(PAIR_POPUP.segment('pair', 1)).toBe('1:1 pair')
+  })
+
+  it('says what a Group picked first is waiting for, and its button has no count to say yet', () => {
+    expect(PAIR_POPUP.groupNeedsTwo).toBe('A group needs two or more checked')
+    expect(PAIR_POPUP.createGroup(0)).toBe('Create group')
+    expect(PAIR_POPUP.createGroup(1)).toBe('Create group')
   })
 
   it('offers Women’s, Men’s and Coed, which is the screen’s word for mixed', () => {
@@ -338,8 +347,8 @@ describe('what the Pair popup says of a group a Discipler is added to (Manual pa
     expect(PAIR_POPUP.coLead('Claire Martinez', { name: 'Grace’s Group', leaders: [grace] })).toBe(
       'Claire Martinez will co-lead Grace’s Group with Grace Lee.',
     )
-    // Never the model's Leader, which the Roster's copy does not say (James, 2026-09-21).
-    expect(PAIR_POPUP.addAsCoDiscipler).toBe('Add as co-discipler')
+    // The one place the Roster's copy says it (James, 2026-09-21, having seen both).
+    expect(PAIR_POPUP.addAsCoLeader).toBe('Add as co-leader')
   })
 
   it('names every leader the group already has', () => {

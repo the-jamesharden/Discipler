@@ -57,6 +57,17 @@ export const offeredAs = (popup: string, field: string): readonly (string | unde
     .filter((input) => attribute(input, 'name') === field && attribute(input, 'type') !== 'hidden')
     .map((input) => attribute(input, 'value'))
 
+/**
+ * Who and what is chosen in the list: every mark on a row that is ticked or pressed,
+ * by the value it would post. The toggles beneath the list have a segment on at all
+ * times, so what is chosen is read off the rows and never off the whole popup.
+ */
+export const chosenIn = (popup: string): readonly (string | undefined)[] =>
+  inputsIn(popup)
+    .filter((input) => ['participantId', 'leaderId', 'groupId'].includes(attribute(input, 'name') ?? ''))
+    .filter((input) => /\schecked=""/.test(input))
+    .map((input) => attribute(input, 'value'))
+
 /** What the form posts without being asked. */
 export const hiddenIn = (popup: string): Record<string, string | undefined> =>
   Object.fromEntries(
@@ -81,27 +92,15 @@ export const expectGreyed = (popup: string, personId: string, reason: string): v
 }
 
 /**
- * A row that is not shown at all (James, 2026-09-21): somebody gender rules out,
- * from a Discipler, whom a Coed Group opens again. Still in the markup, so it can
- * fade back where it stands, and gone from it in every way that matters: marked to
- * fade away, hidden from a screen reader, and its mark disabled and never chosen,
- * so no form posts it.
+ * Somebody who is not shown at all (James, 2026-09-21): whoever gender rules out of
+ * what is being made, from either side of the popup. Not greyed with a reason: no
+ * row, no mark, and so nothing a form could post.
  */
 export const expectLeftOut = (popup: string, personId: string): void => {
-  const row = rowFor(popup, personId)
-  expect(row, personId).toMatch(/^[^>]*class="pair-opt[^"]* gone"/)
-  expect(row, personId).toMatch(/^[^>]*aria-hidden="true"/)
-  const mark = markOn(popup, personId)
-  expect(mark, personId).toMatch(/\sdisabled=""/)
-  expect(mark, personId).not.toMatch(/\schecked=""/)
+  expect(popup, personId).not.toContain(`value="${personId}"`)
 }
 
-/** Everybody the popup shows under one field: whoever it offers, less whoever is not shown at all. */
-export const shownAs = (popup: string, field: string): readonly (string | undefined)[] =>
-  offeredAs(popup, field).filter((id) => id !== undefined && !/^[^>]*class="pair-opt[^"]* gone"/.test(rowFor(popup, id)))
-
 export const expectOpen = (popup: string, personId: string): void => {
-  expect(rowFor(popup, personId), personId).not.toMatch(/^[^>]*class="pair-opt[^"]* gone"/)
   const mark = markOn(popup, personId)
   expect(mark).not.toMatch(/\sdisabled=""/)
   expect(mark).not.toContain('aria-describedby')

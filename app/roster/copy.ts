@@ -13,7 +13,7 @@ import {
 } from './lists'
 import type { Greyed } from './greying'
 import { MIXED, type GroupDeclaration } from './declared-gender'
-import type { PairShape, ReadAs, ShapeRuledOut } from './pair-shape'
+import { PAIR_SHAPE, type PairShape, type ReadAs, type ShapeRuledOut } from './pair-shape'
 import type { ImportFailure } from './report'
 
 /**
@@ -207,7 +207,13 @@ export const PAIR_POPUP = {
   segment: (shape: PairShape, ticked: number): string =>
     // The Group shape is what is left: named once, in `./pair-shape`, which this
     // file reads types from and nothing else.
-    shape === 'one_to_two' ? '1:2 pair' : shape === 'separate' ? `${ticked} × 1:1 pairs` : 'Group',
+    shape === 'one_to_two'
+      ? '1:2 pair'
+      : shape === 'separate'
+        ? `${ticked} × 1:1 pairs`
+        : shape === PAIR_SHAPE
+          ? '1:1 pair'
+          : 'Group',
   /** Beneath the toggle, in grey. The cap is about the Discipler, by first name as the spec has it. */
   ruledOut: (why: ShapeRuledOut, discipler: string): string =>
     why === 'needs_exactly_two'
@@ -242,7 +248,10 @@ export const PAIR_POPUP = {
     const kind = declared === null ? 'a group' : `a ${PAIR_POPUP.declares(declared).toLowerCase()} group`
     return `${discipler} will lead ${kind} of ${disciples.length}: ${asList(disciples)}.`
   },
-  createGroup: (disciples: number): string => `Create group of ${disciples}`,
+  /** Picked before two are ticked, which it can be so that Coed can be chosen first, it has no count to say yet. */
+  createGroup: (disciples: number): string => (disciples < 2 ? 'Create group' : `Create group of ${disciples}`),
+  /** Beneath the toggle, in grey, while a Group has fewer than two ticked. */
+  groupNeedsTwo: 'A group needs two or more checked',
   whatTheyAreRunning: 'What are they running?',
   whatEachIsRunning: 'What is each of them running?',
   noMaterial: 'No material',
@@ -285,14 +294,16 @@ export const PAIR_POPUP = {
    * From a Discipler (Manual pairing, recut ticket 04): choosing a group adds them
    * to it as another of its Disciplers, by invitation. Everybody who leads it is
    * named, and one named for them has said them already, as `joinGroup` has it.
-   * The button says *co-discipler* (James, 2026-09-21): the mock's word held the
-   * model's Leader, which the Roster never says.
+   * The button says *co-leader*, the one place the Roster's copy does (James,
+   * 2026-09-21, having seen it as *co-discipler* too): it names a person beside
+   * another, not the model's role, and `tests/app/roster-vocabulary.test.ts` lets
+   * that word through and no other.
    */
   coLead: (discipler: string, group: GroupOnARow): string => {
     const { called, leaders } = inASentence(group)
     return `${discipler} will co-lead ${called}${leaders === null ? '' : ` with ${leaders}`}.`
   },
-  addAsCoDiscipler: 'Add as co-discipler',
+  addAsCoLeader: 'Add as co-leader',
   /**
    * Why a row cannot be chosen, on the row and in one line (Manual pairing, ticket
    * 23). Somebody who cannot be paired reads what their Roster row already reads.

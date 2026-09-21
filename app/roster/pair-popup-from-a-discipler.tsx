@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import type { Gender } from '~/domain/intake'
 import { displayPhone, firstTimeLabel, PAIR_POPUP, type GroupOnARow, type RosterList } from './copy'
-import { GROUP_DECLARATIONS } from './declared-gender'
 import { CLEAR } from './import-copy'
 import { AS_A_LEADER, JOIN_AS_FIELD } from './pair/join-as'
 import { materialFieldFor } from './pair/material-per-disciple'
@@ -11,9 +10,11 @@ import { PairList, PairPopupShell, PairRow, useHydrated } from './pair-popup'
 import { PairGroups, type PairPopupGroup } from './pair-popup-groups'
 import {
   canBePosted,
+  declarationsOffered,
   greyedOnRow,
   GROUP_SHAPE,
   modeOf,
+  PAIR_SHAPE,
   postedByAGroup,
   postedByAOneToTwo,
   selectionAfter,
@@ -31,10 +32,14 @@ import {
  * other side makes, in the same sentence and on the same button, and nothing else
  * is asked: no gender, no name, no Material.
  *
- * Two or more ticked, and a toggle asks what to make of them: a 1:2 pair, which is
- * named and declared without asking; N x 1:1 pairs, all of them or none; or a
- * Group, which is asked what it is, Women's, Men's or Coed, preset from the
- * Discipler, and what it is called. Then the Material: one for a 1:2 pair or a
+ * A toggle under the list asks what to make of them, and is there from the moment
+ * the popup opens (James, 2026-09-21): a 1:1 pair or a Group below two ticks, and
+ * from two a 1:2 pair, which is named and declared without asking; N x 1:1 pairs,
+ * all of them or none; or a Group, which is asked what it is, Women's, Men's or
+ * Coed, preset from the Discipler and never offering what their own gender rules
+ * out, and what it is called. Whoever gender rules out of what is being made is not
+ * on the list, so a Group made Coed first is how a man comes onto a woman's list.
+ * Then the Material: one for a 1:2 pair or a
  * Group, and one per Disciple for N x 1:1. No join-approval control: a group formed
  * here takes the default, off, and that switch stays on the Intake forms page
  * (ADR-0017). What the ticks, the toggles and the dropdowns do is `./pair-shape`,
@@ -121,11 +126,16 @@ export const PairPopupFromADiscipler = ({
   const group = groups.find(({ id }) => id === selection.groupId) ?? null
   const ticked = disciples.filter((each) => selection.tickedIds.includes(each.id))
   const names = ticked.map(({ fullName }) => fullName)
-  const toggle = shapeOf(context, selection)
+  // There from the moment the popup opens (James, 2026-09-21), so a Group, and with
+  // it Coed, can be chosen before anybody is ticked. Hidden only while a group that
+  // exists is chosen: the popup does one thing at a time.
+  const toggle = group === null ? shapeOf(context, selection) : null
   const [first, second] = names
   // A 1:2 pair is exactly two, which is what the toggle selecting it means.
   const oneToTwo = toggle?.selected === 'one_to_two' && first !== undefined && second !== undefined
   const hint = toggle?.segments.find(({ ruledOut }) => ruledOut !== null)?.ruledOut ?? null
+  // A Group picked first has nobody in it yet, and says what its button waits for.
+  const groupNeedsTwo = toggle?.selected === GROUP_SHAPE && names.length < 2
   const unticked = selection.unticked.flatMap(({ id, why }) => {
     const gone = disciples.find((each) => each.id === id)
     return gone ? [PAIR_POPUP.unticked(gone.fullName, why)] : []
@@ -133,9 +143,10 @@ export const PairPopupFromADiscipler = ({
 
   // The sentence and the button are the same act: a group to help lead, one tick's
   // one-to-one, or whatever the toggle has two or more ticks become.
-  const sentenceFor = (): { readonly summary: string; readonly label: string } | null => {
-    if (group !== null) return { summary: PAIR_POPUP.coLead(person.fullName, group), label: PAIR_POPUP.addAsCoDiscipler }
-    if (toggle === null) {
+  const sentenceFor = (): { readonly summary: string | null; readonly label: string } | null => {
+    if (group !== null) return { summary: PAIR_POPUP.coLead(person.fullName, group), label: PAIR_POPUP.addAsCoLeader }
+    if (toggle === null) return null
+    if (toggle.selected === PAIR_SHAPE) {
       return first === undefined
         ? null
         : { summary: PAIR_POPUP.oneToOne(person.fullName, first), label: PAIR_POPUP.createOneToOne }
@@ -144,7 +155,11 @@ export const PairPopupFromADiscipler = ({
       return { summary: PAIR_POPUP.oneToTwo(person.fullName, names), label: PAIR_POPUP.createOneToTwo }
     }
     if (toggle.selected === GROUP_SHAPE) {
-      return { summary: PAIR_POPUP.group(person.fullName, selection.declared, names), label: PAIR_POPUP.createGroup(names.length) }
+      return {
+        // No sentence until there is a group to say: two or more ticked.
+        summary: groupNeedsTwo ? null : PAIR_POPUP.group(person.fullName, selection.declared, names),
+        label: PAIR_POPUP.createGroup(names.length),
+      }
     }
     return { summary: PAIR_POPUP.separately(person.fullName, names), label: PAIR_POPUP.createSeparately(names.length) }
   }
@@ -207,7 +222,9 @@ export const PairPopupFromADiscipler = ({
           </div>
 
           <PairList exactlyOne={false}>
-            {disciples.map((disciple) => (
+            {/* Whoever gender rules out is not drawn at all, as from a Disciple (James,
+                2026-09-21); a Coed Group puts them on the list. */}
+            {shown.map((disciple) => (
               <PairRow
                 key={disciple.id}
                 mark="checkbox"
@@ -220,7 +237,6 @@ export const PairPopupFromADiscipler = ({
                   ...disciple.groups.map((group) => PAIR_POPUP.inGroup(group)),
                 ]}
                 greyed={greyedNow.get(disciple.id)?.why ?? null}
-                leftOut={greyedNow.get(disciple.id)?.leftOut ?? false}
                 // With a group the server sent chosen, a refused join restored, the
                 // form points at the route that joins, and a Disciple ticked beside
                 // it would be posted there and ignored. Held until script runs.
@@ -274,6 +290,8 @@ export const PairPopupFromADiscipler = ({
           </div>
           {hint ? (
             <p className="pair-hint" id="pair-shape-hint">{PAIR_POPUP.ruledOut(hint, person.fullName)}</p>
+          ) : groupNeedsTwo ? (
+            <p className="pair-hint">{PAIR_POPUP.groupNeedsTwo}</p>
           ) : null}
         </>
       ) : null}
@@ -286,7 +304,7 @@ export const PairPopupFromADiscipler = ({
               checked, and nothing is posted that nobody said. The declaration's own
               field, as real radios, like the segments above. */}
           <div className="pair-shape pair-declares" role="radiogroup" aria-label={PAIR_POPUP.whatKindOfGroup}>
-            {GROUP_DECLARATIONS.map((declared) => (
+            {declarationsOffered(context).map((declared) => (
               <label key={declared} className={selection.declared === declared ? 'on' : undefined}>
                 <input
                   type="radio"
@@ -318,7 +336,8 @@ export const PairPopupFromADiscipler = ({
 
       {/* A Ministry with no live Materials is asked nothing, and no empty label
           stands where the dropdowns would have been. */}
-      {toggle && materials.length > 0 ? (
+      {/* A 1:1 pair asks nothing, a Material included, though its segment is drawn. */}
+      {toggle && toggle.selected !== PAIR_SHAPE && materials.length > 0 ? (
         toggle.selected !== 'separate' ? (
           <>
             <label className="pair-label" htmlFor="pair-material">{PAIR_POPUP.whatTheyAreRunning}</label>
