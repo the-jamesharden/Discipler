@@ -90,7 +90,7 @@ export default async function InvitationPage({
         The reader already scoped `withNames` to the other side of the relationship:
         the Participants to a Leader, the Leaders to a Participant.
       */}
-      <h1>{revealHeading(withNames)}</h1>
+      <h1 className="reveal">{revealHeading(withNames)}</h1>
 
       <div>
         {problem ? (

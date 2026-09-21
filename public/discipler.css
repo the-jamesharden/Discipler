@@ -79,6 +79,11 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; }
 .centred-brand img { width: 132px; height: auto; display: block; }
 .centred .sub { color: var(--text-light); font-size: 0.92rem; margin-bottom: 1.75rem; }
 .centred .card > h1:not(.wordmark, .ministry-mark) { font-size: 1.5rem; margin-bottom: 0.35rem; }
+/* The invitation's reveal sits directly under the Ministry, with no subtitle
+   between them. Smaller and set apart, so the Ministry is plainly the biggest
+   thing on the card and the two do not read as one heading. After the rule above,
+   which it ties with. */
+.centred .card > h1.reveal { font-size: 1.25rem; margin-top: 1rem; margin-bottom: 0.6rem; }
 .card-note { font-size: 0.8rem; color: var(--text-light); border-top: 1px solid var(--border); padding-top: 1rem; margin-top: 1.25rem; line-height: 1.5; }
 
 /* ---- shell ---- */

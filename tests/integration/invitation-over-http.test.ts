@@ -94,6 +94,8 @@ describe.skipIf(skipUnlessAppIsRunning)('a Leader opening their Invitation Link'
     expect(response.status).toBe(200)
     // Who, and for which Ministry, above the form.
     expect(html).toContain('You’ve been paired with Emily Opens')
+    // Under the Ministry and smaller than it: `reveal` is the class the stylesheet sizes.
+    expect(html).toMatch(/<h1 class="reveal">You’ve been paired with Emily Opens<\/h1>/)
     expect(html).not.toContain('matched')
     // The Ministry heads the card, as on every page opened on a Ministry's behalf,
     // and Discipler's mark is small at the foot (James, 2026-09-21).
