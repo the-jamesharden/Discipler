@@ -10,7 +10,7 @@ It is worth having no later than ticket 04, which is what hands **Add as co-lead
 
 **Status:** ready-for-agent
 
-**Built:** 2026-09-21, on `integration/manual-pairing`, not merged to `main`.
+**Built:** 2026-09-21, and on `main` the same day: the migration was pushed to production by James, then `main` was fast-forwarded to `7607f9b` and to `233a2e4`, with CI green and both Vercel deploys succeeded.
 See *Implementer, 2026-09-21* under Comments.
 
 **It adds a migration**, which James pushes to production by hand.
@@ -212,3 +212,14 @@ Accepting on a declined link was refused as *not found*; it is refused as *decli
    Ticket 04's popup named its Group shape `'group'` in `app/roster/copy.ts`, `pair-popup-from-a-discipler.tsx` and `pair-shape.ts`, which the fence reads as a relationship's kind; ticket 04's record does not mention it, and its session had finished.
    Answered the way the fence says: the word is exported once as `GROUP_SHAPE` from `pair-shape.ts`, every comparison goes through it, `copy.ts` no longer says it, and the fence allows that one file the literal with its argument written beside it.
    No behaviour changed: `tests/domain` and `tests/app` are 72 of 72 files green, and the popup's five over-HTTP suites and this ticket's pass against a fresh build, 77 tests.
+
+### Shipped, 2026-09-21
+
+James asked for the redundancies to go and, with every test green, for `main`.
+What was said twice is said once (`3167d49`), with no behaviour changed.
+The branch was merged with the 8 commits `main` had that it lacked, and the whole suite ran on that merged commit from a clean worktree, because another session was part-way through `app/roster/lists.ts` in the shared checkout: 172 of 172 files, 2536 tests passed, 1 standing skip.
+The migration went first, by James's hand, and production's ledger was read back before any code moved: a push to `main` deploys code only, and this code reads the new columns on every invitation page and in every tick.
+CI on `main` then failed on this ticket's own two over-HTTP tests that run the scheduler's route: it ticks every Ministry in the database, and on CI that outgrew the default five seconds.
+Another session had met the same thing locally and fixed it on this branch (`a3c8373`), giving them the allowance `the-scheduled-tick-over-http.test.ts` already explains; that one commit was put on `main` by itself, as `233a2e4`, and CI is green.
+The four ticket 04 commits that followed it on this branch are not on `main`: they wait on James's answers to two mock-ups.
+
