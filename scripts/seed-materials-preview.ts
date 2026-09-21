@@ -1,19 +1,16 @@
 /**
- * Fills an existing local Ministry with Materials + pairs so the Materials tab
- * looks like the v11 home-screen prototype. Development preview only.
- * Does not reset the database.
+ * Makes a new local Ministry with Materials + pairs so the Materials tab looks
+ * like the v11 home-screen prototype. Development preview only. Does not reset
+ * the database, and makes a Ministry of its own each run, so it can be run
+ * again and the sign-in it prints is always the one that works.
  */
-import { ministryId } from '../src/domain/ids'
 import {
-  ACCOUNT_PASSWORD,
   addMaterial,
   addPerson,
   assignMaterial,
   createMinistryWithAdmin,
   pairOneToOne,
   publishSupabaseCredentials,
-  serviceRoleClient,
-  type MinistryFixture,
 } from '../tests/support/local-supabase'
 
 publishSupabaseCredentials()
@@ -60,45 +57,15 @@ const PROGRAMS = [
   'Freshman Launch Track',
 ] as const
 
-/** How many pairs share each program (→ folder tiles). Rest stay unassigned. */
-const FOLDER_SIZES = [6, 7, 5, 4, 4, 5] as const
-
-const loadExistingMinistry = async (): Promise<MinistryFixture | null> => {
-  const admin = serviceRoleClient()
-  const { data: row } = await admin.from('ministry').select('id, name').order('name').limit(1).maybeSingle()
-  if (!row) return null
-
-  const { data: member } = await admin
-    .from('ministry_member')
-    .select('user_id')
-    .eq('ministry_id', row.id)
-    .eq('tier', 'admin')
-    .limit(1)
-    .maybeSingle()
-  if (!member) return null
-
-  const { data: person } = await admin
-    .from('person')
-    .select('id, full_name, phone')
-    .eq('ministry_id', row.id)
-    .eq('user_id', member.user_id)
-    .maybeSingle()
-  if (!person?.phone) return null
-
-  return {
-    id: ministryId(row.id),
-    name: row.name,
-    adminName: person.full_name,
-    adminPhone: person.phone,
-    adminPassword: ACCOUNT_PASSWORD,
-    adminUserId: member.user_id,
-    adminPersonId: person.id,
-    sendingNumber: person.phone,
-  }
-}
+/**
+ * How many pairs run each program: four folders, one pair on a program of its
+ * own, and one program nobody is on. The rest of the pairs stay unassigned, so
+ * every kind of tile is on the page.
+ */
+const FOLDER_SIZES = [6, 7, 5, 4, 1, 0] as const
 
 const main = async () => {
-  const fixture = (await loadExistingMinistry()) ?? (await createMinistryWithAdmin('Materials Preview Chapel'))
+  const fixture = await createMinistryWithAdmin('Materials Preview Chapel')
 
   const materialIds: string[] = []
   for (const title of PROGRAMS) {
@@ -132,7 +99,7 @@ const main = async () => {
       {
         ministry: fixture.name,
         signInPhone: fixture.adminPhone,
-        signInPassword: ACCOUNT_PASSWORD,
+        signInPassword: fixture.adminPassword,
         materials: PROGRAMS.length,
         pairs: pairs.length,
         note: 'Sign in, then open /materials',

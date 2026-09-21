@@ -120,7 +120,7 @@ describe('the folders', () => {
       leaderNames: ['Tyler Patel'],
       participantNames: ['Bryce Odom'],
     })
-    const cells = homeCellsOf([masterPlan, prayer], [a, b, alone, none])
+    const cells = homeCellsOf([masterPlan, prayer], [a, b, alone, none], null)
 
     expect(cells).toHaveLength(3)
     expect(cells[0]).toMatchObject({ kind: 'folder', material: masterPlan, gender: 'm' })
@@ -128,6 +128,45 @@ describe('the folders', () => {
     expect(cells[2]).toMatchObject({ kind: 'pair', material: null, gender: 'm' })
     expect(pairLabel(alone)).toBe('Grace Lee & Emily Davis')
     expect(pairLabel(none)).toBe('Tyler Patel & Bryce Odom')
+  })
+
+  it('keeps a cell for a Material nobody is on, as a folder with nothing in it', () => {
+    const a = relationship({ runningMaterialId: masterPlan.materialId, gender: 'male' })
+    const b = relationship({ runningMaterialId: masterPlan.materialId, gender: 'male' })
+
+    const cells = homeCellsOf([masterPlan, prayer], [a, b], null)
+
+    expect(cells).toHaveLength(2)
+    expect(cells[1]).toMatchObject({ kind: 'folder', material: prayer, relationships: [], gender: 'x' })
+    expect(homeCellsOf([prayer], [], null)).toMatchObject([{ kind: 'folder', material: prayer }])
+  })
+
+  it('decides folder or pair tile by everyone on the Material, not by who the filter keeps', () => {
+    const his = relationship({ runningMaterialId: masterPlan.materialId, gender: 'male' })
+    const hers = relationship({ runningMaterialId: masterPlan.materialId, gender: 'female' })
+    const alone = relationship({ runningMaterialId: prayer.materialId, gender: 'female' })
+    const none = relationship({ gender: 'female' })
+    const everyone = [his, hers, alone, none]
+
+    expect(homeCellsOf([masterPlan, prayer], everyone, null)[0]).toMatchObject({ kind: 'folder', gender: 'x' })
+
+    const men = homeCellsOf([masterPlan, prayer], everyone, 'male')
+    expect(men).toHaveLength(2)
+    expect(men[0]).toMatchObject({ kind: 'folder', material: masterPlan, relationships: [his], gender: 'm' })
+    expect(men[1]).toMatchObject({ kind: 'folder', material: prayer, relationships: [] })
+
+    const women = homeCellsOf([masterPlan, prayer], everyone, 'female')
+    expect(women[0]).toMatchObject({ kind: 'folder', relationships: [hers], gender: 'f' })
+    expect(women[1]).toMatchObject({ kind: 'pair', relationship: alone, material: prayer })
+    expect(women[2]).toMatchObject({ kind: 'pair', relationship: none, material: null })
+  })
+
+  it('leaves a relationship on a removed Material off the tab', () => {
+    const onRemoved = relationship({ runningMaterialId: materialId('m-removed') })
+
+    expect(homeCellsOf([masterPlan], [onRemoved], null)).toMatchObject([
+      { kind: 'folder', material: masterPlan, relationships: [] },
+    ])
   })
 })
 

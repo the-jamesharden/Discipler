@@ -78,8 +78,9 @@ export type TileGender = 'm' | 'f' | 'x'
 /**
  * One cell on the Materials home screen (v11 prototype): a shared-program folder
  * when two or more relationships run the same Material, otherwise a single pair
- * or group tile. Unassigned relationships are always singles; Materials nobody
- * is on do not appear.
+ * or group tile. Unassigned relationships are always singles. A Material nobody
+ * is on is a folder with nothing in it, because the tab is the only way in to
+ * its page, and so to editing or removing it.
  */
 export type HomeCell =
   | {
@@ -106,28 +107,30 @@ export const bucketGender = (relationships: readonly MaterialRelationship[]): Ti
 }
 
 /**
- * The home-screen cells in program order, then unassigned singles last. A Material
- * with one relationship is a pair tile; with two or more it is a folder.
+ * The home-screen cells in program order, then unassigned singles last. Every
+ * live Material has a cell. Whether it is a folder or a pair tile is decided by
+ * everyone on it, not by who the filter keeps, so a Material two relationships
+ * share stays a folder under Men's and Women's and only its count changes. The
+ * one relationship on a Material is a pair tile while the filter keeps it, and
+ * leaves an empty folder behind when it does not.
  */
 export const homeCellsOf = (
   materials: readonly MaterialOnTheList[],
   relationships: readonly MaterialRelationship[],
+  filter: MaterialsFilter,
 ): readonly HomeCell[] => {
-  const cells: HomeCell[] = []
-  for (const material of materials) {
-    const members = relationships.filter((each) => each.runningMaterialId === material.materialId)
-    if (members.length === 0) continue
-    if (members.length >= 2) {
-      cells.push({ kind: 'folder', material, relationships: members, gender: bucketGender(members) })
-    } else {
-      const relationship = members[0]!
-      cells.push({ kind: 'pair', relationship, material, gender: genderOf(relationship) })
-    }
-  }
-  for (const relationship of onNoMaterial(relationships)) {
-    cells.push({ kind: 'pair', relationship, material: null, gender: genderOf(relationship) })
-  }
-  return cells
+  const shown = underFilter(relationships, filter)
+  const everyoneOn = foldersOf(materials, relationships)
+  const cells = foldersOf(materials, shown).map(({ material, relationships: members }, index): HomeCell => {
+    const alone = everyoneOn[index]!.relationships.length === 1 ? members[0] : undefined
+    return alone
+      ? { kind: 'pair', relationship: alone, material, gender: genderOf(alone) }
+      : { kind: 'folder', material, relationships: members, gender: bucketGender(members) }
+  })
+  const unassigned = onNoMaterial(shown).map(
+    (relationship): HomeCell => ({ kind: 'pair', relationship, material: null, gender: genderOf(relationship) }),
+  )
+  return [...cells, ...unassigned]
 }
 
 /** How a pair or group is named under its tile. */

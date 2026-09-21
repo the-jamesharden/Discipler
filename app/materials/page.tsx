@@ -8,17 +8,17 @@ import {
   FILTERS,
   filterIn,
   filterQuery,
+  folderCount,
   MATERIALS,
   MATERIALS_INFO,
   MATERIALS_LEGEND,
+  NO_MATERIAL_ASSIGNED,
   NO_MATERIALS_YET,
-  NO_PAIRS_MATCH_FILTER,
   NO_PROGRAM_YET,
-  PAIRS_GROUPS,
   PROGRAMS,
   type MaterialsFilter,
 } from './copy'
-import { homeCellsOf, pairLabel, underFilter, type HomeCell, type TileGender } from './folders'
+import { homeCellsOf, pairLabel, type HomeCell } from './folders'
 
 export const dynamic = 'force-dynamic'
 
@@ -74,10 +74,10 @@ const FolderCell = ({
             ),
           )}
         </div>
-        <span className="hs-count">{relationships.length}</span>
+        <span className={`hs-count${relationships.length === 0 ? ' zero' : ''}`}>{relationships.length}</span>
       </Link>
       <div className="hs-label">{material.title}</div>
-      <div className="hs-sub">{PAIRS_GROUPS(relationships.length)}</div>
+      <div className="hs-sub">{folderCount(relationships.length)}</div>
     </div>
   )
 }
@@ -98,7 +98,7 @@ const PairCell = ({
 
   return (
     <div className="hs-cell">
-      <Link className={`hs-tile gender-${gender}`} href={href} title={`Open ${label}`}>
+      <Link className={`hs-tile gender-${gender}`} href={href} title={`Open ${material?.title ?? NO_MATERIAL_ASSIGNED}`}>
         <span className="hs-app-icon">
           <UnitGlyph relationship={relationship} />
         </span>
@@ -111,15 +111,6 @@ const PairCell = ({
     </div>
   )
 }
-
-const GenderSwatch = ({ gender }: { readonly gender: TileGender }) => (
-  <span
-    className="swatch"
-    style={{
-      background: gender === 'f' ? 'rgba(201,168,106,0.3)' : 'rgba(45,80,22,0.18)',
-    }}
-  />
-)
 
 export default async function MaterialsPage({
   searchParams,
@@ -136,16 +127,23 @@ export default async function MaterialsPage({
   const { admin } = page
   const { materials, relationships, care } = page.page
 
-  const cells = homeCellsOf(materials, underFilter(relationships, filter))
+  const cells = homeCellsOf(materials, relationships, filter)
 
   return (
     <AdminShell admin={admin} current="materials" followUpCount={care.length}>
       <div className="mat-toolbar">
         <div className="mat-info">
-          <button type="button" className="mat-info-btn" aria-label="How the Materials view works">
+          <button
+            type="button"
+            className="mat-info-btn"
+            aria-label="How the Materials view works"
+            aria-describedby="materials-info"
+          >
             i
           </button>
-          <span className="mat-tooltip">{MATERIALS_INFO}</span>
+          <span className="mat-tooltip" id="materials-info" role="tooltip">
+            {MATERIALS_INFO}
+          </span>
         </div>
         <div className="mat-toolbar-actions">
           <nav className="seg-toggle" aria-label="Which relationships to show">
@@ -153,7 +151,6 @@ export default async function MaterialsPage({
               <Link
                 key={which ?? 'all'}
                 href={`/materials${filterQuery(which)}`}
-                className={which === filter ? 'active' : undefined}
                 aria-current={which === filter ? 'true' : undefined}
               >
                 {FILTER_LABEL[which ?? 'all']}
@@ -166,41 +163,31 @@ export default async function MaterialsPage({
         </div>
       </div>
 
-      {materials.length === 0 && cells.length === 0 ? <p className="empty-tile">{NO_MATERIALS_YET}</p> : null}
+      {materials.length === 0 ? <p className="empty-tile">{NO_MATERIALS_YET}</p> : null}
 
-      {materials.length > 0 || cells.length > 0 ? (
-        cells.length === 0 ? (
+      {cells.length > 0 ? (
+        <>
           <div className="hs-grid">
-            <div className="empty-tile">{NO_PAIRS_MATCH_FILTER}</div>
+            {cells.map((cell) =>
+              cell.kind === 'folder' ? (
+                <FolderCell key={cell.material.materialId} cell={cell} filter={filter} />
+              ) : (
+                <PairCell key={cell.relationship.relationshipId} cell={cell} filter={filter} />
+              ),
+            )}
           </div>
-        ) : (
-          <>
-            <div className="hs-grid">
-              {cells.map((cell) =>
-                cell.kind === 'folder' ? (
-                  <FolderCell
-                    key={cell.material.materialId}
-                    cell={cell}
-                    filter={filter}
-                  />
-                ) : (
-                  <PairCell key={cell.relationship.relationshipId} cell={cell} filter={filter} />
-                ),
-              )}
-            </div>
-            <div className="hs-legend">
-              <span>
-                <GenderSwatch gender="m" />
-                Men&apos;s
-              </span>
-              <span>
-                <GenderSwatch gender="f" />
-                Women&apos;s
-              </span>
-              <span>{MATERIALS_LEGEND}</span>
-            </div>
-          </>
-        )
+          <div className="hs-legend">
+            <span>
+              <span className="swatch gender-m" />
+              {FILTER_LABEL.male}
+            </span>
+            <span>
+              <span className="swatch gender-f" />
+              {FILTER_LABEL.female}
+            </span>
+            <span>{MATERIALS_LEGEND}</span>
+          </div>
+        </>
       ) : null}
     </AdminShell>
   )

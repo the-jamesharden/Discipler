@@ -22,12 +22,7 @@ export const PROGRAMS = '📚 Programs'
 export const NO_MATERIALS_YET =
   "No materials yet. Create one, then assign it from its folder or from a group's card on Intake forms."
 
-export const NO_PAIRS_MATCH_FILTER = 'No pairs or groups match this filter.'
-
 export const NO_PROGRAM_YET = 'No program yet'
-
-export const PAIRS_GROUPS = (count: number): string =>
-  count === 1 ? '1 pairs/groups' : `${count} pairs/groups`
 
 export const MATERIALS_LEGEND =
   '📁 Folder = a program several pairs share · single tile = a unique or unassigned pair'
