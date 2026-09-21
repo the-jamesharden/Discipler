@@ -396,14 +396,19 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
     expect(drawn).toContain('Discipleship')
   })
 
-  it('shows the offer on the Roster row, beside the plan it is not', async () => {
-    const { html } = await getPage('/roster', cookie)
+  it('shows the offer as a place among the Disciplers, and as no tag on the row', async () => {
+    // Answering Mentor still makes somebody a Discipler, and that list is what
+    // says so. The tag that said it again on the row went with Manual pairing,
+    // ticket 07, and no answer was ever said in its place.
+    const { html } = await getPage('/roster?list=disciplers', cookie)
+    expect(html).toMatch(/data-testid="roster-name"[^>]*>Solomon Adeyemi</)
 
-    expect(html).toContain('Offered to mentor')
-    // Only the mentor answer is said. It is the one an Admin might act on, and a
-    // word in every other row would make a column of state out of one signal.
-    expect(html).not.toContain('Asked to be mentored')
-    expect(html).not.toContain('Not asked')
+    for (const list of ['all', 'disciplers', 'disciples']) {
+      const page = await getPage(`/roster?list=${list}`, cookie)
+      expect(page.html).not.toContain('Offered to mentor')
+      expect(page.html).not.toContain('Asked to be mentored')
+      expect(page.html).not.toContain('Not asked')
+    }
   })
 
   it('shows the pairing surface whether each candidate is new to this', async () => {

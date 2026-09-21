@@ -2,12 +2,13 @@ import { describe, expect, it } from 'vitest'
 import {
   handleCommand,
   type CommandContext,
+  type RelationshipMember,
   type RelationshipSnapshot,
 } from '~/domain/boundary'
 import type { CheckInSnapshot } from '~/domain/check-in'
 import { createTestClock } from '~/domain/clock'
 import type { Effect } from '~/domain/effects'
-import { GroupRefused, IntakeRefused, PairingRefused } from '~/domain/errors'
+import { GroupJoinRefused, GroupRefused, IntakeRefused, PairingRefused } from '~/domain/errors'
 import {
   createSequentialIds,
   followUpItemId,
@@ -35,7 +36,23 @@ const emily = personId('00000000-0000-4000-8000-0000000000e1')
 
 const now = new Date('2026-03-09T09:00:00Z')
 
-const tuesdayGroup = (over: Partial<RelationshipSnapshot> = {}): RelationshipSnapshot => ({
+const ruthLeading: RelationshipMember = {
+  personId: ruth,
+  role: 'leader',
+  fullName: 'Ruth Adeyemi',
+  phone: '+15550101',
+  acceptedAt: new Date('2026-03-02T09:00:00Z'),
+}
+
+const emilyInIt: RelationshipMember = {
+  personId: emily,
+  role: 'participant',
+  fullName: 'Emily Johnson',
+  phone: '+15550200',
+  acceptedAt: null,
+}
+
+const tuesdayGroup =(over: Partial<RelationshipSnapshot> = {}): RelationshipSnapshot => ({
   relationshipId: group,
   createdAt: new Date('2026-03-01T09:00:00Z'),
   acceptedAt: new Date('2026-03-02T09:00:00Z'),
@@ -44,10 +61,7 @@ const tuesdayGroup = (over: Partial<RelationshipSnapshot> = {}): RelationshipSna
   joinRequiresApproval: false,
   declaredGender: 'female',
   pause: null,
-  members: [
-    { personId: ruth, role: 'leader', fullName: 'Ruth Adeyemi', phone: '+15550101' },
-    { personId: emily, role: 'participant', fullName: 'Emily Johnson', phone: '+15550200' },
-  ],
+  members: [ruthLeading, emilyInIt],
   ...over,
 })
 
@@ -387,8 +401,8 @@ describe('an Admin admitting somebody who asked', () => {
     const { effects } = admit({
       relationship: tuesdayGroup({
         members: [
-          { personId: ruth, role: 'leader', fullName: 'Ruth Adeyemi', phone: '+15550101' },
-          { personId: priya, role: 'participant', fullName: 'Priya Raman', phone: '+15550400' },
+          ruthLeading,
+          { personId: priya, role: 'participant', fullName: 'Priya Raman', phone: '+15550400', acceptedAt: null },
         ],
       }),
     })

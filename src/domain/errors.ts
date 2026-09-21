@@ -60,6 +60,11 @@ export type PairingRefusal =
   // A refusal and not a silent drop, because an Admin who picked a Material and got
   // a relationship without one has been told nothing went wrong.
   | 'relationship.material_is_not_on_the_list'
+  // Manual pairing, ticket 21. Asked for as separate one-to-ones, and not one
+  // Discipler with two or more Disciples. One Disciple is a one-to-one and needs no
+  // mode; several Disciplers cannot be split into pairs without deciding who goes
+  // with whom, which no screen asks. About the submission and not about a Person.
+  | 'relationship.separate_needs_one_leader_and_several_participants'
 
 /**
  * Every code above, as a list, so a refusal read back from a row -- a refused
@@ -84,6 +89,7 @@ export const PAIRING_REFUSALS: readonly PairingRefusal[] = [
   'relationship.needs_a_name',
   'relationship.already_has_a_leader',
   'relationship.material_is_not_on_the_list',
+  'relationship.separate_needs_one_leader_and_several_participants',
 ]
 
 export const isPairingRefusal = (value: unknown): value is PairingRefusal =>
@@ -488,6 +494,45 @@ export class GroupRefused extends Error {
   constructor(readonly refusal: GroupRefusal) {
     super(refusal)
     this.name = 'GroupRefused'
+  }
+}
+
+/**
+ * Why an Admin could not put somebody into a group that already exists (Manual
+ * pairing, ticket 22). A family of its own rather than more `GroupRefusal`s,
+ * because it is a separate act worded on a separate surface: those are said on
+ * Intake forms about naming a group, and these on the Roster about joining one.
+ *
+ * These are the ones decided from what the command read. The rules formation is
+ * held to -- Intake completed, not opted out, the group's declared gender -- are
+ * the database's here as they are there, and reach the same surface as a
+ * `PairingRefused`, because they are the same rule refusing the same insert.
+ */
+export type GroupJoinRefusal =
+  /** Nothing this Ministry holds answers to that id: no such group, or another Ministry's. */
+  | 'joining.group_not_found'
+  | 'joining.group_has_ended'
+  /** A one-to-one. It holds one Disciple, and adding a second is not how a group is made. */
+  | 'joining.not_a_group'
+  /** Nobody this Ministry holds answers to that id: no such Person, or another Ministry's. */
+  | 'joining.person_not_found'
+  /** Already in it, leading it or being discipled in it. */
+  | 'joining.already_in_the_group'
+  /**
+   * A Discipler leads one group at a time, and this one already leads an open
+   * one. Decided by `leader_one_open_group`, which alone can see their other
+   * relationships, and translated where it is caught. A code of this act's own
+   * rather than the pairing's, because the sentence is about one named Person
+   * and not about a selection on a form.
+   */
+  | 'joining.already_leads_a_group'
+  /** The form said neither *as a Disciple* nor *as a leader*. Decided by the route. */
+  | 'joining.role_not_recognised'
+
+export class GroupJoinRefused extends Error {
+  constructor(readonly refusal: GroupJoinRefusal) {
+    super(refusal)
+    this.name = 'GroupJoinRefused'
   }
 }
 

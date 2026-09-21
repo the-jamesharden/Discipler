@@ -22,6 +22,7 @@ import {
   type AccountFixture,
   type MinistryFixture,
 } from '../support/local-supabase'
+import { asDocument, asRows } from '../support/page-document'
 
 /**
  * The Materials tab answers in one read (`.scratch/materials/spec.md`, ticket
@@ -45,9 +46,6 @@ const orderless = (doc: Record<string, unknown>): Record<string, unknown> =>
         : value,
     ]),
   )
-
-const asDocument = (data: unknown) => data as Record<string, unknown>
-const asRows = (data: unknown) => data as Record<string, unknown>[]
 
 describe('the Materials tab answers in one read', () => {
   let ministry: MinistryFixture

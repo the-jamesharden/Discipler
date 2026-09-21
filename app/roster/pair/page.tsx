@@ -1,11 +1,14 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { readPairingMode } from '~/domain/separate-pairings'
 import { getRosterReader } from '~/service/container'
 import { AccountMenu, PageShell } from '../../shell'
 import { firstTimeLabel, pairingRefusalMessage,
   PAIR_PEOPLE,
+  refusalAboutOneOfASet,
 } from '../copy'
 import { DECLARED_GENDER_OPTIONS } from '../declared-gender'
+import { materialFieldFor, readMaterialPerDisciple } from './material-per-disciple'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,6 +38,8 @@ export default async function PairPage({
     name?: string | string[]
     joinRequiresApproval?: string | string[]
     error?: string
+    about?: string | string[]
+    mode?: string | string[]
   }>
 }) {
   const page = await getRosterReader().readRosterPage('pair')
@@ -43,7 +48,32 @@ export default async function PairPage({
   const { admin } = page
   const { roster } = page.page
   const query = await searchParams
-  const refusal = pairingRefusalMessage(query.error)
+
+  /**
+   * A submission refused as separate one-to-ones comes back saying so (Manual
+   * pairing, ticket 21), and the form sends it again: corrected and resubmitted
+   * without it, the same people would form one group. No control for it here. The
+   * popup's N x 1:1 segment is where an Admin chooses it.
+   */
+  const mode = readPairingMode([query.mode ?? []].flat()[0])
+
+  /**
+   * And every Material it named for a Disciple comes back with it (Manual pairing,
+   * recut ticket 02), sent again the same way and for the same reason. No control
+   * for these here either: the popup's dropdown per Disciple is where they are chosen.
+   */
+  const materialPerDisciple = mode === 'separate' ? [...readMaterialPerDisciple(Object.entries(query))] : []
+
+  /**
+   * Which of several Disciples the refusal is about. Found on the whole Roster and
+   * not among the candidates, because what refused them may be what stopped them
+   * being one, and the name is read from there and never from the address.
+   */
+  const aboutId = [query.about ?? []].flat()[0]
+  const about = roster.find((person) => person.personId === aboutId)
+  const refusalSaid = pairingRefusalMessage(query.error)
+  const refusal =
+    refusalSaid !== undefined && about ? refusalAboutOneOfASet(about.fullName, refusalSaid) : refusalSaid
 
   /**
    * Everyone Intake has cleared and who has not opted out. Deliberately *not*
@@ -140,6 +170,10 @@ export default async function PairPage({
           </p>
 
           <form method="post" action="/roster/pair/create">
+            {mode === 'separate' ? <input type="hidden" name="mode" value={mode} /> : null}
+            {materialPerDisciple.map(([personId, chosen]) => (
+              <input key={personId} type="hidden" name={materialFieldFor(personId)} value={chosen} />
+            ))}
             {/*
               Checkboxes rather than a radio, because a group may be led by several
               people. The `required` a radio carried is gone with it: a checkbox set

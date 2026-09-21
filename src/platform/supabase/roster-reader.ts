@@ -10,6 +10,7 @@ import { DECLARED_SIDES, GENDERS, isOneOf, type DeclaredSide, type Gender } from
 import { systemClock, type Clock } from '~/domain/clock'
 import type {
   AccountOnTheRoster,
+  GroupToJoin,
   IssuedIntakeLink,
   MaterialOption,
   RosterEntry,
@@ -23,13 +24,17 @@ import type { NameOnTheNumber } from '~/domain/roster'
 import { careNeededFrom } from './care-needed-reader'
 import { adminPage, list, readPageDocument, section, type PageDocument } from './page'
 import { liveMaterialRows } from './materials-reader'
-import { historyOf } from './relationship-history'
+import { settledStateOf } from '~/domain/relationship-state'
+import type { StandingPause } from '~/domain/pause'
+import { historyOf, instant, pausesFrom } from './relationship-history'
 import { createSupabaseServerClient } from './server-client'
 
 interface MemberRow {
   person_id: string
   relationship_id: string
   role: MemberRole
+  /** A Leader's own agreement to lead. Null on a Participant, and on a Leader who has not yet. */
+  accepted_at: string | null
 }
 
 /**
@@ -169,11 +174,31 @@ export const rosterFrom = (doc: PageDocument): readonly RosterEntry[] => {
   // The rows the function gave are exactly the relationships the memberships
   // name, rather than the Ministry's whole set, so this list cannot hold a row
   // the memberships did not already name.
-  const acceptedById = new Map(
-    (list(roster, 'relationships') as unknown as { id: string; accepted_at: string | null }[]).map(
-      (row) => [row.id, row.accepted_at !== null],
-    ),
-  )
+  const relationshipRows = list(roster, 'relationships') as unknown as {
+    id: string
+    accepted_at: string | null
+    counts_as_a_group?: unknown
+  }[]
+  const acceptedById = new Map(relationshipRows.map((row) => [row.id, row.accepted_at !== null]))
+
+  /**
+   * Which of the two participation caps each relationship counts against, as the
+   * document says it (Manual pairing, recut ticket 02). The database declared it
+   * when the relationship was formed, and this reader is told the answer and
+   * never the kind it came from, which nothing here may read (ADR-0004).
+   *
+   * A document without the key is drift, thrown like the rest of it here: read as
+   * absent it would say *one-to-one* about every group, and the popup would grey
+   * everybody in one as already paired.
+   */
+  const capById = new Map(relationshipRows.map((row) => [row.id, row.counts_as_a_group]))
+  const countsAsAGroup = (relationship: string): boolean => {
+    const answer = capById.get(relationship)
+    if (typeof answer !== 'boolean') {
+      throw new Error(`A Roster relationship arrived without saying which cap it counts against: ${relationship}`)
+    }
+    return answer
+  }
 
   /**
    * The two reads are policed by predicates written to mirror each other -- a
@@ -190,6 +215,23 @@ export const rosterFrom = (doc: PageDocument): readonly RosterEntry[] => {
       throw new Error(`A Roster membership named a relationship that did not come back: ${relationship}`)
     }
     return !accepted
+  }
+
+  /**
+   * Whether this row's own Leader is still to accept, on a relationship that may
+   * already be running: a Discipler an Admin added to a group since it started
+   * (Manual pairing, ticket 22). Until then activation was the last Leader
+   * accepting, so a running relationship had no such Leader and the
+   * relationship's own date said everything.
+   *
+   * A document without the key is drift, thrown like the rest of it here: read as
+   * absent it would say *accepted* about somebody who has agreed to nothing.
+   */
+  const stillToAccept = (membership: MemberRow): boolean => {
+    if (membership.accepted_at === undefined) {
+      throw new Error('A Roster membership came back without its own acceptance')
+    }
+    return membership.role === 'leader' && membership.accepted_at === null
   }
 
   // The pairings an import planned, still standing or refused and unresolved,
@@ -222,8 +264,16 @@ export const rosterFrom = (doc: PageDocument): readonly RosterEntry[] => {
       ]
     })
 
+  // Who each relationship is said to hold, which is what every row names. A
+  // Discipler added to a group that was already running is not one of its Leaders
+  // until they accept (Manual pairing, ticket 22), so nobody else's row names
+  // them. Their own row still carries the group, from `memberships`, marked as
+  // awaiting their acceptance.
   const byRelationship = new Map<string, MemberRow[]>()
   for (const row of memberships) {
+    if (row.role === 'leader' && stillToAccept(row) && !awaitingAcceptanceOf(row.relationship_id)) {
+      continue
+    }
     byRelationship.set(row.relationship_id, [
       ...(byRelationship.get(row.relationship_id) ?? []),
       row,
@@ -252,7 +302,8 @@ export const rosterFrom = (doc: PageDocument): readonly RosterEntry[] => {
       .map((membership) => ({
         relationshipId: relationshipId(membership.relationship_id),
         role: membership.role,
-        awaitingAcceptance: awaitingAcceptanceOf(membership.relationship_id),
+        awaitingAcceptance:
+          awaitingAcceptanceOf(membership.relationship_id) || stillToAccept(membership),
         withNames: [
           ...new Set(
             (byRelationship.get(membership.relationship_id) ?? []).flatMap((other) =>
@@ -265,6 +316,7 @@ export const rosterFrom = (doc: PageDocument): readonly RosterEntry[] => {
         participantCount: (byRelationship.get(membership.relationship_id) ?? []).filter(
           (member) => member.role === 'participant',
         ).length,
+        countsAsAGroup: countsAsAGroup(membership.relationship_id),
       }))
       // Led relationships first, then the ones they are in as a Participant, and
       // alphabetically within each. A stable order, so a Roster read twice reads
@@ -378,30 +430,121 @@ const suggestGenderMatchFrom = (doc: PageDocument): boolean => {
   return setting
 }
 
+/** A list of ids and nothing else, narrowed by the check rather than promised by a cast. */
+const isListOfIds = (value: unknown): value is readonly string[] =>
+  Array.isArray(value) && value.every((each) => typeof each === 'string' && each !== '')
+
+/**
+ * The groups an Admin could put somebody into, off the key `pair_page` carries:
+ * every open relationship with two or more Disciples, in the order the function
+ * gave them.
+ *
+ * Checked field by field, as a Roster row is. These are rows an Admin is about to
+ * put a Person into, and each field decides something on the popup: the members
+ * decide whether the group is offered at all, the declaration whether it is
+ * greyed, the state what the row says beside its name.
+ */
+const groupsFrom = (
+  doc: PageDocument,
+  pauses: ReadonlyMap<string, StandingPause>,
+): readonly GroupToJoin[] =>
+  list(doc, 'groups').map((row) => {
+    const {
+      id,
+      name,
+      declared_gender: declaredGender,
+      accepted_at: acceptedAt,
+      disciple_count: discipleCount,
+      member_ids: memberIds,
+      leaders,
+    } = row
+
+    if (typeof id !== 'string' || id === '') throw new Error('A group arrived with no id')
+    // Nullable, and null is a real answer: nobody has named this group, and
+    // nothing here names it for them. The column refuses a blank one, so a blank
+    // or a missing key is the function and this reader having drifted apart.
+    if (name !== null && (typeof name !== 'string' || name.trim() === '')) {
+      throw new Error(`A group arrived with no answer about its name: ${id}`)
+    }
+    // Null is *mixed*, which is an answer and opens the group to everybody. The
+    // key missing must not read as that: a men's group shown as mixed would offer
+    // an Admin a row the database is about to refuse.
+    if (declaredGender !== null && !isOneOf(GENDERS, declaredGender)) {
+      throw new Error(`A group arrived with no answer about its declared gender: ${id}`)
+    }
+    // Null is Awaiting Leader Acceptance, which is an answer. The key missing or
+    // holding something that is not an instant must not read as either one.
+    // `instant` hands back an Invalid Date for a string that is not one, so the
+    // time is asked for too: read as accepted, a group nobody has agreed to lead
+    // would be shown as running.
+    const accepted = acceptedAt === null ? null : instant(acceptedAt)
+    if (acceptedAt !== null && (accepted === null || Number.isNaN(accepted.getTime()))) {
+      throw new Error(`A group arrived with no answer about its acceptance: ${id}`)
+    }
+    // SQL batches and TypeScript derives (ADR-0023): the one definition of
+    // awaiting and paused, asked of this row and of the Pause standing on it in
+    // the same document, so the popup and the Overview cannot disagree. The
+    // function lists no ended group, and `ended` coming back would be this
+    // reader having handed it an ending it was never given.
+    const state = settledStateOf({
+      endedAt: null,
+      acceptedAt: accepted,
+      pausedAt: pauses.get(id)?.pausedAt ?? null,
+    })
+    if (state === 'ended') throw new Error(`A listed group read as ended: ${id}`)
+    // The function lists nothing with fewer than two, so fewer here is drift too.
+    if (typeof discipleCount !== 'number' || !Number.isInteger(discipleCount) || discipleCount < 2) {
+      throw new Error(`A group arrived without its count of Disciples: ${id}`)
+    }
+    if (!isListOfIds(memberIds)) throw new Error(`A group arrived without who is in it: ${id}`)
+    if (!Array.isArray(leaders)) throw new Error(`A group arrived without its leaders: ${id}`)
+
+    return {
+      relationshipId: relationshipId(id),
+      name,
+      leaders: leaders.map((raw) => {
+        const { id: leader, full_name: fullName } = (raw ?? {}) as Record<string, unknown>
+        if (typeof leader !== 'string' || leader === '' || typeof fullName !== 'string' || fullName === '') {
+          throw new Error(`A group arrived with a leader who has no id or no name: ${id}`)
+        }
+        return { personId: personId(leader), fullName }
+      }),
+      discipleCount,
+      declaredGender,
+      state,
+      memberIds: memberIds.map(personId),
+    } satisfies GroupToJoin
+  })
+
 /**
  * Everything the three surfaces derive, from the document of the one named.
  * Exported so a test can drive the derivation with a real session rather than a
  * Next.js request context.
  *
- * The setting and the Materials are the Pair page's and ride in its document
- * alone. The Roster and the person page read a document without them, and are
- * told enforced and nothing to offer -- true and not false, deliberately, for the
+ * The setting, the Materials and the groups are the Pair page's and ride in its
+ * document alone. The Roster and the person page read a document without them,
+ * and are told enforced and nothing to offer -- true and not false, deliberately, for the
  * reason `suggestGenderMatchFrom` gives. The Pair page's own document arriving
  * without them is a different thing and is thrown for: a form that quietly
  * offered no Materials is the wrong answer shown confidently.
  */
-export const rosterPageFrom = (doc: PageDocument, clock: Clock, surface: RosterSurface): RosterPage => ({
-  roster: rosterFrom(doc),
-  held: heldImportRowsFrom(doc),
-  followUpCount: careNeededFrom(historyOf(doc), clock).length,
-  suggestGenderMatch: surface === 'pair' ? suggestGenderMatchFrom(doc) : true,
-  // Id and title, which is what a select needs. One definition of *live*, shared
-  // with the Materials tab, so the two cannot disagree about what is on offer.
-  materials:
-    surface === 'pair'
-      ? liveMaterialRows(doc).map(({ materialId, title }): MaterialOption => ({ materialId, title }))
-      : [],
-})
+export const rosterPageFrom = (doc: PageDocument, clock: Clock, surface: RosterSurface): RosterPage => {
+  // Parsed once, for the badge's count and for the Pauses the groups are read against.
+  const history = historyOf(doc)
+  return {
+    roster: rosterFrom(doc),
+    held: heldImportRowsFrom(doc),
+    followUpCount: careNeededFrom(history, clock).length,
+    suggestGenderMatch: surface === 'pair' ? suggestGenderMatchFrom(doc) : true,
+    // Id and title, which is what a select needs. One definition of *live*, shared
+    // with the Materials tab, so the two cannot disagree about what is on offer.
+    materials:
+      surface === 'pair'
+        ? liveMaterialRows(doc).map(({ materialId, title }): MaterialOption => ({ materialId, title }))
+        : [],
+    groups: surface === 'pair' ? groupsFrom(doc, pausesFrom(history)) : [],
+  }
+}
 
 /**
  * Built with a clock rather than reaching for one, because the badge's number is
@@ -413,8 +556,8 @@ export const createSupabaseRosterReader = (clock: Clock = systemClock): RosterRe
   /**
    * One read for the Roster, the held import rows and the badge's number: all
    * three derive from one document. The person page reads the same one under its
-   * own name, and the Pair page reads it with the setting and the Materials
-   * beside it; each takes what it needs.
+   * own name, and the Pair page reads it with the setting, the Materials and
+   * the groups beside it; each takes what it needs.
    */
   async readRosterPage(surface) {
     const doc = await readPageDocument(await createSupabaseServerClient(), `${surface}_page`)

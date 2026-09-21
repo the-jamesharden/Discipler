@@ -241,6 +241,56 @@ describe('the scheduled tick', () => {
     expect(await openItemsOn(relationship)).toHaveLength(0)
   })
 
+  it('closes the item when the Leader it was waiting for accepts late, with no Admin on it', async () => {
+    // Left open it would go on saying somebody has not accepted who has, beside a
+    // Cancel the relationship now refuses. Nobody is left to answer, so the
+    // acceptance closes it, and a later tick has nothing to raise again.
+    await restart()
+    const leader = await roster('Ingrid Holm')
+    const relationship = await pair(leader, await roster('Jonas Beck'))
+
+    on(days(5))
+    await tick()
+    const [item] = await openItemRowsOn(relationship)
+    expect(item).toBeDefined()
+
+    const { rows } = await pool.query<{ token: string }>(
+      `select token from invitation where person_id = $1 and consumed_at is null`,
+      [leader],
+    )
+    const { data, error } = await serviceRoleClient().auth.admin.createUser({
+      email: `leader-${crypto.randomUUID()}@example.test`,
+      password: 'a-long-enough-password',
+      email_confirm: true,
+    })
+    if (error) throw new Error(error.message)
+
+    on(days(6))
+    await service().execute({
+      type: 'relationship.accept',
+      ministryId: ministry.id,
+      token: invitationToken(rows[0]!.token),
+      fullName: 'Ingrid Holm',
+      userId: data.user.id,
+    })
+
+    expect(await openItemsOn(relationship)).toHaveLength(0)
+    const { rows: closed } = await pool.query<{ resolved: boolean; resolved_by: string | null }>(
+      `select resolved_at is not null as resolved, resolved_by from follow_up_item where id = $1`,
+      [item!.id],
+    )
+    expect(closed).toEqual([{ resolved: true, resolved_by: null }])
+    const { rows: recorded } = await pool.query<{ payload: unknown }>(
+      `select payload from ministry_event where subject_id = $1 and type = 'follow_up.resolved'`,
+      [item!.id],
+    )
+    expect(recorded).toEqual([{ payload: { resolvedBy: null, by: 'acceptance' } }])
+
+    on(days(30))
+    await tick()
+    expect(await openItemsOn(relationship)).toHaveLength(0)
+  })
+
   it('is not brought down for a whole Ministry by one Leader who opted out', async () => {
     await restart()
     const silent = await roster('Kofi Mensah')

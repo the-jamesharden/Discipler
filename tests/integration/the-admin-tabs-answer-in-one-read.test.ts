@@ -16,6 +16,7 @@ import {
   type AccountFixture,
   type MinistryFixture,
 } from '../support/local-supabase'
+import { asDocument, asRows } from '../support/page-document'
 
 /**
  * A page is one read. Each Admin tab has one SQL function that answers the whole
@@ -32,9 +33,6 @@ const TABS = [
   'follow_up_page',
   'roster_page',
 ] as const
-
-const asDocument = (data: unknown) => data as Record<string, unknown>
-const asRows = (data: unknown) => data as Record<string, unknown>[]
 
 describe('the Admin tabs answer in one read', () => {
   let ministry: MinistryFixture
@@ -86,7 +84,9 @@ describe('the Admin tabs answer in one read', () => {
     // they saw before the page became one read.
     const members = await admin
       .from('relationship_member')
-      .select('relationship_id, person_id, role')
+      // Each membership's own acceptance rides along: who counts as leading a
+      // running relationship is derived from it (Manual pairing, ticket 22).
+      .select('relationship_id, person_id, role, accepted_at')
       .eq('ministry_id', ministry.id)
       .is('ended_at', null)
     expect(asRows(history.members)).toEqual(expect.arrayContaining(asRows(members.data)))
@@ -147,14 +147,19 @@ describe('the Admin tabs answer in one read', () => {
 
     const members = await admin
       .from('relationship_member')
-      .select('person_id, relationship_id, role')
+      // Each membership's own acceptance rides along (Manual pairing, ticket 22).
+      .select('person_id, relationship_id, role, accepted_at')
       .eq('ministry_id', ministry.id)
       .is('ended_at', null)
     expect(asRows(roster.members)).toEqual(expect.arrayContaining(asRows(members.data)))
 
     // The relationships the memberships name, and only those, with the one column
-    // the Roster derives Awaiting Leader Acceptance from.
-    expect(asRows(roster.relationships)).toEqual([{ id: relationship, accepted_at: expect.any(String) }])
+    // the Roster derives Awaiting Leader Acceptance from, and which participation
+    // cap each counts against (Manual pairing, recut ticket 02): the answer, and
+    // never the kind it came from. This one is a one-to-one.
+    expect(asRows(roster.relationships)).toEqual([
+      { id: relationship, accepted_at: expect.any(String), counts_as_a_group: false },
+    ])
 
     const planned = await admin.rpc('intended_pairings', { target_ministry_id: ministry.id })
     expect(roster.intended_pairings).toEqual(planned.data)
@@ -169,7 +174,12 @@ describe('the Admin tabs answer in one read', () => {
     )
     const lee = entries.find((entry) => entry.fullName === 'Lee Leader')!
     expect(lee.relationships).toEqual([
-      expect.objectContaining({ role: 'leader', withNames: ['Pat Participant'], awaitingAcceptance: false }),
+      expect.objectContaining({
+        role: 'leader',
+        withNames: ['Pat Participant'],
+        awaitingAcceptance: false,
+        countsAsAGroup: false,
+      }),
     ])
   })
 

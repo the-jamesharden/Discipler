@@ -202,6 +202,32 @@ const oneEntryPerWeek = (
   return [...byWeek.values()].sort((a, b) => a.week.localeCompare(b.week))
 }
 
+/** The three states nothing in a relationship's weeks can argue with. */
+export type SettledRelationshipState = Extract<
+  RelationshipState,
+  'ended' | 'awaiting_leader_acceptance' | 'paused'
+>
+
+/**
+ * Which of the three a relationship is in, or null where its weeks decide. In
+ * the order they win: Ended is terminal; a relationship nobody has accepted has
+ * sent no check-ins and has nothing running to pause; and Paused masks the
+ * derived state so a Leader stepping back for a season does not appear in the
+ * care queue.
+ *
+ * Its own function so that a surface which needs only this much -- the groups an
+ * Admin could put somebody into say *awaiting* or *paused* and nothing else --
+ * asks the same question `deriveRelationshipState` does, and not a copy of it.
+ */
+export const settledStateOf = (
+  history: Pick<RelationshipHistory, 'endedAt' | 'acceptedAt' | 'pausedAt'>,
+): SettledRelationshipState | null => {
+  if (history.endedAt !== null) return 'ended'
+  if (history.acceptedAt === null) return 'awaiting_leader_acceptance'
+  if (history.pausedAt !== null) return 'paused'
+  return null
+}
+
 export const deriveRelationshipState = (
   history: RelationshipHistory,
   now: Date,
@@ -216,13 +242,9 @@ export const deriveRelationshipState = (
     openConcerns,
   })
 
-  // The three states nothing in the history can argue with, in the order they
-  // win. Ended is terminal; Paused masks the derived state so a Leader stepping
-  // back for a season does not appear in the care queue; and a relationship
-  // nobody has accepted has sent no check-ins and accrued no silence.
-  if (history.endedAt !== null) return settled('ended')
-  if (history.acceptedAt === null) return settled('awaiting_leader_acceptance')
-  if (history.pausedAt !== null) return settled('paused')
+  // The three states nothing in the history can argue with, in the order they win.
+  const standing = settledStateOf(history)
+  if (standing !== null) return settled(standing)
 
   const weeks = oneEntryPerWeek(history.weeks.filter(isDetermined), history.timeZone)
 
@@ -242,7 +264,10 @@ export const deriveRelationshipState = (
   const lastHeardFrom =
     weeks.reduce<Date | null>((latest, week) => week.answeredAt ?? latest, null) ??
     weeks[0]?.openedAt ??
-    history.acceptedAt
+    // Never null here: `settledStateOf` answered *awaiting* for a relationship
+    // nobody accepted. Said for the compiler, which cannot see through the call.
+    history.acceptedAt ??
+    now
 
   const reasons: readonly CareReason[] =
     silentWeeks >= UNANSWERED_WEEKS_BEFORE_STALLED

@@ -82,7 +82,12 @@ export interface KeywordRelationship {
   readonly role: MemberRole
   /** `relationship.created_at`. Earliest first, so a menu numbers the same way twice. */
   readonly startedAt: Date
-  /** Null while it is Awaiting Leader Acceptance. */
+  /**
+   * Null while it is Awaiting Leader Acceptance -- and, for a Person who leads it,
+   * while *they* have not accepted it, though the relationship is running: a
+   * Discipler an Admin added to a group since it started (Manual pairing, ticket
+   * 22). Accepted, for whoever holds it, is the fact a keyword needs.
+   */
   readonly acceptedAt: Date | null
   /**
    * Null while it is live. Carried rather than filtered out, because an exchange
@@ -99,8 +104,9 @@ export interface KeywordRelationship {
 /**
  * One member of a relationship a keyword names. The same three facts every other
  * snapshot in the domain carries about somebody a message may reach, and no
- * acceptance date -- a keyword acts on the relationship, never on one Leader's
- * agreement to lead it.
+ * acceptance date: who counts as one of a relationship's Leaders is settled by the
+ * read, which leaves out a Leader added to a running group who has not accepted
+ * (Manual pairing, ticket 22), so nothing here has to ask.
  */
 export interface KeywordMember {
   readonly personId: PersonId
@@ -245,7 +251,10 @@ export const eligibleFor = (
     if (relationship.endedAt !== null) return false
     if (keyword === 'SWAP') return true
     if (relationship.role !== 'leader') return false
-    if (keyword === 'RESUME') return relationship.paused
+    // Accepted as well as paused. A paused relationship is always a running one,
+    // so this refuses nobody it did not refuse before -- except a Leader who has
+    // not accepted it, for whom `acceptedAt` is null (Manual pairing, ticket 22).
+    if (keyword === 'RESUME') return relationship.paused && relationship.acceptedAt !== null
     return relationship.acceptedAt !== null && !relationship.paused
   })
 

@@ -1,4 +1,5 @@
-import type { ImportRowRefusal, PairingRefusal } from '~/domain/errors'
+import type { GroupJoinRefusal, ImportRowRefusal, PairingRefusal } from '~/domain/errors'
+import { asList } from '~/domain/outbound-copy'
 import type { ParticipationStatus } from '~/domain/participation'
 import type { RowProblem } from '~/domain/roster'
 import {
@@ -8,6 +9,8 @@ import {
   plannedAs,
   type RosterFacts,
 } from './lists'
+import type { Greyed } from './greying'
+import type { PairShape, ReadAs, ShapeRuledOut } from './pair-shape'
 import type { ImportFailure } from './report'
 
 /**
@@ -28,41 +31,58 @@ export const participationStatusLabel: Record<ParticipationStatus, string> = {
 }
 
 /**
- * The two lists the Roster is, and how each is named above its table. The words
+ * The three lists the Roster is, and how each is named above its table. The words
  * are the product's own (ticket 36): a pastor thinks in who disciples whom, and
  * the model's Leader and Participant are for the code.
+ *
+ * All is everybody once, and is where the Roster opens (Manual pairing, ticket
+ * 06): a pastor looking for one person should not have to know which side they
+ * are on first. The two sides are the lists a person is on in one role.
  */
-export type RosterList = 'disciplers' | 'disciples'
-export const ROSTER_LISTS: readonly RosterList[] = ['disciplers', 'disciples']
+export type RosterSide = 'disciplers' | 'disciples'
+export type RosterList = 'all' | RosterSide
+export const ROSTER_LISTS: readonly RosterList[] = ['all', 'disciplers', 'disciples']
 export const isRosterList = (value: unknown): value is RosterList =>
-  value === 'disciplers' || value === 'disciples'
+  value === 'all' || value === 'disciplers' || value === 'disciples'
+
+/** Where the Roster opens, and what an address that names no list of ours shows. */
+export const DEFAULT_LIST: RosterList = 'all'
 
 export const LIST_LABEL: Record<RosterList, string> = {
-  disciplers: 'All Disciplers',
-  disciples: 'All Disciples',
+  all: 'All',
+  disciplers: 'Disciplers',
+  disciples: 'Disciples',
 }
 
-/** The column heading over the names, which is the list's own word. */
+/** The column heading over the names: the side's own word, and on All a word for people. */
 export const LIST_HEADING: Record<RosterList, string> = {
+  all: 'Name',
   disciplers: 'Discipler',
   disciples: 'Disciple',
 }
 
-/** *49 disciplers total*, at the top right, in the prototype's own words. */
-export const listCount = (list: RosterList, count: number): string =>
-  count === 1
-    ? `1 ${list === 'disciplers' ? 'discipler' : 'disciple'} total`
-    : `${count} ${list} total`
+const LIST_NOUN: Record<RosterList, readonly [one: string, many: string]> = {
+  all: ['person', 'people'],
+  disciplers: ['discipler', 'disciplers'],
+  disciples: ['disciple', 'disciples'],
+}
 
-/** The four numbers under the toggle, each a bold count and a word. */
+/** *49 disciplers total*, at the top right, in the prototype's own words; *49 people total* on All. */
+export const listCount = (list: RosterList, count: number): string =>
+  `${count} ${LIST_NOUN[list][count === 1 ? 0 : 1]} total`
+
+/**
+ * The three numbers under the toggle, each a bold count and a word. *In groups*
+ * left with Manual pairing, ticket 06: it means something only within one side.
+ */
 export const STATS_LABEL = {
   total: 'total',
   paired: 'paired',
   unpaired: 'unpaired',
-  inGroups: 'in groups',
 } as const
 
-export const EMPTY_LIST: Record<RosterList, string> = {
+/** All has no sentence of its own: with nobody on it the Roster itself is empty, and says so. */
+export const EMPTY_LIST: Record<RosterSide, string> = {
   disciplers:
     'No disciplers yet. Somebody becomes one when they disciple somebody, or when they offer to on the Intake form.',
   disciples: 'No disciples yet. Everyone on the Roster who is not a discipler is here.',
@@ -78,9 +98,113 @@ export const AWAITING_INTAKE = 'awaiting Intake'
 export const NOT_MADE = 'not made'
 export const SEE_FOLLOW_UP = 'see Follow-Up'
 
+/** The Pair page's title. No button says it any more: every pairing starts from a row (Manual pairing, ticket 07). */
 export const PAIR_PEOPLE = 'Pair people'
 export const PAIR = 'Pair'
 export const UNPAIRED = 'Unpaired'
+
+/**
+ * Why a row offers no Pair, said in its Paired with cell where the button would
+ * have been (Manual pairing, ticket 07). Not a status column: the reason there is
+ * nothing to press, now that no chip under the name explains it.
+ */
+export type NotPairable = 'awaiting_intake' | 'opted_out'
+export const CANNOT_BE_PAIRED: Record<NotPairable, string> = {
+  awaiting_intake: 'Awaiting Intake',
+  opted_out: 'Opted out',
+}
+
+/**
+ * The Pair popup over the Roster, opened from a Disciple's row (Manual pairing,
+ * ticket 12). A sentence says exactly what is about to be made and the button is
+ * the same act; with nothing chosen there is no sentence and the button reads what
+ * the row's did. Cancel and Clear are the import dialog's own words.
+ */
+/** A group as a Disciple's row names it: what the Ministry calls it, and who leads it where nobody has named it. */
+export interface GroupOnARow {
+  readonly name: string | null
+  readonly leaders: readonly { readonly fullName: string }[]
+}
+
+/** A first name out of the one `full_name` Discipler holds. Splitting it is a copy decision, so it is made here. */
+const firstNameOf = (fullName: string): string => fullName.trim().split(/\s+/)[0] ?? ''
+
+export const PAIR_POPUP = {
+  title: (fullName: string): string => `Pair ${fullName}`,
+  chooseADiscipler: (disciple: string): string => `Choose who will disciple ${disciple}.`,
+  disciplers: (count: number): string => (count === 1 ? '1 discipler' : `${count} disciplers`),
+  /** People, across everything they lead: a group of three is three. */
+  leads: (people: number): string => (people === 0 ? 'leads nobody yet' : `leads ${people}`),
+  oneToOne: (discipler: string, disciple: string): string =>
+    `${discipler} will disciple ${disciple} in a one-on-one.`,
+  createOneToOne: 'Create 1:1 pair',
+  nothingChosen: PAIR,
+  noDisciplers: 'There is nobody to choose yet. Somebody becomes a discipler when they offer to on the Intake form.',
+  close: 'Close',
+  /**
+   * From a Discipler (Manual pairing, ticket 23): the list is of Disciples, ticked
+   * with boxes. One tick is the one-to-one the other side makes, in the same
+   * sentence and on the same button.
+   */
+  chooseDisciples: (discipler: string): string => `Choose who ${discipler} will disciple.`,
+  disciples: (count: number): string => (count === 1 ? '1 disciple' : `${count} disciples`),
+  /** The group a Disciple is already in, on their row. One nobody has named is said by who leads it. */
+  inGroup: (group: GroupOnARow): string =>
+    `in ${group.name ?? `${asList(group.leaders.map(({ fullName }) => fullName))}’s group`}`,
+  /**
+   * Two or more ticked (Manual pairing, recut ticket 02): the toggle that asks what
+   * to make of them, the sentence and the button for each shape, and the Material
+   * dropdowns. The sentence says exactly what is about to be made and the button is
+   * the same act.
+   */
+  pairThemAs: 'Pair them as',
+  segment: (shape: PairShape, ticked: number): string =>
+    shape === 'one_to_two' ? '1:2 pair' : `${ticked} × 1:1 pairs`,
+  /** Beneath the toggle, in grey. The cap is about the Discipler, by first name as the spec has it. */
+  ruledOut: (why: ShapeRuledOut, discipler: string): string =>
+    why === 'needs_exactly_two'
+      ? '1:2 pair needs exactly two checked'
+      : `${firstNameOf(discipler)} already leads a group`,
+  /**
+   * What a 1:2 pair is called: `{First} with {First} & {First}`. A 1:2 is a group for
+   * every rule and a group is named, so the popup names it and asks nothing; the
+   * name is never shown there. It is what the weekly question calls the three.
+   */
+  nameOfAOneToTwo: (discipler: string, disciples: readonly [string, string]): string =>
+    `${firstNameOf(discipler)} with ${firstNameOf(disciples[0])} & ${firstNameOf(disciples[1])}`,
+  oneToTwo: (discipler: string, disciples: readonly string[]): string =>
+    `${discipler} will disciple ${asList(disciples)} together as a 1:2 pair.`,
+  createOneToTwo: 'Create 1:2 pair',
+  separately: (discipler: string, disciples: readonly string[]): string =>
+    `${discipler} will disciple ${asList(disciples)} separately, in ${disciples.length} one-on-ones.`,
+  createSeparately: (pairs: number): string => `Create ${pairs} 1:1 pairs`,
+  whatTheyAreRunning: 'What are they running?',
+  whatEachIsRunning: 'What is each of them running?',
+  noMaterial: 'No material',
+  /**
+   * Who a change of shape unticked, so nobody is dropped silently, and why, in the
+   * words their row was greyed with. The reason is said here and not left to the
+   * row, which may have opened again by the time this is read.
+   */
+  unticked: (fullName: string, why: string): string => `${fullName} was unticked: ${why}.`,
+  noDisciples: 'There is nobody to choose yet. Somebody can be chosen once they have completed Intake.',
+  /**
+   * Why a row cannot be chosen, on the row and in one line (Manual pairing, ticket
+   * 23). Somebody who cannot be paired reads what their Roster row already reads.
+   * The gender reason says what the one-to-one declares and never what anybody's
+   * own gender is. It opens as the mock does and is cut to fit one line at phone
+   * width, which the mock's own sentence does not. A 1:2 pair declares the
+   * Discipler's gender, and says so in the same words and the same length.
+   */
+  greyed: (greyed: Greyed, readAs: ReadAs = 'a_one_to_one'): string =>
+    greyed.why === 'already_in_a_one_to_one'
+      ? greyed.withName === null
+        ? 'Already in a 1:1'
+        : `Already in a 1:1 with ${greyed.withName}`
+      : greyed.why === 'not_pairable'
+        ? CANNOT_BE_PAIRED[greyed.reason]
+        : `${greyed.declared === 'male' ? 'Men’s' : 'Women’s'} only: a ${readAs === 'a_one_to_two' ? '1:2' : '1:1'} is same-gender`,
+} as const
 
 /** The receipt the pairing screen redirects to, said about what just happened. */
 export const pairedReceipt = (disciples: number): string =>
@@ -88,9 +212,63 @@ export const pairedReceipt = (disciples: number): string =>
     ? 'They are paired. The Discipler has been invited, and nobody else has been contacted yet.'
     : `A group of ${disciples} is paired. Its Discipler has been invited, and nobody else has been contacted yet.`
 
-/** Said plainly under the table, because the alternative is an Admin reading a Discipler who is discipled by nobody as a bug. */
-export const STATUS_FOOTNOTE =
-  'Status says whether a person is being discipled. A Discipler who is discipled by nobody reads Ready to Pair.'
+/**
+ * The receipt for a set of separate one-to-ones (Manual pairing, ticket 21). It
+ * counts the one-to-ones made and not the people in them, because the number above
+ * reads as the size of one group and three one-to-ones are not a group of three.
+ */
+export const pairedSeparatelyReceipt = (pairs: number): string =>
+  `${pairs} ${pairs === 1 ? 'one-to-one is' : 'one-to-ones are'} paired. Their Discipler has `
+  + 'been invited to each, and nobody else has been contacted yet.'
+
+/**
+ * A set that passed its check and was still stopped partway. The one outcome the
+ * set exists to avoid, so it is said as what it is: how many were made out of how
+ * many, who was not, and why where there is a why. Never the number asked for.
+ *
+ * The reason is about the first of those not paired, which is where it stopped.
+ * The names come from the Roster and never from the address.
+ */
+export const partlyPairedReceipt = ({
+  formed,
+  notPaired,
+  reason,
+}: {
+  readonly formed: number
+  readonly notPaired: readonly string[]
+  readonly reason: string | undefined
+}): string =>
+  `Only ${formed} of ${formed + notPaired.length} one-to-ones ${formed === 1 ? 'was' : 'were'} made. `
+  + `${asList(notPaired)} ${notPaired.length === 1 ? 'was' : 'were'} not paired. `
+  + (reason === undefined
+    ? 'Something went wrong partway. Pair them again from here.'
+    : `${notPaired[0] ?? 'Somebody'}: ${reason}`)
+
+/**
+ * The receipt for somebody an Admin has just put into a group (Manual pairing,
+ * ticket 22). Their name as the Roster holds it: the address carries an id, and
+ * a name is looked up, never read off the address.
+ *
+ * What happened and not what is true of the group. `told` is whether the command
+ * texted anybody: a Discipler who has not accepted the group yet is sent nothing
+ * but their invitation, so a group still awaiting them is joined in silence, and
+ * the receipt must not say somebody was told when nobody was. The Disciple is
+ * never sent anything, either way.
+ */
+export const joinedGroupReceipt = (fullName: string, told: boolean): string =>
+  `${fullName} is in the group now. `
+  + (told
+    ? 'Its Discipler has been told, and nobody else has been contacted.'
+    : 'Nobody has been contacted about it.')
+
+/**
+ * The receipt for a Discipler an Admin has just added to a group (Manual pairing,
+ * ticket 22). An invitation and not a fact about who leads: they lead nothing
+ * until they accept, and the group does not wait for them.
+ */
+export const invitedToGroupReceipt = (fullName: string): string =>
+  `${fullName} has been invited to help lead the group, and nobody else has been contacted. `
+  + 'The group carries on meanwhile.'
 
 /**
  * A number as a person reads it: a North American number as `(706) 555-0142`,
@@ -115,18 +293,16 @@ export const IMPORT_IS_NEVER_CONSENT =
   + 'until they complete Intake themselves. Importing a person is never consent.'
 
 /**
- * The one signal the declared side puts on a Roster row: this Person offered to
- * mentor somebody.
+ * What the person page says of somebody who offered to mentor on the Intake form.
+ * It was a tag on the Roster row until Manual pairing, ticket 07: the answer still
+ * makes them a Discipler, and the Disciplers list says so without a tag.
  *
  * Worded as something they did rather than as something they are. *Offered to
- * mentor* is an answer on a form; *Mentor* would read as a role somebody holds,
- * which is exactly the collapse this column must not invite -- leading is a plan an
- * Admin records in the column beside it, and this one sets nothing there.
+ * mentor* is an answer on a form; *Mentor* would read as a role somebody holds.
  *
- * The mentee answer is not said here, and the unanswered case is not said either.
- * The column exists to surface the offer an Admin might act on; a *Not asked* in
- * every other row would make a column of state out of a signal, and *asked to be
- * mentored* is what every Person on this Roster is already presumed to want.
+ * The mentee answer is not said, and the unanswered case is not said either: a
+ * *Not asked* on every other Person would make state out of a signal, and *asked
+ * to be mentored* is what every Person on this Roster is already presumed to want.
  */
 export const OFFERED_TO_MENTOR = 'Offered to mentor'
 
@@ -174,7 +350,7 @@ export const pairingSizeLabel = (disciples: number): string =>
  * paired them as one -- and this is the one sentence that says which, so a
  * Discipler reading Ready to Pair can be understood rather than reported as a bug.
  *
- * Read off the same rule the two lists are drawn from (`lists.ts`), never
+ * Read off the same rule the three lists are drawn from (`lists.ts`), never
  * re-derived here: the page behind a name on the Disciplers list must say
  * Discipler, whichever of the three facts put them there.
  */
@@ -468,6 +644,12 @@ export const REFUSALS: Record<PairingRefusal, string> = {
   'relationship.material_is_not_on_the_list':
     'That Material is no longer on this Ministry’s list. Choose another, or pair '
     + 'without one.',
+  // Manual pairing, ticket 21. About the submission and nobody in it. It says what
+  // the other shape needs as well, because the Admin it stops chose several
+  // Disciplers on purpose and the way on is a submission each.
+  'relationship.separate_needs_one_leader_and_several_participants':
+    'Pairing separately needs one Discipler and two or more people to be discipled. '
+    + 'With several Disciplers, pair each of them in turn.',
 }
 
 /**
@@ -480,4 +662,91 @@ export const pairingRefusalMessage = (code: string | undefined): string | undefi
   // A code arriving from the query string is whatever somebody typed there. It is
   // looked up, never rendered.
   return REFUSALS[code as PairingRefusal] ?? 'That pairing could not be made.'
+}
+
+/**
+ * A refusal of one one-to-one in a set of several (Manual pairing, ticket 21). The
+ * sentences above say *somebody selected*, which is enough beside one Disciple and
+ * not beside four, so the Disciple is named in front of it. And it says none of the
+ * set was made, because an Admin refused about one of four will otherwise wonder
+ * about the other three.
+ */
+export const refusalAboutOneOfASet = (fullName: string, message: string): string =>
+  `${fullName}: ${message} None of these one-to-ones was made.`
+
+/**
+ * The cap a Discipler added to a group can run into, about the Discipler by name
+ * where the Roster still holds them: the Admin chose one person, and the sentence
+ * is about that person. A function and not a constant for the name's sake, and
+ * declared as one so the `Record` below can use it. Named as a cap and not as an
+ * error, as the pairing's own sentence for it is.
+ */
+export function alreadyLeadsAGroup(fullName: string | undefined): string {
+  return `${fullName ?? 'This Discipler'} already leads a group. A Discipler leads one group at `
+    + 'a time, and any number of one-to-ones.'
+}
+
+/**
+ * Why somebody could not be put into a group that already exists (Manual pairing,
+ * ticket 22), for the refusals that act has of its own. A `Record`, so a code added
+ * to `GroupJoinRefusal` and left unworded fails the build.
+ */
+export const GROUP_JOIN_REFUSALS: Record<GroupJoinRefusal, string> = {
+  'joining.group_not_found': 'That group is not one of this Ministry’s. Choose one from the list.',
+  'joining.group_has_ended':
+    'That group has ended, so nobody can be added to it. Choose another group.',
+  'joining.not_a_group':
+    'That pairing is a one-to-one, not a group, so nobody can be added to it. Choose a group.',
+  'joining.person_not_found': 'That person is not on this Ministry’s Roster.',
+  'joining.already_in_the_group': 'They are already in this group.',
+  'joining.already_leads_a_group': alreadyLeadsAGroup(undefined),
+  'joining.role_not_recognised':
+    'That did not say whether to add them as a Disciple or as a Discipler. Open Pair again and choose.',
+}
+
+/**
+ * The rules forming a group is held to, refusing the same insert here, and said
+ * about this act. The pairing's own sentences are about a selection on a form that
+ * declares what the group is: *say it is mixed* is a fix there, and here the group
+ * said what it is when it was formed and the Admin is choosing which group.
+ *
+ * Only the ones this act can meet. Any other falls through to the pairing's
+ * wording, which is the same rule in the words of the screen that first met it.
+ */
+export const PAIRING_REFUSALS_ON_JOINING: Partial<Record<PairingRefusal, string>> = {
+  'relationship.participant_has_not_completed_intake':
+    'They have not completed Intake yet. Send them the Intake link first, then add them.',
+  'relationship.participant_has_opted_out': 'They have opted out, and cannot be added to a group.',
+  'relationship.gender_does_not_match_the_declaration':
+    'This is a men’s or a women’s group, and they are not of that gender. Choose a '
+    + 'group of their own gender, or a mixed one.',
+  'relationship.person_already_in_this_relationship': 'They are already in this group.',
+  'relationship.person_belongs_to_another_ministry': 'That person is not on this Ministry’s Roster.',
+  // The same two readiness rules, met by a Discipler being added to lead.
+  'relationship.leader_has_not_completed_intake':
+    'They have not completed Intake yet. Send them the Intake link first, then add them.',
+  'relationship.leader_has_opted_out': 'They have opted out, and cannot be added to a group.',
+  // The index's own code, should it ever arrive in place of this act's.
+  'relationship.leader_already_leads_a_group': alreadyLeadsAGroup(undefined),
+}
+
+/**
+ * `fullName` is who the Admin was adding, as the Roster holds them and never as an
+ * address said it. Only the cap names them; every other sentence says *they*.
+ */
+export const groupJoinRefusalMessage = (
+  code: string | undefined,
+  fullName?: string,
+): string | undefined => {
+  if (!code) return undefined
+  if (code === 'joining.already_leads_a_group' || code === 'relationship.leader_already_leads_a_group') {
+    return alreadyLeadsAGroup(fullName)
+  }
+  // Looked up, never rendered, like every other code that arrives in an address.
+  return (
+    GROUP_JOIN_REFUSALS[code as GroupJoinRefusal]
+    ?? PAIRING_REFUSALS_ON_JOINING[code as PairingRefusal]
+    ?? REFUSALS[code as PairingRefusal]
+    ?? 'They could not be added to that group.'
+  )
 }

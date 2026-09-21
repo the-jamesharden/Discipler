@@ -6,6 +6,8 @@ import type { RosterEntry, RosterIntendedPairing, RosterRelationship } from '~/s
 import {
   AWAITING_ACCEPTANCE,
   AWAITING_INTAKE,
+  CANNOT_BE_PAIRED,
+  DEFAULT_LIST,
   displayPhone,
   EMPTY_LIST,
   HELD_ROWS_EXPLANATION,
@@ -18,15 +20,19 @@ import {
   listCount,
   NOBODY_ON_THIS_NUMBER,
   NOT_MADE,
-  OFFERED_TO_MENTOR,
   PAIR,
-  PAIR_PEOPLE,
+  PAIR_POPUP,
+  invitedToGroupReceipt,
+  joinedGroupReceipt,
   pairedReceipt,
+  pairedSeparatelyReceipt,
+  pairingRefusalMessage,
   pairingSizeLabel,
   pairsPlanned,
-  participationStatusLabel,
+  partlyPairedReceipt,
   peopleAdded,
   PLANNED,
+  refusalAboutOneOfASet,
   ROSTER_LISTS,
   rowProblemMessage,
   samePersonAnswer,
@@ -35,35 +41,57 @@ import {
   SEE_FOLLOW_UP,
   SOMEONE_ELSE_CONSEQUENCE,
   STATS_LABEL,
-  STATUS_FOOTNOTE,
   UNPAIRED,
   type RosterList,
 } from './copy'
+import { readMaterialPerDisciple } from './pair/material-per-disciple'
+import { decodeSeparateReceipt } from './pair/receipt'
 import { INTAKE_FORMS } from '../intake-forms/copy'
 import { ImportDialog, type ImportReadbackWire } from './import-dialog'
 import { IMPORT_DATASET, IMPORT_DIALOG_ID } from './import-copy'
-import { isDiscipler, onList, plansOn, relationshipsOn, rosterStats } from './lists'
+import {
+  disciplesFor,
+  disciplersFor,
+  groupsOf,
+  leadsCount,
+  onList,
+  opensAs,
+  pairHref,
+  plansOn,
+  reasonOnRow,
+  relationshipsOn,
+  rosterStats,
+  whoThePopupIsFor,
+  whyNotPairable,
+} from './lists'
+import { declaredGenderToField } from './declared-gender'
+import { greyedForADisciple, greyedForADiscipler, greyedInAOneToTwo, leadsAGroup, type Greyed } from './greying'
+import { PairPopupFromADisciple } from './pair-popup-from-a-disciple'
+import { PairPopupFromADiscipler } from './pair-popup-from-a-discipler'
+import type { ReadAs } from './pair-shape'
 import { RefusedRows } from './refused-rows'
 import { decodeImportReport } from './report'
 import { rosterKey } from '~/domain/roster'
+import { readPairingMode } from '~/domain/separate-pairings'
 
 export const dynamic = 'force-dynamic'
 
 /**
- * The Roster, as a pastor names it: two lists behind a toggle, All Disciplers and
- * All Disciples, each with its four numbers and its five columns. Rebuilt to the
- * prototype James brought in ticket 36. The model's Leader and Participant are
- * for the code; nothing here says either.
+ * The Roster, as a pastor names it: three lists behind a toggle, All, Disciplers
+ * and Disciples, each with its three numbers and its five columns. Rebuilt to the
+ * prototype James brought in ticket 36, and opened on All by Manual pairing,
+ * ticket 06. The model's Leader and Participant are for the code; nothing here
+ * says either.
  *
  * A Discipler is a fact and never a mark -- `lists.ts` is the one rule -- and a
- * person may be on both lists, which is the discipleship-multiplication case
- * working. The name on every row opens the Person's own page, where every act
- * about one Person lives; the row keeps Pair, the one act that belongs to a list.
+ * person may be on both sides, which is the discipleship-multiplication case
+ * working. On All they are one row, holding every pairing they are in. The name on every row opens the Person's own page, where every act about
+ * one Person lives; the row keeps Pair, the one act that belongs to a list.
  */
 
-/** Which list to show. Anything the query string does not say reads as Disciplers. */
+/** Which list to show. Nothing, or anything that is not one of the three, reads as All. */
 const listIn = (value: string | undefined): RosterList =>
-  isRosterList(value) ? value : 'disciplers'
+  isRosterList(value) ? value : DEFAULT_LIST
 
 export default async function RosterPage({
   searchParams,
@@ -75,8 +103,37 @@ export default async function RosterPage({
     hidden?: string
     error?: string
     paired?: string
+    /**
+     * A set of separate one-to-ones (Manual pairing, ticket 21): how many were made,
+     * and where it stopped partway, who was not paired and the code of why. Its own
+     * name for the code, because `error` on this page is the import's.
+     */
+    pairs?: string
+    notPaired?: string | string[]
+    pairError?: string
+    /** Who an Admin has just put into a group, and whether anybody was texted about it. */
+    joined?: string
+    told?: string
+    /** Who an Admin has just invited to help lead a group. */
+    invited?: string
     /** Why an answer to a held import row could not be applied. A code, never prose. */
     rowError?: string
+    /** Whose Pair popup is open over this list (Manual pairing, ticket 12). */
+    pair?: string | string[]
+    /** The Discipler chosen in the popup, on a submission that came back refused. */
+    leaderId?: string | string[]
+    /** The Disciples ticked in the popup from a Discipler, on a submission that came back refused. */
+    with?: string | string[]
+    /**
+     * What two or more ticks were to become, on a submission that came back refused
+     * (Manual pairing, recut ticket 02): which of several Disciples the refusal is
+     * about, whether it was N x 1:1 pairs, and the one Material of a 1:2 pair. The
+     * Material chosen for each Disciple comes back as `materialId.<personId>`, which
+     * no type can list, and is read by `readMaterialPerDisciple`.
+     */
+    about?: string | string[]
+    mode?: string | string[]
+    materialId?: string | string[]
   }>
 }) {
   // One read: the Roster, the import rows waiting on an answer and the badge's
@@ -84,31 +141,93 @@ export default async function RosterPage({
   // only after an upload. The import report is a redirect and outlives nothing; a
   // question that appeared only there would expire the moment an Admin navigated
   // away, which is the silent drop the reporting exists to prevent.
-  const page = await getRosterReader().readRosterPage('roster')
+  //
+  // With the Pair popup asked for, that one document is the Pair surface's: the
+  // Roster's own with the Ministry's gender setting beside it, which is what the
+  // popup greys its rows against (Manual pairing, ticket 23). Still one read.
+  const query = await searchParams
+  // An address may say anything twice; the first is the one read.
+  const firstOf = (said: string | string[] | undefined): string | undefined => [said ?? []].flat()[0]
+  const asked = firstOf(query.pair)
+  const page = await getRosterReader().readRosterPage(asked === undefined ? 'roster' : 'pair')
 
   // Signed in but not an Admin. Sending them back to sign in would only loop.
   if (page.status === 'not-an-admin') return <NotAnAdmin title="Roster" />
   if (page.status === 'signed-out') redirect('/login')
 
   const { admin } = page
-  const { roster, held, followUpCount } = page.page
-  const query = await searchParams
+  const { roster, held, followUpCount, suggestGenderMatch, groups, materials } = page.page
 
   const list = listIn(query.list)
   const shown = roster.filter((person) => onList(list, person))
   const stats = rosterStats(list, shown)
 
+  // The Pair popup, drawn over this list (Manual pairing, ticket 12). Out of the
+  // document already read: opening it is no second read. A `pair` that names
+  // nobody on this Roster, or somebody who cannot be paired, opens nothing.
+  const pairing = whoThePopupIsFor(roster, asked)
+  // The toggle decides the side, and each side is a popup of its own (Manual
+  // pairing, ticket 23). No row opens the Discipler's side until the old Pair
+  // page retires: it is reached by its address, and a Discipler's row keeps
+  // opening that page.
+  const side = pairing ? opensAs(list, pairing) : null
+  // Why a row cannot be chosen, already in words, or null where it can. Read
+  // against what a one-to-one declares in this Ministry, never offered and then
+  // refused.
+  const greyedInWords = (greyed: Greyed | null, readAs?: ReadAs): string | null =>
+    greyed === null ? null : PAIR_POPUP.greyed(greyed, readAs)
+  // Compared against the list and never rendered, like every value from an address.
+  const chosenBefore = firstOf(query.leaderId)
+  const tickedBefore = [query.with ?? []].flat()
+  // A refusal of one one-to-one in a set names the Disciple it is about, in front
+  // of the sentence, as the old Pair page does. The name is read off the Roster.
+  const refusalSaid = pairingRefusalMessage(query.error)
+  const refusedAbout = roster.find((person) => person.personId === firstOf(query.about))
+  const pairingRefusal =
+    refusalSaid !== undefined && refusedAbout ? refusalAboutOneOfASet(refusedAbout.fullName, refusalSaid) : refusalSaid
+
   const report = decodeImportReport(query)
-  // The code, not the sentence: the dialog words it, and opens on it.
-  const failure = importFailureMessage(query.error) === undefined ? undefined : query.error
+  // The code, not the sentence: the dialog words it, and opens on it. An error
+  // beside `pair` is a refused pairing's, and never opens the import.
+  const failure =
+    asked !== undefined || importFailureMessage(query.error) === undefined ? undefined : query.error
   const rowFailure = importRowRefusalMessage(query.rowError)
   // How many people the pairing just made has in it, so the receipt can say what
   // landed. Read as a count and never echoed as text.
   const paired = Number.parseInt(query.paired ?? '', 10)
+  // Who was just put into a group (Manual pairing, ticket 22). Found on the whole
+  // Roster and not only the list shown, and their name read off the row: the
+  // address carries an id, and nothing it says is rendered. An id that names
+  // nobody here is no receipt at all.
+  const joined = roster.find((person) => person.personId === query.joined)?.fullName
+  // And who was just invited to help lead one, found and named the same way.
+  const invited = roster.find((person) => person.personId === query.invited)?.fullName
 
-  /** The other list's link keeps nothing else from the query string: a receipt is about the page it landed on. */
-  const listHref = (which: RosterList): string =>
-    which === 'disciplers' ? '/roster' : `/roster?${new URLSearchParams({ list: which })}`
+  // A set of separate one-to-ones counts the one-to-ones made. Who was not paired
+  // arrives as ids and is named from the whole Roster, whichever list is showing,
+  // so nothing in the address is rendered and an id that names nobody says nothing.
+  const separately = decodeSeparateReceipt(query)
+  const notPaired = (separately?.notPaired ?? []).flatMap((id) => {
+    const person = roster.find((each) => each.personId === id)
+    return person ? [person.fullName] : []
+  })
+  const separateReceipt =
+    separately === undefined
+      ? undefined
+      : notPaired.length > 0
+        ? partlyPairedReceipt({
+            formed: separately.formed,
+            notPaired,
+            reason: pairingRefusalMessage(separately.refusal),
+          })
+        : pairedSeparatelyReceipt(separately.formed)
+
+  /**
+   * Another list's link keeps nothing else from the query string: a receipt is
+   * about the page it landed on. Each names its list, All included, so the address
+   * says what is being looked at whichever way the default goes.
+   */
+  const listHref = (which: RosterList): string => `/roster?${new URLSearchParams({ list: which })}`
 
   // The Roster as the import review classifies against it, in the browser:
   // every name and number this page already prints (ADR-0021), and the plans
@@ -127,12 +246,8 @@ export default async function RosterPage({
           <h2 className="card-title">Roster</h2>
           <div className="actions" style={{ marginTop: 0 }}>
             <span className="muted">{listCount(list, shown.length)}</span>
-            {/* The way in that does not start from one row. The Pair action on a
-                row opens the same screen with somebody already chosen, but somebody
-                already being discipled has no Pair action and may still disciple,
-                and several people selected together start from nobody in
-                particular. */}
-            <Link className="btn sec" href="/roster/pair">{PAIR_PEOPLE}</Link>
+            {/* No way into pairing from up here: every pairing starts from a row
+                (Manual pairing, ticket 07). */}
             {/* The import, in a dialog over the table (ticket 36). A link to the
                 dialog's own id, so it opens with no script; the dialog itself is
                 at the end of the page. */}
@@ -140,8 +255,8 @@ export default async function RosterPage({
           </div>
         </div>
 
-        {/* The two lists: two links to this same page, so the switch works before
-            JavaScript has loaded and survives a refresh. */}
+        {/* The three lists: three links to this same page, so the switch works
+            before JavaScript has loaded and survives a refresh. */}
         <nav className="seg" aria-label="Which list to show">
           {ROSTER_LISTS.map((which) => (
             <Link key={which} href={listHref(which)} aria-current={list === which ? 'true' : undefined}>
@@ -150,14 +265,12 @@ export default async function RosterPage({
           ))}
         </nav>
 
-        {/* Four numbers about the list being looked at. Paired is an open pairing in
-            this list's role and nothing else; in groups is counted from the live
-            number of people being discipled, never from a kind column. */}
+        {/* Three numbers about the list being looked at. Paired is an open pairing
+            in this list's role and nothing else, and on All in either role. */}
         <p className="stats-line">
           <span><b>{stats.total}</b> {STATS_LABEL.total}</span>
           <span><b>{stats.paired}</b> {STATS_LABEL.paired}</span>
           <span><b>{stats.unpaired}</b> {STATS_LABEL.unpaired}</span>
-          <span><b>{stats.inGroups}</b> {STATS_LABEL.inGroups}</span>
         </p>
 
         {Number.isInteger(paired) && paired > 0 ? (
@@ -167,6 +280,30 @@ export default async function RosterPage({
                 it would be the one thing on the Roster still saying *awaiting*
                 after the Discipler had accepted and the page was reloaded. */}
             {pairedReceipt(paired)}
+          </p>
+        ) : null}
+
+        {/* A set that stopped partway is an alert and not a status: part of what the
+            Admin asked for did not happen, and they have something to do about it. */}
+        {separateReceipt === undefined ? null : notPaired.length > 0 ? (
+          <p className="toast error" role="alert">
+            {separateReceipt}
+          </p>
+        ) : (
+          <p className="toast" role="status">
+            {separateReceipt}
+          </p>
+        )}
+
+        {joined !== undefined ? (
+          <p className="toast" role="status">
+            {joinedGroupReceipt(joined, query.told === 'yes')}
+          </p>
+        ) : null}
+
+        {invited !== undefined ? (
+          <p className="toast" role="status">
+            {invitedToGroupReceipt(invited)}
           </p>
         ) : null}
 
@@ -212,75 +349,55 @@ export default async function RosterPage({
             Nobody is on this Roster yet. Import your spreadsheet, or send one of the{' '}
             <Link href="/intake-forms">{INTAKE_FORMS}</Link>.
           </p>
-        ) : shown.length === 0 ? (
+        ) : list !== 'all' && shown.length === 0 ? (
           <p className="empty">{EMPTY_LIST[list]}</p>
         ) : (
-          <>
-            <div className="tbl-wrap roster-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th className="num">#</th>
-                    <th>{LIST_HEADING[list]}</th>
-                    <th>Email</th>
-                    <th>Phone</th>
-                    <th>Paired with</th>
+          <div className="tbl-wrap roster-table">
+            <table>
+              <thead>
+                <tr>
+                  <th className="num">#</th>
+                  <th>{LIST_HEADING[list]}</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>Paired with</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((person, index) => (
+                  <tr key={person.personId}>
+                    <td className="num">{index + 1}</td>
+                    {/* The name opens the Person's own page, and nothing sits under
+                        it: the status chip and the *Offered to mentor* tag explained
+                        the model to a pastor who came to see people (Manual pairing,
+                        ticket 07). The initials are derived from the name. */}
+                    <td>
+                      <div className="person">
+                        <span className="avatar" aria-hidden="true">
+                          {initialsOf(person.fullName)}
+                        </span>
+                        <Link href={`/roster/${person.personId}`} data-testid="roster-name">
+                          {person.fullName}
+                        </Link>
+                      </div>
+                    </td>
+                    {/* Contact details, to an Admin, on every row (ADR-0021). The
+                        number is shown as a person reads it and stored as the
+                        system does. */}
+                    <td className="contact">
+                      {person.email ? <a href={`mailto:${person.email}`}>{person.email}</a> : '-'}
+                    </td>
+                    <td className="contact">
+                      {person.phone ? <a href={`tel:${person.phone}`}>{displayPhone(person.phone)}</a> : '-'}
+                    </td>
+                    <td>
+                      <PairedWith list={list} person={person} />
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {shown.map((person, index) => (
-                    <tr key={person.personId}>
-                      <td className="num">{index + 1}</td>
-                      {/* The name opens the Person's own page. Under it, the one
-                          status chip and the one Intake signal the row carries
-                          (ticket 36, Q2): small, on a second line, so the five
-                          columns of the prototype stay five. The initials are
-                          derived from the name. */}
-                      <td>
-                        <div className="person">
-                          <span className="avatar" aria-hidden="true">
-                            {initialsOf(person.fullName)}
-                          </span>
-                          <div>
-                            <span>
-                              <Link href={`/roster/${person.personId}`} data-testid="roster-name">
-                                {person.fullName}
-                              </Link>
-                            </span>
-                            <div className="person-sub">
-                              <span className={`rs rs-${person.participationStatus}`}>
-                                {participationStatusLabel[person.participationStatus]}
-                              </span>
-                              {/* What the Person said about themselves on the form.
-                                  Only the mentor answer is said: it is the one an
-                                  Admin might act on, and a word on every other row
-                                  would make a column of state out of one signal. */}
-                              {person.declaredSide === 'mentor' ? (
-                                <span className="pill n">{OFFERED_TO_MENTOR}</span>
-                              ) : null}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      {/* Contact details, to an Admin, on every row (ADR-0021). The
-                          number is shown as a person reads it and stored as the
-                          system does. */}
-                      <td className="contact">
-                        {person.email ? <a href={`mailto:${person.email}`}>{person.email}</a> : '-'}
-                      </td>
-                      <td className="contact">
-                        {person.phone ? <a href={`tel:${person.phone}`}>{displayPhone(person.phone)}</a> : '-'}
-                      </td>
-                      <td>
-                        <PairedWith list={list} person={person} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <p className="subtle">{STATUS_FOOTNOTE}</p>
-          </>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
@@ -352,6 +469,57 @@ export default async function RosterPage({
           last, so a reader without styles meets the Roster first. Open already
           when the last import was refused, with the reason beside the rows. */}
       <ImportDialog readback={readback} failure={failure} />
+
+      {/* Keyed by the person and the side, so a popup opened for somebody else, or
+          on the other side, starts with nothing chosen. */}
+      {pairing && side === 'disciple' ? (
+        <PairPopupFromADisciple
+          key={`disciple-${pairing.personId}`}
+          person={{ id: pairing.personId, fullName: pairing.fullName }}
+          list={list}
+          disciplers={disciplersFor(roster, pairing).map((discipler) => ({
+            id: discipler.personId,
+            fullName: discipler.fullName,
+            email: discipler.email,
+            phone: discipler.phone,
+            leads: leadsCount(discipler),
+            greyed: greyedInWords(greyedForADisciple({ genderMatchEnforced: suggestGenderMatch, disciple: pairing, discipler })),
+          }))}
+          refusal={pairingRefusal}
+          chosenBefore={chosenBefore ?? null}
+        />
+      ) : null}
+      {pairing && side === 'discipler' ? (
+        <PairPopupFromADiscipler
+          key={`discipler-${pairing.personId}`}
+          person={{ id: pairing.personId, fullName: pairing.fullName }}
+          list={list}
+          disciples={disciplesFor(roster, pairing).map((disciple) => ({
+            id: disciple.personId,
+            fullName: disciple.fullName,
+            email: disciple.email,
+            phone: disciple.phone,
+            firstTime: disciple.firstTime,
+            groups: groupsOf(disciple, groups).map(({ name, leaders }) => ({ name, leaders })),
+            // Against each thing the ticks can make (Manual pairing, recut ticket 02).
+            // Which of them the row shows follows the ticks, in `./pair-shape`.
+            greyed: {
+              a_one_to_one: greyedInWords(greyedForADiscipler({ genderMatchEnforced: suggestGenderMatch, discipler: pairing, disciple })),
+              a_one_to_two: greyedInWords(greyedInAOneToTwo({ discipler: pairing, disciple }), 'a_one_to_two'),
+            },
+          }))}
+          leadsAGroup={leadsAGroup(pairing)}
+          declaredGender={pairing.gender === null ? null : declaredGenderToField(pairing.gender)}
+          materials={materials.map(({ materialId, title }) => ({ id: materialId, title }))}
+          refusal={pairingRefusal}
+          restored={{
+            tickedIds: tickedBefore,
+            separate: readPairingMode(firstOf(query.mode)) === 'separate',
+            material: firstOf(query.materialId) ?? null,
+            materialFor: [...readMaterialPerDisciple(Object.entries(query))],
+          }}
+        />
+      ) : null}
     </AdminShell>
   )
 }
@@ -387,44 +555,46 @@ const importReadback = (roster: readonly RosterEntry[]): ImportReadbackWire => {
  * role, naming the other side -- who a Discipler disciples, who a Disciple is
  * discipled by -- with the size pill and, where the Discipler has not yet agreed,
  * a note saying so. A person in no pairing in this role is unpaired here, whatever
- * they hold on the other list, and gets the one act that belongs to a row.
+ * they hold on the other list. On All the lines are every pairing in either role,
+ * and unpaired means in none at all. No line says which way it runs: the toggle
+ * above the table answers that, and a word on every line would be clutter (James,
+ * reviewing Manual pairing, ticket 06).
+ *
+ * Every pairing starts here (Manual pairing, ticket 07). Pair is on the row of
+ * everybody who can be paired, a Discipler who already leads somebody included,
+ * because leading one person does not stop them leading another. Somebody who
+ * cannot be paired is offered nothing to press, and the cell says why where the
+ * button would have been: in place of *Unpaired* when they hold nothing, and after
+ * their pairings when they do, so an Admin still reads that somebody in a pairing
+ * has opted out. A plan still waiting has already said *awaiting Intake*, and its
+ * row does not say it twice. `whyNotPairable` decides the button and `reasonOnRow`
+ * the words, both in `lists.ts`.
  */
 const PairedWith = ({ list, person }: { readonly list: RosterList; readonly person: RosterEntry }) => {
   const pairings = relationshipsOn(list, person)
   const plans = plansOn(list, person)
+  const canBePaired = whyNotPairable(person) === null
+  const said = reasonOnRow(list, person)
+  const reason = said ? <span className="blocked">{CANNOT_BE_PAIRED[said]}</span> : null
 
   if (pairings.length === 0 && plans.length === 0) {
-    return (
-      <>
+    return canBePaired ? (
+      <div className="paired-with">
         <span className="blocked">{UNPAIRED}</span>
-        {/* Offered on the state: somebody who has not completed Intake cannot be
-            paired and is offered nothing to press. Preselected as the Discipler on
-            the Disciplers list and as the Disciple on the other, and the pairing
-            screen lets the Admin change that. */}
-        {person.participationStatus === 'ready_to_pair' ? (
-          <>
-            {' '}
-            <Link
-              className="btn small"
-              href={`/roster/pair?${new URLSearchParams(
-                list === 'disciplers' || isDiscipler(person)
-                  ? { leaderId: person.personId }
-                  : { with: person.personId },
-              )}`}
-            >
-              {PAIR}
-            </Link>
-          </>
-        ) : null}
-      </>
+        <Link className="btn small" href={pairHref(list, person)} scroll={false}>
+          {PAIR}
+        </Link>
+      </div>
+    ) : (
+      reason
     )
   }
 
-  return (
+  const lines = (
     <ul className="bare">
       {pairings.map((pairing) => (
         <li key={pairing.relationshipId}>
-          <PairingLine list={list} pairing={pairing} />
+          <PairingLine pairing={pairing} />
         </li>
       ))}
       {/* What an import planned and nothing has formed yet: waiting on Intake, or
@@ -436,6 +606,21 @@ const PairedWith = ({ list, person }: { readonly list: RosterList; readonly pers
         </li>
       ))}
     </ul>
+  )
+
+  // Quieter beside a pairing than beside *Unpaired*: the row is already about
+  // somebody, and the button is the second thing on it.
+  return (
+    <div className="paired-with">
+      {lines}
+      {canBePaired ? (
+        <Link className="btn small sec" href={pairHref(list, person)} scroll={false}>
+          {PAIR}
+        </Link>
+      ) : (
+        reason
+      )}
+    </div>
   )
 }
 
@@ -460,13 +645,20 @@ const PlanLine = ({ plan }: { readonly plan: RosterIntendedPairing }) => (
   </>
 )
 
-const PairingLine = ({ list, pairing }: { readonly list: RosterList; readonly pairing: RosterRelationship }) => {
-  const otherSide = list === 'disciplers' ? pairing.participantNames : pairing.leaderNames
+const PairingLine = ({ pairing }: { readonly pairing: RosterRelationship }) => {
+  // By the role the Person holds in it and not by the list, which on All is no
+  // side at all. On a side's list every pairing shown is in that side's role.
+  const otherSide = pairing.role === 'leader' ? pairing.participantNames : pairing.leaderNames
   return (
     <>
-      {otherSide.join(', ')}
-      {' '}
-      <span className="size">{pairingSizeLabel(pairing.participantCount)}</span>
+      {otherSide.slice(0, -1).map((name) => `${name}, `).join('')}
+      {/* The size stays on the line of the last name: a pill that wraps alone
+          reads as belonging to nobody. */}
+      <span className="nowrap">
+        {otherSide.at(-1)}
+        {' '}
+        <span className="size">{pairingSizeLabel(pairing.participantCount)}</span>
+      </span>
       {/* Derived from the absence of an acceptance, not read from a status column
           -- there is not one. It is the difference between a pairing an Admin has
           arranged and one that has actually started, and both sides read it. */}

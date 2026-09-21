@@ -1,6 +1,7 @@
 import type { Satisfaction } from '~/domain/check-in'
 import { concernId, personId } from '~/domain/ids'
 import { readStandingPause, type StandingPause } from '~/domain/pause'
+import { countsAsLeading } from '~/domain/relationships'
 import type { RaisedConcern, RelationshipWeek } from '~/domain/relationship-state'
 import type { OutstandingConcern } from '~/service/ports'
 import { list, section, type PageDocument } from './page'
@@ -118,11 +119,35 @@ export const membersFrom = (
   history: HistoryInputs,
   nameOf: ReadonlyMap<string, string> = namesFrom(history),
 ): Map<string, RelationshipMembers> => {
+  // When each relationship was activated, to say who leads it. A Discipler an
+  // Admin added to a group that was already running is not one of its Leaders
+  // until they accept (Manual pairing, ticket 22): the group's cards would
+  // otherwise name somebody who has agreed to nothing as leading it.
+  const activatedAt = new Map(
+    history.relationships.flatMap((row) => {
+      const id = text(row.id)
+      return id === null ? [] : [[id, text(row.accepted_at)] as const]
+    }),
+  )
+
   const byRelationship = new Map<string, RelationshipMembers>()
   for (const row of history.members) {
     const relationship = text(row.relationship_id)
     const person = text(row.person_id)
     if (!relationship || !person) continue
+
+    if (row.role === 'leader') {
+      // A document without the key is drift, thrown like the rest of it: read as
+      // absent it would name as a Leader somebody who has not accepted.
+      if (row.accepted_at === undefined) {
+        throw new Error('A membership in the history came back without its own acceptance')
+      }
+      const activated = activatedAt.get(relationship)
+      if (activated === undefined) {
+        throw new Error(`A membership in the history named a relationship that did not come back: ${relationship}`)
+      }
+      if (!countsAsLeading(activated, text(row.accepted_at))) continue
+    }
 
     const side = byRelationship.get(relationship) ?? { leaders: [], participants: [], people: [] }
     const name = nameOf.get(person)

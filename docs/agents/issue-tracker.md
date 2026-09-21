@@ -7,6 +7,7 @@ Issues and specs for this repo live as markdown files in `.scratch/`.
 - One feature per directory: `.scratch/<feature-slug>/`
 - The spec is `.scratch/<feature-slug>/spec.md`
 - Implementation issues are one file per ticket at `.scratch/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01` — never a single combined tickets file
+- **A ticket number means nothing without its feature.** Every feature numbers from `01`, so `core-operating-loop` and `manual-pairing` both have a ticket 15. A ticket is identified by its path. In code, migrations and commit messages, name the feature with the number ("Manual pairing, ticket 02"). A bare "ticket NN" in older code and in `CONTEXT.md` belongs to `core-operating-loop`.
 - Triage state is recorded as a `Status:` line near the top of each issue file (see `triage-labels.md` for the role strings)
 - Comments and conversation history append to the bottom of the file under a `## Comments` heading
 

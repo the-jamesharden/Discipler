@@ -597,7 +597,34 @@ export const addMembership = async (args: {
   role: 'leader' | 'participant'
   startedAt?: Date
   endedAt?: Date
+  /**
+   * A Leader's own agreement, which acceptance writes beside the relationship's
+   * activation and a fixture has to say for itself. Absent is *has not accepted*.
+   */
+  acceptedAt?: Date
 }): Promise<string> => {
+  const startedAt = args.startedAt ?? new Date()
+
+  // A Leader on a relationship that is accepted has accepted it: activation is
+  // every open leader membership agreeing, so acceptance writes both, and a
+  // fixture that stamped only the relationship would seed a Leader no acceptance
+  // could have produced -- one the check-in now reads as not having agreed. Said
+  // once here, so every suite that seeds a running relationship gets a Leader who
+  // leads it. `acceptedAt` overrides it, and an ended membership is left alone.
+  let acceptedAt = args.acceptedAt
+  if (args.role === 'leader' && acceptedAt === undefined && args.endedAt === undefined) {
+    const { data: relationship, error: notRead } = await serviceRoleClient()
+      .from('relationship')
+      .select('accepted_at')
+      .eq('id', args.relationshipId)
+      .single()
+    if (notRead) throw new Error(`Could not read the relationship being led: ${notRead.message}`)
+    // No earlier than the membership starts, which the table requires.
+    if (relationship.accepted_at !== null) {
+      acceptedAt = new Date(Math.max(new Date(relationship.accepted_at).getTime(), startedAt.getTime()))
+    }
+  }
+
   const { data, error } = await serviceRoleClient()
     .from('relationship_member')
     .insert({
@@ -606,8 +633,9 @@ export const addMembership = async (args: {
       kind: args.kind,
       person_id: args.personId,
       role: args.role,
-      started_at: (args.startedAt ?? new Date()).toISOString(),
+      started_at: startedAt.toISOString(),
       ended_at: args.endedAt?.toISOString() ?? null,
+      accepted_at: acceptedAt?.toISOString() ?? null,
     })
     .select('id')
     .single()
@@ -641,6 +669,79 @@ export const pairOneToOne = async (
   })
 
   return relationshipId
+}
+
+/** Somebody a group fixture is formed with. */
+export interface GroupPersonSeed {
+  readonly name: string
+  readonly gender: 'female' | 'male'
+  readonly phone?: string
+}
+
+export interface GroupOptions {
+  readonly name: string | null
+  /** Null is *mixed*. Said at the insert, because it is immutable afterwards. */
+  readonly declaredGender: 'female' | 'male' | null
+  readonly leader: GroupPersonSeed
+  readonly disciples: readonly GroupPersonSeed[]
+  /** Null leaves it Awaiting Leader Acceptance. Now, where it is not said. */
+  readonly acceptedAt?: Date | null
+  readonly joinRequiresApproval?: boolean
+}
+
+/**
+ * A group as it stands after formation: one leader, its Disciples, and what was
+ * said about it when it was formed. Inserted whole rather than through
+ * `createRelationship`, because the declaration is immutable once the row exists
+ * and a test about groups needs to say what one declared at the moment it was
+ * formed. The people are made leader first, then the Disciples in order.
+ */
+export const formGroup = async (
+  ministry: MinistryFixture,
+  options: GroupOptions,
+): Promise<{ id: string; leader: string; disciples: string[] }> => {
+  const seed = (person: GroupPersonSeed) =>
+    addPerson(ministry, person.name, {
+      ...(person.phone ? { phone: person.phone } : {}),
+      answers: { gender: person.gender },
+    })
+  const leader = await seed(options.leader)
+  const disciples: string[] = []
+  for (const person of options.disciples) disciples.push(await seed(person))
+
+  const acceptedAt = options.acceptedAt === undefined ? new Date() : options.acceptedAt
+  const { data, error } = await serviceRoleClient()
+    .from('relationship')
+    .insert({
+      ministry_id: ministry.id,
+      kind: 'group',
+      name: options.name,
+      declared_gender: options.declaredGender,
+      join_requires_approval: options.joinRequiresApproval ?? false,
+      accepted_at: acceptedAt?.toISOString() ?? null,
+    })
+    .select('id')
+    .single()
+  if (error) throw new Error(`Could not form the group ${options.name ?? '(unnamed)'}: ${error.message}`)
+  if (acceptedAt) await openMaterialHistory(ministry, data.id, acceptedAt)
+
+  // An accepted group is one whose Leader agreed, and the agreement is a fact of
+  // their membership: acceptance writes both, so a fixture that stamped only the
+  // relationship would be a group no acceptance could have produced. The
+  // membership starts no later than it was accepted, as the table requires.
+  await addMembership({
+    ministry,
+    relationshipId: data.id,
+    kind: 'group',
+    personId: leader,
+    role: 'leader',
+    ...(acceptedAt ? { startedAt: acceptedAt, acceptedAt } : {}),
+  })
+  for (const disciple of disciples) {
+    await addMembership({ ministry, relationshipId: data.id, kind: 'group', personId: disciple, role: 'participant' })
+  }
+
+  return { id: data.id, leader, disciples }
 }
 
 /** A client carrying a real signed-in session for any account, not just the Admin. */
