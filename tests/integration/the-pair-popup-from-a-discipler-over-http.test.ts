@@ -16,6 +16,7 @@ import {
   currentList,
   detailsOf,
   expectGreyed,
+  expectLeftOut,
   expectOpen,
   freshPhoneNumbers,
   hiddenIn,
@@ -25,6 +26,7 @@ import {
   popupIn,
   postPairing,
   rowFor,
+  shownAs,
 } from '../support/pair-popup'
 
 /**
@@ -150,7 +152,9 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     const listed = offered(popup)
     expect(listed).toEqual(expect.arrayContaining([sam, ana, brianna, tom, rosa]))
     for (const absent of [waiting, left, claire]) expect(listed).not.toContain(absent)
-    expect(popup).toContain(`${listed.length} disciples`)
+    // Counted as shown: he is on the list only once a Coed Group opens his row.
+    expect(shownAs(popup, 'participantId')).toEqual(listed.filter((id) => id !== tom))
+    expect(popup).toContain(`${listed.length - 1} disciples`)
     // The toolbar counts and clears. There is no Select all.
     expect(popup).not.toMatch(/select all/i)
 
@@ -171,9 +175,10 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     expect(rosaRow).toContain('in Grace’s Group')
     expectOpen(popup, rosa)
 
-    // In a one-to-one, and of another gender: listed, and greyed with the reason.
+    // In a one-to-one: listed, and greyed with the reason. Of another gender, while
+    // the Ministry enforces the match: not shown at all (James, 2026-09-21).
     expectGreyed(popup, brianna, 'Already in a 1:1 with David Chen')
-    expectGreyed(popup, tom, 'Women’s only: a 1:1 is same-gender')
+    expectLeftOut(popup, tom)
 
     // Nothing ticked: no sentence, and the button reads Pair. Nothing else is asked.
     expect(popup).not.toContain('in a one-on-one.')
@@ -287,7 +292,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     // already in a one-to-one can be in one, and it is a women's group until
     // somebody says otherwise.
     expectOpen(two, brianna)
-    expectGreyed(two, tom, 'Women’s group: choose Coed to include')
+    expectLeftOut(two, tom)
   })
 
   it('shows one dropdown per ticked Disciple for N × 1:1 pairs, each labelled with their name', async () => {
@@ -379,8 +384,8 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     // It says that it is a Group, for the way back, and nothing is generated for it.
     expect(hiddenIn(three)).toEqual({ pair: claire, list: 'disciplers', leaderId: claire, shape: 'group' })
 
-    // Other-gender rows are greyed until Coed is chosen; one-to-ones and other groups grey nobody.
-    expectGreyed(three, tom, 'Women’s group: choose Coed to include')
+    // Other-gender rows are not shown until Coed is chosen; one-to-ones and other groups grey nobody.
+    expectLeftOut(three, tom)
     expectOpen(three, brianna)
     expect(rowFor(three, rosa)).toMatch(/checked=""/)
   })
@@ -400,6 +405,9 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     expect(declaresIn(coed).find(({ on }) => on)?.says).toBe('Coed')
     expect(rowFor(coed, tom)).toMatch(/checked=""/)
     expect(rowFor(coed, sam)).toMatch(/checked=""/)
+    expectOpen(coed, tom)
+    // And he is counted now that he is shown.
+    expect(coed).toContain(`${offered(coed).length} disciples`)
     expect(coed).not.toContain('was unticked')
     expect(coed).toMatch(/Claire Martinez will lead a coed group of 2: (Sam Lee and Tom Wilson|Tom Wilson and Sam Lee)\./)
     expect(attribute(nameFieldIn(coed)!, 'value')).toBe('Thursday Table')
@@ -413,7 +421,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
         ['declaredGender', 'female'],
       ])).html,
     )!
-    expect(rowFor(womens, tom)).not.toMatch(/checked=""/)
+    expectLeftOut(womens, tom)
     expect(womens).toMatch(/role="status"[^>]*>Tom Wilson was unticked: Women’s group: choose Coed to include\.</)
   })
 
@@ -421,8 +429,8 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     // With one ticked, a second tick would make a 1:2 pair, which she can be in.
     const one = popupIn((await popupAt('disciplers', claire, [['with', sam]])).html)!
     expectOpen(one, brianna)
-    // Another gender is greyed for a 1:2 as for a one-to-one: it declares Claire's.
-    expectGreyed(one, tom, 'Women’s only: a 1:2 is same-gender')
+    // Another gender is left out for a 1:2 as for a one-to-one: it declares Claire's.
+    expectLeftOut(one, tom)
 
     const together = popupIn((await popupAt('disciplers', claire, [['with', sam], ['with', brianna]])).html)!
     expect(rowFor(together, brianna)).toMatch(/checked=""/)
@@ -576,7 +584,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     expect(refused).toContain('Choose who Claire Martinez will disciple.')
     expect(refused).toMatch(/role="alert"[^>]*>[^<]*gender/i)
     expect(refused).not.toContain('relationship.gender_must_match')
-    expectGreyed(refused, tom, 'Women’s only: a 1:1 is same-gender')
+    expectLeftOut(refused, tom)
     expect(refused).not.toMatch(/checked=""/)
 
     // A tick that can still be made comes back ticked, with its sentence and button.
@@ -766,7 +774,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
       expect(popup).toContain('None of these one-to-ones was made.')
       expect(rowFor(popup, first)).toMatch(/checked=""/)
       expect(rowFor(popup, second)).toMatch(/checked=""/)
-      expectGreyed(popup, man, 'Women’s only: a 1:1 is same-gender')
+      expectLeftOut(popup, man)
       expect(popup).toContain('Hal Refused was unticked: Women’s only: a 1:1 is same-gender.')
       expect(segmentsIn(popup).find(({ selected }) => selected)?.says).toBe('2 × 1:1 pairs')
       expect(dropdownsIn(popup).map(({ labelled, on }) => [labelled, on])).toEqual([
@@ -959,7 +967,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
       // Two of the three are left ticked, and it is still the Group it was posted as.
       expect(rowFor(popup, first)).toMatch(/checked=""/)
       expect(rowFor(popup, second)).toMatch(/checked=""/)
-      expectGreyed(popup, man, 'Women’s group: choose Coed to include')
+      expectLeftOut(popup, man)
       expect(popup).toContain('Ben Refused was unticked: Women’s group: choose Coed to include.')
       expect(segmentsIn(popup).find(({ selected }) => selected)?.says).toBe('Group')
       expect(declaresIn(popup).find(({ on }) => on)?.says).toBe('Women’s')

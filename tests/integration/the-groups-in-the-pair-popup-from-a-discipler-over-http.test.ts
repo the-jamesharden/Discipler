@@ -23,13 +23,14 @@ import {
   offersToMentor,
   popupIn,
   rowFor,
+  shownAs,
 } from '../support/pair-popup'
 
 /**
  * The Ministry's groups in the Pair popup opened from a Discipler (Manual pairing,
  * recut ticket 04), as an Admin's browser receives it: a Groups heading under the
  * Disciples, one row per group the Discipler is not already in and whose own
- * declaration does not rule them out, and **Add as co-leader**, which posts to the
+ * declaration does not rule them out, and **Add as co-discipler**, which posts to the
  * route that invites them to help lead it.
  *
  * What needs script (ticking a Disciple clearing a chosen group, and the other way
@@ -150,8 +151,11 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
     expect(popup.lastIndexOf(boxes.at(-1)!)).toBeLessThan(heading)
     expect(popup.indexOf(`value="${womens.id}"`)).toBeGreaterThan(heading)
 
-    // The toolbar counts both, and only what is listed.
-    expect(popup).toContain(`${boxes.length} disciples · 3 groups`)
+    // The toolbar counts both, and only what is shown: the men are on her list once a
+    // Coed Group opens their rows, and not before.
+    const shown = shownAs(popup, 'participantId')
+    expect(shown.length).toBeLessThan(boxes.length)
+    expect(popup).toContain(`${shown.length} disciples · 3 groups`)
 
     // Rows read as they do from a Disciple: the same component, on a square.
     const womensRow = rowFor(popup, womens.id)
@@ -226,7 +230,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
     expect(currentList(html)).toBe('Disciplers')
 
     expect(popup).toContain(`${claire.name} will co-lead Grace’s Group with ${group.leaderName}.`)
-    expect(popup).toMatch(/<button[^>]*type="submit"[^>]*>Add as co-leader<\/button>/)
+    expect(popup).toMatch(/<button[^>]*type="submit"[^>]*>Add as co-discipler<\/button>/)
     expect(popup).not.toMatch(/<button[^>]*type="submit"[^>]*disabled/)
 
     // One thing at a time: with a group chosen nothing a shape asks is on screen.

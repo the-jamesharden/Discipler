@@ -106,6 +106,7 @@ export const PairRow = ({
   person,
   details,
   greyed,
+  leftOut = false,
   held = false,
   checked,
   onChange,
@@ -127,6 +128,15 @@ export const PairRow = ({
    */
   readonly greyed: string | null
   /**
+   * Not shown at all, though it is still in the markup (James, 2026-09-21): a row
+   * gender rules out from a Discipler, which a Coed Group opens again. It fades away
+   * and fades back where it was, in place of rows that jump in and out of the list.
+   * Gone from the page, from the tab order and from a screen reader meanwhile, and
+   * its mark is disabled, so no form posts it. Always greyed too, since what leaves
+   * it out is why it cannot be chosen.
+   */
+  readonly leftOut?: boolean
+  /**
    * Held until script runs, though nothing is wrong with the row (Manual pairing,
    * recut ticket 03). The form is pointed at one route, and a mark that means the
    * other act needs script to point it there; until then it cannot be pressed, so a
@@ -138,7 +148,7 @@ export const PairRow = ({
   readonly checked: boolean
   readonly onChange: (checked: boolean) => void
 }) => (
-  <label className={`pair-opt${checked ? ' on' : ''}${greyed ? ' off' : ''}`}>
+  <label className={`pair-opt${checked ? ' on' : ''}${greyed ? ' off' : ''}${leftOut ? ' gone' : ''}`} aria-hidden={leftOut || undefined}>
     {/* Disabled is the whole of it: no mouse or key presses it, a screen reader
         says unavailable and then the reason, and no form posts it, with script or
         without. */}

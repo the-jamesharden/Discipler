@@ -229,7 +229,7 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin puts a Disciple into a group, 
 
   /**
    * Stage 2, behind the same route: `as=leader` invites a Discipler to help lead,
-   * the way the popup's **Add as co-leader** button will.
+   * the way the popup's **Add as co-discipler** button will.
    */
   describe('a Discipler added as another leader', () => {
     const aDiscipler = async () => {

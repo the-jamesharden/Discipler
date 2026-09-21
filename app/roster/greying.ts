@@ -133,6 +133,17 @@ export const greyedForADisciple = ({
   greyedInAOneToOne({ genderMatchEnforced, openedFrom: disciple, candidate: discipler, disciple })
 
 /**
+ * Whether what greys a row leaves it off the list altogether (James, 2026-09-21:
+ * "If they're not compatible or able to be paired together because of gender, just
+ * don't show them period"). Gender, and nothing else: Awaiting Intake, Opted out and
+ * *Already in a 1:1* are still greyed rows that say why. From a Disciple the answer
+ * never changes while the popup is open, so those rows are never sent
+ * (`disciplersShownTo`). From a Discipler it follows the ticks and the toggles, so
+ * the popup is told which readings leave a row out and shows it when Coed opens it.
+ */
+export const leavesOffTheList = (greyed: Greyed): boolean => greyed.why === 'gender'
+
+/**
  * Who is not listed at all in the popup opened from a Disciple (decided by James on
  * 2026-09-21, reviewing recut ticket 03): a Discipler gender rules out is left out,
  * in place of a greyed row that says why. From this side nothing the Admin can
@@ -142,8 +153,8 @@ export const greyedForADisciple = ({
  * Asked of gender alone, whatever else is true of either of them. Every other
  * reason is still a greyed row and never a missing one (`greyedForADisciple`):
  * Awaiting Intake, Opted out, and a Disciple already in a one-to-one. The popup
- * opened from a Discipler still greys for gender, because there a shape can open
- * the row again.
+ * opened from a Discipler leaves them off too (`leavesOffTheList`), until a Coed
+ * Group opens the row again.
  */
 export const leftOutForADisciple = ({
   genderMatchEnforced,

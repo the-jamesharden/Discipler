@@ -75,6 +75,7 @@ import {
   greyedInAGroup,
   greyedInAOneToTwo,
   groupsShownTo,
+  leavesOffTheList,
   leadsAGroup,
   type Greyed,
 } from './greying'
@@ -549,14 +550,12 @@ export default async function RosterPage({
             phone: disciple.phone,
             firstTime: disciple.firstTime,
             groups: groupsOf(disciple, groups).map(({ name, leaders }) => ({ name, leaders })),
-            // Against each thing the ticks can make (Manual pairing, recut ticket 02).
-            // Which of them the row shows follows the ticks, in `./pair-shape`.
-            greyed: {
-              a_one_to_one: greyedInWords(greyedForADiscipler({ genderMatchEnforced: suggestGenderMatch, discipler: pairing, disciple })),
-              a_one_to_two: greyedInWords(greyedInAOneToTwo({ discipler: pairing, disciple }), 'a_one_to_two'),
-              // And against each thing a Group's gender toggle can say (recut ticket 04).
-              ...groupReadings(disciple, greyedInWords),
-            },
+            // Against each thing the ticks can make (Manual pairing, recut tickets 02
+            // and 04). Which of them the row shows follows the ticks, in `./pair-shape`.
+            ...inWordsAndLeftOut(
+              readingsOf({ genderMatchEnforced: suggestGenderMatch, discipler: pairing, disciple }),
+              greyedInWords,
+            ),
           }))}
           // Every group the Ministry has that they are not already in, in either
           // role, and whose declaration does not rule them out, which is not listed
@@ -603,16 +602,38 @@ const listedGroup = (group: GroupToJoin, greyed: string | null): PairPopupGroup 
 })
 
 /**
- * A Disciple's row against each thing a Group's gender toggle can say, in words, so
- * the popup can follow the toggle without asking the server again.
+ * A Disciple's row against each thing the ticks and a Group's gender toggle can
+ * make, so the popup can follow them without asking the server again.
  */
-const groupReadings = (
-  disciple: RosterEntry,
+const readingsOf = ({
+  genderMatchEnforced,
+  discipler,
+  disciple,
+}: {
+  readonly genderMatchEnforced: boolean
+  readonly discipler: RosterEntry
+  readonly disciple: RosterEntry
+}): Record<ReadAs, Greyed | null> => {
+  const asAGroup = (declared: GroupDeclaration) => greyedInAGroup({ declared, disciple })
+  return {
+    a_one_to_one: greyedForADiscipler({ genderMatchEnforced, discipler, disciple }),
+    a_one_to_two: greyedInAOneToTwo({ discipler, disciple }),
+    [READ_AS_A_GROUP.female]: asAGroup('female'),
+    [READ_AS_A_GROUP.male]: asAGroup('male'),
+    [READ_AS_A_GROUP.mixed]: asAGroup('mixed'),
+  } as Record<ReadAs, Greyed | null>
+}
+
+/** Each reading in words, and the readings that leave the row off the list, which are gender's. */
+const inWordsAndLeftOut = (
+  readings: Record<ReadAs, Greyed | null>,
   inWords: (greyed: Greyed | null, readAs: ReadAs) => string | null,
-): Record<Exclude<ReadAs, 'a_one_to_one' | 'a_one_to_two'>, string | null> => {
-  const reading = (declared: GroupDeclaration) =>
-    inWords(greyedInAGroup({ declared, disciple }), READ_AS_A_GROUP[declared])
-  return { a_womens_group: reading('female'), a_mens_group: reading('male'), a_coed_group: reading('mixed') }
+): { readonly greyed: Record<ReadAs, string | null>; readonly leftOut: readonly ReadAs[] } => {
+  const each = Object.entries(readings) as [ReadAs, Greyed | null][]
+  return {
+    greyed: Object.fromEntries(each.map(([readAs, greyed]) => [readAs, inWords(greyed, readAs)])) as Record<ReadAs, string | null>,
+    leftOut: each.flatMap(([readAs, greyed]) => (greyed !== null && leavesOffTheList(greyed) ? [readAs] : [])),
+  }
 }
 
 /** What a refused Group had declared, out of its address: the field's own three words, or nothing. */

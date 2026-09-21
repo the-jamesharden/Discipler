@@ -80,7 +80,28 @@ export const expectGreyed = (popup: string, personId: string, reason: string): v
   expect(row, reason).toMatch(new RegExp(`id="${described}"[^>]*>${reason}<`))
 }
 
+/**
+ * A row that is not shown at all (James, 2026-09-21): somebody gender rules out,
+ * from a Discipler, whom a Coed Group opens again. Still in the markup, so it can
+ * fade back where it stands, and gone from it in every way that matters: marked to
+ * fade away, hidden from a screen reader, and its mark disabled and never chosen,
+ * so no form posts it.
+ */
+export const expectLeftOut = (popup: string, personId: string): void => {
+  const row = rowFor(popup, personId)
+  expect(row, personId).toMatch(/^[^>]*class="pair-opt[^"]* gone"/)
+  expect(row, personId).toMatch(/^[^>]*aria-hidden="true"/)
+  const mark = markOn(popup, personId)
+  expect(mark, personId).toMatch(/\sdisabled=""/)
+  expect(mark, personId).not.toMatch(/\schecked=""/)
+}
+
+/** Everybody the popup shows under one field: whoever it offers, less whoever is not shown at all. */
+export const shownAs = (popup: string, field: string): readonly (string | undefined)[] =>
+  offeredAs(popup, field).filter((id) => id !== undefined && !/^[^>]*class="pair-opt[^"]* gone"/.test(rowFor(popup, id)))
+
 export const expectOpen = (popup: string, personId: string): void => {
+  expect(rowFor(popup, personId), personId).not.toMatch(/^[^>]*class="pair-opt[^"]* gone"/)
   const mark = markOn(popup, personId)
   expect(mark).not.toMatch(/\sdisabled=""/)
   expect(mark).not.toContain('aria-describedby')

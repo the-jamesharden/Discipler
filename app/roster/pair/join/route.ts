@@ -14,7 +14,7 @@ import { getCommandService } from '~/service/container'
 /**
  * An Admin putting somebody into a group that already exists (Manual pairing,
  * ticket 22). An ordinary form POST, like pairing, so it works before JavaScript
- * has loaded. The Pair popup's **Add to group** and **Add as co-leader** buttons
+ * has loaded. The Pair popup's **Add to group** and **Add as co-discipler** buttons
  * post here.
  *
  * A route of its own beside `pair/create`, and not a branch inside it: that one

@@ -66,6 +66,8 @@ export interface PairPopupDisciple {
    * make, or null where they can. Which of them the row shows follows the ticks.
    */
   readonly greyed: Readonly<Record<ReadAs, string | null>>
+  /** The readings under which they are not shown at all: the ones gender rules them out of. */
+  readonly leftOut: readonly ReadAs[]
 }
 
 export const PairPopupFromADiscipler = ({
@@ -113,6 +115,9 @@ export const PairPopupFromADiscipler = ({
   const change = (next: PairSelectionChange) => setSelection((before) => selectionAfter(context, before, next))
 
   const hydrated = useHydrated()
+  // Why each row cannot be ticked now, if it cannot, and whether it is shown at all.
+  const greyedNow = new Map(disciples.map((each) => [each.id, greyedOnRow(context, selection, each)]))
+  const shown = disciples.filter((each) => !greyedNow.get(each.id)?.leftOut)
   const group = groups.find(({ id }) => id === selection.groupId) ?? null
   const ticked = disciples.filter((each) => selection.tickedIds.includes(each.id))
   const names = ticked.map(({ fullName }) => fullName)
@@ -129,7 +134,7 @@ export const PairPopupFromADiscipler = ({
   // The sentence and the button are the same act: a group to help lead, one tick's
   // one-to-one, or whatever the toggle has two or more ticks become.
   const sentenceFor = (): { readonly summary: string; readonly label: string } | null => {
-    if (group !== null) return { summary: PAIR_POPUP.coLead(person.fullName, group), label: PAIR_POPUP.addAsCoLeader }
+    if (group !== null) return { summary: PAIR_POPUP.coLead(person.fullName, group), label: PAIR_POPUP.addAsCoDiscipler }
     if (toggle === null) {
       return first === undefined
         ? null
@@ -185,12 +190,14 @@ export const PairPopupFromADiscipler = ({
     >
       <p className="pair-intro">{PAIR_POPUP.chooseDisciples(person.fullName)}</p>
 
-      {disciples.length === 0 && groups.length === 0 ? (
-        <p className="empty">{PAIR_POPUP.noDisciples}</p>
+      {shown.length === 0 && groups.length === 0 ? (
+        // Where gender is why nobody is listed, how somebody comes to be listed is not why.
+        <p className="empty">{disciples.length === 0 ? PAIR_POPUP.noDisciples : PAIR_POPUP.nobodyToChoose}</p>
       ) : (
         <>
           <div className="pair-toolbar">
-            <span>{PAIR_POPUP.counts(PAIR_POPUP.disciples(disciples.length), groups.length)}</span>
+            {/* Whoever is shown, so the number follows the rows as Coed opens them. */}
+            <span>{PAIR_POPUP.counts(PAIR_POPUP.disciples(shown.length), groups.length)}</span>
             {/* Unticks everything, and clears a chosen group. There is no Select all. */}
             {hydrated ? (
               <button type="button" className="link-btn" onClick={() => change({ type: 'clear' })}>
@@ -212,7 +219,8 @@ export const PairPopupFromADiscipler = ({
                   disciple.firstTime === null ? null : firstTimeLabel(disciple.firstTime),
                   ...disciple.groups.map((group) => PAIR_POPUP.inGroup(group)),
                 ]}
-                greyed={greyedOnRow(context, selection, disciple)}
+                greyed={greyedNow.get(disciple.id)?.why ?? null}
+                leftOut={greyedNow.get(disciple.id)?.leftOut ?? false}
                 // With a group the server sent chosen, a refused join restored, the
                 // form points at the route that joins, and a Disciple ticked beside
                 // it would be posted there and ignored. Held until script runs.

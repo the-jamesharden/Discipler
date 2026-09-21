@@ -12,13 +12,7 @@ import * as importCopy from '../../app/roster/import-copy'
  * copy module exports so the rule cannot decay one sentence at a time.
  */
 
-/**
- * *co-leader* is let through, and only that: it is the word James chose for the Pair
- * popup's button, **Add as co-leader** (Manual pairing, recut ticket 04, mock state
- * G), and the word a Discipler's own page already uses for somebody who leads a
- * group with them. It names a person beside another and not the model's role.
- */
-const FORBIDDEN = /\b((?<!co-)leaders?|participants?|eligib\w*|relationships?)\b/i
+const FORBIDDEN = /\b(leaders?|participants?|eligib\w*|relationships?)\b/i
 
 /** Every string an export holds, however it holds it. */
 const stringsIn = (value: unknown): string[] => {
@@ -36,12 +30,6 @@ describe('the Roster speaks the customer’s language', () => {
         expect(said, `${name}: ${said}`).not.toMatch(FORBIDDEN)
       }
     }
-  })
-
-  it('still refuses the model’s Leader, and lets only co-leader through', () => {
-    expect('Add as co-leader').not.toMatch(FORBIDDEN)
-    expect('Add as leader').toMatch(FORBIDDEN)
-    expect('Its leaders have been told').toMatch(FORBIDDEN)
   })
 
   it('says it in the import dialog’s own sentences', () => {

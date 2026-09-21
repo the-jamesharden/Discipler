@@ -338,7 +338,8 @@ describe('what the Pair popup says of a group a Discipler is added to (Manual pa
     expect(PAIR_POPUP.coLead('Claire Martinez', { name: 'Grace’s Group', leaders: [grace] })).toBe(
       'Claire Martinez will co-lead Grace’s Group with Grace Lee.',
     )
-    expect(PAIR_POPUP.addAsCoLeader).toBe('Add as co-leader')
+    // Never the model's Leader, which the Roster's copy does not say (James, 2026-09-21).
+    expect(PAIR_POPUP.addAsCoDiscipler).toBe('Add as co-discipler')
   })
 
   it('names every leader the group already has', () => {

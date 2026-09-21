@@ -120,13 +120,24 @@ const A_MAN = {
   a_mens_group: null,
   a_coed_group: null,
 }
+/**
+ * The readings gender rules each of them out of, under which the row is not shown
+ * at all. *Already in a 1:1* is never one: that row is greyed, and says why.
+ */
+type Readings = PairSelectionContext['rows'][number]['greyed']
+const woman = (id: string, greyed: Readings = OPEN) => ({ id, greyed, leftOut: ['a_mens_group'] as const })
+const man = (id: string, greyed: Readings = A_MAN) => ({
+  id,
+  greyed,
+  leftOut: (['a_one_to_one', 'a_one_to_two', 'a_womens_group'] as const).filter((readAs) => greyed[readAs] !== null),
+})
 const context: PairSelectionContext = {
   rows: [
-    { id: 'sam', greyed: OPEN },
-    { id: 'ana', greyed: OPEN },
-    { id: 'rosa', greyed: OPEN },
-    { id: 'brianna', greyed: IN_A_ONE_TO_ONE },
-    { id: 'tom', greyed: A_MAN },
+    woman('sam'),
+    woman('ana'),
+    woman('rosa'),
+    woman('brianna', IN_A_ONE_TO_ONE),
+    man('tom'),
   ],
   leadsAGroup: false,
   presetGender: 'female',
@@ -145,9 +156,9 @@ const context: PairSelectionContext = {
 const relaxed: PairSelectionContext = {
   ...context,
   rows: [
-    { id: 'sam', greyed: OPEN },
-    { id: 'ana', greyed: OPEN },
-    { id: 'tom', greyed: { ...A_MAN, a_one_to_one: null } },
+    woman('sam'),
+    woman('ana'),
+    man('tom', { ...A_MAN, a_one_to_one: null }),
   ],
 }
 
@@ -181,14 +192,14 @@ describe('what is ticked, and what the ticks would make', () => {
     const row = (id: string) => context.rows.find((each) => each.id === id)!
 
     // Nothing ticked: ticking anybody would make a one-to-one.
-    expect(greyedOnRow(context, nothing, row('brianna'))).toBe('Already in a 1:1 with David Chen')
-    expect(greyedOnRow(context, nothing, row('tom'))).toBe('Women’s only: a 1:1 is same-gender')
+    expect(greyedOnRow(context, nothing, row('brianna'))?.why).toBe('Already in a 1:1 with David Chen')
+    expect(greyedOnRow(context, nothing, row('tom'))?.why).toBe('Women’s only: a 1:1 is same-gender')
 
     // One ticked: ticking a second would make a 1:2 pair, which somebody already
     // in a one-to-one can be in. That is how they come to be ticked for one at all.
     const one = after(nothing, tick('sam'))
     expect(greyedOnRow(context, one, row('brianna'))).toBeNull()
-    expect(greyedOnRow(context, one, row('tom'))).toBe('Women’s only: a 1:2 is same-gender')
+    expect(greyedOnRow(context, one, row('tom'))?.why).toBe('Women’s only: a 1:2 is same-gender')
     // The row already ticked is read against what is ticked now, a one-to-one.
     expect(greyedOnRow(context, one, row('sam'))).toBeNull()
 
@@ -197,17 +208,17 @@ describe('what is ticked, and what the ticks would make', () => {
     const two = after(one, tick('ana'))
     expect(greyedOnRow(context, two, row('brianna'))).toBeNull()
     expect(greyedOnRow(context, two, row('rosa'))).toBeNull()
-    expect(greyedOnRow(context, two, row('tom'))).toBe(WOMENS_GROUP)
+    expect(greyedOnRow(context, two, row('tom'))?.why).toBe(WOMENS_GROUP)
 
     // Two ticked as 2 x 1:1: a third would make 3 x 1:1, which she cannot be one of.
-    expect(greyedOnRow(context, after(two, pick('separate')), row('brianna'))).toBe('Already in a 1:1 with David Chen')
+    expect(greyedOnRow(context, after(two, pick('separate')), row('brianna'))?.why).toBe('Already in a 1:1 with David Chen')
   })
 
   it('reads a second row against N x 1:1 where the Discipler already leads a group', () => {
     const leading = { ...context, leadsAGroup: true }
     const one = selectionAfter(leading, nothing, tick('sam'))
 
-    expect(greyedOnRow(leading, one, leading.rows[3]!)).toBe('Already in a 1:1 with David Chen')
+    expect(greyedOnRow(leading, one, leading.rows[3]!)?.why).toBe('Already in a 1:1 with David Chen')
   })
 
   it('never ticks a row that is greyed for what ticking it would make', () => {
@@ -333,12 +344,12 @@ describe('two who can be N x 1:1 pairs and cannot be a 1:2 pair', () => {
     // she would untick him under the 1:2 and then herself as a lone one-to-one.
     const withHer: PairSelectionContext = {
       ...relaxed,
-      rows: [...relaxed.rows, { id: 'brianna', greyed: IN_A_ONE_TO_ONE }],
+      rows: [...relaxed.rows, woman('brianna', IN_A_ONE_TO_ONE)],
     }
     const her = withHer.rows[3]!
     const him = selectionAfter(withHer, nothing, tick('tom'))
 
-    expect(greyedOnRow(withHer, him, her)).toBe('Already in a 1:1 with David Chen')
+    expect(greyedOnRow(withHer, him, her)?.why).toBe('Already in a 1:1 with David Chen')
     expect(selectionAfter(withHer, him, tick('brianna'))).toEqual(him)
     // Beside somebody she can be in a 1:2 pair with, she is offered as ever.
     expect(greyedOnRow(withHer, selectionAfter(withHer, nothing, tick('sam')), her)).toBeNull()
@@ -447,7 +458,7 @@ describe('what a Group declares (Manual pairing, recut ticket 04, D1)', () => {
   it('is preset from the Discipler, and other-gender rows are greyed until Coed is chosen', () => {
     expect(shapeOf(context, three)?.selected).toBe('group')
     expect(three.declared).toBe('female')
-    expect(greyedOnRow(context, three, row('tom'))).toBe(WOMENS_GROUP)
+    expect(greyedOnRow(context, three, row('tom'))?.why).toBe(WOMENS_GROUP)
 
     const coed = after(three, declare('mixed'))
     expect(coed.declared).toBe('mixed')
@@ -506,7 +517,7 @@ describe('what a Group declares (Manual pairing, recut ticket 04, D1)', () => {
 
   it('never greys somebody with no gender on file, under any of the three', () => {
     const noGender = { a_one_to_one: null, a_one_to_two: null, a_womens_group: null, a_mens_group: null, a_coed_group: null }
-    const withThem: PairSelectionContext = { ...context, rows: [...context.rows, { id: 'jo', greyed: noGender }] }
+    const withThem: PairSelectionContext = { ...context, rows: [...context.rows, { id: 'jo', greyed: noGender, leftOut: [] }] }
     const group = [tick('sam'), tick('ana'), tick('jo')].reduce(
       (each, change) => selectionAfter(withThem, each, change),
       selectionFrom(withThem, NOTHING_RESTORED),
@@ -589,6 +600,43 @@ describe('one thing at a time: a group to help lead, or Disciples to pair (Manua
     // One that is greyed now, or gone from the list, is not restored as chosen.
     const gone = selectionFrom(context, { ...NOTHING_RESTORED, groupId: 'ended-since' })
     expect(gone).toEqual(nothing)
+  })
+})
+
+describe('who is not shown at all (James, 2026-09-21)', () => {
+  const row = (id: string) => context.rows.find((each) => each.id === id)!
+
+  it('leaves a row off the list where gender is why it cannot be ticked, and greys it for any other reason', () => {
+    // Nothing ticked is a one-to-one: he is not shown, and she is shown greyed.
+    expect(greyedOnRow(context, nothing, row('tom'))).toEqual({ why: 'Women’s only: a 1:1 is same-gender', leftOut: true })
+    expect(greyedOnRow(context, nothing, row('brianna'))).toEqual({
+      why: 'Already in a 1:1 with David Chen',
+      leftOut: false,
+    })
+  })
+
+  it('shows him once the Group is Coed, and leaves him off again when it is not', () => {
+    const three = after(nothing, tick('sam'), tick('ana'), tick('rosa'))
+    expect(greyedOnRow(context, three, row('tom'))).toEqual({ why: WOMENS_GROUP, leftOut: true })
+
+    const coed = after(three, declare('mixed'))
+    expect(greyedOnRow(context, coed, row('tom'))).toBeNull()
+
+    // Ticked and then ruled out again, he is unticked and named, and his row goes.
+    const womens = after(coed, tick('tom'), declare('female'))
+    expect(womens.unticked).toEqual([{ id: 'tom', why: WOMENS_GROUP }])
+    expect(greyedOnRow(context, womens, row('tom'))?.leftOut).toBe(true)
+  })
+
+  it('never leaves out somebody it is not gender that stops', () => {
+    // Beside two ticked as 2 x 1:1, she is greyed for her one-to-one and still shown.
+    const apart = after(nothing, tick('sam'), tick('ana'), pick('separate'))
+    expect(greyedOnRow(context, apart, row('brianna'))?.leftOut).toBe(false)
+  })
+
+  it('keeps who was unticked as the words alone, which is what the popup’s line says', () => {
+    const moved = after(nothing, tick('sam'), tick('brianna'), pick('separate'))
+    expect(moved.unticked).toEqual([{ id: 'brianna', why: 'Already in a 1:1 with David Chen' }])
   })
 })
 

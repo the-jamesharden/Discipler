@@ -139,6 +139,18 @@ export interface PairSelectionRow {
   readonly id: string
   /** Why this row cannot be ticked, already in words, against each thing it can be read against. */
   readonly greyed: Readonly<Record<ReadAs, string | null>>
+  /**
+   * The readings under which the row is not shown at all, which are the ones gender
+   * greys it for (James, 2026-09-21). Which those are is `./greying`'s to say. Every
+   * other reason is a greyed row that says why.
+   */
+  readonly leftOut: readonly ReadAs[]
+}
+
+/** Why a row cannot be ticked now, in words, and whether it is shown greyed with them or not shown at all. */
+export interface RowGreyed {
+  readonly why: string
+  readonly leftOut: boolean
 }
 
 export interface PairSelectionContext {
@@ -232,15 +244,16 @@ const settled = (
   ticked: readonly string[],
   pickedBefore: PairShape | null,
   declared: GroupDeclaration | null,
-): Pick<PairSelection, 'tickedIds' | 'picked' | 'unticked'> => {
+): Pick<PairSelection, 'tickedIds' | 'picked'> & { readonly unticked: readonly ({ readonly id: string } & RowGreyed)[] } => {
   const listed = context.rows.filter(({ id }) => ticked.includes(id))
   const ticks = { tickedIds: listed.map(({ id }) => id), picked: pickedBefore, declared }
   // Forgotten unless it is what is selected: below two ticks nothing is.
   const picked = pickedBefore !== null && shapeOf(context, ticks)?.selected === pickedBefore ? pickedBefore : null
 
-  const greyedNow = listed.flatMap(({ id, greyed }) => {
-    const why = greyed[readAgainst(context, ticks)]
-    return why === null ? [] : [{ id, why }]
+  const greyedNow = listed.flatMap(({ id, greyed, leftOut }) => {
+    const readAs = readAgainst(context, ticks)
+    const why = greyed[readAs]
+    return why === null ? [] : [{ id, why, leftOut: leftOut.includes(readAs) }]
   })
   if (greyedNow.length === 0) return { tickedIds: ticks.tickedIds, picked, unticked: [] }
 
@@ -248,6 +261,10 @@ const settled = (
   const rest = settled(context, stillTicked, picked, declared)
   return { ...rest, unticked: [...greyedNow, ...rest.unticked] }
 }
+
+/** Who a change unticked and why, as the selection keeps it: the words, for the popup's line. */
+const named = (unticked: readonly ({ readonly id: string } & RowGreyed)[]): PairSelection['unticked'] =>
+  unticked.map(({ id, why }) => ({ id, why }))
 
 /**
  * What the gender toggle holds after a change: what it said, while the shape is
@@ -275,17 +292,23 @@ const declaredAfter = (
  * them and then be unticked alone, and is never offered for that. Ticking a row may
  * still untick somebody else, which the popup says; it never unticks the row ticked.
  * A row already ticked is never greyed, since the re-check would have unticked it.
+ *
+ * Where it is gender that rules the row out, it is not shown at all, from this side
+ * as from a Disciple's (James, 2026-09-21). Here the answer follows the ticks and
+ * the toggles: a man is left out of a woman's list until her Group is Coed, and
+ * then he is on it.
  */
 export const greyedOnRow = (
   context: PairSelectionContext,
   selection: PairSelection,
   row: PairSelectionRow,
-): string | null =>
-  selection.tickedIds.includes(row.id)
-    ? null
-    : (settled(context, [...selection.tickedIds, row.id], selection.picked, selection.declared).unticked.find(
-        ({ id }) => id === row.id,
-      )?.why ?? null)
+): RowGreyed | null => {
+  if (selection.tickedIds.includes(row.id)) return null
+  const gone = settled(context, [...selection.tickedIds, row.id], selection.picked, selection.declared).unticked.find(
+    ({ id }) => id === row.id,
+  )
+  return gone === undefined ? null : { why: gone.why, leftOut: gone.leftOut }
+}
 
 /** The shapes that hold one Material for everybody in them: one relationship, one dropdown. */
 const holdsOneMaterial = (shape: PairShape | null): boolean => shape === 'one_to_two' || shape === GROUP_SHAPE
@@ -372,7 +395,7 @@ export const selectionFrom = (context: PairSelectionContext, restored: RestoredS
   // A Group that came back having declared nothing starts from the preset, as any does.
   const declared = restored.picked === GROUP_SHAPE && restored.declared !== null ? restored.declared : context.presetGender
   const ticks = settled(context, restored.tickedIds, restored.picked, declared)
-  const next = { ...ticks, declared: declaredAfter(context, ticks, declared) }
+  const next = { ...ticks, unticked: named(ticks.unticked), declared: declaredAfter(context, ticks, declared) }
   return {
     ...next,
     groupId: null,
@@ -434,7 +457,7 @@ export const selectionAfter = (
   const declared = change.type === 'declare' ? change.declared : selection.declared
 
   const ticks = settled(context, ticked, picked, declared)
-  const next = { ...ticks, declared: declaredAfter(context, ticks, declared) }
+  const next = { ...ticks, unticked: named(ticks.unticked), declared: declaredAfter(context, ticks, declared) }
   return {
     ...next,
     // And ticking a Disciple clears a chosen group, as Clear does.

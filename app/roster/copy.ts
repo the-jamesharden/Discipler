@@ -283,14 +283,16 @@ export const PAIR_POPUP = {
   addToGroup: 'Add to group',
   /**
    * From a Discipler (Manual pairing, recut ticket 04): choosing a group adds them
-   * to it as another leader, by invitation. Every leader it has is named, and one
-   * named for its leaders has said them already, as `joinGroup` has it.
+   * to it as another of its Disciplers, by invitation. Everybody who leads it is
+   * named, and one named for them has said them already, as `joinGroup` has it.
+   * The button says *co-discipler* (James, 2026-09-21): the mock's word held the
+   * model's Leader, which the Roster never says.
    */
   coLead: (discipler: string, group: GroupOnARow): string => {
     const { called, leaders } = inASentence(group)
     return `${discipler} will co-lead ${called}${leaders === null ? '' : ` with ${leaders}`}.`
   },
-  addAsCoLeader: 'Add as co-leader',
+  addAsCoDiscipler: 'Add as co-discipler',
   /**
    * Why a row cannot be chosen, on the row and in one line (Manual pairing, ticket
    * 23). Somebody who cannot be paired reads what their Roster row already reads.
