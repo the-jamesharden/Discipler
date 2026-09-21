@@ -207,3 +207,30 @@ A refusal's address says `mode=together` for a 1:2 and will for a Group, so tick
 4. **In a Ministry that does not enforce the match, *Other-gender rows are greyed while 1:2 is selected* holds for the two ticked and not for the rows beside them.**
    With a 1:2 selected, an unticked man's row is open, because ticking him makes 3 × 1:1, which he can be one of.
    That follows from reading 1 and is the literal criterion's only exception.
+
+### James, 2026-09-20: the four things, answered
+
+1. *A refusal naming it* names the Disciple and not the Material's title: **leave as is.**
+2. A group that has fallen to one Disciple and one Discipler: **keep it as a group.** Built, below.
+3. A Discipler with no gender on file: gender is part of Intake, so this works as it is.
+4. Other-gender rows beside a 1:2 in a Ministry that does not enforce the match: **leave as is.**
+
+### Implementer, 2026-09-20: a group of one is still a group, built
+
+This is the migration the second item above, and old ticket 23's Comments in `06-committed-already.md`, both said it would take.
+`20261004000100_which_cap_a_relationship_counts_against.sql` restates `public.roster_page()` with one key more on each relationship row, `counts_as_a_group`, and changes nothing else; `person_page()` and `pair_page()` read that document and carry it with no change of their own.
+`RosterRelationship.countsAsAGroup` carries it, and its only readers are the two rules in `app/roster/greying.ts`.
+A group's last Disciple is no longer greyed as *Already in a 1:1*, from either side of the popup, and its Discipler is no longer offered a 1:2 pair the index would refuse.
+
+The function answers the question and not the column, so nothing under `src/` or `app/` reads a kind that did not before, and the fence test is unchanged.
+What a row is called, the size pill and every state still follow the live count.
+ADR-0004 has an amendment saying so, since the honest list of what reads `kind` is that document.
+
+Proved on the pure rules in `tests/app/who-is-greyed.test.ts`, and over HTTP in the Discipler's popup suite: a group formed with two Disciples, one membership ended, then looked at from another Discipler, from its last Disciple, and from its own Discipler with two ticked.
+A document without the key is thrown as drift by the reader, like the rest of it there, so every suite that reads a Roster also proves the key arrives.
+`the-admin-tabs-answer-in-one-read.test.ts` pins the document's rows exactly, and now pins the key too, answered *false* for a one-to-one.
+The whole suite, once, on the result: 167 files, 2342 passed, 1 skipped (the one `invitation-over-http` has always carried), none failed.
+
+**To ship it:** the migration has to be pushed to production by hand before the code that reads it is deployed, or every Roster read throws.
+`supabase db push` as the plain foreground command, then `smoke:pages`, then merge, as usual.
+

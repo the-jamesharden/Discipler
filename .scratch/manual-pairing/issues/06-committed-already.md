@@ -1235,6 +1235,9 @@ The old Pair page still allows it, so nothing is unreachable, and it errs toward
 Making the popup exact needs the Roster's function to say, per relationship, whether it counts against that cap, which is a migration, and the reader in `src/platform` to carry it as a fact so that `app/` still never reads a kind (the fence in `tests/domain/relationship-kind-fence.test.ts`).
 It is about twenty lines and one dropped-and-recreated function; say the word and it is a small ticket of its own.
 
+**2026-09-20, done.**
+James said a group that has fallen to one Disciple stays a group, and it was built with recut ticket 02: see its Comments, *a group of one is still a group, built*.
+
 #### After the review, 2026-09-20
 
 A standards review and a spec review read the six commits.
