@@ -132,3 +132,5 @@ Nothing was built for it here; if it should be possible by hand, it is a ticket 
 - The question of pairing somebody as the leader who is not a Discipler yet was unclear, and James's first answer (No) came with a note asking for more.
   Asked again in the Lavish with an example and a mock-up; nothing acted on until he answers.
 
+- The tag keeps its words: *Keep Awaiting Intake*.
+- An old refusal of a named group reopens on the shape its ticks default to, as built: *Keep: reopen on the shape its ticks default to*.
