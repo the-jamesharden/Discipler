@@ -96,6 +96,12 @@ export const dayMonthYear = (instant: Date, timeZone: string): string => {
   return `${day} ${MONTHS[month - 1]} ${year}`
 }
 
+/** *9 Sep*, the same date without its year, as S-8 of the Materials design prints it. */
+export const dayMonth = (instant: Date, timeZone: string): string => {
+  const { day, month } = calendarDay(instant, timeZone)
+  return `${day} ${MONTHS[month - 1]}`
+}
+
 /**
  * *12 Jul – 3 Aug 2026*: a closed period's two dates, with the year said once
  * where both fall in it.

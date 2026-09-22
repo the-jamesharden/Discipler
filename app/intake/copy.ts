@@ -231,6 +231,15 @@ export const GROUP_QUESTION = 'Which group would you like to join?'
 export const workingThrough = (materialTitle: string): string => `Working through ${materialTitle}`
 
 /**
+ * The dashed last option on step three, for somebody who found no group that
+ * fits (Group form exits, ticket 01, S-7). Choosing it asks the Ministry to place
+ * them, and the done page says the Ministry has been told.
+ */
+export const NO_GROUP_IN_MIND_ANSWER = 'I don’t have a group in mind'
+export const noGroupInMindDescription = (ministryName: string): string =>
+  `We’ll let ${ministryName} know you’d like to be placed in one.`
+
+/**
  * What the link says when there is nothing to join: a Ministry with no group the
  * form could offer, or a Person every group is closed to. The same page, because
  * to the Person the list is empty either way. It says so plainly and points at
@@ -260,6 +269,13 @@ export const joinedMessage = (groupName: string, leaderFirstNames: readonly stri
 export const REQUESTED_HEADING = 'You’re on the list'
 export const requestedMessage = (ministryName: string, groupName: string): string =>
   `${ministryName} will be in touch about ${groupName}.`
+
+/**
+ * The done page for somebody with no group in mind: the Ministry has been told
+ * and will be in touch about a group, and nothing says a group was joined.
+ */
+export const placementWantedMessage = (ministryName: string): string =>
+  `We’ve let ${ministryName} know you’d like to be placed in a group, and they’ll be in touch about one.`
 
 /** Said when the group the done URL names is not one the page can find. */
 export const doneMessageWithoutAGroup = (ministryName: string): string =>

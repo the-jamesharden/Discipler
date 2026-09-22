@@ -56,6 +56,8 @@ export const shortFollowUp: Record<FollowUpPayload['kind'], (waitedDays: number 
   invitation_expired: () => 'Invitation expired',
   group_join_requested: () => 'Wants to join',
   intended_pairing_refused: () => 'Pair not made',
+  // About a Person and no relationship, so never on a card; here because every kind is.
+  group_placement_wanted: () => 'Wants a group',
 }
 
 export const withPeople = (participantNames: readonly string[]): string =>

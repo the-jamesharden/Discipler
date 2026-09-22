@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { IntakeRefused, PairingRefused } from '~/domain/errors'
-import { GROUP_PATH, type IntakeFormFields } from '~/domain/intake'
+import { GROUP_PATH, NO_GROUP_IN_MIND, type IntakeFormFields } from '~/domain/intake'
 import { getCommandService, getIntakeReader, settlePlannedPairings } from '~/service/container'
 import { groupWizard } from '../../group-wizard-answers'
 import { consentSourceOf, submittedIntakeForm, textField } from '../../submitted-form'
@@ -50,7 +50,7 @@ export async function POST(
         groupId: form.groupId ?? undefined,
         availability: [...form.availability],
       },
-      { groupId: page.groups.map((group) => group.relationshipId) },
+      { groupId: [...page.groups.map((group) => group.relationshipId), NO_GROUP_IN_MIND] },
     )
     const params = groupWizard.answersAsQuery(answers, readVia(via), groupWizard.LAST_STEP)
     params.set('refused', refusals.join(' '))
@@ -90,6 +90,9 @@ export async function POST(
   // group's identifier, which the done page looks up rather than renders.
   const chosen = page.groups.find((group) => group.relationshipId === form.groupId)
   const done = new URLSearchParams()
+  // No group in mind: the Ministry has been asked to place them, which is what
+  // the page says (Group form exits, ticket 01).
+  if (form.groupId === NO_GROUP_IN_MIND) done.set('outcome', 'placement')
   if (chosen) {
     done.set('groupId', chosen.relationshipId)
     // *Joined* covers somebody who was already in it: they are in it, which is
