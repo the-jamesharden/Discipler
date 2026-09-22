@@ -68,6 +68,13 @@ Decisions, each with its alternative:
 - **The supersession line is dated 2026-09-22**, the build date; it should carry the merge date when this merges.
 - **Intake forms' refusal lookups read own keys only** (`refusalIn`), fixing a `__proto__` code rendering an object; found while writing the new sentences.
 
+Review (two-axis `code-review` on `67bc096...HEAD`, and a second read of the diff), fixed on the branch:
+an Admin's un-assign on a history nobody opened now answers `material_history_not_open` rather than raising at commit;
+the groups card leaves the Material field out where the running Material is off the live list, rather than drawing "No material" over it and un-assigning it on the next Save;
+the migration restates `material_assignment`'s table comment;
+`docs/pastor-dashboard.md` says the groups card does not report the Material already running.
+Left as recorded: the same-Material refusal lives in SQL only, where the spec lists it among the domain's rules (see above).
+
 For James:
 
 - Push `20261008000300_assigning_a_material.sql` to production by hand before this merges, then `npm run smoke:pages`.

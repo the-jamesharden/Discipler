@@ -28,6 +28,12 @@
 -- period that has already ended. The trigger is unchanged.
 drop index material_assignment_one_opening_period;
 
+comment on table material_assignment is
+  'One period a relationship spent on one Material. A null material_id marks the '
+  'period acceptance opens, before the Ministry has assigned anything, or a later '
+  'one an Admin opened by un-assigning -- a row saying "none", never the absence '
+  'of a row.';
+
 -- ---------------------------------------------------------------------------
 -- The function
 -- ---------------------------------------------------------------------------
@@ -80,9 +86,10 @@ begin
      where a.relationship_id = target_relationship_id
   ) into opened;
 
-  if target_material_id is null and not opened then
+  if target_material_id is null and actor is null and not opened then
     -- The opening period. Nothing to close and nothing to compare against; the
-    -- trigger is what holds it to acceptance.
+    -- trigger is what holds it to acceptance. An Admin's un-assign on a history
+    -- nobody opened falls to the branch below and answers as the defect it is.
     null;
   elsif target_material_id is null and actor is null then
     -- The opening period asked for a second time. Acceptance writes it once and

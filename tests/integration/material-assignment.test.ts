@@ -705,6 +705,17 @@ describe('the Material a relationship is working through', () => {
       expect(rows[0]?.refusal).toBe('material_history_already_open')
     })
 
+    it('answers an Admin un-assigning a history nobody opened as the defect it is', async () => {
+      const relationship = await aRelationship()
+      await pool.query(`delete from material_assignment where relationship_id = $1`, [relationship])
+
+      const { rows } = await pool.query<{ refusal: string | null }>(
+        `select app.assign_material($1, null, $2, $3) as refusal`,
+        [relationship, new Date(acceptedAt.getTime() + days(7)), ministry.adminUserId],
+      )
+      expect(rows[0]?.refusal).toBe('material_history_not_open')
+    })
+
     it('refuses a Material the Ministry has removed', async () => {
       const relationship = await aRelationship()
       const gone = materialId(await addMaterial(ministry, 'Gone ' + ++numbered))

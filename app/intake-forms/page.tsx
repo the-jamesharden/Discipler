@@ -369,7 +369,14 @@ export default async function IntakeFormsPage({
                   saved in this same press. Only once it is accepted: the
                   assignment is refused before that, and nothing is stored to
                   apply later. */}
-              {group.accepted && group.running ? (
+              {/* A running Material off the live list cannot be drawn as
+                  selected, and a dropdown showing "No material" over it would
+                  un-assign it on the next Save; the field is left out instead.
+                  Removal refuses while in use, so only hand-made data gets here. */}
+              {group.accepted &&
+              group.running &&
+              (group.running.materialId === null ||
+                materials.some((material) => material.materialId === group.running?.materialId)) ? (
                 <GroupMaterialField
                   group={group.relationshipId}
                   running={group.running}

@@ -55,7 +55,7 @@ The Materials tab shows the ministry's own list of materials as folders, each ho
 
 The tab's New material button opens a page of its own where an admin gives a material a title and either some text, a PDF, or both; a folder's Edit link opens the page where the title and text are changed, the PDF is replaced or removed, and the material is removed from the list. Removing takes two presses and is refused while any relationship is working through the material; a removed material leaves the tab and every assign list, and the weeks relationships spent on it still say so.
 
-Every card in a folder ends in a row that assigns a material: a dropdown of every live material, with "No material" in a material's own folder, and a button. It starts now and never earlier, and saving the material a relationship is already on changes nothing and says so. The same choice sits on an accepted group's card on Intake forms, saved with the group's name; an unaccepted group's card says a material can be assigned once its leader has accepted. On the group form, each group's name has the title of the material it is working through beneath it.
+Every card in a folder ends in a row that assigns a material: a dropdown of every live material, with "No material" in a material's own folder, and a button. It starts now and never earlier, and saving the material a relationship is already on changes nothing, which a folder says and a group's card does not. The same choice sits on an accepted group's card on Intake forms, saved with the group's name; an unaccepted group's card says a material can be assigned once its leader has accepted. On the group form, each group's name has the title of the material it is working through beneath it.
 
 ## Roster
 
