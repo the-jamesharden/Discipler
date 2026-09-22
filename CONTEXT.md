@@ -132,11 +132,15 @@ _Avoid_: Twilio Rhythm (Twilio is a delivery vendor, not a domain concept)
 The message a person receives on completing intake, before any relationship exists.
 
 **Starter Message**:
-The message that opens a discipleship relationship, sent once, when it becomes active. A Participant's names the Leader they have been paired with; a Leader's names nobody and points at the page that says who they are meeting with. It always carries the ministry's required opt-out and rate disclosure language. It never carries anyone's phone number.
+The message that opens a discipleship relationship, sent once, when it becomes active. A Participant's names the Leader they have been paired with; a Leader's names nobody and points at the page that says who they are meeting with. It carries the Rates Line when it is the first text to that Person that could, in the period the Rates Line counts in; otherwise it is sent without it. It never carries anyone's phone number.
 _Avoid_: sending it again on resume (that is the Resume Message)
 
+**Rates Line**:
+The ministry's opt-out and rate disclosure, appended to the end of a text. The Welcome Message and the `HELP` reply always carry it; every other text that may carry it does so only where the same Person has not already been queued it in the current period, decided per Person and not per relationship. A text withheld at send time does not count. The period, and which texts may carry it, are `src/domain/rates-line.ts`'s; whether each queued text carried it is recorded on that text.
+_Avoid_: the monthly check-in rule (it was only the Leaders' check-ins, and is now this rule for every text)
+
 **Resume Message**:
-The message sent to everyone in a relationship when an Admin resumes it from a Pause, each side named the other side. It carries the ministry's opt-out and rate disclosure language. A Pause running out releases nothing.
+The message sent to everyone in a relationship when an Admin resumes it from a Pause, each side named the other side. It carries the Rates Line on the same terms as the Starter Message. A Pause running out releases nothing.
 _Avoid_: Starter Message (its words are true on the day a match is made, not after a fortnight away)
 
 **Password Reset**:
@@ -264,7 +268,7 @@ The chronological record of ministry activity associated with a discipleship rel
 Longer-term ministry insight derived from the ministry's historical activity and participant context.
 
 **Ministry Timezone**:
-The single clock a Ministry's data is interpreted against. Availability slots, the Check-In Cadence, the week boundary behind the care counters, and the monthly opt-out rule all resolve against it. A property of the Ministry, never of a Person.
+The single clock a Ministry's data is interpreted against. Availability slots, the Check-In Cadence, the week boundary behind the care counters, and the period the Rates Line counts in all resolve against it. A property of the Ministry, never of a Person.
 
 **Nudge**:
 The action that reveals a Participant's contact details on a Follow-Up Item so an Admin can reach them directly. It sends nothing. Discipler says who needs a call; the Admin makes it.

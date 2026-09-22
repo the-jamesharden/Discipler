@@ -51,7 +51,9 @@ There is one question set. It does not branch on group-versus-one-to-one — onl
 
 The next-day reminder re-sends the same question. It never counts as a second unanswered message and never advances the two-week stall threshold.
 
-Opt-out and rate-disclosure language appears on every Starter Message, and on the first check-in of each calendar month. **The monthly rule applies to leaders only**, because only leaders receive check-ins. A participant receives that language on the Starter Message and again on the first message following a silence gap of thirty days — a reassignment, a resumed relationship, anything that breaks a month of quiet.
+Opt-out and rate-disclosure language, the rates line, reaches a person at most once a calendar month, on the first text of that month that may carry it.
+The question that opens a check-in is one of those texts, so a leader's first check-in of a month carries it only where nothing else, a Starter Message say, already did that month.
+The rule is the same for leaders and participants, and is set out in `docs/product-rules.md`, *Settled: The Rates Line Reaches a Person Once a Month*.
 
 ## Voice and envelope
 
