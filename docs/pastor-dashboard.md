@@ -47,6 +47,10 @@ Nudge and *see contact details* were listed here as two separate actions, one of
 
 Reassigning or replacing somebody needs no separate action. Ending a relationship returns everyone in it to `Ready to Pair`, and the admin pairs them from the Roster in the usual way.
 
+A **Wants a group** item is somebody who signed up on the group Intake link with no group in mind.
+It says when they signed up and what their Intake says of their gender, age band and availability, and offers two actions and no others: a dropdown of the groups open to them with **Place in this group**, and **Resolve**.
+Placing them is the Roster's **Add to group** act, `group.add_participant`: it resolves the item in the same transaction and lands on the Roster with the receipt that act gives.
+
 Messaging a participant through Discipler is deliberately absent. The admin picks up the phone; the product's job is to say who needs a call, not to become another inbox.
 
 ## Materials

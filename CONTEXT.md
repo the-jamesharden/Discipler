@@ -102,6 +102,10 @@ _Avoid_: Approval as the default, or as a Ministry-wide setting
 The Follow-Up Item raised when a Person picks a group whose Join Approval is on. It carries the Person and the group, stands once however many times they ask, and closes only when an Admin admits them -- which adds them to the group in the same act -- or resolves it alone. Nothing is sent to the Person either way.
 _Avoid_: Application, waitlist
 
+**Group Placement**:
+An Admin putting into a group somebody who signed up on the Group Intake Link with no group in mind. Their submission raises the `group_placement_wanted` Follow-Up Item, which carries the Person and nothing else and stands once however many times they ask. It closes when an Admin puts them into a group -- `group.add_participant`, from the item's **Place in this group** or from the Roster -- or resolves it alone. The item offers the groups the Group Intake Link would offer them.
+_Avoid_: Assignment (that is a Material's), waitlist
+
 **Pair**:
 The pastor's act of placing people into a discipleship relationship. A verb in the model and in every message. It happens in the Pair popup over the Roster, opened from one Person, on the Discipler's side or the Disciple's. On the Roster, the person page and the Pair popup, since ticket 36, a *pairing* is also the noun for a Discipleship Relationship, one-to-one or group, said in place of "relationship" because it is the customer's word; ticket 36 records the decision.
 _Avoid_: Using "pair" or "pairing" as a noun in code, in the model, or in message copy
