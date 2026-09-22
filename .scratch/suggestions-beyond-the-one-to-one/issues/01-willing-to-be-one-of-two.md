@@ -57,3 +57,9 @@ This ticket was previously written as a filter on the 1:2 suggestion pool with a
 The two open items it carried are closed: it binds nothing, so it binds manual pairing not at all; and the two sides keep their different wordings in one column.
 Read as covering both sides, since the decision was said of everyone; the spec records that as an assumption.
 Status moves to `ready-for-agent`.
+
+**2026-09-22, James, the mentee side's wording.**
+The question on the mentee side reads, in his words: *Open to being mentored alongside another mentee if needed*.
+Use it as written, over the paraphrase in Acceptance.
+It reads as a statement to agree with rather than a question, so the answer words should be legible beside a name on their own, as the ticket already asks.
+The mentor side is not yet worded by him; the twin in the same shape would be *Open to mentoring two mentees together if needed*, and is a proposal until he says.
