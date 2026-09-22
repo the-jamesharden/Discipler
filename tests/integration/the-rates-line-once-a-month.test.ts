@@ -10,10 +10,10 @@ import { applyEffects, createCommandService } from '~/service/command-service'
 import { dispatchQueue } from '~/service/outbound-dispatch'
 import type { MessageTransport } from '~/service/ports'
 import {
+  aTestPhoneNumber,
   addPerson,
   createMinistryWithAdmin,
   localSupabase,
-  optOut,
   pairOneToOne,
   type MinistryFixture,
 } from '../support/local-supabase'
@@ -123,7 +123,7 @@ describe('the rates line, once a month', () => {
 
   it('rides on first contact, is left off a text later that month, and returns the next', async () => {
     const church = await aMinistry('Welcome Chapel')
-    const phone = aNumber()
+    const phone = aTestPhoneNumber()
 
     await church.serviceAt(new Date('2026-07-02T15:00:00Z')).execute({
       type: 'intake.submit',
@@ -335,7 +335,12 @@ describe('the rates line, once a month', () => {
       // Queued carrying the line, and then she says STOP before it goes: the
       // sending layer withholds it, so she never read it.
       await church.resumeAt(new Date('2026-07-06T18:00:00Z'), relationship)
-      await optOut(church.ministry, emily)
+      await church.serviceAt(new Date('2026-07-06T18:02:00Z')).execute({
+        type: 'sms.inbound',
+        ministryId: church.ministry.id,
+        personId: emily,
+        body: 'STOP',
+      })
       await drain(accepting, new Date('2026-07-06T18:05:00Z'))
 
       const { rows } = await pool.query<{ withheld_reason: string | null }>(
