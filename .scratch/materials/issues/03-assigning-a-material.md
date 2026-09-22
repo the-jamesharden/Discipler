@@ -82,3 +82,17 @@ For James:
 - S-6 draws the rest of the groups card in words the shipped card does not use ("Groups on the link", "Name on the link", "Ask me before someone joins", "Save group", "led by"). Only the Material field was built; say if the card's other words should follow the design.
 - S-7 heads the step "Join a group at Grace Fellowship"; the shipped step heads it with the Ministry's name alone. Untouched here.
 
+### James, 2026-09-22, in the Lavish review of the wave
+
+Answered on the four questions above and one more, and folded into the ship branch with the rest of the wave.
+
+- The refusal sentences on the folder and the groups card: *Keep them as written*, with one asked to say more.
+  `material.relationship_not_accepted` now reads *A material can be assigned once its leader has accepted the invitation. Until then the relationship has not started.*
+  The others are unchanged.
+- Dropping the unique index that allowed one period with no Material per relationship, so an Admin can un-assign: *Accept: drop it, so No material can be chosen*. Built that way.
+- The group form's heading: *Leave it as it is*, the Ministry's name alone.
+- The rest of the groups card: *Leave the rest as shipped*; only the Material field follows the design.
+- Refusing the Material already running only in the database, not also in the domain: *Accept it in the database only*.
+
+The migration is still James's to push before this merges.
+

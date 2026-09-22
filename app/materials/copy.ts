@@ -229,7 +229,7 @@ export const MATERIAL_LABEL = 'Material'
 const ASSIGNMENT_REFUSALS: Record<MaterialAssignmentRefusal, string> = {
   'material.relationship_not_found': 'That relationship is not on this Roster any more.',
   'material.relationship_not_accepted':
-    'A material can be assigned once its leader has accepted.',
+    'A material can be assigned once its leader has accepted the invitation. Until then the relationship has not started.',
   'material.relationship_ended': 'That relationship has ended, so there is nothing left to change.',
   'material.not_found': 'That material is no longer on the list. Somebody may have removed it.',
   'material.assigner_is_not_in_this_ministry': 'This account cannot assign materials here.',

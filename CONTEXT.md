@@ -68,7 +68,7 @@ Whether a discipleship relationship was formed as a one-to-one or as a group. De
 _Avoid_: Treating kind as a second entity, or as the answer to "is this a group"
 
 **Discipler** / **Disciple**:
-The two words every Admin screen uses for the people in a discipleship relationship, in place of Leader and Participant, since ticket 36. A Discipler is a fact and never a mark: anyone leading an open relationship, anyone who signed up as a leader on the Intake form, or anyone an import paired as the discipler. Everyone else on the Roster is a Disciple, and a person may be both. The words are the product's own and may be pluralised on a screen; the nouns a Ministry types for its messages are a different thing, see Ministry Language.
+The two words every Admin screen uses for the people in a discipleship relationship, in place of Leader and Participant, since ticket 36. A Discipler is a fact and never a mark: anyone leading an open relationship, anyone who signed up as a leader on the Intake form, or anyone an import paired as the discipler. Everyone else on the Roster is a Disciple, and a person may be both: being discipled, or having asked to be on their own Intake form, makes a Discipler a Disciple as well. Suggested Pairs proposes as a Disciple only somebody the Roster calls one. The words are the product's own and may be pluralised on a screen; the nouns a Ministry types for its messages are a different thing, see Ministry Language.
 _Avoid_: Eligible to lead, leader pool (there is no flag: pairing somebody is the pastor's acceptance), and using these in message copy, where the Ministry's own nouns go
 
 **Age Band Gap**:

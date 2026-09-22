@@ -181,3 +181,22 @@ Decisions taken while building, each with the alternative:
 11. **The group case is a parameter** (`SuggestionKind`) holding the leader-pool cap and the declared-gender rule, both tested; the tab shows one-to-ones only.
     What a group suggestion proposes is still open in `.scratch/suggestions-beyond-the-one-to-one/issues/02-...`.
     The scorer is told *counts as a group* as a boolean, the way the Roster reader is, so it never reads `kind` and the relationship-kind fence is unchanged.
+
+### James, 2026-09-22, in the Lavish review of the wave
+
+This ticket was built twice on the same morning: here, as `c1dbc15` on `integration/manual-pairing`, and on `wave1/suggested-pairs` by a wave agent, each with its own migration.
+James chose: *Keep c1dbc15, and port the wave-1 fix so only Disciples are proposed*. The wave branch is not merged; its ticket notes stay on that branch.
+
+- Whether a Discipler whom nobody disciples may ever be suggested as somebody's Disciple: *No: only people the Roster calls Disciples are proposed*.
+  James adds: not on the suggested page, but if they fill out the Intake as a mentee then they can appear on both.
+- So the participant pool is now the Roster's Disciples list, read from the same facts: somebody being discipled, somebody who asked to be discipled on their Intake form, or anybody who is not a Discipler.
+  A Discipler whom nobody disciples and who did not ask is offered to lead and never to be led; the Pair popup a card opens could not have chosen them (`disciplesFor` in `app/roster/lists.ts`).
+- James's note is a rule about the Roster, not only this page, and it was applied there: `isDisciple` now counts *asked to be discipled on the Intake form* beside *being discipled* and *an import paired them*, so a Discipler who answered the mentee side is on both lists, their person page says so (*Also a Disciple - asked to be on their Intake form*), and the Pair popup from a Discipler lists them.
+  For everybody who leads nobody the answer changes nothing, since they are a Disciple already.
+- Decision 4 above is superseded: No Schedule Overlap is now everybody in the participant pool with no placeable Discipler, and needs no rule of its own about Leaders, because the pool no longer holds a Discipler who is not a Disciple.
+- Not ported from the wave branch: its year in Intake dates, its phone layout of the card and its copy test. They belong to its build, not this one; anything wanted from them is a ticket of its own.
+
+`SuggestionCandidate.offeredToLead` became `declaredSide`, so the pools read the same fact the Roster does.
+Cases in `tests/domain/suggested-pairs.test.ts` and `tests/app/roster-lists.test.ts`.
+
+James also asked to start *Willing to be one of two* from the result; that is the next ticket, not this one.

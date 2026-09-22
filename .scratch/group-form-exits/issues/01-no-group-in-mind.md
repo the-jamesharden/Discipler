@@ -70,3 +70,16 @@ The phone check found the select squeezed to "Choose a g" beside the button, fix
 - The wording in decisions 7, 8 and 9.
 - Decisions 1, 3, 4, 11 and 12.
 
+### James, 2026-09-22, in the Lavish review of the wave
+
+- The three on-screen sentences: *Keep all three as written*.
+- The six behaviours, each confirmed as built:
+  placing the person from the Roster closes their item too;
+  admitting them from a Join Request closes it as well;
+  after *Place in this group* the Roster's existing receipt is the landing, with no new words;
+  the item's dropdown offers only accepted, named groups open to them, though Add to group allows an unaccepted one;
+  somebody every group is closed to still sees *Nothing to join yet*, not step three with only the new option;
+  and an item stays open until the Admin resolves it, even if they join a group through the form later.
+
+Nothing changed. Folded into the ship branch with the rest of the wave; the migration is still James's to push before this merges.
+

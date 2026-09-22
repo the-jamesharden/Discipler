@@ -47,14 +47,14 @@ const person = (
     intakeSubmittedAt: new Date(Date.UTC(2026, 7, 1, 0, made)),
     consentsToTexts: true,
     optedOut: false,
-    offeredToLead: false,
+    declaredSide: null,
     memberships: [],
     ...overrides,
   }
 }
 
 const mentor = (name: string, overrides: Parameters<typeof person>[1] = {}) =>
-  person(name, { offeredToLead: true, ...overrides })
+  person(name, { declaredSide: 'mentor', ...overrides })
 
 const member = (
   id: string,
@@ -269,12 +269,26 @@ describe('Suggested Pairs: the pools', () => {
 
   it('lets one person lead on one suggestion and be led on another, the pools never deduplicated', () => {
     const grace = mentor('Grace Lee', { ageBand: '45-54' })
-    const ruth = mentor('Ruth Obi', { ageBand: '35-44' })
+    // Ruth leads somebody and asked to be discipled herself, so the Roster calls her both.
+    const ruth = person('Ruth Obi', {
+      ageBand: '35-44',
+      declaredSide: 'mentee',
+      memberships: [member('r9', 'leader')],
+      availability: [...WEEK, ...hours('tuesday', 2)],
+    })
     const ana = person('Ana Ruiz', { ageBand: '18-24', availability: hours('tuesday', 2) })
-    const ruthsTime = { availability: [...WEEK, ...hours('tuesday', 2)] }
-    const pairs = pairsOf([grace, { ...ruth, ...ruthsTime }, ana])
+    const pairs = pairsOf([grace, ruth, ana])
     expect(pairs).toContain('Grace Lee -> Ruth Obi')
     expect(pairs).toContain('Ruth Obi -> Ana Ruiz')
+  })
+
+  it('offers as a Disciple only somebody the Roster calls one: a Discipler nobody disciples is not, unless they asked to be on their Intake form', () => {
+    // Ruth and Grace mark the same hours; neither is proposed as the other's Disciple,
+    // because the Roster lists neither as one and the Pair popup could not choose them.
+    expect(pairsOf([mentor('Ruth Obi'), mentor('Grace Lee'), person('Ana Ruiz')])).toEqual(['Ruth Obi -> Ana Ruiz'])
+    // Somebody who leads and answered the mentee side is on both of the Roster's lists (James, 2026-09-22).
+    const asked = person('Ruth Obi', { declaredSide: 'mentee', memberships: [member('r1', 'leader')] })
+    expect(pairsOf([mentor('Grace Lee'), asked])).toEqual(['Grace Lee -> Ruth Obi'])
   })
 
   it('never pairs a person with themselves', () => {
@@ -348,10 +362,17 @@ describe('Suggested Pairs: No Schedule Overlap', () => {
     expect(noScheduleOverlap.every((each) => !('tier' in each) && !('reason' in each))).toBe(true)
   })
 
-  it('does not list a Discipler who overlaps no other Discipler', () => {
+  it('does not list a Discipler who overlaps no other Discipler, unless the Roster calls them a Disciple too', () => {
     const grace = mentor('Grace Lee', { availability: hours('monday', 4) })
     const ruth = mentor('Ruth Obi', { availability: hours('sunday', 4) })
     expect(suggest([grace, ruth], DEFAULTS).noScheduleOverlap).toEqual([])
+    // Ivy leads somebody and asked to be discipled herself: she is waiting to be placed.
+    const ivy = person('Ivy Chen', {
+      declaredSide: 'mentee',
+      memberships: [member('r1', 'leader')],
+      availability: hours('sunday', 4),
+    })
+    expect(suggest([grace, ivy], DEFAULTS).noScheduleOverlap.map((each) => each.fullName)).toEqual(['Ivy Chen'])
   })
 
   it('does not list somebody who has a suggestion', () => {

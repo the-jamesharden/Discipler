@@ -9,6 +9,7 @@ import {
   isDiscipledBySomebody,
   leadsSomebody,
   offeredToMentor,
+  askedToBeDiscipled,
   plannedAs,
   type RosterFacts,
 } from './lists'
@@ -557,6 +558,7 @@ export const whoTheyAre = (person: RosterFacts): string => {
   ].filter(isSaid)
   const asDisciple = [
     isDiscipledBySomebody(person) ? 'being discipled' : null,
+    askedToBeDiscipled(person) ? 'asked to be on their Intake form' : null,
     plannedAs(person, 'participant') ? 'an import paired them to be discipled' : null,
   ].filter(isSaid)
 

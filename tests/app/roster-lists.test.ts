@@ -103,6 +103,16 @@ describe('who is a Discipler', () => {
     expect(onList('disciples', both)).toBe(true)
   })
 
+  it('is a Disciple as well when they asked to be discipled on the Intake form, though they lead (James, 2026-09-22)', () => {
+    const asked = person({ declaredSide: 'mentee', relationships: [pairing('leader')] })
+    expect(isDiscipler(asked)).toBe(true)
+    expect(isDisciple(asked)).toBe(true)
+    expect(onList('disciples', asked)).toBe(true)
+    expect(whoTheyAre(asked)).toBe('A Discipler - disciples somebody. Also a Disciple - asked to be on their Intake form.')
+    // For somebody who leads nobody the answer changes nothing but the sentence.
+    expect(whoTheyAre(person({ declaredSide: 'mentee' }))).toBe('A Disciple - asked to be on their Intake form')
+  })
+
   it('is somebody an import paired as one, before either has completed Intake', () => {
     const planned = person({ participationStatus: 'no_intake_submitted', intendedPairings: [plan('leader')] })
     expect(isDiscipler(planned)).toBe(true)

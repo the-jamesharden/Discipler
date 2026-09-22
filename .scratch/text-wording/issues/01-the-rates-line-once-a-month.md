@@ -108,3 +108,11 @@ The Ministry settings page on this checkout's build in Chrome, through a cookie 
 - A case where the two rules disagree, as the ticket asked: a thirty-day Silence Gap inside one 31-day month, such as a Starter Message on 1 January and a resume on 31 January, now leaves the line off the resume, where the old resume carried it every time.
   Keep it (the month rule as written), or carry the line again after thirty days of silence as well?
 - The CTIA reading in the first comment still wants checking against the A2P campaign as registered.
+
+### James, 2026-09-22, in the Lavish review of the wave
+
+- The thirty-day Silence Gap inside one calendar month: *Keep once a calendar month, as the ticket says*.
+  Nothing changes; the resume on 31 January after a Starter Message on 1 January carries no rates line.
+- The carrier registration: *Ship it: the registration does not bind this*. In James's words: I checked, it agrees.
+
+Folded into the ship branch with the rest of the wave. The migration is still James's to push before this merges.

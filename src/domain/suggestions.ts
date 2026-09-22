@@ -4,6 +4,7 @@ import {
   slotKey,
   type AgeBand,
   type AvailabilitySlot,
+  type DeclaredSide,
   type DiscipleshipGoalId,
   type Gender,
 } from './intake'
@@ -88,8 +89,8 @@ export interface SuggestionCandidate {
   /** Their current decision on texts is yes. Null and no are both not. */
   readonly consentsToTexts: boolean
   readonly optedOut: boolean
-  /** Answered the mentor side at Intake. */
-  readonly offeredToLead: boolean
+  /** The side they answered at their latest Intake, or null where the form did not ask. */
+  readonly declaredSide: DeclaredSide | null
   readonly memberships: readonly CandidateMembership[]
 }
 
@@ -162,9 +163,32 @@ const leadsOpen = (person: SuggestionCandidate, groupsOnly: boolean): boolean =>
   )
 
 /**
- * Everyone who leads an open relationship or answered the mentor side at Intake, with
- * Intake, consent and no opt-out. No cap on how many they already lead, except that
- * a Leader already holding an open group cannot be offered a second.
+ * Whether the Roster calls this Person a Discipler: leading an open relationship or
+ * having answered the mentor side at Intake (`isDiscipler` in `app/roster/lists.ts`).
+ * The third fact the Roster reads, an import planning them as one, is not a
+ * suggestion input.
+ */
+const isADiscipler = (person: SuggestionCandidate): boolean =>
+  person.declaredSide === 'mentor' || leadsOpen(person, false)
+
+/**
+ * Whether the Roster calls this Person a Disciple (`isDisciple` there): being
+ * discipled already, having asked to be on their Intake form, or not being a
+ * Discipler at all. A Discipler whom nobody disciples and who did not ask is not
+ * one: the Roster lists them among the Disciplers only, and the Pair popup a card
+ * opens could not choose them, so a card proposing them could not be acted on
+ * (James, 2026-09-22). A Discipler who is a Disciple as well is in both pools,
+ * which is the multiplication case working.
+ */
+const isADisciple = (person: SuggestionCandidate): boolean =>
+  person.memberships.some((membership) => membership.role === 'participant') ||
+  person.declaredSide === 'mentee' ||
+  !isADiscipler(person)
+
+/**
+ * Everyone the Roster calls a Discipler, with Intake, consent and no opt-out. No
+ * cap on how many they already lead, except that a Leader already holding an open
+ * group cannot be offered a second.
  */
 export const leaderPool = (
   roster: readonly SuggestionCandidate[],
@@ -174,12 +198,12 @@ export const leaderPool = (
     (person) =>
       readyToPair(person) &&
       !held(person) &&
-      (person.offeredToLead || leadsOpen(person, false)) &&
+      isADiscipler(person) &&
       !(kind.countsAsAGroup && leadsOpen(person, true)),
   )
 
 /**
- * Everyone with Intake, consent and no opt-out, whichever side they answered: a
+ * Everyone the Roster calls a Disciple, with Intake, consent and no opt-out; a
  * Discipler may be discipled too. Somebody already a Participant in an open
  * one-to-one cannot be offered a second.
  */
@@ -191,6 +215,7 @@ export const participantPool = (
     (person) =>
       readyToPair(person) &&
       !held(person) &&
+      isADisciple(person) &&
       !(
         !kind.countsAsAGroup &&
         person.memberships.some((membership) => membership.role === 'participant' && !membership.countsAsAGroup)
@@ -326,7 +351,6 @@ export const suggest = (
 ): Suggestions => {
   const leaders = leaderPool(roster, kind)
   const participants = participantPool(roster, kind)
-  const leading = new Set(leaders.map((leader) => leader.personId))
 
   const best: Ranked[] = []
   const overlapNobody: SuggestionCandidate[] = []
@@ -353,10 +377,9 @@ export const suggest = (
     })
     const strongest = ranked.sort(strongestFirst)[0]
     if (strongest !== undefined) best.push(strongest)
-    // Somebody in the Leader pool who overlaps no other Leader is a Discipler, not a
-    // Disciple nobody can place, so the section that exists to find the second
-    // leaves out the first.
-    else if (!leading.has(participant.personId)) overlapNobody.push(participant)
+    // Everybody here is a Disciple the Roster could place, since the participant
+    // pool takes nobody else; a Discipler whom nobody disciples never reaches this.
+    else overlapNobody.push(participant)
   }
 
   return {

@@ -42,11 +42,23 @@ export const plannedAs = (person: RosterFacts, role: MemberRole): boolean =>
 
 export const offeredToMentor = (person: RosterFacts): boolean => person.declaredSide === 'mentor'
 
+/**
+ * Asked to be discipled on the Intake form. For everybody who leads nobody it
+ * changes nothing, since they are a Disciple already; it is the one fact that puts
+ * a Discipler on the Disciples list as well (James, 2026-09-22: somebody who fills
+ * out the Intake as a mentee can appear on both). Leading somebody does not
+ * withdraw the answer.
+ */
+export const askedToBeDiscipled = (person: RosterFacts): boolean => person.declaredSide === 'mentee'
+
 export const isDiscipler = (person: RosterFacts): boolean =>
   leadsSomebody(person) || offeredToMentor(person) || plannedAs(person, 'leader')
 
 export const isDisciple = (person: RosterFacts): boolean =>
-  isDiscipledBySomebody(person) || plannedAs(person, 'participant') || !isDiscipler(person)
+  isDiscipledBySomebody(person)
+  || askedToBeDiscipled(person)
+  || plannedAs(person, 'participant')
+  || !isDiscipler(person)
 
 /** The role a Person holds on one side's list. All is not a side and has no role. */
 export const roleOn: Record<RosterSide, MemberRole> = {
