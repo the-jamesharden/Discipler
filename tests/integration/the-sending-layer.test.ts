@@ -119,8 +119,8 @@ describe('The sending layer checks every recipient', () => {
 
     const { rows } = await pool.query<{ id: string }>(
       `insert into outbound_message
-         (ministry_id, person_id, to_phone, body, enqueued_at, message_kind)
-       values ($1, $2, $3, $4, $5, 'no_reply') returning id`,
+         (ministry_id, carries_rates_line, person_id, to_phone, body, enqueued_at, message_kind)
+       values ($1, false, $2, $3, $4, $5, 'no_reply') returning id`,
       [other.id, outsider, '+15553339002', 'Northgate speaking.', clock.now()],
     )
     const enqueued = rows[0]?.id
@@ -233,9 +233,9 @@ describe('The sending layer checks every recipient', () => {
     for (const discloses of [shy, willing]) {
       await pool.query(
         `insert into outbound_message
-           (ministry_id, person_id, to_phone, body, enqueued_at, prompt_key,
+           (ministry_id, carries_rates_line, person_id, to_phone, body, enqueued_at, prompt_key,
             discloses_person_id, message_kind)
-         values ($1, $2, '+15553330006', 'Your leader is:', now(), '+15553330006', $3,
+         values ($1, false, $2, '+15553330006', 'Your leader is:', now(), '+15553330006', $3,
                  'no_reply')`,
         [ministry.id, reader, discloses],
       )

@@ -521,17 +521,33 @@ A Starter Message that runs to two segments is accepted rather than trimming com
 
 A silence gap is thirty rolling days since Discipler last sent that person a message.
 
-Two rules key off it: the A2P compliance prefix, and the participant-facing opt-out language. They share one definition rather than being separately maintained.
+The A2P compliance prefix keys off it.
+The participant-facing opt-out language used to key off it as well; since 2026-09-21 that is the rates line's once-a-month rule, below, which counts calendar months and not rolling days.
 
 Rolling days rather than calendar months, because a person messaged on 31 January and again on 1 March has crossed two calendar boundaries with twenty-nine days of contact. Per person per ministry, because every other rule in the product is ministry-scoped and making this one the exception would invite a cross-ministry read of a person's history, which the Ministry isolation rule forbids.
 
-## Settled: What Opt-Out Language a Participant Receives
+## Settled: The Rates Line Reaches a Person Once a Month
 
-A participant receives opt-out and rate-disclosure language on the Starter Message, and again on the first message following a silence gap — a reassignment, a resumed relationship, anything that breaks thirty days of quiet.
+*Msg & data rates may apply. Reply STOP to opt out, HELP for help.* reaches a person at most once in a calendar month, on the first text of that month that may carry it, and is left off the rest (James, 2026-09-21: *only include that once a month, when that's needed*).
 
-Participants do **not** receive it monthly. The monthly rule — opt-out language on the first check-in of each calendar month — stands unchanged and applies to leaders only, because only leaders receive check-ins.
+The month is the Ministry's own, by its timezone.
+It is decided per person and not per relationship: a leader of three relationships reads it once, whichever relationship's text reaches them first.
+Two texts queued to one person by the same act carry it once between them.
 
-> **Supersedes:** `docs/reference/mentee-experience.md`, which gives mentees a monthly reminder on a check-in. Participants receive no check-ins in this model, so the rule had no surface to attach to.
+The Welcome Message and the `HELP` reply always carry it, and each counts as the person having had it that month.
+The Starter Messages, the text a leader gets when somebody joins their group, a resume, and the question that opens a check-in may carry it.
+Nothing else does.
+
+Each queued text records whether it carried the line, and later texts are decided against that record rather than against any text's wording.
+A text withheld at send time does not count, because nobody read it; a text the vendor refused does, because it stays on the queue and is tried again.
+
+The leaders' monthly check-in rule, opt-out language on the first check-in of each calendar month, is not kept beside this: it became this rule.
+The participants' rule, the language on the Starter Message and again after a silence gap, became it too.
+A silence gap nearly always reaches a month the person has not had the line in.
+The one exception is a gap inside a single 31-day month, such as 1 January to 31 January, where this rule leaves the line off; that case is open for James on `.scratch/text-wording/issues/01-the-rates-line-once-a-month.md`.
+See `docs/consent-language.md` and `src/domain/rates-line.ts`.
+
+> **Supersedes:** the two rules this section replaced, and before them `docs/reference/mentee-experience.md`, which gave mentees a monthly reminder on a check-in.
 
 ## Settled: Replies Are Matched Whole-Message, Not by Substring
 
@@ -639,7 +655,7 @@ There is one settings surface, three sections, one form:
 
 - **Ministry** — display name, timezone, `from_name`. The timezone matters more than
   it looks: every availability slot, the check-in cadence, the ISO week boundary, and
-  the monthly opt-out rule are all resolved against it.
+  the month the rates line is counted in are all resolved against it.
 - **Language** — `leader_noun` and `participant_noun`, with a live message preview
   underneath. This is the section that earns the tab: it is where a ministry sees its
   own words in its own messages.

@@ -157,8 +157,8 @@ describe.skipIf(skipUnlessAppIsRunning)('the inbound webhook', () => {
     // stamped after the reply is the proof the webhook ran one.
     const { rows } = await pool.query<{ id: string }>(
       `insert into outbound_message
-         (ministry_id, person_id, to_phone, body, enqueued_at, message_kind)
-       values ($1, null, null, 'ABC Church: a message with nobody to send it to', now(), 'no_reply')
+         (ministry_id, carries_rates_line, person_id, to_phone, body, enqueued_at, message_kind)
+       values ($1, false, null, null, 'ABC Church: a message with nobody to send it to', now(), 'no_reply')
        returning id`,
       [ministry.id],
     )

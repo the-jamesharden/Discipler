@@ -123,7 +123,7 @@ import {
   type OpenKeywordExchange,
   type RelationshipKeyword,
 } from './keywords'
-import { calendarMonthOf } from './week'
+import type { RatesLineOccasion } from './rates-line'
 import {
   alreadyOffered,
   asShown,
@@ -930,6 +930,7 @@ const tellTheLeadersSomebodyJoined = (
         // behind sign-in and behind each Person's contact-sharing decision.
         disclosesPersonId: null,
         kind: 'no_reply',
+        ratesLine: 'once_a_month',
       }),
     )
 }
@@ -1010,25 +1011,6 @@ const memberHolding = (invitation: InvitationSnapshot, id: PersonId): InvitedMem
   return member
 }
 
-/**
- * The monthly opt-out rule, for Leaders. True on the first check-in of each
- * calendar month, which includes the first check-in a Leader ever receives.
- *
- * The month is the Ministry's, not UTC's. A Sydney ministry asked at 9am local on
- * the 1st is at 23:00 UTC on the last day of the previous month, and resolving in
- * UTC would put two of their conversations in one month and none in the next --
- * so one month would carry the opt-out language twice and the following one not
- * at all. It is the same timezone the week boundary reads, for the same reason.
- */
-const optOutLanguageIsDue = (
-  lastCheckInAt: Date | null,
-  now: Date,
-  timeZone: string,
-): boolean => {
-  if (!lastCheckInAt) return true
-  return calendarMonthOf(lastCheckInAt, timeZone) !== calendarMonthOf(now, timeZone)
-}
-
 /** What every question in a conversation needs in order to be sent and recorded. */
 interface Asking {
   readonly ministryId: MinistryId
@@ -1061,6 +1043,7 @@ const sayToLeader = (
   asking: Asking,
   body: string,
   kind: OutboundMessageKind,
+  ratesLine: RatesLineOccasion,
 ): Effect =>
   enqueueMessage({
     ministryId: asking.ministryId,
@@ -1077,12 +1060,14 @@ const sayToLeader = (
     // number, and the reminder that re-sends it, the clarification that restates
     // it and the thank-you that ends the conversation do not.
     kind,
+    ratesLine,
   })
 
 const ask = (
   asking: Asking,
   prompt: Omit<NewCheckInPrompt, 'id' | 'ministryId' | 'sequenceId' | 'askedAt'>,
   body: string,
+  ratesLine: RatesLineOccasion,
 ): readonly Effect[] => [
   askCheckInQuestion({
     id: checkInPromptId(asking.ids.next()),
@@ -1093,7 +1078,7 @@ const ask = (
   }),
   // The one message in the rhythm that takes the Leader's number: it is a
   // question, and the reply it is owed is what the next one waits for.
-  sayToLeader(asking, body, 'scheduled_question'),
+  sayToLeader(asking, body, 'scheduled_question', ratesLine),
 ]
 
 /**
@@ -1102,8 +1087,8 @@ const ask = (
  * reminder cannot drift into being a differently-worded second question.
  *
  * `discloseOptOut` is only ever true on the message that opens a conversation.
- * The monthly language rides on the first check-in of the calendar month, and a
- * reminder is not one: it is that same message again.
+ * That is the check-in that may carry the rates line, once a month (Text wording,
+ * ticket 01), and a reminder is not another one: it is that same message again.
  */
 const bodyOfQuestion = (
   asking: Asking,
@@ -1127,15 +1112,16 @@ const bodyOfQuestion = (
 }
 
 /**
- * The opening question of one relationship's turn. Where a closing thank-you
- * would otherwise fall, this is what is sent instead -- which is why it is the
- * one step reached from both the start of a conversation and the middle of one.
+ * The question that opens a conversation. It may carry the rates line, and does
+ * where the Leader has not been queued it on any text yet this month -- a Starter
+ * Message the same week takes it off (Text wording, ticket 01). That is decided
+ * once the command's texts are all known, in `rates-line.ts`, so it is composed
+ * here as it reads when it does.
  */
 const askWhetherTheyMet = (
   asking: Asking,
   relationship: CheckInRelationship,
   position: number,
-  discloseOptOut: boolean,
 ): readonly Effect[] =>
   ask(
     asking,
@@ -1145,7 +1131,8 @@ const askWhetherTheyMet = (
       position,
       question: 'met',
     },
-    bodyOfQuestion(asking, 'met', relationship, discloseOptOut),
+    bodyOfQuestion(asking, 'met', relationship, true),
+    'once_a_month',
   )
 
 /**
@@ -1154,8 +1141,8 @@ const askWhetherTheyMet = (
  * that identity is what *converting abandonment into ordinary unanswered
  * questions with no special case* actually means in code.
  *
- * Never carries the monthly opt-out language: it went out on the message that
- * opened this conversation, and this is the same conversation.
+ * Never carries the rates line: it may have gone out on the message that opened
+ * this conversation, and this is the same conversation.
  */
 const askNext = (
   asking: Asking,
@@ -1170,6 +1157,7 @@ const askNext = (
       question: advance.question,
     },
     bodyOfQuestion(asking, advance.question, advance.relationship, false),
+    'never',
   )
 
 /**
@@ -1496,13 +1484,7 @@ const openConversationWith = (
     // Only the first. The sequence advances in response to a reply and never
     // otherwise, so a Leader with three relationships is asked one question
     // and not three.
-    ...askWhetherTheyMet(
-      asking,
-      covering[0]!,
-      1,
-      // The month is the Ministry's, like the week.
-      optOutLanguageIsDue(checkIn.lastCheckInAt, now, checkIn.timeZone),
-    ),
+    ...askWhetherTheyMet(asking, covering[0]!, 1),
   )
 
   return effects
@@ -1601,6 +1583,7 @@ const chaseTheOpenQuestion = (
         asking,
         bodyOfQuestion(asking, awaiting.question, relationship, false),
         'no_reply',
+        'never',
       ),
     ]
   }
@@ -1674,6 +1657,9 @@ const sayToSender = (
   keywording: Keywording,
   body: string,
   kind: OutboundMessageKind,
+  // Named at every call like `kind`. Only `HELP` carries the rates line, and it
+  // always does; nothing else a keyword route answers with composes it.
+  ratesLine: RatesLineOccasion,
 ): Effect =>
   enqueueMessage({
     ministryId: keywording.ministryId,
@@ -1688,6 +1674,7 @@ const sayToSender = (
     // waits -- see `waitsForAnOpenReply` -- so a Leader who texts `PAUSE` is
     // answered now rather than after the check-in they are trying to pause.
     kind,
+    ratesLine,
   })
 
 /** Who a menu line and a confirmation name: the other side, as a sentence. */
@@ -1753,6 +1740,7 @@ const openMenu = (
       options: options.map(otherSideNamed),
     }),
     'keyword_question',
+    'never',
   ),
 ]
 
@@ -1798,6 +1786,7 @@ const askHowLongToPause = (keywording: Keywording, target: KeywordRelationship):
       otherPeriods: [...otherPeriodsThan(DEFAULT_PAUSE_PERIOD_WEEKS)],
     }),
     'keyword_question',
+    'never',
   )
 
 /**
@@ -1893,6 +1882,7 @@ const applyPause = (
       periodWeeks,
     }),
     'no_reply',
+    'never',
   ),
 ]
 
@@ -1952,6 +1942,7 @@ const applyResume = (
         enqueuedAt: keywording.now,
         disclosesPersonId: null,
         kind: 'no_reply',
+        ratesLine: 'once_a_month',
       }),
     ),
   ]
@@ -2000,6 +1991,7 @@ const applySwap = (
       subject: otherSideNamed(target),
     }),
     'no_reply',
+    'never',
   ),
 ]
 
@@ -2068,6 +2060,7 @@ const routeRelationshipKeyword = (
         keywording,
         keywordPassedOn({ ministryName: keywording.ministryName }),
         'no_reply',
+        'never',
       ),
     ]
   }
@@ -2083,6 +2076,7 @@ const routeRelationshipKeyword = (
         keywording,
         nothingEligible({ ministryName: keywording.ministryName, keyword }),
         'no_reply',
+        'never',
       ),
     ]
   }
@@ -2161,6 +2155,7 @@ const replyInsideExchange = (
           // check-in reminder re-sends rather than re-asks. The exchange is still
           // the thing holding the number.
           'no_reply',
+          'never',
         ),
       )
     }
@@ -2193,6 +2188,7 @@ const replyInsideExchange = (
         keywording,
         nothingEligible({ ministryName: keywording.ministryName, keyword: exchange.keyword }),
         'no_reply',
+        'never',
       ),
     ]
   }
@@ -2428,6 +2424,7 @@ const inviteToLead = (
       // No message to a Leader contains a phone number.
       disclosesPersonId: null,
       kind: 'no_reply',
+      ratesLine: 'never',
     }),
   ]
 }
@@ -2528,6 +2525,7 @@ const starterToLeader = (
     // and a Starter Message that did would block its own relationship's
     // first check-in.
     kind: 'no_reply',
+    ratesLine: 'once_a_month',
   })
 
 /**
@@ -2658,6 +2656,7 @@ const activationOf = (
         enqueuedAt: now,
         disclosesPersonId: null,
         kind: 'no_reply',
+        ratesLine: 'once_a_month',
       }),
     )
   }
@@ -2907,6 +2906,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
                 // No message to a Leader contains a phone number.
                 disclosesPersonId: null,
                 kind: 'no_reply',
+                ratesLine: 'never',
               }),
               appendHistory({
                 ministryId: command.ministryId,
@@ -3178,7 +3178,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         return {
           rejections: [],
           effects: [
-            sayToSender(keywording, helpMessage({ ministryName }), 'no_reply'),
+            sayToSender(keywording, helpMessage({ ministryName }), 'no_reply', 'always'),
             ...(leadsAnything(inbound.holds)
               ? []
               : passKeywordToAnAdmin(keywording, keyword)),
@@ -3241,7 +3241,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           effects: mayAcknowledge(inbound.lastAcknowledgedAt, now)
             ? [
                 ...tidied,
-                sayToSender(keywording, acknowledgedMessage({ ministryName }), 'no_reply'),
+                sayToSender(keywording, acknowledgedMessage({ ministryName }), 'no_reply', 'never'),
                 appendHistory({
                   ministryId: command.ministryId,
                   occurredAt: now,
@@ -3325,6 +3325,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
               // The valid replies to the question already out, said again. It asks
               // nothing new, so the question it restates keeps the number.
               'no_reply',
+              'never',
             ),
           )
         }
@@ -3404,7 +3405,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
 
       if (advance.kind === 'finish') {
         effects.push(
-          sayToLeader(asking, checkInThankYou({ ministryName }), 'no_reply'),
+          sayToLeader(asking, checkInThankYou({ ministryName }), 'no_reply', 'never'),
           closeCheckInSequence({
             ministryId: command.ministryId,
             sequenceId: sequence.sequenceId,
@@ -3853,6 +3854,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
               enqueuedAt: now,
               disclosesPersonId: null,
               kind: 'no_reply',
+              ratesLine: 'once_a_month',
             }),
           ),
         ],
@@ -4622,6 +4624,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             // exists.
             disclosesPersonId: null,
             kind: 'no_reply',
+            ratesLine: 'always',
           }),
         )
       }
@@ -4754,6 +4757,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             // No message to a Leader contains a phone number.
             disclosesPersonId: null,
             kind: 'no_reply',
+            ratesLine: 'never',
           }),
           appendHistory({
             ministryId: command.ministryId,

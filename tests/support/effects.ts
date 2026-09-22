@@ -1,5 +1,6 @@
 import { expect } from 'vitest'
 import type { Effect } from '~/domain/effects'
+import { settleRatesLine, type SettledMessage } from '~/domain/rates-line'
 
 /**
  * The tick's effects, less the housekeeping every run does regardless of what it
@@ -22,4 +23,24 @@ import type { Effect } from '~/domain/effects'
 export const withoutTheSweep = (effects: readonly Effect[]): readonly Effect[] => {
   expect(effects.filter((effect) => effect.kind === 'outstandingReply.sweep')).toHaveLength(1)
   return effects.filter((effect) => effect.kind !== 'outstandingReply.sweep')
+}
+
+/**
+ * A command's texts as they read to people who have already had the rates line
+ * this month: settled the way `applyEffects` settles them, so a text that may carry
+ * it is read without it (Text wording, ticket 01).
+ *
+ * For tests about something else -- which relationship a question names, what a
+ * reply advances to -- whose fixtures were written for a month the line had
+ * already gone out in. The rule itself is driven in
+ * `tests/domain/the-rates-line-once-a-month.test.ts`.
+ */
+export const readAfterTheLineThisMonth = (effects: readonly Effect[]): readonly SettledMessage[] => {
+  const drafts = effects.flatMap((effect) =>
+    effect.kind === 'message.enqueue' ? [effect.message] : [],
+  )
+  const lastCarriedAt = new Map(
+    drafts.flatMap((draft) => (draft.personId ? [[draft.personId, draft.enqueuedAt] as const] : [])),
+  )
+  return settleRatesLine(drafts, { timeZone: 'UTC', lastCarriedAt })
 }

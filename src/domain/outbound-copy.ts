@@ -17,12 +17,35 @@ import type { RelationshipKeyword } from './keywords'
 const DELIVERY_PREFIX = 'Discipler:'
 
 /**
- * The opt-out and rate disclosure. Carried on first contact, on the Starter
- * Message, again after a thirty-day Silence Gap, and on the first check-in of each
- * calendar month -- not on every message, which would be its own kind of spam.
+ * The opt-out and rate disclosure: the rates line. Composed into the texts that
+ * may carry it, and carried by at most one of them to a Person in a calendar
+ * month -- the first of that month -- and always on first contact and on `HELP`
+ * (Text wording, ticket 01). Which one carries it is decided in `rates-line.ts`
+ * once a command's texts are known; the copy here composes each text as it reads
+ * when it does.
  */
 const OPT_OUT_DISCLOSURE =
   'Msg & data rates may apply. Reply STOP to opt out, HELP for help.'
+
+/**
+ * Whether composed words end in the rates line, which is where `composeMessage`
+ * always puts it. Read only to check that a text says truly what it carries --
+ * never to decide whether it did, which is a fact recorded on the queued message.
+ */
+export const carriesRatesLine = (composed: string): boolean =>
+  composed.endsWith(` ${OPT_OUT_DISCLOSURE}`)
+
+/**
+ * The same words, as they read on a text the line has been left off. Refuses
+ * words that never carried it, so a text cannot be recorded as having had the line
+ * taken off when there was nothing to take.
+ */
+export const withoutRatesLine = (composed: string): string => {
+  if (!carriesRatesLine(composed)) {
+    throw new Error('These words do not carry the rates line, so it cannot be left off them')
+  }
+  return composed.slice(0, -(OPT_OUT_DISCLOSURE.length + 1))
+}
 
 export interface MessageComposition {
   readonly ministryName: string
@@ -33,10 +56,11 @@ export interface MessageComposition {
    */
   readonly identifyDelivery: boolean
   /**
-   * The opt-out and rate disclosure. A separate decision from `identifyDelivery`
-   * because the two are required on overlapping but different occasions: `HELP`
-   * identifies delivery without re-disclosing, and a Leader's monthly check-in
-   * discloses without identifying.
+   * Whether this text may carry the opt-out and rate disclosure, composed as it
+   * reads when it does. A separate decision from `identifyDelivery` because the
+   * two are required on different occasions: a Starter Message or a check-in's
+   * opening question may disclose without identifying. Whether it actually does
+   * this month is `rates-line.ts`'s to decide.
    */
   readonly discloseOptOut: boolean
 }
@@ -395,9 +419,10 @@ export interface ResumedMessage {
  *
  * The opt-out disclosure rides along because a Pause can run twelve weeks, and a
  * Participant reached after that long has not heard from their church inside the
- * thirty-day Silence Gap the disclosure exists for. Carried on every resume
- * rather than only the long ones: re-disclosing early is not a compliance
- * failure, and not disclosing late is.
+ * thirty-day Silence Gap the disclosure exists for. It may ride on every resume,
+ * and the once-a-month rule leaves it off only where the Person has already had
+ * it this month (Text wording, ticket 01) -- which a resume after a long Pause
+ * never has.
  */
 export const resumedMessage = ({ ministryName, withNames }: ResumedMessage): string =>
   composeMessage({
@@ -478,10 +503,12 @@ export interface MeetingQuestion {
   /** As `checkInSubject` composed it. */
   readonly subject: string
   /**
-   * The monthly rule -- opt-out language on the first check-in of each calendar
-   * month, Leaders only. It rides on the opening question because that is the
-   * first check-in message of the month, and it is stated rather than defaulted
-   * for the same reason `composeMessage` states both of its flags.
+   * Whether this question may carry the rates line: the opening question of a
+   * conversation may, and a reminder re-sending it may not. Whether the opening
+   * one does is the once-a-month rule's, and it is left off where the Leader has
+   * already had the line this month on any text (Text wording, ticket 01). Stated
+   * rather than defaulted for the same reason `composeMessage` states both of its
+   * flags.
    */
   readonly discloseOptOut: boolean
 }
@@ -512,7 +539,7 @@ export interface CheckInMessage {
 /**
  * The rest of a conversation, after its opening question: one fixed sentence,
  * naming nobody and carrying no disclosure. Only `meetingQuestion` differs -- it
- * names a subject and it is where the monthly opt-out language rides -- so
+ * names a subject and it is where the rates line may ride -- so
  * everything downstream of it shares one envelope and varies only in what it says.
  */
 const checkInSentence =

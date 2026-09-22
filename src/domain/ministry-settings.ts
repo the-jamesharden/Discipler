@@ -72,8 +72,8 @@ export interface MinistrySettings {
   /**
    * The single clock this Ministry's data is interpreted against. Every
    * availability slot, the check-in cadence, the ISO week boundary behind the
-   * care counters, and the *first check-in of each calendar month* rule all
-   * resolve against it.
+   * care counters, and the month the rates line is sent once in all resolve
+   * against it.
    */
   readonly timezone: string
   readonly leaderNoun: RoleNoun
