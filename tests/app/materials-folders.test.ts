@@ -10,8 +10,13 @@ import {
   previouslyLine,
   relationshipLabel,
 } from '../../app/materials/copy'
-import { chipsFor, foldersOf, onNoMaterial, underFilter } from '../../app/materials/folders'
-import { initialsOf } from '../../app/initials'
+import {
+  foldersOf,
+  homeCellsOf,
+  onNoMaterial,
+  tileName,
+  underFilter,
+} from '../../app/materials/folders'
 
 /**
  * How the Materials tab groups relationships into folders, what the filter
@@ -80,23 +85,75 @@ describe('the folders', () => {
     expect(onNoMaterial([onPlan, onNothing])).toEqual([onNothing])
   })
 
-  it('draws up to three chips of the first Leader initials and counts the rest', () => {
-    const five = [
-      relationship({ leaderNames: ['David Chen'] }),
-      relationship({ leaderNames: ['Maria Okafor', 'Second Leader'] }),
-      relationship({ leaderNames: ['Tyler Lee'] }),
-      relationship({ leaderNames: ['Grace Park'] }),
-      relationship({ leaderNames: [] }),
-    ]
-    expect(chipsFor(five, initialsOf)).toEqual({ initials: ['DC', 'MO', 'TL'], more: 2 })
-    expect(chipsFor(five.slice(0, 2), initialsOf)).toEqual({ initials: ['DC', 'MO'], more: 0 })
-    expect(chipsFor([], initialsOf)).toEqual({ initials: [], more: 0 })
-  })
-
   it('words the line under a folder by its count', () => {
     expect(folderCount(0)).toBe('Nobody working through it')
     expect(folderCount(1)).toBe('1 relationship')
     expect(folderCount(5)).toBe('5 relationships')
+  })
+
+  it('builds home-screen cells: shared Materials as folders, one alone as a single, and one tile for everyone on none', () => {
+    const a = relationship({ runningMaterialId: masterPlan.materialId, gender: 'male' })
+    const b = relationship({ runningMaterialId: masterPlan.materialId, gender: 'male' })
+    const alone = relationship({
+      runningMaterialId: prayer.materialId,
+      gender: 'female',
+      leaderNames: ['Grace Lee'],
+      participantNames: ['Emily Davis'],
+    })
+    const none = relationship({
+      gender: 'male',
+      leaderNames: ['Tyler Patel'],
+      participantNames: ['Bryce Odom'],
+    })
+    const cells = homeCellsOf([masterPlan, prayer], [a, b, alone, none], null)
+
+    expect(cells).toHaveLength(3)
+    expect(cells[0]).toMatchObject({ kind: 'folder', material: masterPlan, gender: 'm' })
+    expect(cells[1]).toMatchObject({ kind: 'single', relationship: alone, material: prayer, gender: 'f' })
+    expect(cells[2]).toMatchObject({ kind: 'unassigned', relationships: [none], gender: 'm' })
+    expect(tileName(alone)).toBe('Grace Lee & Emily Davis')
+  })
+
+  it('keeps a cell for a Material nobody is on, as a folder with nothing in it', () => {
+    const a = relationship({ runningMaterialId: masterPlan.materialId, gender: 'male' })
+    const b = relationship({ runningMaterialId: masterPlan.materialId, gender: 'male' })
+
+    const cells = homeCellsOf([masterPlan, prayer], [a, b], null)
+
+    expect(cells).toHaveLength(2)
+    expect(cells[1]).toMatchObject({ kind: 'folder', material: prayer, relationships: [], gender: 'x' })
+    expect(homeCellsOf([prayer], [], null)).toMatchObject([{ kind: 'folder', material: prayer }])
+  })
+
+  it('decides folder or single tile by everyone on the Material, not by who the filter keeps', () => {
+    const his = relationship({ runningMaterialId: masterPlan.materialId, gender: 'male' })
+    const hers = relationship({ runningMaterialId: masterPlan.materialId, gender: 'female' })
+    const alone = relationship({ runningMaterialId: prayer.materialId, gender: 'female' })
+    const none = relationship({ gender: 'female' })
+    const noneToo = relationship({ gender: 'female' })
+    const everyone = [his, hers, alone, none, noneToo]
+
+    expect(homeCellsOf([masterPlan, prayer], everyone, null)[0]).toMatchObject({ kind: 'folder', gender: 'x' })
+
+    const men = homeCellsOf([masterPlan, prayer], everyone, 'male')
+    expect(men).toHaveLength(2)
+    expect(men[0]).toMatchObject({ kind: 'folder', material: masterPlan, relationships: [his], gender: 'm' })
+    expect(men[1]).toMatchObject({ kind: 'folder', material: prayer, relationships: [] })
+
+    const women = homeCellsOf([masterPlan, prayer], everyone, 'female')
+    expect(women[0]).toMatchObject({ kind: 'folder', relationships: [hers], gender: 'f' })
+    expect(women[1]).toMatchObject({ kind: 'single', relationship: alone, material: prayer })
+    // Everyone on no Material is one tile however many they are, and it goes when the filter keeps none of them.
+    expect(women).toHaveLength(3)
+    expect(women[2]).toMatchObject({ kind: 'unassigned', relationships: [none, noneToo], gender: 'f' })
+  })
+
+  it('leaves a relationship on a removed Material off the tab', () => {
+    const onRemoved = relationship({ runningMaterialId: materialId('m-removed') })
+
+    expect(homeCellsOf([masterPlan], [onRemoved], null)).toMatchObject([
+      { kind: 'folder', material: masterPlan, relationships: [] },
+    ])
   })
 })
 
