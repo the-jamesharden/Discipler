@@ -28,6 +28,7 @@ const someMessage = (body: string) =>
     scheduledFor: null,
     disclosesPersonId: null,
     kind: 'no_reply',
+    ratesLine: 'never',
   })
 
 describe('applying a command\'s effects', () => {
@@ -62,6 +63,9 @@ describe('applying a command\'s effects', () => {
         },
         enqueueMessages: async () => {
           throw new Error('the outbound queue should not have been touched')
+        },
+        ratesLineHistory: async () => {
+          throw new Error('nobody’s rates line should have been looked up')
         },
         closeOutstandingReply: async () => {
           throw new Error('no conversation should have been closed')

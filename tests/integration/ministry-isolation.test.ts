@@ -189,6 +189,7 @@ describe('the write side', () => {
             scheduledFor: null,
             disclosesPersonId: null,
             kind: 'no_reply',
+            carriesRatesLine: false,
           },
         ]),
       ),

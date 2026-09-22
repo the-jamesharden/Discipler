@@ -19,6 +19,7 @@ import {
 } from '~/domain/ids'
 import { GROUP_PATH, INTAKE_PATHS, readIntakeForm, type IntakeFormFields } from '~/domain/intake'
 import { roleNoun } from '~/domain/ministry-settings'
+import { readAfterTheLineThisMonth } from '../support/effects'
 import { groupJoinedMessage } from '~/domain/outbound-copy'
 import { asPhoneNumber, rosterKey } from '~/domain/roster'
 
@@ -489,7 +490,7 @@ describe('what a named group is called in the weekly question', () => {
     )
 
   it('asks about the group by its name where it has one', () => {
-    expect(bodies(start('Tuesday Women’s Group').effects)[0]!.body).toBe(
+    expect(readAfterTheLineThisMonth(start('Tuesday Women’s Group').effects)[0]!.body).toBe(
       'ABC Church: Did you meet with Tuesday Women’s Group this week? Reply 1 for yes, 2 for no.',
     )
   })

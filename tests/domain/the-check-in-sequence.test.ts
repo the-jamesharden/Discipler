@@ -8,6 +8,7 @@ import {
 } from '~/domain/check-in'
 import type { Effect } from '~/domain/effects'
 import { createSequentialIds, ministryId, personId, relationshipId } from '~/domain/ids'
+import { readAfterTheLineThisMonth } from '../support/effects'
 
 /**
  * One Leader, one conversation, however many relationships they lead. Everything
@@ -53,8 +54,6 @@ const snapshot = (over: Partial<CheckInSnapshot> = {}): CheckInSnapshot => ({
     leads('b3', september, ['Ade']),
   ],
   openSequence: null,
-  // Asked earlier the same month, so the monthly opt-out language is not due.
-  // The rule has its own tests below.
   lastCheckInAt: new Date('2026-10-01T09:00:00Z'),
   ...over,
 })
@@ -69,8 +68,14 @@ const start = (checkIn: CheckInSnapshot = snapshot(), at: Date = startedAt) =>
     checkIn,
   } satisfies CommandContext)
 
+// As a Leader reads them who has had the rates line already this month, which is
+// what these tests were written for. The line has its own tests below and in
+// `the-rates-line-once-a-month.test.ts`.
 const bodies = (effects: readonly Effect[]): string[] =>
-  effects.flatMap((effect) => (effect.kind === 'message.enqueue' ? [effect.message.body] : []))
+  readAfterTheLineThisMonth(effects).map((message) => message.body)
+
+const drafts = (effects: readonly Effect[]) =>
+  effects.flatMap((effect) => (effect.kind === 'message.enqueue' ? [effect.message] : []))
 
 const asked = (effects: readonly Effect[]) =>
   effects.flatMap((effect) => (effect.kind === 'checkin.ask' ? [effect.prompt] : []))
@@ -141,29 +146,28 @@ describe('opening a check-in sequence', () => {
 })
 
 /**
- * Opt-out and rate-disclosure language on the first check-in of each calendar
- * month, and on no other. It rides on the opening question, which is the first
- * check-in message a Leader sees that month.
+ * The rates line on the opening question. Whether it goes out is the once-a-month
+ * rule's, decided against every text the Leader has been queued this month and
+ * not only their check-ins (Text wording, ticket 01) -- so the boundary composes
+ * the question as it reads when it carries the line, and says it may.
  */
-describe('the monthly opt-out language', () => {
-  const opening = (checkIn: CheckInSnapshot) => bodies(start(checkIn).effects)[0] ?? ''
+describe('the rates line on a check-in', () => {
+  const opening = (checkIn: CheckInSnapshot) => drafts(start(checkIn).effects)[0]!
 
-  it('rides on the first check-in of a calendar month', () => {
-    const lastMonth = snapshot({ lastCheckInAt: new Date('2026-09-28T09:00:00Z') })
-    expect(opening(lastMonth)).toContain('Reply STOP to opt out')
+  it('may ride on the question that opens a conversation', () => {
+    const question = opening(snapshot())
+    expect(question.ratesLine).toBe('once_a_month')
+    expect(question.body).toContain('Reply STOP to opt out')
   })
 
-  it('rides on the first check-in a Leader ever receives', () => {
-    expect(opening(snapshot({ lastCheckInAt: null }))).toContain('Reply STOP to opt out')
-  })
-
-  it('is not repeated later in the same month', () => {
-    const earlierThisMonth = snapshot({ lastCheckInAt: new Date('2026-10-01T09:00:00Z') })
-    expect(opening(earlierThisMonth)).not.toContain('Reply STOP to opt out')
+  it('is decided the same way whenever the Leader was last asked', () => {
+    // The month of the last conversation no longer decides anything: a Starter
+    // Message this month takes the line off as surely as a check-in does.
+    expect(opening(snapshot({ lastCheckInAt: null }))).toEqual(opening(snapshot()))
   })
 
   it('does not identify the delivery brand, because a Leader is not first contact', () => {
-    expect(opening(snapshot({ lastCheckInAt: null }))).not.toContain('Discipler:')
+    expect(opening(snapshot({ lastCheckInAt: null })).body).not.toContain('Discipler:')
   })
 
   it('asks about relationships formed in the same instant in a reproducible order', () => {

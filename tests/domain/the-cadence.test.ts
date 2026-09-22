@@ -158,6 +158,7 @@ import { createTestClock } from '~/domain/clock'
 import type { Effect, OutboundMessageDraft } from '~/domain/effects'
 import { createSequentialIds, ministryId } from '~/domain/ids'
 import { withoutTheSweep } from '../support/effects'
+import { settleRatesLine } from '~/domain/rates-line'
 
 const ministry = ministryId('00000000-0000-4000-8000-0000000000aa')
 
@@ -292,40 +293,46 @@ describe('an edit mid-week', () => {
   })
 
   /**
-   * The monthly opt-out rule reads the same timezone the week does.
+   * The rates line's month is the Ministry's, read against the same timezone the
+   * week is (Text wording, ticket 01).
    *
    * Sydney runs ten hours ahead, so a 9am check-in there is 23:00 UTC on the
    * *previous* day -- and on the first of a month that previous day is in the
    * previous month. Both dates below are chosen so the two readings disagree: a
-   * UTC month would drop the language from September's first conversation and add
-   * it to September's second.
+   * UTC month would drop the line from September's first conversation and add it
+   * to September's second.
    */
-  const asked = (lastCheckInAt: Date) =>
-    snapshot({
+  const asked = snapshot({
+    timeZone: 'Australia/Sydney',
+    // Tuesday 9am. Tuesday because 1 September 2026 is one, which is what puts
+    // the Ministry's day and UTC's in different months.
+    leads: [leads({ cadence: { day: 2, hour: 9 } })],
+    lastCheckInAt: null,
+  })
+
+  const asRead = (at: Date, lastCarriedAt: Date) => {
+    const drafts = messages(tick([asked], at).effects)
+    return settleRatesLine(drafts, {
       timeZone: 'Australia/Sydney',
-      // Tuesday 9am. Tuesday because 1 September 2026 is one, which is what puts
-      // the Ministry's day and UTC's in different months.
-      leads: [leads({ cadence: { day: 2, hour: 9 } })],
-      lastCheckInAt,
+      lastCarriedAt: new Map([[drafts[0]!.personId!, lastCarriedAt]]),
     })
+  }
 
   // Tuesday 1 September, 9am Sydney. September's first check-in -- and 31 August
   // in UTC, which is why a UTC reading calls it August's second.
   const septemberFirst = at('2026-08-31T23:00:00Z')
 
-  it('carries the monthly opt-out language on the Ministry’s first of the month', () => {
-    // Previously asked on Tuesday 25 August, Sydney. A new month, so it is due.
+  it('carries the rates line on the Ministry’s first of the month', () => {
+    // Last carried on Tuesday 25 August, Sydney. A new month, so it is due.
     const august = at('2026-08-24T23:00:00Z')
-    const [message] = messages(tick([asked(august)], septemberFirst).effects)
+    const [message] = asRead(septemberFirst, august)
     expect(message!.body).toContain(OPT_OUT)
   })
 
   it('does not repeat it later in the Ministry’s same month', () => {
     // Tuesday 8 September, 9am Sydney: the month's second conversation. In UTC
-    // the previous one falls in August, and the language would go out twice.
-    const [message] = messages(
-      tick([asked(septemberFirst)], at('2026-09-07T23:00:00Z')).effects,
-    )
+    // the previous one falls in August, and the line would go out twice.
+    const [message] = asRead(at('2026-09-07T23:00:00Z'), septemberFirst)
     expect(message!.body).not.toContain(OPT_OUT)
   })
 })

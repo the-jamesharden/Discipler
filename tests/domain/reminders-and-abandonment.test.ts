@@ -11,7 +11,7 @@ import {
 } from '~/domain/check-in'
 import type { Effect } from '~/domain/effects'
 import { createSequentialIds, ministryId, personId, relationshipId } from '~/domain/ids'
-import { withoutTheSweep } from '../support/effects'
+import { readAfterTheLineThisMonth, withoutTheSweep } from '../support/effects'
 import { anInboundSnapshot } from '../support/inbound'
 
 /**
@@ -642,7 +642,11 @@ describe('a new week displacing a question a Pause had already taken back', () =
   })
 
   it('opens the new conversation about the relationships still running', () => {
-    expect(bodies(ticking(nextWeek, withPaused(emily)).effects)).toEqual([
+    expect(
+      readAfterTheLineThisMonth(ticking(nextWeek, withPaused(emily)).effects).map(
+        (message) => message.body,
+      ),
+    ).toEqual([
       'ABC Church: Did you meet with Marcus and Dan this week? Reply 1 for yes, 2 for no.',
     ])
   })

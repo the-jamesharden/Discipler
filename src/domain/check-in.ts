@@ -301,13 +301,18 @@ export interface CheckInSnapshot {
   readonly leads: readonly CheckInRelationship[]
   readonly openSequence: OpenSequence | null
   /**
-   * When this Person's last check-in conversation opened, for the monthly
-   * opt-out rule. Null for a Leader who has never been asked.
+   * When this Person's last check-in conversation opened, which is what says the
+   * cadence has asked them already this week. Null for a Leader who has never been
+   * asked.
    *
-   * The conversation and not the last question in it: a Leader answering on the
-   * 1st is sent the next question of *last month's* conversation on the 1st, and
-   * measuring from that would make the new month's opening question look like the
-   * month's second check-in -- so the month would carry no opt-out language at all.
+   * The conversation and not the last question in it: a Leader answering on
+   * Monday is sent the next question of *last week's* conversation that day, and
+   * measuring from that would read as this week's having been asked.
+   *
+   * It no longer decides the rates line. That was the monthly check-in rule, and
+   * it became the once-a-month rule for every text in `rates-line.ts`, which counts
+   * whatever the Leader was queued this month and not only their check-ins (Text
+   * wording, ticket 01).
    */
   readonly lastCheckInAt: Date | null
 }

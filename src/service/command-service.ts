@@ -20,6 +20,7 @@ import {
 import type { FollowUpItemId, IdSource, ImportRowId, PersonId, RelationshipId } from '~/domain/ids'
 import type { IntakeLinkToken } from '~/domain/intake-link'
 import type { InvitationToken } from '~/domain/invitations'
+import { settleRatesLine, whoseRatesLineIsAsked } from '~/domain/rates-line'
 import type { EffectStore, UnitOfWork } from './ports'
 
 export interface CommandServiceDependencies {
@@ -461,7 +462,15 @@ export const applyEffects = async (
   // reconstructed.
   const recorded = [...history, ...recordedWithAnItem]
   if (recorded.length > 0) await unit.appendHistory(recorded)
-  if (messages.length > 0) await unit.enqueueMessages(messages)
+
+  // Every text the command queues is settled against the rates line together,
+  // once they are all known: a Person has the line at most once a month, and only
+  // the whole list can say which of their texts is the first (Text wording,
+  // ticket 01).
+  if (messages.length > 0) {
+    const hadSoFar = await unit.ratesLineHistory(whoseRatesLineIsAsked(messages))
+    await unit.enqueueMessages(settleRatesLine(messages, hadSoFar))
+  }
 
   // Last of all. The outbound queue refuses a message to anybody with an open
   // opt-out, so a `STOP` applied ahead of a message enqueued by the same command

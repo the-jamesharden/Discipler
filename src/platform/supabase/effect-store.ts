@@ -36,7 +36,6 @@ import type {
   MaterialEdit,
   MaterialRemoval,
   NewMaterial,
-  OutboundMessageDraft,
   OutstandingReplyClosure,
   OutstandingReplySweep,
   ParticipantDeparture,
@@ -100,6 +99,7 @@ import {
   type PairingRefusal,
 } from '~/domain/errors'
 import type { HistoryEvent } from '~/domain/history'
+import type { RatesLineHistory, SettledMessage } from '~/domain/rates-line'
 import {
   eventId,
   followUpItemId,
@@ -2488,14 +2488,12 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       }
     }
 
-    // For the monthly opt-out rule: when this Person's last check-in *conversation*
-    // opened.
+    // For the cadence: when this Person's last check-in *conversation* opened,
+    // which says whether this week has been asked already.
     //
-    // The sequence and not the last question asked. A Leader who answers on the
-    // 1st is sent the next question of September's conversation on the 1st, and
-    // measuring from that would make October's opening question look like the
-    // second check-in of the month -- so October would carry no opt-out language
-    // at all.
+    // The sequence and not the last question asked. A Leader who answers on a
+    // Monday is sent the next question of last week's conversation that day, and
+    // measuring from that would make this week's look asked when it is not.
     const { rows: asked } = await client.query<{ last_checked_in_at: Date | null }>(
       `select max(started_at) as last_checked_in_at
          from checkin_sequence where person_id = $1`,
@@ -3333,13 +3331,55 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     )
   },
 
-  async enqueueMessages(messages: readonly OutboundMessageDraft[]) {
+  async ratesLineHistory(people: readonly PersonId[]): Promise<RatesLineHistory> {
+    // Scoped by the policy on both tables, like everything else on this
+    // connection. The Ministry's row comes back whoever is asked about, because the
+    // timezone is what says which month a date was in, and a history without it is
+    // a list of instants nobody can read.
+    //
+    // A row withheld at send time is left out: nobody read it, so the Person has
+    // not had the line from it. A row still waiting -- held behind a conversation,
+    // or refused by the vendor and retried on the next drain -- counts, because it
+    // is still going to be sent (Text wording, ticket 01).
+    const { rows } = await client.query<{
+      timezone: string
+      person_id: string | null
+      last_carried_at: Date | null
+    }>(
+      `select ms.timezone, m.person_id, max(m.enqueued_at) as last_carried_at
+         from ministry ms
+         left join outbound_message m
+           on m.ministry_id = ms.id
+          and m.person_id = any($1::uuid[])
+          and m.carries_rates_line
+          and m.withheld_at is null
+        group by ms.timezone, m.person_id`,
+      [people],
+    )
+
+    const timeZone = rows[0]?.timezone
+    if (!timeZone) throw new Error('This command has no Ministry to text for')
+
+    return {
+      timeZone,
+      lastCarriedAt: new Map(
+        rows.flatMap((row) =>
+          row.person_id && row.last_carried_at
+            ? [[personId(row.person_id), row.last_carried_at] as const]
+            : [],
+        ),
+      ),
+    }
+  },
+
+  async enqueueMessages(messages: readonly SettledMessage[]) {
     for (const message of messages) {
       await client.query(
         `insert into outbound_message
            (ministry_id, person_id, to_phone, body, enqueued_at, scheduled_for,
-            discloses_person_id, prompt_key, prompt_state, message_kind)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+            discloses_person_id, prompt_key, prompt_state, message_kind,
+            carries_rates_line)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
         [
           message.ministryId,
           message.personId,
@@ -3368,6 +3408,10 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
           // it. Required by the draft, so no message reaches the queue without
           // saying which of the two it is.
           message.kind,
+          // A fact about this text, settled before it got here, and what next
+          // month's texts to this Person are decided against. Never read back out
+          // of `body` (Text wording, ticket 01).
+          message.carriesRatesLine,
         ],
       )
     }

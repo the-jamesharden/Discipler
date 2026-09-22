@@ -233,8 +233,8 @@ describe('one conversation per phone', () => {
     // nothing about -- is `tests/domain/accepting-an-invitation`'s.
     await pool.query(
       `insert into outbound_message
-         (ministry_id, person_id, to_phone, body, enqueued_at, prompt_key, message_kind)
-       values ($1, $2, $3, $4, $5, $3, 'no_reply')`,
+         (ministry_id, carries_rates_line, person_id, to_phone, body, enqueued_at, prompt_key, message_kind)
+       values ($1, false, $2, $3, $4, $5, $3, 'no_reply')`,
       [
         world.ministry.id,
         sam,
@@ -362,8 +362,8 @@ describe('one conversation per phone', () => {
     // thing keeping it there is the exchange.
     await pool.query(
       `insert into outbound_message
-         (ministry_id, person_id, to_phone, body, enqueued_at, prompt_key, message_kind)
-       values ($1, $2, $3, 'Cornerstone Chapel: did you meet?', $4, $3, 'scheduled_question')`,
+         (ministry_id, carries_rates_line, person_id, to_phone, body, enqueued_at, prompt_key, message_kind)
+       values ($1, false, $2, $3, 'Cornerstone Chapel: did you meet?', $4, $3, 'scheduled_question')`,
       [world.ministry.id, ada, handset, monday],
     )
 
@@ -400,9 +400,9 @@ describe('one conversation per phone', () => {
 
     const { rows } = await pool.query<{ id: string }>(
       `insert into outbound_message
-         (ministry_id, person_id, to_phone, body, enqueued_at, prompt_key, message_kind)
-       values ($1, $2, $3, 'Grace Community: first?',  $4, $3, 'scheduled_question'),
-              ($1, $2, $3, 'Grace Community: second?', $4, $3, 'scheduled_question')
+         (ministry_id, carries_rates_line, person_id, to_phone, body, enqueued_at, prompt_key, message_kind)
+       values ($1, false, $2, $3, 'Grace Community: first?',  $4, $3, 'scheduled_question'),
+              ($1, false, $2, $3, 'Grace Community: second?', $4, $3, 'scheduled_question')
        returning id`,
       [world.ministry.id, leah, handset, monday],
     )
@@ -462,9 +462,9 @@ describe('one conversation per phone', () => {
     // send would step straight over the one hold nobody else can release.
     const { rows } = await pool.query<{ id: string }>(
       `insert into outbound_message
-         (ministry_id, person_id, to_phone, body, enqueued_at, prompt_key, message_kind)
-       values ($1, $2, $3, 'Wellspring Church: did you meet?', $4, $3, 'scheduled_question'),
-              ($1, $2, $3, 'Wellspring Church: and this week?', $4, $3, 'scheduled_question')
+         (ministry_id, carries_rates_line, person_id, to_phone, body, enqueued_at, prompt_key, message_kind)
+       values ($1, false, $2, $3, 'Wellspring Church: did you meet?', $4, $3, 'scheduled_question'),
+              ($1, false, $2, $3, 'Wellspring Church: and this week?', $4, $3, 'scheduled_question')
        returning id`,
       [world.ministry.id, zoe, handset, monday],
     )
@@ -513,8 +513,8 @@ describe('one conversation per phone', () => {
     ] as const) {
       await pool.query(
         `insert into outbound_message
-           (ministry_id, person_id, to_phone, body, enqueued_at, prompt_key, message_kind)
-         values ($1, $2, $3, $4, $5, $3, 'scheduled_question')`,
+           (ministry_id, carries_rates_line, person_id, to_phone, body, enqueued_at, prompt_key, message_kind)
+         values ($1, false, $2, $3, $4, $5, $3, 'scheduled_question')`,
         [world.ministry.id, person, handset, `${world.ministry.name}: did you meet?`, monday],
       )
     }
@@ -536,9 +536,9 @@ describe('one conversation per phone', () => {
     await expect(
       pool.query(
         `insert into outbound_message
-           (ministry_id, person_id, to_phone, body, enqueued_at, prompt_key,
+           (ministry_id, carries_rates_line, person_id, to_phone, body, enqueued_at, prompt_key,
             message_kind, prompt_state)
-         values ($1, $2, $3, 'Lakeview Chapel: did you meet?', $4, $3,
+         values ($1, false, $2, $3, 'Lakeview Chapel: did you meet?', $4, $3,
                  'scheduled_question', 'open')`,
         [world.ministry.id, eve, handset, monday],
       ),
@@ -557,10 +557,10 @@ describe('one conversation per phone', () => {
     await expect(
       pool.query(
         `insert into outbound_message
-           (ministry_id, person_id, to_phone, body, enqueued_at, prompt_key,
+           (ministry_id, carries_rates_line, person_id, to_phone, body, enqueued_at, prompt_key,
             message_kind, prompt_state, reply_opened_at)
-         values ($1, $2, $3, 'Beacon Chapel: one?', $4, $3, 'scheduled_question', 'open', $4),
-                ($1, $2, $3, 'Beacon Chapel: two?', $4, $3, 'scheduled_question', 'open', $4)`,
+         values ($1, false, $2, $3, 'Beacon Chapel: one?', $4, $3, 'scheduled_question', 'open', $4),
+                ($1, false, $2, $3, 'Beacon Chapel: two?', $4, $3, 'scheduled_question', 'open', $4)`,
         [world.ministry.id, noah, handset, monday],
       ),
     ).rejects.toThrow(/outbound_message_one_open_reply_per_number/)

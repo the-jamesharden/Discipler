@@ -50,7 +50,6 @@ import type {
   NewCheckInSequence,
   NewDiscipleshipGoal,
   NewKeywordExchange,
-  OutboundMessageDraft,
   OutstandingReplyClosure,
   OutstandingReplySweep,
   ParticipantDeparture,
@@ -94,6 +93,7 @@ import type {
 } from '~/domain/ids'
 import type { ParticipationStatus } from '~/domain/participation'
 import type { NewRelationship } from '~/domain/relationships'
+import type { RatesLineHistory, SettledMessage } from '~/domain/rates-line'
 import type { CareReason, RelationshipState, SettledRelationshipState } from '~/domain/relationship-state'
 import type { InvitationState } from '~/domain/invitations'
 import type { MemberRole } from '~/domain/relationships'
@@ -202,7 +202,19 @@ export interface UnitOfWork {
    * transaction.
    */
   recordIntake(intake: IntakeRecord): Promise<void>
-  enqueueMessages(messages: readonly OutboundMessageDraft[]): Promise<void>
+  /**
+   * When each of these Persons was last queued a text carrying the rates line,
+   * leaving out texts withheld at send time, and the Ministry's timezone that says
+   * which month that was (Text wording, ticket 01). Read inside the unit of work,
+   * so the texts a command queues are settled against the queue as this
+   * transaction sees it.
+   */
+  ratesLineHistory(people: readonly PersonId[]): Promise<RatesLineHistory>
+  /**
+   * Texts already settled against the rates line: their words are the ones that
+   * will be sent, and whether they carry the line is written beside them.
+   */
+  enqueueMessages(messages: readonly SettledMessage[]): Promise<void>
   /**
    * Closes whatever conversation this number is holding, so the next scheduled
    * message to it may go out. Does nothing where the number holds none, and
