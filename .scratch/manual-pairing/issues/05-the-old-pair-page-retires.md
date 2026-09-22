@@ -114,7 +114,7 @@ Looked at in Chrome on this checkout's build with a seeded Ministry: Pair on a D
    The old page's sentence *does not start it* has no counterpart in the popup; its own suites test its words.
 
 
-**One thing for James.**
+**One thing for James.** Answered 2026-09-21, below: nothing is built for it.
 The ticket says nothing is lost by the switch, and one thing is.
 The old page listed everybody ready to pair under *Discipler*, so an Admin could make somebody a leader for the first time: somebody who leads nobody and did not offer to mentor on Intake.
 The popup, as old tickets 12 and 23 specified it, lists only people the Roster already makes Disciplers, and a Disciple's row opens only the Disciple's side.
@@ -134,3 +134,7 @@ Nothing was built for it here; if it should be possible by hand, it is a ticket 
 
 - The tag keeps its words: *Keep Awaiting Intake*.
 - An old refusal of a named group reopens on the shape its ticks default to, as built: *Keep: reopen on the shape its ticks default to*.
+- Pairing somebody as the leader who is not a Discipler yet, asked again with an example (Emily, who completed Intake to be discipled, made Sam's Discipler): *No: somebody becomes a Discipler by answering Mentor on Intake first*.
+  In James's words: unless they have filled out the Intake form they cannot be a Discipler; a Discipler is just another word for the leader of a one-to-one or a 1:2, and there is no extra step from leader to Discipler, because they are one and the same in different contexts.
+  So the popup stays as built, listing only Disciplers from a Disciple's side, and no ticket is written; the mock-up is not built.
+
