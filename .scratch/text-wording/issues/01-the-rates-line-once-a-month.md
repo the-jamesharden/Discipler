@@ -78,7 +78,9 @@ No message's words changed; only whether the line is on them.
 **Checked.**
 The whole typecheck is clean apart from `.next/types`.
 `tests/domain` and `tests/app` whole: green.
-Through `scripts/locked-tests.sh`: the new suite and the nine it touches, green, and one full run afterwards (numbers in the implementer's report).
+Through `scripts/locked-tests.sh`: the new suite and the nine it touches, green.
+The first full run had one red test, `accepting-an-invitation`, ordering two texts by an `enqueued_at` that one pinned clock ties; it now orders by `created_at` as well.
+The full run after that: 179 files and 2636 tests passed, 1 test skipped (in `invitation-over-http`, as before), no file skipped.
 The Ministry settings page on this checkout's build in Chrome, through a cookie proxy: the preview reads exactly as the invitation text, and the rest of the page is unchanged.
 
 **Decided here, each the conservative reading, with the alternative.**
