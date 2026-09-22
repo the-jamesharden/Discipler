@@ -689,9 +689,9 @@ const ENDING_REFUSALS: Readonly<Record<DatabaseEndingRefusal, EndingRefusal | nu
 /**
  * What `app.assign_material` can answer with.
  *
- * Three of these are states an Admin can genuinely be in, and each reaches a screen
- * as a sentence: the relationship is not theirs, it has ended, or nobody has
- * accepted it.
+ * Four of these are states an Admin can genuinely be in, and each reaches a screen
+ * as a sentence: the relationship is not theirs, it has ended, nobody has
+ * accepted it, or it is already on the Material asked for (Materials, ticket 03).
  *
  * The other three are defects rather than decisions, and every one of them says the
  * Material history has broken in a way no production path can produce -- a
@@ -709,6 +709,7 @@ type DatabaseAssignmentRefusal =
   | 'material_history_not_open'
   | 'assignment_precedes_acceptance'
   | 'assignment_precedes_running_period'
+  | 'material_already_running'
 
 const ASSIGNMENT_REFUSALS: Readonly<
   Record<DatabaseAssignmentRefusal, MaterialAssignmentRefusal | null>
@@ -720,6 +721,7 @@ const ASSIGNMENT_REFUSALS: Readonly<
   material_history_not_open: null,
   assignment_precedes_acceptance: null,
   assignment_precedes_running_period: null,
+  material_already_running: 'material.already_running',
 }
 
 const refused = <Answer extends string, Refusal extends string>(
@@ -2282,8 +2284,9 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // Both acts come through here. Acceptance passes a null Material, which opens
     // the history, and may follow it at the same instant with the Material an
     // Admin chose at pairing, under no Admin's name; an Admin passes a real one
-    // under their own. A real Material requires the history to have been opened
-    // already, which is why the opening period must come first.
+    // under their own, or a null one to un-assign (Materials, ticket 03). Either
+    // requires the history to have been opened already, which is why the opening
+    // period must come first.
     let answer: DatabaseAssignmentRefusal | null = null
     try {
       const { rows } = await client.query<{ refusal: DatabaseAssignmentRefusal | null }>(

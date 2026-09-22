@@ -2,22 +2,30 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { materialId as asMaterialId } from '~/domain/ids'
 import { getMaterialsReader } from '~/service/container'
-import type { MaterialRelationship } from '~/service/ports'
+import type { MaterialOption, MaterialRelationship } from '~/service/ports'
 import { statePill, withPeople } from '../overview/copy'
 import { flaggedIn, flagsFor } from '../overview/flags'
 import { AdminShell, NotAnAdmin } from '../shell'
+import { assignRow, MATERIAL_FIELD, NO_MATERIAL_VALUE } from './assigning'
 import {
   ALL_MATERIALS,
+  ASSIGN,
+  assignmentRefusalMessage,
+  CHOOSE_A_MATERIAL,
   EDIT_THIS_MATERIAL,
   filterIn,
   filterQuery,
+  MATERIAL_LABEL,
   MATERIALS,
+  NO_MATERIAL,
   NO_MATERIAL_ASSIGNED,
   notWorkingThroughAnything,
   previouslyLine,
   relationshipLabel,
+  SAVE_ASSIGNMENT,
   sinceLine,
   workingThroughItNow,
+  type MaterialsFilter,
 } from './copy'
 import { onMaterial, onNoMaterial, underFilter } from './folders'
 
@@ -29,13 +37,53 @@ import { onMaterial, onNoMaterial, underFilter } from './folders'
  * is the number of cards here.
  *
  * One departure from the Overview card: there the whole card is a link to the
- * Follow-Up item. Here the card will hold a form (ticket 03), so only the
- * Leader's name links, and only where an item exists. A Material's folder
- * carries the way to its edit page in the head; removing lives there too.
+ * Follow-Up item. Here the card holds the assign row (Materials, ticket 03), so
+ * only the Leader's name links, and only where an item exists. A Material's
+ * folder carries the way to its edit page in the head; removing lives there too.
  */
 
 /** Which folder: one Material's, by id, or the dashed one. */
 export type WhichFolder = { readonly kind: 'material'; readonly id: string } | { readonly kind: 'none' }
+
+/**
+ * The row pinned to the foot of every card: a dropdown of every live Material
+ * and a button, posted on its own. It carries the folder and the filter so the
+ * route can send the Admin back to where they pressed it.
+ */
+const AssignRow = ({
+  relationship,
+  materials,
+  filter,
+}: {
+  readonly relationship: MaterialRelationship
+  readonly materials: readonly MaterialOption[]
+  readonly filter: MaterialsFilter
+}) => {
+  const current = relationship.runningMaterialId
+  const { options, selected } = assignRow(materials, current, {
+    noMaterial: NO_MATERIAL,
+    choose: CHOOSE_A_MATERIAL,
+  })
+  return (
+    <form className="mat-assign" method="post" action="/materials/assign">
+      <input type="hidden" name="relationshipId" value={relationship.relationshipId} />
+      <input type="hidden" name="folder" value={current ?? NO_MATERIAL_VALUE} />
+      {filter === null ? null : <input type="hidden" name="gender" value={filter} />}
+      {/* Required where the first line is "Choose a material…", which is no
+          choice; in a Material's folder every line is one. */}
+      <select name={MATERIAL_FIELD} aria-label={MATERIAL_LABEL} defaultValue={selected} required={current === null}>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <button type="submit" className={current === null ? 'small' : 'small sec'}>
+        {current === null ? ASSIGN : SAVE_ASSIGNMENT}
+      </button>
+    </form>
+  )
+}
 
 const Card = ({
   relationship,
@@ -43,12 +91,16 @@ const Card = ({
   timeZone,
   flagged,
   care,
+  materials,
+  filter,
 }: {
   readonly relationship: MaterialRelationship
   readonly folder: 'material' | 'none'
   readonly timeZone: string
   readonly flagged: ReadonlySet<string>
   readonly care: Parameters<typeof flagsFor>[1]
+  readonly materials: readonly MaterialOption[]
+  readonly filter: MaterialsFilter
 }) => {
   const { flags, tone } = flagsFor(relationship.relationshipId, care)
   const leaders = relationship.leaderNames.join(', ') || 'Nobody leading'
@@ -77,6 +129,7 @@ const Card = ({
         <div className="hist">{previouslyLine(relationship.previously, timeZone)}</div>
       ) : null}
       {flags.length > 0 ? <div className={`rel-reason ${tone}`}>{flags.join(' · ')}</div> : null}
+      <AssignRow relationship={relationship} materials={materials} filter={filter} />
     </div>
   )
 }
@@ -84,9 +137,12 @@ const Card = ({
 export const FolderPage = async ({
   which,
   gender,
+  assignError,
 }: {
   readonly which: WhichFolder
   readonly gender: string | undefined
+  /** Why the last press of an assign row changed nothing, as a code. */
+  readonly assignError: string | undefined
 }) => {
   const filter = filterIn(gender)
 
@@ -112,6 +168,7 @@ export const FolderPage = async ({
     filter,
   )
   const flagged = flaggedIn(care)
+  const refusal = assignmentRefusalMessage(assignError)
 
   return (
     <AdminShell admin={admin} current="materials" followUpCount={care.length}>
@@ -134,6 +191,11 @@ export const FolderPage = async ({
             </Link>
           ) : null}
         </div>
+        {refusal ? (
+          <p className="toast error" role="alert">
+            {refusal}
+          </p>
+        ) : null}
         {inside.length > 0 ? (
           <div className="rel-grid">
             {inside.map((relationship) => (
@@ -146,6 +208,8 @@ export const FolderPage = async ({
                 timeZone={timeZone ?? 'UTC'}
                 flagged={flagged}
                 care={care}
+                materials={materials}
+                filter={filter}
               />
             ))}
           </div>

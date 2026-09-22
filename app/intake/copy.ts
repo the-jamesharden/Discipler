@@ -224,6 +224,13 @@ export const groupHeading = (ministryName: string): string => `Join a group at $
 export const GROUP_QUESTION = 'Which group would you like to join?'
 
 /**
+ * The line beneath a group's name on step three when its running period is on a
+ * Material (Materials, ticket 03, S-7). A group on none shows its name alone, and
+ * nothing is said about the absence.
+ */
+export const workingThrough = (materialTitle: string): string => `Working through ${materialTitle}`
+
+/**
  * What the link says when there is nothing to join: a Ministry with no group the
  * form could offer, or a Person every group is closed to. The same page, because
  * to the Person the list is empty either way. It says so plainly and points at

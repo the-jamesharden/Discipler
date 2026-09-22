@@ -179,6 +179,7 @@ export const createPostgresIntakeReader = (
           declared_gender: string | null
           join_requires_approval: boolean
           leader_first_names: string[]
+          material_title: string | null
         }>(`select * from groups_open_to_join($1)`, [id])
 
         const groups: JoinableGroup[] = rows.map((row) => ({
@@ -187,6 +188,7 @@ export const createPostgresIntakeReader = (
           declaredGender: declaredGenderOf(row.declared_gender),
           joinRequiresApproval: row.join_requires_approval,
           leaderFirstNames: row.leader_first_names,
+          materialTitle: row.material_title,
         }))
 
         return { ministryId: ministryId(id), ministryName: name, groups }

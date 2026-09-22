@@ -12,6 +12,7 @@ import { MaterialAssignmentRefused } from '~/domain/errors'
 import {
   createSequentialIds,
   materialId,
+  type MaterialId,
   ministryId,
   personId,
   relationshipId,
@@ -20,6 +21,8 @@ import { invitationToken } from '~/domain/invitations'
 import {
   materialForWeek,
   materialInUseAt,
+  materialTitle,
+  type MaterialOnOffer,
   type MaterialPeriod,
 } from '~/domain/materials'
 
@@ -280,10 +283,26 @@ const relationshipSnapshot = (
   ...over,
 })
 
+/** One live Material on the Ministry's list, as the boundary reads it. */
+const onOffer = (id: MaterialId, title: string): MaterialOnOffer => ({
+  id,
+  title: materialTitle(title),
+  body: 'Read a chapter a week.',
+  pdf: null,
+  inUseBy: 0,
+})
+
+/** The live list: Romans and John's Gospel. A removed Material is not on it. */
+const liveList: readonly MaterialOnOffer[] = [
+  onOffer(romans, 'Romans'),
+  onOffer(johnsGospel, "John's Gospel"),
+]
+
 const assign = (
   over: Partial<RelationshipSnapshot> = {},
-  material = romans,
+  material: MaterialId | null = romans,
   at = now,
+  materials: readonly MaterialOnOffer[] = liveList,
 ) =>
   handleCommand(
     {
@@ -298,6 +317,7 @@ const assign = (
       clock: createTestClock(at),
       ids: createSequentialIds(),
       relationship: relationshipSnapshot(over),
+      materials,
     },
   )
 
@@ -418,6 +438,20 @@ describe('an Admin assigning a Material', () => {
     )
   })
 
+  it('starts now, at the clock the command decides by', () => {
+    // No start date is accepted from a form: the command carries none.
+    const later = new Date('2026-05-11T14:30:00Z')
+    expect(assignments(assign({}, romans, later))[0]?.assignedAt).toEqual(later)
+  })
+
+  it('is refused for a Material the Ministry no longer offers', () => {
+    // Removed since the page was drawn, or never this Ministry's: off the live
+    // list either way, so no folder would show the relationship it moved.
+    expect(() => assign({}, romans, now, [onOffer(johnsGospel, "John's Gospel")])).toThrow(
+      new MaterialAssignmentRefused('material.not_found'),
+    )
+  })
+
   it('is not refused on a paused relationship', () => {
     // A Pause suspends check-ins and nothing else. Deciding what a relationship
     // will work through when it comes back is exactly the kind of thing an Admin
@@ -425,5 +459,36 @@ describe('an Admin assigning a Material', () => {
     expect(
       assignments(assign({ pause: { pausedAt: new Date('2026-04-01T09:00:00Z'), periodWeeks: 2 } })),
     ).toHaveLength(1)
+  })
+})
+
+describe('an Admin taking a relationship off its Material', () => {
+  it('opens a period with no Material in it, named for the Admin', () => {
+    expect(assignments(assign({}, null))).toEqual([
+      {
+        ministryId: ministry,
+        relationshipId: relationship,
+        materialId: null,
+        assignedAt: now,
+        assignedBy: 'admin-user-1',
+      },
+    ])
+  })
+
+  it('appends it to history as an assignment of nothing', () => {
+    expect(events(assign({}, null))[0]?.payload).toEqual({
+      materialId: null,
+      assignedBy: 'admin-user-1',
+    })
+  })
+
+  it('needs no list of Materials, because it names none', () => {
+    expect(assignments(assign({}, null, now, []))).toHaveLength(1)
+  })
+
+  it('is refused on a relationship nobody has accepted, as an assignment is', () => {
+    expect(() => assign({ acceptedAt: null }, null)).toThrow(
+      new MaterialAssignmentRefused('material.relationship_not_accepted'),
+    )
   })
 })

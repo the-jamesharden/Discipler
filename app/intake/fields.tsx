@@ -1,6 +1,13 @@
 import { AGE_BANDS, SLOT_HOURS, WEEKDAYS } from '~/domain/intake'
 import type { DiscipleshipGoalOption, IntakePrefill, JoinableGroup } from '~/service/ports'
-import { GROUP_QUESTION, hourLabel, selectedSummary, weekdayFullLabel, weekdayLabel } from './copy'
+import {
+  GROUP_QUESTION,
+  hourLabel,
+  selectedSummary,
+  weekdayFullLabel,
+  weekdayLabel,
+  workingThrough,
+} from './copy'
 
 /**
  * The questions Intake asks, each as its own piece.
@@ -220,6 +227,9 @@ export const GroupField = ({
             defaultChecked={chosen === group.relationshipId}
           />
           <span className="option-title">{group.name}</span>
+          {group.materialTitle ? (
+            <span className="option-desc">{workingThrough(group.materialTitle)}</span>
+          ) : null}
         </label>
       ))}
     </div>

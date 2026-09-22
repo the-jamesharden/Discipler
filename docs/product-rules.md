@@ -256,6 +256,8 @@ V1 is the operating loop and nothing else: intake, roster, suggestions, acceptan
 
 Three capabilities are deliberately deferred. The **Planning Center API** - V1 ships a spreadsheet paste (see *The Import Is a Paste, in One of Two Layouts*), which delivers most of the value without OAuth, People sync, and reconciliation. The **quarterly report** - it produces nothing meaningful until a ministry has multiple quarters behind it, so a pilot cannot exercise it. The **material assignment interface** - assignments are configured during pilot support instead.
 
+> **Supersedes (2026-09-22, Materials ticket 03):** the deferral of the material assignment interface. It shipped: an Admin assigns, swaps and un-assigns a material from a folder's cards on the Materials tab and from a group's card on Intake forms, and pilot support no longer configures assignments by hand. See `.scratch/materials/spec.md`.
+
 Deferring the report defers the *interface*, never the data. The week-by-week history that a report will one day read must be complete and correct from the first week of the pilot, because it cannot be reconstructed later.
 
 ## Settled: No Interface Action Sends a Message

@@ -579,8 +579,8 @@ const editsTheMaterialList = (
 
 /**
  * Whether a command that is not an edit of the list still decides against it:
- * forming a relationship with the Material an Admin chose, or accepting one whose
- * intended Material is still to be spent. Forming or accepting anything else pays
+ * forming a relationship with the Material an Admin chose, assigning one, or
+ * accepting a relationship whose intended Material is still to be spent. Forming or accepting anything else pays
  * nothing, and takes no lock on the Ministry's list.
  */
 const consultsTheMaterialList = (
@@ -588,6 +588,10 @@ const consultsTheMaterialList = (
   invitation: InvitationSnapshot | undefined,
 ): boolean =>
   (command.type === 'relationship.create' && command.materialId !== undefined) ||
+  // Assigning a Material names one to check; the un-assign names none (Materials,
+  // ticket 03). Behind the list's own lock, so an assignment and a removal of
+  // the same Material cannot both decide from a list the other has changed.
+  (command.type === 'relationship.assign_material' && command.materialId !== null) ||
   // A withdrawal can activate a relationship as the last acceptance does, and
   // spends the intended Material the same way.
   ((command.type === 'relationship.accept' ||
