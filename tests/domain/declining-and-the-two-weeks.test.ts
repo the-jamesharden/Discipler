@@ -285,6 +285,72 @@ describe('declining', () => {
   })
 })
 
+describe('an Admin taking an invitation back (Unpair, James 2026-09-21)', () => {
+  const withdraw = (invitation: InvitationSnapshot, at = aWeekIn) =>
+    handleCommand(
+      { type: 'invitation.withdraw', ministryId: ministry, token, withdrawnBy: 'admin-user-1' },
+      context(invitation, at),
+    )
+
+  it('withdraws the invitation and ends their unaccepted membership, as a decline does', () => {
+    expect(withdrawal(withdraw(onARunningGroup()))).toEqual({
+      ministryId: ministry,
+      relationshipId: relationship,
+      personId: claire,
+      token,
+      withdrawnAt: aWeekIn,
+      withdrawnAs: 'withdrawn',
+      activatesRelationship: false,
+    })
+  })
+
+  it('raises nothing, because the Admin who would be told is the one who did it', () => {
+    expect(raised(withdraw(onARunningGroup()))).toEqual([])
+  })
+
+  it('is recorded as an event of its own type, naming the Person and the Admin', () => {
+    expect(history(withdraw(onARunningGroup()))).toEqual([
+      expect.objectContaining({
+        type: 'relationship.invitation_withdrawn',
+        subjectId: relationship,
+        payload: { personId: claire, activated: false, withdrawnBy: 'admin-user-1' },
+      }),
+    ])
+  })
+
+  it('changes nothing else about a group that is running, and sends nobody anything', () => {
+    const result = withdraw(onARunningGroup())
+    expect(messages(result)).toEqual([])
+    expect(kinds(result)).toEqual(['invitation.withdraw', 'history.append'])
+  })
+
+  it('takes back one that has run out and not been swept yet, which a decline cannot', () => {
+    expect(withdrawal(withdraw(onARunningGroup(), justAfter)).withdrawnAs).toBe('withdrawn')
+  })
+
+  it('is refused on a link that has been spent or withdrawn already, and never ends a membership that has begun leading', () => {
+    const refusal = (invitation: InvitationSnapshot) => {
+      try {
+        withdraw(invitation)
+      } catch (error) {
+        if (error instanceof InvitationRefused) return error.refusal
+        throw error
+      }
+      return null
+    }
+    expect(refusal(onARunningGroup({ consumedAt: aWeekIn }))).toBe('invitation.already_used')
+    expect(refusal(onARunningGroup({ withdrawnAs: 'declined' }))).toBe('invitation.declined')
+    expect(refusal(onARunningGroup({ withdrawnAs: 'withdrawn' }))).toBe('invitation.expired')
+    expect(
+      refusal(onARunningGroup({ members: [leader(claire, 'Claire Martinez', invitedAt), disciple(sam, 'Sam Lee')] })),
+    ).toBe('invitation.already_used')
+  })
+
+  it('leaves the link opening what a link that has run out says: ask for a new one', () => {
+    expect(invitationState({ expiresAt, consumedAt: null, withdrawnAs: 'withdrawn' }, aWeekIn)).toBe('expired')
+  })
+})
+
 describe('the two weeks', () => {
   it('withdraws nothing up to and including the expiry, which is when it can still be accepted', () => {
     expect(expire(onARunningGroup(), aWeekIn).effects).toEqual([])

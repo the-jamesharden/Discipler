@@ -1,5 +1,6 @@
-import type { FollowUpRefusal, GroupRefusal, PairingRefusal } from '~/domain/errors'
+import type { FollowUpRefusal, GroupRefusal, MaterialAssignmentRefusal } from '~/domain/errors'
 import type { Gender } from '~/domain/intake'
+import { refusalIn } from '../refusals'
 import { REFUSALS } from '../roster/copy'
 
 /**
@@ -56,6 +57,19 @@ export const GROUP_NAME_HINT = 'This appears on the group link, which anybody ma
 export const REQUIRE_APPROVAL_LABEL = 'Ask me before anyone joins through the link'
 export const SAVE_GROUP = 'Save'
 export const GROUP_SAVED = 'Saved.'
+/**
+ * The Material field on an accepted group's card (Materials, ticket 03, S-6), and
+ * the line an unaccepted group's card shows in its place. The field saves with
+ * the name and the toggle in the one press.
+ */
+export const GROUP_MATERIAL_LABEL = 'Material'
+export const GROUP_MATERIAL_HINT =
+  "Shown beneath the group's name on the link, and on the leader's dashboard."
+export const workingThroughItSince = (date: string): string => `Working through it since ${date}.`
+export const materialOnceAccepted = (leaderFirstNames: readonly string[]): string =>
+  `A material can be assigned once ${leaderFirstNames.length === 0 ? 'its leader' : leaderFirstNames.join(' and ')} has accepted. `
+  + 'The group is not on the link until then either.'
+
 export const declaredGenderLabel: Record<'mixed' | Gender, string> = {
   mixed: 'Mixed',
   male: 'Men',
@@ -93,9 +107,29 @@ const GROUP_REFUSALS: Record<GroupRefusal, string> = {
     + 'the request to close it.',
 }
 
+/**
+ * The Material field's refusals, said on the groups card. The name and the toggle
+ * have saved by the time one of these comes back, so each says what did not.
+ * The Material already running is never one: choosing it writes nothing, and
+ * the route says nothing about it.
+ */
+const GROUP_MATERIAL_REFUSALS: Record<Exclude<MaterialAssignmentRefusal, 'material.already_running'>, string> = {
+  'material.relationship_not_found': 'That group is not on this Roster any more.',
+  'material.relationship_not_accepted':
+    'The name was saved. A material can be assigned once the leader has accepted.',
+  'material.relationship_ended': 'That group has ended, so there is nothing left to change.',
+  'material.not_found':
+    'The name was saved. That material is no longer on the list; somebody may have removed it.',
+  'material.assigner_is_not_in_this_ministry': 'This account cannot assign materials here.',
+}
+
 export const groupRefusalMessage = (code: string | undefined): string | undefined => {
   if (!code) return undefined
-  return GROUP_REFUSALS[code as GroupRefusal] ?? 'That could not be saved.'
+  return (
+    refusalIn(GROUP_REFUSALS, code)
+    ?? refusalIn(GROUP_MATERIAL_REFUSALS, code)
+    ?? 'That could not be saved.'
+  )
 }
 
 const FOLLOW_UP_REFUSALS: Record<FollowUpRefusal, string> = {
@@ -112,9 +146,9 @@ const FOLLOW_UP_REFUSALS: Record<FollowUpRefusal, string> = {
 export const admissionRefusalMessage = (code: string | undefined): string | undefined => {
   if (!code) return undefined
   return (
-    GROUP_REFUSALS[code as GroupRefusal]
-    ?? FOLLOW_UP_REFUSALS[code as FollowUpRefusal]
-    ?? REFUSALS[code as PairingRefusal]
+    refusalIn(GROUP_REFUSALS, code)
+    ?? refusalIn(FOLLOW_UP_REFUSALS, code)
+    ?? refusalIn(REFUSALS, code)
     ?? 'That request could not be answered.'
   )
 }

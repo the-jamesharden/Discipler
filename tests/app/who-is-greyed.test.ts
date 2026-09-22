@@ -12,6 +12,7 @@ import {
   groupLeftOut,
   groupsShownTo,
   leadsAGroup,
+  leavesOffTheList,
   leftOutForADisciple,
 } from '../../app/roster/greying'
 
@@ -48,6 +49,7 @@ const pairing = (
   participantNames: [],
   participantCount: 1,
   countsAsAGroup: false,
+  name: null,
   awaitingAcceptance: false,
   ...over,
 })
@@ -256,6 +258,19 @@ describe('a Disciple while what is ticked would make a Group (Manual pairing, re
       ],
     })
     expect(greyedInAGroup({ declared: 'female', disciple: inBoth })).toBeNull()
+  })
+})
+
+describe('what leaves a row off the list altogether (James, 2026-09-21)', () => {
+  it('is gender, whatever declares it, from either side of the popup', () => {
+    expect(leavesOffTheList({ why: 'gender', declared: 'female' })).toBe(true)
+    expect(leavesOffTheList({ why: 'gender', declared: 'male' })).toBe(true)
+  })
+
+  it('is never any other reason: those are greyed rows that say why', () => {
+    expect(leavesOffTheList({ why: 'already_in_a_one_to_one', withName: 'David Chen' })).toBe(false)
+    expect(leavesOffTheList({ why: 'not_pairable', reason: 'awaiting_intake' })).toBe(false)
+    expect(leavesOffTheList({ why: 'not_pairable', reason: 'opted_out' })).toBe(false)
   })
 })
 

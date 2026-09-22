@@ -68,7 +68,7 @@ Whether a discipleship relationship was formed as a one-to-one or as a group. De
 _Avoid_: Treating kind as a second entity, or as the answer to "is this a group"
 
 **Discipler** / **Disciple**:
-The two words every Admin screen uses for the people in a discipleship relationship, in place of Leader and Participant, since ticket 36. A Discipler is a fact and never a mark: anyone leading an open relationship, anyone who signed up as a leader on the Intake form, or anyone an import paired as the discipler. Everyone else on the Roster is a Disciple, and a person may be both. The words are the product's own and may be pluralised on a screen; the nouns a Ministry types for its messages are a different thing, see Ministry Language.
+The two words every Admin screen uses for the people in a discipleship relationship, in place of Leader and Participant, since ticket 36. A Discipler is a fact and never a mark: anyone leading an open relationship, anyone who signed up as a leader on the Intake form, or anyone an import paired as the discipler. Everyone else on the Roster is a Disciple, and a person may be both: being discipled, or having asked to be on their own Intake form, makes a Discipler a Disciple as well. Suggested Pairs proposes as a Disciple only somebody the Roster calls one. The words are the product's own and may be pluralised on a screen; the nouns a Ministry types for its messages are a different thing, see Ministry Language.
 _Avoid_: Eligible to lead, leader pool (there is no flag: pairing somebody is the pastor's acceptance), and using these in message copy, where the Ministry's own nouns go
 
 **Age Band Gap**:
@@ -102,8 +102,12 @@ _Avoid_: Approval as the default, or as a Ministry-wide setting
 The Follow-Up Item raised when a Person picks a group whose Join Approval is on. It carries the Person and the group, stands once however many times they ask, and closes only when an Admin admits them -- which adds them to the group in the same act -- or resolves it alone. Nothing is sent to the Person either way.
 _Avoid_: Application, waitlist
 
+**Group Placement**:
+An Admin putting into a group somebody who signed up on the Group Intake Link with no group in mind. Their submission raises the `group_placement_wanted` Follow-Up Item, which carries the Person and nothing else and stands once however many times they ask. It closes when an Admin puts them into a group -- `group.add_participant`, from the item's **Place in this group** or from the Roster -- or resolves it alone. The item offers the groups the Group Intake Link would offer them.
+_Avoid_: Assignment (that is a Material's), waitlist
+
 **Pair**:
-The pastor's act of placing people into a discipleship relationship. A verb in the model and in every message. On the Roster, the person page and the pairing page, since ticket 36, a *pairing* is also the noun for a Discipleship Relationship, one-to-one or group, said in place of "relationship" because it is the customer's word; ticket 36 records the decision.
+The pastor's act of placing people into a discipleship relationship. A verb in the model and in every message. It happens in the Pair popup over the Roster, opened from one Person, on the Discipler's side or the Disciple's. On the Roster, the person page and the Pair popup, since ticket 36, a *pairing* is also the noun for a Discipleship Relationship, one-to-one or group, said in place of "relationship" because it is the customer's word; ticket 36 records the decision.
 _Avoid_: Using "pair" or "pairing" as a noun in code, in the model, or in message copy
 
 **Leader Dashboard**:
@@ -117,7 +121,7 @@ A discipleship resource a relationship works through, such as a book of the Bibl
 _Avoid_: Program, curriculum, deleting a Material
 
 **Material Assignment**:
-The period during which a relationship was working through a particular material. Assigned to the relationship, never to a person: a leader in two relationships may be working through two different things. Periods never overlap and never leave gaps, so a relationship's first period runs from acceptance with no material assigned.
+The period during which a relationship was working through a particular material. Assigned to the relationship, never to a person: a leader in two relationships may be working through two different things. Periods never overlap and never leave gaps, so a relationship's first period runs from acceptance with no material assigned. Un-assigning is a later period with no material, and assigning the material already running is refused; both are decided in `app.assign_material`.
 _Avoid_: Assigning a material to a person
 
 **Intended Material**:
@@ -132,11 +136,15 @@ _Avoid_: Twilio Rhythm (Twilio is a delivery vendor, not a domain concept)
 The message a person receives on completing intake, before any relationship exists.
 
 **Starter Message**:
-The message that opens a discipleship relationship, sent once, when it becomes active. A Participant's names the Leader they have been paired with; a Leader's names nobody and points at the page that says who they are meeting with. It always carries the ministry's required opt-out and rate disclosure language. It never carries anyone's phone number.
+The message that opens a discipleship relationship, sent once, when it becomes active. A Participant's names the Leader they have been paired with; a Leader's names nobody and points at the page that says who they are meeting with. It carries the Rates Line when it is the first text to that Person that could, in the period the Rates Line counts in; otherwise it is sent without it. It never carries anyone's phone number.
 _Avoid_: sending it again on resume (that is the Resume Message)
 
+**Rates Line**:
+The ministry's opt-out and rate disclosure, appended to the end of a text. The Welcome Message and the `HELP` reply always carry it; every other text that may carry it does so only where the same Person has not already been queued it in the current period, decided per Person and not per relationship. A text withheld at send time does not count. The period, and which texts may carry it, are `src/domain/rates-line.ts`'s; whether each queued text carried it is recorded on that text.
+_Avoid_: the monthly check-in rule (it was only the Leaders' check-ins, and is now this rule for every text)
+
 **Resume Message**:
-The message sent to everyone in a relationship when an Admin resumes it from a Pause, each side named the other side. It carries the ministry's opt-out and rate disclosure language. A Pause running out releases nothing.
+The message sent to everyone in a relationship when an Admin resumes it from a Pause, each side named the other side. It carries the Rates Line on the same terms as the Starter Message. A Pause running out releases nothing.
 _Avoid_: Starter Message (its words are true on the day a match is made, not after a fortnight away)
 
 **Password Reset**:
@@ -148,7 +156,7 @@ A person setting a new password on their own account, from a session they alread
 _Avoid_: Account settings and profile (nothing else about the person is editable here), and Sign out (ending the sessions is a consequence of the change, not a feature of its own)
 
 **Invitation Link**:
-The individualized, SMS-delivered link that reveals a new relationship to a person in it, with no session. Only a Leader is ever sent one. It resolves on its own page rather than in the leader dashboard, because a leader has no account until they accept. Possession of the phone it was sent to is the authentication; it expires after a fixed window and is consumed when the leader creates their account, not when it is opened. Its holder can decline on it, and one nobody answers is withdrawn when it expires: either ends the leader's membership, which had no Acceptance on it, and tells an admin through a Follow-Up Item.
+The individualized, SMS-delivered link that reveals a new relationship to a person in it, with no session. Only a Leader is ever sent one. It resolves on its own page rather than in the leader dashboard, because a leader has no account until they accept. Possession of the phone it was sent to is the authentication; it expires after a fixed window and is consumed when the leader creates their account, not when it is opened. Its holder can decline on it, and one nobody answers is withdrawn when it expires: either ends the leader's membership, which had no Acceptance on it, and tells an admin through a Follow-Up Item. An admin can take one back as well, which ends the membership the same way and tells nobody, because the admin did it.
 _Avoid_: a Participant's Invitation Link (a Participant answers at Intake and is asked nothing further). The Intake Link below is not one: it asks a Person nothing new and reveals nobody else to them.
 
 **Ministry Setup Link**:
@@ -218,8 +226,8 @@ The state of a relationship that its leader has paused for a selected period. Ch
 The terminal state of a relationship that has finished. It records an outcome — completed or discontinued — alongside the reason in the ministry's own words, because whether a relationship finished well or broke down is a question the ministry asks in counts. Its history is preserved untouched, and its participants return to the roster as Ready to Pair unless they have opted out or hold another open participant membership.
 
 **Departure**:
-One participant leaving a discipleship relationship that continues without them. Their membership receives an end date rather than being deleted, so the weeks they were present for stay attached to the relationship, and a readmission later is a second membership rather than the first one reopened. A relationship losing its leader or its last participant is not a departure but an ending, because it records an outcome.
-_Avoid_: Removal, unpairing, dropping out
+One person leaving a discipleship relationship that continues without them: a participant where another remains, or a leader where another leader who has accepted goes on leading it. Their membership receives an end date rather than being deleted, so the weeks they were present for stay attached to the relationship, and a readmission later is a second membership rather than the first one reopened. A relationship losing its last leader who has accepted, or its last participant, is not a departure but an ending, because it records an outcome.
+_Avoid_: Removal, dropping out, and unpairing as a word for this alone (Unpair is the admin screen's one word for a cancellation, an ending, a departure and an invitation taken back)
 
 **Keyword Exchange**:
 The short SMS conversation Discipler opens when an inbound keyword needs something resolved before it can act — which relationship it applies to, or how long a pause should run. At most one is open per person at a time, and it expires after twenty-four hours without a reminder.
@@ -264,7 +272,7 @@ The chronological record of ministry activity associated with a discipleship rel
 Longer-term ministry insight derived from the ministry's historical activity and participant context.
 
 **Ministry Timezone**:
-The single clock a Ministry's data is interpreted against. Availability slots, the Check-In Cadence, the week boundary behind the care counters, and the monthly opt-out rule all resolve against it. A property of the Ministry, never of a Person.
+The single clock a Ministry's data is interpreted against. Availability slots, the Check-In Cadence, the week boundary behind the care counters, and the period the Rates Line counts in all resolve against it. A property of the Ministry, never of a Person.
 
 **Nudge**:
 The action that reveals a Participant's contact details on a Follow-Up Item so an Admin can reach them directly. It sends nothing. Discipler says who needs a call; the Admin makes it.

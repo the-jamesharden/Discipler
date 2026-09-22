@@ -1,6 +1,7 @@
 import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app'
+import { chosenIn, offersToMentor, popupIn } from '../support/pair-popup'
 import {
   addPerson,
   createMinistryWithAdmin,
@@ -17,6 +18,10 @@ import {
  *
  * The suggestion route is the same POST with the same body; what it needs is a
  * suggestion to accept, which is ticket 04's.
+ *
+ * Posted as the Pair popup posts, from its first Discipler's side, and read back
+ * in the popup: the old Pair page these tests once drove is gone, and its address
+ * opens the popup (Manual pairing, recut ticket 05).
  */
 
 describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () => {
@@ -42,6 +47,9 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
    * and these tests are about the surface rather than about the declaration. A
    * one-to-one is asked nothing, so sending it is harmless there: the absolute match
    * between two people holds whatever is on the column.
+   *
+   * Two or more Disciples post as the popup's Group does, so that a refusal brings
+   * back what the Group was asked.
    */
   const pairLed = async (
     leaderIds: string[],
@@ -49,6 +57,10 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
     declaredGender: 'male' | 'female' | 'mixed' | null = 'mixed',
   ) => {
     const body = new URLSearchParams()
+    const popupFor = leaderIds[0] ?? participantIds[0]
+    if (popupFor !== undefined) body.append('pair', popupFor)
+    body.append('list', leaderIds.length > 0 ? 'disciplers' : 'disciples')
+    if (participantIds.length > 1) body.append('shape', 'group')
     for (const id of leaderIds) body.append('leaderId', id)
     for (const id of participantIds) body.append('participantId', id)
     if (declaredGender !== null) body.append('declaredGender', declaredGender)
@@ -69,6 +81,13 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
 
   const man = (name: string) => addPerson(ministry, name, { answers: { gender: 'male' } })
 
+  /** Somebody on the Disciplers list, whose popup opens on the Discipler's side, as a Discipler's row does. */
+  const aDiscipler = async (made: Promise<string>) => {
+    const id = await made
+    await offersToMentor(pool, ministry, id)
+    return id
+  }
+
   it('offers a Pair action on the row of somebody waiting to be paired', async () => {
     const nora = await woman('Nora Blake')
     // On the Disciples list: she leads nobody and offered nothing on a form.
@@ -79,18 +98,19 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
     expect(html).toContain(`href="/roster?list=disciples&amp;pair=${nora}"`)
   })
 
-  it('opens the pairing screen with that Person already chosen', async () => {
+  it('opens the pairing popup with that Person already chosen, from the old Pair page’s address', async () => {
     const olivia = await woman('Olivia Cross')
-    await woman('Paula Dunn')
 
-    const { response, html } = await getPage(`/roster/pair?with=${olivia}`, cookie)
+    const old = await getPage(`/roster/pair?with=${olivia}`, cookie)
+    expect(old.response.status).toBe(307)
+    const location = old.response.headers.get('location') ?? ''
+    expect(new URL(location, baseUrl).pathname + new URL(location, baseUrl).search).toBe(
+      `/roster?list=disciples&pair=${olivia}`,
+    )
 
+    const { response, html } = await getPage(`/roster?list=disciples&pair=${olivia}`, cookie)
     expect(response.status).toBe(200)
-    expect(html).toContain('Olivia Cross')
-    expect(html).toContain('Paula Dunn')
-    // Said on the form itself: an Admin who expects a text to go out and sees nothing
-    // happen will create the relationship a second time.
-    expect(html).toContain('does not start it')
+    expect(popupIn(html)).toContain('Pair Olivia Cross')
   })
 
   it('pairs two people, and says the relationship is waiting on its leader', async () => {
@@ -100,7 +120,7 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
     const { response, location } = await pair(rachel, [sarah])
 
     expect(response.status).toBe(303)
-    expect(location).toContain('/roster?paired=1')
+    expect(location).toContain('/roster?list=disciplers&paired=1')
 
     const { rows } = await pool.query(
       `select r.accepted_at, count(*) as members
@@ -148,7 +168,7 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
     const vera = await woman('Vera Iles')
 
     const { location } = await pair(tara, [una, vera])
-    expect(location).toContain('/roster?paired=2')
+    expect(location).toContain('/roster?list=disciplers&paired=2')
 
     // One relationship holding three people, not two relationships. There is no
     // separate group entity and no group workflow -- this is the same POST.
@@ -186,12 +206,9 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
     const { response, location } = await pair(leader, [participant])
 
     expect(response.status).toBe(303)
-    expect(location).toContain('/roster/pair?error=relationship.gender_must_match')
+    expect(location).toContain(`/roster?list=disciplers&pair=${leader}&error=relationship.gender_must_match`)
 
-    const { html } = await getPage(
-      '/roster/pair?error=relationship.gender_must_match',
-      cookie,
-    )
+    const { html } = await getPage(location.replace(/^[^?]*/, '/roster'), cookie)
     // The alert an Admin reads is the wording, looked up from the code. The code
     // itself survives in the framework's serialised props, which nobody reads, so
     // the assertion is scoped to what is actually rendered.
@@ -209,7 +226,9 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
   it('hands a refused selection back intact, so one mistake costs one correction', async () => {
     const leader = await man('Aaron Vale')
     const first = await man('Brett Wynn')
-    const second = await woman('Cora Xu')
+    // A man too: a Discipler who already leads a group is offered N × 1:1 pairs
+    // alone, and a woman is no one-to-one of his, so she would not be shown.
+    const second = await man('Colin Xu')
 
     // A leader already leading a group, so the refusal is one a *group* can hit: the
     // mismatched gender this test used to rely on is no longer refused here.
@@ -218,21 +237,18 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
     const { location } = await pair(leader, [first, second])
     expect(location).toContain('error=relationship.leader_already_leads_a_group')
 
-    // The whole selection comes back, not just the error.
-    expect(location).toContain(`leaderId=${leader}`)
+    // The whole selection comes back, not just the error: the Discipler as the
+    // popup it reopens, and both Disciples ticked in it.
+    expect(location).toContain(`pair=${leader}`)
     expect(location).toContain(`with=${first}`)
     expect(location).toContain(`with=${second}`)
 
-    const { html } = await getPage(location.replace(/^[^?]*/, '/roster/pair'), cookie)
+    const { html } = await getPage(location.replace(/^[^?]*/, '/roster'), cookie)
 
-    // Checked and selected again, so the Admin corrects the one choice that was wrong.
-    const checkedFor = (id: string) =>
-      new RegExp(`value="${id}"[^>]*checked`).test(html) ||
-      new RegExp(`checked[^>]*value="${id}"`).test(html)
-
-    expect(checkedFor(first)).toBe(true)
-    expect(checkedFor(second)).toBe(true)
-    expect(checkedFor(leader)).toBe(true)
+    // Ticked again, so the Admin corrects the one choice that was wrong.
+    const popup = popupIn(html)!
+    expect(popup).toContain('Pair Aaron Vale')
+    expect(chosenIn(popup)).toEqual(expect.arrayContaining([first, second]))
   })
 
   it('creates a mixed-gender group, and refuses the same two people as a one-to-one', async () => {
@@ -271,11 +287,8 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
     const { location } = await pairLed([], [await woman('Lena Ives')])
     expect(location).toContain('error=relationship.needs_a_leader')
 
-    const { html } = await getPage(
-      `/roster/pair?${new URLSearchParams({ error: 'relationship.needs_a_leader' })}`,
-      cookie,
-    )
-    expect(html).toMatch(/choose the discipler/i)
+    const { html } = await getPage(location.replace(/^[^?]*/, '/roster'), cookie)
+    expect(popupIn(html)).toMatch(/choose the discipler/i)
   })
 
   it('offers no way into pairing that does not start from one Person', async () => {
@@ -295,10 +308,8 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
     const { location } = await pair(yara, [])
     expect(location).toContain('error=relationship.needs_a_participant')
 
-    const { html } = await getPage(`/roster/pair?${new URLSearchParams({
-      error: 'relationship.needs_a_participant',
-    })}`, cookie)
-    expect(html).toMatch(/at least one person/i)
+    const { html } = await getPage(location.replace(/^[^?]*/, '/roster'), cookie)
+    expect(popupIn(html)).toMatch(/at least one person/i)
   })
 
   it('offers no Pair action to somebody who has not completed Intake', async () => {
@@ -322,21 +333,23 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
     expect(response.headers.get('location')).toContain('/roster')
   })
 
-  it('asks what kind of group this is, with nothing answered for the Admin', async () => {
-    const { html } = await getPage('/roster/pair', cookie)
+  it('asks what kind of group this is in the open, answered from the Discipler and theirs to change', async () => {
+    // The old Pair page asked with nothing preselected. The popup presets a Group
+    // from its Discipler's gender instead (D1, 2026-09-18), on the condition that
+    // the answer is on screen, in words, and changeable before anything is formed:
+    // a real radio for each answer she may give, hers checked and Coed not.
+    const ursa = await aDiscipler(woman('Ursa Asked'))
+    const { html } = await getPage(`/roster?list=disciplers&pair=${ursa}&shape=group`, cookie)
+    const popup = popupIn(html)!
 
-    expect(html).toContain('what kind of group is it')
-    // Three answers and no default. A preselected radio would answer a safeguarding
-    // question on the Admin's behalf, which is the whole of what "ask outright" rules
-    // out -- so no `declaredGender` input arrives checked.
-    for (const value of ['male', 'female', 'mixed']) {
-      expect(
-        new RegExp(`name="declaredGender"[^>]*value="${value}"`).test(html),
-        value,
-      ).toBe(true)
-    }
-    expect(html).not.toMatch(/name="declaredGender"[^>]*checked/)
-    expect(html).not.toMatch(/checked[^>]*name="declaredGender"/)
+    const answers = (popup.match(/<input[^>]*name="declaredGender"[^>]*>/g) ?? []).map((input) => ({
+      value: input.match(/\svalue="([^"]*)"/)?.[1],
+      checked: /\schecked=""/.test(input),
+    }))
+    expect(answers).toEqual([
+      { value: 'female', checked: true },
+      { value: 'mixed', checked: false },
+    ])
   })
 
   it('refuses a group nobody declared, rather than guessing at one', async () => {
@@ -347,7 +360,7 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
     const { location } = await pairLed([first], [second, third], null)
     expect(location).toContain('error=relationship.needs_a_gender_declaration')
 
-    const { html } = await getPage(location.replace(/^[^?]*/, '/roster/pair'), cookie)
+    const { html } = await getPage(location.replace(/^[^?]*/, '/roster'), cookie)
     const alert = html.match(/role="alert"[^>]*>([^<]*)</)?.[1] ?? ''
     expect(alert).toMatch(/men|women/i)
     expect(alert).not.toContain('needs_a_gender_declaration')
@@ -364,11 +377,11 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
     const participant = await woman('Quila Mbeki')
 
     const { location } = await pairLed([leader], [participant], null)
-    expect(location).toContain('/roster?paired=1')
+    expect(location).toContain('/roster?list=disciplers&paired=1')
   })
 
   it('refuses a declared group that crosses its own declaration, and hands the answer back', async () => {
-    const leader = await man('Rafe Nunn')
+    const leader = await aDiscipler(man('Rafe Nunn'))
     const first = await man('Silas Ojo')
     const outsider = await woman('Tamsin Pace')
 
@@ -380,14 +393,15 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
     // person who was wrong rather than restating what the group is.
     expect(location).toContain('declaredGender=male')
 
-    const { html } = await getPage(location.replace(/^[^?]*/, '/roster/pair'), cookie)
+    const { html } = await getPage(location.replace(/^[^?]*/, '/roster'), cookie)
     const alert = html.match(/role="alert"[^>]*>([^<]*)</)?.[1] ?? ''
     expect(alert).toMatch(/declared/i)
     expect(alert).not.toContain('gender_does_not_match')
+    const popup = popupIn(html)!
     expect(
-      /name="declaredGender"[^>]*value="male"[^>]*checked/.test(html) ||
-        /value="male"[^>]*checked[^>]*name="declaredGender"/.test(html) ||
-        /name="declaredGender"[^>]*checked[^>]*value="male"/.test(html),
+      /name="declaredGender"[^>]*value="male"[^>]*checked/.test(popup) ||
+        /value="male"[^>]*checked[^>]*name="declaredGender"/.test(popup) ||
+        /name="declaredGender"[^>]*checked[^>]*value="male"/.test(popup),
     ).toBe(true)
 
     const { rows } = await pool.query(
@@ -403,7 +417,7 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
     const second = await woman('Wilma Sato')
 
     const { location } = await pairLed([leader], [first, second], 'female')
-    expect(location).toContain('/roster?paired=2')
+    expect(location).toContain('/roster?list=disciplers&paired=2')
 
     const { rows } = await pool.query(
       `select distinct r.declared_gender

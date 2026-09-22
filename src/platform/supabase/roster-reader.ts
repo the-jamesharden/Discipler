@@ -178,6 +178,7 @@ export const rosterFrom = (doc: PageDocument): readonly RosterEntry[] => {
     id: string
     accepted_at: string | null
     counts_as_a_group?: unknown
+    name?: unknown
   }[]
   const acceptedById = new Map(relationshipRows.map((row) => [row.id, row.accepted_at !== null]))
 
@@ -199,6 +200,9 @@ export const rosterFrom = (doc: PageDocument): readonly RosterEntry[] => {
     }
     return answer
   }
+
+  /** What the Ministry calls each one. Null is the ordinary answer, so a name that is absent reads as none. */
+  const nameById = new Map(relationshipRows.map((row) => [row.id, typeof row.name === 'string' ? row.name : null]))
 
   /**
    * The two reads are policed by predicates written to mirror each other -- a
@@ -317,6 +321,7 @@ export const rosterFrom = (doc: PageDocument): readonly RosterEntry[] => {
           (member) => member.role === 'participant',
         ).length,
         countsAsAGroup: countsAsAGroup(membership.relationship_id),
+        name: nameById.get(membership.relationship_id) ?? null,
       }))
       // Led relationships first, then the ones they are in as a Participant, and
       // alphabetically within each. A stable order, so a Roster read twice reads
@@ -521,10 +526,10 @@ const groupsFrom = (
  * Exported so a test can drive the derivation with a real session rather than a
  * Next.js request context.
  *
- * The setting, the Materials and the groups are the Pair page's and ride in its
+ * The setting, the Materials and the groups are the Pair popup's and ride in its
  * document alone. The Roster and the person page read a document without them,
  * and are told enforced and nothing to offer -- true and not false, deliberately, for the
- * reason `suggestGenderMatchFrom` gives. The Pair page's own document arriving
+ * reason `suggestGenderMatchFrom` gives. The Pair popup's own document arriving
  * without them is a different thing and is thrown for: a form that quietly
  * offered no Materials is the wrong answer shown confidently.
  */
@@ -556,7 +561,7 @@ export const createSupabaseRosterReader = (clock: Clock = systemClock): RosterRe
   /**
    * One read for the Roster, the held import rows and the badge's number: all
    * three derive from one document. The person page reads the same one under its
-   * own name, and the Pair page reads it with the setting, the Materials and
+   * own name, and the Pair popup reads it with the setting, the Materials and
    * the groups beside it; each takes what it needs.
    */
   async readRosterPage(surface) {

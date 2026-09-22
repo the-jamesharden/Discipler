@@ -29,6 +29,7 @@ import type { MaterialPdf, MaterialTitle } from './materials'
 import type { MinistrySettings } from './ministry-settings'
 import type { InvitationToken, NewInvitation, WithdrawnAs } from './invitations'
 import type { OutboundMessageKind, OutstandingReplyCutoff } from './outstanding-reply'
+import type { RatesLineOccasion } from './rates-line'
 import type { MemberRole, NewRelationship, RelationshipOutcome } from './relationships'
 import type { HeldImportRow, ImportRowAnswer, NewPerson, PhoneNumber } from './roster'
 
@@ -79,6 +80,16 @@ export interface OutboundMessageDraft {
    * second one land on top of it.
    */
   readonly kind: OutboundMessageKind
+  /**
+   * What this text says about the rates line: whether it always carries it, may
+   * carry it once a month, or never does. The body is composed as it reads when it
+   * carries it, and `settleRatesLine` takes the line off where the Person has
+   * already had it this month (Text wording, ticket 01).
+   *
+   * Required rather than defaulted, like `kind`: a default would be a quiet answer
+   * to a compliance question.
+   */
+  readonly ratesLine: RatesLineOccasion
 }
 
 /**
@@ -360,9 +371,10 @@ export interface MaterialAssignment {
   readonly ministryId: MinistryId
   readonly relationshipId: RelationshipId
   /**
-   * Null on exactly one period per relationship: the one acceptance opens, before
-   * the Ministry has assigned anything. A row saying *no Material*, rather than no
-   * row -- a report asking what was in use that week gets a fact instead of a
+   * Null on the period acceptance opens, before the Ministry has assigned
+   * anything, and on any later one an Admin opened by taking the relationship off
+   * its Material (Materials, ticket 03). A row saying *no Material*, rather than
+   * no row -- a report asking what was in use that week gets a fact instead of a
    * silence indistinguishable from a defect.
    */
   readonly materialId: MaterialId | null

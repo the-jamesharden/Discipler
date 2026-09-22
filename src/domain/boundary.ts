@@ -93,6 +93,7 @@ import {
   checkInSequenceId,
   lapseOfOpenQuestion,
   readCheckInReply,
+  isAskedAbout,
   relationshipsToAskAbout,
   type CheckInAdvance,
   type CheckInQuestion,
@@ -122,7 +123,7 @@ import {
   type OpenKeywordExchange,
   type RelationshipKeyword,
 } from './keywords'
-import { calendarMonthOf } from './week'
+import type { RatesLineOccasion } from './rates-line'
 import {
   alreadyOffered,
   asShown,
@@ -400,6 +401,14 @@ export interface CommandContext {
    * none*. There is at most one: a request dedupes while it stands open.
    */
   readonly joinRequest?: OpenJoinRequest | null
+  /**
+   * The open `group_placement_wanted` item of the Person `group.add_participant`
+   * puts into a group, or `relationship.admit` admits to one, which either act
+   * resolves (Group form exits, ticket 01).
+   * `null` is *they have none*; absent is *not loaded*. At most one: the item
+   * names only the Person.
+   */
+  readonly placementWanted?: FollowUpItemId | null
   /**
    * Where a link points. The shape of the path is a copy decision and lives in
    * `outbound-copy`; the host it hangs off is configuration and arrives here.
@@ -806,9 +815,10 @@ const theMaterialsHeld = (context: CommandContext): readonly MaterialOnOffer[] =
 }
 
 /**
- * Whether the Material an Admin chose while pairing is on the Ministry's live
- * list as this command decides. Asked twice, when the relationship is formed and
- * when it is accepted, and answered one way: a removed Material is off the list.
+ * Whether the Material an Admin chose is on the Ministry's live list as this
+ * command decides. Asked when a relationship is formed with one, when it is
+ * accepted, and when one is assigned (Materials, ticket 03), and answered one
+ * way: a removed Material is off the list.
  */
 const isStillOnTheList = (context: CommandContext, id: MaterialId): boolean =>
   materialOnOffer(theMaterialsHeld(context), id) !== undefined
@@ -928,6 +938,7 @@ const tellTheLeadersSomebodyJoined = (
         // behind sign-in and behind each Person's contact-sharing decision.
         disclosesPersonId: null,
         kind: 'no_reply',
+        ratesLine: 'once_a_month',
       }),
     )
 }
@@ -1008,25 +1019,6 @@ const memberHolding = (invitation: InvitationSnapshot, id: PersonId): InvitedMem
   return member
 }
 
-/**
- * The monthly opt-out rule, for Leaders. True on the first check-in of each
- * calendar month, which includes the first check-in a Leader ever receives.
- *
- * The month is the Ministry's, not UTC's. A Sydney ministry asked at 9am local on
- * the 1st is at 23:00 UTC on the last day of the previous month, and resolving in
- * UTC would put two of their conversations in one month and none in the next --
- * so one month would carry the opt-out language twice and the following one not
- * at all. It is the same timezone the week boundary reads, for the same reason.
- */
-const optOutLanguageIsDue = (
-  lastCheckInAt: Date | null,
-  now: Date,
-  timeZone: string,
-): boolean => {
-  if (!lastCheckInAt) return true
-  return calendarMonthOf(lastCheckInAt, timeZone) !== calendarMonthOf(now, timeZone)
-}
-
 /** What every question in a conversation needs in order to be sent and recorded. */
 interface Asking {
   readonly ministryId: MinistryId
@@ -1059,6 +1051,7 @@ const sayToLeader = (
   asking: Asking,
   body: string,
   kind: OutboundMessageKind,
+  ratesLine: RatesLineOccasion,
 ): Effect =>
   enqueueMessage({
     ministryId: asking.ministryId,
@@ -1075,12 +1068,14 @@ const sayToLeader = (
     // number, and the reminder that re-sends it, the clarification that restates
     // it and the thank-you that ends the conversation do not.
     kind,
+    ratesLine,
   })
 
 const ask = (
   asking: Asking,
   prompt: Omit<NewCheckInPrompt, 'id' | 'ministryId' | 'sequenceId' | 'askedAt'>,
   body: string,
+  ratesLine: RatesLineOccasion,
 ): readonly Effect[] => [
   askCheckInQuestion({
     id: checkInPromptId(asking.ids.next()),
@@ -1091,7 +1086,7 @@ const ask = (
   }),
   // The one message in the rhythm that takes the Leader's number: it is a
   // question, and the reply it is owed is what the next one waits for.
-  sayToLeader(asking, body, 'scheduled_question'),
+  sayToLeader(asking, body, 'scheduled_question', ratesLine),
 ]
 
 /**
@@ -1100,8 +1095,8 @@ const ask = (
  * reminder cannot drift into being a differently-worded second question.
  *
  * `discloseOptOut` is only ever true on the message that opens a conversation.
- * The monthly language rides on the first check-in of the calendar month, and a
- * reminder is not one: it is that same message again.
+ * That is the check-in that may carry the rates line, once a month (Text wording,
+ * ticket 01), and a reminder is not another one: it is that same message again.
  */
 const bodyOfQuestion = (
   asking: Asking,
@@ -1125,15 +1120,16 @@ const bodyOfQuestion = (
 }
 
 /**
- * The opening question of one relationship's turn. Where a closing thank-you
- * would otherwise fall, this is what is sent instead -- which is why it is the
- * one step reached from both the start of a conversation and the middle of one.
+ * The question that opens a conversation. It may carry the rates line, and does
+ * where the Leader has not been queued it on any text yet this month -- a Starter
+ * Message the same week takes it off (Text wording, ticket 01). That is decided
+ * once the command's texts are all known, in `rates-line.ts`, so it is composed
+ * here as it reads when it does.
  */
 const askWhetherTheyMet = (
   asking: Asking,
   relationship: CheckInRelationship,
   position: number,
-  discloseOptOut: boolean,
 ): readonly Effect[] =>
   ask(
     asking,
@@ -1143,7 +1139,8 @@ const askWhetherTheyMet = (
       position,
       question: 'met',
     },
-    bodyOfQuestion(asking, 'met', relationship, discloseOptOut),
+    bodyOfQuestion(asking, 'met', relationship, true),
+    'once_a_month',
   )
 
 /**
@@ -1152,8 +1149,8 @@ const askWhetherTheyMet = (
  * that identity is what *converting abandonment into ordinary unanswered
  * questions with no special case* actually means in code.
  *
- * Never carries the monthly opt-out language: it went out on the message that
- * opened this conversation, and this is the same conversation.
+ * Never carries the rates line: it may have gone out on the message that opened
+ * this conversation, and this is the same conversation.
  */
 const askNext = (
   asking: Asking,
@@ -1168,6 +1165,7 @@ const askNext = (
       question: advance.question,
     },
     bodyOfQuestion(asking, advance.question, advance.relationship, false),
+    'never',
   )
 
 /**
@@ -1210,7 +1208,7 @@ const abandonSequence = (abandonment: {
   readonly personId: PersonId
   readonly sequenceId: CheckInSequenceId
   readonly at: Date
-  readonly reason: 'displaced' | 'unanswered' | 'opted_out' | 'paused'
+  readonly reason: 'displaced' | 'unanswered' | 'opted_out' | NotAskedAboutBecause
 }): readonly Effect[] => {
   const { ministryId, personId, sequenceId, at, reason } = abandonment
   return [
@@ -1243,6 +1241,7 @@ const withdrawQuestion = (withdrawal: {
   readonly sequenceId: CheckInSequenceId
   readonly relationshipId: RelationshipId
   readonly awaiting: OpenPrompt
+  readonly reason: NotAskedAboutBecause
 }): Effect =>
   appendHistory({
     ministryId: withdrawal.ministryId,
@@ -1254,9 +1253,21 @@ const withdrawQuestion = (withdrawal: {
       sequenceId: withdrawal.sequenceId,
       promptId: withdrawal.awaiting.promptId,
       question: withdrawal.awaiting.question,
-      reason: 'paused',
+      reason: withdrawal.reason,
     },
   })
+
+/**
+ * Why a conversation stops asking about a relationship it covers: a Pause stands
+ * on it, or it is no longer this Leader's to be asked about (it ended, or they left
+ * it). Said on the event, because `relationship_weeks` drops a week only for a
+ * Pause: a question taken back because a pairing ended leaves that week as it
+ * was, and a group's other Leader answers for its week.
+ */
+type NotAskedAboutBecause = 'paused' | 'no_longer_led'
+
+const whyNotAskedAbout = (relationship: CheckInRelationship): NotAskedAboutBecause =>
+  relationship.paused ? 'paused' : 'no_longer_led'
 
 /**
  * The ladder, minus every relationship a Pause reached before its turn did.
@@ -1285,7 +1296,7 @@ const advancePastPaused = (
   // where the first step was a follow-up question on the relationship just
   // paused -- a Leader who answered *yes we met* an hour before the Pause is not
   // then asked how it went.
-  while (advance.kind === 'ask' && advance.relationship.paused) {
+  while (advance.kind === 'ask' && !isAskedAbout(advance.relationship)) {
     advance = advanceCheckIn(sequence, { ...awaiting, position: advance.position }, PASSED_OVER)
   }
 
@@ -1321,6 +1332,8 @@ const takeBackTheQuestion = (
   walking: OpenSequence,
   awaiting: OpenPrompt,
   paused: RelationshipId,
+  /** A Pause, unless the caller says the relationship is no longer this Leader's. */
+  reason: NotAskedAboutBecause = 'paused',
 ): readonly Effect[] => {
   const withdrawn = withdrawQuestion({
     ministryId: asking.ministryId,
@@ -1328,6 +1341,7 @@ const takeBackTheQuestion = (
     sequenceId: asking.sequenceId,
     relationshipId: paused,
     awaiting,
+    reason,
   })
 
   const onward = advancePastPaused(walking, awaiting, PASSED_OVER)
@@ -1340,7 +1354,7 @@ const takeBackTheQuestion = (
         personId: asking.personId,
         sequenceId: asking.sequenceId,
         at: asking.now,
-        reason: 'paused',
+        reason,
       }),
     ]
   }
@@ -1389,7 +1403,7 @@ const openConversationWith = (
     const awaiting = displaced.awaiting
     const askedAbout = awaiting ? displaced.covering[awaiting.position - 1] : undefined
 
-    if (awaiting && askedAbout?.paused) {
+    if (awaiting && askedAbout && !isAskedAbout(askedAbout)) {
       effects.push(
         withdrawQuestion({
           ministryId,
@@ -1397,6 +1411,7 @@ const openConversationWith = (
           sequenceId: displaced.sequenceId,
           relationshipId: askedAbout.relationshipId,
           awaiting,
+          reason: whyNotAskedAbout(askedAbout),
         }),
       )
     }
@@ -1477,13 +1492,7 @@ const openConversationWith = (
     // Only the first. The sequence advances in response to a reply and never
     // otherwise, so a Leader with three relationships is asked one question
     // and not three.
-    ...askWhetherTheyMet(
-      asking,
-      covering[0]!,
-      1,
-      // The month is the Ministry's, like the week.
-      optOutLanguageIsDue(checkIn.lastCheckInAt, now, checkIn.timeZone),
-    ),
+    ...askWhetherTheyMet(asking, covering[0]!, 1),
   )
 
   return effects
@@ -1539,8 +1548,19 @@ const chaseTheOpenQuestion = (
   //
   // The snapshot this was handed already reads the relationship as paused -- the
   // tick loaded it after the fact -- so `sequence` is walked as it stands.
-  if (relationship.paused) {
-    return takeBackTheQuestion(asking, sequence, awaiting, relationship.relationshipId)
+  //
+  // And the same for one that is no longer this Leader's to be asked about: an
+  // Admin ended it, or took them out of a group that goes on (Unpair, James
+  // 2026-09-21). A reminder about a pairing that is over is the one text an ending
+  // must not be followed by.
+  if (!isAskedAbout(relationship)) {
+    return takeBackTheQuestion(
+      asking,
+      sequence,
+      awaiting,
+      relationship.relationshipId,
+      whyNotAskedAbout(relationship),
+    )
   }
 
   const lapse = lapseOfOpenQuestion(awaiting, now)
@@ -1571,6 +1591,7 @@ const chaseTheOpenQuestion = (
         asking,
         bodyOfQuestion(asking, awaiting.question, relationship, false),
         'no_reply',
+        'never',
       ),
     ]
   }
@@ -1644,6 +1665,9 @@ const sayToSender = (
   keywording: Keywording,
   body: string,
   kind: OutboundMessageKind,
+  // Named at every call like `kind`. Only `HELP` carries the rates line, and it
+  // always does; nothing else a keyword route answers with composes it.
+  ratesLine: RatesLineOccasion,
 ): Effect =>
   enqueueMessage({
     ministryId: keywording.ministryId,
@@ -1658,6 +1682,7 @@ const sayToSender = (
     // waits -- see `waitsForAnOpenReply` -- so a Leader who texts `PAUSE` is
     // answered now rather than after the check-in they are trying to pause.
     kind,
+    ratesLine,
   })
 
 /** Who a menu line and a confirmation name: the other side, as a sentence. */
@@ -1723,6 +1748,7 @@ const openMenu = (
       options: options.map(otherSideNamed),
     }),
     'keyword_question',
+    'never',
   ),
 ]
 
@@ -1768,6 +1794,7 @@ const askHowLongToPause = (keywording: Keywording, target: KeywordRelationship):
       otherPeriods: [...otherPeriodsThan(DEFAULT_PAUSE_PERIOD_WEEKS)],
     }),
     'keyword_question',
+    'never',
   )
 
 /**
@@ -1863,6 +1890,7 @@ const applyPause = (
       periodWeeks,
     }),
     'no_reply',
+    'never',
   ),
 ]
 
@@ -1922,6 +1950,7 @@ const applyResume = (
         enqueuedAt: keywording.now,
         disclosesPersonId: null,
         kind: 'no_reply',
+        ratesLine: 'once_a_month',
       }),
     ),
   ]
@@ -1970,6 +1999,7 @@ const applySwap = (
       subject: otherSideNamed(target),
     }),
     'no_reply',
+    'never',
   ),
 ]
 
@@ -2038,6 +2068,7 @@ const routeRelationshipKeyword = (
         keywording,
         keywordPassedOn({ ministryName: keywording.ministryName }),
         'no_reply',
+        'never',
       ),
     ]
   }
@@ -2053,6 +2084,7 @@ const routeRelationshipKeyword = (
         keywording,
         nothingEligible({ ministryName: keywording.ministryName, keyword }),
         'no_reply',
+        'never',
       ),
     ]
   }
@@ -2131,6 +2163,7 @@ const replyInsideExchange = (
           // check-in reminder re-sends rather than re-asks. The exchange is still
           // the thing holding the number.
           'no_reply',
+          'never',
         ),
       )
     }
@@ -2163,6 +2196,7 @@ const replyInsideExchange = (
         keywording,
         nothingEligible({ ministryName: keywording.ministryName, keyword: exchange.keyword }),
         'no_reply',
+        'never',
       ),
     ]
   }
@@ -2220,7 +2254,7 @@ const exchangeOwnsTheReply = (
 
 /**
  * What forming a relationship comes to, wherever the decision to form it was made.
- * Two callers: an Admin on the Pair page, and a plan an import made being settled
+ * Two callers: an Admin in the Pair popup, and a plan an import made being settled
  * once both people have completed Intake. It is the same pairing either way -- the
  * same refusals, the same kind and declaration rules, the same invitation to every
  * Discipler -- so the ticket that made imported pairs possible does not get to own
@@ -2398,6 +2432,7 @@ const inviteToLead = (
       // No message to a Leader contains a phone number.
       disclosesPersonId: null,
       kind: 'no_reply',
+      ratesLine: 'never',
     }),
   ]
 }
@@ -2459,7 +2494,7 @@ const closedByWhatItWaitedFor = (
   ministry: MinistryId,
   itemId: FollowUpItemId,
   now: Date,
-  by: 'acceptance' | 'decline' | 'expiry',
+  by: 'acceptance' | 'decline' | 'expiry' | 'withdrawal',
 ): Effect[] => [
   resolveFollowUpItem({ ministryId: ministry, itemId, resolvedBy: null, resolvedAt: now }),
   appendHistory({
@@ -2498,6 +2533,7 @@ const starterToLeader = (
     // and a Starter Message that did would block its own relationship's
     // first check-in.
     kind: 'no_reply',
+    ratesLine: 'once_a_month',
   })
 
 /**
@@ -2628,6 +2664,7 @@ const activationOf = (
         enqueuedAt: now,
         disclosesPersonId: null,
         kind: 'no_reply',
+        ratesLine: 'once_a_month',
       }),
     )
   }
@@ -2646,6 +2683,20 @@ const activationOf = (
  * about it changes. The one message there can be is the Starter Message, where
  * this is what activates a relationship nobody had activated.
  */
+/** The event each way of withdrawing an invitation is recorded as. */
+const WITHDRAWN_AS_AN_EVENT: Record<WithdrawnAs, string> = {
+  declined: 'relationship.leader_declined',
+  expired: 'relationship.invitation_expired',
+  withdrawn: 'relationship.invitation_withdrawn',
+}
+
+/** What an *Awaiting acceptance* item closed by a withdrawal says closed it. */
+const WITHDRAWN_AS_WHAT_CLOSED_IT: Record<WithdrawnAs, 'decline' | 'expiry' | 'withdrawal'> = {
+  declined: 'decline',
+  expired: 'expiry',
+  withdrawn: 'withdrawal',
+}
+
 const withdrawalOf = (
   context: CommandContext,
   command: { readonly ministryId: MinistryId; readonly token: InvitationToken },
@@ -2653,7 +2704,14 @@ const withdrawalOf = (
     me,
     withdrawnAs,
     now,
-  }: { readonly me: InvitedMember; readonly withdrawnAs: WithdrawnAs; readonly now: Date },
+    withdrawnBy = null,
+  }: {
+    readonly me: InvitedMember
+    readonly withdrawnAs: WithdrawnAs
+    readonly now: Date
+    /** The Admin who took it back, where one did. Nobody, for a decline and for the two weeks. */
+    readonly withdrawnBy?: string | null
+  },
 ): Effect[] => {
   const { invitation, ministryName } = tokenContext(context)
 
@@ -2685,29 +2743,37 @@ const withdrawalOf = (
       withdrawnAs,
       activatesRelationship,
     }),
-    // An event of its own type either way, with no Admin on it, because no Admin
-    // performed it.
+    // An event of its own type each way. No Admin is on a decline or on the two
+    // weeks, because none performed them; the one who took an invitation back is
+    // on theirs, and history is the record of that which survives them leaving.
     appendHistory({
       ministryId: command.ministryId,
       occurredAt: now,
-      type:
-        withdrawnAs === 'declined'
-          ? 'relationship.leader_declined'
-          : 'relationship.invitation_expired',
+      type: WITHDRAWN_AS_AN_EVENT[withdrawnAs],
       subjectType: 'relationship',
       subjectId: invitation.relationshipId,
-      payload: { personId: me.personId, activated: activatesRelationship },
-    }),
-    // How the Admin is told, and the only way: about the Person, on the
-    // relationship, so their page and another invitation are one press away.
-    raiseFollowUpItem({
-      ministryId: command.ministryId,
-      kind: withdrawnAs === 'declined' ? 'match_declined' : 'invitation_expired',
-      personId: me.personId,
-      relationshipId: invitation.relationshipId,
-      raisedAt: now,
+      payload: {
+        personId: me.personId,
+        activated: activatesRelationship,
+        ...(withdrawnAs === 'withdrawn' ? { withdrawnBy } : {}),
+      },
     }),
   ]
+
+  // How the Admin is told, and the only way: about the Person, on the
+  // relationship, so their page and another invitation are one press away. Not
+  // where an Admin took it back: the one who would be told is the one who did it.
+  if (withdrawnAs !== 'withdrawn') {
+    effects.push(
+      raiseFollowUpItem({
+        ministryId: command.ministryId,
+        kind: withdrawnAs === 'declined' ? 'match_declined' : 'invitation_expired',
+        personId: me.personId,
+        relationshipId: invitation.relationshipId,
+        raisedAt: now,
+      }),
+    )
+  }
 
   // The *Awaiting acceptance* item about the same relationship, closed by the
   // same act where nobody is left to answer, so the Admin has one thing to read
@@ -2719,7 +2785,7 @@ const withdrawalOf = (
         command.ministryId,
         invitation.unansweredItemId,
         now,
-        withdrawnAs === 'declined' ? 'decline' : 'expiry',
+        WITHDRAWN_AS_WHAT_CLOSED_IT[withdrawnAs],
       ),
     )
   }
@@ -2848,6 +2914,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
                 // No message to a Leader contains a phone number.
                 disclosesPersonId: null,
                 kind: 'no_reply',
+                ratesLine: 'never',
               }),
               appendHistory({
                 ministryId: command.ministryId,
@@ -3119,7 +3186,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         return {
           rejections: [],
           effects: [
-            sayToSender(keywording, helpMessage({ ministryName }), 'no_reply'),
+            sayToSender(keywording, helpMessage({ ministryName }), 'no_reply', 'always'),
             ...(leadsAnything(inbound.holds)
               ? []
               : passKeywordToAnAdmin(keywording, keyword)),
@@ -3182,7 +3249,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           effects: mayAcknowledge(inbound.lastAcknowledgedAt, now)
             ? [
                 ...tidied,
-                sayToSender(keywording, acknowledgedMessage({ ministryName }), 'no_reply'),
+                sayToSender(keywording, acknowledgedMessage({ ministryName }), 'no_reply', 'never'),
                 appendHistory({
                   ministryId: command.ministryId,
                   occurredAt: now,
@@ -3266,6 +3333,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
               // The valid replies to the question already out, said again. It asks
               // nothing new, so the question it restates keeps the number.
               'no_reply',
+              'never',
             ),
           )
         }
@@ -3345,7 +3413,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
 
       if (advance.kind === 'finish') {
         effects.push(
-          sayToLeader(asking, checkInThankYou({ ministryName }), 'no_reply'),
+          sayToLeader(asking, checkInThankYou({ ministryName }), 'no_reply', 'never'),
           closeCheckInSequence({
             ministryId: command.ministryId,
             sequenceId: sequence.sequenceId,
@@ -3508,14 +3576,13 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       if (relationship.endedAt !== null) {
         throw new DepartureRefused('departure.relationship_ended')
       }
-      // Nothing has reached a Participant yet, so there is no relationship for one
-      // to leave. Withdrawing one nobody agreed to is `relationship.cancel`, which
-      // takes everybody out of it at once -- and leaving a Participant out of a
-      // relationship still awaiting its Leader would shorten a Starter Message
-      // nobody has sent yet. The same refusal a Pause carries for this state.
-      if (relationship.acceptedAt === null) {
-        throw new DepartureRefused('departure.relationship_not_accepted')
-      }
+
+      // Whether anybody has accepted it is not asked. One nobody has activated has
+      // sent nothing to anybody, and its Starter Message is written from whoever is
+      // in it when it starts, so a Participant taken out of a group that still waits
+      // takes nothing back (James, 2026-09-21). Withdrawing the whole of it is
+      // `relationship.cancel`, and what is left below still refuses its last
+      // Participant, so a departure never does a cancellation's work.
 
       // Open memberships only, which is what the snapshot holds: somebody who has
       // already left is not in this relationship to leave it a second time.
@@ -3525,29 +3592,45 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       if (!leaving) {
         throw new DepartureRefused('departure.person_is_not_in_this_relationship')
       }
-      // A relationship without its Leader does not continue with whoever remains.
-      // That is a relationship that is over, and ending one records an outcome --
-      // which a departure has nowhere to put.
-      if (leaving.role === 'leader') {
-        throw new DepartureRefused('departure.person_is_a_leader')
-      }
 
-      const remaining = relationship.members.filter(
-        (member) => member.role === 'participant' && member.personId !== command.personId,
-      )
-      // The same refusal in its other shape. Three Participants becoming one is a
-      // relationship carrying on with fewer people in it; one becoming none is a
-      // relationship with nobody being discipled, and there is no check-in question
-      // to ask about nobody.
-      if (remaining.length === 0) {
-        throw new DepartureRefused('departure.would_leave_no_participants')
+      if (leaving.role === 'leader') {
+        // Invited and not yet leading. There is no leading to stop, only an
+        // invitation, and taking that back is `invitation.withdraw`.
+        if (leaving.acceptedAt === null) {
+          throw new DepartureRefused('departure.leader_has_not_accepted')
+        }
+        // A relationship without a Leader does not continue with whoever remains.
+        // That is a relationship that is over, and ending one records an outcome --
+        // which a departure has nowhere to put. Only a Leader who has accepted is
+        // somebody it can be left with: one still to answer leads nothing yet.
+        const goesOnLeading = relationship.members.some(
+          (member) =>
+            member.role === 'leader' &&
+            member.personId !== command.personId &&
+            member.acceptedAt !== null,
+        )
+        if (!goesOnLeading) throw new DepartureRefused('departure.would_leave_no_leader')
+      } else {
+        const remaining = relationship.members.filter(
+          (member) => member.role === 'participant' && member.personId !== command.personId,
+        )
+        // The same refusal in its other shape. Three Participants becoming one is a
+        // relationship carrying on with fewer people in it; one becoming none is a
+        // relationship with nobody being discipled, and there is no check-in question
+        // to ask about nobody.
+        if (remaining.length === 0) {
+          throw new DepartureRefused('departure.would_leave_no_participants')
+        }
       }
 
       // One membership closed, and nothing else. The relationship is untouched, the
-      // weeks this Participant was present for stay attached to it exactly as they
-      // were recorded, and the check-in copy follows the Participants who remain
-      // without anything here telling it to -- `checkInSubject` reads the open
-      // memberships, so there is no group-versus-one-to-one branch to keep in step.
+      // weeks this Person was present for stay attached to it exactly as they were
+      // recorded, and the check-in copy follows the Participants who remain without
+      // anything here telling it to -- `checkInSubject` reads the open memberships,
+      // so there is no group-versus-one-to-one branch to keep in step. A Leader who
+      // leaves falls out of every read the same way, because each of them reads
+      // open memberships, and a conversation of theirs already under way steps over
+      // what they no longer lead (`notAskedAbout`, in `./check-in`).
       //
       // Nobody is told, for the reason an ending tells nobody.
       return {
@@ -3563,7 +3646,12 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           appendHistory({
             ministryId: command.ministryId,
             occurredAt: now,
-            type: 'relationship.participant_departed',
+            // A fact of its own for each: history is append-only, and a Leader
+            // leaving is not a Participant leaving.
+            type:
+              leaving.role === 'leader'
+                ? 'relationship.leader_departed'
+                : 'relationship.participant_departed',
             subjectType: 'relationship',
             subjectId: relationship.relationshipId,
             payload: { personId: command.personId, departedBy: command.departedBy },
@@ -3599,12 +3687,19 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       // they come back is exactly the sort of thing an Admin does during one. The
       // weeks a Pause covers are dropped from `relationship_weeks` anyway, so the
       // period spanning it attributes nothing either way.
-      //
-      // Nor is the Material this relationship is already on. Assigning the same
-      // one again is a dated fact like any other -- it closes one period and opens
-      // another with the same Material in it, which leaves every report that sums
-      // by Material with the same answer and leaves the record saying truthfully
-      // that somebody decided this on that day.
+
+      // A Material, checked against the live list read in this transaction: a
+      // removed one is off it, so a stale dropdown cannot put a relationship on a
+      // Material no folder shows (Materials, ticket 03). A null is the un-assign
+      // and names nothing to check.
+      if (command.materialId !== null && !isStillOnTheList(context, command.materialId)) {
+        throw new MaterialAssignmentRefused('material.not_found')
+      }
+
+      // The Material this relationship is already on is refused by
+      // `app.assign_material`, as `material.already_running`: it reads the
+      // running period under the lock it writes the next one under, which a
+      // snapshot read here could not promise.
       return {
         rejections: [],
         effects: [
@@ -3767,6 +3862,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
               enqueuedAt: now,
               disclosesPersonId: null,
               kind: 'no_reply',
+              ratesLine: 'once_a_month',
             }),
           ),
         ],
@@ -3827,6 +3923,14 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       const joiner = whoIs(context, request.personId)
       const now = context.clock.now()
 
+      // Their open item asking to be placed in a group, from the group link with
+      // no group in mind, is answered by being admitted to one, as it is by
+      // `group.add_participant` (Group form exits, ticket 01). Silently.
+      if (context.placementWanted === undefined) {
+        throw new Error('relationship.admit was not told whether they are waiting to be placed in a group')
+      }
+      const placement = context.placementWanted
+
       const effects: Effect[] = [
         // Admitting is an Admin's recorded act, so the item is resolved inside it
         // rather than left for a second click. The resolution carries the Admin;
@@ -3837,6 +3941,16 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           resolvedBy: command.admittedBy,
           resolvedAt: now,
         }),
+        ...(placement === null
+          ? []
+          : [
+              resolveFollowUpItem({
+                ministryId: command.ministryId,
+                itemId: placement,
+                resolvedBy: command.admittedBy,
+                resolvedAt: now,
+              }),
+            ]),
       ]
 
       // Already in it -- admitted from a second item, or through the open door
@@ -3860,6 +3974,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
               personId: request.personId,
               admittedBy: command.admittedBy,
               itemId: request.itemId,
+              ...(placement === null ? {} : { placementItemId: placement }),
             },
           }),
           ...tellTheLeadersSomebodyJoined(context, group, joiner.fullName, now),
@@ -3895,6 +4010,15 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         throw new Error('group.add_participant was handed a Join Request about another Person or group')
       }
 
+      // Their open item asking to be placed in a group, from the group link with
+      // no group in mind, is answered by this act wherever the Admin did it from:
+      // Follow-Up's **Place in this group** or the Roster (Group form exits,
+      // ticket 01). Resolved by the same act, as a Join Request is, and silently.
+      if (context.placementWanted === undefined) {
+        throw new Error('group.add_participant was not told whether they are waiting to be placed in a group')
+      }
+      const placement = context.placementWanted
+
       return {
         rejections: [],
         effects: [
@@ -3906,6 +4030,16 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
                 resolveFollowUpItem({
                   ministryId: command.ministryId,
                   itemId: request.itemId,
+                  resolvedBy: command.addedBy,
+                  resolvedAt: now,
+                }),
+              ]),
+          ...(placement === null
+            ? []
+            : [
+                resolveFollowUpItem({
+                  ministryId: command.ministryId,
+                  itemId: placement,
                   resolvedBy: command.addedBy,
                   resolvedAt: now,
                 }),
@@ -3928,6 +4062,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
               personId: command.personId,
               addedBy: command.addedBy,
               ...(request === null ? {} : { itemId: request.itemId }),
+              ...(placement === null ? {} : { placementItemId: placement }),
             },
           }),
           ...tellTheLeadersSomebodyJoined(context, group, joiner.fullName, now),
@@ -4441,6 +4576,29 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             ...tellTheLeadersSomebodyJoined(context, group, submission.fullName, now),
           )
         }
+      } else if (submission.intakePath === GROUP_PATH) {
+        // No group in mind (Group form exits, ticket 01). They land on the Roster
+        // with no group named and an Admin is asked to place them, so the
+        // decision cannot scroll out of view. Nobody is texted about it.
+        joining.push(
+          raiseFollowUpItem({
+            ministryId: command.ministryId,
+            kind: 'group_placement_wanted',
+            personId: id,
+            relationshipId: null,
+            raisedAt: now,
+          }),
+          // The item dedupes while it stands open and this does not, so how many
+          // times a Person asked survives, as a Join Request's does.
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'person.group_placement_wanted',
+            subjectType: 'person',
+            subjectId: id,
+            payload: {},
+          }),
+        )
       }
 
       effects.push(
@@ -4536,6 +4694,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             // exists.
             disclosesPersonId: null,
             kind: 'no_reply',
+            ratesLine: 'always',
           }),
         )
       }
@@ -4668,6 +4827,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             // No message to a Leader contains a phone number.
             disclosesPersonId: null,
             kind: 'no_reply',
+            ratesLine: 'never',
           }),
           appendHistory({
             ministryId: command.ministryId,
@@ -5453,6 +5613,34 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       return {
         rejections: [],
         effects: withdrawalOf(context, command, { me, withdrawnAs: 'declined', now }),
+      }
+    }
+
+    case 'invitation.withdraw': {
+      const { invitation } = tokenContext(context)
+      const now = context.clock.now()
+
+      // Spent or withdrawn already, it is nobody's to take back. One that has run
+      // out and not been swept yet still is: their membership is still open, and
+      // an Admin looking at it is not made to wait for the tick.
+      if (invitation.consumedAt !== null) throw new InvitationRefused('invitation.already_used')
+      if (invitation.withdrawnAs === 'declined') throw new InvitationRefused('invitation.declined')
+      if (invitation.withdrawnAs !== null) throw new InvitationRefused('invitation.expired')
+
+      const me = memberHolding(invitation, invitation.personId)
+      if (me.role !== 'leader') throw new InvitationRefused('invitation.not_a_leader')
+      // Fenced as a decline is: taking an invitation back must never end a
+      // membership that has begun leading. That is a departure, or an ending.
+      if (me.acceptedAt !== null) throw new InvitationRefused('invitation.already_used')
+
+      return {
+        rejections: [],
+        effects: withdrawalOf(context, command, {
+          me,
+          withdrawnAs: 'withdrawn',
+          now,
+          withdrawnBy: command.withdrawnBy,
+        }),
       }
     }
 

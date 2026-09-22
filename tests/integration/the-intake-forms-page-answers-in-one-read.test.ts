@@ -1,14 +1,16 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { beforeAll, describe, expect, it } from 'vitest'
-import { personId } from '~/domain/ids'
+import { materialId, personId } from '~/domain/ids'
 import { intakeFormsPageFrom } from '~/platform/supabase/intake-forms-reader'
 import { list, readPageDocument } from '~/platform/supabase/page'
 import { rows } from '~/platform/supabase/rows'
 import {
+  addMaterial,
   addMembership,
   addPerson,
   addPersonWithAccount,
   aTestPhoneNumber,
+  assignMaterial,
   createMinistryWithAdmin,
   localSupabase,
   openMaterialHistory,
@@ -36,6 +38,8 @@ describe('the Intake forms page answers in one read', () => {
   let ruth: string
   let nia: string
   let group: string
+  let romans: string
+  const assignedAt = new Date('2026-03-16T09:00:00Z')
 
   const separately = async (client: SupabaseClient, fn: string) => {
     const { data, error } = await client.rpc(fn, { target_ministry_id: riverside.id })
@@ -79,6 +83,18 @@ describe('the Intake forms page answers in one read', () => {
       raised_at: new Date().toISOString(),
     })
     if (requestError) throw new Error(`Could not raise the join request: ${requestError.message}`)
+
+    // What the group is working through (Materials, ticket 03), beside a Material
+    // nobody is on and one the Ministry has removed.
+    romans = await addMaterial(riverside, 'Romans')
+    await addMaterial(riverside, 'Galatians')
+    const removed = await addMaterial(riverside, 'Acts')
+    const { error: removalError } = await serviceRoleClient()
+      .from('material')
+      .update({ removed: new Date().toISOString() })
+      .eq('id', removed)
+    if (removalError) throw new Error(`Could not remove the Material: ${removalError.message}`)
+    await assignMaterial(group, romans, riverside.adminUserId, assignedAt)
   })
 
   it('carries the Admin, the groups, the join requests, the goal options and the names', async () => {
@@ -106,6 +122,15 @@ describe('the Intake forms page answers in one read', () => {
     expect(options.length).toBeGreaterThan(0)
     expect(byId(list(doc, 'goal_options'), 'id')).toEqual(byId(options, 'id'))
 
+    // Every Material the Ministry holds, the removed one included, in title order;
+    // the running period of each live group; and the zone its date is printed in.
+    expect(list(doc, 'materials').map((row) => row.title)).toEqual(['Acts', 'Galatians', 'Romans'])
+    expect(list(doc, 'group_materials')).toEqual([
+      { relationship_id: group, material_id: romans, started_at: expect.any(String) },
+    ])
+    expect(new Date(String(list(doc, 'group_materials')[0]!.started_at))).toEqual(assignedAt)
+    expect(doc.timezone).toEqual(expect.any(String))
+
     expect(byId(list(doc, 'people'), 'id')).toEqual(
       byId(
         [
@@ -132,6 +157,11 @@ describe('the Intake forms page answers in one read', () => {
     expect(page.goals.length).toBeGreaterThan(0)
     expect(page.nameOf.get(personId(nia))).toBe('Nia Okafor')
     expect(page.nameOf.get(personId(riverside.adminPersonId))).toBe(riverside.adminName)
+
+    // The live Materials for the dropdown, and the group on its running one.
+    expect(page.materials.map((each) => each.title)).toEqual(['Galatians', 'Romans'])
+    expect(page.groups[0]?.running).toEqual({ materialId: materialId(romans), since: assignedAt })
+    expect(page.timeZone).toEqual(expect.any(String))
   })
 
   it('carries nothing of the Ministry for a Leader who administers nothing', async () => {
@@ -157,6 +187,8 @@ describe('the Intake forms page answers in one read', () => {
     expect(doc.admin).toMatchObject({ ministry_id: northgate.id })
     expect(list(doc, 'groups')).toEqual([])
     expect(list(doc, 'join_requests')).toEqual([])
+    expect(list(doc, 'materials')).toEqual([])
+    expect(list(doc, 'group_materials')).toEqual([])
     expect(list(doc, 'people').map((row) => row.id)).toEqual([northgate.adminPersonId])
     expect(JSON.stringify(doc)).not.toContain(riverside.id)
     expect(JSON.stringify(doc)).not.toContain(group)

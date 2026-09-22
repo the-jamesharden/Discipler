@@ -41,7 +41,6 @@ import type {
   NewCheckInSequence,
   NewDiscipleshipGoal,
   NewKeywordExchange,
-  OutboundMessageDraft,
   OutstandingReplyClosure,
   OutstandingReplySweep,
   PersonOptIn,
@@ -66,6 +65,7 @@ import {
 } from '~/domain/ministry-settings'
 import type { HistoryEvent, NewHistoryEvent } from '~/domain/history'
 import type { NewRelationship } from '~/domain/relationships'
+import type { SettledMessage } from '~/domain/rates-line'
 import {
   rosterKey,
   type HeldImportRow,
@@ -77,7 +77,7 @@ import type { EffectStore, UnitOfWork } from '~/service/ports'
 
 export interface InMemoryStore extends EffectStore {
   readonly history: readonly HistoryEvent[]
-  readonly outbox: readonly OutboundMessageDraft[]
+  readonly outbox: readonly SettledMessage[]
   readonly relationships: readonly NewRelationship[]
   readonly people: readonly NewPerson[]
   /** Every row an import held for an Admin to answer, in the order it held them. */
@@ -93,6 +93,8 @@ export interface InMemoryStore extends EffectStore {
   /** Seeded: the tokens `lapsedInvitations` answers with, and what a re-invitation finds held. */
   lapsed?: readonly InvitationToken[]
   invitationHeld?: InvitationHeld
+  /** Seeded: the token an Admin taking an invitation back finds. */
+  unanswered?: InvitationToken | null
   readonly followUps: readonly NewFollowUpItem[]
   /** Every plan an import recorded, and every closing of one, in the order the effects made them. */
   readonly plans: readonly NewIntendedPairing[]
@@ -210,7 +212,7 @@ export interface InMemoryStore extends EffectStore {
  */
 export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z')): InMemoryStore => {
   const history: HistoryEvent[] = []
-  const outbox: OutboundMessageDraft[] = []
+  const outbox: SettledMessage[] = []
   const relationships: NewRelationship[] = []
   const people: NewPerson[] = []
   const heldRows: HeldImportRow[] = []
@@ -431,7 +433,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
     },
     async transact(_ministryId: MinistryId, work) {
       const stagedHistory: HistoryEvent[] = []
-      const stagedOutbox: OutboundMessageDraft[] = []
+      const stagedOutbox: SettledMessage[] = []
       const stagedRelationships: NewRelationship[] = []
       const stagedPeople: NewPerson[] = []
       const stagedIntakes: IntakeRecord[] = []
@@ -604,6 +606,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         async invitationHeldBy() {
           return store.invitationHeld ?? { liveExpiresAt: null, everWithdrawn: false }
         },
+        async unansweredInvitationOf() {
+          return store.unanswered ?? null
+        },
         async raiseFollowUp(item) {
           if (store.nothingLeftToRaise) return false
           stagedFollowUps.push(item)
@@ -670,6 +675,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
           return null
         },
         async openJoinRequestFor() {
+          return null
+        },
+        async openPlacementWantedFor() {
           return null
         },
         async joinRelationship(membership) {
@@ -751,6 +759,19 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         async createRelationship(relationship) {
           if (store.failOn === 'createRelationship') throw new Error('relationships unavailable')
           stagedRelationships.push(relationship)
+        },
+        async ratesLineHistory(asked) {
+          // Nothing here is ever withheld, so every text that carried the line counts.
+          const lastCarriedAt = new Map<PersonId, Date>()
+          for (const message of [...outbox, ...stagedOutbox]) {
+            if (!message.carriesRatesLine || !message.personId) continue
+            if (!asked.includes(message.personId)) continue
+            const before = lastCarriedAt.get(message.personId)
+            if (!before || before < message.enqueuedAt) {
+              lastCarriedAt.set(message.personId, message.enqueuedAt)
+            }
+          }
+          return { timeZone: store.settings.timezone, lastCarriedAt }
         },
         async enqueueMessages(messages) {
           if (store.failOn === 'enqueueMessages') throw new Error('outbound queue unavailable')

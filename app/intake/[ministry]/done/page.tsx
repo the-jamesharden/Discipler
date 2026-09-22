@@ -5,6 +5,7 @@ import {
   doneMessageWithoutAGroup,
   JOINED_HEADING,
   joinedMessage,
+  placementWantedMessage,
   REQUESTED_HEADING,
   requestedMessage,
 } from '../../copy'
@@ -35,14 +36,26 @@ export default async function GroupIntakeDonePage({
 
   const asked = firstValue(query.groupId)
   const group = page.groups.find((each) => each.relationshipId === asked) ?? null
-  const joined = firstValue(query.outcome) === 'joined'
+  const outcome = firstValue(query.outcome)
+  const joined = outcome === 'joined'
+  // No group in mind (Group form exits, ticket 01): the Ministry has been told,
+  // and nothing says a group was joined.
+  const placement = !group && outcome === 'placement'
 
-  const heading = !group ? 'You’re all set' : joined ? JOINED_HEADING : REQUESTED_HEADING
-  const message = !group
-    ? doneMessageWithoutAGroup(page.ministryName)
-    : joined
-      ? joinedMessage(group.name, group.leaderFirstNames)
-      : requestedMessage(page.ministryName, group.name)
+  const heading = placement
+    ? REQUESTED_HEADING
+    : !group
+      ? 'You’re all set'
+      : joined
+        ? JOINED_HEADING
+        : REQUESTED_HEADING
+  const message = placement
+    ? placementWantedMessage(page.ministryName)
+    : !group
+      ? doneMessageWithoutAGroup(page.ministryName)
+      : joined
+        ? joinedMessage(group.name, group.leaderFirstNames)
+        : requestedMessage(page.ministryName, group.name)
 
   return (
     <Centred ministryName={page.ministryName}>

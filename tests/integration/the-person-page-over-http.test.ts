@@ -19,6 +19,10 @@ import { displayPhone } from '../../app/roster/copy'
  * of those send them here, so the result lands beside the act.
  */
 
+
+/** The page as it reads, markup aside: a name and the pill kept beside it are one sentence to an Admin. */
+const words = (html: string): string => html.replace(/<!-- -->/g, '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ')
+
 describe.skipIf(skipUnlessAppIsRunning)('a Person’s own page', () => {
   let ministry: MinistryFixture
   let pool: pg.Pool
@@ -81,7 +85,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s own page', () => {
 
     const led = await getPage(`/roster/${leader}`, cookie)
     expect(led.html).toContain('A Discipler - disciples somebody')
-    expect(led.html).toContain('Discipling Ruth Adeyemi')
+    expect(words(led.html)).toContain('Discipling Ruth Adeyemi')
     expect(led.html).toContain('1:1')
 
     // Offered on the form and leads nobody yet: a Discipler on the strength of the
@@ -213,7 +217,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s own page', () => {
 
     const { html } = await getPage(`/roster/${leader}`, cookie)
     // Nothing to re-send. The button belongs to the state, not to the role.
-    expect(html).toContain('Discipling Bo Settled')
+    expect(words(html)).toContain('Discipling Bo Settled')
     expect(html).not.toContain('awaiting acceptance')
     expect(html).not.toContain('Send a new invitation')
   })
@@ -233,7 +237,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s own page', () => {
     )
 
     const { html } = await getPage(`/roster/${participant}`, cookie)
-    expect(html).toContain('Discipled by Caleb Waiting')
+    expect(words(html)).toContain('Discipled by Caleb Waiting')
     expect(html).toContain('awaiting acceptance')
     expect(html).not.toContain('Send a new invitation')
   })

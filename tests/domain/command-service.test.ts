@@ -28,6 +28,7 @@ const someMessage = (body: string) =>
     scheduledFor: null,
     disclosesPersonId: null,
     kind: 'no_reply',
+    ratesLine: 'never',
   })
 
 describe('applying a command\'s effects', () => {
@@ -63,6 +64,9 @@ describe('applying a command\'s effects', () => {
         enqueueMessages: async () => {
           throw new Error('the outbound queue should not have been touched')
         },
+        ratesLineHistory: async () => {
+          throw new Error('nobody’s rates line should have been looked up')
+        },
         closeOutstandingReply: async () => {
           throw new Error('no conversation should have been closed')
         },
@@ -92,6 +96,9 @@ describe('applying a command\'s effects', () => {
         },
         invitationHeldBy: async () => {
           throw new Error('no held invitation should have been read')
+        },
+        unansweredInvitationOf: async () => {
+          throw new Error('no unanswered invitation should have been read')
         },
         checkInFor: async () => {
           throw new Error('nobody should have been checked in with')
@@ -239,6 +246,9 @@ describe('applying a command\'s effects', () => {
           throw new Error('not in this test')
         },
         openJoinRequestFor: async () => {
+          throw new Error('not in this test')
+        },
+        openPlacementWantedFor: async () => {
           throw new Error('not in this test')
         },
         addLeaderToGroup: async () => {

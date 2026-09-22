@@ -13,6 +13,7 @@ import {
 } from '../support/local-supabase'
 import {
   attribute,
+  chosenIn,
   currentList,
   detailsOf,
   expectGreyed,
@@ -150,8 +151,12 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
     expect(popup.lastIndexOf(boxes.at(-1)!)).toBeLessThan(heading)
     expect(popup.indexOf(`value="${womens.id}"`)).toBeGreaterThan(heading)
 
-    // The toolbar counts both, and only what is listed.
-    expect(popup).toContain(`${boxes.length} disciples · 3 groups`)
+    // The toolbar counts both, and only what is listed: the men of the Coed group and
+    // of the men's are on her list once a Group of hers is Coed, and not before.
+    const listed = offeredAs(popup, 'participantId')
+    for (const man of [...mens.disciples, ...coed.disciples]) expect(listed).not.toContain(man)
+    for (const woman of [...womens.disciples, ...unnamed.disciples, ...hers.disciples]) expect(listed).toContain(woman)
+    expect(popup).toContain(`${listed.length} disciples · 3 groups`)
 
     // Rows read as they do from a Disciple: the same component, on a square.
     const womensRow = rowFor(popup, womens.id)
@@ -180,7 +185,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
     expect(popup).not.toContain('>Groups<')
     expect(popup).toContain('1 disciple')
     expect(popup).not.toContain('groups')
-    expect(popup).not.toContain('type="radio"')
+    expect(inputsIn(popup).filter((input) => attribute(input, 'name') === 'groupId')).toEqual([])
   })
 
   it('greys every group row for a Discipler who already leads a group, beside the 1:2 and Group shapes', async () => {
@@ -206,7 +211,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
     const reopened = popupIn((await getPage(`${refused.pathname}${refused.search}`, cookie)).html)!
     expect(reopened).toMatch(new RegExp(`role="alert"[^>]*>${theirs.leaderName} already leads a group\\.`))
     expect(reopened).not.toContain('joining.already_leads_a_group')
-    expect(reopened).not.toMatch(/checked=""/)
+    expect(chosenIn(reopened)).toEqual([])
   })
 
   it('says who they will co-lead with, and posts the chosen group to the route that joins, as a leader', async () => {
@@ -222,7 +227,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
     expect(popup).toMatch(/role="alert"[^>]*>That group has ended/)
     expect(popup).not.toContain('joining.group_has_ended')
     expect(rowFor(popup, group.id)).toMatch(/checked=""/)
-    expect(popup.match(/checked=""/g)).toHaveLength(1)
+    expect(chosenIn(popup)).toEqual([group.id])
     expect(currentList(html)).toBe('Disciplers')
 
     expect(popup).toContain(`${claire.name} will co-lead Grace’s Group with ${group.leaderName}.`)
@@ -318,7 +323,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
 
     const popup = popupIn((await getPage(`${refused.pathname}${refused.search}`, cookie)).html)!
     expect(popup).toMatch(/role="alert"[^>]*>This is a men’s or a women’s group/)
-    expect(popup).not.toMatch(/checked=""/)
+    expect(chosenIn(popup)).toEqual([])
     expect(popup).not.toContain('will co-lead')
     expect(formOf(popup)).toContain('action="/roster/pair/create"')
   })

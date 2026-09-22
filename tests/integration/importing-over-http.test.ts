@@ -62,13 +62,13 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin importing a spreadsheet', () =
     await upload(cookie, file('Name,Phone', `Cara Nolan,${number()}`))
 
     // On the Disciples list, where everyone an upload adds lands. Her own row says
-    // why there is nothing to press (Manual pairing, ticket 07); the page as a
-    // whole would not do, since the import dialog on it names the status too.
+    // why there is nothing to press, in a tag beside her name (James, 2026-09-21);
+    // the page as a whole would not do, since the import dialog on it names the
+    // status too.
     const { html } = await getPage('/roster?list=disciples', cookie)
     const row = html.split('<tr').find((candidate) => />Cara Nolan</.test(candidate))
     expect(row, 'no row for Cara Nolan').toBeDefined()
-    expect(row).toContain('Awaiting Intake')
-    expect(row).not.toContain('Unpaired')
+    expect(row).toMatch(/>Cara Nolan<\/a><span [^>]*data-testid="roster-tag"[^>]*>Awaiting Intake</)
     expect(row).not.toContain('href="/roster/pair')
   })
 

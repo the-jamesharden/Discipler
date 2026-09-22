@@ -31,6 +31,7 @@ const openSequence: OpenSequence = {
       name: null,
       acceptedAt: new Date('2026-03-02T09:00:00Z'),
       paused: false,
+      stillLed: true,
       cadence: { day: 1, hour: 9 },
     },
   ],

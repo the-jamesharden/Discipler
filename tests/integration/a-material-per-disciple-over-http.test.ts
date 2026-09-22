@@ -9,7 +9,7 @@ import {
   localSupabase,
   type MinistryFixture,
 } from '../support/local-supabase'
-import { postPairing } from '../support/pair-popup'
+import { offersToMentor, postPairing } from '../support/pair-popup'
 
 /**
  * Manual pairing, recut ticket 02. A set of separate one-to-ones where each
@@ -18,8 +18,8 @@ import { postPairing } from '../support/pair-popup'
  * Disciple as an intention, and its acceptance writes it into that one-to-one's
  * history, as a Material chosen at pairing already is for one relationship.
  *
- * Posted directly, as the old Pair page's form would send it. The popup's dropdown
- * per Disciple lands on the same fields, and is proved with the popup.
+ * Posted as the Pair popup's N × 1:1 pairs post from its Discipler's side, so a
+ * refusal comes back to the popup (Manual pairing, recut ticket 05).
  */
 
 describe.skipIf(skipUnlessAppIsRunning)('a Material per Disciple in a separate submission, over HTTP', () => {
@@ -42,6 +42,8 @@ describe.skipIf(skipUnlessAppIsRunning)('a Material per Disciple in a separate s
 
   const pairSeparately = (leader: string, participants: string[], more: [string, string][] = []) =>
     postPairing(cookie, [
+      ['pair', leader],
+      ['list', 'disciplers'],
       ['mode', 'separate'],
       ['leaderId', leader],
       ...participants.map((participant): [string, string] => ['participantId', participant]),
@@ -101,7 +103,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Material per Disciple in a separate s
       ['materialId', romans],
     ])
     expect(receipt.pathname).toBe('/roster')
-    expect(Object.fromEntries(receipt.searchParams)).toEqual({ pairs: '3' })
+    expect(Object.fromEntries(receipt.searchParams)).toEqual({ pairs: '3', list: 'disciplers' })
 
     // Held as an intention, one apiece, and none where none was named: one
     // Disciple's choice never spills onto another.
@@ -122,6 +124,8 @@ describe.skipIf(skipUnlessAppIsRunning)('a Material per Disciple in a separate s
   it('refuses the whole set for a Material the Ministry does not hold, names who it was for, and returns every choice', async () => {
     const mark = await addMaterial(ministry, 'Gospel of Mark, Again')
     const claire = await woman('Claire Refused')
+    // A Discipler, so the popup she comes back to is her Discipler's side.
+    await offersToMentor(pool, ministry, claire)
     const sam = await woman('Sam Refused')
     const ana = await woman('Ana Refused')
     const nothingHere = crypto.randomUUID()
@@ -130,7 +134,8 @@ describe.skipIf(skipUnlessAppIsRunning)('a Material per Disciple in a separate s
       [`materialId.${sam}`, mark],
       [`materialId.${ana}`, nothingHere],
     ])
-    expect(back.pathname).toBe('/roster/pair')
+    expect(back.pathname).toBe('/roster')
+    expect(back.searchParams.get('pair')).toBe(claire)
     expect(back.searchParams.get('error')).toBe('relationship.material_is_not_on_the_list')
     expect(back.searchParams.get('about')).toBe(ana)
     expect(back.searchParams.get('mode')).toBe('separate')
@@ -138,11 +143,16 @@ describe.skipIf(skipUnlessAppIsRunning)('a Material per Disciple in a separate s
     expect(back.searchParams.get(`materialId.${sam}`)).toBe(mark)
     expect(back.searchParams.get(`materialId.${ana}`)).toBe(nothingHere)
 
-    // The form sends every choice again, so correcting one person does not lose them.
+    // The popup reopens on every choice, so correcting one person does not lose
+    // the others: Sam's dropdown on her Material, and Ana's on none, because the
+    // one she was given is not on the list to be chosen again.
     const { html } = await getPage(`${back.pathname}${back.search}`, cookie)
     expect(html).toContain('Ana Refused: That Material is no longer on this Ministry’s list.')
-    expect(html).toMatch(new RegExp(`<input[^>]*name="materialId\\.${sam}"[^>]*value="${mark}"`))
-    expect(html).toMatch(new RegExp(`<input[^>]*name="materialId\\.${ana}"[^>]*value="${nothingHere}"`))
+    const dropdownFor = (id: string) => html.match(new RegExp(`<select[^>]*name="materialId\\.${id}"[\\s\\S]*?</select>`))?.[0] ?? ''
+    expect(dropdownFor(sam)).toMatch(new RegExp(`<option[^>]*value="${mark}"[^>]*selected=""`))
+    const onFor = (id: string) => dropdownFor(id).match(/<option[^>]*value="([^"]*)"[^>]*selected=""/)?.[1] ?? ''
+    expect(dropdownFor(ana)).toContain('<option')
+    expect(onFor(ana)).toBe('')
 
     expect(await oneToOneOf(sam)).toEqual([])
     expect(await oneToOneOf(ana)).toEqual([])
@@ -176,6 +186,9 @@ describe.skipIf(skipUnlessAppIsRunning)('a Material per Disciple in a separate s
     const ana = await woman('Ana Together')
 
     const receipt = await postPairing(cookie, [
+      ['pair', claire],
+      ['list', 'disciplers'],
+      ['shape', 'group'],
       ['leaderId', claire],
       ['participantId', sam],
       ['participantId', ana],
@@ -184,7 +197,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Material per Disciple in a separate s
       ['materialId', mark],
       [`materialId.${sam}`, romans],
     ])
-    expect(Object.fromEntries(receipt.searchParams)).toEqual({ paired: '2' })
+    expect(Object.fromEntries(receipt.searchParams)).toEqual({ list: 'disciplers', paired: '2' })
 
     const [theirs] = await oneToOneOf(sam)
     expect(theirs?.intended).toBe(mark)

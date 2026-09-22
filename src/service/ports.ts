@@ -50,7 +50,6 @@ import type {
   NewCheckInSequence,
   NewDiscipleshipGoal,
   NewKeywordExchange,
-  OutboundMessageDraft,
   OutstandingReplyClosure,
   OutstandingReplySweep,
   ParticipantDeparture,
@@ -81,7 +80,7 @@ import type { InvitationToken, NewInvitation } from '~/domain/invitations'
 import type { MinistrySetupState, NewMinistrySetup } from '~/domain/ministry-setup'
 import type { MinistrySetupRefusal } from '~/domain/errors'
 import type { HistoryEvent, NewHistoryEvent } from '~/domain/history'
-import type { AgeBand, DeclaredSide, DiscipleshipGoalId, Gender } from '~/domain/intake'
+import type { AgeBand, AvailabilitySlot, DeclaredSide, DiscipleshipGoalId, Gender } from '~/domain/intake'
 import type {
   ConcernId,
   FollowUpItemId,
@@ -93,7 +92,9 @@ import type {
   RelationshipId,
 } from '~/domain/ids'
 import type { ParticipationStatus } from '~/domain/participation'
+import type { Suggestions } from '~/domain/suggestions'
 import type { NewRelationship } from '~/domain/relationships'
+import type { RatesLineHistory, SettledMessage } from '~/domain/rates-line'
 import type { CareReason, RelationshipState, SettledRelationshipState } from '~/domain/relationship-state'
 import type { InvitationState } from '~/domain/invitations'
 import type { MemberRole } from '~/domain/relationships'
@@ -202,7 +203,19 @@ export interface UnitOfWork {
    * transaction.
    */
   recordIntake(intake: IntakeRecord): Promise<void>
-  enqueueMessages(messages: readonly OutboundMessageDraft[]): Promise<void>
+  /**
+   * When each of these Persons was last queued a text carrying the rates line,
+   * leaving out texts withheld at send time, and the Ministry's timezone that says
+   * which month that was (Text wording, ticket 01). Read inside the unit of work,
+   * so the texts a command queues are settled against the queue as this
+   * transaction sees it.
+   */
+  ratesLineHistory(people: readonly PersonId[]): Promise<RatesLineHistory>
+  /**
+   * Texts already settled against the rates line: their words are the ones that
+   * will be sent, and whether they carry the line is written beside them.
+   */
+  enqueueMessages(messages: readonly SettledMessage[]): Promise<void>
   /**
    * Closes whatever conversation this number is holding, so the next scheduled
    * message to it may go out. Does nothing where the number holds none, and
@@ -269,6 +282,14 @@ export interface UnitOfWork {
   lapsedInvitations(asOf: Date): Promise<readonly InvitationToken[]>
   /** The invitations one Person has held to one relationship, as a re-invitation reads them. */
   invitationHeldBy(relationship: RelationshipId, person: PersonId): Promise<InvitationHeld>
+  /**
+   * The token of the invitation one Person holds to one relationship that nobody
+   * has answered and nobody has withdrawn, or null. Still theirs once its window
+   * has closed, until the tick sweeps it. A candidate, read with no lock, for an
+   * Admin taking it back: `invitation.withdraw` decides again behind the row an
+   * acceptance holds. At most one, which the table's own index holds.
+   */
+  unansweredInvitationOf(relationship: RelationshipId, person: PersonId): Promise<InvitationToken | null>
   /**
    * Raising an item that already stands changes nothing. Twenty taps on "not my
    * number" is one condition, and the Admin sees one thing to act on.
@@ -378,6 +399,13 @@ export interface UnitOfWork {
    * not this one.
    */
   openJoinRequestFor(personId: PersonId, relationshipId: RelationshipId): Promise<OpenJoinRequest | null>
+  /**
+   * The open `group_placement_wanted` item one Person has, locked, or null where
+   * they have none. Read so an Admin putting them into a group, or admitting them
+   * to one, resolves it in the same act (Group form exits, ticket 01). At most one: the item names only the
+   * Person, and the one-open-item index holds that to one row.
+   */
+  openPlacementWantedFor(personId: PersonId): Promise<FollowUpItemId | null>
   /**
    * Adds one Participant to a relationship that already exists -- the mirror of a
    * departure. Refuses with a `PairingRefused` when the caps, the Intake gate or
@@ -868,6 +896,11 @@ export interface RosterRelationship {
    */
   readonly countsAsAGroup: boolean
   /**
+   * What the Ministry calls it, or null where nobody has named it, which is every
+   * one-to-one. For a person's page to say which group a line is about.
+   */
+  readonly name: string | null
+  /**
    * Derived from `relationship.accepted_at`, never stored as a status. It is the
    * absence of an acceptance rather than a state anybody sets, which is why it
    * belongs on the relationship and not beside the Participation Status.
@@ -1022,6 +1055,12 @@ export interface MinistryGroup {
   readonly accepted: boolean
   readonly leaderNames: readonly string[]
   readonly participantNames: readonly string[]
+  /**
+   * The group's running Material period, or null on a group nobody has accepted,
+   * which has no Material history yet (Materials, ticket 03). `materialId` is null
+   * while the running period is on no Material.
+   */
+  readonly running: { readonly materialId: MaterialId | null; readonly since: Date } | null
 }
 
 /**
@@ -1084,7 +1123,7 @@ export interface GroupToJoin {
 
 /**
  * What the Roster derives from its document. The person page reads the same
- * document, and the Pair page reads it with three keys of its own beside it; each
+ * document, and the Pair popup reads it with three keys of its own beside it; each
  * takes what it needs.
  */
 export interface RosterPage {
@@ -1374,6 +1413,10 @@ export interface IntakeFormsPage {
   readonly goals: readonly OfferedGoal[]
   /** Everyone on the Roster by name, for saying who a query string refers to. */
   readonly nameOf: ReadonlyMap<PersonId, string>
+  /** The live Materials, in title order, for each accepted group's dropdown. */
+  readonly materials: readonly MaterialOption[]
+  /** The Ministry's IANA zone, which "Working through it since" is printed in. */
+  readonly timeZone: string | null
 }
 
 export interface IntakeFormsReader {
@@ -1407,6 +1450,12 @@ export interface JoinableGroup {
   readonly declaredGender: Gender | null
   readonly joinRequiresApproval: boolean
   readonly leaderFirstNames: readonly string[]
+  /**
+   * The title of the Material the group's running period is on, or null where it
+   * is on none. Shown beneath the group's name on the form (Materials, ticket 03);
+   * nobody picking a group is asked which Material they want.
+   */
+  readonly materialTitle: string | null
 }
 
 /** What the group Intake form needs to render itself, for a visitor with no session. */
@@ -1594,11 +1643,36 @@ export interface FollowUpCareItem {
     readonly ledByNobody: boolean
   } | null
   /**
+   * For a Person who signed up on the group link with no group in mind (Group
+   * form exits, ticket 01), and null on every other kind -- and on every surface
+   * but the Follow-Up tab, which is the one that reads it.
+   */
+  readonly placement: PlacementWanted | null
+  /**
    * The kind and what it carries, as one value. Not a `kind` field beside a
    * payload: those are two things that can disagree, and only one of them can be
    * narrowed by the compiler at the point a screen reads the period out.
    */
   readonly payload: FollowUpPayload
+}
+
+/**
+ * What a `group_placement_wanted` item shows (S-8): what the Person answered
+ * about themselves on their latest Intake, and the groups they may be placed in.
+ */
+export interface PlacementWanted {
+  /** Null only for a Person with no Intake on file, which the item's own raising rules out. */
+  readonly gender: Gender | null
+  readonly ageBand: AgeBand | null
+  readonly availability: readonly AvailabilitySlot[]
+  /**
+   * The groups open to them: exactly the list the group form offers them --
+   * accepted, named and unended, of their declared gender or mixed -- in the
+   * form's order.
+   */
+  readonly groups: readonly { readonly relationshipId: RelationshipId; readonly name: string }[]
+  /** The Ministry's zone, which the date they signed up on is said in. */
+  readonly timeZone: string
 }
 
 /**
@@ -1750,11 +1824,20 @@ export interface FollowUpPage {
 export interface CareNeededReader {
   /** The Follow-Up tab, with the one Person a reveal names or none. */
   readFollowUpPage(reveal: PersonId | null): Promise<AdminPage<FollowUpPage>>
-  /**
-   * The Suggested Pairs tab. Nothing is built behind it yet, so what it derives is
-   * the number the shell's badge shows.
-   */
-  readSuggestedPairsPage(): Promise<AdminPage<{ readonly followUpCount: number }>>
+}
+
+/**
+ * The Suggested Pairs tab: one-to-one suggestions ranked by the pure function in
+ * `src/domain/suggestions.ts`, from the Roster as it stands at the moment of the
+ * read, and the number the shell's badge shows.
+ */
+export interface SuggestedPairsPage {
+  readonly followUpCount: number
+  readonly suggestions: Suggestions
+}
+
+export interface SuggestedPairsReader {
+  readSuggestedPairsPage(): Promise<AdminPage<SuggestedPairsPage>>
 }
 
 /**

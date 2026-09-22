@@ -42,11 +42,23 @@ export const plannedAs = (person: RosterFacts, role: MemberRole): boolean =>
 
 export const offeredToMentor = (person: RosterFacts): boolean => person.declaredSide === 'mentor'
 
+/**
+ * Asked to be discipled on the Intake form. For everybody who leads nobody it
+ * changes nothing, since they are a Disciple already; it is the one fact that puts
+ * a Discipler on the Disciples list as well (James, 2026-09-22: somebody who fills
+ * out the Intake as a mentee can appear on both). Leading somebody does not
+ * withdraw the answer.
+ */
+export const askedToBeDiscipled = (person: RosterFacts): boolean => person.declaredSide === 'mentee'
+
 export const isDiscipler = (person: RosterFacts): boolean =>
   leadsSomebody(person) || offeredToMentor(person) || plannedAs(person, 'leader')
 
 export const isDisciple = (person: RosterFacts): boolean =>
-  isDiscipledBySomebody(person) || plannedAs(person, 'participant') || !isDiscipler(person)
+  isDiscipledBySomebody(person)
+  || askedToBeDiscipled(person)
+  || plannedAs(person, 'participant')
+  || !isDiscipler(person)
 
 /** The role a Person holds on one side's list. All is not a side and has no role. */
 export const roleOn: Record<RosterSide, MemberRole> = {
@@ -84,8 +96,8 @@ export const relationshipsOn = (
 
 /**
  * Why a row offers no Pair, or null when nothing is in the way (Manual pairing,
- * ticket 07). Participation Status is no longer printed under a name, and still
- * decides this: the database refuses a pairing with somebody who has not completed
+ * ticket 07). Participation Status is not printed as a status on the Roster, and
+ * still decides this: the database refuses a pairing with somebody who has not completed
  * Intake or has opted out, on either side of it, so neither row gets anything to
  * press. One answer for a Discipler and a Disciple, and being paired already is
  * never a reason: a Discipler may lead another, and a Disciple may join a group.
@@ -98,18 +110,26 @@ export const whyNotPairable = (person: Pick<RosterEntry, 'participationStatus'>)
       : null
 
 /**
- * The reason a row prints where Pair would have been, or null. `whyNotPairable`,
- * said once: a plan this row shows that is still waiting already reads *planned -
- * awaiting Intake*, and the same words again after it told an Admin nothing (James,
- * 2026-09-19). Every other reason says something the row's lines do not -- *Opted
- * out* beside a pairing or a plan, *Awaiting Intake* beside a plan that was refused.
- * A null here never means Pair: that is `whyNotPairable`'s to answer.
+ * The tag beside a name, or null (James, 2026-09-21): somebody who has not completed
+ * Intake is tagged where an Admin reads the names, because an import files people
+ * who have answered nothing and they look like everybody else until a Pair is
+ * missed. It is `whyNotPairable`'s answer and no second rule, so the tag and the
+ * missing Pair cannot disagree. Opted out is not tagged: the Paired with cell says it.
  */
-export const reasonOnRow = (list: RosterList, person: RosterEntry): NotPairable | null => {
+export const tagOnName = (person: Pick<RosterEntry, 'participationStatus'>): 'awaiting_intake' | null =>
+  whyNotPairable(person) === 'awaiting_intake' ? 'awaiting_intake' : null
+
+/**
+ * The reason a row prints where Pair would have been, or null. `whyNotPairable`,
+ * less what the row has already said: the tag beside the name says *Awaiting
+ * Intake*, and the same words again in the Paired with cell told an Admin nothing
+ * (James, 2026-09-19, of a plan line that said it; the tag now says it on every
+ * such row). *Opted out* is said nowhere else, so it is said here. A null here never
+ * means Pair: that is `whyNotPairable`'s to answer.
+ */
+export const reasonOnRow = (person: Pick<RosterEntry, 'participationStatus'>): NotPairable | null => {
   const reason = whyNotPairable(person)
-  const alreadySaid =
-    reason === 'awaiting_intake' && plansOn(list, person).some((plan) => plan.state === 'awaiting_intake')
-  return alreadySaid ? null : reason
+  return reason === tagOnName(person) ? null : reason
 }
 
 /** The side of a pairing the Pair popup opens on: whose row was pressed, and so who the list is of. */
@@ -129,18 +149,26 @@ export const opensAs = (list: RosterList, person: RosterFacts): PairSide =>
       ? 'discipler'
       : 'disciple'
 
+/** The list each side of the popup is drawn over, where nothing else says which. */
+export const LIST_OF_SIDE: Record<PairSide, RosterSide> = {
+  discipler: 'disciplers',
+  disciple: 'disciples',
+}
+
 /**
- * Where Pair on a row goes. A row that opens as a Disciple opens the popup over the
- * list it was pressed on (Manual pairing, ticket 12). A row that opens as a
- * Discipler still goes to the old Pair page with them chosen as the Discipler: that
- * side of the popup is built over three tickets and reached only by its address
- * (Manual pairing, ticket 23), so no Admin meets a half-built control. The ticket
- * that retires the old Pair page links it.
+ * The Pair popup for somebody, over a list. Every way into pairing is one of these
+ * (Manual pairing, recut ticket 05): a row, the person page, the Follow-Up tab and
+ * the old Pair page's address, which redirects here.
  */
-export const pairHref = (list: RosterList, person: RosterEntry): string =>
-  opensAs(list, person) === 'disciple'
-    ? `/roster?${new URLSearchParams({ list, pair: person.personId })}`
-    : `/roster/pair?${new URLSearchParams({ leaderId: person.personId })}`
+export const pairPopupHref = (list: RosterList, personId: string): string =>
+  `/roster?${new URLSearchParams({ list, pair: personId })}`
+
+/**
+ * Where Pair on a row goes: the popup over the list it was pressed on (Manual
+ * pairing, ticket 12), on whichever side `opensAs` gives, from a Disciple and from
+ * a Discipler alike since the old Pair page retired (recut ticket 05).
+ */
+export const pairHref = (list: RosterList, person: RosterEntry): string => pairPopupHref(list, person.personId)
 
 /**
  * Who `?pair=` opens the popup for, or null: somebody on this Ministry's Roster

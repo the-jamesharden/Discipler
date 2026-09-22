@@ -10,8 +10,8 @@ export const dynamic = 'force-dynamic'
 export default async function NoMaterialPage({
   searchParams,
 }: {
-  searchParams: Promise<{ gender?: string }>
+  searchParams: Promise<{ gender?: string; assignError?: string }>
 }) {
   const query = await searchParams
-  return <FolderPage which={{ kind: 'none' }} gender={query.gender} />
+  return <FolderPage which={{ kind: 'none' }} gender={query.gender} assignError={query.assignError} />
 }

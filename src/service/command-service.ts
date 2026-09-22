@@ -17,9 +17,11 @@ import {
   MaterialAssignmentRefused,
   PauseRefused,
 } from '~/domain/errors'
-import type { FollowUpItemId, IdSource, ImportRowId, PersonId } from '~/domain/ids'
+import type { FollowUpItemId, IdSource, ImportRowId, PersonId, RelationshipId } from '~/domain/ids'
+import { answersNoGroupInMind } from '~/domain/intake'
 import type { IntakeLinkToken } from '~/domain/intake-link'
 import type { InvitationToken } from '~/domain/invitations'
+import { settleRatesLine, whoseRatesLineIsAsked } from '~/domain/rates-line'
 import type { EffectStore, UnitOfWork } from './ports'
 
 export interface CommandServiceDependencies {
@@ -64,7 +66,7 @@ export interface CommandService {
    * the rest waiting. One transaction per plan, so one refusal never rolls back
    * another person's relationship -- and the database's own refusal of a pairing
    * (a cap, a race the snapshot could not see) is caught here and recorded by its
-   * code in a transaction of its own, exactly as the Pair page's route catches
+   * code in a transaction of its own, exactly as the Pair popup's route catches
    * the same refusal. Called after an Intake submission, after an import, and by
    * the scheduled tick (ADR-0022).
    */
@@ -79,6 +81,21 @@ export interface CommandService {
    * moment is accepted and is not withdrawn. Called by the scheduled tick's route.
    */
   withdrawLapsedInvitations(ministryId: MinistryId): Promise<number>
+
+  /**
+   * An Admin taking back the invitation one Person holds to one relationship
+   * (Unpair, James 2026-09-21), and whether there was one to take back. The token
+   * is found here and never handed to a surface: it is a credential, and the act
+   * is about a Person on a relationship. Decided again inside `invitation.withdraw`,
+   * behind the row an acceptance holds, which throws `InvitationRefused` where the
+   * invitation was answered in the same moment.
+   */
+  withdrawInvitationOf(
+    ministryId: MinistryId,
+    relationshipId: RelationshipId,
+    personId: PersonId,
+    withdrawnBy: string,
+  ): Promise<boolean>
 
   /**
    * Whether forming this relationship would be refused, without forming it: the
@@ -446,7 +463,15 @@ export const applyEffects = async (
   // reconstructed.
   const recorded = [...history, ...recordedWithAnItem]
   if (recorded.length > 0) await unit.appendHistory(recorded)
-  if (messages.length > 0) await unit.enqueueMessages(messages)
+
+  // Every text the command queues is settled against the rates line together,
+  // once they are all known: a Person has the line at most once a month, and only
+  // the whole list can say which of their texts is the first (Text wording,
+  // ticket 01).
+  if (messages.length > 0) {
+    const hadSoFar = await unit.ratesLineHistory(whoseRatesLineIsAsked(messages))
+    await unit.enqueueMessages(settleRatesLine(messages, hadSoFar))
+  }
 
   // Last of all. The outbound queue refuses a message to anybody with an open
   // opt-out, so a `STOP` applied ahead of a message enqueued by the same command
@@ -564,8 +589,8 @@ const editsTheMaterialList = (
 
 /**
  * Whether a command that is not an edit of the list still decides against it:
- * forming a relationship with the Material an Admin chose, or accepting one whose
- * intended Material is still to be spent. Forming or accepting anything else pays
+ * forming a relationship with the Material an Admin chose, assigning one, or
+ * accepting a relationship whose intended Material is still to be spent. Forming or accepting anything else pays
  * nothing, and takes no lock on the Ministry's list.
  */
 const consultsTheMaterialList = (
@@ -573,11 +598,16 @@ const consultsTheMaterialList = (
   invitation: InvitationSnapshot | undefined,
 ): boolean =>
   (command.type === 'relationship.create' && command.materialId !== undefined) ||
+  // Assigning a Material names one to check; the un-assign names none (Materials,
+  // ticket 03). Behind the list's own lock, so an assignment and a removal of
+  // the same Material cannot both decide from a list the other has changed.
+  (command.type === 'relationship.assign_material' && command.materialId !== null) ||
   // A withdrawal can activate a relationship as the last acceptance does, and
   // spends the intended Material the same way.
   ((command.type === 'relationship.accept' ||
     command.type === 'invitation.decline' ||
-    command.type === 'invitation.expire') &&
+    command.type === 'invitation.expire' ||
+    command.type === 'invitation.withdraw') &&
     invitation !== undefined &&
     invitation.intendedMaterialId !== null)
 
@@ -602,11 +632,15 @@ const isTokenDriven = (
       | 'invitation.dispute_number'
       | 'invitation.decline'
       | 'invitation.expire'
+      | 'invitation.withdraw'
   }
 > =>
   command.type === 'relationship.accept' ||
   command.type === 'invitation.dispute_number' ||
   command.type === 'invitation.decline' ||
+  // An Admin's, from a session the route checked. Driven by the token all the
+  // same, for the reason the tick's is.
+  command.type === 'invitation.withdraw' ||
   // The tick's, and no Leader's. It is driven by the token all the same: what it
   // decides from is the invitation as the database holds it, under the same locks.
   command.type === 'invitation.expire'
@@ -740,6 +774,9 @@ const joinRequestContext = async (unit: UnitOfWork, itemId: FollowUpItemId) => {
     joinRequest,
     ...(relationship ? { relationship } : {}),
     contacts: { people: await unit.contactsFor([joinRequest.personId]) },
+    // Their open item asking to be placed in a group, which being admitted to
+    // one answers (Group form exits, ticket 01).
+    placementWanted: await unit.openPlacementWantedFor(joinRequest.personId),
   }
 }
 
@@ -772,7 +809,12 @@ const groupToAddTo = async (
     // (Manual pairing, recut ticket 03). A Discipler asked to lead it never made
     // one: a Join Request is to be discipled in a group.
     ...(command.type === 'group.add_participant'
-      ? { joinRequest: await unit.openJoinRequestFor(command.personId, command.relationshipId) }
+      ? {
+          joinRequest: await unit.openJoinRequestFor(command.personId, command.relationshipId),
+          // And their open item asking to be placed in a group, which putting them
+          // in one answers (Group form exits, ticket 01).
+          placementWanted: await unit.openPlacementWantedFor(command.personId),
+        }
       : {}),
   }
 }
@@ -922,7 +964,9 @@ export const createCommandService = ({
         // everything else, so a door that closes between the page and the submit
         // is seen closed. Only when the body carries one: every other submission
         // pays nothing for a read it has no use for.
-        ...(command.type === 'intake.submit' && command.form.groupId
+        ...(command.type === 'intake.submit'
+        && command.form.groupId
+        && !answersNoGroupInMind(command.form.groupId)
           ? { groupToJoin: await unit.groupToJoin(command.form.groupId) }
           : {}),
         // The request an admission names, then the group and the Person it is
@@ -1095,6 +1139,16 @@ export const createCommandService = ({
       if (effects.some((effect) => effect.kind === 'invitation.withdraw')) withdrawn++
     }
     return withdrawn
+  },
+
+  async withdrawInvitationOf(ministryId, relationshipId, personId, withdrawnBy) {
+    const token = await store.transact(ministryId, (unit) =>
+      unit.unansweredInvitationOf(relationshipId, personId),
+    )
+    if (token === null) return false
+
+    await service.execute({ type: 'invitation.withdraw', ministryId, token, withdrawnBy })
+    return true
   },
 
   async settleIntendedPairings(ministryId) {

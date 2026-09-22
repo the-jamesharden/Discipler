@@ -38,6 +38,7 @@ import { createSupabaseOverviewReader } from '~/platform/supabase/overview-reade
 import { createTwilioTransport } from '~/platform/twilio/message-transport'
 import { supabaseAccounts } from '~/platform/supabase/accounts'
 import { createSupabaseRosterReader } from '~/platform/supabase/roster-reader'
+import { createSupabaseSuggestedPairsReader } from '~/platform/supabase/suggested-pairs-reader'
 import { createCommandService, type CommandService } from './command-service'
 import { dispatchQueue, type DispatchOutcome } from './outbound-dispatch'
 import type {
@@ -57,6 +58,7 @@ import type {
   OutboundQueue,
   OverviewReader,
   RosterReader,
+  SuggestedPairsReader,
 } from './ports'
 
 /**
@@ -290,6 +292,14 @@ export const getMinistrySettingsReader = (): MinistrySettingsReader =>
  */
 export const getCareNeededReader = (): CareNeededReader =>
   createSupabaseCareNeededReader(systemClock)
+
+/**
+ * Suggested Pairs reads through the signed-in Admin's session, so the Roster's own
+ * Admin test and the policies scope it. The clock is for the badge alone: the
+ * ranking needs none.
+ */
+export const getSuggestedPairsReader = (): SuggestedPairsReader =>
+  createSupabaseSuggestedPairsReader(systemClock)
 
 /**
  * The Overview reads through the signed-in Admin's session, so the policies on

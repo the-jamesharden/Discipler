@@ -1,4 +1,4 @@
-import type { MaterialRefusal } from '~/domain/errors'
+import type { MaterialAssignmentRefusal, MaterialRefusal } from '~/domain/errors'
 import { GENDERS, isOneOf, type Gender } from '~/domain/intake'
 import { LARGEST_PDF_BYTES } from '~/domain/materials'
 import type { ClosedMaterialPeriod } from '~/service/ports'
@@ -94,6 +94,12 @@ const calendarDay = (instant: Date, timeZone: string) => {
 export const dayMonthYear = (instant: Date, timeZone: string): string => {
   const { day, month, year } = calendarDay(instant, timeZone)
   return `${day} ${MONTHS[month - 1]} ${year}`
+}
+
+/** *9 Sep*, the same date without its year, as S-8 of the Materials design prints it. */
+export const dayMonth = (instant: Date, timeZone: string): string => {
+  const { day, month } = calendarDay(instant, timeZone)
+  return `${day} ${MONTHS[month - 1]}`
 }
 
 /**
@@ -206,3 +212,30 @@ const REFUSALS: Record<MaterialRefusal, string> = {
  */
 export const refusalMessage = (code: string | undefined): string | null =>
   refusalIn(REFUSALS, code)
+
+// ---------------------------------------------------------------------------
+// Assigning (Materials, ticket 03)
+// ---------------------------------------------------------------------------
+
+/** The assign row's button in a Material's folder, where there is something to save over. */
+export const SAVE_ASSIGNMENT = 'Save'
+/** The same button in the no-material folder, where there is not. */
+export const ASSIGN = 'Assign'
+/** The line the no-material folder's dropdown opens on. */
+export const CHOOSE_A_MATERIAL = 'Choose a material…'
+/** The dropdown's own name, for a screen reader: the row has no visible label. */
+export const MATERIAL_LABEL = 'Material'
+
+const ASSIGNMENT_REFUSALS: Record<MaterialAssignmentRefusal, string> = {
+  'material.relationship_not_found': 'That relationship is not on this Roster any more.',
+  'material.relationship_not_accepted':
+    'A material can be assigned once its leader has accepted the invitation. Until then the relationship has not started.',
+  'material.relationship_ended': 'That relationship has ended, so there is nothing left to change.',
+  'material.not_found': 'That material is no longer on the list. Somebody may have removed it.',
+  'material.assigner_is_not_in_this_ministry': 'This account cannot assign materials here.',
+  'material.already_running': 'It is already working through that material, so nothing changed.',
+}
+
+/** The sentence for an assignment refused from a folder's card, or null for a code it does not know. */
+export const assignmentRefusalMessage = (code: string | undefined): string | null =>
+  refusalIn(ASSIGNMENT_REFUSALS, code)

@@ -4,11 +4,13 @@ import { personIdFrom } from '~/domain/ids'
 import { RELATIONSHIP_OUTCOMES } from '~/domain/relationships'
 import { getCareNeededReader } from '~/service/container'
 import type { CareMember, CareNeededItem } from '~/service/ports'
+import { LIST_OF_SIDE, pairPopupHref } from '../roster/lists'
 import { AdminShell, NotAnAdmin } from '../shell'
 import { ReinviteButton } from './reinvite-button'
 import {
   CANCEL,
   CARE_NEEDED_HEADING,
+  CHOOSE_A_GROUP,
   careOutcomeMessage,
   careRefusalMessage,
   concernLine,
@@ -38,6 +40,8 @@ import {
   stalledTag,
   whoIsInIt,
   PAIR_BY_HAND,
+  PLACE_IN_THIS_GROUP,
+  placementLine,
 } from './copy'
 
 export const dynamic = 'force-dynamic'
@@ -128,7 +132,60 @@ const EndForm = ({ relationshipId }: { readonly relationshipId: string }) => (
   </details>
 )
 
+/**
+ * *Wants a group*, as S-8 draws it (Group form exits, ticket 01): the groups open
+ * to them in a dropdown with **Place in this group**, and **Resolve**. Nothing
+ * else: there is no relationship to end, and their number is on their Roster
+ * page behind the same consent rule as everywhere else.
+ */
+const PlacementItem = ({ item }: { readonly item: Extract<CareNeededItem, { source: 'follow_up' }> }) => {
+  const placement = item.placement
+  return (
+    <li className="fu review" id={`item-${item.id}`}>
+      <div className="fu-tags">
+        <span className="fu-tag review">{followUpTag[item.payload.kind]}</span>
+        {item.personName ? <span className="fu-who">{item.personName}</span> : null}
+      </div>
+      <p className="fu-line">
+        {placement
+          ? placementLine(item.raisedAt, placement)
+          : followUpLine(item.payload, item.personName, item.waitedDays)}
+      </p>
+      <div className="fu-actions">
+        {placement && item.personId && placement.groups.length > 0 ? (
+          <form method="post" action="/follow-up/place" className="mat-assign fu-place">
+            <input type="hidden" name="personId" value={item.personId} />
+            <select name="groupId" aria-label="Group" required defaultValue="">
+              <option value="" disabled>
+                {CHOOSE_A_GROUP}
+              </option>
+              {placement.groups.map((group) => (
+                <option key={group.relationshipId} value={group.relationshipId}>
+                  {group.name}
+                </option>
+              ))}
+            </select>
+            <button type="submit" className="fu-btn">
+              {PLACE_IN_THIS_GROUP}
+            </button>
+          </form>
+        ) : null}
+        <form method="post" action="/follow-up/resolve">
+          <input type="hidden" name="itemId" value={item.id} />
+          <button type="submit" className="fu-btn danger">
+            {RESOLVE}
+          </button>
+        </form>
+      </div>
+    </li>
+  )
+}
+
 const Item = ({ item, revealed }: { readonly item: CareNeededItem; readonly revealed: Revealed | null }) => {
+  if (item.source === 'follow_up' && item.payload.kind === 'group_placement_wanted') {
+    return <PlacementItem item={item} />
+  }
+
   if (item.source === 'follow_up') {
     const relationship = item.relationshipId
     const kind = item.payload.kind
@@ -195,7 +252,9 @@ const Item = ({ item, revealed }: { readonly item: CareNeededItem; readonly reve
             </form>
           ) : null}
           {kind === 'intended_pairing_refused' && item.personId ? (
-            <Link className="fu-btn" href={`/roster/pair?with=${item.personId}`}>
+            // The Pair popup for them on the Disciple's side, as the old Pair page's
+            // link had them (Manual pairing, recut ticket 05).
+            <Link className="fu-btn" href={pairPopupHref(LIST_OF_SIDE.disciple, item.personId)}>
               {PAIR_BY_HAND}
             </Link>
           ) : null}

@@ -57,6 +57,17 @@ export const offeredAs = (popup: string, field: string): readonly (string | unde
     .filter((input) => attribute(input, 'name') === field && attribute(input, 'type') !== 'hidden')
     .map((input) => attribute(input, 'value'))
 
+/**
+ * Who and what is chosen in the list: every mark on a row that is ticked or pressed,
+ * by the value it would post. The toggles beneath the list have a segment on at all
+ * times, so what is chosen is read off the rows and never off the whole popup.
+ */
+export const chosenIn = (popup: string): readonly (string | undefined)[] =>
+  inputsIn(popup)
+    .filter((input) => ['participantId', 'leaderId', 'groupId'].includes(attribute(input, 'name') ?? ''))
+    .filter((input) => /\schecked=""/.test(input))
+    .map((input) => attribute(input, 'value'))
+
 /** What the form posts without being asked. */
 export const hiddenIn = (popup: string): Record<string, string | undefined> =>
   Object.fromEntries(
@@ -78,6 +89,15 @@ export const expectGreyed = (popup: string, personId: string, reason: string): v
   const described = attribute(mark, 'aria-describedby')
   expect(described, reason).toBeDefined()
   expect(row, reason).toMatch(new RegExp(`id="${described}"[^>]*>${reason}<`))
+}
+
+/**
+ * Somebody who is not shown at all (James, 2026-09-21): whoever gender rules out of
+ * what is being made, from either side of the popup. Not greyed with a reason: no
+ * row, no mark, and so nothing a form could post.
+ */
+export const expectLeftOut = (popup: string, personId: string): void => {
+  expect(popup, personId).not.toContain(`value="${personId}"`)
 }
 
 export const expectOpen = (popup: string, personId: string): void => {

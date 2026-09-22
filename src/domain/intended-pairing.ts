@@ -76,7 +76,7 @@ export type FulfilmentDecision =
  *
  * Decided here for the ordinary cases so the reason is the domain's, and left to
  * the database for the rest: the participation caps and any race are refused by
- * the same constraints that refuse the Pair page, and the service records that
+ * the same constraints that refuse the Pair popup, and the service records that
  * refusal by its code. The order matters. An opt-out is a decision the person
  * made and outranks anything still to come; Intake not yet completed is *wait*,
  * because that is what the plan exists to wait for; and a gender that does not

@@ -33,9 +33,9 @@ import {
  * semester never overlap and never leave a gap, and that the database refuses to
  * hold a set that does.
  *
- * There is no screen for any of this and there will not be one in V1. That is
- * exactly why it is proven here: the history has to be complete from the first
- * week of the pilot, and nothing can reconstruct it afterwards.
+ * The screens came later (Materials, ticket 03); the rules are proven here
+ * because the history has to be complete from the first week of the pilot, and
+ * nothing can reconstruct it afterwards.
  */
 
 describe('the Material a relationship is working through', () => {
@@ -97,7 +97,7 @@ describe('the Material a relationship is working through', () => {
 
   const assign = (
     relationship: RelationshipId,
-    material: MaterialId,
+    material: MaterialId | null,
     by: string = ministry.adminUserId,
   ) =>
     service().execute({
@@ -493,24 +493,24 @@ describe('the Material a relationship is working through', () => {
       )
     })
 
-    it('refuses a second period with no Material, which would read as an un-assignment', async () => {
+    it('holds a later period with no Material, which is an un-assignment', async () => {
       const relationship = await aRelationship()
       const romans = materialId(await addMaterial(ministry, 'Romans ' + ++numbered))
 
       at(new Date(acceptedAt.getTime() + days(7)))
       await assign(relationship, romans)
 
-      // Contiguous, non-overlapping, and still wrong: those weeks had a Material,
-      // and a null row says none was in use. Nothing produces this -- there is no
-      // un-assign -- which is exactly why the schema has to be what refuses it.
-      await expect(
-        rewritePeriods(
-          relationship,
-          new Date(acceptedAt.getTime() + days(21)),
-          null,
-          new Date(acceptedAt.getTime() + days(21)),
-        ),
-      ).rejects.toThrow(/material_assignment_one_opening_period/)
+      // Refused until Materials, ticket 03, by an index saying there is only ever
+      // one period with no Material. The grill asked for an un-assign, so the
+      // index went; contiguity and the opening period are still the trigger's.
+      const unassignedAt = new Date(acceptedAt.getTime() + days(21))
+      await rewritePeriods(relationship, unassignedAt, null, unassignedAt)
+
+      expect((await periodsOf(relationship)).map((period) => period.material_id)).toEqual([
+        null,
+        romans,
+        null,
+      ])
     })
 
     it('accepts two Materials assigned at the instant of acceptance, however the ties sort', async () => {
@@ -640,6 +640,123 @@ describe('the Material a relationship is working through', () => {
           [ministry.id, 'Half ' + ++numbered, `${ministry.id}/a-file.pdf`],
         ),
       ).rejects.toThrow(/material_pdf_is_whole/)
+    })
+  })
+
+  describe('taking a relationship off its Material, and the one already running (Materials, ticket 03)', () => {
+    it('un-assigns as a later period with no Material, closed and opened at one instant', async () => {
+      const relationship = await aRelationship()
+      const romans = materialId(await addMaterial(ministry, 'Romans ' + ++numbered))
+
+      const assignedAt = new Date(acceptedAt.getTime() + days(7))
+      const unassignedAt = new Date(acceptedAt.getTime() + days(28))
+      at(assignedAt)
+      await assign(relationship, romans)
+      at(unassignedAt)
+      await assign(relationship, null)
+
+      const periods = await periodsOf(relationship)
+      expect(periods.map((period) => period.material_id)).toEqual([null, romans, null])
+      expect(periods.map((period) => period.ended_at)).toEqual([assignedAt, unassignedAt, null])
+      expect(periods[2]?.assigned_by).toBe(ministry.adminUserId)
+
+      // And a week after it reads as none, which is now a fact about those weeks.
+      expect(
+        materialForWeek(await readPeriods(relationship), {
+          openedAt: new Date(acceptedAt.getTime() + days(35)),
+          firstAnsweredAt: null,
+        })?.materialId,
+      ).toBeNull()
+    })
+
+    it('refuses the Material already running and writes no period', async () => {
+      const relationship = await aRelationship()
+      const romans = materialId(await addMaterial(ministry, 'Romans ' + ++numbered))
+
+      at(new Date(acceptedAt.getTime() + days(7)))
+      await assign(relationship, romans)
+      at(new Date(acceptedAt.getTime() + days(14)))
+      await expect(assign(relationship, romans)).rejects.toThrow(
+        new MaterialAssignmentRefused('material.already_running'),
+      )
+
+      expect(await periodsOf(relationship)).toHaveLength(2)
+    })
+
+    it('refuses no Material on a relationship already on none', async () => {
+      const relationship = await aRelationship()
+
+      at(new Date(acceptedAt.getTime() + days(7)))
+      await expect(assign(relationship, null)).rejects.toThrow(
+        new MaterialAssignmentRefused('material.already_running'),
+      )
+      expect(await periodsOf(relationship)).toHaveLength(1)
+    })
+
+    it('still answers an opening period asked for twice as the defect it is', async () => {
+      const relationship = await aRelationship()
+
+      // No Admin behind it, which is acceptance's shape: an un-assignment always
+      // names the Admin who made it.
+      const { rows } = await pool.query<{ refusal: string | null }>(
+        `select app.assign_material($1, null, $2, null) as refusal`,
+        [relationship, new Date(acceptedAt.getTime() + days(7))],
+      )
+      expect(rows[0]?.refusal).toBe('material_history_already_open')
+    })
+
+    it('answers an Admin un-assigning a history nobody opened as the defect it is', async () => {
+      const relationship = await aRelationship()
+      await pool.query(`delete from material_assignment where relationship_id = $1`, [relationship])
+
+      const { rows } = await pool.query<{ refusal: string | null }>(
+        `select app.assign_material($1, null, $2, $3) as refusal`,
+        [relationship, new Date(acceptedAt.getTime() + days(7)), ministry.adminUserId],
+      )
+      expect(rows[0]?.refusal).toBe('material_history_not_open')
+    })
+
+    it('refuses a Material the Ministry has removed', async () => {
+      const relationship = await aRelationship()
+      const gone = materialId(await addMaterial(ministry, 'Gone ' + ++numbered))
+      await pool.query(`update material set removed = now() where id = $1`, [gone])
+
+      at(new Date(acceptedAt.getTime() + days(7)))
+      await expect(assign(relationship, gone)).rejects.toThrow(
+        new MaterialAssignmentRefused('material.not_found'),
+      )
+      expect(await periodsOf(relationship)).toHaveLength(1)
+    })
+
+    it('names the running Material on the group form, and nothing once it is off it', async () => {
+      const group = relationshipId(await createRelationship(ministry, 'group', { acceptedAt }))
+      await pool.query(`update relationship set name = $2 where id = $1`, [group, 'Group ' + ++numbered])
+      await addMembership({
+        ministry,
+        relationshipId: group,
+        kind: 'group',
+        personId: await roster('Leader ' + ++numbered),
+        role: 'leader',
+        startedAt: acceptedAt,
+      })
+      const title = 'Romans ' + ++numbered
+      const romans = materialId(await addMaterial(ministry, title))
+
+      const offered = async () => {
+        const { rows } = await pool.query<{ relationship_id: string; material_title: string | null }>(
+          `select relationship_id, material_title from public.groups_open_to_join($1)`,
+          [ministry.id],
+        )
+        return rows.find((row) => row.relationship_id === group)?.material_title
+      }
+
+      expect(await offered()).toBeNull()
+      at(new Date(acceptedAt.getTime() + days(7)))
+      await assign(group, romans)
+      expect(await offered()).toBe(title)
+      at(new Date(acceptedAt.getTime() + days(14)))
+      await assign(group, null)
+      expect(await offered()).toBeNull()
     })
   })
 

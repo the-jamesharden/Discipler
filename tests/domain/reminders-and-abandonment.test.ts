@@ -11,7 +11,7 @@ import {
 } from '~/domain/check-in'
 import type { Effect } from '~/domain/effects'
 import { createSequentialIds, ministryId, personId, relationshipId } from '~/domain/ids'
-import { withoutTheSweep } from '../support/effects'
+import { readAfterTheLineThisMonth, withoutTheSweep } from '../support/effects'
 import { anInboundSnapshot } from '../support/inbound'
 
 /**
@@ -52,6 +52,7 @@ const leads = (id: typeof emily, startedOn: string, names: readonly string[]): C
   name: null,
   acceptedAt: new Date(startedOn),
   paused: false,
+  stillLed: true,
   cadence: { day: 1, hour: 20 },
 })
 
@@ -564,6 +565,57 @@ describe('a Pause reaching a relationship before its turn in the conversation di
   })
 })
 
+/**
+ * The same rule for a relationship that is no longer this Leader's to be asked
+ * about (Unpair, James 2026-09-21): it ended, or they left a group another Leader
+ * goes on leading. `covering` was fixed when the conversation opened, so it is
+ * still in the list, and every route that moves the conversation on steps over it
+ * exactly as it steps over a paused one.
+ */
+describe('a relationship that ended, or that its Leader left, before its turn in the conversation', () => {
+  const MARCUS_QUESTION =
+    'ABC Church: Did you meet with Marcus and Dan this week? Reply 1 for yes, 2 for no.'
+
+  const noLongerLeading = (...ids: readonly (typeof emily)[]) => {
+    const relationships = covering.map((relationship) => ({
+      ...relationship,
+      stillLed: !ids.includes(relationship.relationshipId),
+    }))
+    // What they lead now no longer holds it; the conversation's own list still does.
+    return snapshot({
+      leads: relationships.filter((relationship) => relationship.stillLed),
+      openSequence: openSequence({ covering: relationships }),
+    })
+  }
+
+  it('asks nothing about it when a reply moves the conversation on, and finishes properly', () => {
+    const result = replying('2', noLongerLeading(marcus))
+
+    expect(bodies(result.effects)).not.toContain(MARCUS_QUESTION)
+    expect(historyTypes(result.effects)).toContain('checkin.sequence_completed')
+  })
+
+  it('takes back the question that was out about it at the next tick, and asks the next one', () => {
+    // Emily's pairing was ended an hour after her question went out. It is not
+    // chased: a reminder about a pairing that is over is the one text an ending
+    // must not be followed by.
+    const result = ticking(after(hours(24)), noLongerLeading(emily))
+
+    expect(eventOf(result.effects, 'checkin.question_withdrawn')).toMatchObject({
+      subjectId: emily,
+      payload: { sequenceId, promptId, question: 'met', reason: 'no_longer_led' },
+    })
+    expect(historyTypes(result.effects)).not.toContain('checkin.question_reminded')
+    expect(bodies(result.effects)).toEqual([MARCUS_QUESTION])
+  })
+
+  it('still records an answer that arrives first, because the week it is about happened', () => {
+    const result = replying('2', noLongerLeading(emily))
+
+    expect(result.effects.filter((effect) => effect.kind === 'checkin.answer')).toHaveLength(1)
+  })
+})
+
 describe('a new week displacing a question a Pause had already taken back', () => {
   it('withdraws it on the way past rather than leaving it as silence', () => {
     // The one Admin whose Pause is displaced before any tick notices it: they
@@ -590,7 +642,11 @@ describe('a new week displacing a question a Pause had already taken back', () =
   })
 
   it('opens the new conversation about the relationships still running', () => {
-    expect(bodies(ticking(nextWeek, withPaused(emily)).effects)).toEqual([
+    expect(
+      readAfterTheLineThisMonth(ticking(nextWeek, withPaused(emily)).effects).map(
+        (message) => message.body,
+      ),
+    ).toEqual([
       'ABC Church: Did you meet with Marcus and Dan this week? Reply 1 for yes, 2 for no.',
     ])
   })

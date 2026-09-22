@@ -168,13 +168,13 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Disciple', () =>
     expect(chosenFrom(popup!)).not.toContain(both)
     expect(asDisciple.html).toContain(`href="/roster?list=disciples&amp;pair=${both}"`)
 
-    // As a Discipler on Disciplers and on All. Her row still goes to the old Pair
-    // page until it retires; by its address the popup opens on the
-    // Discipler's side (Manual pairing, ticket 23), and never lists her own name.
+    // As a Discipler on Disciplers and on All: her row opens the popup on the
+    // Discipler's side (Manual pairing, ticket 23, and recut ticket 05), which
+    // never lists her own name.
     for (const list of ['disciplers', 'all']) {
       const { html } = await getPage(`/roster?list=${list}`, cookie)
-      expect(html, list).toContain(`href="/roster/pair?leaderId=${both}"`)
-      expect(html, list).not.toContain(`pair=${both}`)
+      expect(html, list).toContain(`href="/roster?list=${list}&amp;pair=${both}"`)
+      expect(html, list).not.toContain('href="/roster/pair')
 
       const asDiscipler = await popupAt(list, both)
       expect(asDiscipler.response.status, list).toBe(200)
@@ -331,13 +331,27 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Disciple', () =>
     expect(popup).not.toContain('in a one-on-one')
   })
 
-  it('leaves the old Pair page’s refusals on the old Pair page', async () => {
+  it('returns a refusal of a form with no popup of its own to its Discipler’s popup', async () => {
+    // Manual pairing, recut ticket 05: the old Pair page is gone, and every refusal
+    // returns to the popup. No `pair` field, as the old page's form posted.
     const disciple = await addPerson(ministry, 'Vera Lindqvist', { phone: number(), answers: { gender: 'female' } })
     const discipler = await addPerson(ministry, 'Walt Brenner', { phone: number(), answers: { gender: 'male' } })
 
-    // No `pair` field: this is the old page's own form.
     const location = await submit({ participantId: disciple, leaderId: discipler })
-    expect(location.pathname).toBe('/roster/pair')
+    expect(location.pathname).toBe('/roster')
+    expect(location.searchParams.get('list')).toBe('disciplers')
+    expect(location.searchParams.get('pair')).toBe(discipler)
+    expect(location.searchParams.getAll('with')).toEqual([disciple])
     expect(location.searchParams.get('error')).toBe('relationship.gender_must_match')
+
+    // And to the Disciple's, where it names no Discipler.
+    const alone = await submit({ participantId: disciple })
+    expect(alone.pathname).toBe('/roster')
+    expect(alone.searchParams.get('list')).toBe('disciples')
+    expect(alone.searchParams.get('pair')).toBe(disciple)
+    expect(alone.searchParams.get('error')).toBe('relationship.needs_a_leader')
+    const popup = popupIn((await getPage(`${alone.pathname}${alone.search}`, cookie)).html)!
+    expect(popup).toContain('Pair Vera Lindqvist')
+    expect(popup).toMatch(/role="alert"/)
   })
 })

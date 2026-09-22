@@ -43,6 +43,30 @@ The wording covers relationships of any size, because a relationship is one lead
 
 A person can reasonably agree to hear from their church and not agree to have their number handed to another congregant. Bundling them into one checkbox would make both unreliable and would leave Discipler unable to answer what someone actually agreed to.
 
+## What the texts themselves say about opting out
+
+The statements above are what a person agrees to, once.
+The texts they then receive carry a shorter line, the rates line: *Msg & data rates may apply. Reply STOP to opt out, HELP for help.*
+It is not consent wording, so this section changes no version identifier.
+
+It is not on every text (James, 2026-09-21).
+A person is sent it at most once in a calendar month, on the first text of that month that may carry it, and it is left off the rest.
+The month is the Ministry's own, by its timezone.
+It is decided per person and not per relationship, so a leader of three relationships reads it once.
+
+- The Welcome Message, which is first contact and the receipt for this consent, always carries it.
+- The `HELP` reply always carries it, because saying how to make the texts stop is what it is for.
+- The Starter Messages, the text a leader gets when somebody joins their group, a resume, and the question that opens a check-in may carry it, and do where the person has not been queued it yet that month.
+- No other text carries it.
+
+Each queued text records whether it carried the line, and that record is what later texts are decided against, never the text's wording.
+A text withheld at send time, because by then the person had opted out or had no consent or number, does not count: nobody read it.
+A text the vendor refused does count, because it stays on the queue and is tried again until it goes.
+
+The rule is in `src/domain/rates-line.ts`.
+Carriers and the CTIA guidance ask for opt-out instructions on the first message and at regular intervals on a recurring program, and once a month is the interval this product chose.
+That reading has not been checked against the A2P campaign as registered, and should be before the first pilot.
+
 ## What is not covered here
 
 These statements cover messaging and contact sharing only. They are not a privacy policy, not terms of service, and not consent to any use of a person's data beyond operating their own discipleship relationship and their own ministry's reporting.

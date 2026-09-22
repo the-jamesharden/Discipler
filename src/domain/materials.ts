@@ -24,9 +24,10 @@ import { readWording } from './wording'
 /**
  * One period a relationship spent on one Material.
  *
- * `materialId` is null on exactly one period: the one acceptance opens, before
- * the Ministry has assigned anything. That is a real period with no Material in
- * it rather than an absence of rows -- a report asking what was in use that week
+ * `materialId` is null on the period acceptance opens, before the Ministry has
+ * assigned anything, and on any later one an Admin opened by un-assigning
+ * (Materials, ticket 03). That is a real period with no Material in it rather
+ * than an absence of rows -- a report asking what was in use that week
  * then gets *none*, which is a fact, instead of nothing at all, which is
  * indistinguishable from a defect.
  *

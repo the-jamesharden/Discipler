@@ -18,6 +18,7 @@ import {
   type MinistryFixture,
 } from '../support/local-supabase'
 import { asDocument, asRows } from '../support/page-document'
+import { offersToMentor, popupIn } from '../support/pair-popup'
 
 /**
  * Three facts the pairing form needs and the Roster's document never carried:
@@ -276,17 +277,24 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair screen, loaded by a signed-in 
   it('still answers, as the Roster and the person page beside it do', async () => {
     const ministry = await createPermissiveMinistry('Loaded Chapel')
     const amara = await addPerson(ministry, 'Amara Blythe', { answers: { gender: 'female' } })
-    await addPerson(ministry, 'Bruno Clay', { answers: { gender: 'male' } })
+    const bruno = await addPerson(ministry, 'Bruno Clay', { answers: { gender: 'male' } })
+    // A Discipler, so that each side of the popup has somebody to list.
+    const pool = new pg.Pool({ connectionString: localSupabase().databaseUrl })
+    await offersToMentor(pool, ministry, bruno).finally(() => pool.end())
     await addPerson(ministry, 'Nico Unasked', { intake: false })
     await addMaterial(ministry, 'Romans')
     await addRemovedMaterial(ministry, 'James')
 
     const { cookie } = await signIn(ministry)
 
-    const pair = await getPage(`/roster/pair?with=${amara}`, cookie)
-    expect(pair.response.status).toBe(200)
-    expect(pair.html).toContain('Amara Blythe')
-    expect(pair.html).toContain('Bruno Clay')
+    // The Pair popup, which the old Pair page's address opens now (Manual pairing,
+    // recut ticket 05), from each side.
+    const fromHer = await getPage(`/roster?list=disciples&pair=${amara}`, cookie)
+    expect(fromHer.response.status).toBe(200)
+    expect(popupIn(fromHer.html)).toContain('Bruno Clay')
+    const fromHim = await getPage(`/roster?list=disciplers&pair=${bruno}`, cookie)
+    expect(fromHim.response.status).toBe(200)
+    expect(popupIn(fromHim.html)).toContain('Amara Blythe')
 
     expect((await getPage('/roster', cookie)).response.status).toBe(200)
     expect((await getPage(`/roster/${amara}`, cookie)).response.status).toBe(200)

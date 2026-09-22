@@ -42,24 +42,3 @@ export const declaredGenderFromField = (field: unknown): Gender | null | undefin
  * describe the argument rather than the result.
  */
 export const declaredGenderToField = (declared: Gender | null): GroupDeclaration => declared ?? MIXED
-
-/**
- * The label each gender wears on the form. Keyed by `Gender` rather than listed
- * beside a second copy of the gender set, so a gender added to the domain fails the
- * build here instead of silently going missing from the one screen that declares one.
- */
-const GENDER_LABELS: Record<Gender, string> = {
-  male: 'A men’s group — everybody in it is a man',
-  female: 'A women’s group — everybody in it is a woman',
-}
-
-/**
- * The answers the form offers, in the order `GENDERS` declares them and mixed last,
- * with nothing preselected: the product asks a group's gender rather than deriving it
- * (see `needsAGenderDeclaration` in src/domain/relationships.ts for why), and a
- * checked radio would be a derivation wearing a question.
- */
-export const DECLARED_GENDER_OPTIONS: readonly { value: string; label: string }[] = [
-  ...GENDERS.map((gender) => ({ value: gender, label: GENDER_LABELS[gender] })),
-  { value: MIXED, label: 'Mixed — men and women together' },
-]

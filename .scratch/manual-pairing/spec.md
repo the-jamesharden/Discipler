@@ -35,12 +35,51 @@ Two tickets from the first version landed and nothing here undoes them.
 - **Removed:** the participation status chip under every name, the footnote under the table that explains it, and the *Offered to mentor* tag.
   Participation Status stays in the model and still decides who can be paired.
   Answering Mentor on Intake still makes somebody a Discipler; the Disciplers toggle already says so without a tag.
+- **Back, as one tag beside the name (James, 2026-09-21):** somebody who has not completed Intake is tagged **Awaiting Intake** beside their name, on every list.
+  An import files people who have answered nothing, and they looked like everybody else until an Admin went to pair them.
+  It is read off Participation Status and not off how the person arrived, so it is on anybody who has not completed Intake, whichever layout imported them.
+  No other status is tagged.
 - **Removed:** the *Pair people* button, from the Roster and from Suggested Pairs.
   Every pairing starts from a row.
 - **Removed, and pinned:** *Eligible to lead* left the app on 2026-09-07 (`b8894d5`) and survives only in the design prototype `.scratch/core-operating-loop/design/discipler-dashboard-v10.html`.
   A test asserts the words never appear on the Roster.
-- With the chip gone, a row that cannot be paired says why in its Paired with cell: **Awaiting Intake** or **Opted out**, in place of *Unpaired* and a Pair button.
+- A row that cannot be paired offers no Pair button and says why once.
+  **Awaiting Intake** is the tag beside the name, and the Paired with cell does not say it again: it reads *Unpaired*, or the plans the row holds.
+  **Opted out** is said in the Paired with cell, in place of *Unpaired*.
 - **Pair** appears on every Discipler row, including a Discipler who already leads somebody, and on every Disciple row whose person has completed Intake and not opted out.
+
+## Unpair, on a person's page
+
+Decided by James on 2026-09-21, from a mock-up on the real person pages (`.lavish/unpair/index.html`, gitignored).
+Before this, a pairing could be ended only from a Follow-Up item, so a healthy pairing could not be ended at all.
+
+- **Unpair** sits on the Pairings card of a person's page, one beside each pairing, because a person can hold several.
+  It is not on a Roster row.
+- One word for four acts, and `app/roster/unpair.ts` is the one rule that picks between them.
+  The page draws the button from it and the route reads the Roster again and acts from it.
+- A pairing nobody has accepted is cancelled in one press, and nothing is asked: it never started, so it has no outcome.
+  A group nobody has accepted is cancelled from its Discipler's page after one confirmation, because it is everybody's.
+- A pairing that has started ends, from either person's page, and is asked one thing: **It finished well** or **It did not run its course**, which are the model's `completed` and `discontinued`.
+  The reason is optional here; a blank one is recorded as *Unpaired from the Roster.*, and who did it is recorded beside it as it always was.
+  Follow-Up's **End relationship** still asks for both.
+- A Disciple in a group is taken out of it in one press and the group goes on, whether or not anybody has accepted it yet.
+  Where she is the last Disciple in a group that has started, that is an ending and asks the same one thing.
+  Where she is the last in one nobody has accepted, her line offers nothing: that is the whole of it being withdrawn, which is on its Discipler's page.
+- From the page of the one Discipler who leads a group, Unpair ends the whole group, and the question names everybody it ends for before it does.
+- A Discipler who leads a group beside another who has accepted is taken out of it after one confirmation that says who goes on leading it, and the group goes on.
+  This is new in the model: `relationship.depart` takes a Leader where another Leader who has accepted remains, recorded as `relationship.leader_departed`, and the database checks who is left behind the same lock.
+  A Discipler still to answer is nobody a group can be left with.
+- A Discipler invited to a group that is already running holds an invitation and leads nothing.
+  Unpair takes the invitation back in one press (`invitation.withdraw`): the link opens what a link that has run out opens, their unaccepted membership ends, and nothing is raised on Follow-Up, because the Admin who would be told is the one who did it.
+  The invitation row records it as `withdrawn`, which is a migration.
+- Nobody is sent anything and nothing is deleted, whichever act it is.
+- The line names the group where the Ministry has named it, *Discipling Thursday Table: Ana Ruiz, Mia Chen*, and so does the question.
+  The name rides on the Roster's document, which is a migration.
+- **A conversation already under way steps over what its Leader no longer leads.**
+  A check-in's list of relationships is fixed when it opens, so a pairing ended since, or a group its Leader has left, was still in it, and was still asked about.
+  It is now stepped over exactly as a paused one is, and a question already out about it is taken back at the next tick and not reminded.
+  An answer that arrives first is still recorded, because the week it is about happened.
+  This was true of Follow-Up's End relationship before Unpair existed.
 
 ## Where the popup lives
 
@@ -78,7 +117,10 @@ Beneath it, one line saying who the list is for.
 
 ### The shape toggle
 
-- Hidden while zero or one Disciple is ticked.
+- There from the moment the popup opens (James, 2026-09-21, from the mock-up in `.lavish/coed-and-the-gender-toggle/`), and hidden only while a group that exists is chosen.
+  This replaces *hidden while zero or one Disciple is ticked*: with whoever gender rules out off the list, Coed has to be reachable before anybody is ticked, or a Discipler whose Disciples are all of another gender could never make a coed group.
+- Below two ticked: **1:1 pair** · **Group**, on 1:1 pair.
+  A Group picked here asks what a Group asks, says *A group needs two or more checked* beneath the toggle in grey, and its button, **Create group**, waits for two ticks as well as a name.
 - At two: **1:2 pair** · **2 × 1:1 pairs** · **Group**, defaulting to 1:2 pair.
 - At three or more: **1:2 pair** is struck out, *1:2 pair needs exactly two checked* appears beneath the toggle in grey, and the default moves to Group.
 - The N in *N × 1:1 pairs* counts live.
@@ -130,8 +172,9 @@ Title: **Pair Sam Lee**.
   Nothing an Admin can change from this side would open such a row, so it is only in the way.
   Somebody with no gender on file is never left out.
   Where that leaves the list empty, the popup says only *There is nobody to choose yet.*
-  **Open, and James's to decide:** whether a Disciple's row in the popup from a Discipler is hidden in the same way.
-  It is greyed today, as **Gender** below says, because there Coed opens the row again and that is how a coed group is made by hand; James's words were unqualified, and he has not been asked about that argument.
+  **And from a Discipler too** (James, 2026-09-21, reviewing ticket 04: "use the filter").
+  There the answer follows the ticks and the toggles, as **Gender** below says: a row gender rules out is not shown, and is on the list, where it belongs in it, once a Coed Group opens it.
+  It does not fade: a fade was built and James had it taken out the same day.
 - A Discipler who has not completed Intake, or who has opted out, is greyed with the words their Roster row already says, **Awaiting Intake** or **Opted out**.
   The database refuses a pairing led by either, and they get no Pair on their own row for the same reason.
   They are shown, not hidden (James, 2026-09-20): only gender leaves anybody off this list.
@@ -141,12 +184,15 @@ Title: **Pair Sam Lee**.
 ## Gender
 
 - **A 1:1**, alone or as one of N × 1:1, is same-gender while the Ministry enforces the match (`suggest_gender_match`), which the database already requires.
-  Nothing is asked; from a Discipler, other-gender rows are greyed with the reason, and from a Disciple they are not listed at all (*The popup, from a Disciple*, above).
+  Nothing is asked; other-gender rows are not shown, from either side (*The popup, from a Disciple*, above).
 - **A 1:2 pair** takes the Discipler's gender as its declaration and asks nothing.
-  Other-gender rows are greyed while 1:2 is selected.
+  Other-gender rows are not shown while 1:2 is selected.
 - **A Group** shows a **Women's · Men's · Coed** toggle directly under the shape toggle, preset from the Discipler.
-  Other-gender rows are greyed with *Women's group: choose Coed to include* until Coed is chosen, and then they open up.
+  The toggle never offers the one segment the Discipler's own gender rules out (James, 2026-09-21): a woman is offered Women's and Coed, a man Men's and Coed, and somebody with no gender on file all three.
+  A declaration binds whoever leads the group too, so that segment could only end in the database's refusal.
+  Other-gender rows are not shown until Coed is chosen, and then they are on the list, and the toolbar's count follows them.
   That is how a coed group is made by hand.
+  This replaces *greyed with Women's group: choose Coed to include*; those words are still what the popup's line says of somebody ticked whom a change of the toggle unticks.
   Coed is the screen's word for the model's `declared_gender = null`, mixed.
 - **A group being joined** already has its declaration, and a group that rules somebody out is not listed for them at all, from either side of the popup (James, 2026-09-21: "hidden for things that are against gender rules").
   This replaces *rows it rules out are greyed with it (A men's group)*.
@@ -226,7 +272,7 @@ The files are the tickets; this table only says which part of this spec each car
 
 The popup lands last, on commands that already work, and its Discipler side is built unlinked until ticket 05, so nothing ships a dead control.
 Old ticket 22's co-leader half was written against the current one-group limit and is not blocked on the several-leaders design.
-**Add as co-leader** gets its button in ticket 04 only after ticket 01, because until then a co-leader accepting on a running group would activate it a second time and send the Starter Message again.
+**Add as co-leader** (the one place the Roster's copy says *leader*: James saw it as *Add as co-discipler* on 2026-09-21 and chose this, and the Roster's vocabulary test lets that one word through) gets its button in ticket 04 only after ticket 01, because until then a co-leader accepting on a running group would activate it a second time and send the Starter Message again.
 
 ## Glossary changes
 

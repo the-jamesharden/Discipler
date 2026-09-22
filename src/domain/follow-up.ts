@@ -65,6 +65,13 @@ export const FOLLOW_UP_KINDS = [
    * go. Never retried (ticket 36, ADR-0022).
    */
   'intended_pairing_refused',
+  /**
+   * A Person signed up on the group link with no group in mind (Group form exits,
+   * ticket 01). Raised by the Intake submission and closed by an Admin putting
+   * them into a group or resolving it alone. It carries the Person and nothing
+   * else, so the one-open-item index already holds one such item per Person.
+   */
+  'group_placement_wanted',
 ] as const
 
 export type FollowUpKind = (typeof FOLLOW_UP_KINDS)[number]
@@ -101,6 +108,7 @@ export type FollowUpPayload =
       readonly intendedPairingId: IntendedPairingId
       readonly refusal: PairingRefusal
     }
+  | { readonly kind: 'group_placement_wanted' }
 
 /**
  * What the item is about: a relationship, a Person, or both. Two nullable typed

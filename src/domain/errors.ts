@@ -331,7 +331,7 @@ export class EndingRefused extends Error {
 }
 
 /**
- * Why one Participant could not leave a relationship.
+ * Why somebody could not leave a relationship that goes on without them.
  *
  * Two of these say the same thing in different words: *what you are describing is
  * an ending*. A relationship with no Leader, or with nobody being discipled, is
@@ -345,17 +345,19 @@ export type DepartureRefusal =
   | 'departure.relationship_ended'
   /** They hold no open membership on it -- they have already left, or never were in it. */
   | 'departure.person_is_not_in_this_relationship'
-  /** Removing the Leader does not leave a relationship that continues. */
-  | 'departure.person_is_a_leader'
+  /**
+   * They are the only Leader who has accepted, and removing them does not leave a
+   * relationship that continues. Where another Leader who has accepted remains, a
+   * Leader may leave and it goes on (James, 2026-09-21).
+   */
+  | 'departure.would_leave_no_leader'
+  /**
+   * A Leader who was invited and has not answered leads nothing yet. Theirs is an
+   * invitation, and an Admin takes it back with `invitation.withdraw`.
+   */
+  | 'departure.leader_has_not_accepted'
   /** The last Participant leaving is a relationship that is over. */
   | 'departure.would_leave_no_participants'
-  /**
-   * Nobody has accepted it. Nothing has reached a Participant, so there is no
-   * relationship to leave -- withdrawing one nobody agreed to is
-   * `relationship.cancel`, which takes everybody out of it at once. The same
-   * refusal a Pause carries for the same state, and for the same reason.
-   */
-  | 'departure.relationship_not_accepted'
   /**
    * The account recording it is not a member of this Ministry. Removing somebody
    * from a relationship is an Admin act on other people's ministry, and holding an
@@ -391,8 +393,10 @@ export type MaterialAssignmentRefusal =
   /** Terminal. A relationship that is over has no week left to attribute. */
   | 'material.relationship_ended'
   /**
-   * No Material in this Ministry answers to that identifier. Decided by the
-   * database, which is the only thing that can see the Ministry's own list.
+   * No live Material in this Ministry answers to that identifier. Decided in the
+   * command boundary against the list read in the transaction, so a removed one is
+   * refused too (Materials, ticket 03), and a second time by the database's
+   * composite key, which is what refuses another Ministry's.
    */
   | 'material.not_found'
   /**
@@ -401,6 +405,13 @@ export type MaterialAssignmentRefusal =
    * the composite key on `material_assignment.assigned_by` is what says so.
    */
   | 'material.assigner_is_not_in_this_ministry'
+  /**
+   * It is already working through that Material, or already on none. Saving it
+   * again would change nothing but a date, so nothing is written (Materials,
+   * ticket 03). Decided by `app.assign_material`, which reads the running period
+   * under the same row lock that writes the next one.
+   */
+  | 'material.already_running'
 
 export class MaterialAssignmentRefused extends Error {
   constructor(readonly refusal: MaterialAssignmentRefusal) {

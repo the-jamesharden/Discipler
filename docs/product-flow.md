@@ -83,6 +83,11 @@ An admin cannot attest to consent on a congregant's behalf, at import or anywher
 
 Suggestions are produced for one-to-one relationships only. A group is formed by the pastor, and may then be joined through the Ministry's group Intake link -- directly, or by asking first where the pastor has set that group to ask. See `docs/adr/0017-picking-a-group-joins-it.md`.
 
+Somebody on the group Intake link who finds no group that fits answers "I don't have a group in mind", the last option on its group step.
+They land on the Roster with the group path recorded and no group named, and a `group_placement_wanted` Follow-Up Item asks an Admin to place them.
+Placing them is `group.add_participant`, the same act as **Add to group** on the Roster, run from the item's **Place in this group** with a group the Admin names; it resolves the item in the same transaction.
+The Admin may instead resolve the item alone.
+
 Constraints filter before anything is ranked. Gender must match and is absolute — manual pairing cannot override it. The age band constraint governs suggestion only and an admin may pair across it. Whoever survives is ranked by availability overlap, with Discipleship Goal separating candidates who already have comparable overlap, and ties broken by who has waited longest since intake.
 
 Every suggestion states its reason in one plain sentence. An input that cannot be explained that way is out of scope by construction. See `docs/adr/0001-pairing-suggestion-inputs.md`.

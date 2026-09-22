@@ -192,8 +192,7 @@ export const defineWizard = <L extends ChoiceLists>(
 
   /**
    * The availability screen is the only one a browser will not stop somebody
-   * leaving unanswered: a checkbox set cannot express *at least one of these*,
-   * which is the argument the pairing screen's leader checkboxes already make.
+   * leaving unanswered: a checkbox set cannot express *at least one of these*.
    * Every other screen is a `required` radio or select, so pressing Continue there
    * never reaches the server at all.
    *

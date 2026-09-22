@@ -42,7 +42,7 @@ export const isoWeek = (value: string): IsoWeek => {
   return `${isoYear}-W${String(week).padStart(2, '0')}` as IsoWeek
 }
 
-/** A calendar month, as `2026-08`. The unit the monthly opt-out rule counts in. */
+/** A calendar month, as `2026-08`. The unit the rates line is counted in, once a month per Person. */
 export type CalendarMonth = Branded<string, 'CalendarMonth'>
 
 /**

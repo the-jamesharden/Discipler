@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import { NO_GROUP_IN_MIND } from '~/domain/intake'
 import { getIntakeReader } from '~/service/container'
 import { Centred } from '../../shell'
 import { groupHeading, refusalMessages } from '../copy'
@@ -46,8 +47,10 @@ export default async function GroupIntakePage({
   const offered = page.groups.filter(
     (group) => group.declaredGender === null || group.declaredGender === gender,
   )
+  // *No group in mind* is on the list too, as its last option (Group form exits,
+  // ticket 01).
   const answers = groupWizard.readAnswers(query, {
-    groupId: offered.map((group) => group.relationshipId),
+    groupId: [...offered.map((group) => group.relationshipId), NO_GROUP_IN_MIND],
   })
   const step = groupWizard.stepToShow(query.step, answers)
   const refused = firstValue(query.refused)

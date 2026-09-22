@@ -156,9 +156,10 @@ describe('the Admin tabs answer in one read', () => {
     // The relationships the memberships name, and only those, with the one column
     // the Roster derives Awaiting Leader Acceptance from, and which participation
     // cap each counts against (Manual pairing, recut ticket 02): the answer, and
-    // never the kind it came from. This one is a one-to-one.
+    // never the kind it came from. This one is a one-to-one. And what the Ministry
+    // calls it (Unpair, 2026-09-21), which for a one-to-one is nothing.
     expect(asRows(roster.relationships)).toEqual([
-      { id: relationship, accepted_at: expect.any(String), counts_as_a_group: false },
+      { id: relationship, accepted_at: expect.any(String), counts_as_a_group: false, name: null },
     ])
 
     const planned = await admin.rpc('intended_pairings', { target_ministry_id: ministry.id })
@@ -179,6 +180,7 @@ describe('the Admin tabs answer in one read', () => {
         withNames: ['Pat Participant'],
         awaitingAcceptance: false,
         countsAsAGroup: false,
+        name: null,
       }),
     ])
   })

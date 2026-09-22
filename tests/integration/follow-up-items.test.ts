@@ -75,6 +75,9 @@ describe('the Follow-Up Item table', () => {
 
     expect(rows.map((row) => row.label)).toEqual([
       'group_join_requested',
+      // Signed up on the group link with no group in mind (Group form exits,
+      // ticket 01).
+      'group_placement_wanted',
       // A plan an import made that the pairing rules refused (ADR-0022).
       'intended_pairing_refused',
       // An invitation nobody answered, withdrawn at two weeks (Manual pairing,

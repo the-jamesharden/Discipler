@@ -36,7 +36,6 @@ import type {
   MaterialEdit,
   MaterialRemoval,
   NewMaterial,
-  OutboundMessageDraft,
   OutstandingReplyClosure,
   OutstandingReplySweep,
   ParticipantDeparture,
@@ -100,6 +99,7 @@ import {
   type PairingRefusal,
 } from '~/domain/errors'
 import type { HistoryEvent } from '~/domain/history'
+import type { RatesLineHistory, SettledMessage } from '~/domain/rates-line'
 import {
   eventId,
   followUpItemId,
@@ -532,7 +532,7 @@ const keywordRelationships = async (
 }
 
 const asCheckInRelationship = (
-  row: CheckInRelationshipRow & { paused: boolean },
+  row: CheckInRelationshipRow & { paused: boolean; still_led: boolean },
 ): CheckInRelationship => ({
   relationshipId: relationshipId(row.relationship_id),
   role: 'leader',
@@ -541,6 +541,7 @@ const asCheckInRelationship = (
   name: row.name,
   acceptedAt: row.accepted_at,
   paused: row.paused,
+  stillLed: row.still_led,
   cadence: { day: row.checkin_day, hour: row.checkin_hour },
 })
 
@@ -688,9 +689,9 @@ const ENDING_REFUSALS: Readonly<Record<DatabaseEndingRefusal, EndingRefusal | nu
 /**
  * What `app.assign_material` can answer with.
  *
- * Three of these are states an Admin can genuinely be in, and each reaches a screen
- * as a sentence: the relationship is not theirs, it has ended, or nobody has
- * accepted it.
+ * Four of these are states an Admin can genuinely be in, and each reaches a screen
+ * as a sentence: the relationship is not theirs, it has ended, nobody has
+ * accepted it, or it is already on the Material asked for (Materials, ticket 03).
  *
  * The other three are defects rather than decisions, and every one of them says the
  * Material history has broken in a way no production path can produce -- a
@@ -708,6 +709,7 @@ type DatabaseAssignmentRefusal =
   | 'material_history_not_open'
   | 'assignment_precedes_acceptance'
   | 'assignment_precedes_running_period'
+  | 'material_already_running'
 
 const ASSIGNMENT_REFUSALS: Readonly<
   Record<DatabaseAssignmentRefusal, MaterialAssignmentRefusal | null>
@@ -719,6 +721,7 @@ const ASSIGNMENT_REFUSALS: Readonly<
   material_history_not_open: null,
   assignment_precedes_acceptance: null,
   assignment_precedes_running_period: null,
+  material_already_running: 'material.already_running',
 }
 
 const refused = <Answer extends string, Refusal extends string>(
@@ -1565,6 +1568,20 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     }
   },
 
+  async unansweredInvitationOf(relationship: RelationshipId, person: PersonId): Promise<InvitationToken | null> {
+    // Scoped by the policies on this connection, like every other read here.
+    const { rows } = await client.query<{ token: string }>(
+      `select token
+         from invitation
+        where relationship_id = $1
+          and person_id = $2
+          and consumed_at is null
+          and withdrawn_at is null`,
+      [relationship, person],
+    )
+    return rows[0] ? invitationToken(rows[0].token) : null
+  },
+
   async openIntendedPairings(): Promise<readonly OpenIntendedPairing[]> {
     const { rows } = await client.query<{
       id: string
@@ -2018,6 +2035,24 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     return { itemId: followUpItemId(item.id), personId: asker, relationshipId: group }
   },
 
+  async openPlacementWantedFor(person: PersonId): Promise<FollowUpItemId | null> {
+    // Open, of the one kind, about this Person: the item names nobody else, so
+    // the one-open-item index holds it to one row. Locked, so an Admin resolving
+    // it at the same moment is refused by the resolution rather than closing it
+    // a second time.
+    const { rows } = await client.query<{ id: string }>(
+      `select id
+         from follow_up_item
+        where person_id = $1
+          and kind = 'group_placement_wanted'
+          and resolved_at is null
+          for update`,
+      [person],
+    )
+    const item = rows[0]
+    return item ? followUpItemId(item.id) : null
+  },
+
   async joinRelationship(membership: NewParticipantMembership) {
     // One row, as a Participant, carrying the relationship's own kind: the
     // composite key wants it and the domain is fenced from reading it, so it is
@@ -2199,17 +2234,27 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // readmission later inserts a second row -- which the surrogate primary key on
     // `relationship_member` exists to permit.
     //
-    // `role = 'participant'` is not decoration: a Leader's membership is not a
-    // departure's to close, and the boundary refusing it is a sentence for an Admin
-    // rather than a guard on this statement.
+    // Whoever is left is the database's to check as well as the boundary's, behind
+    // the lock above, because two Admins can each read a group with two Leaders and
+    // each take one out: a Participant leaves where another remains, and a Leader
+    // who has accepted leaves where another who has accepted remains. What the
+    // boundary refuses is a sentence for an Admin; this is what keeps a relationship
+    // from being left running with nobody in it, or nobody leading it.
     let left: number | null = null
     try {
       ;({ rowCount: left } = await client.query(
-        `update relationship_member set ended_at = $3, departed_by = $4
-          where relationship_id = $1
-            and person_id = $2
-            and role = 'participant'
-            and ended_at is null`,
+        `update relationship_member m set ended_at = $3, departed_by = $4
+          where m.relationship_id = $1
+            and m.person_id = $2
+            and m.ended_at is null
+            and (m.role = 'participant' or m.accepted_at is not null)
+            and exists (select 1
+                          from relationship_member o
+                         where o.relationship_id = m.relationship_id
+                           and o.person_id <> m.person_id
+                           and o.role = m.role
+                           and o.ended_at is null
+                           and (o.role = 'participant' or o.accepted_at is not null))`,
         [
           departure.relationshipId,
           departure.personId,
@@ -2227,13 +2272,24 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       }
       throw error
     }
+    if (left !== 0) return
 
-    // The relationship is live and this Person holds no open participant membership
-    // on it -- they left already, or they were never in it. With the two states above
-    // ruled out under the lock, that is the only thing left for this to mean.
-    if (left === 0) {
-      throw new DepartureRefused('departure.person_is_not_in_this_relationship')
-    }
+    // Nothing closed, and the relationship is live. Which of the things that can
+    // mean is read off the membership itself, still under the lock, so the refusal
+    // is the true one: they hold none, they were invited and lead nothing yet, or
+    // they are the last of their side.
+    const { rows: held } = await client.query<{ role: 'leader' | 'participant'; accepted: boolean }>(
+      `select role, accepted_at is not null as accepted
+         from relationship_member
+        where relationship_id = $1 and person_id = $2 and ended_at is null`,
+      [departure.relationshipId, departure.personId],
+    )
+    const membership = held[0]
+    if (!membership) throw new DepartureRefused('departure.person_is_not_in_this_relationship')
+    if (membership.role === 'participant') throw new DepartureRefused('departure.would_leave_no_participants')
+    throw new DepartureRefused(
+      membership.accepted ? 'departure.would_leave_no_leader' : 'departure.leader_has_not_accepted',
+    )
   },
 
   async assignMaterial(assignment: MaterialAssignment) {
@@ -2246,8 +2302,9 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // Both acts come through here. Acceptance passes a null Material, which opens
     // the history, and may follow it at the same instant with the Material an
     // Admin chose at pairing, under no Admin's name; an Admin passes a real one
-    // under their own. A real Material requires the history to have been opened
-    // already, which is why the opening period must come first.
+    // under their own, or a null one to un-assign (Materials, ticket 03). Either
+    // requires the history to have been opened already, which is why the opening
+    // period must come first.
     let answer: DatabaseAssignmentRefusal | null = null
     try {
       const { rows } = await client.query<{ refusal: DatabaseAssignmentRefusal | null }>(
@@ -2309,7 +2366,9 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // is a rule and lives in the domain, so an unaccepted or paused relationship
     // is loaded here and filtered there -- which is what lets both be proven by a
     // test with no database in it.
-    const { rows: led } = await client.query<CheckInRelationshipRow & { paused: boolean }>(
+    const { rows: led } = await client.query<
+      CheckInRelationshipRow & { paused: boolean; still_led: boolean }
+    >(
       `select r.id as relationship_id,
               r.created_at,
               -- Accepted, for this Leader: the relationship is running and they
@@ -2330,6 +2389,9 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
               -- Paused lives in history rather than in a column, like every
               -- other relationship state here.
               ${pausedColumn},
+              -- What they lead now is theirs by definition: the join below is to
+              -- their open leader membership on a relationship that has not ended.
+              true as still_led,
               ${participantNamesColumn},
               ${cadenceColumns}
          from relationship r
@@ -2391,20 +2453,32 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       // The entries stay; what they say about themselves is read fresh. A Pause
       // taken since the conversation opened is exactly the fact the withdrawal
       // rule turns on, so `paused` is selected here rather than assumed false.
+      //
+      // And whether it is still theirs to be asked about (Unpair, James
+      // 2026-09-21): an Admin may have ended it since, or taken them out of a group
+      // another Leader goes on leading. Read fresh for the same reason a Pause is,
+      // and stepped over by the same walk.
       const { rows: covered } = await client.query<
-        CheckInRelationshipRow & { paused: boolean }
+        CheckInRelationshipRow & { paused: boolean; still_led: boolean }
       >(
         `select r.id as relationship_id,
                 r.created_at,
                 r.accepted_at,
                 r.name,
                 ${pausedColumn},
+                (r.ended_at is null
+                 and exists (select 1
+                               from relationship_member held
+                              where held.relationship_id = r.id
+                                and held.person_id = $2
+                                and held.role = 'leader'
+                                and held.ended_at is null)) as still_led,
                 ${participantNamesColumn},
                 ${cadenceColumns}
            from relationship r
            cross join ministry ms
           where r.id = any($1::uuid[])`,
-        [sequence.covering],
+        [sequence.covering, id],
       )
 
       const byId = new Map(covered.map((row) => [row.relationship_id, row]))
@@ -2435,14 +2509,12 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       }
     }
 
-    // For the monthly opt-out rule: when this Person's last check-in *conversation*
-    // opened.
+    // For the cadence: when this Person's last check-in *conversation* opened,
+    // which says whether this week has been asked already.
     //
-    // The sequence and not the last question asked. A Leader who answers on the
-    // 1st is sent the next question of September's conversation on the 1st, and
-    // measuring from that would make October's opening question look like the
-    // second check-in of the month -- so October would carry no opt-out language
-    // at all.
+    // The sequence and not the last question asked. A Leader who answers on a
+    // Monday is sent the next question of last week's conversation that day, and
+    // measuring from that would make this week's look asked when it is not.
     const { rows: asked } = await client.query<{ last_checked_in_at: Date | null }>(
       `select max(started_at) as last_checked_in_at
          from checkin_sequence where person_id = $1`,
@@ -3280,13 +3352,55 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     )
   },
 
-  async enqueueMessages(messages: readonly OutboundMessageDraft[]) {
+  async ratesLineHistory(people: readonly PersonId[]): Promise<RatesLineHistory> {
+    // Scoped by the policy on both tables, like everything else on this
+    // connection. The Ministry's row comes back whoever is asked about, because the
+    // timezone is what says which month a date was in, and a history without it is
+    // a list of instants nobody can read.
+    //
+    // A row withheld at send time is left out: nobody read it, so the Person has
+    // not had the line from it. A row still waiting -- held behind a conversation,
+    // or refused by the vendor and retried on the next drain -- counts, because it
+    // is still going to be sent (Text wording, ticket 01).
+    const { rows } = await client.query<{
+      timezone: string
+      person_id: string | null
+      last_carried_at: Date | null
+    }>(
+      `select ms.timezone, m.person_id, max(m.enqueued_at) as last_carried_at
+         from ministry ms
+         left join outbound_message m
+           on m.ministry_id = ms.id
+          and m.person_id = any($1::uuid[])
+          and m.carries_rates_line
+          and m.withheld_at is null
+        group by ms.timezone, m.person_id`,
+      [people],
+    )
+
+    const timeZone = rows[0]?.timezone
+    if (!timeZone) throw new Error('This command has no Ministry to text for')
+
+    return {
+      timeZone,
+      lastCarriedAt: new Map(
+        rows.flatMap((row) =>
+          row.person_id && row.last_carried_at
+            ? [[personId(row.person_id), row.last_carried_at] as const]
+            : [],
+        ),
+      ),
+    }
+  },
+
+  async enqueueMessages(messages: readonly SettledMessage[]) {
     for (const message of messages) {
       await client.query(
         `insert into outbound_message
            (ministry_id, person_id, to_phone, body, enqueued_at, scheduled_for,
-            discloses_person_id, prompt_key, prompt_state, message_kind)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+            discloses_person_id, prompt_key, prompt_state, message_kind,
+            carries_rates_line)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
         [
           message.ministryId,
           message.personId,
@@ -3315,6 +3429,10 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
           // it. Required by the draft, so no message reaches the queue without
           // saying which of the two it is.
           message.kind,
+          // A fact about this text, settled before it got here, and what next
+          // month's texts to this Person are decided against. Never read back out
+          // of `body` (Text wording, ticket 01).
+          message.carriesRatesLine,
         ],
       )
     }

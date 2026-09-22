@@ -7,24 +7,28 @@ import { getRosterReader } from '~/service/container'
 import { personId as asPersonId } from '~/domain/ids'
 import { intakeReopenLink } from '~/domain/outbound-copy'
 import { appBaseUrl } from '~/platform/supabase/credentials'
-import type { RosterEntry } from '~/service/ports'
+import type { RosterEntry, RosterRelationship } from '~/service/ports'
 import {
   AWAITING_ACCEPTANCE,
-  DISCIPLED_BY,
-  DISCIPLING,
   displayPhone,
   firstTimeLabel,
   intakeLinkInstruction,
+  isUnpaired,
   NO_ACCOUNT,
   NO_INTAKE_LINK_STANDING,
   OFFERED_TO_MENTOR,
+  pairingLine,
   pairingSizeLabel,
   participationStatusLabel,
   RESET_PASSWORD,
   REINVITED,
+  UNPAIR,
+  UNPAIR_REFUSED,
+  UNPAIRED_RECEIPT,
   whoTheyAre,
 } from '../copy'
-import { isDiscipler } from '../lists'
+import { isDiscipler, LIST_OF_SIDE, pairPopupHref } from '../lists'
+import { unpairFor, type Unpair } from '../unpair'
 
 export const dynamic = 'force-dynamic'
 
@@ -49,6 +53,8 @@ export default async function PersonPage({
     intakeLink?: string
     /** A new invitation was just sent. The route sets this only when a text went out. */
     reinvited?: string
+    /** What an Unpair just did, or that it was refused. A code, never a sentence. */
+    unpair?: string
   }>
 }) {
   const page = await getRosterReader().readRosterPage('person')
@@ -86,6 +92,11 @@ export default async function PersonPage({
       {query.reinvited ? (
         <p className="toast" role="status">{REINVITED(person.fullName)}</p>
       ) : null}
+      {isUnpaired(query.unpair) ? (
+        <p className="toast" role="status">{UNPAIRED_RECEIPT[query.unpair]}</p>
+      ) : query.unpair === 'refused' ? (
+        <p className="toast error" role="alert">{UNPAIR_REFUSED}</p>
+      ) : null}
 
       <div className="two-up">
         <div className="card">
@@ -119,14 +130,13 @@ export default async function PersonPage({
           <div className="card-head">
             <h2 className="card-title">Pairings</h2>
             {/* Offered on the state and not on the list: somebody Ready to Pair may
-                be paired, as the Discipler where they are one and as the Disciple
-                otherwise, and the pairing screen lets the Admin change that. */}
+                be paired, in the Pair popup over the Roster (Manual pairing, recut
+                ticket 05), on the Discipler's side where they are one and on the
+                Disciple's otherwise. */}
             {person.participationStatus === 'ready_to_pair' ? (
               <Link
                 className="btn sec small"
-                href={`/roster/pair?${new URLSearchParams(
-                  isDiscipler(person) ? { leaderId: person.personId } : { with: person.personId },
-                )}`}
+                href={pairPopupHref(LIST_OF_SIDE[isDiscipler(person) ? 'discipler' : 'disciple'], person.personId)}
               >
                 Pair
               </Link>
@@ -135,16 +145,16 @@ export default async function PersonPage({
           {person.relationships.length === 0 ? (
             <p className="blocked">Unpaired</p>
           ) : (
-            <ul className="bare">
+            <ul className="bare pairings">
               {person.relationships.map((relationship) => (
                 <li key={relationship.relationshipId}>
-                  {relationship.role === 'leader'
-                    ? `${DISCIPLING} ${relationship.participantNames.join(', ')}`
-                    : `${DISCIPLED_BY} ${relationship.leaderNames.join(', ')}`}
-                  <span className="pill n">{pairingSizeLabel(relationship.participantCount)}</span>
-                  {relationship.awaitingAcceptance ? (
-                    <span className="muted">{` - ${AWAITING_ACCEPTANCE}`}</span>
-                  ) : null}
+                  <span className="pairing">
+                    <OtherSide relationship={relationship} />
+                    {relationship.awaitingAcceptance ? (
+                      // Wraps whole, as a plan's note does on the Roster.
+                      <span className="muted nowrap">{` - ${AWAITING_ACCEPTANCE}`}</span>
+                    ) : null}
+                  </span>
                   {/* Offered on the state and the role together, never on either
                       alone. A Disciple is sent no link at all (ADR-0011), so there
                       is nothing to send them again; and on an accepted pairing
@@ -156,6 +166,11 @@ export default async function PersonPage({
                       <button type="submit" className="sec small">Send a new invitation</button>
                     </form>
                   ) : null}
+                  <UnpairControl
+                    person={person}
+                    relationship={relationship}
+                    unpair={unpairFor(page.page.roster, person, relationship)}
+                  />
                 </li>
               ))}
             </ul>
@@ -220,6 +235,107 @@ export default async function PersonPage({
         </div>
       </div>
     </PageShell>
+  )
+}
+
+/**
+ * Who the pairing is with, which group where it has a name, and its size. The size
+ * stays on the line of the last word, as it does on the Roster: a pill that wraps
+ * alone reads as belonging to nobody.
+ */
+const OtherSide = ({ relationship }: { readonly relationship: RosterRelationship }) => {
+  const sentence = pairingLine({
+    role: relationship.role,
+    names: relationship.role === 'leader' ? relationship.participantNames : relationship.leaderNames,
+    groupName: relationship.name,
+  })
+  // Split at the last word, whichever it is: a name, or the end of a group's.
+  const lastWord = sentence.lastIndexOf(' ') + 1
+  return (
+    <>
+      {sentence.slice(0, lastWord)}
+      <span className="nowrap">
+        {sentence.slice(lastWord)}
+        <span className="pill n">{pairingSizeLabel(relationship.participantCount)}</span>
+      </span>
+    </>
+  )
+}
+
+/**
+ * Unpair, beside one pairing (James, 2026-09-21). What it does and what it asks is
+ * `unpairFor`'s to say, and a line it gives nothing to offers no button.
+ *
+ * One press where nothing of anybody else's ends. Otherwise the button opens the
+ * question in place, with no script: a `details`, whose summary is the button and
+ * gives way to the question once it is open, and Go back is a link to this page,
+ * which closes it. The two outcome buttons each submit what they say, so there is
+ * no choice to leave unmade.
+ */
+const UnpairControl = ({
+  person,
+  relationship,
+  unpair,
+}: {
+  readonly person: RosterEntry
+  readonly relationship: RosterRelationship
+  readonly unpair: Unpair | null
+}) => {
+  if (!unpair) return null
+
+  const which = (
+    <>
+      <input type="hidden" name="relationshipId" value={relationship.relationshipId} />
+      <input type="hidden" name="personId" value={person.personId} />
+    </>
+  )
+
+  if (unpair.asks === 'nothing') {
+    return (
+      <form method="post" action="/roster/unpair">
+        {which}
+        <button type="submit" className="sec small danger">{UNPAIR.button}</button>
+      </form>
+    )
+  }
+
+  return (
+    <details className="unpair">
+      <summary className="btn sec small danger">{UNPAIR.button}</summary>
+      <form method="post" action="/roster/unpair" className="notice">
+        {which}
+        <p>
+          <strong>
+            {UNPAIR.question({
+              person: person.fullName,
+              group:
+                relationship.countsAsAGroup || relationship.participantCount > 1 ? { name: relationship.name } : null,
+              endsItFor: unpair.endsItFor,
+              ledOnBy: unpair.ledOnBy,
+            })}
+          </strong>{' '}
+          {UNPAIR.consequence}
+        </p>
+        <div className="unpair-answers">
+          {unpair.asks === 'outcome' ? (
+            <>
+              <button type="submit" name="outcome" value="completed" className="small">{UNPAIR.finishedWell}</button>
+              <button type="submit" name="outcome" value="discontinued" className="small">{UNPAIR.didNotRunItsCourse}</button>
+            </>
+          ) : (
+            <button type="submit" className="small">{UNPAIR.confirm}</button>
+          )}
+          <Link className="btn sec small" href={`/roster/${person.personId}`}>{UNPAIR.goBack}</Link>
+        </div>
+        {unpair.asks === 'outcome' ? (
+          <textarea
+            name="reason"
+            aria-label="How it ended, in your own words"
+            placeholder={UNPAIR.reasonPlaceholder}
+          />
+        ) : null}
+      </form>
+    </details>
   )
 }
 

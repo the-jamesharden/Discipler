@@ -6,6 +6,7 @@ import {
   type FollowUpKind,
 } from '~/domain/follow-up'
 import { followUpItemId, personId, relationshipId, type MinistryId } from '~/domain/ids'
+import { AGE_BANDS, GENDERS, isOneOf, readSlot } from '~/domain/intake'
 import { deriveRelationshipState } from '~/domain/relationship-state'
 import type {
   CareMember,
@@ -13,6 +14,7 @@ import type {
   CareNeededReader,
   ContactDetails,
   FollowUpCareItem,
+  PlacementWanted,
 } from '~/service/ports'
 import { contactDetailsFrom } from './contact-to-share'
 import { adminPage, documentFor, readPageDocument, type PageDocument } from './page'
@@ -27,7 +29,7 @@ import {
   weeksFrom,
   type HistoryInputs,
 } from './relationship-history'
-import { text } from './rows'
+import { rows, text } from './rows'
 import { createSupabaseServerClient } from './server-client'
 
 /**
@@ -209,6 +211,8 @@ export const followUpItemsFrom = (
           item.relationshipId
             ? invitedTo(item.relationshipId)
             : null,
+        // The Follow-Up tab's own read, which `withPlacements` adds.
+        placement: null,
         payload,
       },
     ]
@@ -372,6 +376,76 @@ const revealedFrom = (doc: PageDocument, person: string | null): ContactDetails 
 }
 
 /**
+ * What each `group_placement_wanted` item shows, out of the Follow-Up tab's
+ * document (Group form exits, ticket 01): the Person's latest Intake answers and
+ * the groups open to them. The groups arrive as the group form reads them, and
+ * are filtered here on the Person's gender exactly as the form filters them, so
+ * the dropdown and the form cannot come to offer different lists, less any group
+ * they are already in. A row that
+ * cannot be read leaves its item without a dropdown rather than taking the page
+ * with it, as a drifted payload does.
+ */
+export const withPlacements = (
+  items: readonly CareNeededItem[],
+  doc: PageDocument,
+  history: HistoryInputs,
+): readonly CareNeededItem[] => {
+  const timeZone = history.timeZone
+  const placements = (doc.placements ?? {}) as Record<string, unknown>
+  const wanted = new Map(
+    rows(placements.wanted).flatMap((row) => {
+      const item = text(row.item_id)
+      return item === null ? [] : [[item, row] as const]
+    }),
+  )
+  if (wanted.size === 0 || timeZone === null) return items
+
+  const groups = rows(placements.groups).flatMap((row) => {
+    const id = text(row.relationship_id)
+    const name = text(row.name)
+    const declared = row.declared_gender
+    if (id === null || name === null) return []
+    return [
+      {
+        relationshipId: relationshipId(id),
+        name,
+        declaredGender: isOneOf(GENDERS, declared) ? declared : null,
+      },
+    ]
+  })
+
+  return items.map((item) => {
+    if (item.source !== 'follow_up' || item.payload.kind !== 'group_placement_wanted') return item
+    const row = wanted.get(item.id)
+    if (!row) return item
+
+    const gender = isOneOf(GENDERS, row.gender) ? row.gender : null
+    // A group they already hold an open membership in, in either role, is not
+    // offered: placing them there is refused as `joining.already_in_the_group`.
+    const alreadyIn = new Set(
+      history.members.flatMap((member) =>
+        text(member.person_id) === item.personId ? [text(member.relationship_id)] : [],
+      ),
+    )
+    const slots = Array.isArray(row.availability) ? row.availability : []
+    const placement: PlacementWanted = {
+      gender,
+      ageBand: isOneOf(AGE_BANDS, row.age_band) ? row.age_band : null,
+      availability: slots.flatMap((key) => {
+        const slot = typeof key === 'string' ? readSlot(key) : null
+        return slot ? [slot] : []
+      }),
+      groups: groups
+        .filter((group) => group.declaredGender === null || group.declaredGender === gender)
+        .filter((group) => !alreadyIn.has(group.relationshipId))
+        .map(({ relationshipId: id, name }) => ({ relationshipId: id, name })),
+      timeZone,
+    }
+    return { ...item, placement }
+  })
+}
+
+/**
  * Built with a clock rather than reaching for one, because how long an item has
  * waited is a time-dependent rule like any other -- as is which ISO week it is,
  * which both counters are anchored to -- and the composition root is what decides
@@ -384,14 +458,12 @@ export const createSupabaseCareNeededReader = (clock: Clock = systemClock): Care
       'follow_up_page',
       reveal === null ? undefined : { reveal_person_id: reveal },
     )
-    return adminPage(doc, () => ({
-      items: careNeededFrom(historyOf(doc), clock),
-      revealed: revealedFrom(doc, reveal),
-    }))
-  },
-
-  async readSuggestedPairsPage() {
-    const doc = await readPageDocument(await createSupabaseServerClient(), 'suggested_pairs_page')
-    return adminPage(doc, () => ({ followUpCount: careNeededFrom(historyOf(doc), clock).length }))
+    return adminPage(doc, () => {
+      const history = historyOf(doc)
+      return {
+        items: withPlacements(careNeededFrom(history, clock), doc, history),
+        revealed: revealedFrom(doc, reveal),
+      }
+    })
   },
 })

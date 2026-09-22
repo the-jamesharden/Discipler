@@ -2,18 +2,20 @@ import type { GroupJoinRefusal, ImportRowRefusal, PairingRefusal } from '~/domai
 import type { Gender } from '~/domain/intake'
 import { asList } from '~/domain/outbound-copy'
 import type { ParticipationStatus } from '~/domain/participation'
+import type { MemberRole } from '~/domain/relationships'
 import type { RowProblem } from '~/domain/roster'
 import type { GroupToJoin } from '~/service/ports'
 import {
   isDiscipledBySomebody,
   leadsSomebody,
   offeredToMentor,
+  askedToBeDiscipled,
   plannedAs,
   type RosterFacts,
 } from './lists'
 import type { Greyed } from './greying'
 import { MIXED, type GroupDeclaration } from './declared-gender'
-import type { PairShape, ReadAs, ShapeRuledOut } from './pair-shape'
+import { PAIR_SHAPE, type PairShape, type ReadAs, type ShapeRuledOut } from './pair-shape'
 import type { ImportFailure } from './report'
 
 /**
@@ -101,8 +103,6 @@ export const AWAITING_INTAKE = 'awaiting Intake'
 export const NOT_MADE = 'not made'
 export const SEE_FOLLOW_UP = 'see Follow-Up'
 
-/** The Pair page's title. No button says it any more: every pairing starts from a row (Manual pairing, ticket 07). */
-export const PAIR_PEOPLE = 'Pair people'
 export const PAIR = 'Pair'
 export const UNPAIRED = 'Unpaired'
 
@@ -207,7 +207,13 @@ export const PAIR_POPUP = {
   segment: (shape: PairShape, ticked: number): string =>
     // The Group shape is what is left: named once, in `./pair-shape`, which this
     // file reads types from and nothing else.
-    shape === 'one_to_two' ? '1:2 pair' : shape === 'separate' ? `${ticked} × 1:1 pairs` : 'Group',
+    shape === 'one_to_two'
+      ? '1:2 pair'
+      : shape === 'separate'
+        ? `${ticked} × 1:1 pairs`
+        : shape === PAIR_SHAPE
+          ? '1:1 pair'
+          : 'Group',
   /** Beneath the toggle, in grey. The cap is about the Discipler, by first name as the spec has it. */
   ruledOut: (why: ShapeRuledOut, discipler: string): string =>
     why === 'needs_exactly_two'
@@ -242,7 +248,10 @@ export const PAIR_POPUP = {
     const kind = declared === null ? 'a group' : `a ${PAIR_POPUP.declares(declared).toLowerCase()} group`
     return `${discipler} will lead ${kind} of ${disciples.length}: ${asList(disciples)}.`
   },
-  createGroup: (disciples: number): string => `Create group of ${disciples}`,
+  /** Picked before two are ticked, which it can be so that Coed can be chosen first, it has no count to say yet. */
+  createGroup: (disciples: number): string => (disciples < 2 ? 'Create group' : `Create group of ${disciples}`),
+  /** Beneath the toggle, in grey, while a Group has fewer than two ticked. */
+  groupNeedsTwo: 'A group needs two or more checked',
   whatTheyAreRunning: 'What are they running?',
   whatEachIsRunning: 'What is each of them running?',
   noMaterial: 'No material',
@@ -283,8 +292,12 @@ export const PAIR_POPUP = {
   addToGroup: 'Add to group',
   /**
    * From a Discipler (Manual pairing, recut ticket 04): choosing a group adds them
-   * to it as another leader, by invitation. Every leader it has is named, and one
-   * named for its leaders has said them already, as `joinGroup` has it.
+   * to it as another of its Disciplers, by invitation. Everybody who leads it is
+   * named, and one named for them has said them already, as `joinGroup` has it.
+   * The button says *co-leader*, the one place the Roster's copy does (James,
+   * 2026-09-21, having seen it as *co-discipler* too): it names a person beside
+   * another, not the model's role, and `tests/app/roster-vocabulary.test.ts` lets
+   * that word through and no other.
    */
   coLead: (discipler: string, group: GroupOnARow): string => {
     const { called, leaders } = inASentence(group)
@@ -312,7 +325,7 @@ export const PAIR_POPUP = {
             `${declaredAs(greyed.declared)} group: choose Coed to include`,
 } as const
 
-/** The receipt the pairing screen redirects to, said about what just happened. */
+/** The receipt the pairing route redirects to, said about what just happened. */
 export const pairedReceipt = (disciples: number): string =>
   disciples === 1
     ? 'They are paired. The Discipler has been invited, and nobody else has been contacted yet.'
@@ -349,6 +362,64 @@ export const partlyPairedReceipt = ({
   + (reason === undefined
     ? 'Something went wrong partway. Pair them again from here.'
     : `${notPaired[0] ?? 'Somebody'}: ${reason}`)
+
+/**
+ * Unpair, on a person's Pairings card (James, 2026-09-21). One word for three acts
+ * (`./unpair`). The question names who it is about, because a person can hold
+ * several pairings and a group ends for more people than the one on the page.
+ * The outcome is asked as the two things an Admin would say, and they are the
+ * model's `completed` and `discontinued`.
+ */
+export const UNPAIR = {
+  button: 'Unpair',
+  /**
+   * `group` is null for a one-to-one, and carries what the Ministry calls the
+   * group, where it calls it anything. `ledOnBy` is who goes on leading a group a
+   * Discipler is taken out of, and is empty wherever the pairing ends.
+   */
+  question: ({
+    person,
+    group,
+    endsItFor,
+    ledOnBy,
+  }: {
+    readonly person: string
+    readonly group: { readonly name: string | null } | null
+    readonly endsItFor: readonly string[]
+    readonly ledOnBy: readonly string[]
+  }): string =>
+    !group
+      ? `Unpair ${person} and ${asList(endsItFor)}?`
+      : ledOnBy.length > 0
+        ? `Unpair ${person} from ${group.name ?? 'this group'}? ${asList(ledOnBy)} ${ledOnBy.length === 1 ? 'goes' : 'go'} on leading it.`
+        : `Unpair ${person} from ${group.name ?? 'this group'}? It ends for ${asList(endsItFor)} too.`,
+  consequence: 'Their history is kept, and nobody is sent anything.',
+  finishedWell: 'It finished well',
+  didNotRunItsCourse: 'It did not run its course',
+  reasonPlaceholder: 'Optional. Anything you want remembered about how it ended.',
+  confirm: 'Yes, unpair',
+  goBack: 'Go back',
+}
+
+/**
+ * What an ending records where the Admin wrote no reason. The database requires
+ * one, and *who* is already recorded beside it as `ended_by`.
+ */
+export const UNPAIRED_BLANK_REASON = 'Unpaired from the Roster.'
+
+/** What the person page says after an Unpair, by what happened. Codes in the address, never prose. */
+export type Unpaired = 'ended' | 'cancelled' | 'left' | 'withdrawn'
+export const UNPAIRED_RECEIPT: Record<Unpaired, string> = {
+  ended: 'Unpaired. The history is kept, and nobody was sent anything.',
+  cancelled: 'Unpaired. It had not started, and nobody was sent anything.',
+  left: 'Unpaired from the group, which goes on without them. Nobody was sent anything.',
+  withdrawn: 'Unpaired. Their invitation no longer works, the group goes on as it was, and nobody was sent anything.',
+}
+export const isUnpaired = (value: string | undefined): value is Unpaired =>
+  value !== undefined && Object.hasOwn(UNPAIRED_RECEIPT, value)
+
+/** Why an Unpair did not happen. The page was true when it was drawn, and something changed under it. */
+export const UNPAIR_REFUSED = 'That pairing changed while you were looking at it, so nothing was done. Have another look and press Unpair again.'
 
 /**
  * The receipt for somebody an Admin has just put into a group (Manual pairing,
@@ -413,7 +484,7 @@ export const IMPORT_IS_NEVER_CONSENT =
 export const OFFERED_TO_MENTOR = 'Offered to mentor'
 
 /**
- * Whether this is their first time, per candidate, on the pairing screen. Both
+ * Whether this is their first time, per Disciple, in the Pair popup. Both
  * answers are said outright, including *has done this before* -- said only for the
  * first-timers, a blank would read as *no* rather than as *nobody asked them*.
  *
@@ -443,6 +514,24 @@ export const DISCIPLING = 'Discipling'
 export const DISCIPLED_BY = 'Discipled by'
 
 /**
+ * One pairing on a person's page, as a sentence: who it is with, and which group
+ * where the Ministry has named it (Unpair, 2026-09-21), because a Discipler's page
+ * can hold several and Unpair asks about one of them by that name.
+ */
+export const pairingLine = ({
+  role,
+  names,
+  groupName,
+}: {
+  readonly role: MemberRole
+  readonly names: readonly string[]
+  readonly groupName: string | null
+}): string =>
+  role === 'leader'
+    ? `${DISCIPLING} ${groupName === null ? '' : `${groupName}: `}${names.join(', ')}`
+    : `${DISCIPLED_BY} ${names.join(', ')}${groupName === null ? '' : ` in ${groupName}`}`
+
+/**
  * How big a pairing is, from the live count of Disciples in it and never from
  * the relationship's kind (ADR-0004). `1:1` is the prototype's own pill; a group
  * says how many members it has.
@@ -469,6 +558,7 @@ export const whoTheyAre = (person: RosterFacts): string => {
   ].filter(isSaid)
   const asDisciple = [
     isDiscipledBySomebody(person) ? 'being discipled' : null,
+    askedToBeDiscipled(person) ? 'asked to be on their Intake form' : null,
     plannedAs(person, 'participant') ? 'an import paired them to be discipled' : null,
   ].filter(isSaid)
 

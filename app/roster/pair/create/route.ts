@@ -7,6 +7,7 @@ import { DEFAULT_LIST, isRosterList } from '../../copy'
 import { declaredGenderFromField, declaredGenderToField } from '../../declared-gender'
 import { SHAPE_FIELD, postedByAGroup, wasPostedByAGroup } from '../../pair-shape'
 import { materialFieldFor, readMaterialPerDisciple } from '../material-per-disciple'
+import { popupFor } from '../popup-address'
 import { encodeSeparateReceipt } from '../receipt'
 import { currentAdmin } from '~/platform/supabase/current-admin'
 import { getCommandService } from '~/service/container'
@@ -32,14 +33,20 @@ export async function POST(request: NextRequest) {
 
   /**
    * Whose Pair popup this came from, and the list it was drawn over (Manual
-   * pairing, ticket 12). Present, the answer goes back to the Roster: a refusal
-   * reopens the popup, and the receipt lands on the list the Admin was on. Absent,
-   * this is the old Pair page's form, and its refusals return there until ticket
-   * 20 retires it. Whether `pair` names anybody is the Roster's to say.
+   * pairing, ticket 12). A refusal reopens the popup, and the receipt lands on the
+   * list the Admin was on. Whether `pair` names anybody is the Roster's to say.
+   *
+   * The popup always says. A form that does not, which nothing in the app draws
+   * since the old Pair page retired (recut ticket 05), is answered as that page's
+   * address is: its first Discipler's popup, or else its first Disciple's. One that
+   * names nobody at all has no popup to return to, and goes to the Roster.
    */
-  const popupFor = chosen('pair')[0]
   const rawList = form.get('list')
-  const list = isRosterList(rawList) ? rawList : DEFAULT_LIST
+  const posted = chosen('pair')[0]
+  const popup =
+    posted === undefined
+      ? popupFor({ leaderIds, participantIds })
+      : { pair: posted, list: isRosterList(rawList) ? rawList : DEFAULT_LIST }
 
   /**
    * One relationship of everybody chosen, or a one-to-one with each Disciple
@@ -108,52 +115,29 @@ export async function POST(request: NextRequest) {
    * avoid the screen.
    */
   const refused = (code: string, about: string | null = null) => {
-    if (popupFor !== undefined) {
-      // Every choice the popup holds: from a Disciple the one Discipler, and from a
-      // Discipler whoever was ticked (Manual pairing, ticket 23). Never the person
-      // the popup is for, who is in the address already as `pair`.
-      const params = new URLSearchParams({ list, pair: popupFor, error: code })
-      // And what two or more ticks were to become (Manual pairing, recut ticket 02):
-      // who of several the refusal is about, the shape, and every Material chosen,
-      // each under the name the old Pair page's refusals already give it.
-      if (about !== null) params.set('about', about)
-      if (mode === 'separate') params.set('mode', mode)
-      for (const id of leaderIds) if (id !== popupFor) params.append('leaderId', id)
-      for (const id of participantIds) if (id !== popupFor) params.append('with', id)
-      // And what a Group was asked: that it was one, what it declared and what it
-      // was called, under the names the old Pair page's refusals give the last two.
-      // Only a Group's: a 1:2 pair's name and declaration are generated, and would
-      // come back as something the Admin had typed.
-      if (asAGroup) {
-        for (const [field, value] of Object.entries(postedByAGroup)) params.set(field, value)
-        if (declaredGender !== undefined) params.set('declaredGender', declaredGenderToField(declaredGender))
-        if (name) params.set('name', name)
-      }
-      return NextResponse.redirect(new URL(`/roster?${withMaterials(params)}`, request.url), { status: 303 })
-    }
-
-    const params = new URLSearchParams({ error: code })
-    // Which of several Disciples a separate submission was refused about (Manual
-    // pairing, ticket 21). An id and never a name: the page reads the name off the
-    // Roster, so nothing in an address is rendered.
+    if (popup === null) return NextResponse.redirect(new URL('/roster', request.url), { status: 303 })
+    // Every choice the popup holds: from a Disciple the one Discipler, and from a
+    // Discipler whoever was ticked (Manual pairing, ticket 23). Never the person
+    // the popup is for, who is in the address already as `pair`.
+    const params = new URLSearchParams({ list: popup.list, pair: popup.pair, error: code })
+    // And what two or more ticks were to become (Manual pairing, recut ticket 02):
+    // who of several the refusal is about, the shape, and every Material chosen,
+    // each under the name the old Pair page's refusals gave it, so that its old
+    // addresses still read.
     if (about !== null) params.set('about', about)
-    // The mode comes back with the selection, or the corrected form would form one
-    // group of the people it was refused as several one-to-ones of.
     if (mode === 'separate') params.set('mode', mode)
-    for (const id of leaderIds) params.append('leaderId', id)
-    for (const id of participantIds) params.append('with', id)
-    // Their answer comes back too, for the same reason their selection does. An
-    // Admin refused because one person is of the wrong gender is correcting the
-    // person, not re-declaring what the group is.
-    if (declaredGender !== undefined) {
-      params.set('declaredGender', declaredGenderToField(declaredGender))
+    for (const id of leaderIds) if (id !== popup.pair) params.append('leaderId', id)
+    for (const id of participantIds) if (id !== popup.pair) params.append('with', id)
+    // And what a Group was asked: that it was one, what it declared and what it
+    // was called, under the names the old Pair page's refusals gave the last two.
+    // Only a Group's: a 1:2 pair's name and declaration are generated, and would
+    // come back as something the Admin had typed.
+    if (asAGroup) {
+      for (const [field, value] of Object.entries(postedByAGroup)) params.set(field, value)
+      if (declaredGender !== undefined) params.set('declaredGender', declaredGenderToField(declaredGender))
+      if (name) params.set('name', name)
     }
-    if (name) params.set('name', name)
-    if (joinRequiresApproval) params.set('joinRequiresApproval', 'yes')
-
-    return NextResponse.redirect(new URL(`/roster/pair?${withMaterials(params)}`, request.url), {
-      status: 303,
-    })
+    return NextResponse.redirect(new URL(`/roster?${withMaterials(params)}`, request.url), { status: 303 })
   }
 
   /**
@@ -191,8 +175,8 @@ export async function POST(request: NextRequest) {
     // To the Roster either way, where what landed is on the rows. The receipt counts
     // the one-to-ones formed, and where that is not all of them, says who was not.
     const receipt = encodeSeparateReceipt(outcome)
-    // From the popup, on the list it was drawn over, as one pairing's receipt is.
-    if (popupFor !== undefined) receipt.set('list', list)
+    // On the list the popup was drawn over, as one pairing's receipt is.
+    if (popup !== null) receipt.set('list', popup.list)
     return NextResponse.redirect(new URL(`/roster?${receipt}`, request.url), { status: 303 })
   }
 
@@ -223,7 +207,7 @@ export async function POST(request: NextRequest) {
   // Back to the Roster, where the new relationship is now visible on both rows. It
   // reads as Awaiting Leader Acceptance and has sent nobody anything.
   const receipt = new URLSearchParams({
-    ...(popupFor === undefined ? {} : { list }),
+    ...(popup === null ? {} : { list: popup.list }),
     paired: String(participantIds.length),
   })
   return NextResponse.redirect(new URL(`/roster?${receipt}`, request.url), { status: 303 })

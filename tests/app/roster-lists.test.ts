@@ -19,6 +19,7 @@ import {
   reasonOnRow,
   relationshipsOn,
   rosterStats,
+  tagOnName,
   whoThePopupIsFor,
   whyNotPairable,
 } from '../../app/roster/lists'
@@ -70,6 +71,7 @@ const pairing = (
   participantNames: [],
   participantCount: 1,
   countsAsAGroup: false,
+  name: null,
   awaitingAcceptance: false,
   ...over,
 })
@@ -99,6 +101,16 @@ describe('who is a Discipler', () => {
     expect(isDisciple(both)).toBe(true)
     expect(onList('disciplers', both)).toBe(true)
     expect(onList('disciples', both)).toBe(true)
+  })
+
+  it('is a Disciple as well when they asked to be discipled on the Intake form, though they lead (James, 2026-09-22)', () => {
+    const asked = person({ declaredSide: 'mentee', relationships: [pairing('leader')] })
+    expect(isDiscipler(asked)).toBe(true)
+    expect(isDisciple(asked)).toBe(true)
+    expect(onList('disciples', asked)).toBe(true)
+    expect(whoTheyAre(asked)).toBe('A Discipler - disciples somebody. Also a Disciple - asked to be on their Intake form.')
+    // For somebody who leads nobody the answer changes nothing but the sentence.
+    expect(whoTheyAre(person({ declaredSide: 'mentee' }))).toBe('A Disciple - asked to be on their Intake form')
   })
 
   it('is somebody an import paired as one, before either has completed Intake', () => {
@@ -265,31 +277,36 @@ describe('what a row offers (Manual pairing, ticket 07)', () => {
     expect(whyNotPairable(offeredThenLeft)).toBe('opted_out')
   })
 
-  it('does not say awaiting Intake twice on a row whose plan already says it (James, 2026-09-19)', () => {
+  it('tags the name of somebody who has not completed Intake, and nobody else (James, 2026-09-21)', () => {
+    // An import files people who have answered nothing, and an Admin looking down
+    // the names has to see which those are.
+    expect(tagOnName(person({ participationStatus: 'no_intake_submitted' }))).toBe('awaiting_intake')
+    expect(CANNOT_BE_PAIRED[tagOnName(person({ participationStatus: 'no_intake_submitted' }))!]).toBe('Awaiting Intake')
+    // Whatever else they hold: planned to lead, or having offered to.
+    expect(tagOnName(person({ participationStatus: 'no_intake_submitted', intendedPairings: [plan('leader')] }))).toBe('awaiting_intake')
+    expect(tagOnName(person({ participationStatus: 'ready_to_pair' }))).toBeNull()
+    expect(tagOnName(person({ participationStatus: 'paired' }))).toBeNull()
+    // Opted out is said where Pair would have been, as it was.
+    expect(tagOnName(person({ participationStatus: 'opted_out' }))).toBeNull()
+  })
+
+  it('does not say Awaiting Intake a second time in the Paired with cell, because the name has (James, 2026-09-21)', () => {
     const refused: RosterIntendedPairing = { ...plan('participant'), state: 'refused', refusal: 'relationship.gender_must_match' }
     const waiting = person({ participationStatus: 'no_intake_submitted', intendedPairings: [plan('participant')] })
     const notMade = person({ participationStatus: 'no_intake_submitted', intendedPairings: [refused] })
     const leftAPlan = person({ participationStatus: 'opted_out', intendedPairings: [plan('participant')] })
     const leftAPairing = person({ participationStatus: 'opted_out', relationships: [pairing('participant')] })
 
-    // *Taylor Brooks planned - awaiting Intake* has said it; the row still offers no Pair.
-    expect(reasonOnRow('disciples', waiting)).toBeNull()
-    expect(reasonOnRow('all', waiting)).toBeNull()
+    // The tag beside the name has said it, on every row and whatever the row holds;
+    // the row still offers no Pair.
+    expect(reasonOnRow(person({ participationStatus: 'no_intake_submitted' }))).toBeNull()
+    expect(reasonOnRow(waiting)).toBeNull()
+    expect(reasonOnRow(notMade)).toBeNull()
     expect(whyNotPairable(waiting)).toBe('awaiting_intake')
-    // Every other reason says something its lines do not.
-    expect(reasonOnRow('disciples', notMade)).toBe('awaiting_intake')
-    expect(reasonOnRow('disciples', leftAPlan)).toBe('opted_out')
-    expect(reasonOnRow('disciples', leftAPairing)).toBe('opted_out')
-    expect(reasonOnRow('all', person({ participationStatus: 'no_intake_submitted' }))).toBe('awaiting_intake')
-    // Only a line this list shows counts: planned to be discipled, she is on the
-    // Disciplers list for another reason, and that row shows no plan line.
-    const both = person({
-      participationStatus: 'no_intake_submitted',
-      intendedPairings: [plan('participant')],
-      declaredSide: 'mentor',
-    })
-    expect(reasonOnRow('disciplers', both)).toBe('awaiting_intake')
-    expect(reasonOnRow('all', person())).toBeNull()
+    // Opted out is said nowhere else on the row, so the cell says it.
+    expect(reasonOnRow(leftAPlan)).toBe('opted_out')
+    expect(reasonOnRow(leftAPairing)).toBe('opted_out')
+    expect(reasonOnRow(person())).toBeNull()
   })
 
 })
@@ -318,11 +335,12 @@ describe('the Pair popup, from a Disciple (Manual pairing, ticket 12)', () => {
     expect(pairHref('disciples', both)).toBe(`/roster?list=disciples&pair=${both.personId}`)
   })
 
-  it('keeps a row that opens as a Discipler on the old Pair page until that page retires', () => {
-    expect(pairHref('disciplers', discipler)).toBe(`/roster/pair?leaderId=${discipler.personId}`)
-    expect(pairHref('all', discipler)).toBe(`/roster/pair?leaderId=${discipler.personId}`)
-    expect(pairHref('all', both)).toBe(`/roster/pair?leaderId=${both.personId}`)
-    expect(pairHref('disciplers', both)).toBe(`/roster/pair?leaderId=${both.personId}`)
+  it('sends Pair on a Discipler row to the popup over the list it was pressed on, as the old Pair page retires', () => {
+    // Manual pairing, recut ticket 05: no row links to `/roster/pair` any more.
+    expect(pairHref('disciplers', discipler)).toBe(`/roster?list=disciplers&pair=${discipler.personId}`)
+    expect(pairHref('all', discipler)).toBe(`/roster?list=all&pair=${discipler.personId}`)
+    expect(pairHref('all', both)).toBe(`/roster?list=all&pair=${both.personId}`)
+    expect(pairHref('disciplers', both)).toBe(`/roster?list=disciplers&pair=${both.personId}`)
   })
 
   it('opens for somebody on the Roster who can be paired, and for nobody else', () => {
