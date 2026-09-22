@@ -807,9 +807,10 @@ const theMaterialsHeld = (context: CommandContext): readonly MaterialOnOffer[] =
 }
 
 /**
- * Whether the Material an Admin chose while pairing is on the Ministry's live
- * list as this command decides. Asked twice, when the relationship is formed and
- * when it is accepted, and answered one way: a removed Material is off the list.
+ * Whether the Material an Admin chose is on the Ministry's live list as this
+ * command decides. Asked when a relationship is formed with one, when it is
+ * accepted, and when one is assigned (Materials, ticket 03), and answered one
+ * way: a removed Material is off the list.
  */
 const isStillOnTheList = (context: CommandContext, id: MaterialId): boolean =>
   materialOnOffer(theMaterialsHeld(context), id) !== undefined
@@ -3677,12 +3678,19 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       // they come back is exactly the sort of thing an Admin does during one. The
       // weeks a Pause covers are dropped from `relationship_weeks` anyway, so the
       // period spanning it attributes nothing either way.
-      //
-      // Nor is the Material this relationship is already on. Assigning the same
-      // one again is a dated fact like any other -- it closes one period and opens
-      // another with the same Material in it, which leaves every report that sums
-      // by Material with the same answer and leaves the record saying truthfully
-      // that somebody decided this on that day.
+
+      // A Material, checked against the live list read in this transaction: a
+      // removed one is off it, so a stale dropdown cannot put a relationship on a
+      // Material no folder shows (Materials, ticket 03). A null is the un-assign
+      // and names nothing to check.
+      if (command.materialId !== null && !isStillOnTheList(context, command.materialId)) {
+        throw new MaterialAssignmentRefused('material.not_found')
+      }
+
+      // The Material this relationship is already on is refused by
+      // `app.assign_material`, as `material.already_running`: it reads the
+      // running period under the lock it writes the next one under, which a
+      // snapshot read here could not promise.
       return {
         rejections: [],
         effects: [

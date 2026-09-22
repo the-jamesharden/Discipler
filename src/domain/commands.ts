@@ -354,24 +354,23 @@ export type Command =
       readonly departedBy: string
     }
   /**
-   * An Admin putting a relationship onto a Material.
+   * An Admin putting a relationship onto a Material, or taking it off one.
    *
-   * The screen that does this is deferred from V1 and the data is not, so this
-   * command exists with nothing routing to it -- the seam the assignment rules
-   * are proven against, in the same way `checkin.start` is the seam the
-   * conversation was proven against before a cadence existed to open one.
+   * Routed from the assign row on a folder's cards and from the Material field on
+   * a group's card on Intake forms (Materials, ticket 03), both through this one
+   * command so the two can never disagree.
    *
    * It closes whatever period was running and opens a new one at the same instant,
    * because *periods never overlap and never leave gaps* is a fact about the pair.
-   * There is no un-assign: one Material at a time means the history moves from one
-   * to the next, and the only period with no Material in it is the one acceptance
-   * opened.
+   * A null Material is the un-assign: a later period with no Material in it, dated
+   * like any other. It starts at the clock's now, always; nothing backdates one.
    */
   | {
       readonly type: 'relationship.assign_material'
       readonly ministryId: MinistryId
       readonly relationshipId: RelationshipId
-      readonly materialId: MaterialId
+      /** The Material to move onto, or null to take the relationship off its own. */
+      readonly materialId: MaterialId | null
       /**
        * The Admin's account, as the session named it. What a relationship is
        * working through is a pastoral decision recorded against a Ministry's

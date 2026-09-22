@@ -393,8 +393,10 @@ export type MaterialAssignmentRefusal =
   /** Terminal. A relationship that is over has no week left to attribute. */
   | 'material.relationship_ended'
   /**
-   * No Material in this Ministry answers to that identifier. Decided by the
-   * database, which is the only thing that can see the Ministry's own list.
+   * No live Material in this Ministry answers to that identifier. Decided in the
+   * command boundary against the list read in the transaction, so a removed one is
+   * refused too (Materials, ticket 03), and a second time by the database's
+   * composite key, which is what refuses another Ministry's.
    */
   | 'material.not_found'
   /**
@@ -403,6 +405,13 @@ export type MaterialAssignmentRefusal =
    * the composite key on `material_assignment.assigned_by` is what says so.
    */
   | 'material.assigner_is_not_in_this_ministry'
+  /**
+   * It is already working through that Material, or already on none. Saving it
+   * again would change nothing but a date, so nothing is written (Materials,
+   * ticket 03). Decided by `app.assign_material`, which reads the running period
+   * under the same row lock that writes the next one.
+   */
+  | 'material.already_running'
 
 export class MaterialAssignmentRefused extends Error {
   constructor(readonly refusal: MaterialAssignmentRefusal) {

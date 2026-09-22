@@ -493,24 +493,24 @@ describe('the Material a relationship is working through', () => {
       )
     })
 
-    it('refuses a second period with no Material, which would read as an un-assignment', async () => {
+    it('holds a later period with no Material, which is an un-assignment', async () => {
       const relationship = await aRelationship()
       const romans = materialId(await addMaterial(ministry, 'Romans ' + ++numbered))
 
       at(new Date(acceptedAt.getTime() + days(7)))
       await assign(relationship, romans)
 
-      // Contiguous, non-overlapping, and still wrong: those weeks had a Material,
-      // and a null row says none was in use. Nothing produces this -- there is no
-      // un-assign -- which is exactly why the schema has to be what refuses it.
-      await expect(
-        rewritePeriods(
-          relationship,
-          new Date(acceptedAt.getTime() + days(21)),
-          null,
-          new Date(acceptedAt.getTime() + days(21)),
-        ),
-      ).rejects.toThrow(/material_assignment_one_opening_period/)
+      // Refused until Materials, ticket 03, by an index saying there is only ever
+      // one period with no Material. The grill asked for an un-assign, so the
+      // index went; contiguity and the opening period are still the trigger's.
+      const unassignedAt = new Date(acceptedAt.getTime() + days(21))
+      await rewritePeriods(relationship, unassignedAt, null, unassignedAt)
+
+      expect((await periodsOf(relationship)).map((period) => period.material_id)).toEqual([
+        null,
+        romans,
+        null,
+      ])
     })
 
     it('accepts two Materials assigned at the instant of acceptance, however the ties sort', async () => {

@@ -360,9 +360,10 @@ export interface MaterialAssignment {
   readonly ministryId: MinistryId
   readonly relationshipId: RelationshipId
   /**
-   * Null on exactly one period per relationship: the one acceptance opens, before
-   * the Ministry has assigned anything. A row saying *no Material*, rather than no
-   * row -- a report asking what was in use that week gets a fact instead of a
+   * Null on the period acceptance opens, before the Ministry has assigned
+   * anything, and on any later one an Admin opened by taking the relationship off
+   * its Material (Materials, ticket 03). A row saying *no Material*, rather than
+   * no row -- a report asking what was in use that week gets a fact instead of a
    * silence indistinguishable from a defect.
    */
   readonly materialId: MaterialId | null
