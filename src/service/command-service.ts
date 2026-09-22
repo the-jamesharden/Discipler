@@ -18,6 +18,7 @@ import {
   PauseRefused,
 } from '~/domain/errors'
 import type { FollowUpItemId, IdSource, ImportRowId, PersonId, RelationshipId } from '~/domain/ids'
+import { NO_GROUP_IN_MIND } from '~/domain/intake'
 import type { IntakeLinkToken } from '~/domain/intake-link'
 import type { InvitationToken } from '~/domain/invitations'
 import type { EffectStore, UnitOfWork } from './ports'
@@ -796,7 +797,12 @@ const groupToAddTo = async (
     // (Manual pairing, recut ticket 03). A Discipler asked to lead it never made
     // one: a Join Request is to be discipled in a group.
     ...(command.type === 'group.add_participant'
-      ? { joinRequest: await unit.openJoinRequestFor(command.personId, command.relationshipId) }
+      ? {
+          joinRequest: await unit.openJoinRequestFor(command.personId, command.relationshipId),
+          // And their open item asking to be placed in a group, which putting them
+          // in one answers (Group form exits, ticket 01).
+          placementWanted: await unit.openPlacementWantedFor(command.personId),
+        }
       : {}),
   }
 }
@@ -946,7 +952,9 @@ export const createCommandService = ({
         // everything else, so a door that closes between the page and the submit
         // is seen closed. Only when the body carries one: every other submission
         // pays nothing for a read it has no use for.
-        ...(command.type === 'intake.submit' && command.form.groupId
+        ...(command.type === 'intake.submit'
+        && command.form.groupId
+        && command.form.groupId !== NO_GROUP_IN_MIND
           ? { groupToJoin: await unit.groupToJoin(command.form.groupId) }
           : {}),
         // The request an admission names, then the group and the Person it is

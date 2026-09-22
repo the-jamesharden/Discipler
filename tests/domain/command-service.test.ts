@@ -244,6 +244,9 @@ describe('applying a command\'s effects', () => {
         openJoinRequestFor: async () => {
           throw new Error('not in this test')
         },
+        openPlacementWantedFor: async () => {
+          throw new Error('not in this test')
+        },
         addLeaderToGroup: async () => {
           throw new Error('not in this test')
         },

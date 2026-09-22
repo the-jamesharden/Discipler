@@ -107,6 +107,14 @@ export type IntakePath = (typeof INTAKE_PATHS)[number]
 export const GROUP_PATH: IntakePath = INTAKE_PATHS[1]
 
 /**
+ * The group path's last answer: *I don't have a group in mind* (Group form exits,
+ * ticket 01). It travels as the group field's value, because it is the last
+ * option in the same radio group and the step still has one submit. It names no
+ * group, so the submission records none and raises a Follow-Up Item instead.
+ */
+export const NO_GROUP_IN_MIND = 'none'
+
+/**
  * Which side of a discipleship relationship the Person offered to stand on. A
  * preference they stated and nothing stronger: it produces a signal on their Roster
  * row. It is one of the facts that put a Person on the Disciplers list (ticket 36).
@@ -161,7 +169,8 @@ export interface IntakeFormFields {
   /**
    * The group path's one question, in place of the Discipleship Goal: which of
    * the Ministry's groups the Person wants to join, as the identifier the form
-   * offered. Null on every other path, which asks no such thing.
+   * offered, or `NO_GROUP_IN_MIND`. Null on every other path, which asks no such
+   * thing.
    */
   readonly groupId: string | null
 }
@@ -189,7 +198,11 @@ export interface IntakeSubmissionDraft {
    * mentoring, whichever side they declared. Null where the form did not ask.
    */
   readonly firstTime: boolean | null
-  /** The group the Person asked to join. Set on the group path and null elsewhere. */
+  /**
+   * The group the Person asked to join. Null on every path but the group one, and
+   * null on it too for a Person with no group in mind: `intakePath` is what tells
+   * the two apart, and on the group path a null here is the answer they gave.
+   */
   readonly groupId: RelationshipId | null
 }
 
@@ -335,10 +348,14 @@ export const readIntakeForm = (fields: IntakeFormFields): IntakeReading => {
   // any other path is the same answer-with-no-question as a side on the group path,
   // and a Goal on the group path is too: the Goal is the suggestion tiebreaker, and
   // nobody who has named a group is being ranked.
+  //
+  // *No group in mind* is an answer and names no group (Group form exits, ticket
+  // 01), so only an empty field is unanswered.
   const rawGroup = fields.groupId?.trim() || null
-  const groupId = rawGroup === null ? null : relationshipId(rawGroup)
+  const groupId =
+    rawGroup === null || rawGroup === NO_GROUP_IN_MIND ? null : relationshipId(rawGroup)
   if (askedTheGroup) {
-    if (groupId === null) refusals.push('intake.group_not_selected')
+    if (rawGroup === null) refusals.push('intake.group_not_selected')
     if (fields.goalId !== null) answerWithNoQuestion()
   } else if (rawGroup !== null) {
     answerWithNoQuestion()
