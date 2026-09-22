@@ -120,3 +120,15 @@ The old page listed everybody ready to pair under *Discipler*, so an Admin could
 The popup, as old tickets 12 and 23 specified it, lists only people the Roster already makes Disciplers, and a Disciple's row opens only the Disciple's side.
 So with the old page gone, somebody becomes a Discipler only by offering on Intake or by an import planning them as one.
 Nothing was built for it here; if it should be possible by hand, it is a ticket of its own.
+
+### James, 2026-09-21, in the Lavish review
+
+- `/roster/pair` with nobody in its query keeps going to the Roster with nothing said: *Keep: to the Roster, nothing said*.
+  It is built that way; the default taken while writing the ticket stands.
+- The rule, restated: nobody is paired as a leader or a Disciple without completing Intake.
+  It holds on the popup as it did on the old page, and the question of a Discipler by hand is only about people who have completed it.
+- Imported people are marked as needing Intake.
+  They are, as the Awaiting Intake tag beside the name and no Pair on the row, whichever side the import put them on; asked back whether the tag should read *Need Intake* instead.
+- The question of pairing somebody as the leader who is not a Discipler yet was unclear, and James's first answer (No) came with a note asking for more.
+  Asked again in the Lavish with an example and a mock-up; nothing acted on until he answers.
+
