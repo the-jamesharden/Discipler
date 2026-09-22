@@ -38,10 +38,15 @@ Manual pairing ticket 22 built `group.add_participant`, the Roster's **Add to gr
 The one thing missing was closing the item, so `group.add_participant` now also resolves the Person's open `group_placement_wanted` item in the same transaction, by the Admin, and names it as `placementItemId` in the event, the same way it already resolves an open Join Request for the same group.
 **Place in this group** posts to `/follow-up/place`, which runs that command and nothing else.
 What is texted is unchanged: the group's accepted Leaders get the join text `group.add_participant` already sends, and the Person gets nothing; the domain test asserts the messages are identical with and without an item.
-`relationship.admit` is unchanged.
+`relationship.admit` was left unchanged at first; after review it changed in one way only, below.
+
+**After review.**
+- `relationship.admit` now also resolves the Person's open `group_placement_wanted` item in the same transaction, silently, by the Admin, and names it as `placementItemId` in `relationship.participant_admitted`. What is sent is unchanged, and a domain test and an integration test assert it. This is the only way the ticket's "`relationship.admit` is unchanged" is superseded.
+- The item's dropdown leaves out any group the Person already holds an open membership in, as a Disciple or as a leader.
+- Whether a group field answered *no group in mind* is decided once, by `answersNoGroupInMind` in `src/domain/intake.ts`, trimmed as the reader trims; the service and the submit route use it, so `" none "` reaches the same done page.
 
 **Decisions made, each with its alternative.**
-1. Any placement answers the item, from Follow-Up or from the Roster: an Admin who puts them into a group through **Add to group** also closes it. Alternative: close it only when placed from the item, which would leave an item saying they want a group after they are in one.
+1. Any placement answers the item, from Follow-Up, from the Roster, or by admitting a Join Request of theirs: an Admin who puts them into a group through **Add to group**, or admits them to one from Intake forms, also closes it. Alternative: close it only when placed from the item, which would leave an item saying they want a group after they are in one.
 2. The command carries no `followUpItemId`; the item is read by Person inside the transaction, as the Join Request is. Alternative: the ticket's `followUpItemId` on the command, redundant with at most one open item per Person.
 3. "A group not accepted" is not refused by the act. `group.add_participant` takes a group still awaiting its Discipler (Manual pairing, ticket 22), and one act keeps one rule. The dropdown offers only accepted, named, unended groups open to the Person, exactly `groups_open_to_join` filtered on gender as the form filters it. Alternative: refuse an unaccepted group when placing from the item, a second rule on the same act.
 4. On success the Admin lands on the Roster with the receipt **Add to group** gives ("... is in the group now. Its Discipler has been told ..."), so no new words and they see the Person in the group. Alternative: back to Follow-Up with a new toast.
