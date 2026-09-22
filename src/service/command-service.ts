@@ -18,7 +18,7 @@ import {
   PauseRefused,
 } from '~/domain/errors'
 import type { FollowUpItemId, IdSource, ImportRowId, PersonId, RelationshipId } from '~/domain/ids'
-import { NO_GROUP_IN_MIND } from '~/domain/intake'
+import { answersNoGroupInMind } from '~/domain/intake'
 import type { IntakeLinkToken } from '~/domain/intake-link'
 import type { InvitationToken } from '~/domain/invitations'
 import type { EffectStore, UnitOfWork } from './ports'
@@ -765,6 +765,9 @@ const joinRequestContext = async (unit: UnitOfWork, itemId: FollowUpItemId) => {
     joinRequest,
     ...(relationship ? { relationship } : {}),
     contacts: { people: await unit.contactsFor([joinRequest.personId]) },
+    // Their open item asking to be placed in a group, which being admitted to
+    // one answers (Group form exits, ticket 01).
+    placementWanted: await unit.openPlacementWantedFor(joinRequest.personId),
   }
 }
 
@@ -954,7 +957,7 @@ export const createCommandService = ({
         // pays nothing for a read it has no use for.
         ...(command.type === 'intake.submit'
         && command.form.groupId
-        && command.form.groupId !== NO_GROUP_IN_MIND
+        && !answersNoGroupInMind(command.form.groupId)
           ? { groupToJoin: await unit.groupToJoin(command.form.groupId) }
           : {}),
         // The request an admission names, then the group and the Person it is

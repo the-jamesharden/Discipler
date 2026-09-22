@@ -380,15 +380,17 @@ const revealedFrom = (doc: PageDocument, person: string | null): ContactDetails 
  * document (Group form exits, ticket 01): the Person's latest Intake answers and
  * the groups open to them. The groups arrive as the group form reads them, and
  * are filtered here on the Person's gender exactly as the form filters them, so
- * the dropdown and the form cannot come to offer different lists. A row that
+ * the dropdown and the form cannot come to offer different lists, less any group
+ * they are already in. A row that
  * cannot be read leaves its item without a dropdown rather than taking the page
  * with it, as a drifted payload does.
  */
 export const withPlacements = (
   items: readonly CareNeededItem[],
   doc: PageDocument,
-  timeZone: string | null,
+  history: HistoryInputs,
 ): readonly CareNeededItem[] => {
+  const timeZone = history.timeZone
   const placements = (doc.placements ?? {}) as Record<string, unknown>
   const wanted = new Map(
     rows(placements.wanted).flatMap((row) => {
@@ -418,6 +420,13 @@ export const withPlacements = (
     if (!row) return item
 
     const gender = isOneOf(GENDERS, row.gender) ? row.gender : null
+    // A group they already hold an open membership in, in either role, is not
+    // offered: placing them there is refused as `joining.already_in_the_group`.
+    const alreadyIn = new Set(
+      history.members.flatMap((member) =>
+        text(member.person_id) === item.personId ? [text(member.relationship_id)] : [],
+      ),
+    )
     const slots = Array.isArray(row.availability) ? row.availability : []
     const placement: PlacementWanted = {
       gender,
@@ -428,6 +437,7 @@ export const withPlacements = (
       }),
       groups: groups
         .filter((group) => group.declaredGender === null || group.declaredGender === gender)
+        .filter((group) => !alreadyIn.has(group.relationshipId))
         .map(({ relationshipId: id, name }) => ({ relationshipId: id, name })),
       timeZone,
     }
@@ -451,7 +461,7 @@ export const createSupabaseCareNeededReader = (clock: Clock = systemClock): Care
     return adminPage(doc, () => {
       const history = historyOf(doc)
       return {
-        items: withPlacements(careNeededFrom(history, clock), doc, history.timeZone),
+        items: withPlacements(careNeededFrom(history, clock), doc, history),
         revealed: revealedFrom(doc, reveal),
       }
     })

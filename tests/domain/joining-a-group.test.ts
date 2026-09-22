@@ -348,6 +348,7 @@ describe('an Admin admitting somebody who asked', () => {
       { type: 'relationship.admit', ministryId: ministry, itemId: item, admittedBy: 'admin-user-1' },
       context({
         joinRequest: { itemId: item, personId: priya, relationshipId: group },
+        placementWanted: null,
         relationship: tuesdayGroup({ joinRequiresApproval: true }),
         contacts: { people: new Map([[priya, { fullName: 'Priya Raman', phone: '+15550400' }]]) },
         ...over,
@@ -389,6 +390,7 @@ describe('an Admin admitting somebody who asked', () => {
     // Gone entirely -- the service found no relationship for the item to name.
     const { relationship: _gone, ...withoutTheGroup } = context({
       joinRequest: { itemId: item, personId: priya, relationshipId: group },
+      placementWanted: null,
       relationship: tuesdayGroup(),
       contacts: { people: new Map([[priya, { fullName: 'Priya Raman', phone: '+15550400' }]]) },
     })
@@ -410,6 +412,65 @@ describe('an Admin admitting somebody who asked', () => {
       }),
     })
     expect(kinds(effects)).toEqual(['followUp.resolve'])
+  })
+
+  /**
+   * Group form exits, ticket 01: somebody who first signed up with no group in
+   * mind, then asked to join a group that asks first. Admitting them puts them in
+   * a group, which is what their *Wants a group* item waits for, so it is
+   * resolved by the same act, silently, as `group.add_participant` resolves it.
+   */
+  describe('with an open item of theirs asking to be placed in a group', () => {
+    const placement = followUpItemId('00000000-0000-4000-8000-0000000000f3')
+
+    it('resolves it beside the request, by the Admin, and names it in the event', () => {
+      const { effects } = admit({ placementWanted: placement })
+
+      expect(
+        effects.flatMap((effect) => (effect.kind === 'followUp.resolve' ? [effect.resolution] : [])),
+      ).toEqual([
+        { ministryId: ministry, itemId: item, resolvedBy: 'admin-user-1', resolvedAt: now },
+        { ministryId: ministry, itemId: placement, resolvedBy: 'admin-user-1', resolvedAt: now },
+      ])
+      const event = historyOf(effects).find((e) => e.type === 'relationship.participant_admitted')
+      expect(event?.payload).toEqual({
+        personId: priya,
+        admittedBy: 'admin-user-1',
+        itemId: item,
+        placementItemId: placement,
+      })
+    })
+
+    it('changes nothing that is sent', () => {
+      expect(bodies(admit({ placementWanted: placement }).effects)).toEqual(bodies(admit().effects))
+    })
+
+    it('resolves it for somebody already in the group, who is in a group', () => {
+      const { effects } = admit({
+        placementWanted: placement,
+        relationship: tuesdayGroup({
+          members: [
+            ruthLeading,
+            { personId: priya, role: 'participant', fullName: 'Priya Raman', phone: '+15550400', acceptedAt: null },
+          ],
+        }),
+      })
+      expect(kinds(effects)).toEqual(['followUp.resolve', 'followUp.resolve'])
+    })
+
+    it('fails loudly when it was not told whether there is one', () => {
+      const { placementWanted: _notTold, ...notTold } = context({
+        joinRequest: { itemId: item, personId: priya, relationshipId: group },
+        relationship: tuesdayGroup({ joinRequiresApproval: true }),
+        contacts: { people: new Map([[priya, { fullName: 'Priya Raman', phone: '+15550400' }]]) },
+      })
+      expect(() =>
+        handleCommand(
+          { type: 'relationship.admit', ministryId: ministry, itemId: item, admittedBy: 'admin-user-1' },
+          notTold,
+        ),
+      ).toThrow(/waiting to be placed/)
+    })
   })
 })
 

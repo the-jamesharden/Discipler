@@ -9,6 +9,7 @@ import {
 } from '~/domain/follow-up'
 import { createSequentialIds, ministryId, type PersonId } from '~/domain/ids'
 import {
+  answersNoGroupInMind,
   GROUP_PATH,
   NO_GROUP_IN_MIND,
   readIntakeForm,
@@ -69,6 +70,15 @@ describe('the intake boundary, on the group path', () => {
     expect(read()).toMatchObject({
       submission: { intakePath: GROUP_PATH, groupId: null, goalId: null },
     })
+  })
+
+  it('reads the answer the same with space around it, and decides it in one place', () => {
+    expect(read({ groupId: '  none ' })).toMatchObject({ submission: { groupId: null } })
+    expect(answersNoGroupInMind('  none ')).toBe(true)
+    expect(answersNoGroupInMind(NO_GROUP_IN_MIND)).toBe(true)
+    for (const other of [null, '', 'None', 'nonesuch', '00000000-0000-4000-8000-0000000000b1']) {
+      expect(answersNoGroupInMind(other)).toBe(false)
+    }
   })
 
   it('still refuses an empty field as unanswered', () => {

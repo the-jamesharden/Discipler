@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { IntakeRefused, PairingRefused } from '~/domain/errors'
-import { GROUP_PATH, NO_GROUP_IN_MIND, type IntakeFormFields } from '~/domain/intake'
+import { answersNoGroupInMind, GROUP_PATH, NO_GROUP_IN_MIND, type IntakeFormFields } from '~/domain/intake'
 import { getCommandService, getIntakeReader, settlePlannedPairings } from '~/service/container'
 import { groupWizard } from '../../group-wizard-answers'
 import { consentSourceOf, submittedIntakeForm, textField } from '../../submitted-form'
@@ -47,7 +47,7 @@ export async function POST(
       {
         ageBand: form.ageBand ?? undefined,
         gender: form.gender ?? undefined,
-        groupId: form.groupId ?? undefined,
+        groupId: form.groupId?.trim() || undefined,
         availability: [...form.availability],
       },
       { groupId: [...page.groups.map((group) => group.relationshipId), NO_GROUP_IN_MIND] },
@@ -92,7 +92,7 @@ export async function POST(
   const done = new URLSearchParams()
   // No group in mind: the Ministry has been asked to place them, which is what
   // the page says (Group form exits, ticket 01).
-  if (form.groupId === NO_GROUP_IN_MIND) done.set('outcome', 'placement')
+  if (answersNoGroupInMind(form.groupId)) done.set('outcome', 'placement')
   if (chosen) {
     done.set('groupId', chosen.relationshipId)
     // *Joined* covers somebody who was already in it: they are in it, which is

@@ -115,6 +115,15 @@ export const GROUP_PATH: IntakePath = INTAKE_PATHS[1]
 export const NO_GROUP_IN_MIND = 'none'
 
 /**
+ * Whether a group field, as it arrived, answered *no group in mind*. Decided
+ * here once, trimmed as the reader trims every answer, so the reader, the
+ * service and the submit route cannot come to disagree about a value with
+ * space around it.
+ */
+export const answersNoGroupInMind = (groupId: string | null | undefined): boolean =>
+  groupId?.trim() === NO_GROUP_IN_MIND
+
+/**
  * Which side of a discipleship relationship the Person offered to stand on. A
  * preference they stated and nothing stronger: it produces a signal on their Roster
  * row. It is one of the facts that put a Person on the Disciplers list (ticket 36).
@@ -353,7 +362,7 @@ export const readIntakeForm = (fields: IntakeFormFields): IntakeReading => {
   // 01), so only an empty field is unanswered.
   const rawGroup = fields.groupId?.trim() || null
   const groupId =
-    rawGroup === null || rawGroup === NO_GROUP_IN_MIND ? null : relationshipId(rawGroup)
+    rawGroup === null || answersNoGroupInMind(rawGroup) ? null : relationshipId(rawGroup)
   if (askedTheGroup) {
     if (rawGroup === null) refusals.push('intake.group_not_selected')
     if (fields.goalId !== null) answerWithNoQuestion()

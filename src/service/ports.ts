@@ -388,8 +388,8 @@ export interface UnitOfWork {
   openJoinRequestFor(personId: PersonId, relationshipId: RelationshipId): Promise<OpenJoinRequest | null>
   /**
    * The open `group_placement_wanted` item one Person has, locked, or null where
-   * they have none. Read so an Admin putting them into a group resolves it in the
-   * same act (Group form exits, ticket 01). At most one: the item names only the
+   * they have none. Read so an Admin putting them into a group, or admitting them
+   * to one, resolves it in the same act (Group form exits, ticket 01). At most one: the item names only the
    * Person, and the one-open-item index holds that to one row.
    */
   openPlacementWantedFor(personId: PersonId): Promise<FollowUpItemId | null>

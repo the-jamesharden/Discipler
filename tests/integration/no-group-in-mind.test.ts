@@ -11,6 +11,7 @@ import { createCommandService } from '~/service/command-service'
 import type { PlacementWanted } from '~/service/ports'
 import {
   aTestPhoneNumber,
+  addMembership,
   createMinistryWithAdmin,
   formGroup,
   localSupabase,
@@ -100,12 +101,16 @@ describe('no group in mind', () => {
     return rows
   }
 
-  const aGroup = async (declaredGender: 'male' | 'female' | null, over: { accepted?: boolean; name?: string | null } = {}) => {
+  const aGroup = async (
+    declaredGender: 'male' | 'female' | null,
+    over: { accepted?: boolean; name?: string | null; joinRequiresApproval?: boolean } = {},
+  ) => {
     const gender = declaredGender ?? 'male'
     const name = over.name === undefined ? `Group ${named('G')}` : over.name
     const group = await formGroup(ministry, {
       name,
       declaredGender,
+      joinRequiresApproval: over.joinRequiresApproval ?? false,
       ...(over.accepted === false ? { acceptedAt: null } : {}),
       leader: { name: named('Leader'), phone: aTestPhoneNumber(), gender },
       disciples: [{ name: named('Disciple'), phone: aTestPhoneNumber(), gender }],
@@ -127,7 +132,7 @@ describe('no group in mind', () => {
     const doc = await documentFor(await signInAs(ministry), ministry.id, 'follow_up_page')
     if (!doc) throw new Error('the Admin should read their own Follow-Up tab')
     const history = historyOf(doc)
-    const item = withPlacements(careNeededFrom(history, systemClock), doc, history.timeZone).find(
+    const item = withPlacements(careNeededFrom(history, systemClock), doc, history).find(
       (each) => each.source === 'follow_up' && each.personId === person,
     )
     return item?.source === 'follow_up' ? item.placement : null
@@ -239,6 +244,55 @@ describe('no group in mind', () => {
       expect(item!.resolved_at).toBeNull()
     })
 
+    it('admitting them to a group that asks first closes it too, and texts only what admission texts', async () => {
+      const guarded = await aGroup('male', { joinRequiresApproval: true })
+      const fullName = named('Silas')
+      const phone = aTestPhoneNumber()
+      const silas = await signsUp(fullName, phone)
+      await signsUp(fullName, phone, { groupId: guarded.id })
+      const [placement] = await itemsOf(silas)
+      const { rows: requests } = await pool.query<{ id: string }>(
+        `select id from follow_up_item
+          where person_id = $1 and kind = 'group_join_requested' and resolved_at is null`,
+        [silas],
+      )
+      const sentBefore = await pool.query(`select 1 from outbound_message where person_id = $1`, [silas])
+
+      await service().execute({
+        type: 'relationship.admit',
+        ministryId: ministry.id,
+        itemId: followUpItemId(requests[0]!.id),
+        admittedBy: ministry.adminUserId,
+      })
+
+      const [closed] = await itemsOf(silas)
+      expect(closed).toMatchObject({ id: placement!.id, resolved_by: ministry.adminUserId })
+      expect(closed!.resolved_at).not.toBeNull()
+
+      const { rows: events } = await pool.query<{ payload: unknown }>(
+        `select payload from ministry_event
+          where subject_id = $1 and type = 'relationship.participant_admitted'`,
+        [guarded.id],
+      )
+      expect(events).toEqual([
+        {
+          payload: {
+            personId: silas,
+            admittedBy: ministry.adminUserId,
+            itemId: requests[0]!.id,
+            placementItemId: placement!.id,
+          },
+        },
+      ])
+      // The Leader's one join text, and nothing more to Silas than before.
+      const { rows: toLeader } = await pool.query(`select 1 from outbound_message where person_id = $1`, [
+        guarded.leader,
+      ])
+      expect(toLeader).toHaveLength(1)
+      const sentAfter = await pool.query(`select 1 from outbound_message where person_id = $1`, [silas])
+      expect(sentAfter.rows).toHaveLength(sentBefore.rows.length)
+    })
+
     it('resolving it alone closes it and writes no membership', async () => {
       const jonah = await signsUp(named('Jonah'), aTestPhoneNumber())
       const [item] = await itemsOf(jonah)
@@ -274,6 +328,24 @@ describe('no group in mind', () => {
 
       expect(offered).toEqual(expect.arrayContaining([mens.id, mixed.id]))
       for (const closed of [womens.id, unaccepted.id, unnamed.id]) expect(offered).not.toContain(closed)
+    })
+
+    it('leaves out a group they are already in, in either role', async () => {
+      const discipled = await aGroup('male')
+      const led = await aGroup('male')
+      const other = await aGroup('male')
+      const fullName = named('Ezra')
+      const phone = aTestPhoneNumber()
+      const ezra = await signsUp(fullName, phone)
+      await place(discipled.id, ezra)
+      // Asked again, so an item stands while they are in a group.
+      await signsUp(fullName, phone)
+      await addMembership({ ministry, relationshipId: led.id, kind: 'group', personId: ezra, role: 'leader' })
+
+      const offered = (await placementShownFor(ezra))?.groups.map((group) => group.relationshipId) ?? []
+      expect(offered).toContain(other.id)
+      expect(offered).not.toContain(discipled.id)
+      expect(offered).not.toContain(led.id)
     })
 
     it('carries what their latest Intake said', async () => {

@@ -130,6 +130,27 @@ describe.skipIf(skipUnlessAppIsRunning)('no group in mind, over HTTP', () => {
     expect(memberships).toEqual([])
   })
 
+  it('takes the answer with space around it as the same answer, to the same done page', async () => {
+    const { location } = await post(
+      `/intake/${ministry.id}/submit`,
+      {
+        via: 'link', ageBand: '25-34', gender: 'male', groupId: '  none ',
+        fullName: `Spaced ${++numbered}`, phone: aTestPhoneNumber(), smsConsent: 'yes', contactSharing: 'granted',
+      },
+      { availability: ['tuesday:18'] },
+    )
+    expect(location).toContain('outcome=placement')
+    // Resolved at once, so the count the later tests read is Jonah's item alone.
+    const { rows } = await pool.query<{ id: string }>(
+      `select f.id from follow_up_item f join person p on p.id = f.person_id
+        where p.ministry_id = $1 and p.full_name = $2 and f.kind = 'group_placement_wanted'`,
+      [ministry.id, `Spaced ${numbered}`],
+    )
+    expect(rows).toHaveLength(1)
+    const resolved = await post('/follow-up/resolve', { itemId: rows[0]!.id })
+    expect(resolved.location).toContain('done=resolved')
+  })
+
   it('shows the item on Follow-Up as S-8 draws it, with only the groups open to them', async () => {
     const { html } = await getPage('/follow-up', cookie)
     expect(html).toContain('Wants a group')
