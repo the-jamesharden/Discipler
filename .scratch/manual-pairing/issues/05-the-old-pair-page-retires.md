@@ -137,4 +137,8 @@ Nothing was built for it here; if it should be possible by hand, it is a ticket 
 - Pairing somebody as the leader who is not a Discipler yet, asked again with an example (Emily, who completed Intake to be discipled, made Sam's Discipler): *No: somebody becomes a Discipler by answering Mentor on Intake first*.
   In James's words: unless they have filled out the Intake form they cannot be a Discipler; a Discipler is just another word for the leader of a one-to-one or a 1:2, and there is no extra step from leader to Discipler, because they are one and the same in different contexts.
   So the popup stays as built, listing only Disciplers from a Disciple's side, and no ticket is written; the mock-up is not built.
+- A correction to what the Lavish told James while he answered: it said the Intake link on a person's page reopens the form for them to answer Mentor.
+  It does not: that tokenized reopen link serves the single-page form, which never asks the side, as `core-operating-loop/issues/27-three-intake-paths.md` records under *The reopen link does not ask the side*.
+  What does work today is the public discipleship link from Intake forms: a Person who answers the wizard again as a mentor replaces their earlier answer and becomes a Discipler.
+  Making the reopen link ask the side is the one open criterion of that ticket, and is not cut as a ticket of its own.
 
