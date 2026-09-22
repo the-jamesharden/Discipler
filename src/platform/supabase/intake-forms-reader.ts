@@ -1,13 +1,24 @@
-import { followUpItemId, personId, relationshipId, type PersonId } from '~/domain/ids'
+import {
+  followUpItemId,
+  materialId,
+  personId,
+  relationshipId,
+  type MaterialId,
+  type PersonId,
+  type RelationshipId,
+} from '~/domain/ids'
 import { goalWording, type OfferedGoal } from '~/domain/discipleship-goals'
 import { AGE_BANDS, GENDERS, discipleshipGoalId, isOneOf } from '~/domain/intake'
 import type {
   IntakeFormsPage,
   IntakeFormsReader,
   JoinRequestOnTheRoster,
+  MaterialOption,
   MinistryGroup,
 } from '~/service/ports'
+import { liveMaterialRows } from './materials-reader'
 import { adminPage, list, readPageDocument, type PageDocument } from './page'
+import { instant } from './relationship-history'
 import { count, declaredGenderOf, text } from './rows'
 import { createSupabaseServerClient } from './server-client'
 
@@ -33,7 +44,7 @@ const names = (value: unknown): readonly string[] =>
  * ADR-0004 fences to the database, and the function answers it without this file
  * naming what a group is.
  */
-const asGroup = (row: Record<string, unknown>): MinistryGroup => {
+const asGroup = (running: RunningPeriods) => (row: Record<string, unknown>): MinistryGroup => {
   const id = text(row.relationship_id)
   if (!id) throw new Error('A group row arrived with no id')
   return {
@@ -44,8 +55,36 @@ const asGroup = (row: Record<string, unknown>): MinistryGroup => {
     accepted: row.accepted === true,
     leaderNames: names(row.leader_names),
     participantNames: names(row.participant_names),
+    running: running.get(relationshipId(id)) ?? null,
   }
 }
+
+type RunningPeriods = ReadonlyMap<
+  RelationshipId,
+  { readonly materialId: MaterialId | null; readonly since: Date }
+>
+
+/**
+ * Each live group's running Material period, by group (Materials, ticket 03). A
+ * group nobody has accepted has none, and is absent here. A row without its start
+ * is the function and this reader having drifted apart, and a dropdown
+ * pre-selected on a guess is the wrong answer shown confidently.
+ */
+const runningPeriodsOf = (doc: PageDocument): RunningPeriods =>
+  new Map(
+    list(doc, 'group_materials').map((row) => {
+      const id = text(row.relationship_id)
+      const since = instant(row.started_at)
+      if (!id || !since) {
+        throw new Error(`A group's running Material period arrived incomplete: ${JSON.stringify(row)}`)
+      }
+      const material = text(row.material_id)
+      return [
+        relationshipId(id),
+        { materialId: material === null ? null : materialId(material), since },
+      ] as const
+    }),
+  )
 
 const asJoinRequest = (row: Record<string, unknown>): JoinRequestOnTheRoster => {
   const item = text(row.item_id)
@@ -119,7 +158,7 @@ const namesOf = (rows: readonly Record<string, unknown>[]): ReadonlyMap<PersonId
 
 /** What Intake forms derives from its document. */
 export const intakeFormsPageFrom = (doc: PageDocument): IntakeFormsPage => ({
-  groups: list(doc, 'groups').map(asGroup),
+  groups: list(doc, 'groups').map(asGroup(runningPeriodsOf(doc))),
   joinRequests: list(doc, 'join_requests').map(asJoinRequest),
   // The options behind the one question both forms ask that the Ministry writes
   // itself. A function rather than a table read plus a count of its own: the count
@@ -130,6 +169,10 @@ export const intakeFormsPageFrom = (doc: PageDocument): IntakeFormsPage => ({
   // pastoral and is the function's to give back, not this reader's to impose.
   goals: list(doc, 'goal_options').map(asOption),
   nameOf: namesOf(list(doc, 'people')),
+  // Id and title, which is what a select needs, with the one definition of *live*
+  // the Materials tab and the Pair popup share (Materials, ticket 03).
+  materials: liveMaterialRows(doc).map(({ materialId, title }): MaterialOption => ({ materialId, title })),
+  timeZone: text(doc.timezone),
 })
 
 export const supabaseIntakeFormsReader: IntakeFormsReader = {

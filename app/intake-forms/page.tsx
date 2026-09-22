@@ -6,7 +6,10 @@ import {
 } from '~/domain/outbound-copy'
 import { personId } from '~/domain/ids'
 import { appBaseUrl } from '~/platform/supabase/credentials'
+import type { MaterialOption, MinistryGroup } from '~/service/ports'
 import { getIntakeFormsReader } from '~/service/container'
+import { groupMaterialField, MATERIAL_FIELD } from '../materials/assigning'
+import { dayMonthYear, NO_MATERIAL } from '../materials/copy'
 import { AccountMenu, NotAnAdmin, PageShell } from '../shell'
 import { ClipboardField } from './clipboard-field'
 import { GoalsCard } from './goals-card'
@@ -20,6 +23,8 @@ import {
   DECLINE,
   declaredGenderLabel,
   declinedRequest,
+  GROUP_MATERIAL_HINT,
+  GROUP_MATERIAL_LABEL,
   GROUP_NAME_HINT,
   GROUP_NAME_LABEL,
   GROUP_SAVED,
@@ -34,6 +39,8 @@ import {
   WAITING_HEADING,
   AWAITING_LEADER_ACCEPTANCE,
   LEADS,
+  materialOnceAccepted,
+  workingThroughItSince,
 } from './copy'
 
 export const dynamic = 'force-dynamic'
@@ -106,6 +113,10 @@ export default async function IntakeFormsPage({
   // itself. Edited from here since ticket 34, because it is a property of the
   // forms handed out from this page.
   const goals = resolution.page.goals
+  // The live Materials each accepted group's dropdown offers, and the zone the
+  // date beneath it is printed in (Materials, ticket 03).
+  const materials = resolution.page.materials
+  const timeZone = resolution.page.timeZone ?? 'UTC'
   const query = await searchParams
 
   // Looked up on the Roster rather than echoed, like every other name a surface
@@ -354,11 +365,69 @@ export default async function IntakeFormsPage({
                 />
                 <span>{REQUIRE_APPROVAL_LABEL}</span>
               </label>
+              {/* What the group is working through (Materials, ticket 03, S-6),
+                  saved in this same press. Only once it is accepted: the
+                  assignment is refused before that, and nothing is stored to
+                  apply later. */}
+              {group.accepted && group.running ? (
+                <GroupMaterialField
+                  group={group.relationshipId}
+                  running={group.running}
+                  materials={materials}
+                  timeZone={timeZone}
+                />
+              ) : (
+                <div className="field" style={{ marginTop: '1rem' }}>
+                  <span className="label">{GROUP_MATERIAL_LABEL}</span>
+                  <p className="subtle" style={{ marginTop: 0 }}>
+                    {materialOnceAccepted(group.leaderNames.map(firstName))}
+                  </p>
+                </div>
+              )}
               <button type="submit">{SAVE_GROUP}</button>
             </form>
           ))
         )}
       </div>
     </PageShell>
+  )
+}
+
+/** The first word of a full name, which is what the groups card calls a Leader by. */
+const firstName = (fullName: string): string => fullName.trim().split(/\s+/)[0] ?? fullName
+
+/**
+ * The Material dropdown on an accepted group's card: "No material", then every
+ * live Material, on the running one, with the hint and, while a Material is
+ * running, since when.
+ */
+const GroupMaterialField = ({
+  group,
+  running,
+  materials,
+  timeZone,
+}: {
+  readonly group: string
+  readonly running: NonNullable<MinistryGroup['running']>
+  readonly materials: readonly MaterialOption[]
+  readonly timeZone: string
+}) => {
+  const { options, selected } = groupMaterialField(materials, running.materialId, NO_MATERIAL)
+  return (
+    <div className="field" style={{ marginTop: '1rem' }}>
+      <label className="label" htmlFor={`material:${group}`}>{GROUP_MATERIAL_LABEL}</label>
+      <select id={`material:${group}`} name={MATERIAL_FIELD} defaultValue={selected}>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <p className="subtle">
+        {running.materialId === null
+          ? GROUP_MATERIAL_HINT
+          : `${GROUP_MATERIAL_HINT} ${workingThroughItSince(dayMonthYear(running.since, timeZone))}`}
+      </p>
+    </div>
   )
 }

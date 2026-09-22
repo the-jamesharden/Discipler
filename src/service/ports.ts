@@ -1035,6 +1035,12 @@ export interface MinistryGroup {
   readonly accepted: boolean
   readonly leaderNames: readonly string[]
   readonly participantNames: readonly string[]
+  /**
+   * The group's running Material period, or null on a group nobody has accepted,
+   * which has no Material history yet (Materials, ticket 03). `materialId` is null
+   * while the running period is on no Material.
+   */
+  readonly running: { readonly materialId: MaterialId | null; readonly since: Date } | null
 }
 
 /**
@@ -1387,6 +1393,10 @@ export interface IntakeFormsPage {
   readonly goals: readonly OfferedGoal[]
   /** Everyone on the Roster by name, for saying who a query string refers to. */
   readonly nameOf: ReadonlyMap<PersonId, string>
+  /** The live Materials, in title order, for each accepted group's dropdown. */
+  readonly materials: readonly MaterialOption[]
+  /** The Ministry's IANA zone, which "Working through it since" is printed in. */
+  readonly timeZone: string | null
 }
 
 export interface IntakeFormsReader {
@@ -1420,6 +1430,12 @@ export interface JoinableGroup {
   readonly declaredGender: Gender | null
   readonly joinRequiresApproval: boolean
   readonly leaderFirstNames: readonly string[]
+  /**
+   * The title of the Material the group's running period is on, or null where it
+   * is on none. Shown beneath the group's name on the form (Materials, ticket 03);
+   * nobody picking a group is asked which Material they want.
+   */
+  readonly materialTitle: string | null
 }
 
 /** What the group Intake form needs to render itself, for a visitor with no session. */

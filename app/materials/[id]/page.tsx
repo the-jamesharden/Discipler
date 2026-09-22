@@ -8,8 +8,8 @@ export default async function MaterialPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ gender?: string }>
+  searchParams: Promise<{ gender?: string; assignError?: string }>
 }) {
   const [{ id }, query] = await Promise.all([params, searchParams])
-  return <FolderPage which={{ kind: 'material', id }} gender={query.gender} />
+  return <FolderPage which={{ kind: 'material', id }} gender={query.gender} assignError={query.assignError} />
 }
