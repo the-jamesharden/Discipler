@@ -402,6 +402,14 @@ export interface CommandContext {
    */
   readonly joinRequest?: OpenJoinRequest | null
   /**
+   * The open `group_placement_wanted` item of the Person `group.add_participant`
+   * puts into a group, or `relationship.admit` admits to one, which either act
+   * resolves (Group form exits, ticket 01).
+   * `null` is *they have none*; absent is *not loaded*. At most one: the item
+   * names only the Person.
+   */
+  readonly placementWanted?: FollowUpItemId | null
+  /**
    * Where a link points. The shape of the path is a copy decision and lives in
    * `outbound-copy`; the host it hangs off is configuration and arrives here.
    */
@@ -3915,6 +3923,14 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       const joiner = whoIs(context, request.personId)
       const now = context.clock.now()
 
+      // Their open item asking to be placed in a group, from the group link with
+      // no group in mind, is answered by being admitted to one, as it is by
+      // `group.add_participant` (Group form exits, ticket 01). Silently.
+      if (context.placementWanted === undefined) {
+        throw new Error('relationship.admit was not told whether they are waiting to be placed in a group')
+      }
+      const placement = context.placementWanted
+
       const effects: Effect[] = [
         // Admitting is an Admin's recorded act, so the item is resolved inside it
         // rather than left for a second click. The resolution carries the Admin;
@@ -3925,6 +3941,16 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           resolvedBy: command.admittedBy,
           resolvedAt: now,
         }),
+        ...(placement === null
+          ? []
+          : [
+              resolveFollowUpItem({
+                ministryId: command.ministryId,
+                itemId: placement,
+                resolvedBy: command.admittedBy,
+                resolvedAt: now,
+              }),
+            ]),
       ]
 
       // Already in it -- admitted from a second item, or through the open door
@@ -3948,6 +3974,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
               personId: request.personId,
               admittedBy: command.admittedBy,
               itemId: request.itemId,
+              ...(placement === null ? {} : { placementItemId: placement }),
             },
           }),
           ...tellTheLeadersSomebodyJoined(context, group, joiner.fullName, now),
@@ -3983,6 +4010,15 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         throw new Error('group.add_participant was handed a Join Request about another Person or group')
       }
 
+      // Their open item asking to be placed in a group, from the group link with
+      // no group in mind, is answered by this act wherever the Admin did it from:
+      // Follow-Up's **Place in this group** or the Roster (Group form exits,
+      // ticket 01). Resolved by the same act, as a Join Request is, and silently.
+      if (context.placementWanted === undefined) {
+        throw new Error('group.add_participant was not told whether they are waiting to be placed in a group')
+      }
+      const placement = context.placementWanted
+
       return {
         rejections: [],
         effects: [
@@ -3994,6 +4030,16 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
                 resolveFollowUpItem({
                   ministryId: command.ministryId,
                   itemId: request.itemId,
+                  resolvedBy: command.addedBy,
+                  resolvedAt: now,
+                }),
+              ]),
+          ...(placement === null
+            ? []
+            : [
+                resolveFollowUpItem({
+                  ministryId: command.ministryId,
+                  itemId: placement,
                   resolvedBy: command.addedBy,
                   resolvedAt: now,
                 }),
@@ -4016,6 +4062,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
               personId: command.personId,
               addedBy: command.addedBy,
               ...(request === null ? {} : { itemId: request.itemId }),
+              ...(placement === null ? {} : { placementItemId: placement }),
             },
           }),
           ...tellTheLeadersSomebodyJoined(context, group, joiner.fullName, now),
@@ -4529,6 +4576,29 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             ...tellTheLeadersSomebodyJoined(context, group, submission.fullName, now),
           )
         }
+      } else if (submission.intakePath === GROUP_PATH) {
+        // No group in mind (Group form exits, ticket 01). They land on the Roster
+        // with no group named and an Admin is asked to place them, so the
+        // decision cannot scroll out of view. Nobody is texted about it.
+        joining.push(
+          raiseFollowUpItem({
+            ministryId: command.ministryId,
+            kind: 'group_placement_wanted',
+            personId: id,
+            relationshipId: null,
+            raisedAt: now,
+          }),
+          // The item dedupes while it stands open and this does not, so how many
+          // times a Person asked survives, as a Join Request's does.
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'person.group_placement_wanted',
+            subjectType: 'person',
+            subjectId: id,
+            payload: {},
+          }),
+        )
       }
 
       effects.push(

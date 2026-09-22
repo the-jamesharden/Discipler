@@ -1011,6 +1011,7 @@ what to do about it:
 | `participant_keyword` | a Participant texting a recognized keyword | which keyword |
 | `invitation_number_disputed` | *not my number* on the invitation flow | — |
 | `match_declined` | a Participant declining the match on the reveal page | — |
+| `group_placement_wanted` | a Person on the group Intake link with no group in mind | none, the Person only |
 
 Every one is an act or a condition that no later event undoes, which is what qualifies
 it: a Follow-Up Item is never cleared by the event that raised it and never clears
@@ -1039,6 +1040,11 @@ and without an item it reaches nobody.
 > Swap Request Is a Request, Not a State Transition**.
 >
 > See `docs/adr/0011-only-a-leader-is-sent-a-link.md`.
+
+`group_placement_wanted` (Group form exits, ticket 01) is raised by a submission on the group Intake link that answered "I don't have a group in mind".
+It carries the Person and no relationship, so the one-open-item index holds one per Person however often they ask, while each ask is its own history event.
+It closes when an Admin puts the Person into a group with `group.add_participant`, from the item's **Place in this group** or from the Roster, which resolves it in the same transaction, or when an Admin resolves it alone.
+The item offers exactly the groups the group Intake link would offer them: accepted, named, unended, and of their declared gender or mixed.
 
 `invitation_number_disputed` is a persistent item and not a transient notification. It
 is the highest-stakes condition on the list — a wrong number means that Leader's

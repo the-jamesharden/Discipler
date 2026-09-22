@@ -677,6 +677,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         async openJoinRequestFor() {
           return null
         },
+        async openPlacementWantedFor() {
+          return null
+        },
         async joinRelationship(membership) {
           stagedJoins.push(membership)
         },

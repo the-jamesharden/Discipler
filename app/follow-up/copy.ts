@@ -8,6 +8,10 @@ import type {
   ReinvitationRefusal,
 } from '~/domain/errors'
 import type { FollowUpPayload } from '~/domain/follow-up'
+import { WEEKDAYS, type AgeBand, type AvailabilitySlot, type Gender, type Weekday } from '~/domain/intake'
+import type { PlacementWanted } from '~/service/ports'
+import { weekdayFullLabel } from '../intake/copy'
+import { dayMonth } from '../materials/copy'
 import { asList } from '~/domain/outbound-copy'
 import type { CareReason, RelationshipState } from '~/domain/relationship-state'
 import type { RelationshipOutcome } from '~/domain/relationships'
@@ -49,6 +53,7 @@ export const followUpTag: Record<FollowUpPayload['kind'], string> = {
   invitation_expired: 'Invitation expired',
   group_join_requested: 'Wants to join a group',
   intended_pairing_refused: 'Pair not made',
+  group_placement_wanted: 'Wants a group',
 }
 
 /**
@@ -159,7 +164,104 @@ export const followUpLine = (
       // The refusal in the Pair popup's own words, so the Admin reads the same
       // sentence they would have read pairing by hand -- and then does that.
       return `${who} was imported paired with somebody, and once both had completed Intake the pairing could not be made. ${pairingRefusalMessage(payload.refusal) ?? ''} Pair them by hand from the Roster, or resolve this.`
+    case 'group_placement_wanted':
+      // Said only where the item's Intake could not be read; `placementLine` is
+      // the sentence S-8 draws.
+      return `${who} signed up on the group link with no group in mind.`
   }
+}
+
+/**
+ * The line on a *Wants a group* item, as S-8 draws it (Group form exits, ticket
+ * 01): *Signed up on the group link on 9 Sep with no group in mind. Men's, 25 to
+ * 34, available Tuesday and Thursday evenings.* The date is the day the item was
+ * raised, in the Ministry's zone; the rest is the Person's latest Intake, and
+ * whatever of it is missing is left out rather than guessed.
+ */
+export const placementLine = (raisedAt: Date, placement: PlacementWanted): string => {
+  const about = [
+    placement.gender ? GENDER_OF_A_GROUP[placement.gender] : null,
+    placement.ageBand ? ageBandWords(placement.ageBand) : null,
+    placement.availability.length > 0 ? `available ${availabilityWords(placement.availability)}` : null,
+  ].filter((part): part is string => part !== null)
+
+  const signedUp = `Signed up on the group link on ${dayMonth(raisedAt, placement.timeZone)} with no group in mind.`
+  const described = about.length === 0 ? '' : ` ${capitalised(about.join(', '))}.`
+  // Every group closed to them, or none left: the dropdown is not drawn, so the
+  // line says why there is nothing to choose from.
+  const nothingOpen = placement.groups.length === 0 ? ` ${NO_GROUP_OPEN_TO_THEM}` : ''
+  return `${signedUp}${described}${nothingOpen}`
+}
+
+export const NO_GROUP_OPEN_TO_THEM = 'No group is open to them right now.'
+
+/** The dropdown and its button on a *Wants a group* item (S-8). */
+export const CHOOSE_A_GROUP = 'Choose a group…'
+export const PLACE_IN_THIS_GROUP = 'Place in this group'
+
+/** The Person's gender in the words S-8 uses, which are the words a group's declaration is said in. */
+const GENDER_OF_A_GROUP: Record<Gender, string> = { male: "Men's", female: "Women's" }
+
+/** *25 to 34*, and *65 and over* for the band with no top. */
+export const ageBandWords = (band: AgeBand): string => {
+  const [from, to] = band.split('-')
+  return to === undefined ? `${band.replace('+', '')} and over` : `${from} to ${to}`
+}
+
+const capitalised = (words: string): string => words.charAt(0).toUpperCase() + words.slice(1)
+
+/**
+ * The part of the day an hour of the grid falls in: before noon, noon to five,
+ * and five until the grid ends at eight. The grid is hourly (ADR-0018); a line
+ * an Admin reads at a glance says it in parts of the day.
+ */
+const PARTS = ['morning', 'afternoon', 'evening'] as const
+type PartOfDay = (typeof PARTS)[number]
+const partOf = (hour: string): PartOfDay => {
+  const at = Number.parseInt(hour, 10)
+  return at < 12 ? 'morning' : at < 17 ? 'afternoon' : 'evening'
+}
+
+const WEEKDAYS_ONLY: readonly Weekday[] = WEEKDAYS.slice(0, 5)
+const WEEKEND: readonly Weekday[] = WEEKDAYS.slice(5)
+const same = (a: readonly string[], b: readonly string[]) =>
+  a.length === b.length && a.every((each, at) => each === b[at])
+
+/**
+ * *Tuesday and Thursday evenings*: the days, gathered by the parts of the day
+ * they are free in, in the order of the week. Seven days alike are *every
+ * evening* (or *any time*), Monday to Friday alike *weekday evenings*, Saturday
+ * and Sunday alike *weekend evenings*, and a day free in every part is free
+ * *all day*.
+ */
+export const availabilityWords = (slots: readonly AvailabilitySlot[]): string => {
+  const partsOn = new Map<Weekday, PartOfDay[]>()
+  for (const day of WEEKDAYS) {
+    const parts = PARTS.filter((part) =>
+      slots.some((slot) => slot.day === day && partOf(slot.hour) === part),
+    )
+    if (parts.length > 0) partsOn.set(day, parts)
+  }
+
+  // Days that share exactly the same parts, in the order the first of them falls.
+  const gathered: { parts: PartOfDay[]; days: Weekday[] }[] = []
+  for (const [day, parts] of partsOn) {
+    const alike = gathered.find((each) => same(each.parts, parts))
+    if (alike) alike.days.push(day)
+    else gathered.push({ parts, days: [day] })
+  }
+
+  return gathered
+    .map(({ parts, days }) => {
+      const allDay = parts.length === PARTS.length
+      const partWords = asList(parts.map((part) => `${part}s`))
+      if (same(days, WEEKDAYS)) return allDay ? 'any time' : `every ${asList(parts)}`
+      if (same(days, WEEKDAYS_ONLY)) return allDay ? 'weekdays all day' : `weekday ${partWords}`
+      if (same(days, WEEKEND)) return allDay ? 'weekends all day' : `weekend ${partWords}`
+      const named = asList(days.map((day) => weekdayFullLabel[day]))
+      return allDay ? `${named} all day` : `${named} ${partWords}`
+    })
+    .join(', ')
 }
 
 /** The tag and the sentence for a Stalled relationship, per reason. */

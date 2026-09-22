@@ -114,7 +114,7 @@ export const GroupIntakeWizard = ({
     }
     return screen(
       <StepForm wizard={wizard} at={at} answers={answers} via={via} here={here} back={back}>
-        <GroupField groups={groups} chosen={answers.groupId} />
+        <GroupField groups={groups} chosen={answers.groupId} ministryName={ministryName} />
       </StepForm>,
     )
   }

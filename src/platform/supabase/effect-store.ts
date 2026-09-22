@@ -2035,6 +2035,24 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     return { itemId: followUpItemId(item.id), personId: asker, relationshipId: group }
   },
 
+  async openPlacementWantedFor(person: PersonId): Promise<FollowUpItemId | null> {
+    // Open, of the one kind, about this Person: the item names nobody else, so
+    // the one-open-item index holds it to one row. Locked, so an Admin resolving
+    // it at the same moment is refused by the resolution rather than closing it
+    // a second time.
+    const { rows } = await client.query<{ id: string }>(
+      `select id
+         from follow_up_item
+        where person_id = $1
+          and kind = 'group_placement_wanted'
+          and resolved_at is null
+          for update`,
+      [person],
+    )
+    const item = rows[0]
+    return item ? followUpItemId(item.id) : null
+  },
+
   async joinRelationship(membership: NewParticipantMembership) {
     // One row, as a Participant, carrying the relationship's own kind: the
     // composite key wants it and the domain is fenced from reading it, so it is

@@ -80,7 +80,7 @@ import type { InvitationToken, NewInvitation } from '~/domain/invitations'
 import type { MinistrySetupState, NewMinistrySetup } from '~/domain/ministry-setup'
 import type { MinistrySetupRefusal } from '~/domain/errors'
 import type { HistoryEvent, NewHistoryEvent } from '~/domain/history'
-import type { AgeBand, DeclaredSide, DiscipleshipGoalId, Gender } from '~/domain/intake'
+import type { AgeBand, AvailabilitySlot, DeclaredSide, DiscipleshipGoalId, Gender } from '~/domain/intake'
 import type {
   ConcernId,
   FollowUpItemId,
@@ -399,6 +399,13 @@ export interface UnitOfWork {
    * not this one.
    */
   openJoinRequestFor(personId: PersonId, relationshipId: RelationshipId): Promise<OpenJoinRequest | null>
+  /**
+   * The open `group_placement_wanted` item one Person has, locked, or null where
+   * they have none. Read so an Admin putting them into a group, or admitting them
+   * to one, resolves it in the same act (Group form exits, ticket 01). At most one: the item names only the
+   * Person, and the one-open-item index holds that to one row.
+   */
+  openPlacementWantedFor(personId: PersonId): Promise<FollowUpItemId | null>
   /**
    * Adds one Participant to a relationship that already exists -- the mirror of a
    * departure. Refuses with a `PairingRefused` when the caps, the Intake gate or
@@ -1636,11 +1643,36 @@ export interface FollowUpCareItem {
     readonly ledByNobody: boolean
   } | null
   /**
+   * For a Person who signed up on the group link with no group in mind (Group
+   * form exits, ticket 01), and null on every other kind -- and on every surface
+   * but the Follow-Up tab, which is the one that reads it.
+   */
+  readonly placement: PlacementWanted | null
+  /**
    * The kind and what it carries, as one value. Not a `kind` field beside a
    * payload: those are two things that can disagree, and only one of them can be
    * narrowed by the compiler at the point a screen reads the period out.
    */
   readonly payload: FollowUpPayload
+}
+
+/**
+ * What a `group_placement_wanted` item shows (S-8): what the Person answered
+ * about themselves on their latest Intake, and the groups they may be placed in.
+ */
+export interface PlacementWanted {
+  /** Null only for a Person with no Intake on file, which the item's own raising rules out. */
+  readonly gender: Gender | null
+  readonly ageBand: AgeBand | null
+  readonly availability: readonly AvailabilitySlot[]
+  /**
+   * The groups open to them: exactly the list the group form offers them --
+   * accepted, named and unended, of their declared gender or mixed -- in the
+   * form's order.
+   */
+  readonly groups: readonly { readonly relationshipId: RelationshipId; readonly name: string }[]
+  /** The Ministry's zone, which the date they signed up on is said in. */
+  readonly timeZone: string
 }
 
 /**

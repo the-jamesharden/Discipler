@@ -764,3 +764,9 @@ textarea.paste { width: 100%; min-height: 140px; font-family: ui-monospace, SFMo
 .pdf-row .name { font-weight: 600; }
 .pdf-row .muted { margin-left: auto; }
 .option.dashed { border-style: dashed; }
+/* Group form exits, ticket 01 (S-8): the group dropdown and its button on a
+   Wants a group item, taking the room the row has before Resolve. */
+/* On a phone the form takes a row of its own and the select one inside it, so
+   the select is never squeezed to a few letters beside the button. */
+.fu-actions form.fu-place { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; flex: 1 1 320px; min-width: 0; }
+.fu-actions form.fu-place select { flex: 1 1 170px; }

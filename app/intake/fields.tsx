@@ -1,8 +1,10 @@
-import { AGE_BANDS, SLOT_HOURS, WEEKDAYS } from '~/domain/intake'
+import { AGE_BANDS, NO_GROUP_IN_MIND, SLOT_HOURS, WEEKDAYS } from '~/domain/intake'
 import type { DiscipleshipGoalOption, IntakePrefill, JoinableGroup } from '~/service/ports'
 import {
   GROUP_QUESTION,
   hourLabel,
+  NO_GROUP_IN_MIND_ANSWER,
+  noGroupInMindDescription,
   selectedSummary,
   weekdayFullLabel,
   weekdayLabel,
@@ -209,9 +211,11 @@ export const GoalField = ({
 export const GroupField = ({
   groups,
   chosen,
+  ministryName,
 }: {
   readonly groups: readonly JoinableGroup[]
   readonly chosen: string | null
+  readonly ministryName: string
 }) => (
   <fieldset>
     <legend>{GROUP_QUESTION}</legend>
@@ -232,6 +236,21 @@ export const GroupField = ({
           ) : null}
         </label>
       ))}
+      {/* The last option in the same radio group, dashed, so the step still
+          submits once and works with no script (Group form exits, ticket 01,
+          S-7). It names no group, and the Ministry is asked to place them. */}
+      <label className="option dashed" htmlFor={`group:${NO_GROUP_IN_MIND}`}>
+        <input
+          id={`group:${NO_GROUP_IN_MIND}`}
+          type="radio"
+          name="groupId"
+          value={NO_GROUP_IN_MIND}
+          required
+          defaultChecked={chosen === NO_GROUP_IN_MIND}
+        />
+        <span className="option-title">{NO_GROUP_IN_MIND_ANSWER}</span>
+        <span className="option-desc">{noGroupInMindDescription(ministryName)}</span>
+      </label>
     </div>
   </fieldset>
 )

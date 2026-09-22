@@ -80,7 +80,10 @@ const thursdayTable = (over: Partial<RelationshipSnapshot> = {}): RelationshipSn
   ...over,
 })
 
-/** What the command is handed: a running group, and no open Join Request of Sam's for it. */
+/**
+ * What the command is handed: a running group, no open Join Request of Sam's for
+ * it, and no open item of Sam's asking to be placed in a group.
+ */
 const handed = (over: Partial<CommandContext> = {}): CommandContext => ({
   ministryId: ministry,
   clock: createTestClock(now),
@@ -89,6 +92,7 @@ const handed = (over: Partial<CommandContext> = {}): CommandContext => ({
   appBaseUrl: 'https://discipler.test',
   groupToJoin: thursdayTable(),
   joinRequest: null,
+  placementWanted: null,
   contacts: { people: new Map([[sam, { fullName: 'Sam Lee', phone: '+15550400' }]]) },
   ...over,
 })
@@ -227,6 +231,83 @@ describe('an open Join Request of theirs for the same group', () => {
     expect(() => add({ joinRequest: { ...asked.joinRequest, personId: emily } })).toThrow(
       /another Person or group/,
     )
+  })
+})
+
+/**
+ * Group form exits, ticket 01: somebody who signed up on the group link with no
+ * group in mind raised a *Wants a group* item, and putting them into a group --
+ * from that item's **Place in this group** or from the Roster -- is what it waits
+ * for. The same act, so the same membership, event and text; the item is
+ * resolved inside it, by the Admin.
+ */
+describe('an open item of theirs asking to be placed in a group', () => {
+  const item = followUpItemId('00000000-0000-4000-8000-0000000000f2')
+  const waiting = { placementWanted: item }
+
+  it('is resolved in the same act, by the Admin', () => {
+    const resolutions = add(waiting).effects.flatMap((effect) =>
+      effect.kind === 'followUp.resolve' ? [effect.resolution] : [],
+    )
+
+    expect(resolutions).toEqual([
+      { ministryId: ministry, itemId: item, resolvedBy: 'admin-user-1', resolvedAt: now },
+    ])
+  })
+
+  it('is named in the one event, beside the Admin, the Person and the group', () => {
+    expect(events(add(waiting).effects)).toEqual([
+      expect.objectContaining({
+        type: 'relationship.participant_added',
+        subjectId: group,
+        payload: { personId: sam, addedBy: 'admin-user-1', placementItemId: item },
+      }),
+    ])
+  })
+
+  it('changes nothing that is sent: the one text a join sends, and nothing to them', () => {
+    const { effects } = add(waiting)
+
+    expect(messages(effects)).toEqual(messages(add().effects))
+    expect(messages(effects).some((message) => message.personId === sam)).toBe(false)
+  })
+
+  it('writes the membership once, with the resolution beside what a join writes', () => {
+    expect(add(waiting).effects.map((effect) => effect.kind).sort()).toEqual([
+      'followUp.resolve',
+      'history.append',
+      'message.enqueue',
+      'relationship.join',
+    ])
+  })
+
+  it('is resolved beside a Join Request of theirs for the same group, both by the one act', () => {
+    const request = followUpItemId('00000000-0000-4000-8000-0000000000f1')
+    const { effects } = add({
+      ...waiting,
+      joinRequest: { itemId: request, personId: sam, relationshipId: group },
+    })
+
+    expect(
+      effects.flatMap((effect) => (effect.kind === 'followUp.resolve' ? [effect.resolution.itemId] : [])),
+    ).toEqual([request, item])
+  })
+
+  it('still refuses what the act refuses, and resolves nothing then', () => {
+    expect(() => add({ ...waiting, groupToJoin: thursdayTable({ endedAt: now }) })).toThrow(
+      new GroupJoinRefused('joining.group_has_ended'),
+    )
+    expect(() =>
+      add(
+        { ...waiting, contacts: { people: new Map([[emily, { fullName: 'Emily Johnson', phone: null }]]) } },
+        emily,
+      ),
+    ).toThrow(new GroupJoinRefused('joining.already_in_the_group'))
+  })
+
+  it('fails loudly when it was not told whether there is one', () => {
+    const { placementWanted: _notTold, ...context } = handed()
+    expect(() => addWith(context)).toThrow(/waiting to be placed/)
   })
 })
 
