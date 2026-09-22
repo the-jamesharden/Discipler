@@ -389,9 +389,4 @@ export const createSupabaseCareNeededReader = (clock: Clock = systemClock): Care
       revealed: revealedFrom(doc, reveal),
     }))
   },
-
-  async readSuggestedPairsPage() {
-    const doc = await readPageDocument(await createSupabaseServerClient(), 'suggested_pairs_page')
-    return adminPage(doc, () => ({ followUpCount: careNeededFrom(historyOf(doc), clock).length }))
-  },
 })

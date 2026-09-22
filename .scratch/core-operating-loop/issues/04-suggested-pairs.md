@@ -20,26 +20,26 @@ Two independent pools feed the scorer. The **leader pool** is everyone marked el
 
 **Blocked by:** 03
 
-**Status:** ready-for-agent
+**Status:** claimed
 
-- [ ] Ranking is a pure function, tested directly, with a case for every rule in ADR-0001 including the negative ones
-- [ ] Gender mismatch is filtered before ranking and is not overridable
-- [ ] The age band rule filters suggestions only
-- [ ] Excellent fit requires four or more shared cells spanning at least two distinct days
-- [ ] Four shared cells all falling on one day is Good fit, not Excellent fit
-- [ ] Good fit is two or three shared cells, Recommended is exactly one, and zero is No Schedule Overlap
-- [ ] Tiers are assigned as specified and no numeric score is ever emitted
-- [ ] `suggest_gender_match` and `suggest_max_age_band_gap` are read from Ministry settings, not from constants
-- [ ] Ties are broken by longest wait since Intake, and ordering is stable between visits
-- [ ] Every suggestion carries a one-sentence reason; a suggestion without one is unconstructible
-- [ ] The No Schedule Overlap set is returned separately and never presented as a fit
-- [ ] The leader pool is everyone eligible to lead who has completed Intake, given consent, and not opted out, filtered by the kind being suggested, with no cap on relationships already held
-- [ ] The participant pool is intake plus consent plus not opted out, ranked zero open participant memberships first
-- [ ] A person may appear as leader in one suggestion and participant in another in the same batch, and the pools are not deduplicated against each other
-- [ ] No suggestion pairs a person with themselves
-- [ ] No suggestion offers B as a participant under A while A is an open participant under B
-- [ ] Suggestions recalculate as soon as pairing changes who is available
-- [ ] The settings UI distinguishes the absolute constraint from the overridable one
+- [x] Ranking is a pure function, tested directly, with a case for every rule in ADR-0001 including the negative ones
+- [x] Gender mismatch is filtered before ranking and is not overridable
+- [x] The age band rule filters suggestions only
+- [x] Excellent fit requires four or more shared cells spanning at least two distinct days
+- [x] Four shared cells all falling on one day is Good fit, not Excellent fit
+- [x] Good fit is two or three shared cells, Recommended is exactly one, and zero is No Schedule Overlap
+- [x] Tiers are assigned as specified and no numeric score is ever emitted
+- [x] `suggest_gender_match` and `suggest_max_age_band_gap` are read from Ministry settings, not from constants
+- [x] Ties are broken by longest wait since Intake, and ordering is stable between visits
+- [x] Every suggestion carries a one-sentence reason; a suggestion without one is unconstructible
+- [x] The No Schedule Overlap set is returned separately and never presented as a fit
+- [x] The leader pool is everyone eligible to lead who has completed Intake, given consent, and not opted out, filtered by the kind being suggested, with no cap on relationships already held
+- [x] The participant pool is intake plus consent plus not opted out, ranked zero open participant memberships first
+- [x] A person may appear as leader in one suggestion and participant in another in the same batch, and the pools are not deduplicated against each other
+- [x] No suggestion pairs a person with themselves
+- [x] No suggestion offers B as a participant under A while A is an open participant under B
+- [x] Suggestions recalculate as soon as pairing changes who is available
+- [x] The settings UI distinguishes the absolute constraint from the overridable one
 
 ## Comments
 
@@ -105,11 +105,11 @@ Participant more than one band above the Leader") was already right — it was b
 as symmetric. `suggest_max_age_band_gap` means *the number of age bands a Participant
 may be above their Leader*, default `1`, no limit below.
 
-- [ ] Goal-matching and goal-differing pairs at the same cell count land in the same tier, and the goal-matching one ranks above
-- [ ] The reason sentence names the goal only when it matches, and never names a mismatch
-- [ ] A 25–34 Leader with a 35–44 Participant is suggested at the default gap of `1`
-- [ ] A 65+ Leader with an 18–24 Participant is suggested, proving the constraint is one-directional
-- [ ] `suggest_max_age_band_gap` of `0` excludes any Participant in a band above their Leader
+- [x] Goal-matching and goal-differing pairs at the same cell count land in the same tier, and the goal-matching one ranks above
+- [x] The reason sentence names the goal only when it matches, and never names a mismatch
+- [x] A 25–34 Leader with a 35–44 Participant is suggested at the default gap of `1`
+- [x] A 65+ Leader with an 18–24 Participant is suggested, proving the constraint is one-directional
+- [x] `suggest_max_age_band_gap` of `0` excludes any Participant in a band above their Leader
 
 ### Carried over from ticket 25 — suggestions filter on the declared gender too
 
@@ -126,8 +126,8 @@ there is no scorer yet, and it left the criterion here rather than holding itsel
   they are ranked under*.
 - The filter is not overridable and never appears as a reason, exactly like its sibling.
 
-- [ ] A suggestion into a group that declared a gender offers only people of that gender
-- [ ] It does so even where `suggest_gender_match` is off, because a declaration is not
+- [x] A suggestion into a group that declared a gender offers only people of that gender
+- [x] It does so even where `suggest_gender_match` is off, because a declaration is not
       that setting's to disable
 
 **2026-09-07, ticket 36.** The eligibility flag this ticket's leader pool reads is gone. The pool is now everyone who leads an open relationship or whose Intake answer was the mentor side, with Intake, consent and no opt-out as before. An intended pairing (ADR-0022) is not a suggestion and is not fed to the scorer.
@@ -135,3 +135,49 @@ there is no scorer yet, and it left the criterion here rather than holding itsel
 **2026-09-17, suggestions beyond the one-to-one.** This ticket is still the only place suggestions are specified, and it specifies one-to-ones. A toggle between Group, 1:2 pair and 1:1 is now wanted on the tab, with a person's own answer deciding which kinds they are offered for. See `.scratch/suggestions-beyond-the-one-to-one/`. Two consequences for whoever builds this ticket: the pool filter this ticket already describes as "filtered by the kind of relationship being suggested" is the seam the toggle hangs on, so build it as a parameter rather than as a one-to-one assumption; and ADR-0001's "exactly four inputs" is about to become five, the fifth being a constraint on the 1:2 pool alone. Four questions that ticket flags are unanswered and may rule the Group segment out by construction, chiefly whether a group suggestion can state its reason in one plain sentence.
 
 **2026-09-18, suggestions beyond the one-to-one, decided.** The note above said ADR-0001's "exactly four inputs" was about to become five. It is not. James decided the 1:2 answer does not bind: it filters nobody and ranks nobody, is shown beside a name on the suggestion card as `first_time` is on manual pairing, and so is not a suggestion input. ADR-0001 stands as written. The toggle is confirmed as Group, 1:2 and 1:1 suggestions, and building the kind filter as a parameter still holds.
+
+### Built - 2026-09-22
+
+Built on `integration/manual-pairing`.
+Every criterion above is ticked.
+Status is `claimed` rather than `shipped` because nothing here is on `main` yet, and the migration has not been pushed to production.
+
+What landed:
+
+- `src/domain/suggestions.ts`, the pure ranking, with `tests/domain/suggested-pairs.test.ts` holding a case for every rule, including the negative ones.
+- `public.suggestion_inputs(ministry)` and a new `suggested_pairs_page()` in `supabase/migrations/20261007000100_suggested_pairs.sql`.
+  The page is the Roster's document plus the two settings plus each Person's latest Intake (age band, Goal, availability, when it was given, and the current decision on texts).
+  The function is a definer with the Admin test inside, like `roster()`, because the consent rule is `app.current_consent` and that is not granted to `authenticated`.
+- `src/platform/supabase/suggested-pairs-reader.ts` and a `SuggestedPairsReader` port of its own.
+  `readSuggestedPairsPage` left `CareNeededReader`, where it would have closed an import cycle through the Roster reader.
+- The tab draws the design prototype's cards: tier chip, Discipler → Disciple with age band and Goal, the reason, and **Create relationship**.
+  Below them is the No Schedule Overlap section.
+- The settings criterion was already met by ticket 22: Gender and Age are separate sections with different words, and nothing new was built for it.
+
+Decisions taken while building, each with the alternative:
+
+1. **The tier cutoffs are the old numbers, carried over unchanged:** 4+ across 2+ days, 2-3, exactly 1.
+   They are still open (`docs/open-questions.md`, *Open: the suggestion tier cutoffs on an hourly grid*).
+   They are one constant, `TIER_CUTOFFS`, so a new decision is one edit plus the boundary tests.
+   The design prototype is already hourly and draws these same numbers, which is why they were used rather than a guess at new ones.
+2. **Create relationship opens the Pair popup** from the Discipler, with the Disciple already ticked (`/roster?list=disciplers&pair=L&with=P`), as `.scratch/manual-pairing/spec.md` says accepting a suggestion will.
+   The Admin still forms it there, with its Material; the alternative, forming it straight from the card, would skip the Material.
+3. **One card per Disciple**, with the strongest Discipler for them, as the prototype draws it.
+   The alternative is every eligible pair, which is a Disciplers-times-Disciples list.
+4. **No Schedule Overlap leaves out anyone in the Leader pool**, as the prototype does.
+   A Discipler who overlaps no other Discipler is not a Disciple nobody can place.
+   Somebody with no same-gender Discipler at all is listed there too, since no eligible leader shares their time; the section never names the gender rule.
+5. **Each No Schedule Overlap row has a Pair button** opening that person's popup from the Disciple's side, as their Roster row does.
+   The button removed in manual pairing, ticket 07, went to `/roster/pair` with nobody chosen, and that reason does not apply to a per-person button.
+6. **Held means any open membership still awaiting acceptance**, including a Discipler's own pending invitation onto a running group.
+   The narrower reading holds only members of relationships nobody has accepted.
+7. **The wait is measured from the latest Intake**, because that is the Intake whose answers are being ranked.
+   The alternative is the first Intake, which would keep somebody's place in the queue after they reopen their form.
+8. **Two people already in an open relationship together are never suggested**, for example a Discipler and a Disciple already in the same group.
+   Nothing stated this; it is the smallest reading that avoids suggesting what already exists.
+9. **The order is:** tier, then shared-slot count, then a shared Goal, then a Disciple holding no participant membership, then longest wait, then the Discipler's wait, then ids.
+   Tier comes before count so that five hours on one Saturday (Good) never sits above four hours across two days (Excellent).
+10. **Slot counts are said in words up to eighty-four** (*Twenty-one shared time slots.*), so a reason never starts with a digit.
+11. **The group case is a parameter** (`SuggestionKind`) holding the leader-pool cap and the declared-gender rule, both tested; the tab shows one-to-ones only.
+    What a group suggestion proposes is still open in `.scratch/suggestions-beyond-the-one-to-one/issues/02-...`.
+    The scorer is told *counts as a group* as a boolean, the way the Roster reader is, so it never reads `kind` and the relationship-kind fence is unchanged.

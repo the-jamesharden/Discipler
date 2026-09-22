@@ -131,6 +131,10 @@ Nothing here decides what the new cutoffs are, and the ones recorded in `docs/pr
 Ticket 04 cannot ship until they are re-decided.
 This is decision 11 of ticket 31.
 
+**2026-09-22.** Ticket 04 is built on the old numbers, carried over unchanged, because the design prototype is already hourly and draws those same numbers.
+They are one constant, `TIER_CUTOFFS` in `src/domain/suggestions.ts`, so a new decision is one edit plus the tests that pin each boundary.
+The question stays open until somebody decides it.
+
 ## Resolved: what the Discipleship Goal does now
 
 **It is a tiebreaker.** The Goal orders candidates within a tier and never determines

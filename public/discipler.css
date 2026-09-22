@@ -275,6 +275,9 @@ a.rel-card:hover { background: rgba(45, 80, 22, 0.05); }
 .sug-reason { margin: 0.85rem 0; padding: 0.7rem 0.9rem; background: rgba(45, 80, 22, 0.03); border-radius: 5px; font-size: 0.89rem; line-height: 1.5; }
 .nso { margin-top: 2.5rem; padding-top: 1.5rem; border-top: 2px solid var(--border); }
 .nso-row { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 0.6rem; flex-wrap: wrap; }
+.nso .card-title { font-size: 1.1rem; }
+.nso > .muted { margin: 0.35rem 0 1rem; }
+.nso-name { font-weight: 600; }
 
 /* ---- buttons ---- */
 

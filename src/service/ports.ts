@@ -93,6 +93,7 @@ import type {
   RelationshipId,
 } from '~/domain/ids'
 import type { ParticipationStatus } from '~/domain/participation'
+import type { Suggestions } from '~/domain/suggestions'
 import type { NewRelationship } from '~/domain/relationships'
 import type { CareReason, RelationshipState, SettledRelationshipState } from '~/domain/relationship-state'
 import type { InvitationState } from '~/domain/invitations'
@@ -1763,11 +1764,20 @@ export interface FollowUpPage {
 export interface CareNeededReader {
   /** The Follow-Up tab, with the one Person a reveal names or none. */
   readFollowUpPage(reveal: PersonId | null): Promise<AdminPage<FollowUpPage>>
-  /**
-   * The Suggested Pairs tab. Nothing is built behind it yet, so what it derives is
-   * the number the shell's badge shows.
-   */
-  readSuggestedPairsPage(): Promise<AdminPage<{ readonly followUpCount: number }>>
+}
+
+/**
+ * The Suggested Pairs tab: one-to-one suggestions ranked by the pure function in
+ * `src/domain/suggestions.ts`, from the Roster as it stands at the moment of the
+ * read, and the number the shell's badge shows.
+ */
+export interface SuggestedPairsPage {
+  readonly followUpCount: number
+  readonly suggestions: Suggestions
+}
+
+export interface SuggestedPairsReader {
+  readSuggestedPairsPage(): Promise<AdminPage<SuggestedPairsPage>>
 }
 
 /**

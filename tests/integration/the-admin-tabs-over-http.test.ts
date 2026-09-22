@@ -153,12 +153,12 @@ describe.skipIf(skipUnlessAppIsRunning)('the Admin tabs', () => {
       const { response, html } = await getPage('/suggested-pairs', cookie)
       expect(response.status).toBe(200)
       expect(html).toContain('No suggestions right now')
-      expect(html).toContain('not available yet')
-      // No button into pairing from here: every pairing starts from a row on the
-      // Roster (Manual pairing, ticket 07), and the sentence says to go there.
+      // The placeholder's line about the ranking not being built yet is gone with it.
+      expect(html).not.toContain('not available yet')
+      // No way into pairing with nobody chosen (Manual pairing, ticket 07): every
+      // button on the tab opens the popup for somebody.
       expect(html).not.toContain('href="/roster/pair"')
       expect(html).not.toContain('Pair manually')
-      expect(html).toContain('from the Roster')
     })
 
     it('renders Follow-Up with nothing needing attention and no badge', async () => {
