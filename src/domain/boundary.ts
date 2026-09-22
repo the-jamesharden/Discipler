@@ -2249,7 +2249,7 @@ const exchangeOwnsTheReply = (
 
 /**
  * What forming a relationship comes to, wherever the decision to form it was made.
- * Two callers: an Admin on the Pair page, and a plan an import made being settled
+ * Two callers: an Admin in the Pair popup, and a plan an import made being settled
  * once both people have completed Intake. It is the same pairing either way -- the
  * same refusals, the same kind and declaration rules, the same invitation to every
  * Discipler -- so the ticket that made imported pairs possible does not get to own

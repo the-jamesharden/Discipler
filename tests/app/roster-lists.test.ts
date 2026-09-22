@@ -325,11 +325,12 @@ describe('the Pair popup, from a Disciple (Manual pairing, ticket 12)', () => {
     expect(pairHref('disciples', both)).toBe(`/roster?list=disciples&pair=${both.personId}`)
   })
 
-  it('keeps a row that opens as a Discipler on the old Pair page until that page retires', () => {
-    expect(pairHref('disciplers', discipler)).toBe(`/roster/pair?leaderId=${discipler.personId}`)
-    expect(pairHref('all', discipler)).toBe(`/roster/pair?leaderId=${discipler.personId}`)
-    expect(pairHref('all', both)).toBe(`/roster/pair?leaderId=${both.personId}`)
-    expect(pairHref('disciplers', both)).toBe(`/roster/pair?leaderId=${both.personId}`)
+  it('sends Pair on a Discipler row to the popup over the list it was pressed on, as the old Pair page retires', () => {
+    // Manual pairing, recut ticket 05: no row links to `/roster/pair` any more.
+    expect(pairHref('disciplers', discipler)).toBe(`/roster?list=disciplers&pair=${discipler.personId}`)
+    expect(pairHref('all', discipler)).toBe(`/roster?list=all&pair=${discipler.personId}`)
+    expect(pairHref('all', both)).toBe(`/roster?list=all&pair=${both.personId}`)
+    expect(pairHref('disciplers', both)).toBe(`/roster?list=disciplers&pair=${both.personId}`)
   })
 
   it('opens for somebody on the Roster who can be paired, and for nobody else', () => {

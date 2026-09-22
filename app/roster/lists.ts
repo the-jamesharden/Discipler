@@ -137,18 +137,26 @@ export const opensAs = (list: RosterList, person: RosterFacts): PairSide =>
       ? 'discipler'
       : 'disciple'
 
+/** The list each side of the popup is drawn over, where nothing else says which. */
+export const LIST_OF_SIDE: Record<PairSide, RosterSide> = {
+  discipler: 'disciplers',
+  disciple: 'disciples',
+}
+
 /**
- * Where Pair on a row goes. A row that opens as a Disciple opens the popup over the
- * list it was pressed on (Manual pairing, ticket 12). A row that opens as a
- * Discipler still goes to the old Pair page with them chosen as the Discipler: that
- * side of the popup is built over three tickets and reached only by its address
- * (Manual pairing, ticket 23), so no Admin meets a half-built control. The ticket
- * that retires the old Pair page links it.
+ * The Pair popup for somebody, over a list. Every way into pairing is one of these
+ * (Manual pairing, recut ticket 05): a row, the person page, the Follow-Up tab and
+ * the old Pair page's address, which redirects here.
  */
-export const pairHref = (list: RosterList, person: RosterEntry): string =>
-  opensAs(list, person) === 'disciple'
-    ? `/roster?${new URLSearchParams({ list, pair: person.personId })}`
-    : `/roster/pair?${new URLSearchParams({ leaderId: person.personId })}`
+export const pairPopupHref = (list: RosterList, personId: string): string =>
+  `/roster?${new URLSearchParams({ list, pair: personId })}`
+
+/**
+ * Where Pair on a row goes: the popup over the list it was pressed on (Manual
+ * pairing, ticket 12), on whichever side `opensAs` gives, from a Disciple and from
+ * a Discipler alike since the old Pair page retired (recut ticket 05).
+ */
+export const pairHref = (list: RosterList, person: RosterEntry): string => pairPopupHref(list, person.personId)
 
 /**
  * Who `?pair=` opens the popup for, or null: somebody on this Ministry's Roster

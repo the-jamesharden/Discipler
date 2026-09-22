@@ -103,7 +103,7 @@ The Follow-Up Item raised when a Person picks a group whose Join Approval is on.
 _Avoid_: Application, waitlist
 
 **Pair**:
-The pastor's act of placing people into a discipleship relationship. A verb in the model and in every message. On the Roster, the person page and the pairing page, since ticket 36, a *pairing* is also the noun for a Discipleship Relationship, one-to-one or group, said in place of "relationship" because it is the customer's word; ticket 36 records the decision.
+The pastor's act of placing people into a discipleship relationship. A verb in the model and in every message. It happens in the Pair popup over the Roster, opened from one Person, on the Discipler's side or the Disciple's. On the Roster, the person page and the Pair popup, since ticket 36, a *pairing* is also the noun for a Discipleship Relationship, one-to-one or group, said in place of "relationship" because it is the customer's word; ticket 36 records the decision.
 _Avoid_: Using "pair" or "pairing" as a noun in code, in the model, or in message copy
 
 **Leader Dashboard**:

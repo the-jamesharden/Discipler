@@ -190,9 +190,7 @@ export default async function RosterPage({
   // nobody on this Roster, or somebody who cannot be paired, opens nothing.
   const pairing = whoThePopupIsFor(roster, asked)
   // The toggle decides the side, and each side is a popup of its own (Manual
-  // pairing, ticket 23). No row opens the Discipler's side until the old Pair
-  // page retires: it is reached by its address, and a Discipler's row keeps
-  // opening that page.
+  // pairing, ticket 23).
   const side = pairing ? opensAs(list, pairing) : null
   // Why a row cannot be chosen, already in words, or null where it can. Read
   // against what a one-to-one declares in this Ministry, never offered and then
@@ -204,7 +202,7 @@ export default async function RosterPage({
   const groupChosenBefore = firstOf(query.groupId)
   const tickedBefore = [query.with ?? []].flat()
   // A refusal of one one-to-one in a set names the Disciple it is about, in front
-  // of the sentence, as the old Pair page does. The name is read off the Roster.
+  // of the sentence, as the old Pair page did. The name is read off the Roster.
   const refusalSaid = pairingRefusalMessage(query.error)
   const refusedAbout = roster.find((person) => person.personId === firstOf(query.about))
   const pairingRefusal =

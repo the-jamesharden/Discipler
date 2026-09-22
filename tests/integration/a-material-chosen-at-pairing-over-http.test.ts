@@ -15,9 +15,8 @@ import {
  * route is posted a Material with the people, the Leader accepts on their own
  * link, and the Materials tab then files the group under that Material.
  *
- * There is no control for it on the Pair page yet, so the field is posted
- * directly. What is proven is that the route carries it, which is what the form
- * will land on.
+ * Posted as the Pair popup's Group posts it from its Discipler's side, so that a
+ * refusal comes back to the popup the Admin was in.
  */
 
 describe.skipIf(skipUnlessAppIsRunning)('a Material chosen at pairing, over HTTP', () => {
@@ -37,8 +36,16 @@ describe.skipIf(skipUnlessAppIsRunning)('a Material chosen at pairing, over HTTP
 
   const roster = (fullName: string) => addPerson(ministry, fullName, { phone: aTestPhoneNumber() })
 
+  /** As the popup posts a Group from its Discipler's side (Manual pairing, recut ticket 05). */
   const pairAGroup = async (leader: string, participants: string[], material: string) => {
-    const body = new URLSearchParams({ leaderId: leader, declaredGender: 'mixed', name: 'The Tuesday Group' })
+    const body = new URLSearchParams({
+      pair: leader,
+      list: 'disciplers',
+      shape: 'group',
+      leaderId: leader,
+      declaredGender: 'mixed',
+      name: 'The Tuesday Group',
+    })
     for (const participant of participants) body.append('participantId', participant)
     body.append('materialId', material)
 
@@ -76,7 +83,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Material chosen at pairing, over HTTP
 
     const paired = await pairAGroup(david, [emily, ada], romans)
     expect(paired.response.status).toBe(303)
-    expect(paired.location).toContain('/roster?paired=2')
+    expect(paired.location).toContain('/roster?list=disciplers&paired=2')
 
     // Formed and not accepted: nobody is working through anything yet.
     const before = await getPage(`/materials/${romans}`, cookie)
@@ -101,7 +108,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Material chosen at pairing, over HTTP
     expect(none.html).not.toContain('The Tuesday Group')
   })
 
-  it('sends the Admin back to the form, selection and Material intact, where the Material is off the list', async () => {
+  it('sends the Admin back to the popup, selection and Material intact, where the Material is off the list', async () => {
     const david = await roster('David Refused')
     const emily = await roster('Emily Refused')
     const ada = await roster('Ada Refused')
@@ -111,7 +118,8 @@ describe.skipIf(skipUnlessAppIsRunning)('a Material chosen at pairing, over HTTP
 
     expect(response.status).toBe(303)
     const back = new URL(location, baseUrl)
-    expect(back.pathname).toBe('/roster/pair')
+    expect(back.pathname).toBe('/roster')
+    expect(back.searchParams.get('pair')).toBe(david)
     expect(back.searchParams.get('error')).toBe('relationship.material_is_not_on_the_list')
     expect(back.searchParams.get('materialId')).toBe(nothingHere)
     expect(back.searchParams.getAll('with')).toEqual([emily, ada])

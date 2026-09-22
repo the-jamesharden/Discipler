@@ -7,6 +7,7 @@ import {
   localSupabase,
   type MinistryFixture,
 } from '../support/local-supabase'
+import { popupIn } from '../support/pair-popup'
 
 /**
  * The wizard driven the way a congregant does it: open the link, answer one screen,
@@ -412,14 +413,25 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
   })
 
   it('shows the pairing surface whether each candidate is new to this', async () => {
-    // A second candidate, because the pairing screen shows nobody until two people
-    // have completed Intake -- and one who was asked nothing, so nothing is
-    // claimed about her.
-    await addPerson(ministry, 'Hannah Reeves', { phone: '+15558120203' })
-    const { html } = await getPage('/roster/pair', cookie)
+    // A second candidate to pair him with, a man so that the gender match leaves
+    // him on Solomon's list, and never asked whether this is his first time, so
+    // nothing is claimed about him. Pairing is the Pair popup since the old Pair
+    // page retired (Manual pairing, recut ticket 05): from his side Solomon is a
+    // Discipler to choose, and what Solomon answered is on his own page beside Pair.
+    const hal = await addPerson(ministry, 'Hal Reeves', { phone: '+15558120203', answers: { gender: 'male' } })
+    const { rows } = await pool.query<{ id: string }>(
+      `select id from person where ministry_id = $1 and full_name = 'Solomon Adeyemi'`,
+      [ministry.id],
+    )
+    const solomon = rows[0]!.id
 
-    expect(html).toContain('Solomon Adeyemi')
-    expect(html).toContain('Has done this before')
-    expect(html).toContain('Hannah Reeves')
+    const fromHal = popupIn((await getPage(`/roster?list=disciples&pair=${hal}`, cookie)).html)
+    expect(fromHal).toContain('Solomon Adeyemi')
+    expect((await getPage(`/roster/${solomon}`, cookie)).html).toContain('Has done this before')
+
+    const fromHim = popupIn((await getPage(`/roster?list=disciplers&pair=${solomon}`, cookie)).html)
+    expect(fromHim).toContain('Hal Reeves')
+    expect(fromHim).not.toContain('New to this')
+    expect(fromHim).not.toContain('Has done this before')
   })
 })

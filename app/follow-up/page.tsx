@@ -4,6 +4,7 @@ import { personIdFrom } from '~/domain/ids'
 import { RELATIONSHIP_OUTCOMES } from '~/domain/relationships'
 import { getCareNeededReader } from '~/service/container'
 import type { CareMember, CareNeededItem } from '~/service/ports'
+import { LIST_OF_SIDE, pairPopupHref } from '../roster/lists'
 import { AdminShell, NotAnAdmin } from '../shell'
 import { ReinviteButton } from './reinvite-button'
 import {
@@ -195,7 +196,9 @@ const Item = ({ item, revealed }: { readonly item: CareNeededItem; readonly reve
             </form>
           ) : null}
           {kind === 'intended_pairing_refused' && item.personId ? (
-            <Link className="fu-btn" href={`/roster/pair?with=${item.personId}`}>
+            // The Pair popup for them on the Disciple's side, as the old Pair page's
+            // link had them (Manual pairing, recut ticket 05).
+            <Link className="fu-btn" href={pairPopupHref(LIST_OF_SIDE.disciple, item.personId)}>
               {PAIR_BY_HAND}
             </Link>
           ) : null}

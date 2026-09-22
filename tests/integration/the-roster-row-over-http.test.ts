@@ -197,12 +197,12 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
         [ministry.id, claire],
       )
 
-      await onTheirListAndOnAll(cookie, 'disciplers', (html) => {
+      await onTheirListAndOnAll(cookie, 'disciplers', (html, list) => {
         const row = rowFor(html, 'Claire Martinez')
         expect(row).toContain('Unpaired')
         // The tag went with the chip: the Disciplers list already says it.
         expect(row).not.toContain('Offered to mentor')
-        expect(pairLinkFor(html, 'Claire Martinez')).toBe(`/roster/pair?leaderId=${claire}`)
+        expect(pairLinkFor(html, 'Claire Martinez')).toBe(`/roster?list=${list}&pair=${claire}`)
       })
     })
 
@@ -211,9 +211,9 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
       const hana = await addPerson(ministry, 'Hana Sato', { phone: number() })
       await pairOneToOne(ministry, hana, await addPerson(ministry, 'Ivy Moreau', { phone: number() }))
 
-      await onTheirListAndOnAll(cookie, 'disciplers', (html) => {
+      await onTheirListAndOnAll(cookie, 'disciplers', (html, list) => {
         expect(rowFor(html, 'Hana Sato')).toContain('Ivy Moreau 1:1')
-        expect(pairLinkFor(html, 'Hana Sato')).toBe(`/roster/pair?leaderId=${hana}`)
+        expect(pairLinkFor(html, 'Hana Sato')).toBe(`/roster?list=${list}&pair=${hana}`)
       })
     })
 
@@ -278,7 +278,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
       .split('<tr')
       .find((candidate) => new RegExp(`data-testid="roster-name"[^>]*>${name}<`).test(candidate))
     expect(row, `no row on the Roster for ${name}`).toBeDefined()
-    // The popup over the Roster from a Disciple, the old Pair page from a Discipler.
+    // The popup over the Roster, from a Disciple and from a Discipler (Manual pairing, recut ticket 05).
     const link = row!.split('</tr>')[0]!.match(/<a [^>]*href="(\/roster[^"]*)"[^>]*>Pair<\/a>/)
     return link ? link[1]!.replace(/&amp;/g, '&') : null
   }

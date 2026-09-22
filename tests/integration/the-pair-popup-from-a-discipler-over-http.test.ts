@@ -117,7 +117,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
 
   const submit = (fields: [string, string][]) => postPairing(cookie, fields)
 
-  it('opens on the Discipler’s side on Disciplers and on All, by address, and no row opens it yet', async () => {
+  it('opens on the Discipler’s side on Disciplers and on All, from her row', async () => {
     for (const list of ['disciplers', 'all']) {
       const { response, html } = await popupAt(list, claire)
       expect(response.status, list).toBe(200)
@@ -136,12 +136,11 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
       // The X, Cancel and the backdrop, all to the list it was drawn over.
       expect(popup!.match(new RegExp(`href="/roster\\?list=${list}"`, 'g')), list).toHaveLength(3)
 
-      // Her row still goes to the old Pair page, which is untouched, until it retires.
+      // Her row opens it, now that the old Pair page has retired (recut ticket 05).
       const roster = (await getPage(`/roster?list=${list}`, cookie)).html
-      expect(roster, list).toContain(`href="/roster/pair?leaderId=${claire}"`)
-      expect(roster, list).not.toContain(`pair=${claire}`)
+      expect(roster, list).toContain(`href="/roster?list=${list}&amp;pair=${claire}"`)
+      expect(roster, list).not.toContain('href="/roster/pair')
     }
-    expect((await getPage(`/roster/pair?leaderId=${claire}`, cookie)).response.status).toBe(200)
   })
 
   it('lists every Disciple who has completed Intake and not opted out, each with what their row holds', async () => {

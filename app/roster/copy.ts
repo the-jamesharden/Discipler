@@ -102,8 +102,6 @@ export const AWAITING_INTAKE = 'awaiting Intake'
 export const NOT_MADE = 'not made'
 export const SEE_FOLLOW_UP = 'see Follow-Up'
 
-/** The Pair page's title. No button says it any more: every pairing starts from a row (Manual pairing, ticket 07). */
-export const PAIR_PEOPLE = 'Pair people'
 export const PAIR = 'Pair'
 export const UNPAIRED = 'Unpaired'
 
@@ -326,7 +324,7 @@ export const PAIR_POPUP = {
             `${declaredAs(greyed.declared)} group: choose Coed to include`,
 } as const
 
-/** The receipt the pairing screen redirects to, said about what just happened. */
+/** The receipt the pairing route redirects to, said about what just happened. */
 export const pairedReceipt = (disciples: number): string =>
   disciples === 1
     ? 'They are paired. The Discipler has been invited, and nobody else has been contacted yet.'
@@ -485,7 +483,7 @@ export const IMPORT_IS_NEVER_CONSENT =
 export const OFFERED_TO_MENTOR = 'Offered to mentor'
 
 /**
- * Whether this is their first time, per candidate, on the pairing screen. Both
+ * Whether this is their first time, per Disciple, in the Pair popup. Both
  * answers are said outright, including *has done this before* -- said only for the
  * first-timers, a blank would read as *no* rather than as *nobody asked them*.
  *

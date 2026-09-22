@@ -51,9 +51,9 @@ import {
  * clears every tick, so nothing a shape asks is on screen beside one.
  *
  * This file is the Discipler's side and nothing else. What it shares with the
- * Disciple's side is `./pair-popup`, and the groups are `./pair-popup-groups`. No
- * row opens it yet: it is reached by its
- * address, and a Discipler's row keeps opening the old Pair page.
+ * Disciple's side is `./pair-popup`, and the groups are `./pair-popup-groups`.
+ * Pair on a Discipler's row opens it, since the old Pair page retired (recut
+ * ticket 05).
  */
 
 /** One Disciple as the popup lists them. Nothing the Roster behind it does not already show this Admin. */

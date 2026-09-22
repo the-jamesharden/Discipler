@@ -159,8 +159,8 @@ describe.skipIf(skipUnlessAppIsRunning)('the Roster’s three lists', () => {
     // time went with Manual pairing, ticket 07.
     expect(row).not.toContain('Offered to mentor')
     expect(row).toContain('Unpaired')
-    // Preselected as the Discipler, since that is what she offered to be.
-    expect(html).toContain(`href="/roster/pair?leaderId=${priya}"`)
+    // The popup on the Discipler's side, since that is what she offered to be.
+    expect(html).toContain(`href="/roster?list=disciplers&amp;pair=${priya}"`)
 
     const disciples = await getPage('/roster?list=disciples', cookie)
     expect(names(disciples.html)).not.toContain('Priya Raman')
@@ -295,7 +295,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Roster’s three lists', () => {
     // anybody else who has not (James, 2026-09-19). The tag beside the name says
     // why (James, 2026-09-21), and the Paired with cell does not say it again.
     expect(asDiscipler.split('Awaiting Intake')).toHaveLength(2)
-    expect(disciplers.html).not.toContain(`/roster/pair?leaderId=${sam}`)
+    expect(disciplers.html).not.toContain(`pair=${sam}`)
     // Not paired: a plan is not a pairing. Sam is the one Discipler here.
     expect(statsLine(disciplers.html)).toBe('1 total 0 paired 1 unpaired')
 
@@ -318,7 +318,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Roster’s three lists', () => {
     // The same on All: the tag says it once, and no Pair for either of them.
     expect(samOnAll.split('Awaiting Intake')).toHaveLength(2)
     expect(taylorOnAll.split('Awaiting Intake')).toHaveLength(2)
-    expect(all.html).not.toContain(`/roster/pair?leaderId=${sam}`)
+    expect(all.html).not.toContain(`pair=${sam}`)
     expect(all.html).not.toContain(`pair=${taylor}`)
     expect(statsLine(all.html)).toBe('3 total 0 paired 3 unpaired')
 

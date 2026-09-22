@@ -156,7 +156,7 @@ export const followUpLine = (
     case 'group_join_requested':
       return `${who} asked to join a group you have set to ask first. Admit or decline them from Intake forms.`
     case 'intended_pairing_refused':
-      // The refusal in the Pair page's own words, so the Admin reads the same
+      // The refusal in the Pair popup's own words, so the Admin reads the same
       // sentence they would have read pairing by hand -- and then does that.
       return `${who} was imported paired with somebody, and once both had completed Intake the pairing could not be made. ${pairingRefusalMessage(payload.refusal) ?? ''} Pair them by hand from the Roster, or resolve this.`
   }

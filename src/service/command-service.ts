@@ -64,7 +64,7 @@ export interface CommandService {
    * the rest waiting. One transaction per plan, so one refusal never rolls back
    * another person's relationship -- and the database's own refusal of a pairing
    * (a cap, a race the snapshot could not see) is caught here and recorded by its
-   * code in a transaction of its own, exactly as the Pair page's route catches
+   * code in a transaction of its own, exactly as the Pair popup's route catches
    * the same refusal. Called after an Intake submission, after an import, and by
    * the scheduled tick (ADR-0022).
    */

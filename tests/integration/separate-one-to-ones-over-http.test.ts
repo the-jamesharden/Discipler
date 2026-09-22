@@ -8,14 +8,15 @@ import {
   localSupabase,
   type MinistryFixture,
 } from '../support/local-supabase'
+import { offersToMentor } from '../support/pair-popup'
 
 /**
  * Manual pairing, ticket 21. One Discipler and several Disciples posted to the
  * pairing route as `mode=separate`: a one-to-one with each, all of them or none.
  *
- * No screen has a control for the mode yet, so it is posted directly, as a Material
- * was before the form had one. What is proved is what the route does with it, which
- * is what the popup's N x 1:1 segment will land on.
+ * Posted as the Pair popup posts from its first Discipler's side, so a refusal comes
+ * back to the popup (Manual pairing, recut ticket 05). The popup's N x 1:1 segment
+ * is what sends `mode=separate`.
  */
 
 describe.skipIf(skipUnlessAppIsRunning)('separate one-to-ones in one submission, over HTTP', () => {
@@ -44,7 +45,8 @@ describe.skipIf(skipUnlessAppIsRunning)('separate one-to-ones in one submission,
     participants: string[],
     extra: Record<string, string> = {},
   ) => {
-    const body = new URLSearchParams({ mode: 'separate', ...extra })
+    // Over All, so the receipt lands where every row it is about is shown.
+    const body = new URLSearchParams({ pair: leaders[0] ?? '', list: 'all', mode: 'separate', ...extra })
     for (const leader of leaders) body.append('leaderId', leader)
     for (const participant of participants) body.append('participantId', participant)
 
@@ -128,6 +130,8 @@ describe.skipIf(skipUnlessAppIsRunning)('separate one-to-ones in one submission,
 
   it('forms none where one Disciple is of another gender, and names that person', async () => {
     const claire = await woman('Claire Refused')
+    // A Discipler, so the popup she comes back to is her Discipler's side.
+    await offersToMentor(pool, ministry, claire)
     const sam = await woman('Sam Refused')
     const andrew = await man('Andrew Refused')
     const ruth = await woman('Ruth Refused')
@@ -137,14 +141,16 @@ describe.skipIf(skipUnlessAppIsRunning)('separate one-to-ones in one submission,
     })
 
     expect(response.status).toBe(303)
-    // Back where it was submitted from, with the whole selection and the mode.
-    expect(back.pathname).toBe('/roster/pair')
+    // Back to the popup it was submitted from, with the whole selection and the
+    // mode. Not the name: N x 1:1 pairs ask none, and only a Group's comes back.
+    expect(back.pathname).toBe('/roster')
+    expect(back.searchParams.get('pair')).toBe(claire)
     expect(back.searchParams.get('error')).toBe('relationship.gender_must_match')
     expect(back.searchParams.get('about')).toBe(andrew)
     expect(back.searchParams.get('mode')).toBe('separate')
-    expect(back.searchParams.getAll('leaderId')).toEqual([claire])
+    expect(back.searchParams.getAll('leaderId')).toEqual([])
     expect(back.searchParams.getAll('with')).toEqual([sam, andrew, ruth])
-    expect(back.searchParams.get('name')).toBe('The Tuesday Group')
+    expect(back.searchParams.get('name')).toBeNull()
 
     // Sam was checked before Andrew and passed, and still holds nothing.
     expect(await relationshipsHolding([claire, sam, andrew, ruth])).toEqual([])
@@ -157,8 +163,8 @@ describe.skipIf(skipUnlessAppIsRunning)('separate one-to-ones in one submission,
     const { html } = await getPage(`${back.pathname}${back.search}`, cookie)
     expect(html).toContain('Andrew Refused: A one-to-one must be between two people of the same gender.')
     expect(html).toContain('None of these one-to-ones was made.')
-    // Submitting the corrected form is still a separate submission.
-    expect(html).toMatch(/<input[^>]*type="hidden"[^>]*name="mode"[^>]*value="separate"/)
+    // Submitting the corrected popup is still a separate submission.
+    expect(html).toMatch(/<input(?=[^>]*name="mode")(?=[^>]*value="separate")(?=[^>]*checked="")[^>]*>/)
   })
 
   it('is refused with one Disciple, which is a one-to-one and needs no mode', async () => {
@@ -167,7 +173,8 @@ describe.skipIf(skipUnlessAppIsRunning)('separate one-to-ones in one submission,
 
     const { back } = await pairSeparately([claire], [sam])
 
-    expect(back.pathname).toBe('/roster/pair')
+    expect(back.pathname).toBe('/roster')
+    expect(back.searchParams.get('pair')).toBe(claire)
     expect(back.searchParams.get('error')).toBe(
       'relationship.separate_needs_one_leader_and_several_participants',
     )
@@ -187,11 +194,13 @@ describe.skipIf(skipUnlessAppIsRunning)('separate one-to-ones in one submission,
 
     const { back } = await pairSeparately([claire, dana], [sam, ana])
 
-    expect(back.pathname).toBe('/roster/pair')
+    expect(back.pathname).toBe('/roster')
     expect(back.searchParams.get('error')).toBe(
       'relationship.separate_needs_one_leader_and_several_participants',
     )
-    expect(back.searchParams.getAll('leaderId')).toEqual([claire, dana])
+    // The second Discipler beside the one the popup is for, as no popup can post.
+    expect(back.searchParams.get('pair')).toBe(claire)
+    expect(back.searchParams.getAll('leaderId')).toEqual([dana])
     expect(await relationshipsHolding([claire, dana, sam, ana])).toEqual([])
   })
 

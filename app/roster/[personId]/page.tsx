@@ -27,7 +27,7 @@ import {
   UNPAIRED_RECEIPT,
   whoTheyAre,
 } from '../copy'
-import { isDiscipler } from '../lists'
+import { isDiscipler, LIST_OF_SIDE, pairPopupHref } from '../lists'
 import { unpairFor, type Unpair } from '../unpair'
 
 export const dynamic = 'force-dynamic'
@@ -130,14 +130,13 @@ export default async function PersonPage({
           <div className="card-head">
             <h2 className="card-title">Pairings</h2>
             {/* Offered on the state and not on the list: somebody Ready to Pair may
-                be paired, as the Discipler where they are one and as the Disciple
-                otherwise, and the pairing screen lets the Admin change that. */}
+                be paired, in the Pair popup over the Roster (Manual pairing, recut
+                ticket 05), on the Discipler's side where they are one and on the
+                Disciple's otherwise. */}
             {person.participationStatus === 'ready_to_pair' ? (
               <Link
                 className="btn sec small"
-                href={`/roster/pair?${new URLSearchParams(
-                  isDiscipler(person) ? { leaderId: person.personId } : { with: person.personId },
-                )}`}
+                href={pairPopupHref(LIST_OF_SIDE[isDiscipler(person) ? 'discipler' : 'disciple'], person.personId)}
               >
                 Pair
               </Link>

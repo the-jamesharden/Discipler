@@ -1097,7 +1097,7 @@ export interface GroupToJoin {
 
 /**
  * What the Roster derives from its document. The person page reads the same
- * document, and the Pair page reads it with three keys of its own beside it; each
+ * document, and the Pair popup reads it with three keys of its own beside it; each
  * takes what it needs.
  */
 export interface RosterPage {
