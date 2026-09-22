@@ -541,7 +541,8 @@ A text withheld at send time does not count, because nobody read it; a text the 
 
 The leaders' monthly check-in rule, opt-out language on the first check-in of each calendar month, is not kept beside this: it became this rule.
 The participants' rule, the language on the Starter Message and again after a silence gap, became it too.
-A silence gap nearly always reaches a month the person has not had the line in; the one exception is a gap inside a single 31-day month, such as 1 January to 31 January, where this rule leaves the line off.
+A silence gap nearly always reaches a month the person has not had the line in.
+The one exception is a gap inside a single 31-day month, such as 1 January to 31 January, where this rule leaves the line off; that case is open for James on `.scratch/text-wording/issues/01-the-rates-line-once-a-month.md`.
 See `docs/consent-language.md` and `src/domain/rates-line.ts`.
 
 > **Supersedes:** the two rules this section replaced, and before them `docs/reference/mentee-experience.md`, which gave mentees a monthly reminder on a check-in.
