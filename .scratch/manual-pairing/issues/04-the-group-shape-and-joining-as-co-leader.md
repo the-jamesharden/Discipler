@@ -10,7 +10,7 @@ Old ticket 26 said its co-leader half did not wait on old ticket 11.
 That was written before old ticket 22's second stage found that a co-leader accepting on a running group activates it a second time and sends the Starter Message again to every leader and every Disciple.
 Ticket 01 is the fix, so **Add as co-leader** gets no button before it.
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 **Built:** 2026-09-21, on `integration/manual-pairing`, not merged to `main`.
 See *Implementer, 2026-09-21* under Comments.

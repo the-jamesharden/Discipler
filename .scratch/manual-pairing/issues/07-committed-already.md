@@ -12,7 +12,7 @@ Each old ticket is below, whole, under its old number, with its headings one lev
 **Inside this file a "ticket NN" is always an old number**, except in the table just below, whose last column names the new tickets 01 to 05.
 The last two sections carry the numbers 28 and 29, from a cut that lasted an hour on 2026-09-20, because commit `69bbe9e` says "ticket 28, stage 3"; the commits for 29 say "ticket 23, stage 2".
 
-**Status:** committed on `integration/manual-pairing` and not yet merged to `main`, except old tickets 01 and 02, which are `shipped`.
+**Status:** shipped: everything here reached `main` in PR #16 on 2026-09-22, as did old tickets 01 and 02 before it.
 That is not one of the tracker's status strings, because none of them says built and unmerged; it is not `ready-for-agent`, and no session should pick this file up.
 
 ## Where every earlier number lives now

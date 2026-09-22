@@ -6,7 +6,7 @@ This is the moment the Discipler's side, built unlinked over old ticket 23 and t
 **Blocked by:** 02, 04
 It does not wait on ticket 03.
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 **Built:** 2026-09-21, on `integration/manual-pairing`, not merged to `main`.
 See *Implementer, 2026-09-21* under Comments.

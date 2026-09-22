@@ -20,7 +20,7 @@ Two independent pools feed the scorer. The **leader pool** is everyone marked el
 
 **Blocked by:** 03
 
-**Status:** claimed
+**Status:** shipped
 
 - [x] Ranking is a pure function, tested directly, with a case for every rule in ADR-0001 including the negative ones
 - [x] Gender mismatch is filtered before ranking and is not overridable

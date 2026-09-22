@@ -4,9 +4,9 @@
 
 **Blocked by:** nothing
 
-**Status:** ready-for-agent
+**Status:** shipped
 
-**Built:** on `wave2/no-group-in-mind`, not merged. Migration `20261009000100_no_group_in_mind.sql` is not pushed to production.
+**Built:** on `wave2/no-group-in-mind`; on `main` in PR #16 on 2026-09-22, with migration `20261009000100_no_group_in_mind.sql` on production.
 
 ## Acceptance
 

@@ -5,9 +5,9 @@ Behind them: `relationship.assign_material` gains a nullable Material and a rout
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** shipped
 
-**Built:** on `wave1/assigning-a-material`, not merged. Migration `20261008000300_assigning_a_material.sql` is not pushed to production.
+**Built:** on `wave1/assigning-a-material`; on `main` in PR #16 on 2026-09-22, with migration `20261008000300_assigning_a_material.sql` on production.
 
 ## Acceptance
 

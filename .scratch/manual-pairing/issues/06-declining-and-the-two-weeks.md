@@ -8,7 +8,7 @@ Either way the Admin is told on the Follow-Up tab, by an item that is red as a C
 **Blocked by:** None - can start immediately.
 It is worth having no later than ticket 04, which is what hands **Add as co-leader** to an Admin: until this is built, a co-leader invited by mistake stays on the group as somebody it is waiting for, for ever.
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 **Built:** 2026-09-21, and on `main` the same day: the migration was pushed to production by James, then `main` was fast-forwarded to `7607f9b` and to `233a2e4`, with CI green and both Vercel deploys succeeded.
 See *Implementer, 2026-09-21* under Comments.

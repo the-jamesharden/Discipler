@@ -4,9 +4,9 @@
 
 **Blocked by:** None - can start immediately.
 
-**Status:** ready-for-agent
+**Status:** shipped
 
-**Built:** 2026-09-22, on `wave1/rates-line-once-a-month`, not merged. The migration is not pushed to production.
+**Built:** 2026-09-22, on `wave1/rates-line-once-a-month`; on `main` in PR #16 the same day, with its migration on production.
 
 **It adds a migration**, which James pushes to production by hand.
 
