@@ -995,7 +995,7 @@ what to do about it:
 | `participant_keyword` | a Participant texting a recognized keyword | which keyword |
 | `invitation_number_disputed` | *not my number* on the invitation flow | — |
 | `match_declined` | a Participant declining the match on the reveal page | — |
-| `group_placement_wanted` | a Person on the group Intake link with no group in mind | — (the Person only) |
+| `group_placement_wanted` | a Person on the group Intake link with no group in mind | none, the Person only |
 
 Every one is an act or a condition that no later event undoes, which is what qualifies
 it: a Follow-Up Item is never cleared by the event that raised it and never clears
