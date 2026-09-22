@@ -92,8 +92,11 @@ describe('accepting an Invitation Link', () => {
 
   const messagesTo = async (person: PersonId) => {
     const { rows } = await pool.query<{ body: string; discloses_person_id: string | null }>(
+      // Every command here reads the same pinned clock, so `enqueued_at` ties
+      // between the invitation and the Starter Message; `created_at` is the
+      // commit order that tells them apart.
       `select body, discloses_person_id from outbound_message
-        where person_id = $1 order by enqueued_at`,
+        where person_id = $1 order by enqueued_at, created_at`,
       [person],
     )
     return rows
