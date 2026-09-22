@@ -12,7 +12,7 @@ Two access tiers only: Admin, who sees everything in their Ministry, and Leader,
 
 **Blocked by:** 05
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 - [x] A Leader receives an Invitation Link on relationship creation and can resolve it without a session
 - [x] The match is revealed before any input is requested

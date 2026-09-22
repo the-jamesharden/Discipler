@@ -8,7 +8,7 @@ The contact details shown respect the recipient's contact-sharing consent, which
 
 **Blocked by:** 10
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 - [ ] A follow-up item exposes contact details and resolve inline
 - [x] Contact details shown respect the recipient's contact-sharing consent

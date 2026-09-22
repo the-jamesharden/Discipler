@@ -7,7 +7,7 @@ His words: the discipleship goals page needs to go on the intake form, and "disc
 
 **Blocked by:** 32
 
-**Status:** claimed
+**Status:** shipped
 
 ## Decisions
 

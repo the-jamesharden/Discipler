@@ -5,7 +5,7 @@
 Raised by James on 2026-09-05, from a real phone against production.
 His words: it asks the first thing, I responded, it recorded the response and showed it on the front end, but it never asked the second question and never sent the final thank-you message.
 
-**Status:** claimed
+**Status:** shipped
 
 ## What actually happened
 

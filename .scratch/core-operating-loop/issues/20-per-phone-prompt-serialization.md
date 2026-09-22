@@ -10,7 +10,7 @@ This is what makes reply binding by most-recent-prompt safe for scheduled traffi
 
 **Blocked by:** 03, 17
 
-**Status:** done
+**Status:** shipped
 
 - [x] A scheduled prompt to a number with an open prompt is held, not sent
 - [x] A held prompt is released on answer, on supersession, and on timeout — supersession closes the reply but never frees the number on its own; see below

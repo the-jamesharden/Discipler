@@ -7,7 +7,7 @@ His words: it speaks the language of the customer; the current UI speaks of elig
 
 **Blocked by:** nothing
 
-**Status:** claimed
+**Status:** shipped
 
 ## Decisions
 

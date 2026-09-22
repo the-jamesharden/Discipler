@@ -14,7 +14,7 @@ Manual pairing may override the age band constraint. It may never override gende
 
 **Blocked by:** 04
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 - [~] An Admin can create a relationship from a suggestion, from two people on the Roster, or from several people selected together
 - [x] A created relationship is `Awaiting Leader Acceptance` and enqueues nothing to Participants
