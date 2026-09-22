@@ -117,7 +117,7 @@ A discipleship resource a relationship works through, such as a book of the Bibl
 _Avoid_: Program, curriculum, deleting a Material
 
 **Material Assignment**:
-The period during which a relationship was working through a particular material. Assigned to the relationship, never to a person: a leader in two relationships may be working through two different things. Periods never overlap and never leave gaps, so a relationship's first period runs from acceptance with no material assigned.
+The period during which a relationship was working through a particular material. Assigned to the relationship, never to a person: a leader in two relationships may be working through two different things. Periods never overlap and never leave gaps, so a relationship's first period runs from acceptance with no material assigned. Un-assigning is a later period with no material, and assigning the material already running is refused; both are decided in `app.assign_material`.
 _Avoid_: Assigning a material to a person
 
 **Intended Material**:
