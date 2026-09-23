@@ -2,6 +2,7 @@ import Link from 'next/link'
 import type { ReactNode } from 'react'
 import type { SignedInAdmin } from '~/service/ports'
 import { CHANGE_YOUR_PASSWORD } from './account/copy'
+import { ArrowLeft } from './icons'
 import { INTAKE_FORMS } from './intake-forms/copy'
 
 /**
@@ -189,6 +190,29 @@ export const AdminShell = ({
 }
 
 /**
+ * The way back to the page this one was reached from. An outlined button with an
+ * arrow, like the header's other controls, and never a bare link: standing on its
+ * own beside *Account*, underlined text read as words rather than as a way out.
+ * `small` for inside a card, and `className` for where it sits.
+ */
+export const BackLink = ({
+  href,
+  label,
+  small = false,
+  className,
+}: {
+  readonly href: string
+  readonly label: string
+  readonly small?: boolean
+  readonly className?: string
+}) => (
+  <Link className={['ghost-btn', small ? 'small' : null, className].filter(Boolean).join(' ')} href={href}>
+    <ArrowLeft />
+    {label}
+  </Link>
+)
+
+/**
  * A page with a header and no tab bar: the Leader Dashboard, the settings
  * screens, the pairing form, the reset screen. `back` is the way to the surface
  * it was reached from.
@@ -216,7 +240,7 @@ export const PageShell = ({
         {subtitle ? <p>{subtitle}</p> : null}
       </div>
       <div className="header-actions">
-        {back ? <Link href={back.href}>{back.label}</Link> : null}
+        {back ? <BackLink href={back.href} label={back.label} /> : null}
         {actions}
       </div>
     </header>

@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { Download } from '../icons'
 import { AccountMenu, PageShell } from '../shell'
 import { SLOT_HOURS, WEEKDAYS } from '~/domain/intake'
 import { getLeaderDashboardReader } from '~/service/container'
@@ -245,7 +246,8 @@ const Relationship = ({ relationship }: { relationship: RelationshipLed }) => {
               ) : null}
               {relationship.material.pdfUrl ? (
                 <p className="mat-meta">
-                  <a href={relationship.material.pdfUrl}>
+                  <a className="ghost-btn small" href={relationship.material.pdfUrl}>
+                    <Download />
                     {relationship.material.pdfFilename ?? 'Download the PDF'}
                   </a>
                 </p>
@@ -282,7 +284,11 @@ export default async function RelationshipsPage() {
           {/* The way back, for the one person who has one. A plain Leader has no
               Admin surface and is offered no link to it -- and their menu offers
               no Ministry group either: this is the one page a Leader has. */}
-          {resolution.status === 'admin' ? <Link href="/overview">Ministry overview</Link> : null}
+          {resolution.status === 'admin' ? (
+            <Link href="/overview" className="ghost-btn">
+              Ministry overview
+            </Link>
+          ) : null}
           <AccountMenu ministry={resolution.status === 'admin'} />
         </>
       }

@@ -8,6 +8,7 @@ import { personId } from '~/domain/ids'
 import { appBaseUrl } from '~/platform/supabase/credentials'
 import type { MaterialOption, MinistryGroup } from '~/service/ports'
 import { getIntakeFormsReader } from '~/service/container'
+import { Download, Printer } from '../icons'
 import { groupMaterialField, MATERIAL_FIELD } from '../materials/assigning'
 import { dayMonthYear, NO_MATERIAL } from '../materials/copy'
 import { AccountMenu, NotAnAdmin, PageShell } from '../shell'
@@ -189,17 +190,18 @@ export default async function IntakeFormsPage({
             width={QR_CODE_ON_SCREEN}
             height={QR_CODE_ON_SCREEN}
           />
-          <p className="links">
+          <p className="btn-row">
             {/* Two actions rather than a tab and some knowledge of the browser. Saving
                 is the download, which names the file on the way out so an Admin
                 recognises it later in a folder of downloads. Printing is the tab: a
                 browser printing the square on its own puts it on the paper at whatever
                 size the paper is, which is what the page around it would prevent. */}
-            <a href="/intake-forms/intake-code.svg" download="intake-qr-code.svg">
+            <a className="ghost-btn small" href="/intake-forms/intake-code.svg" download="intake-qr-code.svg">
+              <Download />
               Save the QR code
             </a>
-            <span>·</span>
-            <a href="/intake-forms/intake-code.svg" target="_blank" rel="noreferrer">
+            <a className="ghost-btn small" href="/intake-forms/intake-code.svg" target="_blank" rel="noreferrer">
+              <Printer />
               Open it on its own, to print
             </a>
           </p>
@@ -241,15 +243,22 @@ export default async function IntakeFormsPage({
             width={QR_CODE_ON_SCREEN}
             height={QR_CODE_ON_SCREEN}
           />
-          <p className="links">
+          <p className="btn-row">
             <a
+              className="ghost-btn small"
               href="/intake-forms/discipleship-code.svg"
               download="discipleship-intake-qr-code.svg"
             >
+              <Download />
               Save the discipleship QR code
             </a>
-            <span>·</span>
-            <a href="/intake-forms/discipleship-code.svg" target="_blank" rel="noreferrer">
+            <a
+              className="ghost-btn small"
+              href="/intake-forms/discipleship-code.svg"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Printer />
               Open it on its own, to print
             </a>
           </p>

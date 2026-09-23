@@ -168,7 +168,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Materials tab', () => {
       const folder = await getPage(`/materials/${masterPlan}?gender=male`, cookie)
       expect(folder.response.status).toBe(200)
       expect(folder.html).toContain('href="/materials?gender=male"')
-      expect(folder.html).toContain('← All materials')
+      expect(folder.html).toContain('</svg>All materials</a>')
       expect(folder.html).toContain('1 relationship working through it now')
       expect(folder.html).toContain('David Chen')
       expect(folder.html).toContain('with Marcus Okafor')

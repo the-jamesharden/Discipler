@@ -95,7 +95,7 @@ describe.skipIf(skipUnlessAppIsRunning)('creating, editing and removing a Materi
     const page = await getPage('/materials/new', cookie)
     expect(page.response.status).toBe(200)
     const rendered = asRendered(page.html)
-    expect(rendered).toContain('← Materials')
+    expect(rendered).toContain('</svg>Materials</a>')
     expect(rendered).toContain('New material')
     expect(rendered).toContain('Shown to the leader as written, line breaks kept.')
     expect(rendered).toContain('PDF only, up to 20 MB. The leader downloads it from their dashboard.')
@@ -157,7 +157,7 @@ describe.skipIf(skipUnlessAppIsRunning)('creating, editing and removing a Materi
     expect(rendered).toContain('Remove the PDF')
     expect(rendered).toContain('Replace it')
     expect(rendered).toContain('Save changes')
-    expect(rendered).toContain(`← Philippians, weeks 1-4`)
+    expect(rendered).toContain(`</svg>Philippians, weeks 1-4</a>`)
     expect(rendered).toContain(`href="/materials/${philippians.id}"`)
     // Nobody is on it: the Remove button is live and the notice is absent.
     expect(rendered).toContain('Remove this material')

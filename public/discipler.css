@@ -94,8 +94,12 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; }
 .header-actions { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; font-size: 0.88rem; }
 .header-actions form { display: inline; }
 
-.ghost-btn { display: inline-block; padding: 0.5rem 1rem; background: transparent; border: 1px solid var(--border); border-radius: 5px; cursor: pointer; color: var(--text); font-size: 0.88rem; text-decoration: none; line-height: normal; }
-.ghost-btn:hover { border-color: var(--primary); color: var(--primary); }
+.ghost-btn { display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.5rem 1rem; background: transparent; border: 1px solid var(--border); border-radius: 5px; cursor: pointer; color: var(--text); font-size: 0.88rem; font-weight: 400; text-decoration: none; line-height: normal; }
+.ghost-btn:hover { border-color: var(--primary); color: var(--primary); background: transparent; }
+/* Inside a card or a popup: the way back, a file to save, a helper beside a field. */
+.ghost-btn.small { padding: 0.3rem 0.7rem; font-size: 0.8rem; gap: 0.35rem; white-space: nowrap; }
+.ico { width: 1em; height: 1em; flex-shrink: 0; }
+.btn-row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin: 0; }
 
 /* The Account menu: a details element, open and closed by its summary and by
    nothing else, so it works before any script and after none. */
@@ -146,8 +150,6 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; }
 .card ul { margin: 0 0 0.75rem 1.2rem; }
 .actions { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; margin-top: 1rem; }
 .actions form { display: inline; }
-.links { display: flex; gap: 0.5rem; flex-wrap: wrap; font-size: 0.88rem; margin-bottom: 1.25rem; }
-.links span { color: var(--border); }
 
 /* ---- notices: what the prototype said in a toast ---- */
 
@@ -298,8 +300,6 @@ button.decline { background: transparent; color: var(--red-ink); border: 1px sol
 button.decline:hover { background: rgba(220, 53, 69, 0.08); opacity: 1; }
 button.decline-yes { background: var(--red-ink); }
 button.decline-yes:hover { background: var(--red-concern); }
-.link-btn { background: none; border: none; color: var(--primary); padding: 0; font-weight: 500; text-decoration: underline; cursor: pointer; }
-.link-btn:hover { background: none; color: var(--primary-light); }
 .wide-btn { display: block; width: 100%; padding: 0.7rem; background: transparent; border: 1.5px solid var(--primary); border-radius: 6px; color: var(--primary); font-weight: 700; cursor: pointer; font-size: 0.9rem; text-align: center; text-decoration: none; }
 .wide-btn:hover { background: rgba(45, 80, 22, 0.05); }
 
@@ -580,9 +580,7 @@ blockquote { background: rgba(45, 80, 22, 0.04); border-left: 3px solid var(--pr
 .mode-desc { font-size: 0.85rem; color: var(--text-light); line-height: 1.6; margin: 0.75rem 0 0; }
 .chip { display: inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.75rem; padding: 0.05rem 0.4rem; border: 1px solid var(--border); border-radius: 3px; background: rgba(45, 80, 22, 0.04); color: var(--text); white-space: nowrap; }
 textarea.paste { width: 100%; min-height: 140px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; white-space: pre; overflow: auto; tab-size: 12; line-height: 1.5; }
-.link-row { display: flex; gap: 1rem; margin: 0.5rem 0 0; }
-.link-btn { background: none; border: none; padding: 0; color: var(--primary); font-size: 0.85rem; font-weight: 600; cursor: pointer; text-decoration: underline; }
-.link-btn:hover { background: none; color: var(--primary-light); }
+.link-row { display: flex; gap: 0.5rem; margin: 0.5rem 0 0; }
 .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.6rem; margin-bottom: 0.9rem; }
 .tile { border: 1px solid var(--border); border-radius: 6px; padding: 0.7rem 0.6rem; text-align: center; background: rgba(45, 80, 22, 0.02); }
 .tile-value { font-family: var(--serif); font-size: 1.5rem; font-weight: 700; color: var(--primary); line-height: 1.1; }
@@ -619,8 +617,8 @@ textarea.paste { width: 100%; min-height: 140px; font-family: ui-monospace, SFMo
 .modal.pair .empty { padding: 1.5rem 0.5rem; font-size: 0.88rem; }
 .modal.pair .modal-actions { margin-top: 0.9rem; gap: 0.5rem; }
 .pair-intro { font-size: 0.85rem; color: var(--text-light); margin: 0.8rem 0 0.6rem; }
-.pair-toolbar { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.76rem; color: var(--text-light); margin-bottom: 0.4rem; }
-.pair-toolbar .link-btn { font-size: 0.76rem; font-weight: 500; }
+/* As tall as its Clear button before the script has drawn one, so the list does not move when it appears. */
+.pair-toolbar { display: flex; justify-content: space-between; align-items: center; min-height: 1.85rem; font-size: 0.76rem; color: var(--text-light); margin-bottom: 0.4rem; }
 /* Room inside the scrolling list for a row's focus ring, which its edge would clip. */
 /* A row brought into view, by the keyboard or as a restored choice, stops short of the fade. */
 .pair-list { max-height: min(50vh, 22rem); overflow-y: auto; padding: 3px; margin: 0 -3px; min-width: 0; scroll-padding-bottom: 2.4rem; }
@@ -751,8 +749,7 @@ textarea.paste { width: 100%; min-height: 140px; font-family: ui-monospace, SFMo
 .hs-legend { display: flex; gap: 1.2rem; flex-wrap: wrap; margin-top: 1.75rem; padding-top: 1.1rem; border-top: 1px solid var(--border); font-size: 0.78rem; color: var(--text-light); }
 .hs-legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
 .hs-legend .swatch { width: 14px; height: 14px; border-radius: 5px; border-width: 1px; border-style: solid; display: inline-block; }
-.mat-back { display: inline-block; color: var(--primary); font-size: .88rem; margin-bottom: 1rem; text-decoration: none; }
-.mat-back:hover { text-decoration: underline; }
+.ghost-btn.mat-back { display: flex; width: fit-content; margin-bottom: 1rem; }
 .drill-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
 .drill-head .muted { display: block; margin-top: .15rem; }
 .hist { font-size: .78rem; color: var(--text-light); margin-top: .35rem; font-style: italic; }

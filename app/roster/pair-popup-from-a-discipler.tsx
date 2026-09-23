@@ -215,7 +215,7 @@ export const PairPopupFromADiscipler = ({
             <span>{PAIR_POPUP.counts(PAIR_POPUP.disciples(shown.length), groups.length)}</span>
             {/* Unticks everything, and clears a chosen group. There is no Select all. */}
             {hydrated ? (
-              <button type="button" className="link-btn" onClick={() => change({ type: 'clear' })}>
+              <button type="button" className="ghost-btn small" onClick={() => change({ type: 'clear' })}>
                 {CLEAR}
               </button>
             ) : null}

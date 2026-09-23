@@ -104,7 +104,7 @@ export const PairPopupFromADisciple = ({
             <span>{PAIR_POPUP.counts(PAIR_POPUP.disciplers(disciplers.length), groups.length)}</span>
             {/* The only way to take a round mark back, and it needs script. */}
             {hydrated ? (
-              <button type="button" className="link-btn" onClick={() => setChoice(null)}>
+              <button type="button" className="ghost-btn small" onClick={() => setChoice(null)}>
                 {CLEAR}
               </button>
             ) : null}

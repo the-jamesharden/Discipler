@@ -5,7 +5,7 @@ import { getMaterialsReader } from '~/service/container'
 import type { MaterialOption, MaterialRelationship } from '~/service/ports'
 import { statePill, withPeople } from '../overview/copy'
 import { flaggedIn, flagsFor } from '../overview/flags'
-import { AdminShell, NotAnAdmin } from '../shell'
+import { AdminShell, BackLink, NotAnAdmin } from '../shell'
 import { assignRow, MATERIAL_FIELD, NO_MATERIAL_VALUE } from './assigning'
 import {
   ALL_MATERIALS,
@@ -175,9 +175,7 @@ export const FolderPage = async ({
       <div className="card">
         {/* Back to the tab with the filter that was on. The browser's back button
             does the same, because the folder is a URL. */}
-        <Link className="mat-back" href={`/materials${filterQuery(filter)}`}>
-          {ALL_MATERIALS}
-        </Link>
+        <BackLink small className="mat-back" href={`/materials${filterQuery(filter)}`} label={ALL_MATERIALS} />
         <div className="drill-head">
           <div>
             <h2 className="card-title">{material ? material.title : NO_MATERIAL_ASSIGNED}</h2>

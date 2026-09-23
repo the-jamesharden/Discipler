@@ -183,10 +183,10 @@ export const ImportDialog = ({
             are offered only where it runs. */}
         {hydrated ? (
           <div className="link-row">
-            <button type="button" className="link-btn" onClick={() => setText(IMPORT_EXAMPLE[mode])}>
+            <button type="button" className="ghost-btn small" onClick={() => setText(IMPORT_EXAMPLE[mode])}>
               {INSERT_EXAMPLE}
             </button>
-            <button type="button" className="link-btn" onClick={() => setText('')}>
+            <button type="button" className="ghost-btn small" onClick={() => setText('')}>
               {CLEAR}
             </button>
           </div>
