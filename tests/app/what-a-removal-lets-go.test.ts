@@ -96,6 +96,57 @@ describe('what a removal does to each pairing', () => {
     )
   })
 
+  it('does not send a Discipler who leads another group back to unpaired', () => {
+    const zoe = person('Zoe Park', [
+      held('table', 'participant', { countsAsAGroup: true, name: 'Thursday Table', leaderNames: ['Ruth Adeyemi'] }),
+    ])
+    const ruth = person('Ruth Adeyemi', [
+      held('table', 'leader', { countsAsAGroup: true, name: 'Thursday Table', participantNames: ['Zoe Park'] }),
+      held('sunday', 'leader', { ...group, name: 'Sunday Circle', participantNames: ['Ana Ruiz', 'Ben Cole'] }),
+    ])
+    const [only] = whatARemovalLetsGo([zoe, ruth], zoe)
+
+    expect(only).toMatchObject({ act: 'end', ends: true, endsFor: [] })
+    expect(REMOVE.whatHappensToAGroup(only!)).toBe('Thursday Table ends.')
+  })
+
+  it('names only the Disciples a group leaves with no other pairing', () => {
+    const ruth = person('Ruth Adeyemi', [
+      held('table', 'leader', {
+        ...group,
+        name: 'Thursday Table',
+        participantNames: ['Mia Chen', 'Zoe Park'],
+        withNames: ['Mia Chen', 'Zoe Park'],
+      }),
+    ])
+    const mia = person('Mia Chen', [
+      held('table', 'participant', { ...group, name: 'Thursday Table', leaderNames: ['Ruth Adeyemi'] }),
+      held('one', 'participant', { leaderNames: ['Grace Lee'] }),
+    ])
+    const zoe = person('Zoe Park', [
+      held('table', 'participant', { ...group, name: 'Thursday Table', leaderNames: ['Ruth Adeyemi'] }),
+      // Leading is another role: it does not keep her paired as a Disciple.
+      held('lunch', 'leader', { leaderNames: [], participantNames: ['Ben Cole'] }),
+    ])
+    expect(REMOVE.whatHappensToAGroup(whatARemovalLetsGo([ruth, mia, zoe], ruth)[0]!)).toBe(
+      'Thursday Table ends, and Zoe Park goes back to unpaired.',
+    )
+  })
+
+  it('counts a pairing the same removal ends as gone', () => {
+    const ruth = person('Ruth Adeyemi', [
+      held('table', 'leader', { countsAsAGroup: true, name: 'Thursday Table', participantNames: ['Mia Chen'] }),
+      held('one', 'leader', { participantNames: ['Mia Chen'] }),
+    ])
+    const mia = person('Mia Chen', [
+      held('table', 'participant', { countsAsAGroup: true, name: 'Thursday Table', leaderNames: ['Ruth Adeyemi'] }),
+      held('one', 'participant', { leaderNames: ['Ruth Adeyemi'] }),
+    ])
+    expect(REMOVE.whatHappensToAGroup(whatARemovalLetsGo([ruth, mia], ruth)[0]!)).toBe(
+      'Thursday Table ends, and Mia Chen goes back to unpaired.',
+    )
+  })
+
   it('withdraws a group nobody has accepted that they are the last Disciple of, the line Unpair offers nothing on', () => {
     const zoe = person('Zoe Park', [
       held('table', 'participant', {

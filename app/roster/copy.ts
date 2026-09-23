@@ -437,22 +437,26 @@ export const REMOVE = {
   /**
    * One line for each group they are in, beneath James's sentence (James,
    * 2026-09-22: "include groups"). A group that loses its only Discipler or its
-   * last Disciple ends, and says who goes back to unpaired; any other goes on.
-   * A group nobody named is called by who else is in it.
+   * last Disciple ends, and says who goes back to unpaired, which is nobody who
+   * still holds another pairing; any other goes on. A group nobody named is
+   * called by who else is in it.
    */
   whatHappensToAGroup: ({
     name,
     withNames,
+    ends,
     endsFor,
   }: {
     readonly name: string | null
     readonly withNames: readonly string[]
+    readonly ends: boolean
     readonly endsFor: readonly string[]
   }): string => {
     const group = name ?? `Their group with ${asList(withNames)}`
+    if (!ends) return `${group} goes on without them.`
     return endsFor.length > 0
       ? `${group} ends, and ${asList(endsFor)} ${endsFor.length === 1 ? 'goes' : 'go'} back to unpaired.`
-      : `${group} goes on without them.`
+      : `${group} ends.`
   },
   confirm: (fullName: string): string => `Yes, remove ${fullName}`,
   keep: 'Keep them',

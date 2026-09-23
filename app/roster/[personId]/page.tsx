@@ -250,7 +250,11 @@ export default async function PersonPage({
         {person.isAdmin ? null : (
           <RemoveCard
             person={person}
-            groups={whatARemovalLetsGo(page.page.roster, person).filter((pairing) => pairing.isAGroup)}
+            groups={
+              query.removing === 'yes'
+                ? whatARemovalLetsGo(page.page.roster, person).filter((pairing) => pairing.isAGroup)
+                : []
+            }
             asking={query.removing === 'yes'}
           />
         )}
@@ -368,6 +372,9 @@ const UnpairControl = ({
  * confirmation and the route reopens this page asking, and only the button inside
  * the question removes. Where they hold any pairing the question says, in James's
  * words, what happens to those, and then what happens to each group they are in.
+ *
+ * The route reopens the page at `#remove`, since the card is at the foot of a
+ * long page and the question would otherwise open out of sight.
  */
 const RemoveCard = ({
   person,
@@ -378,7 +385,7 @@ const RemoveCard = ({
   readonly groups: readonly PairingARemovalLetsGo[]
   readonly asking: boolean
 }) => (
-  <div className="card across">
+  <div className="card across" id="remove">
     <div className="card-head">
       <h2 className="card-title">{REMOVE.title}</h2>
     </div>

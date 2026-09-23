@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { CancellationRefused, DepartureRefused, EndingRefused, InvitationRefused, RemovalRefused } from '~/domain/errors'
 import { personId as asPersonId } from '~/domain/ids'
 import type { RemovalRefusal } from '~/domain/removal'
+import { currentAdmin } from '~/platform/supabase/current-admin'
 import { getCommandService, getRosterReader } from '~/service/container'
 import { whatARemovalLetsGo } from '../removal'
 
@@ -23,28 +24,33 @@ import { whatARemovalLetsGo } from '../removal'
  * Nobody is sent anything.
  */
 export async function POST(request: NextRequest) {
-  const read = await getRosterReader().readRosterPage('person')
-  if (read.status !== 'admin') return NextResponse.redirect(new URL('/login', request.url), { status: 303 })
-  const { admin, page } = read
+  const to = (path: string) => NextResponse.redirect(new URL(path, request.url), { status: 303 })
+  const pageOf = (id: string, query: Record<string, string>) =>
+    `/roster/${encodeURIComponent(id)}?${new URLSearchParams(query)}`
 
   const form = await request.formData()
   const said = form.get('personId')
+
+  // The first press only asks, so it reads nothing but the session: the page it
+  // reopens reads the Roster itself, and is a 404 for anybody no longer on it. At
+  // `#remove`, because the card is at the foot of a long page.
+  if (form.get('confirm') !== 'yes') {
+    if (!(await currentAdmin())) return to('/login')
+    return typeof said === 'string' && said !== '' ? to(`${pageOf(said, { removing: 'yes' })}#remove`) : to('/roster')
+  }
+
+  const read = await getRosterReader().readRosterPage('person')
+  if (read.status !== 'admin') return to('/login')
+  const { admin, page } = read
+
   const person = page.roster.find((entry) => entry.personId === said)
   // Nobody on the Roster by that id: never here, or removed a moment ago. The
   // Roster is where either leaves the Admin.
-  if (!person) return NextResponse.redirect(new URL('/roster', request.url), { status: 303 })
+  if (!person) return to('/roster')
 
-  const back = (query: Record<string, string>) =>
-    NextResponse.redirect(
-      new URL(`/roster/${encodeURIComponent(person.personId)}?${new URLSearchParams(query)}`, request.url),
-      { status: 303 },
-    )
   const refused = (refusal: RemovalRefusal) =>
-    refusal === 'removal.not_on_the_roster'
-      ? NextResponse.redirect(new URL('/roster', request.url), { status: 303 })
-      : back({ remove: refusal })
+    refusal === 'removal.not_on_the_roster' ? to('/roster') : to(pageOf(person.personId, { remove: refusal }))
 
-  if (form.get('confirm') !== 'yes') return back({ removing: 'yes' })
   if (person.isAdmin) return refused('removal.person_is_an_admin')
 
   const pairings = whatARemovalLetsGo(page.roster, person).map(({ relationshipId, act }) => ({ relationshipId, act }))
@@ -65,15 +71,16 @@ export async function POST(request: NextRequest) {
       error instanceof DepartureRefused ||
       error instanceof InvitationRefused
     ) {
-      return refused('removal.still_in_a_pairing')
+      // Most often because another Admin removed them first, whose removal ended
+      // the same pairings: then there is no page left to say it on.
+      const now = await getRosterReader().readRosterPage('person')
+      const stillHere = now.status === 'admin' && now.page.roster.some((entry) => entry.personId === person.personId)
+      return refused(stillHere ? 'removal.still_in_a_pairing' : 'removal.not_on_the_roster')
     }
     throw error
   }
 
   // The Roster, which no longer lists them, says who went. The address carries
   // the id and the page names them from its own read.
-  return NextResponse.redirect(
-    new URL(`/roster?${new URLSearchParams({ removed: person.personId })}`, request.url),
-    { status: 303 },
-  )
+  return to(`/roster?${new URLSearchParams({ removed: person.personId })}`)
 }

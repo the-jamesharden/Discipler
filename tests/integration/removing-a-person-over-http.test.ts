@@ -69,6 +69,8 @@ describe.skipIf(skipUnlessAppIsRunning)('Remove, on a person’s page', () => {
     const asking = await press(page.html)
     expect(asking.pathname).toBe(`/roster/${hannah}`)
     expect(asking.searchParams.get('removing')).toBe('yes')
+    // At the card, which is at the foot of the page.
+    expect(asking.hash).toBe('#remove')
     expect((await pool.query(`select 1 from person_removal where person_id = $1`, [hannah])).rowCount).toBe(0)
 
     const question = await getPage(`${asking.pathname}${asking.search}`, cookie)
@@ -132,6 +134,21 @@ describe.skipIf(skipUnlessAppIsRunning)('Remove, on a person’s page', () => {
     await press(question.html)
     const { rows } = await pool.query(`select ended_at is not null as ended from relationship where id = $1`, [table.id])
     expect(rows).toEqual([{ ended: true }])
+  })
+
+  it('lands both on the Roster when two presses remove the same person at once', async () => {
+    const grace = await woman('Grace Lee')
+    const emily = await woman('Emily Davis')
+    await pairOneToOne(ministry, grace, emily)
+
+    const asking = await press((await getPage(`/roster/${emily}`, cookie)).html)
+    const question = (await getPage(`${asking.pathname}${asking.search}`, cookie)).html
+
+    // Whichever loses finds its pairing already ended, and them already gone.
+    const landed = await Promise.all([press(question), press(question)])
+    expect(landed.map((each) => each.pathname)).toEqual(['/roster', '/roster'])
+    expect(landed.filter((each) => each.searchParams.get('removed') === emily)).toHaveLength(1)
+    expect((await pool.query(`select 1 from person_removal where person_id = $1`, [emily])).rowCount).toBe(1)
   })
 
   it('offers no card on an Admin’s page, their own included', async () => {
