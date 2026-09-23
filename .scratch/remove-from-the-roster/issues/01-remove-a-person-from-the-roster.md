@@ -6,7 +6,7 @@
 
 **Status:** ready-for-human
 
-**Built:** on `ship/waves-2026-09-22`, not merged. Migration `20261012000100_removing_a_person_from_the_roster.sql` is not pushed to production.
+**Built:** on `ship/remove-from-the-roster`, cut from `main`. Migration `20261012000100_removing_a_person_from_the_roster.sql` is not pushed to production.
 
 ## Acceptance
 
@@ -25,7 +25,7 @@
 ### Implementer
 
 **Where things are.**
-- Migration `supabase/migrations/20261012000100_removing_a_person_from_the_roster.sql`: `person_removal`, the membership trigger `relationship_member_person_is_on_the_roster` (insert and reopen), `app.let_go_of_the_account`, `public.removed_people`, `public.admins_on_the_roster`, `roster_page` and `suggested_pairs_page` restated with the filter, and `app.sender_of_inbound` preferring the one on the Roster.
+- Migration `supabase/migrations/20261012000100_removing_a_person_from_the_roster.sql`: `person_removal`, the membership trigger `relationship_member_person_is_on_the_roster` (insert and reopen), `app.let_go_of_the_account`, `public.removed_people`, `public.admins_on_the_roster`, `roster_page` restated with the filter (Suggested Pairs reads that document, so it inherits it), and `app.sender_of_inbound` preferring the one on the Roster.
 - Domain: `src/domain/removal.ts`; `person.remove` and the Intake restoration in `src/domain/boundary.ts`; `removed_from_the_roster` and `paired_with_removed` in `src/domain/roster.ts` and `src/domain/roster-import.ts`; two pairing refusals and `RemovalRefused` in `src/domain/errors.ts`.
 - Service: `CommandService.removePerson` in `src/service/command-service.ts`; the store's `personToRemove`, `removePerson`, `restorePerson`; `recipient_was_removed` in the sending layer.
 - Screens: the card in `app/roster/[personId]/page.tsx`, the route `app/roster/remove/route.ts`, the receipt on `app/roster/page.tsx`, the words in `app/roster/copy.ts`, one rule set in `public/discipler.css`.

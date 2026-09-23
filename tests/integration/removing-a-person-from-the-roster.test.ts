@@ -122,8 +122,10 @@ describe('removing a Person from the Roster', () => {
 
     const { data, error } = await (await signInAs(ministry)).rpc('suggested_pairs_page')
     if (error) throw new Error(error.message)
-    const people = (data as { suggestions: { people: { person_id: string }[] } }).suggestions.people
-    expect(people.map((person) => person.person_id)).not.toContain(hannah)
+    // Its pools are drawn from the Roster's own rows, which carry this document.
+    const rows = (data as { roster: { rows: { person_id: string }[] } }).roster.rows
+    expect(rows.length).toBeGreaterThan(0)
+    expect(rows.map((row) => row.person_id)).not.toContain(hannah)
   })
 
   it('says who on the Roster is an Admin, which is who the page offers no Remove to', async () => {
