@@ -229,6 +229,10 @@ The terminal state of a relationship that has finished. It records an outcome â€
 One person leaving a discipleship relationship that continues without them: a participant where another remains, or a leader where another leader who has accepted goes on leading it. Their membership receives an end date rather than being deleted, so the weeks they were present for stay attached to the relationship, and a readmission later is a second membership rather than the first one reopened. A relationship losing its last leader who has accepted, or its last participant, is not a departure but an ending, because it records an outcome.
 _Avoid_: Removal, dropping out, and unpairing as a word for this alone (Unpair is the admin screen's one word for a cancellation, an ending, a departure and an invitation taken back)
 
+**Removal**:
+An Admin taking a Person off the Roster from their person page. It is a dated fact beside the Person and never a delete: they leave every live list, their pairings end or go on without them by the Unpair acts in the same transaction, nothing further is sent to them, they cannot be paired, and a Discipler's account goes with them. A new Intake from their number is the one way back, as the same Person. An Admin is never removed. See `docs/adr/0026-a-removal-keeps-the-person-and-takes-the-account.md`.
+_Avoid_: Removal for one person leaving a relationship (that is a Departure), deleting, and archiving
+
 **Keyword Exchange**:
 The short SMS conversation Discipler opens when an inbound keyword needs something resolved before it can act â€” which relationship it applies to, or how long a pause should run. At most one is open per person at a time, and it expires after twenty-four hours without a reminder.
 _Avoid_: Menu, prompt (as model terms). "Prompt" is doubly unhelpful here: it is a model term, and where it does appear in the schema it names an Outstanding Reply, which is a different thing.

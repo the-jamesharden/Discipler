@@ -736,3 +736,20 @@ export type Command =
       /** The Admin's account, as the session named it. */
       readonly resetBy: string
     }
+  /**
+   * An Admin removing a Person from the Roster (Remove from the Roster, ticket
+   * 01). They leave every live list, their open Follow-Up items are resolved, the
+   * plans an import made for them are closed, what was queued for them is
+   * withheld and their account is let go of. Nothing is deleted and nobody is
+   * sent anything.
+   *
+   * Their pairings are ended first, by the Unpair acts, in the same transaction
+   * (`CommandService.removePerson`); this refuses anybody still in one.
+   */
+  | {
+      readonly type: 'person.remove'
+      readonly ministryId: MinistryId
+      readonly personId: PersonId
+      /** The Admin's account, as the session named it. */
+      readonly removedBy: string
+    }

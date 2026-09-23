@@ -13,6 +13,7 @@ import type {
   GroupToJoin,
   IssuedIntakeLink,
   MaterialOption,
+  RemovedPerson,
   RosterEntry,
   RosterPage,
   RosterReader,
@@ -52,6 +53,7 @@ interface PersonRow {
   readonly phone: PhoneNumber | null
   readonly email: string | null
   readonly gender: Gender | null
+  readonly isAdmin: boolean
 }
 
 /**
@@ -72,6 +74,7 @@ const asPersonRow = (row: unknown): PersonRow => {
     phone,
     email,
     gender,
+    is_admin: isAdmin,
   } = (row ?? {}) as Record<string, unknown>
 
   if (typeof id !== 'string' || id === '') throw new Error('A Roster row arrived with no id')
@@ -122,6 +125,11 @@ const asPersonRow = (row: unknown): PersonRow => {
   if (gender !== null && !isOneOf(GENDERS, gender)) {
     throw new Error(`A Roster row arrived with no gender answer for ${id}`)
   }
+  // Never null, like the account answer. Read as *not an Admin*, a missing column
+  // would offer every Admin a Remove card the removal then refuses.
+  if (typeof isAdmin !== 'boolean') {
+    throw new Error(`A Roster row arrived with no Admin answer for ${id}`)
+  }
 
   return {
     id,
@@ -133,6 +141,7 @@ const asPersonRow = (row: unknown): PersonRow => {
     phone: phone === null ? null : phoneNumber(phone),
     email,
     gender,
+    isAdmin,
   }
 }
 
@@ -343,6 +352,7 @@ export const rosterFrom = (doc: PageDocument): readonly RosterEntry[] => {
     phone: row.phone,
     email: row.email,
     gender: row.gender,
+    isAdmin: row.isAdmin,
     intendedPairings: plansFor(row.id),
   }))
 }
@@ -548,7 +558,28 @@ export const rosterPageFrom = (doc: PageDocument, clock: Clock, surface: RosterS
         ? liveMaterialRows(doc).map(({ materialId, title }): MaterialOption => ({ materialId, title }))
         : [],
     groups: surface === 'pair' ? groupsFrom(doc, pausesFrom(history)) : [],
+    removed: removedFrom(doc),
   }
+}
+
+/**
+ * Who has been removed from the Roster, for the import's review (Remove from the
+ * Roster, ticket 01). A document without the key is drift and thrown: read as
+ * nobody, the review would call a removed Person's row new, and the import would
+ * then refuse what the review had promised.
+ */
+export const removedFrom = (doc: PageDocument): readonly RemovedPerson[] => {
+  return list(section(doc, 'roster'), 'removed').map((row) => {
+    const { person_id: id, full_name: fullName, phone } = (row ?? {}) as Record<string, unknown>
+    if (typeof id !== 'string' || id === '') throw new Error('A removed Person arrived with no id')
+    if (typeof fullName !== 'string' || fullName === '') {
+      throw new Error(`A removed Person arrived with no name for ${id}`)
+    }
+    if (phone !== null && typeof phone !== 'string') {
+      throw new Error(`A removed Person arrived with no phone answer for ${id}`)
+    }
+    return { personId: personId(id), fullName, phone: phone === null ? null : phoneNumber(phone) }
+  })
 }
 
 /**

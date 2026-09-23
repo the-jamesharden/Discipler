@@ -93,6 +93,11 @@ export type RowProblem =
    */
   | 'same_number_different_name'
   /**
+   * Somebody an Admin removed from the Roster (Remove from the Roster, ticket 01).
+   * The row is filed nowhere: a new Intake from them is the only way back.
+   */
+  | 'removed_from_the_roster'
+  /**
    * The rest are about who a row says a person is paired with (ticket 36). A row
    * may name somebody the import cannot place, or place twice, and the pairing is
    * refused on that line rather than guessed at; the person on the row is still
@@ -108,6 +113,8 @@ export type RowProblem =
   | 'paired_with_ambiguous'
   /** The other side of the pair is a row being held; answer the row, then paste the line again. */
   | 'paired_with_held'
+  /** The other side of the pair was removed from the Roster. */
+  | 'paired_with_removed'
   /** A person paired with themselves. */
   | 'paired_with_self'
   /** Another row pairs the same two people the other way round. */
@@ -130,11 +137,13 @@ export const ROW_PROBLEMS: readonly RowProblem[] = [
   'repeated_in_this_file',
   'already_on_the_roster',
   'same_number_different_name',
+  'removed_from_the_roster',
   'role_unreadable',
   'paired_with_no_role',
   'paired_with_unknown',
   'paired_with_ambiguous',
   'paired_with_held',
+  'paired_with_removed',
   'paired_with_self',
   'paired_with_conflict',
   'pairing_already_planned',
@@ -154,6 +163,7 @@ export const PAIRING_PROBLEMS: readonly RowProblem[] = [
   'paired_with_unknown',
   'paired_with_ambiguous',
   'paired_with_held',
+  'paired_with_removed',
   'paired_with_self',
   'paired_with_conflict',
   'pairing_already_planned',

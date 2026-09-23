@@ -92,6 +92,7 @@ import {
   MaterialAssignmentRefused,
   MaterialRefused,
   PairingRefused,
+  RemovalRefused,
   RosterImportRefused,
   type CancellationRefusal,
   type EndingRefusal,
@@ -99,6 +100,7 @@ import {
   type PairingRefusal,
 } from '~/domain/errors'
 import type { HistoryEvent } from '~/domain/history'
+import type { PersonRemoval, PersonRestoration, PersonToRemove } from '~/domain/removal'
 import type { RatesLineHistory, SettledMessage } from '~/domain/rates-line'
 import {
   eventId,
@@ -151,6 +153,8 @@ const REFUSALS: Record<string, PairingRefusal> = {
   relationship_member_leader_has_completed_intake:
     'relationship.leader_has_not_completed_intake',
   relationship_member_leader_has_not_opted_out: 'relationship.leader_has_opted_out',
+  relationship_member_participant_is_on_the_roster: 'relationship.participant_was_removed',
+  relationship_member_leader_is_on_the_roster: 'relationship.leader_was_removed',
   relationship_member_gender_matches: 'relationship.gender_must_match',
   relationship_member_matches_declared_gender:
     'relationship.gender_does_not_match_the_declaration',
@@ -816,19 +820,28 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // Scoped by the policy on `person`, not by a ministry_id in this statement: the
     // connection has already declared which Ministry it acts for, and the database
     // refuses to show it any other.
-    const { rows } = await client.query<{ id: string; full_name: string; phone: string }>(
-      `select id, full_name, phone from person where phone is not null`,
+    //
+    // Everybody, removed or not: a removal deletes nothing, and an Intake from
+    // somebody removed has to find the same Person to bring them back.
+    const { rows } = await client.query<{ id: string; full_name: string; phone: string; removed: boolean }>(
+      `select p.id, p.full_name, p.phone,
+              exists (select 1 from person_removal r
+                       where r.person_id = p.id and r.restored_at is null) as removed
+         from person p
+        where p.phone is not null`,
     )
     const people = new Map<RosterKey, PersonId>()
     const namesByNumber = new Map<PhoneNumber, string[]>()
+    const removed = new Set<PersonId>()
 
     for (const row of rows) {
       const phone = phoneNumber(row.phone)
       people.set(rosterKey({ fullName: row.full_name, phone }), personId(row.id))
       namesByNumber.set(phone, [...(namesByNumber.get(phone) ?? []), row.full_name])
+      if (row.removed) removed.add(personId(row.id))
     }
 
-    return { people, namesByNumber }
+    return { people, namesByNumber, removed }
   },
 
   async peopleWhoCompletedIntake() {
@@ -3220,6 +3233,107 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       [person],
     )
     return rows[0]?.user_id ?? null
+  },
+
+  async personToRemove(person: PersonId): Promise<PersonToRemove | null> {
+    // The Person's row, locked, so two Admins removing the same Person wait for
+    // each other and the second finds them removed. Scoped by the policy on
+    // `person`, like every read here: a Person of another Ministry reads as none.
+    const { rows } = await client.query<{
+      id: string
+      full_name: string
+      holds_an_account: boolean
+      is_admin: boolean
+      open_memberships: number
+    }>(
+      `select p.id, p.full_name,
+              p.user_id is not null as holds_an_account,
+              exists (select 1 from ministry_member mm
+                       where mm.ministry_id = p.ministry_id
+                         and mm.user_id = p.user_id
+                         and mm.tier = 'admin') as is_admin,
+              (select count(*) from relationship_member m
+                where m.person_id = p.id and m.ended_at is null)::int as open_memberships
+         from person p
+        where p.id = $1
+          and not exists (select 1 from person_removal r
+                           where r.person_id = p.id and r.restored_at is null)
+          for update of p`,
+      [person],
+    )
+    const row = rows[0]
+    if (!row) return null
+
+    const { rows: items } = await client.query<{ id: string }>(
+      `select id from follow_up_item
+        where person_id = $1 and resolved_at is null
+        order by raised_at, id`,
+      [person],
+    )
+    const { rows: plans } = await client.query<{ id: string; side: 'leader' | 'participant' }>(
+      `select id, case when leader_id = $1 then 'leader' else 'participant' end as side
+         from intended_pairing
+        where closed_at is null and (leader_id = $1 or participant_id = $1)
+        order by planned_at, id
+          for update`,
+      [person],
+    )
+
+    return {
+      personId: personId(row.id),
+      fullName: row.full_name,
+      isAdmin: row.is_admin,
+      holdsAnAccount: row.holds_an_account,
+      openMemberships: row.open_memberships,
+      openFollowUpItems: items.map((item) => followUpItemId(item.id)),
+      openPlans: plans.map((plan) => ({ id: intendedPairingId(plan.id), side: plan.side })),
+    }
+  },
+
+  async removePerson(removal: PersonRemoval) {
+    try {
+      await client.query(
+        `insert into person_removal (ministry_id, person_id, removed_at, removed_by)
+         values ($1, $2, $3, $4)`,
+        [removal.ministryId, removal.personId, removal.removedAt, removal.removedBy],
+      )
+    } catch (error) {
+      // Removed a moment ago by another Admin, behind the lock `personToRemove`
+      // took. The same refusal as finding them already gone.
+      if (constraintViolated(error) === 'person_one_open_removal') {
+        throw new RemovalRefused('removal.not_on_the_roster')
+      }
+      throw error
+    }
+
+    // Whatever was queued for them and not yet sent goes nowhere, and says why.
+    // The send-time check would withhold each of these anyway; doing it here means
+    // the queue says so from the moment of the removal rather than at the next
+    // drain.
+    await client.query(
+      `update outbound_message
+          set withheld_at = $2, withheld_reason = 'recipient_was_removed'
+        where person_id = $1 and sent_at is null and withheld_at is null`,
+      [removal.personId, removal.removedAt],
+    )
+
+    try {
+      await client.query(`select app.let_go_of_the_account($1)`, [removal.personId])
+    } catch (error) {
+      if (constraintViolated(error) === 'person_removal_is_not_an_admin') {
+        throw new RemovalRefused('removal.person_is_an_admin')
+      }
+      throw error
+    }
+  },
+
+  async restorePerson(restoration: PersonRestoration) {
+    // Dated rather than deleted, so the removal stays a fact of their history.
+    await client.query(
+      `update person_removal set restored_at = $2
+        where person_id = $1 and restored_at is null`,
+      [restoration.personId, restoration.restoredAt],
+    )
   },
 
   async raiseConcern(concern: NewConcern) {

@@ -55,6 +55,7 @@ import type {
 } from '~/domain/effects'
 import type { FollowUpResolution, NewFollowUpItem } from '~/domain/follow-up'
 import type { NewIntakeLink } from '~/domain/intake-link'
+import type { PersonRemoval, PersonRestoration, PersonToRemove } from '~/domain/removal'
 import type { InvitationToken, NewInvitation } from '~/domain/invitations'
 import { eventId, type MinistryId, type PersonId } from '~/domain/ids'
 import {
@@ -151,6 +152,16 @@ export interface InMemoryStore extends EffectStore {
    * Person here, or one holding no account -- so it is set rather than defaulted.
    */
   accountHeld: string | null
+  /**
+   * The Person `personToRemove` answers with. Null is a real answer -- nobody on
+   * this Roster by that id, or already removed -- so it is set rather than
+   * defaulted.
+   */
+  personToRemove: PersonToRemove | null
+  /** Who `peopleOnRoster` says was removed from the Roster and has not come back. */
+  removedFromTheRoster: Set<PersonId>
+  readonly removals: readonly PersonRemoval[]
+  readonly restorations: readonly PersonRestoration[]
   readonly concerns: readonly NewConcern[]
   readonly concernViewings: readonly ConcernViewing[]
   readonly concernResolutions: readonly ConcernResolution[]
@@ -234,6 +245,8 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
   const reminders: CheckInReminder[] = []
   const closures: CheckInSequenceClosure[] = []
   const optOuts: PersonOptOut[] = []
+  const removals: PersonRemoval[] = []
+  const restorations: PersonRestoration[] = []
   const optIns: PersonOptIn[] = []
   const keywordExchanges: NewKeywordExchange[] = []
   const keywordTargets: KeywordExchangeTarget[] = []
@@ -409,6 +422,14 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
     },
     intakeLink: null,
     accountHeld: null,
+    personToRemove: null,
+    removedFromTheRoster: new Set<PersonId>(),
+    get removals() {
+      return [...removals]
+    },
+    get restorations() {
+      return [...restorations]
+    },
     goals: [],
     goalAnswers: [],
     materials: [],
@@ -458,6 +479,8 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       const stagedReminders: CheckInReminder[] = []
       const stagedClosures: CheckInSequenceClosure[] = []
       const stagedOptOuts: PersonOptOut[] = []
+      const stagedRemovals: PersonRemoval[] = []
+      const stagedRestorations: PersonRestoration[] = []
       const stagedOptIns: PersonOptIn[] = []
       const stagedKeywordExchanges: NewKeywordExchange[] = []
       const stagedKeywordTargets: KeywordExchangeTarget[] = []
@@ -565,6 +588,15 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         },
         async accountHeldBy() {
           return store.accountHeld
+        },
+        async personToRemove() {
+          return store.personToRemove
+        },
+        async removePerson(removal) {
+          stagedRemovals.push(removal)
+        },
+        async restorePerson(restoration) {
+          stagedRestorations.push(restoration)
         },
         async contactsFor(ids) {
           return new Map(
@@ -706,6 +738,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
               everyone.map((person) => [rosterKey(person), person.id]),
             ),
             namesByNumber,
+            removed: new Set(store.removedFromTheRoster),
           }
         },
         async peopleWhoCompletedIntake() {
@@ -819,6 +852,8 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       reminders.push(...stagedReminders)
       closures.push(...stagedClosures)
       optOuts.push(...stagedOptOuts)
+      removals.push(...stagedRemovals)
+      restorations.push(...stagedRestorations)
       optIns.push(...stagedOptIns)
       keywordExchanges.push(...stagedKeywordExchanges)
       keywordTargets.push(...stagedKeywordTargets)

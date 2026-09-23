@@ -81,6 +81,7 @@ export const REVIEW_UNPAIRED = 'unpaired'
 export const ROW_NOTE: Record<Exclude<RowOutcome, 'new'>, string> = {
   already_on_the_roster: 'already on the Roster, left as they are',
   held: 'number already on the Roster under another name, waits on you',
+  removed: 'removed from the Roster, comes back through Intake',
 }
 
 export const REVIEW_EMPTY = 'Paste your rows above and the review appears here.'

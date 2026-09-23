@@ -41,6 +41,7 @@ const importing = (
         }, new Map<PhoneNumber, string[]>()),
         // An import greets nobody, so who has completed Intake does not bear on it.
         whoCompletedIntake: new Set<PersonId>(),
+        removed: new Set<PersonId>(),
       },
     },
   )
@@ -330,6 +331,7 @@ describe('importing who disciples whom', () => {
           people: new Map([[rosterKey({ fullName: 'Ruth Adeyemi', phone: phoneNumber('+15550143107') }), personId('00000000-0000-4000-9000-000000000001')]]),
           namesByNumber: new Map([[phoneNumber('+15550143107'), ['Ruth Adeyemi']]]),
           whoCompletedIntake: new Set<PersonId>(),
+          removed: new Set<PersonId>(),
         },
       },
     )
@@ -347,7 +349,7 @@ describe('importing who disciples whom', () => {
           ministryId: ministry,
           clock: createTestClock(at),
           ids: createSequentialIds(),
-          roster: { people: new Map(), namesByNumber: new Map(), whoCompletedIntake: new Set<PersonId>() },
+          roster: { people: new Map(), namesByNumber: new Map(), whoCompletedIntake: new Set<PersonId>(), removed: new Set<PersonId>() },
         },
       ),
     ).toThrow(/no plans/)

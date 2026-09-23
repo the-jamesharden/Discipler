@@ -5,6 +5,7 @@ import type {
   OpenIntendedPairing,
 } from '~/domain/intended-pairing'
 import type { IntendedPairingId } from '~/domain/ids'
+import type { PersonRemoval, PersonRestoration, PersonToRemove } from '~/domain/removal'
 import type { PairingRefusal } from '~/domain/errors'
 import type { AccountCreationRefusal, PasswordChangeRefusal } from '~/domain/accounts'
 import type {
@@ -121,6 +122,12 @@ import type { NewPerson, PhoneNumber, RosterKey } from '~/domain/roster'
 export interface RosterReadback {
   readonly people: ReadonlyMap<RosterKey, PersonId>
   readonly namesByNumber: ReadonlyMap<PhoneNumber, readonly string[]>
+  /**
+   * Who of `people` an Admin has removed from the Roster and who has not come
+   * back (Remove from the Roster, ticket 01). They stay in `people`, because an
+   * Intake from them has to find the same Person.
+   */
+  readonly removed: ReadonlySet<PersonId>
 }
 
 export interface UnitOfWork {
@@ -616,6 +623,22 @@ export interface UnitOfWork {
    */
   accountHeldBy(person: PersonId): Promise<string | null>
 
+  /**
+   * The Person a removal names, as the database holds them now, or null where
+   * this Ministry's Roster holds nobody by that id or they are already removed.
+   * Read after their pairings were ended in the same transaction, and behind the
+   * Person's own row lock, so two Admins removing the same Person cannot both
+   * find them on the Roster.
+   */
+  personToRemove(person: PersonId): Promise<PersonToRemove | null>
+  /**
+   * The removal: the open row, what was queued for them withheld, and their
+   * account let go of -- deleted outright where nothing else holds it.
+   */
+  removePerson(removal: PersonRemoval): Promise<void>
+  /** A removed Person back on the Roster, because they filled in Intake again. */
+  restorePerson(restoration: PersonRestoration): Promise<void>
+
   raiseConcern(concern: NewConcern): Promise<void>
   /** One Admin opening one Concern's text, recorded before the text is handed over. */
   recordConcernViewing(viewing: ConcernViewing): Promise<void>
@@ -961,6 +984,12 @@ export interface RosterEntry {
    */
   readonly holdsAnAccount: boolean
   /**
+   * Whether their own account holds this Ministry's Admin tier. An Admin's page
+   * offers no Remove card, because the removal refuses them (Remove from the
+   * Roster, ticket 01).
+   */
+  readonly isAdmin: boolean
+  /**
    * Their contact details, as the Roster shows them to an Admin (ADR-0021). Read
    * through the Roster's own function and its Admin test, never through a column
    * grant: a Leader session holds no path to a number but the consent check.
@@ -1156,6 +1185,20 @@ export interface RosterPage {
    * only, and empty on every other.
    */
   readonly groups: readonly GroupToJoin[]
+  /**
+   * Who an Admin has removed from the Roster, with the name and number an import
+   * recognises a row by. Read for the import's review, which reports a row naming
+   * one of them rather than filing it again, and for the receipt after a removal,
+   * which names who went.
+   */
+  readonly removed: readonly RemovedPerson[]
+}
+
+/** Somebody removed from the Roster, as the import's review recognises them. */
+export interface RemovedPerson {
+  readonly personId: PersonId
+  readonly fullName: string
+  readonly phone: PhoneNumber | null
 }
 
 /** The three surfaces that draw from the Roster's document, each read under its own name. */
@@ -1212,6 +1255,8 @@ export type ClaimOutcome = 'claimed' | 'held'
 
 /** Why the sending layer refused a message. Codes, never prose. */
 export type WithholdingReason =
+  /** An Admin removed them from the Roster (Remove from the Roster, ticket 01). */
+  | 'recipient_was_removed'
   | 'recipient_opted_out'
   | 'recipient_has_no_sms_consent'
   | 'recipient_has_no_phone'

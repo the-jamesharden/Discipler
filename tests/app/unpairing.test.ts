@@ -22,6 +22,7 @@ const person = (fullName: string, relationships: readonly RosterRelationship[] =
   phone: null,
   email: null,
   gender: null,
+  isAdmin: false,
   intendedPairings: [],
 })
 

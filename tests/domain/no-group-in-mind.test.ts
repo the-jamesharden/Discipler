@@ -57,7 +57,7 @@ const submit = (form: Partial<IntakeFormFields> = {}, over: Partial<CommandConte
       ids: createSequentialIds(),
       ministryName: 'Grace Fellowship',
       appBaseUrl: 'https://discipler.test',
-      roster: { people: new Map(), namesByNumber: new Map(), whoCompletedIntake: new Set<PersonId>() },
+      roster: { people: new Map(), namesByNumber: new Map(), whoCompletedIntake: new Set<PersonId>(), removed: new Set<PersonId>() },
       ...over,
     },
   )
