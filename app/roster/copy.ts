@@ -434,6 +434,26 @@ export const REMOVE = {
   question: (fullName: string): string => `Remove ${fullName} from the Roster?`,
   endsTheirPairings:
     'This will remove them from all current pairings and take any one-on-one pairings back to unpaired.',
+  /**
+   * One line for each group they are in, beneath James's sentence (James,
+   * 2026-09-22: "include groups"). A group that loses its only Discipler or its
+   * last Disciple ends, and says who goes back to unpaired; any other goes on.
+   * A group nobody named is called by who else is in it.
+   */
+  whatHappensToAGroup: ({
+    name,
+    withNames,
+    endsFor,
+  }: {
+    readonly name: string | null
+    readonly withNames: readonly string[]
+    readonly endsFor: readonly string[]
+  }): string => {
+    const group = name ?? `Their group with ${asList(withNames)}`
+    return endsFor.length > 0
+      ? `${group} ends, and ${asList(endsFor)} ${endsFor.length === 1 ? 'goes' : 'go'} back to unpaired.`
+      : `${group} goes on without them.`
+  },
   confirm: (fullName: string): string => `Yes, remove ${fullName}`,
   keep: 'Keep them',
 } as const

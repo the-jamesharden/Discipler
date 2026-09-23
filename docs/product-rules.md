@@ -827,6 +827,7 @@ Removing somebody in a pairing ends it, or takes them out of it, by the act Unpa
 A one-to-one ends and the other person goes back to unpaired; a group goes on without them, unless they were its only Discipler or its last Disciple, and then it ends.
 An ending records its outcome as *discontinued* and its reason as *Removed from the Roster.*, so every ending still carries both.
 The confirmation asks nothing else, and says so in James's words: "This will remove them from all current pairings and take any one-on-one pairings back to unpaired."
+Beneath it, one line for each group they are in says whether it goes on without them or ends, and who goes back to unpaired when it does.
 
 Nobody is sent anything, then or afterwards: what was queued for them is withheld, and the database refuses to pair them.
 A plan an import made for them closes refused.

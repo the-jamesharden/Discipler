@@ -11,7 +11,7 @@
 ## Acceptance
 
 - The card sits at the foot of the page, the width of both columns, with no lead line, on everybody's page but an Admin's.
-- Remove opens "Remove <name> from the Roster?" in place, adding "This will remove them from all current pairings and take any one-on-one pairings back to unpaired." where they hold a pairing, with "Yes, remove <name>" and "Keep them"; only the first removes.
+- Remove opens "Remove <name> from the Roster?" in place, adding "This will remove them from all current pairings and take any one-on-one pairings back to unpaired." where they hold a pairing, then a line for each group they are in ("Thursday Table goes on without them." or "Thursday Table ends, and Mia Chen and Zoe Park go back to unpaired."), with "Yes, remove <name>" and "Keep them"; only the first removes.
 - The Roster then says "<name> has been removed", no longer lists them, and their page is a 404.
 - Their pairings end or go on without them by the act Unpair would take, in the same transaction; a refusal anywhere changes nothing.
 - Their open Follow-Up items are resolved, their open import plans closed refused, their queued texts withheld, and nothing is sent.
@@ -41,3 +41,4 @@
 6. The receipt sits under the Roster's numbers with the other receipts, not above the card as the mock-up drew it.
 7. Open Follow-Up items about their relationships (not about them) are left to the rules those items already follow, as Unpair leaves them.
 8. A text from a number only a removed Person holds still resolves to them, so a `STOP` is recorded; where somebody on the Roster shares it, it resolves to them.
+9. The group lines (James, 2026-09-22: "include groups") come from `app/roster/removal.ts`, the same rule the route acts on, and name a group nobody named as "Their group with <the others>". Alternative: one generic sentence about groups, which could not say which ones end.

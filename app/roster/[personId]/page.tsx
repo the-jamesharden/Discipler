@@ -31,6 +31,7 @@ import {
   whoTheyAre,
 } from '../copy'
 import { isDiscipler, LIST_OF_SIDE, pairPopupHref } from '../lists'
+import { whatARemovalLetsGo, type PairingARemovalLetsGo } from '../removal'
 import { unpairFor, type Unpair } from '../unpair'
 
 export const dynamic = 'force-dynamic'
@@ -246,7 +247,13 @@ export default async function PersonPage({
 
         {/* Not on an Admin's page, their own included: the removal refuses an
             Admin, so a Ministry can never lose its last one from here. */}
-        {person.isAdmin ? null : <RemoveCard person={person} asking={query.removing === 'yes'} />}
+        {person.isAdmin ? null : (
+          <RemoveCard
+            person={person}
+            groups={whatARemovalLetsGo(page.page.roster, person).filter((pairing) => pairing.isAGroup)}
+            asking={query.removing === 'yes'}
+          />
+        )}
       </div>
     </PageShell>
   )
@@ -360,9 +367,17 @@ const UnpairControl = ({
  * Two presses, as removing a Material takes. Remove posts without the
  * confirmation and the route reopens this page asking, and only the button inside
  * the question removes. Where they hold any pairing the question says, in James's
- * words, what happens to those.
+ * words, what happens to those, and then what happens to each group they are in.
  */
-const RemoveCard = ({ person, asking }: { readonly person: RosterEntry; readonly asking: boolean }) => (
+const RemoveCard = ({
+  person,
+  groups,
+  asking,
+}: {
+  readonly person: RosterEntry
+  readonly groups: readonly PairingARemovalLetsGo[]
+  readonly asking: boolean
+}) => (
   <div className="card across">
     <div className="card-head">
       <h2 className="card-title">{REMOVE.title}</h2>
@@ -371,6 +386,9 @@ const RemoveCard = ({ person, asking }: { readonly person: RosterEntry; readonly
       <div role="alert" className="notice">
         <h3>{REMOVE.question(person.fullName)}</h3>
         {person.relationships.length > 0 ? <p>{REMOVE.endsTheirPairings}</p> : null}
+        {groups.map((group) => (
+          <p key={group.relationshipId}>{REMOVE.whatHappensToAGroup(group)}</p>
+        ))}
         <form method="post" action="/roster/remove" style={{ marginTop: '0.75rem' }}>
           <input type="hidden" name="personId" value={person.personId} />
           <input type="hidden" name="confirm" value="yes" />

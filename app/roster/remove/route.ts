@@ -1,9 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { CancellationRefused, DepartureRefused, EndingRefused, InvitationRefused, RemovalRefused } from '~/domain/errors'
-import { personId as asPersonId, relationshipId as asRelationshipId } from '~/domain/ids'
+import { personId as asPersonId } from '~/domain/ids'
 import type { RemovalRefusal } from '~/domain/removal'
 import { getCommandService, getRosterReader } from '~/service/container'
-import { unpairFor } from '../unpair'
+import { whatARemovalLetsGo } from '../removal'
 
 /**
  * Remove, on the card at the foot of a person's page (Remove from the Roster,
@@ -16,9 +16,7 @@ import { unpairFor } from '../unpair'
  *
  * Their pairings go with them, each by the act Unpair would take on that line of
  * their page, read here off the Roster as it stands now by the rule the page drew
- * Unpair from (`../unpair`). The one line Unpair offers nothing on -- the last
- * Disciple of a group nobody has accepted -- is that group withdrawn, which is
- * the only way it can lose them. The removal and every one of those acts are one
+ * its question from (`../removal`). The removal and every one of those acts are one
  * transaction: a pairing that changed while the Admin was looking refuses its
  * act, and nothing at all happens.
  *
@@ -49,10 +47,7 @@ export async function POST(request: NextRequest) {
   if (form.get('confirm') !== 'yes') return back({ removing: 'yes' })
   if (person.isAdmin) return refused('removal.person_is_an_admin')
 
-  const pairings = person.relationships.map((relationship) => ({
-    relationshipId: asRelationshipId(relationship.relationshipId),
-    act: unpairFor(page.roster, person, relationship)?.act ?? ('cancel' as const),
-  }))
+  const pairings = whatARemovalLetsGo(page.roster, person).map(({ relationshipId, act }) => ({ relationshipId, act }))
 
   try {
     await getCommandService().removePerson({

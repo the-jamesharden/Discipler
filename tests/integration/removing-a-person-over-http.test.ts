@@ -5,6 +5,7 @@ import {
   aTestPhoneNumber,
   addPerson,
   createMinistryWithAdmin,
+  formGroup,
   localSupabase,
   pairOneToOne,
   type MinistryFixture,
@@ -107,6 +108,30 @@ describe.skipIf(skipUnlessAppIsRunning)('Remove, on a person’s page', () => {
     const { rows } = await pool.query(`select ended_outcome from relationship where id = $1`, [pairing])
     expect(rows).toEqual([{ ended_outcome: 'discontinued' }])
     expect((await getPage(`/roster/${grace}`, cookie)).html).toContain('Ready to Pair')
+  })
+
+  it('says what happens to each group they are in, and does it', async () => {
+    const table = await formGroup(ministry, {
+      name: 'Thursday Table',
+      declaredGender: 'female',
+      leader: { name: 'Ruth Adeyemi', gender: 'female' },
+      disciples: ['Mia Chen', 'Zoe Park'].map((name) => ({ name, gender: 'female' as const })),
+    })
+
+    // A Disciple leaving: the group goes on.
+    const mias = await press((await getPage(`/roster/${table.disciples[0]}`, cookie)).html)
+    expect((await getPage(`${mias.pathname}${mias.search}`, cookie)).html).toContain(
+      'Thursday Table goes on without them.',
+    )
+
+    // Its only Discipler: the group ends, and says for whom.
+    const asking = await press((await getPage(`/roster/${table.leader}`, cookie)).html)
+    const question = await getPage(`${asking.pathname}${asking.search}`, cookie)
+    expect(question.html).toContain('Thursday Table ends, and Mia Chen and Zoe Park go back to unpaired.')
+
+    await press(question.html)
+    const { rows } = await pool.query(`select ended_at is not null as ended from relationship where id = $1`, [table.id])
+    expect(rows).toEqual([{ ended: true }])
   })
 
   it('offers no card on an Admin’s page, their own included', async () => {
