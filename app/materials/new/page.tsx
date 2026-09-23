@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getMaterialsReader } from '~/service/container'
-import { AccountMenu, NotAnAdmin, PageShell } from '../../shell'
+import { AccountMenu, BackLink, NotAnAdmin, PageShell } from '../../shell'
 import {
   BACK_TO_MATERIALS,
   CANCEL,
@@ -46,9 +46,7 @@ export default async function NewMaterialPage({
 
   return (
     <PageShell title={MATERIALS} subtitle={page.admin.ministryName} actions={<AccountMenu ministry />}>
-      <Link className="mat-back" href="/materials">
-        {BACK_TO_MATERIALS}
-      </Link>
+      <BackLink small className="mat-back" href="/materials" label={BACK_TO_MATERIALS} />
       <div className="card">
         <div className="card-head">
           <h2 className="card-title">{NEW_MATERIAL}</h2>

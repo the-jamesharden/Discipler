@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { materialId as asMaterialId } from '~/domain/ids'
 import { getMaterialsReader } from '~/service/container'
-import { AccountMenu, NotAnAdmin, PageShell } from '../../../shell'
+import { AccountMenu, BackLink, NotAnAdmin, PageShell } from '../../../shell'
 import {
   CANCEL,
   confirmRemoval,
@@ -70,9 +70,7 @@ export default async function EditMaterialPage({
 
   return (
     <PageShell title={MATERIALS} subtitle={page.admin.ministryName} actions={<AccountMenu ministry />}>
-      <Link className="mat-back" href={folder}>
-        {`← ${material.title}`}
-      </Link>
+      <BackLink small className="mat-back" href={folder} label={material.title} />
 
       <div className="card">
         <div className="card-head">

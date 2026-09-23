@@ -65,7 +65,7 @@ export const notWorkingThroughAnything = (count: number): string =>
     ? '1 relationship is not working through anything yet'
     : `${count} relationships are not working through anything yet`
 
-export const ALL_MATERIALS = '← All materials'
+export const ALL_MATERIALS = 'All materials'
 
 /** The relationship label on a card's meta line: the demo's, from what the relationship is now. */
 export const relationshipLabel = (isAGroup: boolean, groupName: string | null): string =>
@@ -144,7 +144,7 @@ export const NO_MATERIAL = 'No material'
 // ---------------------------------------------------------------------------
 
 export const NEW_MATERIAL = 'New material'
-export const BACK_TO_MATERIALS = '← Materials'
+export const BACK_TO_MATERIALS = 'Materials'
 
 export const NEW_MATERIAL_LEAD =
   'What a relationship works through: a book, a reading plan, a set of practices. Give it a title and either some text, a PDF, or both. Leaders see it on their dashboard once it is assigned.'
