@@ -158,6 +158,7 @@ describe('what picking a group does', () => {
           people: new Map(),
           namesByNumber: new Map(),
           whoCompletedIntake: new Set<PersonId>(),
+          removed: new Set<PersonId>(),
         },
         groupToJoin: tuesdayGroup(),
         ...over,
@@ -167,7 +168,7 @@ describe('what picking a group does', () => {
   /** The same submission with the group never loaded at all -- absent, not null. */
   const submitUnloaded = () => {
     const { groupToJoin: _unloaded, ...rest } = context({
-      roster: { people: new Map(), namesByNumber: new Map(), whoCompletedIntake: new Set<PersonId>() },
+      roster: { people: new Map(), namesByNumber: new Map(), whoCompletedIntake: new Set<PersonId>(), removed: new Set<PersonId>() },
       groupToJoin: null,
     })
     return handleCommand({ type: 'intake.submit', ministryId: ministry, form: groupForm }, rest)
@@ -237,6 +238,7 @@ describe('what picking a group does', () => {
           people: new Map([[rosterKey({ fullName: 'Emily Johnson', phone }), emily]]),
           namesByNumber: new Map(),
           whoCompletedIntake: new Set([emily]),
+          removed: new Set<PersonId>(),
         },
       },
       { fullName: 'Emily Johnson' },

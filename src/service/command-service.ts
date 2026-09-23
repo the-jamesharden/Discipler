@@ -20,6 +20,7 @@ import {
 import type { FollowUpItemId, IdSource, ImportRowId, PersonId, RelationshipId } from '~/domain/ids'
 import { answersNoGroupInMind } from '~/domain/intake'
 import type { IntakeLinkToken } from '~/domain/intake-link'
+import { REMOVED_FROM_THE_ROSTER, type PairingToLetGo } from '~/domain/removal'
 import type { InvitationToken } from '~/domain/invitations'
 import { settleRatesLine, whoseRatesLineIsAsked } from '~/domain/rates-line'
 import type { EffectStore, UnitOfWork } from './ports'
@@ -127,6 +128,23 @@ export interface CommandService {
   checkPairing(
     command: Extract<Command, { readonly type: 'relationship.create' }>,
   ): Promise<PairingRefusal | null>
+
+  /**
+   * An Admin removing a Person from the Roster (Remove from the Roster, ticket
+   * 01), their pairings with them: each pairing is let go of by the Unpair act it
+   * names, then `person.remove` runs, all in one transaction. A removal happens
+   * whole or not at all, so a refusal of any part of it -- a pairing that changed
+   * while the Admin was looking -- leaves every pairing as it was.
+   *
+   * A pairing that ends records how, and nothing on the removal asks: it is
+   * recorded as not having run its course, in the product's own sentence.
+   */
+  removePerson(removal: {
+    readonly ministryId: MinistryId
+    readonly personId: PersonId
+    readonly removedBy: string
+    readonly pairings: readonly PairingToLetGo[]
+  }): Promise<CommandResult>
 }
 
 export interface SettledPairings {
@@ -227,6 +245,12 @@ export const applyEffects = async (
   const optOuts = effects.flatMap((effect) =>
     effect.kind === 'person.opt_out' ? [effect.optOut] : [],
   )
+  const removals = effects.flatMap((effect) =>
+    effect.kind === 'person.remove' ? [effect.removal] : [],
+  )
+  const restorations = effects.flatMap((effect) =>
+    effect.kind === 'person.restore' ? [effect.restoration] : [],
+  )
   const optIns = effects.flatMap((effect) =>
     effect.kind === 'person.opt_in' ? [effect.optIn] : [],
   )
@@ -293,6 +317,10 @@ export const applyEffects = async (
   // refuse fails as a refusal, rather than after history has already said it
   // happened.
   if (people.length > 0) await unit.createPeople(people)
+  // Straight after, and before anything that pairs them: a Person back through
+  // Intake who names a group on the same form joins it in the same transaction,
+  // and the membership trigger refuses anybody still standing removed.
+  for (const restoration of restorations) await unit.restorePerson(restoration)
   // The plans a formation is about to close, locked before its memberships are
   // written and not after: the order settling a plan takes them in, so the two can
   // wait for each other but never on each other.
@@ -354,6 +382,9 @@ export const applyEffects = async (
   for (const cancellation of cancellations) await unit.cancelRelationship(cancellation)
   for (const ending of endings) await unit.endRelationship(ending)
   for (const departure of departures) await unit.departFromRelationship(departure)
+  // After the resolutions above, which close the items about them, and before the
+  // history saying it happened, like every other write here.
+  for (const removal of removals) await unit.removePerson(removal)
 
   // After the Intake, which is what the membership's own Intake gate reads: a
   // Person joining a group on the form they have just completed is admitted by the
@@ -991,6 +1022,11 @@ export const createCommandService = ({
         ...(command.type === 'person.reset_password'
           ? { accountToReset: await unit.accountHeldBy(command.personId) }
           : {}),
+        // Read inside the transaction, after the pairings the same removal let go
+        // of, so what it decides on is the Person as those left them.
+        ...(command.type === 'person.remove'
+          ? { personToRemove: await unit.personToRemove(command.personId) }
+          : {}),
         // Read inside the transaction and under the row's own lock, so two Admins
         // working the same import report cannot both find it unanswered. The domain
         // refuses a row it saw answered, and it can only refuse one it saw.
@@ -1124,6 +1160,36 @@ export const createCommandService = ({
       await applyEffects(result.effects, unit)
 
       return unit.concernDetailFor(command.concernId)
+    })
+  },
+
+  async removePerson({ ministryId, personId, removedBy, pairings }) {
+    return store.transact(ministryId, async (unit) => {
+      for (const { relationshipId, act } of pairings) {
+        const about = { ministryId, relationshipId }
+        if (act === 'withdraw') {
+          // Theirs is an invitation. None standing means it was answered or taken
+          // back since the page was drawn: accepted, and `person.remove` refuses
+          // somebody now leading; declined, and there is nothing left to let go of.
+          const token = await unit.unansweredInvitationOf(relationshipId, personId)
+          if (token !== null) {
+            await carryOut({ type: 'invitation.withdraw', ministryId, token, withdrawnBy: removedBy })(unit)
+          }
+        } else if (act === 'cancel') {
+          await carryOut({ type: 'relationship.cancel', ...about, cancelledBy: removedBy })(unit)
+        } else if (act === 'leave') {
+          await carryOut({ type: 'relationship.depart', ...about, personId, departedBy: removedBy })(unit)
+        } else {
+          await carryOut({
+            type: 'relationship.end',
+            ...about,
+            outcome: 'discontinued',
+            reason: REMOVED_FROM_THE_ROSTER,
+            endedBy: removedBy,
+          })(unit)
+        }
+      }
+      return carryOut({ type: 'person.remove', ministryId, personId, removedBy })(unit)
     })
   },
 

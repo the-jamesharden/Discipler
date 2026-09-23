@@ -816,6 +816,29 @@ The outcome is the part that is counted, and it is still required there.
 The reason is optional there, and a blank one is recorded as *Unpaired from the Roster.*, so the database's rule that every ending carries a reason holds unchanged.
 Follow-Up's End relationship still asks for both.
 
+## Settled: Removing a Person From the Roster Keeps Them and Ends Their Pairings
+
+An Admin removes somebody from the Roster on their person page, with two presses (James, 2026-09-22).
+A removal is a dated fact beside the Person and never a delete.
+They leave the Roster and its counts, the Pair page and Suggested Pairs, and every open Follow-Up item about them is resolved by the Admin who removed them.
+Everything they were part of still names them: past pairings, check-ins and Intake answers are history, and history is not rewritten.
+
+Removing somebody in a pairing ends it, or takes them out of it, by the act Unpair would take on that line of their page, in the same transaction as the removal.
+A one-to-one ends and the other person goes back to unpaired; a group goes on without them, unless they were its only Discipler or its last Disciple, and then it ends.
+An ending records its outcome as *discontinued* and its reason as *Removed from the Roster.*, so every ending still carries both.
+The confirmation asks nothing else, and says so in James's words: "This will remove them from all current pairings and take any one-on-one pairings back to unpaired."
+Beneath it, one line for each group they are in says whether it goes on without them or ends, and who goes back to unpaired when it does.
+
+Nobody is sent anything, then or afterwards: what was queued for them is withheld, and the database refuses to pair them.
+A plan an import made for them closes refused.
+An Admin is never removed, so a Ministry cannot lose its last Admin from a screen.
+A removed Discipler's account is removed with them and they can no longer sign in, unless another Ministry's Roster still holds it.
+
+A new Intake from their number is the one way back, as the same Person with the same history, Ready to Pair.
+There is no list of removed people and no Put back.
+An import row naming somebody removed is reported and filed nowhere.
+See `docs/adr/0026-a-removal-keeps-the-person-and-takes-the-account.md`.
+
 ## Settled: A Relationship's First Material Period Is a Real Period With No Material
 
 Material Assignment periods never overlap and never leave gaps, and that includes the

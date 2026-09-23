@@ -31,6 +31,7 @@ const roster: ImportReadback = {
     [phoneNumber('+15550144002'), ['Omar Haddad']],
   ]),
   openPlans: [{ leaderId: ruth, participantId: omar }],
+  removed: new Set(),
 }
 
 const bothSides = (text: string, mode: ImportMode) => {
@@ -46,7 +47,7 @@ const bothSides = (text: string, mode: ImportMode) => {
         id: intendedPairingId(`00000000-0000-4000-9000-0000000000${String(index + 50)}`),
         plannedAt: at,
       })),
-      roster: { ...roster, whoCompletedIntake: new Set<PersonId>() },
+      roster: { ...roster, whoCompletedIntake: new Set<PersonId>(), removed: new Set<PersonId>() },
     },
   )
   const written = {

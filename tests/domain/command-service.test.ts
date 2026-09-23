@@ -206,6 +206,13 @@ describe('applying a command\'s effects', () => {
           throw new Error('no Concern should have been resolved')
         },
         accountHeldBy: async () => null,
+        personToRemove: async () => null,
+        removePerson: async () => {
+          throw new Error('nobody should have been removed')
+        },
+        restorePerson: async () => {
+          throw new Error('nobody should have been brought back')
+        },
         concernDetailFor: async () => {
           throw new Error('no Concern should have been read')
         },

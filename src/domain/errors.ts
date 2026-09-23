@@ -1,6 +1,7 @@
 import type { PasswordResetRefusal } from './accounts'
 import type { IntakeRefusal } from './intake'
 import type { MinistrySettingsRefusal } from './ministry-settings'
+import type { RemovalRefusal } from './removal'
 
 /**
  * Refusals travel as codes, never as prose. The same rule the sign-in page follows:
@@ -30,6 +31,12 @@ export type PairingRefusal =
   | 'relationship.participant_has_opted_out'
   | 'relationship.leader_has_not_completed_intake'
   | 'relationship.leader_has_opted_out'
+  // Removed from the Roster (Remove from the Roster, ticket 01). Nothing offers a
+  // removed Person to be paired, so reaching either is a plan an import made, or
+  // a page drawn before the removal; the two roles are named apart for the reason
+  // the two above are.
+  | 'relationship.participant_was_removed'
+  | 'relationship.leader_was_removed'
   // Safeguarding, and the one constraint on pairing an Admin cannot decide to cross.
   // Two codes because there are two rules and an Admin who hits one is being told a
   // different thing. The first is the absolute match between the two people in a
@@ -83,6 +90,8 @@ export const PAIRING_REFUSALS: readonly PairingRefusal[] = [
   'relationship.participant_has_opted_out',
   'relationship.leader_has_not_completed_intake',
   'relationship.leader_has_opted_out',
+  'relationship.participant_was_removed',
+  'relationship.leader_was_removed',
   'relationship.gender_must_match',
   'relationship.gender_does_not_match_the_declaration',
   'relationship.needs_a_gender_declaration',
@@ -99,6 +108,14 @@ export class PairingRefused extends Error {
   constructor(readonly refusal: PairingRefusal) {
     super(refusal)
     this.name = 'PairingRefused'
+  }
+}
+
+/** Why a Person was not removed from the Roster. See `./removal`. */
+export class RemovalRefused extends Error {
+  constructor(readonly refusal: RemovalRefusal) {
+    super(refusal)
+    this.name = 'RemovalRefused'
   }
 }
 

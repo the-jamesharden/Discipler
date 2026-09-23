@@ -142,8 +142,16 @@ describe('the Admin tabs answer in one read', () => {
     const doc = asDocument((await admin.rpc('roster_page')).data)
     const roster = asDocument(doc.roster)
 
+    // The Roster's own rows, each saying whether the Person is an Admin, which is
+    // the person page's reason to offer no Remove card (Remove from the Roster,
+    // ticket 01). Nobody here is removed, so every row is there.
     const rows = await admin.rpc('roster', { target_ministry_id: ministry.id })
-    expect(roster.rows).toEqual(rows.data)
+    const admins = await admin.rpc('admins_on_the_roster', { target_ministry_id: ministry.id })
+    const adminIds = asRows(admins.data).map((row) => row.person_id)
+    expect(roster.rows).toEqual(
+      asRows(rows.data).map((row) => ({ ...row, is_admin: adminIds.includes(row.person_id) })),
+    )
+    expect(adminIds).toEqual([ministry.adminPersonId])
 
     const members = await admin
       .from('relationship_member')
@@ -166,6 +174,8 @@ describe('the Admin tabs answer in one read', () => {
     expect(roster.intended_pairings).toEqual(planned.data)
     const held = await admin.rpc('held_import_rows', { target_ministry_id: ministry.id })
     expect(roster.held_import_rows).toEqual(held.data)
+    const removed = await admin.rpc('removed_people', { target_ministry_id: ministry.id })
+    expect(roster.removed).toEqual(removed.data)
 
     // And the derivation over it says what the Roster said: three people, one of
     // them leading the other.

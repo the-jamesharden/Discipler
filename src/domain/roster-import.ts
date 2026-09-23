@@ -22,10 +22,16 @@ import { normalisedName, type PairingSide, type RosterFileReading } from './rost
 export interface ImportReadback {
   readonly people: ReadonlyMap<RosterKey, PersonId>
   readonly namesByNumber: ReadonlyMap<PhoneNumber, readonly string[]>
+  /**
+   * Who was removed from the Roster (Remove from the Roster, ticket 01). Still in
+   * `people`, because nothing is deleted; a row naming one of them is reported
+   * and filed nowhere, since a new Intake from them is the only way back.
+   */
+  readonly removed: ReadonlySet<PersonId>
   readonly openPlans: readonly { readonly leaderId: PersonId; readonly participantId: PersonId }[]
 }
 
-export type RowOutcome = 'new' | 'already_on_the_roster' | 'held'
+export type RowOutcome = 'new' | 'already_on_the_roster' | 'held' | 'removed'
 
 export interface ClassifiedRow {
   readonly line: number
@@ -82,12 +88,14 @@ export const classifyImport = (
   // the number and the folded name together.
   const byName = new Map<string, PersonId[]>()
   for (const [key, id] of roster.people) {
+    if (roster.removed.has(id)) continue
     const name = key.slice(key.indexOf(' ') + 1)
     byName.set(name, [...(byName.get(name) ?? []), id])
   }
 
   const rows: ClassifiedRow[] = reading.people.map((row) => {
     const existingId = roster.people.get(rosterKey(row)) ?? null
+    if (existingId && roster.removed.has(existingId)) return { ...row, outcome: 'removed', existingId }
     if (existingId) return { ...row, outcome: 'already_on_the_roster', existingId }
     // A number the Roster holds under a different name is held, not guessed at:
     // a rename and the second person on a shared phone are both ordinary, and
@@ -105,6 +113,7 @@ export const classifyImport = (
   for (const row of rows) {
     if (row.outcome === 'already_on_the_roster') reject(row.line, 'already_on_the_roster')
     if (row.outcome === 'held') reject(row.line, 'same_number_different_name')
+    if (row.outcome === 'removed') reject(row.line, 'removed_from_the_roster')
   }
 
   const indexByKey = new Map(rows.map((row, index) => [rosterKey(row), index]))
@@ -116,6 +125,7 @@ export const classifyImport = (
       if (index === undefined) return { reason: 'paired_with_unknown' }
       const row = rows[index]!
       if (row.outcome === 'held') return { reason: 'paired_with_held' }
+      if (row.outcome === 'removed') return { reason: 'paired_with_removed' }
       if (row.outcome === 'already_on_the_roster') return { ref: { kind: 'person', personId: row.existingId! } }
       return { ref: { kind: 'row', index } }
     }

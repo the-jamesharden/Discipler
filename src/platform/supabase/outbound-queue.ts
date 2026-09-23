@@ -195,8 +195,14 @@ export const createPostgresOutboundQueue = (
         // Read through `person` so the Ministry bounds the question. `current_consent`
         // is security definer and answers about a Person wherever they are, so asking
         // it about an unscoped id would cross a Ministry boundary to do it.
-        const { rows } = await client.query<{ opted_out: boolean; consented: boolean }>(
+        const { rows } = await client.query<{ removed: boolean; opted_out: boolean; consented: boolean }>(
           `select
+              exists (
+                select 1 from person_removal r
+                 where r.person_id = p.id
+                   and r.ministry_id = p.ministry_id
+                   and r.restored_at is null
+              ) as removed,
               exists (
                 select 1 from person_opt_out o
                  where o.person_id = p.id
@@ -213,6 +219,10 @@ export const createPostgresOutboundQueue = (
         // same reason a Person with no consent is: nothing here permits the send.
         const state = rows[0]
         if (!state) return 'recipient_has_no_sms_consent'
+        // Before the opt-out: somebody no longer on the Roster is sent nothing
+        // whatever they last said, and the reason an Admin reads should be the
+        // Admin's own act.
+        if (state.removed) return 'recipient_was_removed'
         // Opting out is the more recent decision and the one to report: a Person who
         // consented and then said STOP is not the same as one who never agreed.
         if (state.opted_out) return 'recipient_opted_out'

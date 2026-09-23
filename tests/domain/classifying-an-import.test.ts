@@ -32,6 +32,7 @@ const onRoster = (
     const number = phoneNumber(each.phone)
     return byNumber.set(number, [...(byNumber.get(number) ?? []), each.fullName])
   }, new Map<PhoneNumber, string[]>()),
+  removed: new Set(),
   openPlans,
 })
 

@@ -47,6 +47,7 @@ const person = (
   phone: null,
   email: null,
   gender: null,
+  isAdmin: false,
   intendedPairings: [],
   ...over,
 })

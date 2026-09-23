@@ -20,6 +20,9 @@ import {
   pairingLine,
   pairingSizeLabel,
   participationStatusLabel,
+  isRemovalRefusalShown,
+  REMOVAL_REFUSED,
+  REMOVE,
   RESET_PASSWORD,
   REINVITED,
   UNPAIR,
@@ -28,6 +31,7 @@ import {
   whoTheyAre,
 } from '../copy'
 import { isDiscipler, LIST_OF_SIDE, pairPopupHref } from '../lists'
+import { whatARemovalLetsGo, type PairingARemovalLetsGo } from '../removal'
 import { unpairFor, type Unpair } from '../unpair'
 
 export const dynamic = 'force-dynamic'
@@ -55,6 +59,10 @@ export default async function PersonPage({
     reinvited?: string
     /** What an Unpair just did, or that it was refused. A code, never a sentence. */
     unpair?: string
+    /** Remove was pressed once, so the card opens on its question. */
+    removing?: string
+    /** Why a removal was refused. A code, never a sentence. */
+    remove?: string
   }>
 }) {
   const page = await getRosterReader().readRosterPage('person')
@@ -96,6 +104,9 @@ export default async function PersonPage({
         <p className="toast" role="status">{UNPAIRED_RECEIPT[query.unpair]}</p>
       ) : query.unpair === 'refused' ? (
         <p className="toast error" role="alert">{UNPAIR_REFUSED}</p>
+      ) : null}
+      {isRemovalRefusalShown(query.remove) ? (
+        <p className="toast error" role="alert">{REMOVAL_REFUSED[query.remove]}</p>
       ) : null}
 
       <div className="two-up">
@@ -233,6 +244,20 @@ export default async function PersonPage({
             <p className="muted">{NO_ACCOUNT}</p>
           )}
         </div>
+
+        {/* Not on an Admin's page, their own included: the removal refuses an
+            Admin, so a Ministry can never lose its last one from here. */}
+        {person.isAdmin ? null : (
+          <RemoveCard
+            person={person}
+            groups={
+              query.removing === 'yes'
+                ? whatARemovalLetsGo(page.page.roster, person).filter((pairing) => pairing.isAGroup)
+                : []
+            }
+            asking={query.removing === 'yes'}
+          />
+        )}
       </div>
     </PageShell>
   )
@@ -338,6 +363,56 @@ const UnpairControl = ({
     </details>
   )
 }
+
+/**
+ * Remove from the Roster (Remove from the Roster, ticket 01; James, 2026-09-22):
+ * the card at the foot of the page, the width of both columns, with no lead line.
+ *
+ * Two presses, as removing a Material takes. Remove posts without the
+ * confirmation and the route reopens this page asking, and only the button inside
+ * the question removes. Where they hold any pairing the question says, in James's
+ * words, what happens to those, and then what happens to each group they are in.
+ *
+ * The route reopens the page at `#remove`, since the card is at the foot of a
+ * long page and the question would otherwise open out of sight.
+ */
+const RemoveCard = ({
+  person,
+  groups,
+  asking,
+}: {
+  readonly person: RosterEntry
+  readonly groups: readonly PairingARemovalLetsGo[]
+  readonly asking: boolean
+}) => (
+  <div className="card across" id="remove">
+    <div className="card-head">
+      <h2 className="card-title">{REMOVE.title}</h2>
+    </div>
+    {asking ? (
+      <div role="alert" className="notice">
+        <h3>{REMOVE.question(person.fullName)}</h3>
+        {person.relationships.length > 0 ? <p>{REMOVE.endsTheirPairings}</p> : null}
+        {groups.map((group) => (
+          <p key={group.relationshipId}>{REMOVE.whatHappensToAGroup(group)}</p>
+        ))}
+        <form method="post" action="/roster/remove" style={{ marginTop: '0.75rem' }}>
+          <input type="hidden" name="personId" value={person.personId} />
+          <input type="hidden" name="confirm" value="yes" />
+          <button type="submit" className="danger">{REMOVE.confirm(person.fullName)}</button>
+        </form>
+        <p style={{ marginTop: '0.75rem' }}>
+          <Link className="btn sec" href={`/roster/${person.personId}`}>{REMOVE.keep}</Link>
+        </p>
+      </div>
+    ) : (
+      <form method="post" action="/roster/remove">
+        <input type="hidden" name="personId" value={person.personId} />
+        <button type="submit" className="sec danger">{REMOVE.button}</button>
+      </form>
+    )}
+  </div>
+)
 
 /** What the Person said on the form, as one line, or that no form has asked them. */
 const atIntake = (person: RosterEntry): string => {

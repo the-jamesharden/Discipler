@@ -62,11 +62,14 @@ export interface ImportReadbackWire {
   readonly people: readonly { readonly key: string; readonly id: string; readonly name: string }[]
   readonly numbers: readonly { readonly phone: string; readonly names: readonly string[] }[]
   readonly openPlans: readonly { readonly leaderId: string; readonly participantId: string }[]
+  /** Which of `people` were removed from the Roster, which a row naming them is reported as. */
+  readonly removed: readonly string[]
 }
 
 const readbackFrom = (wire: ImportReadbackWire): ImportReadback => ({
   people: new Map(wire.people.map((each) => [each.key as RosterKey, personId(each.id)])),
   namesByNumber: new Map(wire.numbers.map((each) => [phoneNumber(each.phone) as PhoneNumber, each.names])),
+  removed: new Set(wire.removed.map(personId)),
   openPlans: wire.openPlans.map((plan) => ({
     leaderId: personId(plan.leaderId),
     participantId: personId(plan.participantId),

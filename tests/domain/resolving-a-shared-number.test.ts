@@ -48,6 +48,7 @@ const rosterOf = (people: { id: PersonId; fullName: string; phone: PhoneNumber }
     new Map<PhoneNumber, string[]>(),
   ),
   whoCompletedIntake: new Set<PersonId>(),
+  removed: new Set<PersonId>(),
 })
 
 const held: HeldImportRow = {

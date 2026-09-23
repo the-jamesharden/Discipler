@@ -31,6 +31,8 @@ const EVERY_REFUSAL: readonly PairingRefusal[] = [
   'relationship.participant_has_opted_out',
   'relationship.leader_has_not_completed_intake',
   'relationship.leader_has_opted_out',
+  'relationship.participant_was_removed',
+  'relationship.leader_was_removed',
   'relationship.gender_must_match',
   'relationship.gender_does_not_match_the_declaration',
   'relationship.needs_a_gender_declaration',

@@ -30,6 +30,7 @@ import type { MinistrySettings } from './ministry-settings'
 import type { InvitationToken, NewInvitation, WithdrawnAs } from './invitations'
 import type { OutboundMessageKind, OutstandingReplyCutoff } from './outstanding-reply'
 import type { RatesLineOccasion } from './rates-line'
+import type { PersonRemoval, PersonRestoration } from './removal'
 import type { MemberRole, NewRelationship, RelationshipOutcome } from './relationships'
 import type { HeldImportRow, ImportRowAnswer, NewPerson, PhoneNumber } from './roster'
 
@@ -804,6 +805,8 @@ export type Effect =
   | { readonly kind: 'checkin.remind'; readonly reminder: CheckInReminder }
   | { readonly kind: 'checkin.close'; readonly closure: CheckInSequenceClosure }
   | { readonly kind: 'person.opt_out'; readonly optOut: PersonOptOut }
+  | { readonly kind: 'person.remove'; readonly removal: PersonRemoval }
+  | { readonly kind: 'person.restore'; readonly restoration: PersonRestoration }
   | { readonly kind: 'person.opt_in'; readonly optIn: PersonOptIn }
   | { readonly kind: 'keyword.open'; readonly exchange: NewKeywordExchange }
   | { readonly kind: 'keyword.target'; readonly target: KeywordExchangeTarget }
@@ -1136,6 +1139,16 @@ export const optPersonIn = (optIn: PersonOptIn): Effect => ({
 export const optPersonOut = (optOut: PersonOptOut): Effect => ({
   kind: 'person.opt_out',
   optOut,
+})
+
+export const removePerson = (removal: PersonRemoval): Effect => ({
+  kind: 'person.remove',
+  removal,
+})
+
+export const restorePerson = (restoration: PersonRestoration): Effect => ({
+  kind: 'person.restore',
+  restoration,
 })
 
 export const raiseConcern = (concern: NewConcern): Effect => ({

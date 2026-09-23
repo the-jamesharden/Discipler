@@ -2,7 +2,13 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { AdminShell, initialsOf, NotAnAdmin } from '../shell'
 import { getRosterReader } from '~/service/container'
-import type { GroupToJoin, RosterEntry, RosterIntendedPairing, RosterRelationship } from '~/service/ports'
+import type {
+  GroupToJoin,
+  RemovedPerson,
+  RosterEntry,
+  RosterIntendedPairing,
+  RosterRelationship,
+} from '~/service/ports'
 import {
   AWAITING_ACCEPTANCE,
   AWAITING_INTAKE,
@@ -25,6 +31,7 @@ import {
   PAIR_POPUP,
   invitedToGroupReceipt,
   joinedGroupReceipt,
+  removedReceipt,
   pairedReceipt,
   pairedSeparatelyReceipt,
   pairingRefusalMessage,
@@ -129,6 +136,8 @@ export default async function RosterPage({
     told?: string
     /** Who an Admin has just invited to help lead a group. */
     invited?: string
+    /** Who an Admin has just removed from the Roster (Remove from the Roster, ticket 01). */
+    removed?: string
     /** Why an answer to a held import row could not be applied. A code, never prose. */
     rowError?: string
     /** Whose Pair popup is open over this list (Manual pairing, ticket 12). */
@@ -179,7 +188,7 @@ export default async function RosterPage({
   if (page.status === 'signed-out') redirect('/login')
 
   const { admin } = page
-  const { roster, held, followUpCount, suggestGenderMatch, groups, materials } = page.page
+  const { roster, held, followUpCount, suggestGenderMatch, groups, materials, removed } = page.page
 
   const list = listIn(query.list)
   const shown = roster.filter((person) => onList(list, person))
@@ -227,6 +236,10 @@ export default async function RosterPage({
   const joined = roster.find((person) => person.personId === query.joined)?.fullName
   // And who was just invited to help lead one, found and named the same way.
   const invited = roster.find((person) => person.personId === query.invited)?.fullName
+  // And who was just removed from it, named from the removed and never from the
+  // address. Somebody back through Intake since is on the Roster again, and says
+  // nothing here.
+  const removedNow = removed.find((person) => person.personId === query.removed)?.fullName
 
   // A set of separate one-to-ones counts the one-to-ones made. Who was not paired
   // arrives as ids and is named from the whole Roster, whichever list is showing,
@@ -258,7 +271,7 @@ export default async function RosterPage({
   // every name and number this page already prints (ADR-0021), and the plans
   // still waiting. The server's own read, inside its transaction, stays the
   // authority.
-  const readback = importReadback(roster)
+  const readback = importReadback(roster, removed)
 
   return (
     <AdminShell admin={admin} current="roster" followUpCount={followUpCount}>
@@ -329,6 +342,12 @@ export default async function RosterPage({
         {invited !== undefined ? (
           <p className="toast" role="status">
             {invitedToGroupReceipt(invited)}
+          </p>
+        ) : null}
+
+        {removedNow !== undefined ? (
+          <p className="toast" role="status">
+            {removedReceipt(removedNow)}
           </p>
         ) : null}
 
@@ -644,17 +663,25 @@ const declaredOnTheWayBack = (field: string | undefined): GroupDeclaration | nul
  * What the review needs to know about the Roster, from what the page already
  * holds. A Person with no number cannot be matched by an import and is left out.
  */
-const importReadback = (roster: readonly RosterEntry[]): ImportReadbackWire => {
+const importReadback = (
+  roster: readonly RosterEntry[],
+  removed: readonly RemovedPerson[],
+): ImportReadbackWire => {
+  // Everybody the import recognises a row by, removed or not, as the command's own
+  // read of the Roster does: a removal deletes nothing, and a row naming somebody
+  // removed is reported as such rather than filed as somebody new.
+  const everybody = [...roster, ...removed]
   const numbers = new Map<string, string[]>()
-  for (const person of roster) {
+  for (const person of everybody) {
     if (person.phone) numbers.set(person.phone, [...(numbers.get(person.phone) ?? []), person.fullName])
   }
   return {
-    people: roster.flatMap((person) =>
+    people: everybody.flatMap((person) =>
       person.phone
         ? [{ key: rosterKey({ fullName: person.fullName, phone: person.phone }), id: person.personId, name: person.fullName }]
         : [],
     ),
+    removed: removed.map((person) => person.personId),
     numbers: [...numbers].map(([phone, names]) => ({ phone, names })),
     openPlans: roster.flatMap((person) =>
       person.intendedPairings.flatMap((plan) =>

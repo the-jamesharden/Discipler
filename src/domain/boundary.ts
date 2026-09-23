@@ -43,9 +43,11 @@ import {
   recordConcernViewing,
   removeDiscipleshipGoal,
   removeMaterial,
+  removePerson,
   renameDiscipleshipGoal,
   reorderDiscipleshipGoals,
   resolveConcern,
+  restorePerson,
   saveMinistrySettings,
   setKeywordExchangeTarget,
   sweepOutstandingReplies,
@@ -82,8 +84,10 @@ import {
   PasswordResetRefused,
   PauseRefused,
   ReinvitationRefused,
+  RemovalRefused,
   type PairingRefusal,
 } from './errors'
+import type { PersonToRemove } from './removal'
 import {
   CLARIFICATIONS_PER_QUESTION,
   PASSED_OVER,
@@ -344,6 +348,13 @@ export interface CommandContext {
    * in the product as a race.
    */
   readonly accountToReset?: string | null
+  /**
+   * The Person `person.remove` names, read inside its transaction after their
+   * pairings were ended. `null` is *nobody on this Roster answers to that Person*
+   * -- never here, or already removed -- and absent is *not loaded*, which the
+   * removal refuses to run on for the reason `accountToReset` does.
+   */
+  readonly personToRemove?: PersonToRemove | null
   /**
    * What the Person a re-invitation names holds to the relationship it names,
    * loaded on `invitation.copy_link`'s behalf.
@@ -738,6 +749,13 @@ export interface RosterSnapshot {
    * of the same fact.
    */
   readonly whoCompletedIntake: ReadonlySet<PersonId>
+  /**
+   * Who an Admin has removed from the Roster and has not come back (Remove from
+   * the Roster, ticket 01). They are still in `people`, because a removal deletes
+   * nothing and an Intake from them has to find the same Person; this is what
+   * says they are not on the Roster now.
+   */
+  readonly removed: ReadonlySet<PersonId>
 }
 
 export interface CommandResult {
@@ -4204,6 +4222,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       const classified = classifyImport(reading, {
         people: context.roster.people,
         namesByNumber: context.roster.namesByNumber,
+        removed: context.roster.removed,
         openPlans: context.openPlans,
       })
       const now = context.clock.now()
@@ -4218,6 +4237,14 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         // gave at Intake.
         if (row.outcome === 'already_on_the_roster') {
           personOfRow.push(row.existingId)
+          continue
+        }
+
+        // Somebody an Admin removed. Reported and filed nowhere: a new Intake from
+        // them is the one way back (Remove from the Roster, ticket 01), and a
+        // pairing this file gave them is refused on its own line.
+        if (row.outcome === 'removed') {
+          personOfRow.push(null)
           continue
         }
 
@@ -4495,6 +4522,24 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             subjectType: 'person',
             subjectId: id,
             payload: { fullName: submission.fullName },
+          }),
+        )
+      }
+
+      // Somebody an Admin removed, filling in Intake again: the one way back onto
+      // the Roster (Remove from the Roster, ticket 01; James, 2026-09-22). They come
+      // back as the same Person, with everything they were part of still theirs,
+      // and the submission below lands on them as any re-submission does.
+      if (existing && context.roster.removed.has(existing)) {
+        effects.push(
+          restorePerson({ ministryId: command.ministryId, personId: existing, restoredAt: now }),
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'person.restored',
+            subjectType: 'person',
+            subjectId: existing,
+            payload: { through: link ? 'intake_link' : 'ministry_intake_link' },
           }),
         )
       }
@@ -5003,6 +5048,72 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             subjectType: 'person',
             subjectId: command.personId,
             payload: { resetBy: command.resetBy },
+          }),
+        ],
+      }
+    }
+
+    case 'person.remove': {
+      const { personToRemove } = context
+      if (personToRemove === undefined) {
+        throw new Error('person.remove was handed no Person to remove')
+      }
+      const person = theRemovable(personToRemove)
+      const now = context.clock.now()
+
+      // Nobody is told, as no Admin act tells anybody. What was already queued for
+      // them is withheld by the store with the removal, and nothing composes a
+      // message to them afterwards: they hold no relationship to be asked about.
+      return {
+        rejections: [],
+        effects: [
+          removePerson({
+            ministryId: command.ministryId,
+            personId: person.personId,
+            removedAt: now,
+            removedBy: command.removedBy,
+          }),
+          // Resolved by the Admin who removed them, like any resolution: an item
+          // about somebody no longer on the Roster is a row nobody could act on.
+          ...person.openFollowUpItems.map((itemId) =>
+            resolveFollowUpItem({
+              ministryId: command.ministryId,
+              itemId,
+              resolvedBy: command.removedBy,
+              resolvedAt: now,
+            }),
+          ),
+          // A plan has two ends and no withdrawal (ADR-0022), so it closes refused,
+          // in the same words the database would refuse forming it with. No item is
+          // raised for it: the Admin who would read one is the one who removed them.
+          ...person.openPlans.map((plan) =>
+            closeIntendedPairing({
+              ministryId: command.ministryId,
+              id: plan.id,
+              outcome: 'refused',
+              closedAt: now,
+              relationshipId: null,
+              refusal:
+                plan.side === 'leader'
+                  ? 'relationship.leader_was_removed'
+                  : 'relationship.participant_was_removed',
+            }),
+          ),
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'person.removed',
+            subjectType: 'person',
+            subjectId: person.personId,
+            payload: {
+              fullName: person.fullName,
+              // Append-only, so this is the record that survives the Admin leaving
+              // the Ministry and `removed_by` being nulled with them.
+              removedBy: command.removedBy,
+              heldAnAccount: person.holdsAnAccount,
+              resolvedItemIds: person.openFollowUpItems,
+              closedPlanIds: person.openPlans.map((plan) => plan.id),
+            },
           }),
         ],
       }
@@ -5711,4 +5822,16 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       }
     }
   }
+}
+
+/**
+ * The Person a removal names, or why they are not removed. The page offers the
+ * card only where none of these would refuse; reaching one is a page drawn before
+ * something changed, or a form composed by hand.
+ */
+const theRemovable = (person: PersonToRemove | null): PersonToRemove => {
+  if (person === null) throw new RemovalRefused('removal.not_on_the_roster')
+  if (person.isAdmin) throw new RemovalRefused('removal.person_is_an_admin')
+  if (person.openMemberships > 0) throw new RemovalRefused('removal.still_in_a_pairing')
+  return person
 }

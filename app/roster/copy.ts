@@ -3,6 +3,7 @@ import type { Gender } from '~/domain/intake'
 import { asList } from '~/domain/outbound-copy'
 import type { ParticipationStatus } from '~/domain/participation'
 import type { MemberRole } from '~/domain/relationships'
+import type { RemovalRefusal } from '~/domain/removal'
 import type { RowProblem } from '~/domain/roster'
 import type { GroupToJoin } from '~/service/ports'
 import {
@@ -422,6 +423,62 @@ export const isUnpaired = (value: string | undefined): value is Unpaired =>
 export const UNPAIR_REFUSED = 'That pairing changed while you were looking at it, so nothing was done. Have another look and press Unpair again.'
 
 /**
+ * Remove from the Roster, the card at the foot of a person's page (Remove from the
+ * Roster, ticket 01; James, 2026-09-22). No lead line: James struck it from the
+ * mock-up. The sentence about pairings is his, word for word, and is said only
+ * where they hold one.
+ */
+export const REMOVE = {
+  title: 'Remove from the Roster',
+  button: 'Remove',
+  question: (fullName: string): string => `Remove ${fullName} from the Roster?`,
+  endsTheirPairings:
+    'This will remove them from all current pairings and take any one-on-one pairings back to unpaired.',
+  /**
+   * One line for each group they are in, beneath James's sentence (James,
+   * 2026-09-22: "include groups"). A group that loses its only Discipler or its
+   * last Disciple ends, and says who goes back to unpaired, which is nobody who
+   * still holds another pairing; any other goes on. A group nobody named is
+   * called by who else is in it.
+   */
+  whatHappensToAGroup: ({
+    name,
+    withNames,
+    ends,
+    endsFor,
+  }: {
+    readonly name: string | null
+    readonly withNames: readonly string[]
+    readonly ends: boolean
+    readonly endsFor: readonly string[]
+  }): string => {
+    const group = name ?? `Their group with ${asList(withNames)}`
+    if (!ends) return `${group} goes on without them.`
+    return endsFor.length > 0
+      ? `${group} ends, and ${asList(endsFor)} ${endsFor.length === 1 ? 'goes' : 'go'} back to unpaired.`
+      : `${group} ends.`
+  },
+  confirm: (fullName: string): string => `Yes, remove ${fullName}`,
+  keep: 'Keep them',
+} as const
+
+/** On the Roster after a removal, in James's words. */
+export const removedReceipt = (fullName: string): string => `${fullName} has been removed`
+
+/**
+ * Why a removal did not happen, said on the person's page. Somebody no longer on
+ * the Roster has no page to say it on, and lands on the Roster instead.
+ */
+export const REMOVAL_REFUSED: Record<Exclude<RemovalRefusal, 'removal.not_on_the_roster'>, string> = {
+  'removal.person_is_an_admin': 'An Admin is not removed from the Roster, so nothing was done.',
+  'removal.still_in_a_pairing':
+    'Their pairings changed while you were looking, so nothing was done. Have another look and press Remove again.',
+}
+
+export const isRemovalRefusalShown = (value: string | undefined): value is keyof typeof REMOVAL_REFUSED =>
+  value !== undefined && Object.hasOwn(REMOVAL_REFUSED, value)
+
+/**
  * The receipt for somebody an Admin has just put into a group (Manual pairing,
  * ticket 22). Their name as the Roster holds it: the address carries an id, and
  * a name is looked up, never read off the address.
@@ -618,6 +675,8 @@ const PROBLEMS: Record<RowProblem, string> = {
   already_on_the_roster: 'already on the Roster',
   same_number_different_name:
     'this number is on the Roster under a different name — check whether it is the same person or someone sharing the number',
+  removed_from_the_roster:
+    'was removed from the Roster - they come back when they fill in Intake again',
   // The rest are about the pair a row described. The person on the row is still
   // imported; only the pairing is not planned, and each says what to change.
   role_unreadable: 'Role must say Discipler or Disciple, so the pair was not planned',
@@ -628,6 +687,8 @@ const PROBLEMS: Record<RowProblem, string> = {
     'names somebody in Paired with that two people go by - add their row to the paste, with their number, so the pair can be planned',
   paired_with_held:
     'is paired with a row that is waiting on you - answer that row, then paste this line again',
+  paired_with_removed:
+    'is paired with somebody who was removed from the Roster, so the pair was not planned',
   paired_with_self: 'pairs a person with themselves',
   paired_with_conflict: 'pairs two people the other way round from an earlier row',
   pairing_already_planned:
@@ -800,6 +861,10 @@ export const REFUSALS: Record<PairingRefusal, string> = {
   'relationship.leader_has_not_completed_intake':
     'This Discipler has not completed Intake yet. Send them the Intake link first.',
   'relationship.leader_has_opted_out': 'This Discipler has opted out, and cannot disciple anybody.',
+  'relationship.participant_was_removed':
+    'Somebody selected was removed from the Roster. They come back when they fill in Intake again.',
+  'relationship.leader_was_removed':
+    'This Discipler was removed from the Roster. They come back when they fill in Intake again.',
   // The one refusal with no way around it. Said as a policy rather than as a
   // mistake, because an Admin who reads it as a mistake will go looking for the
   // setting that turns it off, and there is not one on this screen. It names the

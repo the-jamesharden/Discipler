@@ -79,6 +79,7 @@ describe('every ministry-owned table', () => {
       'outbound_message',
       'person',
       'person_opt_out',
+      'person_removal',
       'relationship',
       'relationship_member',
     ])
