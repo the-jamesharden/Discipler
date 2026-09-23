@@ -6,7 +6,9 @@
 
 **Status:** ready-for-human
 
-**Built:** on `ship/remove-from-the-roster`, cut from `main`. Migration `20261012000100_removing_a_person_from_the_roster.sql` is not pushed to production.
+**Built:** on `ship/remove-from-the-roster`, cut from `main`.
+Migration `20261012000100_removing_a_person_from_the_roster.sql` was pushed to production on 2026-09-22.
+Migration `20261012000200_a_departure_outlives_the_admin_who_recorded_it.sql`, from the code review, is not pushed yet.
 
 ## Acceptance
 
@@ -42,3 +44,5 @@
 7. Open Follow-Up items about their relationships (not about them) are left to the rules those items already follow, as Unpair leaves them.
 8. A text from a number only a removed Person holds still resolves to them, so a `STOP` is recorded; where somebody on the Roster shares it, it resolves to them.
 9. The group lines (James, 2026-09-22: "include groups") come from `app/roster/removal.ts`, the same rule the route acts on, and name a group nobody named as "Their group with <the others>". Alternative: one generic sentence about groups, which could not say which ones end.
+10. From the code review on 2026-09-23: a group line names as going back to unpaired only those left with no pairing in that role once the removal is done, and says "Thursday Table ends." where that is nobody. Alternative: name the whole other side, which told the Admin a Discipler leading three other groups would be unpaired.
+11. The first press of Remove checks the session only and reopens the page at `#remove`, so the question is in view and the Roster is read once; a stale first press for somebody already gone lands on their page's 404 rather than on the Roster. A removal that loses a race to another Admin's lands on the Roster. Alternative: read the Roster on the first press as well, only to send a stale one to the Roster.

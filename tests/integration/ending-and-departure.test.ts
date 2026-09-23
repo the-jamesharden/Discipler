@@ -729,6 +729,35 @@ describe('ending a relationship, and a Participant leaving one', () => {
       }
     })
 
+    it('outlives the membership of the Admin who recorded it', async () => {
+      restart()
+      const leader = await roster('Gia Moreau')
+      const hugo = await roster('Hugo Lindahl')
+      const iris = await roster('Iris Tanaka')
+      const relationship = await aGroup(leader, [hugo, iris])
+      await depart(relationship, hugo)
+
+      // Removing a Person deletes their membership (`app.let_go_of_the_account`).
+      // Whoever's it is, a departure they recorded clears its `departed_by` and
+      // keeps its Ministry, rather than failing on the key's not-null half.
+      const client = await pool.connect()
+      try {
+        await client.query('begin')
+        await client.query(`delete from ministry_member where ministry_id = $1 and user_id = $2`, [
+          ministry.id,
+          ministry.adminUserId,
+        ])
+        const { rows } = await client.query(
+          `select ministry_id, departed_by from relationship_member where relationship_id = $1 and person_id = $2`,
+          [relationship, hugo],
+        )
+        expect(rows).toEqual([{ ministry_id: ministry.id, departed_by: null }])
+      } finally {
+        await client.query('rollback')
+        client.release()
+      }
+    })
+
     it('tells a departure that lost a race to an ending which one it lost', async () => {
       restart()
       const leader = await roster('Dara Okonjo')
