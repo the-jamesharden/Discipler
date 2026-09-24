@@ -930,6 +930,10 @@ thank-you and a keyword's menu each left at the top of the following hour.
 The webhook now drains the Ministry's queue after it has acknowledged the text, and
 the conversation goes on in seconds.
 
+The same holds for every act, not only a reply (James, 2026-09-23: a Discipler who fills in the Intake form that completes their pairing should get the text saying they have been paired right then).
+Any command that commits a message has the Ministry's queue drained once its response has gone, so an invitation, a Welcome Message or a Starter Message leaves in seconds.
+The scheduler's pass on the hour is what sends cadence messages and retries whatever a drain could not send, and nothing an act produces waits for it.
+
 Two drains of one Ministry never overlap.
 The row lock the worker takes is held for the claim and not for the vendor's round
 trip, so a second drain listing the queue in that gap sent the same text twice.
