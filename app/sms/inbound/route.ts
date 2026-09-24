@@ -1,11 +1,9 @@
-import { after, NextResponse, type NextRequest } from 'next/server'
-import type { MinistryId } from '~/domain/ids'
+import { NextResponse, type NextRequest } from 'next/server'
 import { calledUrl, signatureMatches } from '~/platform/twilio/inbound-signature'
-import { NoSendingNumber } from '~/service/outbound-dispatch'
 import {
-  drainOutboundQueue,
   getCommandService,
   getInboundReader,
+  sendAfterTheResponse,
 } from '~/service/container'
 
 /**
@@ -97,28 +95,12 @@ export async function POST(request: NextRequest) {
   // on the hour, and a Leader who replied at ten past waited fifty minutes to be
   // asked the next thing -- a conversation only a cron job could hold.
   //
-  // After the acknowledgement rather than before it, because the vendor is waiting
-  // on this response to learn the text was received, and the send is its own round
-  // trip to that same vendor. A drain that fails leaves its rows neither sent nor
-  // withheld, and the scheduler's next pass retries them; a drain that meets the
-  // scheduler's own waits its turn, see `OutboundQueue.whileDraining`.
-  after(() => sendWhatTheReplyProduced(sender.ministryId))
+  // Asked for here even though the command's own commit asks for one whenever it
+  // queued a message: a reply that queues nothing can still free its number, and a
+  // message held behind that number goes out on this drain rather than the hour's.
+  sendAfterTheResponse(sender.ministryId)
 
   return acknowledged()
-}
-
-const sendWhatTheReplyProduced = async (ministryId: MinistryId): Promise<void> => {
-  try {
-    await drainOutboundQueue(ministryId)
-  } catch (error) {
-    // A Ministry with no number has sent nothing anybody could reply to, so this is
-    // not reached on the ordinary path -- but a Ministry whose number was taken back
-    // is set up and not sending, the same state the scheduler names rather than
-    // logs.
-    if (error instanceof NoSendingNumber) return
-
-    console.error(`Could not send what a reply produced in ministry ${ministryId}`, error)
-  }
 }
 
 /**

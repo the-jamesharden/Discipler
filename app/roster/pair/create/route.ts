@@ -205,7 +205,8 @@ export async function POST(request: NextRequest) {
   }
 
   // Back to the Roster, where the new relationship is now visible on both rows. It
-  // reads as Awaiting Leader Acceptance and has sent nobody anything.
+  // reads as Awaiting Leader Acceptance, and each Discipler's invitation is sent
+  // once this response has gone.
   const receipt = new URLSearchParams({
     ...(popup === null ? {} : { list: popup.list }),
     paired: String(participantIds.length),

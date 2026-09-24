@@ -1,3 +1,4 @@
+import { after } from 'next/server'
 import type { RandomSource } from '~/domain/accounts'
 import { systemClock } from '~/domain/clock'
 import type { IdSource, MinistryId } from '~/domain/ids'
@@ -40,11 +41,12 @@ import { supabaseAccounts } from '~/platform/supabase/accounts'
 import { createSupabaseRosterReader } from '~/platform/supabase/roster-reader'
 import { createSupabaseSuggestedPairsReader } from '~/platform/supabase/suggested-pairs-reader'
 import { createCommandService, type CommandService } from './command-service'
-import { dispatchQueue, type DispatchOutcome } from './outbound-dispatch'
+import { dispatchQueue, NoSendingNumber, type DispatchOutcome } from './outbound-dispatch'
 import type {
   Accounts,
   CareNeededReader,
   CheckInsReader,
+  EffectStore,
   LeaderDashboardReader,
   InboundReader,
   IntakeFormsReader,
@@ -59,6 +61,7 @@ import type {
   OverviewReader,
   RosterReader,
   SuggestedPairsReader,
+  UnitOfWork,
 } from './ports'
 
 /**
@@ -116,11 +119,83 @@ export const getCommandService = (): CommandService => {
     commandService = createCommandService({
       clock: systemClock,
       ids: randomIds,
-      store: commandStore,
+      store: sendingWhatItQueues(commandStore),
       appBaseUrl: appBaseUrl(),
     })
   }
   return commandService
+}
+
+/**
+ * The store every command commits through, with one thing added: a transaction
+ * that committed a message has the Ministry's queue drained once the response
+ * that carried it has gone.
+ *
+ * Nothing sends the queue but a drain, and until this the only drains were the
+ * scheduler's on the hour and the inbound webhook's. So a Discipler who completed
+ * the Intake that formed their planned pair, or whom an Admin had just paired,
+ * waited up to an hour to be told -- as did the Welcome Message, a Starter
+ * Message on acceptance and every other text an act produces. Here rather than in
+ * each route, because it is the one place every command commits, and a route
+ * added later cannot forget to send what its command queued.
+ *
+ * Per committed transaction and not per request, so settling several planned
+ * pairings drains several times. The later drains find nothing to send, and
+ * ADR-0020's lock keeps any two from overlapping. The scheduled tick drains in
+ * line as well, for the order its route explains, and the drain scheduled here
+ * after it finds its queue already sent.
+ */
+const sendingWhatItQueues = (store: EffectStore): EffectStore => ({
+  async transact(ministryId, work) {
+    let queued = false
+    const result = await store.transact(ministryId, (unit) =>
+      work(
+        // The unit as it is, with its own `this`, and only the write watched.
+        Object.create(unit, {
+          enqueueMessages: {
+            value: (messages: Parameters<UnitOfWork['enqueueMessages']>[0]) => {
+              if (messages.length > 0) queued = true
+              return unit.enqueueMessages(messages)
+            },
+          },
+        }) as UnitOfWork,
+      ),
+    )
+    // After the commit, which `transact` returning is: a rolled-back transaction
+    // throws past this, and its messages were never there to send.
+    if (queued) sendAfterTheResponse(ministryId)
+    return result
+  },
+})
+
+/**
+ * Drains one Ministry's queue once the current response has gone. Every commit
+ * that queued a message asks for this; the inbound webhook also asks for it
+ * outright, see its route for why.
+ */
+export const sendAfterTheResponse = (ministryId: MinistryId): void => {
+  try {
+    // After the response rather than before it, so nobody's page waits on the
+    // vendor's round trip. A drain that fails leaves its rows neither sent nor
+    // withheld, and the scheduler's next pass retries them.
+    after(() => sendWhatWasQueued(ministryId))
+  } catch {
+    // Outside a request -- a script or a test driving the container -- there is
+    // no response to wait for and nothing to schedule on. The scheduler's next
+    // pass sends it, which is all any message had before this.
+  }
+}
+
+const sendWhatWasQueued = async (ministryId: MinistryId): Promise<void> => {
+  try {
+    await drainOutboundQueue(ministryId)
+  } catch (error) {
+    // A Ministry nobody has bought a number for yet is set up and not sending, the
+    // state the scheduler names rather than logs.
+    if (error instanceof NoSendingNumber) return
+
+    console.error(`Could not send what was queued in ministry ${ministryId}`, error)
+  }
 }
 
 /**
@@ -194,12 +269,13 @@ export const getMessageTransport = (): MessageTransport => {
 }
 
 /**
- * One drain of one Ministry's queue, assembled from the parts above so that its two
+ * One drain of one Ministry's queue, assembled from the parts above so that its
  * callers cannot assemble it differently. The scheduler drains after its tick, and
- * the webhook drains after a reply: everything a reply produces -- the next
- * question, the closing thank-you, a keyword's menu -- is enqueued by the command
- * and sent by nothing but a drain, so a webhook that only enqueued left a Leader
- * waiting for the next pass on the hour to be asked the next question.
+ * every request whose command queued a message drains after its response, the
+ * inbound webhook's included: everything an act produces -- the next question, a
+ * Discipler's invitation, a Welcome Message -- is enqueued by the command and sent
+ * by nothing but a drain, so an act that only enqueued left its text waiting for
+ * the next pass on the hour.
  */
 export const drainOutboundQueue = (ministryId: MinistryId): Promise<DispatchOutcome> =>
   dispatchQueue({
