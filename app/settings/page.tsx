@@ -13,6 +13,7 @@ import {
   hourLabel,
   messagePreviews,
   refusalMessages,
+  timezoneChoices,
 } from './copy'
 
 export const dynamic = 'force-dynamic'
@@ -23,15 +24,6 @@ const HOURS = Array.from(
 )
 
 const GAPS = Array.from({ length: MOST_BANDS_APART + 1 }, (_unused, bands) => bands)
-
-/**
- * Every zone this platform can resolve, which is the same set the dispatcher reads
- * a cadence and a week against. Offered as a datalist rather than a `select`,
- * because there are several hundred of them and an Admin knows how to type
- * `Chicago` -- and because a datalist degrades to an ordinary text box, which the
- * boundary and the database both check anyway.
- */
-const TIMEZONES = Intl.supportedValuesOf('timeZone')
 
 /**
  * The one settings surface: three sections, one form, one save.
@@ -58,6 +50,7 @@ export default async function MinistrySettingsPage({
 
   const admin = resolution.admin
   const { settings } = resolution.page
+  const zones = timezoneChoices(settings.timezone)
   const query = await searchParams
 
   const refusals = refusalMessages(query.error)
@@ -129,19 +122,25 @@ export default async function MinistrySettingsPage({
             behind your care counters and the monthly opt-out line are all read
             against it.
           </p>
-          <input
-            id="timezone"
-            name="timezone"
-            type="text"
-            list="timezones"
-            defaultValue={settings.timezone}
-            required
-          />
-          <datalist id="timezones">
-            {TIMEZONES.map((zone) => (
-              <option key={zone} value={zone} />
-            ))}
-          </datalist>
+          {/* A select and not a text box with suggestions. The text box showed a bare
+              `UTC` that read as a value rather than a choice, and every Ministry
+              in production kept it -- so every check-in hour was read as UTC. */}
+          <select id="timezone" name="timezone" defaultValue={settings.timezone} required>
+            <optgroup label="Common">
+              {zones.common.map((zone) => (
+                <option key={zone.value} value={zone.value}>
+                  {zone.label}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="Everywhere">
+              {zones.everywhere.map((zone) => (
+                <option key={zone.value} value={zone.value}>
+                  {zone.label}
+                </option>
+              ))}
+            </optgroup>
+          </select>
         </div>
 
         <div className="card">
@@ -253,7 +252,7 @@ export default async function MinistrySettingsPage({
 
           <h3>Check-in</h3>
           <p className="subtle">
-            When each leader is asked how their week went, in your own timezone. A
+            When each leader is asked how their week went, on the timezone set above. A
             change takes effect from the next check-in; anything already scheduled
             goes out as it was.
           </p>

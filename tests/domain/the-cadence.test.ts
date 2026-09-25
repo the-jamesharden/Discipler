@@ -49,9 +49,15 @@ describe('when a Leader comes due', () => {
   })
 
   it('stays due for the rest of the week, so a missed run is not a missed week', () => {
-    expect(checkInDueThisWeek(snapshot(), at('2026-08-27T09:00:00Z'))).toEqual(
+    // Thursday 8pm London: the Ministry's hour on a later day of the same week.
+    expect(checkInDueThisWeek(snapshot(), at('2026-08-27T19:00:00Z'))).toEqual(
       mondayEightPm,
     )
+  })
+
+  it('is asked late only in the Ministry’s own hour, never whenever the next run falls', () => {
+    // Thursday 10am London: still owed this week, but not at an hour anybody set.
+    expect(checkInDueThisWeek(snapshot(), at('2026-08-27T09:00:00Z'))).toBeNull()
   })
 
   it('is not due twice in one ISO week', () => {
@@ -106,6 +112,7 @@ describe('a cadence edit', () => {
   it('never leaves a week with no prompt at all', () => {
     const fridayMornings = leads({ cadence: { day: 5, hour: 9 } })
     const tuesday = at('2026-08-25T09:00:00Z')
+    const tuesdayEightPm = at('2026-08-25T19:00:00Z')
     // Last asked in the previous ISO week, so this week is still owed one.
     const lastCheckInAt = at('2026-08-21T08:00:00Z')
 
@@ -113,13 +120,69 @@ describe('a cadence edit', () => {
     const before = snapshot({ leads: [fridayMornings], lastCheckInAt })
     expect(checkInDueThisWeek(before, tuesday)).toBeNull()
 
-    // After it: Monday 8pm has already passed, so the week comes due at once
-    // rather than being skipped entirely.
+    // After it: Monday 8pm has already passed, so the week is still owed its
+    // prompt rather than skipped -- and it goes out at 8pm, the hour the
+    // coordinator has just chosen, not at 10am when the edit happened to land.
     const after = snapshot({
       leads: [leads({ cadence: { day: 1, hour: 20 } })],
       lastCheckInAt,
     })
-    expect(checkInDueThisWeek(after, tuesday)).toEqual(mondayEightPm)
+    expect(checkInDueThisWeek(after, tuesday)).toBeNull()
+    expect(checkInDueThisWeek(after, tuesdayEightPm)).toEqual(mondayEightPm)
+  })
+})
+
+/**
+ * A Leader who becomes due after this week's hour has passed: paired late, or
+ * back from a Pause, or on a cadence moved to a day already gone.
+ *
+ * The production case of 2026-09-24. A Ministry in New York asking on Wednesdays
+ * at 11am had a pairing accepted at 11:11pm that Wednesday, and the next hourly
+ * run asked the new Leader at midnight. Nobody set midnight, and 8am-9pm is the
+ * only window any Ministry may ask in.
+ */
+describe('a Leader who comes due after the hour has passed', () => {
+  const wednesdayEleven = snapshot({
+    timeZone: 'America/New_York',
+    leads: [leads({ cadence: { day: 3, hour: 11 } })],
+  })
+  // Wednesday 23 September 2026, 11am in New York (EDT, UTC-4).
+  const cadence = at('2026-09-23T15:00:00Z')
+
+  it('is not asked at midnight', () => {
+    // Thursday 24 September, 00:00 in New York.
+    expect(checkInDueThisWeek(wednesdayEleven, at('2026-09-24T04:00:00Z'))).toBeNull()
+  })
+
+  it('is not asked at the first hour quiet hours allow either', () => {
+    // Thursday 8am in New York: a lawful hour, but not the Ministry's.
+    expect(checkInDueThisWeek(wednesdayEleven, at('2026-09-24T12:00:00Z'))).toBeNull()
+  })
+
+  it('is asked at the Ministry’s hour the next day, stamped with this week’s cadence', () => {
+    // Thursday 11am in New York.
+    expect(checkInDueThisWeek(wednesdayEleven, at('2026-09-24T15:00:00Z'))).toEqual(cadence)
+  })
+
+  it('reads the hour on the Ministry’s clock, not the server’s', () => {
+    // 11:00 UTC on Thursday is the hour the Ministry set only if it were in UTC.
+    expect(checkInDueThisWeek(wednesdayEleven, at('2026-09-24T11:00:00Z'))).toBeNull()
+  })
+
+  it('is owed nothing more once the week runs out', () => {
+    // A Sunday cadence is the last day of its ISO week, so a Leader paired after
+    // Sunday's hour waits for next Sunday rather than being asked on Monday about
+    // a week that has closed.
+    const sundayFour = snapshot({
+      timeZone: 'America/Chicago',
+      leads: [leads({ cadence: { day: 0, hour: 16 } })],
+    })
+    // Monday 28 September, 4pm in Chicago (CDT, UTC-5): a new ISO week, not yet due.
+    expect(checkInDueThisWeek(sundayFour, at('2026-09-28T21:00:00Z'))).toBeNull()
+    // Sunday 4 October, 4pm: due, and stamped with that Sunday.
+    expect(checkInDueThisWeek(sundayFour, at('2026-10-04T21:00:00Z'))).toEqual(
+      at('2026-10-04T21:00:00Z'),
+    )
   })
 })
 

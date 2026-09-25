@@ -1,6 +1,6 @@
 import type { MaterialId, PersonId, RelationshipId } from './ids'
-import { QUIET_HOURS } from './ministry-settings'
-import { calendarDayOf, localHourOf } from './week'
+import { withinQuietHours } from './ministry-settings'
+import { calendarDayOf } from './week'
 
 /**
  * The text a person gets when the Material they are working through changes
@@ -115,8 +115,7 @@ export const materialNoticesDue = (
   timeZone: string,
 ): readonly MaterialNotice[] => {
   const quietSince = now.getTime() - QUIET_MINUTES_BEFORE_A_MATERIAL_TEXT * 60 * 1000
-  const hour = localHourOf(now, timeZone)
-  const inHours = hour >= QUIET_HOURS.earliest && hour <= QUIET_HOURS.latest
+  const inHours = withinQuietHours(now, timeZone)
   const today = calendarDayOf(now, timeZone)
 
   return recipients.flatMap((recipient): MaterialNotice[] => {

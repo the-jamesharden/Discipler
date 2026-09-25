@@ -18,6 +18,57 @@ import { refusalsIn } from '../refusals'
 export const hourLabel = (hour: number): string =>
   hour === 12 ? 'noon' : hour < 12 ? `${hour}am` : `${hour - 12}pm`
 
+/**
+ * The zones most Ministries are in, first and by the name people say, so an Admin
+ * picks *Central time* rather than scrolling for `America/Chicago`.
+ */
+const COMMON_TIMEZONES: readonly TimezoneChoice[] = [
+  { value: 'America/New_York', label: 'Eastern time (New York)' },
+  { value: 'America/Chicago', label: 'Central time (Chicago)' },
+  { value: 'America/Denver', label: 'Mountain time (Denver)' },
+  { value: 'America/Phoenix', label: 'Arizona, no daylight saving (Phoenix)' },
+  { value: 'America/Los_Angeles', label: 'Pacific time (Los Angeles)' },
+  { value: 'America/Anchorage', label: 'Alaska (Anchorage)' },
+  { value: 'Pacific/Honolulu', label: 'Hawaii (Honolulu)' },
+]
+
+export interface TimezoneChoice {
+  readonly value: string
+  readonly label: string
+}
+
+export interface TimezoneChoices {
+  readonly common: readonly TimezoneChoice[]
+  readonly everywhere: readonly TimezoneChoice[]
+}
+
+/**
+ * What the Timezone control offers: the common zones, then every other zone this
+ * platform can resolve -- together the set the dispatcher reads a cadence against.
+ *
+ * The zone a Ministry already has is always offered, even when it is not in either
+ * list. `UTC` is the column default every new Ministry starts on and is not one
+ * of `Intl`'s named zones; a control that could not show it would quietly save
+ * whichever option came first.
+ */
+export const timezoneChoices = (
+  current: string,
+  supported: readonly string[] = Intl.supportedValuesOf('timeZone'),
+): TimezoneChoices => {
+  const common = COMMON_TIMEZONES.filter((choice) => supported.includes(choice.value))
+  // Each zone once. A zone in both groups is two options with one value, and a
+  // select shows the later one, so a Ministry that picked *Central time* would
+  // see `America/Chicago` after saving.
+  const everywhere = supported
+    .filter((zone) => !common.some((choice) => choice.value === zone))
+    .map((zone) => ({ value: zone, label: zone.replaceAll('_', ' ') }))
+  const offered = [...common, ...everywhere].some((choice) => choice.value === current)
+  return {
+    common: offered ? common : [{ value: current, label: current }, ...common],
+    everywhere,
+  }
+}
+
 const REFUSALS: Record<MinistrySettingsRefusal, string> = {
   'settings.name_missing': 'A ministry needs a name.',
   'settings.timezone_unknown':

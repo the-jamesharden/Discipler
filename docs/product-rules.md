@@ -713,6 +713,16 @@ consecutive-not-meeting counters stay correct however the cadence moves. A week
 defined as *since the last prompt* would make a cadence edit produce one week with two
 prompts and one with none, and the counters would misfire silently.
 
+A check-in only ever opens in the Ministry's hour, on the Ministry's clock.
+A Leader who could not be asked on the day is asked at that hour on the next day of the same ISO week: a pairing accepted that evening, a Leader back from a Pause, a cadence moved to a day already gone, or a scheduler run that never happened.
+Never at whatever hour the next run falls (2026-09-24: a Leader paired at 11:11pm on a Wednesday 11am Ministry was asked at midnight).
+A Sunday cadence has no later day in its week, so a Leader who misses it is first asked the following Sunday.
+The row still carries this week's cadence as `scheduled_for`.
+
+The chase keeps quiet hours too.
+A reminder, and the next question once one is passed over or taken back, waits for 8am local if it falls due at night, because a question answered at 11:40pm puts its lapse at night a day later.
+A reply or a keyword is answered at any hour; it is only what Discipler starts on its own schedule that waits.
+
 Nullable `checkin_day` and `checkin_hour` exist on `relationship` and are null on
 every row; the dispatcher reads `coalesce` over them from the first line of code.
 Per-relationship cadence is not surfaced in V1.
