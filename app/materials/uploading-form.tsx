@@ -62,6 +62,9 @@ export const UploadingForm = ({
 }) => {
   const [uploading, setUploading] = useState(0)
   const [sending, setSending] = useState(false)
+  // The same fact, read synchronously: two submits in one tick both see the
+  // state from before either, and only a ref stops the second.
+  const inFlight = useRef(false)
   const [shown, setShown] = useState(refusal)
   const [answered, setAnswered] = useState<UploadingFormState['answered']>(null)
   const toast = useRef<HTMLParagraphElement>(null)
@@ -71,7 +74,10 @@ export const UploadingForm = ({
   // pressed.
   useEffect(() => {
     const shownAgain = (event: PageTransitionEvent) => {
-      if (event.persisted) setSending(false)
+      if (event.persisted) {
+        inFlight.current = false
+        setSending(false)
+      }
     }
     window.addEventListener('pageshow', shownAgain)
     return () => window.removeEventListener('pageshow', shownAgain)
@@ -84,8 +90,9 @@ export const UploadingForm = ({
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (sending || uploading > 0) return
+    if (inFlight.current || uploading > 0) return
     const form = event.currentTarget
+    inFlight.current = true
     setSending(true)
 
     const response = await fetch(action, {
@@ -108,6 +115,7 @@ export const UploadingForm = ({
       window.location.assign(answer.location)
       return
     }
+    inFlight.current = false
     setSending(false)
     setShown('refused' in answer ? refusalMessage(answer.refused) : null)
     setAnswered((last) => ({
