@@ -129,6 +129,26 @@ export interface MinistryFixture extends MinistryRef {
 let nextNumber = Math.floor(Math.random() * 10_000_000)
 export const aTestPhoneNumber = () => `+1555${String(nextNumber++ % 10_000_000).padStart(7, '0')}`
 
+/**
+ * How long a test that drives the whole scheduled tick may take. The tick route
+ * ticks, settles, sweeps and drains every Ministry in the database in turn, and a
+ * local database gains Ministries with every run until it is reset, so a fixed
+ * allowance is outgrown: two minutes held until the stack had about 3,400, when one
+ * tick took about 235 s (2026-09-25). A minute, and 250 ms a Ministry, well over the
+ * 70 ms each has been seen to take. Read once, when a test file asks for it, since
+ * a timeout is fixed when its test is defined.
+ */
+export const enoughForATick = async (): Promise<number> => {
+  const counting = new pg.Client({ connectionString: localSupabase().databaseUrl })
+  await counting.connect()
+  try {
+    const { rows } = await counting.query<{ count: string }>(`select count(*) from ministry`)
+    return 60_000 + 250 * Number(rows[0]!.count)
+  } finally {
+    await counting.end()
+  }
+}
+
 /** How many generated numbers a minting fixture steps past before it gives up. */
 const TAKEN_NUMBER_TRIES = 20
 

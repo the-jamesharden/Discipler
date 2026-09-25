@@ -7,9 +7,23 @@ import { createCommandService } from '~/service/command-service'
 import { baseUrl, cronSecret, skipUnlessAppIsRunning } from '../support/app'
 import {
   createMinistryWithAdmin,
+  enoughForATick,
   localSupabase,
   type MinistryFixture,
 } from '../support/local-supabase'
+
+/**
+ * A generous timeout, and the reason is the route's shape rather than the test's:
+ * it ticks and drains every Ministry in turn, so one run costs the sum of them.
+ * That is right for a pilot and it is why a local database, which accumulates a
+ * Ministry per fixture per run and is only emptied by `npm run db:reset`, makes
+ * this the slowest thing in the suite. Ministries are handled sequentially on
+ * purpose -- each is its own transaction and one Ministry's failure must not take
+ * another's week with it -- and nothing here is waiting on that changing. So the
+ * allowance is counted from the Ministries the database holds (`enoughForATick`),
+ * before the tests are defined, and never fixed.
+ */
+const enoughForEveryMinistry = await enoughForATick()
 
 /**
  * The clock's one caller, driven the way Vercel Cron drives it. Over HTTP against
@@ -20,21 +34,6 @@ import {
  * The secret is the deployment's, so these read it rather than choosing it -- a
  * test that set it would be proving the route agrees with itself.
  */
-/** What one Ministry's share of a tick may take, well over what it has been seen to (about 70 ms). */
-const PER_MINISTRY_MS = 250
-
-/** How many Ministries the tick will walk, read before the tests are defined, since a timeout is fixed then. */
-const ministriesOnTheStack = await (async () => {
-  const counting = new pg.Client({ connectionString: localSupabase().databaseUrl })
-  await counting.connect()
-  try {
-    const { rows } = await counting.query<{ count: string }>(`select count(*) from ministry`)
-    return Number(rows[0]!.count)
-  } finally {
-    await counting.end()
-  }
-})()
-
 describe.skipIf(skipUnlessAppIsRunning)('the scheduled tick, as the scheduler runs it', () => {
   let ministry: MinistryFixture
   let store: ReturnType<typeof createPostgresEffectStore>
@@ -80,22 +79,6 @@ describe.skipIf(skipUnlessAppIsRunning)('the scheduled tick, as the scheduler ru
     const { status } = await tick(secret ?? 'unset')
     expect(status).toBe(401)
   })
-
-  /**
-   * A generous timeout, and the reason is the route's shape rather than the test's:
-   * it ticks and drains every Ministry in turn, so one run costs the sum of them.
-   * That is right for a pilot and it is why a local database, which accumulates a
-   * Ministry per fixture per run and is only emptied by `npm run db:reset`, makes
-   * this the slowest thing in the suite. Ministries are handled sequentially on
-   * purpose -- each is its own transaction and one Ministry's failure must not take
-   * another's week with it -- and nothing here is waiting on that changing.
-   *
-   * So the timeout is counted from the Ministries the database holds, not fixed. A
-   * fixed two minutes held until the local stack had about 3,400 of them, four
-   * whole-suite runs after the last reset, and then failed on every branch
-   * (2026-09-25, when one tick took about 70 ms a Ministry, or 235 s).
-   */
-  const enoughForEveryMinistry = 60_000 + PER_MINISTRY_MS * ministriesOnTheStack
 
   it('runs every Ministry and reports each one, given the scheduler’s own header', { timeout: enoughForEveryMinistry }, async () => {
     // Not skipped when absent. This route is the only caller the clock has, and a
