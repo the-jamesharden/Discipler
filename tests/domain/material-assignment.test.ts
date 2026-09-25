@@ -288,7 +288,7 @@ const onOffer = (id: MaterialId, title: string): MaterialOnOffer => ({
   id,
   title: materialTitle(title),
   body: 'Read a chapter a week.',
-  pdf: null,
+  items: [],
   inUseBy: 0,
 })
 

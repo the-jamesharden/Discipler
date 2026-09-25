@@ -25,6 +25,7 @@ import {
   pausesFrom,
   weeksFrom,
 } from './relationship-history'
+import { materialItemFrom } from './material-items'
 import { count, declaredGenderOf, text } from './rows'
 import { createSupabaseServerClient } from './server-client'
 
@@ -89,18 +90,14 @@ export const liveMaterialRows = (doc: PageDocument): readonly LiveMaterialRow[] 
 
 /** The live Materials, each with what the edit page fills in. */
 const materialsOn = (doc: PageDocument): readonly MaterialOnTheList[] =>
-  liveMaterialRows(doc).map(({ materialId, title, row }) => {
-    // The size is the storage object's and is null where no object is on the
-    // path; the filename is the row's, and the row promises it and the path
-    // arrive together.
-    const pdfFilename = text(row.pdf_filename)
-    return {
-      materialId,
-      title,
-      body: text(row.body),
-      pdf: pdfFilename ? { filename: pdfFilename, bytes: count(row.pdf_bytes) } : null,
-    }
-  })
+  liveMaterialRows(doc).map(({ materialId, title, row }) => ({
+    materialId,
+    title,
+    body: text(row.body),
+    items: (Array.isArray(row.items) ? (row.items as Record<string, unknown>[]) : []).map(
+      (item) => materialItemFrom(materialId, item),
+    ),
+  }))
 
 /**
  * Every period of every relationship, grouped by relationship, as

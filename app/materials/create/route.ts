@@ -1,19 +1,28 @@
 import { type NextRequest } from 'next/server'
 import { currentAdmin } from '~/platform/supabase/current-admin'
-import { discardMaterialPdf, storeMaterialPdf } from '~/platform/supabase/material-pdf'
+import { discardMaterialFiles, readStoredFiles } from '~/platform/supabase/material-files'
 import { createSupabaseServerClient } from '~/platform/supabase/server-client'
 import { getCommandService } from '~/service/container'
-import { applying, asTyped, backTo, chosenFile, refusedUpload, typed } from '../editing'
+import {
+  applying,
+  backTo,
+  postedLinks,
+  postedUploads,
+  refusedWith,
+  typed,
+  type PostedUpload,
+} from '../editing'
 
 /**
  * Create material, behind the form on `/materials/new`.
  *
- * The file is refused before storage is touched, stored under the Admin's own
- * session so the bucket's policies decide, and then the command runs. A command
- * that refuses -- a blank title, a title the Ministry already holds, neither
- * text nor PDF -- deletes the object it was handed, so no orphan remains; a
- * command that lands sends the Admin to the new Material's folder, which is
- * where assigning it starts.
+ * The files are already in the bucket: the browser sent each one straight to
+ * Storage as it was chosen (Richer materials, ticket 01). What arrives here is
+ * their paths, which are read back from Storage so the command decides on what
+ * the bucket actually holds, and then the command runs. A command refused over
+ * the files deletes them; refused over anything else, it keeps them and the page
+ * names them again. A command that lands sends the Admin to the new Material's
+ * folder, which is where assigning it starts.
  */
 export async function POST(request: NextRequest) {
   const admin = await currentAdmin()
@@ -22,16 +31,9 @@ export async function POST(request: NextRequest) {
   if (!admin) return backTo(request, '/materials')
 
   const form = await request.formData()
-  const back = (params?: Record<string, string>) => backTo(request, '/materials/new', params)
-
-  const chosen = chosenFile(form, 'pdf')
-  if (chosen) {
-    const refusal = refusedUpload(chosen)
-    if (refusal) return back({ error: refusal, ...asTyped(form) })
-  }
-
+  const uploads = postedUploads(form)
   const supabase = await createSupabaseServerClient()
-  const pdf = chosen ? await storeMaterialPdf(supabase, admin.ministryId, chosen) : null
+  const files = await readStoredFiles(supabase, admin.ministryId, uploads)
 
   return applying(
     () =>
@@ -41,12 +43,13 @@ export async function POST(request: NextRequest) {
         ministryId: admin.ministryId,
         title: typed(form, 'title') ?? '',
         body: typed(form, 'body'),
-        pdf,
+        files,
+        links: postedLinks(form),
         createdBy: admin.userId,
       }),
-    pdf,
-    (path) => discardMaterialPdf(supabase, path),
-    (refused) => back({ error: refused.refusal, ...asTyped(form) }),
+    uploads.map((upload: PostedUpload) => upload.path),
+    (paths) => discardMaterialFiles(supabase, paths),
+    (refused) => backTo(request, '/materials/new', refusedWith(refused.refusal, form)),
     (outcome) => {
       const created = outcome.effects.find((effect) => effect.kind === 'material.create')
       if (!created) throw new Error('material.create landed without creating a Material')
@@ -54,3 +57,4 @@ export async function POST(request: NextRequest) {
     },
   )
 }
+

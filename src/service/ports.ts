@@ -69,7 +69,7 @@ import type {
   NewFollowUpItem,
 } from '~/domain/follow-up'
 import type { OfferedGoal, StatedGoal } from '~/domain/discipleship-goals'
-import type { MaterialOnOffer } from '~/domain/materials'
+import type { MaterialItem, MaterialOnOffer } from '~/domain/materials'
 import type { MinistrySettings, MinistryVoice } from '~/domain/ministry-settings'
 import type { IntakeLinkState, IntakeLinkToken, NewIntakeLink } from '~/domain/intake-link'
 import type { InboundSnapshot } from '~/domain/keywords'
@@ -802,17 +802,29 @@ export interface MinistryDirectory {
 export interface AssignedMaterial {
   readonly materialId: MaterialId
   readonly title: string
-  /** The Ministry's own typed content. Null where the Material is a PDF alone. */
+  /** The Ministry's own typed content. Null where the Material is files and links alone. */
   readonly body: string | null
-  /** What the Admin's file was called, kept so a link can carry its own name. */
-  readonly pdfFilename: string | null
-  /**
-   * A short-lived link to the PDF, or null where there is none to link to. Minted
-   * per render rather than stored: a URL that outlived the assignment would be a
-   * Material readable by a Leader it was taken away from.
-   */
-  readonly pdfUrl: string | null
+  /** Its files and links, in order, each ready to open. */
+  readonly items: readonly ItemToOpen[]
 }
+
+/**
+ * One of a Material's files or links as somebody opening it needs it (Richer
+ * materials, ticket 01). A file carries a short-lived download link, or null
+ * where none could be minted. Minted per render rather than stored: a URL that
+ * outlived the assignment would be a Material readable by somebody it was taken
+ * away from.
+ */
+export type ItemToOpen =
+  | {
+      readonly kind: 'file'
+      readonly id: string
+      readonly filename: string
+      readonly contentType: string
+      readonly bytes: number
+      readonly url: string | null
+    }
+  | { readonly kind: 'link'; readonly id: string; readonly url: string; readonly label: string | null }
 
 /**
  * One person in the relationship, as the Leader's screen shows them.
@@ -2000,13 +2012,10 @@ export interface CheckInsReader {
 export interface MaterialOnTheList {
   readonly materialId: MaterialId
   readonly title: string
-  /** The Ministry's own typed content, or null where the Material is a PDF alone. */
+  /** The Ministry's own typed content, or null where the Material is files and links alone. */
   readonly body: string | null
-  /**
-   * The uploaded PDF, by the name it arrived under and its size in bytes, or
-   * null where there is none. The size is null where no object is on the path.
-   */
-  readonly pdf: { readonly filename: string; readonly bytes: number | null } | null
+  /** Its files and links, in order, as the edit page lists them. */
+  readonly items: readonly MaterialItem[]
 }
 
 /** One closed period a card lists on its "Previously" line. */

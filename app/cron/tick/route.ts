@@ -7,6 +7,7 @@ import {
   drainOutboundQueue,
   getCommandService,
   getMinistryDirectory,
+  sweepUnsavedUploads,
 } from '~/service/container'
 
 /**
@@ -94,6 +95,16 @@ const runOneMinistry = async (ministryId: MinistryId): Promise<MinistryOutcome> 
       await getCommandService().withdrawLapsedInvitations(ministryId)
     } catch (error) {
       console.error(`Withdrawing lapsed invitations failed for ministry ${ministryId}`, error)
+    }
+
+    // Then the files a browser uploaded that no Material ever came to name,
+    // swept a day after they landed (Richer materials, ticket 01). Caught on its
+    // own for the same reason as the withdrawals: a bucket that did not answer is
+    // no reason to hold back a week's check-ins.
+    try {
+      await sweepUnsavedUploads(ministryId)
+    } catch (error) {
+      console.error(`Sweeping unsaved uploads failed for ministry ${ministryId}`, error)
     }
 
     const outcome = await drainOutboundQueue(ministryId)

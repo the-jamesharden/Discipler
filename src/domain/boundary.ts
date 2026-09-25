@@ -1,4 +1,4 @@
-import type { Command } from './commands'
+import type { Command, TypedLink } from './commands'
 import { days, daysSince, type Clock } from './clock'
 import {
   acceptInvitation,
@@ -145,11 +145,15 @@ import { passwordResetRefusal } from './accounts'
 import {
   carriesSomething,
   materialOnOffer,
+  MOST_ITEMS,
   readMaterialBody,
+  readMaterialLink,
   readMaterialTitle,
+  readStoredFile,
   titleAlreadyHeld,
+  type MaterialFile,
+  type MaterialItem,
   type MaterialOnOffer,
-  type MaterialPdf,
   type MaterialTitle,
 } from './materials'
 import {
@@ -198,6 +202,7 @@ import {
   importRowId,
   intendedPairingId,
   materialId,
+  materialItemId,
   personId,
   relationshipId,
   type IdSource,
@@ -872,12 +877,50 @@ const theTitleFor = (
   return title
 }
 
-/** The text a Material will carry, checked against the PDF: one of them, or both. */
-const theContentOf = (raw: string | null, pdf: MaterialPdf | null): string | null => {
+/**
+ * The files and links being added, each checked, and given an id and a place
+ * after everything the Material keeps. Files before links, which is the order
+ * the form lists its two boxes in.
+ */
+const theItemsAdded = (
+  context: CommandContext,
+  files: readonly MaterialFile[],
+  links: readonly TypedLink[],
+  after: readonly MaterialItem[],
+): readonly MaterialItem[] => {
+  for (const file of files) {
+    const refusal = readStoredFile(file)
+    if (refusal) throw new MaterialRefused(refusal)
+  }
+  const read = links.map((typed) => {
+    const link = readMaterialLink(typed)
+    if (!link) throw new MaterialRefused('material.link_unreadable')
+    return link
+  })
+  const next = after.reduce((largest, item) => Math.max(largest, item.position + 1), 0)
+  return [...files, ...read].map((content, index) => ({
+    ...content,
+    id: materialItemId(context.ids.next()),
+    position: next + index,
+  }))
+}
+
+/**
+ * The text a Material will carry, checked against its items: one of them, or
+ * both, and no more items than a Material may hold.
+ */
+const theContentOf = (raw: string | null, items: readonly MaterialItem[]): string | null => {
   const body = readMaterialBody(raw)
-  if (!carriesSomething(body, pdf)) throw new MaterialRefused('material.needs_content')
+  if (!carriesSomething(body, items)) throw new MaterialRefused('material.needs_content')
+  if (items.length > MOST_ITEMS) throw new MaterialRefused('material.too_many_items')
   return body
 }
+
+/** What history remembers an item by: its filename, or its address. */
+const asRemembered = (item: MaterialItem) =>
+  item.kind === 'file'
+    ? { kind: 'file', filename: item.filename }
+    : { kind: 'link', url: item.url, label: item.label }
 
 /**
  * The option an edit names, or a refusal. A refusal rather than a failure,
@@ -5190,7 +5233,8 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       // The title first, then the content: an Admin who typed nothing at all is
       // told about the title, which is the first box on the form.
       const title = theTitleFor(materials, command.title)
-      const body = theContentOf(command.body, command.pdf)
+      const items = theItemsAdded(context, command.files, command.links, [])
+      const body = theContentOf(command.body, items)
       const now = context.clock.now()
       const id = materialId(context.ids.next())
 
@@ -5201,7 +5245,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             ministryId: command.ministryId,
             title,
             body,
-            pdf: command.pdf,
+            items,
             createdAt: now,
           }),
           appendHistory({
@@ -5213,7 +5257,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             payload: {
               title,
               body,
-              pdfFilename: command.pdf?.filename ?? null,
+              items: items.map(asRemembered),
               createdBy: command.createdBy,
             },
           }),
@@ -5228,11 +5272,22 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       // Compared against every other Material and never against itself, which
       // is what lets an Admin correct a title's own capitalisation.
       const title = theTitleFor(materials, command.title, material.id)
-      // Kept, removed or replaced. Removing the PDF from a Material with no
-      // text is what the content rule refuses.
-      const pdf =
-        command.pdf === 'keep' ? material.pdf : command.pdf === 'remove' ? null : command.pdf
-      const body = theContentOf(command.body, pdf)
+      // An id the Material no longer holds is ignored: another Admin removed it
+      // first, and the page this one pressed Save on was simply older.
+      const removing = new Set(command.removeItems)
+      const removed = material.items.filter((item) => removing.has(item.id))
+      const kept = material.items.filter((item) => !removing.has(item.id))
+      // After everything it has ever held, not just what it keeps: a new item
+      // never takes the place of one removed in the same press.
+      // A file the Material already holds is not added twice: Save pressed twice
+      // posts the same upload again, and the second press should land as the
+      // first did rather than trip the database's one-item-per-object rule.
+      const held = new Set(material.items.flatMap((item) => (item.kind === 'file' ? [item.path] : [])))
+      const files = command.files.filter((file) => !held.has(file.path))
+      const added = theItemsAdded(context, files, command.links, material.items)
+      // Removing the last item from a Material with no text is what the content
+      // rule refuses.
+      const body = theContentOf(command.body, [...kept, ...added])
       const now = context.clock.now()
 
       return {
@@ -5242,13 +5297,13 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             materialId: material.id,
             title,
             body,
-            pdf,
-            // What the row stops naming: nothing when kept, the old one otherwise.
-            discarded: command.pdf === 'keep' ? null : material.pdf,
+            removed,
+            added,
+            discarded: removed.flatMap((item) => (item.kind === 'file' ? [item] : [])),
           }),
-          // What it used to say, which the update is about to overwrite and
-          // which nothing else keeps: a period points at the row, so the row
-          // as it stood is history's alone to remember.
+          // What it used to say, which the edit is about to overwrite and which
+          // nothing else keeps: a period points at the row, so the row as it
+          // stood is history's alone to remember.
           appendHistory({
             ministryId: command.ministryId,
             occurredAt: now,
@@ -5259,9 +5314,9 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
               from: {
                 title: material.title,
                 body: material.body,
-                pdfFilename: material.pdf?.filename ?? null,
+                items: material.items.map(asRemembered),
               },
-              to: { title, body, pdfFilename: pdf?.filename ?? null },
+              to: { title, body, items: [...kept, ...added].map(asRemembered) },
               changedBy: command.changedBy,
             },
           }),

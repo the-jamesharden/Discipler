@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { materialId, relationshipId } from '~/domain/ids'
+import { materialId, materialItemId, relationshipId } from '~/domain/ids'
 import type { MaterialOnTheList, MaterialRelationship } from '~/service/ports'
 import {
   dateRange,
@@ -44,9 +44,9 @@ const masterPlan: MaterialOnTheList = {
   materialId: materialId('m-1'),
   title: 'The Master Plan of Evangelism',
   body: 'Read one chapter a week.',
-  pdf: null,
+  items: [],
 }
-const prayer: MaterialOnTheList = { materialId: materialId('m-2'), title: 'Prayer practices', body: null, pdf: { filename: 'prayer.pdf', bytes: 1024 } }
+const prayer: MaterialOnTheList = { materialId: materialId('m-2'), title: 'Prayer practices', body: null, items: [{ id: materialItemId('i-1'), position: 0, kind: 'file', path: 'x/prayer.pdf', filename: 'prayer.pdf', contentType: 'application/pdf', bytes: 1024 }] }
 
 describe('the filter', () => {
   it('reads a gender off the query string and nothing else', () => {

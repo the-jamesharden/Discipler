@@ -73,6 +73,7 @@ describe('every ministry-owned table', () => {
       'keyword_exchange',
       'material',
       'material_assignment',
+      'material_item',
       'ministry',
       'ministry_event',
       'ministry_member',

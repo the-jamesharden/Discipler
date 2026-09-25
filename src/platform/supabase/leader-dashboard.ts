@@ -6,12 +6,15 @@ import type { MemberRole } from '~/domain/relationships'
 import { phoneNumber } from '~/domain/roster'
 import type {
   AssignedMaterial,
+  ItemToOpen,
   LeaderDashboardReader,
   RelationshipContact,
   RelationshipLed,
   RelationshipsPage,
 } from '~/service/ports'
 import { list, readPageDocument, resolutionOf, section, type PageDocument } from './page'
+import { downloadLink } from './material-files'
+import { materialItemFrom } from './material-items'
 import { text } from './rows'
 import { createSupabaseServerClient } from './server-client'
 
@@ -32,7 +35,7 @@ import { createSupabaseServerClient } from './server-client'
  * relationship ends lose the surface with nothing revoked.
  */
 
-const HOW_LONG_A_PDF_LINK_LIVES = 60 * 10
+const HOW_LONG_A_FILE_LINK_LIVES = 60 * 10
 
 /**
  * How a contact row that arrived broken fails. From the screen's point of view the
@@ -183,36 +186,42 @@ const materialsFor = (
   return byRelationship
 }
 
-/** What a Material holds, and a short-lived link to its PDF if it has one. */
+/** What a Material holds, and a short-lived link to each of its files. */
 const readMaterial = async (
   supabase: SupabaseClient,
   dashboard: PageDocument,
   material: { readonly materialId: string; readonly title: string },
 ): Promise<AssignedMaterial> => {
   const data = list(dashboard, 'materials').find((row) => text(row.id) === material.materialId)
+  const rows = Array.isArray(data?.items) ? (data.items as Record<string, unknown>[]) : []
 
-  const pdfPath = text((data ?? {}).pdf_path)
-  const pdfFilename = text((data ?? {}).pdf_filename)
-
-  // The one read that stays outside the document: the link is minted by the
+  // The one read that stays outside the document: a link is minted by the
   // storage API, which has no face in SQL. Minted per render and short-lived, so a
   // link cannot outlive the assignment it came with. A failure to mint one is not a
-  // failure of the screen: the title and the typed content are still what the
-  // Leader came for.
-  let pdfUrl: string | null = null
-  if (pdfPath) {
-    const signed = await supabase.storage
-      .from('material')
-      .createSignedUrl(pdfPath, HOW_LONG_A_PDF_LINK_LIVES)
-    pdfUrl = signed.data?.signedUrl ?? null
-  }
+  // failure of the screen: the title, the text and the other items are still what
+  // the Leader came for.
+  const items = await Promise.all(
+    rows
+      .map((row) => materialItemFrom(material.materialId, row))
+      .map(async (item): Promise<ItemToOpen> =>
+        item.kind === 'file'
+          ? {
+              kind: 'file',
+              id: item.id,
+              filename: item.filename,
+              contentType: item.contentType,
+              bytes: item.bytes,
+              url: await downloadLink(supabase, item, HOW_LONG_A_FILE_LINK_LIVES),
+            }
+          : { kind: 'link', id: item.id, url: item.url, label: item.label },
+      ),
+  )
 
   return {
     materialId: materialId(material.materialId),
     title: material.title,
     body: text((data ?? {}).body),
-    pdfFilename,
-    pdfUrl,
+    items,
   }
 }
 

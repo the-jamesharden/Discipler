@@ -243,7 +243,7 @@ describe('the relationships page answers in one read', () => {
 
     // What she is working through with Ada, and the Pause standing on Ben's.
     expect(list(dashboard, 'materials')).toEqual([
-      { id: romans, body: 'The text of Romans, weeks 1-6.', pdf_path: null, pdf_filename: null },
+      { id: romans, body: 'The text of Romans, weeks 1-6.', pdf_path: null, pdf_filename: null, items: [] },
     ])
     expect(list(dashboard, 'pauses').map((row) => row.relationship_id)).toEqual([karenAndBen])
     const periods = await separately(asKaren, 'material_periods', { target_ministry_id: riverside.id })
@@ -293,8 +293,7 @@ describe('the relationships page answers in one read', () => {
           materialId: romans,
           title: 'Romans, weeks 1-6',
           body: 'The text of Romans, weeks 1-6.',
-          pdfFilename: null,
-          pdfUrl: null,
+          items: [],
         },
       })
       // The reader first, then the rest, each with the number they agreed to share.

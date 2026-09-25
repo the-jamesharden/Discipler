@@ -761,7 +761,7 @@ describe('the Material a relationship is working through', () => {
   })
 
   describe('what a Material carries', () => {
-    it('holds typed text, an uploaded PDF, or both', async () => {
+    it('holds typed text, files and links, or both', async () => {
       const typed = await addMaterial(ministry, 'Typed ' + ++numbered, {
         body: 'Week one: read Romans 1.',
       })
@@ -774,17 +774,21 @@ describe('the Material a relationship is working through', () => {
         body: 'Notes to read alongside the manual.',
         pdfPath: `${ministry.id}/${crypto.randomUUID()}.pdf`,
         pdfFilename: 'manual.pdf',
+        links: [{ url: 'https://example.org/notes' }],
       })
 
-      const { rows } = await pool.query<{ body: string | null; pdf_filename: string | null }>(
-        `select body, pdf_filename from material where id = any($1) order by title`,
+      const { rows } = await pool.query<{ body: string | null; items: string[] | null }>(
+        `select m.body,
+                (select array_agg(coalesce(i.filename, i.url) order by i.position)
+                   from material_item i where i.material_id = m.id) as items
+           from material m where m.id = any($1) order by m.title`,
         [[typed, uploaded, both]],
       )
 
       expect(rows).toEqual([
-        { body: 'Notes to read alongside the manual.', pdf_filename: 'manual.pdf' },
-        { body: 'Week one: read Romans 1.', pdf_filename: null },
-        { body: null, pdf_filename: 'discipleship-manual.pdf' },
+        { body: 'Notes to read alongside the manual.', items: ['manual.pdf', 'https://example.org/notes'] },
+        { body: 'Week one: read Romans 1.', items: null },
+        { body: null, items: ['discipleship-manual.pdf'] },
       ])
     })
 

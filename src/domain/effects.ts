@@ -25,7 +25,7 @@ import type {
   RelationshipKeyword,
 } from './keywords'
 import type { NewIntakeLink } from './intake-link'
-import type { MaterialPdf, MaterialTitle } from './materials'
+import type { MaterialFile, MaterialItem, MaterialTitle } from './materials'
 import type { MinistrySettings } from './ministry-settings'
 import type { InvitationToken, NewInvitation, WithdrawnAs } from './invitations'
 import type { OutboundMessageKind, OutstandingReplyCutoff } from './outstanding-reply'
@@ -577,28 +577,30 @@ export interface NewMaterial {
   readonly ministryId: MinistryId
   readonly title: MaterialTitle
   readonly body: string | null
-  readonly pdf: MaterialPdf | null
+  /** Its files and links, each with its id and place already given. */
+  readonly items: readonly MaterialItem[]
   readonly createdAt: Date
 }
 
 /**
- * One Material as it will now read. The whole row rather than the fields that
- * changed, because the row is what a period points at and what a Leader loads:
- * an edit is the Material saying something new, not a diff to apply.
+ * One Material as it will now read: the row whole, because the row is what a
+ * period points at and what a Leader loads, and the items as what went and what
+ * came, because an item is a row of its own and the ones that stay are left
+ * alone.
  */
 export interface MaterialEdit {
   readonly ministryId: MinistryId
   readonly materialId: MaterialId
   readonly title: MaterialTitle
   readonly body: string | null
-  readonly pdf: MaterialPdf | null
+  readonly removed: readonly MaterialItem[]
+  readonly added: readonly MaterialItem[]
   /**
-   * The PDF the row no longer names -- the one removed, or the one replaced --
-   * or null where the edit kept it or there was none. Not a write: the bucket is
-   * the one place the store cannot reach, so the route that uploaded the new
-   * object is the one that deletes the old, once this edit has landed.
+   * The files the Material no longer names: the removed items that were files.
+   * Not a write: the bucket is the one place the store cannot reach, so the
+   * route deletes them once this edit has landed.
    */
-  readonly discarded: MaterialPdf | null
+  readonly discarded: readonly MaterialFile[]
 }
 
 /**

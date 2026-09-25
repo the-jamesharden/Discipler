@@ -2,6 +2,7 @@ import { after } from 'next/server'
 import type { RandomSource } from '~/domain/accounts'
 import { systemClock } from '~/domain/clock'
 import type { IdSource, MinistryId } from '~/domain/ids'
+import { sweepUnsavedUploads as sweepUploads } from '~/platform/supabase/material-files'
 import { appBaseUrl, commandDatabaseUrl } from '~/platform/supabase/credentials'
 import {
   createPostgresEffectStore,
@@ -305,6 +306,14 @@ export const settlePlannedPairings = async (ministryId: MinistryId): Promise<voi
  * Which Ministries the scheduler has to run for. The one unscoped read in the app,
  * kept to ids for that reason -- see the port.
  */
+/**
+ * Deletes a Ministry's uploads that no Material names a day after they landed
+ * (Richer materials, ticket 01). The tick runs it; the clock is the one thing
+ * passed down, as it is to every reader here.
+ */
+export const sweepUnsavedUploads = (ministryId: MinistryId): Promise<number> =>
+  sweepUploads(ministryId, systemClock)
+
 export const getMinistryDirectory = (): MinistryDirectory => {
   if (!ministryDirectory) {
     ministryDirectory = createPostgresMinistryDirectory(commandDatabaseUrl())

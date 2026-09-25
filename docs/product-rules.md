@@ -305,6 +305,18 @@ An assignment has a start date and an open end. Assigning a new material closes 
 
 When a material changes mid-week, the week belongs to whichever material was assigned **at the moment the check-in was answered**, because that is the meeting being reported on. A week is never split across two materials.
 
+## Settled: A Material Holds Files and Links
+
+Decided by James on 2026-09-24, from Planning Center's Resources (`.scratch/richer-materials/spec.md`).
+A Material is a title, optional text, and any number of files and links up to a cap, shown in the order they were added.
+A file may be a document, an image, audio or video, up to a size limit; the list and the limits live in `src/domain/materials.ts` and in the storage bucket's own settings.
+A link is an `http` or `https` address, with an optional name.
+
+A relationship still works through one Material at a time.
+Several files do not make several Materials, so *Settled: Material Assignment* and the attribution it exists for are unchanged.
+
+> **Supersedes:** the Materials grill of 2026-09-12, under which a Material carried text, one PDF, or both, and the PDF was capped at 20 MB.
+
 ## Settled: Nudge Reveals a Number and Sends Nothing
 
 `Nudge` shows an admin the participant's contact details on a follow-up item so that the admin can reach them directly. It sends no message and enqueues nothing.

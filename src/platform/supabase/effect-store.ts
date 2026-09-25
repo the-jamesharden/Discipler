@@ -68,13 +68,14 @@ import {
   type StatedGoal,
 } from '~/domain/discipleship-goals'
 import { discipleshipGoalId, type Gender } from '~/domain/intake'
-import { materialTitle, type MaterialOnOffer } from '~/domain/materials'
+import { materialTitle, type MaterialItem, type MaterialOnOffer } from '~/domain/materials'
 import {
   roleNoun,
   type MinistrySettings,
   type MinistryVoice,
 } from '~/domain/ministry-settings'
 import { readStandingPause, type StandingPause } from '~/domain/pause'
+import { materialItemFrom } from './material-items'
 import { count, text } from './rows'
 import type { MemberRole, RelationshipOutcome } from '~/domain/relationships'
 import type { ConcernResolution, ConcernViewing, NewConcern } from '~/domain/concerns'
@@ -112,6 +113,7 @@ import {
   personId,
   relationshipId,
   type FollowUpItemId,
+  type MaterialId,
   type MinistryId,
   type PersonId,
   type RelationshipId,
@@ -202,6 +204,30 @@ const asGoalRefusal = (error: unknown): GoalRefused | undefined =>
  * means somebody else wrote between that read and this write, and the losing
  * Admin is told the same true thing as the one who saw it on screen.
  */
+/** Writes a Material's new items, each where the boundary placed it. */
+const insertMaterialItems = async (
+  client: PoolClient,
+  ministry: MinistryId,
+  material: MaterialId,
+  items: readonly MaterialItem[],
+  at: Date,
+): Promise<void> => {
+  for (const item of items) {
+    const [path, filename, contentType, bytes, url, label] =
+      item.kind === 'file'
+        ? [item.path, item.filename, item.contentType, item.bytes, null, null]
+        : [null, null, null, null, item.url, item.label]
+    await client.query(
+      `insert into material_item
+         (id, ministry_id, material_id, position, kind,
+          path, filename, content_type, bytes, url, label, created_at)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+      [item.id, ministry, material, item.position, item.kind,
+       path, filename, contentType, bytes, url, label, at],
+    )
+  }
+}
+
 const asMaterialRefusal = (error: unknown): MaterialRefused | undefined =>
   constraintViolated(error) === 'material_live_title_uniq'
     ? new MaterialRefused('material.title_taken')
@@ -3092,11 +3118,13 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       id: string
       title: string
       body: string | null
-      pdf_path: string | null
-      pdf_filename: string | null
+      items: readonly Record<string, unknown>[]
       in_use_by: string
     }>(
-      `select m.id, m.title, m.body, m.pdf_path, m.pdf_filename,
+      `select m.id, m.title, m.body,
+              coalesce((select jsonb_agg(to_jsonb(i) order by i.position)
+                          from material_item i
+                         where i.material_id = m.id), '[]'::jsonb) as items,
               (select count(*)
                  from material_assignment a
                  join relationship r on r.id = a.relationship_id
@@ -3115,17 +3143,11 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       if (inUseBy === null) {
         throw new Error(`No count of who is working through Material ${row.id} came back`)
       }
-      // Both halves or neither, which the check constraint on the row promises.
-      const pdfPath = text(row.pdf_path)
-      const pdfFilename = text(row.pdf_filename)
-      if ((pdfPath === null) !== (pdfFilename === null)) {
-        throw new Error(`Material ${row.id} arrived with half a PDF`)
-      }
       return {
         id: materialId(row.id),
         title: materialTitle(row.title),
         body: text(row.body),
-        pdf: pdfPath && pdfFilename ? { path: pdfPath, filename: pdfFilename } : null,
+        items: row.items.map((item) => materialItemFrom(row.id, item)),
         inUseBy,
       }
     })
@@ -3134,17 +3156,9 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
   async createMaterial(material: NewMaterial) {
     try {
       await client.query(
-        `insert into material (id, ministry_id, title, body, pdf_path, pdf_filename, created_at)
-         values ($1, $2, $3, $4, $5, $6, $7)`,
-        [
-          material.id,
-          material.ministryId,
-          material.title,
-          material.body,
-          material.pdf?.path ?? null,
-          material.pdf?.filename ?? null,
-          material.createdAt,
-        ],
+        `insert into material (id, ministry_id, title, body, created_at)
+         values ($1, $2, $3, $4, $5)`,
+        [material.id, material.ministryId, material.title, material.body, material.createdAt],
       )
     } catch (error) {
       // The boundary already refused a duplicate against the list it read. This
@@ -3152,6 +3166,13 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       // read and this insert -- told the same true thing, rather than a 500.
       throw asMaterialRefusal(error) ?? error
     }
+    await insertMaterialItems(
+      client,
+      material.ministryId,
+      material.id,
+      material.items,
+      material.createdAt,
+    )
   },
 
   async editMaterial(edit: MaterialEdit) {
@@ -3163,9 +3184,9 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     try {
       ;({ rowCount: edited } = await client.query(
         `update material
-            set title = $2, body = $3, pdf_path = $4, pdf_filename = $5
+            set title = $2, body = $3
           where id = $1 and removed is null`,
-        [edit.materialId, edit.title, edit.body, edit.pdf?.path ?? null, edit.pdf?.filename ?? null],
+        [edit.materialId, edit.title, edit.body],
       ))
     } catch (error) {
       throw asMaterialRefusal(error) ?? error
@@ -3174,6 +3195,17 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     if (edited === 0) {
       throw new Error(`No live Material ${edit.materialId} to edit`)
     }
+
+    // The items: the ones ticked go, the new ones come after the rest, and the
+    // ones kept are not touched. Whether what is left is still something is the
+    // deferred trigger's to say at commit, after both have happened.
+    if (edit.removed.length > 0) {
+      await client.query(
+        `delete from material_item where material_id = $1 and id = any($2::uuid[])`,
+        [edit.materialId, edit.removed.map((item) => item.id)],
+      )
+    }
+    await insertMaterialItems(client, edit.ministryId, edit.materialId, edit.added, new Date())
   },
 
   async removeMaterial(removal: MaterialRemoval) {

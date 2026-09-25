@@ -4,28 +4,20 @@ import { materialId as asMaterialId } from '~/domain/ids'
 import { getMaterialsReader } from '~/service/container'
 import { AccountMenu, BackLink, NotAnAdmin, PageShell } from '../../../shell'
 import {
-  CANCEL,
   confirmRemoval,
   EDIT_THIS_MATERIAL,
-  fileSize,
   inUseNotice,
   KEEP_IT,
   MATERIALS,
-  PDF_HINT,
-  PDF_LABEL,
   refusalMessage,
   REMOVE,
   REMOVE_LEAD,
-  REMOVE_THE_PDF,
   REMOVE_THIS_MATERIAL,
   removalQuestion,
-  REPLACE_IT,
   SAVE_CHANGES,
-  TEXT_HINT,
-  TEXT_LABEL,
-  TITLE_LABEL,
 } from '../../copy'
 import { onMaterial } from '../../folders'
+import { MaterialForm, type MaterialQuery } from '../../material-form'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,7 +27,7 @@ export const dynamic = 'force-dynamic'
  *
  * Plain edits with nothing said about them on the page. A period points at the
  * row, so a retitled Material is what history shows from then on, and a Leader
- * sees the new text or PDF on their next load.
+ * sees the new text, files and links on their next load.
  *
  * Removing takes two presses, like a Discipleship Goal option. Remove reopens
  * this page with the confirmation open, and only the button inside it removes.
@@ -47,7 +39,7 @@ export default async function EditMaterialPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ error?: string; title?: string; body?: string; removing?: string }>
+  searchParams: Promise<MaterialQuery & { removing?: string }>
 }) {
   const [{ id }, query] = await Promise.all([params, searchParams])
 
@@ -83,49 +75,15 @@ export default async function EditMaterialPage({
           </p>
         ) : null}
 
-        <form method="post" action={`${folder}/save`} encType="multipart/form-data">
-          <div className="field">
-            <label className="label" htmlFor="e-title">{TITLE_LABEL}</label>
-            <input id="e-title" name="title" type="text" defaultValue={query.title ?? material.title} required />
-          </div>
-          <div className="field">
-            <label className="label" htmlFor="e-body">{TEXT_LABEL}</label>
-            <textarea id="e-body" name="body" rows={4} defaultValue={query.body ?? material.body ?? ''} />
-            <p className="subtle">{TEXT_HINT}</p>
-          </div>
-          <div className="field">
-            {material.pdf ? (
-              <>
-                {/* The current file, by the name it arrived under and its size,
-                    then the two ways to change it: take it away, or put another
-                    in its place. A replacement wins where both are asked for. */}
-                <span className="label">{PDF_LABEL}</span>
-                <div className="pdf-row">
-                  <span className="name">{material.pdf.filename}</span>
-                  {material.pdf.bytes !== null ? (
-                    <span className="muted">{fileSize(material.pdf.bytes)}</span>
-                  ) : null}
-                </div>
-                <label className="check" htmlFor="e-remove-pdf" style={{ marginTop: '.6rem' }}>
-                  <input id="e-remove-pdf" name="removePdf" type="checkbox" value="yes" />
-                  <span>{REMOVE_THE_PDF}</span>
-                </label>
-                <label className="label" htmlFor="e-pdf" style={{ marginTop: '.6rem' }}>{REPLACE_IT}</label>
-                <input id="e-pdf" name="pdf" type="file" accept="application/pdf" />
-              </>
-            ) : (
-              <>
-                <label className="label" htmlFor="e-pdf">{PDF_LABEL}</label>
-                <input id="e-pdf" name="pdf" type="file" accept="application/pdf" />
-                <p className="subtle">{PDF_HINT}</p>
-              </>
-            )}
-          </div>
-          <div className="form-actions">
-            <Link className="btn sec" href={folder}>{CANCEL}</Link>
-            <button type="submit">{SAVE_CHANGES}</button>
-          </div>
-        </form>
+        <MaterialForm
+          action={`${folder}/save`}
+          query={query}
+          title={query.title ?? material.title}
+          body={query.body ?? material.body ?? ''}
+          held={material.items.map((item) => ({ id: item.id, item }))}
+          cancelHref={folder}
+          submit={SAVE_CHANGES}
+        />
       </div>
 
       <div className="card">

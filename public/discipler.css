@@ -421,7 +421,7 @@ fieldset { border: none; margin: 0 0 1.25rem; padding: 0; min-width: 0; }
 legend { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; color: var(--primary); margin-bottom: 0.6rem; padding: 0; }
 legend.plain { font-family: var(--sans); font-size: 0.8rem; color: var(--text); }
 fieldset .subtle { margin-top: -0.25rem; }
-select, textarea, input[type="text"], input[type="tel"], input[type="email"], input[type="password"], input:not([type]) {
+select, textarea, input[type="text"], input[type="tel"], input[type="email"], input[type="password"], input[type="url"], input:not([type]) {
   width: 100%; padding: 0.6rem 0.7rem; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); color: var(--text); font-size: 0.9rem;
 }
 input[readonly] { background: rgba(45, 80, 22, 0.03); }
@@ -463,7 +463,7 @@ input[type="file"] { display: block; margin-bottom: 1rem; font-size: 0.88rem; }
 
 /* ---- the availability grid: days down, hours across ---- */
 
-.grid-wrap { overflow-x: auto; margin: 0.25rem 0; }
+.grid-wrap { overflow-x: auto; margin: 0.25rem 0; position: relative; }
 .avail-legend { display: flex; gap: 1.25rem; flex-wrap: wrap; background: rgba(45, 80, 22, 0.03); border-radius: 6px; padding: 0.7rem 1rem; font-size: 0.82rem; margin-bottom: 1rem; list-style: none; }
 .avail-legend li { display: flex; align-items: center; gap: 0.45rem; }
 .avail-legend i { width: 16px; height: 16px; border-radius: 3px; display: inline-block; border: 1px solid var(--border); }
@@ -500,7 +500,10 @@ table.avail td.pick:has(input:focus-visible) { outline: 2px solid var(--primary)
 
 /* ---- the Leader Dashboard ---- */
 
-.lead-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+.lead-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.5rem; }
+/* A track may shrink below the availability table's width, so the table's own
+   wrapper scrolls on a phone rather than the whole page. */
+.lead-grid > * { min-width: 0; }
 .lead-grid .card { margin-bottom: 0; }
 .lead-block { margin-bottom: 1.5rem; }
 .mentee-card { border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; background: rgba(45, 80, 22, 0.02); margin-bottom: 0.75rem; }
@@ -539,7 +542,7 @@ blockquote { background: rgba(45, 80, 22, 0.04); border-left: 3px solid var(--pr
   .ci-cols { grid-template-columns: 1fr; }
 }
 @media (max-width: 860px) {
-  .lead-grid, .two-up { grid-template-columns: 1fr; }
+  .lead-grid, .two-up { grid-template-columns: minmax(0, 1fr); }
   .choices.grid-3 { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 720px) {
@@ -787,10 +790,44 @@ textarea.paste { width: 100%; min-height: 140px; font-family: ui-monospace, SFMo
 .rel-card > .mat-assign { display: flex; gap: .5rem; align-items: center; margin-top: auto; padding-top: .75rem; border-top: 1px dashed var(--border); }
 .rel-card:has(> .mat-assign) > :nth-last-child(2) { margin-bottom: .85rem; }
 .mat-assign select { flex: 1; min-width: 0; margin: 0; font-size: .85rem; padding: .4rem .6rem; }
-/* New under ticket 02: the current PDF on the edit form. */
-.pdf-row { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; padding: .6rem .8rem; border: 1px solid var(--border); border-radius: 6px; font-size: .88rem; background: rgba(45,80,22,.02); }
-.pdf-row .name { font-weight: 600; }
-.pdf-row .muted { margin-left: auto; }
+/* Richer materials, ticket 01 (M-1): a Material's files and links on the create
+   and edit forms, with the two boxes that add them. */
+.items { display: grid; gap: .45rem; }
+.item-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto auto; align-items: center; gap: .7rem; padding: .55rem .75rem; border: 1px solid var(--border); border-radius: 6px; background: rgba(45,80,22,.02); font-size: .86rem; }
+.item-row.up { background: var(--surface); }
+.item-row .ic, .res .ic { border-radius: 6px; display: grid; place-items: center; background: rgba(45,80,22,.08); color: var(--primary); }
+.item-row .ic { width: 28px; height: 28px; }
+.item-row .ic svg, .res .ic svg, .res .go svg { width: 16px; height: 16px; }
+.item-row .nm { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item-row .sub { display: block; font-weight: 400; color: var(--text-light); font-size: .78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item-row .sub.refused { color: var(--red-ink); white-space: normal; }
+.item-row .muted { font-size: .8rem; }
+.item-row .check { margin: 0; font-size: .8rem; align-items: center; }
+.item-row .check input { margin-top: 0; }
+.bar { display: block; height: 4px; border-radius: 2px; background: var(--cell); overflow: hidden; margin-top: .3rem; }
+.bar i { display: block; height: 100%; background: var(--primary-light); transition: width .2s linear; }
+.items + .adders { margin-top: .75rem; }
+.adders { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: .75rem; }
+.adder { border: 1px dashed var(--border); border-radius: 8px; padding: .8rem .9rem; min-width: 0; }
+.adder .label { margin-bottom: .35rem; }
+.adder input[type="file"] { margin-bottom: 0; max-width: 100%; }
+.adder input[type="url"], .adder input[type="text"] { margin-bottom: .5rem; }
+.adder .subtle { margin: .4rem 0 0; font-size: .8rem; }
+@media (max-width: 640px) {
+  .adders { grid-template-columns: minmax(0, 1fr); }
+  .item-row { grid-template-columns: 28px minmax(0, 1fr) auto; }
+  .item-row > .muted { display: none; }
+}
+/* M-2: the same files and links for somebody opening them, on the Leader's
+   Resources card and a Disciple's page. */
+.res-list { display: grid; gap: .45rem; margin-top: .9rem; }
+.res { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: .7rem; padding: .6rem .75rem; border: 1px solid var(--border); border-radius: 6px; text-decoration: none; color: var(--text); font-size: .88rem; background: var(--surface); }
+a.res:hover { border-color: var(--primary); }
+.res .ic { width: 30px; height: 30px; }
+.res .nm { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.res .nm small { display: block; font-weight: 400; color: var(--text-light); font-size: .76rem; }
+.res .go { color: var(--text-light); display: inline-flex; }
+.material-body a { color: var(--primary); text-decoration: underline; word-break: break-all; }
 .option.dashed { border-style: dashed; }
 /* Group form exits, ticket 01 (S-8): the group dropdown and its button on a
    Wants a group item, taking the room the row has before Resolve. */

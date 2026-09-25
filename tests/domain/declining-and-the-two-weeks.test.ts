@@ -195,7 +195,7 @@ describe.each(BOTH)('$how', ({ act, at, withdrawnAs, item, event, by }) => {
       { type: withdrawnAs === 'declined' ? 'invitation.decline' : 'invitation.expire', ministryId: ministry, token },
       {
         ...context(awaitingBoth(invitedAt, { intendedMaterialId: romans }), at),
-        materials: [{ id: romans, title: materialTitle('Romans'), body: null, pdf: null, inUseBy: 0 }],
+        materials: [{ id: romans, title: materialTitle('Romans'), body: null, items: [], inUseBy: 0 }],
       },
     )
     const assigned = result.effects.flatMap((each) =>

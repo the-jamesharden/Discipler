@@ -34,7 +34,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         materialId: materialId(id),
         removedBy: admin.userId,
       }),
-    null,
+    [],
     async () => undefined,
     (refused) => backTo(request, edit, { error: refused.refusal }),
     () => backTo(request, '/materials'),

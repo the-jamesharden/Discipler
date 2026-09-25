@@ -151,8 +151,8 @@ describe('the Materials tab answers in one read', () => {
 
     // The Ministry's Materials in title order, live, with no PDF and so no size.
     expect(asRows(doc.materials)).toEqual([
-      { id: prayer, title: 'Prayer practices', body: 'The text of Prayer practices.', pdf_path: null, pdf_filename: null, pdf_bytes: null, removed: null },
-      { id: masterPlan, title: 'The Master Plan of Evangelism', body: 'The text of The Master Plan of Evangelism.', pdf_path: null, pdf_filename: null, pdf_bytes: null, removed: null },
+      { id: prayer, title: 'Prayer practices', body: 'The text of Prayer practices.', pdf_path: null, pdf_filename: null, pdf_bytes: null, items: [], removed: null },
+      { id: masterPlan, title: 'The Master Plan of Evangelism', body: 'The text of The Master Plan of Evangelism.', pdf_path: null, pdf_filename: null, pdf_bytes: null, items: [], removed: null },
     ])
 
     // Every period, as the function that emits them gapless gives them.
@@ -284,26 +284,35 @@ describe('the Materials tab answers in one read', () => {
     expect(card?.previously.map((period) => period.title)).toEqual([null, 'The Master Plan of Evangelism', 'Galatians, weeks 1-5'])
   })
 
-  it('carries the size of a PDF that is in the bucket, and the filename from the row', async () => {
+  it('carries each of a Material’s files and links, in order (Richer materials, ticket 01)', async () => {
     const admin = await signInAs(ministry)
     const pdfPath = `${ministry.id}/${crypto.randomUUID()}.pdf`
     const bytes = '%PDF-1.4 a study guide'
     const uploaded = await serviceRoleClient().storage.from('material').upload(pdfPath, new Blob([bytes], { type: 'application/pdf' }))
     if (uploaded.error) throw new Error(uploaded.error.message)
-    const withPdf = await addMaterial(ministry, 'Philippians, weeks 1-4', { body: null, pdfPath, pdfFilename: 'philippians.pdf' })
+    const withFiles = await addMaterial(ministry, 'Philippians, weeks 1-4', {
+      body: null,
+      files: [{ path: pdfPath, filename: 'philippians.pdf', bytes: bytes.length }],
+      links: [{ url: 'https://bibleproject.com/philippians', label: 'Overview' }],
+    })
 
     const doc = asDocument((await admin.rpc('materials_page')).data)
-    expect(asRows(doc.materials).find((row) => row.id === withPdf)).toMatchObject({
-      pdf_filename: 'philippians.pdf',
-      pdf_bytes: bytes.length,
+    expect(asRows(doc.materials).find((row) => row.id === withFiles)).toMatchObject({
+      items: [
+        expect.objectContaining({ kind: 'file', position: 0, path: pdfPath, filename: 'philippians.pdf', bytes: bytes.length }),
+        expect.objectContaining({ kind: 'link', position: 1, url: 'https://bibleproject.com/philippians', label: 'Overview' }),
+      ],
     })
 
     const page = await readMaterials(admin, ministry.id, createTestClock(new Date()))
-    expect(page.materials.find((material) => material.materialId === withPdf)).toEqual({
-      materialId: withPdf,
+    expect(page.materials.find((material) => material.materialId === withFiles)).toEqual({
+      materialId: withFiles,
       title: 'Philippians, weeks 1-4',
       body: null,
-      pdf: { filename: 'philippians.pdf', bytes: bytes.length },
+      items: [
+        expect.objectContaining({ kind: 'file', filename: 'philippians.pdf', contentType: 'application/pdf', bytes: bytes.length }),
+        expect.objectContaining({ kind: 'link', url: 'https://bibleproject.com/philippians', label: 'Overview' }),
+      ],
     })
   })
 

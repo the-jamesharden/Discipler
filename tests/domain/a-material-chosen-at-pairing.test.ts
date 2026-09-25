@@ -28,7 +28,7 @@ const at = new Date('2026-03-02T09:00:00Z')
 const onOffer = (id: typeof romans, title: string): MaterialOnOffer => {
   const read = readMaterialTitle(title)
   if (!read) throw new Error(`${title} is not a title`)
-  return { id, title: read, body: 'Week one.', pdf: null, inUseBy: 0 }
+  return { id, title: read, body: 'Week one.', items: [], inUseBy: 0 }
 }
 
 const pairingContext = (materials?: readonly MaterialOnOffer[]): CommandContext => ({

@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { MaterialRefused } from '~/domain/errors'
-import { readPdfUpload, type MaterialPdf } from '~/domain/materials'
+import type { TypedLink } from '~/domain/commands'
 
 /**
  * What the create, save and remove routes share. Each is an ordinary form POST,
@@ -9,11 +9,12 @@ import { readPdfUpload, type MaterialPdf } from '~/domain/materials'
  * anything the edit has to say carried in the query string under names the
  * page reserves for it.
  *
- * A refusal keeps what was typed: the title and the text travel back on the
- * query string so the page can fill the boxes in again. A file cannot be
- * carried back -- a browser does not let a page pre-select one -- and does not
- * need to be, because the one refusal the spec draws is a submission with
- * neither text nor PDF, where there is no file to keep.
+ * A refusal keeps what was typed: the title, the text, the link, the files
+ * already uploaded and the items ticked for removal all travel back on the query
+ * string so the page can fill the form in again. A file the browser uploaded is
+ * kept in the bucket across the refusal and named again on the page, so an Admin
+ * refused over a title does not upload a 40 MB video twice; one never saved is
+ * swept by the tick a day later.
  */
 
 /** A field as it arrived, or null where the form sent none. Never coerced: the boundary decides. */
@@ -22,58 +23,116 @@ export const typed = (form: FormData, field: string): string | null => {
   return typeof value === 'string' ? value : null
 }
 
-/**
- * The file an Admin chose, or null where the box was left empty. An empty file
- * input still sends a part: a `File` with no name and no bytes, which is the
- * browser saying *nothing chosen* and is read as such.
- */
-export const chosenFile = (form: FormData, field: string): File | null => {
-  const value = form.get(field)
-  return value instanceof File && value.size > 0 ? value : null
+/** Every value a repeated field sent, strings only. */
+const every = (form: FormData, field: string): readonly string[] =>
+  form.getAll(field).flatMap((value) => (typeof value === 'string' ? [value] : []))
+
+/** One file the browser uploaded, as the page posts it back: where, and what it was called. */
+export interface PostedUpload {
+  readonly path: string
+  readonly filename: string
 }
+
+/**
+ * The files the browser uploaded for this form, each posted as a hidden field
+ * holding its path and name. One that is not what the page writes is dropped
+ * rather than trusted: the route reads every path back from Storage anyway.
+ */
+export const postedUploads = (form: FormData): readonly PostedUpload[] =>
+  uploadsIn(every(form, 'upload'))
+
+/**
+ * The uploads a hidden field or the query string names, each written by the page
+ * as JSON. The same reading for a form posted and a refusal carried back.
+ */
+export const uploadsIn = (values: readonly string[]): readonly PostedUpload[] =>
+  values.flatMap((value) => {
+    try {
+      const parsed: unknown = JSON.parse(value)
+      if (
+        parsed &&
+        typeof parsed === 'object' &&
+        typeof (parsed as PostedUpload).path === 'string' &&
+        typeof (parsed as PostedUpload).filename === 'string'
+      ) {
+        return [{ path: (parsed as PostedUpload).path, filename: (parsed as PostedUpload).filename }]
+      }
+    } catch {
+      // Not JSON: not something the page wrote.
+    }
+    return []
+  })
+
+/** A query-string value as a list, however many times it came. */
+export const allOf = (value: string | readonly string[] | undefined): readonly string[] =>
+  value === undefined ? [] : typeof value === 'string' ? [value] : value
+
+/** The link typed into the form's one link box, or none where the address was left blank. */
+export const postedLinks = (form: FormData): readonly TypedLink[] => {
+  const url = typed(form, 'linkUrl') ?? ''
+  return url.trim() === '' ? [] : [{ url, label: typed(form, 'linkLabel') }]
+}
+
+/** The items ticked Remove on the edit page. */
+export const itemsTicked = (form: FormData): readonly string[] => every(form, 'removeItem')
 
 /**
  * What was typed, as the query string carries it back: every field the form
  * sent, a blank included, so an Admin who cleared the text and was refused sees
- * the blank they typed rather than the text they cleared.
+ * the blank they typed rather than the text they cleared. Repeated fields repeat.
  */
-export const asTyped = (form: FormData): Record<string, string> => {
-  const kept: Record<string, string> = {}
-  for (const field of ['title', 'body'] as const) {
+export const asTyped = (form: FormData): readonly (readonly [string, string])[] => {
+  const kept: [string, string][] = []
+  for (const field of ['title', 'body', 'linkUrl', 'linkLabel'] as const) {
     const value = typed(form, field)
-    if (value !== null) kept[field] = value
+    if (value !== null) kept.push([field, value])
+  }
+  for (const field of ['upload', 'removeItem'] as const) {
+    for (const value of every(form, field)) kept.push([field, value])
   }
   return kept
+}
+
+/**
+ * The query string a refusal goes back with: the code and everything typed,
+ * less the uploads when the refusal was about them, since those were deleted.
+ */
+export const refusedWith = (
+  refusal: string,
+  form: FormData,
+): readonly (readonly [string, string])[] => {
+  const aboutTheFiles = refusal === 'material.file_type' || refusal === 'material.file_too_large'
+  return [
+    ['error', refusal],
+    ...asTyped(form).filter(([field]) => !(aboutTheFiles && field === 'upload')),
+  ]
 }
 
 /** Back to a page, optionally saying what happened. */
 export const backTo = (
   request: NextRequest,
   path: string,
-  params?: Record<string, string>,
+  params?: Record<string, string> | readonly (readonly [string, string])[],
 ): NextResponse => {
-  const query = params && Object.keys(params).length > 0 ? `?${new URLSearchParams(params)}` : ''
+  const search = new URLSearchParams(
+    Array.isArray(params) ? (params as [string, string][]) : (params as Record<string, string>),
+  )
+  const query = search.size > 0 ? `?${search}` : ''
   return NextResponse.redirect(new URL(`${path}${query}`, request.url), { status: 303 })
 }
 
 /**
- * Refuses a chosen file before a byte of it reaches the bucket, as a code the
- * page has a sentence for, or null where it may be stored. The rule is the
- * domain's; this only carries its answer.
- */
-export const refusedUpload = (file: File): string | null => readPdfUpload(file)
-
-/**
- * Runs one edit with an object that may have just been uploaded for it, and
- * deletes that object when the edit does not land -- a refusal or a fault, both
- * leave an orphan in the bucket otherwise. Every refusal an Admin can act on
- * reaches them as a sentence the page owns; anything else is thrown, because a
- * database that is down is not something to render as *pick a title*.
+ * Runs one edit with files the browser may just have uploaded for it. A refusal
+ * over the files themselves deletes them, since the page cannot offer them
+ * again; any other refusal keeps them for the page to name again. A fault
+ * deletes them too, because a database that is down is not something to render
+ * as *pick a title*, and nothing will carry them back. Every refusal an Admin
+ * can act on reaches them as a sentence the page owns.
  */
 export const applying = async <T>(
   edit: () => Promise<T>,
-  uploaded: MaterialPdf | null,
-  discard: (path: string) => Promise<void>,
+  uploaded: readonly string[],
+  discard: (paths: readonly string[]) => Promise<void>,
   refused: (refusal: MaterialRefused) => NextResponse,
   landed: (outcome: T) => Promise<NextResponse> | NextResponse,
 ): Promise<NextResponse> => {
@@ -81,7 +140,10 @@ export const applying = async <T>(
   try {
     outcome = await edit()
   } catch (error) {
-    if (uploaded) await discard(uploaded.path)
+    const aboutTheFiles =
+      error instanceof MaterialRefused &&
+      (error.refusal === 'material.file_type' || error.refusal === 'material.file_too_large')
+    if (!(error instanceof MaterialRefused) || aboutTheFiles) await discard(uploaded)
     if (error instanceof MaterialRefused) return refused(error)
     throw error
   }
