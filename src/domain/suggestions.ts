@@ -163,22 +163,25 @@ const leadsOpen = (person: SuggestionCandidate, groupsOnly: boolean): boolean =>
   )
 
 /**
- * Whether the Roster calls this Person a Discipler: leading an open relationship or
- * having answered the mentor side at Intake (`isDiscipler` in `app/roster/lists.ts`).
- * The third fact the Roster reads, an import planning them as one, is not a
- * suggestion input.
+ * Whether Suggested Pairs offers this Person to disciple somebody: leading an open
+ * relationship or having answered the mentor side at Intake. It is the rule that
+ * presets the Pair popup on *Disciples somebody* (`isDiscipler` in
+ * `app/roster/lists.ts`, Roles per pairing, ticket 01), less its third fact, an
+ * import planning them as one, which is not a suggestion input.
  */
 const isADiscipler = (person: SuggestionCandidate): boolean =>
   person.declaredSide === 'mentor' || leadsOpen(person, false)
 
 /**
- * Whether the Roster calls this Person a Disciple (`isDisciple` there): being
- * discipled already, having asked to be on their Intake form, or not being a
- * Discipler at all. A Discipler whom nobody disciples and who did not ask is not
- * one: the Roster lists them among the Disciplers only, and the Pair popup a card
- * opens could not choose them, so a card proposing them could not be acted on
- * (James, 2026-09-22). A Discipler who is a Disciple as well is in both pools,
- * which is the multiplication case working.
+ * Whether Suggested Pairs offers this Person to be discipled: being discipled
+ * already, having asked to be on their Intake form, or not being one it offers to
+ * disciple at all. So somebody it offers to disciple, whom nobody disciples and
+ * who did not ask, is not offered here. This was the Roster's Disciples list
+ * (James, 2026-09-22), drawn so because the Pair popup a card opens could not
+ * then choose such a person. Since Roles per pairing, ticket 01, the popup can
+ * choose anybody on either side, so that reason is gone; the pool stands as it
+ * was until James decides whether it should widen. Somebody in both pools is the
+ * multiplication case working.
  */
 const isADisciple = (person: SuggestionCandidate): boolean =>
   person.memberships.some((membership) => membership.role === 'participant') ||
@@ -186,7 +189,7 @@ const isADisciple = (person: SuggestionCandidate): boolean =>
   !isADiscipler(person)
 
 /**
- * Everyone the Roster calls a Discipler, with Intake, consent and no opt-out. No
+ * Everyone `isADiscipler` takes, with Intake, consent and no opt-out. No
  * cap on how many they already lead, except that a Leader already holding an open
  * group cannot be offered a second.
  */
@@ -203,8 +206,8 @@ export const leaderPool = (
   )
 
 /**
- * Everyone the Roster calls a Disciple, with Intake, consent and no opt-out; a
- * Discipler may be discipled too. Somebody already a Participant in an open
+ * Everyone `isADisciple` takes, with Intake, consent and no opt-out; somebody who
+ * disciples may be discipled too. Somebody already a Participant in an open
  * one-to-one cannot be offered a second.
  */
 export const participantPool = (
@@ -377,8 +380,9 @@ export const suggest = (
     })
     const strongest = ranked.sort(strongestFirst)[0]
     if (strongest !== undefined) best.push(strongest)
-    // Everybody here is a Disciple the Roster could place, since the participant
-    // pool takes nobody else; a Discipler whom nobody disciples never reaches this.
+    // Everybody here is somebody `isADisciple` takes, since the participant pool
+    // takes nobody else; one `isADiscipler` takes, whom nobody disciples and who
+    // did not ask, never reaches this.
     else overlapNobody.push(participant)
   }
 
