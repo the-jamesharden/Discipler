@@ -1,4 +1,9 @@
 import type { Command, TypedLink } from './commands'
+import {
+  materialNoticesDue,
+  type MaterialRecipient,
+  type MaterialText,
+} from './material-notices'
 import { days, daysSince, type Clock } from './clock'
 import {
   acceptInvitation,
@@ -47,6 +52,7 @@ import {
   renameDiscipleshipGoal,
   reorderDiscipleshipGoals,
   resolveConcern,
+  recordMaterialNotice,
   restorePerson,
   saveMinistrySettings,
   setKeywordExchangeTarget,
@@ -176,6 +182,7 @@ import {
   checkInSubject,
   groupJoinedMessage,
   leaderDashboardLink,
+  materialMessage,
   checkInThankYou,
   concernDetailRequest,
   invitationLink,
@@ -380,6 +387,15 @@ export interface CommandContext {
    * silently lets every pause run out unnoticed.
    */
   readonly paused?: readonly PausedRelationship[]
+  /**
+   * Everyone the tick may tell about a Material that changed, with the Ministry's
+   * timezone the day is counted in (Richer materials, ticket 03). Absent, the
+   * tick tells nobody anything.
+   */
+  readonly materialNotices?: {
+    readonly timeZone: string
+    readonly recipients: readonly MaterialRecipient[]
+  }
   /**
    * The one relationship an Admin command names, as the database holds it now.
    * Absent when the command names none.
@@ -965,6 +981,16 @@ const theTitleFor = (
   if (!title) throw new MaterialRefused('material.needs_title')
   if (titleAlreadyHeld(materials, title, except)) throw new MaterialRefused('material.title_taken')
   return title
+}
+
+/**
+ * Where a Material text sends somebody: a Leader to their dashboard, where every
+ * relationship they lead is. A Disciple's page is ticket 04's, and until it
+ * exists nothing asks for a Disciple's text.
+ */
+const materialTextLink = (text: MaterialText, appBaseUrl: string): string => {
+  if (text.kind.startsWith('leader_')) return leaderDashboardLink(appBaseUrl)
+  throw new Error(`No page yet for a ${text.kind} text`)
 }
 
 /**
@@ -3172,6 +3198,48 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             },
           }),
         )
+      }
+
+      // What anybody is told about a Material that changed (Richer materials,
+      // ticket 03): at most one text a person a day, once the changes feeding it
+      // have been still for an hour, saying where things ended up. The rule is
+      // `material-notices.ts`'s; this only words it and records it.
+      if (context.materialNotices) {
+        const { timeZone, recipients } = context.materialNotices
+        for (const notice of materialNoticesDue(recipients, now, timeZone)) {
+          if (notice.text) {
+            effects.push(
+              enqueueMessage({
+                ministryId: command.ministryId,
+                personId: notice.personId,
+                toPhone: notice.phone,
+                body: materialMessage({
+                  ministryName,
+                  text: notice.text,
+                  link: materialTextLink(notice.text, appBaseUrl),
+                }),
+                enqueuedAt: now,
+                // Names a Leader to a Disciple at most, never a number.
+                disclosesPersonId: null,
+                kind: 'no_reply',
+                ratesLine: 'once_a_month',
+              }),
+            )
+          }
+          for (const standing of notice.told) {
+            effects.push(
+              recordMaterialNotice({
+                ministryId: command.ministryId,
+                personId: notice.personId,
+                relationshipId: standing.relationshipId,
+                materialId: standing.running.materialId,
+                fingerprint: standing.running.fingerprint,
+                toldAt: now,
+                texted: notice.text !== null,
+              }),
+            )
+          }
+        }
       }
 
       return { effects, rejections: [] }

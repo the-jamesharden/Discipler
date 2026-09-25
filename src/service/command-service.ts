@@ -293,6 +293,9 @@ export const applyEffects = async (
   const removedMaterials = effects.flatMap((effect) =>
     effect.kind === 'material.remove' ? [effect.removal] : [],
   )
+  const materialNotices = effects.flatMap((effect) =>
+    effect.kind === 'materialNotice.record' ? [effect.notice] : [],
+  )
   const concerns = effects.flatMap((effect) =>
     effect.kind === 'concern.raise' ? [effect.concern] : [],
   )
@@ -476,6 +479,11 @@ export const applyEffects = async (
   for (const material of createdMaterials) await unit.createMaterial(material)
   for (const edit of editedMaterials) await unit.editMaterial(edit)
   for (const removal of removedMaterials) await unit.removeMaterial(removal)
+
+  // What people have been told about their Materials, beside the texts that tell
+  // them: the tick writes both in one transaction, so a text that went out is a
+  // text recorded, and a crash between them leaves neither.
+  if (materialNotices.length > 0) await unit.recordMaterialNotices(materialNotices)
 
   // Before the messages, and that ordering is the whole of what `START` does. The
   // outbound queue refuses anything bound for a Person with an open opt-out, so a
@@ -1056,6 +1064,7 @@ export const createCommandService = ({
               unaccepted: await unit.unacceptedRelationships(),
               checkInsDue: await unit.leadersDueForCheckIn(),
               paused: await unit.pausedRelationships(),
+              materialNotices: await unit.materialRecipients(),
             }
           : {}),
         ...(isAboutOneRelationship(command)

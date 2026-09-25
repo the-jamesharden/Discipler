@@ -1,4 +1,5 @@
 import type { CheckInQuestion } from './check-in'
+import type { MaterialText } from './material-notices'
 import type { MinistryId } from './ids'
 import type { RelationshipKeyword } from './keywords'
 
@@ -431,6 +432,51 @@ export const resumedMessage = ({ ministryName, withNames }: ResumedMessage): str
     discloseOptOut: true,
     body: `Your discipleship with ${asList(withNames)} has been resumed!`,
   })
+
+export interface MaterialMessage {
+  readonly ministryName: string
+  readonly text: MaterialText
+  /** The Leader dashboard for a Leader's text; the person's own Material page for a Disciple's. */
+  readonly link: string
+}
+
+/**
+ * The text a person gets when the Material they are working through changes
+ * (Richer materials, tickets 03 and 04), worded exactly as James approved them in
+ * the mock-up review on 2026-09-24 (M-5, Q5).
+ *
+ * A Leader's names nobody, as no text to a Leader does (James, 2026-09-21: *do
+ * not say the name of the mentees in the texts*); who the relationship is with
+ * is on the dashboard the link opens. A Disciple's names their Leader, as the
+ * Starter Message a Disciple gets already does. Neither carries a number.
+ *
+ * It may carry the rates line, under the once-a-month rule: for a Disciple it can
+ * easily be the first text of a month.
+ */
+export const materialMessage = ({ ministryName, text, link }: MaterialMessage): string =>
+  composeMessage({
+    ministryName,
+    identifyDelivery: false,
+    discloseOptOut: true,
+    body: materialMessageBody(text, link),
+  })
+
+const materialMessageBody = (text: MaterialText, link: string): string => {
+  switch (text.kind) {
+    case 'leader_moved':
+      return `The material for your discipleship is now ${text.title}. See it at ${link}`
+    case 'leader_updated':
+      return `${text.title}, the material for your discipleship, has been updated. See it at ${link}`
+    case 'leader_several':
+      return `The material has changed for ${text.count} of your discipleship relationships. See them at ${link}`
+    case 'leader_none':
+      return `Your discipleship no longer has a material assigned. See it at ${link}`
+    case 'participant_moved':
+      return `Your discipleship material with ${asList(text.leaderNames)} is now ${text.title}. Open it here: ${link}`
+    case 'participant_updated':
+      return `Your discipleship material, ${text.title}, has been updated. Open it here: ${link}`
+  }
+}
 
 export interface AcceptanceReminderMessage {
   readonly ministryName: string

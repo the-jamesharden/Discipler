@@ -35,6 +35,7 @@ import type {
   LeaderAcceptance,
   MaterialAssignment,
   MaterialEdit,
+  MaterialNoticeRecord,
   MaterialRemoval,
   NewMaterial,
   OutstandingReplyClosure,
@@ -76,6 +77,7 @@ import {
   type MinistryVoice,
 } from '~/domain/ministry-settings'
 import { readStandingPause, type StandingPause } from '~/domain/pause'
+import type { MaterialRecipient, MaterialStanding } from '~/domain/material-notices'
 import { materialItemFrom } from './material-items'
 import { count, text } from './rows'
 import type { MemberRole, RelationshipOutcome } from '~/domain/relationships'
@@ -2194,6 +2196,139 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       }),
       itemStandsOpen: row.item_stands_open,
     }))
+  },
+
+  async materialRecipients() {
+    // Everybody the tick may tell about a Material change, and for each of their
+    // relationships the three things the rule compares: what is running, what
+    // they were last told, and when anything feeding it last changed -- the
+    // running period starting, or the Material it is on being edited. Leaders
+    // who have accepted, in accepted and unended relationships (Richer
+    // materials, ticket 03); a Disciple's text is ticket 04's.
+    const [{ rows: zone }, { rows }] = await Promise.all([
+      client.query<{ timezone: string }>(
+        `select timezone from ministry where id = app.command_ministry_id()`,
+      ),
+      client.query<{
+        person_id: string
+        phone: string | null
+        relationship_id: string
+        role: 'leader' | 'participant'
+        paused: boolean
+        material_id: string | null
+        title: string | null
+        fingerprint: string | null
+        told: boolean
+        told_material_id: string | null
+        told_fingerprint: string | null
+        changed_at: Date | null
+        last_texted_at: Date | null
+      }>(
+        `with members as (
+           select m.person_id, m.relationship_id, m.role
+             from relationship_member m
+             join relationship r on r.id = m.relationship_id
+            where m.ministry_id = app.command_ministry_id()
+              and m.ended_at is null
+              and m.role = 'leader'
+              and m.accepted_at is not null
+              and r.accepted_at is not null
+              and r.ended_at is null
+         )
+         select mem.person_id,
+                p.phone,
+                mem.relationship_id,
+                mem.role,
+                mem.relationship_id in (
+                  select pa.relationship_id from relationship_pauses(app.command_ministry_id()) pa
+                ) as paused,
+                run.material_id,
+                mat.title,
+                case when run.material_id is null then null
+                     else app.material_content_fingerprint(run.material_id) end as fingerprint,
+                told.id is not null as told,
+                told.material_id as told_material_id,
+                told.fingerprint as told_fingerprint,
+                greatest(
+                  run.started_at,
+                  (select max(e.occurred_at)
+                     from ministry_event e
+                    where e.ministry_id = app.command_ministry_id()
+                      and e.type = 'material.edited'
+                      and e.subject_id = run.material_id)
+                ) as changed_at,
+                (select max(n.told_at)
+                   from material_notice n
+                  where n.person_id = mem.person_id
+                    and n.texted) as last_texted_at
+           from members mem
+           join person p on p.id = mem.person_id
+           left join material_assignment run
+                  on run.relationship_id = mem.relationship_id and run.ended_at is null
+           left join material mat on mat.id = run.material_id
+           left join lateral (
+             select n.id, n.material_id, n.fingerprint
+               from material_notice n
+              where n.person_id = mem.person_id
+                and n.relationship_id = mem.relationship_id
+              order by n.told_at desc, n.created_at desc
+              limit 1
+           ) told on true
+          order by mem.person_id, mem.relationship_id`,
+      ),
+    ])
+
+    const timeZone = zone[0]?.timezone
+    if (!timeZone) throw new Error('No timezone came back for the Ministry being ticked')
+
+    const byPerson = new Map<string, MaterialRecipient>()
+    for (const row of rows) {
+      const standing: MaterialStanding = {
+        relationshipId: relationshipId(row.relationship_id),
+        role: row.role,
+        paused: row.paused,
+        running: {
+          materialId: row.material_id ? materialId(row.material_id) : null,
+          title: row.title,
+          fingerprint: row.fingerprint,
+        },
+        told: row.told
+          ? {
+              materialId: row.told_material_id ? materialId(row.told_material_id) : null,
+              fingerprint: row.told_fingerprint,
+            }
+          : null,
+        changedAt: row.changed_at,
+        leaderNames: [],
+      }
+      const held = byPerson.get(row.person_id)
+      byPerson.set(row.person_id, {
+        personId: personId(row.person_id),
+        phone: row.phone,
+        lastTextedAt: row.last_texted_at,
+        standings: [...(held?.standings ?? []), standing],
+      })
+    }
+    return { timeZone, recipients: [...byPerson.values()] }
+  },
+
+  async recordMaterialNotices(notices: readonly MaterialNoticeRecord[]) {
+    for (const notice of notices) {
+      await client.query(
+        `insert into material_notice
+           (ministry_id, person_id, relationship_id, material_id, fingerprint, told_at, texted)
+         values ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          notice.ministryId,
+          notice.personId,
+          notice.relationshipId,
+          notice.materialId,
+          notice.fingerprint,
+          notice.toldAt,
+          notice.texted,
+        ],
+      )
+    }
   },
 
   async cancelRelationship(cancellation: RelationshipCancellation) {

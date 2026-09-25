@@ -604,6 +604,23 @@ export interface MaterialEdit {
 }
 
 /**
+ * What one person has now been told about one relationship's Material (Richer
+ * materials, ticket 03): the Material and the fingerprint of what it held. A
+ * row per telling, never updated, so what anybody was told and when stays
+ * readable; the latest row is what the next change is compared against.
+ */
+export interface MaterialNoticeRecord {
+  readonly ministryId: MinistryId
+  readonly personId: PersonId
+  readonly relationshipId: RelationshipId
+  readonly materialId: MaterialId | null
+  readonly fingerprint: string | null
+  readonly toldAt: Date
+  /** Whether a text went with it. A Disciple moved to no Material is recorded and sent nothing. */
+  readonly texted: boolean
+}
+
+/**
  * One Material, taken off the list at an instant. A flag and not a delete: every
  * period that names it goes on naming it, which is what keeps a card's
  * "Previously" line, and every report, honest about a Material the Ministry no
@@ -832,6 +849,7 @@ export type Effect =
   | { readonly kind: 'material.create'; readonly material: NewMaterial }
   | { readonly kind: 'material.edit'; readonly edit: MaterialEdit }
   | { readonly kind: 'material.remove'; readonly removal: MaterialRemoval }
+  | { readonly kind: 'materialNotice.record'; readonly notice: MaterialNoticeRecord }
   | { readonly kind: 'concern.raise'; readonly concern: NewConcern }
   | { readonly kind: 'concern.view'; readonly viewing: ConcernViewing }
   | { readonly kind: 'concern.resolve'; readonly resolution: ConcernResolution }
@@ -889,6 +907,11 @@ export const createMaterial = (material: NewMaterial): Effect => ({
 export const editMaterial = (edit: MaterialEdit): Effect => ({
   kind: 'material.edit',
   edit,
+})
+
+export const recordMaterialNotice = (notice: MaterialNoticeRecord): Effect => ({
+  kind: 'materialNotice.record',
+  notice,
 })
 
 export const removeMaterial = (removal: MaterialRemoval): Effect => ({

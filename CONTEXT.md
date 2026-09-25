@@ -124,6 +124,10 @@ _Avoid_: Program, curriculum, deleting a Material
 The period during which a relationship was working through a particular material. Assigned to the relationship, never to a person: a leader in two relationships may be working through two different things. Periods never overlap and never leave gaps, so a relationship's first period runs from acceptance with no material assigned. Un-assigning is a later period with no material, and assigning the material already running is refused; both are decided in `app.assign_material`.
 _Avoid_: Assigning a material to a person
 
+**Material Notice**:
+What one person was told, at one moment, about the Material one of their relationships is working through: which Material, and what it held. A row each time, never updated; the latest is what the next change is compared against, and whether a text went with it is recorded beside it. The rule for when a change is told, and how often, is in `src/domain/material-notices.ts` and ADR-0027.
+_Avoid_: Notification, alert
+
 **Intended Material**:
 The Material an Admin chose while forming a relationship, held on the relationship because no Material Assignment can exist before acceptance. It is an intention and not an assignment: it opens no period and nobody is working through it. The acceptance that activates the relationship spends it, which is decided in the command boundary (`src/domain/boundary.ts`, `relationship.accept`), and an accepted relationship carries none.
 _Avoid_: Pre-assignment, default Material, assigning a Material at pairing

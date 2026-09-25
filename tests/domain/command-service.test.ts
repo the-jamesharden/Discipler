@@ -67,6 +67,12 @@ describe('applying a command\'s effects', () => {
         ratesLineHistory: async () => {
           throw new Error('nobody’s rates line should have been looked up')
         },
+        materialRecipients: async () => {
+          throw new Error('nobody should have been looked up for a Material text')
+        },
+        recordMaterialNotices: async () => {
+          throw new Error('no Material notice should have been recorded')
+        },
         closeOutstandingReply: async () => {
           throw new Error('no conversation should have been closed')
         },

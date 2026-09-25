@@ -259,6 +259,19 @@ export const calendarMonthOf = (instant: Date, timeZone: string): CalendarMonth 
 }
 
 /**
+ * The calendar day an instant falls on in a Ministry's timezone, as `2026-09-24`.
+ * What *once a day* is counted in for a Material text (Richer materials, ticket 03).
+ */
+export const calendarDayOf = (instant: Date, timeZone: string): string => {
+  const { year, month, day } = zonedTime(instant, timeZone)
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
+/** The hour an instant falls in on a Ministry's clock, 0 to 23. */
+export const localHourOf = (instant: Date, timeZone: string): number =>
+  zonedTime(instant, timeZone).hour % 24
+
+/**
  * When this week's check-in comes due for a Ministry on this cadence.
  *
  * The answer is always inside the week it was asked for. An ISO week runs Monday

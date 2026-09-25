@@ -43,6 +43,7 @@ import type {
   LeaderAcceptance,
   MaterialAssignment,
   MaterialEdit,
+  MaterialNoticeRecord,
   MaterialRemoval,
   NewMaterial,
   KeywordExchangeClarification,
@@ -71,6 +72,7 @@ import type {
 } from '~/domain/follow-up'
 import type { OfferedGoal, StatedGoal } from '~/domain/discipleship-goals'
 import type { MaterialItem, MaterialOnOffer } from '~/domain/materials'
+import type { MaterialRecipient } from '~/domain/material-notices'
 import type { MinistrySettings, MinistryVoice } from '~/domain/ministry-settings'
 import type { IntakeLinkState, IntakeLinkToken, NewIntakeLink } from '~/domain/intake-link'
 import type { InboundSnapshot } from '~/domain/keywords'
@@ -356,6 +358,18 @@ export interface UnitOfWork {
    * that runs in milliseconds.
    */
   pausedRelationships(): Promise<readonly PausedRelationship[]>
+  /**
+   * Everyone the tick may tell about a Material change, each with every
+   * relationship of theirs: what is running, what they were last told, and when
+   * it last changed; and the Ministry's timezone, which a day is counted in
+   * (Richer materials, ticket 03).
+   */
+  materialRecipients(): Promise<{
+    readonly timeZone: string
+    readonly recipients: readonly MaterialRecipient[]
+  }>
+  /** What people have now been told, a row each, never updated. */
+  recordMaterialNotices(notices: readonly MaterialNoticeRecord[]): Promise<void>
   /**
    * One relationship as the database holds it now, or null when this Ministry has
    * none by that identifier -- which is the same answer for one that belongs to

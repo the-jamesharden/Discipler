@@ -268,6 +268,8 @@ No admin action sends one. The only participant-facing traffic Discipler generat
 
 The reason is that Discipler's entire participant-facing surface is SMS. A ministry that over-messages its own congregation gets its number carrier-flagged, and every relationship in that ministry goes dark at once. The check stays at the sending layer regardless, so that a feature added later cannot cross the line by forgetting to ask.
 
+> **Supersedes (2026-09-24, Richer materials, ticket 03):** one text now follows an Admin's act. When the Material a person is working through changes, the tick sends them one text once the changes have been still for an hour, at most once a day, and only if where things ended up differs from what they were last told. The button still sends nothing; the tick does, through the same recipient check. See `docs/adr/0027-a-material-change-is-texted-once-it-settles.md`.
+
 ## Settled: Clarification Attempts Are Capped, Listening Is Not
 
 Discipler sends at most two clarifying re-prompts per check-in question. After that it stops re-prompting but continues to accept a valid reply until the sequence advances past that question.
@@ -547,7 +549,7 @@ It is decided per person and not per relationship: a leader of three relationshi
 Two texts queued to one person by the same act carry it once between them.
 
 The Welcome Message and the `HELP` reply always carry it, and each counts as the person having had it that month.
-The Starter Messages, the text a leader gets when somebody joins their group, a resume, and the question that opens a check-in may carry it.
+The Starter Messages, the text a leader gets when somebody joins their group, a resume, the text that says a Material changed, and the question that opens a check-in may carry it.
 Nothing else does.
 
 Each queued text records whether it carried the line, and later texts are decided against that record rather than against any text's wording.
