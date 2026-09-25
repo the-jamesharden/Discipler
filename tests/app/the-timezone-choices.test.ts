@@ -32,11 +32,13 @@ describe('the timezone choices', () => {
     expect(offered('UTC').filter((value) => value === 'UTC')).toHaveLength(1)
   })
 
-  it('repeats nothing within a group', () => {
-    const { common, everywhere } = timezoneChoices('UTC')
-    for (const group of [common, everywhere]) {
-      const values = group.map((choice) => choice.value)
+  it('offers each zone once, so the one saved is shown by its common name', () => {
+    for (const current of ['UTC', 'America/Chicago']) {
+      const values = offered(current)
       expect(new Set(values).size).toBe(values.length)
     }
+    expect(timezoneChoices('America/Chicago').everywhere.map((choice) => choice.value)).not.toContain(
+      'America/Chicago',
+    )
   })
 })

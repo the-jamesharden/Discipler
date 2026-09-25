@@ -43,8 +43,8 @@ export interface TimezoneChoices {
 }
 
 /**
- * What the Timezone control offers: the common zones, then every zone this
- * platform can resolve -- the same set the dispatcher reads a cadence against.
+ * What the Timezone control offers: the common zones, then every other zone this
+ * platform can resolve -- together the set the dispatcher reads a cadence against.
  *
  * The zone a Ministry already has is always offered, even when it is not in either
  * list. `UTC` is the column default every new Ministry starts on and is not one
@@ -56,7 +56,12 @@ export const timezoneChoices = (
   supported: readonly string[] = Intl.supportedValuesOf('timeZone'),
 ): TimezoneChoices => {
   const common = COMMON_TIMEZONES.filter((choice) => supported.includes(choice.value))
-  const everywhere = supported.map((zone) => ({ value: zone, label: zone.replaceAll('_', ' ') }))
+  // Each zone once. A zone in both groups is two options with one value, and a
+  // select shows the later one, so a Ministry that picked *Central time* would
+  // see `America/Chicago` after saving.
+  const everywhere = supported
+    .filter((zone) => !common.some((choice) => choice.value === zone))
+    .map((zone) => ({ value: zone, label: zone.replaceAll('_', ' ') }))
   const offered = [...common, ...everywhere].some((choice) => choice.value === current)
   return {
     common: offered ? common : [{ value: current, label: current }, ...common],
