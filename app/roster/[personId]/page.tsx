@@ -156,8 +156,13 @@ export default async function PersonPage({
                   <span className="pairing">
                     <OtherSide relationship={relationship} />
                     {relationship.awaitingAcceptance ? (
-                      // Wraps whole, as a plan's note does on the Roster.
-                      <span className="muted nowrap">{` - ${AWAITING_ACCEPTANCE}`}</span>
+                      // Wraps whole, as a plan's note does on the Roster. The space
+                      // before it stays outside, so the note can go to the next line
+                      // on its own instead of taking the last name with it.
+                      <>
+                        {' '}
+                        <span className="muted nowrap">{`- ${AWAITING_ACCEPTANCE}`}</span>
+                      </>
                     ) : null}
                   </span>
                   {/* Offered on the state and the role together, never on either

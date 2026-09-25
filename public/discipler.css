@@ -877,7 +877,8 @@ a.res:hover { border-color: var(--primary); }
 /* Roles per pairing, ticket 03: under the name on a person's page, one tag per
    pairing, each saying its direction. A group is sand-coloured, apart from a
    one-to-one at a glance; a state that keeps Pair away is the Roster's own pill. */
-.rtags { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; list-style: none; margin: 0.1rem 0 1rem; padding: 0; }
+/* As `ul.rtags`, so that it outranks `.card ul`, as `ul.fu-list` does. */
+ul.rtags { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; list-style: none; margin: 0.1rem 0 1rem; padding: 0; }
 .rtag { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.78rem; padding: 0.25rem 0.6rem; border-radius: 999px; background: rgba(45, 80, 22, 0.07); color: var(--primary); border: 1px solid rgba(45, 80, 22, 0.14); }
 .rtag .dir { color: var(--text-light); font-size: 0.74rem; }
 .rtag.grp { background: #fbf6ec; border-color: #ecdcbc; color: #6f5520; }
