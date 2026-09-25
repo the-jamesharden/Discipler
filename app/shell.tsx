@@ -162,7 +162,7 @@ export const AdminShell = ({
   const badge = followUpCount
 
   return (
-    <div className="container">
+    <div className="container botanical">
       <header className="header">
         <div>
           <h1>{title ?? admin.ministryName}</h1>
@@ -261,14 +261,20 @@ export const PageShell = ({
 export const Centred = ({
   ministryName,
   subtitle,
+  botanical = false,
   children,
 }: {
   /** Whose page this is. Given, it heads the card and the wordmark moves to the foot. */
   readonly ministryName?: string
   readonly subtitle?: string
+  /**
+   * The watercolour frame the Admin surface wears. Sign-in only: every other
+   * centred page is opened on a Ministry's behalf and is dressed as theirs.
+   */
+  readonly botanical?: boolean
   readonly children: ReactNode
 }) => (
-  <main className="centred">
+  <main className={botanical ? 'centred botanical' : 'centred'}>
     <div className="card">
       {ministryName ? (
         <h1 className="ministry-mark">{ministryName}</h1>

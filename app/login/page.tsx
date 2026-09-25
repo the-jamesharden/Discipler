@@ -21,7 +21,7 @@ export default async function LoginPage({
   const explanation = signInNoticeMessage(notice)
 
   return (
-    <Centred subtitle="Sign in to your ministry">
+    <Centred subtitle="Sign in to your ministry" botanical>
       {/* Not an error. Somebody sent here by the product -- having just changed
           their password, and been signed out everywhere by doing so -- needs to
           be told why, or they read the page as failure and try the old one. */}
