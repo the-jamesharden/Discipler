@@ -82,7 +82,6 @@ export const uploadsIn = (values: readonly string[]): readonly PostedUpload[] =>
   })
 }
 
-
 /** A query-string value as a list, however many times it came. */
 export const allOf = (value: string | readonly string[] | undefined): readonly string[] =>
   value === undefined ? [] : typeof value === 'string' ? [value] : value

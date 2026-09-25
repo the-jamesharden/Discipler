@@ -540,7 +540,6 @@ export interface UnitOfWork {
   /** An exchange that is no longer open, and why. */
   closeKeywordExchange(closure: KeywordExchangeClosure): Promise<void>
 
-
   /**
    * This Ministry's settings as they stand, loaded on `settings.update`'s behalf.
    *
@@ -603,6 +602,13 @@ export interface UnitOfWork {
    * of them can see the other's addition on.
    */
   materials(): Promise<readonly MaterialOnOffer[]>
+
+  /**
+   * Which of these stored paths some Material of this Ministry already names,
+   * removed Materials included. One object is one item, and the paths a form
+   * posts are only the browser's word for what it uploaded.
+   */
+  materialPathsNamed(paths: readonly string[]): Promise<ReadonlySet<string>>
 
   /** One Material, added to the Ministry's list. */
   createMaterial(material: NewMaterial): Promise<void>

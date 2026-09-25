@@ -105,9 +105,14 @@ create policy material_notice_command_append on material_notice
 -- 2. What a Material holds, as one value
 -- ---------------------------------------------------------------------------
 
--- The text, the old single PDF while that column stands, and every item in
--- order: kind, where it is and what it is called. Not the title. Security
--- invoker: it reads what its caller may read.
+-- The text and every item, each as what somebody opening it would get: a file
+-- by its name, type and size, a link by its address and label. Not the title,
+-- not where a file is stored, and not the order: a file removed and uploaded
+-- again lands under a new path and at the end of the list, and is still the
+-- Material an Admin put back, which ADR-0027 says tells nobody anything. The old
+-- single PDF is an item too (`app.material_pdf_into_items`), so dropping that
+-- column changes no fingerprint. Security invoker: it reads what its caller may
+-- read.
 create function app.material_content_fingerprint(target_material_id uuid)
 returns text
 language sql
@@ -117,13 +122,14 @@ as $$
   select md5(concat_ws(
            '|',
            coalesce(m.body, ''),
-           coalesce(m.pdf_path, ''),
            coalesce(
-             (select string_agg(
-                       concat_ws(':', i.kind, coalesce(i.path, i.url), coalesce(i.filename, ''), coalesce(i.label, '')),
-                       '|' order by i.position)
-                from public.material_item i
-               where i.material_id = m.id),
+             (select string_agg(held.item, '|' order by held.item)
+                from (select case i.kind
+                               when 'file' then concat_ws(':', 'file', i.filename, i.content_type, i.bytes)
+                               else concat_ws(':', 'link', i.url, coalesce(i.label, ''))
+                             end as item
+                        from public.material_item i
+                       where i.material_id = m.id) held),
              '')))
     from public.material m
    where m.id = target_material_id;

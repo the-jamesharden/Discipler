@@ -14,7 +14,7 @@ import {
   materialTitle,
   MOST_ITEMS,
   readMaterialBody,
-  readMaterialLink,
+  readWebLink,
   readUpload,
   type MaterialFile,
   type MaterialItem,
@@ -78,12 +78,17 @@ const theList: readonly MaterialOnOffer[] = [
   { id: prayer, title: materialTitle('Prayer practices'), body: null, items: [prayerSheet], inUseBy: 0 },
 ]
 
+/** Which paths some Material names, as the store answers it: every file on the list. */
+const pathsNamedBy = (materials: readonly MaterialOnOffer[]): ReadonlySet<string> =>
+  new Set(materials.flatMap((material) => material.items.flatMap((item) => (item.kind === 'file' ? [item.path] : []))))
+
 const edit = (command: Command, materials: readonly MaterialOnOffer[] = theList) =>
   handleCommand(command, {
     ministryId: ministry,
     clock: createTestClock(at),
     ids: createSequentialIds(),
     materials,
+    materialPathsNamed: pathsNamedBy(materials),
   } satisfies CommandContext)
 
 const created = (effects: readonly Effect[]) =>
@@ -455,12 +460,30 @@ describe('a file an Admin chose', () => {
 
 describe('a link', () => {
   it('keeps the address as typed, trimmed, and its label collapsed, or no label', () => {
-    expect(readMaterialLink({ url: '  https://example.org/a?b=1  ', label: '  ' })).toEqual({
+    expect(readWebLink({ url: '  https://example.org/a?b=1  ', label: '  ' })).toEqual({
       kind: 'link',
       url: 'https://example.org/a?b=1',
       label: null,
     })
-    expect(readMaterialLink({ url: 'http://example.org', label: ' Week   one ' })?.label).toBe('Week one')
+    expect(readWebLink({ url: 'http://example.org', label: ' Week   one ' })?.label).toBe('Week one')
+  })
+
+  it('is refused unless it is an address as typed, not only as a URL parser forgives it', () => {
+    for (const url of [
+      'https:example.com',
+      'https:/example.com',
+      'https:\\\\example.com',
+      'https://example.com\\@evil.example',
+      'https://roster/people',
+      'javascript:alert(1)',
+      'www.example.com',
+      'https://exa mple.com',
+    ]) {
+      expect(readWebLink({ url, label: null }), url).toBeNull()
+    }
+    expect(readWebLink({ url: 'HTTPS://Example.org/Week-1', label: null })?.url).toBe(
+      'HTTPS://Example.org/Week-1',
+    )
   })
 
   it('is shown by its host, or its host and path, without a leading www', () => {
@@ -499,5 +522,27 @@ describe('Save pressed twice', () => {
   it('does not add a file the Material already holds', () => {
     const [made] = edited(edit(change({ files: [studyGuide as MaterialFile] })).effects)
     expect(made?.added).toEqual([])
+  })
+
+  it('does not give a new Material a file another one already holds, removed or not', () => {
+    // Created once, then the form brought back with Back and pressed again under
+    // a new title: the upload is the first Material's now, and taking it would
+    // leave a removal of either deleting the other's file.
+    const [made] = created(
+      edit(create({ body: 'Week one.', files: [prayerSheet as MaterialFile] })).effects,
+    )
+    expect(made?.items).toEqual([])
+  })
+
+  it('adds a file posted twice in one press once', () => {
+    const upload: MaterialFile = {
+      kind: 'file',
+      path: 'm/twice.pdf',
+      filename: 'twice.pdf',
+      contentType: 'application/pdf',
+      bytes: 10,
+    }
+    const [made] = created(edit(create({ files: [upload, upload] })).effects)
+    expect(made?.items.map((item) => (item.kind === 'file' ? item.path : item.url))).toEqual(['m/twice.pdf'])
   })
 })

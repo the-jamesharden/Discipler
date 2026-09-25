@@ -10,6 +10,7 @@ import {
 import { asPhoneNumber } from '~/domain/roster'
 import type { MinistrySetup, MinistrySetupPage } from '~/service/ports'
 import { MinistryNotProvisioned, provisionMinistry } from './provisioning'
+import { looksLikeAnId } from './rows'
 
 /**
  * The Ministry Setup Link, on the trusted connection and nothing else.
@@ -36,8 +37,6 @@ export class MinistrySetupNotIssued extends Error {
     this.name = 'MinistrySetupNotIssued'
   }
 }
-
-const A_TOKEN = /^[0-9a-f-]{36}$/i
 
 export interface SupabaseMinistrySetup extends MinistrySetup {
   close(): Promise<void>
@@ -114,7 +113,7 @@ export const createSupabaseMinistrySetup = (
     async read(candidate): Promise<MinistrySetupPage | null> {
       // Typed off a screen as often as tapped, so nothing reaches a query until
       // it has the shape of a token.
-      if (!A_TOKEN.test(candidate)) return null
+      if (!looksLikeAnId(candidate)) return null
 
       const { rows } = await pool.query<{
         ministry_name: string
@@ -137,7 +136,7 @@ export const createSupabaseMinistrySetup = (
     },
 
     async open(candidate, admin) {
-      if (!A_TOKEN.test(candidate)) return { refusal: 'setup.not_found' }
+      if (!looksLikeAnId(candidate)) return { refusal: 'setup.not_found' }
 
       const { rows } = await pool.query<{
         ministry_name: string

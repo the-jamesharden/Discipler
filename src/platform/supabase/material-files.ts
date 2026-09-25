@@ -1,8 +1,8 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Clock } from '~/domain/clock'
 import type { MinistryId } from '~/domain/ids'
 import { abandonedUploads, fileTypeNamed, type MaterialFile } from '~/domain/materials'
-import { serviceRoleKey, supabaseCredentials } from './credentials'
+import { serviceRoleClient } from './credentials'
 
 /**
  * A Material's files, in and out of the private `material` bucket (Richer
@@ -64,24 +64,33 @@ export const keptFilename = (raw: string): string => {
 
 /**
  * What Storage holds at each path the form posted, as the files a Material will
- * name. The size and the type are Storage's, never the form's: a browser can be
- * told to say anything, and the bucket is what actually holds the bytes. A path
- * outside the Admin's own folder, or one with nothing at it, is refused as a
- * fault rather than read, because the page never posts one.
+ * name, and the paths it holds nothing at. The size and the type are Storage's,
+ * never the form's: a browser can be told to say anything, and the bucket is
+ * what actually holds the bytes. A path outside the Admin's own folder is
+ * refused as a fault rather than read, because the page never posts one.
+ *
+ * A path with nothing at it is not a fault. A form a refusal sent back keeps
+ * naming its uploads, and one left open for more than a day names files the tick
+ * has since swept; the route sends the form back with those marked, rather than
+ * losing everything typed to an error page.
  */
 export const readStoredFiles = async (
   supabase: SupabaseClient,
   ministryId: MinistryId,
   uploads: readonly { readonly path: string; readonly filename: string }[],
-): Promise<readonly MaterialFile[]> =>
-  Promise.all(
-    uploads.map(async ({ path, filename }) => {
+): Promise<{ readonly files: readonly MaterialFile[]; readonly gone: readonly string[] }> => {
+  const read = await Promise.all(
+    uploads.map(async ({ path, filename }): Promise<MaterialFile | string> => {
       if (!path.startsWith(`${ministryId}/`)) {
         throw new Error(`An upload at ${path} is not in this Ministry's folder`)
       }
       const { data, error } = await supabase.storage.from(BUCKET).info(path)
       if (error || !data) {
-        throw new Error(`Nothing was stored at ${path}: ${error?.message ?? 'no answer'}`)
+        // Anything but *not there* is Storage failing, which is a fault.
+        if (!isNotFound(error)) {
+          throw new Error(`Could not read ${path}: ${error?.message ?? 'no answer'}`)
+        }
+        return path
       }
       return {
         kind: 'file' as const,
@@ -92,6 +101,19 @@ export const readStoredFiles = async (
       }
     }),
   )
+  return {
+    files: read.flatMap((each) => (typeof each === 'string' ? [] : [each])),
+    gone: read.flatMap((each) => (typeof each === 'string' ? [each] : [])),
+  }
+}
+
+/** Whether Storage answered *there is nothing at that path*. */
+const isNotFound = (error: unknown): boolean => {
+  if (!error || typeof error !== 'object') return false
+  const { status, statusCode } = error as { status?: unknown; statusCode?: unknown }
+  return status === 404 || statusCode === '404' || statusCode === 404 ||
+    /not.?found/i.test(String((error as { message?: unknown }).message ?? ''))
+}
 
 /** Deletes objects. Raised rather than swallowed: an orphan is a fault to see. */
 export const discardMaterialFiles = async (
@@ -127,18 +149,20 @@ export const downloadLink = async (
  * the token, and the item being on the Material running now -- and this signs
  * exactly that one object for a few minutes.
  */
-export const downloadLinkForAnybody = async (
+export const downloadLinkForAnybody = (
   file: { readonly path: string; readonly filename: string },
   seconds: number,
-): Promise<string | null> => {
-  const storage = createClient(supabaseCredentials().url, serviceRoleKey(), {
-    auth: { autoRefreshToken: false, persistSession: false },
-  })
-  return downloadLink(storage, file, seconds)
-}
+): Promise<string | null> => downloadLink(serviceRoleClient(), file, seconds)
 
 /** How many objects one page of a folder listing asks for. */
 const LISTING_PAGE = 1000
+
+/**
+ * How many item rows one read asks for: under the `max_rows` PostgREST caps a
+ * response at (1000, here and on the hosted project), so a full page always
+ * means there may be more.
+ */
+const NAMED_PAGE = 500
 
 /**
  * Deletes the files in a Ministry's folder that no Material names and that
@@ -151,9 +175,7 @@ export const sweepUnsavedUploads = async (
   ministryId: MinistryId,
   clock: Clock,
 ): Promise<number> => {
-  const storage = createClient(supabaseCredentials().url, serviceRoleKey(), {
-    auth: { autoRefreshToken: false, persistSession: false },
-  })
+  const storage = serviceRoleClient()
 
   const objects: { path: string; createdAt: Date }[] = []
   for (let offset = 0; ; offset += LISTING_PAGE) {
@@ -172,19 +194,24 @@ export const sweepUnsavedUploads = async (
   }
   if (objects.length === 0) return 0
 
-  // Everything a Material names: its items, and the old single PDF while that
-  // column stands. Removed Materials included, since removing one keeps it.
-  const [items, pdfs] = await Promise.all([
-    storage.from('material_item').select('path').eq('ministry_id', ministryId).not('path', 'is', null),
-    storage.from('material').select('pdf_path').eq('ministry_id', ministryId).not('pdf_path', 'is', null),
-  ])
-  if (items.error || pdfs.error) {
-    throw new Error(`Could not read what ${ministryId}'s Materials name: ${(items.error ?? pdfs.error)?.message}`)
+  // Everything a Material names, removed Materials included, since removing one
+  // keeps it. Every row, a page at a time: PostgREST hands back no more than
+  // `max_rows` for one request and says nothing about the rest, and a path
+  // missing from this set is a saved file deleted. The old single PDF is an item
+  // too, kept so by the database while that column stands.
+  const named = new Set<string>()
+  for (let from = 0; ; from += NAMED_PAGE) {
+    const { data, error } = await storage
+      .from('material_item')
+      .select('path')
+      .eq('ministry_id', ministryId)
+      .not('path', 'is', null)
+      .order('path')
+      .range(from, from + NAMED_PAGE - 1)
+    if (error) throw new Error(`Could not read what ${ministryId}'s Materials name: ${error.message}`)
+    for (const row of data) named.add(String(row.path))
+    if (data.length < NAMED_PAGE) break
   }
-  const named = new Set<string>([
-    ...items.data.map((row) => String(row.path)),
-    ...pdfs.data.map((row) => String(row.pdf_path)),
-  ])
 
   const abandoned = abandonedUploads(objects, named, clock.now())
   await discardMaterialFiles(storage, abandoned)

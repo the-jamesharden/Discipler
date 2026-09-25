@@ -154,7 +154,7 @@ import {
   materialOnOffer,
   MOST_ITEMS,
   readMaterialBody,
-  readMaterialLink,
+  readWebLink,
   readMaterialTitle,
   readStoredFile,
   titleAlreadyHeld,
@@ -511,6 +511,13 @@ export interface CommandContext {
    * `relationship.accept` whose invitation still carries one.
    */
   readonly materials?: readonly MaterialOnOffer[]
+  /**
+   * Which of the paths a `material.create` or `material.edit` posted some
+   * Material already names, removed ones included. Loaded on those two
+   * commands' behalf; absent is *nothing named*, since a command posting no
+   * files has nothing to compare.
+   */
+  readonly materialPathsNamed?: ReadonlySet<string>
   /**
    * What the Person an inbound text came from holds, what they last asked for, and
    * whether Discipler may still text them. Loaded on `sms.inbound`'s behalf,
@@ -997,6 +1004,27 @@ const materialTextLink = (text: MaterialText, appBaseUrl: string, pageToken: str
 }
 
 /**
+ * The files a press actually adds: each path once, and none some Material
+ * already names. Save pressed twice, or a form brought back with the browser's
+ * Back button, posts an upload that has already been saved; the press lands as
+ * though that file had not been posted again, rather than tripping the
+ * database's one-item-per-object rule and turning a saved file into one a
+ * failed save deletes.
+ */
+const theFilesNotYetHeld = (
+  context: CommandContext,
+  files: readonly MaterialFile[],
+): readonly MaterialFile[] => {
+  const named = context.materialPathsNamed ?? new Set<string>()
+  const seen = new Set<string>()
+  return files.filter((file) => {
+    if (named.has(file.path) || seen.has(file.path)) return false
+    seen.add(file.path)
+    return true
+  })
+}
+
+/**
  * The files and links being added, each checked, and given an id and a place
  * after everything the Material keeps. Files before links, which is the order
  * the form lists its two boxes in.
@@ -1012,7 +1040,7 @@ const theItemsAdded = (
     if (refusal) throw new MaterialRefused(refusal)
   }
   const read = links.map((typed) => {
-    const link = readMaterialLink(typed)
+    const link = readWebLink(typed)
     if (!link) throw new MaterialRefused('material.link_unreadable')
     return link
   })
@@ -5404,7 +5432,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       // The title first, then the content: an Admin who typed nothing at all is
       // told about the title, which is the first box on the form.
       const title = theTitleFor(materials, command.title)
-      const items = theItemsAdded(context, command.files, command.links, [])
+      const items = theItemsAdded(context, theFilesNotYetHeld(context, command.files), command.links, [])
       const body = theContentOf(command.body, items)
       const now = context.clock.now()
       const id = materialId(context.ids.next())
@@ -5450,12 +5478,12 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       const kept = material.items.filter((item) => !removing.has(item.id))
       // After everything it has ever held, not just what it keeps: a new item
       // never takes the place of one removed in the same press.
-      // A file the Material already holds is not added twice: Save pressed twice
-      // posts the same upload again, and the second press should land as the
-      // first did rather than trip the database's one-item-per-object rule.
-      const held = new Set(material.items.flatMap((item) => (item.kind === 'file' ? [item.path] : [])))
-      const files = command.files.filter((file) => !held.has(file.path))
-      const added = theItemsAdded(context, files, command.links, material.items)
+      const added = theItemsAdded(
+        context,
+        theFilesNotYetHeld(context, command.files),
+        command.links,
+        material.items,
+      )
       // Removing the last item from a Material with no text is what the content
       // rule refuses.
       const body = theContentOf(command.body, [...kept, ...added])

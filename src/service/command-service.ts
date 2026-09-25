@@ -1116,6 +1116,9 @@ export const createCommandService = ({
         ...(editsTheMaterialList(command) || consultsTheMaterialList(command, invitation)
           ? { materials: await unit.materials() }
           : {}),
+        ...(command.type === 'material.create' || command.type === 'material.edit'
+          ? { materialPathsNamed: await unit.materialPathsNamed(command.files.map((file) => file.path)) }
+          : {}),
         // Read inside the transaction, behind the same advisory lock the read
         // itself takes, so a reply and a newly-due sequence cannot both find no
         // conversation open and each try to start one.

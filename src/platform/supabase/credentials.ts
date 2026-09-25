@@ -1,3 +1,5 @@
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+
 export interface SupabaseCredentials {
   readonly url: string
   readonly anonKey: string
@@ -34,3 +36,14 @@ export const appBaseUrl = (): string => required('NEXT_PUBLIC_APP_URL')
  * reaches a browser.
  */
 export const serviceRoleKey = (): string => required('SUPABASE_SERVICE_ROLE_KEY')
+
+/**
+ * A client that acts as nobody signed in and past every policy: the service
+ * role. For the few things no session can do -- setting a password, reading a
+ * bucket's folder, signing a file for a Disciple who has no account -- and
+ * nothing else, since every read it makes is one row-level security never sees.
+ */
+export const serviceRoleClient = (): SupabaseClient =>
+  createClient(supabaseCredentials().url, serviceRoleKey(), {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })

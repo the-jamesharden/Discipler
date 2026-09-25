@@ -35,7 +35,6 @@ export default async function NewMaterialPage({
   if (page.status === 'not-an-admin') return <NotAnAdmin title={MATERIALS} />
   if (page.status === 'signed-out') redirect('/login')
 
-
   return (
     <PageShell title={MATERIALS} subtitle={page.admin.ministryName} actions={<AccountMenu ministry />}>
       <BackLink small className="mat-back" href="/materials" label={BACK_TO_MATERIALS} />

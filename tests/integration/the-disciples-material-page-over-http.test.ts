@@ -65,6 +65,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Disciple’s Material page', () => {
     relationship = await pairOneToOne(ministry, grace.personId, emily, {
       createdAt: new Date('2026-08-01T15:00:00Z'),
       acceptedAt: new Date('2026-08-01T15:00:00Z'),
+      joinedAt: new Date('2026-08-01T15:00:00Z'),
     })
 
     const guidePath = `${ministry.id}/${crypto.randomUUID()}.pdf`
@@ -134,12 +135,17 @@ describe.skipIf(skipUnlessAppIsRunning)('a Disciple’s Material page', () => {
     expect(decodeURIComponent(download.headers.get('content-disposition') ?? '')).toContain('Romans guide.pdf')
   })
 
-  it('answers a guess, a mangled link and another Material’s item as not found', async () => {
+  it('answers a guess and a mangled link as not found, and sends a file it cannot hand down back to the page', async () => {
     expect((await open(`/material/${crypto.randomUUID()}`)).status).toBe(404)
     expect((await open('/material/not-a-token')).status).toBe(404)
-    expect((await open(`/material/${token}/file/${crypto.randomUUID()}`)).status).toBe(404)
+    // An item that is not a file on the Material running now: back to the page,
+    // which says what there is, rather than a bare *not found*.
     const { rows } = await pool.query<{ id: string }>(`select id from material_item where material_id = $1 and kind = 'link'`, [romans])
-    expect((await open(`/material/${token}/file/${rows[0]!.id}`)).status).toBe(404)
+    for (const item of [crypto.randomUUID(), rows[0]!.id]) {
+      const response = await open(`/material/${token}/file/${item}`)
+      expect(response.status).toBe(303)
+      expect(new URL(response.headers.get('location')!).pathname).toBe(`/material/${token}`)
+    }
   })
 
   it('gives a reply to the text the ordinary acknowledgement', async () => {
@@ -167,7 +173,9 @@ describe.skipIf(skipUnlessAppIsRunning)('a Disciple’s Material page', () => {
 
     const html = await (await open(`/material/${token}`)).text()
     expect(html).toContain('No material right now')
-    expect((await open(`/material/${token}/file/${guideId}`)).status).toBe(404)
+    const file = await open(`/material/${token}/file/${guideId}`)
+    expect(file.status).toBe(303)
+    expect(new URL(file.headers.get('location')!).pathname).toBe(`/material/${token}`)
   })
 
   it('says the link has ended once the relationship has', async () => {

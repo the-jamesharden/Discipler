@@ -187,6 +187,9 @@ describe('applying a command\'s effects', () => {
         materials: async () => {
           throw new Error('the Materials should not have been read')
         },
+        materialPathsNamed: async () => {
+          throw new Error('no Material file should have been looked up')
+        },
         createMaterial: async () => {
           throw new Error('no Material should have been created')
         },

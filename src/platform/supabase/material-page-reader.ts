@@ -2,6 +2,7 @@ import pg from 'pg'
 import type { MaterialItem } from '~/domain/materials'
 import type { DisciplesMaterialPage, MaterialPageReader } from '~/service/ports'
 import { materialItemFrom } from './material-items'
+import { looksLikeAnId } from './rows'
 
 /**
  * A Disciple's Material page (Richer materials, ticket 04). Served to somebody
@@ -34,7 +35,7 @@ export const createPostgresMaterialPageReader = (
   ): Promise<T | null> => {
     // Typed off a phone as often as tapped, so nothing reaches a query until it
     // has the shape of a token.
-    if (!/^[0-9a-f-]{36}$/i.test(token)) return null
+    if (!looksLikeAnId(token)) return null
     const client = await pool.connect()
     try {
       await client.query('begin')
@@ -111,7 +112,7 @@ export const createPostgresMaterialPageReader = (
     },
 
     async fileOnMaterialPage(token: string, itemId: string) {
-      if (!/^[0-9a-f-]{36}$/i.test(itemId)) return null
+      if (!looksLikeAnId(itemId)) return null
       return scoped(token, async (client, link) => {
         const now = await running(client, link)
         // Only a file of the Material the relationship is on now, and only while

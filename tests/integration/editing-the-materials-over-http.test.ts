@@ -398,10 +398,20 @@ describe.skipIf(skipUnlessAppIsRunning)('creating, editing and removing a Materi
       expect(dashboard.html).toContain('galatians-2nd.pdf')
       expect(dashboard.html).toContain('PDF · 1 KB')
 
-      // The signed link the page minted, exactly as the markup carries it.
-      const link = /href="([^"]*\/storage\/v1\/object\/sign\/material\/[^"]*)"/.exec(dashboard.html)?.[1]
-      expect(link, 'a signed link to the file').toBeDefined()
-      const download = await fetch(link!.replaceAll('&amp;', '&'))
+      // Nothing is signed on the page, which is one read (ADR-0023): the file's
+      // link is a route that signs it when it is tapped, under the Leader's own
+      // session, and only for somebody who leads it.
+      const link = /href="(\/relationships\/file\/[0-9a-f-]{36})"/.exec(dashboard.html)?.[1]
+      expect(link, 'a link to the file').toBeDefined()
+      expect(dashboard.html).not.toContain('/storage/v1/object/sign/')
+      const tapped = await fetch(`${baseUrl}${link}`, { headers: { cookie: karen }, redirect: 'manual' })
+      expect(tapped.status).toBe(303)
+      const signed = tapped.headers.get('location')!
+      expect(signed).toContain('/storage/v1/object/sign/material/')
+      // Somebody else's session, or none, is sent back rather than handed the file.
+      const nobody = await fetch(`${baseUrl}${link}`, { redirect: 'manual' })
+      expect(nobody.headers.get('location') ?? '').not.toContain('/storage/v1/object/sign/')
+      const download = await fetch(signed)
       expect(download.status).toBe(200)
       expect(await download.text()).toBe('%PDF-1.4 second edition')
       expect(download.headers.get('content-disposition')).toContain('galatians-2nd.pdf')

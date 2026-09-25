@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { SHORTEST_PASSWORD } from '~/domain/accounts'
 import type { Accounts } from '~/service/ports'
-import { serviceRoleKey, supabaseCredentials } from './credentials'
+import { serviceRoleClient, supabaseCredentials } from './credentials'
 
 /**
  * Where an account comes into being: a phone identity with a password, and no
@@ -14,12 +14,6 @@ import { serviceRoleKey, supabaseCredentials } from './credentials'
  * rule and refusal codes in `src/domain/accounts.ts`, so a page can render a
  * refusal without importing an adapter.
  */
-
-/** The client that can mint, read and rewrite a user. Nothing here keeps it. */
-const adminClient = () =>
-  createClient(supabaseCredentials().url, serviceRoleKey(), {
-    auth: { autoRefreshToken: false, persistSession: false },
-  })
 
 /**
  * A new password on an account, and every session the account holds ended with it.
@@ -41,7 +35,7 @@ const setPassword = async (userId: string, password: string): Promise<void> => {
   // it takes a session, resets, and finds the session refused. If a GoTrue
   // release ever stops revoking here, that test fails and this comment is where
   // the second half goes.
-  const { error } = await adminClient().auth.admin.updateUserById(userId, { password })
+  const { error } = await serviceRoleClient().auth.admin.updateUserById(userId, { password })
 
   // No refusal, unlike `create`. There is no rule left for this to enforce -- the
   // Roster decided who may be reset and Discipler chose the password -- so an
@@ -55,7 +49,7 @@ export const supabaseAccounts: Accounts = {
     if (!phone) return { refusal: 'account.no_number_on_file' }
     if (password.length < SHORTEST_PASSWORD) return { refusal: 'account.password_too_short' }
 
-    const admin = adminClient()
+    const admin = serviceRoleClient()
 
     // A phone identity and nothing else. No email is set, because email is not a
     // credential here and an address on the account would be a second door onto it
@@ -92,7 +86,7 @@ export const supabaseAccounts: Accounts = {
     // The number comes from the account and never from the caller. The form that
     // reaches here carries none, and a check against a number somebody typed would
     // verify a password against whichever account they named.
-    const { data, error: lookup } = await adminClient().auth.admin.getUserById(userId)
+    const { data, error: lookup } = await serviceRoleClient().auth.admin.getUserById(userId)
     if (lookup) throw lookup
     const phone = data.user.phone
     if (!phone) throw new Error(`Account ${userId} holds no phone number to verify against`)
@@ -128,7 +122,7 @@ export const supabaseAccounts: Accounts = {
   },
 
   async discard(userId) {
-    const admin = adminClient()
+    const admin = serviceRoleClient()
 
     // Asked before deleting, and asked of the database rather than trusted from the
     // caller. The one account that must survive this is one somebody is already

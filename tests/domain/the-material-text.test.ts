@@ -8,7 +8,6 @@ import {
   type MaterialRecipient,
   type MaterialStanding,
 } from '~/domain/material-notices'
-import { materialMessage } from '~/domain/outbound-copy'
 
 /** The line a text may carry; whether it does this month is the sending layer's to settle. */
 const RATES = ' Msg & data rates may apply. Reply STOP to opt out, HELP for help.'
@@ -229,27 +228,6 @@ describe('the tick', () => {
   })
 })
 
-describe('the wording James approved', () => {
-  const link = 'https://app.trydiscipler.com/relationships'
-  const say = (text: Parameters<typeof materialMessage>[0]['text']) =>
-    materialMessage({ ministryName: 'Riverside Chapel', text, link })
-
-  it('reads as drawn in M-5 for each of a Leader’s four', () => {
-    expect(say({ kind: 'leader_moved', title: 'Romans: Life in the Spirit' })).toBe(
-      `Riverside Chapel: The material for your discipleship is now Romans: Life in the Spirit. See it at ${link}${RATES}`,
-    )
-    expect(say({ kind: 'leader_updated', title: 'Romans: Life in the Spirit' })).toBe(
-      `Riverside Chapel: Romans: Life in the Spirit, the material for your discipleship, has been updated. See it at ${link}${RATES}`,
-    )
-    expect(say({ kind: 'leader_several', count: 3 })).toBe(
-      `Riverside Chapel: The material has changed for 3 of your discipleship relationships. See them at ${link}${RATES}`,
-    )
-    expect(say({ kind: 'leader_none' })).toBe(
-      `Riverside Chapel: Your discipleship no longer has a material assigned. See it at ${link}${RATES}`,
-    )
-  })
-})
-
 describe('when a Disciple is texted (Richer materials, ticket 04)', () => {
   const emily = personId('00000000-0000-4000-8000-0000000000b2')
   const disciple = (fields: Partial<MaterialStanding> = {}) =>
@@ -332,23 +310,5 @@ describe('when a Disciple is texted (Richer materials, ticket 04)', () => {
     expect(result.effects.some((effect) => effect.kind === 'materialLink.issue')).toBe(false)
     const [message] = result.effects.flatMap((effect) => (effect.kind === 'message.enqueue' ? [effect.message] : []))
     expect(message?.body).toContain('Open it here: https://app.trydiscipler.com/material/3f2a0000-0000-4000-8000-00000000c91e')
-  })
-
-  it('reads as drawn in M-5 for both of a Disciple’s', () => {
-    const link = 'https://app.trydiscipler.com/material/3f2a'
-    expect(
-      materialMessage({
-        ministryName: 'Riverside Chapel',
-        link,
-        text: { kind: 'participant_moved', title: 'Romans: Life in the Spirit', leaderNames: ['Grace Lee'], relationshipId: withEmily },
-      }),
-    ).toBe(`Riverside Chapel: Your discipleship material with Grace Lee is now Romans: Life in the Spirit. Open it here: ${link}${RATES}`)
-    expect(
-      materialMessage({
-        ministryName: 'Riverside Chapel',
-        link,
-        text: { kind: 'participant_updated', title: 'Romans: Life in the Spirit', relationshipId: withEmily },
-      }),
-    ).toBe(`Riverside Chapel: Your discipleship material, Romans: Life in the Spirit, has been updated. Open it here: ${link}${RATES}`)
   })
 })

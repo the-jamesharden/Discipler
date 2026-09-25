@@ -511,7 +511,6 @@ export interface PersonOptOut {
   readonly startedAt: Date
 }
 
-
 /**
  * One Discipleship Goal option, added to the end of the Ministry's list.
  *

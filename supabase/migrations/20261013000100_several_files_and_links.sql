@@ -5,8 +5,9 @@
 -- (`.scratch/richer-materials/spec.md`, *Model* and *Files*).
 --
 -- Five things land here:
---   1. `material_item`, one row per file or link, and every existing PDF copied
---      into it as its Material's first item.
+--   1. `material_item`, one row per file or link, every existing PDF copied
+--      into it as its Material's first item, and the old column kept in step
+--      with the items for as long as it stands.
 --   2. The rule that a Material carries something, moved from a check on one
 --      row to a deferred trigger, because it now spans two tables.
 --   3. The `material` bucket's own limits: 50 MB and the allowed types, so
@@ -16,8 +17,12 @@
 --
 -- `pdf_path` and `pdf_filename` stay, unread by the code this ships with, until a
 -- later migration drops them: the deploy order pushes this before its code
--- merges, and the code still running in that window reads and writes them. The
--- carries-something rule counts `pdf_path` for the same reason, and the page
+-- merges, and the code still running in that window reads and writes them. So
+-- the two are kept in step by trigger rather than trusted to agree: a PDF the
+-- old code writes becomes an item, and an item the new code removes takes the
+-- old column with it. Everything else -- the carries-something rule, a Leader's
+-- read of an object, the fingerprint the change text compares -- reads the
+-- items alone, so dropping the column later changes none of them. The page
 -- documents keep their `pdf_*` keys, since a key only ever goes within one change.
 
 -- ---------------------------------------------------------------------------
@@ -93,6 +98,85 @@ select m.ministry_id, m.id, 0, 'file', m.pdf_path, m.pdf_filename, 'application/
   from material m
  where m.pdf_path is not null;
 
+-- The old column, kept in step with the items while it stands. The code still
+-- running between this push and its merge writes `pdf_path` on create and on
+-- every save, and deletes the object it replaces or removes; each of those
+-- becomes the same change to the items, in the same transaction, so what the
+-- new code finds after the merge is what the Admin last saved. Security definer
+-- because the command connection may not read `storage.objects` for the size,
+-- and a trigger function is callable by nothing but its trigger.
+create function app.material_pdf_into_items()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  at_position integer;
+begin
+  if tg_op = 'UPDATE' and old.pdf_path is not null then
+    delete from public.material_item i
+     where i.material_id = new.id and i.path = old.pdf_path
+    returning i.position into at_position;
+  end if;
+  if new.pdf_path is not null
+     and not exists (select 1 from public.material_item i where i.path = new.pdf_path) then
+    insert into public.material_item
+      (ministry_id, material_id, position, kind, path, filename, content_type, bytes)
+    values (
+      new.ministry_id, new.id,
+      -- A replaced PDF takes the place of the one it replaced.
+      coalesce(at_position,
+               (select max(i.position) + 1 from public.material_item i where i.material_id = new.id),
+               0),
+      'file', new.pdf_path, new.pdf_filename, 'application/pdf',
+      coalesce((select (o.metadata ->> 'size')::bigint
+                  from storage.objects o
+                 where o.bucket_id = 'material'
+                   and o.name = new.pdf_path), 0));
+  end if;
+  return null;
+end;
+$$;
+
+revoke execute on function app.material_pdf_into_items() from public, anon, authenticated, service_role;
+
+create trigger material_pdf_into_items_on_insert
+  after insert on material
+  for each row
+  when (new.pdf_path is not null)
+  execute function app.material_pdf_into_items();
+
+create trigger material_pdf_into_items_on_update
+  after update of pdf_path on material
+  for each row
+  when (new.pdf_path is distinct from old.pdf_path)
+  execute function app.material_pdf_into_items();
+
+-- And the other way: an item the new code removes that was the old PDF takes
+-- the old column with it, so nothing is left naming an object that is gone.
+create function app.material_item_out_of_pdf()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  update public.material m
+     set pdf_path = null, pdf_filename = null
+   where m.id = old.material_id and m.pdf_path = old.path;
+  return null;
+end;
+$$;
+
+revoke execute on function app.material_item_out_of_pdf() from public, anon, authenticated, service_role;
+
+create trigger material_item_out_of_pdf
+  after delete on material_item
+  for each row
+  when (old.path is not null)
+  execute function app.material_item_out_of_pdf();
+
 -- ---------------------------------------------------------------------------
 -- 2. A Material carries something
 -- ---------------------------------------------------------------------------
@@ -125,7 +209,6 @@ begin
       from public.material m
      where m.id = target
        and m.body is null
-       and m.pdf_path is null
        and not exists (select 1 from public.material_item i where i.material_id = m.id)
   ) then
     raise exception 'material % violates material_carries_something: it carries neither text nor any file or link', target
@@ -213,8 +296,8 @@ update storage.buckets
 -- 4. A Leader reads the objects their Material names
 -- ---------------------------------------------------------------------------
 
--- Keyed on the stored paths, as before: an item's, or the old column's while it
--- stands.
+-- Keyed on the stored paths, as before, and on the items alone: an old PDF is
+-- an item too, kept so by `app.material_pdf_into_items`.
 create or replace function app.leads_material_object(object_name text)
 returns boolean
 language sql
@@ -226,11 +309,10 @@ as $$
     select 1
       from public.material m
       join public.material_assignment a on a.material_id = m.id
-     where (m.pdf_path = object_name
-            or exists (select 1
-                         from public.material_item i
-                        where i.material_id = m.id
-                          and i.path = object_name))
+     where exists (select 1
+                     from public.material_item i
+                    where i.material_id = m.id
+                      and i.path = object_name)
        and a.ended_at is null
        and app.leads_relationship(a.relationship_id)
   );
@@ -272,7 +354,9 @@ as $$
 $$;
 
 revoke execute on function app.material_items(uuid) from public, anon, service_role;
-grant execute on function app.material_items(uuid) to authenticated;
+-- And the command connection, whose read of the list an edit decides against
+-- draws each item from the same rows in the same shape.
+grant execute on function app.material_items(uuid) to authenticated, discipler_command;
 
 -- `20260928000100` left this; `items` is added to each Material and nothing else
 -- changes.

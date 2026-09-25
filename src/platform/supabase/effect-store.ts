@@ -80,7 +80,7 @@ import {
 import { readStandingPause, type StandingPause } from '~/domain/pause'
 import type { MaterialRecipient, MaterialStanding } from '~/domain/material-notices'
 import { materialItemFrom } from './material-items'
-import { count, text } from './rows'
+import { count, looksLikeAnId, text } from './rows'
 import type { MemberRole, RelationshipOutcome } from '~/domain/relationships'
 import type { ConcernResolution, ConcernViewing, NewConcern } from '~/domain/concerns'
 import {
@@ -202,12 +202,6 @@ const asGoalRefusal = (error: unknown): GoalRefused | undefined =>
     ? new GoalRefused('goal.already_offered')
     : undefined
 
-/**
- * A title this Ministry already holds a live Material under, as the database sees
- * it. The boundary refuses a duplicate against the list it read; reaching here
- * means somebody else wrote between that read and this write, and the losing
- * Admin is told the same true thing as the one who saw it on screen.
- */
 /** Writes a Material's new items, each where the boundary placed it. */
 const insertMaterialItems = async (
   client: PoolClient,
@@ -232,6 +226,12 @@ const insertMaterialItems = async (
   }
 }
 
+/**
+ * A title this Ministry already holds a live Material under, as the database sees
+ * it. The boundary refuses a duplicate against the list it read; reaching here
+ * means somebody else wrote between that read and this write, and the losing
+ * Admin is told the same true thing as the one who saw it on screen.
+ */
 const asMaterialRefusal = (error: unknown): MaterialRefused | undefined =>
   constraintViolated(error) === 'material_live_title_uniq'
     ? new MaterialRefused('material.title_taken')
@@ -417,7 +417,6 @@ const asRelationshipSnapshot = (
     acceptedAt: row.accepted_at,
   })),
 })
-
 
 /** One open Keyword Exchange, as the row holds it. */
 interface KeywordExchangeRow {
@@ -2002,7 +2001,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // like one -- and a relationship formed as a one-to-one is *no such group*,
     // whatever its id: the join path never offers one, and a one-to-one holds one
     // Participant however the row arrived.
-    if (!/^[0-9a-f-]{36}$/i.test(id)) return null
+    if (!looksLikeAnId(id)) return null
 
     const { rows } = await client.query<RelationshipRow>(
       `select id, created_at, accepted_at, ended_at, name,
@@ -2203,11 +2202,21 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // Everybody the tick may tell about a Material change, and for each of their
     // relationships the three things the rule compares: what is running, what
     // they were last told, and when anything feeding it last changed -- the
-    // running period starting, or the Material it is on being edited. Leaders
-    // who have accepted and every Participant, in accepted and unended
-    // relationships (Richer materials, tickets 03 and 04). A Participant's row
-    // carries their Leaders' names, as the Starter Message lists them, and their
-    // page link if one has been minted.
+    // running period starting, this person joining it, or the Material it is on
+    // having its text or items edited. Leaders who have accepted and every
+    // Participant, in accepted and unended relationships (Richer materials,
+    // tickets 03 and 04). A Participant's row carries their Leaders' names, as
+    // the Starter Message lists them, and their page link if one has been minted.
+    //
+    // Only the people a text can actually reach: a number to send it to, no open
+    // opt-out, and SMS consent that currently stands -- the pair
+    // `leadersDueForCheckIn` tests, and for the same reason. Opting out ends no
+    // relationship, the outbound queue refuses a text to somebody who has, and
+    // the tick is one transaction: one Disciple who texted STOP would otherwise
+    // roll back every check-in in the Ministry, on this run and every run after
+    // it. Left out here, they are simply not told; what they were last told
+    // stays as it was, so a change still pending when they can be texted again
+    // goes then.
     const [{ rows: zone }, { rows }] = await Promise.all([
       client.query<{ timezone: string }>(
         `select timezone from ministry where id = app.command_ministry_id()`,
@@ -2230,14 +2239,25 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
         last_texted_at: Date | null
       }>(
         `with members as (
-           select m.person_id, m.relationship_id, m.role
+           select m.person_id, m.relationship_id, m.role,
+                  -- When they joined it: a Leader on accepting, a Participant on
+                  -- being added. Somebody new to a relationship has a change of
+                  -- their own to hear about, and it settles like any other.
+                  case when m.role = 'leader' then m.accepted_at else m.started_at end as joined_at
              from relationship_member m
              join relationship r on r.id = m.relationship_id
+             join person p on p.id = m.person_id
             where m.ministry_id = app.command_ministry_id()
               and m.ended_at is null
               and (m.role <> 'leader' or m.accepted_at is not null)
               and r.accepted_at is not null
               and r.ended_at is null
+              and p.phone is not null
+              and not exists (
+                select 1 from person_opt_out o
+                 where o.person_id = m.person_id and o.ended_at is null
+              )
+              and app.current_consent(m.person_id, 'sms') is true
          )
          select mem.person_id,
                 p.phone,
@@ -2268,11 +2288,16 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
                 told.fingerprint as told_fingerprint,
                 greatest(
                   run.started_at,
+                  mem.joined_at,
+                  -- Only an edit to what it holds. A title is not part of what
+                  -- anybody is told, so correcting one holds nobody's text back.
                   (select max(e.occurred_at)
                      from ministry_event e
                     where e.ministry_id = app.command_ministry_id()
                       and e.type = 'material.edited'
-                      and e.subject_id = run.material_id)
+                      and e.subject_id = run.material_id
+                      and (e.payload -> 'from' -> 'body' is distinct from e.payload -> 'to' -> 'body'
+                           or e.payload -> 'from' -> 'items' is distinct from e.payload -> 'to' -> 'items'))
                 ) as changed_at,
                 (select max(n.told_at)
                    from material_notice n
@@ -3301,6 +3326,17 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     }
   },
 
+  async materialPathsNamed(paths) {
+    if (paths.length === 0) return new Set<string>()
+    const { rows } = await client.query<{ path: string }>(
+      `select i.path from material_item i
+        where i.ministry_id = app.command_ministry_id()
+          and i.path = any($1::text[])`,
+      [paths],
+    )
+    return new Set(rows.map((row) => row.path))
+  },
+
   async materials(): Promise<readonly MaterialOnOffer[]> {
     // The same lock the Discipleship Goal list takes, keyed on the Ministry, and
     // for the same reason: two Admins -- or one Admin's double submit -- both
@@ -3325,9 +3361,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       in_use_by: string
     }>(
       `select m.id, m.title, m.body,
-              coalesce((select jsonb_agg(to_jsonb(i) order by i.position)
-                          from material_item i
-                         where i.material_id = m.id), '[]'::jsonb) as items,
+              app.material_items(m.id) as items,
               (select count(*)
                  from material_assignment a
                  join relationship r on r.id = a.relationship_id

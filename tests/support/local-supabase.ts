@@ -687,18 +687,36 @@ export const pairOneToOne = async (
   ministry: MinistryFixture,
   leaderId: string,
   participantId: string,
-  options: { startedAt?: Date; endedAt?: Date } & RelationshipOptions = {},
+  options: {
+    startedAt?: Date
+    endedAt?: Date
+    /**
+     * When both of them joined, for a suite whose clock is pinned: the Leader's
+     * membership starts and is accepted then, and the Participant's starts then.
+     * Left out, the Leader joins now, by this process's clock -- which, to a
+     * command run at a pinned date, is a join still to come.
+     */
+    joinedAt?: Date
+  } & RelationshipOptions = {},
 ): Promise<string> => {
   const relationshipId = await createRelationship(ministry, 'one_to_one', options)
 
-  await addMembership({ ministry, relationshipId, kind: 'one_to_one', personId: leaderId, role: 'leader' })
+  await addMembership({
+    ministry,
+    relationshipId,
+    kind: 'one_to_one',
+    personId: leaderId,
+    role: 'leader',
+    ...(options.joinedAt ? { startedAt: options.joinedAt, acceptedAt: options.joinedAt } : {}),
+  })
+  const participantFrom = options.startedAt ?? options.joinedAt
   await addMembership({
     ministry,
     relationshipId,
     kind: 'one_to_one',
     personId: participantId,
     role: 'participant',
-    ...(options.startedAt ? { startedAt: options.startedAt } : {}),
+    ...(participantFrom ? { startedAt: participantFrom } : {}),
     ...(options.endedAt ? { endedAt: options.endedAt } : {}),
   })
 

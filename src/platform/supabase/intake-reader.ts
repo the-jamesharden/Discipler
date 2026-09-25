@@ -18,7 +18,7 @@ import type {
   JoinableGroup,
   ReopenedIntakePage,
 } from '~/service/ports'
-import { declaredGenderOf } from './rows'
+import { declaredGenderOf, looksLikeAnId } from './rows'
 
 /**
  * What the Intake form needs to render itself. The page is served to somebody with
@@ -122,7 +122,7 @@ export const createPostgresIntakeReader = (
     async readIntakePage(id: string): Promise<IntakePage | null> {
       // A link is typed, forwarded and scanned off a printed page, so the identifier
       // in it is not to be trusted into a query as a uuid until it looks like one.
-      if (!/^[0-9a-f-]{36}$/i.test(id)) return null
+      if (!looksLikeAnId(id)) return null
 
       const client = await pool.connect()
       try {
@@ -154,7 +154,7 @@ export const createPostgresIntakeReader = (
     },
 
     async readGroupIntakePage(id: string): Promise<GroupIntakePage | null> {
-      if (!/^[0-9a-f-]{36}$/i.test(id)) return null
+      if (!looksLikeAnId(id)) return null
 
       const client = await pool.connect()
       try {
@@ -201,7 +201,7 @@ export const createPostgresIntakeReader = (
     async readReopenedIntakePage(token: string): Promise<ReopenedIntakePage | null> {
       // A link is typed and forwarded, so the token in it is not trusted into a
       // query until it looks like one this product mints.
-      if (!/^[0-9a-f-]{36}$/i.test(token)) return null
+      if (!looksLikeAnId(token)) return null
 
       const client = await pool.connect()
       try {

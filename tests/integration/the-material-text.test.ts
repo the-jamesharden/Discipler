@@ -60,6 +60,7 @@ describe('the text when a Material changes', () => {
     relationship = await pairOneToOne(ministry, grace.personId, emily, {
       createdAt: new Date('2026-08-01T15:00:00Z'),
       acceptedAt: new Date('2026-08-01T15:00:00Z'),
+      joinedAt: new Date('2026-08-01T15:00:00Z'),
     })
     romans = await addMaterial(ministry, 'Romans', { body: 'Read one chapter a week.' })
     multiply = await addMaterial(ministry, 'Multiply', { body: 'Session one.' })

@@ -274,10 +274,7 @@ describe('the relationships page answers in one read', () => {
 
   describe('what the reader derives from it', () => {
     it('is the list the Leader Dashboard shows, with the Pause, the Material and who is you', async () => {
-      const { resolution, led } = await readRelationshipsLed(
-        asKaren,
-        await readPageDocument(asKaren, 'relationships_page'),
-      )
+      const { resolution, led } = readRelationshipsLed(await readPageDocument(asKaren, 'relationships_page'))
 
       expect(resolution).toEqual({ status: 'not-an-admin' })
 
@@ -311,7 +308,7 @@ describe('the relationships page answers in one read', () => {
     })
 
     it('is nothing at all for a document that says signed-out', async () => {
-      expect(await readRelationshipsLed(asKaren, { session: 'signed-out' })).toEqual({
+      expect(readRelationshipsLed({ session: 'signed-out' })).toEqual({
         resolution: { status: 'signed-out' },
         led: [],
       })

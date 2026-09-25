@@ -591,6 +591,14 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         async materials() {
           return store.materials
         },
+        async materialPathsNamed(paths) {
+          const named = new Set(
+            store.materials.flatMap((material) =>
+              material.items.flatMap((item) => (item.kind === 'file' ? [item.path] : [])),
+            ),
+          )
+          return new Set(paths.filter((path) => named.has(path)))
+        },
         async createMaterial(material) {
           stagedCreatedMaterials.push(material)
         },

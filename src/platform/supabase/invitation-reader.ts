@@ -3,6 +3,7 @@ import { ministryId, personId } from '~/domain/ids'
 import { invitationState, isWithdrawnAs } from '~/domain/invitations'
 import { countsAsLeading, type MemberRole } from '~/domain/relationships'
 import type { InvitationPage, InvitationReader } from '~/service/ports'
+import { looksLikeAnId } from './rows'
 
 /**
  * What the Invitation Link's page shows. Like the Intake form, it is served to
@@ -33,7 +34,7 @@ export const createPostgresInvitationReader = (
     async readInvitationPage(token: string): Promise<InvitationPage | null> {
       // A link is typed off a phone as often as it is tapped, so what arrives here
       // is not trusted into a query until it has the shape of a token.
-      if (!/^[0-9a-f-]{36}$/i.test(token)) return null
+      if (!looksLikeAnId(token)) return null
 
       const client = await pool.connect()
       try {

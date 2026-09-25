@@ -237,8 +237,11 @@ export interface MaterialFile {
   readonly bytes: number
 }
 
-/** A link a Material holds: an address and, optionally, what to call it. */
-export interface MaterialLink {
+/**
+ * A link a Material holds: an address and, optionally, what to call it. Not a
+ * *Material Link*, which is a Disciple's link to their Material page (ADR-0028).
+ */
+export interface WebLink {
   readonly kind: 'link'
   readonly url: string
   /** Null where the Admin named it nothing; the screens then show the site's address. */
@@ -246,7 +249,7 @@ export interface MaterialLink {
 }
 
 /** One file or link, as the Material holds it: in its place in the order. */
-export type MaterialItem = (MaterialFile | MaterialLink) & {
+export type MaterialItem = (MaterialFile | WebLink) & {
   readonly id: MaterialItemId
   readonly position: number
 }
@@ -289,11 +292,20 @@ export const readStoredFile = (
  * somebody else wrote, and a `mailto:` or a bare `www.` is not somewhere a
  * button can take anybody. The label is trimmed and collapsed like a title, and
  * a blank one is no label.
+ *
+ * Kept as typed, so it has to be an address as typed and not only as a URL
+ * parser forgives it. The parser reads `https:example.com`, `https:/example.com`
+ * and a backslash for a slash as `https://example.com`; a browser following the
+ * first two from an `href` on this site's own page reads them as a path here
+ * instead. So the address starts `http://` or `https://`, which is also exactly
+ * what the database's own check on the column asks, holds no backslash, and
+ * names a host with a dot in it: a single word is somewhere on the typist's own
+ * network, not on the web.
  */
-export const readMaterialLink = (raw: {
+export const readWebLink = (raw: {
   readonly url: string
   readonly label: string | null
-}): MaterialLink | null => {
+}): WebLink | null => {
   const typed = raw.url.trim()
   let url: URL
   try {
@@ -302,7 +314,8 @@ export const readMaterialLink = (raw: {
     return null
   }
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
-  if (/\s/.test(typed) || url.hostname === '') return null
+  if (!/^https?:\/\/[^\s\\]+$/i.test(typed)) return null
+  if (!url.hostname.includes('.')) return null
   return { kind: 'link', url: typed, label: readWording(raw.label ?? '') }
 }
 

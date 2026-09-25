@@ -62,3 +62,10 @@ export const count = (value: unknown): number | null => {
         : Number.NaN
   return Number.isInteger(read) ? read : null
 }
+
+/**
+ * Whether a value from outside -- a token in an address, an id in a form -- has
+ * the shape of an id at all. Asked before it reaches a `uuid` parameter, where
+ * anything else is a cast error rather than the *not found* it actually is.
+ */
+export const looksLikeAnId = (value: string): boolean => /^[0-9a-f-]{36}$/i.test(value)

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { composeMessage, welcomeMessage } from '~/domain/outbound-copy'
+import { relationshipId } from '~/domain/ids'
+import { composeMessage, materialMessage, welcomeMessage } from '~/domain/outbound-copy'
 
 describe('Every message is the Ministry’s voice', () => {
   it('carries the Ministry name as a prefix', () => {
@@ -96,5 +97,43 @@ describe('The Welcome Message', () => {
     expect(
       welcomeMessage({ ministryName: 'Riverside Chapel', fullName: '   ', promises: 'a_match' }),
     ).toContain('Riverside Chapel: You’re all set.')
+  })
+})
+
+describe('The text when a Material changes (Richer materials, tickets 03 and 04)', () => {
+  // Word for word as James approved them in M-5 on 2026-09-24, each with the
+  // rates line it may carry.
+  const RATES = ' Msg & data rates may apply. Reply STOP to opt out, HELP for help.'
+  const dashboard = 'https://app.trydiscipler.com/relationships'
+  const page = 'https://app.trydiscipler.com/material/3f2a'
+  const withEmily = relationshipId('00000000-0000-4000-8000-0000000000d1')
+  const say = (text: Parameters<typeof materialMessage>[0]['text'], link: string) =>
+    materialMessage({ ministryName: 'Riverside Chapel', text, link })
+
+  it('reads as drawn for each of a Leader’s four', () => {
+    expect(say({ kind: 'leader_moved', title: 'Romans: Life in the Spirit' }, dashboard)).toBe(
+      `Riverside Chapel: The material for your discipleship is now Romans: Life in the Spirit. See it at ${dashboard}${RATES}`,
+    )
+    expect(say({ kind: 'leader_updated', title: 'Romans: Life in the Spirit' }, dashboard)).toBe(
+      `Riverside Chapel: Romans: Life in the Spirit, the material for your discipleship, has been updated. See it at ${dashboard}${RATES}`,
+    )
+    expect(say({ kind: 'leader_several', count: 3 }, dashboard)).toBe(
+      `Riverside Chapel: The material has changed for 3 of your discipleship relationships. See them at ${dashboard}${RATES}`,
+    )
+    expect(say({ kind: 'leader_none' }, dashboard)).toBe(
+      `Riverside Chapel: Your discipleship no longer has a material assigned. See it at ${dashboard}${RATES}`,
+    )
+  })
+
+  it('reads as drawn for both of a Disciple’s', () => {
+    expect(
+      say(
+        { kind: 'participant_moved', title: 'Romans: Life in the Spirit', leaderNames: ['Grace Lee'], relationshipId: withEmily },
+        page,
+      ),
+    ).toBe(`Riverside Chapel: Your discipleship material with Grace Lee is now Romans: Life in the Spirit. Open it here: ${page}${RATES}`)
+    expect(say({ kind: 'participant_updated', title: 'Romans: Life in the Spirit', relationshipId: withEmily }, page)).toBe(
+      `Riverside Chapel: Your discipleship material, Romans: Life in the Spirit, has been updated. Open it here: ${page}${RATES}`,
+    )
   })
 })
