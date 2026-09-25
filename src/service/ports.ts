@@ -958,8 +958,8 @@ export interface RelationshipsPage {
  *
  * The role is what makes the row legible. A Person leading two relationships and a
  * Person being discipled in two are the same list of names and opposite situations,
- * and it is the first of them that reads `Ready to Pair` -- the status an Admin
- * takes for a bug unless the row says why.
+ * so every place that says a pairing says its direction from the role (Roles per
+ * pairing): *disciples*, *discipled by*, *leads*, *in*.
  */
 export interface RosterRelationship {
   /**
