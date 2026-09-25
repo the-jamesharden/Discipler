@@ -1,7 +1,8 @@
 import Link from 'next/link'
-import { CANCEL, TEXT_LABEL, TEXT_PLACEHOLDER, TITLE_LABEL } from './copy'
+import { CANCEL, refusalMessage, TEXT_LABEL, TEXT_PLACEHOLDER, TITLE_LABEL } from './copy'
 import { allOf, uploadsIn } from './editing'
 import { FilesAndLinks, type HeldItem } from './files-and-links'
+import { SaveButton, UploadingForm } from './uploading-form'
 
 /** What a refused submission carries back on the query string, and nothing else is read. */
 export interface MaterialQuery {
@@ -15,7 +16,8 @@ export interface MaterialQuery {
 }
 
 /**
- * The fields and the two buttons, shared by the create and edit pages. Not
+ * The fields and the two buttons, shared by the create and edit pages, with the
+ * red toast above the fields when a refused submission came back here. Not
  * multipart: no file travels with the form, only the paths the browser uploaded
  * to. `required` on the title, because a browser can say that much before a
  * round trip and the boundary says it again.
@@ -37,7 +39,7 @@ export const MaterialForm = ({
   readonly cancelHref: string
   readonly submit: string
 }) => (
-  <form method="post" action={action}>
+  <UploadingForm action={action} refusal={refusalMessage(query.error)}>
     <div className="field">
       <label className="label" htmlFor="m-title">{TITLE_LABEL}</label>
       <input id="m-title" name="title" type="text" defaultValue={title} required />
@@ -55,7 +57,7 @@ export const MaterialForm = ({
     />
     <div className="form-actions">
       <Link className="btn sec" href={cancelHref}>{CANCEL}</Link>
-      <button type="submit">{submit}</button>
+      <SaveButton>{submit}</SaveButton>
     </div>
-  </form>
+  </UploadingForm>
 )

@@ -26,6 +26,19 @@ describe('a Material’s text', () => {
     ])
   })
 
+  it('keeps a bracket the address opened, and still leaves one around it to the sentence', () => {
+    expect(textWithLinks('Read https://en.wikipedia.org/wiki/Grace_(theology).')).toEqual([
+      { kind: 'text', text: 'Read ' },
+      { kind: 'link', url: 'https://en.wikipedia.org/wiki/Grace_(theology)' },
+      { kind: 'text', text: '.' },
+    ])
+    expect(textWithLinks('(background: https://en.wikipedia.org/wiki/Grace_(theology))')).toEqual([
+      { kind: 'text', text: '(background: ' },
+      { kind: 'link', url: 'https://en.wikipedia.org/wiki/Grace_(theology)' },
+      { kind: 'text', text: ')' },
+    ])
+  })
+
   it('reads nothing else as a link: not a bare www, not another scheme', () => {
     expect(textWithLinks('www.example.org and javascript:alert(1)')).toEqual([
       { kind: 'text', text: 'www.example.org and javascript:alert(1)' },

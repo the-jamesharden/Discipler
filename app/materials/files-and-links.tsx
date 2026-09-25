@@ -1,11 +1,12 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { fileTypeNamed } from '~/domain/materials'
+import { fileTypeNamed, MATERIAL_FILE_TYPES } from '~/domain/materials'
 import {
   ADD_A_LINK,
   ADD_FILES,
   CANCEL_UPLOAD,
+  cancelUploadOf,
   FILES_AND_LINKS,
   FILES_HINT,
   fileSize,
@@ -15,11 +16,21 @@ import {
   LINK_PLACEHOLDER,
   NEEDS_SCRIPT,
   REMOVE_ITEM,
+  removeItemNamed,
   UPLOAD_FAILED,
   UPLOADED,
   uploading,
 } from './copy'
+import { uploadField } from './form-answer'
 import { ItemGlyph, itemKind, itemName, itemSize, type DrawnItem } from './items'
+import { useUploadingForm } from './uploading-form'
+
+/**
+ * What the file box offers: the extensions a Material may hold, since the
+ * extension is what decides a file's type. A picker that offers everything only
+ * to refuse most of it afterwards is a question asked the wrong way round.
+ */
+const ACCEPTED = MATERIAL_FILE_TYPES.map((type) => `.${type.extension}`).join(',')
 
 /**
  * The Files and links field on the create and edit pages (Richer materials,
@@ -41,10 +52,15 @@ export interface HeldItem {
   readonly item: DrawnItem
 }
 
-/** A file uploaded for this form before a refusal brought it back here. */
+/**
+ * A file uploaded for this form before a refusal brought it back here: its size
+ * as the browser saw it, and whether the route found it gone from the bucket.
+ */
 export interface CarriedUpload {
   readonly path: string
   readonly filename: string
+  readonly bytes: number | null
+  readonly gone: boolean
 }
 
 type Upload =
@@ -79,20 +95,49 @@ export const FilesAndLinks = ({
   readonly linkLabel: string
 }) => {
   const [uploads, setUploads] = useState<readonly Upload[]>(() =>
-    carried.map((upload) => ({
-      key: upload.path,
-      filename: upload.filename,
-      bytes: null,
-      state: 'done',
-      path: upload.path,
-    })),
+    carried.map((upload): Upload =>
+      upload.gone
+        ? { key: upload.path, filename: upload.filename, state: 'refused', why: UPLOAD_FAILED }
+        : {
+            key: upload.path,
+            filename: upload.filename,
+            bytes: upload.bytes,
+            state: 'done',
+            path: upload.path,
+          },
+    ),
   )
   const [scripted, setScripted] = useState(false)
   const requests = useRef(new Map<string, XMLHttpRequest>())
+  const form = useUploadingForm()
 
   // Server-rendered, the file box says it needs script; once this has run, it
   // does not. Nothing else about the field depends on it.
   useEffect(() => setScripted(true), [])
+
+  // Save waits for every file still on its way.
+  const inFlight = uploads.filter((upload) => upload.state === 'asking' || upload.state === 'sending').length
+  const setUploading = form?.setUploading
+  useEffect(() => setUploading?.(inFlight), [setUploading, inFlight])
+
+  // What the last press said about the uploads: those refused are deleted and
+  // leave the list, and those the sweep had already taken say they could not be
+  // kept, on their own rows.
+  const answered = form?.answered
+  useEffect(() => {
+    if (!answered) return
+    const forget = new Set(answered.forget)
+    const gone = new Set(answered.gone)
+    setUploads((all) =>
+      all.flatMap((upload): Upload[] => {
+        if (upload.state !== 'done') return [upload]
+        if (forget.has(upload.path)) return []
+        return gone.has(upload.path)
+          ? [{ key: upload.key, filename: upload.filename, state: 'refused', why: UPLOAD_FAILED }]
+          : [upload]
+      }),
+    )
+  }, [answered])
 
   const update = (key: string, next: (upload: Upload) => Upload | null) =>
     setUploads((all) =>
@@ -174,7 +219,13 @@ export const FilesAndLinks = ({
               </span>
               <span className="muted">{itemSize(item)}</span>
               <label className="check">
-                <input type="checkbox" name="removeItem" value={id} defaultChecked={ticked.includes(id)} />{' '}
+                <input
+                  type="checkbox"
+                  name="removeItem"
+                  value={id}
+                  defaultChecked={ticked.includes(id)}
+                  aria-label={removeItemNamed(itemName(item))}
+                />{' '}
                 <span>{REMOVE_ITEM}</span>
               </label>
             </div>
@@ -220,17 +271,27 @@ export const FilesAndLinks = ({
               </span>
               {upload.state === 'done' ? (
                 <>
-                  <input
-                    type="hidden"
-                    name="upload"
-                    value={JSON.stringify({ path: upload.path, filename: upload.filename })}
-                  />
-                  <button type="button" className="small sec" onClick={() => cancel(upload.key)}>
+                  <input type="hidden" name="upload" value={uploadField(upload)} />
+                  <button
+                    type="button"
+                    className="small sec"
+                    aria-label={removeItemNamed(upload.filename)}
+                    onClick={() => cancel(upload.key)}
+                  >
                     {REMOVE_ITEM}
                   </button>
                 </>
               ) : (
-                <button type="button" className="small sec" onClick={() => cancel(upload.key)}>
+                <button
+                  type="button"
+                  className="small sec"
+                  aria-label={
+                    upload.state === 'refused'
+                      ? removeItemNamed(upload.filename)
+                      : cancelUploadOf(upload.filename)
+                  }
+                  onClick={() => cancel(upload.key)}
+                >
                   {upload.state === 'refused' ? REMOVE_ITEM : CANCEL_UPLOAD}
                 </button>
               )}
@@ -250,6 +311,7 @@ export const FilesAndLinks = ({
             id="m-files"
             type="file"
             multiple
+            accept={ACCEPTED}
             disabled={!scripted}
             onChange={(event) => {
               const chosen = [...(event.currentTarget.files ?? [])]

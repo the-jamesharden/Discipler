@@ -120,8 +120,10 @@ export const ItemAction = ({ item }: { readonly item: DrawnItem }) =>
 /**
  * A Material's text as written, with every `http` or `https` address in it made
  * a link. Nothing else is read into it: no other markup, and an address has to
- * start with its scheme, so `www.example.com` stays words. A full stop or a
- * closing bracket after an address belongs to the sentence, not the address.
+ * start with its scheme, so `www.example.com` stays words. A full stop after an
+ * address belongs to the sentence, not the address, and so does a closing
+ * bracket the address did not open: `(see https://a.org/x)` ends at `x`, and
+ * `https://en.wikipedia.org/wiki/Grace_(theology)` keeps its own.
  */
 export const LinkedText = ({ text }: { readonly text: string }) => (
   <>
@@ -137,6 +139,23 @@ export const LinkedText = ({ text }: { readonly text: string }) => (
   </>
 )
 
+/**
+ * An address as matched, less what trails it that belongs to the sentence: a
+ * stop, a comma, a quote, and a closing bracket only where the address holds
+ * more closing brackets than opening ones.
+ */
+const withoutTrailingPunctuation = (matched: string): string => {
+  let url = matched.replace(/[.,;:!?'"]+$/, '')
+  const count = (of: string) => url.split(of).length - 1
+  while (
+    (url.endsWith(')') && count(')') > count('(')) ||
+    (url.endsWith(']') && count(']') > count('['))
+  ) {
+    url = url.slice(0, -1).replace(/[.,;:!?'"]+$/, '')
+  }
+  return url
+}
+
 /** The text split into its words and its addresses, in order. */
 export const textWithLinks = (
   text: string,
@@ -144,7 +163,7 @@ export const textWithLinks = (
   const parts: ({ kind: 'text'; text: string } | { kind: 'link'; url: string })[] = []
   let rest = 0
   for (const match of text.matchAll(/https?:\/\/[^\s<>"]+/gi)) {
-    const url = match[0].replace(/[.,;:!?)\]'"]+$/, '')
+    const url = withoutTrailingPunctuation(match[0])
     const at = match.index
     if (at > rest) parts.push({ kind: 'text', text: text.slice(rest, at) })
     parts.push({ kind: 'link', url })

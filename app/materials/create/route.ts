@@ -1,14 +1,15 @@
 import { type NextRequest } from 'next/server'
 import { currentAdmin } from '~/platform/supabase/current-admin'
-import { discardMaterialFiles, readStoredFiles } from '~/platform/supabase/material-files'
+import { readStoredFiles } from '~/platform/supabase/material-files'
 import { createSupabaseServerClient } from '~/platform/supabase/server-client'
 import { getCommandService } from '~/service/container'
 import {
+  answering,
   applying,
   backTo,
+  discardUnnamed,
   postedLinks,
   postedUploads,
-  refusedWith,
   typed,
   type PostedUpload,
 } from '../editing'
@@ -22,7 +23,9 @@ import {
  * the bucket actually holds, and then the command runs. A command refused over
  * the files deletes them; refused over anything else, it keeps them and the page
  * names them again. A command that lands sends the Admin to the new Material's
- * folder, which is where assigning it starts.
+ * folder, which is where assigning it starts. Sent by the page's own script, it
+ * is answered with where to go or what was refused instead (`../form-answer`), so
+ * a refusal is shown with the form as the Admin left it.
  */
 export async function POST(request: NextRequest) {
   const admin = await currentAdmin()
@@ -31,9 +34,13 @@ export async function POST(request: NextRequest) {
   if (!admin) return backTo(request, '/materials')
 
   const form = await request.formData()
+  const answer = answering(request, form, '/materials/new')
   const uploads = postedUploads(form)
   const supabase = await createSupabaseServerClient()
-  const files = await readStoredFiles(supabase, admin.ministryId, uploads)
+  const { files, gone } = await readStoredFiles(supabase, admin.ministryId, uploads)
+  // Uploads the sweep has taken, from a form left open a day: nothing to decide
+  // on until the Admin has seen that and chosen again.
+  if (gone.length > 0) return answer.gone(gone)
 
   return applying(
     () =>
@@ -48,12 +55,12 @@ export async function POST(request: NextRequest) {
         createdBy: admin.userId,
       }),
     uploads.map((upload: PostedUpload) => upload.path),
-    (paths) => discardMaterialFiles(supabase, paths),
-    (refused) => backTo(request, '/materials/new', refusedWith(refused.refusal, form)),
+    (paths) => discardUnnamed(supabase, paths),
+    answer.refused,
     (outcome) => {
       const created = outcome.effects.find((effect) => effect.kind === 'material.create')
       if (!created) throw new Error('material.create landed without creating a Material')
-      return backTo(request, `/materials/${created.material.id}`)
+      return answer.landed(`/materials/${created.material.id}`)
     },
   )
 }

@@ -838,6 +838,9 @@ label.pick .meta { display: block; font-size: .78rem; color: var(--text-light); 
 /* M-2: the same files and links for somebody opening them, on the Leader's
    Resources card and a Disciple's page. */
 .res-list { display: grid; gap: .45rem; margin-top: .9rem; }
+/* First in its panel, as on a Disciple's page for a Material with no text: the
+   panel's padding is the gap, as it is below. */
+.mat-panel > .res-list:first-child { margin-top: 0; }
 .res { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: .7rem; padding: .6rem .75rem; border: 1px solid var(--border); border-radius: 6px; text-decoration: none; color: var(--text); font-size: .88rem; background: var(--surface); }
 a.res:hover { border-color: var(--primary); }
 .res .ic { width: 30px; height: 30px; }

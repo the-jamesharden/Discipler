@@ -39,8 +39,11 @@ export const AssignPicker = ({
 }) => {
   const rows = useRef<HTMLDivElement>(null)
   const all = useRef<HTMLInputElement>(null)
+  const button = useRef<HTMLButtonElement>(null)
   /** How many are ticked of how many, or null until script has counted. */
   const [count, setCount] = useState<{ readonly ticked: number; readonly of: number } | null>(null)
+  /** Whether the form has been sent, so a second press cannot send it again. */
+  const [pressed, setPressed] = useState(false)
 
   const boxes = (): HTMLInputElement[] => [
     ...(rows.current?.querySelectorAll<HTMLInputElement>(`input[name="${TICKED_FIELD}"]`) ?? []),
@@ -55,6 +58,26 @@ export const AssignPicker = ({
   // A browser going Back can put the ticks back into the boxes by itself, and
   // those are what will be posted, whatever the page was drawn with.
   useEffect(recount, [])
+
+  // Pressed once. A second press would find every relationship the first one
+  // assigned already on it, and say *Nothing was assigned* of a press that
+  // worked. Disabled after the form has gone rather than as it goes, so the
+  // press that sends it is not the one refused; and enabled again when Back
+  // brings the page back from the browser's cache as it was left.
+  useEffect(() => {
+    const form = button.current?.form
+    if (!form) return
+    const sent = () => window.setTimeout(() => setPressed(true), 0)
+    const shownAgain = (event: PageTransitionEvent) => {
+      if (event.persisted) setPressed(false)
+    }
+    form.addEventListener('submit', sent)
+    window.addEventListener('pageshow', shownAgain)
+    return () => {
+      form.removeEventListener('submit', sent)
+      window.removeEventListener('pageshow', shownAgain)
+    }
+  }, [])
 
   // Neither ticked nor clear while only some are: the box says so rather than
   // claiming all or none.
@@ -88,7 +111,7 @@ export const AssignPicker = ({
       </div>
       <div className="pick-foot">
         {cancel}
-        <button type="submit" disabled={count !== null && count.ticked === 0}>
+        <button ref={button} type="submit" disabled={pressed || (count !== null && count.ticked === 0)}>
           {count === null ? assignToTheTicked(title) : assignToCount(title, count.ticked)}
         </button>
       </div>

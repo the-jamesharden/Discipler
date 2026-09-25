@@ -8,7 +8,6 @@ import {
   MATERIALS,
   NEW_MATERIAL,
   NEW_MATERIAL_LEAD,
-  refusalMessage,
 } from '../copy'
 
 export const dynamic = 'force-dynamic'
@@ -36,7 +35,6 @@ export default async function NewMaterialPage({
   if (page.status === 'not-an-admin') return <NotAnAdmin title={MATERIALS} />
   if (page.status === 'signed-out') redirect('/login')
 
-  const refusal = refusalMessage(query.error)
 
   return (
     <PageShell title={MATERIALS} subtitle={page.admin.ministryName} actions={<AccountMenu ministry />}>
@@ -46,12 +44,6 @@ export default async function NewMaterialPage({
           <h2 className="card-title">{NEW_MATERIAL}</h2>
         </div>
         <p className="card-lead">{NEW_MATERIAL_LEAD}</p>
-
-        {refusal ? (
-          <p className="toast error" role="alert">
-            {refusal}
-          </p>
-        ) : null}
 
         <MaterialForm
           action="/materials/create"

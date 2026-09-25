@@ -170,6 +170,11 @@ export const LINK = 'Link'
 export const REMOVE_ITEM = 'Remove'
 export const CANCEL_UPLOAD = 'Cancel'
 
+/** What a screen reader hears for an item's Remove, which on screen sits beside the name. */
+export const removeItemNamed = (name: string): string => `Remove ${name}`
+/** The same for an upload's Cancel. */
+export const cancelUploadOf = (name: string): string => `Cancel ${name}`
+
 /** The cap, said in megabytes, from the one constant every check reads. */
 const LARGEST_FILE_MB = Math.round(LARGEST_FILE_BYTES / (1024 * 1024))
 
@@ -234,7 +239,7 @@ const REFUSALS: Record<MaterialRefusal, string> = {
     'Relationships are working through it. Move them to another material, or to none, before removing it.',
   'material.file_type': 'One of the files is not a type a material can hold.',
   'material.file_too_large': `One of the files is larger than ${LARGEST_FILE_MB} MB.`,
-  'material.link_unreadable': 'The link needs to be a full web address, starting https://',
+  'material.link_unreadable': 'The link needs to be a full web address, starting https:// or http://',
   'material.too_many_items': `A material can hold up to ${MOST_ITEMS} files and links.`,
 }
 

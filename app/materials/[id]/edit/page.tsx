@@ -9,7 +9,6 @@ import {
   inUseNotice,
   KEEP_IT,
   MATERIALS,
-  refusalMessage,
   REMOVE,
   REMOVE_LEAD,
   REMOVE_THIS_MATERIAL,
@@ -55,7 +54,6 @@ export default async function EditMaterialPage({
   if (!material) notFound()
 
   const inUseBy = onMaterial(relationships, material.materialId).length
-  const refusal = refusalMessage(query.error)
   const removing = query.removing === 'yes'
   const folder = `/materials/${material.materialId}`
   const self = `${folder}/edit`
@@ -68,12 +66,6 @@ export default async function EditMaterialPage({
         <div className="card-head">
           <h2 className="card-title">{EDIT_THIS_MATERIAL}</h2>
         </div>
-
-        {refusal ? (
-          <p className="toast error" role="alert">
-            {refusal}
-          </p>
-        ) : null}
 
         <MaterialForm
           action={`${folder}/save`}

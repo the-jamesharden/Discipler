@@ -1,4 +1,6 @@
+import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
+import { cache } from 'react'
 import { getMaterialPageReader } from '~/service/container'
 import { ItemsToOpen, LinkedText } from '../../materials/items'
 import {
@@ -12,6 +14,29 @@ import {
 } from '../copy'
 
 export const dynamic = 'force-dynamic'
+
+/**
+ * The page's one read, shared by its title and its body: asked twice in one
+ * request, it is read once.
+ */
+const pageFor = cache((token: string) => getMaterialPageReader().readMaterialPage(token))
+
+/**
+ * What the browser tab says: the Material, or what the page says instead of one.
+ * A Disciple keeps this open beside a video or a PDF, and the tab should say
+ * which page it is.
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ token: string }>
+}): Promise<Metadata> {
+  const page = await pageFor((await params).token)
+  if (!page) return {}
+  return {
+    title: page.status === 'open' ? page.title : page.status === 'ended' ? ENDED_HEADING : NONE_HEADING,
+  }
+}
 
 /**
  * A Disciple's Material page (Richer materials, ticket 04; M-4 of
@@ -30,7 +55,7 @@ export default async function DisciplesMaterialPage({
   params: Promise<{ token: string }>
 }) {
   const { token } = await params
-  const page = await getMaterialPageReader().readMaterialPage(token)
+  const page = await pageFor(token)
   // The same answer for a token that was never real and one somebody guessed.
   if (!page) notFound()
 
