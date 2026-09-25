@@ -25,7 +25,7 @@ import type {
   RelationshipKeyword,
 } from './keywords'
 import type { NewIntakeLink } from './intake-link'
-import type { MaterialPdf, MaterialTitle } from './materials'
+import type { MaterialFile, MaterialItem, MaterialTitle } from './materials'
 import type { MinistrySettings } from './ministry-settings'
 import type { InvitationToken, NewInvitation, WithdrawnAs } from './invitations'
 import type { OutboundMessageKind, OutstandingReplyCutoff } from './outstanding-reply'
@@ -511,7 +511,6 @@ export interface PersonOptOut {
   readonly startedAt: Date
 }
 
-
 /**
  * One Discipleship Goal option, added to the end of the Ministry's list.
  *
@@ -577,28 +576,59 @@ export interface NewMaterial {
   readonly ministryId: MinistryId
   readonly title: MaterialTitle
   readonly body: string | null
-  readonly pdf: MaterialPdf | null
+  /** Its files and links, each with its id and place already given. */
+  readonly items: readonly MaterialItem[]
   readonly createdAt: Date
 }
 
 /**
- * One Material as it will now read. The whole row rather than the fields that
- * changed, because the row is what a period points at and what a Leader loads:
- * an edit is the Material saying something new, not a diff to apply.
+ * One Material as it will now read: the row whole, because the row is what a
+ * period points at and what a Leader loads, and the items as what went and what
+ * came, because an item is a row of its own and the ones that stay are left
+ * alone.
  */
 export interface MaterialEdit {
   readonly ministryId: MinistryId
   readonly materialId: MaterialId
   readonly title: MaterialTitle
   readonly body: string | null
-  readonly pdf: MaterialPdf | null
+  readonly removed: readonly MaterialItem[]
+  readonly added: readonly MaterialItem[]
   /**
-   * The PDF the row no longer names -- the one removed, or the one replaced --
-   * or null where the edit kept it or there was none. Not a write: the bucket is
-   * the one place the store cannot reach, so the route that uploaded the new
-   * object is the one that deletes the old, once this edit has landed.
+   * The files the Material no longer names: the removed items that were files.
+   * Not a write: the bucket is the one place the store cannot reach, so the
+   * route deletes them once this edit has landed.
    */
-  readonly discarded: MaterialPdf | null
+  readonly discarded: readonly MaterialFile[]
+}
+
+/**
+ * What one person has now been told about one relationship's Material (Richer
+ * materials, ticket 03): the Material and the fingerprint of what it held. A
+ * row per telling, never updated, so what anybody was told and when stays
+ * readable; the latest row is what the next change is compared against.
+ */
+export interface MaterialNoticeRecord {
+  readonly ministryId: MinistryId
+  readonly personId: PersonId
+  readonly relationshipId: RelationshipId
+  readonly materialId: MaterialId | null
+  readonly fingerprint: string | null
+  readonly toldAt: Date
+  /** Whether a text went with it. A Disciple moved to no Material is recorded and sent nothing. */
+  readonly texted: boolean
+}
+
+/**
+ * A Disciple's link to their Material page, minted the first time a text carries
+ * it (Richer materials, ticket 04). Never re-minted: every text they have had
+ * keeps opening today's Material.
+ */
+export interface NewMaterialLink {
+  readonly ministryId: MinistryId
+  readonly personId: PersonId
+  readonly relationshipId: RelationshipId
+  readonly token: string
 }
 
 /**
@@ -830,6 +860,8 @@ export type Effect =
   | { readonly kind: 'material.create'; readonly material: NewMaterial }
   | { readonly kind: 'material.edit'; readonly edit: MaterialEdit }
   | { readonly kind: 'material.remove'; readonly removal: MaterialRemoval }
+  | { readonly kind: 'materialNotice.record'; readonly notice: MaterialNoticeRecord }
+  | { readonly kind: 'materialLink.issue'; readonly link: NewMaterialLink }
   | { readonly kind: 'concern.raise'; readonly concern: NewConcern }
   | { readonly kind: 'concern.view'; readonly viewing: ConcernViewing }
   | { readonly kind: 'concern.resolve'; readonly resolution: ConcernResolution }
@@ -887,6 +919,16 @@ export const createMaterial = (material: NewMaterial): Effect => ({
 export const editMaterial = (edit: MaterialEdit): Effect => ({
   kind: 'material.edit',
   edit,
+})
+
+export const recordMaterialNotice = (notice: MaterialNoticeRecord): Effect => ({
+  kind: 'materialNotice.record',
+  notice,
+})
+
+export const issueMaterialLink = (link: NewMaterialLink): Effect => ({
+  kind: 'materialLink.issue',
+  link,
 })
 
 export const removeMaterial = (removal: MaterialRemoval): Effect => ({

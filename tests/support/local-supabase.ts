@@ -507,36 +507,70 @@ export const openMaterialHistory = async (
 }
 
 export interface MaterialOptions {
-  /** Typed content. One of this and a PDF has to be present; both may be. */
+  /** Typed content. Text, an item, or both has to be present. */
   body?: string | null
+  /** A PDF, as the old single-file fixtures named one. Written as the first file item. */
   pdfPath?: string | null
   pdfFilename?: string | null
+  /** Files and links after that, in order (Richer materials, ticket 01). */
+  files?: readonly { path: string; filename: string; contentType?: string; bytes?: number }[]
+  links?: readonly { url: string; label?: string | null }[]
 }
 
-/** One Material on a Ministry's own list. */
+/**
+ * One Material on a Ministry's own list, with its items. One transaction on a
+ * direct connection rather than two API calls, because whether a Material with
+ * no text carries something is decided at commit, across both tables.
+ */
 export const addMaterial = async (
   ministry: MinistryFixture,
   title: string,
   options: MaterialOptions = {},
 ): Promise<string> => {
+  const files = [
+    ...(options.pdfPath
+      ? [{ path: options.pdfPath, filename: options.pdfFilename ?? 'material.pdf' }]
+      : []),
+    ...(options.files ?? []),
+  ]
+  const links = options.links ?? []
   const body =
-    options.body === undefined && options.pdfPath === undefined
+    options.body === undefined && files.length === 0 && links.length === 0
       ? `The text of ${title}.`
       : (options.body ?? null)
 
-  const { data, error } = await serviceRoleClient()
-    .from('material')
-    .insert({
-      ministry_id: ministry.id,
-      title,
-      body,
-      pdf_path: options.pdfPath ?? null,
-      pdf_filename: options.pdfFilename ?? null,
-    })
-    .select('id')
-    .single()
-  if (error) throw new Error(`Could not add the Material ${title}: ${error.message}`)
-  return data.id
+  const client = new pg.Client({ connectionString: localSupabase().databaseUrl })
+  await client.connect()
+  try {
+    await client.query('begin')
+    const { rows } = await client.query<{ id: string }>(
+      `insert into material (ministry_id, title, body) values ($1, $2, $3) returning id`,
+      [ministry.id, title, body],
+    )
+    const id = rows[0]!.id
+    let position = 0
+    for (const file of files) {
+      await client.query(
+        `insert into material_item (ministry_id, material_id, position, kind, path, filename, content_type, bytes)
+         values ($1, $2, $3, 'file', $4, $5, $6, $7)`,
+        [ministry.id, id, position++, file.path, file.filename, file.contentType ?? 'application/pdf', file.bytes ?? 0],
+      )
+    }
+    for (const link of links) {
+      await client.query(
+        `insert into material_item (ministry_id, material_id, position, kind, url, label)
+         values ($1, $2, $3, 'link', $4, $5)`,
+        [ministry.id, id, position++, link.url, link.label ?? null],
+      )
+    }
+    await client.query('commit')
+    return id
+  } catch (error) {
+    await client.query('rollback').catch(() => undefined)
+    throw new Error(`Could not add the Material ${title}: ${(error as Error).message}`)
+  } finally {
+    await client.end()
+  }
 }
 
 /**
@@ -653,18 +687,36 @@ export const pairOneToOne = async (
   ministry: MinistryFixture,
   leaderId: string,
   participantId: string,
-  options: { startedAt?: Date; endedAt?: Date } & RelationshipOptions = {},
+  options: {
+    startedAt?: Date
+    endedAt?: Date
+    /**
+     * When both of them joined, for a suite whose clock is pinned: the Leader's
+     * membership starts and is accepted then, and the Participant's starts then.
+     * Left out, the Leader joins now, by this process's clock -- which, to a
+     * command run at a pinned date, is a join still to come.
+     */
+    joinedAt?: Date
+  } & RelationshipOptions = {},
 ): Promise<string> => {
   const relationshipId = await createRelationship(ministry, 'one_to_one', options)
 
-  await addMembership({ ministry, relationshipId, kind: 'one_to_one', personId: leaderId, role: 'leader' })
+  await addMembership({
+    ministry,
+    relationshipId,
+    kind: 'one_to_one',
+    personId: leaderId,
+    role: 'leader',
+    ...(options.joinedAt ? { startedAt: options.joinedAt, acceptedAt: options.joinedAt } : {}),
+  })
+  const participantFrom = options.startedAt ?? options.joinedAt
   await addMembership({
     ministry,
     relationshipId,
     kind: 'one_to_one',
     personId: participantId,
     role: 'participant',
-    ...(options.startedAt ? { startedAt: options.startedAt } : {}),
+    ...(participantFrom ? { startedAt: participantFrom } : {}),
     ...(options.endedAt ? { endedAt: options.endedAt } : {}),
   })
 

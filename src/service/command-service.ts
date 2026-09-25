@@ -293,6 +293,12 @@ export const applyEffects = async (
   const removedMaterials = effects.flatMap((effect) =>
     effect.kind === 'material.remove' ? [effect.removal] : [],
   )
+  const materialNotices = effects.flatMap((effect) =>
+    effect.kind === 'materialNotice.record' ? [effect.notice] : [],
+  )
+  const materialLinks = effects.flatMap((effect) =>
+    effect.kind === 'materialLink.issue' ? [effect.link] : [],
+  )
   const concerns = effects.flatMap((effect) =>
     effect.kind === 'concern.raise' ? [effect.concern] : [],
   )
@@ -398,8 +404,10 @@ export const applyEffects = async (
 
   // After the acceptance that stamps `accepted_at`, because that is the instant the
   // period with no Material starts from and the row has to exist for it to start.
-  // Before the history saying it happened, like every other write here.
-  for (const assignment of materialAssignments) await unit.assignMaterial(assignment)
+  // Before the history saying it happened, like every other write here. All of
+  // them at once and in order: acceptance's opening period before the Material
+  // chosen at pairing, and an Admin's many in the order the page listed them.
+  if (materialAssignments.length > 0) await unit.assignMaterials(materialAssignments)
 
   // The answer to the question that was open, then the conversation it finished,
   // then the one that replaces it, then its first question. In that order because
@@ -474,6 +482,12 @@ export const applyEffects = async (
   for (const material of createdMaterials) await unit.createMaterial(material)
   for (const edit of editedMaterials) await unit.editMaterial(edit)
   for (const removal of removedMaterials) await unit.removeMaterial(removal)
+
+  // What people have been told about their Materials, beside the texts that tell
+  // them: the tick writes both in one transaction, so a text that went out is a
+  // text recorded, and a crash between them leaves neither.
+  if (materialLinks.length > 0) await unit.issueMaterialLinks(materialLinks)
+  if (materialNotices.length > 0) await unit.recordMaterialNotices(materialNotices)
 
   // Before the messages, and that ordering is the whole of what `START` does. The
   // outbound queue refuses anything bound for a Person with an open opt-out, so a
@@ -633,6 +647,8 @@ const consultsTheMaterialList = (
   // ticket 03). Behind the list's own lock, so an assignment and a removal of
   // the same Material cannot both decide from a list the other has changed.
   (command.type === 'relationship.assign_material' && command.materialId !== null) ||
+  // And assigning one to many, which always names one (Richer materials, ticket 02).
+  command.type === 'material.assign_to_relationships' ||
   // A withdrawal can activate a relationship as the last acceptance does, and
   // spends the intended Material the same way.
   ((command.type === 'relationship.accept' ||
@@ -1052,10 +1068,17 @@ export const createCommandService = ({
               unaccepted: await unit.unacceptedRelationships(),
               checkInsDue: await unit.leadersDueForCheckIn(),
               paused: await unit.pausedRelationships(),
+              materialNotices: await unit.materialRecipients(),
             }
           : {}),
         ...(isAboutOneRelationship(command)
           ? { relationship: await named(unit, command) }
+          : {}),
+        // Every relationship named, locked in one statement rather than one read
+        // each, so a press that starts twenty on a Material is not twenty round
+        // trips before anything is decided.
+        ...(command.type === 'material.assign_to_relationships'
+          ? { relationshipsToAssign: await unit.relationshipsToAssign(command.relationshipIds) }
           : {}),
         // Read inside the transaction like everything else, so two Admins editing
         // the list at once cannot both decide against a version of it that no
@@ -1092,6 +1115,9 @@ export const createCommandService = ({
         // Material that is off it.
         ...(editsTheMaterialList(command) || consultsTheMaterialList(command, invitation)
           ? { materials: await unit.materials() }
+          : {}),
+        ...(command.type === 'material.create' || command.type === 'material.edit'
+          ? { materialPathsNamed: await unit.materialPathsNamed(command.files.map((file) => file.path)) }
           : {}),
         // Read inside the transaction, behind the same advisory lock the read
         // itself takes, so a reply and a newly-due sequence cannot both find no

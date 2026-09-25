@@ -1,4 +1,5 @@
 import type { PasswordResetRefusal } from './accounts'
+import type { RelationshipId } from './ids'
 import type { IntakeRefusal } from './intake'
 import type { MinistrySettingsRefusal } from './ministry-settings'
 import type { RemovalRefusal } from './removal'
@@ -431,7 +432,15 @@ export type MaterialAssignmentRefusal =
   | 'material.already_running'
 
 export class MaterialAssignmentRefused extends Error {
-  constructor(readonly refusal: MaterialAssignmentRefusal) {
+  constructor(
+    readonly refusal: MaterialAssignmentRefusal,
+    /**
+     * The relationship the refusal is about, where it is about one. Assigning to
+     * many at once is refused whole by any one of them, and the page says which
+     * (Richer materials, ticket 02); a single card has only its own to name.
+     */
+    readonly relationshipId: RelationshipId | null = null,
+  ) {
     super(refusal)
     this.name = 'MaterialAssignmentRefused'
   }
@@ -452,14 +461,18 @@ export type MaterialRefusal =
   | 'material.needs_title'
   /** This Ministry already holds a live Material titled like that. */
   | 'material.title_taken'
-  /** Neither text nor a PDF: a title pointing at nothing. */
+  /** Neither text nor any file or link: a title pointing at nothing. */
   | 'material.needs_content'
   /** A relationship is working through it. Move them first. */
   | 'material.in_use'
-  /** The file chosen is not a PDF. Refused by the route, before storage. */
-  | 'material.pdf_only'
-  /** The file chosen is larger than a Material may carry. Refused by the route. */
-  | 'material.pdf_too_large'
+  /** A file of a type a Material may not hold. Refused before the upload and again after. */
+  | 'material.file_type'
+  /** A file larger than a Material may hold. Refused before the upload and again after. */
+  | 'material.file_too_large'
+  /** An address that is not an http or https link. */
+  | 'material.link_unreadable'
+  /** More files and links than one Material may hold. */
+  | 'material.too_many_items'
 
 export class MaterialRefused extends Error {
   constructor(

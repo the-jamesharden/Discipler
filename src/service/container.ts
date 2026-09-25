@@ -2,6 +2,8 @@ import { after } from 'next/server'
 import type { RandomSource } from '~/domain/accounts'
 import { systemClock } from '~/domain/clock'
 import type { IdSource, MinistryId } from '~/domain/ids'
+import { createPostgresMaterialPageReader } from '~/platform/supabase/material-page-reader'
+import { sweepUnsavedUploads as sweepUploads } from '~/platform/supabase/material-files'
 import { appBaseUrl, commandDatabaseUrl } from '~/platform/supabase/credentials'
 import {
   createPostgresEffectStore,
@@ -52,6 +54,7 @@ import type {
   IntakeFormsReader,
   IntakeReader,
   InvitationReader,
+  MaterialPageReader,
   MaterialsReader,
   MessageTransport,
   MinistryDirectory,
@@ -221,6 +224,20 @@ export const getInvitationReader = (): InvitationReader => {
   return invitationReader
 }
 
+let materialPageReader: MaterialPageReader | undefined
+
+/**
+ * A Disciple's Material page is served to somebody with no session, so it reads
+ * on the command connection as the Invitation Link's page does (Richer
+ * materials, ticket 04).
+ */
+export const getMaterialPageReader = (): MaterialPageReader => {
+  if (!materialPageReader) {
+    materialPageReader = createPostgresMaterialPageReader(commandDatabaseUrl())
+  }
+  return materialPageReader
+}
+
 /**
  * The Ministry Setup Link's page is served to a pastor with no account and no
  * Ministry yet, so it runs on the same trusted connection provisioning does. It
@@ -305,6 +322,14 @@ export const settlePlannedPairings = async (ministryId: MinistryId): Promise<voi
  * Which Ministries the scheduler has to run for. The one unscoped read in the app,
  * kept to ids for that reason -- see the port.
  */
+/**
+ * Deletes a Ministry's uploads that no Material names a day after they landed
+ * (Richer materials, ticket 01). The tick runs it; the clock is the one thing
+ * passed down, as it is to every reader here.
+ */
+export const sweepUnsavedUploads = (ministryId: MinistryId): Promise<number> =>
+  sweepUploads(ministryId, systemClock)
+
 export const getMinistryDirectory = (): MinistryDirectory => {
   if (!ministryDirectory) {
     ministryDirectory = createPostgresMinistryDirectory(commandDatabaseUrl())

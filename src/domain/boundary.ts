@@ -1,4 +1,9 @@
-import type { Command } from './commands'
+import type { Command, TypedLink } from './commands'
+import {
+  materialNoticesDue,
+  type MaterialRecipient,
+  type MaterialText,
+} from './material-notices'
 import { days, daysSince, type Clock } from './clock'
 import {
   acceptInvitation,
@@ -47,6 +52,8 @@ import {
   renameDiscipleshipGoal,
   reorderDiscipleshipGoals,
   resolveConcern,
+  issueMaterialLink,
+  recordMaterialNotice,
   restorePerson,
   saveMinistrySettings,
   setKeywordExchangeTarget,
@@ -145,11 +152,15 @@ import { passwordResetRefusal } from './accounts'
 import {
   carriesSomething,
   materialOnOffer,
+  MOST_ITEMS,
   readMaterialBody,
+  readWebLink,
   readMaterialTitle,
+  readStoredFile,
   titleAlreadyHeld,
+  type MaterialFile,
+  type MaterialItem,
   type MaterialOnOffer,
-  type MaterialPdf,
   type MaterialTitle,
 } from './materials'
 import {
@@ -172,6 +183,8 @@ import {
   checkInSubject,
   groupJoinedMessage,
   leaderDashboardLink,
+  materialMessage,
+  materialPageLink,
   checkInThankYou,
   concernDetailRequest,
   invitationLink,
@@ -198,6 +211,7 @@ import {
   importRowId,
   intendedPairingId,
   materialId,
+  materialItemId,
   personId,
   relationshipId,
   type IdSource,
@@ -376,10 +390,26 @@ export interface CommandContext {
    */
   readonly paused?: readonly PausedRelationship[]
   /**
+   * Everyone the tick may tell about a Material that changed, with the Ministry's
+   * timezone the day is counted in (Richer materials, ticket 03). Absent, the
+   * tick tells nobody anything.
+   */
+  readonly materialNotices?: {
+    readonly timeZone: string
+    readonly recipients: readonly MaterialRecipient[]
+  }
+  /**
    * The one relationship an Admin command names, as the database holds it now.
    * Absent when the command names none.
    */
   readonly relationship?: RelationshipSnapshot
+  /**
+   * The relationships `material.assign_to_relationships` names, as the database
+   * holds them now and locked, loaded on its behalf and on nobody else's. One
+   * named that is not here is not this Ministry's, or no longer exists; absent
+   * altogether is *not loaded*, which the command refuses to run on.
+   */
+  readonly relationshipsToAssign?: readonly RelationshipToAssign[]
   /**
    * The group a submission on the group path named, loaded on `intake.submit`'s
    * behalf when the form carries one -- as the database holds it now, locked, so
@@ -481,6 +511,13 @@ export interface CommandContext {
    * `relationship.accept` whose invitation still carries one.
    */
   readonly materials?: readonly MaterialOnOffer[]
+  /**
+   * Which of the paths a `material.create` or `material.edit` posted some
+   * Material already names, removed ones included. Loaded on those two
+   * commands' behalf; absent is *nothing named*, since a command posting no
+   * files has nothing to compare.
+   */
+  readonly materialPathsNamed?: ReadonlySet<string>
   /**
    * What the Person an inbound text came from holds, what they last asked for, and
    * whether Discipler may still text them. Loaded on `sms.inbound`'s behalf,
@@ -653,6 +690,18 @@ export interface RelationshipSnapshot {
   /** Everyone holding an open membership, whatever their role. */
   readonly members: readonly RelationshipMember[]
 }
+
+/**
+ * What assigning a Material decides from, and nothing more: when the
+ * relationship was activated and whether it has ended. A snapshot of its own
+ * rather than a whole `RelationshipSnapshot` per relationship, because assigning
+ * to many reads them all in one statement, and the members, the Pause and the
+ * rest would be reads the rule never consults (Richer materials, ticket 02).
+ */
+export type RelationshipToAssign = Pick<
+  RelationshipSnapshot,
+  'relationshipId' | 'acceptedAt' | 'endedAt'
+>
 
 /**
  * One open `group_join_requested` item, as an admission reads it: who asked and
@@ -833,6 +882,77 @@ const theMaterialsHeld = (context: CommandContext): readonly MaterialOnOffer[] =
 }
 
 /**
+ * Whether a Material may be put on this relationship, or taken off it, at all:
+ * refused where it has ended or nobody has accepted it, naming it. One rule for a
+ * single card and for many at once, so the two cannot come to disagree about
+ * which relationships can be assigned (Richer materials, ticket 02).
+ */
+const refuseUnlessAssignable = (relationship: RelationshipToAssign): void => {
+  // Terminal first, as everywhere else. A relationship that is over has no
+  // further week to attribute, and a period opened after its ending would be
+  // one no report could ever ask about.
+  if (relationship.endedAt !== null) {
+    throw new MaterialAssignmentRefused('material.relationship_ended', relationship.relationshipId)
+  }
+  // The period with no Material starts at acceptance. Before that there is
+  // nothing to close, and a period opened now would start after the one
+  // acceptance is about to open -- which is the gap the opening period exists
+  // to prevent, written by the very act that was supposed to fill it.
+  if (relationship.acceptedAt === null) {
+    throw new MaterialAssignmentRefused(
+      'material.relationship_not_accepted',
+      relationship.relationshipId,
+    )
+  }
+
+  // A Pause is not checked, deliberately. It suspends this relationship's
+  // check-ins and nothing else, and deciding what a Leader will pick up when
+  // they come back is exactly the sort of thing an Admin does during one. The
+  // weeks a Pause covers are dropped from `relationship_weeks` anyway, so the
+  // period spanning it attributes nothing either way.
+}
+
+/**
+ * What one assignment writes: the period, then the event saying so. The same
+ * two effects whichever act asked for it, so a relationship's history reads the
+ * same whether it was put on its Material from its card or with many others.
+ *
+ * The Material this relationship is already on is refused by
+ * `app.assign_material`, as `material.already_running`: it reads the running
+ * period under the lock it writes the next one under, which a snapshot read here
+ * could not promise.
+ */
+const assigning = (
+  relationship: RelationshipToAssign,
+  act: {
+    readonly ministryId: MinistryId
+    readonly materialId: MaterialId | null
+    readonly assignedBy: string
+  },
+  now: Date,
+): Effect[] => [
+  assignMaterial({
+    ministryId: act.ministryId,
+    relationshipId: relationship.relationshipId,
+    materialId: act.materialId,
+    assignedAt: now,
+    assignedBy: act.assignedBy,
+  }),
+  appendHistory({
+    ministryId: act.ministryId,
+    occurredAt: now,
+    type: 'relationship.material_assigned',
+    subjectType: 'relationship',
+    subjectId: relationship.relationshipId,
+    // Append-only, so this is the record that survives the Admin leaving the
+    // Ministry and `assigned_by` being nulled with them. The period that ended is
+    // deliberately absent: it is a row with a date on it, and a second copy of
+    // that date here would be an answer waiting to disagree with the first.
+    payload: { materialId: act.materialId, assignedBy: act.assignedBy },
+  }),
+]
+
+/**
  * Whether the Material an Admin chose is on the Ministry's live list as this
  * command decides. Asked when a relationship is formed with one, when it is
  * accepted, and when one is assigned (Materials, ticket 03), and answered one
@@ -872,12 +992,82 @@ const theTitleFor = (
   return title
 }
 
-/** The text a Material will carry, checked against the PDF: one of them, or both. */
-const theContentOf = (raw: string | null, pdf: MaterialPdf | null): string | null => {
+/**
+ * Where a Material text sends somebody: a Leader to their dashboard, where every
+ * relationship they lead is, and a Disciple to the page of the one relationship
+ * the text is about (Richer materials, ticket 04).
+ */
+const materialTextLink = (text: MaterialText, appBaseUrl: string, pageToken: string | null): string => {
+  if (text.kind.startsWith('leader_')) return leaderDashboardLink(appBaseUrl)
+  if (!pageToken) throw new Error(`A ${text.kind} text was composed with no page to link`)
+  return materialPageLink(appBaseUrl, pageToken)
+}
+
+/**
+ * The files a press actually adds: each path once, and none some Material
+ * already names. Save pressed twice, or a form brought back with the browser's
+ * Back button, posts an upload that has already been saved; the press lands as
+ * though that file had not been posted again, rather than tripping the
+ * database's one-item-per-object rule and turning a saved file into one a
+ * failed save deletes.
+ */
+const theFilesNotYetHeld = (
+  context: CommandContext,
+  files: readonly MaterialFile[],
+): readonly MaterialFile[] => {
+  const named = context.materialPathsNamed ?? new Set<string>()
+  const seen = new Set<string>()
+  return files.filter((file) => {
+    if (named.has(file.path) || seen.has(file.path)) return false
+    seen.add(file.path)
+    return true
+  })
+}
+
+/**
+ * The files and links being added, each checked, and given an id and a place
+ * after everything the Material keeps. Files before links, which is the order
+ * the form lists its two boxes in.
+ */
+const theItemsAdded = (
+  context: CommandContext,
+  files: readonly MaterialFile[],
+  links: readonly TypedLink[],
+  after: readonly MaterialItem[],
+): readonly MaterialItem[] => {
+  for (const file of files) {
+    const refusal = readStoredFile(file)
+    if (refusal) throw new MaterialRefused(refusal)
+  }
+  const read = links.map((typed) => {
+    const link = readWebLink(typed)
+    if (!link) throw new MaterialRefused('material.link_unreadable')
+    return link
+  })
+  const next = after.reduce((largest, item) => Math.max(largest, item.position + 1), 0)
+  return [...files, ...read].map((content, index) => ({
+    ...content,
+    id: materialItemId(context.ids.next()),
+    position: next + index,
+  }))
+}
+
+/**
+ * The text a Material will carry, checked against its items: one of them, or
+ * both, and no more items than a Material may hold.
+ */
+const theContentOf = (raw: string | null, items: readonly MaterialItem[]): string | null => {
   const body = readMaterialBody(raw)
-  if (!carriesSomething(body, pdf)) throw new MaterialRefused('material.needs_content')
+  if (!carriesSomething(body, items)) throw new MaterialRefused('material.needs_content')
+  if (items.length > MOST_ITEMS) throw new MaterialRefused('material.too_many_items')
   return body
 }
+
+/** What history remembers an item by: its filename, or its address. */
+const asRemembered = (item: MaterialItem) =>
+  item.kind === 'file'
+    ? { kind: 'file', filename: item.filename }
+    : { kind: 'link', url: item.url, label: item.label }
 
 /**
  * The option an edit names, or a refusal. A refusal rather than a failure,
@@ -3041,6 +3231,64 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         )
       }
 
+      // What anybody is told about a Material that changed (Richer materials,
+      // ticket 03): at most one text a person a day, once the changes feeding it
+      // have been still for an hour, saying where things ended up. The rule is
+      // `material-notices.ts`'s; this only words it and records it.
+      if (context.materialNotices) {
+        const { timeZone, recipients } = context.materialNotices
+        for (const notice of materialNoticesDue(recipients, now, timeZone)) {
+          // A Disciple's text links their page for the relationship it is about,
+          // minted now if this is the first text to carry it.
+          const aboutId = notice.text && 'relationshipId' in notice.text ? notice.text.relationshipId : null
+          const about = notice.told.find((told) => told.relationshipId === aboutId)
+          let pageToken = about?.pageToken ?? null
+          if (about && !pageToken) {
+            pageToken = context.ids.next()
+            effects.push(
+              issueMaterialLink({
+                ministryId: command.ministryId,
+                personId: notice.personId,
+                relationshipId: about.relationshipId,
+                token: pageToken,
+              }),
+            )
+          }
+          if (notice.text) {
+            effects.push(
+              enqueueMessage({
+                ministryId: command.ministryId,
+                personId: notice.personId,
+                toPhone: notice.phone,
+                body: materialMessage({
+                  ministryName,
+                  text: notice.text,
+                  link: materialTextLink(notice.text, appBaseUrl, pageToken),
+                }),
+                enqueuedAt: now,
+                // Names a Leader to a Disciple at most, never a number.
+                disclosesPersonId: null,
+                kind: 'no_reply',
+                ratesLine: 'once_a_month',
+              }),
+            )
+          }
+          for (const standing of notice.told) {
+            effects.push(
+              recordMaterialNotice({
+                ministryId: command.ministryId,
+                personId: notice.personId,
+                relationshipId: standing.relationshipId,
+                materialId: standing.running.materialId,
+                fingerprint: standing.running.fingerprint,
+                toldAt: now,
+                texted: notice.text !== null,
+              }),
+            )
+          }
+        }
+      }
+
       return { effects, rejections: [] }
     }
 
@@ -3684,27 +3932,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         throw new Error('relationship.assign_material was handed no relationship to act on')
       }
 
-      const now = context.clock.now()
-
-      // Terminal first, as everywhere else. A relationship that is over has no
-      // further week to attribute, and a period opened after its ending would be
-      // one no report could ever ask about.
-      if (relationship.endedAt !== null) {
-        throw new MaterialAssignmentRefused('material.relationship_ended')
-      }
-      // The period with no Material starts at acceptance. Before that there is
-      // nothing to close, and a period opened now would start after the one
-      // acceptance is about to open -- which is the gap the opening period exists
-      // to prevent, written by the very act that was supposed to fill it.
-      if (relationship.acceptedAt === null) {
-        throw new MaterialAssignmentRefused('material.relationship_not_accepted')
-      }
-
-      // A Pause is not checked, deliberately. It suspends this relationship's
-      // check-ins and nothing else, and deciding what a Leader will pick up when
-      // they come back is exactly the sort of thing an Admin does during one. The
-      // weeks a Pause covers are dropped from `relationship_weeks` anyway, so the
-      // period spanning it attributes nothing either way.
+      refuseUnlessAssignable(relationship)
 
       // A Material, checked against the live list read in this transaction: a
       // removed one is off it, so a stale dropdown cannot put a relationship on a
@@ -3714,35 +3942,49 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         throw new MaterialAssignmentRefused('material.not_found')
       }
 
-      // The Material this relationship is already on is refused by
-      // `app.assign_material`, as `material.already_running`: it reads the
-      // running period under the lock it writes the next one under, which a
-      // snapshot read here could not promise.
       return {
         rejections: [],
-        effects: [
-          assignMaterial({
-            ministryId: command.ministryId,
-            relationshipId: relationship.relationshipId,
-            materialId: command.materialId,
-            assignedAt: now,
-            assignedBy: command.assignedBy,
-          }),
-          appendHistory({
-            ministryId: command.ministryId,
-            occurredAt: now,
-            type: 'relationship.material_assigned',
-            subjectType: 'relationship',
-            subjectId: relationship.relationshipId,
-            // Append-only, so this is the record that survives the Admin leaving
-            // the Ministry and `assigned_by` being nulled with them. The period
-            // that ended is deliberately absent: it is a row with a date on it,
-            // and a second copy of that date here would be an answer waiting to
-            // disagree with the first.
-            payload: { materialId: command.materialId, assignedBy: command.assignedBy },
-          }),
-        ],
+        effects: assigning(relationship, command, context.clock.now()),
       }
+    }
+
+    case 'material.assign_to_relationships': {
+      const relationships = context.relationshipsToAssign
+      if (!relationships) {
+        throw new Error('material.assign_to_relationships was handed no relationships to act on')
+      }
+      // Once, in the page's order, however the form came to repeat one: a second
+      // assignment of the same relationship would be refused as the Material
+      // already running, and refuse the lot over nothing.
+      const named = [...new Set(command.relationshipIds)]
+      // The route refuses an empty list before it gets here, with a sentence of
+      // its own. Reaching here without one is a caller composing the command
+      // wrong, and an act that assigns nobody is not something to record.
+      if (named.length === 0) {
+        throw new Error('material.assign_to_relationships was handed no relationship to act on')
+      }
+
+      // The Material first, and once: it is the one reason that is nobody's in
+      // particular, and it is the same answer for every relationship named.
+      if (!isStillOnTheList(context, command.materialId)) {
+        throw new MaterialAssignmentRefused('material.not_found')
+      }
+
+      const now = context.clock.now()
+      const effects = named.flatMap((id) => {
+        // Not loaded is not this Ministry's, or gone since the page was drawn:
+        // the same refusal a single card gets for it, naming which.
+        const relationship = relationships.find((each) => each.relationshipId === id)
+        if (!relationship) throw new MaterialAssignmentRefused('material.relationship_not_found', id)
+        refuseUnlessAssignable(relationship)
+        return assigning(relationship, command, now)
+      })
+
+      // Nothing here is decided that one card would not decide, and the first
+      // refusal ends the act with nothing written, which is what makes it one act
+      // rather than several presses in a row. The Material one of them is already
+      // on is refused by `app.assign_material` for it, as for a single card.
+      return { rejections: [], effects }
     }
 
     case 'relationship.pause': {
@@ -5190,7 +5432,8 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       // The title first, then the content: an Admin who typed nothing at all is
       // told about the title, which is the first box on the form.
       const title = theTitleFor(materials, command.title)
-      const body = theContentOf(command.body, command.pdf)
+      const items = theItemsAdded(context, theFilesNotYetHeld(context, command.files), command.links, [])
+      const body = theContentOf(command.body, items)
       const now = context.clock.now()
       const id = materialId(context.ids.next())
 
@@ -5201,7 +5444,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             ministryId: command.ministryId,
             title,
             body,
-            pdf: command.pdf,
+            items,
             createdAt: now,
           }),
           appendHistory({
@@ -5213,7 +5456,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             payload: {
               title,
               body,
-              pdfFilename: command.pdf?.filename ?? null,
+              items: items.map(asRemembered),
               createdBy: command.createdBy,
             },
           }),
@@ -5228,11 +5471,22 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       // Compared against every other Material and never against itself, which
       // is what lets an Admin correct a title's own capitalisation.
       const title = theTitleFor(materials, command.title, material.id)
-      // Kept, removed or replaced. Removing the PDF from a Material with no
-      // text is what the content rule refuses.
-      const pdf =
-        command.pdf === 'keep' ? material.pdf : command.pdf === 'remove' ? null : command.pdf
-      const body = theContentOf(command.body, pdf)
+      // An id the Material no longer holds is ignored: another Admin removed it
+      // first, and the page this one pressed Save on was simply older.
+      const removing = new Set(command.removeItems)
+      const removed = material.items.filter((item) => removing.has(item.id))
+      const kept = material.items.filter((item) => !removing.has(item.id))
+      // After everything it has ever held, not just what it keeps: a new item
+      // never takes the place of one removed in the same press.
+      const added = theItemsAdded(
+        context,
+        theFilesNotYetHeld(context, command.files),
+        command.links,
+        material.items,
+      )
+      // Removing the last item from a Material with no text is what the content
+      // rule refuses.
+      const body = theContentOf(command.body, [...kept, ...added])
       const now = context.clock.now()
 
       return {
@@ -5242,13 +5496,13 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             materialId: material.id,
             title,
             body,
-            pdf,
-            // What the row stops naming: nothing when kept, the old one otherwise.
-            discarded: command.pdf === 'keep' ? null : material.pdf,
+            removed,
+            added,
+            discarded: removed.flatMap((item) => (item.kind === 'file' ? [item] : [])),
           }),
-          // What it used to say, which the update is about to overwrite and
-          // which nothing else keeps: a period points at the row, so the row
-          // as it stood is history's alone to remember.
+          // What it used to say, which the edit is about to overwrite and which
+          // nothing else keeps: a period points at the row, so the row as it
+          // stood is history's alone to remember.
           appendHistory({
             ministryId: command.ministryId,
             occurredAt: now,
@@ -5259,9 +5513,9 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
               from: {
                 title: material.title,
                 body: material.body,
-                pdfFilename: material.pdf?.filename ?? null,
+                items: material.items.map(asRemembered),
               },
-              to: { title, body, pdfFilename: pdf?.filename ?? null },
+              to: { title, body, items: [...kept, ...added].map(asRemembered) },
               changedBy: command.changedBy,
             },
           }),

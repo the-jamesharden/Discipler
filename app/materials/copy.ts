@@ -1,6 +1,6 @@
 import type { MaterialAssignmentRefusal, MaterialRefusal } from '~/domain/errors'
 import { GENDERS, isOneOf, type Gender } from '~/domain/intake'
-import { LARGEST_PDF_BYTES } from '~/domain/materials'
+import { LARGEST_FILE_BYTES, MOST_ITEMS } from '~/domain/materials'
 import type { ClosedMaterialPeriod } from '~/service/ports'
 import { refusalIn } from '../refusals'
 
@@ -147,26 +147,62 @@ export const NEW_MATERIAL = 'New material'
 export const BACK_TO_MATERIALS = 'Materials'
 
 export const NEW_MATERIAL_LEAD =
-  'What a relationship works through: a book, a reading plan, a set of practices. Give it a title and either some text, a PDF, or both. Leaders see it on their dashboard once it is assigned.'
+  'What a relationship works through: a book, a reading plan, a set of practices. Give it a title and some text, files or links. Once it is assigned, Leaders see it on their dashboard and Disciples on a page their text links to.'
 
 export const TITLE_LABEL = 'Title'
 export const TEXT_LABEL = 'Text'
 export const TEXT_PLACEHOLDER =
   'What the leader reads. A plan for the weeks, questions to bring, anything they should have in front of them.'
-export const TEXT_HINT = 'Shown to the leader as written, line breaks kept.'
-export const PDF_LABEL = 'PDF'
+// No hint under the text box: James, reviewing the richer-materials mock-up on
+// 2026-09-24, "don't keep this line".
 
-/** The cap, said in megabytes, from the one constant the route checks against. */
-const LARGEST_PDF_MB = Math.round(LARGEST_PDF_BYTES / (1024 * 1024))
+// ---------------------------------------------------------------------------
+// Files and links (Richer materials, ticket 01)
+// ---------------------------------------------------------------------------
 
-export const PDF_HINT = `PDF only, up to ${LARGEST_PDF_MB} MB. The leader downloads it from their dashboard.`
+export const FILES_AND_LINKS = 'Files and links'
+export const ADD_FILES = 'Add files'
+export const ADD_A_LINK = 'Add a link'
+export const LINK_PLACEHOLDER = 'https://'
+export const LINK_LABEL_PLACEHOLDER = 'What to call it (optional)'
+export const LINK_LABEL_NAME = 'What to call the link'
+export const LINK = 'Link'
+export const REMOVE_ITEM = 'Remove'
+export const CANCEL_UPLOAD = 'Cancel'
+
+/** What a screen reader hears for an item's Remove, which on screen sits beside the name. */
+export const removeItemNamed = (name: string): string => `Remove ${name}`
+/** The same for an upload's Cancel. */
+export const cancelUploadOf = (name: string): string => `Cancel ${name}`
+
+/** The cap, said in megabytes, from the one constant every check reads. */
+const LARGEST_FILE_MB = Math.round(LARGEST_FILE_BYTES / (1024 * 1024))
+
+export const FILES_HINT = `PDF, Word, text, images, audio or video, up to ${LARGEST_FILE_MB} MB each. Each one uploads as soon as you choose it.`
+export const LINK_HINT =
+  "Videos, reading plans, anything on the web. Without a name it shows the site's address."
+
+/** *Uploading, 26 of 42 MB*: an upload's row while its bytes are on the way. */
+export const uploading = (sent: number, total: number): string =>
+  `Uploading, ${fileSize(sent)} of ${fileSize(total)}`
+
+export const UPLOADED = 'Uploaded. Saved when you save the material.'
+export const UPLOAD_FAILED = 'Could not upload. Remove it and try again.'
+export const NEEDS_SCRIPT = 'Adding files needs JavaScript, which this browser has turned off.'
+
+/** The refusal for one file chosen, before its upload starts, naming it. */
+export const uploadRefusal = (
+  code: 'material.file_type' | 'material.file_too_large',
+  filename: string,
+): string =>
+  code === 'material.file_type'
+    ? `${filename} is not a type a material can hold.`
+    : `${filename} is larger than ${LARGEST_FILE_MB} MB.`
 
 export const CANCEL = 'Cancel'
 export const CREATE_MATERIAL = 'Create material'
 
 export const EDIT_THIS_MATERIAL = 'Edit this material'
-export const REMOVE_THE_PDF = 'Remove the PDF'
-export const REPLACE_IT = 'Replace it'
 export const SAVE_CHANGES = 'Save changes'
 
 export const REMOVE_THIS_MATERIAL = 'Remove this material'
@@ -186,8 +222,8 @@ export const inUseNotice = (count: number): string =>
     : `${count} relationships are working through it. Move them to another material, or to none, before removing it.`
 
 /**
- * *1.8 MB*, or *240 KB* under a megabyte: the size beside the current PDF's
- * name, said the way a file browser says it.
+ * *1.8 MB*, or *240 KB* under a megabyte: the size beside a file's name, said
+ * the way a file browser says it.
  */
 export const fileSize = (bytes: number): string =>
   bytes < 1024 * 1024
@@ -198,11 +234,13 @@ const REFUSALS: Record<MaterialRefusal, string> = {
   'material.not_on_the_list': 'That material is no longer on the list. Somebody may have removed it.',
   'material.needs_title': 'A material needs a title.',
   'material.title_taken': 'This ministry already has a material with that title.',
-  'material.needs_content': 'A material needs text, a PDF, or both.',
+  'material.needs_content': 'A material needs text, a file or a link.',
   'material.in_use':
     'Relationships are working through it. Move them to another material, or to none, before removing it.',
-  'material.pdf_only': 'Only a PDF can be attached.',
-  'material.pdf_too_large': `The PDF is larger than ${LARGEST_PDF_MB} MB.`,
+  'material.file_type': 'One of the files is not a type a material can hold.',
+  'material.file_too_large': `One of the files is larger than ${LARGEST_FILE_MB} MB.`,
+  'material.link_unreadable': 'The link needs to be a full web address, starting https:// or http://',
+  'material.too_many_items': `A material can hold up to ${MOST_ITEMS} files and links.`,
 }
 
 /**
@@ -239,3 +277,102 @@ const ASSIGNMENT_REFUSALS: Record<MaterialAssignmentRefusal, string> = {
 /** The sentence for an assignment refused from a folder's card, or null for a code it does not know. */
 export const assignmentRefusalMessage = (code: string | undefined): string | null =>
   refusalIn(ASSIGNMENT_REFUSALS, code)
+
+// ---------------------------------------------------------------------------
+// Assigning to many at once (Richer materials, ticket 02)
+// ---------------------------------------------------------------------------
+// M-3 of `.lavish/richer-materials/mockup.html`. The button's own words, which
+// the browser recounts as boxes are ticked, are in `./assign-button` so the
+// browser is not sent every sentence here.
+
+/** The ghost button in a Material's folder head, beside Edit this material. */
+export const ASSIGN_TO_MORE = 'Assign to more'
+
+/** The assign page's heading. */
+export const assignToMoreHeading = (title: string): string =>
+  `Assign ${title} to more relationships`
+
+export const ASSIGN_TO_MORE_LEAD =
+  'Each one ticked starts on it now. Whatever it was working through ends today and stays in its history. Everyone in it hears about the change, at most once a day.'
+
+export const SELECT_ALL_SHOWN = 'Select all shown'
+
+/** A group's heading: those on no Material first, then one per Material they are on. */
+export const onNoMaterialHeading = (count: number): string => `On no material · ${count}`
+export const onMaterialHeading = (title: string, count: number): string => `On ${title} · ${count}`
+
+/** Where the filter leaves nobody to list: all of them on it already, or none under it. */
+export const nobodyToAssign = (filter: MaterialsFilter): string =>
+  filter === null
+    ? 'Every relationship is already working through it.'
+    : `No ${FILTER_LABEL[filter].toLowerCase()} relationships to assign it to.`
+
+/** The pill on every row, Healthy included: the list is for choosing, not for triage. */
+export const HEALTHY = 'Healthy'
+
+/**
+ * A row's meta line: what it is, and what it is working through now and since
+ * when -- *started* for one on no Material, as the dashed folder says it.
+ */
+export const pickMeta = (
+  relationship: { readonly isAGroup: boolean; readonly participantNames: readonly string[] },
+  running: { readonly title: string; readonly since: Date } | null,
+  acceptedAt: Date,
+  timeZone: string,
+): string => {
+  const kind = relationship.isAGroup
+    ? `Group of ${relationship.participantNames.length}`
+    : 'One-to-one'
+  return running === null
+    ? `${kind} · started ${dayMonthYear(acceptedAt, timeZone)}`
+    : `${kind} · on ${running.title} since ${dayMonthYear(running.since, timeZone)}`
+}
+
+/** Who a relationship is, in the two parts a row sets differently: *Cole Alvarez* *with Marcus Boyd*. */
+export const pickName = (relationship: {
+  readonly leaderNames: readonly string[]
+  readonly participantNames: readonly string[]
+  readonly groupName: string | null
+}): { readonly who: string; readonly rest: string } => {
+  const leaders = relationship.leaderNames.join(', ') || 'Nobody leading'
+  return relationship.groupName
+    ? { who: relationship.groupName, rest: `led by ${leaders}` }
+    : {
+        who: leaders,
+        rest:
+          relationship.participantNames.length === 0
+            ? 'with nobody yet'
+            : `with ${relationship.participantNames.join(', ')}`,
+      }
+}
+
+/** The route's own refusal: a press with nothing ticked, which the button prevents where script runs. */
+export const NONE_TICKED = 'material.none_ticked'
+
+const ASSIGN_TO_MORE_REFUSALS = (
+  who: string,
+  title: string,
+): Record<MaterialAssignmentRefusal | typeof NONE_TICKED, string> => ({
+  'material.relationship_not_found': `Nothing was assigned. ${who} is not on this Roster any more, so it is no longer listed. Tick the others again to assign them.`,
+  'material.relationship_not_accepted': `Nothing was assigned. ${who} has not been accepted by its leader yet.`,
+  'material.relationship_ended': `Nothing was assigned. ${who} has ended since this page was opened, so it is no longer listed. Tick the others again to assign them.`,
+  'material.not_found': 'Nothing was assigned. That material is no longer on the list. Somebody may have removed it.',
+  'material.assigner_is_not_in_this_ministry': 'Nothing was assigned. This account cannot assign materials here.',
+  'material.already_running': `Nothing was assigned. ${who} is already working through ${title}, so it is no longer listed. Tick the others again to assign them.`,
+  [NONE_TICKED]: 'Tick at least one relationship to assign it to.',
+})
+
+/**
+ * The sentence for a press the route refused, naming the relationship it was
+ * refused over where the page could read its name, or null for a code this page
+ * does not know. The lookup is `refusalIn`, like every surface's.
+ */
+export const assignToMoreRefusalMessage = (
+  code: string | undefined,
+  refused: { readonly leaderNames: readonly string[]; readonly participantNames: readonly string[]; readonly groupName: string | null } | null,
+  title: string,
+): string | null => {
+  const named = refused ? pickName(refused) : null
+  const who = named ? `${named.who} ${named.rest}` : 'One of the ticked relationships'
+  return refusalIn(ASSIGN_TO_MORE_REFUSALS(who, title), code)
+}

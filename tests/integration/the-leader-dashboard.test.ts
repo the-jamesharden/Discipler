@@ -301,6 +301,44 @@ describe('what the Leader Dashboard may read', () => {
       expect(his.error).not.toBeNull()
     })
 
+    it('lets a Leader open every file of their Material, whatever its type, and nobody else', async () => {
+      // Richer materials, ticket 01: a Material holds several files, keyed by
+      // extension, and the storage policy reads each item's path.
+      const store = serviceRoleClient().storage.from('material')
+      const video = `${riverside.id}/${crypto.randomUUID()}.mp4`
+      const questions = `${riverside.id}/${crypto.randomUUID()}.docx`
+      for (const [path, type] of [
+        [video, 'video/mp4'],
+        [questions, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+      ] as const) {
+        const uploaded = await store.upload(path, new Blob(['bytes'], { type }), { contentType: type })
+        if (uploaded.error) throw new Error(uploaded.error.message)
+      }
+
+      const several = await addMaterial(riverside, 'Colossians, weeks 1-4', {
+        body: 'Four weeks.',
+        files: [
+          { path: video, filename: 'Session 1.mp4', contentType: 'video/mp4' },
+          {
+            path: questions,
+            filename: 'Questions.docx',
+            contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          },
+        ],
+        links: [{ url: 'https://bibleproject.com/colossians', label: null }],
+      })
+      await assignMaterial(karensGroup, several, riverside.adminUserId)
+
+      for (const path of [video, questions]) {
+        expect((await asKaren.storage.from('material').download(path)).error, path).toBeNull()
+        expect((await asMo.storage.from('material').download(path)).error, path).not.toBeNull()
+      }
+      const { data: items } = await asKaren.from('material_item').select('kind').eq('material_id', several)
+      expect((items ?? []).map((row) => row.kind).sort()).toEqual(['file', 'file', 'link'])
+      const { data: hidden } = await asMo.from('material_item').select('id').eq('material_id', several)
+      expect(hidden).toEqual([])
+    })
+
     it('takes a Leader’s sight of a Material away when the Admin assigns the next one', async () => {
       const later = await addMaterial(riverside, 'Philippians, weeks 1-4')
       await assignMaterial(karensOneToOne, later, riverside.adminUserId)

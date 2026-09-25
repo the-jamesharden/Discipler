@@ -206,6 +206,11 @@ The Starter Message names people and no numbers. A leader's names the participan
 
 **Only a leader is sent an Invitation Link.** A link asks somebody a question they have not yet answered, and a participant answered theirs at intake by consenting to be paired. The leader's acceptance is the other half of that agreement, and it is the half that was still outstanding. Nothing is minted for a participant, because there is nothing for one to do. This reverses an earlier reading of this file, under which a participant held a link of their own leading to a decline; see `docs/adr/0011-only-a-leader-is-sent-a-link.md`.
 
+> **Amended (2026-09-24, Richer materials, ticket 04):** a participant is now sent one other link, and it asks nothing.
+> The text that tells them their Material changed links a read-only page of it, with no sign-in.
+> Invitation Links are still a leader's alone.
+> See `docs/adr/0028-a-disciple-is-sent-a-link-to-their-material.md`.
+
 **Re-issuing an Invitation Link replaces it, and the superseded link opens nothing.** An admin can send a leader a fresh invitation from the roster row that says the relationship has not been accepted. Every re-issue mints a new token over the old one, whether or not the old one had run out, so the newest text is always the only one that works. This is the only way a link is ever taken back: an Invitation Link authenticates by possession of the phone it was texted to, so a link that reached the wrong number stays usable until something replaces it, and *not my number* deliberately changes nothing else. The cost falls on the leader who merely lost the text — an older message on their phone stops working — and that is a thing an admin can tell them, where a live link on a stranger's phone is not a thing anyone can undo. See `docs/adr/0012-re-issuing-a-link-replaces-it.md`.
 
 A relationship awaiting acceptance sends nothing to participants and accrues no silence against the leader. If it is still unaccepted after two days, Discipler reminds the leader; after five days, the admin dashboard surfaces it along with how long it has been waiting.
@@ -268,6 +273,11 @@ No admin action sends one. The only participant-facing traffic Discipler generat
 
 The reason is that Discipler's entire participant-facing surface is SMS. A ministry that over-messages its own congregation gets its number carrier-flagged, and every relationship in that ministry goes dark at once. The check stays at the sending layer regardless, so that a feature added later cannot cross the line by forgetting to ask.
 
+> **Supersedes (2026-09-24, Richer materials, ticket 03):** one text now follows an Admin's act.
+> When the Material a person is working through changes, the tick sends them one text once the changes have been still for an hour, at most once a day, and only if where things ended up differs from what they were last told.
+> The button still sends nothing; the tick does, through the same recipient check.
+> See `docs/adr/0027-a-material-change-is-texted-once-it-settles.md`.
+
 ## Settled: Clarification Attempts Are Capped, Listening Is Not
 
 Discipler sends at most two clarifying re-prompts per check-in question. After that it stops re-prompting but continues to accept a valid reply until the sequence advances past that question.
@@ -304,6 +314,18 @@ Material is assigned to the **relationship**, never to a person. A leader in two
 An assignment has a start date and an open end. Assigning a new material closes the previous one; materials may be swapped or removed at any time. Periods never overlap and never leave gaps.
 
 When a material changes mid-week, the week belongs to whichever material was assigned **at the moment the check-in was answered**, because that is the meeting being reported on. A week is never split across two materials.
+
+## Settled: A Material Holds Files and Links
+
+Decided by James on 2026-09-24, from Planning Center's Resources (`.scratch/richer-materials/spec.md`).
+A Material is a title, optional text, and any number of files and links up to a cap, shown in the order they were added.
+A file may be a document, an image, audio or video, up to a size limit; the list and the limits live in `src/domain/materials.ts` and in the storage bucket's own settings.
+A link is an `http` or `https` address, with an optional name.
+
+A relationship still works through one Material at a time.
+Several files do not make several Materials, so *Settled: Material Assignment* and the attribution it exists for are unchanged.
+
+> **Supersedes:** the Materials grill of 2026-09-12, under which a Material carried text, one PDF, or both, and the PDF was capped at 20 MB.
 
 ## Settled: Nudge Reveals a Number and Sends Nothing
 
@@ -535,7 +557,7 @@ It is decided per person and not per relationship: a leader of three relationshi
 Two texts queued to one person by the same act carry it once between them.
 
 The Welcome Message and the `HELP` reply always carry it, and each counts as the person having had it that month.
-The Starter Messages, the text a leader gets when somebody joins their group, a resume, and the question that opens a check-in may carry it.
+The Starter Messages, the text a leader gets when somebody joins their group, a resume, the text that says a Material changed, and the question that opens a check-in may carry it.
 Nothing else does.
 
 Each queued text records whether it carried the line, and later texts are decided against that record rather than against any text's wording.

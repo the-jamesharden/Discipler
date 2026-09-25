@@ -67,6 +67,15 @@ describe('applying a command\'s effects', () => {
         ratesLineHistory: async () => {
           throw new Error('nobody’s rates line should have been looked up')
         },
+        materialRecipients: async () => {
+          throw new Error('nobody should have been looked up for a Material text')
+        },
+        recordMaterialNotices: async () => {
+          throw new Error('no Material notice should have been recorded')
+        },
+        issueMaterialLinks: async () => {
+          throw new Error('no Material page link should have been minted')
+        },
         closeOutstandingReply: async () => {
           throw new Error('no conversation should have been closed')
         },
@@ -178,6 +187,9 @@ describe('applying a command\'s effects', () => {
         materials: async () => {
           throw new Error('the Materials should not have been read')
         },
+        materialPathsNamed: async () => {
+          throw new Error('no Material file should have been looked up')
+        },
         createMaterial: async () => {
           throw new Error('no Material should have been created')
         },
@@ -240,7 +252,10 @@ describe('applying a command\'s effects', () => {
         endRelationship: async () => {
           throw new Error('nothing should have been ended')
         },
-        assignMaterial: async () => {
+        relationshipsToAssign: async () => {
+          throw new Error('no relationship should have been read')
+        },
+        assignMaterials: async () => {
           throw new Error('no Material should have been assigned')
         },
         departFromRelationship: async () => {

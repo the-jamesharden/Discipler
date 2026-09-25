@@ -1,4 +1,3 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
 import { drawOverlay, type OverlayMember } from '~/domain/availability-overlay'
 import { materialId, ministryId, personId, relationshipId } from '~/domain/ids'
 import { SLOT_HOURS, WEEKDAYS, type AvailabilitySlot } from '~/domain/intake'
@@ -6,12 +5,14 @@ import type { MemberRole } from '~/domain/relationships'
 import { phoneNumber } from '~/domain/roster'
 import type {
   AssignedMaterial,
+  ItemToOpen,
   LeaderDashboardReader,
   RelationshipContact,
   RelationshipLed,
   RelationshipsPage,
 } from '~/service/ports'
 import { list, readPageDocument, resolutionOf, section, type PageDocument } from './page'
+import { materialItemFrom } from './material-items'
 import { text } from './rows'
 import { createSupabaseServerClient } from './server-client'
 
@@ -31,8 +32,6 @@ import { createSupabaseServerClient } from './server-client'
  * Admin who leads reach both surfaces from one account and a Leader whose last
  * relationship ends lose the surface with nothing revoked.
  */
-
-const HOW_LONG_A_PDF_LINK_LIVES = 60 * 10
 
 /**
  * How a contact row that arrived broken fails. From the screen's point of view the
@@ -183,36 +182,40 @@ const materialsFor = (
   return byRelationship
 }
 
-/** What a Material holds, and a short-lived link to its PDF if it has one. */
-const readMaterial = async (
-  supabase: SupabaseClient,
+/**
+ * What a Material holds, each file opening through `/relationships/file/<item>`.
+ * Nothing is signed here: a link per file per render was a burst of storage
+ * calls on every load of the dashboard, the thing ADR-0023 exists to stop. The
+ * route signs the one file tapped, under the Leader's own session, at the moment
+ * it is tapped -- so a link on a page left open all afternoon still works, and
+ * one for an assignment that has since ended does not.
+ */
+const readMaterial = (
   dashboard: PageDocument,
   material: { readonly materialId: string; readonly title: string },
-): Promise<AssignedMaterial> => {
+): AssignedMaterial => {
   const data = list(dashboard, 'materials').find((row) => text(row.id) === material.materialId)
-
-  const pdfPath = text((data ?? {}).pdf_path)
-  const pdfFilename = text((data ?? {}).pdf_filename)
-
-  // The one read that stays outside the document: the link is minted by the
-  // storage API, which has no face in SQL. Minted per render and short-lived, so a
-  // link cannot outlive the assignment it came with. A failure to mint one is not a
-  // failure of the screen: the title and the typed content are still what the
-  // Leader came for.
-  let pdfUrl: string | null = null
-  if (pdfPath) {
-    const signed = await supabase.storage
-      .from('material')
-      .createSignedUrl(pdfPath, HOW_LONG_A_PDF_LINK_LIVES)
-    pdfUrl = signed.data?.signedUrl ?? null
-  }
+  const rows = Array.isArray(data?.items) ? (data.items as Record<string, unknown>[]) : []
+  const items = rows
+    .map((row) => materialItemFrom(material.materialId, row))
+    .map((item): ItemToOpen =>
+      item.kind === 'file'
+        ? {
+            kind: 'file',
+            id: item.id,
+            filename: item.filename,
+            contentType: item.contentType,
+            bytes: item.bytes,
+            url: `/relationships/file/${item.id}`,
+          }
+        : { kind: 'link', id: item.id, url: item.url, label: item.label },
+    )
 
   return {
     materialId: materialId(material.materialId),
     title: material.title,
     body: text((data ?? {}).body),
-    pdfFilename,
-    pdfUrl,
+    items,
   }
 }
 
@@ -270,13 +273,10 @@ const contactsIn = (dashboard: PageDocument): Map<string, { fullName: string; ph
 const contactKey = (ministry: string, person: string) => `${ministry}/${person}`
 
 /**
- * The relationships led, derived from the `relationships_page` document. The client
- * is here for the one read the document cannot carry, a Material's signed PDF link.
+ * The relationships led, derived from the `relationships_page` document and
+ * nothing else: the one read ADR-0023 asks of a page.
  */
-export const readRelationshipsLed = async (
-  supabase: SupabaseClient,
-  doc: PageDocument,
-): Promise<RelationshipsPage> => {
+export const readRelationshipsLed = (doc: PageDocument): RelationshipsPage => {
   const resolution = resolutionOf(doc)
 
   // No session is not an empty dashboard: the page redirects rather than shows a
@@ -347,7 +347,7 @@ export const readRelationshipsLed = async (
       ministryName: ministryName.get(leadership.ministryId) ?? '',
       paused: paused.has(leadership.relationshipId),
       overlay,
-      material: material ? await readMaterial(supabase, dashboard, material) : null,
+      material: material ? readMaterial(dashboard, material) : null,
       contacts: contactsFor(
         shared,
         leadership.ministryId,
@@ -405,6 +405,6 @@ const contactsFor = (
 export const supabaseLeaderDashboardReader: LeaderDashboardReader = {
   async readRelationshipsPage(): Promise<RelationshipsPage> {
     const supabase = await createSupabaseServerClient()
-    return readRelationshipsLed(supabase, await readPageDocument(supabase, 'relationships_page'))
+    return readRelationshipsLed(await readPageDocument(supabase, 'relationships_page'))
   },
 }

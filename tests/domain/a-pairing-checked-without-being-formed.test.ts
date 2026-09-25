@@ -59,7 +59,7 @@ const aStore = (): InMemoryStore => {
 
   const title = readMaterialTitle('Romans')
   if (!title) throw new Error('Romans is not a title')
-  store.materials = [{ id: romans, title, body: 'Week one.', pdf: null, inUseBy: 0 }]
+  store.materials = [{ id: romans, title, body: 'Week one.', items: [], inUseBy: 0 }]
 
   return store
 }

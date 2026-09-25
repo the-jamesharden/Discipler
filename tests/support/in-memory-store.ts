@@ -16,6 +16,7 @@ import type {
 import type { CheckInSnapshot } from '~/domain/check-in'
 import type { OfferedGoal, StatedGoal } from '~/domain/discipleship-goals'
 import type { MaterialOnOffer } from '~/domain/materials'
+import type { MaterialRecipient } from '~/domain/material-notices'
 import type { InboundSnapshot } from '~/domain/keywords'
 import type { ConcernResolution, ConcernViewing, NewConcern } from '~/domain/concerns'
 import type {
@@ -32,7 +33,9 @@ import type {
   LeaderAcceptance,
   MaterialAssignment,
   MaterialEdit,
+  MaterialNoticeRecord,
   MaterialRemoval,
+  NewMaterialLink,
   NewMaterial,
   KeywordExchangeClarification,
   KeywordExchangeClosure,
@@ -138,6 +141,10 @@ export interface InMemoryStore extends EffectStore {
   readonly createdMaterials: readonly NewMaterial[]
   readonly editedMaterials: readonly MaterialEdit[]
   readonly removedMaterials: readonly MaterialRemoval[]
+  /** What people were recorded as told about their Materials (Richer materials, ticket 03). */
+  readonly materialNotices: readonly MaterialNoticeRecord[]
+  /** Disciples' page links minted (Richer materials, ticket 04). */
+  readonly materialLinks: readonly NewMaterialLink[]
   /** Every number whose conversation an effect closed, in order. */
   readonly outstandingReplyClosures: readonly OutstandingReplyClosure[]
   readonly outstandingReplySweeps: readonly OutstandingReplySweep[]
@@ -177,6 +184,10 @@ export interface InMemoryStore extends EffectStore {
   unaccepted: readonly UnacceptedRelationship[]
   /** What the tick finds paused. Nothing, until a test says otherwise. */
   paused: readonly PausedRelationship[]
+  /** Who the tick may tell about a Material change. Nobody until a test says otherwise. */
+  materialRecipients: readonly MaterialRecipient[]
+  /** The timezone a Material text's day is counted in. */
+  timeZoneForMaterialTexts: string
   /**
    * The Leaders the tick considers for a check-in. Empty until a test says
    * otherwise -- a Ministry with nobody to ask, which is what most tests are.
@@ -260,6 +271,8 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
   const createdMaterials: NewMaterial[] = []
   const editedMaterials: MaterialEdit[] = []
   const removedMaterials: MaterialRemoval[] = []
+  const materialNotices: MaterialNoticeRecord[] = []
+  const materialLinks: NewMaterialLink[] = []
   const intakeLinks: NewIntakeLink[] = []
   const resolutions: FollowUpResolution[] = []
   const cancellations: RelationshipCancellation[] = []
@@ -405,6 +418,12 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
     get editedMaterials() {
       return [...editedMaterials]
     },
+    get materialNotices() {
+      return [...materialNotices]
+    },
+    get materialLinks() {
+      return [...materialLinks]
+    },
     get removedMaterials() {
       return [...removedMaterials]
     },
@@ -435,6 +454,8 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
     materials: [],
     unaccepted: [],
     paused: [],
+    materialRecipients: [],
+    timeZoneForMaterialTexts: 'UTC',
     checkInsDue: [],
     contacts: new Map<PersonId, PersonContact>(),
     ministryName: 'Riverside Chapel',
@@ -496,6 +517,8 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       const stagedCreatedMaterials: NewMaterial[] = []
       const stagedEditedMaterials: MaterialEdit[] = []
       const stagedRemovedMaterials: MaterialRemoval[] = []
+      const stagedMaterialNotices: MaterialNoticeRecord[] = []
+      const stagedMaterialLinks: NewMaterialLink[] = []
       const stagedIntakeLinks: NewIntakeLink[] = []
       const stagedConcerns: NewConcern[] = []
       const stagedViewings: ConcernViewing[] = []
@@ -567,6 +590,14 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         },
         async materials() {
           return store.materials
+        },
+        async materialPathsNamed(paths) {
+          const named = new Set(
+            store.materials.flatMap((material) =>
+              material.items.flatMap((item) => (item.kind === 'file' ? [item.path] : [])),
+            ),
+          )
+          return new Set(paths.filter((path) => named.has(path)))
         },
         async createMaterial(material) {
           stagedCreatedMaterials.push(material)
@@ -685,11 +716,26 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         async pausedRelationships() {
           return store.paused
         },
+        async materialRecipients() {
+          return { timeZone: store.timeZoneForMaterialTexts, recipients: store.materialRecipients }
+        },
+        async recordMaterialNotices(notices) {
+          stagedMaterialNotices.push(...notices)
+        },
+        async issueMaterialLinks(links) {
+          stagedMaterialLinks.push(...links)
+        },
         async leadersDueForCheckIn() {
           return store.checkInsDue
         },
         async relationshipFor() {
           return store.relationship ?? null
+        },
+        async relationshipsToAssign(ids) {
+          // The one relationship this store holds, where it is among those named:
+          // the database's answer for a Ministry of one.
+          const held = store.relationship
+          return held && ids.includes(held.relationshipId) ? [held] : []
         },
         async cancelRelationship(cancellation) {
           stagedCancellations.push(cancellation)
@@ -721,8 +767,8 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         async configureGroup(configuration) {
           stagedGroupConfigurations.push(configuration)
         },
-        async assignMaterial(assignment) {
-          stagedMaterialAssignments.push(assignment)
+        async assignMaterials(assignments) {
+          stagedMaterialAssignments.push(...assignments)
         },
         async peopleOnRoster() {
           const everyone = [...people, ...stagedPeople]
@@ -869,6 +915,8 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       createdMaterials.push(...stagedCreatedMaterials)
       editedMaterials.push(...stagedEditedMaterials)
       removedMaterials.push(...stagedRemovedMaterials)
+      materialNotices.push(...stagedMaterialNotices)
+      materialLinks.push(...stagedMaterialLinks)
       intakeLinks.push(...stagedIntakeLinks)
       return result
     },

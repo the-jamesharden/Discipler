@@ -22,6 +22,7 @@ import type {
   PersonContact,
   OpenJoinRequest,
   RelationshipSnapshot,
+  RelationshipToAssign,
   UnacceptedRelationship,
 } from '~/domain/boundary'
 import type { CheckInSnapshot, Satisfaction } from '~/domain/check-in'
@@ -42,7 +43,9 @@ import type {
   LeaderAcceptance,
   MaterialAssignment,
   MaterialEdit,
+  MaterialNoticeRecord,
   MaterialRemoval,
+  NewMaterialLink,
   NewMaterial,
   KeywordExchangeClarification,
   KeywordExchangeClosure,
@@ -69,7 +72,8 @@ import type {
   NewFollowUpItem,
 } from '~/domain/follow-up'
 import type { OfferedGoal, StatedGoal } from '~/domain/discipleship-goals'
-import type { MaterialOnOffer } from '~/domain/materials'
+import type { MaterialItem, MaterialOnOffer } from '~/domain/materials'
+import type { MaterialRecipient } from '~/domain/material-notices'
 import type { MinistrySettings, MinistryVoice } from '~/domain/ministry-settings'
 import type { IntakeLinkState, IntakeLinkToken, NewIntakeLink } from '~/domain/intake-link'
 import type { InboundSnapshot } from '~/domain/keywords'
@@ -356,6 +360,20 @@ export interface UnitOfWork {
    */
   pausedRelationships(): Promise<readonly PausedRelationship[]>
   /**
+   * Everyone the tick may tell about a Material change, each with every
+   * relationship of theirs: what is running, what they were last told, and when
+   * it last changed; and the Ministry's timezone, which a day is counted in
+   * (Richer materials, ticket 03).
+   */
+  materialRecipients(): Promise<{
+    readonly timeZone: string
+    readonly recipients: readonly MaterialRecipient[]
+  }>
+  /** What people have now been told, a row each, never updated. */
+  recordMaterialNotices(notices: readonly MaterialNoticeRecord[]): Promise<void>
+  /** Disciples' page links, each minted the first time a text carries it (ticket 04). */
+  issueMaterialLinks(links: readonly NewMaterialLink[]): Promise<void>
+  /**
    * One relationship as the database holds it now, or null when this Ministry has
    * none by that identifier -- which is the same answer for one that belongs to
    * another Ministry, because the policy on the connection shows neither.
@@ -431,16 +449,25 @@ export interface UnitOfWork {
   /** What an Admin called a group and whether joining it asks. */
   configureGroup(configuration: GroupConfiguration): Promise<void>
   /**
-   * Closes the Material period that was running and opens a new one at the same
-   * instant, through the one database function that writes either -- which is what
-   * keeps *periods never overlap and never leave gaps* true of every write path
-   * rather than of the one that happens to be careful.
-   *
-   * Refuses with a `MaterialAssignmentRefused` when the database disagrees with the
-   * snapshot the domain decided from, or when the Material or the Admin belongs to
-   * another Ministry.
+   * The relationships an Admin is assigning a Material to many of at once, each as
+   * much as the rule reads, locked in one statement (Richer materials, ticket 02).
+   * One this Ministry does not hold is left out rather than answered for: the
+   * domain refuses the act over it, by name.
    */
-  assignMaterial(assignment: MaterialAssignment): Promise<void>
+  relationshipsToAssign(ids: readonly RelationshipId[]): Promise<readonly RelationshipToAssign[]>
+  /**
+   * For each assignment in turn, closes the Material period that was running and
+   * opens a new one at the same instant, through the one database function that
+   * writes either -- which is what keeps *periods never overlap and never leave
+   * gaps* true of every write path rather than of the one that happens to be
+   * careful. All of them in one round trip, in the order given, because a command
+   * that assigns many would otherwise wait on the network once per relationship.
+   *
+   * Refuses with a `MaterialAssignmentRefused` naming the relationship when the
+   * database disagrees with the snapshot the domain decided from, and without one
+   * when the Material or the Admin belongs to another Ministry.
+   */
+  assignMaterials(assignments: readonly MaterialAssignment[]): Promise<void>
 
   /**
    * Everything a check-in command needs about one Person: the live relationships
@@ -513,7 +540,6 @@ export interface UnitOfWork {
   /** An exchange that is no longer open, and why. */
   closeKeywordExchange(closure: KeywordExchangeClosure): Promise<void>
 
-
   /**
    * This Ministry's settings as they stand, loaded on `settings.update`'s behalf.
    *
@@ -576,6 +602,13 @@ export interface UnitOfWork {
    * of them can see the other's addition on.
    */
   materials(): Promise<readonly MaterialOnOffer[]>
+
+  /**
+   * Which of these stored paths some Material of this Ministry already names,
+   * removed Materials included. One object is one item, and the paths a form
+   * posts are only the browser's word for what it uploaded.
+   */
+  materialPathsNamed(paths: readonly string[]): Promise<ReadonlySet<string>>
 
   /** One Material, added to the Ministry's list. */
   createMaterial(material: NewMaterial): Promise<void>
@@ -802,17 +835,58 @@ export interface MinistryDirectory {
 export interface AssignedMaterial {
   readonly materialId: MaterialId
   readonly title: string
-  /** The Ministry's own typed content. Null where the Material is a PDF alone. */
+  /** The Ministry's own typed content. Null where the Material is files and links alone. */
   readonly body: string | null
-  /** What the Admin's file was called, kept so a link can carry its own name. */
-  readonly pdfFilename: string | null
-  /**
-   * A short-lived link to the PDF, or null where there is none to link to. Minted
-   * per render rather than stored: a URL that outlived the assignment would be a
-   * Material readable by a Leader it was taken away from.
-   */
-  readonly pdfUrl: string | null
+  /** Its files and links, in order, each ready to open. */
+  readonly items: readonly ItemToOpen[]
 }
+
+/**
+ * A Disciple's Material page, as the link opens it (Richer materials, ticket
+ * 04): the Material running now, nothing running, or a link that has ended.
+ */
+export type DisciplesMaterialPage =
+  | {
+      readonly status: 'open'
+      readonly ministryName: string
+      readonly title: string
+      readonly body: string | null
+      readonly items: readonly MaterialItem[]
+    }
+  | { readonly status: 'none'; readonly ministryName: string }
+  | { readonly status: 'ended'; readonly ministryName: string }
+
+/** The reads behind a Disciple's Material page, keyed by its token alone. */
+export interface MaterialPageReader {
+  /** The page, or null for a token that names nothing. */
+  readMaterialPage(token: string): Promise<DisciplesMaterialPage | null>
+  /**
+   * One file of the Material the link's relationship is on now, or null where
+   * the item is not one, the link has ended, or the token names nothing.
+   */
+  fileOnMaterialPage(
+    token: string,
+    itemId: string,
+  ): Promise<{ readonly path: string; readonly filename: string } | null>
+}
+
+/**
+ * One of a Material's files or links as somebody opening it needs it (Richer
+ * materials, ticket 01). A file carries a short-lived download link, or null
+ * where none could be minted. Minted per render rather than stored: a URL that
+ * outlived the assignment would be a Material readable by somebody it was taken
+ * away from.
+ */
+export type ItemToOpen =
+  | {
+      readonly kind: 'file'
+      readonly id: string
+      readonly filename: string
+      readonly contentType: string
+      readonly bytes: number
+      readonly url: string | null
+    }
+  | { readonly kind: 'link'; readonly id: string; readonly url: string; readonly label: string | null }
 
 /**
  * One person in the relationship, as the Leader's screen shows them.
@@ -2000,13 +2074,10 @@ export interface CheckInsReader {
 export interface MaterialOnTheList {
   readonly materialId: MaterialId
   readonly title: string
-  /** The Ministry's own typed content, or null where the Material is a PDF alone. */
+  /** The Ministry's own typed content, or null where the Material is files and links alone. */
   readonly body: string | null
-  /**
-   * The uploaded PDF, by the name it arrived under and its size in bytes, or
-   * null where there is none. The size is null where no object is on the path.
-   */
-  readonly pdf: { readonly filename: string; readonly bytes: number | null } | null
+  /** Its files and links, in order, as the edit page lists them. */
+  readonly items: readonly MaterialItem[]
 }
 
 /** One closed period a card lists on its "Previously" line. */
@@ -2070,10 +2141,38 @@ export interface MaterialsPage {
 /** The four surfaces that draw from the tab's document, each read under its own name. */
 export type MaterialsSurface = 'materials' | 'material' | 'new-material' | 'edit-material'
 
+/**
+ * The relationship the last press on a Material's assign page was refused over,
+ * named the way the page's list names one (Richer materials, ticket 02). Read
+ * whether or not it is still live, because the refusal that most needs naming
+ * is the one that ended while the page was open, and an ended relationship is
+ * not on the list any more.
+ */
+export interface RefusedRelationship {
+  readonly relationshipId: RelationshipId
+  /** Who led it: now, or when it ended. */
+  readonly leaderNames: readonly string[]
+  readonly participantNames: readonly string[]
+  readonly groupName: string | null
+  /** Named, or discipling more than one person, as a card decides it. */
+  readonly isAGroup: boolean
+}
+
+/** What a Material's assign page derives from its document: the tab's, and one name. */
+export interface AssignPage extends MaterialsPage {
+  /** The relationship the last press was refused over, or null where none was named or it is not this Ministry's. */
+  readonly refused: RefusedRelationship | null
+}
+
 export interface MaterialsReader {
   /**
    * The whole tab in one read, against one reading of the clock. The filter is
    * carried to the function for the edge log and applied by the page.
    */
   readMaterialsPage(surface: MaterialsSurface, gender: Gender | null): Promise<AdminPage<MaterialsPage>>
+  /**
+   * A Material's assign page in one read (Richer materials, ticket 02): the tab's
+   * document, and the relationship a refused press named, where one did.
+   */
+  readAssignPage(refused: RelationshipId | null): Promise<AdminPage<AssignPage>>
 }

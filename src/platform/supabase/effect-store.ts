@@ -19,6 +19,7 @@ import type {
   PausedRelationship,
   PersonContact,
   RelationshipSnapshot,
+  RelationshipToAssign,
   UnacceptedRelationship,
 } from '~/domain/boundary'
 import type {
@@ -34,7 +35,9 @@ import type {
   LeaderAcceptance,
   MaterialAssignment,
   MaterialEdit,
+  MaterialNoticeRecord,
   MaterialRemoval,
+  NewMaterialLink,
   NewMaterial,
   OutstandingReplyClosure,
   OutstandingReplySweep,
@@ -68,14 +71,16 @@ import {
   type StatedGoal,
 } from '~/domain/discipleship-goals'
 import { discipleshipGoalId, type Gender } from '~/domain/intake'
-import { materialTitle, type MaterialOnOffer } from '~/domain/materials'
+import { materialTitle, type MaterialItem, type MaterialOnOffer } from '~/domain/materials'
 import {
   roleNoun,
   type MinistrySettings,
   type MinistryVoice,
 } from '~/domain/ministry-settings'
 import { readStandingPause, type StandingPause } from '~/domain/pause'
-import { count, text } from './rows'
+import type { MaterialRecipient, MaterialStanding } from '~/domain/material-notices'
+import { materialItemFrom } from './material-items'
+import { count, looksLikeAnId, text } from './rows'
 import type { MemberRole, RelationshipOutcome } from '~/domain/relationships'
 import type { ConcernResolution, ConcernViewing, NewConcern } from '~/domain/concerns'
 import {
@@ -112,6 +117,7 @@ import {
   personId,
   relationshipId,
   type FollowUpItemId,
+  type MaterialId,
   type MinistryId,
   type PersonId,
   type RelationshipId,
@@ -195,6 +201,30 @@ const asGoalRefusal = (error: unknown): GoalRefused | undefined =>
   constraintViolated(error) === 'discipleship_goal_ministry_id_label_key'
     ? new GoalRefused('goal.already_offered')
     : undefined
+
+/** Writes a Material's new items, each where the boundary placed it. */
+const insertMaterialItems = async (
+  client: PoolClient,
+  ministry: MinistryId,
+  material: MaterialId,
+  items: readonly MaterialItem[],
+  at: Date,
+): Promise<void> => {
+  for (const item of items) {
+    const [path, filename, contentType, bytes, url, label] =
+      item.kind === 'file'
+        ? [item.path, item.filename, item.contentType, item.bytes, null, null]
+        : [null, null, null, null, item.url, item.label]
+    await client.query(
+      `insert into material_item
+         (id, ministry_id, material_id, position, kind,
+          path, filename, content_type, bytes, url, label, created_at)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+      [item.id, ministry, material, item.position, item.kind,
+       path, filename, contentType, bytes, url, label, at],
+    )
+  }
+}
 
 /**
  * A title this Ministry already holds a live Material under, as the database sees
@@ -387,7 +417,6 @@ const asRelationshipSnapshot = (
     acceptedAt: row.accepted_at,
   })),
 })
-
 
 /** One open Keyword Exchange, as the row holds it. */
 interface KeywordExchangeRow {
@@ -728,15 +757,15 @@ const ASSIGNMENT_REFUSALS: Readonly<
   material_already_running: 'material.already_running',
 }
 
-const refused = <Answer extends string, Refusal extends string>(
+const refused = <Answer extends string, Refusal extends string, Refused extends Error>(
   answer: Answer,
   refusals: Readonly<Record<Answer, Refusal | null>>,
-  refusal: new (why: Refusal) => Error,
+  refusal: new (why: Refusal) => Refused,
   // Named rather than defaulted. The message this raises is read on the day
   // something is genuinely wrong, and a default would quietly attribute a third
   // caller's defect to whichever function happened to be the first one written.
   fn: string,
-): Error => {
+): Refused => {
   const why = refusals[answer]
   // Not a refusal anybody can act on: the function answered something this act
   // told it could not arise. Louder than a refusal on purpose -- it means the
@@ -1972,7 +2001,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // like one -- and a relationship formed as a one-to-one is *no such group*,
     // whatever its id: the join path never offers one, and a one-to-one holds one
     // Participant however the row arrived.
-    if (!/^[0-9a-f-]{36}$/i.test(id)) return null
+    if (!looksLikeAnId(id)) return null
 
     const { rows } = await client.query<RelationshipRow>(
       `select id, created_at, accepted_at, ended_at, name,
@@ -2169,6 +2198,195 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     }))
   },
 
+  async materialRecipients() {
+    // Everybody the tick may tell about a Material change, and for each of their
+    // relationships the three things the rule compares: what is running, what
+    // they were last told, and when anything feeding it last changed -- the
+    // running period starting, this person joining it, or the Material it is on
+    // having its text or items edited. Leaders who have accepted and every
+    // Participant, in accepted and unended relationships (Richer materials,
+    // tickets 03 and 04). A Participant's row carries their Leaders' names, as
+    // the Starter Message lists them, and their page link if one has been minted.
+    //
+    // Only the people a text can actually reach: a number to send it to, no open
+    // opt-out, and SMS consent that currently stands -- the pair
+    // `leadersDueForCheckIn` tests, and for the same reason. Opting out ends no
+    // relationship, the outbound queue refuses a text to somebody who has, and
+    // the tick is one transaction: one Disciple who texted STOP would otherwise
+    // roll back every check-in in the Ministry, on this run and every run after
+    // it. Left out here, they are simply not told; what they were last told
+    // stays as it was, so a change still pending when they can be texted again
+    // goes then.
+    const [{ rows: zone }, { rows }] = await Promise.all([
+      client.query<{ timezone: string }>(
+        `select timezone from ministry where id = app.command_ministry_id()`,
+      ),
+      client.query<{
+        person_id: string
+        phone: string | null
+        relationship_id: string
+        role: 'leader' | 'participant'
+        paused: boolean
+        material_id: string | null
+        title: string | null
+        fingerprint: string | null
+        leader_names: string[] | null
+        page_token: string | null
+        told: boolean
+        told_material_id: string | null
+        told_fingerprint: string | null
+        changed_at: Date | null
+        last_texted_at: Date | null
+      }>(
+        `with members as (
+           select m.person_id, m.relationship_id, m.role,
+                  -- When they joined it: a Leader on accepting, a Participant on
+                  -- being added. Somebody new to a relationship has a change of
+                  -- their own to hear about, and it settles like any other.
+                  case when m.role = 'leader' then m.accepted_at else m.started_at end as joined_at
+             from relationship_member m
+             join relationship r on r.id = m.relationship_id
+             join person p on p.id = m.person_id
+            where m.ministry_id = app.command_ministry_id()
+              and m.ended_at is null
+              and (m.role <> 'leader' or m.accepted_at is not null)
+              and r.accepted_at is not null
+              and r.ended_at is null
+              and p.phone is not null
+              and not exists (
+                select 1 from person_opt_out o
+                 where o.person_id = m.person_id and o.ended_at is null
+              )
+              and app.current_consent(m.person_id, 'sms') is true
+         )
+         select mem.person_id,
+                p.phone,
+                mem.relationship_id,
+                mem.role,
+                mem.relationship_id in (
+                  select pa.relationship_id from relationship_pauses(app.command_ministry_id()) pa
+                ) as paused,
+                run.material_id,
+                mat.title,
+                case when run.material_id is null then null
+                     else app.material_content_fingerprint(run.material_id) end as fingerprint,
+                case when mem.role = 'participant' then
+                  array(select lp.full_name
+                          from relationship_member lm
+                          join person lp on lp.id = lm.person_id
+                         where lm.relationship_id = mem.relationship_id
+                           and lm.role = 'leader'
+                           and lm.ended_at is null
+                           and lm.accepted_at is not null
+                         order by lm.started_at, lp.full_name)
+                end as leader_names,
+                (select l.token from material_link l
+                  where l.person_id = mem.person_id
+                    and l.relationship_id = mem.relationship_id) as page_token,
+                told.id is not null as told,
+                told.material_id as told_material_id,
+                told.fingerprint as told_fingerprint,
+                greatest(
+                  run.started_at,
+                  mem.joined_at,
+                  -- Only an edit to what it holds. A title is not part of what
+                  -- anybody is told, so correcting one holds nobody's text back.
+                  (select max(e.occurred_at)
+                     from ministry_event e
+                    where e.ministry_id = app.command_ministry_id()
+                      and e.type = 'material.edited'
+                      and e.subject_id = run.material_id
+                      and (e.payload -> 'from' -> 'body' is distinct from e.payload -> 'to' -> 'body'
+                           or e.payload -> 'from' -> 'items' is distinct from e.payload -> 'to' -> 'items'))
+                ) as changed_at,
+                (select max(n.told_at)
+                   from material_notice n
+                  where n.person_id = mem.person_id
+                    and n.texted) as last_texted_at
+           from members mem
+           join person p on p.id = mem.person_id
+           left join material_assignment run
+                  on run.relationship_id = mem.relationship_id and run.ended_at is null
+           left join material mat on mat.id = run.material_id
+           left join lateral (
+             select n.id, n.material_id, n.fingerprint
+               from material_notice n
+              where n.person_id = mem.person_id
+                and n.relationship_id = mem.relationship_id
+              order by n.told_at desc, n.created_at desc
+              limit 1
+           ) told on true
+          order by mem.person_id, mem.relationship_id`,
+      ),
+    ])
+
+    const timeZone = zone[0]?.timezone
+    if (!timeZone) throw new Error('No timezone came back for the Ministry being ticked')
+
+    const byPerson = new Map<string, MaterialRecipient>()
+    for (const row of rows) {
+      const standing: MaterialStanding = {
+        relationshipId: relationshipId(row.relationship_id),
+        role: row.role,
+        paused: row.paused,
+        running: {
+          materialId: row.material_id ? materialId(row.material_id) : null,
+          title: row.title,
+          fingerprint: row.fingerprint,
+        },
+        told: row.told
+          ? {
+              materialId: row.told_material_id ? materialId(row.told_material_id) : null,
+              fingerprint: row.told_fingerprint,
+            }
+          : null,
+        changedAt: row.changed_at,
+        leaderNames: row.leader_names ?? [],
+        pageToken: row.page_token,
+      }
+      const held = byPerson.get(row.person_id)
+      byPerson.set(row.person_id, {
+        personId: personId(row.person_id),
+        phone: row.phone,
+        lastTextedAt: row.last_texted_at,
+        standings: [...(held?.standings ?? []), standing],
+      })
+    }
+    return { timeZone, recipients: [...byPerson.values()] }
+  },
+
+  async issueMaterialLinks(links: readonly NewMaterialLink[]) {
+    // One per membership, never re-minted: the unique constraint is the rule,
+    // and a second tick racing this one is refused by it rather than handing a
+    // Disciple two links.
+    for (const link of links) {
+      await client.query(
+        `insert into material_link (ministry_id, person_id, relationship_id, token)
+         values ($1, $2, $3, $4)`,
+        [link.ministryId, link.personId, link.relationshipId, link.token],
+      )
+    }
+  },
+
+  async recordMaterialNotices(notices: readonly MaterialNoticeRecord[]) {
+    for (const notice of notices) {
+      await client.query(
+        `insert into material_notice
+           (ministry_id, person_id, relationship_id, material_id, fingerprint, told_at, texted)
+         values ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          notice.ministryId,
+          notice.personId,
+          notice.relationshipId,
+          notice.materialId,
+          notice.fingerprint,
+          notice.toldAt,
+          notice.texted,
+        ],
+      )
+    }
+  },
+
   async cancelRelationship(cancellation: RelationshipCancellation) {
     // A cancellation is an ending in the data -- an `ended_at`, an actor, a reason
     // and an outcome -- so it goes through the one function that ends a
@@ -2305,35 +2523,63 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     )
   },
 
-  async assignMaterial(assignment: MaterialAssignment) {
-    // Through `app.assign_material`, which closes the running period and opens its
-    // successor at one instant. That function is the only write path that opens a
-    // period, and the invariant it holds -- the periods never overlap and never
-    // leave gaps -- is a fact about a whole relationship's rows that no single-row
-    // check constraint can state.
+  async relationshipsToAssign(ids: readonly RelationshipId[]): Promise<readonly RelationshipToAssign[]> {
+    if (ids.length === 0) return []
+    // Locked, as `relationshipFor` locks one, and in one order whoever asks: two
+    // Admins each assigning many that overlap wait for each other rather than
+    // each holding half of what the other needs. Another Ministry's is invisible
+    // to this connection, so it is simply not among the rows.
+    const { rows } = await client.query<{ id: string; accepted_at: Date | null; ended_at: Date | null }>(
+      `select id, accepted_at, ended_at
+         from relationship
+        where id = any($1::uuid[])
+        order by id
+          for update`,
+      [ids],
+    )
+    return rows.map((row) => ({
+      relationshipId: relationshipId(row.id),
+      acceptedAt: row.accepted_at,
+      endedAt: row.ended_at,
+    }))
+  },
+
+  async assignMaterials(assignments: readonly MaterialAssignment[]) {
+    // Through `app.assign_materials`, which runs `app.assign_material` for each in
+    // turn and stops at the first refusal. That function is the only write path
+    // that opens a period, and the invariant it holds -- the periods never overlap
+    // and never leave gaps -- is a fact about a whole relationship's rows that no
+    // single-row check constraint can state.
     //
     // Both acts come through here. Acceptance passes a null Material, which opens
     // the history, and may follow it at the same instant with the Material an
     // Admin chose at pairing, under no Admin's name; an Admin passes a real one
-    // under their own, or a null one to un-assign (Materials, ticket 03). Either
-    // requires the history to have been opened already, which is why the opening
-    // period must come first.
-    let answer: DatabaseAssignmentRefusal | null = null
+    // under their own, or a null one to un-assign (Materials, ticket 03), for one
+    // relationship or for many (Richer materials, ticket 02). Either requires the
+    // history to have been opened already, which is why the opening period must
+    // come first -- and why the order given is the order written.
+    let answer: { refused_relationship_id: string; refusal: DatabaseAssignmentRefusal } | undefined
     try {
-      const { rows } = await client.query<{ refusal: DatabaseAssignmentRefusal | null }>(
-        `select app.assign_material($1, $2, $3, $4) as refusal`,
+      const { rows } = await client.query<{
+        refused_relationship_id: string
+        refusal: DatabaseAssignmentRefusal
+      }>(
+        `select refused_relationship_id, refusal
+           from app.assign_materials($1::uuid[], $2::uuid[], $3::timestamptz[], $4::uuid[])`,
         [
-          assignment.relationshipId,
-          assignment.materialId,
-          assignment.assignedAt,
-          assignment.assignedBy,
+          assignments.map((assignment) => assignment.relationshipId),
+          assignments.map((assignment) => assignment.materialId),
+          assignments.map((assignment) => assignment.assignedAt),
+          assignments.map((assignment) => assignment.assignedBy),
         ],
       )
-      answer = rows[0]?.refusal ?? null
+      answer = rows[0]
     } catch (error) {
       // Two constraints answer with an identifier rather than with a decision, so
       // they arrive as errors and are translated here like every other one -- a
-      // surface needs a code, not a Postgres message.
+      // surface needs a code, not a Postgres message. Neither is about one
+      // relationship: every assignment in the act carries the same Admin and the
+      // same Material.
       const constraint = constraintViolated(error)
       if (constraint === 'material_assignment_assigned_by_fk') {
         throw new MaterialAssignmentRefused('material.assigner_is_not_in_this_ministry')
@@ -2346,8 +2592,16 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       throw error
     }
 
-    if (answer === null) return
-    throw refused(answer, ASSIGNMENT_REFUSALS, MaterialAssignmentRefused, 'app.assign_material')
+    if (answer === undefined) return
+    // Named for the relationship it was about, so an act that assigned many can
+    // say which one refused the lot.
+    const { refusal } = refused(
+      answer.refusal,
+      ASSIGNMENT_REFUSALS,
+      MaterialAssignmentRefused,
+      'app.assign_material',
+    )
+    throw new MaterialAssignmentRefused(refusal, relationshipId(answer.refused_relationship_id))
   },
 
   async checkInFor(id: PersonId): Promise<CheckInSnapshot | null> {
@@ -3072,6 +3326,17 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     }
   },
 
+  async materialPathsNamed(paths) {
+    if (paths.length === 0) return new Set<string>()
+    const { rows } = await client.query<{ path: string }>(
+      `select i.path from material_item i
+        where i.ministry_id = app.command_ministry_id()
+          and i.path = any($1::text[])`,
+      [paths],
+    )
+    return new Set(rows.map((row) => row.path))
+  },
+
   async materials(): Promise<readonly MaterialOnOffer[]> {
     // The same lock the Discipleship Goal list takes, keyed on the Ministry, and
     // for the same reason: two Admins -- or one Admin's double submit -- both
@@ -3092,11 +3357,11 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       id: string
       title: string
       body: string | null
-      pdf_path: string | null
-      pdf_filename: string | null
+      items: readonly Record<string, unknown>[]
       in_use_by: string
     }>(
-      `select m.id, m.title, m.body, m.pdf_path, m.pdf_filename,
+      `select m.id, m.title, m.body,
+              app.material_items(m.id) as items,
               (select count(*)
                  from material_assignment a
                  join relationship r on r.id = a.relationship_id
@@ -3115,17 +3380,11 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       if (inUseBy === null) {
         throw new Error(`No count of who is working through Material ${row.id} came back`)
       }
-      // Both halves or neither, which the check constraint on the row promises.
-      const pdfPath = text(row.pdf_path)
-      const pdfFilename = text(row.pdf_filename)
-      if ((pdfPath === null) !== (pdfFilename === null)) {
-        throw new Error(`Material ${row.id} arrived with half a PDF`)
-      }
       return {
         id: materialId(row.id),
         title: materialTitle(row.title),
         body: text(row.body),
-        pdf: pdfPath && pdfFilename ? { path: pdfPath, filename: pdfFilename } : null,
+        items: row.items.map((item) => materialItemFrom(row.id, item)),
         inUseBy,
       }
     })
@@ -3134,17 +3393,9 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
   async createMaterial(material: NewMaterial) {
     try {
       await client.query(
-        `insert into material (id, ministry_id, title, body, pdf_path, pdf_filename, created_at)
-         values ($1, $2, $3, $4, $5, $6, $7)`,
-        [
-          material.id,
-          material.ministryId,
-          material.title,
-          material.body,
-          material.pdf?.path ?? null,
-          material.pdf?.filename ?? null,
-          material.createdAt,
-        ],
+        `insert into material (id, ministry_id, title, body, created_at)
+         values ($1, $2, $3, $4, $5)`,
+        [material.id, material.ministryId, material.title, material.body, material.createdAt],
       )
     } catch (error) {
       // The boundary already refused a duplicate against the list it read. This
@@ -3152,6 +3403,13 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       // read and this insert -- told the same true thing, rather than a 500.
       throw asMaterialRefusal(error) ?? error
     }
+    await insertMaterialItems(
+      client,
+      material.ministryId,
+      material.id,
+      material.items,
+      material.createdAt,
+    )
   },
 
   async editMaterial(edit: MaterialEdit) {
@@ -3163,9 +3421,9 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     try {
       ;({ rowCount: edited } = await client.query(
         `update material
-            set title = $2, body = $3, pdf_path = $4, pdf_filename = $5
+            set title = $2, body = $3
           where id = $1 and removed is null`,
-        [edit.materialId, edit.title, edit.body, edit.pdf?.path ?? null, edit.pdf?.filename ?? null],
+        [edit.materialId, edit.title, edit.body],
       ))
     } catch (error) {
       throw asMaterialRefusal(error) ?? error
@@ -3174,6 +3432,17 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     if (edited === 0) {
       throw new Error(`No live Material ${edit.materialId} to edit`)
     }
+
+    // The items: the ones ticked go, the new ones come after the rest, and the
+    // ones kept are not touched. Whether what is left is still something is the
+    // deferred trigger's to say at commit, after both have happened.
+    if (edit.removed.length > 0) {
+      await client.query(
+        `delete from material_item where material_id = $1 and id = any($2::uuid[])`,
+        [edit.materialId, edit.removed.map((item) => item.id)],
+      )
+    }
+    await insertMaterialItems(client, edit.ministryId, edit.materialId, edit.added, new Date())
   },
 
   async removeMaterial(removal: MaterialRemoval) {

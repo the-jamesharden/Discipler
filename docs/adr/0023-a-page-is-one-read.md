@@ -60,6 +60,6 @@ What the loop does not cover stays with the reader tests: a column that changed 
 
 The documents are keyed by the read they replace, with the same columns under the same names, so a reader that lacks a key it needs raises rather than reading it as empty.
 
-The one read that stays outside is a signed URL for a Material's PDF, minted by the storage API, which has no face in SQL.
+A signed URL for a Material's file is minted by the storage API, which has no face in SQL, so a page links each file to a route of its own that signs it when it is tapped (`app/relationships/file/[item]/route.ts`), and drawing the page stays one read.
 
 The rule about privilege is the one to hold when a page function is next touched: a page function that becomes `security definer`, or that is granted to `anon`, has widened what a caller may read without any policy changing.

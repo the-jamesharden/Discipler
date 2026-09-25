@@ -117,12 +117,20 @@ The leader-facing web surface, entered by phone number and password. One-time co
 A single grid on which the availability slots of everyone in a discipleship relationship are drawn together, so a leader can see where meeting times coincide.
 
 **Material**:
-A discipleship resource a relationship works through, such as a book of the Bible or a published discipleship manual. Each is a row the Ministry holds: a title, its own typed text, an uploaded PDF, or both text and a PDF. The list of them belongs to the Ministry, in the same way its Discipleship Goal options do, and an Admin creates, edits and removes them from the Materials tab. What a title must be, when a Material carries enough to be one and when a removal is refused are decided in the command boundary, and what an upload must be to count as the PDF is decided before it is stored; both live in `src/domain/materials.ts`, and the database refuses the same shapes a second time. Removing is a flag, not a delete: a removed Material leaves the tab and every assign list, and every Material Assignment that named it goes on naming it.
+A discipleship resource a relationship works through, such as a book of the Bible or a published discipleship manual. Each is a row the Ministry holds: a title, its own typed text, and its **items**, the files and links it holds in the order they were added; it carries text, an item, or both. The list of them belongs to the Ministry, in the same way its Discipleship Goal options do, and an Admin creates, edits and removes them from the Materials tab. What a title must be, when a Material carries enough to be one, which files and links an item may be, how many it may hold and when a removal is refused are decided in the command boundary and live in `src/domain/materials.ts`; the database and the storage bucket refuse the same shapes a second time. A file goes from the browser straight to storage, and one no Material comes to name is swept by the tick. Removing is a flag, not a delete: a removed Material leaves the tab and every assign list, and every Material Assignment that named it goes on naming it.
 _Avoid_: Program, curriculum, deleting a Material
 
 **Material Assignment**:
 The period during which a relationship was working through a particular material. Assigned to the relationship, never to a person: a leader in two relationships may be working through two different things. Periods never overlap and never leave gaps, so a relationship's first period runs from acceptance with no material assigned. Un-assigning is a later period with no material, and assigning the material already running is refused; both are decided in `app.assign_material`.
 _Avoid_: Assigning a material to a person
+
+**Material Link**:
+A Disciple's link to a read-only page of the Material one relationship of theirs is working through now, carried by the text that tells them it changed. One per membership, never re-minted, needing no sign-in, naming nobody; it opens nothing once the membership or the relationship has ended. See ADR-0028.
+_Avoid_: Invitation Link, which asks a Leader a question; this asks nothing
+
+**Material Notice**:
+What one person was told, at one moment, about the Material one of their relationships is working through: which Material, and what it held. A row each time, never updated; the latest is what the next change is compared against, and whether a text went with it is recorded beside it. The rule for when a change is told, and how often, is in `src/domain/material-notices.ts` and ADR-0027.
+_Avoid_: Notification, alert
 
 **Intended Material**:
 The Material an Admin chose while forming a relationship, held on the relationship because no Material Assignment can exist before acceptance. It is an intention and not an assignment: it opens no period and nobody is working through it. The acceptance that activates the relationship spends it, which is decided in the command boundary (`src/domain/boundary.ts`, `relationship.accept`), and an accepted relationship carries none.

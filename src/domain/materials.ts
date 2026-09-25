@@ -1,5 +1,5 @@
 import type { Branded } from './branded'
-import type { MaterialId } from './ids'
+import type { MaterialId, MaterialItemId } from './ids'
 import { readWording } from './wording'
 
 /**
@@ -154,12 +154,193 @@ export const readMaterialBody = (raw: string | null | undefined): string | null 
   return body === '' ? null : body
 }
 
-/** The uploaded file a Material carries: where it is in the bucket, and what it was called. */
-export interface MaterialPdf {
-  /** The object key, `<ministry_id>/<uuid>.pdf`. */
+// ---------------------------------------------------------------------------
+// What a Material holds (Richer materials, ticket 01)
+// ---------------------------------------------------------------------------
+
+/**
+ * One kind of file a Material may hold. The extension decides, not whatever the
+ * browser guessed: a browser names a `.docx` three different ways and a `.heic`
+ * not at all, so the upload is sent under the type this list gives its extension
+ * and the bucket's own allowed list is these types exactly.
+ */
+export interface MaterialFileType {
+  readonly extension: string
+  readonly contentType: string
+  /** What a screen calls it beside the filename. */
+  readonly kind: string
+}
+
+/**
+ * Planning Center's list, chosen by James on 2026-09-24: documents, images, audio
+ * and video. The migration that gave the bucket its limits holds the same types.
+ */
+export const MATERIAL_FILE_TYPES: readonly MaterialFileType[] = [
+  { extension: 'pdf', contentType: 'application/pdf', kind: 'PDF' },
+  { extension: 'doc', contentType: 'application/msword', kind: 'Word document' },
+  {
+    extension: 'docx',
+    contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    kind: 'Word document',
+  },
+  { extension: 'txt', contentType: 'text/plain', kind: 'Text' },
+  { extension: 'rtf', contentType: 'application/rtf', kind: 'Rich text' },
+  { extension: 'jpg', contentType: 'image/jpeg', kind: 'Image' },
+  { extension: 'jpeg', contentType: 'image/jpeg', kind: 'Image' },
+  { extension: 'png', contentType: 'image/png', kind: 'Image' },
+  { extension: 'gif', contentType: 'image/gif', kind: 'Image' },
+  { extension: 'webp', contentType: 'image/webp', kind: 'Image' },
+  { extension: 'heic', contentType: 'image/heic', kind: 'Image' },
+  { extension: 'mp3', contentType: 'audio/mpeg', kind: 'Audio' },
+  { extension: 'm4a', contentType: 'audio/mp4', kind: 'Audio' },
+  { extension: 'wav', contentType: 'audio/wav', kind: 'Audio' },
+  { extension: 'mp4', contentType: 'video/mp4', kind: 'Video' },
+  { extension: 'mov', contentType: 'video/quicktime', kind: 'Video' },
+  { extension: 'webm', contentType: 'video/webm', kind: 'Video' },
+]
+
+/** The file type a filename's extension names, or null where a Material may not hold it. */
+export const fileTypeNamed = (filename: string): MaterialFileType | null => {
+  const dot = filename.lastIndexOf('.')
+  if (dot < 0) return null
+  const extension = filename.slice(dot + 1).toLowerCase()
+  return MATERIAL_FILE_TYPES.find((type) => type.extension === extension) ?? null
+}
+
+/** The file type a stored object's content type is, or null where it is none of them. */
+export const fileTypeOf = (contentType: string): MaterialFileType | null =>
+  MATERIAL_FILE_TYPES.find((type) => type.contentType === contentType) ?? null
+
+/**
+ * The largest file a Material may hold, in bytes. Named here rather than on the
+ * page that says it, so the copy, the check and the bucket's own limit cannot
+ * drift apart.
+ */
+export const LARGEST_FILE_BYTES = 50 * 1024 * 1024
+
+/**
+ * The most files and links one Material may hold. A study is a guide, a video
+ * a week and a reading plan; twenty is room for that and a ceiling on a list no
+ * Leader would scroll.
+ */
+export const MOST_ITEMS = 20
+
+/** A file a Material holds: where it is in the bucket, and what Storage said about it. */
+export interface MaterialFile {
+  readonly kind: 'file'
+  /** The object key, `<ministry_id>/<uuid>.<ext>`. */
   readonly path: string
   /** What the Admin's file was called, so a download is handed back under it. */
   readonly filename: string
+  /** As Storage holds it, read back after the upload rather than taken from the form. */
+  readonly contentType: string
+  readonly bytes: number
+}
+
+/**
+ * A link a Material holds: an address and, optionally, what to call it. Not a
+ * *Material Link*, which is a Disciple's link to their Material page (ADR-0028).
+ */
+export interface WebLink {
+  readonly kind: 'link'
+  readonly url: string
+  /** Null where the Admin named it nothing; the screens then show the site's address. */
+  readonly label: string | null
+}
+
+/** One file or link, as the Material holds it: in its place in the order. */
+export type MaterialItem = (MaterialFile | WebLink) & {
+  readonly id: MaterialItemId
+  readonly position: number
+}
+
+/** The ways an item is refused, before or after its upload. */
+export type ItemRefusal =
+  | 'material.file_type'
+  | 'material.file_too_large'
+  | 'material.link_unreadable'
+
+/**
+ * Whether a file an Admin chose may be uploaded at all, from its name and size,
+ * before a signed upload address is minted for it. The same rule runs again on
+ * what Storage says it holds, in `readStoredFile`, because a browser can be told
+ * anything.
+ */
+export const readUpload = (file: {
+  readonly filename: string
+  readonly bytes: number
+}): 'material.file_type' | 'material.file_too_large' | null =>
+  fileTypeNamed(file.filename) === null
+    ? 'material.file_type'
+    : file.bytes > LARGEST_FILE_BYTES
+      ? 'material.file_too_large'
+      : null
+
+/** Whether a stored object may be one of a Material's files, from what Storage says it is. */
+export const readStoredFile = (
+  file: MaterialFile,
+): 'material.file_type' | 'material.file_too_large' | null =>
+  fileTypeOf(file.contentType) === null
+    ? 'material.file_type'
+    : file.bytes > LARGEST_FILE_BYTES
+      ? 'material.file_too_large'
+      : null
+
+/**
+ * A link as a Material will hold it, or null where the address is not one. Only
+ * `http` and `https`: a `javascript:` address on a Leader's screen is a script
+ * somebody else wrote, and a `mailto:` or a bare `www.` is not somewhere a
+ * button can take anybody. The label is trimmed and collapsed like a title, and
+ * a blank one is no label.
+ *
+ * Kept as typed, so it has to be an address as typed and not only as a URL
+ * parser forgives it. The parser reads `https:example.com`, `https:/example.com`
+ * and a backslash for a slash as `https://example.com`; a browser following the
+ * first two from an `href` on this site's own page reads them as a path here
+ * instead. So the address starts `http://` or `https://`, which is also exactly
+ * what the database's own check on the column asks, holds no backslash, and
+ * names a host with a dot in it: a single word is somewhere on the typist's own
+ * network, not on the web.
+ */
+export const readWebLink = (raw: {
+  readonly url: string
+  readonly label: string | null
+}): WebLink | null => {
+  const typed = raw.url.trim()
+  let url: URL
+  try {
+    url = new URL(typed)
+  } catch {
+    return null
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
+  if (!/^https?:\/\/[^\s\\]+$/i.test(typed)) return null
+  if (!url.hostname.includes('.')) return null
+  return { kind: 'link', url: typed, label: readWording(raw.label ?? '') }
+}
+
+/**
+ * The address a link is shown by when it has no label: the host, without a
+ * leading `www.`. `https://www.youtube.com/watch?v=...` is *youtube.com* on a
+ * Leader's screen, which is what they need to know before tapping it.
+ */
+export const linkHost = (url: string): string => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '')
+  } catch {
+    return url
+  }
+}
+
+/** A link with more said about it: the host and the path, as the edit page shows an address. */
+export const linkAddress = (url: string): string => {
+  try {
+    const parsed = new URL(url)
+    const rest = `${parsed.pathname === '/' ? '' : parsed.pathname}${parsed.search}`
+    return `${parsed.hostname.replace(/^www\./, '')}${rest}`
+  } catch {
+    return url
+  }
 }
 
 /**
@@ -173,7 +354,8 @@ export interface MaterialOnOffer {
   readonly id: MaterialId
   readonly title: MaterialTitle
   readonly body: string | null
-  readonly pdf: MaterialPdf | null
+  /** Its files and links, in order. */
+  readonly items: readonly MaterialItem[]
   /** How many accepted, unended relationships' running period is on it. */
   readonly inUseBy: number
 }
@@ -202,33 +384,36 @@ export const materialOnOffer = (
 ): MaterialOnOffer | undefined => materials.find((material) => material.id === id)
 
 /**
- * Whether a Material is a Material at all: text, a PDF, or both. A title pointing
- * at nothing would be assignable and would attribute weeks, and a Leader opening
- * it would find an empty page. The database refuses the same shape a second time.
+ * Whether a Material is a Material at all: text, a file or link, or both. A
+ * title pointing at nothing would be assignable and would attribute weeks, and a
+ * Leader opening it would find an empty page. The database refuses the same
+ * shape a second time.
  */
-export const carriesSomething = (body: string | null, pdf: MaterialPdf | null): boolean =>
-  body !== null || pdf !== null
+export const carriesSomething = (body: string | null, items: readonly unknown[]): boolean =>
+  body !== null || items.length > 0
 
 /**
- * The largest PDF a Material may carry, in bytes. Named here rather than on the
- * page that says it, so the copy and the check cannot drift apart.
+ * How long an upload nobody saved is kept before it is swept. A day covers an
+ * Admin who uploaded, was refused over a title and came back after lunch; past
+ * that, a file no Material names is a file nobody will.
  */
-export const LARGEST_PDF_BYTES = 20 * 1024 * 1024
-
-/** The two ways an upload is refused before storage is touched. */
-export type PdfUploadRefusal = 'material.pdf_only' | 'material.pdf_too_large'
+export const UNSAVED_UPLOAD_HOURS = 24
 
 /**
- * Whether a file an Admin chose may be stored as a Material's PDF. Checked from
- * what the browser said about the file, before a byte of it reaches the bucket:
- * a route refusing a 200 MB upload after storing it has already paid for it.
+ * The objects in a Ministry's folder that no Material names and that have sat
+ * there longer than `UNSAVED_UPLOAD_HOURS`. A browser uploads a file the moment
+ * it is chosen, and the form it was chosen on may never be saved; this is what
+ * keeps the bucket from filling with those.
  */
-export const readPdfUpload = (file: {
-  readonly type: string
-  readonly size: number
-}): PdfUploadRefusal | null =>
-  file.type !== 'application/pdf'
-    ? 'material.pdf_only'
-    : file.size > LARGEST_PDF_BYTES
-      ? 'material.pdf_too_large'
-      : null
+export const abandonedUploads = (
+  objects: readonly { readonly path: string; readonly createdAt: Date }[],
+  named: ReadonlySet<string>,
+  now: Date,
+): readonly string[] =>
+  objects
+    .filter(
+      (object) =>
+        !named.has(object.path) &&
+        now.getTime() - object.createdAt.getTime() > UNSAVED_UPLOAD_HOURS * 60 * 60 * 1000,
+    )
+    .map((object) => object.path)

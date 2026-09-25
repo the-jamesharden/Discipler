@@ -10,7 +10,13 @@ import type {
   RelationshipId,
 } from './ids'
 import type { GoalDirection } from './discipleship-goals'
-import type { MaterialPdf } from './materials'
+import type { MaterialFile } from './materials'
+
+/** A link as the form sent it. Whether it is a link at all is the boundary's to say. */
+export interface TypedLink {
+  readonly url: string
+  readonly label: string | null
+}
 import type { MinistrySettingsFields } from './ministry-settings'
 import type { DiscipleshipGoalId, Gender, IntakeFormFields } from './intake'
 import type { IntakeLinkToken } from './intake-link'
@@ -517,27 +523,29 @@ export type Command =
    * because they are three acts an Admin performs on three screens, and only
    * one of them takes a Material off the list.
    *
-   * The title and the text arrive as typed: what counts as a title, whether a
-   * blank text is text, and whether a Material with neither is a Material are
-   * rules, and rules live on the domain side of this boundary. The PDF arrives
-   * already stored, as the path it was written to and the name it arrived
-   * under, because the bucket is the one place the domain cannot reach; a
-   * refusal here is what tells the route to delete what it just uploaded.
+   * The title, the text and the links arrive as typed: what counts as a title,
+   * whether a blank text is text, what counts as a link and whether a Material
+   * with nothing is a Material are rules, and rules live on the domain side of
+   * this boundary. The files arrive already stored, as what Storage says it
+   * holds at each path, because the bucket is the one place the domain cannot
+   * reach (Richer materials, ticket 01); a refusal here is what tells the route
+   * to delete what the browser just uploaded.
    */
   | {
       readonly type: 'material.create'
       readonly ministryId: MinistryId
       readonly title: string
       readonly body: string | null
-      readonly pdf: MaterialPdf | null
+      readonly files: readonly MaterialFile[]
+      readonly links: readonly TypedLink[]
       /** The Admin's account, as the session named it. */
       readonly createdBy: string
     }
   /**
-   * A plain edit of the row. A period points at the row, so a retitled Material
-   * is what every history line says from then on, and a Leader sees the new text
-   * or PDF on their next load. The PDF is kept, removed or replaced, and only a
-   * replacement carries a file.
+   * A plain edit. A period points at the row, so a retitled Material is what
+   * every history line says from then on, and a Leader sees the new text, files
+   * and links on their next load. Items the Admin ticked are removed and new
+   * ones go after the rest; nothing reorders them.
    */
   | {
       readonly type: 'material.edit'
@@ -545,7 +553,10 @@ export type Command =
       readonly materialId: MaterialId
       readonly title: string
       readonly body: string | null
-      readonly pdf: 'keep' | 'remove' | MaterialPdf
+      /** The items the Admin ticked Remove on. One no longer on the Material is ignored. */
+      readonly removeItems: readonly string[]
+      readonly files: readonly MaterialFile[]
+      readonly links: readonly TypedLink[]
       readonly changedBy: string
     }
   /**
@@ -558,6 +569,27 @@ export type Command =
       readonly ministryId: MinistryId
       readonly materialId: MaterialId
       readonly removedBy: string
+    }
+  /**
+   * An Admin starting many relationships on one Material in one press, from the
+   * Material's own assign page (Richer materials, ticket 02).
+   *
+   * One act, and all or nothing: each relationship named is decided by exactly
+   * the rules `relationship.assign_material` decides one by, and one refusal
+   * refuses the lot, naming the relationship it was about. Each assignment that
+   * does land writes its own period and its own `relationship.material_assigned`
+   * event, so a relationship's history reads the same whichever way it was put
+   * on the Material. Always a Material: taking relationships off theirs stays one
+   * card at a time.
+   */
+  | {
+      readonly type: 'material.assign_to_relationships'
+      readonly ministryId: MinistryId
+      readonly materialId: MaterialId
+      /** Every relationship to start on it, in the order the page listed them. */
+      readonly relationshipIds: readonly RelationshipId[]
+      /** The Admin's account, as the session named it. */
+      readonly assignedBy: string
     }
   /**
    * The four ways an Admin changes the list of Discipleship Goals their Ministry

@@ -1,16 +1,24 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { systemClock, type Clock } from '~/domain/clock'
-import { materialId, relationshipId, type MaterialId, type MinistryId } from '~/domain/ids'
+import {
+  materialId,
+  relationshipId,
+  type MaterialId,
+  type MinistryId,
+  type RelationshipId,
+} from '~/domain/ids'
 import type { Gender } from '~/domain/intake'
 import { materialInUseAt, type MaterialPeriod } from '~/domain/materials'
 import { deriveRelationshipState } from '~/domain/relationship-state'
 import type {
+  AssignPage,
   ClosedMaterialPeriod,
   MaterialOnTheList,
   MaterialRelationship,
   MaterialsPage,
   MaterialsReader,
   MaterialsSurface,
+  RefusedRelationship,
 } from '~/service/ports'
 import { careNeededFrom } from './care-needed-reader'
 import { adminPage, documentFor, list, readPageDocument, type PageDocument } from './page'
@@ -25,6 +33,7 @@ import {
   pausesFrom,
   weeksFrom,
 } from './relationship-history'
+import { materialItemFrom } from './material-items'
 import { count, declaredGenderOf, text } from './rows'
 import { createSupabaseServerClient } from './server-client'
 
@@ -89,18 +98,14 @@ export const liveMaterialRows = (doc: PageDocument): readonly LiveMaterialRow[] 
 
 /** The live Materials, each with what the edit page fills in. */
 const materialsOn = (doc: PageDocument): readonly MaterialOnTheList[] =>
-  liveMaterialRows(doc).map(({ materialId, title, row }) => {
-    // The size is the storage object's and is null where no object is on the
-    // path; the filename is the row's, and the row promises it and the path
-    // arrive together.
-    const pdfFilename = text(row.pdf_filename)
-    return {
-      materialId,
-      title,
-      body: text(row.body),
-      pdf: pdfFilename ? { filename: pdfFilename, bytes: count(row.pdf_bytes) } : null,
-    }
-  })
+  liveMaterialRows(doc).map(({ materialId, title, row }) => ({
+    materialId,
+    title,
+    body: text(row.body),
+    items: (Array.isArray(row.items) ? (row.items as Record<string, unknown>[]) : []).map(
+      (item) => materialItemFrom(materialId, item),
+    ),
+  }))
 
 /**
  * Every period of every relationship, grouped by relationship, as
@@ -257,6 +262,49 @@ export const materialsFrom = (doc: PageDocument, clock: Clock): MaterialsPage =>
 }
 
 /**
+ * The relationship a refused press named, off the assign page's `refused`: its
+ * people by role, in the order the function sorted them, and whether it reads as
+ * a group by the rule a card reads it by. Null where the press named none, or
+ * named one this Ministry does not hold, which the function answers as null too.
+ */
+const refusedOn = (doc: PageDocument): RefusedRelationship | null => {
+  // The key is always there on this page's document, null or not. Missing is
+  // the reader and the function having drifted apart, and a refusal that names
+  // nobody for that reason would be a wrong answer shown confidently.
+  if (!('refused' in doc)) throw new Error('The assign page document has no refused')
+  const row = doc.refused
+  if (row === null) return null
+  if (typeof row !== 'object' || Array.isArray(row)) {
+    throw new Error(`The refused relationship arrived as something other than a row: ${JSON.stringify(row)}`)
+  }
+  const refused = row as Record<string, unknown>
+  const id = text(refused.id)
+  if (!id) throw new Error(`The refused relationship arrived with no id: ${JSON.stringify(row)}`)
+
+  const members = list(refused, 'members')
+  const named = (role: 'leader' | 'participant') =>
+    members.flatMap((member) => {
+      const name = text(member.full_name)
+      return member.role === role && name !== null ? [name] : []
+    })
+  const participantNames = named('participant')
+  const groupName = text(refused.name)
+  return {
+    relationshipId: relationshipId(id),
+    leaderNames: named('leader'),
+    participantNames,
+    groupName,
+    isAGroup: groupName !== null || participantNames.length > 1,
+  }
+}
+
+/** The assign page: the tab, and the relationship a refused press named. */
+export const assignPageFrom = (doc: PageDocument, clock: Clock): AssignPage => ({
+  ...materialsFrom(doc, clock),
+  refused: refusedOn(doc),
+})
+
+/**
  * The whole tab against whichever signed-in client it is handed, for the tests
  * that drive it with a real session rather than a Next.js request context.
  * Asking about a Ministry the session does not administer reads as the empty
@@ -269,6 +317,21 @@ export const readMaterials = async (
 ): Promise<MaterialsPage> => {
   const doc = await documentFor(supabase, ministryId, 'materials_page')
   return doc ? materialsFrom(doc, clock) : NOTHING_YET
+}
+
+/**
+ * The assign page against whichever signed-in client it is handed, for the tests
+ * that drive it with a real session, as `readMaterials` drives the tab's. Null
+ * where the session does not administer that Ministry.
+ */
+export const readAssignPage = async (
+  supabase: SupabaseClient,
+  ministryId: MinistryId,
+  refused: RelationshipId | null,
+  clock: Clock,
+): Promise<AssignPage | null> => {
+  const doc = await documentFor(supabase, ministryId, 'assign_material_page', { refused })
+  return doc ? assignPageFrom(doc, clock) : null
 }
 
 /**
@@ -297,5 +360,14 @@ export const createSupabaseMaterialsReader = (clock: Clock = systemClock): Mater
       surface === 'materials' ? { gender } : undefined,
     )
     return adminPage(doc, () => materialsFrom(doc, clock))
+  },
+
+  async readAssignPage(refused) {
+    const doc = await readPageDocument(
+      await createSupabaseServerClient(),
+      'assign_material_page',
+      { refused },
+    )
+    return adminPage(doc, () => assignPageFrom(doc, clock))
   },
 })

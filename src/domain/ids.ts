@@ -14,6 +14,8 @@ export type FollowUpItemId = Branded<string, 'FollowUpItemId'>
 export type IntendedPairingId = Branded<string, 'IntendedPairingId'>
 export type ConcernId = Branded<string, 'ConcernId'>
 export type MaterialId = Branded<string, 'MaterialId'>
+/** One file or link a Material holds (Richer materials, ticket 01). */
+export type MaterialItemId = Branded<string, 'MaterialItemId'>
 /**
  * One row an import could not file and an Admin can still answer. Minted at the
  * boundary like every other identifier here, because the report that offers the
@@ -36,6 +38,7 @@ export const intendedPairingId = (value: string): IntendedPairingId =>
   value as IntendedPairingId
 export const concernId = (value: string): ConcernId => value as ConcernId
 export const materialId = (value: string): MaterialId => value as MaterialId
+export const materialItemId = (value: string): MaterialItemId => value as MaterialItemId
 export const importRowId = (value: string): ImportRowId => value as ImportRowId
 export const intakeSubmissionId = (value: string): IntakeSubmissionId =>
   value as IntakeSubmissionId

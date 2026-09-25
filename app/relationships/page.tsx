@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { Download } from '../icons'
+import { ItemsToOpen, LinkedText } from '../materials/items'
 import { AccountMenu, PageShell } from '../shell'
 import { SLOT_HOURS, WEEKDAYS } from '~/domain/intake'
 import { getLeaderDashboardReader } from '~/service/container'
@@ -242,16 +242,11 @@ const Relationship = ({ relationship }: { relationship: RelationshipLed }) => {
             <div className="mat-panel">
               <div className="mat-title">{relationship.material.title}</div>
               {relationship.material.body ? (
-                <p className="material-body">{relationship.material.body}</p>
-              ) : null}
-              {relationship.material.pdfUrl ? (
-                <p className="mat-meta">
-                  <a className="ghost-btn small" href={relationship.material.pdfUrl}>
-                    <Download />
-                    {relationship.material.pdfFilename ?? 'Download the PDF'}
-                  </a>
+                <p className="material-body">
+                  <LinkedText text={relationship.material.body} />
                 </p>
               ) : null}
+              <ItemsToOpen items={relationship.material.items} />
             </div>
           ) : (
             <div className="mat-panel">
