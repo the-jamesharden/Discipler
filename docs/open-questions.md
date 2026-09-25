@@ -416,3 +416,11 @@ V1 ships a spreadsheet paste; the Planning Center API is post-V1. When it return
 - Which system owns contact information when Planning Center is connected
 - What data, if any, flows back to Planning Center
 - What happens when Planning Center is unavailable
+
+## Open: nothing puts `Discipler:` on the first text after a Silence Gap
+
+Found on 2026-09-24 while specifying `.scratch/richer-materials/`.
+*The A2P Compliance Prefix Is a Stated Exception* says `Discipler:` stacks in front of the Ministry prefix on the first message after a thirty-day Silence Gap.
+No code computes a Silence Gap: `identifyDelivery` is set only on the Welcome Message and the `HELP` reply in `src/domain/outbound-copy.ts`, so a person texted again after thirty quiet days gets the Ministry prefix alone.
+Every message path is affected, and the Material change text would inherit the same gap.
+What needs deciding: whether the rule stands as written, in which case the sending layer decides the prefix per recipient at send time from the last text that person was sent, or whether it is dropped with the A2P review this file already asks for before the first pilot.
