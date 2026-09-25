@@ -98,9 +98,9 @@ export const foldIn = (popup: string): string | null =>
 /** Whether the fold is open as the server sends it. */
 export const foldIsOpen = (popup: string): boolean => /<details class="pair-more" open=""/.test(popup)
 
-/** A row's second line, what the person does now, or null where it says nothing. */
+/** A row's second line as it reads, what the person does now, or null where it says nothing. */
 export const doingNowOf = (row: string): string | null =>
-  row.match(/class="pair-also"[^>]*>([^<]*)</)?.[1]?.replace(/&#x27;/g, "'") ?? null
+  row.match(/class="pair-also"[^>]*>((?:<span[^>]*>[^<]*<\/span>)*)<\/span>/)?.[1]?.replace(/<[^>]*>/g, '').replace(/&#x27;/g, "'") ?? null
 
 /** What the form posts without being asked. */
 export const hiddenIn = (popup: string): Record<string, string | undefined> =>

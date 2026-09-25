@@ -216,15 +216,14 @@ export const PAIR_POPUP = {
     `${first} ${side === 'discipler' ? 'asked' : 'lead or offered'}${more === 0 ? '' : ` · ${more} more`}`,
   /**
    * What somebody does now, on their row's second line (Roles per pairing, ticket
-   * 01), every open pairing with its direction, or null where they hold none. Where
-   * the row already counts what they lead (*leads N*), leading is not said again.
+   * 01), every open pairing with its direction, one item each so the row can wrap
+   * each whole, and none where they hold nothing. Where the row already counts what
+   * they lead (*leads N*), leading is not said again.
    */
-  doingNow: (held: readonly RosterRelationship[], { leading }: { readonly leading: boolean }): string | null => {
-    const said = inTheOrderSaid(held)
+  doingNow: (held: readonly RosterRelationship[], { leading }: { readonly leading: boolean }): readonly string[] =>
+    inTheOrderSaid(held)
       .filter(({ role }) => leading || role === 'participant')
-      .flatMap((pairing) => pairingWithItsDirection(pairing) ?? [])
-    return said.length === 0 ? null : said.join(' · ')
-  },
+      .flatMap((pairing) => pairingWithItsDirection(pairing) ?? []),
   chooseADiscipler: (disciple: string): string => `Choose who will disciple ${disciple}.`,
   /** People, across everything they lead: a group of three is three. */
   leads: (people: number): string => (people === 0 ? 'leads nobody yet' : `leads ${people}`),

@@ -233,42 +233,48 @@ describe('what the side chooser and the two sides say', () => {
 })
 
 describe('what a row says somebody does now', () => {
+  // As the row reads it: each item wrapping whole, with a dot between.
+  const said = (...args: Parameters<typeof PAIR_POPUP.doingNow>): string | null => {
+    const items = PAIR_POPUP.doingNow(...args)
+    return items.length === 0 ? null : items.join(' · ')
+  }
+
   const oneToOne = (role: RosterRelationship['role'], other: string) =>
     pairing(role, role === 'leader' ? { participantNames: [other], leaderNames: ['Me'] } : { leaderNames: [other], participantNames: ['Me'] })
   const tuesday = (role: RosterRelationship['role']) =>
     pairing(role, { name: 'Tuesday Women’s', leaderNames: ['Grace Lee'], participantNames: ['Hannah Brooks', 'Lily Evans'], participantCount: 2, countsAsAGroup: true })
 
   it('says each pairing with its direction, leading first', () => {
-    expect(PAIR_POPUP.doingNow([oneToOne('participant', 'Rachel Adams')], { leading: true })).toBe('Discipled by Rachel Adams')
-    expect(PAIR_POPUP.doingNow([tuesday('participant')], { leading: true })).toBe('In Tuesday Women’s')
-    expect(PAIR_POPUP.doingNow([oneToOne('leader', 'Hannah Brooks')], { leading: true })).toBe('Disciples Hannah Brooks')
-    expect(PAIR_POPUP.doingNow([tuesday('leader')], { leading: true })).toBe('Leads Tuesday Women’s')
+    expect(said([oneToOne('participant', 'Rachel Adams')], { leading: true })).toBe('Discipled by Rachel Adams')
+    expect(said([tuesday('participant')], { leading: true })).toBe('In Tuesday Women’s')
+    expect(said([oneToOne('leader', 'Hannah Brooks')], { leading: true })).toBe('Disciples Hannah Brooks')
+    expect(said([tuesday('leader')], { leading: true })).toBe('Leads Tuesday Women’s')
     expect(
-      PAIR_POPUP.doingNow([oneToOne('participant', 'Rachel Adams'), tuesday('participant'), oneToOne('leader', 'Chloe Park')], { leading: true }),
+      said([oneToOne('participant', 'Rachel Adams'), tuesday('participant'), oneToOne('leader', 'Chloe Park')], { leading: true }),
     ).toBe('Disciples Chloe Park · Discipled by Rachel Adams · In Tuesday Women’s')
     // Within a side, a one-to-one before a group, whatever order they arrive in.
-    expect(PAIR_POPUP.doingNow([tuesday('participant'), oneToOne('participant', 'Rachel Adams')], { leading: true })).toBe(
+    expect(said([tuesday('participant'), oneToOne('participant', 'Rachel Adams')], { leading: true })).toBe(
       'Discipled by Rachel Adams · In Tuesday Women’s',
     )
-    expect(PAIR_POPUP.doingNow([tuesday('leader'), oneToOne('leader', 'Emily Davis')], { leading: true })).toBe(
+    expect(said([tuesday('leader'), oneToOne('leader', 'Emily Davis')], { leading: true })).toBe(
       'Disciples Emily Davis · Leads Tuesday Women’s',
     )
   })
 
   it('names a group nobody named by who leads it', () => {
     const unnamed = pairing('participant', { leaderNames: ['Grace Lee'], participantCount: 3 })
-    expect(PAIR_POPUP.doingNow([unnamed], { leading: true })).toBe('In Grace Lee’s group')
+    expect(said([unnamed], { leading: true })).toBe('In Grace Lee’s group')
   })
 
   it('leaves leading to *leads N* where the row already counts it', () => {
-    expect(PAIR_POPUP.doingNow([oneToOne('leader', 'Chloe Park'), oneToOne('participant', 'Grace Lee')], { leading: false })).toBe(
+    expect(said([oneToOne('leader', 'Chloe Park'), oneToOne('participant', 'Grace Lee')], { leading: false })).toBe(
       'Discipled by Grace Lee',
     )
-    expect(PAIR_POPUP.doingNow([oneToOne('leader', 'Chloe Park')], { leading: false })).toBeNull()
+    expect(said([oneToOne('leader', 'Chloe Park')], { leading: false })).toBeNull()
   })
 
   it('says nothing for somebody who does nothing yet', () => {
-    expect(PAIR_POPUP.doingNow([], { leading: true })).toBeNull()
+    expect(said([], { leading: true })).toBeNull()
   })
 })
 
@@ -306,7 +312,7 @@ describe('the summary sentence', () => {
       PAIR_POPUP.listed('disciple', 1, 1),
       PAIR_POPUP.oneToOne('A', 'B'),
       PAIR_POPUP.invited('A B', [pairing('participant', { leaderNames: ['C'] })]),
-      PAIR_POPUP.doingNow([pairing('leader', { participantCount: 2, name: 'G' })], { leading: true }) ?? '',
+      ...PAIR_POPUP.doingNow([pairing('leader', { participantCount: 2, name: 'G' })], { leading: true }),
     ]
     for (const sentence of said) expect(sentence).not.toMatch(/\bleaders?\b|participant|mentor|mentee/i)
   })

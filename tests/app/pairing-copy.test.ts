@@ -440,7 +440,7 @@ describe('the groups in the Pair popup', () => {
       name: null,
       awaitingAcceptance: false,
     }
-    expect(PAIR_POPUP.doingNow([inIt], { leading: true })).toBe(`In ${PAIR_POPUP.groupLabel(unnamed)}`)
+    expect(PAIR_POPUP.doingNow([inIt], { leading: true })).toEqual([`In ${PAIR_POPUP.groupLabel(unnamed)}`])
     expect(PAIR_POPUP.joinGroup('Sam Lee', unnamed)).toBe(`Sam Lee will join ${PAIR_POPUP.groupLabel(unnamed)}.`)
   })
 

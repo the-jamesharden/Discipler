@@ -112,7 +112,7 @@ export const PairRow = ({
   avatar = 'of_a_person',
   person,
   details,
-  also = null,
+  also = [],
   greyed,
   held = false,
   checked,
@@ -130,10 +130,10 @@ export const PairRow = ({
   readonly details: readonly (string | null)[]
   /**
    * What they do now, on a second line under the details (Roles per pairing,
-   * ticket 01): *Discipled by Rachel Adams*, *In Tuesday Women's*. Null says nothing.
+   * ticket 01): *Discipled by Rachel Adams*, *In Tuesday Women's*. None says nothing.
    * A greyed row gives its reason in its place, as it does the details.
    */
-  readonly also?: string | null
+  readonly also?: readonly string[]
   /**
    * Why they cannot be chosen, already in words, or null where they can (Manual
    * pairing, ticket 23). A greyed row is shown and says why. Whoever is not to be
@@ -187,7 +187,16 @@ export const PairRow = ({
                 </span>
               ))}
           </span>
-          {also ? <span className="pair-also">{also}</span> : null}
+          {also.length > 0 ? (
+            <span className="pair-also">
+              {/* Each item wraps whole, as a detail does. */}
+              {also.map((item, index) => (
+                <span key={index} className="pair-detail">
+                  {index < also.length - 1 ? `${item} · ` : item}
+                </span>
+              ))}
+            </span>
+          ) : null}
         </>
       )}
     </span>

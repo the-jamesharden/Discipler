@@ -69,8 +69,8 @@ export interface PairPopupDisciple {
   readonly firstTime: boolean | null
   /** Whether they head the list, as having asked to be discipled, or are folded under Everyone else. */
   readonly listedFirst: boolean
-  /** What they do now, every pairing with its direction, for the row's second line, or null. Hides and greys nobody. */
-  readonly doingNow: string | null
+  /** What they do now, every pairing with its direction, for the row's second line, or none. Hides and greys nobody. */
+  readonly doingNow: readonly string[]
   /**
    * Why they cannot be ticked, already in words, against each thing the ticks can
    * make, or null where they can. Which of them the row shows follows the ticks.

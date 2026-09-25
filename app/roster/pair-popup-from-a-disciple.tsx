@@ -39,8 +39,8 @@ export interface PairPopupDiscipler {
   readonly leads: number
   /** Whether they head the list, as disciplining somebody already or having offered to, or are folded under Everyone else. */
   readonly listedFirst: boolean
-  /** What they are discipled in now, in words, for the row's second line, or null. What they lead is `leads`. */
-  readonly doingNow: string | null
+  /** What they are discipled in now, in words, for the row's second line, or none. What they lead is `leads`. */
+  readonly doingNow: readonly string[]
   /** What they are sent if chosen, and what they go on doing, for the sentence. */
   readonly invited: string
   /** Why they cannot be chosen, already in words, or null where they can (Manual pairing, ticket 23). */
@@ -132,6 +132,10 @@ export const PairPopupFromADisciple = ({
         label: group ? PAIR_POPUP.addToGroup : discipler ? PAIR_POPUP.createOneToOne : PAIR_POPUP.nothingChosen,
         disabled: hydrated && group === null && discipler === null,
       }}
+      // Held by its top edge, as the other side is (Roles per pairing, ticket 01), so
+      // the side chooser switches between two boxes that start in the same place,
+      // and the sentence appearing grows it downward.
+      grows
     >
       <p className="pair-intro">{PAIR_POPUP.chooseADiscipler(person.fullName)}</p>
 
