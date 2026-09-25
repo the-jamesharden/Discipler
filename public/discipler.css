@@ -399,6 +399,12 @@ td .small { margin: 0; }
 .person-name { display: flex; flex-wrap: wrap; align-items: center; gap: 0.2rem 0.5rem; min-width: 0; }
 .avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--primary); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 0.78rem; font-weight: 700; flex-shrink: 0; }
 .blocked { color: var(--text-light); font-style: italic; font-size: 0.85rem; }
+/* Links drawn as one segmented control: the gender filter over Assign to more
+   (Richer materials, ticket 02). It was the Roster's toggle too until the Everyone
+   menu replaced it (Roles per pairing, ticket 02). */
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 5px; overflow: hidden; margin-bottom: 1.25rem; }
+.seg a { padding: 0.45rem 0.9rem; background: var(--surface); font-size: 0.85rem; color: var(--text-light); text-decoration: none; }
+.seg a[aria-current="true"] { background: var(--primary); color: #fff; font-weight: 700; }
 ul.bare { list-style: none; margin: 0; padding: 0; }
 ul.bare li { margin-bottom: 0.35rem; }
 ul.bare li:last-child { margin-bottom: 0; }
