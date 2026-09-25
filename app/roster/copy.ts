@@ -597,6 +597,49 @@ export const pairingSizeLabel = (disciples: number): string =>
   disciples <= 1 ? '1:1' : `${disciples} members`
 
 /**
+ * The direction each tag under a name on a person's page says, before who it is
+ * with (Roles per pairing, ticket 03). No single word says what a person is: each
+ * pairing says which way it runs, so somebody on both sides reads *disciples* Chloe
+ * Park and *discipled by* Grace Lee, and neither is the truer one. Lower case,
+ * because each is a note about one pairing and not a title.
+ */
+export const PAIRING_TAG = {
+  disciples: 'disciples',
+  discipledBy: 'discipled by',
+  leads: 'leads',
+  in: 'in',
+} as const
+
+/**
+ * One tag's words: its direction, and who. A group is named by its name, led or
+ * joined, as the check-in names it. One nobody has named is its people to the
+ * person leading it, and *Grace Lee's group* to somebody in it, which is how the
+ * Pair popup names it (James, 2026-09-21): its bare leader's name would read as a
+ * second one-to-one with them.
+ */
+export const pairingTagSaid = (
+  pairing: {
+    readonly role: MemberRole
+    readonly name: string | null
+    readonly leaderNames: readonly string[]
+    readonly participantNames: readonly string[]
+  },
+  isAGroup: boolean,
+): { readonly direction: string; readonly who: string } => {
+  if (pairing.role === 'leader') {
+    return isAGroup
+      ? { direction: PAIRING_TAG.leads, who: pairing.name ?? asList(pairing.participantNames) }
+      : { direction: PAIRING_TAG.disciples, who: asList(pairing.participantNames) }
+  }
+  return isAGroup
+    ? {
+        direction: PAIRING_TAG.in,
+        who: nameOfAGroup({ name: pairing.name, leaders: pairing.leaderNames.map((fullName) => ({ fullName })) }),
+      }
+    : { direction: PAIRING_TAG.discipledBy, who: asList(pairing.leaderNames) }
+}
+
+/**
  * What a Person is on the Roster, and on the strength of what. A Discipler is a
  * fact -- they lead somebody, they signed up as one on the form, or an import
  * paired them as one -- and this is the one sentence that says which, so a
