@@ -87,7 +87,7 @@ What a relationship says it is for — men, women, or nobody in particular — s
 _Avoid_: Reading an undeclared relationship as "not yet decided" — it declares nothing, which is a settled answer
 
 **Group Name**:
-What a Ministry calls a group, typed by an Admin when forming it and editable from Intake forms afterwards. A label, not a ministry event: renaming overwrites no history. It is what the group Intake link offers and what the weekly check-in asks about; an unnamed group is on no link and is asked about by listing its people. A one-to-one has none.
+What a Ministry calls a group, typed by an Admin when forming it and editable from Intake forms afterwards. A label, not a ministry event: renaming overwrites no history. It is what the group Intake link offers, and what the weekly check-in, the keyword menus and their answers, and the Resume Message call the group, from either side of it; an unnamed group is on no link and is called by listing its people. A one-to-one has none.
 _Avoid_: Naming a one-to-one, or reading an unnamed group as broken -- it predates the name
 
 **Group Intake Link**:
@@ -152,7 +152,7 @@ The ministry's opt-out and rate disclosure, appended to the end of a text. The W
 _Avoid_: the monthly check-in rule (it was only the Leaders' check-ins, and is now this rule for every text)
 
 **Resume Message**:
-The message sent to everyone in a relationship when an Admin resumes it from a Pause, each side named the other side. It carries the Rates Line on the same terms as the Starter Message. A Pause running out releases nothing.
+The message sent to everyone in a relationship when it is resumed from a Pause, each side named the other side, or a named group by its Group Name. It carries the Rates Line on the same terms as the Starter Message. A Pause running out releases nothing.
 _Avoid_: Starter Message (its words are true on the day a match is made, not after a fortnight away)
 
 **Password Reset**:
