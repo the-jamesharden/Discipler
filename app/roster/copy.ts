@@ -4,7 +4,8 @@ import { asList } from '~/domain/outbound-copy'
 import type { MemberRole } from '~/domain/relationships'
 import type { RemovalRefusal } from '~/domain/removal'
 import type { RowProblem } from '~/domain/roster'
-import type { GroupToJoin } from '~/service/ports'
+import type { GroupToJoin, RosterRelationship } from '~/service/ports'
+import type { PairSide } from './lists'
 import type { Greyed } from './greying'
 import { MIXED, type GroupDeclaration } from './declared-gender'
 import { PAIR_SHAPE, type PairShape, type ReadAs, type ShapeRuledOut } from './pair-shape'
@@ -154,21 +155,112 @@ const inASentence = (group: GroupOnARow): { readonly called: string; readonly le
 /** A first name out of the one `full_name` Discipler holds. Splitting it is a copy decision, so it is made here. */
 const firstNameOf = (fullName: string): string => fullName.trim().split(/\s+/)[0] ?? ''
 
+/**
+ * Whether a pairing somebody holds reads as a group: more than one Disciple in it
+ * now, from the live memberships as the Roster row's size tag reads it (ADR-0004).
+ */
+const readsAsAGroup = (pairing: RosterRelationship): boolean => pairing.participantCount > 1
+
+/** What a group somebody holds is called, as the popup calls any group: its name, or its leaders' group. */
+const groupHeld = (pairing: RosterRelationship): string =>
+  nameOfAGroup({ name: pairing.name, leaders: pairing.leaderNames.map((fullName) => ({ fullName })) })
+
+/**
+ * The order a popup row says somebody's pairings in: leading first, as the Roster
+ * row names them, and within each side a one-to-one before a group, as the
+ * mock-ups have it (*Discipled by Rachel Adams · In Tuesday Women's*). Stable
+ * otherwise, so the reader's own order stands.
+ */
+const inTheOrderSaid = (held: readonly RosterRelationship[]): readonly RosterRelationship[] =>
+  [...held].sort(
+    (a, b) =>
+      Number(a.role === 'participant') - Number(b.role === 'participant') ||
+      Number(readsAsAGroup(a)) - Number(readsAsAGroup(b)),
+  )
+
+/**
+ * One pairing with its direction, as a Pair popup row's second line says it
+ * (Roles per pairing, ticket 01): *Disciples Chloe Park*, *Leads Tuesday Women's*,
+ * *Discipled by Rachel Adams*, *In Tuesday Women's*. The same four directions the
+ * Roster's Paired with cell and a person's tags say, capitalised to start a line.
+ * A one-to-one that names nobody on the other side says nothing.
+ */
+const pairingWithItsDirection = (pairing: RosterRelationship): string | null => {
+  if (readsAsAGroup(pairing)) return `${pairing.role === 'leader' ? 'Leads' : 'In'} ${groupHeld(pairing)}`
+  const other = pairing.role === 'leader' ? pairing.participantNames : pairing.leaderNames
+  if (other.length === 0) return null
+  return `${pairing.role === 'leader' ? 'Disciples' : 'Discipled by'} ${asList(other)}`
+}
+
 export const PAIR_POPUP = {
   title: (fullName: string): string => `Pair ${fullName}`,
+  /**
+   * The side chooser, directly under the title (Roles per pairing, ticket 01): which
+   * side of this one pairing the person is on, in James's words from the mock-ups.
+   */
+  inThisPairing: (fullName: string): string => `In this pairing, ${firstNameOf(fullName)}`,
+  side: { discipler: 'Disciples somebody', disciple: 'Is discipled' } satisfies Record<PairSide, string>,
+  /**
+   * What heads each side's list, over the people it opens on, and the fold over
+   * everybody else the gender rule allows. *Disciples*, not *Disciple* (James,
+   * 2026-09-24). He is coming back to these words (*"this but we will come back to
+   * it"*), so they are said here and nowhere else.
+   */
+  listedFirst: {
+    discipler: 'Asked to be discipled',
+    disciple: 'Disciples somebody already, or offered to',
+  } satisfies Record<PairSide, string>,
+  everyoneElse: 'Everyone else',
+  /** The toolbar's count of both sections, as the mock-ups word it. *More* is left out where there are none. */
+  listed: (side: PairSide, first: number, more: number): string =>
+    `${first} ${side === 'discipler' ? 'asked' : 'lead or offered'}${more === 0 ? '' : ` · ${more} more`}`,
+  /**
+   * What somebody does now, on their row's second line (Roles per pairing, ticket
+   * 01), every open pairing with its direction, or null where they hold none. Where
+   * the row already counts what they lead (*leads N*), leading is not said again.
+   */
+  doingNow: (held: readonly RosterRelationship[], { leading }: { readonly leading: boolean }): string | null => {
+    const said = inTheOrderSaid(held)
+      .filter(({ role }) => leading || role === 'participant')
+      .flatMap((pairing) => pairingWithItsDirection(pairing) ?? [])
+    return said.length === 0 ? null : said.join(' · ')
+  },
   chooseADiscipler: (disciple: string): string => `Choose who will disciple ${disciple}.`,
-  disciplers: (count: number): string => (count === 1 ? '1 discipler' : `${count} disciplers`),
   /** People, across everything they lead: a group of three is three. */
   leads: (people: number): string => (people === 0 ? 'leads nobody yet' : `leads ${people}`),
+  /** Both sides of what is about to be made, which the summary draws in bold as the mock-ups do. */
+  willDisciple: (discipler: string, disciples: readonly string[]): string =>
+    `${discipler} will disciple ${asList(disciples)}`,
   oneToOne: (discipler: string, disciple: string): string =>
-    `${discipler} will disciple ${disciple} in a one-on-one.`,
+    `${PAIR_POPUP.willDisciple(discipler, [disciple])}, one to one.`,
+  /**
+   * What the one picked to disciple is sent, and what they go on doing (Roles per
+   * pairing, ticket 01), after the sentence that says what is made: *Emily is sent
+   * an invitation to accept, and goes on being discipled by Grace Lee.* Invited as
+   * any Discipler is, whoever they are. Every pairing they are discipled in is said,
+   * since that is what an Admin might fear the new one ends; what they lead is not,
+   * which *leads N* on the row already says.
+   */
+  invited: (discipler: string, held: readonly RosterRelationship[]): string => {
+    const discipledIn = inTheOrderSaid(held)
+      .filter(({ role }) => role === 'participant')
+      .flatMap((pairing) =>
+        readsAsAGroup(pairing)
+          ? [`in ${groupHeld(pairing)}`]
+          : pairing.leaderNames.length === 0
+            ? []
+            : [`by ${asList(pairing.leaderNames)}`],
+      )
+    const goesOn = discipledIn.length === 0 ? '' : `, and goes on being discipled ${asList(discipledIn)}`
+    return `${firstNameOf(discipler)} is sent an invitation to accept${goesOn}.`
+  },
   createOneToOne: 'Create 1:1 pair',
   nothingChosen: PAIR,
-  noDisciplers: 'There is nobody to choose yet. Somebody becomes a discipler when they offer to on the Intake form.',
   /**
-   * An empty list where gender left somebody or some group off it (James,
-   * 2026-09-21). The sentence above would say how a discipler comes to be, which is
-   * not why there is nobody here, so only its first half is said.
+   * An empty list (James, 2026-09-21). Anybody can be picked on either side, and
+   * whoever cannot be chosen is still listed greyed (Roles per pairing, ticket 01),
+   * so there is nobody here only where the Roster has nobody else, or gender left
+   * them off: there is no how-to-become to say.
    */
   nobodyToChoose: 'There is nobody to choose yet.',
   close: 'Close',
@@ -179,9 +271,6 @@ export const PAIR_POPUP = {
    */
   chooseDisciples: (discipler: string): string => `Choose who ${discipler} will disciple.`,
   disciples: (count: number): string => (count === 1 ? '1 disciple' : `${count} disciples`),
-  /** The group a Disciple is already in, on their row. One nobody has named is said by who leads it. */
-  inGroup: (group: GroupOnARow): string =>
-    `in ${nameOfAGroup(group)}`,
   /**
    * Two or more ticked (Manual pairing, recut ticket 02): the toggle that asks what
    * to make of them, the sentence and the button for each shape, and the Material
@@ -212,10 +301,10 @@ export const PAIR_POPUP = {
   nameOfAOneToTwo: (discipler: string, disciples: readonly [string, string]): string =>
     `${firstNameOf(discipler)} with ${firstNameOf(disciples[0])} & ${firstNameOf(disciples[1])}`,
   oneToTwo: (discipler: string, disciples: readonly string[]): string =>
-    `${discipler} will disciple ${asList(disciples)} together as a 1:2 pair.`,
+    `${PAIR_POPUP.willDisciple(discipler, disciples)} together as a 1:2 pair.`,
   createOneToTwo: 'Create 1:2 pair',
   separately: (discipler: string, disciples: readonly string[]): string =>
-    `${discipler} will disciple ${asList(disciples)} separately, in ${disciples.length} one-on-ones.`,
+    `${PAIR_POPUP.willDisciple(discipler, disciples)} separately, in ${disciples.length} one-on-ones.`,
   createSeparately: (pairs: number): string => `Create ${pairs} 1:1 pairs`,
   /**
    * A Group (Manual pairing, recut ticket 04): what it declares, what it is called,
@@ -246,7 +335,6 @@ export const PAIR_POPUP = {
    * row, which may have opened again by the time this is read.
    */
   unticked: (fullName: string, why: string): string => `${fullName} was unticked: ${why}.`,
-  noDisciples: 'There is nobody to choose yet. Somebody can be chosen once they have completed Intake.',
   /**
    * The Ministry's groups, under the people (Manual pairing, recut ticket 03),
    * listed like people. The line under the title counts both, and counts no groups

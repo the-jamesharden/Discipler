@@ -747,6 +747,27 @@ textarea.paste { width: 100%; min-height: 140px; font-family: ui-monospace, SFMo
 .pair-per-row label { overflow-wrap: anywhere; }
 .pair-summary { margin-top: 0.9rem; background: rgba(45, 80, 22, 0.06); border-left: 3px solid var(--primary); padding: 0.55rem 0.7rem; font-size: 0.82rem; border-radius: 0 5px 5px 0; }
 
+/* Roles per pairing, ticket 01: the Pair popup asks which side of this one pairing
+   the person is on, directly under its title, as the mock-ups draw it. The two
+   sides are links to the popup's own address, so the segments are the import
+   dialog's radio segments drawn on links. Each side's list opens on its usual
+   people and folds everybody else under the browser's own disclosure, and a row
+   says what the person does now on a second line, in the Roster's green. */
+.pair-side { display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap; margin: 0.9rem 0 0.2rem; }
+.pair-side-who { font-size: 0.9rem; font-weight: 600; }
+.seg-radio a { padding: 0.45rem 0.9rem; font-size: 0.85rem; color: var(--text-light); background: var(--surface); text-decoration: none; }
+.seg-radio a:hover { color: var(--primary); }
+.seg-radio a[aria-current="true"] { background: var(--primary); color: #fff; font-weight: 700; }
+.seg-radio a:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.pair-more > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 0.4rem; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-light); margin: 0.5rem 0 0.4rem; }
+.pair-more > summary::-webkit-details-marker { display: none; }
+.pair-more > summary::before { content: '\25B8'; font-size: 0.8rem; }
+.pair-more[open] > summary::before { content: '\25BE'; }
+.pair-more > summary span { font-weight: 500; text-transform: none; letter-spacing: 0; }
+.pair-more > summary:hover { color: var(--primary); }
+.pair-more > .pair-rows { margin-bottom: 0.4rem; }
+.pair-also { display: block; font-size: 0.7rem; color: var(--primary-light); }
+
 /* ---- the Materials tab (home-screen folders, `.scratch/materials/spec.md` S-1) ---- */
 .mat-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
 .mat-toolbar-actions { display: flex; gap: 0.7rem; flex-wrap: wrap; align-items: center; }

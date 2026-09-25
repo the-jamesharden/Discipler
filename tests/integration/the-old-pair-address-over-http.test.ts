@@ -47,19 +47,19 @@ describe.skipIf(skipUnlessAppIsRunning)('the old Pair page’s address, over HTT
 
   it('opens a Discipler it named on the Discipler’s side', async () => {
     const { landed, popup } = await follow(`?leaderId=${claire}`)
-    expect(landed).toBe(`/roster?list=disciplers&pair=${claire}`)
+    expect(landed).toBe(`/roster?list=disciplers&pair=${claire}&side=discipler`)
     expect(popup).toContain('Choose who Claire Martinez will disciple.')
   })
 
   it('opens it with every Disciple it named already ticked', async () => {
     const { landed, popup } = await follow(`?leaderId=${claire}&with=${sam}&with=${ana}`)
-    expect(landed).toBe(`/roster?list=disciplers&pair=${claire}&with=${sam}&with=${ana}`)
+    expect(landed).toBe(`/roster?list=disciplers&pair=${claire}&side=discipler&with=${sam}&with=${ana}`)
     expect(chosenIn(popup!)).toEqual(expect.arrayContaining([sam, ana]))
   })
 
   it('opens a Disciple alone, the Follow-Up tab’s old link, on the Disciple’s side', async () => {
     const { landed, popup } = await follow(`?with=${sam}`)
-    expect(landed).toBe(`/roster?list=disciples&pair=${sam}`)
+    expect(landed).toBe(`/roster?list=disciples&pair=${sam}&side=disciple`)
     expect(popup).toContain('Choose who will disciple Sam Lee.')
   })
 
@@ -79,6 +79,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the old Pair page’s address, over HTT
     expect([...to.searchParams]).toEqual([
       ['list', 'disciplers'],
       ['pair', claire],
+      ['side', 'discipler'],
       ...[...refusal].filter(([name]) => name !== 'leaderId'),
     ])
     expect(popup).toMatch(/role="alert"[^>]*>[^<]*declared/)
@@ -112,6 +113,6 @@ describe.skipIf(skipUnlessAppIsRunning)('the old Pair page’s address, over HTT
     const { html } = await getPage('/follow-up', cookie)
     expect(html).not.toContain('href="/roster/pair')
     const byHand = html.match(/<a [^>]*href="([^"]*)"[^>]*>Pair by hand<\/a>/)?.[1]?.replace(/&amp;/g, '&')
-    expect(byHand).toBe(`/roster?list=disciples&pair=${taylor}`)
+    expect(byHand).toBe(`/roster?list=disciples&pair=${taylor}&side=disciple`)
   })
 })

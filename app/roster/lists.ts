@@ -47,16 +47,17 @@ export const offeredToMentor = (person: RosterFacts): boolean => person.declared
  * changes nothing, since they are a Disciple already; it is the one fact that puts
  * a Discipler on the Disciples list as well (James, 2026-09-22: somebody who fills
  * out the Intake as a mentee can appear on both). Leading somebody does not
- * withdraw the answer.
+ * withdraw the answer. Not `askedToBeDiscipled` below, which is who heads a side of
+ * the Pair popup (Roles per pairing, ticket 01).
  */
-export const askedToBeDiscipled = (person: RosterFacts): boolean => person.declaredSide === 'mentee'
+export const answeredMentee = (person: RosterFacts): boolean => person.declaredSide === 'mentee'
 
 export const isDiscipler = (person: RosterFacts): boolean =>
   leadsSomebody(person) || offeredToMentor(person) || plannedAs(person, 'leader')
 
 export const isDisciple = (person: RosterFacts): boolean =>
   isDiscipledBySomebody(person)
-  || askedToBeDiscipled(person)
+  || answeredMentee(person)
   || plannedAs(person, 'participant')
   || !isDiscipler(person)
 
@@ -132,22 +133,33 @@ export const reasonOnRow = (person: Pick<RosterEntry, 'participationStatus'>): N
   return reason === tagOnName(person) ? null : reason
 }
 
-/** The side of a pairing the Pair popup opens on: whose row was pressed, and so who the list is of. */
+/**
+ * Which side of this one pairing the person the Pair popup is for is on (Roles per
+ * pairing, ticket 01). Nobody is a Discipler or a Disciple: each pairing says who
+ * disciples whom, and the popup asks which side this person is on in this one. It
+ * is the popup's state, held in its address on its own and apart from the Roster's
+ * `list`, so a refresh or a refusal comes back on the side it was on.
+ */
 export type PairSide = 'discipler' | 'disciple'
 
+/** The address field the side travels in, to the popup and back from a refusal. */
+export const SIDE_FIELD = 'side'
+
+export const isPairSide = (value: unknown): value is PairSide => value === 'discipler' || value === 'disciple'
+
 /**
- * Which side the popup opens on (Manual pairing, ticket 12). **The toggle decides**
- * for somebody on both lists: as a Disciple on Disciples, as a Discipler on
- * Disciplers, and on All a Discipler opens as a Discipler. A list never makes
- * somebody a side they are not on, so an address typed by hand gets the side they
- * do hold.
+ * Which side the popup opens on where nothing says (Roles per pairing, ticket 01):
+ * today's rule for who is a Discipler. Leading an open relationship, having
+ * answered Mentor, or being the discipler in a plan an import made opens it on
+ * *Disciples somebody*; everybody else opens on *Is discipled*. It only presets
+ * the popup and never limits who can be picked, and one press switches it. The
+ * Roster's list no longer decides it (it did, Manual pairing, ticket 12).
  */
-export const opensAs = (list: RosterList, person: RosterFacts): PairSide =>
-  list === 'disciples' && isDisciple(person)
-    ? 'disciple'
-    : isDiscipler(person)
-      ? 'discipler'
-      : 'disciple'
+export const opensAs = (person: RosterFacts): PairSide => (isDiscipler(person) ? 'discipler' : 'disciple')
+
+/** The side the address asks for, or the preset where it asks for none it knows. */
+export const sideOfThePopup = (asked: string | undefined, person: RosterFacts): PairSide =>
+  isPairSide(asked) ? asked : opensAs(person)
 
 /** The list each side of the popup is drawn over, where nothing else says which. */
 export const LIST_OF_SIDE: Record<PairSide, RosterSide> = {
@@ -158,15 +170,31 @@ export const LIST_OF_SIDE: Record<PairSide, RosterSide> = {
 /**
  * The Pair popup for somebody, over a list. Every way into pairing is one of these
  * (Manual pairing, recut ticket 05): a row, the person page, the Follow-Up tab and
- * the old Pair page's address, which redirects here.
+ * the old Pair page's address, which redirects here. A way in that knows which
+ * side it means says so (Roles per pairing, ticket 01); one that does not leaves
+ * it to the preset.
  */
-export const pairPopupHref = (list: RosterList, personId: string): string =>
-  `/roster?${new URLSearchParams({ list, pair: personId })}`
+export const pairPopupHref = (list: RosterList, personId: string, side?: PairSide): string =>
+  `/roster?${new URLSearchParams({ list, pair: personId, ...(side === undefined ? {} : { [SIDE_FIELD]: side }) })}`
+
+/**
+ * The popup's address on the other side: the side chooser's one press (Roles per
+ * pairing, ticket 01). Everything else in the address is kept as it was, the
+ * Roster's list and every restored choice included, except a refusal: it was
+ * about what was posted from the side being left, and would read as the other
+ * side's.
+ */
+export const popupOnSide = (address: URLSearchParams, side: PairSide): string => {
+  const onSide = new URLSearchParams(address)
+  onSide.delete('error')
+  onSide.delete('about')
+  onSide.set(SIDE_FIELD, side)
+  return `/roster?${onSide}`
+}
 
 /**
  * Where Pair on a row goes: the popup over the list it was pressed on (Manual
- * pairing, ticket 12), on whichever side `opensAs` gives, from a Disciple and from
- * a Discipler alike since the old Pair page retired (recut ticket 05).
+ * pairing, ticket 12), on the side the preset gives (Roles per pairing, ticket 01).
  */
 export const pairHref = (list: RosterList, person: RosterEntry): string => pairPopupHref(list, person.personId)
 
@@ -184,46 +212,33 @@ export const whoThePopupIsFor = (
 }
 
 /**
- * The popup's list from a Disciple: every Discipler, in the Roster's order, and
- * never the Disciple themselves: who the Roster makes a Discipler, and nothing
- * about who can be chosen. What the popup lists is `disciplersShownTo` in
- * `./greying`, which leaves out whoever gender rules out and greys the rest of
- * those who cannot be chosen.
+ * Who either side of the popup lists (Roles per pairing, ticket 01): everybody on
+ * the Roster but the person themselves, in the Roster's order. Anybody who has
+ * completed Intake can be picked on either side; whoever cannot be chosen is
+ * greyed with the reason (`./greying`), and only gender leaves anybody off.
  */
-export const disciplersFor = (
+export const candidatesFor = (
   roster: readonly RosterEntry[],
-  disciple: RosterEntry,
-): readonly RosterEntry[] =>
-  roster.filter((each) => isDiscipler(each) && each.personId !== disciple.personId)
+  person: Pick<RosterEntry, 'personId'>,
+): readonly RosterEntry[] => roster.filter((each) => each.personId !== person.personId)
 
 /**
- * The popup's list from a Discipler (Manual pairing, ticket 23): every Disciple who
- * has completed Intake and not opted out, in the Roster's order, and never the
- * Discipler themselves. Not filtered beyond that: everyone who could be paired is
- * listed, and a row the database would refuse is greyed with the reason, never
- * hidden. The two left out are the two a Roster row offers no Pair to.
+ * Who heads *Disciples somebody* (Roles per pairing, ticket 01), under **Asked to
+ * be discipled**: somebody who has completed Intake, has not opted out, is
+ * discipled in nothing open, and would not open the popup on *Disciples somebody*
+ * themselves. Everybody else is under *Everyone else*.
  */
-export const disciplesFor = (
-  roster: readonly RosterEntry[],
-  discipler: RosterEntry,
-): readonly RosterEntry[] =>
-  roster.filter(
-    (each) => isDisciple(each) && whyNotPairable(each) === null && each.personId !== discipler.personId,
-  )
+export const askedToBeDiscipled = (person: RosterEntry): boolean =>
+  whyNotPairable(person) === null && !isDiscipledBySomebody(person) && !isDiscipler(person)
 
 /**
- * The groups a Disciple is already in, off the groups the Pair document lists, so
- * their row can name them. A group they lead is not one they are in as a Disciple.
+ * Whether a candidate heads the list of the side the popup is on, or is folded
+ * under *Everyone else*. On *Disciples somebody* the list opens on who asked to be
+ * discipled; on *Is discipled*, on who disciples somebody already, or offered to,
+ * which is whoever would open as *Disciples somebody*.
  */
-export const groupsOf = (
-  disciple: Pick<RosterEntry, 'personId'>,
-  groups: readonly GroupToJoin[],
-): readonly GroupToJoin[] =>
-  groups.filter(
-    (group) =>
-      group.memberIds.includes(disciple.personId) &&
-      !group.leaders.some((leader) => leader.personId === disciple.personId),
-  )
+export const listedFirst = (side: PairSide, candidate: RosterEntry): boolean =>
+  side === 'discipler' ? askedToBeDiscipled(candidate) : isDiscipler(candidate)
 
 /**
  * The groups the popup offers somebody (Manual pairing, recut ticket 03): every one

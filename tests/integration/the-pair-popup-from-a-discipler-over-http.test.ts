@@ -27,6 +27,9 @@ import {
   popupIn,
   postPairing,
   rowFor,
+  sectionsOf,
+  doingNowOf,
+  summaryIn,
 } from '../support/pair-popup'
 
 /**
@@ -143,19 +146,23 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     }
   })
 
-  it('lists every Disciple who has completed Intake and not opted out, each with what their row holds', async () => {
+  // Roles per pairing, ticket 01: anybody can be picked to be discipled. The list
+  // opens on who asked to be discipled, and everybody else the gender rule allows
+  // is folded under Everyone else, greyed where they cannot be chosen.
+  it('lists everybody but her, opening on who asked to be discipled, each with what their row holds', async () => {
     const popup = popupIn((await popupAt('disciplers', claire)).html)!
 
-    // Everyone who could be paired, greyed or not, in the Roster's order; and
-    // nobody who has not completed Intake (so nobody with no gender on file), nobody
-    // opted out, and never Claire herself.
+    // Everybody on the Roster, greyed or not, in the Roster's order; never Claire
+    // herself, and nobody gender rules out: he is on her list only once a Group is Coed.
     const listed = offered(popup)
-    expect(listed).toEqual(expect.arrayContaining([sam, ana, brianna, rosa]))
-    for (const absent of [waiting, left, claire]) expect(listed).not.toContain(absent)
-    // And nobody gender rules out: he is on her list only once a Group is Coed.
+    expect(listed).toEqual(expect.arrayContaining([sam, ana, brianna, rosa, grace, waiting, left]))
+    expect(listed).not.toContain(claire)
     expect(listed).not.toContain(tom)
-    expect(popup).toContain(`${listed.length} disciples`)
-    // The toolbar counts and clears. There is no Select all.
+    // The toolbar counts both sections, and clears. There is no Select all.
+    const { first, everyoneElse } = sectionsOf(popup)
+    expect(first).toEqual(expect.arrayContaining([sam, ana]))
+    for (const discipled of [brianna, rosa, grace, waiting, left]) expect(everyoneElse).toContain(discipled)
+    expect(popup).toContain(`${first.length} asked · ${everyoneElse.length} more`)
     expect(popup).not.toMatch(/select all/i)
 
     const samRow = rowFor(popup, sam)
@@ -169,11 +176,18 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     const anaRow = rowFor(popup, ana)
     expect(detailsOf(anaRow)).toBe('New to this')
     expect(anaRow).not.toContain('>-<')
+    expect(doingNowOf(anaRow)).toBeNull()
 
-    // In a group: listed, open, and the row names the group.
+    // In a group: listed, open, and the row's second line says what she does now.
     const rosaRow = rowFor(popup, rosa)
-    expect(rosaRow).toContain('in Grace’s Group')
+    expect(doingNowOf(rosaRow)).toBe('In Grace’s Group')
     expectOpen(popup, rosa)
+    expect(doingNowOf(rowFor(popup, grace))).toBe('Leads Grace’s Group')
+    expectOpen(popup, grace)
+
+    // Somebody who cannot be paired: listed, greyed, in their Roster row's words.
+    expectGreyed(popup, waiting, 'Awaiting Intake')
+    expectGreyed(popup, left, 'Opted out')
 
     // In a one-to-one: listed, and greyed with the reason. Of another gender, while
     // the Ministry enforces the match: not shown at all (James, 2026-09-21).
@@ -182,14 +196,14 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
 
     // Nothing ticked: no sentence, and the button reads Pair. The toggle is there
     // from the start (James, 2026-09-21), on a 1:1 pair, which asks nothing else.
-    expect(popup).not.toContain('in a one-on-one.')
+    expect(summaryIn(popup)).toBeNull()
     expect(popup).toMatch(/<button[^>]*type="submit"[^>]*>Pair<\/button>/)
     expect(segmentsIn(popup)).toEqual([
       { says: '1:1 pair', mode: 'together', selected: true, disabled: false, treatment: 'on' },
       { says: 'Group', mode: 'together', selected: false, disabled: false, treatment: '' },
     ])
     expect(popup).not.toMatch(/name="(declaredGender|name|materialId|joinRequiresApproval)"/)
-    expect(hiddenIn(popup)).toEqual({ pair: claire, list: 'disciplers', leaderId: claire })
+    expect(hiddenIn(popup)).toEqual({ pair: claire, list: 'disciplers', side: 'discipler', leaderId: claire })
     expect(popup).toMatch(/<form[^>]*action="\/roster\/pair\/create"/)
   })
 
@@ -217,7 +231,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     expect(rowFor(two, man)).toMatch(/checked=""/)
     expect(rowFor(two, woman)).toMatch(/checked=""/)
     expect(two).not.toContain('was unticked')
-    expect(two).toContain('Claire Martinez will disciple Sam Lee and Tom Wilson separately, in 2 one-on-ones.')
+    expect(summaryIn(two)).toContain('Claire Martinez will disciple Sam Lee and Tom Wilson separately, in 2 one-on-ones.')
     expect(two).toMatch(/<label><input type="radio" name="mode" value="together"\/>1:2 pair<\/label>/)
   })
 
@@ -228,7 +242,10 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     // The ticked row takes the selected treatment, and no other row does.
     expect(rowFor(one, sam)).toContain('class="pair-opt on"')
     expect(one.match(/class="pair-opt on/g)).toHaveLength(1)
-    expect(one).toContain('Claire Martinez will disciple Sam Lee in a one-on-one.')
+    // Both sides named, who disciples whom in bold as the mock-ups draw it, and what
+    // Claire is sent (Roles per pairing, ticket 01).
+    expect(one).toContain('<b>Claire Martinez will disciple Sam Lee</b>, one to one.')
+    expect(summaryIn(one)).toContain('Claire Martinez will disciple Sam Lee, one to one. Claire is sent an invitation to accept')
     expect(one).toMatch(/<button[^>]*type="submit"[^>]*>Create 1:1 pair<\/button>/)
     // The toggle is on a 1:1 pair at one tick, and a single one-to-one asks nothing,
     // a Material included, though the Ministry holds two.
@@ -271,7 +288,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     ])
     expect(two).not.toContain('needs exactly two')
     // Named in the list's order, which is the Roster's, whatever order they were ticked in.
-    expect(two).toContain('Claire Martinez will disciple Ana Ruiz and Sam Lee together as a 1:2 pair.')
+    expect(summaryIn(two)).toContain('Claire Martinez will disciple Ana Ruiz and Sam Lee together as a 1:2 pair.')
     expect(two).toMatch(/<button[^>]*type="submit"[^>]*>Create 1:2 pair<\/button>/)
     expect(two).not.toMatch(/<button[^>]*type="submit"[^>]*disabled/)
 
@@ -280,6 +297,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     expect(hiddenIn(two)).toEqual({
       pair: claire,
       list: 'disciplers',
+      side: 'discipler',
       leaderId: claire,
       name: 'Claire with Ana &amp; Sam',
       declaredGender: 'female',
@@ -309,10 +327,10 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
       ['2 × 1:1 pairs', true],
       ['Group', false],
     ])
-    expect(separately).toContain('Claire Martinez will disciple Ana Ruiz and Sam Lee separately, in 2 one-on-ones.')
+    expect(summaryIn(separately)).toContain('Claire Martinez will disciple Ana Ruiz and Sam Lee separately, in 2 one-on-ones.')
     expect(separately).toMatch(/<button[^>]*type="submit"[^>]*>Create 2 1:1 pairs<\/button>/)
     // Nothing of a group is posted: a one-to-one has nothing a name is for.
-    expect(hiddenIn(separately)).toEqual({ pair: claire, list: 'disciplers', leaderId: claire })
+    expect(hiddenIn(separately)).toEqual({ pair: claire, list: 'disciplers', side: 'discipler', leaderId: claire })
 
     expect(separately).toContain('What is each of them running?')
     const offers = ['No material', 'Gospel of Mark', 'Romans']
@@ -332,7 +350,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
       { says: 'Group', mode: 'together', selected: false, disabled: false, treatment: '' },
     ])
     expect(three).toMatch(/<p class="pair-hint" id="pair-shape-hint">1:2 pair needs exactly two checked<\/p>/)
-    expect(three).toContain('separately, in 3 one-on-ones.')
+    expect(summaryIn(three)).toContain('separately, in 3 one-on-ones.')
     expect(three).toMatch(/<button[^>]*type="submit"[^>]*>Create 3 1:1 pairs<\/button>/)
     expect(dropdownsIn(three).map(({ labelled }) => labelled)).toEqual(['Ana Ruiz', 'Rosa Delgado', 'Sam Lee'])
   })
@@ -388,7 +406,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     expect(three).toContain('Claire Martinez will lead a women’s group of 3: Ana Ruiz, Rosa Delgado and Sam Lee.')
     expect(three).toMatch(/<button[^>]*type="submit"[^>]*>Create group of 3<\/button>/)
     // It says that it is a Group, for the way back, and nothing is generated for it.
-    expect(hiddenIn(three)).toEqual({ pair: claire, list: 'disciplers', leaderId: claire, shape: 'group' })
+    expect(hiddenIn(three)).toEqual({ pair: claire, list: 'disciplers', side: 'discipler', leaderId: claire, shape: 'group' })
 
     // Other-gender rows are not shown until Coed is chosen; one-to-ones and other groups grey nobody.
     expectLeftOut(three, tom)
@@ -416,7 +434,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     const coed = popupIn((await popupAt('disciplers', claire, [['shape', 'group'], ['declaredGender', 'mixed']])).html)!
     expect(declaresIn(coed).find(({ on }) => on)?.says).toBe('Coed')
     expectOpen(coed, tom)
-    expect(coed).toContain(`${offered(coed).length} disciples`)
+    expect(coed).toContain(`${sectionsOf(coed).first.length} asked · ${sectionsOf(coed).everyoneElse.length} more`)
     expect(offered(coed).length).toBe(offered(group).length + 1)
 
     // A declaration her own gender rules out is not restored from an address either.
@@ -441,7 +459,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     expect(rowFor(coed, sam)).toMatch(/checked=""/)
     expectOpen(coed, tom)
     // And he is counted now that he is shown.
-    expect(coed).toContain(`${offered(coed).length} disciples`)
+    expect(coed).toContain(`${sectionsOf(coed).first.length} asked · ${sectionsOf(coed).everyoneElse.length} more`)
     expect(coed).not.toContain('was unticked')
     expect(coed).toMatch(/Claire Martinez will lead a coed group of 2: (Sam Lee and Tom Wilson|Tom Wilson and Sam Lee)\./)
     expect(attribute(nameFieldIn(coed)!, 'value')).toBe('Thursday Table')
@@ -468,7 +486,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
 
     const together = popupIn((await popupAt('disciplers', claire, [['with', sam], ['with', brianna]])).html)!
     expect(rowFor(together, brianna)).toMatch(/checked=""/)
-    expect(together).toContain('Claire Martinez will disciple Brianna Frazier and Sam Lee together as a 1:2 pair.')
+    expect(summaryIn(together)).toContain('Claire Martinez will disciple Brianna Frazier and Sam Lee together as a 1:2 pair.')
     expect(together).not.toContain('was unticked')
 
     // The same two as N x 1:1: she is greyed, so she is unticked, and a line says
@@ -479,7 +497,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     expect(rowFor(apart, brianna)).not.toMatch(/checked=""/)
     expect(apart).toMatch(/role="status"[^>]*>Brianna Frazier was unticked: Already in a 1:1 with David Chen\.</)
     expect(segmentsIn(apart).find(({ selected }) => selected)?.says).toBe('1:1 pair')
-    expect(apart).toContain('Claire Martinez will disciple Sam Lee in a one-on-one.')
+    expect(summaryIn(apart)).toContain('Claire Martinez will disciple Sam Lee, one to one.')
   })
 
   it('greys 1:2 pair and Group for a Discipler who already leads a group, and the default moves to N × 1:1', async () => {
@@ -491,7 +509,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
       { says: 'Group', mode: 'together', selected: false, disabled: true, treatment: 'off' },
     ])
     expect(popup).toMatch(/<p class="pair-hint" id="pair-shape-hint">Grace already leads a group<\/p>/)
-    expect(popup).toContain('Grace Lee will disciple Ana Ruiz and Sam Lee separately, in 2 one-on-ones.')
+    expect(summaryIn(popup)).toContain('Grace Lee will disciple Ana Ruiz and Sam Lee separately, in 2 one-on-ones.')
   })
 
   it('keeps a group that has fallen to one Disciple a group, for both caps and from both sides', async () => {
@@ -629,12 +647,12 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     const popup = popupIn(html)!
     expect(popup).toMatch(/role="alert"/)
     expect(rowFor(popup, sam)).toMatch(/checked=""/)
-    expect(popup).toContain('Claire Martinez will disciple Sam Lee in a one-on-one.')
+    expect(summaryIn(popup)).toContain('Claire Martinez will disciple Sam Lee, one to one.')
     expect(currentList(html)).toBe('All')
     // The refusal is the popup's, so the import dialog behind it is shut.
     expect(html.match(/class="modal-bg open"/g)).toHaveLength(1)
 
-    // And somebody not on the list is restored as nobody.
+    // And somebody who cannot be chosen, greyed on the list, is restored as nobody.
     const stranger = popupIn((await popupAt('all', claire, [['with', waiting]])).html)!
     expect(chosenIn(stranger)).toEqual([])
   })

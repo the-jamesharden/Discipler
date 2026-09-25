@@ -105,7 +105,8 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin pairing from the Roster', () =
     expect(old.response.status).toBe(307)
     const location = old.response.headers.get('location') ?? ''
     expect(new URL(location, baseUrl).pathname + new URL(location, baseUrl).search).toBe(
-      `/roster?list=disciples&pair=${olivia}`,
+      // On *Is discipled*, as the old address named her (Roles per pairing, ticket 01).
+      `/roster?list=disciples&pair=${olivia}&side=disciple`,
     )
 
     const { response, html } = await getPage(`/roster?list=disciples&pair=${olivia}`, cookie)

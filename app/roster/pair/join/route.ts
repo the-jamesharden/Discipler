@@ -7,6 +7,7 @@ import {
 } from '~/domain/errors'
 import { personIdFrom, relationshipIdFrom } from '~/domain/ids'
 import { DEFAULT_LIST, isRosterList } from '../../copy'
+import { isPairSide, SIDE_FIELD } from '../../lists'
 import { AS_A_DISCIPLE, AS_A_LEADER, JOIN_AS_FIELD } from '../join-as'
 import { currentAdmin } from '~/platform/supabase/current-admin'
 import { getCommandService } from '~/service/container'
@@ -47,15 +48,20 @@ export async function POST(request: NextRequest) {
   // was on. Anything that names none of the three is All, as it is on the Roster.
   const rawList = field('list')
   const list = isRosterList(rawList) ? rawList : DEFAULT_LIST
+  // And the side of the popup it was posted from (Roles per pairing, ticket 01).
+  const rawSide = field(SIDE_FIELD)
+  const side = isPairSide(rawSide) ? rawSide : null
 
   /**
    * Back to where the Admin submitted from: the Roster, on their list, with the
-   * popup's address for this Person, the group they chose and the reason. Whether
+   * popup's address for this Person on the side it was on, the group they chose and
+   * the reason. Whether
    * `pair` names anybody is the Roster's to say, as it is for a refused pairing.
    */
   const refused = (code: GroupJoinRefusal | PairingRefusal) => {
     const params = new URLSearchParams({ list })
     if (person !== undefined) params.set('pair', person)
+    if (side !== null) params.set(SIDE_FIELD, side)
     if (group !== undefined) params.set('groupId', group)
     params.set('error', code)
     return NextResponse.redirect(new URL(`/roster?${params}`, request.url), { status: 303 })

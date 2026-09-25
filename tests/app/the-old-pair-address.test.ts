@@ -19,12 +19,15 @@ const addressFor = (query: readonly (readonly [string, string])[]) => {
 }
 
 describe('where the old Pair address opens the popup', () => {
+  // Roles per pairing, ticket 01: the side is in the address on its own, apart from
+  // the Roster's list, so the popup opens on the side the old address named them on.
   it('opens a Discipler it named on the Discipler’s side, over the Disciplers', () => {
     expect(addressFor([['leaderId', claire]])).toEqual({
       pathname: '/roster',
       query: [
         ['list', 'disciplers'],
         ['pair', claire],
+        ['side', 'discipler'],
       ],
     })
   })
@@ -33,6 +36,7 @@ describe('where the old Pair address opens the popup', () => {
     expect(addressFor([['leaderId', claire], ['with', sam], ['with', ana]]).query).toEqual([
       ['list', 'disciplers'],
       ['pair', claire],
+      ['side', 'discipler'],
       ['with', sam],
       ['with', ana],
     ])
@@ -44,6 +48,7 @@ describe('where the old Pair address opens the popup', () => {
       query: [
         ['list', 'disciples'],
         ['pair', sam],
+        ['side', 'disciple'],
       ],
     })
   })
@@ -67,6 +72,7 @@ describe('where the old Pair address opens the popup', () => {
     expect(addressFor(refusal).query).toEqual([
       ['list', 'disciplers'],
       ['pair', claire],
+      ['side', 'discipler'],
       // Everything else as it was, the second Discipler included: the popup is
       // one Discipler's, and what it cannot hold it leaves unread.
       ...refusal.filter(([name, value]) => !(name === 'leaderId' && value === claire)),
@@ -74,16 +80,18 @@ describe('where the old Pair address opens the popup', () => {
   })
 
   it('opens the first Discipler named, where it named several', () => {
-    expect(addressFor([['leaderId', hana], ['leaderId', claire]]).query.slice(0, 2)).toEqual([
+    expect(addressFor([['leaderId', hana], ['leaderId', claire]]).query.slice(0, 3)).toEqual([
       ['list', 'disciplers'],
       ['pair', hana],
+      ['side', 'discipler'],
     ])
   })
 
   it('reads an empty value as nobody named', () => {
-    expect(addressFor([['leaderId', ''], ['with', sam]]).query.slice(0, 2)).toEqual([
+    expect(addressFor([['leaderId', ''], ['with', sam]]).query.slice(0, 3)).toEqual([
       ['list', 'disciples'],
       ['pair', sam],
+      ['side', 'disciple'],
     ])
   })
 
@@ -92,21 +100,22 @@ describe('where the old Pair address opens the popup', () => {
     expect(addressFor([['error', 'relationship.needs_a_leader']])).toEqual({ pathname: '/roster', query: [] })
   })
 
-  it('never carries a list or a popup of its own over the one it opens', () => {
-    expect(addressFor([['list', 'all'], ['pair', ana], ['with', sam]]).query).toEqual([
+  it('never carries a list, a popup or a side of its own over the one it opens', () => {
+    expect(addressFor([['list', 'all'], ['pair', ana], ['side', 'discipler'], ['with', sam]]).query).toEqual([
       ['list', 'disciples'],
       ['pair', sam],
+      ['side', 'disciple'],
     ])
   })
 })
 
 describe('whose popup a submission names nobody for returns to', () => {
   it('is its first Discipler’s, over the Disciplers', () => {
-    expect(popupFor({ leaderIds: [claire, hana], participantIds: [sam] })).toEqual({ list: 'disciplers', pair: claire })
+    expect(popupFor({ leaderIds: [claire, hana], participantIds: [sam] })).toEqual({ list: 'disciplers', pair: claire, side: 'discipler' })
   })
 
   it('is its first Disciple’s, over the Disciples, where it has no Discipler', () => {
-    expect(popupFor({ leaderIds: [], participantIds: [sam, ana] })).toEqual({ list: 'disciples', pair: sam })
+    expect(popupFor({ leaderIds: [], participantIds: [sam, ana] })).toEqual({ list: 'disciples', pair: sam, side: 'disciple' })
   })
 
   it('is nobody’s where it names nobody', () => {

@@ -58,21 +58,22 @@ import { INTAKE_FORMS } from '../intake-forms/copy'
 import { ImportDialog, type ImportReadbackWire } from './import-dialog'
 import { IMPORT_DATASET, IMPORT_DIALOG_ID } from './import-copy'
 import {
-  disciplesFor,
-  disciplersFor,
-  groupsOf,
+  candidatesFor,
   groupsToJoin,
   leadsCount,
+  listedFirst,
   onList,
-  opensAs,
   pairHref,
+  popupOnSide,
   plansOn,
   reasonOnRow,
   relationshipsOn,
   rosterStats,
+  sideOfThePopup,
   tagOnName,
   whoThePopupIsFor,
   whyNotPairable,
+  type PairSide,
 } from './lists'
 import { declaredGenderFromField, declaredGenderToField, type GroupDeclaration } from './declared-gender'
 import {
@@ -82,8 +83,8 @@ import {
   greyedInAGroup,
   greyedInAOneToTwo,
   groupsShownTo,
-  leavesOffTheList,
   leadsAGroup,
+  leftOutForADiscipler,
   type Greyed,
 } from './greying'
 import { PairPopupFromADisciple } from './pair-popup-from-a-disciple'
@@ -142,6 +143,11 @@ export default async function RosterPage({
     rowError?: string
     /** Whose Pair popup is open over this list (Manual pairing, ticket 12). */
     pair?: string | string[]
+    /**
+     * Which side of the pairing they are on in it (Roles per pairing, ticket 01):
+     * `discipler` or `disciple`, and the preset where it says neither.
+     */
+    side?: string | string[]
     /** The Discipler chosen in the popup, on a submission that came back refused. */
     leaderId?: string | string[]
     /** The group chosen in the popup, on a join that came back refused (Manual pairing, recut ticket 03). */
@@ -198,9 +204,19 @@ export default async function RosterPage({
   // document already read: opening it is no second read. A `pair` that names
   // nobody on this Roster, or somebody who cannot be paired, opens nothing.
   const pairing = whoThePopupIsFor(roster, asked)
-  // The toggle decides the side, and each side is a popup of its own (Manual
-  // pairing, ticket 23).
-  const side = pairing ? opensAs(list, pairing) : null
+  // Which side of this one pairing they are on (Roles per pairing, ticket 01): what
+  // the address says, or the preset, and never the list. Each side is drawn by a
+  // file of its own (Manual pairing, ticket 23).
+  const side = pairing ? sideOfThePopup(firstOf(query.side), pairing) : null
+  // The popup's own address on each side, for its side chooser: this page's
+  // address, everything in it kept, with the side switched.
+  const address = new URLSearchParams(
+    Object.entries(query).flatMap(([name, said]) => [said ?? []].flat().map((value) => [name, value])),
+  )
+  const sideHrefs: Record<PairSide, string> = {
+    discipler: popupOnSide(address, 'discipler'),
+    disciple: popupOnSide(address, 'disciple'),
+  }
   // Why a row cannot be chosen, already in words, or null where it can. Read
   // against what a one-to-one declares in this Ministry, never offered and then
   // refused.
@@ -529,27 +545,25 @@ export default async function RosterPage({
           key={`disciple-${pairing.personId}`}
           person={{ id: pairing.personId, fullName: pairing.fullName }}
           list={list}
-          // A Discipler gender rules out is not listed at all from this side (James,
-          // 2026-09-21); anybody else who cannot be chosen is greyed with the reason.
+          sideHrefs={sideHrefs}
+          // Anybody can be chosen to disciple them (Roles per pairing, ticket 01);
+          // whoever gender rules out is not listed at all (James, 2026-09-21), and
+          // anybody else who cannot be chosen is greyed with the reason.
           disciplers={disciplersShownTo({ roster, disciple: pairing, genderMatchEnforced: suggestGenderMatch }).map((discipler) => ({
             id: discipler.personId,
             fullName: discipler.fullName,
             email: discipler.email,
             phone: discipler.phone,
             leads: leadsCount(discipler),
+            listedFirst: listedFirst(side, discipler),
+            doingNow: PAIR_POPUP.doingNow(discipler.relationships, { leading: false }),
+            invited: PAIR_POPUP.invited(discipler.fullName, discipler.relationships),
             greyed: greyedInWords(greyedForADisciple({ genderMatchEnforced: suggestGenderMatch, disciple: pairing, discipler })),
           }))}
           // Every group the Ministry has that they are not already in (Manual
           // pairing, recut ticket 03). One whose own declaration rules them out is
-          // not listed, as a Discipler gender rules out is not, so none is greyed.
+          // not listed, as a person gender rules out is not, so none is greyed.
           groups={groupsShownTo(pairing, groups).map((group) => listedGroup(group, null))}
-          // Whether gender left anybody or any group off the list, so that an empty
-          // list does not say why there is nobody when that is not why.
-          someLeftOut={
-            disciplersFor(roster, pairing).length + groupsToJoin(pairing, groups).length >
-            disciplersShownTo({ roster, disciple: pairing, genderMatchEnforced: suggestGenderMatch }).length +
-              groupsShownTo(pairing, groups).length
-          }
           refusal={popupRefusal}
           chosenBefore={chosenBefore ?? null}
           groupChosenBefore={groupChosenBefore ?? null}
@@ -560,19 +574,26 @@ export default async function RosterPage({
           key={`discipler-${pairing.personId}`}
           person={{ id: pairing.personId, fullName: pairing.fullName }}
           list={list}
-          disciples={disciplesFor(roster, pairing).map((disciple) => ({
+          sideHrefs={sideHrefs}
+          invited={PAIR_POPUP.invited(pairing.fullName, pairing.relationships)}
+          // Anybody can be picked to be discipled (Roles per pairing, ticket 01),
+          // whoever cannot be greyed with the reason; who is shown follows the ticks.
+          disciples={candidatesFor(roster, pairing).map((disciple) => ({
             id: disciple.personId,
             fullName: disciple.fullName,
             email: disciple.email,
             phone: disciple.phone,
             firstTime: disciple.firstTime,
-            groups: groupsOf(disciple, groups).map(({ name, leaders }) => ({ name, leaders })),
+            listedFirst: listedFirst(side, disciple),
+            doingNow: PAIR_POPUP.doingNow(disciple.relationships, { leading: true }),
             // Against each thing the ticks can make (Manual pairing, recut tickets 02
             // and 04). Which of them the row shows follows the ticks, in `./pair-shape`.
-            ...inWordsAndLeftOut(
+            greyed: inWords(
               readingsOf({ genderMatchEnforced: suggestGenderMatch, discipler: pairing, disciple }),
               greyedInWords,
             ),
+            // Gender alone leaves a row off, whatever else greys it.
+            leftOut: leftOutForADiscipler({ genderMatchEnforced: suggestGenderMatch, discipler: pairing, disciple }),
           }))}
           // Every group the Ministry has that they are not already in, in either
           // role, and whose declaration does not rule them out, which is not listed
@@ -641,17 +662,14 @@ const readingsOf = ({
   } as Record<ReadAs, Greyed | null>
 }
 
-/** Each reading in words, and the readings that leave the row off the list, which are gender's. */
-const inWordsAndLeftOut = (
+/** Each reading in words. */
+const inWords = (
   readings: Record<ReadAs, Greyed | null>,
-  inWords: (greyed: Greyed | null, readAs: ReadAs) => string | null,
-): { readonly greyed: Record<ReadAs, string | null>; readonly leftOut: readonly ReadAs[] } => {
-  const each = Object.entries(readings) as [ReadAs, Greyed | null][]
-  return {
-    greyed: Object.fromEntries(each.map(([readAs, greyed]) => [readAs, inWords(greyed, readAs)])) as Record<ReadAs, string | null>,
-    leftOut: each.flatMap(([readAs, greyed]) => (greyed !== null && leavesOffTheList(greyed) ? [readAs] : [])),
-  }
-}
+  said: (greyed: Greyed | null, readAs: ReadAs) => string | null,
+): Record<ReadAs, string | null> =>
+  Object.fromEntries(
+    (Object.entries(readings) as [ReadAs, Greyed | null][]).map(([readAs, greyed]) => [readAs, said(greyed, readAs)]),
+  ) as Record<ReadAs, string | null>
 
 /** What a refused Group had declared, out of its address: the field's own three words, or nothing. */
 const declaredOnTheWayBack = (field: string | undefined): GroupDeclaration | null => {

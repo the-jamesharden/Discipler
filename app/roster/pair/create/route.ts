@@ -5,6 +5,7 @@ import type { Gender } from '~/domain/intake'
 import { readPairingMode } from '~/domain/separate-pairings'
 import { DEFAULT_LIST, isRosterList } from '../../copy'
 import { declaredGenderFromField, declaredGenderToField } from '../../declared-gender'
+import { isPairSide, SIDE_FIELD } from '../../lists'
 import { SHAPE_FIELD, postedByAGroup, wasPostedByAGroup } from '../../pair-shape'
 import { materialFieldFor, readMaterialPerDisciple } from '../material-per-disciple'
 import { popupFor } from '../popup-address'
@@ -43,10 +44,17 @@ export async function POST(request: NextRequest) {
    */
   const rawList = form.get('list')
   const posted = chosen('pair')[0]
+  // And the side it was on (Roles per pairing, ticket 01), so a refusal reopens it
+  // there. A popup that said none it knows is left to its preset.
+  const rawSide = form.get(SIDE_FIELD)
   const popup =
     posted === undefined
       ? popupFor({ leaderIds, participantIds })
-      : { pair: posted, list: isRosterList(rawList) ? rawList : DEFAULT_LIST }
+      : {
+          pair: posted,
+          list: isRosterList(rawList) ? rawList : DEFAULT_LIST,
+          side: isPairSide(rawSide) ? rawSide : null,
+        }
 
   /**
    * One relationship of everybody chosen, or a one-to-one with each Disciple
@@ -119,7 +127,12 @@ export async function POST(request: NextRequest) {
     // Every choice the popup holds: from a Disciple the one Discipler, and from a
     // Discipler whoever was ticked (Manual pairing, ticket 23). Never the person
     // the popup is for, who is in the address already as `pair`.
-    const params = new URLSearchParams({ list: popup.list, pair: popup.pair, error: code })
+    const params = new URLSearchParams({
+      list: popup.list,
+      pair: popup.pair,
+      ...(popup.side === null ? {} : { [SIDE_FIELD]: popup.side }),
+      error: code,
+    })
     // And what two or more ticks were to become (Manual pairing, recut ticket 02):
     // who of several the refusal is about, the shape, and every Material chosen,
     // each under the name the old Pair page's refusals gave it, so that its old

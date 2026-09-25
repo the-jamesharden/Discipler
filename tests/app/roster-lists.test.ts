@@ -5,9 +5,6 @@ import type { RosterEntry, RosterIntendedPairing, RosterRelationship } from '~/s
 import * as copy from '../../app/roster/copy'
 import { CANNOT_BE_PAIRED, displayPhone } from '../../app/roster/copy'
 import {
-  disciplesFor,
-  disciplersFor,
-  groupsOf,
   groupsToJoin,
   isDiscipler,
   isDisciple,
@@ -273,17 +270,13 @@ describe('the Pair popup, from a Disciple (Manual pairing, ticket 12)', () => {
   const discipler = person({ declaredSide: 'mentor' })
   const both = person({ relationships: [pairing('participant'), pairing('leader')] })
 
-  it('lets the toggle decide which side somebody on both lists opens on', () => {
-    expect(opensAs('disciples', both)).toBe('disciple')
-    expect(opensAs('disciplers', both)).toBe('discipler')
-    // On All, a Discipler opens as a Discipler.
-    expect(opensAs('all', both)).toBe('discipler')
-    expect(opensAs('all', discipler)).toBe('discipler')
-    expect(opensAs('all', disciple)).toBe('disciple')
-    expect(opensAs('disciples', disciple)).toBe('disciple')
-    // An address typed by hand: a list somebody is not on never makes them that side.
-    expect(opensAs('disciples', discipler)).toBe('discipler')
-    expect(opensAs('disciplers', disciple)).toBe('disciple')
+  // Roles per pairing, ticket 01: the list no longer decides the side. The popup
+  // opens preset by who would be a Discipler, and one press switches it; the rule
+  // itself is tests/app/the-pair-popup-picks-a-side.test.ts's.
+  it('opens preset by who would be a Discipler, whichever list Pair was pressed on', () => {
+    expect(opensAs(both)).toBe('discipler')
+    expect(opensAs(discipler)).toBe('discipler')
+    expect(opensAs(disciple)).toBe('disciple')
   })
 
   it('sends Pair on a Disciple row to the popup over the list it was pressed on', () => {
@@ -312,15 +305,6 @@ describe('the Pair popup, from a Disciple (Manual pairing, ticket 12)', () => {
     expect(whoThePopupIsFor(roster, undefined)).toBeNull()
   })
 
-  it('lists every Discipler, in the order of the Roster, and never the Disciple themselves', () => {
-    // Nobody is left out for a reason the database would refuse: those rows are
-    // greyed with the reason (Manual pairing, ticket 23), never hidden.
-    const waiting = person({ participationStatus: 'no_intake_submitted', declaredSide: 'mentor' })
-    const roster = [disciple, discipler, both, waiting]
-    expect(disciplersFor(roster, disciple)).toEqual([discipler, both, waiting])
-    expect(disciplersFor(roster, both)).toEqual([discipler, waiting])
-  })
-
   it('counts the people somebody leads, across everything they lead', () => {
     expect(leadsCount(disciple)).toBe(0)
     expect(leadsCount(person({ relationships: [pairing('leader')] }))).toBe(1)
@@ -332,62 +316,6 @@ describe('the Pair popup, from a Disciple (Manual pairing, ticket 12)', () => {
       ],
     })
     expect(leadsCount(busy)).toBe(4)
-  })
-})
-
-describe('the Pair popup, from a Discipler (Manual pairing, ticket 23)', () => {
-  const claire = person({ fullName: 'Claire Martinez', relationships: [pairing('leader')] })
-
-  it('lists every Disciple who has completed Intake and not opted out, and nobody else', () => {
-    const sam = person()
-    const inAGroup = person({ relationships: [pairing('participant', { participantCount: 3 })] })
-    const inAOneToOne = person({ relationships: [pairing('participant')] })
-    const waiting = person({ participationStatus: 'no_intake_submitted' })
-    const left = person({ participationStatus: 'opted_out' })
-    const onlyADiscipler = person({ declaredSide: 'mentor' })
-    // Discipled by somebody and discipling somebody: a Disciple like any other.
-    const both = person({ relationships: [pairing('leader'), pairing('participant', { participantCount: 2 })] })
-
-    const roster = [sam, claire, inAGroup, waiting, inAOneToOne, left, onlyADiscipler, both]
-    // In the Roster's order. Not filtered beyond that: being paired already, or of
-    // another gender, greys a row and never hides it.
-    expect(disciplesFor(roster, claire)).toEqual([sam, inAGroup, inAOneToOne, both])
-  })
-
-  it('never lists the Discipler themselves', () => {
-    const both = person({ relationships: [pairing('leader'), pairing('participant', { participantCount: 2 })] })
-    expect(disciplesFor([both, person()], both)).not.toContain(both)
-  })
-
-  it('names the groups a Disciple is already in, off the groups the Pair document lists', () => {
-    const rosa = person()
-    const group = (name: string | null, memberIds: readonly RosterEntry['personId'][]) => ({
-      relationshipId: relationshipId(`group-${++counter}`),
-      name,
-      leaders: [{ personId: personId('grace'), fullName: 'Grace Lee' }],
-      discipleCount: 3,
-      declaredGender: null,
-      state: null,
-      memberIds,
-    })
-    const hers = group('Grace’s Group', [personId('grace'), rosa.personId])
-    const unnamed = group(null, [rosa.personId])
-    const somebodyElses = group('Thursday Table', [personId('somebody')])
-    expect(groupsOf(rosa, [hers, somebodyElses, unnamed])).toEqual([hers, unnamed])
-  })
-
-  it('does not count a group they lead as one they are in as a Disciple', () => {
-    const grace = person()
-    const leads = {
-      relationshipId: relationshipId(`group-${++counter}`),
-      name: 'Grace’s Group',
-      leaders: [{ personId: grace.personId, fullName: 'Grace Lee' }],
-      discipleCount: 3,
-      declaredGender: null,
-      state: null,
-      memberIds: [grace.personId],
-    }
-    expect(groupsOf(grace, [leads])).toEqual([])
   })
 })
 
