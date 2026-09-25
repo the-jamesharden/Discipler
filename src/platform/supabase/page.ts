@@ -145,8 +145,9 @@ export const documentFor = async (
   supabase: SupabaseClient,
   ministry: MinistryId,
   page: string,
+  args?: Readonly<Record<string, unknown>>,
 ): Promise<PageDocument | null> => {
-  const doc = await readPageDocument(supabase, page)
+  const doc = await readPageDocument(supabase, page, args)
   const resolution = resolutionOf(doc)
   return resolution.status === 'admin' && resolution.admin.ministryId === ministry ? doc : null
 }

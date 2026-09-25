@@ -607,7 +607,7 @@ describe('the Material a relationship is working through', () => {
       const romans = materialId(await addMaterial(ministry, 'Romans ' + ++numbered))
 
       await expect(assign(relationship, romans)).rejects.toThrow(
-        new MaterialAssignmentRefused('material.relationship_not_accepted'),
+        new MaterialAssignmentRefused('material.relationship_not_accepted', relationship),
       )
     })
 
@@ -677,7 +677,7 @@ describe('the Material a relationship is working through', () => {
       await assign(relationship, romans)
       at(new Date(acceptedAt.getTime() + days(14)))
       await expect(assign(relationship, romans)).rejects.toThrow(
-        new MaterialAssignmentRefused('material.already_running'),
+        new MaterialAssignmentRefused('material.already_running', relationship),
       )
 
       expect(await periodsOf(relationship)).toHaveLength(2)
@@ -688,7 +688,7 @@ describe('the Material a relationship is working through', () => {
 
       at(new Date(acceptedAt.getTime() + days(7)))
       await expect(assign(relationship, null)).rejects.toThrow(
-        new MaterialAssignmentRefused('material.already_running'),
+        new MaterialAssignmentRefused('material.already_running', relationship),
       )
       expect(await periodsOf(relationship)).toHaveLength(1)
     })
@@ -974,6 +974,116 @@ describe('the Material a relationship is working through', () => {
 
       // Every week of the semester has an answer, and no week has two.
       expect(weekly).toEqual(['none', 'none', romans, romans, romans, john, john])
+    })
+  })
+
+  describe('assigning one Material to many at once (Richer materials, ticket 02)', () => {
+    const assignMany = (relationships: readonly RelationshipId[], material: MaterialId) =>
+      service().execute({
+        type: 'material.assign_to_relationships',
+        ministryId: ministry.id,
+        materialId: material,
+        relationshipIds: relationships,
+        assignedBy: ministry.adminUserId,
+      })
+
+    /** Each assignment event written about a relationship, oldest first. */
+    const assignedEventsOf = async (relationship: RelationshipId) =>
+      (
+        await pool.query<{ payload: { materialId: string | null; assignedBy: string } }>(
+          `select payload from ministry_event
+            where subject_id = $1 and type = 'relationship.material_assigned'
+            order by occurred_at, id`,
+          [relationship],
+        )
+      ).rows.map((row) => row.payload)
+
+    it('starts every one on it at the same instant, each with its own period and event', async () => {
+      const first = await aRelationship()
+      const second = await aRelationship()
+      const third = await aRelationship()
+      const romans = materialId(await addMaterial(ministry, 'Romans ' + ++numbered))
+
+      // One already on another Material: it is moved, as a card would move it.
+      const mark = materialId(await addMaterial(ministry, 'Mark ' + ++numbered))
+      at(new Date(acceptedAt.getTime() + days(7)))
+      await assign(third, mark)
+
+      const pressedAt = new Date(acceptedAt.getTime() + days(14))
+      at(pressedAt)
+      await assignMany([first, second, third], romans)
+
+      for (const relationship of [first, second]) {
+        const periods = await periodsOf(relationship)
+        expect(periods.map((period) => period.material_id)).toEqual([null, romans])
+        expect(periods[1]).toMatchObject({ started_at: pressedAt, assigned_by: ministry.adminUserId })
+        expect(await assignedEventsOf(relationship)).toEqual([
+          { materialId: romans, assignedBy: ministry.adminUserId },
+        ])
+      }
+      expect((await periodsOf(third)).map((period) => period.material_id)).toEqual([null, mark, romans])
+      expect(await assignedEventsOf(third)).toEqual([
+        { materialId: mark, assignedBy: ministry.adminUserId },
+        { materialId: romans, assignedBy: ministry.adminUserId },
+      ])
+    })
+
+    it('refuses the lot when one has ended, writing nothing for any, and names it', async () => {
+      const first = await aRelationship()
+      const ended = await aRelationship()
+      const last = await aRelationship()
+      const romans = materialId(await addMaterial(ministry, 'Romans ' + ++numbered))
+      // Ended through the product's own act, as an Admin in another tab would.
+      at(new Date(acceptedAt.getTime() + days(3)))
+      await service().execute({
+        type: 'relationship.end',
+        ministryId: ministry.id,
+        relationshipId: ended,
+        reason: 'Moved away',
+        outcome: 'discontinued',
+        endedBy: ministry.adminUserId,
+      })
+
+      at(new Date(acceptedAt.getTime() + days(7)))
+      await expect(assignMany([first, ended, last], romans)).rejects.toThrow(
+        new MaterialAssignmentRefused('material.relationship_ended', ended),
+      )
+
+      for (const relationship of [first, ended, last]) {
+        expect(await periodsOf(relationship)).toHaveLength(1)
+        expect(await assignedEventsOf(relationship)).toEqual([])
+      }
+    })
+
+    it('refuses the lot over the Material one is already on, which only the database can see, and names it', async () => {
+      const first = await aRelationship()
+      const already = await aRelationship()
+      const romans = materialId(await addMaterial(ministry, 'Romans ' + ++numbered))
+      at(new Date(acceptedAt.getTime() + days(7)))
+      await assign(already, romans)
+
+      at(new Date(acceptedAt.getTime() + days(14)))
+      await expect(assignMany([first, already], romans)).rejects.toThrow(
+        new MaterialAssignmentRefused('material.already_running', already),
+      )
+
+      // The first was written by the database before the second was refused, and
+      // rolled back with it.
+      expect(await periodsOf(first)).toHaveLength(1)
+      expect(await assignedEventsOf(first)).toEqual([])
+      expect(await periodsOf(already)).toHaveLength(2)
+    })
+
+    it("refuses the lot over another Ministry's relationship, as not found, and names it", async () => {
+      const ours = await aRelationship()
+      const theirs = relationshipId(await createRelationship(other, 'one_to_one', { acceptedAt }))
+      const romans = materialId(await addMaterial(ministry, 'Romans ' + ++numbered))
+
+      at(new Date(acceptedAt.getTime() + days(7)))
+      await expect(assignMany([ours, theirs], romans)).rejects.toThrow(
+        new MaterialAssignmentRefused('material.relationship_not_found', theirs),
+      )
+      expect(await periodsOf(ours)).toHaveLength(1)
     })
   })
 })

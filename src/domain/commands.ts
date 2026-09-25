@@ -571,6 +571,27 @@ export type Command =
       readonly removedBy: string
     }
   /**
+   * An Admin starting many relationships on one Material in one press, from the
+   * Material's own assign page (Richer materials, ticket 02).
+   *
+   * One act, and all or nothing: each relationship named is decided by exactly
+   * the rules `relationship.assign_material` decides one by, and one refusal
+   * refuses the lot, naming the relationship it was about. Each assignment that
+   * does land writes its own period and its own `relationship.material_assigned`
+   * event, so a relationship's history reads the same whichever way it was put
+   * on the Material. Always a Material: taking relationships off theirs stays one
+   * card at a time.
+   */
+  | {
+      readonly type: 'material.assign_to_relationships'
+      readonly ministryId: MinistryId
+      readonly materialId: MaterialId
+      /** Every relationship to start on it, in the order the page listed them. */
+      readonly relationshipIds: readonly RelationshipId[]
+      /** The Admin's account, as the session named it. */
+      readonly assignedBy: string
+    }
+  /**
    * The four ways an Admin changes the list of Discipleship Goals their Ministry
    * offers at Intake. Four commands and not one, because they are four acts an
    * Admin performs separately and only one of them costs anybody their answer.

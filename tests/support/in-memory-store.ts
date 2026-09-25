@@ -691,6 +691,12 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         async relationshipFor() {
           return store.relationship ?? null
         },
+        async relationshipsToAssign(ids) {
+          // The one relationship this store holds, where it is among those named:
+          // the database's answer for a Ministry of one.
+          const held = store.relationship
+          return held && ids.includes(held.relationshipId) ? [held] : []
+        },
         async cancelRelationship(cancellation) {
           stagedCancellations.push(cancellation)
         },
@@ -721,8 +727,8 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         async configureGroup(configuration) {
           stagedGroupConfigurations.push(configuration)
         },
-        async assignMaterial(assignment) {
-          stagedMaterialAssignments.push(assignment)
+        async assignMaterials(assignments) {
+          stagedMaterialAssignments.push(...assignments)
         },
         async peopleOnRoster() {
           const everyone = [...people, ...stagedPeople]

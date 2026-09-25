@@ -240,7 +240,10 @@ describe('applying a command\'s effects', () => {
         endRelationship: async () => {
           throw new Error('nothing should have been ended')
         },
-        assignMaterial: async () => {
+        relationshipsToAssign: async () => {
+          throw new Error('no relationship should have been read')
+        },
+        assignMaterials: async () => {
           throw new Error('no Material should have been assigned')
         },
         departFromRelationship: async () => {

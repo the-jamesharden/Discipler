@@ -22,6 +22,7 @@ import type {
   PersonContact,
   OpenJoinRequest,
   RelationshipSnapshot,
+  RelationshipToAssign,
   UnacceptedRelationship,
 } from '~/domain/boundary'
 import type { CheckInSnapshot, Satisfaction } from '~/domain/check-in'
@@ -431,16 +432,25 @@ export interface UnitOfWork {
   /** What an Admin called a group and whether joining it asks. */
   configureGroup(configuration: GroupConfiguration): Promise<void>
   /**
-   * Closes the Material period that was running and opens a new one at the same
-   * instant, through the one database function that writes either -- which is what
-   * keeps *periods never overlap and never leave gaps* true of every write path
-   * rather than of the one that happens to be careful.
-   *
-   * Refuses with a `MaterialAssignmentRefused` when the database disagrees with the
-   * snapshot the domain decided from, or when the Material or the Admin belongs to
-   * another Ministry.
+   * The relationships an Admin is assigning a Material to many of at once, each as
+   * much as the rule reads, locked in one statement (Richer materials, ticket 02).
+   * One this Ministry does not hold is left out rather than answered for: the
+   * domain refuses the act over it, by name.
    */
-  assignMaterial(assignment: MaterialAssignment): Promise<void>
+  relationshipsToAssign(ids: readonly RelationshipId[]): Promise<readonly RelationshipToAssign[]>
+  /**
+   * For each assignment in turn, closes the Material period that was running and
+   * opens a new one at the same instant, through the one database function that
+   * writes either -- which is what keeps *periods never overlap and never leave
+   * gaps* true of every write path rather than of the one that happens to be
+   * careful. All of them in one round trip, in the order given, because a command
+   * that assigns many would otherwise wait on the network once per relationship.
+   *
+   * Refuses with a `MaterialAssignmentRefused` naming the relationship when the
+   * database disagrees with the snapshot the domain decided from, and without one
+   * when the Material or the Admin belongs to another Ministry.
+   */
+  assignMaterials(assignments: readonly MaterialAssignment[]): Promise<void>
 
   /**
    * Everything a check-in command needs about one Person: the live relationships
@@ -2079,10 +2089,38 @@ export interface MaterialsPage {
 /** The four surfaces that draw from the tab's document, each read under its own name. */
 export type MaterialsSurface = 'materials' | 'material' | 'new-material' | 'edit-material'
 
+/**
+ * The relationship the last press on a Material's assign page was refused over,
+ * named the way the page's list names one (Richer materials, ticket 02). Read
+ * whether or not it is still live, because the refusal that most needs naming
+ * is the one that ended while the page was open, and an ended relationship is
+ * not on the list any more.
+ */
+export interface RefusedRelationship {
+  readonly relationshipId: RelationshipId
+  /** Who led it: now, or when it ended. */
+  readonly leaderNames: readonly string[]
+  readonly participantNames: readonly string[]
+  readonly groupName: string | null
+  /** Named, or discipling more than one person, as a card decides it. */
+  readonly isAGroup: boolean
+}
+
+/** What a Material's assign page derives from its document: the tab's, and one name. */
+export interface AssignPage extends MaterialsPage {
+  /** The relationship the last press was refused over, or null where none was named or it is not this Ministry's. */
+  readonly refused: RefusedRelationship | null
+}
+
 export interface MaterialsReader {
   /**
    * The whole tab in one read, against one reading of the clock. The filter is
    * carried to the function for the edge log and applied by the page.
    */
   readMaterialsPage(surface: MaterialsSurface, gender: Gender | null): Promise<AdminPage<MaterialsPage>>
+  /**
+   * A Material's assign page in one read (Richer materials, ticket 02): the tab's
+   * document, and the relationship a refused press named, where one did.
+   */
+  readAssignPage(refused: RelationshipId | null): Promise<AdminPage<AssignPage>>
 }

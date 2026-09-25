@@ -428,13 +428,13 @@ describe('an Admin assigning a Material', () => {
     // assignment before acceptance would leave the gap the opening period exists
     // to prevent.
     expect(() => assign({ acceptedAt: null })).toThrow(
-      new MaterialAssignmentRefused('material.relationship_not_accepted'),
+      new MaterialAssignmentRefused('material.relationship_not_accepted', relationship),
     )
   })
 
   it('is refused on a relationship that has ended', () => {
     expect(() => assign({ endedAt: new Date('2026-04-01T09:00:00Z') })).toThrow(
-      new MaterialAssignmentRefused('material.relationship_ended'),
+      new MaterialAssignmentRefused('material.relationship_ended', relationship),
     )
   })
 
@@ -488,7 +488,161 @@ describe('an Admin taking a relationship off its Material', () => {
 
   it('is refused on a relationship nobody has accepted, as an assignment is', () => {
     expect(() => assign({ acceptedAt: null }, null)).toThrow(
-      new MaterialAssignmentRefused('material.relationship_not_accepted'),
+      new MaterialAssignmentRefused('material.relationship_not_accepted', relationship),
     )
+  })
+})
+
+/**
+ * Assigning one Material to many relationships in one press (Richer materials,
+ * ticket 02): the same rule a card is decided by, for each of them, and one
+ * refusal refusing the lot with the relationship it was about.
+ */
+describe('an Admin assigning a Material to many relationships at once', () => {
+  const second = relationshipId('00000000-0000-4000-8000-0000000000b2')
+  const third = relationshipId('00000000-0000-4000-8000-0000000000b3')
+
+  const toAssign = (
+    id: typeof relationship,
+    over: Partial<Pick<RelationshipSnapshot, 'acceptedAt' | 'endedAt'>> = {},
+  ) => ({ relationshipId: id, acceptedAt, endedAt: null, ...over })
+
+  const assignMany = (
+    named: readonly (typeof relationship)[],
+    loaded = [toAssign(relationship), toAssign(second), toAssign(third)],
+    materials: readonly MaterialOnOffer[] = liveList,
+  ) =>
+    handleCommand(
+      {
+        type: 'material.assign_to_relationships',
+        ministryId: ministry,
+        materialId: romans,
+        relationshipIds: named,
+        assignedBy: 'admin-user-1',
+      },
+      {
+        ministryId: ministry,
+        clock: createTestClock(now),
+        ids: createSequentialIds(),
+        relationshipsToAssign: loaded,
+        materials,
+      },
+    )
+
+  /** What the same Admin pressing Save on one card writes. */
+  const oneCard = (id: typeof relationship) =>
+    handleCommand(
+      {
+        type: 'relationship.assign_material',
+        ministryId: ministry,
+        relationshipId: id,
+        materialId: romans,
+        assignedBy: 'admin-user-1',
+      },
+      {
+        ministryId: ministry,
+        clock: createTestClock(now),
+        ids: createSequentialIds(),
+        relationship: relationshipSnapshot({ relationshipId: id }),
+        materials: liveList,
+      },
+    ).effects
+
+  it('writes, for each, exactly what one card writes, in the order the page listed them', () => {
+    expect(assignMany([third, relationship, second]).effects).toEqual([
+      ...oneCard(third),
+      ...oneCard(relationship),
+      ...oneCard(second),
+    ])
+  })
+
+  it('gives each its own history event', () => {
+    expect(events(assignMany([relationship, second, third])).map((event) => event.subjectId)).toEqual([
+      relationship,
+      second,
+      third,
+    ])
+  })
+
+  it('assigns a relationship named twice once', () => {
+    // A second assignment of the same one would be refused as the Material
+    // already running, and would refuse the lot over nothing.
+    expect(assignments(assignMany([second, second]))).toHaveLength(1)
+  })
+
+  it('sends nobody anything', () => {
+    // The text telling people is the tick's, once the changes settle (ticket 03).
+    expect(
+      assignMany([relationship, second]).effects.filter((effect) => effect.kind === 'message.enqueue'),
+    ).toEqual([])
+  })
+
+  it('refuses the lot over one that has ended, and says which', () => {
+    const ended = [
+      toAssign(relationship),
+      toAssign(second, { endedAt: new Date('2026-04-05T09:00:00Z') }),
+      toAssign(third),
+    ]
+    let refusal: unknown
+    try {
+      assignMany([relationship, second, third], ended)
+    } catch (error) {
+      refusal = error
+    }
+    expect(refusal).toBeInstanceOf(MaterialAssignmentRefused)
+    expect(refusal).toMatchObject({ refusal: 'material.relationship_ended', relationshipId: second })
+  })
+
+  it('refuses the lot over one this Ministry does not hold, and says which', () => {
+    expect(() => assignMany([relationship, third], [toAssign(relationship)])).toThrow(
+      expect.objectContaining({ refusal: 'material.relationship_not_found', relationshipId: third }),
+    )
+  })
+
+  it('refuses the lot over one nobody has accepted', () => {
+    expect(() =>
+      assignMany([relationship, second], [toAssign(relationship), toAssign(second, { acceptedAt: null })]),
+    ).toThrow(expect.objectContaining({ refusal: 'material.relationship_not_accepted', relationshipId: second }))
+  })
+
+  it('names the first refused in the order the page listed them', () => {
+    const bothEnded = [
+      toAssign(relationship, { endedAt: now }),
+      toAssign(second),
+      toAssign(third, { endedAt: now }),
+    ]
+    expect(() => assignMany([third, second, relationship], bothEnded)).toThrow(
+      expect.objectContaining({ relationshipId: third }),
+    )
+  })
+
+  it('refuses a Material the Ministry no longer offers, as nobody’s in particular', () => {
+    expect(() =>
+      assignMany([relationship], undefined, [onOffer(johnsGospel, "John's Gospel")]),
+    ).toThrow(expect.objectContaining({ refusal: 'material.not_found', relationshipId: null }))
+  })
+
+  it('is not refused on a paused relationship, as a card is not', () => {
+    // The snapshot carries no Pause at all: nothing about one is consulted.
+    expect(assignments(assignMany([relationship]))).toHaveLength(1)
+  })
+
+  it('is a defect with nobody named, which the route refuses before it gets here', () => {
+    expect(() => assignMany([])).toThrow('was handed no relationship to act on')
+  })
+
+  it('is a defect with nothing loaded', () => {
+    expect(() =>
+      handleCommand(
+        {
+          type: 'material.assign_to_relationships',
+          ministryId: ministry,
+          materialId: romans,
+          relationshipIds: [relationship],
+          assignedBy: 'admin-user-1',
+        },
+        { ministryId: ministry, clock: createTestClock(now), ids: createSequentialIds(), materials: liveList },
+      ),
+    ).toThrow('was handed no relationships to act on')
   })
 })

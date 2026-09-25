@@ -398,8 +398,10 @@ export const applyEffects = async (
 
   // After the acceptance that stamps `accepted_at`, because that is the instant the
   // period with no Material starts from and the row has to exist for it to start.
-  // Before the history saying it happened, like every other write here.
-  for (const assignment of materialAssignments) await unit.assignMaterial(assignment)
+  // Before the history saying it happened, like every other write here. All of
+  // them at once and in order: acceptance's opening period before the Material
+  // chosen at pairing, and an Admin's many in the order the page listed them.
+  if (materialAssignments.length > 0) await unit.assignMaterials(materialAssignments)
 
   // The answer to the question that was open, then the conversation it finished,
   // then the one that replaces it, then its first question. In that order because
@@ -633,6 +635,8 @@ const consultsTheMaterialList = (
   // ticket 03). Behind the list's own lock, so an assignment and a removal of
   // the same Material cannot both decide from a list the other has changed.
   (command.type === 'relationship.assign_material' && command.materialId !== null) ||
+  // And assigning one to many, which always names one (Richer materials, ticket 02).
+  command.type === 'material.assign_to_relationships' ||
   // A withdrawal can activate a relationship as the last acceptance does, and
   // spends the intended Material the same way.
   ((command.type === 'relationship.accept' ||
@@ -1056,6 +1060,12 @@ export const createCommandService = ({
           : {}),
         ...(isAboutOneRelationship(command)
           ? { relationship: await named(unit, command) }
+          : {}),
+        // Every relationship named, locked in one statement rather than one read
+        // each, so a press that starts twenty on a Material is not twenty round
+        // trips before anything is decided.
+        ...(command.type === 'material.assign_to_relationships'
+          ? { relationshipsToAssign: await unit.relationshipsToAssign(command.relationshipIds) }
           : {}),
         // Read inside the transaction like everything else, so two Admins editing
         // the list at once cannot both decide against a version of it that no

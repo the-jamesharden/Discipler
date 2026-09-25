@@ -19,6 +19,7 @@ import type {
   PausedRelationship,
   PersonContact,
   RelationshipSnapshot,
+  RelationshipToAssign,
   UnacceptedRelationship,
 } from '~/domain/boundary'
 import type {
@@ -754,15 +755,15 @@ const ASSIGNMENT_REFUSALS: Readonly<
   material_already_running: 'material.already_running',
 }
 
-const refused = <Answer extends string, Refusal extends string>(
+const refused = <Answer extends string, Refusal extends string, Refused extends Error>(
   answer: Answer,
   refusals: Readonly<Record<Answer, Refusal | null>>,
-  refusal: new (why: Refusal) => Error,
+  refusal: new (why: Refusal) => Refused,
   // Named rather than defaulted. The message this raises is read on the day
   // something is genuinely wrong, and a default would quietly attribute a third
   // caller's defect to whichever function happened to be the first one written.
   fn: string,
-): Error => {
+): Refused => {
   const why = refusals[answer]
   // Not a refusal anybody can act on: the function answered something this act
   // told it could not arise. Louder than a refusal on purpose -- it means the
@@ -2331,35 +2332,63 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     )
   },
 
-  async assignMaterial(assignment: MaterialAssignment) {
-    // Through `app.assign_material`, which closes the running period and opens its
-    // successor at one instant. That function is the only write path that opens a
-    // period, and the invariant it holds -- the periods never overlap and never
-    // leave gaps -- is a fact about a whole relationship's rows that no single-row
-    // check constraint can state.
+  async relationshipsToAssign(ids: readonly RelationshipId[]): Promise<readonly RelationshipToAssign[]> {
+    if (ids.length === 0) return []
+    // Locked, as `relationshipFor` locks one, and in one order whoever asks: two
+    // Admins each assigning many that overlap wait for each other rather than
+    // each holding half of what the other needs. Another Ministry's is invisible
+    // to this connection, so it is simply not among the rows.
+    const { rows } = await client.query<{ id: string; accepted_at: Date | null; ended_at: Date | null }>(
+      `select id, accepted_at, ended_at
+         from relationship
+        where id = any($1::uuid[])
+        order by id
+          for update`,
+      [ids],
+    )
+    return rows.map((row) => ({
+      relationshipId: relationshipId(row.id),
+      acceptedAt: row.accepted_at,
+      endedAt: row.ended_at,
+    }))
+  },
+
+  async assignMaterials(assignments: readonly MaterialAssignment[]) {
+    // Through `app.assign_materials`, which runs `app.assign_material` for each in
+    // turn and stops at the first refusal. That function is the only write path
+    // that opens a period, and the invariant it holds -- the periods never overlap
+    // and never leave gaps -- is a fact about a whole relationship's rows that no
+    // single-row check constraint can state.
     //
     // Both acts come through here. Acceptance passes a null Material, which opens
     // the history, and may follow it at the same instant with the Material an
     // Admin chose at pairing, under no Admin's name; an Admin passes a real one
-    // under their own, or a null one to un-assign (Materials, ticket 03). Either
-    // requires the history to have been opened already, which is why the opening
-    // period must come first.
-    let answer: DatabaseAssignmentRefusal | null = null
+    // under their own, or a null one to un-assign (Materials, ticket 03), for one
+    // relationship or for many (Richer materials, ticket 02). Either requires the
+    // history to have been opened already, which is why the opening period must
+    // come first -- and why the order given is the order written.
+    let answer: { refused_relationship_id: string; refusal: DatabaseAssignmentRefusal } | undefined
     try {
-      const { rows } = await client.query<{ refusal: DatabaseAssignmentRefusal | null }>(
-        `select app.assign_material($1, $2, $3, $4) as refusal`,
+      const { rows } = await client.query<{
+        refused_relationship_id: string
+        refusal: DatabaseAssignmentRefusal
+      }>(
+        `select refused_relationship_id, refusal
+           from app.assign_materials($1::uuid[], $2::uuid[], $3::timestamptz[], $4::uuid[])`,
         [
-          assignment.relationshipId,
-          assignment.materialId,
-          assignment.assignedAt,
-          assignment.assignedBy,
+          assignments.map((assignment) => assignment.relationshipId),
+          assignments.map((assignment) => assignment.materialId),
+          assignments.map((assignment) => assignment.assignedAt),
+          assignments.map((assignment) => assignment.assignedBy),
         ],
       )
-      answer = rows[0]?.refusal ?? null
+      answer = rows[0]
     } catch (error) {
       // Two constraints answer with an identifier rather than with a decision, so
       // they arrive as errors and are translated here like every other one -- a
-      // surface needs a code, not a Postgres message.
+      // surface needs a code, not a Postgres message. Neither is about one
+      // relationship: every assignment in the act carries the same Admin and the
+      // same Material.
       const constraint = constraintViolated(error)
       if (constraint === 'material_assignment_assigned_by_fk') {
         throw new MaterialAssignmentRefused('material.assigner_is_not_in_this_ministry')
@@ -2372,8 +2401,16 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       throw error
     }
 
-    if (answer === null) return
-    throw refused(answer, ASSIGNMENT_REFUSALS, MaterialAssignmentRefused, 'app.assign_material')
+    if (answer === undefined) return
+    // Named for the relationship it was about, so an act that assigned many can
+    // say which one refused the lot.
+    const { refusal } = refused(
+      answer.refusal,
+      ASSIGNMENT_REFUSALS,
+      MaterialAssignmentRefused,
+      'app.assign_material',
+    )
+    throw new MaterialAssignmentRefused(refusal, relationshipId(answer.refused_relationship_id))
   },
 
   async checkInFor(id: PersonId): Promise<CheckInSnapshot | null> {

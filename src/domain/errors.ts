@@ -1,4 +1,5 @@
 import type { PasswordResetRefusal } from './accounts'
+import type { RelationshipId } from './ids'
 import type { IntakeRefusal } from './intake'
 import type { MinistrySettingsRefusal } from './ministry-settings'
 import type { RemovalRefusal } from './removal'
@@ -431,7 +432,15 @@ export type MaterialAssignmentRefusal =
   | 'material.already_running'
 
 export class MaterialAssignmentRefused extends Error {
-  constructor(readonly refusal: MaterialAssignmentRefusal) {
+  constructor(
+    readonly refusal: MaterialAssignmentRefusal,
+    /**
+     * The relationship the refusal is about, where it is about one. Assigning to
+     * many at once is refused whole by any one of them, and the page says which
+     * (Richer materials, ticket 02); a single card has only its own to name.
+     */
+    readonly relationshipId: RelationshipId | null = null,
+  ) {
     super(refusal)
     this.name = 'MaterialAssignmentRefused'
   }
