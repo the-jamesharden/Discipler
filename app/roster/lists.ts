@@ -194,10 +194,14 @@ export const candidatesFor = (
  * Who heads *Disciples somebody* (Roles per pairing, ticket 01), under **Asked to
  * be discipled**: somebody who has completed Intake, has not opted out, is
  * discipled in nothing open, and would not open the popup on *Disciples somebody*
- * themselves. Everybody else is under *Everyone else*.
+ * themselves, or answered Mentee on the Intake form. The answer counts though they
+ * lead (James, 2026-09-22: somebody who fills out the Intake as a mentee can
+ * appear on both). Everybody else is under *Everyone else*.
  */
 export const askedToBeDiscipled = (person: RosterEntry): boolean =>
-  whyNotPairable(person) === null && !isDiscipledBySomebody(person) && !isDiscipler(person)
+  whyNotPairable(person) === null &&
+  !isDiscipledBySomebody(person) &&
+  (person.declaredSide === 'mentee' || !isDiscipler(person))
 
 /**
  * Whether a candidate heads the list of the side the popup is on, or is folded

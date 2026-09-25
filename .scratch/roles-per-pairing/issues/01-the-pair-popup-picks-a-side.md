@@ -73,3 +73,8 @@ Spec: `.scratch/roles-per-pairing/spec.md`, *The Pair popup*. Mock-ups: `.lavish
 - The headings' words (*Asked to be discipled*, *Disciples somebody already, or offered to*, *Everyone else*) and the toolbar's are said once, in `PAIR_POPUP`, for when you come back to them.
 - The Admin a Ministry is provisioned with is on its Roster without Intake, so it shows greyed *Awaiting Intake* under Everyone else in every popup.
 
+**Port follow-up (review, 2026-09-25).**
+- *Asked to be discipled* also lists somebody who answered Mentee on the Intake form and is discipled in nothing open, even where they lead or an import planned them as the discipler (`askedToBeDiscipled` in `app/roster/lists.ts`).
+  This is James's decision of 2026-09-22, that a Mentee answer makes a Discipler a Disciple as well, which the port onto `main` had lost when `isDisciple` went.
+  Their own popup still opens preset on *Disciples somebody*.
+

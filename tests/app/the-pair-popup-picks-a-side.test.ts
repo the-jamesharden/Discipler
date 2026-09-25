@@ -164,6 +164,25 @@ describe('who each side lists', () => {
     expect(listedFirst('discipler', person({ declaredSide: 'mentor' }))).toBe(false)
   })
 
+  it('opens Disciples somebody on whoever answered Mentee and is discipled by nobody, though they lead (James, 2026-09-22)', () => {
+    // A Mentee answer makes somebody who disciples somebody a Disciple as well:
+    // leading, or an import planning them as the discipler, does not withdraw it.
+    const leadsAndAsked = person({ declaredSide: 'mentee', relationships: [pairing('leader')] })
+    const plannedAndAsked = person({ declaredSide: 'mentee', intendedPairings: [plan('leader')] })
+    expect(askedToBeDiscipled(leadsAndAsked)).toBe(true)
+    expect(askedToBeDiscipled(plannedAndAsked)).toBe(true)
+    expect(listedFirst('discipler', leadsAndAsked)).toBe(true)
+    // Still nobody already discipled, and nobody who cannot be paired.
+    expect(
+      askedToBeDiscipled(person({ declaredSide: 'mentee', relationships: [pairing('leader'), pairing('participant')] })),
+    ).toBe(false)
+    expect(
+      askedToBeDiscipled(person({ declaredSide: 'mentee', relationships: [pairing('leader')], participationStatus: 'opted_out' })),
+    ).toBe(false)
+    // Their own popup still opens preset on Disciples somebody.
+    expect(opensAs(leadsAndAsked)).toBe('discipler')
+  })
+
   it('opens Is discipled on whoever disciples somebody already, or offered to', () => {
     expect(listedFirst('disciple', person({ relationships: [pairing('leader')] }))).toBe(true)
     expect(listedFirst('disciple', person({ declaredSide: 'mentor' }))).toBe(true)
