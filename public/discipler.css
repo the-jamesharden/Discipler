@@ -782,6 +782,23 @@ textarea.paste { width: 100%; min-height: 140px; font-family: ui-monospace, SFMo
 .ghost-btn.mat-back { display: flex; width: fit-content; margin-bottom: 1rem; }
 .drill-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
 .drill-head .muted { display: block; margin-top: .15rem; }
+/* Richer materials, ticket 02 (M-3): a Material's assign page. `label.pick` and
+   not `.pick`, which the availability grid's cells are called too. The foot runs
+   to the card's edges, which is the card's own padding taken back. */
+.card-lead.pick-lead { margin-top: .3rem; }
+.pick-tools { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.pick-tools .seg { margin: 0; }
+.pick-tools .check { margin: 0; }
+.pick-group { margin-top: 1.2rem; }
+.pick-group h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-light); margin-bottom: .5rem; }
+label.pick { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: .7rem; align-items: center; padding: .6rem .8rem; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); margin-bottom: .4rem; font-size: .88rem; cursor: pointer; }
+label.pick:has(input:checked) { border-color: var(--primary); background: rgba(45,80,22,.03); }
+label.pick input { accent-color: var(--primary); }
+label.pick .who { font-weight: 600; }
+label.pick .who span { font-weight: 400; color: var(--text-light); }
+label.pick .meta { display: block; font-size: .78rem; color: var(--text-light); }
+.pick-none { margin-top: 1.2rem; }
+.pick-foot { display: flex; justify-content: space-between; align-items: center; gap: .75rem; flex-wrap: wrap; background: var(--surface); border-top: 1px solid var(--border); margin: 1.25rem -1.5rem -1.5rem; padding: .9rem 1.5rem; border-radius: 0 0 7px 7px; }
 .hist { font-size: .78rem; color: var(--text-light); margin-top: .35rem; font-style: italic; }
 /* New under ticket 03: the assign row at the foot of a drill-in card. The two
    layout rules apply only to a card holding one, so the Overview's cards, which

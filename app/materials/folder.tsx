@@ -10,6 +10,7 @@ import { assignRow, MATERIAL_FIELD, NO_MATERIAL_VALUE } from './assigning'
 import {
   ALL_MATERIALS,
   ASSIGN,
+  ASSIGN_TO_MORE,
   assignmentRefusalMessage,
   CHOOSE_A_MATERIAL,
   EDIT_THIS_MATERIAL,
@@ -184,9 +185,14 @@ export const FolderPage = async ({
             </span>
           </div>
           {material ? (
-            <Link className="ghost-btn" href={`/materials/${material.materialId}/edit`}>
-              {EDIT_THIS_MATERIAL}
-            </Link>
+            <div className="btn-row">
+              <Link className="ghost-btn" href={`/materials/${material.materialId}/assign${filterQuery(filter)}`}>
+                {ASSIGN_TO_MORE}
+              </Link>
+              <Link className="ghost-btn" href={`/materials/${material.materialId}/edit`}>
+                {EDIT_THIS_MATERIAL}
+              </Link>
+            </div>
           ) : null}
         </div>
         {refusal ? (

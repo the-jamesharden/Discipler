@@ -272,3 +272,102 @@ const ASSIGNMENT_REFUSALS: Record<MaterialAssignmentRefusal, string> = {
 /** The sentence for an assignment refused from a folder's card, or null for a code it does not know. */
 export const assignmentRefusalMessage = (code: string | undefined): string | null =>
   refusalIn(ASSIGNMENT_REFUSALS, code)
+
+// ---------------------------------------------------------------------------
+// Assigning to many at once (Richer materials, ticket 02)
+// ---------------------------------------------------------------------------
+// M-3 of `.lavish/richer-materials/mockup.html`. The button's own words, which
+// the browser recounts as boxes are ticked, are in `./assign-button` so the
+// browser is not sent every sentence here.
+
+/** The ghost button in a Material's folder head, beside Edit this material. */
+export const ASSIGN_TO_MORE = 'Assign to more'
+
+/** The assign page's heading. */
+export const assignToMoreHeading = (title: string): string =>
+  `Assign ${title} to more relationships`
+
+export const ASSIGN_TO_MORE_LEAD =
+  'Each one ticked starts on it now. Whatever it was working through ends today and stays in its history. Everyone in it hears about the change, at most once a day.'
+
+export const SELECT_ALL_SHOWN = 'Select all shown'
+
+/** A group's heading: those on no Material first, then one per Material they are on. */
+export const onNoMaterialHeading = (count: number): string => `On no material · ${count}`
+export const onMaterialHeading = (title: string, count: number): string => `On ${title} · ${count}`
+
+/** Where the filter leaves nobody to list: all of them on it already, or none under it. */
+export const nobodyToAssign = (filter: MaterialsFilter): string =>
+  filter === null
+    ? 'Every relationship is already working through it.'
+    : `No ${FILTER_LABEL[filter].toLowerCase()} relationships to assign it to.`
+
+/** The pill on every row, Healthy included: the list is for choosing, not for triage. */
+export const HEALTHY = 'Healthy'
+
+/**
+ * A row's meta line: what it is, and what it is working through now and since
+ * when -- *started* for one on no Material, as the dashed folder says it.
+ */
+export const pickMeta = (
+  relationship: { readonly isAGroup: boolean; readonly participantNames: readonly string[] },
+  running: { readonly title: string; readonly since: Date } | null,
+  acceptedAt: Date,
+  timeZone: string,
+): string => {
+  const kind = relationship.isAGroup
+    ? `Group of ${relationship.participantNames.length}`
+    : 'One-to-one'
+  return running === null
+    ? `${kind} · started ${dayMonthYear(acceptedAt, timeZone)}`
+    : `${kind} · on ${running.title} since ${dayMonthYear(running.since, timeZone)}`
+}
+
+/** Who a relationship is, in the two parts a row sets differently: *Cole Alvarez* *with Marcus Boyd*. */
+export const pickName = (relationship: {
+  readonly leaderNames: readonly string[]
+  readonly participantNames: readonly string[]
+  readonly groupName: string | null
+}): { readonly who: string; readonly rest: string } => {
+  const leaders = relationship.leaderNames.join(', ') || 'Nobody leading'
+  return relationship.groupName
+    ? { who: relationship.groupName, rest: `led by ${leaders}` }
+    : {
+        who: leaders,
+        rest:
+          relationship.participantNames.length === 0
+            ? 'with nobody yet'
+            : `with ${relationship.participantNames.join(', ')}`,
+      }
+}
+
+/** The route's own refusal: a press with nothing ticked, which the button prevents where script runs. */
+export const NONE_TICKED = 'material.none_ticked'
+
+const ASSIGN_TO_MORE_REFUSALS = (
+  who: string,
+  title: string,
+): Record<MaterialAssignmentRefusal | typeof NONE_TICKED, string> => ({
+  'material.relationship_not_found': `Nothing was assigned. ${who} is not on this Roster any more, so it is no longer listed. Tick the others again to assign them.`,
+  'material.relationship_not_accepted': `Nothing was assigned. ${who} has not been accepted by its leader yet.`,
+  'material.relationship_ended': `Nothing was assigned. ${who} has ended since this page was opened, so it is no longer listed. Tick the others again to assign them.`,
+  'material.not_found': 'Nothing was assigned. That material is no longer on the list. Somebody may have removed it.',
+  'material.assigner_is_not_in_this_ministry': 'Nothing was assigned. This account cannot assign materials here.',
+  'material.already_running': `Nothing was assigned. ${who} is already working through ${title}, so it is no longer listed. Tick the others again to assign them.`,
+  [NONE_TICKED]: 'Tick at least one relationship to assign it to.',
+})
+
+/**
+ * The sentence for a press the route refused, naming the relationship it was
+ * refused over where the page could read its name, or null for a code this page
+ * does not know. The lookup is `refusalIn`, like every surface's.
+ */
+export const assignToMoreRefusalMessage = (
+  code: string | undefined,
+  refused: { readonly leaderNames: readonly string[]; readonly participantNames: readonly string[]; readonly groupName: string | null } | null,
+  title: string,
+): string | null => {
+  const named = refused ? pickName(refused) : null
+  const who = named ? `${named.who} ${named.rest}` : 'One of the ticked relationships'
+  return refusalIn(ASSIGN_TO_MORE_REFUSALS(who, title), code)
+}
