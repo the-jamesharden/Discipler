@@ -117,7 +117,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup picks a side', () => {
 
   describe('the side chooser', () => {
     it('sits directly under the title, and says who by first name', async () => {
-      const { popup } = await popupAt([['list', 'all'], ['pair', id.emily!]])
+      const { popup } = await popupAt([['pair', id.emily!]])
       const head = popup.indexOf('Pair Emily Davis')
       const chooser = popup.indexOf('In this pairing, Emily')
       const intro = popup.indexOf('Choose who will disciple Emily Davis.')
@@ -134,14 +134,13 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup picks a side', () => {
 
     it('switches with one press, keeping everything else in the address and leaving a refusal behind', async () => {
       const { popup } = await popupAt([
-        ['list', 'all'],
         ['pair', id.emily!],
         ['leaderId', id.grace!],
         ['error', 'relationship.person_already_in_this_relationship'],
       ])
       const [disciples, discipled] = chooserIn(popup)
-      expect(disciples!.href).toBe(`/roster?list=all&pair=${id.emily}&leaderId=${id.grace}&side=discipler`)
-      expect(discipled!.href).toBe(`/roster?list=all&pair=${id.emily}&leaderId=${id.grace}&side=disciple`)
+      expect(disciples!.href).toBe(`/roster?pair=${id.emily}&leaderId=${id.grace}&side=discipler`)
+      expect(discipled!.href).toBe(`/roster?pair=${id.emily}&leaderId=${id.grace}&side=disciple`)
 
       // Pressed, it is the other side, over the same list, with nothing refused.
       const switched = await getPage(disciples!.href!, cookie)
@@ -149,38 +148,38 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup picks a side', () => {
       expect(other).toContain('Choose who Emily Davis will disciple.')
       expect(other).not.toMatch(/role="alert"/)
       expect(chooserIn(other).find(({ current }) => current)?.says).toBe('Disciples somebody')
-      expect(hiddenIn(other)).toMatchObject({ pair: id.emily, list: 'all', side: 'discipler', leaderId: id.emily })
+      expect(hiddenIn(other)).toMatchObject({ pair: id.emily, side: 'discipler', leaderId: id.emily })
     })
   })
 
   describe('the side it opens on', () => {
     it('is Is discipled for Emily, who leads nobody and said nothing about mentoring', async () => {
-      const { popup } = await popupAt([['list', 'all'], ['pair', id.emily!]])
+      const { popup } = await popupAt([['pair', id.emily!]])
       expect(popup).toContain('Choose who will disciple Emily Davis.')
       expect(hiddenIn(popup)).toMatchObject({ side: 'disciple', participantId: id.emily })
     })
 
-    it('is Disciples somebody for Grace, who leads, and for Rachel, who leads, whatever list', async () => {
-      for (const list of ['all', 'disciples', 'disciplers']) {
+    it('is Disciples somebody for Grace, who leads, and for Rachel, who leads, whatever the Roster shows', async () => {
+      for (const shows of [[], [['pairings', 'being-discipled']], [['pairings', 'disciples-somebody']], [['list', 'disciples']]] as [string, string][][]) {
         for (const who of [id.grace!, id.rachel!]) {
-          const { popup } = await popupAt([['list', list], ['pair', who]])
-          expect(hiddenIn(popup), list).toMatchObject({ side: 'discipler', leaderId: who })
+          const { popup } = await popupAt([...shows, ['pair', who]])
+          expect(hiddenIn(popup), String(shows)).toMatchObject({ side: 'discipler', leaderId: who })
         }
       }
     })
 
     it('is whatever the address says, which never limits who can be picked', async () => {
-      const { popup } = await popupAt([['list', 'all'], ['pair', id.emily!], ['side', 'discipler']])
+      const { popup } = await popupAt([['pair', id.emily!], ['side', 'discipler']])
       expect(popup).toContain('Choose who Emily Davis will disciple.')
       // Sarah can be ticked: this is the bug fix.
       expectOpen(popup, id.sarah!)
-      const grace = await popupAt([['list', 'all'], ['pair', id.grace!], ['side', 'disciple']])
+      const grace = await popupAt([['pair', id.grace!], ['side', 'disciple']])
       expect(grace.popup).toContain('Choose who will disciple Grace Lee.')
     })
   })
 
   describe('Emily, on Disciples somebody (mock-pair-emily.html)', () => {
-    const emilys = () => popupAt([['list', 'all'], ['pair', id.emily!], ['side', 'discipler']])
+    const emilys = () => popupAt([['pair', id.emily!], ['side', 'discipler']])
 
     it('opens on who asked to be discipled, and folds everybody else under Everyone else', async () => {
       const { popup } = await emilys()
@@ -223,7 +222,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup picks a side', () => {
     })
 
     it('says both sides and what Emily goes on doing, in the ticket’s words', async () => {
-      const { popup } = await popupAt([['list', 'all'], ['pair', id.emily!], ['side', 'discipler'], ['with', id.chloe!]])
+      const { popup } = await popupAt([['pair', id.emily!], ['side', 'discipler'], ['with', id.chloe!]])
       expect(chosenIn(popup)).toEqual([id.chloe])
       expect(summaryIn(popup)).toBe(
         'Emily Davis will disciple Chloe Park, one to one. Emily is sent an invitation to accept, and goes on being discipled by Grace Lee.',
@@ -233,7 +232,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup picks a side', () => {
     })
 
     it('opens the fold where a refusal restored a tick in it', async () => {
-      const { popup } = await popupAt([['list', 'all'], ['pair', id.emily!], ['side', 'discipler'], ['with', id.lily!]])
+      const { popup } = await popupAt([['pair', id.emily!], ['side', 'discipler'], ['with', id.lily!]])
       expect(foldIsOpen(popup)).toBe(true)
       expect(chosenIn(popup)).toEqual([id.lily])
     })
@@ -241,7 +240,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup picks a side', () => {
 
   describe('Sarah, on Is discipled (mock-pair-sarah.html)', () => {
     const sarahs = (more: readonly (readonly [string, string])[] = []) =>
-      popupAt([['list', 'all'], ['pair', id.sarah!], ...more])
+      popupAt([['pair', id.sarah!], ...more])
 
     it('opens on who disciples somebody already, or offered to, with leads N', async () => {
       const { popup } = await sarahs()
@@ -282,7 +281,6 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup picks a side', () => {
       // who is in a one-to-one already, the database refuses it.
       const location = await postPairing(cookie, [
         ['pair', id.emily!],
-        ['list', 'all'],
         ['side', 'discipler'],
         ['leaderId', id.emily!],
         ['participantId', id.hannah!],
@@ -302,7 +300,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup picks a side', () => {
         method: 'POST',
         redirect: 'manual',
         headers: { 'content-type': 'application/x-www-form-urlencoded', cookie },
-        body: new URLSearchParams({ pair: id.jacob!, list: 'all', side: 'discipler', personId: id.jacob!, groupId: tuesday, as: 'leader' }),
+        body: new URLSearchParams({ pair: id.jacob!, side: 'discipler', personId: id.jacob!, groupId: tuesday, as: 'leader' }),
       })
       const location = new URL(response.headers.get('location') ?? '', baseUrl)
       expect(location.searchParams.get('side')).toBe('discipler')
@@ -320,7 +318,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup picks a side', () => {
     await pairOneToOne(chapel, grace, emily)
 
     // The popup as the Admin reaches it: Emily's row, then one press to her other side.
-    const opened = popupIn((await getPage(`/roster?list=all&pair=${emily}`, theirCookie)).html)!
+    const opened = popupIn((await getPage(`/roster?pair=${emily}`, theirCookie)).html)!
     const onTheOtherSide = chooserIn(opened).find(({ says }) => says === 'Disciples somebody')!.href!
     const popup = popupIn((await getPage(onTheOtherSide, theirCookie)).html)!
     expect(sectionsOf(popup).first).toContain(sarah)
@@ -330,7 +328,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup picks a side', () => {
     const posted = Object.entries(hiddenIn(popup) as Record<string, string>)
     const location = await postPairing(theirCookie, [...posted, ['participantId', sarah]])
     expect(location.pathname).toBe('/roster')
-    expect(Object.fromEntries(location.searchParams)).toEqual({ list: 'all', paired: '1' })
+    expect(Object.fromEntries(location.searchParams)).toEqual({ paired: '1' })
 
     const formed = await pool.query<{ role: string; person_id: string; accepted_at: Date | null; id: string }>(
       `select m.role, m.person_id, r.accepted_at, r.id

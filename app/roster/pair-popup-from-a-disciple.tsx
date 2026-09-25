@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { displayPhone, PAIR_POPUP, type RosterList } from './copy'
+import { displayPhone, PAIR_POPUP } from './copy'
 import { CLEAR } from './import-copy'
 import type { PairSide } from './lists'
+import type { RosterView } from './menu'
 import { EveryoneElse, ListedFirst, PairList, PairPopupShell, PairRow, useHydrated } from './pair-popup'
 import { PairGroups, type PairPopupGroup } from './pair-popup-groups'
 
@@ -49,7 +50,7 @@ export interface PairPopupDiscipler {
 
 export const PairPopupFromADisciple = ({
   person,
-  list,
+  view,
   sideHrefs,
   disciplers,
   groups,
@@ -59,7 +60,8 @@ export const PairPopupFromADisciple = ({
 }: {
   /** Whose row was pressed: the Disciple this popup pairs. */
   readonly person: { readonly id: string; readonly fullName: string }
-  readonly list: RosterList
+  /** What the Roster's menu shows behind the popup. */
+  readonly view: RosterView
   /** The popup's own address on each side, for the side chooser. */
   readonly sideHrefs: Readonly<Record<PairSide, string>>
   readonly disciplers: readonly PairPopupDiscipler[]
@@ -111,7 +113,7 @@ export const PairPopupFromADisciple = ({
   return (
     <PairPopupShell
       person={person}
-      list={list}
+      view={view}
       side={{ current: 'disciple', hrefs: sideHrefs }}
       refusal={refusal}
       // What is chosen decides the act, and so the route and what it is told: a

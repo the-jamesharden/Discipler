@@ -14,7 +14,7 @@ import {
 } from '../support/local-supabase'
 import {
   attribute,
-  currentList,
+  shownBehind,
   detailsOf,
   expectGreyed,
   expectOpen,
@@ -90,7 +90,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
   }
 
   const popupFor = async (personId: string, more: Record<string, string> = {}, as: string = cookie) => {
-    const page = await getPage(`/roster?${new URLSearchParams({ list: 'disciples', pair: personId, ...more })}`, as)
+    const page = await getPage(`/roster?${new URLSearchParams({ pair: personId, ...more })}`, as)
     return { ...page, popup: popupIn(page.html)! }
   }
 
@@ -229,7 +229,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
         method: 'POST',
         redirect: 'manual',
         headers: { 'content-type': 'application/x-www-form-urlencoded', cookie: ownCookie },
-        body: new URLSearchParams({ personId: priya.id, groupId: mens.id, list: 'disciples' }),
+        body: new URLSearchParams({ personId: priya.id, groupId: mens.id }),
       }).then((response) => new URL(response.headers.get('location') ?? '', baseUrl))
       expect(refused.searchParams.get('error')).toBe('relationship.gender_does_not_match_the_declaration')
     })
@@ -276,9 +276,10 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
     expectOpen(fresh, group.leader)
     expect(fresh).toMatch(/<button[^>]*type="submit"[^>]*>Pair<\/button>/)
 
-    const landed = await join({ personId: sam.id, groupId: group.id, list: 'disciples' })
+    // Over what the Roster showed behind the popup (Roles per pairing, ticket 02).
+    const landed = await join({ personId: sam.id, groupId: group.id, pairings: 'being-discipled' })
     expect(landed.pathname).toBe('/roster')
-    expect(landed.searchParams.get('list')).toBe('disciples')
+    expect(landed.searchParams.get('pairings')).toBe('being-discipled')
     expect(landed.searchParams.get('joined')).toBe(sam.id)
     expect(landed.searchParams.get('pair')).toBeNull()
 
@@ -291,7 +292,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
 
     const { html } = await getPage(`${landed.pathname}${landed.search}`, cookie)
     expect(popupIn(html)).toBeNull()
-    expect(currentList(html)).toBe('Disciples')
+    expect(shownBehind(html)).toBe('Being discipled')
     expect(html).toContain(`${sam.name} is in the group now.`)
 
     // And it is no longer offered to him.
@@ -333,8 +334,8 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
 
     // Pressed again as it stands, it posts to the route that joins, naming him.
     expect(attribute(formOf(popup), 'action')).toBe('/roster/pair/join')
-    expect(hiddenIn(popup)).toMatchObject({ personId: sam.id, list: 'disciples' })
-    expect(currentList(html)).toBe('Disciples')
+    expect(hiddenIn(popup)).toMatchObject({ personId: sam.id })
+    expect(shownBehind(html)).toBe('Everyone')
     expect(html.match(/class="modal-bg open"/g)).toHaveLength(1)
   })
 
@@ -342,7 +343,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
     const priya = await aDisciple('female')
     const mens = await aGroup('Men’s Breakfast', 'male')
 
-    const refused = await join({ personId: priya.id, groupId: mens.id, list: 'disciples' })
+    const refused = await join({ personId: priya.id, groupId: mens.id })
     expect(refused.pathname).toBe('/roster')
     expect(refused.searchParams.get('pair')).toBe(priya.id)
     expect(refused.searchParams.get('groupId')).toBe(mens.id)

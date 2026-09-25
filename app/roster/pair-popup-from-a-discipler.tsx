@@ -2,9 +2,10 @@
 
 import { useState } from 'react'
 import type { Gender } from '~/domain/intake'
-import { displayPhone, firstTimeLabel, PAIR_POPUP, type RosterList } from './copy'
+import { displayPhone, firstTimeLabel, PAIR_POPUP } from './copy'
 import { CLEAR } from './import-copy'
 import type { PairSide } from './lists'
+import type { RosterView } from './menu'
 import { AS_A_LEADER, JOIN_AS_FIELD } from './pair/join-as'
 import { materialFieldFor } from './pair/material-per-disciple'
 import { EveryoneElse, ListedFirst, PairList, PairPopupShell, PairRow, useHydrated } from './pair-popup'
@@ -82,7 +83,7 @@ export interface PairPopupDisciple {
 
 export const PairPopupFromADiscipler = ({
   person,
-  list,
+  view,
   sideHrefs,
   invited,
   disciples,
@@ -96,7 +97,8 @@ export const PairPopupFromADiscipler = ({
 }: {
   /** Whose popup this is: the Discipler being paired. */
   readonly person: { readonly id: string; readonly fullName: string }
-  readonly list: RosterList
+  /** What the Roster's menu shows behind the popup. */
+  readonly view: RosterView
   /** The popup's own address on each side, for the side chooser. */
   readonly sideHrefs: Readonly<Record<PairSide, string>>
   /** What they are sent for whatever is made, and what they go on doing, after the sentence. */
@@ -226,7 +228,7 @@ export const PairPopupFromADiscipler = ({
   return (
     <PairPopupShell
       person={person}
-      list={list}
+      view={view}
       side={{ current: 'discipler', hrefs: sideHrefs }}
       refusal={refusal}
       // What is chosen decides the act, and so the route and what it is told: a

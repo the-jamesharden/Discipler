@@ -110,9 +110,12 @@ export const hiddenIn = (popup: string): Record<string, string | undefined> =>
       .map((input) => [attribute(input, 'name'), attribute(input, 'value')]),
   )
 
-/** The list the toggle says the Roster behind the popup is on. */
-export const currentList = (html: string): string | undefined =>
-  html.match(/<a[^>]*aria-current="true"[^>]*>([^<]*)<\/a>/)?.[1]
+/**
+ * What the Everyone menu's button says the Roster behind the popup shows (Roles per
+ * pairing, ticket 02): *Everyone*, or what is ticked.
+ */
+export const shownBehind = (html: string): string | undefined =>
+  html.match(/<details class="roster-menu"[^>]*><summary>([^<]*)/)?.[1]
 
 /** A greyed row: shown, its mark disabled and never chosen, and its reason tied to it for a screen reader. */
 export const expectGreyed = (popup: string, personId: string, reason: string): void => {

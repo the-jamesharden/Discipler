@@ -399,9 +399,6 @@ td .small { margin: 0; }
 .person-name { display: flex; flex-wrap: wrap; align-items: center; gap: 0.2rem 0.5rem; min-width: 0; }
 .avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--primary); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 0.78rem; font-weight: 700; flex-shrink: 0; }
 .blocked { color: var(--text-light); font-style: italic; font-size: 0.85rem; }
-.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 5px; overflow: hidden; margin-bottom: 1.25rem; }
-.seg a { padding: 0.45rem 0.9rem; background: var(--surface); font-size: 0.85rem; color: var(--text-light); text-decoration: none; }
-.seg a[aria-current="true"] { background: var(--primary); color: #fff; font-weight: 700; }
 ul.bare { list-style: none; margin: 0; padding: 0; }
 ul.bare li { margin-bottom: 0.35rem; }
 ul.bare li:last-child { margin-bottom: 0; }
@@ -570,7 +567,33 @@ blockquote { background: rgba(45, 80, 22, 0.04); border-left: 3px solid var(--pr
 .kv dd { margin: 0; }
 @media (max-width: 480px) { .kv { grid-template-columns: minmax(0, 1fr); gap: 0.1rem 0; } .kv dd { margin-bottom: 0.5rem; } }
 
-/* The Roster's two lists (ticket 36): the prototype's table, in the app's tokens. */
+/* The Everyone menu over the Roster (Roles per pairing, ticket 02), where the
+   toggle was: a details element like the Account menu, its options links, so it
+   works before any script and after none. A box for tick any, a round for pick
+   one, drawn as the mock-ups' checkboxes and radios are, inside the link. */
+.roster-tools { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.roster-menu { position: relative; }
+.roster-menu > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.45rem 0.8rem; border: 1px solid var(--border); border-radius: 5px; font-size: 0.85rem; background: var(--surface); color: var(--text); line-height: normal; }
+.roster-menu > summary::-webkit-details-marker { display: none; }
+.roster-menu > summary:hover, .roster-menu[open] > summary { border-color: var(--primary); color: var(--primary); }
+.roster-menu > summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.roster-menu > summary .chevron { width: 0.7rem; height: 0.7rem; flex-shrink: 0; transition: transform 0.15s; }
+.roster-menu[open] > summary .chevron { transform: rotate(180deg); }
+.roster-menu-panel { position: absolute; left: 0; top: calc(100% + 0.4rem); min-width: 300px; max-width: calc(100vw - 2rem); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 32px rgba(45, 80, 22, 0.14); padding: 0.35rem 0; z-index: 5; }
+.roster-menu .menu-group + .menu-group { border-top: 1px solid var(--border); margin-top: 0.3rem; padding-top: 0.2rem; }
+.roster-menu .menu-label { margin: 0; padding: 0.5rem 1rem 0.3rem; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-light); font-weight: 700; }
+.roster-menu .opt { display: flex; align-items: center; gap: 0.6rem; padding: 0.42rem 1rem; font-size: 0.88rem; color: var(--text); text-decoration: none; white-space: nowrap; }
+.roster-menu .opt:hover { background: var(--bg); color: var(--primary); }
+.roster-menu .opt:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.roster-menu .opt.everyone[aria-current="true"] { font-weight: 700; color: var(--primary); }
+.roster-menu .opt .n { margin-left: auto; padding-left: 0.5rem; font-size: 0.78rem; font-weight: 400; color: var(--text-light); font-variant-numeric: tabular-nums; }
+.roster-menu .opt-mark { width: 15px; height: 15px; flex-shrink: 0; display: inline-grid; place-items: center; box-sizing: border-box; border: 1px solid #767676; border-radius: 3px; background: var(--surface); color: #fff; }
+.roster-menu .opt-mark svg { width: 11px; height: 11px; }
+.roster-menu .opt-mark.round { border-radius: 50%; }
+.roster-menu .opt[aria-current="true"] .opt-mark { border-color: var(--primary); background: var(--primary); }
+.roster-menu .opt[aria-current="true"] .opt-mark.round { background: radial-gradient(circle, var(--primary) 0 3.5px, var(--surface) 4px); }
+
+/* The Roster's list (ticket 36): the prototype's table, in the app's tokens. */
 .stats-line { display: flex; gap: 1.5rem; flex-wrap: wrap; margin: 0 0 1rem; font-size: 0.85rem; color: var(--text-light); }
 .stats-line b { color: var(--primary); font-weight: 700; }
 .roster-table { border: 1px solid var(--border); border-radius: 8px; }
@@ -589,6 +612,8 @@ blockquote { background: rgba(45, 80, 22, 0.04); border-left: 3px solid var(--pr
 .paired-with { display: flex; align-items: center; gap: 0.6rem; }
 .paired-with > ul { min-width: 0; }
 .paired-with > .btn, .paired-with > .blocked { flex-shrink: 0; }
+/* Which way each pairing runs, before who it is with (Roles per pairing, ticket 02). */
+.paired-with .dir { color: var(--text-light); font-size: 0.82rem; }
 .roster-table .contact { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .roster-table .contact a { color: var(--text); text-decoration: none; }
 .roster-table .contact a:hover { color: var(--primary); text-decoration: underline; }

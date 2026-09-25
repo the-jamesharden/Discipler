@@ -14,7 +14,7 @@ import {
 import {
   attribute,
   chosenIn,
-  currentList,
+  shownBehind,
   detailsOf,
   expectGreyed,
   expectOpenGroup,
@@ -100,7 +100,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
   }
 
   const popupFor = async (cookie: string, personId: string, more: Record<string, string> = {}) => {
-    const page = await getPage(`/roster?${new URLSearchParams({ list: 'disciplers', pair: personId, ...more })}`, cookie)
+    const page = await getPage(`/roster?${new URLSearchParams({ pair: personId, ...more })}`, cookie)
     return { ...page, popup: popupIn(page.html)! }
   }
 
@@ -180,7 +180,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
 
     // Nothing chosen: the form still pairs, and nothing of a group is posted.
     expect(formOf(popup)).toContain('action="/roster/pair/create"')
-    expect(hiddenIn(popup)).toEqual({ pair: claire.id, list: 'disciplers', side: 'discipler', leaderId: claire.id })
+    expect(hiddenIn(popup)).toEqual({ pair: claire.id, side: 'discipler', leaderId: claire.id })
   })
 
   it('shows no heading and counts no groups in a Ministry with none', async () => {
@@ -212,7 +212,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
     expect(formOf(popup)).toContain('action="/roster/pair/create"')
 
     // And posted anyway, the route refuses it in words that name them.
-    const refused = await join(cookie, { personId: theirs.leader, groupId: another.id, as: 'leader', list: 'disciplers' })
+    const refused = await join(cookie, { personId: theirs.leader, groupId: another.id, as: 'leader' })
     expect(refused.searchParams.get('error')).toBe('joining.already_leads_a_group')
     expect(refused.searchParams.get('groupId')).toBe(another.id)
     const reopened = popupIn((await getPage(`${refused.pathname}${refused.search}`, cookie)).html)!
@@ -235,7 +235,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
     expect(popup).not.toContain('joining.group_has_ended')
     expect(rowFor(popup, group.id)).toMatch(/checked=""/)
     expect(chosenIn(popup)).toEqual([group.id])
-    expect(currentList(html)).toBe('Disciplers')
+    expect(shownBehind(html)).toBe('Everyone')
 
     expect(popup).toContain(`${claire.name} will co-lead Grace’s Group with ${group.leaderName}.`)
     expect(popup).toMatch(/<button[^>]*type="submit"[^>]*>Add as co-leader<\/button>/)
@@ -249,7 +249,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
 
     // The form names her as the Person to add and says as what, and not as a Discipler to pair.
     expect(formOf(popup)).toContain('action="/roster/pair/join"')
-    expect(hiddenIn(popup)).toEqual({ pair: claire.id, list: 'disciplers', side: 'discipler', personId: claire.id, as: 'leader' })
+    expect(hiddenIn(popup)).toEqual({ pair: claire.id, side: 'discipler', personId: claire.id, as: 'leader' })
 
     // The chosen group can be pressed as it stands. Every other mark waits for
     // script: the form points at the route that joins, and a Disciple ticked beside
@@ -289,11 +289,11 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
     const { popup } = await popupFor(cookie, claire.id, { groupId: group.id })
     const location = await join(cookie, { ...(hiddenIn(popup) as Record<string, string>), groupId: group.id })
     expect(location.pathname).toBe('/roster')
-    expect(Object.fromEntries(location.searchParams)).toEqual({ list: 'disciplers', invited: claire.id })
+    expect(Object.fromEntries(location.searchParams)).toEqual({ invited: claire.id })
 
     const { html } = await getPage(`${location.pathname}${location.search}`, cookie)
     expect(popupIn(html)).toBeNull()
-    expect(currentList(html)).toBe('Disciplers')
+    expect(shownBehind(html)).toBe('Everyone')
     expect(html).toContain(
       `${claire.name} has been invited to help lead the group, and nobody else has been contacted. `
       + 'The group carries on meanwhile.',
@@ -325,7 +325,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
     const mens = await aGroup(ministry, 'Men’s Breakfast', 'male')
 
     // A real refusal: her gender rules the group out, so it was never listed for her.
-    const refused = await join(cookie, { personId: claire.id, groupId: mens.id, as: 'leader', list: 'disciplers' })
+    const refused = await join(cookie, { personId: claire.id, groupId: mens.id, as: 'leader' })
     expect(refused.searchParams.get('error')).toBe('relationship.gender_does_not_match_the_declaration')
 
     const popup = popupIn((await getPage(`${refused.pathname}${refused.search}`, cookie)).html)!

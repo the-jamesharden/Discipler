@@ -61,11 +61,11 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin importing a spreadsheet', () =
 
     await upload(cookie, file('Name,Phone', `Cara Nolan,${number()}`))
 
-    // On the Disciples list, where everyone an upload adds lands. Her own row says
+    // On the Roster, where everyone an upload adds lands. Her own row says
     // why there is nothing to press, in a tag beside her name (James, 2026-09-21);
     // the page as a whole would not do, since the import dialog on it names the
     // status too.
-    const { html } = await getPage('/roster?list=disciples', cookie)
+    const { html } = await getPage('/roster', cookie)
     const row = html.split('<tr').find((candidate) => />Cara Nolan</.test(candidate))
     expect(row, 'no row for Cara Nolan').toBeDefined()
     expect(row).toMatch(/>Cara Nolan<\/a><span [^>]*data-testid="roster-tag"[^>]*>Awaiting Intake</)
@@ -146,18 +146,16 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin importing a spreadsheet', () =
     const { html } = await getPage(`/roster?${location.split('?')[1] ?? ''}`, cookie)
     expect(html).toContain('2 people were added.')
     expect(html).toContain('1 pair was planned.')
-    // The receipt lands where it always did, on the Disciples, whatever the
-    // Roster's own default is (Manual pairing, ticket 06 made that All).
-    expect(location).toContain('list=disciples')
-    expect(html).toMatch(/<a (?=[^>]*aria-current="true")[^>]*>Disciples</)
+    // The receipt lands on the Roster over Everyone: it landed on the Disciples
+    // until the Roster became one list (Roles per pairing, ticket 02).
+    expect(location).not.toContain('list=')
+    expect(html).toMatch(/<details class="roster-menu"[^>]*><summary>Everyone</)
 
-    // Sam is a Discipler by the plan; Taylor is the Disciple; both say *planned*.
-    const disciplers = await getPage('/roster?list=disciplers', cookie)
-    expect(rowOf(disciplers.html, 'Sam Rivera')).toContain('Taylor Brooks planned')
-    expect(rowOf(disciplers.html, 'Sam Rivera')).toContain('awaiting Intake')
-    const disciples = await getPage('/roster?list=disciples', cookie)
-    expect(rowOf(disciples.html, 'Taylor Brooks')).toContain('Sam Rivera planned')
-    expect(disciples.html).not.toMatch(/data-testid="roster-name"[^>]*>Sam Rivera</)
+    // Both rows say *planned*, each with the way the plan would run: Sam is to
+    // disciple Taylor.
+    expect(rowOf(html, 'Sam Rivera')).toContain('disciples Taylor Brooks planned')
+    expect(rowOf(html, 'Sam Rivera')).toContain('awaiting Intake')
+    expect(rowOf(html, 'Taylor Brooks')).toContain('discipled by Sam Rivera planned')
   })
 
   it('plans a pair from a People only paste naming somebody already on the Roster', async () => {

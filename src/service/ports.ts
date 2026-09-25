@@ -1030,10 +1030,12 @@ export interface RosterEntry {
    * that asked nothing changes nothing, because null there means *not asked* and
    * never *withdrawn*.
    *
-   * A preference the Person stated, and one of the three facts that put them on
-   * the Disciplers list (ticket 36): leading somebody, having offered to on the
-   * form, or an import having paired them as one. Nothing an Admin sets stands
-   * beside it any more; pairing them is the acceptance.
+   * A preference the Person stated, and one of the three facts that open their
+   * Pair popup on *Disciples somebody* (Roles per pairing, ticket 01; it put them
+   * on the Disciplers list until the Roster became one list, ticket 02): leading
+   * somebody, having offered to on the form, or an import having paired them as
+   * one. Nothing an Admin sets stands beside it any more; pairing them is the
+   * acceptance.
    */
   readonly declaredSide: DeclaredSide | null
   /**

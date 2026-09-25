@@ -92,14 +92,17 @@ describe('which side the popup opens on', () => {
 })
 
 describe('the address of the popup on a side', () => {
-  it('names the side apart from the Roster’s list, where a way in says one', () => {
-    expect(pairPopupHref('all', 'p-1')).toBe('/roster?list=all&pair=p-1')
-    expect(pairPopupHref('disciples', 'p-1', 'disciple')).toBe('/roster?list=disciples&pair=p-1&side=disciple')
+  it('names the side on its own, where a way in says one', () => {
+    expect(pairPopupHref('p-1')).toBe('/roster?pair=p-1')
+    expect(pairPopupHref('p-1', 'disciple')).toBe('/roster?pair=p-1&side=disciple')
   })
 
   it('switches the side and keeps everything else in the address', () => {
+    // What the Roster's menu has ticked behind the popup included (Roles per
+    // pairing, ticket 02).
     const address = new URLSearchParams([
-      ['list', 'disciples'],
+      ['pairings', 'being-discipled'],
+      ['gender', 'women'],
       ['pair', 'p-1'],
       ['with', 'p-2'],
       ['with', 'p-3'],
@@ -113,23 +116,22 @@ describe('the address of the popup on a side', () => {
 
   it('replaces a side the address already says, where it said it', () => {
     const address = new URLSearchParams([
-      ['list', 'all'],
+      ['access', 'admins'],
       ['side', 'discipler'],
       ['pair', 'p-1'],
     ])
-    expect(popupOnSide(address, 'disciple')).toBe('/roster?list=all&side=disciple&pair=p-1')
+    expect(popupOnSide(address, 'disciple')).toBe('/roster?access=admins&side=disciple&pair=p-1')
   })
 
   it('leaves a refusal behind: it was about what was posted from the other side', () => {
     const address = new URLSearchParams([
-      ['list', 'all'],
       ['pair', 'p-1'],
       ['side', 'discipler'],
       ['error', 'relationship.gender_must_match'],
       ['about', 'p-2'],
       ['with', 'p-2'],
     ])
-    expect(popupOnSide(address, 'disciple')).toBe('/roster?list=all&pair=p-1&side=disciple&with=p-2')
+    expect(popupOnSide(address, 'disciple')).toBe('/roster?pair=p-1&side=disciple&with=p-2')
   })
 })
 

@@ -6,6 +6,8 @@ import type { RemovalRefusal } from '~/domain/removal'
 import type { RowProblem } from '~/domain/roster'
 import type { GroupToJoin, RosterRelationship } from '~/service/ports'
 import type { PairSide } from './lists'
+import { inPairingOrder, isAGroupNow } from './lists'
+import type { GenderShown, PairingsOption, RosterView } from './menu'
 import type { Greyed } from './greying'
 import { MIXED, type GroupDeclaration } from './declared-gender'
 import { PAIR_SHAPE, type PairShape, type ReadAs, type ShapeRuledOut } from './pair-shape'
@@ -22,62 +24,63 @@ import type { ImportFailure } from './report'
  */
 
 /**
- * The three lists the Roster is, and how each is named above its table. The words
- * are the product's own (ticket 36): a pastor thinks in who disciples whom, and
- * the model's Leader and Participant are for the code.
- *
- * All is everybody once, and is where the Roster opens (Manual pairing, ticket
- * 06): a pastor looking for one person should not have to know which side they
- * are on first. The two sides are the lists a person is on in one role.
+ * The Everyone menu over the Roster, in the spec's words (Roles per pairing,
+ * ticket 02). The Roster is one list, and the menu says what it shows. Its button
+ * never says *Filter* (James, 2026-09-24): it reads **Everyone** with nothing
+ * ticked, and otherwise names what is shown.
  */
-export type RosterSide = 'disciplers' | 'disciples'
-export type RosterList = 'all' | RosterSide
-export const ROSTER_LISTS: readonly RosterList[] = ['all', 'disciplers', 'disciples']
-export const isRosterList = (value: unknown): value is RosterList =>
-  value === 'all' || value === 'disciplers' || value === 'disciples'
-
-/** Where the Roster opens, and what an address that names no list of ours shows. */
-export const DEFAULT_LIST: RosterList = 'all'
-
-export const LIST_LABEL: Record<RosterList, string> = {
-  all: 'All',
-  disciplers: 'Disciplers',
-  disciples: 'Disciples',
-}
-
-/** The column heading over the names: the side's own word, and on All a word for people. */
-export const LIST_HEADING: Record<RosterList, string> = {
-  all: 'Name',
-  disciplers: 'Discipler',
-  disciples: 'Disciple',
-}
-
-const LIST_NOUN: Record<RosterList, readonly [one: string, many: string]> = {
-  all: ['person', 'people'],
-  disciplers: ['discipler', 'disciplers'],
-  disciples: ['disciple', 'disciples'],
-}
-
-/** *49 disciplers total*, at the top right, in the prototype's own words; *49 people total* on All. */
-export const listCount = (list: RosterList, count: number): string =>
-  `${count} ${LIST_NOUN[list][count === 1 ? 0 : 1]} total`
+export const ROSTER_MENU = {
+  everyone: 'Everyone',
+  pairings: 'Pairings',
+  gender: 'Gender',
+  access: 'Access',
+  pairing: {
+    'disciples-somebody': 'Disciples somebody',
+    'being-discipled': 'Being discipled',
+    'in-a-group': 'In a group',
+    unpaired: 'Unpaired',
+    'offered-to-disciple': 'Offered to disciple, not yet discipling',
+    'awaiting-intake': 'Awaiting Intake',
+  } satisfies Record<PairingsOption, string>,
+  genderShown: { all: 'Men and women', men: 'Men', women: 'Women' } satisfies Record<'all' | GenderShown, string>,
+  admins: 'Admins',
+  /** What the menu is, to a reader that cannot see the button beside the table. */
+  named: 'Who the Roster shows',
+} as const
 
 /**
- * The three numbers under the toggle, each a bold count and a word. *In groups*
- * left with Manual pairing, ticket 06: it means something only within one side.
+ * The menu's button: *Everyone*, or what is shown, joined by a middle dot in the
+ * menu's order (*Being discipled · Women*). No chips beside it: the button says
+ * the same thing.
+ */
+export const shownAs = (view: RosterView): string => {
+  const said = [
+    ...(Object.keys(ROSTER_MENU.pairing) as PairingsOption[])
+      .filter((option) => view.pairings.includes(option))
+      .map((option) => ROSTER_MENU.pairing[option]),
+    ...(view.gender === null ? [] : [ROSTER_MENU.genderShown[view.gender]]),
+    ...(view.admins ? [ROSTER_MENU.admins] : []),
+  ]
+  return said.length === 0 ? ROSTER_MENU.everyone : said.join(' · ')
+}
+
+/** *12 people total*, at the top right, for the whole Roster whatever the menu shows. */
+export const peopleTotal = (count: number): string => `${count} ${count === 1 ? 'person' : 'people'} total`
+
+/**
+ * The numbers under the menu, each a bold count and a word: total, paired and
+ * unpaired with nothing ticked, and *N shown*, *M on the Roster* while anything is.
  */
 export const STATS_LABEL = {
   total: 'total',
   paired: 'paired',
   unpaired: 'unpaired',
+  shown: 'shown',
+  onTheRoster: 'on the Roster',
 } as const
 
-/** All has no sentence of its own: with nobody on it the Roster itself is empty, and says so. */
-export const EMPTY_LIST: Record<RosterSide, string> = {
-  disciplers:
-    'No disciplers yet. Somebody becomes one when they disciple somebody, or when they offer to on the Intake form.',
-  disciples: 'No disciples yet. Everyone on the Roster who is not a discipler is here.',
-}
+/** With anybody on the Roster and nobody matching what is ticked. The menu stays above it to change. */
+export const NOBODY_SHOWN = 'Nobody on the Roster matches what is ticked.'
 
 /**
  * A pairing an import planned, on the row of either person in it (ADR-0022).
@@ -155,41 +158,23 @@ const inASentence = (group: GroupOnARow): { readonly called: string; readonly le
 /** A first name out of the one `full_name` Discipler holds. Splitting it is a copy decision, so it is made here. */
 const firstNameOf = (fullName: string): string => fullName.trim().split(/\s+/)[0] ?? ''
 
-/**
- * Whether a pairing somebody holds reads as a group: more than one Disciple in it
- * now, from the live memberships as the Roster row's size tag reads it (ADR-0004).
- */
-const readsAsAGroup = (pairing: RosterRelationship): boolean => pairing.participantCount > 1
-
 /** What a group somebody holds is called, as the popup calls any group: its name, or its leaders' group. */
 const groupHeld = (pairing: RosterRelationship): string =>
   nameOfAGroup({ name: pairing.name, leaders: pairing.leaderNames.map((fullName) => ({ fullName })) })
 
 /**
- * The order a popup row says somebody's pairings in: leading first, as the Roster
- * row names them, and within each side a one-to-one before a group, as the
- * mock-ups have it (*Discipled by Rachel Adams · In Tuesday Women's*). Stable
- * otherwise, so the reader's own order stands.
- */
-const inTheOrderSaid = (held: readonly RosterRelationship[]): readonly RosterRelationship[] =>
-  [...held].sort(
-    (a, b) =>
-      Number(a.role === 'participant') - Number(b.role === 'participant') ||
-      Number(readsAsAGroup(a)) - Number(readsAsAGroup(b)),
-  )
-
-/**
  * One pairing with its direction, as a Pair popup row's second line says it
  * (Roles per pairing, ticket 01): *Disciples Chloe Park*, *Leads Tuesday Women's*,
- * *Discipled by Rachel Adams*, *In Tuesday Women's*. The same four directions the
- * Roster's Paired with cell and a person's tags say, capitalised to start a line.
- * A one-to-one that names nobody on the other side says nothing.
+ * *Discipled by Rachel Adams*, *In Tuesday Women's*. The Roster's Paired with cell
+ * and a person's tags say the same words, from the same `pairingTagSaid`,
+ * capitalised here to start a line. A one-to-one that names nobody on the other
+ * side says nothing.
  */
 const pairingWithItsDirection = (pairing: RosterRelationship): string | null => {
-  if (readsAsAGroup(pairing)) return `${pairing.role === 'leader' ? 'Leads' : 'In'} ${groupHeld(pairing)}`
   const other = pairing.role === 'leader' ? pairing.participantNames : pairing.leaderNames
-  if (other.length === 0) return null
-  return `${pairing.role === 'leader' ? 'Disciples' : 'Discipled by'} ${asList(other)}`
+  if (!isAGroupNow(pairing) && other.length === 0) return null
+  const { direction, who } = pairingTagSaid(pairing, isAGroupNow(pairing))
+  return `${direction.charAt(0).toUpperCase()}${direction.slice(1)} ${who}`
 }
 
 export const PAIR_POPUP = {
@@ -221,7 +206,7 @@ export const PAIR_POPUP = {
    * they lead (*leads N*), leading is not said again.
    */
   doingNow: (held: readonly RosterRelationship[], { leading }: { readonly leading: boolean }): readonly string[] =>
-    inTheOrderSaid(held)
+    inPairingOrder(held)
       .filter(({ role }) => leading || role === 'participant')
       .flatMap((pairing) => pairingWithItsDirection(pairing) ?? []),
   chooseADiscipler: (disciple: string): string => `Choose who will disciple ${disciple}.`,
@@ -241,10 +226,10 @@ export const PAIR_POPUP = {
    * which *leads N* on the row already says.
    */
   invited: (discipler: string, held: readonly RosterRelationship[]): string => {
-    const discipledIn = inTheOrderSaid(held)
+    const discipledIn = inPairingOrder(held)
       .filter(({ role }) => role === 'participant')
       .flatMap((pairing) =>
-        readsAsAGroup(pairing)
+        isAGroupNow(pairing)
           ? [`in ${groupHeld(pairing)}`]
           : pairing.leaderNames.length === 0
             ? []
@@ -599,8 +584,10 @@ export const IMPORT_IS_NEVER_CONSENT =
 
 /**
  * What the person page says of somebody who offered to mentor on the Intake form.
- * It was a tag on the Roster row until Manual pairing, ticket 07: the answer still
- * makes them a Discipler, and the Disciplers list says so without a tag.
+ * It was a tag on the Roster row until Manual pairing, ticket 07. The answer opens
+ * their Pair popup on *Disciples somebody* (Roles per pairing, ticket 01), and the
+ * Roster's menu finds them under *Offered to disciple, not yet discipling*
+ * (ticket 02).
  *
  * Worded as something they did rather than as something they are. *Offered to
  * mentor* is an answer on a form; *Mentor* would read as a role somebody holds.

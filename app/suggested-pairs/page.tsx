@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import type { SuggestedPair, SuggestedPerson } from '~/domain/suggestions'
 import { getSuggestedPairsReader } from '~/service/container'
-import { LIST_OF_SIDE, pairPopupHref } from '../roster/lists'
+import { pairPopupHref } from '../roster/lists'
 import { AdminShell, NotAnAdmin, shortDate } from '../shell'
 import {
   CREATE_RELATIONSHIP,
@@ -32,7 +32,7 @@ const roleLine = (role: string, person: SuggestedPerson): string =>
  * whatever the preset would say (Roles per pairing, ticket 01).
  */
 const acceptHref = (pair: SuggestedPair): string =>
-  `${pairPopupHref(LIST_OF_SIDE.discipler, pair.leader.personId, 'discipler')}&${new URLSearchParams({
+  `${pairPopupHref(pair.leader.personId, 'discipler')}&${new URLSearchParams({
     with: pair.participant.personId,
   })}`
 
@@ -102,7 +102,7 @@ export default async function SuggestedPairsPage() {
                 {/* Their own popup, on *Is discipled* whatever the preset would say of
                     them (Roles per pairing, ticket 01): they are here as somebody to be
                     discipled. */}
-                <Link className="btn sec" href={pairPopupHref(LIST_OF_SIDE.disciple, person.personId, 'disciple')}>
+                <Link className="btn sec" href={pairPopupHref(person.personId, 'disciple')}>
                   {PAIR}
                 </Link>
               </div>

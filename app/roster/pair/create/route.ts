@@ -3,9 +3,9 @@ import { PairingRefused } from '~/domain/errors'
 import { materialId, personId } from '~/domain/ids'
 import type { Gender } from '~/domain/intake'
 import { readPairingMode } from '~/domain/separate-pairings'
-import { DEFAULT_LIST, isRosterList } from '../../copy'
 import { declaredGenderFromField, declaredGenderToField } from '../../declared-gender'
 import { isPairSide, SIDE_FIELD } from '../../lists'
+import { viewFields, viewIn } from '../../menu'
 import { SHAPE_FIELD, postedByAGroup, wasPostedByAGroup } from '../../pair-shape'
 import { materialFieldFor, readMaterialPerDisciple } from '../material-per-disciple'
 import { popupFor } from '../popup-address'
@@ -33,16 +33,14 @@ export async function POST(request: NextRequest) {
   const participantIds = chosen('participantId')
 
   /**
-   * Whose Pair popup this came from, and the list it was drawn over (Manual
-   * pairing, ticket 12). A refusal reopens the popup, and the receipt lands on the
-   * list the Admin was on. Whether `pair` names anybody is the Roster's to say.
+   * Whose Pair popup this came from (Manual pairing, ticket 12). A refusal reopens
+   * the popup. Whether `pair` names anybody is the Roster's to say.
    *
    * The popup always says. A form that does not, which nothing in the app draws
    * since the old Pair page retired (recut ticket 05), is answered as that page's
    * address is: its first Discipler's popup, or else its first Disciple's. One that
    * names nobody at all has no popup to return to, and goes to the Roster.
    */
-  const rawList = form.get('list')
   const posted = chosen('pair')[0]
   // And the side it was on (Roles per pairing, ticket 01), so a refusal reopens it
   // there. A popup that said none it knows is left to its preset.
@@ -50,11 +48,14 @@ export async function POST(request: NextRequest) {
   const popup =
     posted === undefined
       ? popupFor({ leaderIds, participantIds })
-      : {
-          pair: posted,
-          list: isRosterList(rawList) ? rawList : DEFAULT_LIST,
-          side: isPairSide(rawSide) ? rawSide : null,
-        }
+      : { pair: posted, side: isPairSide(rawSide) ? rawSide : null }
+
+  /**
+   * What the Roster's menu showed behind the popup (Roles per pairing, ticket 02),
+   * so a refusal reopens it over the same people and the receipt lands on them.
+   * A form that says nothing lands on Everyone.
+   */
+  const shown = viewFields(viewIn((field) => form.getAll(field)))
 
   /**
    * One relationship of everybody chosen, or a one-to-one with each Disciple
@@ -126,13 +127,11 @@ export async function POST(request: NextRequest) {
     if (popup === null) return NextResponse.redirect(new URL('/roster', request.url), { status: 303 })
     // Every choice the popup holds: from a Disciple the one Discipler, and from a
     // Discipler whoever was ticked (Manual pairing, ticket 23). Never the person
-    // the popup is for, who is in the address already as `pair`.
-    const params = new URLSearchParams({
-      list: popup.list,
-      pair: popup.pair,
-      ...(popup.side === null ? {} : { [SIDE_FIELD]: popup.side }),
-      error: code,
-    })
+    // the popup is for, who is in the address already as `pair`. What the Roster
+    // showed behind it comes first, as a row's Pair puts it.
+    const params = new URLSearchParams([...shown, ['pair', popup.pair]])
+    if (popup.side !== null) params.set(SIDE_FIELD, popup.side)
+    params.set('error', code)
     // And what two or more ticks were to become (Manual pairing, recut ticket 02):
     // who of several the refusal is about, the shape, and every Material chosen,
     // each under the name the old Pair page's refusals gave it, so that its old
@@ -187,9 +186,8 @@ export async function POST(request: NextRequest) {
 
     // To the Roster either way, where what landed is on the rows. The receipt counts
     // the one-to-ones formed, and where that is not all of them, says who was not.
-    const receipt = encodeSeparateReceipt(outcome)
-    // On the list the popup was drawn over, as one pairing's receipt is.
-    if (popup !== null) receipt.set('list', popup.list)
+    // Over what the Roster showed behind the popup, as one pairing's receipt is.
+    const receipt = new URLSearchParams([...shown, ...encodeSeparateReceipt(outcome)])
     return NextResponse.redirect(new URL(`/roster?${receipt}`, request.url), { status: 303 })
   }
 
@@ -220,9 +218,6 @@ export async function POST(request: NextRequest) {
   // Back to the Roster, where the new relationship is now visible on both rows. It
   // reads as Awaiting Leader Acceptance, and each Discipler's invitation is sent
   // once this response has gone.
-  const receipt = new URLSearchParams({
-    ...(popup === null ? {} : { list: popup.list }),
-    paired: String(participantIds.length),
-  })
+  const receipt = new URLSearchParams([...shown, ['paired', String(participantIds.length)]])
   return NextResponse.redirect(new URL(`/roster?${receipt}`, request.url), { status: 303 })
 }

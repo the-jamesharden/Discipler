@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { personId, relationshipId } from '~/domain/ids'
 import type { RosterEntry, RosterRelationship } from '~/service/ports'
-import { tagsOnAPersonsPage, inPageOrder } from '../../app/roster/tags'
+import { inPairingOrder } from '../../app/roster/lists'
+import { tagsOnAPersonsPage } from '../../app/roster/tags'
 
 /**
  * What a person's page says they do, one tag per open pairing and per group, each
@@ -139,7 +140,7 @@ describe('the order a person’s pairings are said in', () => {
     // the mock-ups draw it.
     const byRachel = held('participant', { leaderNames: ['Rachel Adams'], withNames: ['Rachel Adams'] })
     const group = { ...inTuesday, withNames: ['Grace Lee', 'Lily Evans'] }
-    expect(inPageOrder([group, byRachel, discipledByGrace, leadsTuesday, disciplesChloe])).toEqual([
+    expect(inPairingOrder([group, byRachel, discipledByGrace, leadsTuesday, disciplesChloe])).toEqual([
       disciplesChloe,
       leadsTuesday,
       byRachel,

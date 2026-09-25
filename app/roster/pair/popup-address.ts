@@ -1,5 +1,4 @@
-import type { RosterSide } from '../copy'
-import { LIST_OF_SIDE, pairPopupHref, SIDE_FIELD, type PairSide } from '../lists'
+import { pairPopupHref, SIDE_FIELD, type PairSide } from '../lists'
 
 /**
  * The old Pair page's addresses, read as the Pair popup's (Manual pairing, recut
@@ -15,22 +14,23 @@ import { LIST_OF_SIDE, pairPopupHref, SIDE_FIELD, type PairSide } from '../lists
  * ticket, which James can overrule).
  *
  * The side it opens on is said in the address on its own (Roles per pairing,
- * ticket 01), apart from the list: a Discipler it named on *Disciples somebody*,
- * and a Disciple on *Is discipled*, whatever the preset would say of them.
+ * ticket 01): a Discipler it named on *Disciples somebody*, and a Disciple on *Is
+ * discipled*, whatever the preset would say of them. It opens over the whole
+ * Roster, which is one list (ticket 02).
  */
 
-/** Whose popup, over which list and on which side: the first Discipler named, or else the first Disciple. */
+/** Whose popup, and on which side: the first Discipler named, or else the first Disciple. */
 export const popupFor = ({
   leaderIds,
   participantIds,
 }: {
   readonly leaderIds: readonly string[]
   readonly participantIds: readonly string[]
-}): { readonly list: RosterSide; readonly pair: string; readonly side: PairSide } | null => {
+}): { readonly pair: string; readonly side: PairSide } | null => {
   const discipler = leaderIds.find((id) => id !== '')
-  if (discipler !== undefined) return { list: LIST_OF_SIDE.discipler, pair: discipler, side: 'discipler' }
+  if (discipler !== undefined) return { pair: discipler, side: 'discipler' }
   const disciple = participantIds.find((id) => id !== '')
-  if (disciple !== undefined) return { list: LIST_OF_SIDE.disciple, pair: disciple, side: 'disciple' }
+  if (disciple !== undefined) return { pair: disciple, side: 'disciple' }
   return null
 }
 
@@ -39,15 +39,16 @@ export const popupFor = ({
  * refusal's code and every choice it restored are under the names the popup reads,
  * because the popup's refusals took them from the old page's. The one person the
  * popup is for leaves the list they were named in, as the pairing route leaves them
- * out of a refusal it sends back; a `list`, `pair` or `side` of the address's own
- * would contradict the popup it opens, and is dropped.
+ * out of a refusal it sends back; a `pair` or `side` of the address's own would
+ * contradict the popup it opens, and is dropped, and so is the retired toggle's
+ * `list`, which names nothing now (Roles per pairing, ticket 02).
  */
 export const popupAddressFor = (old: URLSearchParams): string => {
   const popup = popupFor({ leaderIds: old.getAll('leaderId'), participantIds: old.getAll('with') })
   if (popup === null) return '/roster'
 
   const namedAs = popup.side === 'discipler' ? 'leaderId' : 'with'
-  const address = new URL(pairPopupHref(popup.list, popup.pair, popup.side), 'http://roster')
+  const address = new URL(pairPopupHref(popup.pair, popup.side), 'http://roster')
   let taken = false
   for (const [name, value] of old) {
     if (name === 'list' || name === 'pair' || name === SIDE_FIELD) continue

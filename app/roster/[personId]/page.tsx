@@ -28,8 +28,8 @@ import {
   UNPAIR_REFUSED,
   UNPAIRED_RECEIPT,
 } from '../copy'
-import { isDiscipler, LIST_OF_SIDE, pairPopupHref, whyNotPairable } from '../lists'
-import { inPageOrder, tagsOnAPersonsPage, type PageTag } from '../tags'
+import { inPairingOrder, pairPopupHref, whyNotPairable } from '../lists'
+import { tagsOnAPersonsPage, type PageTag } from '../tags'
 import { whatARemovalLetsGo, type PairingARemovalLetsGo } from '../removal'
 import { unpairFor, type Unpair } from '../unpair'
 
@@ -141,7 +141,7 @@ export default async function PersonPage({
             {whyNotPairable(person) === null ? (
               <Link
                 className="btn sec small"
-                href={pairPopupHref(LIST_OF_SIDE[isDiscipler(person) ? 'discipler' : 'disciple'], person.personId)}
+                href={pairPopupHref(person.personId)}
               >
                 Pair
               </Link>
@@ -151,7 +151,7 @@ export default async function PersonPage({
             <p className="blocked">Unpaired</p>
           ) : (
             <ul className="bare pairings">
-              {inPageOrder(person.relationships).map((relationship) => (
+              {inPairingOrder(person.relationships).map((relationship) => (
                 <li key={relationship.relationshipId}>
                   <span className="pairing">
                     <OtherSide relationship={relationship} />

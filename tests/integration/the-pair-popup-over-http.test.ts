@@ -10,7 +10,7 @@ import {
   type MinistryFixture,
 } from '../support/local-supabase'
 import {
-  currentList,
+  shownBehind,
   detailsOf,
   expectGreyed,
   expectOpen,
@@ -58,23 +58,24 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Disciple', () =>
   const offersToMentor = (personId: string, inMinistry: MinistryFixture = ministry) =>
     recordMentorOffer(pool, inMinistry, personId)
 
-  const popupAt = (list: string, personId: string, more: Record<string, string> = {}) =>
-    getPage(`/roster?${new URLSearchParams({ list, pair: personId, ...more })}`, cookie)
+  /** The popup over the Roster showing what `shows` ticks in the Everyone menu (Roles per pairing, ticket 02). */
+  const popupAt = (shows: string, personId: string, more: Record<string, string> = {}) =>
+    getPage(`/roster?${new URLSearchParams([...new URLSearchParams(shows), ['pair', personId], ...Object.entries(more)])}`, cookie)
 
   /** Everybody the popup offers as the Discipler, by the value its round mark would post. */
   const chosenFrom = (popup: string) => offeredAs(popup, 'leaderId')
 
   const submit = (fields: Record<string, string>) => postPairing(cookie, Object.entries(fields))
 
-  it('is drawn over the list the Admin was on, and is not there without `pair`', async () => {
+  it('is drawn over what the Roster showed, and is not there without `pair`', async () => {
     const sam = await addPerson(ministry, 'Sam Lee', { phone: number() })
     const claire = await addPerson(ministry, 'Claire Martinez', { phone: '+17065550142' })
     await offersToMentor(claire)
 
-    const without = await getPage('/roster?list=disciples', cookie)
+    const without = await getPage('/roster?pairings=unpaired', cookie)
     expect(popupIn(without.html)).toBeNull()
 
-    const { response, html } = await popupAt('disciples', sam)
+    const { response, html } = await popupAt('pairings=unpaired', sam)
     expect(response.status).toBe(200)
     const popup = popupIn(html)
     expect(popup).not.toBeNull()
@@ -82,20 +83,20 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Disciple', () =>
     expect(popup).toMatch(/class="modal-bg open"/)
     expect(popup).toContain('role="dialog"')
 
-    // The Roster behind it is the Disciples list: the toggle says so, and Sam's
-    // row is in the table under the popup.
-    expect(currentList(html)).toBe('Disciples')
+    // The Roster behind it shows the Unpaired: the menu's button says so, and
+    // Sam's row is in the table under the popup.
+    expect(shownBehind(html)).toBe('Unpaired')
     expect(html).toMatch(/data-testid="roster-name"[^>]*>Sam Lee</)
 
     // The X, Cancel and the backdrop: three ways out, all to the Roster as it was.
-    const waysOut = popup!.match(/href="\/roster\?list=disciples"/g) ?? []
+    const waysOut = popup!.match(/href="\/roster\?pairings=unpaired"/g) ?? []
     expect(waysOut).toHaveLength(3)
 
-    // And on All the same, over All.
-    const onAll = await popupAt('all', sam)
-    expect(popupIn(onAll.html)).not.toBeNull()
-    expect(currentList(onAll.html)).toBe('All')
-    expect(popupIn(onAll.html)!.match(/href="\/roster\?list=all"/g)).toHaveLength(3)
+    // And over Everyone the same.
+    const overEveryone = await popupAt('', sam)
+    expect(popupIn(overEveryone.html)).not.toBeNull()
+    expect(shownBehind(overEveryone.html)).toBe('Everyone')
+    expect(popupIn(overEveryone.html)!.match(/href="\/roster"/g)).toHaveLength(3)
   })
 
   it('is titled Pair {name}, says who the list is for, and lists everybody with a round mark', async () => {
@@ -108,7 +109,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Disciple', () =>
     const bare = await addPerson(ministry, 'Noor Haddad')
     await offersToMentor(bare)
 
-    const popup = popupIn((await popupAt('disciples', dana)).html)!
+    const popup = popupIn((await popupAt('pairings=unpaired', dana)).html)!
     expect(popup).toContain('Pair Dana Whitfield')
     expect(popup).toContain('Choose who will disciple Dana Whitfield.')
 
@@ -144,11 +145,12 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Disciple', () =>
     expect(doingNowOf(graceRow)).toBeNull()
 
     // Nothing chosen: no sentence, and the button reads Pair. The form is an
-    // ordinary one, to the existing route, carrying who it is for, the list and the side.
+    // ordinary one, to the existing route, carrying who it is for, what the Roster
+    // showed behind it, and the side.
     expect(summaryIn(popup)).toBeNull()
     expect(popup).toMatch(/<button[^>]*type="submit"[^>]*>Pair<\/button>/)
     expect(popup).toMatch(/<form[^>]*method="post"[^>]*action="\/roster\/pair\/create"|<form[^>]*action="\/roster\/pair\/create"[^>]*method="post"/)
-    expect(hiddenIn(popup)).toEqual({ pair: dana, list: 'disciples', side: 'disciple', participantId: dana })
+    expect(hiddenIn(popup)).toEqual({ pair: dana, pairings: 'unpaired', side: 'disciple', participantId: dana })
   })
 
   it('opens nothing for a `pair` that names nobody here, or somebody who cannot be paired', async () => {
@@ -157,56 +159,56 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Disciple', () =>
     const theirs = await addPerson(elsewhere, 'Not Ours')
 
     for (const pair of ['nobody-at-all', waiting, theirs]) {
-      const { response, html } = await popupAt('disciples', pair)
+      const { response, html } = await popupAt('pairings=unpaired', pair)
       expect(response.status, pair).toBe(200)
       expect(popupIn(html), pair).toBeNull()
-      expect(currentList(html), pair).toBe('Disciples')
+      expect(shownBehind(html), pair).toBe('Unpaired')
       // And an error in the address is not the import's: its dialog stays shut.
-      const withError = await popupAt('disciples', pair, { error: 'relationship.gender_must_match' })
+      const withError = await popupAt('pairings=unpaired', pair, { error: 'relationship.gender_must_match' })
       expect(withError.html, pair).not.toMatch(/class="modal-bg open"/)
     }
   })
 
-  // Roles per pairing, ticket 01: the list no longer decides the side. The popup
-  // opens preset by who would be a Discipler, and the address says the side apart
-  // from the list, which one press of the side chooser switches.
-  it('opens somebody on both sides on Disciples somebody, from every list, and on Is discipled where the address says', async () => {
+  // Roles per pairing, ticket 01: nothing on the Roster decides the side. The popup
+  // opens preset by who would be a Discipler, and the address says the side on its
+  // own, which one press of the side chooser switches.
+  it('opens somebody on both sides on Disciples somebody, whatever the Roster shows, and on Is discipled where the address says', async () => {
     // Discipled by somebody and discipling somebody.
     const both = await addPerson(ministry, 'Hana Sato', { phone: number() })
     await pairOneToOne(ministry, both, await addPerson(ministry, 'Ivy Moreau', { phone: number() }))
     await pairOneToOne(ministry, await addPerson(ministry, 'Ruth Adeyemi', { phone: number() }), both)
 
-    for (const list of ['disciples', 'disciplers', 'all']) {
+    for (const shows of ['', 'pairings=disciples-somebody', 'pairings=being-discipled']) {
       // Her row opens the popup with no side in its address, and it opens preset.
-      const { html } = await getPage(`/roster?list=${list}`, cookie)
-      expect(html, list).toContain(`href="/roster?list=${list}&amp;pair=${both}"`)
-      expect(html, list).not.toContain('href="/roster/pair')
+      const { html } = await getPage(`/roster?${shows}`, cookie)
+      expect(html, shows).toContain(`href="/roster?${shows === '' ? '' : `${shows}&amp;`}pair=${both}"`)
+      expect(html, shows).not.toContain('href="/roster/pair')
 
-      const asDiscipler = popupIn((await popupAt(list, both)).html)!
-      expect(asDiscipler, list).toContain('Choose who Hana Sato will disciple.')
-      expect(asDiscipler, list).not.toContain(`name="participantId" value="${both}"`)
-      expect(asDiscipler, list).not.toContain(`value="${both}" name="participantId"`)
+      const asDiscipler = popupIn((await popupAt(shows, both)).html)!
+      expect(asDiscipler, shows).toContain('Choose who Hana Sato will disciple.')
+      expect(asDiscipler, shows).not.toContain(`name="participantId" value="${both}"`)
+      expect(asDiscipler, shows).not.toContain(`value="${both}" name="participantId"`)
     }
 
     // On Is discipled where the address says so, and her own name is not on its list.
-    const asDisciple = popupIn((await popupAt('disciples', both, { side: 'disciple' })).html)!
+    const asDisciple = popupIn((await popupAt('', both, { side: 'disciple' })).html)!
     expect(asDisciple).toContain('Pair Hana Sato')
     expect(asDisciple).toContain('Choose who will disciple Hana Sato.')
     expect(chosenFrom(asDisciple)).not.toContain(both)
   })
 
-  it('forms a one-to-one awaiting acceptance, and the receipt is on the list the Admin was on', async () => {
+  it('forms a one-to-one awaiting acceptance, and the receipt is over what the Roster showed', async () => {
     const disciple = await addPerson(ministry, 'Lena Brandt', { phone: number() })
     const discipler = await addPerson(ministry, 'Marta Koch', { phone: number() })
     await offersToMentor(discipler)
 
-    const location = await submit({ pair: disciple, list: 'disciples', participantId: disciple, leaderId: discipler })
+    const location = await submit({ pair: disciple, pairings: 'being-discipled', participantId: disciple, leaderId: discipler })
     expect(location.pathname).toBe('/roster')
-    expect(Object.fromEntries(location.searchParams)).toEqual({ list: 'disciples', paired: '1' })
+    expect(Object.fromEntries(location.searchParams)).toEqual({ pairings: 'being-discipled', paired: '1' })
 
     const { html } = await getPage(`${location.pathname}${location.search}`, cookie)
     expect(popupIn(html)).toBeNull()
-    expect(currentList(html)).toBe('Disciples')
+    expect(shownBehind(html)).toBe('Being discipled')
     expect(html).toContain('They are paired.')
     expect(html).toMatch(/Marta Koch[\s\S]{0,200}awaiting acceptance/)
 
@@ -227,7 +229,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Disciple', () =>
 
     // Whatever was refused, the address carries the code and who was chosen. A
     // choice that can still be made comes back chosen.
-    const { html } = await popupAt('all', disciple, {
+    const { html } = await popupAt('', disciple, {
       error: 'relationship.person_already_in_this_relationship',
       leaderId: discipler,
     })
@@ -242,9 +244,9 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Disciple', () =>
     )
     expect(popup).toContain('<b>Rafael Delgado will disciple Tom Wilson</b>, one to one.')
     expect(popup).toMatch(/<button[^>]*type="submit"[^>]*>Create 1:1 pair<\/button>/)
-    // Over All, where it was pressed; and the refusal is the popup's, so the
+    // Over Everyone, where it was pressed; and the refusal is the popup's, so the
     // import dialog behind it is shut.
-    expect(currentList(html)).toBe('All')
+    expect(shownBehind(html)).toBe('Everyone')
     expect(html.match(/class="modal-bg open"/g)).toHaveLength(1)
   })
 
@@ -267,7 +269,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Disciple', () =>
       const unasked = await addPerson(ministry, 'Pat Unasked', { phone: number(), intake: false })
       await Promise.all([offersToMentor(rosa), offersToMentor(unasked)])
 
-      const popup = popupIn((await popupAt('disciples', tom)).html)!
+      const popup = popupIn((await popupAt('', tom)).html)!
       expect(chosenFrom(popup)).not.toContain(rosa)
       expect(popup).not.toContain('Rosa Delgado')
       expect(popup).not.toContain('same-gender')
@@ -281,9 +283,8 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Disciple', () =>
       // Leaving her out removed no rule underneath: posted anyway, the database
       // refuses it as it always did, and the popup comes back with the reason. The
       // choice is not on the list, so nothing is restored as chosen.
-      const location = await submit({ pair: tom, list: 'all', participantId: tom, leaderId: rosa })
+      const location = await submit({ pair: tom, participantId: tom, leaderId: rosa })
       expect(Object.fromEntries(location.searchParams)).toEqual({
-        list: 'all',
         pair: tom,
         error: 'relationship.gender_must_match',
         leaderId: rosa,
@@ -306,7 +307,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Disciple', () =>
       const rosa = await addPerson(relaxed, 'Rosa Delgado', { phone: number(), answers: { gender: 'female' } })
       await offersToMentor(rosa, relaxed)
 
-      const { html } = await getPage(`/roster?${new URLSearchParams({ list: 'disciples', pair: tom })}`, theirCookie)
+      const { html } = await getPage(`/roster?${new URLSearchParams({ pair: tom })}`, theirCookie)
       expectOpen(popupIn(html)!, rosa)
     })
 
@@ -317,7 +318,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Disciple', () =>
       const other = await addPerson(ministry, 'Another Discipler', { phone: number() })
       await offersToMentor(other)
 
-      const popup = popupIn((await popupAt('disciples', brianna)).html)!
+      const popup = popupIn((await popupAt('', brianna)).html)!
       const offered = chosenFrom(popup)
       expect(offered).toEqual(expect.arrayContaining([david, other]))
       for (const discipler of offered) expectGreyed(popup, discipler!, 'Already in a 1:1 with David Chen')
@@ -330,7 +331,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Disciple', () =>
       await Promise.all([offersToMentor(waiting), offersToMentor(left)])
       await optOut(ministry, left)
 
-      const popup = popupIn((await popupAt('disciples', disciple)).html)!
+      const popup = popupIn((await popupAt('', disciple)).html)!
       expectGreyed(popup, waiting, 'Awaiting Intake')
       expectGreyed(popup, left, 'Opted out')
     })
@@ -343,7 +344,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Disciple', () =>
     const elsewhere = await createMinistryWithAdmin('The Chapel Across The Road')
     const stranger = await addPerson(elsewhere, 'Not On This Roster', { phone: number() })
 
-    const { html } = await popupAt('disciples', disciple, { leaderId: stranger })
+    const { html } = await popupAt('', disciple, { leaderId: stranger })
     const popup = popupIn(html)!
     expect(popup).not.toMatch(/checked=""/)
     expect(summaryIn(popup)).toBeNull()
@@ -357,7 +358,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Disciple', () =>
 
     const location = await submit({ participantId: disciple, leaderId: discipler })
     expect(location.pathname).toBe('/roster')
-    expect(location.searchParams.get('list')).toBe('disciplers')
+    expect(location.searchParams.has('list')).toBe(false)
     expect(location.searchParams.get('pair')).toBe(discipler)
     expect(location.searchParams.get('side')).toBe('discipler')
     expect(location.searchParams.getAll('with')).toEqual([disciple])
@@ -366,7 +367,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Disciple', () =>
     // And to the Disciple's, where it names no Discipler.
     const alone = await submit({ participantId: disciple })
     expect(alone.pathname).toBe('/roster')
-    expect(alone.searchParams.get('list')).toBe('disciples')
+    expect(alone.searchParams.has('list')).toBe(false)
     expect(alone.searchParams.get('pair')).toBe(disciple)
     expect(alone.searchParams.get('side')).toBe('disciple')
     expect(alone.searchParams.get('error')).toBe('relationship.needs_a_leader')

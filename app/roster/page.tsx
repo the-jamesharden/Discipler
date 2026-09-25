@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import type { ReactNode } from 'react'
 import { redirect } from 'next/navigation'
 import { AdminShell, initialsOf, NotAnAdmin } from '../shell'
 import { getRosterReader } from '~/service/container'
@@ -13,22 +14,19 @@ import {
   AWAITING_ACCEPTANCE,
   AWAITING_INTAKE,
   CANNOT_BE_PAIRED,
-  DEFAULT_LIST,
   displayPhone,
-  EMPTY_LIST,
   groupJoinRefusalMessage,
   HELD_ROWS_EXPLANATION,
   HELD_ROWS_HEADING,
   importFailureMessage,
   importRowRefusalMessage,
-  isRosterList,
-  LIST_HEADING,
-  LIST_LABEL,
-  listCount,
   NOBODY_ON_THIS_NUMBER,
+  NOBODY_SHOWN,
   NOT_MADE,
   PAIR,
   PAIR_POPUP,
+  PAIRING_TAG,
+  pairingTagSaid,
   invitedToGroupReceipt,
   joinedGroupReceipt,
   removedReceipt,
@@ -39,9 +37,9 @@ import {
   pairsPlanned,
   partlyPairedReceipt,
   peopleAdded,
+  peopleTotal,
   PLANNED,
   refusalAboutOneOfASet,
-  ROSTER_LISTS,
   rowProblemMessage,
   samePersonAnswer,
   samePersonConsequence,
@@ -50,7 +48,6 @@ import {
   SOMEONE_ELSE_CONSEQUENCE,
   STATS_LABEL,
   UNPAIRED,
-  type RosterList,
 } from './copy'
 import { readMaterialPerDisciple } from './pair/material-per-disciple'
 import { decodeSeparateReceipt } from './pair/receipt'
@@ -59,15 +56,13 @@ import { ImportDialog, type ImportReadbackWire } from './import-dialog'
 import { IMPORT_DATASET, IMPORT_DIALOG_ID } from './import-copy'
 import {
   candidatesFor,
-  groupsToJoin,
+  inPairingOrder,
+  isAGroupNow,
   leadsCount,
   listedFirst,
-  onList,
-  pairHref,
+  plansInOrder,
   popupOnSide,
-  plansOn,
   reasonOnRow,
-  relationshipsOn,
   rosterStats,
   sideOfThePopup,
   tagOnName,
@@ -94,31 +89,39 @@ import { pickedFrom, READ_AS_A_GROUP, type ReadAs } from './pair-shape'
 import { RefusedRows } from './refused-rows'
 import { decodeImportReport } from './report'
 import { rosterKey } from '~/domain/roster'
+import { isEveryone, isShown, MENU_OPEN, pairHref, viewIn, type RosterView } from './menu'
+import { RosterMenu } from './roster-menu'
 
 export const dynamic = 'force-dynamic'
 
 /**
- * The Roster, as a pastor names it: three lists behind a toggle, All, Disciplers
- * and Disciples, each with its three numbers and its five columns. Rebuilt to the
- * prototype James brought in ticket 36, and opened on All by Manual pairing,
- * ticket 06. The model's Leader and Participant are for the code; nothing here
- * says either.
+ * The Roster, as a pastor names it: one list, everybody once, with its numbers
+ * and its five columns (Roles per pairing, ticket 02). Rebuilt to the prototype
+ * James brought in ticket 36. The model's Leader and Participant are for the code;
+ * nothing here says either.
  *
- * A Discipler is a fact and never a mark -- `lists.ts` is the one rule -- and a
- * person may be on both sides, which is the discipleship-multiplication case
- * working. On All they are one row, holding every pairing they are in. The name on every row opens the Person's own page, where every act about
- * one Person lives; the row keeps Pair, the one act that belongs to a list.
+ * Nobody is a Discipler or a Disciple: each pairing says who disciples whom, so
+ * the Paired with cell says the direction of every one, and somebody on both sides
+ * is one row holding both. The All / Disciplers / Disciples toggle went; the
+ * Everyone menu above the table (`./roster-menu`) narrows what is shown, and
+ * what it has ticked is in the address. The name on every row opens the Person's
+ * own page, where every act about one Person lives; the row keeps Pair.
  */
-
-/** Which list to show. Nothing, or anything that is not one of the three, reads as All. */
-const listIn = (value: string | undefined): RosterList =>
-  isRosterList(value) ? value : DEFAULT_LIST
 
 export default async function RosterPage({
   searchParams,
 }: {
   searchParams: Promise<{
-    list?: string
+    /**
+     * What the Everyone menu has ticked (Roles per pairing, ticket 02), read by
+     * `viewIn` in `./menu`, and whether an option's link asked for it open. The
+     * retired toggle's `list` is read as nothing, so an old address opens on
+     * Everyone.
+     */
+    pairings?: string | string[]
+    gender?: string | string[]
+    access?: string | string[]
+    menu?: string | string[]
     added?: string
     refused?: string
     hidden?: string
@@ -196,16 +199,16 @@ export default async function RosterPage({
   const { admin } = page
   const { roster, held, followUpCount, suggestGenderMatch, groups, materials, removed } = page.page
 
-  const list = listIn(query.list)
-  const shown = roster.filter((person) => onList(list, person))
-  const stats = rosterStats(list, shown)
+  const view = viewIn((field) => [(query as Record<string, string | string[] | undefined>)[field] ?? []].flat())
+  const shown = roster.filter((person) => isShown(view, person))
+  const menuOpen = [query.menu ?? []].flat().includes(MENU_OPEN[1])
 
-  // The Pair popup, drawn over this list (Manual pairing, ticket 12). Out of the
+  // The Pair popup, drawn over what the Roster shows (Manual pairing, ticket 12). Out of the
   // document already read: opening it is no second read. A `pair` that names
   // nobody on this Roster, or somebody who cannot be paired, opens nothing.
   const pairing = whoThePopupIsFor(roster, asked)
   // Which side of this one pairing they are on (Roles per pairing, ticket 01): what
-  // the address says, or the preset, and never the list. Each side is drawn by a
+  // the address says, or the preset. Each side is drawn by a
   // file of its own (Manual pairing, ticket 23).
   const side = pairing ? sideOfThePopup(firstOf(query.side), pairing) : null
   // The popup's own address on each side, for its side chooser: this page's
@@ -246,7 +249,7 @@ export default async function RosterPage({
   // landed. Read as a count and never echoed as text.
   const paired = Number.parseInt(query.paired ?? '', 10)
   // Who was just put into a group (Manual pairing, ticket 22). Found on the whole
-  // Roster and not only the list shown, and their name read off the row: the
+  // Roster and not only the people shown, and their name read off the row: the
   // address carries an id, and nothing it says is rendered. An id that names
   // nobody here is no receipt at all.
   const joined = roster.find((person) => person.personId === query.joined)?.fullName
@@ -258,7 +261,7 @@ export default async function RosterPage({
   const removedNow = removed.find((person) => person.personId === query.removed)?.fullName
 
   // A set of separate one-to-ones counts the one-to-ones made. Who was not paired
-  // arrives as ids and is named from the whole Roster, whichever list is showing,
+  // arrives as ids and is named from the whole Roster, whoever is showing,
   // so nothing in the address is rendered and an id that names nobody says nothing.
   const separately = decodeSeparateReceipt(query)
   const notPaired = (separately?.notPaired ?? []).flatMap((id) => {
@@ -276,13 +279,6 @@ export default async function RosterPage({
           })
         : pairedSeparatelyReceipt(separately.formed)
 
-  /**
-   * Another list's link keeps nothing else from the query string: a receipt is
-   * about the page it landed on. Each names its list, All included, so the address
-   * says what is being looked at whichever way the default goes.
-   */
-  const listHref = (which: RosterList): string => `/roster?${new URLSearchParams({ list: which })}`
-
   // The Roster as the import review classifies against it, in the browser:
   // every name and number this page already prints (ADR-0021), and the plans
   // still waiting. The server's own read, inside its transaction, stays the
@@ -299,7 +295,7 @@ export default async function RosterPage({
         <div className="card-head">
           <h2 className="card-title">Roster</h2>
           <div className="actions" style={{ marginTop: 0 }}>
-            <span className="muted">{listCount(list, shown.length)}</span>
+            <span className="muted">{peopleTotal(roster.length)}</span>
             {/* No way into pairing from up here: every pairing starts from a row
                 (Manual pairing, ticket 07). */}
             {/* The import, in a dialog over the table (ticket 36). A link to the
@@ -309,23 +305,12 @@ export default async function RosterPage({
           </div>
         </div>
 
-        {/* The three lists: three links to this same page, so the switch works
-            before JavaScript has loaded and survives a refresh. */}
-        <nav className="seg" aria-label="Which list to show">
-          {ROSTER_LISTS.map((which) => (
-            <Link key={which} href={listHref(which)} aria-current={list === which ? 'true' : undefined}>
-              {LIST_LABEL[which]}
-            </Link>
-          ))}
-        </nav>
+        {/* The Everyone menu, directly under the title, where the toggle was:
+            links to this same page, so it works before JavaScript has loaded and
+            survives a refresh. */}
+        <RosterMenu view={view} roster={roster} open={menuOpen} />
 
-        {/* Three numbers about the list being looked at. Paired is an open pairing
-            in this list's role and nothing else, and on All in either role. */}
-        <p className="stats-line">
-          <span><b>{stats.total}</b> {STATS_LABEL.total}</span>
-          <span><b>{stats.paired}</b> {STATS_LABEL.paired}</span>
-          <span><b>{stats.unpaired}</b> {STATS_LABEL.unpaired}</span>
-        </p>
+        <StatsLine view={view} roster={roster} shown={shown.length} />
 
         {Number.isInteger(paired) && paired > 0 ? (
           <p className="toast" role="status">
@@ -409,15 +394,15 @@ export default async function RosterPage({
             Nobody is on this Roster yet. Import your spreadsheet, or send one of the{' '}
             <Link href="/intake-forms">{INTAKE_FORMS}</Link>.
           </p>
-        ) : list !== 'all' && shown.length === 0 ? (
-          <p className="empty">{EMPTY_LIST[list]}</p>
+        ) : shown.length === 0 ? (
+          <p className="empty">{NOBODY_SHOWN}</p>
         ) : (
           <div className="tbl-wrap roster-table">
             <table>
               <thead>
                 <tr>
                   <th className="num">#</th>
-                  <th>{LIST_HEADING[list]}</th>
+                  <th>Name</th>
                   <th>Email</th>
                   <th>Phone</th>
                   <th>Paired with</th>
@@ -459,7 +444,7 @@ export default async function RosterPage({
                       {person.phone ? <a href={`tel:${person.phone}`}>{displayPhone(person.phone)}</a> : '-'}
                     </td>
                     <td>
-                      <PairedWith list={list} person={person} />
+                      <PairedWith view={view} person={person} />
                     </td>
                   </tr>
                 ))}
@@ -544,7 +529,7 @@ export default async function RosterPage({
         <PairPopupFromADisciple
           key={`disciple-${pairing.personId}`}
           person={{ id: pairing.personId, fullName: pairing.fullName }}
-          list={list}
+          view={view}
           sideHrefs={sideHrefs}
           // Anybody can be chosen to disciple them (Roles per pairing, ticket 01);
           // whoever gender rules out is not listed at all (James, 2026-09-21), and
@@ -573,7 +558,7 @@ export default async function RosterPage({
         <PairPopupFromADiscipler
           key={`discipler-${pairing.personId}`}
           person={{ id: pairing.personId, fullName: pairing.fullName }}
-          list={list}
+          view={view}
           sideHrefs={sideHrefs}
           invited={PAIR_POPUP.invited(pairing.fullName, pairing.relationships)}
           // Anybody can be picked to be discipled (Roles per pairing, ticket 01),
@@ -712,17 +697,52 @@ const importReadback = (
 }
 
 /**
- * The Paired with cell: one line per pairing the Person holds in this list's
- * role, naming the other side -- who a Discipler disciples, who a Disciple is
- * discipled by -- with the size pill and, where the Discipler has not yet agreed,
- * a note saying so. A person in no pairing in this role is unpaired here, whatever
- * they hold on the other list. On All the lines are every pairing in either role,
- * and unpaired means in none at all. No line says which way it runs: the toggle
- * above the table answers that, and a word on every line would be clutter (James,
- * reviewing Manual pairing, ticket 06).
+ * The numbers under the menu (Roles per pairing, ticket 02). With nothing ticked,
+ * total, paired and unpaired over the whole Roster, paired being an open pairing
+ * in either role, as All's were. While anything is ticked, how many are shown out
+ * of how many are on the Roster, since a paired count of a narrowed list says
+ * little and the menu's counts already say how many each option holds.
+ */
+const StatsLine = ({
+  view,
+  roster,
+  shown,
+}: {
+  readonly view: RosterView
+  readonly roster: readonly RosterEntry[]
+  readonly shown: number
+}) => {
+  if (!isEveryone(view)) {
+    return (
+      <p className="stats-line">
+        <span><b>{shown}</b> {STATS_LABEL.shown}</span>
+        <span><b>{roster.length}</b> {STATS_LABEL.onTheRoster}</span>
+      </p>
+    )
+  }
+  const stats = rosterStats(roster)
+  return (
+    <p className="stats-line">
+      <span><b>{stats.total}</b> {STATS_LABEL.total}</span>
+      <span><b>{stats.paired}</b> {STATS_LABEL.paired}</span>
+      <span><b>{stats.unpaired}</b> {STATS_LABEL.unpaired}</span>
+    </p>
+  )
+}
+
+/**
+ * The Paired with cell: one line per pairing the Person holds, on either side,
+ * each saying its direction (Roles per pairing, ticket 02): *disciples* Chloe
+ * Park, *discipled by* Grace Lee, *leads* Tuesday Women's, *in* Tuesday Women's,
+ * with the size tag and, where the Discipler has not yet agreed, a note saying so.
+ * The words are a person's page tags' own (`pairingTagSaid`), in the order every
+ * screen says pairings in (`inPairingOrder`). With the lists gone nothing above
+ * the table says which way a pairing runs, so every line does. A plan an import
+ * made says its direction too, after the pairings. A person in no pairing and no
+ * plan is *Unpaired*.
  *
  * Every pairing starts here (Manual pairing, ticket 07). Pair is on the row of
- * everybody who can be paired, a Discipler who already leads somebody included,
+ * everybody who can be paired, somebody who already leads somebody included,
  * because leading one person does not stop them leading another. Somebody who
  * cannot be paired is offered nothing to press, and the cell says why where the
  * button would have been: in place of *Unpaired* when they hold nothing, and after
@@ -732,9 +752,9 @@ const importReadback = (
  * nothing to press. `whyNotPairable` decides the button, `reasonOnRow` the words
  * here and `tagOnName` the tag, all in `lists.ts`.
  */
-const PairedWith = ({ list, person }: { readonly list: RosterList; readonly person: RosterEntry }) => {
-  const pairings = relationshipsOn(list, person)
-  const plans = plansOn(list, person)
+const PairedWith = ({ view, person }: { readonly view: RosterView; readonly person: RosterEntry }) => {
+  const pairings = inPairingOrder(person.relationships)
+  const plans = plansInOrder(person.intendedPairings)
   const canBePaired = whyNotPairable(person) === null
   const said = reasonOnRow(person)
   const reason = said ? <span className="blocked">{CANNOT_BE_PAIRED[said]}</span> : null
@@ -743,7 +763,7 @@ const PairedWith = ({ list, person }: { readonly list: RosterList; readonly pers
     return canBePaired ? (
       <div className="paired-with">
         <span className="blocked">{UNPAIRED}</span>
-        <Link className="btn small" href={pairHref(list, person)} scroll={false}>
+        <Link className="btn small" href={pairHref(person, view)} scroll={false}>
           {PAIR}
         </Link>
       </div>
@@ -777,7 +797,7 @@ const PairedWith = ({ list, person }: { readonly list: RosterList; readonly pers
     <div className="paired-with">
       {lines}
       {canBePaired ? (
-        <Link className="btn small sec" href={pairHref(list, person)} scroll={false}>
+        <Link className="btn small sec" href={pairHref(person, view)} scroll={false}>
           {PAIR}
         </Link>
       ) : (
@@ -800,16 +820,41 @@ const NameTag = ({ person }: { readonly person: RosterEntry }) => {
   ) : null
 }
 
+/**
+ * Who a line is with, wrapping only where it has to: before the last of several
+ * names, so the last name keeps its size tag, and never inside a one-to-one's name
+ * or a group's name. A tag that wraps alone reads as belonging to nobody.
+ */
+const WithWhom = ({ who, children }: { readonly who: string; readonly children: ReactNode }) => {
+  const cut = Math.max(who.lastIndexOf(', '), who.lastIndexOf(' and '))
+  if (cut < 0) {
+    return (
+      <span className="nowrap">
+        {who} {children}
+      </span>
+    )
+  }
+  const last = who.slice(who.indexOf(' ', cut + 1) + 1)
+  return (
+    <>
+      {who.slice(0, who.length - last.length)}
+      <span className="nowrap">
+        {last} {children}
+      </span>
+    </>
+  )
+}
+
 const PlanLine = ({ plan }: { readonly plan: RosterIntendedPairing }) => (
   <>
+    {/* Which way it would run, as a pairing's line says it. */}
+    <span className="dir">{plan.role === 'leader' ? PAIRING_TAG.disciples : PAIRING_TAG.discipledBy}</span>{' '}
     {/* The name and its pill stay on one line; only the note after them wraps. */}
-    <span className="nowrap">
-      {plan.withName}
-      {' '}
+    <WithWhom who={plan.withName}>
       <span className={`pill ${plan.state === 'awaiting_intake' ? 'plan' : 'refused'}`}>
         {plan.state === 'awaiting_intake' ? PLANNED : NOT_MADE}
       </span>
-    </span>
+    </WithWhom>
     {/* Each note wraps whole: a dash left alone at the end of a line reads as a mistake. */}
     {plan.state === 'awaiting_intake' ? (
       <span className="muted nowrap">{` - ${AWAITING_INTAKE}`}</span>
@@ -823,19 +868,15 @@ const PlanLine = ({ plan }: { readonly plan: RosterIntendedPairing }) => (
 )
 
 const PairingLine = ({ pairing }: { readonly pairing: RosterRelationship }) => {
-  // By the role the Person holds in it and not by the list, which on All is no
-  // side at all. On a side's list every pairing shown is in that side's role.
-  const otherSide = pairing.role === 'leader' ? pairing.participantNames : pairing.leaderNames
+  // Said from the side the Person is on in it: who they disciple, who disciples
+  // them, the group they lead or are in.
+  const { direction, who } = pairingTagSaid(pairing, isAGroupNow(pairing))
   return (
     <>
-      {otherSide.slice(0, -1).map((name) => `${name}, `).join('')}
-      {/* The size stays on the line of the last name: a pill that wraps alone
-          reads as belonging to nobody. */}
-      <span className="nowrap">
-        {otherSide.at(-1)}
-        {' '}
+      <span className="dir">{direction}</span>{' '}
+      <WithWhom who={who}>
         <span className="size">{pairingSizeLabel(pairing.participantCount)}</span>
-      </span>
+      </WithWhom>
       {/* Derived from the absence of an acceptance, not read from a status column
           -- there is not one. It is the difference between a pairing an Admin has
           arranged and one that has actually started, and both sides read it. */}

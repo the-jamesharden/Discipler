@@ -3,9 +3,10 @@
 import Link from 'next/link'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { initialsOf } from '../initials'
-import { PAIR_POPUP, type RosterList } from './copy'
+import { PAIR_POPUP } from './copy'
 import { CANCEL } from './import-copy'
 import { SIDE_FIELD, type PairSide } from './lists'
+import { rosterHref, viewFields, type RosterView } from './menu'
 
 /**
  * What the two sides of the Pair popup share (Manual pairing, tickets 12 and 23):
@@ -15,7 +16,8 @@ import { SIDE_FIELD, type PairSide } from './lists'
  * and never the other's. What belongs to both is changed here, once.
  *
  * The popup is the Roster's own page at `?pair=`, so the server sends it open, a
- * refresh keeps it open, and every way out is a link back to the list behind it.
+ * refresh keeps it open, and every way out is a link back to the Roster behind it,
+ * showing what its menu showed (Roles per pairing, ticket 02).
  * It is fed from the document the Roster already read; opening it is no second read.
  *
  * Script is the improvement here as it is in the import dialog: the sentence, the
@@ -281,7 +283,7 @@ const SideChooser = ({
 
 export const PairPopupShell = ({
   person,
-  list,
+  view,
   side,
   refusal,
   posts,
@@ -293,13 +295,13 @@ export const PairPopupShell = ({
 }: {
   /** Whose row was pressed: who this popup pairs. */
   readonly person: { readonly id: string; readonly fullName: string }
-  /** The list behind the popup, which every way out returns to and the receipt lands on. */
-  readonly list: RosterList
+  /** What the Roster's menu shows behind the popup, which every way out returns to and the receipt lands on. */
+  readonly view: RosterView
   /** Which side of this pairing the person is on, and the popup's address on each side. */
   readonly side: { readonly current: PairSide; readonly hrefs: Readonly<Record<PairSide, string>> }
   /** Why the last submission was refused, already in words, if it was. */
   readonly refusal: string | undefined
-  /** What the form posts without being asked, beside who the popup is for and the list behind it. */
+  /** What the form posts without being asked, beside who the popup is for and what is shown behind it. */
   readonly posts: Readonly<Record<string, string>>
   /**
    * Which route takes the form, as what is chosen decides (Manual pairing, recut
@@ -325,7 +327,7 @@ export const PairPopupShell = ({
   /** The side's own: who the list is for, its toolbar and its rows. */
   readonly children: ReactNode
 }) => {
-  const back = `/roster?${new URLSearchParams({ list })}`
+  const back = rosterHref(view)
 
   return (
     <div
@@ -341,7 +343,9 @@ export const PairPopupShell = ({
 
       <form method="post" action={`/roster/pair/${postsTo}`} className={grows ? 'modal pair grows' : 'modal pair'}>
         <input type="hidden" name="pair" value={person.id} />
-        <input type="hidden" name="list" value={list} />
+        {viewFields(view).map(([name, value]) => (
+          <input key={`${name}=${value}`} type="hidden" name={name} value={value} />
+        ))}
         <input type="hidden" name={SIDE_FIELD} value={side.current} />
         {Object.entries(posts).map(([name, value]) => (
           <input key={name} type="hidden" name={name} value={value} />

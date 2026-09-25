@@ -6,28 +6,27 @@ import * as copy from '../../app/roster/copy'
 import { CANNOT_BE_PAIRED, displayPhone } from '../../app/roster/copy'
 import {
   groupsToJoin,
+  inPairingOrder,
   isDiscipler,
-  isDisciple,
   leadsCount,
-  onList,
   opensAs,
-  pairHref,
-  plansOn,
+  plansInOrder,
   reasonOnRow,
-  relationshipsOn,
   rosterStats,
   tagOnName,
   whoThePopupIsFor,
   whyNotPairable,
 } from '../../app/roster/lists'
+import { EVERYONE, pairHref } from '../../app/roster/menu'
 
 /**
- * Who is on which list, and the three numbers over each. Pure over the reader's
- * own type, so the rule is driven with no database anywhere near it.
+ * What the Roster reads about a Person, and the numbers over it. Pure over the
+ * reader's own type, so each rule is driven with no database anywhere near it.
  *
  * A Discipler is a fact, never a mark (ticket 36): leads somebody, offered to on
- * the Intake form, or an import paired them as one. Everyone else is a Disciple,
- * and a person may be both.
+ * the Intake form, or an import paired them as one. Since the Roster became one
+ * list (Roles per pairing, ticket 02) that rule only says which side the Pair
+ * popup opens on, and nobody is on a list for it.
  */
 
 let counter = 0
@@ -74,55 +73,39 @@ const pairing = (
   ...over,
 })
 
-describe('who is a Discipler', () => {
+describe('who is a Discipler, which only presets the Pair popup now', () => {
   it('is somebody who disciples somebody', () => {
-    const leads = person({ relationships: [pairing('leader')] })
-    expect(isDiscipler(leads)).toBe(true)
-    expect(isDisciple(leads)).toBe(false)
+    expect(isDiscipler(person({ relationships: [pairing('leader')] }))).toBe(true)
   })
 
   it('is somebody who signed up as a leader on the Intake form, before any pairing', () => {
-    const offered = person({ declaredSide: 'mentor' })
-    expect(isDiscipler(offered)).toBe(true)
-    expect(isDisciple(offered)).toBe(false)
+    expect(isDiscipler(person({ declaredSide: 'mentor' }))).toBe(true)
   })
 
-  it('is not somebody who merely asked to be discipled, or was imported', () => {
+  it('is not somebody who merely asked to be discipled, or was imported, or is discipled', () => {
     expect(isDiscipler(person({ declaredSide: 'mentee' }))).toBe(false)
     expect(isDiscipler(person({ participationStatus: 'no_intake_submitted' }))).toBe(false)
-    expect(isDisciple(person({ participationStatus: 'no_intake_submitted' }))).toBe(true)
+    expect(isDiscipler(person({ relationships: [pairing('participant')] }))).toBe(false)
   })
 
-  it('may be a Disciple at the same time -- the multiplication case, not a bug', () => {
-    const both = person({ relationships: [pairing('leader'), pairing('participant')] })
-    expect(isDiscipler(both)).toBe(true)
-    expect(isDisciple(both)).toBe(true)
-    expect(onList('disciplers', both)).toBe(true)
-    expect(onList('disciples', both)).toBe(true)
-  })
-
-  it('is a Disciple as well when they asked to be discipled on the Intake form, though they lead (James, 2026-09-22)', () => {
-    const asked = person({ declaredSide: 'mentee', relationships: [pairing('leader')] })
-    expect(isDiscipler(asked)).toBe(true)
-    expect(isDisciple(asked)).toBe(true)
-    expect(onList('disciples', asked)).toBe(true)
+  it('may be discipled at the same time -- the multiplication case, not a bug', () => {
+    expect(isDiscipler(person({ relationships: [pairing('leader'), pairing('participant')] }))).toBe(true)
   })
 
   it('is somebody an import paired as one, before either has completed Intake', () => {
     const planned = person({ participationStatus: 'no_intake_submitted', intendedPairings: [plan('leader')] })
     expect(isDiscipler(planned)).toBe(true)
-    expect(isDisciple(planned)).toBe(false)
   })
 })
 
-describe('the three numbers over a list', () => {
-  it('counts paired as an open pairing in that role, and unpaired as the rest', () => {
+describe('the three numbers over the Roster, with nothing ticked', () => {
+  it('counts paired as an open pairing in either role, and unpaired as the rest', () => {
     const people = [
       person({ relationships: [pairing('leader')] }),
       person({ declaredSide: 'mentor' }),
-      person({ declaredSide: 'mentor', relationships: [pairing('leader', { participantCount: 3 })] }),
+      person({ relationships: [pairing('participant')] }),
     ]
-    expect(rosterStats('disciplers', people)).toEqual({ total: 3, paired: 2, unpaired: 1 })
+    expect(rosterStats(people)).toEqual({ total: 3, paired: 2, unpaired: 1 })
   })
 
   it('counts a group like any other pairing', () => {
@@ -131,22 +114,14 @@ describe('the three numbers over a list', () => {
       person({ relationships: [pairing('participant', { participantCount: 4 })] }),
       person(),
     ]
-    expect(rosterStats('disciples', people)).toEqual({ total: 3, paired: 2, unpaired: 1 })
+    expect(rosterStats(people)).toEqual({ total: 3, paired: 2, unpaired: 1 })
   })
 
-  it('counts a person once however many pairings they hold', () => {
+  it('counts a person once however many pairings they hold, on either side', () => {
     const busy = person({
-      relationships: [pairing('leader'), pairing('leader', { participantCount: 2 }), pairing('leader', { participantCount: 5 })],
+      relationships: [pairing('leader'), pairing('leader', { participantCount: 2 }), pairing('participant', { participantCount: 5 })],
     })
-    expect(rosterStats('disciplers', [busy])).toEqual({ total: 1, paired: 1, unpaired: 0 })
-  })
-
-  it('counts only the role of the list being looked at', () => {
-    // Discipled by somebody and disciples nobody: paired on the Disciples list,
-    // and not a Discipler at all.
-    const discipled = person({ relationships: [pairing('participant')] })
-    expect(rosterStats('disciples', [discipled]).paired).toBe(1)
-    expect(onList('disciplers', discipled)).toBe(false)
+    expect(rosterStats([busy])).toEqual({ total: 1, paired: 1, unpaired: 0 })
   })
 })
 
@@ -160,7 +135,7 @@ describe('a phone number as a person reads it', () => {
   })
 })
 
-describe('the All list (Manual pairing, ticket 06)', () => {
+describe('one row per person (Manual pairing, ticket 06, and Roles per pairing, ticket 02)', () => {
   const both = person({ relationships: [pairing('participant'), pairing('leader')] })
   const leads = person({ relationships: [pairing('leader')] })
   const discipled = person({ relationships: [pairing('participant')] })
@@ -168,35 +143,18 @@ describe('the All list (Manual pairing, ticket 06)', () => {
   const imported = person({ participationStatus: 'no_intake_submitted' })
   const everybody = [both, leads, discipled, offered, imported]
 
-  it('is everybody on the Roster, each once, including somebody on both sides', () => {
-    expect(onList('disciplers', both) && onList('disciples', both)).toBe(true)
-    const shown = everybody.filter((one) => onList('all', one))
-    expect(shown).toEqual(everybody)
-    expect(shown.filter((one) => one.personId === both.personId)).toHaveLength(1)
-  })
-
-  it('does not change who is on either side', () => {
-    expect(everybody.filter((one) => onList('disciplers', one))).toEqual([both, leads, offered])
-    expect(everybody.filter((one) => onList('disciples', one))).toEqual([both, discipled, imported])
-  })
-
   it('shows every pairing a person holds, in either role, leading first', () => {
-    expect(relationshipsOn('all', both).map(({ role }) => role)).toEqual(['leader', 'participant'])
-    // The sides still show only their own role.
-    expect(relationshipsOn('disciplers', both).map(({ role }) => role)).toEqual(['leader'])
-    expect(relationshipsOn('disciples', both).map(({ role }) => role)).toEqual(['participant'])
+    expect(inPairingOrder(both.relationships).map(({ role }) => role)).toEqual(['leader', 'participant'])
   })
 
-  it('shows every plan an import made about a person, on whichever side of it they are', () => {
+  it('shows every plan an import made about a person, whichever side of it they are on, leading first', () => {
     const planned = person({ intendedPairings: [plan('participant'), plan('leader')] })
-    expect(plansOn('all', planned).map(({ role }) => role)).toEqual(['leader', 'participant'])
-    expect(plansOn('disciplers', planned).map(({ role }) => role)).toEqual(['leader'])
-    expect(plansOn('disciples', planned).map(({ role }) => role)).toEqual(['participant'])
+    expect(plansInOrder(planned.intendedPairings).map(({ role }) => role)).toEqual(['leader', 'participant'])
   })
 
   it('counts paired as an open pairing in either role, and a plan as none', () => {
     const onlyPlanned = person({ intendedPairings: [plan('leader')] })
-    expect(rosterStats('all', [...everybody, onlyPlanned])).toEqual({ total: 6, paired: 3, unpaired: 3 })
+    expect(rosterStats([...everybody, onlyPlanned])).toEqual({ total: 6, paired: 3, unpaired: 3 })
   })
 })
 
@@ -270,27 +228,22 @@ describe('the Pair popup, from a Disciple (Manual pairing, ticket 12)', () => {
   const discipler = person({ declaredSide: 'mentor' })
   const both = person({ relationships: [pairing('participant'), pairing('leader')] })
 
-  // Roles per pairing, ticket 01: the list no longer decides the side. The popup
-  // opens preset by who would be a Discipler, and one press switches it; the rule
-  // itself is tests/app/the-pair-popup-picks-a-side.test.ts's.
-  it('opens preset by who would be a Discipler, whichever list Pair was pressed on', () => {
+  // Roles per pairing, ticket 01: no list decides the side. The popup opens preset
+  // by who would be a Discipler, and one press switches it; the rule itself is
+  // tests/app/the-pair-popup-picks-a-side.test.ts's.
+  it('opens preset by who would be a Discipler', () => {
     expect(opensAs(both)).toBe('discipler')
     expect(opensAs(discipler)).toBe('discipler')
     expect(opensAs(disciple)).toBe('disciple')
   })
 
-  it('sends Pair on a Disciple row to the popup over the list it was pressed on', () => {
-    expect(pairHref('disciples', disciple)).toBe(`/roster?list=disciples&pair=${disciple.personId}`)
-    expect(pairHref('all', disciple)).toBe(`/roster?list=all&pair=${disciple.personId}`)
-    expect(pairHref('disciples', both)).toBe(`/roster?list=disciples&pair=${both.personId}`)
-  })
-
-  it('sends Pair on a Discipler row to the popup over the list it was pressed on, as the old Pair page retires', () => {
-    // Manual pairing, recut ticket 05: no row links to `/roster/pair` any more.
-    expect(pairHref('disciplers', discipler)).toBe(`/roster?list=disciplers&pair=${discipler.personId}`)
-    expect(pairHref('all', discipler)).toBe(`/roster?list=all&pair=${discipler.personId}`)
-    expect(pairHref('all', both)).toBe(`/roster?list=all&pair=${both.personId}`)
-    expect(pairHref('disciplers', both)).toBe(`/roster?list=disciplers&pair=${both.personId}`)
+  it('sends Pair on every row to the popup over the Roster, with no side, whoever they are', () => {
+    // Manual pairing, recut ticket 05: no row links to `/roster/pair` any more. The
+    // side is the preset's (Roles per pairing, ticket 01), and what the menu shows
+    // behind it is tests/app/the-roster-is-one-list.test.ts's.
+    expect(pairHref(disciple, EVERYONE)).toBe(`/roster?pair=${disciple.personId}`)
+    expect(pairHref(discipler, EVERYONE)).toBe(`/roster?pair=${discipler.personId}`)
+    expect(pairHref(both, EVERYONE)).toBe(`/roster?pair=${both.personId}`)
   })
 
   it('opens for somebody on the Roster who can be paired, and for nobody else', () => {
