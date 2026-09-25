@@ -186,7 +186,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Roster is one list', () => {
         expect(statsLine(html)).toBe('4 shown 13 on the Roster')
         // No chips beside the button: it says the same thing, once, in what is
         // drawn and not the payload after it.
-        expect(html.slice(0, html.indexOf('<script')).match(/Being discipled · Women/g)).toHaveLength(1)
+        expect(html.replace(/<script[\s\S]*?<\/script>/g, '').match(/Being discipled · Women/g)).toHaveLength(1)
       }
     })
 
