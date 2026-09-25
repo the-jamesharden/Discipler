@@ -250,6 +250,7 @@ import {
 } from './pause'
 import {
   readMinistrySettings,
+  withinQuietHours,
   type MinistryLanguage,
   type MinistrySettings,
 } from './ministry-settings'
@@ -3083,6 +3084,13 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         // live here rather than in their own tick because they are the same
         // clock the cadence is read against, and two schedulers would be two
         // answers to *what time is it*.
+        //
+        // Not at night. Every branch of the chase can text -- the reminder, and
+        // the next question once a relationship is passed over or taken back --
+        // and a question answered late puts its lapse at night a day later.
+        // Nothing in it is urgent, so all of it waits for the morning.
+        if (!withinQuietHours(now, leader.timeZone)) continue
+
         effects.push(
           ...chaseTheOpenQuestion(leader, {
             ministryId: command.ministryId,

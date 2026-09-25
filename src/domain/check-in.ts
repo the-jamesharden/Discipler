@@ -3,7 +3,7 @@ import type { PersonId, RelationshipId } from './ids'
 import type { Branded } from './branded'
 import { hours } from './clock'
 import { plainWords, withoutPleasantries } from './inbound-text'
-import { cadenceInstantOf, isoWeekOf, type Cadence } from './week'
+import { cadenceInstantOf, isoWeekOf, localHourOf, type Cadence } from './week'
 
 /**
  * The weekly conversation, as a set of rules with no infrastructure in them. One
@@ -445,9 +445,15 @@ export const advanceCheckIn = (
  *   finish.
  * - This ISO week has not already had its prompt. That single test is what makes
  *   the dispatcher idempotent: it may run every hour, or twice, or miss a day.
- * - The cadence instant for this ISO week has arrived. Once it has, it stays
- *   arrived for the rest of the week -- a run that never happened on Monday
- *   evening sends on Tuesday rather than skipping the week.
+ * - The cadence instant for this ISO week has arrived, and it is the Ministry's
+ *   hour on the Ministry's clock right now. Once the instant has arrived it stays
+ *   arrived for the rest of the week, so a Leader who could not be asked on the
+ *   day -- a run that never happened, a pairing accepted that evening, a cadence
+ *   moved to a day already gone -- is asked at that hour on the next day of the
+ *   week rather than skipping it. Never at whatever hour the next run happens to
+ *   fall: that is how a Leader paired at 11pm was asked at midnight (2026-09-24).
+ *   A Sunday cadence has no later day in its week, so a Leader who misses it is
+ *   first asked the following Sunday.
  */
 export const checkInDueThisWeek = (
   snapshot: CheckInSnapshot,
@@ -468,16 +474,22 @@ export const checkInDueThisWeek = (
     return null
   }
 
-  // The earliest cadence among the relationships this conversation covers. With
-  // the override columns null -- which is every row in V1 -- they all carry the
-  // Ministry's and this is simply that. The day one of them is surfaced, a Leader
-  // is asked as soon as their earliest relationship falls due, and the one
-  // conversation covers the rest.
+  // The earliest cadence among the relationships this conversation covers whose
+  // hour it is now. With the override columns null -- which is every row in V1 --
+  // they all carry the Ministry's and this is simply that. The day one of them is
+  // surfaced, a Leader is asked at the hour of whichever relationship falls due
+  // first, and the one conversation covers the rest.
+  const hour = localHourOf(now, snapshot.timeZone)
   const due = covering
+    .filter((relationship) => relationship.cadence.hour === hour)
     .map((relationship) =>
       cadenceInstantOf(week, snapshot.timeZone, relationship.cadence),
     )
-    .reduce((earliest, instant) => (instant < earliest ? instant : earliest))
+    .filter((instant) => instant.getTime() <= now.getTime())
+    .reduce<Date | null>(
+      (earliest, instant) => (earliest === null || instant < earliest ? instant : earliest),
+      null,
+    )
 
-  return due.getTime() <= now.getTime() ? due : null
+  return due
 }

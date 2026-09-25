@@ -1,6 +1,6 @@
 import type { Branded } from './branded'
 import { AGE_BANDS } from './intake'
-import { isKnownTimezone, type Cadence } from './week'
+import { isKnownTimezone, localHourOf, type Cadence } from './week'
 import { readWording } from './wording'
 
 /**
@@ -44,6 +44,19 @@ export const roleNoun = (value: string): RoleNoun => value as RoleNoun
  * last hour that starts before 10pm. See ADR-0007.
  */
 export const QUIET_HOURS = { earliest: 8, latest: 21 } as const
+
+/**
+ * Whether the tick may text anybody at this instant, on this Ministry's clock.
+ *
+ * The hour is the unit because the tick runs on the hour: `latest` is the last
+ * hour a text may start in, so 9:00pm is inside and 10:00pm is not. An act a
+ * person takes -- a reply, a keyword -- is answered whatever the hour; it is only
+ * what Discipler starts on its own schedule that waits for the morning.
+ */
+export const withinQuietHours = (instant: Date, timeZone: string): boolean => {
+  const hour = localHourOf(instant, timeZone)
+  return hour >= QUIET_HOURS.earliest && hour <= QUIET_HOURS.latest
+}
 
 /**
  * The widest gap that names anything: the whole ladder, 18-24 up to 65+.

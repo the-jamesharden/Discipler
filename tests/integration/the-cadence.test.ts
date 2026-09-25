@@ -277,4 +277,40 @@ describe('the check-in cadence', () => {
       )
     })
   })
+
+  /**
+   * The production case of 2026-09-24, end to end: a pairing accepted late in the
+   * evening, after this week's hour had gone, was asked on the next hourly run --
+   * at midnight. It is asked at the Ministry's hour on the next day instead, and
+   * the row still carries this week's cadence.
+   *
+   * Last in the file, because its clock is the latest: a tick in an earlier week
+   * after it would close this week's conversations before they opened.
+   */
+  describe('a Leader who comes due after the hour', () => {
+    it('is asked at the Ministry’s hour the next day, and at no hour before it', async () => {
+      const leader = await congregant('Late Leader')
+      const participant = await congregant('Late Participant')
+      await pairOneToOne(ministry, leader, participant)
+
+      // ISO week 2026-W37: Monday 7 September was the day, 8pm London the hour.
+      const thisWeeksCadence = new Date('2026-09-07T19:00:00Z')
+
+      // Tuesday 11pm, then midnight, then 8am on Wednesday, all in London. Each
+      // is a run the old rule would have asked at; none is the Ministry's hour.
+      for (const run of ['2026-09-08T22:00:00Z', '2026-09-08T23:00:00Z', '2026-09-09T07:00:00Z']) {
+        await tickAt(new Date(run))
+        expect(await inbox(leader)).toHaveLength(0)
+      }
+
+      // Wednesday 8pm in London.
+      const wednesdayEightPm = new Date('2026-09-09T19:00:00Z')
+      await tickAt(wednesdayEightPm)
+      const sent = await inbox(leader)
+      expect(sent).toHaveLength(1)
+      expect(sent[0]!.body).toContain('Did you meet with Late Participant this week?')
+      expect(sent[0]!.enqueued_at).toEqual(wednesdayEightPm)
+      expect(sent[0]!.scheduled_for).toEqual(thisWeeksCadence)
+    })
+  })
 })

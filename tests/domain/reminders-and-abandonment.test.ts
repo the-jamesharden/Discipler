@@ -651,3 +651,52 @@ describe('a new week displacing a question a Pause had already taken back', () =
     ])
   })
 })
+
+/**
+ * The chase keeps the same hours the check-in does. A question can be asked at any
+ * hour -- the next one goes out the moment a Leader answers, and a Leader may
+ * answer at 11:40pm -- so a day later its reminder can fall due at night too. It
+ * waits for the morning rather than going out at midnight, and so does the question
+ * the conversation moves on to once the reminder has gone unanswered.
+ */
+describe('the chase keeps quiet hours', () => {
+  // Tuesday 25 August, 11:40pm in London: the Leader answered late, and the next
+  // question went straight back.
+  const lateQuestion = new Date('2026-08-25T22:40:00Z')
+  const askedLate = snapshot({
+    openSequence: openSequence({ awaiting: awaiting({ askedAt: lateQuestion }) }),
+  })
+
+  it('sends no reminder at midnight, though a day has passed', () => {
+    // Thursday 27 August, 00:00 in London.
+    const { effects } = ticking(new Date('2026-08-26T23:00:00Z'), askedLate)
+    expect(bodies(effects)).toEqual([])
+    expect(historyTypes(effects)).not.toContain('checkin.question_reminded')
+  })
+
+  it('sends it at 8am instead', () => {
+    const { effects } = ticking(new Date('2026-08-27T07:00:00Z'), askedLate)
+    expect(historyTypes(effects)).toContain('checkin.question_reminded')
+    expect(bodies(effects)).toHaveLength(1)
+  })
+
+  it('does not move on to the next question overnight either', () => {
+    const remindedLate = snapshot({
+      openSequence: openSequence({
+        awaiting: awaiting({
+          askedAt: lateQuestion,
+          remindedAt: new Date('2026-08-26T22:40:00Z'),
+        }),
+      }),
+    })
+    // Friday 28 August, 00:00 in London.
+    const overnight = ticking(new Date('2026-08-27T23:00:00Z'), remindedLate)
+    expect(withoutTheSweep(overnight.effects)).toEqual([])
+
+    const morning = ticking(new Date('2026-08-28T07:00:00Z'), remindedLate)
+    expect(historyTypes(morning.effects)).toContain('checkin.question_passed_over')
+    expect(bodies(morning.effects)).toEqual([
+      expect.stringContaining('Did you meet with Marcus and Dan this week?'),
+    ])
+  })
+})

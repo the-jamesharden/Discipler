@@ -47,7 +47,7 @@ There is one question set. It does not branch on group-versus-one-to-one — onl
 | Satisfaction question | After a `1` reply | Yes |
 | Concern detail request | After a `C` reply | Yes |
 | Closing thank-you | After the final relationship | No |
-| Next-day reminder | One day after an unanswered question | Re-send only |
+| Next-day reminder | One day after an unanswered question, held to 8am if that falls at night | Re-send only |
 
 The next-day reminder re-sends the same question. It never counts as a second unanswered message and never advances the two-week stall threshold.
 
