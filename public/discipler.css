@@ -88,26 +88,40 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; }
 
 /* ---- the botanical frame ---- */
 
-/* Watercolour blossom behind every card on sign-in and the Admin surface: a spray
-   hanging into the top right, another climbing from the bottom left, and a vine
-   between them. One pseudo-element and no markup, so there is nothing to announce
-   and nothing to press. Fixed to the window: a frame, not wallpaper that scrolls
-   away down the Roster.
+/* Watercolour behind the cards on sign-in and on three of the Admin tabs, each its
+   own (`ADMIN_TABS` in `app/shell.tsx`): two corner sprays joined by a vine, or a
+   strip down each side. A layer fixed to the window, drawn by
+   `app/botanical.tsx`, which says nothing and takes no presses. A frame, not
+   wallpaper that scrolls away down the Roster.
 
-   The painting is composed once per window shape in `public/botanical/`, on --bg, so
-   it has no edge on the page; `cover` then crops no more than a sliver, where one
-   painting stretched over every shape would cut the top spray off a tablet. A
-   browser fetches only the one its window matches. */
+   Each painting is composed once per window shape in `public/botanical/`, on --bg,
+   so it has no edge on the page; `cover` then crops no more than a sliver, where one
+   painting stretched over every shape would cut a spray off a tablet. A browser
+   fetches only the one its window matches. */
 .botanical { isolation: isolate; }
-.botanical::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: var(--bg) url(/botanical/blossom-16.webp) center / cover no-repeat; }
-@media (min-aspect-ratio: 169/100) { .botanical::before { background-image: url(/botanical/blossom-178.webp); } }
-@media (min-aspect-ratio: 195/100) { .botanical::before { background-image: url(/botanical/blossom-22.webp); } }
-@media (max-aspect-ratio: 145/100) { .botanical::before { background-image: url(/botanical/blossom-133.webp); } }
-@media (max-aspect-ratio: 115/100) { .botanical::before { background-image: url(/botanical/blossom-1.webp); } }
-@media (max-aspect-ratio: 87/100) { .botanical::before { background-image: url(/botanical/blossom-075.webp); } }
-@media (max-aspect-ratio: 68/100) { .botanical::before { background-image: url(/botanical/blossom-06.webp); } }
-@media (max-aspect-ratio: 53/100) { .botanical::before { background-image: url(/botanical/blossom-046.webp); } }
-@media print { .botanical::before { display: none; } }
+.botanical-frame { position: fixed; inset: 0; z-index: -1; pointer-events: none; background: var(--bg) var(--art-16) center / cover no-repeat; }
+.botanical-frame[data-design="blossom"] { --art-046: url(/botanical/blossom-046.webp); --art-06: url(/botanical/blossom-06.webp); --art-075: url(/botanical/blossom-075.webp); --art-1: url(/botanical/blossom-1.webp); --art-133: url(/botanical/blossom-133.webp); --art-16: url(/botanical/blossom-16.webp); --art-178: url(/botanical/blossom-178.webp); --art-22: url(/botanical/blossom-22.webp); }
+.botanical-frame[data-design="tulips"] { --art-046: url(/botanical/tulips-046.webp); --art-06: url(/botanical/tulips-06.webp); --art-075: url(/botanical/tulips-075.webp); --art-1: url(/botanical/tulips-1.webp); --art-133: url(/botanical/tulips-133.webp); --art-16: url(/botanical/tulips-16.webp); --art-178: url(/botanical/tulips-178.webp); --art-22: url(/botanical/tulips-22.webp); }
+.botanical-frame[data-design="trees"] { --art-046: url(/botanical/trees-046.webp); --art-06: url(/botanical/trees-06.webp); --art-075: url(/botanical/trees-075.webp); --art-1: url(/botanical/trees-1.webp); --art-133: url(/botanical/trees-133.webp); --art-16: url(/botanical/trees-16.webp); --art-178: url(/botanical/trees-178.webp); --art-22: url(/botanical/trees-22.webp); }
+@media (min-aspect-ratio: 169/100) { .botanical-frame { background-image: var(--art-178); } }
+@media (min-aspect-ratio: 195/100) { .botanical-frame { background-image: var(--art-22); } }
+@media (max-aspect-ratio: 145/100) { .botanical-frame { background-image: var(--art-133); } }
+@media (max-aspect-ratio: 115/100) { .botanical-frame { background-image: var(--art-1); } }
+@media (max-aspect-ratio: 87/100) { .botanical-frame { background-image: var(--art-075); } }
+@media (max-aspect-ratio: 68/100) { .botanical-frame { background-image: var(--art-06); } }
+@media (max-aspect-ratio: 53/100) { .botanical-frame { background-image: var(--art-046); } }
+@media print { .botanical-frame { display: none; } }
+
+/* Pressing a tab: the old painting drifts out past the window's edges as the new
+   one drifts in from beyond them, over it; to or from a tab with none, only the one
+   there is. Only the paintings move. The rule at the
+   top that stops every animation for a window set to reduce motion stops these too,
+   and then the old painting is not drawn at all. */
+.botanical-frame.leaving { animation: botanical-leave 0.6s ease-in forwards; }
+.botanical-frame.arriving { animation: botanical-arrive 0.6s ease-out; }
+@keyframes botanical-leave { to { opacity: 0; transform: scale(1.08); } }
+@keyframes botanical-arrive { from { opacity: 0; transform: scale(1.08); } }
+@media (prefers-reduced-motion: reduce) { .botanical-frame.leaving { display: none; } }
 
 .botanical .card, .botanical .stat { box-shadow: 0 2px 12px var(--shadow); }
 /* The header's outlined controls are transparent elsewhere; here a leaf would sit behind their words. */
