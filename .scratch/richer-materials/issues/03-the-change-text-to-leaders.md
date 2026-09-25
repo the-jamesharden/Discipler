@@ -48,3 +48,26 @@ Decisions, each with its alternative:
 For James:
 
 - After pushing the migration, `select count(*) from material_notice` should roughly equal the number of people in running relationships that have a Material; if it is zero, the first tick will text all of them. Tell me the number before merging the code.
+
+### Review fixes, 2026-09-24
+
+A review of the ship branch found these, fixed on `fix/richer-materials-review`.
+Decided in the fixing, each with the alternative:
+
+- **Somebody the sending layer may not text is left out of the tick's read**: an open opt-out, SMS consent that does not stand, or no number.
+  Before, their text reached the outbound queue, which refuses it, and the tick is one transaction, so one Disciple who texted STOP stopped every check-in in their Ministry, every hour.
+  What they were last told stays as it was, so a change still pending when they can be texted again goes then.
+  The alternative was to record them as told with no text, which would lose that change.
+- **A Leader who has not accepted is not texted.**
+  The spec says "an open membership ... on an accepted, unended relationship"; a co-leader added and not yet accepted has not agreed to lead it.
+  Kept as built, and recorded here as the decision.
+- **A title-only edit no longer restarts the hour** for a change that is settling.
+- **Joining a relationship counts as a change for the person joining.**
+  A co-leader who accepts, or a Disciple added to a running group, is told once the join has settled for an hour, like any other change.
+  Before, they were texted on the next tick, possibly minutes after joining.
+- **The fingerprint compares a file by its name, type and size, and the items as a set.**
+  A file removed and uploaded again gets a new path and goes to the end of the list, and was texted as a change.
+  ADR-0027 says putting something back tells nobody.
+  The cost: a replacement with the same name, type and size to the byte is not a change.
+  The alternative, the stored object's checksum, needs the command connection to read Storage's own tables.
+- **The wording cases are in `tests/domain/outbound-copy.test.ts`**, as this ticket asked.

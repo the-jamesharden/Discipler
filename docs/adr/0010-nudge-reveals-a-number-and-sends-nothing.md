@@ -4,6 +4,9 @@
 
 accepted
 
+Amended by ADR-0027: one text now follows an Admin's act, when the Material a person is working through changes, and the tick sends it rather than the button.
+`Nudge` still sends nothing.
+
 ## Decision
 
 **`Nudge` shows an Admin the Participant's contact details on a Follow-Up Item. It sends

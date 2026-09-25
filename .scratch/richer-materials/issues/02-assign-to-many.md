@@ -72,3 +72,8 @@ For James:
 - The lead's "Everyone in it hears about the change, at most once a day." is true once ticket 03 ships; kept as approved.
 - At 390px the foot wraps: Cancel on its own line, then the button full width over two lines for a long title.
 
+### Review fixes, 2026-09-24
+
+- **Assign presses once.**
+  A second press was refused as already running and read "Nothing was assigned" after the first had assigned everything.
+  The button is disabled after the form submits, and Back gives it back.

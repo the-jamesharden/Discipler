@@ -47,3 +47,14 @@ For James:
 
 - The words above, and the ended line, which is M-4's.
 - The migration is the fourth of this effort, pushed after `20261013000300`.
+
+### Review fixes, 2026-09-24
+
+- **A file the route cannot hand down goes back to the page**
+  (ended, taken off the Material, not a file, or Storage not answering), which says what there is now, rather than a bare "Not found".
+- **An unknown token is still Next's not-found page.**
+  The ended state names the Ministry, and a token that names nothing has no Ministry to name.
+  Every other token page answers an unknown token the same way.
+- **The page's title is the Material's**, where there is one.
+- **The test count in the notes above (1782) came from `wave4/change-text`**, which carries the unmerged Suggested Pairs build and its tests.
+  The ship branch has `main`'s Suggested Pairs, which accounts for the difference; nothing was lost.

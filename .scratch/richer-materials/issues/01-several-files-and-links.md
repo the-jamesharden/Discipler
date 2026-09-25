@@ -60,3 +60,32 @@ For James:
 
 - The hosted project's global Storage file size limit has to allow 50 MB before this ships (Storage settings in the Supabase dashboard).
 - Wording not in the mock-up, on screens: *Uploaded. Saved when you save the material.*, *Could not upload. Remove it and try again.*, *Adding files needs JavaScript, which this browser has turned off.*, and the refusal sentences in `app/materials/copy.ts` (*One of the files is not a type a material can hold.*, *The link needs to be a full web address, starting https://*, *A material can hold up to 20 files and links.*, and the two per-file ones).
+
+### Review fixes, 2026-09-24
+
+A review of the ship branch found these, fixed on `fix/richer-materials-review`.
+Decided in the fixing, each with the alternative:
+
+- **The old PDF column is kept in step by trigger.**
+  A PDF the old code writes during the deploy window becomes an item, and removing the item that was the old PDF clears the column.
+  The carries-something rule, a Leader's storage read and the change-text fingerprint read the items alone, so dropping the column later changes none of them.
+  The alternative was a re-sync step after the merge, which leaves the window's writes wrong until it runs.
+- **A posted upload some Material already names is left out of the save, not refused.**
+  It is what Save pressed twice, or a form brought back with Back, posts.
+  A Material with nothing else is then refused as needing content.
+  The alternative was a new refusal sentence, which James has not seen.
+- **A failed save deletes only uploads no Material names.**
+- **The sweep reads every saved path, a page at a time.**
+  One unpaged read stopped at PostgREST's 1000 rows, and a saved file past that was deleted.
+- **An upload the sweep has removed comes back as a failed upload row, rather than a 500.**
+  It says what a failed upload already says, "Could not upload. Remove it and try again.", so there are no new words.
+- **A link is kept only if it is an address as typed**: it starts `http://` or `https://`, holds no backslash, and names a host with a dot in it.
+  Before, `https:example.com` passed the domain and was refused by the database as a fault.
+  The refusal sentence now says "starting https:// or http://", since both are accepted.
+- **A link name typed with no address is refused** as the link is, rather than dropped.
+- **Items added in one Save stay files first, then the link.**
+  One Save adds at most one link, and which of the two boxes an Admin used first is not something the form knows.
+- **With script, create and save post by fetch** and keep everything typed on a refusal; without script it is the redirect as before.
+  A refusal carried on the query string could pass the host's URL limit with a long text and many uploads.
+- **Save waits for uploads, and each form presses once.**
+- **The Leader dashboard signs a file when it is tapped**, at `/relationships/file/<item>`, rather than one link per file on every render (ADR-0023).

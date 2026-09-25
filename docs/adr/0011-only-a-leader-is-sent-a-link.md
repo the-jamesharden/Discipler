@@ -4,6 +4,9 @@
 
 accepted
 
+Amended by ADR-0028: a Participant is now sent one other link, to a read-only page of their Material, which asks nothing.
+This ADR stays true of Invitation Links.
+
 ## Decision
 
 **An Invitation Link is minted for a Leader and for nobody else.** A Participant is sent

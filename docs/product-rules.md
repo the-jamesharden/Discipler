@@ -206,6 +206,11 @@ The Starter Message names people and no numbers. A leader's names the participan
 
 **Only a leader is sent an Invitation Link.** A link asks somebody a question they have not yet answered, and a participant answered theirs at intake by consenting to be paired. The leader's acceptance is the other half of that agreement, and it is the half that was still outstanding. Nothing is minted for a participant, because there is nothing for one to do. This reverses an earlier reading of this file, under which a participant held a link of their own leading to a decline; see `docs/adr/0011-only-a-leader-is-sent-a-link.md`.
 
+> **Amended (2026-09-24, Richer materials, ticket 04):** a participant is now sent one other link, and it asks nothing.
+> The text that tells them their Material changed links a read-only page of it, with no sign-in.
+> Invitation Links are still a leader's alone.
+> See `docs/adr/0028-a-disciple-is-sent-a-link-to-their-material.md`.
+
 **Re-issuing an Invitation Link replaces it, and the superseded link opens nothing.** An admin can send a leader a fresh invitation from the roster row that says the relationship has not been accepted. Every re-issue mints a new token over the old one, whether or not the old one had run out, so the newest text is always the only one that works. This is the only way a link is ever taken back: an Invitation Link authenticates by possession of the phone it was texted to, so a link that reached the wrong number stays usable until something replaces it, and *not my number* deliberately changes nothing else. The cost falls on the leader who merely lost the text — an older message on their phone stops working — and that is a thing an admin can tell them, where a live link on a stranger's phone is not a thing anyone can undo. See `docs/adr/0012-re-issuing-a-link-replaces-it.md`.
 
 A relationship awaiting acceptance sends nothing to participants and accrues no silence against the leader. If it is still unaccepted after two days, Discipler reminds the leader; after five days, the admin dashboard surfaces it along with how long it has been waiting.
@@ -268,7 +273,10 @@ No admin action sends one. The only participant-facing traffic Discipler generat
 
 The reason is that Discipler's entire participant-facing surface is SMS. A ministry that over-messages its own congregation gets its number carrier-flagged, and every relationship in that ministry goes dark at once. The check stays at the sending layer regardless, so that a feature added later cannot cross the line by forgetting to ask.
 
-> **Supersedes (2026-09-24, Richer materials, ticket 03):** one text now follows an Admin's act. When the Material a person is working through changes, the tick sends them one text once the changes have been still for an hour, at most once a day, and only if where things ended up differs from what they were last told. The button still sends nothing; the tick does, through the same recipient check. See `docs/adr/0027-a-material-change-is-texted-once-it-settles.md`.
+> **Supersedes (2026-09-24, Richer materials, ticket 03):** one text now follows an Admin's act.
+> When the Material a person is working through changes, the tick sends them one text once the changes have been still for an hour, at most once a day, and only if where things ended up differs from what they were last told.
+> The button still sends nothing; the tick does, through the same recipient check.
+> See `docs/adr/0027-a-material-change-is-texted-once-it-settles.md`.
 
 ## Settled: Clarification Attempts Are Capped, Listening Is Not
 

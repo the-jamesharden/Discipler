@@ -23,12 +23,15 @@ ADR-0011 settled that a Participant is sent no link and has no page, because a l
 That reasoning is about links that ask; this one does not ask anything.
 What changed is the need: Planning Center's Resources reach a group's members, and James wanted Disciples to see their Material without their Leader passing everything on by hand.
 
-The ADR-0012 reasoning about Invitation Links -- that a live credential on a stranger's phone is the worst case, so re-issuing replaces the link -- weighs differently here.
+The ADR-0012 reasoning about Invitation Links, that a live credential on a stranger's phone is the worst case and so re-issuing replaces the link, weighs differently here.
 This link authenticates nothing and discloses no person, so a link on the wrong phone shows somebody a study guide.
 Re-minting it on every text would break every earlier text for no gain, so it is minted once.
 
 ## Consequences
 
-- A Participant now has one page of their own. It is read-only, and a Disciple still has no account and no dashboard.
+- A Participant now has one page of their own.
+  It is read-only, and a Disciple still has no account and no dashboard.
 - The Participant reveal branch of `app/invitation/[token]/page.tsx`, which `docs/open-questions.md` notes is unreachable, is not revived by this: the Material page is a page of its own.
-- The file route signs with the service role, because a Disciple has no session for a storage policy to read; the route is what decides, from the token and the Material running now, and it signs one object for minutes.
+- The file route signs with the service role, because a Disciple has no session for a storage policy to read.
+  The route is what decides, from the token and the Material running now, and it signs one object for minutes.
+  A file it cannot hand down sends the Disciple back to the page, which says what there is now.
