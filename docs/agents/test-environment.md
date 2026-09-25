@@ -46,6 +46,7 @@ Start it in the background and read its log; a shell call that blocks on it will
   The fixtures stamp `started_at` with this process's clock, and SQL `now()` is the database container's.
   After a heavy build the container can sit a few milliseconds behind, so a membership ended with `now()` a moment after it was added ends before it started, and a whole `beforeAll` goes with it.
   End things in a test with a time from the process (`new Date()` as a parameter), or through the product's own route or command, never with `now()`.
+  Under heavy load the gap has been more than a minute (2026-09-25), so a test that compares a time the database stamped with the process's clock reads the stamp back from its row rather than assuming the two agree.
 - **A test with a clock pinned to a near-future date fails on every branch once that date passes.**
   If a failure is about a date and has nothing to do with your change, check the calendar before the code.
 
