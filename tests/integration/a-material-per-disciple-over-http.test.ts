@@ -43,7 +43,6 @@ describe.skipIf(skipUnlessAppIsRunning)('a Material per Disciple in a separate s
   const pairSeparately = (leader: string, participants: string[], more: [string, string][] = []) =>
     postPairing(cookie, [
       ['pair', leader],
-      ['list', 'disciplers'],
       ['mode', 'separate'],
       ['leaderId', leader],
       ...participants.map((participant): [string, string] => ['participantId', participant]),
@@ -103,7 +102,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Material per Disciple in a separate s
       ['materialId', romans],
     ])
     expect(receipt.pathname).toBe('/roster')
-    expect(Object.fromEntries(receipt.searchParams)).toEqual({ pairs: '3', list: 'disciplers' })
+    expect(Object.fromEntries(receipt.searchParams)).toEqual({ pairs: '3' })
 
     // Held as an intention, one apiece, and none where none was named: one
     // Disciple's choice never spills onto another.
@@ -187,7 +186,6 @@ describe.skipIf(skipUnlessAppIsRunning)('a Material per Disciple in a separate s
 
     const receipt = await postPairing(cookie, [
       ['pair', claire],
-      ['list', 'disciplers'],
       ['shape', 'group'],
       ['leaderId', claire],
       ['participantId', sam],
@@ -197,7 +195,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Material per Disciple in a separate s
       ['materialId', mark],
       [`materialId.${sam}`, romans],
     ])
-    expect(Object.fromEntries(receipt.searchParams)).toEqual({ list: 'disciplers', paired: '2' })
+    expect(Object.fromEntries(receipt.searchParams)).toEqual({ paired: '2' })
 
     const [theirs] = await oneToOneOf(sam)
     expect(theirs?.intended).toBe(mark)

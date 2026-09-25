@@ -86,8 +86,8 @@ describe.skipIf(skipUnlessAppIsRunning)('a pastor opening their Ministry Setup L
     // And the credential works: the phone from the link, the password they chose.
     const signedIn = await signInAs({ phone: link.adminPhone, password: 'a-long-enough-password' })
     expect(signedIn.response.status).toBe(303)
-    // On the Disciples list, where an Admin who disciples nobody yet is.
-    const { html: roster } = await getPage('/roster?list=disciples', signedIn.cookie)
+    // On the Roster, which is one list, as anybody on it is.
+    const { html: roster } = await getPage('/roster', signedIn.cookie)
     expect(roster).toContain('Grace Adeyemi')
   })
 

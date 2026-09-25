@@ -68,8 +68,8 @@ Whether a discipleship relationship was formed as a one-to-one or as a group. De
 _Avoid_: Treating kind as a second entity, or as the answer to "is this a group"
 
 **Discipler** / **Disciple**:
-The two words every Admin screen uses for the people in a discipleship relationship, in place of Leader and Participant, since ticket 36. A Discipler is a fact and never a mark: anyone leading an open relationship, anyone who signed up as a leader on the Intake form, or anyone an import paired as the discipler. Everyone else on the Roster is a Disciple, and a person may be both: being discipled, or having asked to be on their own Intake form, makes a Discipler a Disciple as well. Suggested Pairs proposes as a Disciple only somebody the Roster calls one. The words are the product's own and may be pluralised on a screen; the nouns a Ministry types for its messages are a different thing, see Ministry Language.
-_Avoid_: Eligible to lead, leader pool (there is no flag: pairing somebody is the pastor's acceptance), and using these in message copy, where the Ministry's own nouns go
+The Admin-screen words for the two sides of one pairing, in place of Leader and Participant, since ticket 36: who disciples and who is discipled in it. They are not lists a person is on and say nothing of what a person is: anybody who has completed Intake can be picked on either side of a pairing, and a person discipled in one pairing may disciple in another. The words are the product's own and may be pluralised on a screen; the nouns a Ministry types for its messages are a different thing, see Ministry Language.
+_Avoid_: Eligible to lead, leader pool (there is no flag: pairing somebody is the pastor's acceptance), calling a person a Discipler or a Disciple as though it were a kind of person, and using these in message copy, where the Ministry's own nouns go
 
 **Age Band Gap**:
 The number of age bands a participant may be *above* their leader in a suggestion. A ministry setting with a direction: there is no limit below, because an older person discipling a younger one is the ordinary case.
@@ -87,7 +87,7 @@ What a relationship says it is for — men, women, or nobody in particular — s
 _Avoid_: Reading an undeclared relationship as "not yet decided" — it declares nothing, which is a settled answer
 
 **Group Name**:
-What a Ministry calls a group, typed by an Admin when forming it and editable from Intake forms afterwards. A label, not a ministry event: renaming overwrites no history. It is what the group Intake link offers and what the weekly check-in asks about; an unnamed group is on no link and is asked about by listing its people. A one-to-one has none.
+What a Ministry calls a group, typed by an Admin when forming it and editable from Intake forms afterwards. A label, not a ministry event: renaming overwrites no history. It is what the group Intake link offers, and what the weekly check-in, the keyword menus and their answers, and the Resume Message call the group, from either side of it; an unnamed group is on no link and is called by listing its people. A one-to-one has none.
 _Avoid_: Naming a one-to-one, or reading an unnamed group as broken -- it predates the name
 
 **Group Intake Link**:
@@ -107,7 +107,7 @@ An Admin putting into a group somebody who signed up on the Group Intake Link wi
 _Avoid_: Assignment (that is a Material's), waitlist
 
 **Pair**:
-The pastor's act of placing people into a discipleship relationship. A verb in the model and in every message. It happens in the Pair popup over the Roster, opened from one Person, on the Discipler's side or the Disciple's. On the Roster, the person page and the Pair popup, since ticket 36, a *pairing* is also the noun for a Discipleship Relationship, one-to-one or group, said in place of "relationship" because it is the customer's word; ticket 36 records the decision.
+The pastor's act of placing people into a discipleship relationship. A verb in the model and in every message. It happens in the Pair popup over the Roster, opened from one Person, which asks which side of this pairing they are on: *Disciples somebody* or *Is discipled*. On the Roster, the person page and the Pair popup, since ticket 36, a *pairing* is also the noun for a Discipleship Relationship, one-to-one or group, said in place of "relationship" because it is the customer's word; ticket 36 records the decision.
 _Avoid_: Using "pair" or "pairing" as a noun in code, in the model, or in message copy
 
 **Leader Dashboard**:
@@ -152,7 +152,7 @@ The ministry's opt-out and rate disclosure, appended to the end of a text. The W
 _Avoid_: the monthly check-in rule (it was only the Leaders' check-ins, and is now this rule for every text)
 
 **Resume Message**:
-The message sent to everyone in a relationship when an Admin resumes it from a Pause, each side named the other side. It carries the Rates Line on the same terms as the Starter Message. A Pause running out releases nothing.
+The message sent to everyone in a relationship when it is resumed from a Pause, each side named the other side, or a named group by its Group Name. It carries the Rates Line on the same terms as the Starter Message. A Pause running out releases nothing.
 _Avoid_: Starter Message (its words are true on the day a match is made, not after a fortnight away)
 
 **Password Reset**:
@@ -184,7 +184,7 @@ The second form a Ministry hands out, on its own Ministry Intake Link and its ow
 _Avoid_: calling it a mentor link and a mentee link (there is one link and the side is an answer inside it), and a separate form (the questions are the same ones, in the same words, asked over more screens)
 
 **Declared Side**:
-Mentor or Mentee, as a Person answered it on the Discipleship Intake Wizard. It is a preference they stated and never a decision anybody made about them: answering Mentor is one of the facts that makes them a Discipler (see Discipler / Disciple), ahead of any pairing. It is read back from their latest intake that asked, so answering the other side later changes it, and a form that asked nothing changes nothing.
+Mentor or Mentee, as a Person answered it on the Discipleship Intake Wizard. It is a preference they stated and never a decision anybody made about them: answering Mentor presets the Pair popup on *Disciples somebody* and feeds Suggested Pairs, and makes nobody a Discipler, since that is a side of one pairing (see Discipler / Disciple). It is read back from their latest intake that asked, so answering the other side later changes it, and a form that asked nothing changes nothing.
 _Avoid_: a role (that is Leader or Participant, decided at pairing), a mark an Admin set (there is none), and treating an unanswered side as a refusal to offer
 
 **First-Time Answer**:

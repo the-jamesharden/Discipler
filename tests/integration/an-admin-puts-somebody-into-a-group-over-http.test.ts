@@ -110,13 +110,14 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin puts a Disciple into a group, 
     const group = await aGroup('Thursday Table', 'male')
     const sam = await aDisciple('male')
 
-    const { status, location } = await join({ personId: sam.id, groupId: group.id, list: 'disciples' })
+    const { status, location } = await join({ personId: sam.id, groupId: group.id, gender: 'men' })
 
-    // Back to the Roster, on the list the Admin was on, with a receipt.
+    // Back to the Roster, showing what it showed behind the popup (Roles per
+    // pairing, ticket 02), with a receipt.
     expect(status).toBe(303)
     expect(location.pathname).toBe('/roster')
     expect(Object.fromEntries(location.searchParams)).toEqual({
-      list: 'disciples',
+      gender: 'men',
       joined: sam.id,
       told: 'yes',
     })
@@ -127,10 +128,10 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin puts a Disciple into a group, 
       `${sam.name} is in the group now. Its Discipler has been told, and nobody else has been contacted.`,
     )
 
-    // On both rows: the Disciple's names who leads them, and the Discipler's names them.
-    const all = await getPage('/roster?list=all', cookie)
-    expect(rowFor(all.html, sam.name)).toContain(group.leaderName)
-    expect(rowFor(all.html, group.leaderName)).toContain(sam.name)
+    // On both rows, the group by its name, each with its direction and the new size.
+    const all = await getPage('/roster', cookie)
+    expect(rowFor(all.html, sam.name)).toContain('in Thursday Table 3 members')
+    expect(rowFor(all.html, group.leaderName)).toContain('leads Thursday Table 3 members')
 
     // The Discipler has a text waiting, and the Disciple has none.
     const [toLeader, ...more] = await queuedFor(group.leader)
@@ -144,12 +145,11 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin puts a Disciple into a group, 
     const mixed = await aGroup('Sunday Mixed', null)
     const priya = await aDisciple('female')
 
-    const refused = await join({ personId: priya.id, groupId: mens.id, list: 'disciples' })
+    const refused = await join({ personId: priya.id, groupId: mens.id })
 
     expect(refused.status).toBe(303)
     expect(refused.location.pathname).toBe('/roster')
     expect(Object.fromEntries(refused.location.searchParams)).toEqual({
-      list: 'disciples',
       pair: priya.id,
       groupId: mens.id,
       error: 'relationship.gender_does_not_match_the_declaration',
@@ -159,8 +159,8 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin puts a Disciple into a group, 
 
     const joined = await join({ personId: priya.id, groupId: mixed.id })
     expect(joined.location.searchParams.get('joined')).toBe(priya.id)
-    // No list named is All, as it is on the Roster.
-    expect(joined.location.searchParams.get('list')).toBe('all')
+    // Nothing the menu ticked was posted, so it lands on Everyone.
+    expect([...joined.location.searchParams.keys()]).toEqual(['joined', 'told'])
     expect(await inTheGroup(mixed.id, priya.id)).toBe(true)
   })
 
@@ -257,12 +257,11 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin puts a Disciple into a group, 
         personId: claire.id,
         groupId: group.id,
         as: 'leader',
-        list: 'disciplers',
       })
 
       expect(status).toBe(303)
       expect(location.pathname).toBe('/roster')
-      expect(Object.fromEntries(location.searchParams)).toEqual({ list: 'disciplers', invited: claire.id })
+      expect(Object.fromEntries(location.searchParams)).toEqual({ invited: claire.id })
       expect(await leadsIt(group.id, claire.id)).toEqual([{ accepted: false }])
       expect(await stateOf()).toEqual(before)
 
@@ -280,12 +279,12 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin puts a Disciple into a group, 
         + 'The group carries on meanwhile.',
       )
 
-      // The Roster shows the group on her Discipler row, awaiting her acceptance,
-      // and on the row of the leader who has accepted it as running.
-      const disciplers = await getPage('/roster?list=disciplers', cookie)
+      // The Roster shows the group on her row, awaiting her acceptance, and on the
+      // row of the leader who has accepted it as running.
+      const disciplers = await getPage('/roster', cookie)
       const hers = rowFor(disciplers.html, claire.name)
-      // A Discipler's row names who they disciple, so the group is its Disciples.
-      for (const disciple of group.discipleNames) expect(hers).toContain(disciple)
+      // She leads it, named by its name (Roles per pairing, ticket 02).
+      expect(hers).toContain('leads Monday Table 2 members')
       expect(hers).toContain('awaiting acceptance')
       expect(rowFor(disciplers.html, group.leaderName)).not.toContain('awaiting acceptance')
     })
@@ -334,7 +333,7 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin puts a Disciple into a group, 
       for (const disciple of group.disciples) expect(await queuedFor(disciple)).toEqual([])
 
       // And the Roster stops saying she is awaited.
-      const disciplers = await getPage('/roster?list=disciplers', cookie)
+      const disciplers = await getPage('/roster', cookie)
       expect(rowFor(disciplers.html, claire.name)).not.toContain('awaiting acceptance')
     })
 
@@ -390,7 +389,6 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin puts a Disciple into a group, 
 
       expect(status).toBe(303)
       expect(Object.fromEntries(location.searchParams)).toEqual({
-        list: 'all',
         pair: theirs.leader,
         groupId: another.id,
         error: 'joining.already_leads_a_group',

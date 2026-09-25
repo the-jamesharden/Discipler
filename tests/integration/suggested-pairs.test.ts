@@ -11,6 +11,7 @@ import {
   localSupabase,
   optOut,
   pairOneToOne,
+  recordConsentDecision,
   signInAs,
   signInWith,
   type MinistryFixture,
@@ -118,11 +119,9 @@ describe('Suggested Pairs, read as the Admin', () => {
     const mia = await addPerson(other, 'Mia Chen', { answers: { availability: FOUR_ACROSS_TWO_DAYS } })
     const eve = await addPerson(other, 'Eve Stone', { answers: { availability: FOUR_ACROSS_TWO_DAYS } })
     await optOut(other, mia)
-    await pool.query(
-      `insert into consent_record (ministry_id, person_id, consent, granted, version, source, decided_at)
-       values ($1, $2, 'sms', false, '2026-09-v1', 'pastor_link', now())`,
-      [other.id, eve],
-    )
+    // Stamped by this process's clock, as her Intake's grant was: the database's
+    // `now()` can sit behind it, and then the grant would read as her latest decision.
+    await recordConsentDecision(other, eve, 'sms', false)
 
     const admin = await signInAs(other)
     const { suggestions } = suggestedPairsPageFrom(asDocument((await admin.rpc('suggested_pairs_page')).data), clock)

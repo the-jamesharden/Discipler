@@ -398,12 +398,10 @@ td .small { margin: 0; }
    too narrow to hold both, never off the edge of it. */
 .person-name { display: flex; flex-wrap: wrap; align-items: center; gap: 0.2rem 0.5rem; min-width: 0; }
 .avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--primary); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 0.78rem; font-weight: 700; flex-shrink: 0; }
-.rs { display: inline-block; font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.2rem 0.55rem; border-radius: 3px; white-space: nowrap; }
-.rs-no_intake_submitted { background: rgba(122, 122, 122, 0.13); color: #5f5f5f; }
-.rs-ready_to_pair { background: rgba(45, 80, 22, 0.1); color: var(--primary); }
-.rs-paired { background: rgba(127, 175, 140, 0.22); color: #2f6b41; }
-.rs-opted_out { background: rgba(220, 53, 69, 0.1); color: #a02330; }
 .blocked { color: var(--text-light); font-style: italic; font-size: 0.85rem; }
+/* Links drawn as one segmented control: the gender filter over Assign to more
+   (Richer materials, ticket 02). It was the Roster's toggle too until the Everyone
+   menu replaced it (Roles per pairing, ticket 02). */
 .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 5px; overflow: hidden; margin-bottom: 1.25rem; }
 .seg a { padding: 0.45rem 0.9rem; background: var(--surface); font-size: 0.85rem; color: var(--text-light); text-decoration: none; }
 .seg a[aria-current="true"] { background: var(--primary); color: #fff; font-weight: 700; }
@@ -575,7 +573,33 @@ blockquote { background: rgba(45, 80, 22, 0.04); border-left: 3px solid var(--pr
 .kv dd { margin: 0; }
 @media (max-width: 480px) { .kv { grid-template-columns: minmax(0, 1fr); gap: 0.1rem 0; } .kv dd { margin-bottom: 0.5rem; } }
 
-/* The Roster's two lists (ticket 36): the prototype's table, in the app's tokens. */
+/* The Everyone menu over the Roster (Roles per pairing, ticket 02), where the
+   toggle was: a details element like the Account menu, its options links, so it
+   works before any script and after none. A box for tick any, a round for pick
+   one, drawn as the mock-ups' checkboxes and radios are, inside the link. */
+.roster-tools { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.roster-menu { position: relative; }
+.roster-menu > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.45rem 0.8rem; border: 1px solid var(--border); border-radius: 5px; font-size: 0.85rem; background: var(--surface); color: var(--text); line-height: normal; }
+.roster-menu > summary::-webkit-details-marker { display: none; }
+.roster-menu > summary:hover, .roster-menu[open] > summary { border-color: var(--primary); color: var(--primary); }
+.roster-menu > summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.roster-menu > summary .chevron { width: 0.7rem; height: 0.7rem; flex-shrink: 0; transition: transform 0.15s; }
+.roster-menu[open] > summary .chevron { transform: rotate(180deg); }
+.roster-menu-panel { position: absolute; left: 0; top: calc(100% + 0.4rem); min-width: 300px; max-width: calc(100vw - 2rem); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 32px rgba(45, 80, 22, 0.14); padding: 0.35rem 0; z-index: 5; }
+.roster-menu .menu-group + .menu-group { border-top: 1px solid var(--border); margin-top: 0.3rem; padding-top: 0.2rem; }
+.roster-menu .menu-label { margin: 0; padding: 0.5rem 1rem 0.3rem; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-light); font-weight: 700; }
+.roster-menu .opt { display: flex; align-items: center; gap: 0.6rem; padding: 0.42rem 1rem; font-size: 0.88rem; color: var(--text); text-decoration: none; white-space: nowrap; }
+.roster-menu .opt:hover { background: var(--bg); color: var(--primary); }
+.roster-menu .opt:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.roster-menu .opt.everyone[aria-current="true"] { font-weight: 700; color: var(--primary); }
+.roster-menu .opt .n { margin-left: auto; padding-left: 0.5rem; font-size: 0.78rem; font-weight: 400; color: var(--text-light); font-variant-numeric: tabular-nums; }
+.roster-menu .opt-mark { width: 15px; height: 15px; flex-shrink: 0; display: inline-grid; place-items: center; box-sizing: border-box; border: 1px solid #767676; border-radius: 3px; background: var(--surface); color: #fff; }
+.roster-menu .opt-mark svg { width: 11px; height: 11px; }
+.roster-menu .opt-mark.round { border-radius: 50%; }
+.roster-menu .opt[aria-current="true"] .opt-mark { border-color: var(--primary); background: var(--primary); }
+.roster-menu .opt[aria-current="true"] .opt-mark.round { background: radial-gradient(circle, var(--primary) 0 3.5px, var(--surface) 4px); }
+
+/* The Roster's list (ticket 36): the prototype's table, in the app's tokens. */
 .stats-line { display: flex; gap: 1.5rem; flex-wrap: wrap; margin: 0 0 1rem; font-size: 0.85rem; color: var(--text-light); }
 .stats-line b { color: var(--primary); font-weight: 700; }
 .roster-table { border: 1px solid var(--border); border-radius: 8px; }
@@ -594,6 +618,8 @@ blockquote { background: rgba(45, 80, 22, 0.04); border-left: 3px solid var(--pr
 .paired-with { display: flex; align-items: center; gap: 0.6rem; }
 .paired-with > ul { min-width: 0; }
 .paired-with > .btn, .paired-with > .blocked { flex-shrink: 0; }
+/* Which way each pairing runs, before who it is with (Roles per pairing, ticket 02). */
+.paired-with .dir { color: var(--text-light); font-size: 0.82rem; }
 .roster-table .contact { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .roster-table .contact a { color: var(--text); text-decoration: none; }
 .roster-table .contact a:hover { color: var(--primary); text-decoration: underline; }
@@ -752,6 +778,27 @@ textarea.paste { width: 100%; min-height: 140px; font-family: ui-monospace, SFMo
 .pair-per-row label { overflow-wrap: anywhere; }
 .pair-summary { margin-top: 0.9rem; background: rgba(45, 80, 22, 0.06); border-left: 3px solid var(--primary); padding: 0.55rem 0.7rem; font-size: 0.82rem; border-radius: 0 5px 5px 0; }
 
+/* Roles per pairing, ticket 01: the Pair popup asks which side of this one pairing
+   the person is on, directly under its title, as the mock-ups draw it. The two
+   sides are links to the popup's own address, so the segments are the import
+   dialog's radio segments drawn on links. Each side's list opens on its usual
+   people and folds everybody else under the browser's own disclosure, and a row
+   says what the person does now on a second line, in the Roster's green. */
+.pair-side { display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap; margin: 0.9rem 0 0.2rem; }
+.pair-side-who { font-size: 0.9rem; font-weight: 600; }
+.seg-radio a { padding: 0.45rem 0.9rem; font-size: 0.85rem; color: var(--text-light); background: var(--surface); text-decoration: none; }
+.seg-radio a:hover { color: var(--primary); }
+.seg-radio a[aria-current="true"] { background: var(--primary); color: #fff; font-weight: 700; }
+.seg-radio a:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.pair-more > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 0.4rem; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-light); margin: 0.5rem 0 0.4rem; }
+.pair-more > summary::-webkit-details-marker { display: none; }
+.pair-more > summary::before { content: '\25B8'; font-size: 0.8rem; }
+.pair-more[open] > summary::before { content: '\25BE'; }
+.pair-more > summary span { font-weight: 500; text-transform: none; letter-spacing: 0; }
+.pair-more > summary:hover { color: var(--primary); }
+.pair-more > .pair-rows { margin-bottom: 0.4rem; }
+.pair-also { display: block; font-size: 0.7rem; color: var(--primary-light); }
+
 /* ---- the Materials tab (home-screen folders, `.scratch/materials/spec.md` S-1) ---- */
 .mat-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
 .mat-toolbar-actions { display: flex; gap: 0.7rem; flex-wrap: wrap; align-items: center; }
@@ -879,3 +926,12 @@ a.res:hover { border-color: var(--primary); }
    the select is never squeezed to a few letters beside the button. */
 .fu-actions form.fu-place { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; flex: 1 1 320px; min-width: 0; }
 .fu-actions form.fu-place select { flex: 1 1 170px; }
+/* Roles per pairing, ticket 03: under the name on a person's page, one tag per
+   pairing, each saying its direction. A group is sand-coloured, apart from a
+   one-to-one at a glance; a state that keeps Pair away is the Roster's own pill. */
+/* As `ul.rtags`, so that it outranks `.card ul`, as `ul.fu-list` does. */
+ul.rtags { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; list-style: none; margin: 0.1rem 0 1rem; padding: 0; }
+.rtag { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.78rem; padding: 0.25rem 0.6rem; border-radius: 999px; background: rgba(45, 80, 22, 0.07); color: var(--primary); border: 1px solid rgba(45, 80, 22, 0.14); }
+.rtag .dir { color: var(--text-light); font-size: 0.74rem; }
+.rtag.grp { background: #fbf6ec; border-color: #ecdcbc; color: #6f5520; }
+.pill.opted_out { background: rgba(220, 53, 69, 0.1); color: var(--red-ink); }

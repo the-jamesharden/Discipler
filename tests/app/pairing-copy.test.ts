@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { PairingRefusal } from '~/domain/errors'
+import { relationshipId } from '~/domain/ids'
 import {
   AWAITING_ACCEPTANCE,
   PAIR,
@@ -133,11 +134,6 @@ describe('what the Pair popup says, from a Disciple (Manual pairing, ticket 12)'
     expect(PAIR_POPUP.chooseADiscipler('Sam Lee')).toBe('Choose who will disciple Sam Lee.')
   })
 
-  it('counts the list in the Roster’s own word, singular for one', () => {
-    expect(PAIR_POPUP.disciplers(4)).toBe('4 disciplers')
-    expect(PAIR_POPUP.disciplers(1)).toBe('1 discipler')
-  })
-
   it('says how many somebody already leads, and nobody yet for none', () => {
     expect(PAIR_POPUP.leads(0)).toBe('leads nobody yet')
     expect(PAIR_POPUP.leads(1)).toBe('leads 1')
@@ -145,32 +141,29 @@ describe('what the Pair popup says, from a Disciple (Manual pairing, ticket 12)'
   })
 
   it('says what is about to be made, and the button is the same act', () => {
-    expect(PAIR_POPUP.oneToOne('Claire Martinez', 'Sam Lee')).toBe(
-      'Claire Martinez will disciple Sam Lee in a one-on-one.',
-    )
+    // Roles per pairing, ticket 01: both sides named, then what the one picked to
+    // disciple is sent, which the side adds (tests/app/the-pair-popup-picks-a-side.test.ts).
+    expect(PAIR_POPUP.oneToOne('Claire Martinez', 'Sam Lee')).toBe('Claire Martinez will disciple Sam Lee, one to one.')
     expect(PAIR_POPUP.createOneToOne).toBe('Create 1:1 pair')
     // Nothing chosen: the button reads what the row's button read.
     expect(PAIR_POPUP.nothingChosen).toBe(PAIR)
   })
 
-  it('has something to say where there is nobody to choose', () => {
-    expect(PAIR_POPUP.noDisciplers).toBeTruthy()
-  })
-
-  it('does not say how a discipler comes to be where gender is why nobody is listed', () => {
+  // Roles per pairing, ticket 01: anybody can be picked on either side, and whoever
+  // cannot be chosen is still listed greyed, so an empty list has no how-to-become
+  // to say. Only gender leaves anybody off it.
+  it('has one thing to say where there is nobody to choose, from either side', () => {
     expect(PAIR_POPUP.nobodyToChoose).toBe('There is nobody to choose yet.')
-    expect(PAIR_POPUP.noDisciplers.startsWith(PAIR_POPUP.nobodyToChoose)).toBe(true)
   })
 
   it('says Discipler and Disciple, never the model’s Leader, Participant or mentor', () => {
     const said = [
       PAIR_POPUP.title('A'),
       PAIR_POPUP.chooseADiscipler('A'),
-      PAIR_POPUP.disciplers(2),
       PAIR_POPUP.leads(2),
       PAIR_POPUP.oneToOne('A', 'B'),
       PAIR_POPUP.createOneToOne,
-      PAIR_POPUP.noDisciplers,
+      PAIR_POPUP.nobodyToChoose,
       PAIR_POPUP.close,
     ]
     for (const sentence of said) expect(sentence).not.toMatch(/leader|participant|mentor/i)
@@ -204,26 +197,10 @@ describe('what the Pair popup says, from a Discipler (Manual pairing, ticket 23)
     expect(PAIR_POPUP.disciples(1)).toBe('1 disciple')
   })
 
-  it('names the group a Disciple is already in, and one nobody has named by who leads it', () => {
-    expect(PAIR_POPUP.inGroup({ name: 'Grace’s Group', leaders: [{ fullName: 'Grace Lee' }] })).toBe(
-      'in Grace’s Group',
-    )
-    expect(PAIR_POPUP.inGroup({ name: null, leaders: [{ fullName: 'Grace Lee' }] })).toBe('in Grace Lee’s group')
-    expect(
-      PAIR_POPUP.inGroup({ name: null, leaders: [{ fullName: 'Grace Lee' }, { fullName: 'David Chen' }] }),
-    ).toBe('in Grace Lee and David Chen’s group')
-  })
-
-  it('has something to say where there is nobody to choose', () => {
-    expect(PAIR_POPUP.noDisciples).toBeTruthy()
-  })
-
   it('says Discipler and Disciple, never the model’s Leader, Participant or mentor', () => {
     const said = [
       PAIR_POPUP.chooseDisciples('A'),
       PAIR_POPUP.disciples(2),
-      PAIR_POPUP.inGroup({ name: null, leaders: [{ fullName: 'A' }] }),
-      PAIR_POPUP.noDisciples,
     ]
     for (const sentence of said) expect(sentence).not.toMatch(/leader|participant|mentor/i)
   })
@@ -371,8 +348,8 @@ describe('what the Pair popup says of a group a Discipler is added to (Manual pa
   })
 
   it('counts both in the toolbar, and only the Disciples where there are no groups to offer', () => {
-    expect(PAIR_POPUP.counts(PAIR_POPUP.disciples(7), 3)).toBe('7 disciples · 3 groups')
-    expect(PAIR_POPUP.counts(PAIR_POPUP.disciples(7), 0)).toBe('7 disciples')
+    expect(PAIR_POPUP.counts(PAIR_POPUP.listed('discipler', 2, 5), 3)).toBe('2 asked · 5 more · 3 groups')
+    expect(PAIR_POPUP.counts(PAIR_POPUP.listed('discipler', 2, 5), 0)).toBe('2 asked · 5 more')
   })
 })
 
@@ -433,12 +410,12 @@ describe('the groups in the Pair popup', () => {
 
   it('heads them Groups, and counts them beside the people in the line under the title', () => {
     expect(PAIR_POPUP.groupsHeading).toBe('Groups')
-    expect(PAIR_POPUP.counts(PAIR_POPUP.disciplers(4), 3)).toBe('4 disciplers · 3 groups')
-    expect(PAIR_POPUP.counts(PAIR_POPUP.disciplers(4), 1)).toBe('4 disciplers · 1 group')
+    expect(PAIR_POPUP.counts(PAIR_POPUP.listed('disciple', 4, 2), 3)).toBe('4 lead or offered · 2 more · 3 groups')
+    expect(PAIR_POPUP.counts(PAIR_POPUP.listed('discipler', 4, 2), 1)).toBe('4 asked · 2 more · 1 group')
   })
 
   it('counts no groups where the Ministry has none to offer', () => {
-    expect(PAIR_POPUP.counts(PAIR_POPUP.disciplers(4), 0)).toBe('4 disciplers')
+    expect(PAIR_POPUP.counts(PAIR_POPUP.listed('disciple', 4, 2), 0)).toBe('4 lead or offered · 2 more')
   })
 
   it('labels a group by its name, and one nobody has named as its leaders’ group, never as a person', () => {
@@ -452,7 +429,18 @@ describe('the groups in the Pair popup', () => {
 
   it('calls an unnamed group the same thing on a Disciple’s row, on its own row and in the sentence', () => {
     const unnamed = { name: null, leaders: [{ fullName: 'Grace Lee' }] }
-    expect(PAIR_POPUP.inGroup(unnamed)).toBe(`in ${PAIR_POPUP.groupLabel(unnamed)}`)
+    const inIt = {
+      relationshipId: relationshipId('an-unnamed-group'),
+      role: 'participant' as const,
+      withNames: [],
+      leaderNames: ['Grace Lee'],
+      participantNames: [],
+      participantCount: 3,
+      countsAsAGroup: true,
+      name: null,
+      awaitingAcceptance: false,
+    }
+    expect(PAIR_POPUP.doingNow([inIt], { leading: true })).toEqual([`In ${PAIR_POPUP.groupLabel(unnamed)}`])
     expect(PAIR_POPUP.joinGroup('Sam Lee', unnamed)).toBe(`Sam Lee will join ${PAIR_POPUP.groupLabel(unnamed)}.`)
   })
 
@@ -524,7 +512,7 @@ describe('the groups in the Pair popup', () => {
   it('says Discipler and Disciple, never the model’s Leader, Participant or mentor', () => {
     const said = [
       PAIR_POPUP.groupsHeading,
-      PAIR_POPUP.counts('2 disciplers', 2),
+      PAIR_POPUP.counts(PAIR_POPUP.listed('disciple', 2, 1), 2),
       ...PAIR_POPUP.groupDetails({ ...thursdayTable, discipleCount: 3, declaredGender: null, state: 'awaiting_leader_acceptance' }),
       PAIR_POPUP.joinGroup('A', thursdayTable),
       PAIR_POPUP.addToGroup,

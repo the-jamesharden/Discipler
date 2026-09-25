@@ -3,7 +3,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import pg from 'pg'
 import { ministryId, type MinistryId } from '~/domain/ids'
 import type { AgeBand, AvailabilitySlot, Gender } from '~/domain/intake'
-import { provisionMinistry } from '~/platform/supabase/provisioning'
+import { MinistryNotProvisioned, provisionMinistry } from '~/platform/supabase/provisioning'
 
 export interface LocalSupabase {
   readonly apiUrl: string
@@ -119,11 +119,38 @@ export interface MinistryFixture extends MinistryRef {
  * be `Date.now() % 10_000_000`, which wraps every few hours -- and `auth.users`
  * holds a number for the life of the local stack, so two runs either side of a wrap
  * collided and the second was refused for a number nobody could see. Random start,
- * sequential after, makes that unlikely rather than periodic. It is not a guarantee;
- * the guarantee is `npm run db:reset`.
+ * sequential after, makes that unlikely rather than periodic. It is not a guarantee
+ * on its own: `auth.users` keeps every number every run has minted, so the longer a
+ * stack lives the likelier a random block lands on one. The two fixtures that mint
+ * an account therefore step past a number that is already taken (`TAKEN_NUMBER_TRIES`)
+ * rather than fail a whole suite in its `beforeAll` for it; a number a test named on
+ * purpose is never stepped past.
  */
 let nextNumber = Math.floor(Math.random() * 10_000_000)
 export const aTestPhoneNumber = () => `+1555${String(nextNumber++ % 10_000_000).padStart(7, '0')}`
+
+/**
+ * How long a test that drives the whole scheduled tick may take. The tick route
+ * ticks, settles, sweeps and drains every Ministry in the database in turn, and a
+ * local database gains Ministries with every run until it is reset, so a fixed
+ * allowance is outgrown: two minutes held until the stack had about 3,400, when one
+ * tick took about 235 s (2026-09-25). A minute, and 250 ms a Ministry, well over the
+ * 70 ms each has been seen to take. Read once, when a test file asks for it, since
+ * a timeout is fixed when its test is defined.
+ */
+export const enoughForATick = async (): Promise<number> => {
+  const counting = new pg.Client({ connectionString: localSupabase().databaseUrl })
+  await counting.connect()
+  try {
+    const { rows } = await counting.query<{ count: string }>(`select count(*) from ministry`)
+    return 60_000 + 250 * Number(rows[0]!.count)
+  } finally {
+    await counting.end()
+  }
+}
+
+/** How many generated numbers a minting fixture steps past before it gives up. */
+const TAKEN_NUMBER_TRIES = 20
 
 /**
  * The password every fixture account holds. One constant rather than a literal at
@@ -150,15 +177,28 @@ export const createMinistryWithAdmin = async (
   // the time it looks for them.
   publishSupabaseCredentials()
 
-  const provisioned = await provisionMinistry({
-    name,
-    sendingNumber: aTestPhoneNumber(),
-    admin: {
-      fullName: adminName,
-      phone: aTestPhoneNumber(),
-      password: ACCOUNT_PASSWORD,
-    },
-  })
+  const provision = () =>
+    provisionMinistry({
+      name,
+      sendingNumber: aTestPhoneNumber(),
+      admin: {
+        fullName: adminName,
+        phone: aTestPhoneNumber(),
+        password: ACCOUNT_PASSWORD,
+      },
+    })
+
+  // Provisioning mints the account before it writes anything, so a refused number
+  // leaves nothing behind and the next number is a clean second attempt.
+  let provisioned: Awaited<ReturnType<typeof provisionMinistry>> | null = null
+  for (let tries = 1; provisioned === null; tries++) {
+    try {
+      provisioned = await provision()
+    } catch (error) {
+      const taken = error instanceof MinistryNotProvisioned && error.refusal === 'account.already_exists'
+      if (!taken || tries >= TAKEN_NUMBER_TRIES) throw error
+    }
+  }
 
   return {
     id: ministryId(provisioned.ministryId),
@@ -390,16 +430,23 @@ export const addPersonWithAccount = async (
   options: PersonOptions = {},
 ): Promise<AccountFixture> => {
   const admin = serviceRoleClient()
-  const phone = options.phone ?? aTestPhoneNumber()
-
   // A phone identity and no email, which is what Acceptance mints. The fixture
   // stands in for a Leader who has already accepted, so an account shaped any other
   // way would be a state the product cannot produce.
-  const { data: user, error: userError } = await admin.auth.admin.createUser({
-    phone,
-    password: ACCOUNT_PASSWORD,
-    phone_confirm: true,
-  })
+  const mint = (phone: string) =>
+    admin.auth.admin.createUser({ phone, password: ACCOUNT_PASSWORD, phone_confirm: true })
+
+  let phone = options.phone ?? aTestPhoneNumber()
+  let minted = await mint(phone)
+  // A generated number some earlier run already holds is stepped past; one the test
+  // named is its own business and fails as it always did.
+  for (let tries = 1; options.phone === undefined && tries < TAKEN_NUMBER_TRIES; tries++) {
+    const taken = minted.error?.code === 'phone_exists' || minted.error?.code === 'user_already_exists'
+    if (!taken) break
+    phone = aTestPhoneNumber()
+    minted = await mint(phone)
+  }
+  const { data: user, error: userError } = minted
   if (userError) throw new Error(`Could not create an account for ${fullName}: ${userError.message}`)
 
   const { error: memberError } = await admin

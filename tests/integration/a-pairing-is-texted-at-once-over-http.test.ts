@@ -152,7 +152,6 @@ describe.skipIf(skipUnlessAppIsRunning)('a pairing is texted at once', () => {
         leaderId: leader,
         participantId: participant,
         pair: participant,
-        list: 'disciples',
       }),
     })
     expect(response.headers.get('location')).toContain('paired=1')

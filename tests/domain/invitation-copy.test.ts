@@ -5,6 +5,7 @@ import {
   acceptanceReminderMessage,
   invitationLink,
   invitationMessage,
+  relationshipSubject,
   resumedMessage,
   starterMessageToLeader,
   starterMessageToParticipant,
@@ -180,7 +181,7 @@ describe('the Starter Message', () => {
 describe('the message a resumed relationship sends', () => {
   const resumed = resumedMessage({
     ministryName: 'Riverside Chapel',
-    withNames: ['David Ellis'],
+    subject: 'David Ellis',
   })
 
   it('says what actually happened, and not that they have been matched', () => {
@@ -191,13 +192,24 @@ describe('the message a resumed relationship sends', () => {
     expect(resumed).not.toContain('paired')
   })
 
-  it('names the people on the other side of the relationship', () => {
+  it('names the relationship as it is handed it, which is how every text names one', () => {
+    // Composed by `relationshipSubject`: the people on the other side, or a named
+    // group's name (Roles per pairing, ticket 04).
     expect(
       resumedMessage({
         ministryName: 'Riverside Chapel',
-        withNames: ['Emily Johnson', 'Sarah Kim'],
+        subject: relationshipSubject({ name: null, otherSide: ['Emily Johnson', 'Sarah Kim'] }),
       }),
-    ).toContain('Emily Johnson and Sarah Kim')
+    ).toContain('Your discipleship with Emily Johnson and Sarah Kim has been resumed!')
+    expect(
+      resumedMessage({
+        ministryName: 'Riverside Chapel',
+        subject: relationshipSubject({
+          name: "Tuesday Women's",
+          otherSide: ['Emily Johnson', 'Sarah Kim'],
+        }),
+      }),
+    ).toContain("Your discipleship with Tuesday Women's has been resumed!")
   })
 
   it('carries the opt-out disclosure, because a Pause can run twelve weeks', () => {

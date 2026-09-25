@@ -61,7 +61,8 @@ describe.skipIf(skipUnlessAppIsRunning)('Suggested Pairs, over HTTP', () => {
   it('opens the Pair popup from the Discipler with the Disciple already ticked', async () => {
     const { html } = await getPage('/suggested-pairs', cookie)
     const href = html.match(/<a class="btn" href="([^"]*)">Create relationship<\/a>/)?.[1]?.replace(/&amp;/g, '&')
-    expect(href).toBe(`/roster?list=disciplers&pair=${claire}&with=${sam}`)
+    // On *Disciples somebody*, the side the suggestion puts them on (Roles per pairing, ticket 01).
+    expect(href).toBe(`/roster?pair=${claire}&side=discipler&with=${sam}`)
 
     const popup = popupIn((await getPage(href!, cookie)).html)
     expect(popup).toContain('Choose who Claire Martinez will disciple.')
@@ -76,7 +77,8 @@ describe.skipIf(skipUnlessAppIsRunning)('Suggested Pairs, over HTTP', () => {
     expect(section).toContain('No Schedule Overlap')
     expect(section).toContain('Ana Ruiz')
     expect(section).not.toMatch(/Excellent fit|Good fit|Recommended/)
-    expect(section).toContain(`href="/roster?list=disciples&amp;pair=${ana}"`)
+    // On *Is discipled*, whatever the preset would say (Roles per pairing, ticket 01).
+    expect(section).toContain(`href="/roster?pair=${ana}&amp;side=disciple"`)
     // Not a card: the section holds nobody who has a suggestion.
     expect(section).not.toContain('Sam Lee')
   })

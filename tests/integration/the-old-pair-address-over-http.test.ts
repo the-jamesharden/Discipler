@@ -47,19 +47,19 @@ describe.skipIf(skipUnlessAppIsRunning)('the old Pair page’s address, over HTT
 
   it('opens a Discipler it named on the Discipler’s side', async () => {
     const { landed, popup } = await follow(`?leaderId=${claire}`)
-    expect(landed).toBe(`/roster?list=disciplers&pair=${claire}`)
+    expect(landed).toBe(`/roster?pair=${claire}&side=discipler`)
     expect(popup).toContain('Choose who Claire Martinez will disciple.')
   })
 
   it('opens it with every Disciple it named already ticked', async () => {
     const { landed, popup } = await follow(`?leaderId=${claire}&with=${sam}&with=${ana}`)
-    expect(landed).toBe(`/roster?list=disciplers&pair=${claire}&with=${sam}&with=${ana}`)
+    expect(landed).toBe(`/roster?pair=${claire}&side=discipler&with=${sam}&with=${ana}`)
     expect(chosenIn(popup!)).toEqual(expect.arrayContaining([sam, ana]))
   })
 
   it('opens a Disciple alone, the Follow-Up tab’s old link, on the Disciple’s side', async () => {
     const { landed, popup } = await follow(`?with=${sam}`)
-    expect(landed).toBe(`/roster?list=disciples&pair=${sam}`)
+    expect(landed).toBe(`/roster?pair=${sam}&side=disciple`)
     expect(popup).toContain('Choose who will disciple Sam Lee.')
   })
 
@@ -77,8 +77,8 @@ describe.skipIf(skipUnlessAppIsRunning)('the old Pair page’s address, over HTT
 
     expect(to.pathname).toBe('/roster')
     expect([...to.searchParams]).toEqual([
-      ['list', 'disciplers'],
       ['pair', claire],
+      ['side', 'discipler'],
       ...[...refusal].filter(([name]) => name !== 'leaderId'),
     ])
     expect(popup).toMatch(/role="alert"[^>]*>[^<]*declared/)
@@ -90,14 +90,16 @@ describe.skipIf(skipUnlessAppIsRunning)('the old Pair page’s address, over HTT
     expect((await follow('?error=relationship.needs_a_leader')).landed).toBe('/roster')
   })
 
-  it('has the person page link to the popup directly, on the side each person is on', async () => {
+  it('has the person page link to the popup directly, on the side its preset gives', async () => {
     const pairOn = async (personId: string) =>
       (await getPage(`/roster/${personId}`, cookie)).html
         .match(/<a [^>]*href="([^"]*)"[^>]*>Pair<\/a>/)?.[1]
         ?.replace(/&amp;/g, '&')
 
-    expect(await pairOn(claire)).toBe(`/roster?list=disciplers&pair=${claire}`)
-    expect(await pairOn(sam)).toBe(`/roster?list=disciples&pair=${sam}`)
+    // No side in the address: the preset opens Claire on Disciples somebody and
+    // Sam on Is discipled (Roles per pairing, ticket 01), over the one list.
+    expect(await pairOn(claire)).toBe(`/roster?pair=${claire}`)
+    expect(await pairOn(sam)).toBe(`/roster?pair=${sam}`)
   })
 
   it('has the Follow-Up tab link to the popup directly, on the Disciple’s side', async () => {
@@ -112,6 +114,6 @@ describe.skipIf(skipUnlessAppIsRunning)('the old Pair page’s address, over HTT
     const { html } = await getPage('/follow-up', cookie)
     expect(html).not.toContain('href="/roster/pair')
     const byHand = html.match(/<a [^>]*href="([^"]*)"[^>]*>Pair by hand<\/a>/)?.[1]?.replace(/&amp;/g, '&')
-    expect(byHand).toBe(`/roster?list=disciples&pair=${taylor}`)
+    expect(byHand).toBe(`/roster?pair=${taylor}&side=disciple`)
   })
 })

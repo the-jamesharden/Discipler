@@ -19,7 +19,6 @@ import {
   OFFERED_TO_MENTOR,
   pairingLine,
   pairingSizeLabel,
-  participationStatusLabel,
   isRemovalRefusalShown,
   REMOVAL_REFUSED,
   REMOVE,
@@ -28,9 +27,9 @@ import {
   UNPAIR,
   UNPAIR_REFUSED,
   UNPAIRED_RECEIPT,
-  whoTheyAre,
 } from '../copy'
-import { isDiscipler, LIST_OF_SIDE, pairPopupHref } from '../lists'
+import { inPairingOrder, pairPopupHref, whyNotPairable } from '../lists'
+import { tagsOnAPersonsPage, type PageTag } from '../tags'
 import { whatARemovalLetsGo, type PairingARemovalLetsGo } from '../removal'
 import { unpairFor, type Unpair } from '../unpair'
 
@@ -116,18 +115,12 @@ export default async function PersonPage({
               <span className="avatar" aria-hidden="true">{initialsOf(person.fullName)}</span>
               <h2 className="card-title">{person.fullName}</h2>
             </div>
-            <span className={`rs rs-${person.participationStatus}`}>
-              {participationStatusLabel[person.participationStatus]}
-            </span>
           </div>
-          {/* What they are on the Roster, and why. A Discipler is a fact -- they
-              lead somebody, they offered to on the form, or an import paired them
-              as one -- and this is the one place that says which fact, so an Admin
-              reading a Discipler who is discipled by nobody as Ready to Pair can
-              see what the word rests on. */}
+          {/* What they do, one pairing at a time, and no single word for what they
+              are (Roles per pairing, ticket 03). Nothing at all where they hold
+              nothing: the Pairings card already says Unpaired. */}
+          <PageTags tags={tagsOnAPersonsPage(person)} />
           <dl className="kv">
-            <dt>On the Roster as</dt>
-            <dd>{whoTheyAre(person)}</dd>
             <dt>Email</dt>
             <dd>{person.email ? <a href={`mailto:${person.email}`}>{person.email}</a> : '-'}</dd>
             <dt>Phone</dt>
@@ -140,14 +133,15 @@ export default async function PersonPage({
         <div className="card">
           <div className="card-head">
             <h2 className="card-title">Pairings</h2>
-            {/* Offered on the state and not on the list: somebody Ready to Pair may
-                be paired, in the Pair popup over the Roster (Manual pairing, recut
-                ticket 05), on the Discipler's side where they are one and on the
-                Disciple's otherwise. */}
-            {person.participationStatus === 'ready_to_pair' ? (
+            {/* Offered on Participation Status, by the rule the Roster row offers
+                it on: Intake completed and not opted out. Being discipled already
+                is no reason to withhold it, since they may lead somebody or join a
+                group (Roles per pairing, ticket 03). The popup opens over the Roster
+                (Manual pairing, recut ticket 05). */}
+            {whyNotPairable(person) === null ? (
               <Link
                 className="btn sec small"
-                href={pairPopupHref(LIST_OF_SIDE[isDiscipler(person) ? 'discipler' : 'disciple'], person.personId)}
+                href={pairPopupHref(person.personId)}
               >
                 Pair
               </Link>
@@ -157,13 +151,18 @@ export default async function PersonPage({
             <p className="blocked">Unpaired</p>
           ) : (
             <ul className="bare pairings">
-              {person.relationships.map((relationship) => (
+              {inPairingOrder(person.relationships).map((relationship) => (
                 <li key={relationship.relationshipId}>
                   <span className="pairing">
                     <OtherSide relationship={relationship} />
                     {relationship.awaitingAcceptance ? (
-                      // Wraps whole, as a plan's note does on the Roster.
-                      <span className="muted nowrap">{` - ${AWAITING_ACCEPTANCE}`}</span>
+                      // Wraps whole, as a plan's note does on the Roster. The space
+                      // before it stays outside, so the note can go to the next line
+                      // on its own instead of taking the last name with it.
+                      <>
+                        {' '}
+                        <span className="muted nowrap">{`- ${AWAITING_ACCEPTANCE}`}</span>
+                      </>
                     ) : null}
                   </span>
                   {/* Offered on the state and the role together, never on either
@@ -262,6 +261,27 @@ export default async function PersonPage({
     </PageShell>
   )
 }
+
+/**
+ * The tags under the name. A group is drawn apart from a one-to-one, and a state
+ * that keeps Pair away is drawn in the pill the Roster draws *Awaiting Intake* in.
+ */
+const PageTags = ({ tags }: { readonly tags: readonly PageTag[] }) =>
+  tags.length === 0 ? null : (
+    <ul className="rtags">
+      {tags.map((tag) =>
+        tag.kind === 'state' ? (
+          <li key={tag.state} className={`pill ${tag.state === 'awaiting_intake' ? 'awaiting' : 'opted_out'}`}>
+            {tag.said}
+          </li>
+        ) : (
+          <li key={tag.relationshipId} className={tag.isAGroup ? 'rtag grp' : 'rtag'}>
+            <span className="dir">{tag.direction}</span> {tag.who}
+          </li>
+        ),
+      )}
+    </ul>
+  )
 
 /**
  * Who the pairing is with, which group where it has a name, and its size. The size

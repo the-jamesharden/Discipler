@@ -958,8 +958,8 @@ export interface RelationshipsPage {
  *
  * The role is what makes the row legible. A Person leading two relationships and a
  * Person being discipled in two are the same list of names and opposite situations,
- * and it is the first of them that reads `Ready to Pair` -- the status an Admin
- * takes for a bug unless the row says why.
+ * so every place that says a pairing says its direction from the role (Roles per
+ * pairing): *disciples*, *discipled by*, *leads*, *in*.
  */
 export interface RosterRelationship {
   /**
@@ -1030,10 +1030,12 @@ export interface RosterEntry {
    * that asked nothing changes nothing, because null there means *not asked* and
    * never *withdrawn*.
    *
-   * A preference the Person stated, and one of the three facts that put them on
-   * the Disciplers list (ticket 36): leading somebody, having offered to on the
-   * form, or an import having paired them as one. Nothing an Admin sets stands
-   * beside it any more; pairing them is the acceptance.
+   * A preference the Person stated, and one of the three facts that open their
+   * Pair popup on *Disciples somebody* (Roles per pairing, ticket 01; it put them
+   * on the Disciplers list until the Roster became one list, ticket 02): leading
+   * somebody, having offered to on the form, or an import having paired them as
+   * one. Nothing an Admin sets stands beside it any more; pairing them is the
+   * acceptance.
    */
   readonly declaredSide: DeclaredSide | null
   /**

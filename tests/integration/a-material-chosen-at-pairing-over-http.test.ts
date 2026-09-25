@@ -40,7 +40,6 @@ describe.skipIf(skipUnlessAppIsRunning)('a Material chosen at pairing, over HTTP
   const pairAGroup = async (leader: string, participants: string[], material: string) => {
     const body = new URLSearchParams({
       pair: leader,
-      list: 'disciplers',
       shape: 'group',
       leaderId: leader,
       declaredGender: 'mixed',
@@ -83,7 +82,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Material chosen at pairing, over HTTP
 
     const paired = await pairAGroup(david, [emily, ada], romans)
     expect(paired.response.status).toBe(303)
-    expect(paired.location).toContain('/roster?list=disciplers&paired=2')
+    expect(paired.location).toContain('/roster?paired=2')
 
     // Formed and not accepted: nobody is working through anything yet.
     const before = await getPage(`/materials/${romans}`, cookie)

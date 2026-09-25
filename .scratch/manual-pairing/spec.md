@@ -26,6 +26,11 @@ Two tickets from the first version landed and nothing here undoes them.
 
 ## The Roster
 
+> **Superseded for the toggle** by `.scratch/roles-per-pairing/spec.md`, *The Roster* (ticket 02, built on `roles-per-pairing/02`).
+> The Roster is one list: the toggle and its `list` went, and the Everyone menu replaced it.
+> The Paired with cell says the direction of every pairing, and the stats line is total, paired and unpaired over the whole Roster while nothing is ticked.
+> The bullets below are kept as the history of this spec; where they describe the toggle, the lists or who is on them, read that spec instead.
+
 - A three-way toggle directly under the word **Roster**: **All**, **Disciplers**, **Disciples**.
   All is the default.
   It stays a set of plain links (`?list=all|disciplers|disciples`), so it survives a refresh and needs no script.

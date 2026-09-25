@@ -228,8 +228,10 @@ describe('what the Roster derives from the wizard', () => {
     await submit({ fullName: 'Ruth Adeyemi', phone: '5552342001', declaredSide: 'mentor' })
 
     const row = await rosterRow('Ruth Adeyemi')
-    // The answer is the Person's own, and since ticket 36 it is one of the facts
-    // that put them on the Disciplers list. Nothing an Admin sets stands beside it.
+    // The answer is the Person's own, and one of the facts that open their Pair
+    // popup on Disciples somebody (Roles per pairing, ticket 01); it put them on
+    // the Disciplers list until the Roster became one list (ticket 02). Nothing an
+    // Admin sets stands beside it.
     expect(row.declared_side).toBe('mentor')
   })
 

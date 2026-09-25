@@ -283,6 +283,33 @@ describe('an Admin resuming a paused relationship', () => {
   })
 
   /**
+   * The same Resume Message a Leader's `RESUME` releases, so it names a named group
+   * by the same rule: by its name, to everyone in it, whichever side they are on
+   * (Roles per pairing, ticket 04).
+   */
+  it('names a named group by its name, to everyone in it', () => {
+    const lily = personId('00000000-0000-4000-8000-0000000000e2')
+    const released = messages(
+      resume(
+        {
+          name: "Tuesday Women's",
+          members: [
+            leader,
+            participant,
+            { personId: lily, role: 'participant', fullName: 'Lily Evans', phone: '+15550201', acceptedAt: null },
+          ],
+        },
+        later,
+      ),
+    )
+
+    expect(released.map((message) => message.personId)).toEqual([david, emily, lily])
+    for (const message of released) {
+      expect(message.body).toContain("Your discipleship with Tuesday Women's has been resumed!")
+    }
+  })
+
+  /**
    * A Discipler an Admin added to the group since, who has not accepted (Manual
    * pairing, ticket 22). They are sent nothing but their invitation, and are not
    * yet somebody the Disciples are meeting with.

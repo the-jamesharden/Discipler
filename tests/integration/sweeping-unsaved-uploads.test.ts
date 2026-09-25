@@ -75,7 +75,16 @@ describe('sweeping the uploads nobody saved', () => {
 
   it('leaves a file alone until a full day has passed', async () => {
     const recent = await put(ministry.id)
-    const clock = createTestClock(new Date(Date.now() + days(1) - 60_000))
+    // A day less a minute after Storage stamped it, read off its own row. Storage
+    // stamps with the database container's clock, which on a loaded host has been
+    // seen more than a minute behind this process (the whole suite three times, on
+    // 2026-09-25), and then a day counted from `Date.now()` had already passed for
+    // this file and for the fresh one the test above left beside it.
+    const { rows } = await pool.query<{ created_at: Date }>(
+      `select created_at from storage.objects where bucket_id = 'material' and name = $1`,
+      [recent],
+    )
+    const clock = createTestClock(new Date(rows[0]!.created_at.getTime() + days(1) - 60_000))
     expect(await sweepUnsavedUploads(ministry.id, clock)).toBe(0)
     expect(await inTheBucket(ministry.id)).toContain(recent)
   })
