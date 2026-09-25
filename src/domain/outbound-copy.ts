@@ -407,8 +407,8 @@ export const starterMessageToParticipant = ({
 
 export interface ResumedMessage {
   readonly ministryName: string
-  /** The people on the other side of the relationship, from the reader's side. */
-  readonly withNames: readonly string[]
+  /** The relationship, from the reader's side, as `relationshipSubject` composed it. */
+  readonly subject: string
 }
 
 /**
@@ -421,7 +421,9 @@ export interface ResumedMessage {
  * ended: the Pause.
  *
  * The same sentence to both sides with the other side's names in it, like the
- * Starter Message it replaces here. Nothing announces the Pause itself -- an
+ * Starter Message it replaces here -- or, for a named group, the group's name, to
+ * everyone in it, by the rule every text that names a relationship follows. Nothing
+ * announces the Pause itself -- an
  * Admin pauses on something they were told offline, and Discipler stops asking
  * rather than announcing that it has.
  *
@@ -432,12 +434,12 @@ export interface ResumedMessage {
  * it this month (Text wording, ticket 01) -- which a resume after a long Pause
  * never has.
  */
-export const resumedMessage = ({ ministryName, withNames }: ResumedMessage): string =>
+export const resumedMessage = ({ ministryName, subject }: ResumedMessage): string =>
   composeMessage({
     ministryName,
     identifyDelivery: false,
     discloseOptOut: true,
-    body: `Your discipleship with ${asList(withNames)} has been resumed!`,
+    body: `Your discipleship with ${subject} has been resumed!`,
   })
 
 export interface MaterialMessage {
@@ -523,14 +525,31 @@ export const acceptanceReminderMessage = ({
   })
 }
 
+export interface RelationshipNaming {
+  /** What the Ministry calls it, where an Admin has named it. A one-to-one has none. */
+  readonly name: string | null
+  /** The people on the other side of it from whoever reads the text. */
+  readonly otherSide: readonly string[]
+}
+
 /**
- * Whom this relationship's turn is about, in a sentence. A Participant's name
- * when there is one, and everyone's when there are more -- the copy branches on
- * how many Participants a relationship has now, never on the kind it was formed
- * as, which is why there is no group question set.
+ * How a text names a relationship, in a sentence: a named group by its name, and an
+ * unnamed group and every one-to-one by the people on the other side of it from the
+ * reader -- one name when there is one, and everyone's when there are more.
+ *
+ * The one rule for every text that names a relationship: the check-in's opening
+ * question, the `PAUSE`, `RESUME` and `SWAP` menus and the answers to them, and the
+ * Resume Message (James, Roles per pairing Q8). Composed here once so they cannot
+ * drift -- a menu that named a group by its people while the check-in named it by
+ * its name offered somebody discipled one to one by Grace, and in Grace's group,
+ * *1. Grace Lee 2. Grace Lee*.
+ *
+ * It reads the name where there is one and the live people where there is not,
+ * and never the kind the relationship was formed as, which is why there is no
+ * group question set.
  */
-export const checkInSubject = (participantNames: readonly string[]): string =>
-  asList([...participantNames])
+export const relationshipSubject = ({ name, otherSide }: RelationshipNaming): string =>
+  name ?? asList([...otherSide])
 
 /**
  * What each question tells the Leader they may reply, written once and keyed by
@@ -553,7 +572,7 @@ const VALID_REPLIES_TO: Readonly<Record<CheckInQuestion, string>> = {
 
 export interface MeetingQuestion {
   readonly ministryName: string
-  /** As `checkInSubject` composed it. */
+  /** As `relationshipSubject` composed it. */
   readonly subject: string
   /**
    * Whether this question may carry the rates line: the opening question of a
@@ -648,7 +667,10 @@ export const checkInThankYou = checkInSentence('Thank you. We’ll check in with
 export interface KeywordMenu {
   readonly ministryName: string
   readonly keyword: RelationshipKeyword
-  /** One line per eligible relationship, in the order the exchange stored them. */
+  /**
+   * One line per eligible relationship, in the order the exchange stored them, each
+   * as `relationshipSubject` composed it.
+   */
   readonly options: readonly string[]
 }
 
@@ -699,7 +721,7 @@ export const keywordMenu = ({ ministryName, keyword, options }: KeywordMenu): st
 
 export interface PauseConfirmation {
   readonly ministryName: string
-  /** Who the check-ins being paused are about, as `checkInSubject` composed them. */
+  /** Who the check-ins being paused are about, as `relationshipSubject` composed it. */
   readonly subject: string
   readonly periodWeeks: number
   /** The other four periods, in the order `PAUSE_PERIODS` holds them. */
@@ -739,6 +761,7 @@ const weekOrWeeks = (weeks: number): string => (weeks === 1 ? 'week' : 'weeks')
 
 export interface PauseApplied {
   readonly ministryName: string
+  /** As `relationshipSubject` composed it. */
   readonly subject: string
   readonly periodWeeks: number
 }
@@ -765,6 +788,7 @@ export const pauseApplied = ({ ministryName, subject, periodWeeks }: PauseApplie
 
 export interface SwapRecorded {
   readonly ministryName: string
+  /** As `relationshipSubject` composed it. */
   readonly subject: string
 }
 

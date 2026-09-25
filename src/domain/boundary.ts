@@ -180,7 +180,6 @@ import {
   acceptanceReminderMessage,
   acknowledgedMessage,
   checkInClarification,
-  checkInSubject,
   groupJoinedMessage,
   leaderDashboardLink,
   materialMessage,
@@ -198,6 +197,7 @@ import {
   nothingEligible,
   pauseApplied,
   pauseConfirmation,
+  relationshipSubject,
   resumedMessage,
   swapRecorded,
   starterMessageToLeader,
@@ -1318,8 +1318,12 @@ const bodyOfQuestion = (
     return meetingQuestion({
       ministryName,
       // A named group is asked about by name; everything else by the people in
-      // it. A fact about the row and never about its kind.
-      subject: relationship.name ?? checkInSubject(relationship.participantNames),
+      // it. A fact about the row and never about its kind, and the rule every
+      // keyword text names a relationship by too.
+      subject: relationshipSubject({
+        name: relationship.name,
+        otherSide: relationship.participantNames,
+      }),
       discloseOptOut,
     })
   }
@@ -1894,9 +1898,19 @@ const sayToSender = (
     ratesLine,
   })
 
-/** Who a menu line and a confirmation name: the other side, as a sentence. */
-const otherSideNamed = (relationship: KeywordRelationship): string =>
-  checkInSubject(otherSideOf(relationship, relationship.role))
+/**
+ * How a menu line and every answer to one name a relationship, from the side the
+ * Person texting holds it on: a named group by its name, from either side, and
+ * anything else by the people on the other side. The rule the check-in's opening
+ * question names it by, so a Leader is never asked about *Tuesday Women's* on Monday
+ * and offered *Hannah Brooks and Lily Evans* when they text `PAUSE` (Roles per
+ * pairing, ticket 04).
+ */
+const relationshipNamed = (relationship: KeywordRelationship): string =>
+  relationshipSubject({
+    name: relationship.name,
+    otherSide: otherSideOf(relationship, relationship.role),
+  })
 
 /**
  * The exchange a Person is holding, closed, because something has happened that
@@ -1954,7 +1968,7 @@ const openMenu = (
     keywordMenu({
       ministryName: keywording.ministryName,
       keyword,
-      options: options.map(otherSideNamed),
+      options: options.map(relationshipNamed),
     }),
     'keyword_question',
     'never',
@@ -1998,7 +2012,7 @@ const askHowLongToPause = (keywording: Keywording, target: KeywordRelationship):
     keywording,
     pauseConfirmation({
       ministryName: keywording.ministryName,
-      subject: otherSideNamed(target),
+      subject: relationshipNamed(target),
       periodWeeks: DEFAULT_PAUSE_PERIOD_WEEKS,
       otherPeriods: [...otherPeriodsThan(DEFAULT_PAUSE_PERIOD_WEEKS)],
     }),
@@ -2095,7 +2109,7 @@ const applyPause = (
     keywording,
     pauseApplied({
       ministryName: keywording.ministryName,
-      subject: otherSideNamed(target),
+      subject: relationshipNamed(target),
       periodWeeks,
     }),
     'no_reply',
@@ -2152,9 +2166,12 @@ const applyResume = (
         toPhone: member.phone,
         body: resumedMessage({
           ministryName: keywording.ministryName,
-          withNames: (member.role === 'leader' ? participants : leaders).map(
-            (other) => other.fullName,
-          ),
+          subject: relationshipSubject({
+            name: target.name,
+            otherSide: (member.role === 'leader' ? participants : leaders).map(
+              (other) => other.fullName,
+            ),
+          }),
         }),
         enqueuedAt: keywording.now,
         disclosesPersonId: null,
@@ -2205,7 +2222,7 @@ const applySwap = (
     keywording,
     swapRecorded({
       ministryName: keywording.ministryName,
-      subject: otherSideNamed(target),
+      subject: relationshipNamed(target),
     }),
     'no_reply',
     'never',
@@ -2366,7 +2383,7 @@ const replyInsideExchange = (
             // the reason the check-in clarification names them one question at a
             // time: offering a menu number at the confirmation would invite an
             // answer to a question already settled.
-            options: exchange.target ? null : exchange.options.map(otherSideNamed),
+            options: exchange.target ? null : exchange.options.map(relationshipNamed),
           }),
           // A clarification restates the question already out, exactly as a
           // check-in reminder re-sends rather than re-asks. The exchange is still
@@ -3900,7 +3917,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       // One membership closed, and nothing else. The relationship is untouched, the
       // weeks this Person was present for stay attached to it exactly as they were
       // recorded, and the check-in copy follows the Participants who remain without
-      // anything here telling it to -- `checkInSubject` reads the open memberships,
+      // anything here telling it to -- the check-in reads the open memberships,
       // so there is no group-versus-one-to-one branch to keep in step. A Leader who
       // leaves falls out of every read the same way, because each of them reads
       // open memberships, and a conversation of theirs already under way steps over
@@ -4114,8 +4131,9 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           // telling somebody they had been matched to the person they have been
           // meeting all year.
           //
-          // Each side is told the other side's names, like the Starter Message,
-          // and neither carries a number.
+          // Each side is told the other side's names, like the Starter Message --
+          // or a named group's name, to everyone in it, by the rule a Leader's own
+          // `RESUME` names it by -- and neither carries a number.
           ...[...leaders, ...participants].map((member) =>
             enqueueMessage({
               ministryId: command.ministryId,
@@ -4123,9 +4141,12 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
               toPhone: member.phone,
               body: resumedMessage({
                 ministryName,
-                withNames: (member.role === 'leader' ? participants : leaders).map(
-                  (other) => other.fullName,
-                ),
+                subject: relationshipSubject({
+                  name: relationship.name,
+                  otherSide: (member.role === 'leader' ? participants : leaders).map(
+                    (other) => other.fullName,
+                  ),
+                }),
               }),
               enqueuedAt: now,
               disclosesPersonId: null,
