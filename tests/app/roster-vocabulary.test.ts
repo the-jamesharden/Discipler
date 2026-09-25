@@ -71,17 +71,16 @@ describe('the Roster speaks the customer’s language', () => {
   })
 
   it('says it about a Person, whoever they are', () => {
-    const sides = (roles: readonly ('leader' | 'participant')[]) => roles.map((role) => ({ role }))
-    const shapes = [[], ['leader'], ['participant'], ['leader', 'participant']] as const
-    for (const declaredSide of [null, 'mentor', 'mentee'] as const) {
-      for (const roles of shapes) {
-        for (const planned of shapes) {
-          const said = copy.whoTheyAre({
-            relationships: sides(roles),
-            declaredSide,
-            intendedPairings: sides(planned),
-          })
-          expect(said, `${declaredSide} ${roles.join('+')} planned ${planned.join('+')}`).not.toMatch(FORBIDDEN)
+    // Each tag under a name on their page (Roles per pairing, ticket 03), either
+    // side, one-to-one or group, named or not.
+    for (const role of ['leader', 'participant'] as const) {
+      for (const isAGroup of [false, true]) {
+        for (const name of [null, 'Thursday Table']) {
+          const { direction, who } = copy.pairingTagSaid(
+            { role, name, leaderNames: ['Grace Lee'], participantNames: ['Ana Ruiz', 'Mia Chen'] },
+            isAGroup,
+          )
+          expect(`${direction} ${who}`, `${role} ${isAGroup} ${name}`).not.toMatch(FORBIDDEN)
         }
       }
     }

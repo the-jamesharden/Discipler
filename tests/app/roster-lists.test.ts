@@ -3,7 +3,7 @@ import { intendedPairingId, personId, relationshipId } from '~/domain/ids'
 import { phoneNumber } from '~/domain/roster'
 import type { RosterEntry, RosterIntendedPairing, RosterRelationship } from '~/service/ports'
 import * as copy from '../../app/roster/copy'
-import { CANNOT_BE_PAIRED, displayPhone, whoTheyAre } from '../../app/roster/copy'
+import { CANNOT_BE_PAIRED, displayPhone } from '../../app/roster/copy'
 import {
   disciplesFor,
   disciplersFor,
@@ -109,56 +109,12 @@ describe('who is a Discipler', () => {
     expect(isDiscipler(asked)).toBe(true)
     expect(isDisciple(asked)).toBe(true)
     expect(onList('disciples', asked)).toBe(true)
-    expect(whoTheyAre(asked)).toBe('A Discipler - disciples somebody. Also a Disciple - asked to be on their Intake form.')
-    // For somebody who leads nobody the answer changes nothing but the sentence.
-    expect(whoTheyAre(person({ declaredSide: 'mentee' }))).toBe('A Disciple - asked to be on their Intake form')
   })
 
   it('is somebody an import paired as one, before either has completed Intake', () => {
     const planned = person({ participationStatus: 'no_intake_submitted', intendedPairings: [plan('leader')] })
     expect(isDiscipler(planned)).toBe(true)
     expect(isDisciple(planned)).toBe(false)
-    expect(whoTheyAre(planned)).toBe('A Discipler - an import paired them as one, and disciples nobody yet')
-  })
-})
-
-describe('the sentence on the person page', () => {
-  // The page behind a name on the Disciplers list must say Discipler, whichever
-  // of the three facts put them there, and the same for the Disciples list. So the
-  // sentence is checked against the rule over every shape the rule reads, rather
-  // than against a list of wordings.
-  const shapes = [[], ['leader'], ['participant'], ['leader', 'participant']] as const
-
-  it('agrees with the list the Person is on, over every shape of the facts', () => {
-    for (const declaredSide of [null, 'mentor', 'mentee'] as const) {
-      for (const held of shapes) {
-        for (const planned of shapes) {
-          const entry = person({
-            declaredSide,
-            relationships: held.map((role) => pairing(role)),
-            intendedPairings: planned.map((role) => plan(role)),
-          })
-          const said = whoTheyAre(entry)
-          const shape = `${declaredSide} holds ${held.join('+')} planned ${planned.join('+')}`
-          expect(said.startsWith('A Discipler'), shape).toBe(isDiscipler(entry))
-          expect(/\ba Disciple\b/i.test(said), shape).toBe(isDisciple(entry))
-        }
-      }
-    }
-  })
-
-  it('lists every fact the word rests on', () => {
-    const everything = person({
-      declaredSide: 'mentor',
-      relationships: [pairing('leader'), pairing('participant')],
-      intendedPairings: [plan('leader'), plan('participant')],
-    })
-    expect(whoTheyAre(everything)).toBe(
-      'A Discipler - disciples somebody, offered to on their Intake form, and an import paired them as one. '
-        + 'Also a Disciple - being discipled, and an import paired them to be discipled.',
-    )
-    expect(whoTheyAre(person())).toBe('A Disciple - not yet paired')
-    expect(whoTheyAre(person({ relationships: [pairing('participant')] }))).toBe('A Disciple - being discipled')
   })
 })
 

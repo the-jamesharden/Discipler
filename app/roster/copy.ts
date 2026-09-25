@@ -1,19 +1,10 @@
 import type { GroupJoinRefusal, ImportRowRefusal, PairingRefusal } from '~/domain/errors'
 import type { Gender } from '~/domain/intake'
 import { asList } from '~/domain/outbound-copy'
-import type { ParticipationStatus } from '~/domain/participation'
 import type { MemberRole } from '~/domain/relationships'
 import type { RemovalRefusal } from '~/domain/removal'
 import type { RowProblem } from '~/domain/roster'
 import type { GroupToJoin } from '~/service/ports'
-import {
-  isDiscipledBySomebody,
-  leadsSomebody,
-  offeredToMentor,
-  askedToBeDiscipled,
-  plannedAs,
-  type RosterFacts,
-} from './lists'
 import type { Greyed } from './greying'
 import { MIXED, type GroupDeclaration } from './declared-gender'
 import { PAIR_SHAPE, type PairShape, type ReadAs, type ShapeRuledOut } from './pair-shape'
@@ -28,13 +19,6 @@ import type { ImportFailure } from './report'
  * reads -- and that is a different reason from the one the wire format in
  * `report.ts` changes for.
  */
-
-export const participationStatusLabel: Record<ParticipationStatus, string> = {
-  no_intake_submitted: 'No Intake Submitted',
-  ready_to_pair: 'Ready to Pair',
-  paired: 'Paired',
-  opted_out: 'Opted Out',
-}
 
 /**
  * The three lists the Roster is, and how each is named above its table. The words
@@ -638,47 +622,6 @@ export const pairingTagSaid = (
       }
     : { direction: PAIRING_TAG.discipledBy, who: asList(pairing.leaderNames) }
 }
-
-/**
- * What a Person is on the Roster, and on the strength of what. A Discipler is a
- * fact -- they lead somebody, they signed up as one on the form, or an import
- * paired them as one -- and this is the one sentence that says which, so a
- * Discipler reading Ready to Pair can be understood rather than reported as a bug.
- *
- * Read off the same rule the three lists are drawn from (`lists.ts`), never
- * re-derived here: the page behind a name on the Disciplers list must say
- * Discipler, whichever of the three facts put them there.
- */
-export const whoTheyAre = (person: RosterFacts): string => {
-  const leads = leadsSomebody(person)
-  const asDiscipler = [
-    leads ? 'disciples somebody' : null,
-    offeredToMentor(person) ? 'offered to on their Intake form' : null,
-    plannedAs(person, 'leader') ? 'an import paired them as one' : null,
-  ].filter(isSaid)
-  const asDisciple = [
-    isDiscipledBySomebody(person) ? 'being discipled' : null,
-    askedToBeDiscipled(person) ? 'asked to be on their Intake form' : null,
-    plannedAs(person, 'participant') ? 'an import paired them to be discipled' : null,
-  ].filter(isSaid)
-
-  const discipler =
-    asDiscipler.length > 0
-      ? `A Discipler - ${listed([...asDiscipler, ...(leads ? [] : ['disciples nobody yet'])])}`
-      : null
-
-  if (discipler && asDisciple.length > 0) return `${discipler}. Also a Disciple - ${listed(asDisciple)}.`
-  if (discipler) return discipler
-  return asDisciple.length > 0 ? `A Disciple - ${listed(asDisciple)}` : 'A Disciple - not yet paired'
-}
-
-const isSaid = (reason: string | null): reason is string => reason !== null
-
-/** Reasons as a sentence lists them: `a`, `a, and b`, `a, b, and c`. */
-const listed = (reasons: readonly string[]): string =>
-  reasons.length <= 2
-    ? reasons.join(', and ')
-    : `${reasons.slice(0, -1).join(', ')}, and ${reasons[reasons.length - 1]}`
 
 /** The sentence beside a freshly issued Intake link. */
 export const intakeLinkInstruction = (fullName: string, expiresAt: Date): string =>
