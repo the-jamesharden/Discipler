@@ -86,6 +86,33 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; }
 .centred .card > h1.reveal { font-size: 1.25rem; margin-top: 1rem; margin-bottom: 0.6rem; }
 .card-note { font-size: 0.8rem; color: var(--text-light); border-top: 1px solid var(--border); padding-top: 1rem; margin-top: 1.25rem; line-height: 1.5; }
 
+/* ---- the botanical frame ---- */
+
+/* Watercolour blossom behind every card on sign-in and the Admin surface: a spray
+   hanging into the top right, another climbing from the bottom left, and a vine
+   between them. One pseudo-element and no markup, so there is nothing to announce
+   and nothing to press. Fixed to the window: a frame, not wallpaper that scrolls
+   away down the Roster.
+
+   The painting is composed once per window shape in `public/botanical/`, on --bg, so
+   it has no edge on the page; `cover` then crops no more than a sliver, where one
+   painting stretched over every shape would cut the top spray off a tablet. A
+   browser fetches only the one its window matches. */
+.botanical { isolation: isolate; }
+.botanical::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: var(--bg) url(/botanical/blossom-16.webp) center / cover no-repeat; }
+@media (min-aspect-ratio: 169/100) { .botanical::before { background-image: url(/botanical/blossom-178.webp); } }
+@media (min-aspect-ratio: 195/100) { .botanical::before { background-image: url(/botanical/blossom-22.webp); } }
+@media (max-aspect-ratio: 145/100) { .botanical::before { background-image: url(/botanical/blossom-133.webp); } }
+@media (max-aspect-ratio: 115/100) { .botanical::before { background-image: url(/botanical/blossom-1.webp); } }
+@media (max-aspect-ratio: 87/100) { .botanical::before { background-image: url(/botanical/blossom-075.webp); } }
+@media (max-aspect-ratio: 68/100) { .botanical::before { background-image: url(/botanical/blossom-06.webp); } }
+@media (max-aspect-ratio: 53/100) { .botanical::before { background-image: url(/botanical/blossom-046.webp); } }
+@media print { .botanical::before { display: none; } }
+
+.botanical .card, .botanical .stat { box-shadow: 0 2px 12px var(--shadow); }
+/* The header's outlined controls are transparent elsewhere; here a leaf would sit behind their words. */
+.botanical .header .ghost-btn, .botanical .account > summary { background: var(--surface); }
+
 /* ---- shell ---- */
 
 .header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
