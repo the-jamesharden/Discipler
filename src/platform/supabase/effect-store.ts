@@ -37,6 +37,7 @@ import type {
   MaterialEdit,
   MaterialNoticeRecord,
   MaterialRemoval,
+  NewMaterialLink,
   NewMaterial,
   OutstandingReplyClosure,
   OutstandingReplySweep,
@@ -2203,8 +2204,10 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // relationships the three things the rule compares: what is running, what
     // they were last told, and when anything feeding it last changed -- the
     // running period starting, or the Material it is on being edited. Leaders
-    // who have accepted, in accepted and unended relationships (Richer
-    // materials, ticket 03); a Disciple's text is ticket 04's.
+    // who have accepted and every Participant, in accepted and unended
+    // relationships (Richer materials, tickets 03 and 04). A Participant's row
+    // carries their Leaders' names, as the Starter Message lists them, and their
+    // page link if one has been minted.
     const [{ rows: zone }, { rows }] = await Promise.all([
       client.query<{ timezone: string }>(
         `select timezone from ministry where id = app.command_ministry_id()`,
@@ -2218,6 +2221,8 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
         material_id: string | null
         title: string | null
         fingerprint: string | null
+        leader_names: string[] | null
+        page_token: string | null
         told: boolean
         told_material_id: string | null
         told_fingerprint: string | null
@@ -2230,8 +2235,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
              join relationship r on r.id = m.relationship_id
             where m.ministry_id = app.command_ministry_id()
               and m.ended_at is null
-              and m.role = 'leader'
-              and m.accepted_at is not null
+              and (m.role <> 'leader' or m.accepted_at is not null)
               and r.accepted_at is not null
               and r.ended_at is null
          )
@@ -2246,6 +2250,19 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
                 mat.title,
                 case when run.material_id is null then null
                      else app.material_content_fingerprint(run.material_id) end as fingerprint,
+                case when mem.role = 'participant' then
+                  array(select lp.full_name
+                          from relationship_member lm
+                          join person lp on lp.id = lm.person_id
+                         where lm.relationship_id = mem.relationship_id
+                           and lm.role = 'leader'
+                           and lm.ended_at is null
+                           and lm.accepted_at is not null
+                         order by lm.started_at, lp.full_name)
+                end as leader_names,
+                (select l.token from material_link l
+                  where l.person_id = mem.person_id
+                    and l.relationship_id = mem.relationship_id) as page_token,
                 told.id is not null as told,
                 told.material_id as told_material_id,
                 told.fingerprint as told_fingerprint,
@@ -2299,7 +2316,8 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
             }
           : null,
         changedAt: row.changed_at,
-        leaderNames: [],
+        leaderNames: row.leader_names ?? [],
+        pageToken: row.page_token,
       }
       const held = byPerson.get(row.person_id)
       byPerson.set(row.person_id, {
@@ -2310,6 +2328,19 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       })
     }
     return { timeZone, recipients: [...byPerson.values()] }
+  },
+
+  async issueMaterialLinks(links: readonly NewMaterialLink[]) {
+    // One per membership, never re-minted: the unique constraint is the rule,
+    // and a second tick racing this one is refused by it rather than handing a
+    // Disciple two links.
+    for (const link of links) {
+      await client.query(
+        `insert into material_link (ministry_id, person_id, relationship_id, token)
+         values ($1, $2, $3, $4)`,
+        [link.ministryId, link.personId, link.relationshipId, link.token],
+      )
+    }
   },
 
   async recordMaterialNotices(notices: readonly MaterialNoticeRecord[]) {

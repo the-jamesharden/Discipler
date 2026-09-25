@@ -240,6 +240,13 @@ export const ministryDiscipleshipIntakeQrLink = (
 export const leaderDashboardLink = (baseUrl: string): string =>
   `${host(baseUrl)}/relationships`
 
+/**
+ * A Disciple's own Material page (Richer materials, ticket 04). The same shape as
+ * the other links: read off a phone and occasionally typed.
+ */
+export const materialPageLink = (baseUrl: string, token: string): string =>
+  `${host(baseUrl)}/material/${token}`
+
 export interface InvitationMessage {
   readonly ministryName: string
   readonly fullName: string

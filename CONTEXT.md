@@ -124,6 +124,10 @@ _Avoid_: Program, curriculum, deleting a Material
 The period during which a relationship was working through a particular material. Assigned to the relationship, never to a person: a leader in two relationships may be working through two different things. Periods never overlap and never leave gaps, so a relationship's first period runs from acceptance with no material assigned. Un-assigning is a later period with no material, and assigning the material already running is refused; both are decided in `app.assign_material`.
 _Avoid_: Assigning a material to a person
 
+**Material Link**:
+A Disciple's link to a read-only page of the Material one relationship of theirs is working through now, carried by the text that tells them it changed. One per membership, never re-minted, needing no sign-in, naming nobody; it opens nothing once the membership or the relationship has ended. See ADR-0028.
+_Avoid_: Invitation Link, which asks a Leader a question; this asks nothing
+
 **Material Notice**:
 What one person was told, at one moment, about the Material one of their relationships is working through: which Material, and what it held. A row each time, never updated; the latest is what the next change is compared against, and whether a text went with it is recorded beside it. The rule for when a change is told, and how often, is in `src/domain/material-notices.ts` and ADR-0027.
 _Avoid_: Notification, alert

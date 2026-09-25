@@ -44,6 +44,7 @@ const standing = (fields: Partial<MaterialStanding> = {}): MaterialStanding => (
   told: null,
   changedAt: before(afternoon, minutes(90)),
   leaderNames: [],
+  pageToken: null,
   ...fields,
 })
 
@@ -246,5 +247,108 @@ describe('the wording James approved', () => {
     expect(say({ kind: 'leader_none' })).toBe(
       `Riverside Chapel: Your discipleship no longer has a material assigned. See it at ${link}${RATES}`,
     )
+  })
+})
+
+describe('when a Disciple is texted (Richer materials, ticket 04)', () => {
+  const emily = personId('00000000-0000-4000-8000-0000000000b2')
+  const disciple = (fields: Partial<MaterialStanding> = {}) =>
+    standing({ role: 'participant', leaderNames: ['Grace Lee'], ...fields })
+  const emilyGets = (standings: readonly MaterialStanding[], fields: Partial<MaterialRecipient> = {}) =>
+    recipient(standings, { personId: emily, ...fields })
+
+  it('names their Leader and the Material, for the relationship it is about', () => {
+    const [notice] = due([emilyGets([disciple()])])
+    expect(notice?.text).toEqual({
+      kind: 'participant_moved',
+      title: 'Romans',
+      leaderNames: ['Grace Lee'],
+      relationshipId: withEmily,
+    })
+  })
+
+  it('says updated when it is the same Material holding something new', () => {
+    const [notice] = due([
+      emilyGets([disciple({ running: { materialId: romans, title: 'Romans', fingerprint: 'r2' }, told: { materialId: romans, fingerprint: 'r1' } })]),
+    ])
+    expect(notice?.text).toEqual({ kind: 'participant_updated', title: 'Romans', relationshipId: withEmily })
+  })
+
+  it('sends nothing when they are moved to no Material, and records them as told, whatever the hour or the day', () => {
+    const none = disciple({ running: { materialId: null, title: null, fingerprint: null }, told: { materialId: romans, fingerprint: 'r1' } })
+    for (const [now, lastTextedAt] of [
+      [afternoon, null],
+      [new Date('2026-09-24T04:00:00Z'), null], // 11pm
+      [afternoon, before(afternoon, minutes(120))], // texted this morning
+    ] as const) {
+      const [notice] = due([emilyGets([none], { lastTextedAt })], now)
+      expect(notice?.text ?? null).toBeNull()
+      expect(notice?.told).toEqual([none])
+    }
+  })
+
+  it('texts about the most recent of two changed relationships, and leaves the other for another day', () => {
+    const older = disciple({ relationshipId: withSarah, changedAt: before(afternoon, minutes(300)) })
+    const newer = disciple({ changedAt: before(afternoon, minutes(90)) })
+    const [notice] = due([emilyGets([older, newer])])
+    expect(notice?.text).toMatchObject({ kind: 'participant_moved', relationshipId: withEmily })
+    expect(notice?.told).toEqual([newer])
+  })
+
+  it('tells somebody who both leads and is discipled about what they lead first', () => {
+    const [notice] = due([recipient([standing(), disciple({ relationshipId: withSarah })])])
+    expect(notice?.text).toEqual({ kind: 'leader_moved', title: 'Romans' })
+    expect(notice?.told.map((told) => told.relationshipId)).toEqual([withEmily])
+  })
+
+  const tick = (recipients: readonly MaterialRecipient[]) =>
+    handleCommand(
+      { type: 'scheduled.tick', ministryId: ministry },
+      {
+        ministryId: ministry,
+        clock: createTestClock(afternoon),
+        ids: createSequentialIds(),
+        unaccepted: [],
+        checkInsDue: [],
+        paused: [],
+        ministryName: 'Riverside Chapel',
+        appBaseUrl: 'https://app.trydiscipler.com',
+        materialNotices: { timeZone: TZ, recipients },
+      },
+    )
+
+  it('mints their page link the first time a text carries it, and links it', () => {
+    const result = tick([emilyGets([disciple()])])
+    const [link] = result.effects.flatMap((effect) => (effect.kind === 'materialLink.issue' ? [effect.link] : []))
+    expect(link).toEqual({ ministryId: ministry, personId: emily, relationshipId: withEmily, token: expect.any(String) })
+    const [message] = result.effects.flatMap((effect) => (effect.kind === 'message.enqueue' ? [effect.message] : []))
+    expect(message?.body).toBe(
+      `Riverside Chapel: Your discipleship material with Grace Lee is now Romans. Open it here: https://app.trydiscipler.com/material/${link?.token}${RATES}`,
+    )
+  })
+
+  it('reuses the link they already have, so every text opens the same page', () => {
+    const result = tick([emilyGets([disciple({ pageToken: '3f2a0000-0000-4000-8000-00000000c91e' })])])
+    expect(result.effects.some((effect) => effect.kind === 'materialLink.issue')).toBe(false)
+    const [message] = result.effects.flatMap((effect) => (effect.kind === 'message.enqueue' ? [effect.message] : []))
+    expect(message?.body).toContain('Open it here: https://app.trydiscipler.com/material/3f2a0000-0000-4000-8000-00000000c91e')
+  })
+
+  it('reads as drawn in M-5 for both of a Disciple’s', () => {
+    const link = 'https://app.trydiscipler.com/material/3f2a'
+    expect(
+      materialMessage({
+        ministryName: 'Riverside Chapel',
+        link,
+        text: { kind: 'participant_moved', title: 'Romans: Life in the Spirit', leaderNames: ['Grace Lee'], relationshipId: withEmily },
+      }),
+    ).toBe(`Riverside Chapel: Your discipleship material with Grace Lee is now Romans: Life in the Spirit. Open it here: ${link}${RATES}`)
+    expect(
+      materialMessage({
+        ministryName: 'Riverside Chapel',
+        link,
+        text: { kind: 'participant_updated', title: 'Romans: Life in the Spirit', relationshipId: withEmily },
+      }),
+    ).toBe(`Riverside Chapel: Your discipleship material, Romans: Life in the Spirit, has been updated. Open it here: ${link}${RATES}`)
   })
 })

@@ -621,6 +621,18 @@ export interface MaterialNoticeRecord {
 }
 
 /**
+ * A Disciple's link to their Material page, minted the first time a text carries
+ * it (Richer materials, ticket 04). Never re-minted: every text they have had
+ * keeps opening today's Material.
+ */
+export interface NewMaterialLink {
+  readonly ministryId: MinistryId
+  readonly personId: PersonId
+  readonly relationshipId: RelationshipId
+  readonly token: string
+}
+
+/**
  * One Material, taken off the list at an instant. A flag and not a delete: every
  * period that names it goes on naming it, which is what keeps a card's
  * "Previously" line, and every report, honest about a Material the Ministry no
@@ -850,6 +862,7 @@ export type Effect =
   | { readonly kind: 'material.edit'; readonly edit: MaterialEdit }
   | { readonly kind: 'material.remove'; readonly removal: MaterialRemoval }
   | { readonly kind: 'materialNotice.record'; readonly notice: MaterialNoticeRecord }
+  | { readonly kind: 'materialLink.issue'; readonly link: NewMaterialLink }
   | { readonly kind: 'concern.raise'; readonly concern: NewConcern }
   | { readonly kind: 'concern.view'; readonly viewing: ConcernViewing }
   | { readonly kind: 'concern.resolve'; readonly resolution: ConcernResolution }
@@ -912,6 +925,11 @@ export const editMaterial = (edit: MaterialEdit): Effect => ({
 export const recordMaterialNotice = (notice: MaterialNoticeRecord): Effect => ({
   kind: 'materialNotice.record',
   notice,
+})
+
+export const issueMaterialLink = (link: NewMaterialLink): Effect => ({
+  kind: 'materialLink.issue',
+  link,
 })
 
 export const removeMaterial = (removal: MaterialRemoval): Effect => ({

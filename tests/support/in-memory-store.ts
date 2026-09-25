@@ -35,6 +35,7 @@ import type {
   MaterialEdit,
   MaterialNoticeRecord,
   MaterialRemoval,
+  NewMaterialLink,
   NewMaterial,
   KeywordExchangeClarification,
   KeywordExchangeClosure,
@@ -142,6 +143,8 @@ export interface InMemoryStore extends EffectStore {
   readonly removedMaterials: readonly MaterialRemoval[]
   /** What people were recorded as told about their Materials (Richer materials, ticket 03). */
   readonly materialNotices: readonly MaterialNoticeRecord[]
+  /** Disciples' page links minted (Richer materials, ticket 04). */
+  readonly materialLinks: readonly NewMaterialLink[]
   /** Every number whose conversation an effect closed, in order. */
   readonly outstandingReplyClosures: readonly OutstandingReplyClosure[]
   readonly outstandingReplySweeps: readonly OutstandingReplySweep[]
@@ -269,6 +272,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
   const editedMaterials: MaterialEdit[] = []
   const removedMaterials: MaterialRemoval[] = []
   const materialNotices: MaterialNoticeRecord[] = []
+  const materialLinks: NewMaterialLink[] = []
   const intakeLinks: NewIntakeLink[] = []
   const resolutions: FollowUpResolution[] = []
   const cancellations: RelationshipCancellation[] = []
@@ -417,6 +421,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
     get materialNotices() {
       return [...materialNotices]
     },
+    get materialLinks() {
+      return [...materialLinks]
+    },
     get removedMaterials() {
       return [...removedMaterials]
     },
@@ -511,6 +518,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       const stagedEditedMaterials: MaterialEdit[] = []
       const stagedRemovedMaterials: MaterialRemoval[] = []
       const stagedMaterialNotices: MaterialNoticeRecord[] = []
+      const stagedMaterialLinks: NewMaterialLink[] = []
       const stagedIntakeLinks: NewIntakeLink[] = []
       const stagedConcerns: NewConcern[] = []
       const stagedViewings: ConcernViewing[] = []
@@ -706,6 +714,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         async recordMaterialNotices(notices) {
           stagedMaterialNotices.push(...notices)
         },
+        async issueMaterialLinks(links) {
+          stagedMaterialLinks.push(...links)
+        },
         async leadersDueForCheckIn() {
           return store.checkInsDue
         },
@@ -897,6 +908,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       editedMaterials.push(...stagedEditedMaterials)
       removedMaterials.push(...stagedRemovedMaterials)
       materialNotices.push(...stagedMaterialNotices)
+      materialLinks.push(...stagedMaterialLinks)
       intakeLinks.push(...stagedIntakeLinks)
       return result
     },

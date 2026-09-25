@@ -135,7 +135,7 @@ describe.skipIf(skipUnlessAppIsRunning)('creating, editing and removing a Materi
     expect(page.response.status).toBe(200)
     const rendered = asRendered(page.html)
     expect(rendered).toContain('</svg>Materials</a>')
-    expect(rendered).toContain('Give it a title and some text, files or links.')
+    expect(rendered).toContain('Give it a title and some text, files or links. Once it is assigned, Leaders see it on their dashboard and Disciples on a page their text links to.')
     expect(rendered).toContain('Files and links')
     expect(rendered).toContain('Add files')
     expect(rendered).toContain('Add a link')

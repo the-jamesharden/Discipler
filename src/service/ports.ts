@@ -45,6 +45,7 @@ import type {
   MaterialEdit,
   MaterialNoticeRecord,
   MaterialRemoval,
+  NewMaterialLink,
   NewMaterial,
   KeywordExchangeClarification,
   KeywordExchangeClosure,
@@ -370,6 +371,8 @@ export interface UnitOfWork {
   }>
   /** What people have now been told, a row each, never updated. */
   recordMaterialNotices(notices: readonly MaterialNoticeRecord[]): Promise<void>
+  /** Disciples' page links, each minted the first time a text carries it (ticket 04). */
+  issueMaterialLinks(links: readonly NewMaterialLink[]): Promise<void>
   /**
    * One relationship as the database holds it now, or null when this Ministry has
    * none by that identifier -- which is the same answer for one that belongs to
@@ -830,6 +833,35 @@ export interface AssignedMaterial {
   readonly body: string | null
   /** Its files and links, in order, each ready to open. */
   readonly items: readonly ItemToOpen[]
+}
+
+/**
+ * A Disciple's Material page, as the link opens it (Richer materials, ticket
+ * 04): the Material running now, nothing running, or a link that has ended.
+ */
+export type DisciplesMaterialPage =
+  | {
+      readonly status: 'open'
+      readonly ministryName: string
+      readonly title: string
+      readonly body: string | null
+      readonly items: readonly MaterialItem[]
+    }
+  | { readonly status: 'none'; readonly ministryName: string }
+  | { readonly status: 'ended'; readonly ministryName: string }
+
+/** The reads behind a Disciple's Material page, keyed by its token alone. */
+export interface MaterialPageReader {
+  /** The page, or null for a token that names nothing. */
+  readMaterialPage(token: string): Promise<DisciplesMaterialPage | null>
+  /**
+   * One file of the Material the link's relationship is on now, or null where
+   * the item is not one, the link has ended, or the token names nothing.
+   */
+  fileOnMaterialPage(
+    token: string,
+    itemId: string,
+  ): Promise<{ readonly path: string; readonly filename: string } | null>
 }
 
 /**

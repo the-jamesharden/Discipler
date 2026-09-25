@@ -74,6 +74,7 @@ describe('every ministry-owned table', () => {
       'material',
       'material_assignment',
       'material_item',
+      'material_link',
       'material_notice',
       'ministry',
       'ministry_event',

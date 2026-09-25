@@ -147,7 +147,7 @@ export const NEW_MATERIAL = 'New material'
 export const BACK_TO_MATERIALS = 'Materials'
 
 export const NEW_MATERIAL_LEAD =
-  'What a relationship works through: a book, a reading plan, a set of practices. Give it a title and some text, files or links. Leaders see it on their dashboard once it is assigned.'
+  'What a relationship works through: a book, a reading plan, a set of practices. Give it a title and some text, files or links. Once it is assigned, Leaders see it on their dashboard and Disciples on a page their text links to.'
 
 export const TITLE_LABEL = 'Title'
 export const TEXT_LABEL = 'Text'

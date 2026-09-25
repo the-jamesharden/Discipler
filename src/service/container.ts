@@ -2,6 +2,7 @@ import { after } from 'next/server'
 import type { RandomSource } from '~/domain/accounts'
 import { systemClock } from '~/domain/clock'
 import type { IdSource, MinistryId } from '~/domain/ids'
+import { createPostgresMaterialPageReader } from '~/platform/supabase/material-page-reader'
 import { sweepUnsavedUploads as sweepUploads } from '~/platform/supabase/material-files'
 import { appBaseUrl, commandDatabaseUrl } from '~/platform/supabase/credentials'
 import {
@@ -53,6 +54,7 @@ import type {
   IntakeFormsReader,
   IntakeReader,
   InvitationReader,
+  MaterialPageReader,
   MaterialsReader,
   MessageTransport,
   MinistryDirectory,
@@ -220,6 +222,20 @@ export const getInvitationReader = (): InvitationReader => {
     invitationReader = createPostgresInvitationReader(commandDatabaseUrl())
   }
   return invitationReader
+}
+
+let materialPageReader: MaterialPageReader | undefined
+
+/**
+ * A Disciple's Material page is served to somebody with no session, so it reads
+ * on the command connection as the Invitation Link's page does (Richer
+ * materials, ticket 04).
+ */
+export const getMaterialPageReader = (): MaterialPageReader => {
+  if (!materialPageReader) {
+    materialPageReader = createPostgresMaterialPageReader(commandDatabaseUrl())
+  }
+  return materialPageReader
 }
 
 /**

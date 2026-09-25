@@ -845,6 +845,16 @@ a.res:hover { border-color: var(--primary); }
 .res .nm small { display: block; font-weight: 400; color: var(--text-light); font-size: .76rem; }
 .res .go { color: var(--text-light); display: inline-flex; }
 .material-body a { color: var(--primary); text-decoration: underline; word-break: break-all; }
+/* Richer materials, ticket 04 (M-4): a Disciple's Material page, opened from a
+   text with no sign-in. */
+.dpage { max-width: 520px; margin: 0 auto; padding: 2rem 1rem 2.5rem; min-height: 100vh; }
+.dpage-head { text-align: center; margin-bottom: 1.4rem; }
+.dpage-ministry { font-size: .8rem; color: var(--text-light); letter-spacing: .04em; text-transform: uppercase; font-weight: 600; }
+.dpage-head h1 { font-family: var(--serif); color: var(--primary); font-size: 1.8rem; line-height: 1.2; margin-top: .3rem; }
+.dpage-head p:last-child { font-size: .88rem; color: var(--text-light); margin-top: .35rem; }
+.dpage .mat-panel { background: var(--surface); }
+.dpage .mat-panel > .material-body { margin-top: 0; }
+.dpage-foot { text-align: center; font-size: .78rem; color: var(--text-light); margin-top: 1.4rem; line-height: 1.5; }
 .option.dashed { border-style: dashed; }
 /* Group form exits, ticket 01 (S-8): the group dropdown and its button on a
    Wants a group item, taking the room the row has before Resolve. */

@@ -296,6 +296,9 @@ export const applyEffects = async (
   const materialNotices = effects.flatMap((effect) =>
     effect.kind === 'materialNotice.record' ? [effect.notice] : [],
   )
+  const materialLinks = effects.flatMap((effect) =>
+    effect.kind === 'materialLink.issue' ? [effect.link] : [],
+  )
   const concerns = effects.flatMap((effect) =>
     effect.kind === 'concern.raise' ? [effect.concern] : [],
   )
@@ -483,6 +486,7 @@ export const applyEffects = async (
   // What people have been told about their Materials, beside the texts that tell
   // them: the tick writes both in one transaction, so a text that went out is a
   // text recorded, and a crash between them leaves neither.
+  if (materialLinks.length > 0) await unit.issueMaterialLinks(materialLinks)
   if (materialNotices.length > 0) await unit.recordMaterialNotices(materialNotices)
 
   // Before the messages, and that ordering is the whole of what `START` does. The

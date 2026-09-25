@@ -52,6 +52,12 @@ export interface MaterialStanding {
   readonly changedAt: Date | null
   /** The Leaders' names, as the Starter Message lists them; read for a Participant's text. */
   readonly leaderNames: readonly string[]
+  /**
+   * A Participant's link to their Material page, or null where none has been
+   * minted yet (Richer materials, ticket 04). Always null for a Leader, whose
+   * text links their dashboard.
+   */
+  readonly pageToken: string | null
 }
 
 /** One person the tick may text. */

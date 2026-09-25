@@ -52,6 +52,7 @@ import {
   renameDiscipleshipGoal,
   reorderDiscipleshipGoals,
   resolveConcern,
+  issueMaterialLink,
   recordMaterialNotice,
   restorePerson,
   saveMinistrySettings,
@@ -183,6 +184,7 @@ import {
   groupJoinedMessage,
   leaderDashboardLink,
   materialMessage,
+  materialPageLink,
   checkInThankYou,
   concernDetailRequest,
   invitationLink,
@@ -985,12 +987,13 @@ const theTitleFor = (
 
 /**
  * Where a Material text sends somebody: a Leader to their dashboard, where every
- * relationship they lead is. A Disciple's page is ticket 04's, and until it
- * exists nothing asks for a Disciple's text.
+ * relationship they lead is, and a Disciple to the page of the one relationship
+ * the text is about (Richer materials, ticket 04).
  */
-const materialTextLink = (text: MaterialText, appBaseUrl: string): string => {
+const materialTextLink = (text: MaterialText, appBaseUrl: string, pageToken: string | null): string => {
   if (text.kind.startsWith('leader_')) return leaderDashboardLink(appBaseUrl)
-  throw new Error(`No page yet for a ${text.kind} text`)
+  if (!pageToken) throw new Error(`A ${text.kind} text was composed with no page to link`)
+  return materialPageLink(appBaseUrl, pageToken)
 }
 
 /**
@@ -3207,6 +3210,22 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       if (context.materialNotices) {
         const { timeZone, recipients } = context.materialNotices
         for (const notice of materialNoticesDue(recipients, now, timeZone)) {
+          // A Disciple's text links their page for the relationship it is about,
+          // minted now if this is the first text to carry it.
+          const aboutId = notice.text && 'relationshipId' in notice.text ? notice.text.relationshipId : null
+          const about = notice.told.find((told) => told.relationshipId === aboutId)
+          let pageToken = about?.pageToken ?? null
+          if (about && !pageToken) {
+            pageToken = context.ids.next()
+            effects.push(
+              issueMaterialLink({
+                ministryId: command.ministryId,
+                personId: notice.personId,
+                relationshipId: about.relationshipId,
+                token: pageToken,
+              }),
+            )
+          }
           if (notice.text) {
             effects.push(
               enqueueMessage({
@@ -3216,7 +3235,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
                 body: materialMessage({
                   ministryName,
                   text: notice.text,
-                  link: materialTextLink(notice.text, appBaseUrl),
+                  link: materialTextLink(notice.text, appBaseUrl, pageToken),
                 }),
                 enqueuedAt: now,
                 // Names a Leader to a Disciple at most, never a number.

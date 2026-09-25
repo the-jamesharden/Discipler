@@ -120,6 +120,23 @@ export const downloadLink = async (
   return data?.signedUrl ?? null
 }
 
+/**
+ * A short-lived download link minted with the service role, for a Disciple's
+ * Material page (Richer materials, ticket 04). A Disciple has no session for a
+ * storage policy to read, so the file route decides who may have the file --
+ * the token, and the item being on the Material running now -- and this signs
+ * exactly that one object for a few minutes.
+ */
+export const downloadLinkForAnybody = async (
+  file: { readonly path: string; readonly filename: string },
+  seconds: number,
+): Promise<string | null> => {
+  const storage = createClient(supabaseCredentials().url, serviceRoleKey(), {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+  return downloadLink(storage, file, seconds)
+}
+
 /** How many objects one page of a folder listing asks for. */
 const LISTING_PAGE = 1000
 

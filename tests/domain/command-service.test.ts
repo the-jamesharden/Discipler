@@ -73,6 +73,9 @@ describe('applying a command\'s effects', () => {
         recordMaterialNotices: async () => {
           throw new Error('no Material notice should have been recorded')
         },
+        issueMaterialLinks: async () => {
+          throw new Error('no Material page link should have been minted')
+        },
         closeOutstandingReply: async () => {
           throw new Error('no conversation should have been closed')
         },
