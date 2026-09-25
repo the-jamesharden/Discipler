@@ -45,7 +45,7 @@ const material = (id: string, title: string): MaterialOnTheList => ({
   materialId: materialId(id),
   title,
   body: 'Read one chapter a week.',
-  pdf: null,
+  items: [],
 })
 
 // In title order, as the reader lists them.
