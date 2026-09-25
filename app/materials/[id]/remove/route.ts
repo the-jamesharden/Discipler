@@ -11,8 +11,8 @@ import { applying, backTo } from '../../editing'
  * This route removes nothing on its own. Without the confirmation it reopens
  * the edit page with the confirmation open, and the button inside that is the
  * only thing that carries it -- so a stale form, a copied link or a second tab
- * lands on the question rather than on the removal. The Material's PDF is left
- * in the bucket: the Material is history, and its file is part of it.
+ * lands on the question rather than on the removal. The Material's files are
+ * left in the bucket: the Material is history, and its files are part of it.
  */
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const admin = await currentAdmin()
