@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { isKnownTimezone } from '~/domain/week'
-import { timezoneChoices } from '../../app/settings/copy'
+import { timezoneChoices } from '../../app/timezones'
 
 /**
  * The Timezone control on Ministry Settings. Every Ministry in production kept the
@@ -40,5 +40,13 @@ describe('the timezone choices', () => {
     expect(timezoneChoices('America/Chicago').everywhere.map((choice) => choice.value)).not.toContain(
       'America/Chicago',
     )
+  })
+})
+
+describe('the timezone choices before a Ministry has one', () => {
+  it('offers nothing extra, so the Setup Link opens on its prompt and not on a zone', () => {
+    const { common } = timezoneChoices(null)
+    expect(common[0]).toEqual({ value: 'America/New_York', label: 'Eastern time (New York)' })
+    expect(common.some((choice) => choice.value === '')).toBe(false)
   })
 })

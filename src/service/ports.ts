@@ -1697,14 +1697,14 @@ export interface MinistrySetup {
    */
   read(token: string): Promise<MinistrySetupPage | null>
   /**
-   * The one submit: a name and a password become an account, a Ministry, its
-   * first Admin's Person row and their membership, in one transaction that also
-   * spends the link. A refusal is the account's or the link's, and is wording on
-   * the page; anything else is a fault.
+   * The one submit: a name, a password and a timezone become an account, a
+   * Ministry on that clock, its first Admin's Person row and their membership, in
+   * one transaction that also spends the link. A refusal is the account's or the
+   * link's, and is wording on the page; anything else is a fault.
    */
   open(
     token: string,
-    admin: { readonly fullName: string; readonly password: string },
+    admin: { readonly fullName: string; readonly password: string; readonly timezone: string },
   ): Promise<
     | { readonly ministryId: MinistryId }
     | { readonly refusal: MinistrySetupRefusal | AccountCreationRefusal }

@@ -20,6 +20,8 @@ const PROBLEMS: Record<Problem, string> = {
     'This link has expired. Ask whoever set this up for you to send a new one. Nothing is lost.',
   'setup.already_used':
     'Your ministry is already set up with this link. Sign in with your phone number and password.',
+  'setup.timezone_unknown':
+    'Choose the timezone your ministry is in. Every check-in goes out at your chosen hour on that clock.',
   'account.password_too_short': PASSWORD_TOO_SHORT,
   'account.no_number_on_file':
     'This link carries no phone number, so there’s nothing to sign you in with. Ask whoever set this up for you to send a new one.',

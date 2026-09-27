@@ -8,6 +8,7 @@ import {
   type NewMinistrySetup,
 } from '~/domain/ministry-setup'
 import { asPhoneNumber } from '~/domain/roster'
+import { isKnownTimezone } from '~/domain/week'
 import type { MinistrySetup, MinistrySetupPage } from '~/service/ports'
 import { MinistryNotProvisioned, provisionMinistry } from './provisioning'
 import { looksLikeAnId } from './rows'
@@ -137,6 +138,9 @@ export const createSupabaseMinistrySetup = (
 
     async open(candidate, admin) {
       if (!looksLikeAnId(candidate)) return { refusal: 'setup.not_found' }
+      // Refused rather than thrown, unlike provisioning's own check: somebody is at
+      // the page, and a clock they have not chosen yet is theirs to fix.
+      if (!isKnownTimezone(admin.timezone)) return { refusal: 'setup.timezone_unknown' }
 
       const { rows } = await pool.query<{
         ministry_name: string
@@ -170,6 +174,7 @@ export const createSupabaseMinistrySetup = (
         const provisioned = await provisionMinistry({
           name: row.ministry_name,
           sendingNumber: row.sending_number,
+          timezone: admin.timezone,
           // The number on the link, never one that was typed. The page displays it
           // and offers nowhere to type one, so a forwarded link cannot open a
           // Ministry on a stranger's phone.

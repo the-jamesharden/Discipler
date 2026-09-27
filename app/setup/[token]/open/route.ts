@@ -20,12 +20,14 @@ export async function POST(
   const form = await request.formData()
   const fullName = String(form.get('fullName') ?? '').trim()
   const password = String(form.get('password') ?? '')
+  const timezone = String(form.get('timezone') ?? '').trim()
 
-  // A name is the one thing this form asks for besides the password. The number
-  // was displayed, not requested, so there is nothing else here to get wrong.
+  // A name is asked for besides the password and the timezone, and the store
+  // checks those two. The number was displayed, not requested, so there is
+  // nothing else here to get wrong.
   if (!fullName) return back('setup.not_found')
 
-  const opened = await getMinistrySetup().open(token, { fullName, password })
+  const opened = await getMinistrySetup().open(token, { fullName, password, timezone })
   if ('refusal' in opened) return back(opened.refusal)
 
   // Back to the same link, which is now spent. The page reads that as "your
