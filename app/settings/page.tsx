@@ -7,13 +7,13 @@ import {
 } from '~/domain/ministry-settings'
 import { getMinistrySettingsReader } from '~/service/container'
 import { AccountMenu, NotAnAdmin, PageShell } from '../shell'
+import { TimezoneSelect } from '../timezone-select'
 import {
   DAYS,
   gapLabel,
   hourLabel,
   messagePreviews,
   refusalMessages,
-  timezoneChoices,
 } from './copy'
 
 export const dynamic = 'force-dynamic'
@@ -50,7 +50,6 @@ export default async function MinistrySettingsPage({
 
   const admin = resolution.admin
   const { settings } = resolution.page
-  const zones = timezoneChoices(settings.timezone)
   const query = await searchParams
 
   const refusals = refusalMessages(query.error)
@@ -125,22 +124,7 @@ export default async function MinistrySettingsPage({
           {/* A select and not a text box with suggestions. The text box showed a bare
               `UTC` that read as a value rather than a choice, and every Ministry
               in production kept it -- so every check-in hour was read as UTC. */}
-          <select id="timezone" name="timezone" defaultValue={settings.timezone} required>
-            <optgroup label="Common">
-              {zones.common.map((zone) => (
-                <option key={zone.value} value={zone.value}>
-                  {zone.label}
-                </option>
-              ))}
-            </optgroup>
-            <optgroup label="Everywhere">
-              {zones.everywhere.map((zone) => (
-                <option key={zone.value} value={zone.value}>
-                  {zone.label}
-                </option>
-              ))}
-            </optgroup>
-          </select>
+          <TimezoneSelect current={settings.timezone} />
         </div>
 
         <div className="card">

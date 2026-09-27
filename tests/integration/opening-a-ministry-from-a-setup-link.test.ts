@@ -90,7 +90,7 @@ describe('a Ministry Setup Link', () => {
   it('resolves nothing for a token that was never minted, or is not the shape of one', async () => {
     expect(await setup.read(crypto.randomUUID())).toBeNull()
     expect(await setup.read("' or 1=1 --")).toBeNull()
-    expect(await setup.open("' or 1=1 --", { fullName: 'X', password: 'a-long-enough-password' })).toEqual({
+    expect(await setup.open("' or 1=1 --", { fullName: 'X', password: 'a-long-enough-password', timezone: 'America/New_York' })).toEqual({
       refusal: 'setup.not_found',
     })
   })
@@ -98,16 +98,20 @@ describe('a Ministry Setup Link', () => {
   it('opens the Ministry on a name and a password: the account, the Admin, the history, and the spent link', async () => {
     const link = await aLink('Northgate Community Church')
 
-    const opened = await setup.open(link.token, { fullName: 'Tom Halloran', password: 'a-long-enough-password' })
+    const opened = await setup.open(link.token, { fullName: 'Tom Halloran', password: 'a-long-enough-password', timezone: 'America/New_York' })
     expect(opened).toHaveProperty('ministryId')
     if ('refusal' in opened) throw new Error(opened.refusal)
 
-    // The Ministry, sending from the number on the link.
-    const ministry = await pool.query<{ name: string; sending_number: string }>(
-      `select name, sending_number from ministry where id = $1`,
+    // The Ministry, sending from the number on the link, on the clock its Admin chose.
+    const ministry = await pool.query<{ name: string; sending_number: string; timezone: string }>(
+      `select name, sending_number, timezone from ministry where id = $1`,
       [opened.ministryId],
     )
-    expect(ministry.rows[0]).toEqual({ name: 'Northgate Community Church', sending_number: link.sendingNumber })
+    expect(ministry.rows[0]).toEqual({
+      name: 'Northgate Community Church',
+      sending_number: link.sendingNumber,
+      timezone: 'America/New_York',
+    })
 
     // The Admin: a Person on their own Roster, on the number from the link, with
     // one membership at `admin`.
@@ -144,9 +148,9 @@ describe('a Ministry Setup Link', () => {
     // fixed name would count the last run's as well.
     const name = `Once Only Chapel ${crypto.randomUUID()}`
     const link = await aLink(name)
-    await setup.open(link.token, { fullName: 'First', password: 'a-long-enough-password' })
+    await setup.open(link.token, { fullName: 'First', password: 'a-long-enough-password', timezone: 'America/New_York' })
 
-    const again = await setup.open(link.token, { fullName: 'Second', password: 'another-long-password' })
+    const again = await setup.open(link.token, { fullName: 'Second', password: 'another-long-password', timezone: 'America/New_York' })
 
     expect(again).toEqual({ refusal: 'setup.already_used' })
     const { rows } = await pool.query(`select id from ministry where name = $1`, [name])
@@ -156,12 +160,31 @@ describe('a Ministry Setup Link', () => {
   it('refuses a password too short to be worth having, and leaves the link live', async () => {
     const link = await aLink('Shortpass Fellowship')
 
-    expect(await setup.open(link.token, { fullName: 'Too Short', password: 'short' })).toEqual({
+    expect(await setup.open(link.token, { fullName: 'Too Short', password: 'short', timezone: 'America/New_York' })).toEqual({
       refusal: 'account.password_too_short',
     })
     expect(await setup.read(link.token)).toMatchObject({ state: 'live' })
     const { rows } = await pool.query(`select id from ministry where name = $1`, ['Shortpass Fellowship'])
     expect(rows).toHaveLength(0)
+  })
+
+  it('refuses a timezone it cannot read a check-in against, before there is an account', async () => {
+    const link = await aLink('Clockless Fellowship')
+
+    for (const timezone of ['', 'CEST', 'Mars/Olympus']) {
+      expect(
+        await setup.open(link.token, { fullName: 'No Clock', password: 'a-long-enough-password', timezone }),
+      ).toEqual({ refusal: 'setup.timezone_unknown' })
+    }
+
+    // Nothing was made: the link is live, and the number still opens a Ministry.
+    expect(await setup.read(link.token)).toMatchObject({ state: 'live' })
+    const opened = await setup.open(link.token, {
+      fullName: 'Has A Clock',
+      password: 'a-long-enough-password',
+      timezone: 'America/Chicago',
+    })
+    expect(opened).toHaveProperty('ministryId')
   })
 
   it('runs out after the window, and says so rather than opening anything', async () => {
@@ -170,7 +193,7 @@ describe('a Ministry Setup Link', () => {
     now = new Date(link.expiresAt.getTime() + 1)
     try {
       expect(await setup.read(link.token)).toMatchObject({ state: 'expired' })
-      expect(await setup.open(link.token, { fullName: 'Late', password: 'a-long-enough-password' })).toEqual({
+      expect(await setup.open(link.token, { fullName: 'Late', password: 'a-long-enough-password', timezone: 'America/New_York' })).toEqual({
         refusal: 'setup.expired',
       })
     } finally {

@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import { SHORTEST_PASSWORD } from '~/domain/accounts'
 import { getMinistrySetup } from '~/service/container'
 import { Centred } from '../../shell'
+import { TimezoneSelect } from '../../timezone-select'
 import { setupProblemMessage } from '../copy'
 
 /**
@@ -98,6 +99,15 @@ export default async function SetupPage({
               <div className="field">
                 <label className="label" htmlFor="fullName">Your name</label>
                 <input id="fullName" name="fullName" type="text" required autoComplete="name" />
+              </div>
+
+              <div className="field">
+                <label className="label" htmlFor="timezone">Your timezone</label>
+                <p className="subtle">
+                  Every check-in goes out at your chosen hour on this clock. You can
+                  change it later in Ministry Settings.
+                </p>
+                <TimezoneSelect current={null} />
               </div>
 
               <div className="field">

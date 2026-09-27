@@ -181,6 +181,11 @@ export type MinistrySetupRefusal =
   | 'setup.expired'
   /** Already spent opening a Ministry. Their way in is to sign in. */
   | 'setup.already_used'
+  /**
+   * No timezone chosen, or one this platform cannot read a check-in against. The
+   * link stays live: nothing was made, so the Admin chooses one and submits again.
+   */
+  | 'setup.timezone_unknown'
 
 export class MinistrySetupRefused extends Error {
   constructor(readonly refusal: MinistrySetupRefusal) {

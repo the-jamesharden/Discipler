@@ -36,6 +36,7 @@ const seed = async (name: string, adminName: string) => {
   const provisioned = await provisionMinistry({
     name,
     sendingNumber: aTestPhoneNumber(),
+    timezone: 'America/New_York',
     admin: { fullName: adminName, phone: aTestPhoneNumber(), password: ACCOUNT_PASSWORD },
   })
 

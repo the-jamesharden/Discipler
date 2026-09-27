@@ -1043,7 +1043,8 @@ See `docs/adr/0008-the-phone-number-is-the-sign-in-credential.md`.
 
 A Ministry comes into existence when its first Admin opens a Ministry Setup Link.
 Whoever runs Discipler mints the link with the church's name, the number it sends from, and the phone its Admin will sign in with, and sends it to the Admin by hand.
-The Admin opens it, sees the church and the number, types their name and a password, and that one submit creates their account, the Ministry, their place on its Roster and their Admin access, and spends the link.
+The Admin opens it, sees the church and the number, types their name, chooses their timezone and a password, and that one submit creates their account, the Ministry on that clock, their place on its Roster and their Admin access, and spends the link.
+The timezone has no preselected answer, because a Ministry left on a default was texted at hours nobody chose: every Ministry opened before 2026-09-25 kept UTC, and its check-in hour was read as UTC.
 
 There is no sign-up surface.
 A Ministry exists because an operator said so; the link only moves the typing of the password to the person who owns it.

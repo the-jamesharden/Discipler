@@ -181,6 +181,9 @@ export const createMinistryWithAdmin = async (
     provisionMinistry({
       name,
       sendingNumber: aTestPhoneNumber(),
+      // UTC and said so: every suite was written against the clock a Ministry had
+      // before provisioning asked for one, and a suite about a zone sets its own.
+      timezone: 'UTC',
       admin: {
         fullName: adminName,
         phone: aTestPhoneNumber(),

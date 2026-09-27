@@ -3,6 +3,7 @@ import type { AccountCreationRefusal } from '~/domain/accounts'
 import { MinistrySetupRefused } from '~/domain/errors'
 import type { MinistrySetupToken } from '~/domain/ministry-setup'
 import { asPhoneNumber } from '~/domain/roster'
+import { isKnownTimezone } from '~/domain/week'
 import { supabaseAccounts } from './accounts'
 import { commandDatabaseUrl } from './credentials'
 
@@ -54,6 +55,13 @@ export interface NewMinistry {
    * would type it.
    */
   readonly sendingNumber: string
+  /**
+   * The clock this Ministry's check-in hour, week and quiet hours are read on.
+   * Required, because the column's default is UTC, and every Ministry opened
+   * before this was asked for kept it and was texted at hours nobody chose
+   * (2026-09-25).
+   */
+  readonly timezone: string
   readonly admin: NewAdmin
   /**
    * The Ministry Setup Link this Ministry is being opened through, when there is
@@ -141,6 +149,12 @@ export const provisionMinistry = async (
     throw new MinistryNotProvisioned(`unreadable sending number: ${ministry.sendingNumber}`)
   }
 
+  // And the clock, for the same reason: a zone the database's check would refuse
+  // three statements later is an account minted for a Ministry that never opens.
+  if (!isKnownTimezone(ministry.timezone)) {
+    throw new MinistryNotProvisioned(`unknown timezone: ${ministry.timezone}`)
+  }
+
   // The account first, and nothing written before it. It is the one step that can
   // be refused for a reason the operator caused -- a number that already signs
   // somebody in, a password too short to be worth having -- and a Ministry created
@@ -172,8 +186,8 @@ export const provisionMinistry = async (
     await client.query('begin')
 
     const created = await client.query<{ id: string }>(
-      `insert into ministry (name, sending_number) values ($1, $2) returning id`,
-      [ministry.name, sendingNumber],
+      `insert into ministry (name, sending_number, timezone) values ($1, $2, $3) returning id`,
+      [ministry.name, sendingNumber, ministry.timezone],
     )
     const ministryId = created.rows[0]!.id
 

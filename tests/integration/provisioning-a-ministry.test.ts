@@ -125,6 +125,7 @@ describe('provisioning a Ministry and its first Admin', () => {
     const provisioned = await provisionMinistry({
       name: 'As Typed Chapel',
       sendingNumber: aTestPhoneNumber(),
+      timezone: 'America/New_York',
       admin: { fullName: 'Typed It Out', phone: typed, password: 'a-long-enough-password' },
     })
 
@@ -146,6 +147,7 @@ describe('provisioning a Ministry and its first Admin', () => {
       provisionMinistry({
         name: 'Unreadable Fellowship',
         sendingNumber: aTestPhoneNumber(),
+        timezone: 'America/New_York',
         admin: { fullName: 'Not A Number', phone: 'ring me', password: 'a-long-enough-password' },
       }),
     ).rejects.toThrow(/unreadable phone number/)
@@ -168,6 +170,7 @@ describe('provisioning a Ministry and its first Admin', () => {
       provisionMinistry({
         name: 'No Sender Fellowship',
         sendingNumber: 'the church office line',
+        timezone: 'America/New_York',
         admin: { fullName: 'Unsent', phone: adminPhone, password: 'a-long-enough-password' },
       }),
     ).rejects.toThrow(/unreadable sending number/)
@@ -182,6 +185,7 @@ describe('provisioning a Ministry and its first Admin', () => {
     const provisioned = await provisionMinistry({
       name: 'No Sender Fellowship, Second Attempt',
       sendingNumber: aTestPhoneNumber(),
+      timezone: 'America/New_York',
       admin: { fullName: 'Unsent', phone: adminPhone, password: 'a-long-enough-password' },
     })
     expect(provisioned.adminPhone).toBe(adminPhone)
@@ -193,6 +197,7 @@ describe('provisioning a Ministry and its first Admin', () => {
     const provisioned = await provisionMinistry({
       name: 'Typed Sender Chapel',
       sendingNumber: typed,
+      timezone: 'America/New_York',
       admin: { fullName: 'Sender Typed', phone: aTestPhoneNumber(), password: 'a-long-enough-password' },
     })
 
@@ -212,6 +217,7 @@ describe('provisioning a Ministry and its first Admin', () => {
       provisionMinistry({
         name: 'Somebody Else Entirely',
         sendingNumber: aTestPhoneNumber(),
+        timezone: 'America/New_York',
         admin: {
           fullName: 'Same Number',
           phone: first.adminPhone,
@@ -246,6 +252,7 @@ describe('provisioning a Ministry and its first Admin', () => {
       provisionMinistry({
         name,
         sendingNumber: aTestPhoneNumber(),
+        timezone: 'America/New_York',
         admin: { fullName: '   ', phone, password: 'a-long-enough-password' },
       }),
     ).rejects.toThrow(MinistryNotProvisioned)
@@ -259,10 +266,54 @@ describe('provisioning a Ministry and its first Admin', () => {
     const retry = await provisionMinistry({
       name,
       sendingNumber: aTestPhoneNumber(),
+      timezone: 'America/New_York',
       admin: { fullName: 'Named This Time', phone, password: 'a-long-enough-password' },
     })
 
     expect(retry.adminPhone).toBe(phone)
+  })
+
+  it('opens the Ministry on the timezone it is handed, never on a default', async () => {
+    const provisioned = await provisionMinistry({
+      name: 'Clocked Chapel',
+      sendingNumber: aTestPhoneNumber(),
+      timezone: 'America/Chicago',
+      admin: { fullName: 'Clock Keeper', phone: aTestPhoneNumber(), password: 'a-long-enough-password' },
+    })
+
+    const { rows } = await pool.query<{ timezone: string }>(
+      `select timezone from ministry where id = $1`,
+      [provisioned.ministryId],
+    )
+    expect(rows[0]?.timezone).toBe('America/Chicago')
+  })
+
+  it('refuses a timezone the dispatcher cannot read, before there is an account to take back', async () => {
+    const adminPhone = aTestPhoneNumber()
+    // Named per run: the database keeps every Ministry, and the Setup Link's suite
+    // opens one of its own with a clock, so a fixed name would find that one.
+    const name = `Unclocked Fellowship ${crypto.randomUUID()}`
+
+    await expect(
+      provisionMinistry({
+        name,
+        sendingNumber: aTestPhoneNumber(),
+        timezone: 'CEST',
+        admin: { fullName: 'No Clock', phone: adminPhone, password: 'a-long-enough-password' },
+      }),
+    ).rejects.toThrow(/unknown timezone/)
+
+    const { rows } = await pool.query(`select id from ministry where name = $1`, [name])
+    expect(rows).toHaveLength(0)
+
+    // No account either: the number is still free to open a Ministry with.
+    const provisioned = await provisionMinistry({
+      name: `${name}, Second Attempt`,
+      sendingNumber: aTestPhoneNumber(),
+      timezone: 'America/New_York',
+      admin: { fullName: 'No Clock', phone: adminPhone, password: 'a-long-enough-password' },
+    })
+    expect(provisioned.adminPhone).toBe(adminPhone)
   })
 
   it('refuses a password too short to be worth having, and creates no Ministry', async () => {
@@ -270,6 +321,7 @@ describe('provisioning a Ministry and its first Admin', () => {
       provisionMinistry({
         name: 'Shortpass Fellowship',
         sendingNumber: aTestPhoneNumber(),
+        timezone: 'America/New_York',
         admin: { fullName: 'Too Short', phone: aTestPhoneNumber(), password: 'short' },
       }),
     ).rejects.toThrow(/account.password_too_short/)

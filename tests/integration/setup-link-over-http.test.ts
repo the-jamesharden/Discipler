@@ -59,6 +59,11 @@ describe.skipIf(skipUnlessAppIsRunning)('a pastor opening their Ministry Setup L
     // stranger's phone.
     expect(html).not.toContain('name="phone"')
     expect(html.indexOf(link.adminPhone)).toBeLessThan(html.indexOf('name="password"'))
+    // And a clock to choose, with none chosen for them: every check-in hour is
+    // read against it, and a Ministry left on a default was asked at the wrong hour.
+    expect(html).toContain('name="timezone"')
+    expect(html).toContain('Choose your timezone')
+    expect(html).toContain('Central time (Chicago)')
   })
 
   it('is a 404 for a token that names nothing, and says nothing about any church', async () => {
@@ -73,6 +78,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a pastor opening their Ministry Setup L
     const { response, location } = await post(link.token, {
       fullName: 'Grace Adeyemi',
       password: 'a-long-enough-password',
+      timezone: 'America/Chicago',
     })
     expect(response.status).toBe(303)
     expect(location).toContain(`/setup/${link.token}?done=opened`)
@@ -82,6 +88,14 @@ describe.skipIf(skipUnlessAppIsRunning)('a pastor opening their Ministry Setup L
     const html = await done.text()
     expect(html).toContain('Riverside Chapel is set up')
     expect(html).toContain('href="/login"')
+
+    // On the clock they chose.
+    const { rows } = await pool.query<{ timezone: string }>(
+      `select m.timezone from ministry m join ministry_setup s on s.opened_ministry_id = m.id
+        where s.token = $1`,
+      [link.token],
+    )
+    expect(rows[0]?.timezone).toBe('America/Chicago')
 
     // And the credential works: the phone from the link, the password they chose.
     const signedIn = await signInAs({ phone: link.adminPhone, password: 'a-long-enough-password' })
@@ -93,7 +107,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a pastor opening their Ministry Setup L
 
   it('answers a spent link by sending its holder to sign in', async () => {
     const link = await aLink('Spent Chapel')
-    await post(link.token, { fullName: 'First', password: 'a-long-enough-password' })
+    await post(link.token, { fullName: 'First', password: 'a-long-enough-password', timezone: 'America/Chicago' })
 
     // Not an error: the Ministry exists, and the page says so with the way in.
     const { html } = await open(link.token)
@@ -101,19 +115,36 @@ describe.skipIf(skipUnlessAppIsRunning)('a pastor opening their Ministry Setup L
     expect(html).toContain('href="/login"')
     expect(html).not.toContain('name="password"')
 
-    const { location } = await post(link.token, { fullName: 'Second', password: 'another-long-password' })
+    const { location } = await post(link.token, { fullName: 'Second', password: 'another-long-password', timezone: 'America/Chicago' })
     expect(location).toContain('error=setup.already_used')
   })
 
   it('refuses a short password on the page, and the link stays live', async () => {
     const link = await aLink('Shortpass Chapel')
 
-    const { location } = await post(link.token, { fullName: 'Too Short', password: 'short' })
+    const { location } = await post(link.token, { fullName: 'Too Short', password: 'short', timezone: 'America/Chicago' })
     expect(location).toContain('error=account.password_too_short')
 
     // Where the redirect sends them: the same link, with the reason on it.
     const { html } = await open(`${link.token}${new URL(location).search}`)
     expect(html).toContain('at least 8 characters')
+    expect(html).toContain('name="password"')
+  })
+
+  it('refuses a Ministry with no timezone chosen, and the link stays live', async () => {
+    const link = await aLink('Clockless Chapel')
+
+    for (const timezone of ['', 'Mars/Olympus']) {
+      const { location } = await post(link.token, {
+        fullName: 'No Clock',
+        password: 'a-long-enough-password',
+        timezone,
+      })
+      expect(location).toContain('error=setup.timezone_unknown')
+    }
+
+    const { html } = await open(`${link.token}?error=setup.timezone_unknown`)
+    expect(html).toContain('Choose the timezone your ministry is in')
     expect(html).toContain('name="password"')
   })
 
