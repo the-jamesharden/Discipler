@@ -93,6 +93,10 @@ The texts were walked through on 2026-09-24, composed by `src/domain/outbound-co
   Today a `PAUSE` menu calls Tuesday Women's *Hannah Brooks and Lily Evans*, and a `SWAP` menu from somebody discipled one-to-one by Grace and in Grace's group reads *1. Grace Lee 2. Grace Lee*.
   The line is composed by `otherSideNamed` in `src/domain/boundary.ts`; the check-in's subject (`relationship.name ?? checkInSubject(...)`) is the rule to share.
   Real phones read this, so the before and after texts go to James with the ticket.
+- **A 1:2 pair keeps no name, so every text names it by its people** (James, 2026-09-27, ticket 05).
+  The Pair popup used to build one, *Claire with Ana & Sam*, and post it as the ordinary name, so the check-in asked *Did you meet with Claire with Ana & Sam this week?*, the keyword texts and the Resume Message said the same, and the public Group Intake Link offered the pair by it.
+  The popup posts none now, the forming command keeps none, and a data migration clears the ones already stored; history keeps the old name.
+  The pair leaves the Group Intake Link, which offers only a named group, and Admin screens call it what they call an unnamed group.
 - The links in these texts are real: the leader Starter Message links `https://app.trydiscipler.com/relationships` (`app/relationships/page.tsx`, which sends a signed-out visitor to `/login`), and an invitation links `/invitation/<token>`.
 
 ## Eligible to lead
@@ -118,5 +122,6 @@ The person-level Discipler / Disciple lists this spec removes are the last marke
 
 ## Out of scope
 
-- A migration: roles are already on memberships. The both-ways-round rule's migration belongs to planned-pairs-and-sides, question 1.
+- A migration: roles are already on memberships.
+  Ticket 05, a follow-up decided on 2026-09-27, carries a data migration of its own, which clears the names 1:2 pairs were given. The both-ways-round rule's migration belongs to planned-pairs-and-sides, question 1.
 - Anything a Participant or a Leader sees on their own pages.

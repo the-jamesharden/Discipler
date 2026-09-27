@@ -136,7 +136,7 @@ Beneath it, one line saying who the list is for.
 | Shape | Gender | Name | Material |
 | --- | --- | --- | --- |
 | 1:1 (one ticked) | nothing | nothing | nothing |
-| 1:2 pair | nothing: the Discipler's gender | nothing: generated as `{First} with {First} & {First}` and never shown | one dropdown |
+| 1:2 pair | nothing: the Discipler's gender | nothing: it keeps no name and is called by its people (Roles per pairing, ticket 05) | one dropdown |
 | N × 1:1 pairs | nothing: each is same-gender | nothing | one dropdown per Disciple |
 | Group | Women's · Men's · Coed toggle | required, placeholder `{First}'s Group` | one dropdown |
 
@@ -250,7 +250,9 @@ These were read out of the schema, not assumed, and still hold.
   `CommandService.execute` takes one command, so N × 1:1 pairs is N transactions.
   The set is validated through the boundary before any is formed, and nothing is formed unless all of it can be.
   A refusal names the Disciple it is about.
-- **A 1:2 pair is a group** for every rule: `kindFor(1, 2)` is `'group'`, so it carries a name and a declaration, which is why the popup generates both.
+- **A 1:2 pair is a group** for every rule but its name: `kindFor(1, 2)` is `'group'`, so it carries a declaration, which is why the popup posts the Discipler's gender.
+  It keeps no name (James, 2026-09-27, Roles per pairing ticket 05): the popup posts that it is a 1:2 pair, which is the one thing that tells it from a Group of the same three people, and the domain forms it unnamed.
+  Until then the popup posted a name it built, `{First} with {First} & {First}`, and the texts and the Group Intake Link used it.
 
 ## The tickets
 
