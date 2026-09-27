@@ -45,8 +45,8 @@ describe.skipIf(skipUnlessAppIsRunning)('separate one-to-ones in one submission,
     participants: string[],
     extra: Record<string, string> = {},
   ) => {
-    // Over All, so the receipt lands where every row it is about is shown.
-    const body = new URLSearchParams({ pair: leaders[0] ?? '', list: 'all', mode: 'separate', ...extra })
+    // Over Everyone, so the receipt lands where every row it is about is shown.
+    const body = new URLSearchParams({ pair: leaders[0] ?? '', mode: 'separate', ...extra })
     for (const leader of leaders) body.append('leaderId', leader)
     for (const participant of participants) body.append('participantId', participant)
 

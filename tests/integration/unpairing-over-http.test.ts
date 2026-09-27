@@ -115,8 +115,10 @@ describe.skipIf(skipUnlessAppIsRunning)('Unpair, on a person’s page', () => {
     const after = await getPage(`/roster/${grace}?unpair=ended`, cookie)
     expect(after.html).toContain('Unpaired. The history is kept, and nobody was sent anything.')
     expect(after.html).not.toContain(`value="${pairing}"`)
-    // And her Disciple is ready to pair again.
-    expect((await getPage(`/roster/${emily}`, cookie)).html).toContain('Ready to Pair')
+    // And her Disciple is unpaired again: no tag under her name, and the card says so.
+    const emilys = (await getPage(`/roster/${emily}`, cookie)).html
+    expect(emilys).not.toContain('class="rtags"')
+    expect(emilys).toContain('>Unpaired<')
   })
 
   it('records the reason an Admin wrote, and that it did not run its course', async () => {

@@ -3,8 +3,10 @@
 import Link from 'next/link'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { initialsOf } from '../initials'
-import { PAIR_POPUP, type RosterList } from './copy'
+import { PAIR_POPUP } from './copy'
 import { CANCEL } from './import-copy'
+import { SIDE_FIELD, type PairSide } from './lists'
+import { rosterHref, viewFields, type RosterView } from './menu'
 
 /**
  * What the two sides of the Pair popup share (Manual pairing, tickets 12 and 23):
@@ -14,13 +16,20 @@ import { CANCEL } from './import-copy'
  * and never the other's. What belongs to both is changed here, once.
  *
  * The popup is the Roster's own page at `?pair=`, so the server sends it open, a
- * refresh keeps it open, and every way out is a link back to the list behind it.
+ * refresh keeps it open, and every way out is a link back to the Roster behind it,
+ * showing what its menu showed (Roles per pairing, ticket 02).
  * It is fed from the document the Roster already read; opening it is no second read.
  *
  * Script is the improvement here as it is in the import dialog: the sentence, the
  * button's words and its disabled state follow the marks once script runs. The
  * form is an ordinary one to the existing pairing route, so it posts without
  * script, and the route refuses an empty choice as it always has.
+ *
+ * **One popup with the side as its state** (Roles per pairing, ticket 01). Nobody
+ * is a Discipler or a Disciple; the popup asks which side of this one pairing the
+ * person is on, directly under its title, and the two files beside this one are
+ * its two sides. The side is in the address, so the chooser is two links and
+ * switches with one press, with script or without.
  */
 
 /** True once script runs. Disabling only then leaves an Admin without script able to post. */
@@ -105,6 +114,7 @@ export const PairRow = ({
   avatar = 'of_a_person',
   person,
   details,
+  also = [],
   greyed,
   held = false,
   checked,
@@ -120,6 +130,12 @@ export const PairRow = ({
   readonly person: { readonly id: string; readonly fullName: string }
   /** Each missing detail is simply absent: a null is left out and no dash stands in for it. */
   readonly details: readonly (string | null)[]
+  /**
+   * What they do now, on a second line under the details (Roles per pairing,
+   * ticket 01): *Discipled by Rachel Adams*, *In Tuesday Women's*. None says nothing.
+   * A greyed row gives its reason in its place, as it does the details.
+   */
+  readonly also?: readonly string[]
   /**
    * Why they cannot be chosen, already in words, or null where they can (Manual
    * pairing, ticket 23). A greyed row is shown and says why. Whoever is not to be
@@ -161,25 +177,114 @@ export const PairRow = ({
       {greyed ? (
         <span className="pair-why" id={`pair-why-${person.id}`}>{greyed}</span>
       ) : (
-        <span className="pair-sub">
-          {/* Each detail wraps whole, with its dot behind it, so a line that wraps at
-              phone width never opens on a dot. */}
-          {details
-            .filter((detail): detail is string => detail !== null)
-            .map((detail, index, shown) => (
-              <span key={index} className="pair-detail">
-                {index < shown.length - 1 ? `${detail} · ` : detail}
-              </span>
-            ))}
-        </span>
+        <>
+          <span className="pair-sub">
+            {/* Each detail wraps whole, with its dot behind it, so a line that wraps at
+                phone width never opens on a dot. */}
+            {details
+              .filter((detail): detail is string => detail !== null)
+              .map((detail, index, shown) => (
+                <span key={index} className="pair-detail">
+                  {index < shown.length - 1 ? `${detail} · ` : detail}
+                </span>
+              ))}
+          </span>
+          {also.length > 0 ? (
+            <span className="pair-also">
+              {/* Each item wraps whole, as a detail does. */}
+              {also.map((item, index) => (
+                <span key={index} className="pair-detail">
+                  {index < also.length - 1 ? `${item} · ` : item}
+                </span>
+              ))}
+            </span>
+          ) : null}
+        </>
       )}
     </span>
   </label>
 )
 
+/**
+ * The heading over the people a side's list opens on (Roles per pairing, ticket
+ * 01): who asked to be discipled, or who disciples somebody already or offered
+ * to. Drawn only over somebody.
+ */
+export const ListedFirst = ({ side, children }: { readonly side: PairSide; readonly children: ReactNode }) => (
+  <>
+    <p className="pair-group-head">{PAIR_POPUP.listedFirst[side]}</p>
+    {children}
+  </>
+)
+
+/**
+ * Everybody else the gender rule allows, folded under **Everyone else · N**
+ * (Roles per pairing, ticket 01; James, 2026-09-24: *"this but we will come back
+ * to it"*). Closed, and one press opens it, without script as well as with it: it
+ * is the browser's own disclosure. It opens already where it holds what a refusal
+ * restored, so everything restored is in front of the Admin, and where nothing is
+ * listed above it, so a side with nobody usual does not open on a closed fold
+ * alone. Once open or shut by the Admin it stays as they left it.
+ */
+export const EveryoneElse = ({
+  count,
+  opensOpen,
+  children,
+}: {
+  /** Whoever is in it now: the count follows the rows as a Coed Group opens them. */
+  readonly count: number
+  /** Whether it is open when the popup opens. Read once. */
+  readonly opensOpen: boolean
+  readonly children: ReactNode
+}) => {
+  const [open, setOpen] = useState(opensOpen)
+  return (
+    <details className="pair-more" open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
+      <summary>
+        {`${PAIR_POPUP.everyoneElse} `}
+        <span>{`· ${count}`}</span>
+      </summary>
+      <div className="pair-rows">{children}</div>
+    </details>
+  )
+}
+
+/**
+ * The side chooser, directly under the title (Roles per pairing, ticket 01): *In
+ * this pairing, Emily* **Disciples somebody** · **Is discipled**. Two links to the
+ * popup's own address on either side, so one press switches it with script or
+ * without, keeping everything else in the address; the side it is on is the one
+ * the page says is current. The preset only picked which of the two it opened on.
+ */
+const SideChooser = ({
+  person,
+  side,
+}: {
+  readonly person: { readonly fullName: string }
+  readonly side: { readonly current: PairSide; readonly hrefs: Readonly<Record<PairSide, string>> }
+}) => (
+  <div className="pair-side">
+    <span className="pair-side-who" id="pair-side-label">{PAIR_POPUP.inThisPairing(person.fullName)}</span>
+    <nav className="seg-radio" aria-labelledby="pair-side-label">
+      {(['discipler', 'disciple'] as const).map((each) => (
+        <Link
+          key={each}
+          href={side.hrefs[each]}
+          scroll={false}
+          replace
+          aria-current={side.current === each ? 'true' : undefined}
+        >
+          {PAIR_POPUP.side[each]}
+        </Link>
+      ))}
+    </nav>
+  </div>
+)
+
 export const PairPopupShell = ({
   person,
-  list,
+  view,
+  side,
   refusal,
   posts,
   postsTo = 'create',
@@ -190,11 +295,13 @@ export const PairPopupShell = ({
 }: {
   /** Whose row was pressed: who this popup pairs. */
   readonly person: { readonly id: string; readonly fullName: string }
-  /** The list behind the popup, which every way out returns to and the receipt lands on. */
-  readonly list: RosterList
+  /** What the Roster's menu shows behind the popup, which every way out returns to and the receipt lands on. */
+  readonly view: RosterView
+  /** Which side of this pairing the person is on, and the popup's address on each side. */
+  readonly side: { readonly current: PairSide; readonly hrefs: Readonly<Record<PairSide, string>> }
   /** Why the last submission was refused, already in words, if it was. */
   readonly refusal: string | undefined
-  /** What the form posts without being asked, beside who the popup is for and the list behind it. */
+  /** What the form posts without being asked, beside who the popup is for and what is shown behind it. */
   readonly posts: Readonly<Record<string, string>>
   /**
    * Which route takes the form, as what is chosen decides (Manual pairing, recut
@@ -203,8 +310,12 @@ export const PairPopupShell = ({
    * is the form's action, never a field that happened to be present.
    */
   readonly postsTo?: 'create' | 'join'
-  /** The sentence saying exactly what is about to be made, or null with nothing to make. */
-  readonly summary: string | null
+  /**
+   * The sentence saying exactly what is about to be made, or null with nothing to
+   * make, and the words at its start drawn in bold, as the mock-ups draw who will
+   * disciple whom (Roles per pairing, ticket 01), or null for none.
+   */
+  readonly summary: { readonly said: string; readonly bold: string | null } | null
   /** The button is the same act as the sentence. */
   readonly submit: { readonly label: string; readonly disabled: boolean }
   /**
@@ -216,7 +327,7 @@ export const PairPopupShell = ({
   /** The side's own: who the list is for, its toolbar and its rows. */
   readonly children: ReactNode
 }) => {
-  const back = `/roster?${new URLSearchParams({ list })}`
+  const back = rosterHref(view)
 
   return (
     <div
@@ -232,7 +343,10 @@ export const PairPopupShell = ({
 
       <form method="post" action={`/roster/pair/${postsTo}`} className={grows ? 'modal pair grows' : 'modal pair'}>
         <input type="hidden" name="pair" value={person.id} />
-        <input type="hidden" name="list" value={list} />
+        {viewFields(view).map(([name, value]) => (
+          <input key={`${name}=${value}`} type="hidden" name={name} value={value} />
+        ))}
+        <input type="hidden" name={SIDE_FIELD} value={side.current} />
         {Object.entries(posts).map(([name, value]) => (
           <input key={name} type="hidden" name={name} value={value} />
         ))}
@@ -244,6 +358,8 @@ export const PairPopupShell = ({
           </Link>
         </div>
 
+        <SideChooser person={person} side={side} />
+
         {refusal ? (
           <p className="toast error" role="alert">{refusal}</p>
         ) : null}
@@ -251,7 +367,16 @@ export const PairPopupShell = ({
         {children}
 
         {summary ? (
-          <p className="pair-summary" role="status">{summary}</p>
+          <p className="pair-summary" role="status">
+            {summary.bold !== null && summary.said.startsWith(summary.bold) ? (
+              <>
+                <b>{summary.bold}</b>
+                {summary.said.slice(summary.bold.length)}
+              </>
+            ) : (
+              summary.said
+            )}
+          </p>
         ) : null}
 
         <div className="modal-actions">

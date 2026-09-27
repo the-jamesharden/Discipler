@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import type { SuggestedPair, SuggestedPerson } from '~/domain/suggestions'
 import { getSuggestedPairsReader } from '~/service/container'
-import { LIST_OF_SIDE, pairPopupHref } from '../roster/lists'
+import { pairPopupHref } from '../roster/lists'
 import { AdminShell, NotAnAdmin, shortDate } from '../shell'
 import {
   CREATE_RELATIONSHIP,
@@ -28,10 +28,11 @@ const roleLine = (role: string, person: SuggestedPerson): string =>
  * Accepting a suggestion opens the Pair popup from the Discipler with the Disciple
  * already ticked (`.scratch/manual-pairing/spec.md`): the Admin still forms the
  * relationship there, with its Material, so a suggestion never pairs anybody by
- * itself.
+ * itself. It opens on *Disciples somebody*, the side the suggestion puts them on,
+ * whatever the preset would say (Roles per pairing, ticket 01).
  */
 const acceptHref = (pair: SuggestedPair): string =>
-  `${pairPopupHref(LIST_OF_SIDE.discipler, pair.leader.personId)}&${new URLSearchParams({
+  `${pairPopupHref(pair.leader.personId, 'discipler')}&${new URLSearchParams({
     with: pair.participant.personId,
   })}`
 
@@ -98,8 +99,10 @@ export default async function SuggestedPairsPage() {
                       .join(' · ')}
                   </div>
                 </div>
-                {/* Their own popup, from the Disciple's side, as Pair on their Roster row opens it. */}
-                <Link className="btn sec" href={pairPopupHref(LIST_OF_SIDE.disciple, person.personId)}>
+                {/* Their own popup, on *Is discipled* whatever the preset would say of
+                    them (Roles per pairing, ticket 01): they are here as somebody to be
+                    discipled. */}
+                <Link className="btn sec" href={pairPopupHref(person.personId, 'disciple')}>
                   {PAIR}
                 </Link>
               </div>

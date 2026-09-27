@@ -397,15 +397,16 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
     expect(drawn).toContain('Discipleship')
   })
 
-  it('shows the offer as a place among the Disciplers, and as no tag on the row', async () => {
-    // Answering Mentor still makes somebody a Discipler, and that list is what
-    // says so. The tag that said it again on the row went with Manual pairing,
-    // ticket 07, and no answer was ever said in its place.
-    const { html } = await getPage('/roster?list=disciplers', cookie)
+  it('shows the offer under Offered to disciple in the Everyone menu, and as no tag on the row', async () => {
+    // Answering Mentor is what the menu's *Offered to disciple, not yet discipling*
+    // finds (Roles per pairing, ticket 02); it was the Disciplers list that said so.
+    // The tag that said it again on the row went with Manual pairing, ticket 07,
+    // and no answer was ever said in its place.
+    const { html } = await getPage('/roster?pairings=offered-to-disciple', cookie)
     expect(html).toMatch(/data-testid="roster-name"[^>]*>Solomon Adeyemi</)
 
-    for (const list of ['all', 'disciplers', 'disciples']) {
-      const page = await getPage(`/roster?list=${list}`, cookie)
+    for (const shows of ['', '?pairings=offered-to-disciple', '?pairings=unpaired']) {
+      const page = await getPage(`/roster${shows}`, cookie)
       expect(page.html).not.toContain('Offered to mentor')
       expect(page.html).not.toContain('Asked to be mentored')
       expect(page.html).not.toContain('Not asked')
@@ -425,11 +426,11 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
     )
     const solomon = rows[0]!.id
 
-    const fromHal = popupIn((await getPage(`/roster?list=disciples&pair=${hal}`, cookie)).html)
+    const fromHal = popupIn((await getPage(`/roster?pair=${hal}`, cookie)).html)
     expect(fromHal).toContain('Solomon Adeyemi')
     expect((await getPage(`/roster/${solomon}`, cookie)).html).toContain('Has done this before')
 
-    const fromHim = popupIn((await getPage(`/roster?list=disciplers&pair=${solomon}`, cookie)).html)
+    const fromHim = popupIn((await getPage(`/roster?pair=${solomon}`, cookie)).html)
     expect(fromHim).toContain('Hal Reeves')
     expect(fromHim).not.toContain('New to this')
     expect(fromHim).not.toContain('Has done this before')

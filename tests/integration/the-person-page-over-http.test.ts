@@ -4,7 +4,9 @@ import {
   addPerson,
   addPersonWithAccount,
   createMinistryWithAdmin,
+  formGroup,
   localSupabase,
+  optOut,
   pairOneToOne,
   type MinistryFixture,
 } from '../support/local-supabase'
@@ -22,6 +24,21 @@ import { displayPhone } from '../../app/roster/copy'
 
 /** The page as it reads, markup aside: a name and the pill kept beside it are one sentence to an Admin. */
 const words = (html: string): string => html.replace(/<!-- -->/g, '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ')
+
+/**
+ * The tags under the name (Roles per pairing, ticket 03), each as it reads and how
+ * it is drawn: *disciples Chloe Park (rtag)*, *leads Tuesday Women's (rtag grp)*.
+ * Empty where the page draws no tag list at all.
+ */
+const tagsOn = (html: string): string[] => {
+  const list = html.match(/<ul class="rtags"[^>]*>(.*?)<\/ul>/)?.[1] ?? ''
+  return [...list.matchAll(/<li class="([^"]*)"[^>]*>(.*?)<\/li>/g)].map(
+    ([, drawn, said]) => `${words(said ?? '').trim()} (${drawn})`,
+  )
+}
+
+/** Whether the page offers Pair, whatever address the button opens. */
+const offersPair = (html: string): boolean => />Pair<\/a>/.test(html)
 
 describe.skipIf(skipUnlessAppIsRunning)('a Person’s own page', () => {
   let ministry: MinistryFixture
@@ -70,29 +87,73 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s own page', () => {
     expect(html).toContain(displayPhone(phone))
     expect(html).toContain(`tel:${phone}`)
     expect(html).toContain('quinn@example.org')
-    expect(html).toContain('Ready to Pair')
-    // Somebody who leads nobody and offered nothing on the form is a Disciple.
-    expect(html).toContain('A Disciple - not yet paired')
     expect(html).toContain('Back to the Roster')
   })
 
-  it('says why somebody is a Discipler', async () => {
+  it('says no single word for what somebody is, and tags nothing for somebody unpaired', async () => {
+    // Roles per pairing, ticket 03: *On the Roster as* and the Participation Status
+    // chip went, and somebody holding no pairing has no tag and nothing in its place.
     const { cookie } = await signIn(ministry)
+    const person = await addPerson(ministry, 'Tobias Unpaired', { phone: number() })
 
-    // Leads somebody, so a Discipler on that fact alone.
-    const leader = await addPerson(ministry, 'Marcus Webb', { phone: number() })
-    await pairOneToOne(ministry, leader, await addPerson(ministry, 'Ruth Adeyemi', { phone: number() }))
+    const { html } = await getPage(`/roster/${person}`, cookie)
+    expect(html).not.toContain('On the Roster as')
+    expect(html).not.toContain('Ready to Pair')
+    expect(html).not.toContain('A Disciple')
+    expect(html).not.toContain('class="rtags"')
+    expect(tagsOn(html)).toEqual([])
+    // The Pairings card still says it, and Pair is still offered.
+    expect(words(html)).toContain('Pairings Pair Unpaired')
+    expect(offersPair(html)).toBe(true)
+  })
 
-    const led = await getPage(`/roster/${leader}`, cookie)
-    expect(led.html).toContain('A Discipler - disciples somebody')
-    expect(words(led.html)).toContain('Discipling Ruth Adeyemi')
-    expect(led.html).toContain('1:1')
+  it('tags each pairing and each group under the name, with its direction', async () => {
+    const { cookie } = await signIn(ministry)
+    const woman = (name: string) => addPerson(ministry, name, { phone: number(), answers: { gender: 'female' } })
 
-    // Offered on the form and leads nobody yet: a Discipler on the strength of the
-    // offer, which is the fact that puts them on that list ahead of any pairing.
+    // Grace leads Tuesday Women's, with Hannah and Lily in it, and disciples Emily.
+    const tuesday = await formGroup(ministry, {
+      name: 'Tuesday Women’s',
+      declaredGender: 'female',
+      leader: { name: 'Grace Tagged', gender: 'female', phone: number() },
+      disciples: ['Hannah Tagged', 'Lily Tagged'].map((name) => ({ name, gender: 'female' as const, phone: number() })),
+    })
+    const grace = tuesday.leader
+    const [hannah] = tuesday.disciples
+    const emily = await woman('Emily Tagged')
+    const chloe = await woman('Chloe Tagged')
+    const rachel = await woman('Rachel Tagged')
+    await pairOneToOne(ministry, grace, emily, { acceptedAt: new Date() })
+    await pairOneToOne(ministry, rachel, hannah!, { acceptedAt: new Date() })
+    // Emily on both sides: discipled by Grace, and invited to disciple Chloe.
+    await pairOneToOne(ministry, emily, chloe, { acceptedAt: null })
+
+    const emilys = await getPage(`/roster/${emily}`, cookie)
+    // Awaiting acceptance is tagged too; the Pairings card says it is waiting.
+    expect(tagsOn(emilys.html)).toEqual(['disciples Chloe Tagged (rtag)', 'discipled by Grace Tagged (rtag)'])
+    expect(emilys.html).toContain('awaiting acceptance')
+    expect(emilys.html).not.toContain('On the Roster as')
+    expect(emilys.html).not.toContain('A Discipler')
+
+    // A group is named by its name and drawn apart from a one-to-one.
+    const graces = await getPage(`/roster/${grace}`, cookie)
+    expect(tagsOn(graces.html)).toEqual(['disciples Emily Tagged (rtag)', 'leads Tuesday Women’s (rtag grp)'])
+
+    // The one-to-one first, then the group, in the tags and in the Pairings card.
+    const hannahs = await getPage(`/roster/${hannah}`, cookie)
+    expect(tagsOn(hannahs.html)).toEqual(['discipled by Rachel Tagged (rtag)', 'in Tuesday Women’s (rtag grp)'])
+    const card = words(hannahs.html)
+    expect(card.indexOf('Discipled by Rachel Tagged')).toBeLessThan(card.indexOf('Discipled by Grace Tagged in Tuesday'))
+    // Being discipled is no reason to withhold Pair: they may still join a group.
+    expect(offersPair(hannahs.html)).toBe(true)
+    expect(hannahs.html).not.toContain('>Paired<')
+  })
+
+  it('says an offer to mentor under At Intake and nowhere as a tag', async () => {
     // Consent records are append-only, so the answer is a record of its own, as
     // the discipleship wizard writes one: the latest record that asked is what the
     // Roster reads the side from.
+    const { cookie } = await signIn(ministry)
     const offered = await addPerson(ministry, 'Priya Raman', { phone: number() })
     await pool.query(
       `insert into consent_record
@@ -102,8 +163,29 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s own page', () => {
       [ministry.id, offered],
     )
 
-    const page = await getPage(`/roster/${offered}`, cookie)
-    expect(page.html).toContain('offered to on their Intake form, and disciples nobody yet')
+    const { html } = await getPage(`/roster/${offered}`, cookie)
+    expect(words(html)).toContain('At Intake Offered to mentor')
+    expect(tagsOn(html)).toEqual([])
+    expect(html).not.toContain('offered to on their Intake form')
+  })
+
+  it('still tags Awaiting Intake and Opted out, and offers neither Pair', async () => {
+    const { cookie } = await signIn(ministry)
+
+    const imported = await addPerson(ministry, 'Jonah Imported', { phone: number(), intake: false })
+    const waiting = await getPage(`/roster/${imported}`, cookie)
+    expect(tagsOn(waiting.html)).toEqual(['Awaiting Intake (pill awaiting)'])
+    expect(offersPair(waiting.html)).toBe(false)
+
+    // Opted out while still in the pairing they were in: both are said.
+    const leaving = await addPerson(ministry, 'Orla Leaving', { phone: number() })
+    await pairOneToOne(ministry, await addPerson(ministry, 'Petra Staying', { phone: number() }), leaving, {
+      acceptedAt: new Date(),
+    })
+    await optOut(ministry, leaving)
+    const opted = await getPage(`/roster/${leaving}`, cookie)
+    expect(tagsOn(opted.html)).toEqual(['Opted out (pill opted_out)', 'discipled by Petra Staying (rtag)'])
+    expect(offersPair(opted.html)).toBe(false)
   })
 
   it('is not a page for a Person of another Ministry, or for nobody', async () => {

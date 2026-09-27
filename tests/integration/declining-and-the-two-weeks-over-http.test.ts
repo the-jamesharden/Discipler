@@ -5,10 +5,20 @@ import {
   aTestPhoneNumber,
   addPerson,
   createMinistryWithAdmin,
+  enoughForATick,
   formGroup,
   localSupabase,
   type MinistryFixture,
 } from '../support/local-supabase'
+
+/**
+ * For the two weeks below, which run the scheduled tick. The route ticks every
+ * Ministry in the database in turn, and a local database keeps a Ministry per
+ * fixture per run until it is reset, so one tick costs the sum of them and
+ * outgrows any fixed allowance: it is counted from the Ministries the database
+ * holds (`enoughForATick`), before the tests are defined.
+ */
+const enoughForEveryMinistry = await enoughForATick()
 
 /**
  * Manual pairing, recut ticket 06; decided by James on 2026-09-21. Driven end to
@@ -227,14 +237,6 @@ describe.skipIf(skipUnlessAppIsRunning)('declining, and the two weeks, over HTTP
       })
       expect(ticked.status).toBe(200)
     }
-
-    /**
-     * The route ticks every Ministry in the database in turn, and a local database
-     * keeps a Ministry per fixture per run until it is reset, so one tick costs the
-     * sum of them and outgrows the default five seconds in a full run. The allowance
-     * and the reason are `the-scheduled-tick-over-http.test.ts`'s.
-     */
-    const enoughForEveryMinistry = 120_000
 
     it('tells the Admin in red, in James’s words, with Resolve and Copy link to re-invite leader', { timeout: enoughForEveryMinistry }, async () => {
       const { group, claire, name, link } = await invitedToARunningGroup()

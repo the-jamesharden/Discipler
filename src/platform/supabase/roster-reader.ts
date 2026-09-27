@@ -165,8 +165,8 @@ export const rosterFrom = (doc: PageDocument): readonly RosterEntry[] => {
   // Open memberships only: a relationship someone has left says who they were with,
   // not who they are with. The role comes back with them, because a Person leading
   // two relationships and a Person being discipled in two are the same list of
-  // names and opposite situations -- and telling them apart on the row is what
-  // makes `Ready to Pair` beside two names read as a fact rather than a bug.
+  // names and opposite situations -- and telling them apart is what lets every
+  // pairing on the row say which way it runs (Roles per pairing, ticket 02).
   const members = list(roster, 'members')
 
   // A role this reader does not recognise is dropped rather than guessed at. The

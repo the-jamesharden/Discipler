@@ -14,7 +14,7 @@ import {
 import {
   attribute,
   chosenIn,
-  currentList,
+  shownBehind,
   detailsOf,
   expectGreyed,
   expectLeftOut,
@@ -27,6 +27,9 @@ import {
   popupIn,
   postPairing,
   rowFor,
+  sectionsOf,
+  doingNowOf,
+  summaryIn,
 } from '../support/pair-popup'
 
 /**
@@ -109,16 +112,17 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
   const offersToMentor = (personId: string, inMinistry: MinistryFixture = ministry) =>
     recordMentorOffer(pool, inMinistry, personId)
 
-  const popupAt = (list: string, personId: string, more: [string, string][] = []) =>
-    getPage(`/roster?${new URLSearchParams([['list', list], ['pair', personId], ...more])}`, cookie)
+  /** The popup over the Roster showing what `shows` ticks in the Everyone menu (Roles per pairing, ticket 02). */
+  const popupAt = (shows: string, personId: string, more: [string, string][] = []) =>
+    getPage(`/roster?${new URLSearchParams([...new URLSearchParams(shows), ['pair', personId], ...more])}`, cookie)
 
   /** Everybody the popup offers as a Disciple, by the value their box would post, in the order listed. */
   const offered = (popup: string) => offeredAs(popup, 'participantId')
 
   const submit = (fields: [string, string][]) => postPairing(cookie, fields)
 
-  it('opens on the Discipler’s side on Disciplers and on All, from her row', async () => {
-    for (const list of ['disciplers', 'all']) {
+  it('opens on the Discipler’s side from her row, whatever the Roster shows', async () => {
+    for (const list of ['', 'pairings=offered-to-disciple']) {
       const { response, html } = await popupAt(list, claire)
       expect(response.status, list).toBe(200)
       const popup = popupIn(html)
@@ -132,30 +136,35 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
       for (const round of inputsIn(popup!).filter((input) => attribute(input, 'type') === 'radio')) {
         expect(['groupId', 'mode'], list).toContain(attribute(round, 'name'))
       }
-      expect(currentList(html), list).toBe(list === 'all' ? 'All' : 'Disciplers')
-      // The X, Cancel and the backdrop, all to the list it was drawn over.
-      expect(popup!.match(new RegExp(`href="/roster\\?list=${list}"`, 'g')), list).toHaveLength(3)
+      expect(shownBehind(html), list).toBe(list === '' ? 'Everyone' : 'Offered to disciple, not yet discipling')
+      // The X, Cancel and the backdrop, all to the Roster as it was behind it.
+      const back = list === '' ? '/roster' : `/roster?${list}`
+      expect(popup!.split(`href="${back}"`), list).toHaveLength(4)
 
       // Her row opens it, now that the old Pair page has retired (recut ticket 05).
-      const roster = (await getPage(`/roster?list=${list}`, cookie)).html
-      expect(roster, list).toContain(`href="/roster?list=${list}&amp;pair=${claire}"`)
+      const roster = (await getPage(back, cookie)).html
+      expect(roster, list).toContain(`href="/roster?${list === '' ? '' : `${list}&amp;`}pair=${claire}"`)
       expect(roster, list).not.toContain('href="/roster/pair')
     }
   })
 
-  it('lists every Disciple who has completed Intake and not opted out, each with what their row holds', async () => {
-    const popup = popupIn((await popupAt('disciplers', claire)).html)!
+  // Roles per pairing, ticket 01: anybody can be picked to be discipled. The list
+  // opens on who asked to be discipled, and everybody else the gender rule allows
+  // is folded under Everyone else, greyed where they cannot be chosen.
+  it('lists everybody but her, opening on who asked to be discipled, each with what their row holds', async () => {
+    const popup = popupIn((await popupAt('', claire)).html)!
 
-    // Everyone who could be paired, greyed or not, in the Roster's order; and
-    // nobody who has not completed Intake (so nobody with no gender on file), nobody
-    // opted out, and never Claire herself.
+    // Everybody on the Roster, greyed or not, in the Roster's order; never Claire
+    // herself, and nobody gender rules out: he is on her list only once a Group is Coed.
     const listed = offered(popup)
-    expect(listed).toEqual(expect.arrayContaining([sam, ana, brianna, rosa]))
-    for (const absent of [waiting, left, claire]) expect(listed).not.toContain(absent)
-    // And nobody gender rules out: he is on her list only once a Group is Coed.
+    expect(listed).toEqual(expect.arrayContaining([sam, ana, brianna, rosa, grace, waiting, left]))
+    expect(listed).not.toContain(claire)
     expect(listed).not.toContain(tom)
-    expect(popup).toContain(`${listed.length} disciples`)
-    // The toolbar counts and clears. There is no Select all.
+    // The toolbar counts both sections, and clears. There is no Select all.
+    const { first, everyoneElse } = sectionsOf(popup)
+    expect(first).toEqual(expect.arrayContaining([sam, ana]))
+    for (const discipled of [brianna, rosa, grace, waiting, left]) expect(everyoneElse).toContain(discipled)
+    expect(popup).toContain(`${first.length} asked · ${everyoneElse.length} more`)
     expect(popup).not.toMatch(/select all/i)
 
     const samRow = rowFor(popup, sam)
@@ -169,11 +178,18 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     const anaRow = rowFor(popup, ana)
     expect(detailsOf(anaRow)).toBe('New to this')
     expect(anaRow).not.toContain('>-<')
+    expect(doingNowOf(anaRow)).toBeNull()
 
-    // In a group: listed, open, and the row names the group.
+    // In a group: listed, open, and the row's second line says what she does now.
     const rosaRow = rowFor(popup, rosa)
-    expect(rosaRow).toContain('in Grace’s Group')
+    expect(doingNowOf(rosaRow)).toBe('In Grace’s Group')
     expectOpen(popup, rosa)
+    expect(doingNowOf(rowFor(popup, grace))).toBe('Leads Grace’s Group')
+    expectOpen(popup, grace)
+
+    // Somebody who cannot be paired: listed, greyed, in their Roster row's words.
+    expectGreyed(popup, waiting, 'Awaiting Intake')
+    expectGreyed(popup, left, 'Opted out')
 
     // In a one-to-one: listed, and greyed with the reason. Of another gender, while
     // the Ministry enforces the match: not shown at all (James, 2026-09-21).
@@ -182,14 +198,14 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
 
     // Nothing ticked: no sentence, and the button reads Pair. The toggle is there
     // from the start (James, 2026-09-21), on a 1:1 pair, which asks nothing else.
-    expect(popup).not.toContain('in a one-on-one.')
+    expect(summaryIn(popup)).toBeNull()
     expect(popup).toMatch(/<button[^>]*type="submit"[^>]*>Pair<\/button>/)
     expect(segmentsIn(popup)).toEqual([
       { says: '1:1 pair', mode: 'together', selected: true, disabled: false, treatment: 'on' },
       { says: 'Group', mode: 'together', selected: false, disabled: false, treatment: '' },
     ])
     expect(popup).not.toMatch(/name="(declaredGender|name|materialId|joinRequiresApproval)"/)
-    expect(hiddenIn(popup)).toEqual({ pair: claire, list: 'disciplers', leaderId: claire })
+    expect(hiddenIn(popup)).toEqual({ pair: claire, side: 'discipler', leaderId: claire })
     expect(popup).toMatch(/<form[^>]*action="\/roster\/pair\/create"/)
   })
 
@@ -201,7 +217,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     await offersToMentor(lead, relaxed)
     const man = await addPerson(relaxed, 'Tom Wilson', { answers: { gender: 'male' } })
 
-    const { html } = await getPage(`/roster?${new URLSearchParams({ list: 'disciplers', pair: lead })}`, theirCookie)
+    const { html } = await getPage(`/roster?${new URLSearchParams({ pair: lead })}`, theirCookie)
     expectOpen(popupIn(html)!, man)
 
     // A 1:2 pair still declares her gender, whatever the Ministry says of a
@@ -210,25 +226,28 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     const woman = await addPerson(relaxed, 'Sam Lee', { answers: { gender: 'female' } })
     const two = popupIn(
       (await getPage(
-        `/roster?${new URLSearchParams([['list', 'disciplers'], ['pair', lead], ['with', woman], ['with', man]])}`,
+        `/roster?${new URLSearchParams([['pair', lead], ['with', woman], ['with', man]])}`,
         theirCookie,
       )).html,
     )!
     expect(rowFor(two, man)).toMatch(/checked=""/)
     expect(rowFor(two, woman)).toMatch(/checked=""/)
     expect(two).not.toContain('was unticked')
-    expect(two).toContain('Claire Martinez will disciple Sam Lee and Tom Wilson separately, in 2 one-on-ones.')
+    expect(summaryIn(two)).toContain('Claire Martinez will disciple Sam Lee and Tom Wilson separately, in 2 one-on-ones.')
     expect(two).toMatch(/<label><input type="radio" name="mode" value="together"\/>1:2 pair<\/label>/)
   })
 
   it('says what one tick makes, and asks nothing else: no toggle, no Material', async () => {
-    const one = popupIn((await popupAt('disciplers', claire, [['with', sam]])).html)!
+    const one = popupIn((await popupAt('', claire, [['with', sam]])).html)!
     expect(rowFor(one, sam)).toMatch(/checked=""/)
     expect(chosenIn(one)).toEqual([sam])
     // The ticked row takes the selected treatment, and no other row does.
     expect(rowFor(one, sam)).toContain('class="pair-opt on"')
     expect(one.match(/class="pair-opt on/g)).toHaveLength(1)
-    expect(one).toContain('Claire Martinez will disciple Sam Lee in a one-on-one.')
+    // Both sides named, who disciples whom in bold as the mock-ups draw it, and what
+    // Claire is sent (Roles per pairing, ticket 01).
+    expect(one).toContain('<b>Claire Martinez will disciple Sam Lee</b>, one to one.')
+    expect(summaryIn(one)).toContain('Claire Martinez will disciple Sam Lee, one to one. Claire is sent an invitation to accept')
     expect(one).toMatch(/<button[^>]*type="submit"[^>]*>Create 1:1 pair<\/button>/)
     // The toggle is on a 1:1 pair at one tick, and a single one-to-one asks nothing,
     // a Material included, though the Ministry holds two.
@@ -261,7 +280,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     }))
 
   it('asks what to make of two ticked, defaulting to a 1:2 pair that is named and declared without asking', async () => {
-    const two = popupIn((await popupAt('disciplers', claire, [['with', sam], ['with', ana]])).html)!
+    const two = popupIn((await popupAt('', claire, [['with', sam], ['with', ana]])).html)!
     expect([...chosenIn(two)].sort()).toEqual([sam, ana].sort())
     expect(two).toContain('Pair them as')
     expect(segmentsIn(two)).toEqual([
@@ -271,7 +290,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     ])
     expect(two).not.toContain('needs exactly two')
     // Named in the list's order, which is the Roster's, whatever order they were ticked in.
-    expect(two).toContain('Claire Martinez will disciple Ana Ruiz and Sam Lee together as a 1:2 pair.')
+    expect(summaryIn(two)).toContain('Claire Martinez will disciple Ana Ruiz and Sam Lee together as a 1:2 pair.')
     expect(two).toMatch(/<button[^>]*type="submit"[^>]*>Create 1:2 pair<\/button>/)
     expect(two).not.toMatch(/<button[^>]*type="submit"[^>]*disabled/)
 
@@ -279,7 +298,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     // is the Discipler's gender. A 1:2 is a group for every rule, so it carries both.
     expect(hiddenIn(two)).toEqual({
       pair: claire,
-      list: 'disciplers',
+      side: 'discipler',
       leaderId: claire,
       name: 'Claire with Ana &amp; Sam',
       declaredGender: 'female',
@@ -302,17 +321,17 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
 
   it('shows one dropdown per ticked Disciple for N × 1:1 pairs, each labelled with their name', async () => {
     const separately = popupIn(
-      (await popupAt('disciplers', claire, [['with', sam], ['with', ana], ['mode', 'separate']])).html,
+      (await popupAt('', claire, [['with', sam], ['with', ana], ['mode', 'separate']])).html,
     )!
     expect(segmentsIn(separately).map(({ says, selected }) => [says, selected])).toEqual([
       ['1:2 pair', false],
       ['2 × 1:1 pairs', true],
       ['Group', false],
     ])
-    expect(separately).toContain('Claire Martinez will disciple Ana Ruiz and Sam Lee separately, in 2 one-on-ones.')
+    expect(summaryIn(separately)).toContain('Claire Martinez will disciple Ana Ruiz and Sam Lee separately, in 2 one-on-ones.')
     expect(separately).toMatch(/<button[^>]*type="submit"[^>]*>Create 2 1:1 pairs<\/button>/)
     // Nothing of a group is posted: a one-to-one has nothing a name is for.
-    expect(hiddenIn(separately)).toEqual({ pair: claire, list: 'disciplers', leaderId: claire })
+    expect(hiddenIn(separately)).toEqual({ pair: claire, side: 'discipler', leaderId: claire })
 
     expect(separately).toContain('What is each of them running?')
     const offers = ['No material', 'Gospel of Mark', 'Romans']
@@ -324,7 +343,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
 
   it('strikes 1:2 pair out at three ticked, says why beneath the toggle, and counts the N', async () => {
     const three = popupIn(
-      (await popupAt('disciplers', claire, [['with', sam], ['with', ana], ['with', rosa], ['mode', 'separate']])).html,
+      (await popupAt('', claire, [['with', sam], ['with', ana], ['with', rosa], ['mode', 'separate']])).html,
     )!
     expect(segmentsIn(three)).toEqual([
       { says: '1:2 pair', mode: 'together', selected: false, disabled: true, treatment: 'struck' },
@@ -332,7 +351,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
       { says: 'Group', mode: 'together', selected: false, disabled: false, treatment: '' },
     ])
     expect(three).toMatch(/<p class="pair-hint" id="pair-shape-hint">1:2 pair needs exactly two checked<\/p>/)
-    expect(three).toContain('separately, in 3 one-on-ones.')
+    expect(summaryIn(three)).toContain('separately, in 3 one-on-ones.')
     expect(three).toMatch(/<button[^>]*type="submit"[^>]*>Create 3 1:1 pairs<\/button>/)
     expect(dropdownsIn(three).map(({ labelled }) => labelled)).toEqual(['Ana Ruiz', 'Rosa Delgado', 'Sam Lee'])
   })
@@ -353,7 +372,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
 
   it('defaults to a Group at three ticked, preset from the Discipler, and asks its name and one Material (mock state D)', async () => {
     const three = popupIn(
-      (await popupAt('disciplers', claire, [['with', sam], ['with', ana], ['with', rosa]])).html,
+      (await popupAt('', claire, [['with', sam], ['with', ana], ['with', rosa]])).html,
     )!
     expect(segmentsIn(three)).toEqual([
       { says: '1:2 pair', mode: 'together', selected: false, disabled: true, treatment: 'struck' },
@@ -388,7 +407,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     expect(three).toContain('Claire Martinez will lead a women’s group of 3: Ana Ruiz, Rosa Delgado and Sam Lee.')
     expect(three).toMatch(/<button[^>]*type="submit"[^>]*>Create group of 3<\/button>/)
     // It says that it is a Group, for the way back, and nothing is generated for it.
-    expect(hiddenIn(three)).toEqual({ pair: claire, list: 'disciplers', leaderId: claire, shape: 'group' })
+    expect(hiddenIn(three)).toEqual({ pair: claire, side: 'discipler', leaderId: claire, shape: 'group' })
 
     // Other-gender rows are not shown until Coed is chosen; one-to-ones and other groups grey nobody.
     expectLeftOut(three, tom)
@@ -397,7 +416,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
   })
 
   it('offers a Group before anybody is ticked, which is how Coed is reached, and waits for two and a name', async () => {
-    const group = popupIn((await popupAt('disciplers', claire, [['shape', 'group']])).html)!
+    const group = popupIn((await popupAt('', claire, [['shape', 'group']])).html)!
     expect(segmentsIn(group)).toEqual([
       { says: '1:1 pair', mode: 'together', selected: false, disabled: false, treatment: '' },
       { says: 'Group', mode: 'together', selected: true, disabled: false, treatment: 'on' },
@@ -413,20 +432,20 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     expectOpen(group, brianna)
 
     // Coed, with nobody ticked: he is on the list, and counted.
-    const coed = popupIn((await popupAt('disciplers', claire, [['shape', 'group'], ['declaredGender', 'mixed']])).html)!
+    const coed = popupIn((await popupAt('', claire, [['shape', 'group'], ['declaredGender', 'mixed']])).html)!
     expect(declaresIn(coed).find(({ on }) => on)?.says).toBe('Coed')
     expectOpen(coed, tom)
-    expect(coed).toContain(`${offered(coed).length} disciples`)
+    expect(coed).toContain(`${sectionsOf(coed).first.length} asked · ${sectionsOf(coed).everyoneElse.length} more`)
     expect(offered(coed).length).toBe(offered(group).length + 1)
 
     // A declaration her own gender rules out is not restored from an address either.
-    const mens = popupIn((await popupAt('disciplers', claire, [['shape', 'group'], ['declaredGender', 'male']])).html)!
+    const mens = popupIn((await popupAt('', claire, [['shape', 'group'], ['declaredGender', 'male']])).html)!
     expect(declaresIn(mens).find(({ on }) => on)?.says).toBe('Women’s')
   })
 
   it('opens other-gender rows under Coed, and the sentence says coed', async () => {
     const coed = popupIn(
-      (await popupAt('disciplers', claire, [
+      (await popupAt('', claire, [
         ['with', sam],
         ['with', tom],
         ['shape', 'group'],
@@ -441,14 +460,14 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     expect(rowFor(coed, sam)).toMatch(/checked=""/)
     expectOpen(coed, tom)
     // And he is counted now that he is shown.
-    expect(coed).toContain(`${offered(coed).length} disciples`)
+    expect(coed).toContain(`${sectionsOf(coed).first.length} asked · ${sectionsOf(coed).everyoneElse.length} more`)
     expect(coed).not.toContain('was unticked')
     expect(coed).toMatch(/Claire Martinez will lead a coed group of 2: (Sam Lee and Tom Wilson|Tom Wilson and Sam Lee)\./)
     expect(attribute(nameFieldIn(coed)!, 'value')).toBe('Thursday Table')
 
     // The same two as a women's group: he is greyed, so he is unticked, and a line says who.
     const womens = popupIn(
-      (await popupAt('disciplers', claire, [
+      (await popupAt('', claire, [
         ['with', sam],
         ['with', tom],
         ['shape', 'group'],
@@ -461,29 +480,29 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
 
   it('opens somebody already in a one-to-one for a 1:2 pair, and unticks them, saying who, for N × 1:1', async () => {
     // With one ticked, a second tick would make a 1:2 pair, which she can be in.
-    const one = popupIn((await popupAt('disciplers', claire, [['with', sam]])).html)!
+    const one = popupIn((await popupAt('', claire, [['with', sam]])).html)!
     expectOpen(one, brianna)
     // Another gender is left out for a 1:2 as for a one-to-one: it declares Claire's.
     expectLeftOut(one, tom)
 
-    const together = popupIn((await popupAt('disciplers', claire, [['with', sam], ['with', brianna]])).html)!
+    const together = popupIn((await popupAt('', claire, [['with', sam], ['with', brianna]])).html)!
     expect(rowFor(together, brianna)).toMatch(/checked=""/)
-    expect(together).toContain('Claire Martinez will disciple Brianna Frazier and Sam Lee together as a 1:2 pair.')
+    expect(summaryIn(together)).toContain('Claire Martinez will disciple Brianna Frazier and Sam Lee together as a 1:2 pair.')
     expect(together).not.toContain('was unticked')
 
     // The same two as N x 1:1: she is greyed, so she is unticked, and a line says
     // who. That leaves one, so it is a 1:1 pair again and the one-tick sentence returns.
     const apart = popupIn(
-      (await popupAt('disciplers', claire, [['with', sam], ['with', brianna], ['mode', 'separate']])).html,
+      (await popupAt('', claire, [['with', sam], ['with', brianna], ['mode', 'separate']])).html,
     )!
     expect(rowFor(apart, brianna)).not.toMatch(/checked=""/)
     expect(apart).toMatch(/role="status"[^>]*>Brianna Frazier was unticked: Already in a 1:1 with David Chen\.</)
     expect(segmentsIn(apart).find(({ selected }) => selected)?.says).toBe('1:1 pair')
-    expect(apart).toContain('Claire Martinez will disciple Sam Lee in a one-on-one.')
+    expect(summaryIn(apart)).toContain('Claire Martinez will disciple Sam Lee, one to one.')
   })
 
   it('greys 1:2 pair and Group for a Discipler who already leads a group, and the default moves to N × 1:1', async () => {
-    const popup = popupIn((await popupAt('disciplers', grace, [['with', sam], ['with', ana]])).html)!
+    const popup = popupIn((await popupAt('', grace, [['with', sam], ['with', ana]])).html)!
     expect(segmentsIn(popup)).toEqual([
       { says: '1:2 pair', mode: 'together', selected: false, disabled: true, treatment: 'off' },
       { says: '2 × 1:1 pairs', mode: 'separate', selected: true, disabled: false, treatment: 'on' },
@@ -491,7 +510,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
       { says: 'Group', mode: 'together', selected: false, disabled: true, treatment: 'off' },
     ])
     expect(popup).toMatch(/<p class="pair-hint" id="pair-shape-hint">Grace already leads a group<\/p>/)
-    expect(popup).toContain('Grace Lee will disciple Ana Ruiz and Sam Lee separately, in 2 one-on-ones.')
+    expect(summaryIn(popup)).toContain('Grace Lee will disciple Ana Ruiz and Sam Lee separately, in 2 one-on-ones.')
   })
 
   it('keeps a group that has fallen to one Disciple a group, for both caps and from both sides', async () => {
@@ -513,16 +532,16 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
 
     // Its last Disciple is in a group of one, and not in a one-to-one: a Discipler
     // can tick her, where the head count used to grey her as *Already in a 1:1*.
-    const fromClaire = popupIn((await popupAt('disciplers', claire)).html)!
+    const fromClaire = popupIn((await popupAt('', claire)).html)!
     expectOpen(fromClaire, last)
     expect(rowFor(fromClaire, last)).toContain('Olive Last')
 
     // And from her own side every Discipler she could be given is open.
-    const fromHer = popupIn((await popupAt('disciples', last)).html)!
+    const fromHer = popupIn((await popupAt('', last)).html)!
     expectOpen(fromHer, claire)
 
     // Its Discipler still leads her one group, so a 1:2 pair is ruled out for her.
-    const fromNora = popupIn((await popupAt('disciplers', shrunk.leader, [['with', sam], ['with', ana]])).html)!
+    const fromNora = popupIn((await popupAt('', shrunk.leader, [['with', sam], ['with', ana]])).html)!
     expect(segmentsIn(fromNora)[0]).toMatchObject({ says: '1:2 pair', disabled: true, treatment: 'off' })
     expect(fromNora).toContain('Nora already leads a group')
   })
@@ -537,7 +556,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
 
     for (const mode of ['together', 'separate']) {
       const { html } = await getPage(
-        `/roster?${new URLSearchParams([['list', 'disciplers'], ['pair', lead], ['with', one], ['with', other], ['mode', mode]])}`,
+        `/roster?${new URLSearchParams([['pair', lead], ['with', one], ['with', other], ['mode', mode]])}`,
         theirCookie,
       )
       const popup = popupIn(html)!
@@ -554,7 +573,6 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     // and the declaration a 1:2 pair posts, so pressing the button again makes it.
     const location = await submit([
       ['pair', claire],
-      ['list', 'disciplers'],
       ['leaderId', claire],
       ['participantId', sam],
       ['participantId', ana],
@@ -572,7 +590,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     expect(rowFor(popup, ana)).toMatch(/checked=""/)
     expect(segmentsIn(popup).find(({ selected }) => selected)?.says).toBe('1:2 pair')
     expect(hiddenIn(popup)).toMatchObject({ name: 'Claire with Ana &amp; Sam', declaredGender: 'female' })
-    expect(currentList(html)).toBe('Disciplers')
+    expect(shownBehind(html)).toBe('Everyone')
 
     const formed = await pool.query(
       `select 1 from relationship_member where person_id = any($1::uuid[])`,
@@ -581,16 +599,16 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     expect(formed.rows).toEqual([])
   })
 
-  it('forms a one-to-one awaiting acceptance, and the receipt is on the list the Admin was on', async () => {
+  it('forms a one-to-one awaiting acceptance, and the receipt lands on the Roster', async () => {
     const disciple = await addPerson(ministry, 'Lena Brandt', { phone: number(), answers: { gender: 'female' } })
 
-    const location = await submit([['pair', claire], ['list', 'disciplers'], ['leaderId', claire], ['participantId', disciple]])
+    const location = await submit([['pair', claire], ['leaderId', claire], ['participantId', disciple]])
     expect(location.pathname).toBe('/roster')
-    expect(Object.fromEntries(location.searchParams)).toEqual({ list: 'disciplers', paired: '1' })
+    expect(Object.fromEntries(location.searchParams)).toEqual({ paired: '1' })
 
     const { html } = await getPage(`${location.pathname}${location.search}`, cookie)
     expect(popupIn(html)).toBeNull()
-    expect(currentList(html)).toBe('Disciplers')
+    expect(shownBehind(html)).toBe('Everyone')
     expect(html).toContain('They are paired.')
 
     const formed = await pool.query(
@@ -606,10 +624,9 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
   it('reopens on a refusal on the Discipler’s side, with the reason and the tick restored', async () => {
     // Posted anyway, a greyed row is refused by the database as it always was, and
     // the address carries who was ticked. A greyed tick is not restored as ticked.
-    const location = await submit([['pair', claire], ['list', 'all'], ['leaderId', claire], ['participantId', tom]])
+    const location = await submit([['pair', claire], ['leaderId', claire], ['participantId', tom]])
     expect(location.pathname).toBe('/roster')
     expect([...location.searchParams]).toEqual([
-      ['list', 'all'],
       ['pair', claire],
       ['error', 'relationship.gender_must_match'],
       ['with', tom],
@@ -622,20 +639,20 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     expect(chosenIn(refused)).toEqual([])
 
     // A tick that can still be made comes back ticked, with its sentence and button.
-    const { html } = await popupAt('all', claire, [
+    const { html } = await popupAt('', claire, [
       ['error', 'relationship.person_already_in_this_relationship'],
       ['with', sam],
     ])
     const popup = popupIn(html)!
     expect(popup).toMatch(/role="alert"/)
     expect(rowFor(popup, sam)).toMatch(/checked=""/)
-    expect(popup).toContain('Claire Martinez will disciple Sam Lee in a one-on-one.')
-    expect(currentList(html)).toBe('All')
+    expect(summaryIn(popup)).toContain('Claire Martinez will disciple Sam Lee, one to one.')
+    expect(shownBehind(html)).toBe('Everyone')
     // The refusal is the popup's, so the import dialog behind it is shut.
     expect(html.match(/class="modal-bg open"/g)).toHaveLength(1)
 
-    // And somebody not on the list is restored as nobody.
-    const stranger = popupIn((await popupAt('all', claire, [['with', waiting]])).html)!
+    // And somebody who cannot be chosen, greyed on the list, is restored as nobody.
+    const stranger = popupIn((await popupAt('', claire, [['with', waiting]])).html)!
     expect(chosenIn(stranger)).toEqual([])
   })
 
@@ -711,7 +728,6 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
 
       const receipt = await post([
         ['pair', claireHere],
-        ['list', 'disciplers'],
         ['leaderId', claireHere],
         ['name', 'Claire with Sam & Ana'],
         ['declaredGender', 'female'],
@@ -720,7 +736,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
         ['mode', 'together'],
         ['materialId', gospel],
       ])
-      expect(Object.fromEntries(receipt.searchParams)).toEqual({ list: 'disciplers', paired: '2' })
+      expect(Object.fromEntries(receipt.searchParams)).toEqual({ paired: '2' })
 
       const [theirs, ...others] = await discipledIn(samHere)
       expect(others).toEqual([])
@@ -743,13 +759,12 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
 
       const receipt = await post([
         ['pair', lead],
-        ['list', 'all'],
         ['leaderId', lead],
         ...three.map((id): [string, string] => ['participantId', id]),
         ['mode', 'separate'],
         ...three.map((id): [string, string] => [`materialId.${id}`, '']),
       ])
-      expect(Object.fromEntries(receipt.searchParams)).toEqual({ pairs: '3', list: 'all' })
+      expect(Object.fromEntries(receipt.searchParams)).toEqual({ pairs: '3' })
       for (const id of three) {
         expect(await discipledIn(id)).toMatchObject([{ name: null, intended: null, disciples: '1' }])
       }
@@ -757,7 +772,6 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
       const two = [await woman('Mara Fourth'), await woman('Nell Fifth')]
       await post([
         ['pair', lead],
-        ['list', 'all'],
         ['leaderId', lead],
         ['participantId', two[0]!],
         ['participantId', two[1]!],
@@ -777,7 +791,6 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
 
       const back = await post([
         ['pair', lead],
-        ['list', 'disciplers'],
         ['leaderId', lead],
         ['participantId', first],
         ['participantId', man],
@@ -788,7 +801,6 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
       ])
       expect(back.pathname).toBe('/roster')
       expect([...back.searchParams]).toEqual([
-        ['list', 'disciplers'],
         ['pair', lead],
         ['error', 'relationship.gender_must_match'],
         ['about', man],
@@ -833,7 +845,6 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
       // N x 1:1: the refusal names who it was chosen for, which is which dropdown.
       const apart = await post([
         ['pair', lead],
-        ['list', 'disciplers'],
         ['leaderId', lead],
         ['participantId', first],
         ['participantId', second],
@@ -855,7 +866,6 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
       // A 1:2 pair: one dropdown, and the same refusal.
       const together = await post([
         ['pair', lead],
-        ['list', 'disciplers'],
         ['leaderId', lead],
         ['name', 'Ida with Jo & Kit'],
         ['declaredGender', 'female'],
@@ -881,7 +891,6 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
 
       const { html } = await getPage(
         `/roster?${new URLSearchParams([
-          ['list', 'disciplers'],
           ['pair', lead],
           ['error', 'relationship.person_already_in_this_relationship'],
           ['with', first],
@@ -913,7 +922,6 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
 
       const receipt = await post([
         ['pair', lead],
-        ['list', 'disciplers'],
         ['leaderId', lead],
         ['shape', 'group'],
         ...three.map((id): [string, string] => ['participantId', id]),
@@ -922,7 +930,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
         ['name', 'Ruth’s Group'],
         ['materialId', letters],
       ])
-      expect(Object.fromEntries(receipt.searchParams)).toEqual({ list: 'disciplers', paired: '3' })
+      expect(Object.fromEntries(receipt.searchParams)).toEqual({ paired: '3' })
 
       const [theirs, ...others] = await discipledIn(three[0]!)
       expect(others).toEqual([])
@@ -945,7 +953,6 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
 
       const receipt = await post([
         ['pair', lead],
-        ['list', 'disciplers'],
         ['leaderId', lead],
         ['shape', 'group'],
         ['participantId', her],
@@ -970,7 +977,6 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
 
       const back = await post([
         ['pair', lead],
-        ['list', 'disciplers'],
         ['leaderId', lead],
         ['shape', 'group'],
         ['participantId', first],
@@ -983,7 +989,6 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
       ])
       expect(back.pathname).toBe('/roster')
       expect([...back.searchParams]).toEqual([
-        ['list', 'disciplers'],
         ['pair', lead],
         ['error', 'relationship.gender_does_not_match_the_declaration'],
         ['with', first],
@@ -1016,7 +1021,6 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
 
       const back = await post([
         ['pair', lead],
-        ['list', 'disciplers'],
         ['leaderId', lead],
         ['shape', 'group'],
         ...three.map((id): [string, string] => ['participantId', id]),
@@ -1040,7 +1044,6 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
 
       const back = await post([
         ['pair', lead],
-        ['list', 'all'],
         ['leaderId', lead],
         ['shape', 'group'],
         ...two.map((id): [string, string] => ['participantId', id]),
@@ -1065,7 +1068,6 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
 
       const back = await post([
         ['pair', lead],
-        ['list', 'disciplers'],
         ['leaderId', lead],
         ['name', 'Opal with Pia & Quin'],
         ['participantId', first],

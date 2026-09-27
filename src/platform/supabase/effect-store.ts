@@ -457,11 +457,16 @@ const keywordRelationships = async (
     accepted_at: Date | null
     ended_at: Date | null
     paused: boolean
+    name: string | null
   }>(
     `with held as (${selectingIdHeldAsAndHeldAcceptedAt})
      select r.id as relationship_id,
             held.held_as,
             r.created_at,
+            -- What a named group is called in a menu line and every answer to one,
+            -- as the check-in's opening question calls it (Roles per pairing,
+            -- ticket 04). Null on a one-to-one and on a group nobody has named.
+            r.name,
             -- Accepted, for whoever holds it. A Leader who has not accepted a
             -- relationship that is running -- a Discipler an Admin added to a group
             -- since it started (Manual pairing, ticket 22) -- has agreed to lead
@@ -556,6 +561,7 @@ const keywordRelationships = async (
     acceptedAt: row.accepted_at,
     endedAt: row.ended_at,
     paused: row.paused,
+    name: row.name,
     // The open members where there are any. Every message a keyword route composes
     // is for a relationship that passed the eligibility rule, and an ended one never
     // does -- so what these carry for a live relationship is exactly its open

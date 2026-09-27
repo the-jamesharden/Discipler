@@ -4,6 +4,7 @@ import {
   checkInThankYou,
   concernDetailRequest,
   meetingQuestion,
+  relationshipSubject,
   satisfactionQuestion,
 } from '~/domain/outbound-copy'
 
@@ -15,6 +16,29 @@ import {
  */
 
 const ministryName = 'ABC Church'
+
+/**
+ * The one rule every text that names a relationship names it by: the check-in's
+ * opening question, and the keyword menus and confirmations (Roles per pairing,
+ * ticket 04). Composed once so the two cannot drift.
+ */
+describe('how a text names a relationship', () => {
+  it('names a named group by its name', () => {
+    expect(
+      relationshipSubject({
+        name: "Tuesday Women's",
+        otherSide: ['Hannah Brooks', 'Lily Evans'],
+      }),
+    ).toBe("Tuesday Women's")
+  })
+
+  it('names an unnamed group, and a one-to-one, by the people on the other side', () => {
+    expect(relationshipSubject({ name: null, otherSide: ['Hannah Brooks', 'Lily Evans'] })).toBe(
+      'Hannah Brooks and Lily Evans',
+    )
+    expect(relationshipSubject({ name: null, otherSide: ['Grace Lee'] })).toBe('Grace Lee')
+  })
+})
 
 describe('the check-in conversation', () => {
   it('asks whether the meeting happened, naming who it was with', () => {

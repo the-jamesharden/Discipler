@@ -72,9 +72,10 @@ export const readKeyword = (body: string): Keyword | null => {
  *
  * It carries every open member rather than a list of names, because two of the
  * three keywords need more than names: a resume writes to everybody in the
- * relationship, and a `swap_requested` item names the Person who asked. Names for a
- * menu line are `otherSideOf` below, derived from the members rather than loaded
- * beside them, so the sentence and the recipients cannot disagree.
+ * relationship, and a `swap_requested` item names the Person who asked. The people
+ * a menu line names, where it names people, are `otherSideOf` below, derived from
+ * the members rather than loaded beside them, so the sentence and the recipients
+ * cannot disagree.
  */
 export interface KeywordRelationship {
   readonly relationshipId: RelationshipId
@@ -97,6 +98,13 @@ export interface KeywordRelationship {
    */
   readonly endedAt: Date | null
   readonly paused: boolean
+  /**
+   * What the Ministry calls it, where an Admin has named it. A named group is named
+   * by its name in a menu line and every answer to one, as the check-in's opening
+   * question names it; an unnamed group and a one-to-one by the people on the other
+   * side (Roles per pairing, ticket 04).
+   */
+  readonly name: string | null
   /** Everyone holding an open membership, whatever their role. */
   readonly members: readonly KeywordMember[]
 }
@@ -204,7 +212,8 @@ export const leadsAnything = (holds: readonly KeywordRelationship[]): boolean =>
 
 /**
  * The people on the other side of a relationship from the Person holding it. What a
- * menu line names, and who a Resume Message tells a Leader they are meeting again.
+ * menu line names where the relationship has no name, and who a Resume Message
+ * tells a Leader they are meeting again.
  */
 export const otherSideOf = (
   relationship: KeywordRelationship,
