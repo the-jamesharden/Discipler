@@ -290,22 +290,25 @@ describe('provisioning a Ministry and its first Admin', () => {
 
   it('refuses a timezone the dispatcher cannot read, before there is an account to take back', async () => {
     const adminPhone = aTestPhoneNumber()
+    // Named per run: the database keeps every Ministry, and the Setup Link's suite
+    // opens one of its own with a clock, so a fixed name would find that one.
+    const name = `Unclocked Fellowship ${crypto.randomUUID()}`
 
     await expect(
       provisionMinistry({
-        name: 'Clockless Fellowship',
+        name,
         sendingNumber: aTestPhoneNumber(),
         timezone: 'CEST',
         admin: { fullName: 'No Clock', phone: adminPhone, password: 'a-long-enough-password' },
       }),
     ).rejects.toThrow(/unknown timezone/)
 
-    const { rows } = await pool.query(`select id from ministry where name = $1`, ['Clockless Fellowship'])
+    const { rows } = await pool.query(`select id from ministry where name = $1`, [name])
     expect(rows).toHaveLength(0)
 
     // No account either: the number is still free to open a Ministry with.
     const provisioned = await provisionMinistry({
-      name: 'Clockless Fellowship, Second Attempt',
+      name: `${name}, Second Attempt`,
       sendingNumber: aTestPhoneNumber(),
       timezone: 'America/New_York',
       admin: { fullName: 'No Clock', phone: adminPhone, password: 'a-long-enough-password' },
