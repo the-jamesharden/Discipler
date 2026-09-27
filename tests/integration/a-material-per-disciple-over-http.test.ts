@@ -191,7 +191,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Material per Disciple in a separate s
       ['participantId', sam],
       ['participantId', ana],
       ['declaredGender', 'female'],
-      ['name', 'Claire with Sam & Ana'],
+      ['name', 'Claire’s Group'],
       ['materialId', mark],
       [`materialId.${sam}`, romans],
     ])

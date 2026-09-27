@@ -239,8 +239,8 @@ export const PairPopupFromADiscipler = ({
           ? { personId: person.id, [JOIN_AS_FIELD]: AS_A_LEADER }
           : {
               leaderId: person.id,
-              // Named and declared without asking, and neither is shown.
-              ...(oneToTwo ? postedByAOneToTwo({ discipler: person.fullName, disciples: [firstTicked, secondTicked], declaredGender }) : {}),
+              // Declared without asking, and said to be a 1:2 pair, which keeps no name.
+              ...(oneToTwo ? postedByAOneToTwo({ declaredGender }) : {}),
               // A Group is asked both, in the open. It says only that it is one, for the way back from a refusal.
               ...(toggle?.selected === GROUP_SHAPE ? postedByAGroup : {}),
             }

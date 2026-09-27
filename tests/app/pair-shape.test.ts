@@ -12,6 +12,7 @@ import {
   selectionFrom,
   shapeOf,
   shapeToggle,
+  wasPostedByAOneToTwo,
   type PairSelection,
   type PairSelectionContext,
   type PairShape,
@@ -826,12 +827,12 @@ describe('what comes back from a refusal', () => {
     const undeclared = selectionFrom(context, { ...NOTHING_RESTORED, tickedIds: ['sam', 'ana'], picked: 'group' })
     expect(undeclared.declared).toBe('female')
 
-    // Nor a name: a 1:2 pair's is generated, and is never something the Admin typed.
+    // Nor a name: only a Group is named, and a 1:2 pair keeps none.
     const notAGroup = selectionFrom(context, {
       ...NOTHING_RESTORED,
       tickedIds: ['sam', 'ana'],
       declared: 'mixed',
-      name: 'Claire with Sam & Ana',
+      name: 'Tuesday Women’s',
     })
     expect(shapeOf(context, notAGroup)?.selected).toBe('one_to_two')
     expect(notAGroup.declared).toBe('female')
@@ -878,20 +879,27 @@ describe('what each shape posts to the pairing route', () => {
     expect(postedByAGroup).toEqual({ shape: 'group' })
     expect(pickedFrom({ mode: 'together', shape: 'group' })).toBe('group')
     expect(pickedFrom({ mode: 'separate', shape: undefined })).toBe('separate')
-    // A 1:2 pair says nothing of itself, and neither does anything somebody typed.
+    // Neither a 1:2 pair nor anything somebody typed comes back as a Group: two
+    // ticks open on the 1:2 pair they default to.
     expect(pickedFrom({ mode: 'together', shape: undefined })).toBeNull()
+    expect(pickedFrom({ mode: 'together', shape: 'one_to_two' })).toBeNull()
     expect(pickedFrom({ mode: undefined, shape: 'a-circle' })).toBeNull()
   })
 
-  it('posts a 1:2 pair’s generated name and the Discipler’s gender as its declaration, unasked', () => {
-    expect(
-      postedByAOneToTwo({ discipler: 'Claire Martinez', disciples: ['Sam Lee', 'Ana Ruiz'], declaredGender: 'female' }),
-    ).toEqual({ name: 'Claire with Sam & Ana', declaredGender: 'female' })
+  it('posts that it is a 1:2 pair and the Discipler’s gender as its declaration, unasked, and no name', () => {
+    // James, 2026-09-27: a 1:2 pair keeps no name, so the route has to be told
+    // the shape, which a Group of the same three people would otherwise be.
+    const posted = postedByAOneToTwo({ declaredGender: 'female' })
+    expect(posted).toEqual({ shape: 'one_to_two', declaredGender: 'female' })
+    expect(posted).not.toHaveProperty('name')
+    expect(wasPostedByAOneToTwo(posted.shape)).toBe(true)
+    expect(wasPostedByAOneToTwo(postedByAGroup.shape)).toBe(false)
+    expect(wasPostedByAOneToTwo(null)).toBe(false)
   })
 
   it('posts no declaration for a Discipler with no gender on file, and leaves the refusal to the domain', () => {
-    const posted = postedByAOneToTwo({ discipler: 'Claire Martinez', disciples: ['Sam Lee', 'Ana Ruiz'], declaredGender: null })
-    expect(posted).toEqual({ name: 'Claire with Sam & Ana' })
+    const posted = postedByAOneToTwo({ declaredGender: null })
+    expect(posted).toEqual({ shape: 'one_to_two' })
     expect(posted).not.toHaveProperty('declaredGender')
   })
 })

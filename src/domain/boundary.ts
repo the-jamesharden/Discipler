@@ -236,6 +236,7 @@ import {
   needsAGenderDeclaration,
   needsAName,
   readGroupName,
+  type FormedShape,
   type MemberRole,
   type NewMembership,
   type NewRelationship,
@@ -2493,6 +2494,7 @@ const formRelationship = (
     readonly leaderIds: readonly PersonId[]
     readonly participantIds: readonly PersonId[]
     readonly declaredGender: Gender | null | undefined
+    readonly shape: FormedShape | undefined
     readonly name: string | null | undefined
     readonly joinRequiresApproval: boolean | undefined
     readonly materialId: MaterialId | undefined
@@ -2544,10 +2546,11 @@ const formRelationship = (
   // name: it is called by the two people in it, and a name typed for one is
   // dropped rather than kept -- unlike the declaration above, which binds the
   // same way whatever the shape, a name on a pair would change what the weekly
-  // question calls two people.
-  const isAGroup = needsAName(leaderIds.length, participantIds.length)
-  const name = isAGroup ? readGroupName(forming.name) : null
-  if (isAGroup && name === null) {
+  // question calls two people. A 1:2 pair has none for the same reason, and is
+  // on no link (James, 2026-09-27): every text calls it by its people.
+  const isNamed = needsAName(leaderIds.length, participantIds.length, forming.shape)
+  const name = isNamed ? readGroupName(forming.name) : null
+  if (isNamed && name === null) {
     throw new PairingRefused('relationship.needs_a_name')
   }
   // The Material chosen on the form, checked against the live list read in this
@@ -2571,10 +2574,10 @@ const formRelationship = (
     // whatever is on the column.
     declaredGender: declaredGender ?? null,
     name,
-    // Off unless the Admin said otherwise, and off for a one-to-one whatever
-    // was said, since the group link never offers one. The default is a
-    // product decision and lives in the ADR, not in a form's initial state.
-    joinRequiresApproval: isAGroup && (forming.joinRequiresApproval ?? false),
+    // Off unless the Admin said otherwise, and off for a one-to-one and a 1:2
+    // pair whatever was said, since the group link offers neither. The default
+    // is a product decision and lives in the ADR, not in a form's initial state.
+    joinRequiresApproval: isNamed && (forming.joinRequiresApproval ?? false),
     // Kept whatever the shape. A name on a pair would change what the weekly
     // question calls two people; a Material binds a one-to-one exactly as it
     // binds a group, which is the reasoning the declaration above carries.
@@ -5773,6 +5776,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           leaderIds,
           participantIds,
           declaredGender,
+          shape: command.shape,
           name: command.name,
           joinRequiresApproval: command.joinRequiresApproval,
           materialId: command.materialId,
@@ -5845,6 +5849,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           leaderIds: [plan.leader.personId],
           participantIds: [plan.participant.personId],
           declaredGender: undefined,
+          shape: undefined,
           name: null,
           joinRequiresApproval: false,
           // A plan an import made names two people and nothing else.

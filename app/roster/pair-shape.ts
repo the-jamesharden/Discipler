@@ -1,6 +1,6 @@
 import type { Gender } from '~/domain/intake'
+import { ONE_TO_TWO } from '~/domain/relationships'
 import { readPairingMode, type PairingMode } from '~/domain/separate-pairings'
-import { PAIR_POPUP } from './copy'
 import { GROUP_DECLARATIONS, MIXED, type GroupDeclaration } from './declared-gender'
 
 /**
@@ -28,7 +28,7 @@ import { GROUP_DECLARATIONS, MIXED, type GroupDeclaration } from './declared-gen
  * the three shapes two or more can be. A Group is a segment of the one toggle, not a
  * second mechanism (Manual pairing, recut ticket 04).
  */
-export type PairShape = typeof PAIR_SHAPE | 'one_to_two' | 'separate' | typeof GROUP_SHAPE
+export type PairShape = typeof PAIR_SHAPE | typeof ONE_TO_TWO | 'separate' | typeof GROUP_SHAPE
 
 /** One tick's one-to-one, as the toggle names it. Nothing is asked for it. */
 export const PAIR_SHAPE = 'pair'
@@ -528,10 +528,9 @@ export const modeOf = (shape: PairShape): PairingMode => (shape === 'separate' ?
 
 /**
  * What a Group posts beside what it asks. The route is told `together` for a 1:2
- * pair and for a Group alike, and needs nothing more to form either; this is for
- * the way back. A refusal returns it with what the Group declared and was called,
- * so the popup reopens on the Group and not on the 1:2 pair two ticks default to,
- * and a 1:2 pair's generated name never comes back as something the Admin typed.
+ * pair and for a Group alike; this is for the way back. A refusal returns it with
+ * what the Group declared and was called, so the popup reopens on the Group and
+ * not on the 1:2 pair two ticks default to.
  */
 export const SHAPE_FIELD = 'shape'
 export const postedByAGroup: Readonly<Record<string, string>> = { [SHAPE_FIELD]: GROUP_SHAPE }
@@ -542,21 +541,21 @@ export const pickedFrom = ({ mode, shape }: { readonly mode: unknown; readonly s
   readPairingMode(mode) === 'separate' ? 'separate' : wasPostedByAGroup(shape) ? GROUP_SHAPE : null
 
 /**
- * What a 1:2 pair posts without being asked: its name, and the Discipler's gender
- * as its declaration, in the words the declaration's own field uses. A 1:2 is a
- * group for every rule, which is why it carries both. A Discipler with no gender on
- * file posts no declaration, and the refusal is the domain's to give: the popup
- * does not answer a safeguarding question with a guess.
+ * What a 1:2 pair posts without being asked: that it is one, and the Discipler's
+ * gender as its declaration, in the words the declaration's own field uses. A 1:2
+ * is a group for every rule but its name: it keeps none, and is called by its
+ * people wherever it is named (James, 2026-09-27). It says what it is because a
+ * Group of the same three is named, and the route cannot tell the two apart from
+ * who is in them. A Discipler with no gender on file posts no declaration, and the
+ * refusal is the domain's to give: the popup does not answer a safeguarding
+ * question with a guess.
  */
 export const postedByAOneToTwo = ({
-  discipler,
-  disciples,
   declaredGender,
 }: {
-  readonly discipler: string
-  readonly disciples: readonly [string, string]
   readonly declaredGender: string | null
 }): Readonly<Record<string, string>> => ({
-  name: PAIR_POPUP.nameOfAOneToTwo(discipler, disciples),
+  [SHAPE_FIELD]: ONE_TO_TWO,
   ...(declaredGender === null ? {} : { declaredGender }),
 })
+export const wasPostedByAOneToTwo = (field: unknown): boolean => field === ONE_TO_TWO

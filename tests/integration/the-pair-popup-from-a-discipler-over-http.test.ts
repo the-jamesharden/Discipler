@@ -279,7 +279,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
       offers: [...select.matchAll(/<option[^>]*>([^<]*)<\/option>/g)].map((option) => option[1]),
     }))
 
-  it('asks what to make of two ticked, defaulting to a 1:2 pair that is named and declared without asking', async () => {
+  it('asks what to make of two ticked, defaulting to a 1:2 pair that is declared without asking and named nothing', async () => {
     const two = popupIn((await popupAt('', claire, [['with', sam], ['with', ana]])).html)!
     expect([...chosenIn(two)].sort()).toEqual([sam, ana].sort())
     expect(two).toContain('Pair them as')
@@ -294,16 +294,16 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     expect(two).toMatch(/<button[^>]*type="submit"[^>]*>Create 1:2 pair<\/button>/)
     expect(two).not.toMatch(/<button[^>]*type="submit"[^>]*disabled/)
 
-    // Nothing is asked: the name is generated and never shown, and the declaration
-    // is the Discipler's gender. A 1:2 is a group for every rule, so it carries both.
+    // Nothing is asked: the declaration is the Discipler's gender, and the pair says
+    // it is one, because it keeps no name and a Group of the same three must have
+    // one (James, 2026-09-27).
     expect(hiddenIn(two)).toEqual({
       pair: claire,
       side: 'discipler',
       leaderId: claire,
-      name: 'Claire with Ana &amp; Sam',
+      shape: 'one_to_two',
       declaredGender: 'female',
     })
-    expect(two.replace(/<input[^>]*>/g, '')).not.toContain('Claire with Ana')
 
     // One dropdown, posted as the one Material a relationship holds: No material
     // first and the default, then the Ministry's live Materials.
@@ -569,7 +569,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
   it('refuses two ticks posted without script, forms nothing, and comes back as the 1:2 pair they default to', async () => {
     // A browser without script never sees the toggle, so two ticks arrive saying
     // nothing about themselves, and the route refuses what it would refuse of any
-    // group that did. The popup that comes back has both ticks and, now, the name
+    // group that did. The popup that comes back has both ticks and, now, the shape
     // and the declaration a 1:2 pair posts, so pressing the button again makes it.
     const location = await submit([
       ['pair', claire],
@@ -589,7 +589,8 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     expect(rowFor(popup, sam)).toMatch(/checked=""/)
     expect(rowFor(popup, ana)).toMatch(/checked=""/)
     expect(segmentsIn(popup).find(({ selected }) => selected)?.says).toBe('1:2 pair')
-    expect(hiddenIn(popup)).toMatchObject({ name: 'Claire with Ana &amp; Sam', declaredGender: 'female' })
+    expect(hiddenIn(popup)).toMatchObject({ shape: 'one_to_two', declaredGender: 'female' })
+    expect(hiddenIn(popup)).not.toHaveProperty('name')
     expect(shownBehind(html)).toBe('Everyone')
 
     const formed = await pool.query(
@@ -721,7 +722,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
         )
       ).rows.map(({ material_id }) => material_id)
 
-    it('forms a 1:2 pair as one relationship with a generated name, the Discipler’s gender and its Material', async () => {
+    it('forms a 1:2 pair as one relationship with no name, the Discipler’s gender and its Material', async () => {
       const claireHere = await discipler('Claire Martinez')
       const samHere = await woman('Sam Lee')
       const anaHere = await woman('Ana Ruiz')
@@ -729,7 +730,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
       const receipt = await post([
         ['pair', claireHere],
         ['leaderId', claireHere],
-        ['name', 'Claire with Sam & Ana'],
+        ['shape', 'one_to_two'],
         ['declaredGender', 'female'],
         ['participantId', samHere],
         ['participantId', anaHere],
@@ -741,7 +742,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
       const [theirs, ...others] = await discipledIn(samHere)
       expect(others).toEqual([])
       expect(theirs).toMatchObject({
-        name: 'Claire with Sam & Ana',
+        name: null,
         declared_gender: 'female',
         intended: gospel,
         disciples: '2',
@@ -751,6 +752,34 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
       // Held as intended, and written at acceptance.
       await acceptEveryInvitationOf(claireHere, 'Claire Martinez')
       expect(await historyOf(theirs!.id)).toEqual([null, gospel])
+
+      // And, accepted, it is not on the public Group Intake Link, which offers a
+      // group by its name (James, 2026-09-27). A Group of three, named and accepted
+      // beside it, is, so the link is listing groups when it leaves the pair off.
+      const bethHere = await discipler('Beth Morgan')
+      const hers = [await woman('Cora Lane'), await woman('Dot Hale')]
+      await post([
+        ['pair', bethHere],
+        ['leaderId', bethHere],
+        ['shape', 'group'],
+        ['declaredGender', 'female'],
+        ['name', 'Beth’s Tuesday Group'],
+        ...hers.map((id): [string, string] => ['participantId', id]),
+        ['mode', 'together'],
+      ])
+      await acceptEveryInvitationOf(bethHere, 'Beth Morgan')
+      const [group] = await discipledIn(hers[0]!)
+
+      const query = new URLSearchParams([
+        ['step', '3'],
+        ['ageBand', '25-34'],
+        ['gender', 'female'],
+        ['availability', 'monday:12'],
+      ])
+      const onTheLink = await (await fetch(`${baseUrl}/intake/${chapel.id}?${query}`)).text()
+      expect(onTheLink).toContain('Which group would you like to join?')
+      expect(onTheLink).toContain(`value="${group!.id}"`)
+      expect(onTheLink).not.toContain(`value="${theirs!.id}"`)
     })
 
     it('forms 3 × 1:1 as three one-to-ones, and 2 × 1:1 with a different Material each hold one apiece', async () => {
@@ -867,7 +896,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
       const together = await post([
         ['pair', lead],
         ['leaderId', lead],
-        ['name', 'Ida with Jo & Kit'],
+        ['shape', 'one_to_two'],
         ['declaredGender', 'female'],
         ['participantId', first],
         ['participantId', second],
@@ -1069,7 +1098,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
       const back = await post([
         ['pair', lead],
         ['leaderId', lead],
-        ['name', 'Opal with Pia & Quin'],
+        ['shape', 'one_to_two'],
         ['participantId', first],
         ['participantId', second],
         ['mode', 'together'],
