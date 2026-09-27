@@ -58,6 +58,8 @@ What each Pairings option means, decided here because the review did not spell i
   The preset only picks which side the popup opens on, and never limits who can be picked.
 - **Disciples somebody** is today's popup from a Discipler: any number ticked, the shape toggle, the Group gender toggle, and the Groups below.
   Its list opens on **Asked to be discipled**: people who have completed Intake, are not opted out, hold no open participant membership and would not open as *Disciples somebody* themselves.
+  It also includes somebody who answered Mentee on the Intake form and holds no open participant membership, even if they lead or offered to mentor.
+  James, 2026-09-27, confirming his rule of 2026-09-22 that a Mentee answer makes somebody a Disciple as well, though they disciple somebody (`askedToBeDiscipled` in `app/roster/lists.ts`).
 - **Is discipled** is today's popup from a Disciple: one choice, and the Groups below.
   Its list opens on **Disciples somebody already, or offered to** (*Disciples*, not *Disciple*): everybody who would open as *Disciples somebody*, with *leads N* as today.
 - **Everybody else** the gender rule allows is folded under **Everyone else · N**, closed, and one press opens it.
