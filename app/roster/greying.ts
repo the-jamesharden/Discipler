@@ -2,7 +2,8 @@ import type { Gender } from '~/domain/intake'
 import type { GroupToJoin, RosterEntry } from '~/service/ports'
 import type { NotPairable } from './copy'
 import type { GroupDeclaration } from './declared-gender'
-import { disciplersFor, groupsToJoin, whyNotPairable } from './lists'
+import { candidatesFor, groupsToJoin, whyNotPairable } from './lists'
+import type { ReadAs } from './pair-shape'
 
 /**
  * Who is greyed in the Pair popup, and why (Manual pairing, ticket 23). One rule
@@ -13,11 +14,12 @@ import { disciplersFor, groupsToJoin, whyNotPairable } from './lists'
  * one person.** The rules are the database's own and the screen invents none: it
  * removes no rule underneath, and the database still refuses what it refused.
  *
- * Who the Roster puts on each side's list is `./lists` (`disciplersFor`,
- * `disciplesFor`, `groupsToJoin`). A row that is listed and cannot be chosen is
+ * Who each side of the popup lists is `./lists` (`candidatesFor`, `groupsToJoin`):
+ * everybody but the person themselves, since anybody can be picked on either side
+ * (Roles per pairing, ticket 01). A row that is listed and cannot be chosen is
  * greyed here with its reason, with one exception, decided by James on 2026-09-21:
- * what gender rules out, where nothing on that side of the popup could open it
- * again, is not listed at all (`leftOutForADisciple`, `groupLeftOut`).
+ * what gender rules out is not listed at all (`leftOutForADisciple`,
+ * `leftOutForADiscipler`, `groupLeftOut`).
  */
 
 /** What a shape declares: a gender, mixed, or nothing asked at all. */
@@ -133,15 +135,33 @@ export const greyedForADisciple = ({
   greyedInAOneToOne({ genderMatchEnforced, openedFrom: disciple, candidate: discipler, disciple })
 
 /**
- * Whether what greys a row leaves it off the list altogether (James, 2026-09-21:
- * "If they're not compatible or able to be paired together because of gender, just
- * don't show them period"). Gender, and nothing else: Awaiting Intake, Opted out and
- * *Already in a 1:1* are still greyed rows that say why. From a Disciple the answer
- * never changes while the popup is open, so those rows are never sent
- * (`disciplersShownTo`). From a Discipler it follows the ticks and the toggles, so
- * the popup is told which readings leave a row out and shows it when Coed opens it.
+ * The readings under which a row is not drawn at all on *Disciples somebody*
+ * (James, 2026-09-21; Roles per pairing, ticket 01): the ones whose declaration
+ * rules the candidate out by gender. Asked of gender alone, whatever else is true
+ * of them, as `leftOutForADisciple` asks it on the other side, so somebody of
+ * another gender who has not completed Intake, or is already in a one-to-one, is
+ * left out and never shown greyed with a reason that is not why. What each
+ * reading declares is the shape's: a one-to-one what `declaredByAOneToOne` says,
+ * a 1:2 pair the Discipler's gender, and a Group what its toggle says.
  */
-export const leavesOffTheList = (greyed: Greyed): boolean => greyed.why === 'gender'
+export const leftOutForADiscipler = ({
+  genderMatchEnforced,
+  discipler,
+  disciple,
+}: {
+  readonly genderMatchEnforced: boolean
+  readonly discipler: Pick<RosterEntry, 'gender'>
+  readonly disciple: Pick<RosterEntry, 'gender'>
+}): readonly ReadAs[] => {
+  const declared: readonly (readonly [ReadAs, Declaration])[] = [
+    ['a_one_to_one', declaredByAOneToOne({ genderMatchEnforced, openedFrom: discipler })],
+    ['a_one_to_two', discipler.gender ?? 'none'],
+    ['a_womens_group', 'female'],
+    ['a_mens_group', 'male'],
+    ['a_coed_group', 'mixed'],
+  ]
+  return declared.flatMap(([readAs, declaration]) => (declaredAgainst(declaration, disciple) === null ? [] : [readAs]))
+}
 
 /**
  * Who is not listed at all in the popup opened from a Disciple (decided by James on
@@ -153,8 +173,8 @@ export const leavesOffTheList = (greyed: Greyed): boolean => greyed.why === 'gen
  * Asked of gender alone, whatever else is true of either of them. Every other
  * reason is still a greyed row and never a missing one (`greyedForADisciple`):
  * Awaiting Intake, Opted out, and a Disciple already in a one-to-one. The popup
- * opened from a Discipler leaves them off too (`leavesOffTheList`), until a Coed
- * Group opens the row again.
+ * on *Disciples somebody* leaves them off too (`leftOutForADiscipler`), until a
+ * Coed Group opens the row again.
  */
 export const leftOutForADisciple = ({
   genderMatchEnforced,
@@ -186,7 +206,10 @@ export const groupLeftOut = ({
   readonly person: Pick<RosterEntry, 'gender'>
 }): boolean => declaredAgainst(group.declaredGender ?? 'mixed', person) !== null
 
-/** The Disciplers the popup opened from a Disciple lists: every Discipler, less whoever gender rules out. */
+/**
+ * Who the popup on *Is discipled* lists as somebody to disciple them: everybody on
+ * the Roster but them (Roles per pairing, ticket 01), less whoever gender rules out.
+ */
 export const disciplersShownTo = ({
   roster,
   disciple,
@@ -196,7 +219,7 @@ export const disciplersShownTo = ({
   readonly disciple: RosterEntry
   readonly genderMatchEnforced: boolean
 }): readonly RosterEntry[] =>
-  disciplersFor(roster, disciple).filter(
+  candidatesFor(roster, disciple).filter(
     (discipler) => !leftOutForADisciple({ genderMatchEnforced, disciple, discipler }),
   )
 
@@ -209,8 +232,8 @@ export const groupsShownTo = (
 /**
  * A Disciple's row in the popup opened from a Discipler, while what is ticked
  * would make a one-to-one. They are open again for a shape that makes a group.
- * This side lists only Disciples who can be paired (`disciplesFor`), which is what
- * its ticket asks, so the cannot-be-paired reason is never the one given here.
+ * Since anybody can be picked on either side (Roles per pairing, ticket 01), this
+ * side lists those who cannot be paired too, greyed with what their row says.
  */
 export const greyedForADiscipler = ({
   genderMatchEnforced,

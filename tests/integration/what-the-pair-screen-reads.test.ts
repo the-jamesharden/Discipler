@@ -289,10 +289,10 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair screen, loaded by a signed-in 
 
     // The Pair popup, which the old Pair page's address opens now (Manual pairing,
     // recut ticket 05), from each side.
-    const fromHer = await getPage(`/roster?list=disciples&pair=${amara}`, cookie)
+    const fromHer = await getPage(`/roster?pair=${amara}`, cookie)
     expect(fromHer.response.status).toBe(200)
     expect(popupIn(fromHer.html)).toContain('Bruno Clay')
-    const fromHim = await getPage(`/roster?list=disciplers&pair=${bruno}`, cookie)
+    const fromHim = await getPage(`/roster?pair=${bruno}`, cookie)
     expect(fromHim.response.status).toBe(200)
     expect(popupIn(fromHim.html)).toContain('Amara Blythe')
 

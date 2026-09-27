@@ -2,11 +2,13 @@
 
 import { useState } from 'react'
 import type { Gender } from '~/domain/intake'
-import { displayPhone, firstTimeLabel, PAIR_POPUP, type GroupOnARow, type RosterList } from './copy'
+import { displayPhone, firstTimeLabel, PAIR_POPUP } from './copy'
 import { CLEAR } from './import-copy'
+import type { PairSide } from './lists'
+import type { RosterView } from './menu'
 import { AS_A_LEADER, JOIN_AS_FIELD } from './pair/join-as'
 import { materialFieldFor } from './pair/material-per-disciple'
-import { PairList, PairPopupShell, PairRow, useHydrated } from './pair-popup'
+import { EveryoneElse, ListedFirst, PairList, PairPopupShell, PairRow, useHydrated } from './pair-popup'
 import { PairGroups, type PairPopupGroup } from './pair-popup-groups'
 import {
   canBePosted,
@@ -27,10 +29,12 @@ import {
 } from './pair-shape'
 
 /**
- * The Pair popup, from a Discipler (Manual pairing, ticket 23, and recut tickets
- * 02 and 04): the list of Disciples with boxes. One tick makes the one-to-one the
- * other side makes, in the same sentence and on the same button, and nothing else
- * is asked: no gender, no name, no Material.
+ * The Pair popup on *Disciples somebody* (Manual pairing, ticket 23, recut tickets
+ * 02 and 04, and Roles per pairing, ticket 01): the list of people to disciple,
+ * with boxes. Anybody can be ticked: the list opens on who asked to be discipled,
+ * and everybody else the gender rule allows is folded under *Everyone else*. One
+ * tick makes the one-to-one the other side makes, in the same sentence and on the
+ * same button, and nothing else is asked: no gender, no name, no Material.
  *
  * A toggle under the list asks what to make of them, and is there from the moment
  * the popup opens (James, 2026-09-21): a 1:1 pair or a Group below two ticks, and
@@ -64,8 +68,10 @@ export interface PairPopupDisciple {
   readonly phone: string | null
   /** What they said about whether this is their first time, or null where nobody asked. Ranks and filters nobody. */
   readonly firstTime: boolean | null
-  /** The groups they are already in, which hides nobody and greys nobody. */
-  readonly groups: readonly GroupOnARow[]
+  /** Whether they head the list, as having asked to be discipled, or are folded under Everyone else. */
+  readonly listedFirst: boolean
+  /** What they do now, every pairing with its direction, for the row's second line, or none. Hides and greys nobody. */
+  readonly doingNow: readonly string[]
   /**
    * Why they cannot be ticked, already in words, against each thing the ticks can
    * make, or null where they can. Which of them the row shows follows the ticks.
@@ -77,7 +83,9 @@ export interface PairPopupDisciple {
 
 export const PairPopupFromADiscipler = ({
   person,
-  list,
+  view,
+  sideHrefs,
+  invited,
   disciples,
   groups,
   leadsAGroup,
@@ -89,7 +97,12 @@ export const PairPopupFromADiscipler = ({
 }: {
   /** Whose popup this is: the Discipler being paired. */
   readonly person: { readonly id: string; readonly fullName: string }
-  readonly list: RosterList
+  /** What the Roster's menu shows behind the popup. */
+  readonly view: RosterView
+  /** The popup's own address on each side, for the side chooser. */
+  readonly sideHrefs: Readonly<Record<PairSide, string>>
+  /** What they are sent for whatever is made, and what they go on doing, after the sentence. */
+  readonly invited: string
   readonly disciples: readonly PairPopupDisciple[]
   /**
    * The groups this Discipler could help lead: every one the Ministry has that they
@@ -123,6 +136,12 @@ export const PairPopupFromADiscipler = ({
   // Why each row cannot be ticked now, if it cannot, and whether it is shown at all.
   const greyedNow = new Map(disciples.map((each) => [each.id, greyedOnRow(context, selection, each)]))
   const shown = disciples.filter((each) => !greyedNow.get(each.id)?.leftOut)
+  const first = shown.filter((each) => each.listedFirst)
+  const everyoneElse = shown.filter((each) => !each.listedFirst)
+  // Open on a tick a refusal restored there, or where nobody is listed above it. Read once.
+  const [foldOpensOpen] = useState(
+    () => first.length === 0 || everyoneElse.some((each) => selection.tickedIds.includes(each.id)),
+  )
   const group = groups.find(({ id }) => id === selection.groupId) ?? null
   const ticked = disciples.filter((each) => selection.tickedIds.includes(each.id))
   const names = ticked.map(({ fullName }) => fullName)
@@ -130,9 +149,9 @@ export const PairPopupFromADiscipler = ({
   // it Coed, can be chosen before anybody is ticked. Hidden only while a group that
   // exists is chosen: the popup does one thing at a time.
   const toggle = group === null ? shapeOf(context, selection) : null
-  const [first, second] = names
+  const [firstTicked, secondTicked] = names
   // A 1:2 pair is exactly two, which is what the toggle selecting it means.
-  const oneToTwo = toggle?.selected === 'one_to_two' && first !== undefined && second !== undefined
+  const oneToTwo = toggle?.selected === 'one_to_two' && firstTicked !== undefined && secondTicked !== undefined
   const hint = toggle?.segments.find(({ ruledOut }) => ruledOut !== null)?.ruledOut ?? null
   // A Group picked first has nobody in it yet, and says what its button waits for.
   const groupNeedsTwo = toggle?.selected === GROUP_SHAPE && names.length < 2
@@ -142,28 +161,59 @@ export const PairPopupFromADiscipler = ({
   })
 
   // The sentence and the button are the same act: a group to help lead, one tick's
-  // one-to-one, or whatever the toggle has two or more ticks become.
-  const sentenceFor = (): { readonly summary: string | null; readonly label: string } | null => {
-    if (group !== null) return { summary: PAIR_POPUP.coLead(person.fullName, group), label: PAIR_POPUP.addAsCoLeader }
+  // one-to-one, or whatever the toggle has two or more ticks become. After it, what
+  // this Discipler is sent and goes on doing (Roles per pairing, ticket 01), and who
+  // will disciple whom in bold, as the mock-ups draw it, where the sentence says so.
+  const said = (sentence: string, disciples: readonly string[] | null) => ({
+    said: `${sentence} ${invited}`,
+    bold: disciples === null ? null : PAIR_POPUP.willDisciple(person.fullName, disciples),
+  })
+  const sentenceFor = (): {
+    readonly summary: { readonly said: string; readonly bold: string | null } | null
+    readonly label: string
+  } | null => {
+    if (group !== null) return { summary: said(PAIR_POPUP.coLead(person.fullName, group), null), label: PAIR_POPUP.addAsCoLeader }
     if (toggle === null) return null
     if (toggle.selected === PAIR_SHAPE) {
-      return first === undefined
+      return firstTicked === undefined
         ? null
-        : { summary: PAIR_POPUP.oneToOne(person.fullName, first), label: PAIR_POPUP.createOneToOne }
+        : { summary: said(PAIR_POPUP.oneToOne(person.fullName, firstTicked), [firstTicked]), label: PAIR_POPUP.createOneToOne }
     }
     if (toggle.selected === 'one_to_two') {
-      return { summary: PAIR_POPUP.oneToTwo(person.fullName, names), label: PAIR_POPUP.createOneToTwo }
+      return { summary: said(PAIR_POPUP.oneToTwo(person.fullName, names), names), label: PAIR_POPUP.createOneToTwo }
     }
     if (toggle.selected === GROUP_SHAPE) {
       return {
         // No sentence until there is a group to say: two or more ticked.
-        summary: groupNeedsTwo ? null : PAIR_POPUP.group(person.fullName, selection.declared, names),
+        summary: groupNeedsTwo ? null : said(PAIR_POPUP.group(person.fullName, selection.declared, names), null),
         label: PAIR_POPUP.createGroup(names.length),
       }
     }
-    return { summary: PAIR_POPUP.separately(person.fullName, names), label: PAIR_POPUP.createSeparately(names.length) }
+    return { summary: said(PAIR_POPUP.separately(person.fullName, names), names), label: PAIR_POPUP.createSeparately(names.length) }
   }
   const making = sentenceFor()
+
+  const rowOf = (disciple: PairPopupDisciple) => (
+    <PairRow
+      key={disciple.id}
+      mark="checkbox"
+      name="participantId"
+      person={disciple}
+      details={[
+        disciple.email,
+        disciple.phone ? displayPhone(disciple.phone) : null,
+        disciple.firstTime === null ? null : firstTimeLabel(disciple.firstTime),
+      ]}
+      also={disciple.doingNow}
+      greyed={greyedNow.get(disciple.id)?.why ?? null}
+      // With a group the server sent chosen, a refused join restored, the form
+      // points at the route that joins, and a person ticked beside it would be
+      // posted there and ignored. Held until script runs.
+      held={!hydrated && group !== null}
+      checked={selection.tickedIds.includes(disciple.id)}
+      onChange={(checked) => change({ type: checked ? 'tick' : 'untick', id: disciple.id })}
+    />
+  )
 
   const materialOptions = (
     <>
@@ -178,7 +228,8 @@ export const PairPopupFromADiscipler = ({
   return (
     <PairPopupShell
       person={person}
-      list={list}
+      view={view}
+      side={{ current: 'discipler', hrefs: sideHrefs }}
       refusal={refusal}
       // What is chosen decides the act, and so the route and what it is told: a
       // group that exists is joined, by this Discipler, as another leader of it.
@@ -189,7 +240,7 @@ export const PairPopupFromADiscipler = ({
           : {
               leaderId: person.id,
               // Named and declared without asking, and neither is shown.
-              ...(oneToTwo ? postedByAOneToTwo({ discipler: person.fullName, disciples: [first, second], declaredGender }) : {}),
+              ...(oneToTwo ? postedByAOneToTwo({ discipler: person.fullName, disciples: [firstTicked, secondTicked], declaredGender }) : {}),
               // A Group is asked both, in the open. It says only that it is one, for the way back from a refusal.
               ...(toggle?.selected === GROUP_SHAPE ? postedByAGroup : {}),
             }
@@ -207,12 +258,14 @@ export const PairPopupFromADiscipler = ({
 
       {shown.length === 0 && groups.length === 0 ? (
         // Where gender is why nobody is listed, how somebody comes to be listed is not why.
-        <p className="empty">{disciples.length === 0 ? PAIR_POPUP.noDisciples : PAIR_POPUP.nobodyToChoose}</p>
+        <p className="empty">{PAIR_POPUP.nobodyToChoose}</p>
       ) : (
         <>
           <div className="pair-toolbar">
             {/* Whoever is shown, so the number follows the rows as Coed opens them. */}
-            <span>{PAIR_POPUP.counts(PAIR_POPUP.disciples(shown.length), groups.length)}</span>
+            <span>
+              {PAIR_POPUP.counts(PAIR_POPUP.listed('discipler', first.length, everyoneElse.length), groups.length)}
+            </span>
             {/* Unticks everything, and clears a chosen group. There is no Select all. */}
             {hydrated ? (
               <button type="button" className="ghost-btn small" onClick={() => change({ type: 'clear' })}>
@@ -223,28 +276,14 @@ export const PairPopupFromADiscipler = ({
 
           <PairList exactlyOne={false}>
             {/* Whoever gender rules out is not drawn at all, as from a Disciple (James,
-                2026-09-21); a Coed Group puts them on the list. */}
-            {shown.map((disciple) => (
-              <PairRow
-                key={disciple.id}
-                mark="checkbox"
-                name="participantId"
-                person={disciple}
-                details={[
-                  disciple.email,
-                  disciple.phone ? displayPhone(disciple.phone) : null,
-                  disciple.firstTime === null ? null : firstTimeLabel(disciple.firstTime),
-                  ...disciple.groups.map((group) => PAIR_POPUP.inGroup(group)),
-                ]}
-                greyed={greyedNow.get(disciple.id)?.why ?? null}
-                // With a group the server sent chosen, a refused join restored, the
-                // form points at the route that joins, and a Disciple ticked beside
-                // it would be posted there and ignored. Held until script runs.
-                held={!hydrated && group !== null}
-                checked={selection.tickedIds.includes(disciple.id)}
-                onChange={(checked) => change({ type: checked ? 'tick' : 'untick', id: disciple.id })}
-              />
-            ))}
+                2026-09-21); a Coed Group puts them on the list, in the section they
+                belong to. */}
+            {first.length > 0 ? <ListedFirst side="discipler">{first.map(rowOf)}</ListedFirst> : null}
+            {everyoneElse.length > 0 ? (
+              <EveryoneElse count={everyoneElse.length} opensOpen={foldOpensOpen}>
+                {everyoneElse.map(rowOf)}
+              </EveryoneElse>
+            ) : null}
             <PairGroups
               groups={groups}
               chosenId={group?.id ?? null}

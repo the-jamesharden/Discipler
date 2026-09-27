@@ -102,12 +102,13 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin answering a held import row', 
       personId: fieldIn(question, 'personId'),
     })
     expect(response.status).toBe(303)
-    // The answer lands on the Disciples by name, whatever the Roster's own
-    // default is (Manual pairing, ticket 06 made that All).
-    expect(response.headers.get('location')).toContain('/roster?list=disciples')
+    // The answer lands on the Roster over Everyone: it landed on the Disciples
+    // until the Roster became one list (Roles per pairing, ticket 02).
+    expect(new URL(response.headers.get('location')!).pathname).toBe('/roster')
+    expect(new URL(response.headers.get('location')!).search).toBe('')
 
-    // On the Disciples list, where somebody an upload added is.
-    const { html } = await getPage('/roster?list=disciples', cookie)
+    // On the one list, where somebody an upload added is.
+    const { html } = await getPage('/roster', cookie)
     expect(html).toContain('Dave Ellis')
     expect(html).not.toContain('David Ellis')
     // Answered, so the question is gone from the screen and the Roster is the
@@ -125,7 +126,7 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin answering a held import row', 
     })
     expect(response.status).toBe(303)
 
-    const { html } = await getPage('/roster?list=disciples', cookie)
+    const { html } = await getPage('/roster', cookie)
     expect(html).toContain('Sam Okafor')
     expect(html).toContain('Rita Okafor')
     expect(html).not.toContain('Rows waiting on you')

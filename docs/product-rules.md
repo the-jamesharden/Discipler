@@ -31,7 +31,7 @@ Suggested one-to-one pairings are based on a simple mathematical comparison of o
 
 The **leader pool** is every person who leads an open relationship or who answered the mentor side at Intake, filtered by the kind of relationship being suggested (ticket 36, decision 4).
 There is no flag to mark.
-A person an import planned as the discipler is a Discipler on the Roster but not in the pool: an intended pairing is not a suggestion and is not fed to the scorer, and the person enters the pool the day the plan forms and they lead.
+A person an import planned as the discipler opens the Pair popup on *Disciples somebody* but is not in the pool: an intended pairing is not a suggestion and is not fed to the scorer, and the person enters the pool the day the plan forms and they lead.
 There is no cap on how many relationships a leader already holds.
 
 The **participant pool** is every person who has completed intake, given consent, and not opted out, ranked so that people holding no open participant membership are offered first.
@@ -169,8 +169,9 @@ Role is a property of relationship membership. **Leader** and **Participant** me
 
 **A person appears in a given relationship at most once at a time, in one role.** Pairing someone with themselves is a database error, not a scorer bug.
 
-**There is no eligibility flag.** Ticket 16 recorded one and ticket 36 removed it, at the product owner's direction: a Discipler is a fact, never a mark.
-Anyone leading an open relationship, anyone who signed up as a leader on the Intake form, and anyone an import paired as the discipler is one; pairing them is the pastor's acceptance, and nothing is recorded ahead of it.
+**There is no eligibility flag.** Ticket 16 recorded one and ticket 36 removed it, at the product owner's direction.
+Nobody is a Discipler or a Disciple as a person: anybody who has completed Intake can be picked on either side of a pairing, pairing them is the pastor's acceptance, and nothing is recorded ahead of it (`.scratch/roles-per-pairing/spec.md`).
+Leading an open relationship, having signed up as a leader on the Intake form, or being the discipler an import paired only opens the Pair popup on *Disciples somebody*.
 The suggestion engine's leader pool (ticket 04) reads two of those facts, leading an open relationship or the mentor side at Intake, and not the third: an import-planned discipler does not enter the pool until the plan forms.
 The pool is defined under *Suggested Pairing*.
 
@@ -408,7 +409,7 @@ A leader may resume early by replying `RESUME`. That resume is also immediate, r
 
 A leader selects the duration in a single confirmation exchange rather than in the original message. Discipler replies naming the relationship and the default — *"Pause check-ins with Emily for 2 weeks? Reply YES to confirm, or reply 1, 4, 8, or 12 for a different number of weeks."* — and both written and numeric forms of the reply are accepted. The confirmation exists so that a stray tap never pauses anything, and it means the common case costs a leader two texts.
 
-> **Supersedes:** an earlier settled rule releasing the **Starter Message** on resume. A resume now sends its own message — *"Your discipleship with [name] has been resumed!"*, to everyone in the relationship, each side named the other side — because *you have been paired* is true on the day the match is made and false a fortnight later, and a ministry that said it twice would be telling somebody they had been matched to the person they have been meeting all year. What the old rule was reaching for is unchanged and still holds: everyone in a resumed relationship hears that it is running again, and expiry still sends nothing. See **Resume Message** in `CONTEXT.md`.
+> **Supersedes:** an earlier settled rule releasing the **Starter Message** on resume. A resume now sends its own message — *"Your discipleship with [name] has been resumed!"*, to everyone in the relationship, named as every text names a relationship (see **Group Name** in `CONTEXT.md`) — because *you have been paired* is true on the day the match is made and false a fortnight later, and a ministry that said it twice would be telling somebody they had been matched to the person they have been meeting all year. What the old rule was reaching for is unchanged and still holds: everyone in a resumed relationship hears that it is running again, and expiry still sends nothing. See **Resume Message** in `CONTEXT.md`.
 
 > **Supersedes:** an earlier settled rule making `START` the early-resume keyword. `START` is now carrier-level re-opt-in only and carries no domain meaning; `RESUME` resumes a paused relationship. See **Settled: Keyword Routing and Eligibility** for the reasoning.
 
@@ -1007,7 +1008,7 @@ The Admin says which of two layouts the rows are in.
 Leader, Mentor, Participant and Mentee are accepted silently as headings and as Role values, and are never said back.
 
 Role says only which side of a Paired With pair the person takes.
-On a row naming nobody in Paired With it changes nothing, because being paired is what makes a Discipler.
+On a row naming nobody in Paired With it changes nothing, because a side belongs to a pairing and not to a person.
 Paired With is resolved first within the paste, by the same name fold ADR-0005 uses, and then against the Roster.
 A name two people go by is refused on that line rather than guessed; the person on the row is still imported, and only the pair is not planned.
 Both layouts plan one-to-ones only; groups are paired by hand.

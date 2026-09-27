@@ -14,13 +14,14 @@ import {
 } from '../support/local-supabase'
 import {
   attribute,
-  currentList,
+  shownBehind,
   detailsOf,
   expectGreyed,
   expectOpen,
   expectOpenGroup,
   hiddenIn,
   offeredAs,
+  sectionsOf,
   offersToMentor,
   popupIn,
   rowFor,
@@ -89,7 +90,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
   }
 
   const popupFor = async (personId: string, more: Record<string, string> = {}, as: string = cookie) => {
-    const page = await getPage(`/roster?${new URLSearchParams({ list: 'disciples', pair: personId, ...more })}`, as)
+    const page = await getPage(`/roster?${new URLSearchParams({ pair: personId, ...more })}`, as)
     return { ...page, popup: popupIn(page.html)! }
   }
 
@@ -157,9 +158,12 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
     expect(unnamedRow).toMatch(new RegExp(`class="pair-name"[^>]*>${unnamed.leaderName}’s group<`))
     expect(detailsOf(unnamedRow)).toBe('2 disciples · Coed · awaiting acceptance')
 
-    // The line under the title counts both: the three who lead a group, and the two groups.
-    expect(offeredAs(popup, 'leaderId')).toHaveLength(3)
-    expect(popup).toContain('>3 disciplers · 2 groups<')
+    // The line under the title counts both: the three who lead a group, whom the
+    // list opens on, everybody else folded (Roles per pairing, ticket 01), and the
+    // two groups.
+    const { first, everyoneElse } = sectionsOf(popup)
+    expect([...first].sort()).toEqual([his.leader, paused.leader, unnamed.leader].sort())
+    expect(popup).toContain(`>3 lead or offered · ${everyoneElse.length} more · 2 groups<`)
   })
 
   it('shows no heading and counts no groups in a Ministry with none', async () => {
@@ -171,7 +175,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
 
     const { popup } = await popupFor(sam.id, {}, bareCookie)
 
-    expect(popup).toContain('1 discipler')
+    expect(popup).toContain('>1 lead or offered')
     expect(popup).not.toContain('>Groups<')
     expect(popup).not.toMatch(/\d groups?\b/)
     expect(groupsOffered(popup)).toEqual([])
@@ -202,23 +206,30 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
       expect(popup).not.toContain('Men’s Breakfast')
       expectOpenGroup(popup, coed.id)
       expectOpenGroup(popup, womens.id)
-      // Nor are the two men who lead, while the Ministry enforces the match: the one
-      // Discipler she is shown is the woman. The line above counts what is shown.
-      expect(offeredAs(popup, 'leaderId')).toEqual([womens.leader])
-      expect(popup).toContain('>1 discipler · 2 groups<')
+      // Nor are the two men who lead, or anybody else of theirs, while the Ministry
+      // enforces the match: the one who leads she is shown is the woman, and the
+      // women of her group are folded under Everyone else. The line above counts
+      // what is shown.
+      const { first, everyoneElse } = sectionsOf(popup)
+      expect(first).toEqual([womens.leader])
+      expect(everyoneElse).toEqual(expect.arrayContaining(womens.disciples))
+      for (const man of [mens.leader, coed.leader, ...mens.disciples, ...coed.disciples]) {
+        expect(offeredAs(popup, 'leaderId')).not.toContain(man)
+      }
+      expect(popup).toContain(`>1 lead or offered · ${everyoneElse.length} more · 2 groups<`)
 
       // A man is shown the men's group and the Coed one, and not the women's.
       const sam = await aDisciple('male', own)
       const his = (await popupFor(sam.id, {}, ownCookie)).popup
       expect([...groupsOffered(his)].sort()).toEqual([coed.id, mens.id].sort())
-      expect([...offeredAs(his, 'leaderId')].sort()).toEqual([coed.leader, mens.leader].sort())
+      expect([...sectionsOf(his).first].sort()).toEqual([coed.leader, mens.leader].sort())
 
       // Leaving it out removes no rule underneath: the database still refuses her.
       const refused = await fetch(`${baseUrl}/roster/pair/join`, {
         method: 'POST',
         redirect: 'manual',
         headers: { 'content-type': 'application/x-www-form-urlencoded', cookie: ownCookie },
-        body: new URLSearchParams({ personId: priya.id, groupId: mens.id, list: 'disciples' }),
+        body: new URLSearchParams({ personId: priya.id, groupId: mens.id }),
       }).then((response) => new URL(response.headers.get('location') ?? '', baseUrl))
       expect(refused.searchParams.get('error')).toBe('relationship.gender_does_not_match_the_declaration')
     })
@@ -265,9 +276,10 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
     expectOpen(fresh, group.leader)
     expect(fresh).toMatch(/<button[^>]*type="submit"[^>]*>Pair<\/button>/)
 
-    const landed = await join({ personId: sam.id, groupId: group.id, list: 'disciples' })
+    // Over what the Roster showed behind the popup (Roles per pairing, ticket 02).
+    const landed = await join({ personId: sam.id, groupId: group.id, pairings: 'being-discipled' })
     expect(landed.pathname).toBe('/roster')
-    expect(landed.searchParams.get('list')).toBe('disciples')
+    expect(landed.searchParams.get('pairings')).toBe('being-discipled')
     expect(landed.searchParams.get('joined')).toBe(sam.id)
     expect(landed.searchParams.get('pair')).toBeNull()
 
@@ -280,7 +292,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
 
     const { html } = await getPage(`${landed.pathname}${landed.search}`, cookie)
     expect(popupIn(html)).toBeNull()
-    expect(currentList(html)).toBe('Disciples')
+    expect(shownBehind(html)).toBe('Being discipled')
     expect(html).toContain(`${sam.name} is in the group now.`)
 
     // And it is no longer offered to him.
@@ -322,8 +334,8 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
 
     // Pressed again as it stands, it posts to the route that joins, naming him.
     expect(attribute(formOf(popup), 'action')).toBe('/roster/pair/join')
-    expect(hiddenIn(popup)).toMatchObject({ personId: sam.id, list: 'disciples' })
-    expect(currentList(html)).toBe('Disciples')
+    expect(hiddenIn(popup)).toMatchObject({ personId: sam.id })
+    expect(shownBehind(html)).toBe('Everyone')
     expect(html.match(/class="modal-bg open"/g)).toHaveLength(1)
   })
 
@@ -331,7 +343,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the groups in the Pair popup, from a Di
     const priya = await aDisciple('female')
     const mens = await aGroup('Men’s Breakfast', 'male')
 
-    const refused = await join({ personId: priya.id, groupId: mens.id, list: 'disciples' })
+    const refused = await join({ personId: priya.id, groupId: mens.id })
     expect(refused.pathname).toBe('/roster')
     expect(refused.searchParams.get('pair')).toBe(priya.id)
     expect(refused.searchParams.get('groupId')).toBe(mens.id)

@@ -12,7 +12,6 @@ import {
   groupLeftOut,
   groupsShownTo,
   leadsAGroup,
-  leavesOffTheList,
   leftOutForADisciple,
 } from '../../app/roster/greying'
 
@@ -262,19 +261,6 @@ describe('a Disciple while what is ticked would make a Group (Manual pairing, re
   })
 })
 
-describe('what leaves a row off the list altogether (James, 2026-09-21)', () => {
-  it('is gender, whatever declares it, from either side of the popup', () => {
-    expect(leavesOffTheList({ why: 'gender', declared: 'female' })).toBe(true)
-    expect(leavesOffTheList({ why: 'gender', declared: 'male' })).toBe(true)
-  })
-
-  it('is never any other reason: those are greyed rows that say why', () => {
-    expect(leavesOffTheList({ why: 'already_in_a_one_to_one', withName: 'David Chen' })).toBe(false)
-    expect(leavesOffTheList({ why: 'not_pairable', reason: 'awaiting_intake' })).toBe(false)
-    expect(leavesOffTheList({ why: 'not_pairable', reason: 'opted_out' })).toBe(false)
-  })
-})
-
 describe('a group that has fallen to one Disciple', () => {
   const shrunk = { participantCount: 1, countsAsAGroup: true }
 
@@ -381,9 +367,9 @@ describe('who is left out of the popup opened from a Disciple', () => {
 })
 
 /**
- * The two lists the popup opened from a Disciple is handed, composed: who the
- * Roster makes a Discipler and which groups the Pair document lists, less what
- * gender rules out.
+ * The two lists the popup opened on Is discipled is handed, composed: everybody
+ * on the Roster but the Disciple (Roles per pairing, ticket 01) and which groups
+ * the Pair document lists, less what gender rules out.
  */
 describe('what the popup opened from a Disciple lists', () => {
   const offers = (over: Partial<RosterEntry>) => person({ declaredSide: 'mentor', ...over })
@@ -397,21 +383,32 @@ describe('what the popup opened from a Disciple lists', () => {
     memberIds,
   })
 
-  it('is every Discipler gender does not rule out, in the Roster’s order, greyed ones included', () => {
+  // Roles per pairing, ticket 01: anybody can be picked to disciple, so the list is
+  // everybody but the Disciple, and which of them heads it is `listedFirst`'s.
+  it('is everybody gender does not rule out, in the Roster’s order, greyed ones included', () => {
     const sam = person({ gender: 'female' })
     const grace = offers({ gender: 'female' })
     const david = offers({ gender: 'male' })
     const left = offers({ gender: 'female', participationStatus: 'opted_out' })
     const waiting = offers({ gender: null, participationStatus: 'no_intake_submitted' })
-    const roster = [sam, grace, david, left, waiting]
+    const emily = person({ gender: 'female', relationships: [pairing('participant')] })
+    const jacob = person({ gender: 'male' })
+    const roster = [sam, grace, david, left, waiting, emily, jacob]
 
-    expect(disciplersShownTo({ roster, disciple: sam, genderMatchEnforced: true })).toEqual([grace, left, waiting])
+    expect(disciplersShownTo({ roster, disciple: sam, genderMatchEnforced: true })).toEqual([grace, left, waiting, emily])
     // Shown, and greyed with what their Roster row says: only gender leaves anybody out.
     expect(greyedForADisciple({ genderMatchEnforced: true, disciple: sam, discipler: left })).toEqual({
       why: 'not_pairable',
       reason: 'opted_out',
     })
-    expect(disciplersShownTo({ roster, disciple: sam, genderMatchEnforced: false })).toEqual([grace, david, left, waiting])
+    expect(disciplersShownTo({ roster, disciple: sam, genderMatchEnforced: false })).toEqual([
+      grace,
+      david,
+      left,
+      waiting,
+      emily,
+      jacob,
+    ])
   })
 
   it('is every group they are not already in and whose declaration does not rule them out', () => {

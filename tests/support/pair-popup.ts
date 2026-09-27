@@ -43,6 +43,14 @@ export const rowFor = (popup: string, personId: string): string => {
 export const detailsOf = (row: string): string =>
   (row.match(/class="pair-sub"[^>]*>([\s\S]*?)<\/span><\/span>/)?.[1] ?? '').replace(/<[^>]*>/g, '')
 
+/**
+ * The sentence above the buttons, as it reads, or null where there is none. Who
+ * will disciple whom is drawn in bold at its start (Roles per pairing, ticket 01),
+ * and what is asserted is the sentence an Admin reads, not where the bold ends.
+ */
+export const summaryIn = (popup: string): string | null =>
+  popup.match(/class="pair-summary"[^>]*>([\s\S]*?)<\/p>/)?.[1]?.replace(/<[^>]*>/g, '').replace(/&#x27;/g, "'") ?? null
+
 export const attribute = (tag: string, name: string): string | undefined =>
   tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1]
 
@@ -68,6 +76,32 @@ export const chosenIn = (popup: string): readonly (string | undefined)[] =>
     .filter((input) => /\schecked=""/.test(input))
     .map((input) => attribute(input, 'value'))
 
+/**
+ * The two sections of either side's list (Roles per pairing, ticket 01), by the
+ * value each person's mark would post, in the order listed: the people the list
+ * opens on, and everybody folded under Everyone else. Groups are neither.
+ */
+export const sectionsOf = (popup: string): { readonly first: readonly string[]; readonly everyoneElse: readonly string[] } => {
+  const people = (html: string) =>
+    inputsIn(html)
+      .filter((input) => ['participantId', 'leaderId'].includes(attribute(input, 'name') ?? ''))
+      .filter((input) => attribute(input, 'type') !== 'hidden')
+      .map((input) => attribute(input, 'value')!)
+  const fold = foldIn(popup) ?? ''
+  return { first: people(popup.replace(fold, '')), everyoneElse: people(fold) }
+}
+
+/** The Everyone else fold, from its opening tag to its end, or null where there is none. */
+export const foldIn = (popup: string): string | null =>
+  popup.match(/<details class="pair-more"[^>]*>[\s\S]*?<\/details>/)?.[0] ?? null
+
+/** Whether the fold is open as the server sends it. */
+export const foldIsOpen = (popup: string): boolean => /<details class="pair-more" open=""/.test(popup)
+
+/** A row's second line as it reads, what the person does now, or null where it says nothing. */
+export const doingNowOf = (row: string): string | null =>
+  row.match(/class="pair-also"[^>]*>((?:<span[^>]*>[^<]*<\/span>)*)<\/span>/)?.[1]?.replace(/<[^>]*>/g, '').replace(/&#x27;/g, "'") ?? null
+
 /** What the form posts without being asked. */
 export const hiddenIn = (popup: string): Record<string, string | undefined> =>
   Object.fromEntries(
@@ -76,9 +110,12 @@ export const hiddenIn = (popup: string): Record<string, string | undefined> =>
       .map((input) => [attribute(input, 'name'), attribute(input, 'value')]),
   )
 
-/** The list the toggle says the Roster behind the popup is on. */
-export const currentList = (html: string): string | undefined =>
-  html.match(/<a[^>]*aria-current="true"[^>]*>([^<]*)<\/a>/)?.[1]
+/**
+ * What the Everyone menu's button says the Roster behind the popup shows (Roles per
+ * pairing, ticket 02): *Everyone*, or what is ticked.
+ */
+export const shownBehind = (html: string): string | undefined =>
+  html.match(/<details class="roster-menu"[^>]*><summary>([^<]*)/)?.[1]
 
 /** A greyed row: shown, its mark disabled and never chosen, and its reason tied to it for a screen reader. */
 export const expectGreyed = (popup: string, personId: string, reason: string): void => {

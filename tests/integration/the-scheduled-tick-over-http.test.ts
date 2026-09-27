@@ -7,9 +7,23 @@ import { createCommandService } from '~/service/command-service'
 import { baseUrl, cronSecret, skipUnlessAppIsRunning } from '../support/app'
 import {
   createMinistryWithAdmin,
+  enoughForATick,
   localSupabase,
   type MinistryFixture,
 } from '../support/local-supabase'
+
+/**
+ * A generous timeout, and the reason is the route's shape rather than the test's:
+ * it ticks and drains every Ministry in turn, so one run costs the sum of them.
+ * That is right for a pilot and it is why a local database, which accumulates a
+ * Ministry per fixture per run and is only emptied by `npm run db:reset`, makes
+ * this the slowest thing in the suite. Ministries are handled sequentially on
+ * purpose -- each is its own transaction and one Ministry's failure must not take
+ * another's week with it -- and nothing here is waiting on that changing. So the
+ * allowance is counted from the Ministries the database holds (`enoughForATick`),
+ * before the tests are defined, and never fixed.
+ */
+const enoughForEveryMinistry = await enoughForATick()
 
 /**
  * The clock's one caller, driven the way Vercel Cron drives it. Over HTTP against
@@ -65,17 +79,6 @@ describe.skipIf(skipUnlessAppIsRunning)('the scheduled tick, as the scheduler ru
     const { status } = await tick(secret ?? 'unset')
     expect(status).toBe(401)
   })
-
-  /**
-   * A generous timeout, and the reason is the route's shape rather than the test's:
-   * it ticks and drains every Ministry in turn, so one run costs the sum of them.
-   * That is right for a pilot and it is why a local database, which accumulates a
-   * Ministry per fixture per run and is only emptied by `npm run db:reset`, makes
-   * this the slowest thing in the suite. Ministries are handled sequentially on
-   * purpose -- each is its own transaction and one Ministry's failure must not take
-   * another's week with it -- and nothing here is waiting on that changing.
-   */
-  const enoughForEveryMinistry = 120_000
 
   it('runs every Ministry and reports each one, given the scheduler’s own header', { timeout: enoughForEveryMinistry }, async () => {
     // Not skipped when absent. This route is the only caller the clock has, and a

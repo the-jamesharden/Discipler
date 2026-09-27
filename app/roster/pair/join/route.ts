@@ -6,7 +6,8 @@ import {
   type PairingRefusal,
 } from '~/domain/errors'
 import { personIdFrom, relationshipIdFrom } from '~/domain/ids'
-import { DEFAULT_LIST, isRosterList } from '../../copy'
+import { isPairSide, SIDE_FIELD } from '../../lists'
+import { viewFields, viewIn } from '../../menu'
 import { AS_A_DISCIPLE, AS_A_LEADER, JOIN_AS_FIELD } from '../join-as'
 import { currentAdmin } from '~/platform/supabase/current-admin'
 import { getCommandService } from '~/service/container'
@@ -43,19 +44,23 @@ export async function POST(request: NextRequest) {
   const person = field('personId')
   const group = field('groupId')
   const as = field(JOIN_AS_FIELD) ?? AS_A_DISCIPLE
-  // The list the popup was drawn over, so the answer lands on the list the Admin
-  // was on. Anything that names none of the three is All, as it is on the Roster.
-  const rawList = field('list')
-  const list = isRosterList(rawList) ? rawList : DEFAULT_LIST
+  // What the Roster's menu showed behind the popup (Roles per pairing, ticket 02),
+  // so the answer lands on the same people. Nothing said is Everyone.
+  const shown = viewFields(viewIn((name) => form.getAll(name)))
+  // And the side of the popup it was posted from (Roles per pairing, ticket 01).
+  const rawSide = field(SIDE_FIELD)
+  const side = isPairSide(rawSide) ? rawSide : null
 
   /**
-   * Back to where the Admin submitted from: the Roster, on their list, with the
-   * popup's address for this Person, the group they chose and the reason. Whether
+   * Back to where the Admin submitted from: the Roster, showing what it showed, with the
+   * popup's address for this Person on the side it was on, the group they chose and
+   * the reason. Whether
    * `pair` names anybody is the Roster's to say, as it is for a refused pairing.
    */
   const refused = (code: GroupJoinRefusal | PairingRefusal) => {
-    const params = new URLSearchParams({ list })
+    const params = new URLSearchParams([...shown])
     if (person !== undefined) params.set('pair', person)
+    if (side !== null) params.set(SIDE_FIELD, side)
     if (group !== undefined) params.set('groupId', group)
     params.set('error', code)
     return NextResponse.redirect(new URL(`/roster?${params}`, request.url), { status: 303 })
@@ -80,11 +85,11 @@ export async function POST(request: NextRequest) {
   try {
     if (as === AS_A_LEADER) {
       await getCommandService().execute({ type: 'group.add_leader', ...named })
-      receipt = new URLSearchParams({ list, invited: personId })
+      receipt = new URLSearchParams([...shown, ['invited', personId]])
     } else {
       const { effects } = await getCommandService().execute({ type: 'group.add_participant', ...named })
       const told = effects.some((effect) => effect.kind === 'message.enqueue')
-      receipt = new URLSearchParams({ list, joined: personId, told: told ? 'yes' : 'no' })
+      receipt = new URLSearchParams([...shown, ['joined', personId], ['told', told ? 'yes' : 'no']])
     }
   } catch (error) {
     // Two families and both are sentences for the Admin: what this act refuses of

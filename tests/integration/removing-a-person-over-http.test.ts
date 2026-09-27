@@ -109,7 +109,10 @@ describe.skipIf(skipUnlessAppIsRunning)('Remove, on a person’s page', () => {
 
     const { rows } = await pool.query(`select ended_outcome from relationship where id = $1`, [pairing])
     expect(rows).toEqual([{ ended_outcome: 'discontinued' }])
-    expect((await getPage(`/roster/${grace}`, cookie)).html).toContain('Ready to Pair')
+    // Grace is back to unpaired: no tag under her name, and the card says so.
+    const graces = (await getPage(`/roster/${grace}`, cookie)).html
+    expect(graces).not.toContain('class="rtags"')
+    expect(graces).toContain('>Unpaired<')
   })
 
   it('says what happens to each group they are in, and does it', async () => {

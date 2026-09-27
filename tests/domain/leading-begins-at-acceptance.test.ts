@@ -143,6 +143,7 @@ describe('what a leader who has not accepted may do by text', () => {
     acceptedAt: null,
     endedAt: null,
     paused: false,
+    name: null,
     members: [
       {
         personId: personId('00000000-0000-4000-8000-0000000000e1'),

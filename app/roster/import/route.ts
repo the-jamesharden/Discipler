@@ -23,10 +23,10 @@ export async function POST(request: NextRequest) {
   if (!admin) return NextResponse.redirect(new URL('/roster', request.url), { status: 303 })
 
   const back = (params: URLSearchParams) =>
-    // To the Disciples list, where everyone an import adds lands: an imported
-    // Person has led nobody and offered nothing on any form yet, and the ones a
-    // pair was planned for are on it as the Disciple or waiting for one.
-    NextResponse.redirect(new URL(`/roster?${new URLSearchParams([['list', 'disciples'], ...params])}`, request.url), { status: 303 })
+    // To the Roster, on Everyone, where everyone an import adds lands, tagged
+    // Awaiting Intake. It landed on the Disciples list until the Roster became one
+    // list (Roles per pairing, ticket 02).
+    NextResponse.redirect(new URL(`/roster${params.size > 0 ? `?${params}` : ''}`, request.url), { status: 303 })
 
   const failed = (reason: ImportFailure) => back(new URLSearchParams({ error: reason }))
 

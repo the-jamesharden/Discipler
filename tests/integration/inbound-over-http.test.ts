@@ -7,9 +7,11 @@ import { createCommandService } from '~/service/command-service'
 import { twilioSignature } from '~/platform/twilio/inbound-signature'
 import { baseUrl, skipUnlessAppIsRunning, twilioAuthToken } from '../support/app'
 import {
+  addMembership,
   addPerson,
   completeIntake,
   createMinistryWithAdmin,
+  createRelationship,
   localSupabase,
   pairOneToOne,
   type MinistryFixture,
@@ -193,6 +195,57 @@ describe.skipIf(skipUnlessAppIsRunning)('the inbound webhook', () => {
       [leader.id],
     )
     expect(rows).toHaveLength(1)
+  })
+
+  /**
+   * Somebody discipled one to one by Grace and also in Grace's named group. Named by
+   * its people, the group read *Grace Lee* too, and the menu offered two lines
+   * nobody could tell apart (Roles per pairing, ticket 04).
+   */
+  it('names a named group by its name in a SWAP menu and its answer', async () => {
+    const grace = await congregant('Grace Lee')
+    const hannah = await congregant('Hannah Brooks')
+    const lily = await congregant('Lily Evans')
+
+    await pairOneToOne(ministry, grace.id, hannah.id, {
+      createdAt: new Date('2026-04-01T09:00:00Z'),
+    })
+    const group = await createRelationship(ministry, 'group', {
+      createdAt: new Date('2026-05-01T09:00:00Z'),
+    })
+    await pool.query(`update relationship set name = $2 where id = $1`, [
+      group,
+      "Tuesday Women's",
+    ])
+    await addMembership({ ministry, relationshipId: group, kind: 'group', personId: grace.id, role: 'leader' })
+    for (const participant of [hannah, lily]) {
+      await addMembership({
+        ministry,
+        relationshipId: group,
+        kind: 'group',
+        personId: participant.id,
+        role: 'participant',
+      })
+    }
+
+    expect((await texts(hannah.phone, 'SWAP')).status).toBe(200)
+    expect((await inbox(hannah.id)).at(-1)).toBe(
+      "ABC Church: Which one would you like us to look at? 1. Grace Lee 2. Tuesday Women's",
+    )
+
+    expect((await texts(hannah.phone, '2')).status).toBe(200)
+    expect((await inbox(hannah.id)).at(-1)).toBe(
+      "ABC Church: Thanks for letting us know about Tuesday Women's. We've passed this on " +
+        'and someone will be in touch. Nothing changes in the meantime.',
+    )
+
+    // The request is against the group, not the one-to-one the other line meant.
+    const { rows } = await pool.query(
+      `select relationship_id from follow_up_item
+        where kind = 'swap_requested' and person_id = $1`,
+      [hannah.id],
+    )
+    expect(rows).toEqual([{ relationship_id: group }])
   })
 
   it('acknowledges a number nobody on any Roster holds, rather than failing', async () => {

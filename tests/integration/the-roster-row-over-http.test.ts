@@ -58,20 +58,20 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
     await pairOneToOne(ministry, leader, await addPerson(ministry, 'Ruth Adeyemi', { phone: number() }))
     await pairOneToOne(ministry, leader, await addPerson(ministry, 'Sam Doyle', { phone: number() }))
 
-    const { html } = await getPage('/roster?list=disciplers', cookie)
+    const { html } = await getPage('/roster', cookie)
 
-    // Both pairings, on his row on the Disciplers list, each naming who he
-    // disciples with the size beside it. The chip that read `Ready to Pair` beside
-    // two names, and looked like a mistake, is gone (Manual pairing, ticket 07).
+    // Both pairings, on his row, each naming who he disciples with the size beside
+    // it. The chip that read `Ready to Pair` beside two names, and looked like a
+    // mistake, is gone (Manual pairing, ticket 07).
     const row = rowFor(html, 'Marcus Webb')
-    expect(row).toContain('Ruth Adeyemi 1:1')
-    expect(row).toContain('Sam Doyle 1:1')
+    expect(row).toContain('disciples Ruth Adeyemi 1:1')
+    expect(row).toContain('disciples Sam Doyle 1:1')
     expect(row).not.toContain('Ready to Pair')
     // The name is the way to everything about one Person (ticket 36).
     expect(html).toContain(`href="/roster/${leader}"`)
   })
 
-  it('names the other side on each list: who a Disciple is discipled by, who a Discipler disciples', async () => {
+  it('names the other side on each row, with its direction: who disciples them, who they disciple', async () => {
     const { cookie } = await signIn(ministry)
 
     const participant = await addPerson(ministry, 'Nadia Farouk', { phone: number() })
@@ -81,15 +81,12 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
       participant,
     )
 
-    // Same pairing, two lists: her row on the Disciples list names him, his row on
-    // the Disciplers list names her, and neither is on the other list.
-    const disciples = await getPage('/roster?list=disciples', cookie)
-    expect(rowFor(disciples.html, 'Nadia Farouk')).toContain('Omar Haddad 1:1')
-    expect(disciples.html).not.toMatch(/roster-name"[^>]*>Omar Haddad</)
-
-    const disciplers = await getPage('/roster?list=disciplers', cookie)
-    expect(rowFor(disciplers.html, 'Omar Haddad')).toContain('Nadia Farouk 1:1')
-    expect(disciplers.html).not.toMatch(/roster-name"[^>]*>Nadia Farouk</)
+    // Same pairing, two rows on the one list (Roles per pairing, ticket 02): her
+    // row names him and his names her, each saying which way it runs, since no
+    // list above the table says it any more.
+    const { html } = await getPage('/roster', cookie)
+    expect(rowFor(html, 'Nadia Farouk')).toContain('discipled by Omar Haddad 1:1')
+    expect(rowFor(html, 'Omar Haddad')).toContain('disciples Nadia Farouk 1:1')
   })
 
   it('reads Opted out and still lists the relationship they are in', async () => {
@@ -108,10 +105,10 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
     )
     await optOut(ministry, silent)
 
-    for (const list of ['disciples', 'all']) {
-      const { html } = await getPage(`/roster?list=${list}`, cookie)
+    for (const query of ['', '?pairings=being-discipled']) {
+      const { html } = await getPage(`/roster${query}`, cookie)
       const row = rowFor(html, 'Tomas Vidal')
-      expect(row).toContain('Uche Nwosu 1:1')
+      expect(row).toContain('discipled by Uche Nwosu 1:1')
       expect(row).toContain('Opted out')
       expect(row).not.toContain('Opted Out')
       expect(pairLinkFor(html, 'Tomas Vidal')).toBeNull()
@@ -119,24 +116,27 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
   })
 
   /**
-   * What each kind of row offers (Manual pairing, ticket 07): five people, each on
-   * their side's list and on All. The same answer on both, because a Person is one
-   * row on All and the rule is about the Person.
+   * What each kind of row offers (Manual pairing, ticket 07), on the one list
+   * (Roles per pairing, ticket 02) and with something ticked in the Everyone menu
+   * that still shows them. The same answer on both, because the rule is about the
+   * Person, and Pair keeps what the menu shows behind the popup.
    */
   describe('what a row offers', () => {
-    const onTheirListAndOnAll = async (
+    const everywhere = async (
       cookie: string,
-      side: 'disciplers' | 'disciples',
-      check: (html: string, list: string) => void,
+      ticked: string,
+      check: (html: string, over: string) => void,
     ) => {
-      for (const list of [side, 'all']) check((await getPage(`/roster?list=${list}`, cookie)).html, list)
+      for (const query of ['', ticked]) {
+        check((await getPage(`/roster${query === '' ? '' : `?${query}`}`, cookie)).html, query === '' ? '' : `${query}&`)
+      }
     }
 
     it('tags the name Awaiting Intake, and offers nothing to press, for somebody who has not completed Intake', async () => {
       const { cookie } = await signIn(ministry)
       await addPerson(ministry, 'Jo Okafor', { phone: number(), intake: false })
 
-      await onTheirListAndOnAll(cookie, 'disciples', (html) => {
+      await everywhere(cookie, 'pairings=awaiting-intake', (html) => {
         // Beside the name, where an Admin reads down the people (James, 2026-09-21).
         expect(tagFor(html, 'Jo Okafor')).toBe('Awaiting Intake')
         // Said once: the Paired with cell is left with the fact, and nothing to press.
@@ -153,7 +153,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
       const gone = await addPerson(ministry, 'Lena Brandt', { phone: number() })
       await optOut(ministry, gone)
 
-      await onTheirListAndOnAll(cookie, 'disciples', (html) => {
+      await everywhere(cookie, 'pairings=unpaired', (html) => {
         const row = rowFor(html, 'Lena Brandt')
         expect(tagFor(html, 'Lena Brandt')).toBeNull()
         expect(row).toContain('Opted out')
@@ -162,15 +162,15 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
       })
     })
 
-    it('offers Pair to a Disciple who has completed Intake, opening the popup over the list it is on', async () => {
+    it('offers Pair to somebody who has completed Intake, opening the popup over what the Roster shows', async () => {
       const { cookie } = await signIn(ministry)
       const sam = await addPerson(ministry, 'Sam Lee', { phone: number() })
 
-      // The popup, from a Disciple, on Disciples and on All (Manual pairing, ticket 12).
-      await onTheirListAndOnAll(cookie, 'disciples', (html, list) => {
+      // The popup, over what the Roster shows (Manual pairing, ticket 12).
+      await everywhere(cookie, 'pairings=unpaired', (html, over) => {
         expect(tagFor(html, 'Sam Lee')).toBeNull()
         expect(rowFor(html, 'Sam Lee')).toContain('Unpaired')
-        expect(pairLinkFor(html, 'Sam Lee')).toBe(`/roster?list=${list}&pair=${sam}`)
+        expect(pairLinkFor(html, 'Sam Lee')).toBe(`/roster?${over}pair=${sam}`)
       })
     })
 
@@ -179,16 +179,16 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
       const emily = await addPerson(ministry, 'Emily Davis', { phone: number() })
       await pairOneToOne(ministry, await addPerson(ministry, 'Grace Lee', { phone: number() }), emily)
 
-      await onTheirListAndOnAll(cookie, 'disciples', (html, list) => {
-        expect(rowFor(html, 'Emily Davis')).toContain('Grace Lee 1:1')
-        expect(pairLinkFor(html, 'Emily Davis')).toBe(`/roster?list=${list}&pair=${emily}`)
+      await everywhere(cookie, 'pairings=being-discipled', (html, over) => {
+        expect(rowFor(html, 'Emily Davis')).toContain('discipled by Grace Lee 1:1')
+        expect(pairLinkFor(html, 'Emily Davis')).toBe(`/roster?${over}pair=${emily}`)
       })
     })
 
-    it('offers Pair to a Discipler who leads nobody, preselected as the Discipler', async () => {
+    it('offers Pair to somebody who offered to disciple and leads nobody', async () => {
       const { cookie } = await signIn(ministry)
       const claire = await addPerson(ministry, 'Claire Martinez', { phone: number() })
-      // What answering Mentor on the Intake form records, as the three-lists suite
+      // What answering Mentor on the Intake form records, as the one-list suite
       // writes it.
       await pool.query(
         `insert into consent_record
@@ -197,32 +197,33 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
         [ministry.id, claire],
       )
 
-      await onTheirListAndOnAll(cookie, 'disciplers', (html, list) => {
+      await everywhere(cookie, 'pairings=offered-to-disciple', (html, over) => {
         const row = rowFor(html, 'Claire Martinez')
         expect(row).toContain('Unpaired')
-        // The tag went with the chip: the Disciplers list already says it.
+        // The tag went with the chip (Manual pairing, ticket 07); the menu's
+        // *Offered to disciple* finds her now.
         expect(row).not.toContain('Offered to mentor')
-        expect(pairLinkFor(html, 'Claire Martinez')).toBe(`/roster?list=${list}&pair=${claire}`)
+        expect(pairLinkFor(html, 'Claire Martinez')).toBe(`/roster?${over}pair=${claire}`)
       })
     })
 
-    it('keeps Pair on a Discipler who already leads somebody', async () => {
+    it('keeps Pair on somebody who already disciples somebody', async () => {
       const { cookie } = await signIn(ministry)
       const hana = await addPerson(ministry, 'Hana Sato', { phone: number() })
       await pairOneToOne(ministry, hana, await addPerson(ministry, 'Ivy Moreau', { phone: number() }))
 
-      await onTheirListAndOnAll(cookie, 'disciplers', (html, list) => {
-        expect(rowFor(html, 'Hana Sato')).toContain('Ivy Moreau 1:1')
-        expect(pairLinkFor(html, 'Hana Sato')).toBe(`/roster?list=${list}&pair=${hana}`)
+      await everywhere(cookie, 'pairings=disciples-somebody', (html, over) => {
+        expect(rowFor(html, 'Hana Sato')).toContain('disciples Ivy Moreau 1:1')
+        expect(pairLinkFor(html, 'Hana Sato')).toBe(`/roster?${over}pair=${hana}`)
       })
     })
 
-    it('says Opted out, and offers no Pair, for a Discipler who has opted out', async () => {
+    it('says Opted out, and offers no Pair, for somebody who offered to disciple and has opted out', async () => {
       // The reason wins over the side (James, 2026-09-19): *Pair on every Discipler
       // row* means a Discipler keeps it when they already lead somebody, and not
-      // that one the database would refuse to pair is offered a button. The
-      // Discipler who was imported as one and has not completed Intake is in the
-      // three-lists suite, beside the plan that makes them one.
+      // that one the database would refuse to pair is offered a button. Somebody
+      // imported as a Discipler who has not completed Intake is in the one-list
+      // suite, beside the plan that says so.
       const { cookie } = await signIn(ministry)
       const mentor = await addPerson(ministry, 'Petra Novak', { phone: number() })
       await pool.query(
@@ -233,7 +234,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
       )
       await optOut(ministry, mentor)
 
-      await onTheirListAndOnAll(cookie, 'disciplers', (html) => {
+      await everywhere(cookie, 'pairings=offered-to-disciple', (html) => {
         const row = rowFor(html, 'Petra Novak')
         expect(row).toContain('Opted out')
         expect(row).not.toContain('Unpaired')
@@ -241,14 +242,14 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
       })
     })
 
-    it('never says Eligible to lead, a status, or the footnote, on any of the three lists', async () => {
+    it('never says Eligible to lead, a status, or the footnote, whatever the menu shows', async () => {
       // *Eligible to lead* left the app on 2026-09-07 and survives only in a design
       // prototype. Pinned, so it cannot come back unnoticed.
       const { cookie } = await signIn(ministry)
-      for (const list of ['all', 'disciplers', 'disciples']) {
-        const { html } = await getPage(`/roster?list=${list}`, cookie)
+      for (const query of ['', '?pairings=disciples-somebody', '?pairings=being-discipled']) {
+        const { html } = await getPage(`/roster${query}`, cookie)
         const table = html.match(/<table>[\s\S]*?<\/table>/)?.[0] ?? ''
-        expect(table, `the ${list} table`).not.toBe('')
+        expect(table, `the table at ${query}`).not.toBe('')
         expect(html).not.toMatch(/eligible to lead/i)
         expect(html).not.toContain('Status says whether')
         // In the table and not the page: the import dialog still says how an
@@ -322,10 +323,9 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
 
     // On both rows, because it is one fact about the pairing and neither side of
     // it has started. The Disciple has been told nothing yet either.
-    const disciplers = await getPage('/roster?list=disciplers', cookie)
-    expect(rowFor(disciplers.html, 'Ezra Kimani')).toContain('Dele Bakare 1:1 - awaiting acceptance')
-    const disciples = await getPage('/roster?list=disciples', cookie)
-    expect(rowFor(disciples.html, 'Dele Bakare')).toContain('Ezra Kimani 1:1 - awaiting acceptance')
+    const { html } = await getPage('/roster', cookie)
+    expect(rowFor(html, 'Ezra Kimani')).toContain('disciples Dele Bakare 1:1 - awaiting acceptance')
+    expect(rowFor(html, 'Dele Bakare')).toContain('discipled by Ezra Kimani 1:1 - awaiting acceptance')
   })
 
   it('stops saying it once that leader has accepted', async () => {
@@ -335,9 +335,9 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person’s row on the Roster', () => 
     const participant = await addPerson(ministry, 'Noor Haddad', { phone: number() })
     await pairOneToOne(ministry, leader, participant, { acceptedAt: new Date() })
 
-    const { html } = await getPage('/roster?list=disciplers', cookie)
+    const { html } = await getPage('/roster', cookie)
 
-    expect(rowFor(html, 'Ines Ferreira')).toContain('Noor Haddad 1:1')
+    expect(rowFor(html, 'Ines Ferreira')).toContain('disciples Noor Haddad 1:1')
     // Scoped to her row rather than the page: other suites in this Ministry leave
     // unaccepted pairings behind, so a page-wide `not.toContain` would pass or
     // fail on their fixtures instead of on hers.

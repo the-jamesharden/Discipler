@@ -52,6 +52,7 @@ const leading = (
   acceptedAt: new Date('2026-05-01T09:00:00Z'),
   endedAt: null,
   paused: false,
+  name: null,
   members: [
     {
       personId: james,
@@ -835,6 +836,266 @@ describe('free text nothing can be made of', () => {
 
     expect(exchangesOpened(effects)).toEqual([])
     expect(eventTypes(effects)).toEqual(['inbound.acknowledged'])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// A named group, named by its name (Roles per pairing, ticket 04)
+// ---------------------------------------------------------------------------
+
+/**
+ * A keyword names a relationship by the rule the check-in's opening question names
+ * it by: a named group by its name, from either side of it, and an unnamed group and
+ * every one-to-one by the people on the other side.
+ *
+ * Grace leads Emily Davis and Hannah Brooks one to one, and the group Tuesday
+ * Women's, which Hannah is in with Lily Evans. Before this rule a `SWAP` from Hannah
+ * read *1. Grace Lee 2. Grace Lee*, two lines she could not tell apart.
+ */
+describe('a named group, in a keyword text', () => {
+  const grace = personId('00000000-0000-4000-8000-0000000000g1')
+  const emilyDavis = personId('00000000-0000-4000-8000-0000000000e2')
+  const hannah = personId('00000000-0000-4000-8000-0000000000h1')
+  const lily = personId('00000000-0000-4000-8000-0000000000l1')
+
+  const withEmilyDavis = relationshipId('00000000-0000-4000-8000-0000000000c1')
+  const withHannah = relationshipId('00000000-0000-4000-8000-0000000000c2')
+  const tuesdayWomens = relationshipId('00000000-0000-4000-8000-0000000000c3')
+
+  const PHONES: Readonly<Record<string, string>> = {
+    'Grace Lee': '+15550300001',
+    'Emily Davis': '+15550300002',
+    'Hannah Brooks': '+15550300003',
+    'Lily Evans': '+15550300004',
+  }
+
+  const member = (
+    id: typeof grace,
+    fullName: string,
+    role: 'leader' | 'participant',
+  ): KeywordRelationship['members'][number] => ({
+    personId: id,
+    role,
+    fullName,
+    phone: PHONES[fullName] ?? null,
+    reachable: true,
+  })
+
+  const held = (
+    id: typeof withHannah,
+    startedAt: string,
+    name: string | null,
+    members: KeywordRelationship['members'],
+    role: 'leader' | 'participant',
+    over: Partial<KeywordRelationship> = {},
+  ): KeywordRelationship => ({
+    relationshipId: id,
+    role,
+    startedAt: new Date(startedAt),
+    acceptedAt: new Date('2026-05-01T09:00:00Z'),
+    endedAt: null,
+    paused: false,
+    name,
+    members,
+    ...over,
+  })
+
+  const oneToOneWithEmily = (over: Partial<KeywordRelationship> = {}) =>
+    held(
+      withEmilyDavis,
+      '2026-02-01T09:00:00Z',
+      null,
+      [member(grace, 'Grace Lee', 'leader'), member(emilyDavis, 'Emily Davis', 'participant')],
+      'leader',
+      over,
+    )
+
+  const oneToOneWithHannah = (
+    role: 'leader' | 'participant',
+    over: Partial<KeywordRelationship> = {},
+  ) =>
+    held(
+      withHannah,
+      '2026-03-01T09:00:00Z',
+      null,
+      [member(grace, 'Grace Lee', 'leader'), member(hannah, 'Hannah Brooks', 'participant')],
+      role,
+      over,
+    )
+
+  const theGroup = (
+    role: 'leader' | 'participant',
+    over: Partial<KeywordRelationship> = {},
+  ) =>
+    held(
+      tuesdayWomens,
+      '2026-04-01T09:00:00Z',
+      "Tuesday Women's",
+      [
+        member(grace, 'Grace Lee', 'leader'),
+        member(hannah, 'Hannah Brooks', 'participant'),
+        member(lily, 'Lily Evans', 'participant'),
+      ],
+      role,
+      over,
+    )
+
+  /** What Grace holds, all three on the leading side. */
+  const gracesHolds = (over: Partial<KeywordRelationship> = {}) => [
+    oneToOneWithEmily(over),
+    oneToOneWithHannah('leader', over),
+    theGroup('leader', over),
+  ]
+
+  /** What Hannah holds: Grace's one-to-one with her, and Grace's group. */
+  const hannahsHolds = [oneToOneWithHannah('participant'), theGroup('participant')]
+
+  const textingAs = (
+    person: typeof grace,
+    body: string,
+    over: Partial<InboundSnapshot>,
+  ) =>
+    handleCommand(
+      { type: 'sms.inbound', ministryId: ministry, personId: person, body },
+      {
+        ministryId: ministry,
+        clock: createTestClock(at),
+        ids: createSequentialIds(),
+        ministryName: 'Riverside Chapel',
+        appBaseUrl: 'https://discipler.example',
+        checkIn: checkIn({ personId: person }),
+        inbound: inbound({ personId: person, ...over }),
+      } satisfies CommandContext,
+    ).effects
+
+  const menuOf = (
+    keyword: OpenKeywordExchange['keyword'],
+    options: readonly KeywordRelationship[],
+  ): OpenKeywordExchange => ({
+    exchangeId: keywordExchangeId('exchange-1'),
+    keyword,
+    openedAt: at,
+    promptedAt: at,
+    options,
+    target: null,
+    clarificationsSent: 0,
+  })
+
+  it('reads 1. Grace Lee 2. Tuesday Women’s in a SWAP menu from somebody in both', () => {
+    const effects = textingAs(hannah, 'SWAP', { holds: hannahsHolds })
+
+    expect(bodies(effects)).toEqual([
+      "Riverside Chapel: Which one would you like us to look at? 1. Grace Lee 2. Tuesday Women's",
+    ])
+  })
+
+  it('names the group by its name from the leading side too', () => {
+    expect(bodies(textingAs(grace, 'PAUSE', { holds: gracesHolds() }))).toEqual([
+      'Riverside Chapel: Which check-ins would you like to pause? ' +
+        "1. Emily Davis 2. Hannah Brooks 3. Tuesday Women's",
+    ])
+    expect(
+      bodies(textingAs(grace, 'RESUME', { holds: gracesHolds({ paused: true }) })),
+    ).toEqual([
+      'Riverside Chapel: Which check-ins would you like to restart? ' +
+        "1. Emily Davis 2. Hannah Brooks 3. Tuesday Women's",
+    ])
+  })
+
+  it('re-prints the menu the same way when a reply could not be read', () => {
+    const effects = textingAs(hannah, 'the group one', {
+      holds: hannahsHolds,
+      exchange: menuOf('SWAP', hannahsHolds),
+    })
+
+    expect(bodies(effects)).toEqual([
+      "Riverside Chapel: Sorry, we didn't catch that. 1. Grace Lee 2. Tuesday Women's",
+    ])
+  })
+
+  it('asks the pause confirmation about the group by its name', () => {
+    const effects = textingAs(grace, '3', {
+      holds: gracesHolds(),
+      exchange: menuOf('PAUSE', gracesHolds()),
+    })
+
+    expect(bodies(effects)).toEqual([
+      "Riverside Chapel: Pause check-ins with Tuesday Women's for 2 weeks? Reply YES to " +
+        'confirm, or reply 1, 4, 8, or 12 for a different number of weeks.',
+    ])
+  })
+
+  it('says the pause is done by the group’s name', () => {
+    const effects = textingAs(grace, 'YES', {
+      holds: gracesHolds(),
+      exchange: {
+        ...menuOf('PAUSE', gracesHolds()),
+        target: theGroup('leader'),
+      },
+    })
+
+    expect(bodies(effects)).toEqual([
+      "Riverside Chapel: Done — your check-ins about Tuesday Women's are paused for 2 " +
+        'weeks. Reply RESUME any time to start them again sooner.',
+    ])
+  })
+
+  it('thanks somebody for a swap request by the group’s name', () => {
+    const effects = textingAs(hannah, '2', {
+      holds: hannahsHolds,
+      exchange: menuOf('SWAP', hannahsHolds),
+    })
+
+    expect(items(effects)).toMatchObject([
+      { relationshipId: tuesdayWomens, requestedBy: 'participant' },
+    ])
+    expect(bodies(effects)).toEqual([
+      "Riverside Chapel: Thanks for letting us know about Tuesday Women's. We've passed " +
+        'this on and someone will be in touch. Nothing changes in the meantime.',
+    ])
+  })
+
+  it('tells everyone in the group it has resumed, by its name', () => {
+    const effects = textingAs(grace, 'RESUME', {
+      holds: [
+        oneToOneWithEmily(),
+        oneToOneWithHannah('leader'),
+        theGroup('leader', { paused: true }),
+      ],
+    })
+
+    expect(recipients(effects)).toEqual([grace, hannah, lily])
+    expect(bodies(effects)).toEqual(
+      [grace, hannah, lily].map(
+        () =>
+          "Riverside Chapel: Your discipleship with Tuesday Women's has been resumed! " +
+          'Msg & data rates may apply. Reply STOP to opt out, HELP for help.',
+      ),
+    )
+  })
+
+  it('names an unnamed group by its people, as today', () => {
+    const unnamed = (role: 'leader' | 'participant') => theGroup(role, { name: null })
+
+    expect(
+      bodies(
+        textingAs(grace, 'PAUSE', {
+          holds: [oneToOneWithEmily(), oneToOneWithHannah('leader'), unnamed('leader')],
+        }),
+      ),
+    ).toEqual([
+      'Riverside Chapel: Which check-ins would you like to pause? ' +
+        '1. Emily Davis 2. Hannah Brooks 3. Hannah Brooks and Lily Evans',
+    ])
+    expect(
+      bodies(
+        textingAs(hannah, 'SWAP', {
+          holds: [oneToOneWithHannah('participant'), unnamed('participant')],
+        }),
+      ),
+    ).toEqual([
+      'Riverside Chapel: Which one would you like us to look at? 1. Grace Lee 2. Grace Lee',
+    ])
   })
 })
 
