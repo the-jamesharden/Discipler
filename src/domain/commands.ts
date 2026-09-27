@@ -22,7 +22,7 @@ import type { DiscipleshipGoalId, Gender, IntakeFormFields } from './intake'
 import type { IntakeLinkToken } from './intake-link'
 import type { InvitationToken } from './invitations'
 import type { PausePeriodWeeks } from './pause'
-import type { RelationshipOutcome } from './relationships'
+import type { FormedShape, RelationshipOutcome } from './relationships'
 import type { ImportMode } from './roster-csv'
 
 /**
@@ -185,10 +185,15 @@ export type Command =
        */
       readonly declaredGender?: Gender | null
       /**
+       * Said of a 1:2 pair, and of nothing else: the one shape its people cannot
+       * tell from a Group of the same three. Absent is whatever the counts make it.
+       */
+      readonly shape?: FormedShape
+      /**
        * What the Admin called it. Required by the boundary of anything but a
-       * one-to-one, which has nothing a name is for, and absent rather than
-       * defaulted for the reason the declaration above is: a group the form did
-       * not name is a refusal, not a group called nothing.
+       * one-to-one or a 1:2 pair, which have nothing a name is for, and absent
+       * rather than defaulted for the reason the declaration above is: a group the
+       * form did not name is a refusal, not a group called nothing.
        */
       readonly name?: string | null
       /**

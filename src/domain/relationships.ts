@@ -105,13 +105,30 @@ export const needsAGenderDeclaration = (
 ): boolean => kindFor(leaderCount, participantCount) !== 'one_to_one'
 
 /**
- * Whether the Admin forming this relationship has to name it. The same shapes that
- * declare a gender: a one-to-one is called by the two people in it and is never
- * offered on the group link, so it has nothing a name would be for. Asked here
+ * What the Admin said they were forming, where the people alone cannot say it. A
+ * 1:2 pair and a Group of one Discipler and two Disciples are the same three
+ * people in the same kind; only the shape the Admin picked tells them apart.
+ */
+export const ONE_TO_TWO = 'one_to_two'
+export type FormedShape = typeof ONE_TO_TWO
+
+/**
+ * Whether the Admin forming this relationship has to name it. The shapes that
+ * declare a gender, less a 1:2 pair: a one-to-one is called by the two people in
+ * it and is never offered on the group link, so it has nothing a name would be
+ * for, and a 1:2 pair is called by its people the same way and is on no link
+ * either (James, 2026-09-27). A 1:2 pair is one Discipler and two Disciples, so
+ * anything else that says it is one is asked what a Group is asked. Asked here
  * beside its sibling for the reason that one is -- this file is the one place
  * permitted to know what a kind is.
  */
-export const needsAName = needsAGenderDeclaration
+export const needsAName = (
+  leaderCount: number,
+  participantCount: number,
+  shape?: FormedShape,
+): boolean =>
+  needsAGenderDeclaration(leaderCount, participantCount) &&
+  !(shape === ONE_TO_TWO && leaderCount === 1 && participantCount === 2)
 
 /**
  * What the boundary accepts as a group's name: something, once trimmed. The

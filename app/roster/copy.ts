@@ -277,13 +277,6 @@ export const PAIR_POPUP = {
     why === 'needs_exactly_two'
       ? '1:2 pair needs exactly two checked'
       : `${firstNameOf(discipler)} already leads a group`,
-  /**
-   * What a 1:2 pair is called: `{First} with {First} & {First}`. A 1:2 is a group for
-   * every rule and a group is named, so the popup names it and asks nothing; the
-   * name is never shown there. It is what the weekly question calls the three.
-   */
-  nameOfAOneToTwo: (discipler: string, disciples: readonly [string, string]): string =>
-    `${firstNameOf(discipler)} with ${firstNameOf(disciples[0])} & ${firstNameOf(disciples[1])}`,
   oneToTwo: (discipler: string, disciples: readonly string[]): string =>
     `${PAIR_POPUP.willDisciple(discipler, disciples)} together as a 1:2 pair.`,
   createOneToTwo: 'Create 1:2 pair',

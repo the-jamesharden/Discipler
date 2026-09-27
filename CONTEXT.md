@@ -87,8 +87,8 @@ What a relationship says it is for — men, women, or nobody in particular — s
 _Avoid_: Reading an undeclared relationship as "not yet decided" — it declares nothing, which is a settled answer
 
 **Group Name**:
-What a Ministry calls a group, typed by an Admin when forming it and editable from Intake forms afterwards. A label, not a ministry event: renaming overwrites no history. It is what the group Intake link offers, and what the weekly check-in, the keyword menus and their answers, and the Resume Message call the group, from either side of it; an unnamed group is on no link and is called by listing its people. A one-to-one has none.
-_Avoid_: Naming a one-to-one, or reading an unnamed group as broken -- it predates the name
+What a Ministry calls a group, typed by an Admin when forming it and editable from Intake forms afterwards. A label, not a ministry event: renaming overwrites no history. It is what the group Intake link offers, and what the weekly check-in, the keyword menus and their answers, and the Resume Message call the group, from either side of it; an unnamed group is on no link and is called by listing its people. A one-to-one has none, and nor does a 1:2 pair, which is called by its people as an unnamed group is.
+_Avoid_: Naming a one-to-one or a 1:2 pair, or reading an unnamed group as broken -- it predates the name, or is a 1:2 pair
 
 **Group Intake Link**:
 The Ministry's original Intake link, `/intake/<ministry>`, which since ticket 29 opens the form for somebody who wants to join one of the Ministry's groups. It asks gender and age band, when they could meet, and which group, and never the Discipleship Goal. The discipleship wizard is the other link.

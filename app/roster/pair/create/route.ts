@@ -2,11 +2,12 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { PairingRefused } from '~/domain/errors'
 import { materialId, personId } from '~/domain/ids'
 import type { Gender } from '~/domain/intake'
+import { ONE_TO_TWO } from '~/domain/relationships'
 import { readPairingMode } from '~/domain/separate-pairings'
 import { declaredGenderFromField, declaredGenderToField } from '../../declared-gender'
 import { isPairSide, SIDE_FIELD } from '../../lists'
 import { viewFields, viewIn } from '../../menu'
-import { SHAPE_FIELD, postedByAGroup, wasPostedByAGroup } from '../../pair-shape'
+import { SHAPE_FIELD, postedByAGroup, wasPostedByAGroup, wasPostedByAOneToTwo } from '../../pair-shape'
 import { materialFieldFor, readMaterialPerDisciple } from '../material-per-disciple'
 import { popupFor } from '../popup-address'
 import { encodeSeparateReceipt } from '../receipt'
@@ -92,12 +93,18 @@ export async function POST(request: NextRequest) {
   const chosenMaterial = typeof rawMaterial === 'string' && rawMaterial !== '' ? rawMaterial : null
 
   /**
-   * Whether the popup posted this as a Group (Manual pairing, recut ticket 04).
-   * Nothing is formed differently for it: `together` is a 1:2 pair and a Group
-   * alike, and what either is called and declares is above. It is read only for the
-   * way back, so a refused Group reopens as the Group it was.
+   * Whether the popup posted this as a Group (Manual pairing, recut ticket 04). It
+   * is read only for the way back, so a refused Group reopens as the Group it was.
    */
   const asAGroup = wasPostedByAGroup(form.get(SHAPE_FIELD))
+
+  /**
+   * Whether it posted a 1:2 pair (Roles per pairing, ticket 05). The domain is told,
+   * because a 1:2 pair keeps no name and a Group of the same three people must have
+   * one, and nothing else about them tells the two apart. A form that says nothing
+   * is formed by what its people make it, as it always was.
+   */
+  const asAOneToTwo = wasPostedByAOneToTwo(form.get(SHAPE_FIELD))
 
   /**
    * The Material chosen for each Disciple of a set of separate one-to-ones (Manual
@@ -142,8 +149,8 @@ export async function POST(request: NextRequest) {
     for (const id of participantIds) if (id !== popup.pair) params.append('with', id)
     // And what a Group was asked: that it was one, what it declared and what it
     // was called, under the names the old Pair page's refusals gave the last two.
-    // Only a Group's: a 1:2 pair's name and declaration are generated, and would
-    // come back as something the Admin had typed.
+    // Only a Group's: a 1:2 pair's declaration is the Discipler's, posted again by
+    // the popup it reopens, and would come back as something the Admin had chosen.
     if (asAGroup) {
       for (const [field, value] of Object.entries(postedByAGroup)) params.set(field, value)
       if (declaredGender !== undefined) params.set('declaredGender', declaredGenderToField(declaredGender))
@@ -203,6 +210,7 @@ export async function POST(request: NextRequest) {
       leaderIds: leaderIds.map(personId),
       participantIds: participantIds.map(personId),
       ...(declaredGender === undefined ? {} : { declaredGender }),
+      ...(asAOneToTwo ? { shape: ONE_TO_TWO } : {}),
       name,
       joinRequiresApproval,
       ...(chosenMaterial === null ? {} : { materialId: materialId(chosenMaterial) }),

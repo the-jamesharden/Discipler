@@ -58,6 +58,8 @@ What each Pairings option means, decided here because the review did not spell i
   The preset only picks which side the popup opens on, and never limits who can be picked.
 - **Disciples somebody** is today's popup from a Discipler: any number ticked, the shape toggle, the Group gender toggle, and the Groups below.
   Its list opens on **Asked to be discipled**: people who have completed Intake, are not opted out, hold no open participant membership and would not open as *Disciples somebody* themselves.
+  It also includes somebody who answered Mentee on the Intake form and holds no open participant membership, even if they lead or offered to mentor.
+  James, 2026-09-27, confirming his rule of 2026-09-22 that a Mentee answer makes somebody a Disciple as well, though they disciple somebody (`askedToBeDiscipled` in `app/roster/lists.ts`).
 - **Is discipled** is today's popup from a Disciple: one choice, and the Groups below.
   Its list opens on **Disciples somebody already, or offered to** (*Disciples*, not *Disciple*): everybody who would open as *Disciples somebody*, with *leads N* as today.
 - **Everybody else** the gender rule allows is folded under **Everyone else · N**, closed, and one press opens it.
@@ -91,6 +93,10 @@ The texts were walked through on 2026-09-24, composed by `src/domain/outbound-co
   Today a `PAUSE` menu calls Tuesday Women's *Hannah Brooks and Lily Evans*, and a `SWAP` menu from somebody discipled one-to-one by Grace and in Grace's group reads *1. Grace Lee 2. Grace Lee*.
   The line is composed by `otherSideNamed` in `src/domain/boundary.ts`; the check-in's subject (`relationship.name ?? checkInSubject(...)`) is the rule to share.
   Real phones read this, so the before and after texts go to James with the ticket.
+- **A 1:2 pair keeps no name, so every text names it by its people** (James, 2026-09-27, ticket 05).
+  The Pair popup used to build one, *Claire with Ana & Sam*, and post it as the ordinary name, so the check-in asked *Did you meet with Claire with Ana & Sam this week?*, the keyword texts and the Resume Message said the same, and the public Group Intake Link offered the pair by it.
+  The popup posts none now, the forming command keeps none, and a data migration clears the ones already stored; history keeps the old name.
+  The pair leaves the Group Intake Link, which offers only a named group, and Admin screens call it what they call an unnamed group.
 - The links in these texts are real: the leader Starter Message links `https://app.trydiscipler.com/relationships` (`app/relationships/page.tsx`, which sends a signed-out visitor to `/login`), and an invitation links `/invitation/<token>`.
 
 ## Eligible to lead
@@ -116,5 +122,6 @@ The person-level Discipler / Disciple lists this spec removes are the last marke
 
 ## Out of scope
 
-- A migration: roles are already on memberships. The both-ways-round rule's migration belongs to planned-pairs-and-sides, question 1.
+- A migration: roles are already on memberships.
+  Ticket 05, a follow-up decided on 2026-09-27, carries a data migration of its own, which clears the names 1:2 pairs were given. The both-ways-round rule's migration belongs to planned-pairs-and-sides, question 1.
 - Anything a Participant or a Leader sees on their own pages.
