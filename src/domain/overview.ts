@@ -5,9 +5,9 @@ import type { Satisfaction } from './check-in'
  * out, and the three rates are kept apart on purpose: the response rate and the
  * meeting rate answer different questions and must never be conflated.
  *
- * Over every relationship-week on record, not a recent window. A dashboard that
- * quietly truncated its own denominator would show a rate nothing on the screen
- * could explain.
+ * Over last week's relationship-weeks: the last whole ISO week, in the Ministry's
+ * timezone. Every figure that carries them says *last week*, so the window is on
+ * the screen and not only in the denominator.
  */
 export interface CheckInCounts {
   /** Weeks a Leader was asked about a relationship: every relationship-week covered. */

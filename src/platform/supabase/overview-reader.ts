@@ -4,7 +4,7 @@ import { relationshipId, type MinistryId } from '~/domain/ids'
 import { NO_CHECK_INS, type CheckInCounts } from '~/domain/overview'
 import { deriveRelationshipState } from '~/domain/relationship-state'
 import { ACCEPTANCE_ESCALATION_DAYS } from '~/domain/relationships'
-import { isoWeekOf } from '~/domain/week'
+import { isoWeekOf, weeksApart } from '~/domain/week'
 import type { Overview, OverviewReader, OverviewRelationship } from '~/service/ports'
 import { careNeededFrom, historyFor } from './care-needed-reader'
 import { adminPage, readPageDocument } from './page'
@@ -26,7 +26,7 @@ import { createSupabaseServerClient } from './server-client'
 
 /**
  * The Overview tab: every live relationship with the state its history derives,
- * the two headcounts, and the three rates over every relationship-week on record.
+ * the two headcounts, and the three rates over last week's relationship-weeks.
  *
  * The state is `deriveRelationshipState` over exactly the history Care Needed
  * reads -- the same rows, from the same document -- so the two tabs cannot
@@ -57,7 +57,7 @@ const NOTHING_YET: Overview = {
 }
 
 /**
- * The counts over every relationship-week on record, with the three denominators
+ * The counts over the relationship-weeks it is handed, with the three denominators
  * kept apart. A relationship-week is counted as sent because a sequence covered
  * it, whether or not its question was ever reached -- the same reading of *sent*
  * the Stalled rule uses, so the denominator here is the denominator there.
@@ -117,9 +117,9 @@ export const overviewFrom = (history: HistoryInputs, clock: Clock): Overview => 
     const acceptedAt = instant(row.accepted_at)
     const endedAt = instant(row.ended_at)
 
-    // Ended is terminal and the Overview is about what is going on now. Ended
-    // relationships keep their weeks in the counts below -- the rates run over
-    // every relationship-week on record -- but get no card and no headcount.
+    // Ended is terminal and the Overview is about what is going on now. An ended
+    // relationship keeps its weeks in the counts below -- a week it was asked
+    // about last week still happened -- but gets no card and no headcount.
     if (endedAt !== null) continue
 
     // An unaccepted relationship is included only once it has waited the five days
@@ -180,12 +180,20 @@ export const overviewFrom = (history: HistoryInputs, clock: Clock): Overview => 
     (week) => week.answeredAt !== null && isoWeekOf(week.openedAt, timeZone) === thisWeek,
   ).length
 
+  // The rates are last week's: the last whole week, so they hold still all week
+  // rather than reading 0% until the cadence comes round and climbing as answers
+  // arrive. `weeksApart` rather than seven days back, because a week that lost an
+  // hour to the clocks changing is shorter than seven days.
+  const lastWeek = answers.filter(
+    (week) => weeksApart(isoWeekOf(week.openedAt, timeZone), thisWeek) === 1,
+  )
+
   return {
     relationships: relationships.sort(byNames),
     unsurfacedUnaccepted,
     active,
     paused,
-    counts: countsOf(answers),
+    counts: countsOf(lastWeek),
     completedThisWeek,
   }
 }

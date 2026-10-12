@@ -12,6 +12,10 @@ The Overview tab answers "how is the ministry doing right now" without the pasto
 
 Two metrics carry the operational picture and must not be conflated: **Response Rate** is check-ins answered divided by check-ins sent, and **Meeting Rate** is meetings held divided by check-ins answered. A ministry can have a high response rate and a poor meeting rate; collapsing them hides exactly the problem the product exists to surface. On the Check-In Ratings chart, A renders green, B yellow, and C red. Quick Stats is a panel inside Overview, not a separate tab.
 
+The rates, both charts and the rate rows in Quick Stats cover last week: the last whole Week, in the Ministry Timezone, and each of them says *last week* on the screen.
+A whole week rather than the current one, because the current week reads 0% until the Check-In Cadence comes round and then climbs as answers arrive.
+The check-ins completed this week, the follow-up count and the relationship counts are the current figures.
+
 ## Check-Ins
 
 The Check-Ins tab is the week's raw operational picture. It shows how many check-ins have been completed, how many are still pending, and how many concerns were raised, with the completed responses broken down at the top into A (outstanding), B (good), and C (concern). The A and B headings expand into the threads behind them. The C heading does not. Concerns are never presented as a browsable list, never exported, and never quoted in a report — an admin reading "four concerns this week" opens each person individually to see what was said. Raw concern text is the most sensitive data in the product, and the extra click is deliberate friction, not an oversight.
