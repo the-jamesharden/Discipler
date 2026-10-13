@@ -60,6 +60,9 @@ export const selectedSummary = (hours: number, days: number): string =>
  */
 export const YES_NO_LABEL: Record<'yes' | 'no', string> = { yes: 'Yes', no: 'No' }
 
+/** Said under a several-choices question, whose options look like one choice's. */
+export const AS_MANY_AS_APPLY = 'Choose as many as apply.'
+
 export const GOAL_OTHER_OPTION = 'Other'
 export const GOAL_OTHER_BOX = 'In a few words, what are you hoping for?'
 

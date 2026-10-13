@@ -35,6 +35,7 @@ import {
   sideLabel,
   weekdayFullLabel,
   weekdayLabel,
+  AS_MANY_AS_APPLY,
   workingThrough,
   YES_NO_LABEL,
 } from './copy'
@@ -578,9 +579,14 @@ export const OwnQuestionField = ({
         <fieldset>
           <legend>{asAsked(question)}</legend>
           <Hint question={question} />
+          {question.kind === 'several_choices' ? <p className="subtle">{AS_MANY_AS_APPLY}</p> : null}
           <div className="choices stack">
             {question.choices.map((choice) => (
-              <label key={choice.id} className="option" htmlFor={id(choice.id)}>
+              <label
+                key={choice.id}
+                className={question.kind === 'several_choices' ? 'option several' : 'option'}
+                htmlFor={id(choice.id)}
+              >
                 <input
                   id={id(choice.id)}
                   type={question.kind === 'one_choice' ? 'radio' : 'checkbox'}
