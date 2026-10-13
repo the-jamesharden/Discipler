@@ -20,6 +20,7 @@
   --border: #e8dfd5;
   --shadow: rgba(45, 80, 22, 0.08);
   --green-fit: #7faf8c;
+  --light-green-fit: #a8d5b0;
   --yellow-fit: #ddbb7a;
   --red-concern: #dc3545;
   --red-ink: #b02a37;
@@ -237,7 +238,9 @@ td .empty, li .empty { padding: 0; text-align: left; }
 .donut { width: 150px; height: 150px; flex-shrink: 0; }
 .donut-figures { display: flex; flex-direction: column; gap: 0.5rem; }
 .donut-figure { font-family: var(--serif); font-size: 2.4rem; line-height: 1.1; color: var(--primary); margin: 0; }
-.donut-legend { list-style: none; font-size: 0.82rem; margin: 0; padding: 0; }
+/* As `ul.donut-legend`, so that it outranks `.card ul`, which indented the legend
+   from the figure above it and pushed a four-line legend under the ring on a phone. */
+ul.donut-legend { list-style: none; font-size: 0.82rem; margin: 0; padding: 0; }
 .donut-legend li { display: flex; align-items: center; gap: 0.45rem; margin-bottom: 0.3rem; }
 .donut-legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
 /* The goals question: one row per option, the cross on the left, the wording in
@@ -305,17 +308,20 @@ a.rel-card:hover { background: rgba(45, 80, 22, 0.05); }
 
 /* ---- check-ins ---- */
 
-.ci-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem; list-style: none; }
+/* As `ul.ci-stats` and `ul.ci-list`, so that they outrank `.card ul`, as `ul.fu-list`
+   does: the tiles and the lists sit flush with the column heads above them. */
+ul.ci-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 0 0 1.5rem; padding: 0; list-style: none; }
 .ci-stat { text-align: center; padding: 1rem; border: 1px solid var(--border); border-radius: 6px; }
 .ci-stat-val { font-family: var(--serif); font-size: 2.2rem; line-height: 1; color: var(--primary); }
 .ci-stat-val.pending { color: var(--amber-ink); }
 .ci-stat-val.concern { color: var(--red-concern); }
-.ci-cols { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.25rem; }
+.ci-cols { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.25rem; }
 .ci-col-head { display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.8rem; border-radius: 5px; margin-bottom: 0.75rem; font-weight: 700; font-size: 0.9rem; }
 .ci-col-head.a { background: rgba(127, 175, 140, 0.18); color: #2f6b41; }
-.ci-col-head.b { background: rgba(221, 187, 122, 0.22); color: #8a6b28; }
-.ci-col-head.c { background: rgba(220, 53, 69, 0.1); color: var(--red-ink); }
-.ci-list { list-style: none; }
+.ci-col-head.b { background: rgba(168, 213, 176, 0.16); color: #3d7a4c; }
+.ci-col-head.c { background: rgba(221, 187, 122, 0.22); color: #8a6b28; }
+.ci-col-head.d { background: rgba(220, 53, 69, 0.1); color: var(--red-ink); }
+ul.ci-list { list-style: none; margin: 0; padding: 0; }
 .ci-card { padding: 0.7rem 0.85rem; border: 1px solid var(--border); border-radius: 5px; margin-bottom: 0.5rem; font-size: 0.88rem; }
 .ci-when { font-size: 0.76rem; color: var(--text-light); }
 .sealed { padding: 1.75rem 1.25rem; text-align: center; border: 1px dashed var(--border); border-radius: 6px; background: rgba(220, 53, 69, 0.03); }
@@ -570,7 +576,7 @@ blockquote { background: rgba(45, 80, 22, 0.04); border-left: 3px solid var(--pr
 @media (max-width: 1100px) {
   .stats { grid-template-columns: repeat(2, 1fr); }
   .charts { grid-template-columns: 1fr 1fr; }
-  .ci-cols { grid-template-columns: 1fr; }
+  .ci-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 860px) {
   .lead-grid, .two-up { grid-template-columns: minmax(0, 1fr); }
@@ -579,7 +585,8 @@ blockquote { background: rgba(45, 80, 22, 0.04); border-left: 3px solid var(--pr
 @media (max-width: 720px) {
   .stats { grid-template-columns: 1fr; }
   .charts { grid-template-columns: 1fr; }
-  .ci-stats { grid-template-columns: 1fr; }
+  ul.ci-stats { grid-template-columns: 1fr; }
+  .ci-cols { grid-template-columns: minmax(0, 1fr); }
   .container { padding: 1.25rem 1rem; }
   .centred { padding: 1rem; }
   /* On a phone the card sits at the top and the brand mark at the foot. */

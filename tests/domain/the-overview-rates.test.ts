@@ -38,7 +38,7 @@ describe('the three rates', () => {
       sent: 10,
       answered: 8,
       held: 6,
-      rated: { outstanding: 2, good: 2, concern: 1 },
+      rated: { outstanding: 2, good: 2, okay: 0, concern: 1 },
     })
 
     expect(rates).toEqual({
@@ -61,7 +61,7 @@ describe('the three rates', () => {
       sent: 4,
       answered: 4,
       held: 0,
-      rated: { outstanding: 0, good: 0, concern: 0 },
+      rated: { outstanding: 0, good: 0, okay: 0, concern: 0 },
     })
     expect(faithfulButNotMeeting).toEqual({ response: 100, meeting: 0, quality: 0 })
 
@@ -71,7 +71,7 @@ describe('the three rates', () => {
       sent: 4,
       answered: 2,
       held: 2,
-      rated: { outstanding: 1, good: 1, concern: 0 },
+      rated: { outstanding: 1, good: 1, okay: 0, concern: 0 },
     })
     expect(quietButMeeting).toEqual({ response: 50, meeting: 100, quality: 100 })
   })
@@ -81,10 +81,23 @@ describe('the three rates', () => {
       sent: 3,
       answered: 3,
       held: 3,
-      rated: { outstanding: 1, good: 1, concern: 1 },
+      rated: { outstanding: 1, good: 1, okay: 0, concern: 1 },
     }
     expect(ratedTotal(counts)).toBe(3)
     expect(checkInRates(counts).quality).toBe(67)
+  })
+
+  it('counts an okay against the quality rate, as a rated week that was neither', () => {
+    // C okay is not a concern, and it is not outstanding or good either. Four
+    // rated, two of them outstanding or good: half, not two thirds.
+    const counts = {
+      sent: 4,
+      answered: 4,
+      held: 4,
+      rated: { outstanding: 1, good: 1, okay: 1, concern: 1 },
+    }
+    expect(ratedTotal(counts)).toBe(4)
+    expect(checkInRates(counts).quality).toBe(50)
   })
 
   it('rounds each rate to a whole percentage', () => {
@@ -92,7 +105,7 @@ describe('the three rates', () => {
       sent: 3,
       answered: 2,
       held: 1,
-      rated: { outstanding: 0, good: 0, concern: 1 },
+      rated: { outstanding: 0, good: 0, okay: 0, concern: 1 },
     })
     expect(rates).toEqual({ response: 67, meeting: 50, quality: 0 })
   })

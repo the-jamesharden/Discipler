@@ -12,9 +12,11 @@ export const COMPLETED = 'Completed'
 export const PENDING = 'Pending'
 export const CONCERNS = 'Concerns'
 
+/** One column per answer the satisfaction question offers, by its letter. */
 export const OUTSTANDING_COLUMN = 'Outstanding (A)'
 export const GOOD_COLUMN = 'Good (B)'
-export const CONCERN_COLUMN = 'Concern (C)'
+export const OKAY_COLUMN = 'Okay (C)'
+export const CONCERN_COLUMN = 'Concern (D)'
 
 export const NOTHING_YET = 'Nothing yet this week'
 

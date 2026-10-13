@@ -323,7 +323,7 @@ describe('Relationship State and the Care Needed view', () => {
       await church.tickAt(at(0))
       const answering = new Date(at(0).getTime() + 60_000)
       await church.replyAt(answering, leader, '1')
-      await church.replyAt(new Date(answering.getTime() + 60_000), leader, 'C')
+      await church.replyAt(new Date(answering.getTime() + 60_000), leader, 'D')
       await church.replyAt(
         new Date(answering.getTime() + 120_000),
         leader,
@@ -363,12 +363,120 @@ describe('Relationship State and the Care Needed view', () => {
       await church.tickAt(at(1))
       const answering = new Date(at(1).getTime() + 60_000)
       await church.replyAt(answering, leader, '1')
-      await church.replyAt(new Date(answering.getTime() + 60_000), leader, 'C')
+      await church.replyAt(new Date(answering.getTime() + 60_000), leader, 'D')
       await church.replyAt(new Date(answering.getTime() + 120_000), leader, 'It has got worse.')
 
       expect(
         about(await church.careAt(at(1)), relationship).find((item) => item.source === 'concern'),
       ).toMatchObject({ concerns: [{}, {}] })
+    })
+
+    /**
+     * **A reply is read against the wording its question was sent with.** The
+     * three-answer question goes out before the change, the change ships, and the
+     * Leader answers `C` after it. They meant concern.
+     *
+     * The question is sent here as the code before the change sent it, because
+     * that code no longer exists to run: its one command -- record the `1`, ask
+     * the satisfaction question, queue its text -- written as the rows it wrote,
+     * the prompt without a wording (there was no such column) and the text in the
+     * three-answer words. Everything after that is today's code.
+     */
+    it('is raised by a C to a three-answer question sent before the change', async () => {
+      const church = await aMinistry('Changeover Chapel')
+      const { leader, relationships } = await church.leading('Changeover Leader', 1)
+
+      // Monday's meeting question, whose wording the change does not touch.
+      await church.tickAt(at(0))
+      const answering = new Date(at(0).getTime() + 60_000)
+
+      // Monday, before the change: the `1`, and the three-answer question.
+      const { rows: asked } = await pool.query<{
+        id: string
+        ministry_id: string
+        sequence_id: string
+        position: number
+        phone: string
+      }>(
+        `select p.id, p.ministry_id, p.sequence_id, p.position, person.phone
+           from checkin_prompt p
+           join person on person.id = $2
+          where p.relationship_id = $1 and p.question = 'met'`,
+        [relationships[0], leader],
+      )
+      const met = asked[0]!
+      await pool.query(
+        `update checkin_prompt
+            set answered_at = $2, answered_by = $3, met = true
+          where id = $1`,
+        [met.id, answering, leader],
+      )
+      await pool.query(
+        `insert into checkin_prompt
+           (id, ministry_id, sequence_id, relationship_id, role, position, question, asked_at)
+         values ($1, $2, $3, $4, 'leader', $5, 'satisfaction', $6)`,
+        [crypto.randomUUID(), met.ministry_id, met.sequence_id, relationships[0], met.position, answering],
+      )
+      const sentBefore =
+        'Changeover Chapel: How did the meeting go? Reply A for outstanding, B for good, C for concern.'
+      await pool.query(
+        `insert into outbound_message
+           (ministry_id, person_id, to_phone, body, enqueued_at, scheduled_for,
+            discloses_person_id, prompt_key, prompt_state, message_kind, carries_rates_line)
+         values ($1, $2, $3, $4, $5, null, null, $3, null, 'scheduled_question', false)`,
+        [met.ministry_id, leader, met.phone, sentBefore, answering],
+      )
+
+      // Tuesday, after the change: the Leader answers the question they were sent.
+      const replying = new Date(answering.getTime() + 60_000)
+      await church.replyAt(replying, leader, 'C')
+
+      const { rows: rated } = await pool.query<{ satisfaction: string; wording: string | null }>(
+        `select satisfaction, wording from checkin_prompt
+          where relationship_id = $1 and question = 'satisfaction'`,
+        [relationships[0]],
+      )
+      // Recorded as the concern it was, and the prompt is not rewritten: it says
+      // no wording because it was sent before there was one to say.
+      expect(rated).toEqual([{ satisfaction: 'concern', wording: null }])
+
+      const { rows: texts } = await pool.query<{ body: string }>(
+        `select body from outbound_message
+          where person_id = $1 order by enqueued_at, created_at`,
+        [leader],
+      )
+      expect(texts.map((text) => text.body).slice(-2)).toEqual([
+        sentBefore,
+        'Changeover Chapel: Please tell us more about the concern.',
+      ])
+
+      await church.replyAt(new Date(replying.getTime() + 60_000), leader, 'They have stopped coming.')
+
+      // The badge, and Needs Care for the week, exactly as a D raises them today.
+      expect(about(await church.careAt(at(0)), relationships[0]!)).toMatchObject([
+        { source: 'relationship', state: 'needs_care', openConcerns: 1 },
+        { source: 'concern', concerns: [{ raisedByName: 'Changeover Leader' }] },
+      ])
+    })
+
+    it('is never raised by an okay, which changes no state', async () => {
+      // C okay is recorded and raises nothing: no badge, no Needs Care, no
+      // request for detail that could become one (Pastor feedback, ticket 03).
+      const church = await aMinistry('Okay Chapel')
+      const { leader, relationships } = await church.leading('Okay Leader', 1)
+
+      await church.tickAt(at(0))
+      const answering = new Date(at(0).getTime() + 60_000)
+      await church.replyAt(answering, leader, '1')
+      await church.replyAt(new Date(answering.getTime() + 60_000), leader, 'C')
+
+      const { rows } = await pool.query<{ satisfaction: string }>(
+        `select satisfaction from checkin_prompt
+          where relationship_id = $1 and question = 'satisfaction'`,
+        [relationships[0]],
+      )
+      expect(rows).toEqual([{ satisfaction: 'okay' }])
+      expect(about(await church.careAt(at(0)), relationships[0]!)).toEqual([])
     })
 
     it('never carries its words into the list', async () => {

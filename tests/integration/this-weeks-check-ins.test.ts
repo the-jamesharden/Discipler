@@ -191,6 +191,28 @@ describe("this week's Check-Ins", () => {
     ])
   })
 
+  it('lists an okay as answered, with no Concern behind it', async () => {
+    const church = await aMinistry('Okay Week Chapel')
+    const { leader, relationships } = await church.leading('Okay Week Leader', 1)
+
+    await church.tickAt(at(0))
+    await church.replyAt(minutesAfter(at(0), 1), leader, '1')
+    await church.replyAt(minutesAfter(at(0), 2), leader, 'C')
+
+    const { checkIns } = await church.checkInsAt(minutesAfter(at(0), 3))
+
+    // C okay finishes the turn as A and B do: no detail asked for, nothing open.
+    expect(checkIns).toMatchObject([
+      {
+        relationshipId: relationships[0],
+        answeredAt: minutesAfter(at(0), 2),
+        met: true,
+        satisfaction: 'okay',
+        concernOpen: false,
+      },
+    ])
+  })
+
   it('counts a 2 as answered and not met', async () => {
     const church = await aMinistry('Not Met Chapel')
     const { leader } = await church.leading('Not Met Leader', 1)
@@ -212,7 +234,7 @@ describe("this week's Check-Ins", () => {
 
       await church.tickAt(at(0))
       await church.replyAt(minutesAfter(at(0), 1), leader, '1')
-      await church.replyAt(minutesAfter(at(0), 2), leader, 'C')
+      await church.replyAt(minutesAfter(at(0), 2), leader, 'D')
       await church.replyAt(
         minutesAfter(at(0), 3),
         leader,

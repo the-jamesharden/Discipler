@@ -4,6 +4,7 @@ import type {
   CheckInPromptId,
   CheckInQuestion,
   CheckInSequenceId,
+  CheckInWording,
   Satisfaction,
 } from './check-in'
 import type { ConcernResolution, ConcernViewing, NewConcern } from './concerns'
@@ -430,6 +431,11 @@ export interface NewCheckInPrompt {
   /** Position in the conversation, so history reads back in the order it happened. */
   readonly position: number
   readonly question: CheckInQuestion
+  /**
+   * The answers it offered, which is what its reply will be read against. Always
+   * the wording in force when it is sent; see `CheckInWording`.
+   */
+  readonly wording: CheckInWording
   readonly askedAt: Date
 }
 
@@ -447,7 +453,7 @@ export interface CheckInAnswer {
   readonly answeredAt: Date
   /** Set by a `met` answer, null on every other question. */
   readonly met: boolean | null
-  /** `outstanding`, `good` or `concern` -- the word, never the letter. */
+  /** `outstanding`, `good`, `okay` or `concern` -- the word, never the letter. */
   readonly satisfaction: Satisfaction | null
   /** The Concern in the Leader's own words. Prose, unparsed. */
   readonly detail: string | null
