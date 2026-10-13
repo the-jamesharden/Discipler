@@ -1,4 +1,5 @@
-import type { CareNeededItem } from '~/service/ports'
+import type { CareNeededItem, ConcernCareItem } from '~/service/ports'
+import { pairTitle } from '../pair-card/copy'
 import {
   concernLine,
   concernTag,
@@ -57,6 +58,17 @@ export const cardOf = (item: CareNeededItem, live: ReadonlySet<string>): string 
  */
 export const anchorOf = (card: string, ownCard: boolean): string =>
   ownCard ? `item-${card}` : `relationship-${card}`
+
+/**
+ * Who a Concern is about, on the list and on its card. Ending a pair ends its
+ * memberships, so who was in it is usually gone from the history; who raised
+ * the Concerns is not.
+ */
+export const concernWho = (item: ConcernCareItem): string => {
+  const leaders = item.members.filter((member) => member.role === 'leader').map((member) => member.fullName)
+  const raisers = [...new Set(item.concerns.flatMap((concern) => (concern.raisedByName ? [concern.raisedByName] : [])))]
+  return item.members.length === 0 && raisers.length > 0 ? pairTitle(raisers) : whoIsInIt(leaders, item.participantNames)
+}
 
 export const frontOf = (
   item: CareNeededItem,
@@ -119,10 +131,7 @@ export const frontOf = (
     tone: 'care-concern',
     tagTone: 'concern',
     tag: concernTag(item.concerns.length),
-    who: whoIsInIt(
-      item.members.filter((member) => member.role === 'leader').map((member) => member.fullName),
-      item.participantNames,
-    ),
+    who: concernWho(item),
     line: concernLine(item.concerns.length),
     held: oldest ? heldFor(oldest.raisedAt, now) : null,
   }

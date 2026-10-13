@@ -219,7 +219,11 @@ describe.skipIf(skipUnlessAppIsRunning)('Follow-Up items are buttons', () => {
     expect(ended.location).toContain('done=ended')
 
     const address = `/follow-up?card=${relationship}`
-    expect((await getPage('/follow-up', cookie)).html).toContain(`href="${address}"`)
+    const list = (await getPage('/follow-up', cookie)).html
+    expect(list).toContain(`href="${address}"`)
+    // Its memberships ended with it; who raised the Concern names it on the list.
+    expect(list).toContain('<span class="fu-who">Rachel Ended</span>')
+    expect(list).not.toContain('Nobody leading')
     const card = cardIn((await getPage(address, cookie)).html)
     expect(card).toContain('<span>Ended ·</span> <span>Concern unresolved</span>')
     expect(card).toMatch(/<h2 id="pc-title"[^>]*>Rachel Ended<\/h2>/)

@@ -1,9 +1,10 @@
 import Link from 'next/link'
 import type { EndedConcerns, FollowUpCard } from '~/service/ports'
 import type { ConcernWords } from '../pair-card/open'
-import { CLOSE, pairTitle } from '../pair-card/copy'
+import { CLOSE } from '../pair-card/copy'
 import { ConcernBand, HeadLine, ReadingLine } from '../pair-card/pair-card'
-import { endedCardLine, whoIsInIt } from './copy'
+import { endedCardLine } from './copy'
+import { concernWho } from './front'
 import { WhatHasHappened } from './what-has-happened'
 
 /**
@@ -33,12 +34,6 @@ export const EndedCard = ({
   readonly notice: { readonly tone: 'done' | 'refused'; readonly said: string } | null
 }) => {
   const { item } = ended
-  const leaders = item.members.filter((member) => member.role === 'leader').map((member) => member.fullName)
-  // Ending a pair ends its memberships, so who was in it is usually gone from
-  // the history; who raised the Concerns is not.
-  const raisers = [...new Set(item.concerns.flatMap((concern) => (concern.raisedByName ? [concern.raisedByName] : [])))]
-  const title =
-    item.members.length === 0 && raisers.length > 0 ? pairTitle(raisers) : whoIsInIt(leaders, item.participantNames)
 
   return (
     <div className="modal-bg open" data-testid="pair-card">
@@ -50,7 +45,7 @@ export const EndedCard = ({
           <div>
             <HeadLine line={endedCardLine(item.concerns.length)} />
             <h2 id="pc-title" className="card-title">
-              {title}
+              {concernWho(item)}
             </h2>
           </div>
           <Link className="modal-close" href={close} scroll={false} aria-label={CLOSE}>
