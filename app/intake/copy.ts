@@ -54,6 +54,15 @@ export const selectedSummary = (hours: number, days: number): string =>
  * The goal question's last option, and the box it opens. *Other* on every
  * Ministry's form, whatever the Ministry's own options are worded as.
  */
+/**
+ * The two answers a yes-or-no question of the Ministry's own offers (Pastor
+ * feedback, ticket 12), as the form says them and as an Admin reads them back.
+ */
+export const YES_NO_LABEL: Record<'yes' | 'no', string> = { yes: 'Yes', no: 'No' }
+
+/** Said under a several-choices question, whose options look like one choice's. */
+export const AS_MANY_AS_APPLY = 'Choose as many as apply.'
+
 export const GOAL_OTHER_OPTION = 'Other'
 export const GOAL_OTHER_BOX = 'In a few words, what are you hoping for?'
 
@@ -96,6 +105,13 @@ const REFUSALS: Record<IntakeRefusal, string> = {
     'That group is not open to you. Please choose a different group.',
   'intake.email_unreadable': 'That does not look like an email address.',
   'intake.email_missing': 'Please give your email address.',
+  // The Ministry's own questions (Pastor feedback, ticket 12). Said of every
+  // question at once rather than naming one: a browser holds somebody on a
+  // required box or choice before it is sent, so what reaches this is a set of
+  // checkboxes left empty, which is on the screen they are looking at.
+  'intake.question_unanswered': 'Please answer every question that is not marked optional.',
+  'intake.answer_unreadable': 'Something went wrong reading one of your answers. Please try again.',
+  'intake.answer_too_long': 'One of your answers is longer than its box takes. Please shorten it.',
   'intake.link_expired':
     'This link has expired. Ask whoever sent it to you for a new one.',
   // Deliberately says nothing about who. A name and a number together are who a

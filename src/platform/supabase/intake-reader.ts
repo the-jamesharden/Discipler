@@ -11,6 +11,7 @@ import {
 import { intakeLinkState } from '~/domain/intake-link'
 import { GROUP_PATH, type IntakePath } from '~/domain/intake'
 import { PRESET_VERSION, presetForm, type IntakeForm } from '~/domain/intake-form'
+import { asSent } from '~/domain/own-answers'
 import { shortName, type ShortName } from '~/domain/short-name'
 import { ministryId, personId, relationshipId } from '~/domain/ids'
 import type {
@@ -92,6 +93,15 @@ const prefillFor = async (
       )
     : { rows: [] }
 
+  // Their answers to the Ministry's own questions (Pastor feedback, ticket 12),
+  // offered back as the form sends them.
+  const { rows: answers } = submission
+    ? await client.query<{ question_key: string; answer: unknown }>(
+        `select question_key, answer from intake_answer where intake_submission_id = $1`,
+        [submission.id],
+      )
+    : { rows: [] }
+
   // The decision that stands, through the one function that defines what a Person
   // currently consents to. Reading the newest row here instead would be a second
   // definition of *current*, and the two would eventually disagree.
@@ -121,7 +131,29 @@ const prefillFor = async (
     // Never asked stays never asked. Rendering it as `declined` would put an answer
     // in front of the Person that they never gave.
     contactSharing: currentSharing === null ? null : currentSharing ? 'granted' : 'declined',
+    own: Object.fromEntries(answers.map((row) => [row.question_key, asSent(row.answer)])),
   }
+}
+
+/**
+ * The form whose own questions the reopened page asks (Pastor feedback, ticket
+ * 12): the latest version of the form this Person last answered, by the path
+ * their latest consent record names, and the mentor and mentee form where none
+ * does -- somebody who has never submitted, or whose every submission came
+ * through this page, which declares no path. The reopened page asks the goal, so
+ * it is the mentor and mentee form's page in all but name.
+ */
+const formLastAnswered = async (client: pg.PoolClient, person: string): Promise<IntakeForm> => {
+  const { rows } = await client.query<{ intake_path: IntakePath }>(
+    `select intake_path
+       from consent_record
+      where person_id = $1
+        and intake_path is not null
+      order by decided_at desc, created_at desc, id desc
+      limit 1`,
+    [person],
+  )
+  return servedForm(client, rows[0]?.intake_path ?? 'discipleship', null)
 }
 
 /**
@@ -331,6 +363,7 @@ export const createPostgresIntakeReader = (
           personId: personId(link.person_id),
           state: intakeLinkState(link.expires_at, new Date()),
           prefill: await prefillFor(client, link.person_id),
+          form: await formLastAnswered(client, link.person_id),
         }
       } finally {
         await client.query('rollback')

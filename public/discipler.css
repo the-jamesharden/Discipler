@@ -330,6 +330,19 @@ button.fe-handle:active { cursor: grabbing; }
 .fe-inline { padding: 0.8rem 1rem; border-bottom: 1px solid var(--border); display: grid; gap: 0.5rem; }
 .fe-inline .label, .fe-inline .subtle, .fe-inline input, .fe-inline textarea, .fe-inline .toast { margin: 0; }
 #add-page .fe-inline { border: 1px dashed var(--border); border-radius: 8px; }
+/* A question the Ministry added (Pastor feedback, ticket 12): its chip, the row
+   that adds one at the foot of each page, and the new row open above it. */
+.fe-chip.custom { background: rgba(127, 175, 140, 0.25); color: #2f6b41; }
+.fe-add { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; padding: 0.7rem 1rem; border-top: 1px dashed var(--border); }
+.fe-add .btn { margin: 0; }
+.fe-add-label { color: var(--text-light); font-size: 0.85rem; }
+.fe-add-note { color: var(--text-light); font-size: 0.8rem; font-style: italic; }
+.fe-qs + .fe-new, .fe-empty + .fe-new { border-top: 1px solid var(--border); }
+.fe-new { border-bottom: 0; }
+.fe-new .fe-handle, .js .fe-new .fe-handle { visibility: hidden; }
+fieldset.fe-choice-boxes { display: grid; gap: 0.5rem; margin: 0; padding: 0; border: 0; min-width: 0; }
+/* Room for a few choices before any are typed, where the other boxes grow from one line. */
+.fe-edit textarea.fe-choices { min-height: 4.6em; }
 @media (max-width: 560px) {
   .fe-q { grid-template-columns: auto minmax(0, 1fr); padding: 0.65rem 0.75rem; gap: 0.3rem 0.6rem; }
   .fe-q-actions { grid-column: 2; justify-content: flex-start; }
@@ -340,6 +353,7 @@ button.fe-handle:active { cursor: grabbing; }
   @supports (field-sizing: content) { .fe-edit textarea { min-height: 0; } }
   .fe-edit .fe-spacer { display: none; }
   .fe-page-head { padding: 0.6rem 0.75rem; }
+  .fe-add { padding: 0.65rem 0.75rem; }
 }
 .qs-row { display: flex; justify-content: space-between; padding: 0.55rem 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
 .qs-row:last-child { border-bottom: none; }
@@ -713,6 +727,16 @@ blockquote { background: rgba(45, 80, 22, 0.04); border-left: 3px solid var(--pr
 .kv dt { color: var(--text-light); }
 .kv dd { margin: 0; }
 @media (max-width: 480px) { .kv { grid-template-columns: minmax(0, 1fr); gap: 0.1rem 0; } .kv dd { margin-bottom: 0.5rem; } }
+/* An answer to a Ministry's own question (Pastor feedback, ticket 12): the
+   question across the list, the answer under it, a long one keeping its lines. */
+dl .own-question, dl .own-answer { grid-column: 1 / -1; }
+dl .own-question { margin-top: 0.35rem; }
+dl .own-answer { margin-top: -0.2rem; white-space: pre-line; overflow-wrap: anywhere; }
+/* Several choices are ticks painted as option buttons: a ticked one says so, so
+   somebody can see they may pick more than one. */
+.option.several { padding-right: 2.4rem; }
+.option.several::after { content: ''; position: absolute; right: 0.9rem; top: 50%; width: 1rem; height: 1rem; margin-top: -0.5rem; border: 2px solid var(--border); border-radius: 3px; box-sizing: border-box; }
+.option.several:has(input:checked)::after { content: '✓'; background: var(--primary); border-color: var(--primary); color: #fff; font-size: 0.7rem; line-height: 0.75rem; text-align: center; font-weight: 700; }
 
 /* The Everyone menu over the Roster (Roles per pairing, ticket 02), where the
    toggle was: a details element like the Account menu, its options links, so it

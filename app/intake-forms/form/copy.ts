@@ -1,5 +1,5 @@
 import type { IntakePath } from '~/domain/intake'
-import type { IntakeFormRefusal, ProductUse, QuestionKind } from '~/domain/intake-form'
+import type { IntakeFormRefusal, OwnKind, ProductUse, QuestionKind } from '~/domain/intake-form'
 import { refusalIn } from '../../refusals'
 
 /**
@@ -61,9 +61,12 @@ export const OPTIONAL = 'Optional'
 
 export const KIND: Record<QuestionKind, string> = {
   short_text: 'Short text',
+  long_text: 'Long text',
   phone: 'Phone',
   email: 'Email',
   one_choice: 'One choice',
+  several_choices: 'Several choices',
+  yes_no: 'Yes / no',
   hourly_grid: 'The hourly grid',
   goal_choice: 'One choice + Other',
   group_choice: 'One choice from your groups',
@@ -90,6 +93,35 @@ export const KIND_LABEL = 'Kind'
 export const REQUIRED = 'Required'
 
 export const SAVED_LIVE = 'Saved, live now'
+
+/**
+ * A question the Ministry added (Pastor feedback, ticket 12): its chip, and the
+ * row at the foot of each page that adds one, a button for each kind.
+ */
+export const YOUR_QUESTION = 'Your question'
+export const ADD_A_QUESTION = 'Add a question:'
+export const ADD_KIND: Record<OwnKind, string> = {
+  short_text: 'Short text',
+  long_text: 'Long text',
+  one_choice: 'One choice',
+  several_choices: 'Several choices',
+  yes_no: 'Yes / no',
+}
+export const addKindLabel = (kind: OwnKind, page: string): string => `Add a ${ADD_KIND[kind].toLowerCase()} question to ${page}`
+/** Said in place of the two text kinds on every page but the last. */
+export const TYPED_ON_THE_LAST_PAGE = 'Short and long text are asked on the last page.'
+/** The new row's line, before it has any words of its own. */
+export const NEW_QUESTION = 'New question'
+export const CHOICES = 'Choices, one to a line'
+export const MORE_CHOICES = 'More choices, one to a line'
+export const choiceLabel = (number: number): string => `Choice ${number}`
+
+/** What an open row says about a question the Ministry added. */
+export const ABOUT_YOUR_QUESTION =
+  'Admins see the answers on the person page and the pair card, under the person who gave them. Suggested Pairs and the pairing rules never read them.'
+export const ABOUT_TYPED =
+  'It is asked on the last page, beside Submit, so what is typed never goes into a web address.'
+export const ABOUT_CHOICES = 'Reword a choice and everybody who picked it keeps their answer.'
 
 /** The buttons for an editor whose script has not run. */
 export const moveUp = (wording: string): string => `Move “${wording}” up`
@@ -133,7 +165,12 @@ const REFUSALS: Record<IntakeFormRefusal, string> = {
   'intake_form.changed':
     'The form changed while you were rearranging it. This is how it stands now.',
   'intake_form.stays_on_the_last_page':
-    'Name, mobile number, email and the goals question stay on the last page, beside Submit, so what is typed into them never goes into a web address.',
+    'Name, mobile number, email, the goals question and every short or long text question stay on the last page, beside Submit, so what is typed into them never goes into a web address.',
+  'intake_form.kind_unknown': 'A question can be short text, long text, one choice, several choices or yes / no.',
+  'intake_form.needs_two_choices': 'A choice question needs at least two choices.',
+  'intake_form.choices_repeat': 'Two of the choices say the same thing.',
+  'intake_form.choice_kept':
+    'A choice cannot be emptied: the answers that picked it would go with it. Reword it instead.',
   'intake_form.asked_too_soon':
     'That would ask a question before the answer it is worded from: the first-time question comes after “I’m joining as…”, and the choice of group after Gender.',
 }

@@ -8,6 +8,7 @@ import { EndForm } from '../follow-up/end-form'
 import { followUpLine, RESUME } from '../follow-up/copy'
 import { Mail, Message, Phone } from '../icons'
 import { initialsOf } from '../initials'
+import { OwnAnswers } from '../own-answers'
 import { cardPill } from '../overview/need'
 import { displayPhone } from '../roster/copy'
 import {
@@ -347,7 +348,12 @@ const Member = ({ person }: { readonly person: PairCardPerson }) => {
       </span>
     </>
   )
-  const opens = person.phone || person.email || person.ageBand || goalAsShown(person.goal, person.goalOther)
+  const opens =
+    person.phone
+    || person.email
+    || person.ageBand
+    || goalAsShown(person.goal, person.goalOther)
+    || person.ownAnswers.length > 0
   return opens ? (
     <details className="pc-member">
       <summary className="pc-member-row">
@@ -404,10 +410,13 @@ export const Contact = ({
     </div>
   ) : null
 
-/** Their age band and goal off their latest Intake, each left out where they gave none. */
+/**
+ * Their age band and goal off their latest Intake, each left out where they gave
+ * none, and their answers to the Ministry's own questions under them (ticket 12).
+ */
 const Answers = ({ person }: { readonly person: PairCardPerson | CardSubject }) => {
   const goal = goalAsShown(person.goal, person.goalOther)
-  return person.ageBand || goal ? (
+  return person.ageBand || goal || person.ownAnswers.length > 0 ? (
     <dl className="pc-kv">
       {person.ageBand ? (
         <>
@@ -421,6 +430,7 @@ const Answers = ({ person }: { readonly person: PairCardPerson | CardSubject }) 
           <dd>{goal}</dd>
         </>
       ) : null}
+      <OwnAnswers answers={person.ownAnswers} />
     </dl>
   ) : null
 }

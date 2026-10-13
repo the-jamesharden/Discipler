@@ -50,6 +50,8 @@ describe('Reading the Intake form', () => {
         declaredSide: null,
         firstTime: null,
         groupId: null,
+        // A form that asks none of the Ministry's own questions (ticket 12).
+        ownAnswers: [],
       },
     })
   })

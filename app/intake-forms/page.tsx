@@ -8,7 +8,7 @@ import { groupMaterialField, MATERIAL_FIELD } from '../materials/assigning'
 import { dayMonthYear, NO_MATERIAL } from '../materials/copy'
 import { AccountMenu, NotAnAdmin, PageShell } from '../shell'
 import { GROUP_PATH, INTAKE_PATHS, isOneOf } from '~/domain/intake'
-import { isFormText, questionOn } from '~/domain/intake-form'
+import { isFormText, isOwnKind, questionOn } from '~/domain/intake-form'
 import { FormEditor } from './form-editor'
 import { formRefusalMessage } from './form/copy'
 import { GoalsCard } from './goals-card'
@@ -97,6 +97,16 @@ export default async function IntakeFormsPage({
     addingPage?: string
     formSaved?: string
     formError?: string
+    /**
+     * A question being added (ticket 12): its kind, the page it goes at the foot
+     * of, and what was typed into it where it was refused.
+     */
+    adding?: string
+    addTo?: string
+    draftWording?: string
+    draftHint?: string
+    draftRequired?: string
+    draftChoices?: string
   }>
 }) {
   const resolution = await getIntakeFormsReader().readIntakeFormsPage()
@@ -221,6 +231,17 @@ export default async function IntakeFormsPage({
           renaming: query.renaming ?? null,
           writing: isFormText(query.writing) ? query.writing : null,
           addingPage: query.addingPage === '1',
+          adding:
+            isOwnKind(query.adding) && query.addTo ? { pageId: query.addTo, kind: query.adding } : null,
+          draft:
+            query.draftWording !== undefined
+              ? {
+                  wording: query.draftWording,
+                  hint: query.draftHint ?? '',
+                  required: query.draftRequired === 'yes',
+                  choices: query.draftChoices ?? '',
+                }
+              : null,
           saved: query.formSaved ?? null,
           refusal: formRefusalMessage(query.formError),
         }}

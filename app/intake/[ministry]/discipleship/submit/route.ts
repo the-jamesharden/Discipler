@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { IntakeRefused } from '~/domain/errors'
 import { readIntakeForm, type IntakeFormFields } from '~/domain/intake'
-import { requiredOn } from '~/domain/intake-form'
+import { ownQuestionsOf, requiredOn } from '~/domain/intake-form'
 import { getCommandService, getIntakeReader, settlePlannedPairings } from '~/service/container'
 import {
   discipleshipWizardFor,
@@ -9,7 +9,7 @@ import {
   readVersion,
   readVia,
 } from '../../../wizard-answers'
-import { consentSourceOf, submittedIntakeForm, textField } from '../../../submitted-form'
+import { consentSourceOf, ownAnswersAsQuery, submittedIntakeForm, textField } from '../../../submitted-form'
 
 /**
  * The wizard's last step, and the only write it makes. Every earlier screen has
@@ -65,6 +65,7 @@ export async function POST(
   // second reader of the same body is a second place for that to be got wrong.
   const backToTheForm = (refusals: readonly string[]) => {
     const answers = wizard.readAnswers({
+      ...ownAnswersAsQuery(form),
       side: form.declaredSide ?? undefined,
       ageBand: form.ageBand ?? undefined,
       gender: form.gender ?? undefined,
@@ -83,7 +84,7 @@ export async function POST(
   if (preview) {
     // Read as the real thing is, so an Admin trying the form meets its refusals,
     // and then nothing: no command, no Person, no text.
-    const reading = readIntakeForm(form, requiredOn(page.form))
+    const reading = readIntakeForm(form, requiredOn(page.form), ownQuestionsOf(page.form))
     if ('refusals' in reading) return backToTheForm(reading.refusals)
     return NextResponse.redirect(
       new URL(`/intake/${page.ministryId}/discipleship/done?${doneQuery(form, pin)}`, request.url),

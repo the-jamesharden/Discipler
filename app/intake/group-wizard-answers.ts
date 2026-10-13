@@ -1,6 +1,6 @@
 import { AGE_BANDS, GENDERS, GROUP_PATH } from '~/domain/intake'
-import { askedPages, presetForm, type BuiltInQuestion, type IntakeForm } from '~/domain/intake-form'
-import { defineWizard, type AnswersOf, type Screen } from './wizard-machine'
+import { askedPages, isOwnQuestion, presetForm, type BuiltInQuestion, type IntakeForm } from '~/domain/intake-form'
+import { defineWizard, ownFieldFor, ownFieldsOf, type AnswersOf, type Screen } from './wizard-machine'
 
 /**
  * The group form: the wizard behind `/intake/<ministry>` since ticket 29. Today's
@@ -48,7 +48,7 @@ const CARRIED: Partial<Record<BuiltInQuestion, Carried>> = {
 export const groupScreensOf = (form: IntakeForm): readonly Screen<typeof LISTS>[] =>
   askedPages(form).map((page) => {
     const carried = page.questions.flatMap((question) => {
-      const field = CARRIED[question.key]
+      const field = isOwnQuestion(question) ? ownFieldFor(question) : CARRIED[question.key]
       return field ? [{ field, required: question.required }] : []
     })
     const asks = carried.map((each) => each.field)
@@ -60,7 +60,8 @@ export const groupScreensOf = (form: IntakeForm): readonly Screen<typeof LISTS>[
   })
 
 /** The wizard for one version of the Ministry's groups form. */
-export const groupWizardFor = (form: IntakeForm) => defineWizard(LISTS, groupScreensOf(form))
+export const groupWizardFor = (form: IntakeForm) =>
+  defineWizard(LISTS, groupScreensOf(form), ownFieldsOf(form))
 
 /** The wizard every Ministry is served until it edits its groups form. */
 export const groupWizard = groupWizardFor(presetForm(GROUP_PATH))

@@ -173,20 +173,26 @@ import {
   discipleshipGoalId,
   GROUP_PATH,
   readIntakeForm,
+  REQUIRED_TODAY,
   type DiscipleshipGoalId,
   type Gender,
 } from './intake'
 import {
   addPage,
+  addQuestion,
   arrangeQuestions,
   editQuestion,
   editText,
+  isOwnQuestion,
   layoutOf,
   moveQuestion,
+  ownQuestionKey,
+  ownQuestionsOf,
   questionOn,
   renamePage,
   requiredOn,
   type FormEdit,
+  type FormQuestion,
   type IntakeForm,
 } from './intake-form'
 import {
@@ -958,6 +964,24 @@ const savingTheForm = (
     rejections: [],
   }
 }
+
+/**
+ * A question as history records it: its words and whether it may be left, and
+ * for one of the Ministry's own (ticket 12) its kind and its choices by id, so
+ * the words a choice carried on any date can be read back from history alone.
+ */
+const questionAsRecorded = (question: FormQuestion | undefined): Record<string, unknown> => ({
+  wording: question?.wording ?? null,
+  menteeWording: question?.menteeWording ?? null,
+  hint: question?.hint ?? null,
+  required: question?.required ?? null,
+  ...(question && isOwnQuestion(question)
+    ? {
+        kind: question.kind,
+        choices: question.choices.map((choice) => ({ id: choice.id, wording: choice.wording })),
+      }
+    : {}),
+})
 
 /**
  * The Ministry's own list of Materials, or a loud failure rather than an empty
@@ -4866,12 +4890,20 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       }
 
       // Against the version of the Ministry's form the Person opened, which says
-      // which of the questions an Admin may make optional were optional for them.
+      // which of the questions an Admin may make optional were optional for them,
+      // and which of the Ministry's own questions it asked (ticket 12). The
+      // reopened page is not the wizard: it asks Discipler's questions by today's
+      // rules, and the Ministry's own questions of the form it drew them from.
       const asked = context.intakeForm ?? null
-      const reading = asked
-        ? readIntakeForm(command.form, requiredOn(asked))
-        : readIntakeForm(command.form)
+      const reading = readIntakeForm(
+        command.form,
+        asked && !command.token ? requiredOn(asked) : REQUIRED_TODAY,
+        asked ? ownQuestionsOf(asked) : [],
+      )
       if ('refusals' in reading) throw new IntakeRefused(reading.refusals)
+      // Which version of the Ministry's form this submission answered, where it
+      // answered one: never the reopened page, which is not one of the two.
+      const formVersion = asked && !command.token ? asked.version : null
 
       const { submission } = reading
       const effects: Effect[] = []
@@ -5054,7 +5086,8 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           availability: submission.availability,
           email: submission.email,
           firstTime: submission.firstTime,
-          formVersion: asked ? asked.version : null,
+          formVersion,
+          ownAnswers: submission.ownAnswers,
           consentVersion: CONSENT_VERSION,
           source: submission.source,
           // What they were answering and which side they said they were on, on
@@ -5100,7 +5133,13 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             // Which version of the Ministry's form they were answering (Pastor
             // feedback, ticket 11), so the words they were asked in can be read
             // back for any submission. Null on a form that is not one of the two.
-            formVersion: asked ? asked.version : null,
+            formVersion,
+            // Which of the Ministry's own questions they answered (ticket 12), by
+            // key. The answers themselves are on the submission and not here:
+            // what somebody types to their church can be anything, and history is
+            // a record every Admin surface reads. Which question was answered on
+            // which date is what history needs to keep.
+            ownQuestionsAnswered: submission.ownAnswers.map((answer) => answer.key),
             // The name they gave on this submission, the same way
             // `person.joined_at_intake` records the one they joined under. A
             // correction overwrites `person.full_name`, and without this the name
@@ -5622,28 +5661,57 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       return savingTheForm(
         command,
         context,
-        editQuestion(form, command.key, {
-          wording: command.wording,
-          menteeWording: command.menteeWording,
-          hint: command.hint,
-          required: command.required,
-        }),
+        editQuestion(
+          form,
+          command.key,
+          {
+            wording: command.wording,
+            menteeWording: command.menteeWording,
+            hint: command.hint,
+            required: command.required,
+            ...(command.choices ? { choices: command.choices } : {}),
+          },
+          () => context.ids.next(),
+        ),
         (saved) => {
           const now = questionOn(saved, command.key)
           // What the question said before and after, which the new version keeps
           // and the history keeps beside it: a reworded question is the same
           // question, and the answers given to the old words stay its answers.
-          const said = (question: typeof was) => ({
-            wording: question?.wording ?? null,
-            menteeWording: question?.menteeWording ?? null,
-            hint: question?.hint ?? null,
-            required: question?.required ?? null,
-          })
           return {
             type: 'intake_form.question_edited',
-            payload: { key: command.key, from: said(was), to: said(now) },
+            payload: { key: command.key, from: questionAsRecorded(was), to: questionAsRecorded(now) },
           }
         },
+      )
+    }
+
+    case 'intake_form.add_question': {
+      const form = theFormBeingEdited(context)
+      // Minted here, so a key is never one the page made up, and prefixed so it
+      // can never be one of Discipler's own.
+      const key = ownQuestionKey(context.ids.next())
+      return savingTheForm(
+        command,
+        context,
+        addQuestion(
+          form,
+          command.pageId,
+          key,
+          command.kind,
+          {
+            wording: command.wording,
+            menteeWording: null,
+            hint: command.hint,
+            required: command.required,
+            choices: { kept: [], added: command.choices },
+          },
+          () => context.ids.next(),
+        ),
+        (saved) => ({
+          type: 'intake_form.question_added',
+          payload: { key, pageId: command.pageId, ...questionAsRecorded(questionOn(saved, key)) },
+        }),
       )
     }
 

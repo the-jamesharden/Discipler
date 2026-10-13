@@ -37,6 +37,7 @@ import { settledStateOf } from '~/domain/relationship-state'
 import type { StandingPause } from '~/domain/pause'
 import { historyOf, instant, pausesFrom } from './relationship-history'
 import { createSupabaseServerClient } from './server-client'
+import { personDocument, personPageFrom } from './person-page-reader'
 
 interface MemberRow {
   person_id: string
@@ -626,6 +627,11 @@ export const createSupabaseRosterReader = (clock: Clock = systemClock): RosterRe
   async readRosterPage(surface) {
     const doc = await readPageDocument(await createSupabaseServerClient(), `${surface}_page`)
     return adminPage(doc, () => rosterPageFrom(doc, clock, surface))
+  },
+
+  async readPersonPage(person) {
+    const doc = await readPageDocument(await createSupabaseServerClient(), ...personDocument(person))
+    return adminPage(doc, () => personPageFrom(doc, clock))
   },
 
   async accountOnTheRoster(ministryId, person): Promise<AccountOnTheRoster | null> {

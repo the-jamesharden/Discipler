@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { IntakeRefused } from '~/domain/errors'
 import type { IntakeFormFields } from '~/domain/intake'
-import { submittedIntakeForm } from '../../../submitted-form'
+import { submittedIntakeForm, textField } from '../../../submitted-form'
+import { readVersion } from '../../../wizard-machine'
 import { intakeLinkToken } from '~/domain/intake-link'
 import { getCommandService, getIntakeReader, settlePlannedPairings } from '~/service/container'
 
@@ -42,6 +43,11 @@ export async function POST(
       ministryId: page.ministryId,
       form,
       token: intakeLinkToken(token),
+      // The Ministry's own questions the page asked (Pastor feedback, ticket 12):
+      // the form it drew them from, at the version it was served, so the answers
+      // are read against the questions the Person was shown.
+      ownQuestionsFrom: page.form.name,
+      formVersion: readVersion(textField(submitted, 'v')) ?? page.form.version,
     })
   } catch (error) {
     if (error instanceof IntakeRefused) {

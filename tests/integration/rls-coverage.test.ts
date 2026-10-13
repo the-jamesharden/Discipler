@@ -66,6 +66,7 @@ describe('every ministry-owned table', () => {
       'follow_up_item',
       'held_import_row',
       'held_short_name',
+      'intake_answer',
       'intake_availability',
       'intake_form_version',
       'intake_link',

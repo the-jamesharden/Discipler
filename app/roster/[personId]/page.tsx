@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { CHANGE_YOUR_PASSWORD } from '../../account/copy'
 import { ClipboardField } from '../../intake-forms/clipboard-field'
+import { OwnAnswers } from '../../own-answers'
 import { AccountMenu, initialsOf, NotAnAdmin, PageShell } from '../../shell'
 import { getRosterReader } from '~/service/container'
 import { personId as asPersonId } from '~/domain/ids'
@@ -66,14 +67,14 @@ export default async function PersonPage({
     remove?: string
   }>
 }) {
-  const page = await getRosterReader().readRosterPage('person')
+  const { personId } = await params
+  const query = await searchParams
+  const page = await getRosterReader().readPersonPage(personId)
 
   if (page.status === 'not-an-admin') return <NotAnAdmin title="Roster" />
   if (page.status === 'signed-out') redirect('/login')
 
   const { admin } = page
-  const { personId } = await params
-  const query = await searchParams
 
   // The whole Roster and one row of it. There is no single-Person reader, and one
   // read policed by the Roster's own function is the read that cannot show an
@@ -141,6 +142,10 @@ export default async function PersonPage({
                 <dd>{hopingFor}</dd>
               </>
             )}
+            {/* Their answers to the Ministry's own questions (Pastor feedback,
+                ticket 12), each under the question as the form words it now.
+                Here and on the pair card, never on the Roster row. */}
+            <OwnAnswers answers={page.page.ownAnswers} />
           </dl>
         </div>
 

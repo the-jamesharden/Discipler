@@ -10,7 +10,15 @@ import {
   type DeclaredSide,
   type ExperienceAnswer,
 } from '~/domain/intake'
-import { presetForm, questionOn, type BuiltInQuestion, type FormQuestion } from '~/domain/intake-form'
+import {
+  isOwnQuestion,
+  presetForm,
+  questionOn,
+  type BuiltInQuestion,
+  type FormQuestion,
+  type OwnQuestion,
+} from '~/domain/intake-form'
+import { LONG_TEXT_LIMIT, NO, SHORT_TEXT_LIMIT, YES } from '~/domain/own-answers'
 import type { DiscipleshipGoalOption, IntakePrefill, JoinableGroup } from '~/service/ports'
 import {
   DONE_BEFORE_ANSWER,
@@ -27,7 +35,9 @@ import {
   sideLabel,
   weekdayFullLabel,
   weekdayLabel,
+  AS_MANY_AS_APPLY,
   workingThrough,
+  YES_NO_LABEL,
 } from './copy'
 
 /**
@@ -68,6 +78,7 @@ export const NOTHING_PREFILLED: IntakePrefill = {
   goalOther: null,
   availability: [],
   contactSharing: null,
+  own: {},
 }
 
 /** The preset's question, for a field asked without a form: today's words. */
@@ -514,6 +525,108 @@ export const ExperienceField = ({
 )
 
 /**
+ * A question the Ministry added to its own form (Pastor feedback, ticket 12), as
+ * the control its kind takes: a line, a box for a few paragraphs, option buttons
+ * for one choice, ticks for several, or Yes and No. Named by its key, which is the
+ * name its answer travels under.
+ *
+ * A required one is held by the browser as every other question on the form is:
+ * `required` on the line, the box and the radios. Ticks cannot say *at least one
+ * of these*, so several choices is refused when it arrives instead, as the grid is.
+ */
+export const OwnQuestionField = ({
+  question,
+  given,
+}: {
+  readonly question: OwnQuestion
+  /** What they gave before, as the form sends it: carried, or offered back on the reopened page. */
+  readonly given: readonly string[]
+}) => {
+  const id = (value: string) => `${question.key}:${value}`
+  switch (question.kind) {
+    case 'short_text':
+    case 'long_text':
+      return (
+        <div className="field">
+          <label className="label" htmlFor={question.key}>
+            {asAsked(question)}
+          </label>
+          <Hint question={question} />
+          {question.kind === 'short_text' ? (
+            <input
+              id={question.key}
+              name={question.key}
+              type="text"
+              maxLength={SHORT_TEXT_LIMIT}
+              required={question.required}
+              defaultValue={given[0] ?? ''}
+            />
+          ) : (
+            <textarea
+              id={question.key}
+              name={question.key}
+              rows={4}
+              maxLength={LONG_TEXT_LIMIT}
+              required={question.required}
+              defaultValue={given[0] ?? ''}
+            />
+          )}
+        </div>
+      )
+    case 'one_choice':
+    case 'several_choices':
+      return (
+        <fieldset>
+          <legend>{asAsked(question)}</legend>
+          <Hint question={question} />
+          {question.kind === 'several_choices' ? <p className="subtle">{AS_MANY_AS_APPLY}</p> : null}
+          <div className="choices stack">
+            {question.choices.map((choice) => (
+              <label
+                key={choice.id}
+                className={question.kind === 'several_choices' ? 'option several' : 'option'}
+                htmlFor={id(choice.id)}
+              >
+                <input
+                  id={id(choice.id)}
+                  type={question.kind === 'one_choice' ? 'radio' : 'checkbox'}
+                  name={question.key}
+                  value={choice.id}
+                  required={question.kind === 'one_choice' && question.required}
+                  defaultChecked={given.includes(choice.id)}
+                />
+                {choice.wording}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )
+    case 'yes_no':
+      return (
+        <fieldset>
+          <legend>{asAsked(question)}</legend>
+          <Hint question={question} />
+          <div className="choices">
+            {([YES, NO] as const).map((answer) => (
+              <label key={answer} className="option centred-text" htmlFor={id(answer)}>
+                <input
+                  id={id(answer)}
+                  type="radio"
+                  name={question.key}
+                  value={answer}
+                  required={question.required}
+                  defaultChecked={given.includes(answer)}
+                />
+                {YES_NO_LABEL[answer]}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )
+  }
+}
+
+/**
  * Everything a screen of either wizard knows when it asks a question: the answers
  * carried so far, and the lists the Ministry offers.
  */
@@ -539,6 +652,9 @@ export const AskedQuestion = ({
   readonly question: FormQuestion
   readonly answering: Answering
 }) => {
+  if (isOwnQuestion(question)) {
+    return <OwnQuestionField question={question} given={answering.prefill.own[question.key] ?? []} />
+  }
   switch (question.key) {
     case 'side':
       return <SideField asked={question} chosen={answering.side} />

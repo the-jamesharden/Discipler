@@ -79,6 +79,7 @@ export default async function ReopenIntakePage({
         goals={page.goals}
         via="link"
         prefill={page.prefill}
+        form={page.form}
       />
     </Centred>
   )

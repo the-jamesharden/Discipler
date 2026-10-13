@@ -64,6 +64,7 @@ export default async function GroupIntakePage({
     groupWizard.stuckOnAvailability(query.step, answers)
       ? 'intake.availability_not_selected'
       : undefined,
+    groupWizard.stuckOnOwnQuestion(query.step, answers) ? 'intake.question_unanswered' : undefined,
   )
 
   return (

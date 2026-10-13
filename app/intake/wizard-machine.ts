@@ -1,4 +1,14 @@
 import { isOneOf, isSlotKey } from '~/domain/intake'
+import {
+  isOwnQuestion,
+  isOwnQuestionKey,
+  isTypedKind,
+  ownQuestionsOf,
+  type FormQuestion,
+  type IntakeForm,
+  type OwnQuestionKey,
+} from '~/domain/intake-form'
+import { NO, YES } from '~/domain/own-answers'
 
 /**
  * The stepping rules every Intake wizard shares: which screen a set of answers
@@ -41,9 +51,52 @@ export type AnswersOf<L extends ChoiceLists> = {
   readonly [F in keyof L]: L[F][number] | null
 } & {
   readonly availability: readonly string[]
+  /**
+   * The answers to the Ministry's own choice questions (Pastor feedback, ticket
+   * 12), by question key: the ids of the choices picked, or `yes` or `no`. Empty
+   * where unanswered, like the grid.
+   */
+  readonly own: Readonly<Record<string, readonly string[]>>
 }
 
-type FieldOf<L extends ChoiceLists> = keyof L | 'availability'
+export type FieldOf<L extends ChoiceLists> = keyof L | 'availability' | OwnQuestionKey
+
+/**
+ * One of the Ministry's own questions a wizard carries between screens (ticket
+ * 12): a choice question, whose answers are ids Discipler served and so may go in
+ * a URL as the built-in answers do. A question somebody types into is never one
+ * of these: it is asked on the last page and posted from it, as the name is.
+ *
+ * `allowed` is every value the question offers; anything else in a URL is
+ * dropped, as an answer to a built-in question is.
+ */
+export interface OwnField {
+  readonly key: OwnQuestionKey
+  readonly multiple: boolean
+  readonly allowed: readonly string[]
+}
+
+/** The Ministry's own questions on a version of its form that travel between screens. */
+export const ownFieldsOf = (form: IntakeForm): readonly OwnField[] =>
+  ownQuestionsOf(form).flatMap((question) =>
+    isTypedKind(question.kind)
+      ? []
+      : [
+          {
+            key: question.key,
+            multiple: question.kind === 'several_choices',
+            allowed: question.kind === 'yes_no' ? [YES, NO] : question.choices.map((choice) => choice.id),
+          },
+        ],
+  )
+
+/**
+ * The field a question of the Ministry's own travels under, where it travels at
+ * all: a choice question, by its key. A question somebody types into is posted
+ * from the last page and never carried.
+ */
+export const ownFieldFor = (question: FormQuestion): OwnQuestionKey | null =>
+  isOwnQuestion(question) && !isTypedKind(question.kind) ? question.key : null
 
 /**
  * One screen: what it asks for, and what its own question rewords.
@@ -126,6 +179,7 @@ export const readVia = (value: string | string[] | null | undefined): IntakeVia 
 export const defineWizard = <L extends ChoiceLists>(
   lists: L,
   screens: readonly Screen<L>[],
+  own: readonly OwnField[] = [],
 ) => {
   type Answers = AnswersOf<L>
   type Field = FieldOf<L>
@@ -161,9 +215,11 @@ export const defineWizard = <L extends ChoiceLists>(
 
   /** Whether an answer has been given. The grid is a list, so its empty is a length. */
   const answered = (answers: Answers, field: Field): boolean =>
-    field === 'availability'
-      ? answers.availability.length > 0
-      : answers[field as keyof L] !== null
+    isOwnQuestionKey(field)
+      ? (answers.own[field]?.length ?? 0) > 0
+      : field === 'availability'
+        ? answers.availability.length > 0
+        : answers[field as keyof L] !== null
 
   /** One answer off the query string, checked against the list the form offered it from. */
   const oneOf = <T extends string>(
@@ -196,6 +252,12 @@ export const defineWizard = <L extends ChoiceLists>(
         ]),
       ),
       availability: all(query.availability).filter(isSlotKey),
+      own: Object.fromEntries(
+        own.map((field) => {
+          const offered = [...new Set(all(query[field.key]).filter((value) => field.allowed.includes(value)))]
+          return [field.key, field.multiple ? offered : offered.slice(0, 1)]
+        }),
+      ),
     }) as Answers
 
   /**
@@ -242,6 +304,25 @@ export const defineWizard = <L extends ChoiceLists>(
     && requestedStep(requested) > AVAILABILITY_STEP
 
   /**
+   * The same for a required question of the Ministry's own that a browser cannot
+   * hold somebody on (ticket 12): several choices is a set of checkboxes, as the
+   * grid is. Whether the screen shown is short of a later one it was asked to move
+   * past because one of those is unanswered.
+   */
+  const stuckOnOwnQuestion = (
+    requested: string | string[] | undefined,
+    answers: Answers,
+  ): boolean => {
+    const shown = stepToShow(requested, answers)
+    if (requestedStep(requested) <= shown) return false
+    const screen = screens[shown - 1]
+    return (screen?.asks ?? []).some(
+      (field) =>
+        isOwnQuestionKey(field) && !(screen?.optional ?? []).includes(field) && !answered(answers, field),
+    )
+  }
+
+  /**
    * The answers as a query string, for the link back to the previous screen.
    *
    * Composed from what was read rather than from what arrived, so the way back
@@ -264,11 +345,15 @@ export const defineWizard = <L extends ChoiceLists>(
       if (answer !== null) params.set(field, answer)
     }
     for (const slot of answers.availability) params.append('availability', slot)
+    for (const field of own) {
+      for (const value of answers.own[field.key] ?? []) params.append(field.key, value)
+    }
     return params
   }
 
   return {
     CHOICE_FIELDS,
+    OWN_FIELDS: own,
     SCREENS: screens,
     FIRST_STEP,
     LAST_STEP,
@@ -281,6 +366,7 @@ export const defineWizard = <L extends ChoiceLists>(
     requestedStep,
     stepToShow,
     stuckOnAvailability,
+    stuckOnOwnQuestion,
     answersAsQuery,
   }
 }

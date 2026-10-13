@@ -1,5 +1,7 @@
 import type { Branded } from './branded'
 import { relationshipId, type RelationshipId } from './ids'
+import type { OwnQuestion } from './intake-form'
+import { readOwnAnswers, type OwnAnswer, type OwnAnswerRefusal, type OwnAnswersAsSent } from './own-answers'
 import { asEmail, asPhoneNumber, type PhoneNumber } from './roster'
 import { readWording } from './wording'
 
@@ -217,6 +219,11 @@ export interface IntakeFormFields {
    * thing.
    */
   readonly groupId: string | null
+  /**
+   * The answers to the Ministry's own questions (Pastor feedback, ticket 12), by
+   * question key, as the form sent them. Absent where the form asked none.
+   */
+  readonly own?: OwnAnswersAsSent
 }
 
 export interface IntakeSubmissionDraft {
@@ -253,6 +260,11 @@ export interface IntakeSubmissionDraft {
    * the two apart, and on the group path a null here is the answer they gave.
    */
   readonly groupId: RelationshipId | null
+  /**
+   * The answers to the Ministry's own questions (ticket 12), each one given. Shown
+   * to an Admin and never matched on.
+   */
+  readonly ownAnswers: readonly OwnAnswer[]
 }
 
 /**
@@ -284,6 +296,7 @@ export const isSlotKey = (key: string): boolean => readSlot(key) !== null
  * discover their mistakes one round trip at a time.
  */
 export type IntakeRefusal =
+  | OwnAnswerRefusal
   | 'intake.name_missing'
   | 'intake.phone_missing'
   | 'intake.phone_unreadable'
@@ -387,10 +400,14 @@ export const REQUIRED_TODAY: ReadonlySet<string> = new Set([
  * opened, by question key. Only the questions an Admin may make optional read it
  * -- the email, the first-time question and the goal -- because every other one
  * is required by Discipler whatever a form says (`BUILT_IN` in `intake-form.ts`).
+ *
+ * `own` is the Ministry's own questions on that version (ticket 12), which arrive
+ * under `fields.own` and are read by `readOwnAnswers`.
  */
 export const readIntakeForm = (
   fields: IntakeFormFields,
   required: ReadonlySet<string> = REQUIRED_TODAY,
+  own: readonly OwnQuestion[] = [],
 ): IntakeReading => {
   const refusals: IntakeRefusal[] = []
 
@@ -507,6 +524,13 @@ export const readIntakeForm = (
   if (raw === null && required.has('email')) refusals.push('intake.email_missing')
   if (raw !== null && email === null) refusals.push('intake.email_unreadable')
 
+  // The Ministry's own questions, each read against how the version they opened
+  // asks it: its kind, its choices and whether it may be left (ticket 12). Each
+  // carries its own `required`, so the reopened page, which reads Discipler's
+  // questions by today's rules, reads these by the form's.
+  const ownReading = readOwnAnswers(own, fields.own ?? {})
+  if ('refusals' in ownReading) refusals.push(...ownReading.refusals)
+
   if (refusals.length > 0) return { refusals }
 
   return {
@@ -526,6 +550,7 @@ export const readIntakeForm = (
       declaredSide,
       firstTime: experience === null ? null : experience === 'first_time',
       groupId: askedTheGroup ? groupId : null,
+      ownAnswers: 'answers' in ownReading ? ownReading.answers : [],
     },
   }
 }

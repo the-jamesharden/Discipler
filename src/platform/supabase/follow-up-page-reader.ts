@@ -19,6 +19,7 @@ import type {
   PairCard,
 } from '~/service/ports'
 import { careNeededFrom, withPlacements } from './care-needed-reader'
+import { formsNowFrom, ownAnswersFrom } from './intake-form-document'
 import { adminPage, readPageDocument, type PageDocument } from './page'
 import { pairCardFrom } from './pair-card-reader'
 import {
@@ -102,6 +103,7 @@ export const followUpCardFrom = (
 
   const extra = (doc.follow_up_card ?? {}) as Record<string, unknown>
   const nameOf = namesFrom(history)
+  const forms = formsNowFrom(extra.intake_forms)
 
   const subjects: CardSubject[] = rows(extra.subjects).flatMap((row) => {
     const who = text(row.person_id)
@@ -117,6 +119,7 @@ export const followUpCardFrom = (
         ageBand: ageBandOf(row.age_band),
         goal: text(row.goal),
         goalOther: typed === null ? null : otherGoal(typed),
+        ownAnswers: ownAnswersFrom(forms, row.own_answers),
       },
     ]
   })

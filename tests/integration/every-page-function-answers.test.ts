@@ -30,6 +30,7 @@ const PAGE_FUNCTIONS = [
   'overview_card_page',
   'overview_page',
   'pair_page',
+  'person_intake_page',
   'person_page',
   'relationships_page',
   'roster_page',

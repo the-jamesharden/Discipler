@@ -19,7 +19,7 @@ export interface TypedLink {
 }
 import type { MinistrySettingsFields } from './ministry-settings'
 import type { DiscipleshipGoalId, Gender, IntakeFormFields, IntakePath } from './intake'
-import type { FormText, MoveDirection, PageLayout } from './intake-form'
+import type { ChoicesAsTyped, FormText, MoveDirection, PageLayout } from './intake-form'
 import type { IntakeLinkToken } from './intake-link'
 import type { InvitationToken } from './invitations'
 import type { PausePeriodWeeks } from './pause'
@@ -111,6 +111,12 @@ export type Command =
        * Ministry's two -- the tokenized reopen link -- which is read as today's.
        */
       readonly formVersion?: number
+      /**
+       * On the reopened page, which declares no path: the form whose own
+       * questions it asked (ticket 12), with `formVersion` the version it drew
+       * them from. The submission's answers to them are read against it.
+       */
+      readonly ownQuestionsFrom?: IntakePath
     }
   /**
    * An Admin issuing a Person the link that reopens their own Intake form,
@@ -728,7 +734,31 @@ export type Command =
       readonly menteeWording: string | null
       readonly hint: string
       readonly required: boolean
+      /**
+       * The choices of a choice question the Ministry added (ticket 12): each one
+       * already on it by id, as reworded, and new ones. Absent on every other
+       * question.
+       */
+      readonly choices?: ChoicesAsTyped
       /** The Admin's account, as the session named it, for the record. */
+      readonly editedBy: string
+    }
+  /**
+   * A question of the Ministry's own, added at the foot of a page (Pastor
+   * feedback, ticket 12): short text, long text, one choice, several choices or
+   * yes/no. Its key is minted by the boundary. `choices` are the lines typed under
+   * a choice question, in order; ignored on the other three kinds.
+   */
+  | {
+      readonly type: 'intake_form.add_question'
+      readonly ministryId: MinistryId
+      readonly form: IntakePath
+      readonly pageId: string
+      readonly kind: string
+      readonly wording: string
+      readonly hint: string
+      readonly required: boolean
+      readonly choices: readonly string[]
       readonly editedBy: string
     }
   /**
