@@ -170,11 +170,15 @@ const FormTile = async ({
         height={QR_CODE_ON_SCREEN}
       />
       {/* The short name picked out, because it is the one part of the address
-          that is this church's and the one part a pastor chose. */}
+          that is this church's and the one part a pastor chose. It is kept with
+          what follows it, so a narrow tile breaks the link before the name and
+          never leaves `/groups` on a line of its own. */}
       <code id={`${id}-link`}>
         {`${shownHost}/join/`}
-        <b>{shortName}</b>
-        {path}
+        <span>
+          <b>{shortName}</b>
+          {path}
+        </span>
       </code>
       <div className="btn-row">
         <CopyLinkButton value={link} shows={`${id}-link`} label={COPY_LINK} confirmation={LINK_COPIED} />
