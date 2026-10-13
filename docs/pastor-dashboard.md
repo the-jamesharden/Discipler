@@ -48,7 +48,7 @@ Where this week's answer raised a concern that is still unresolved, that band is
 Resolving from the card clears the concern on Check-Ins and on Follow-Up alike, and the card says so where the pastor is; ending the relationship from the card says so at the top of Check-Ins.
 Concerns are never presented as a browsable list, never exported, and never quoted in a report — an admin reading "four concerns this week" opens each relationship's card to see what was said.
 Raw concern text is the most sensitive data in the product, so its words show in one place only: the pair card of the relationship it is about, which shows them as it opens.
-Opening the card is the read, and it is recorded exactly as `Read the concern` records it, one viewing per concern; a line under the concern on the card says who read it and when.
+Opening the card is the read, and it is recorded exactly as the retired `Read the concern` button recorded it, one viewing per concern; a line under the concern on the card says who read it and when.
 This reverses an earlier rule, that reading a concern took a deliberate extra click past the list as friction (James, 2026-10-12, Pastor feedback ticket 07).
 The friction that stays is everything else above: no list of the words, no export, no report, and the words never on the Overview grid, the Check-Ins columns or the Follow-Up list.
 
