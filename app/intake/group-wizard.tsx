@@ -1,38 +1,21 @@
 import Link from 'next/link'
+import { askedPages, type IntakeForm } from '~/domain/intake-form'
 import type { JoinableGroup } from '~/service/ports'
-import {
-  groupStepSubtitle,
-  NO_GROUPS_ALTERNATIVE,
-  NO_GROUPS_HEADING,
-  noGroupsMessage,
-} from './copy'
-import {
-  AgeBandField,
-  Agreements,
-  AvailabilityGrid,
-  ContactFields,
-  GenderField,
-  GroupField,
-  NOTHING_PREFILLED,
-} from './fields'
-import {
-  GROUP_AGE_AND_GENDER_STEP,
-  GROUP_AVAILABILITY_STEP,
-  GROUP_LAST_STEP,
-  GROUP_STEP,
-  groupWizard,
-  type GroupWizardAnswers,
-} from './group-wizard-answers'
-import type { IntakeVia } from './wizard-machine'
+import { NO_GROUPS_ALTERNATIVE, NO_GROUPS_HEADING, noGroupsMessage } from './copy'
+import { Agreements, AskedQuestion, NOTHING_PREFILLED, type Answering } from './fields'
+import { groupWizardFor, type GroupWizardAnswers } from './group-wizard-answers'
+import type { FormPin, IntakeVia } from './wizard-machine'
 import { FormActions, Hidden, Progress, StepForm } from './wizard-shell'
 
 /**
- * The group form: the wizard behind the Ministry's original Intake link. Four
- * screens -- age and gender, the grid, which group, and the screen with the Submit
- * button -- built from the same shell and the same fields as the discipleship
- * wizard, and differing in what is asked.
+ * The group form: the wizard behind the Ministry's original Intake link. Its
+ * screens are the pages of the Ministry's own groups form (Pastor feedback,
+ * ticket 11), in the version the Person opened; the preset is today's four --
+ * age and gender, the grid, which group, and the screen with the Submit button --
+ * built from the same shell and the same fields as the discipleship wizard, and
+ * differing in what is asked.
  *
- * The groups arrive already filtered for the gender answered on the first screen.
+ * The groups arrive already filtered for the gender answered on an earlier screen.
  * That filtering is the page's, because the page is what reads the answers and
  * the list together; what this component knows is that an empty list on the group
  * screen means there is nothing to offer, and says so rather than drawing an empty
@@ -51,6 +34,8 @@ export const GroupIntakeWizard = ({
   ministryName,
   discipleshipLink,
   via,
+  form,
+  preview,
 }: {
   readonly step: number
   readonly answers: GroupWizardAnswers
@@ -62,59 +47,67 @@ export const GroupIntakeWizard = ({
   /** Where somebody who wanted one-to-one discipleship is sent instead. */
   readonly discipleshipLink: string
   readonly via: IntakeVia
+  /** The version of the Ministry's groups form this visitor opened. */
+  readonly form: IntakeForm
+  /** An Admin's preview, which records nothing. */
+  readonly preview: boolean
 }) => {
-  const wizard = groupWizard
+  const wizard = groupWizardFor(form)
+  const pin: FormPin = { version: form.version, preview }
   const at = Math.min(Math.max(step, wizard.FIRST_STEP), wizard.furthestStep(answers))
+  const page = askedPages(form)[at - 1]
+  if (!page) throw new Error(`The groups form has no page ${at} to show`)
 
   const back =
-    at === wizard.FIRST_STEP ? null : `${here}?${wizard.answersAsQuery(answers, via, at - 1)}`
+    at === wizard.FIRST_STEP ? null : `${here}?${wizard.answersAsQuery(answers, via, at - 1, pin)}`
 
   const screen = (children: React.ReactNode) => (
     <>
-      <p className="sub">{groupStepSubtitle[at] ?? ''}</p>
-      <Progress at={at} of={GROUP_LAST_STEP} />
+      <p className="sub">{page.name}</p>
+      <Progress at={at} of={wizard.LAST_STEP} />
+      {at === wizard.FIRST_STEP && form.intro ? <p className="card-lead">{form.intro}</p> : null}
       {children}
     </>
   )
 
-  if (at === GROUP_AGE_AND_GENDER_STEP) {
+  // The screen that asks which group, with nothing to offer this Person.
+  if (page.questions.some((question) => question.key === 'groupId') && groups.length === 0) {
     return screen(
-      <StepForm wizard={wizard} at={at} answers={answers} via={via} here={here} back={back}>
-        {/* Gender first, because the list of groups on the third screen is
-            filtered on it -- which is also why answering it again drops the
-            group already chosen rather than carrying it under a different list. */}
-        <AgeBandField prefill={{ ...NOTHING_PREFILLED, ageBand: answers.ageBand }} />
-        <GenderField prefill={{ ...NOTHING_PREFILLED, gender: answers.gender }} />
-      </StepForm>,
+      <>
+        <NoGroups ministryName={ministryName} discipleshipLink={discipleshipLink} />
+        {back ? (
+          <p>
+            <Link className="btn sec" href={back}>
+              Back
+            </Link>
+          </p>
+        ) : null}
+      </>,
     )
   }
 
-  if (at === GROUP_AVAILABILITY_STEP) {
-    return screen(
-      <StepForm wizard={wizard} at={at} answers={answers} via={via} here={here} back={back}>
-        <AvailabilityGrid availability={answers.availability} />
-      </StepForm>,
-    )
+  const answering: Answering = {
+    prefill: {
+      ...NOTHING_PREFILLED,
+      ageBand: answers.ageBand,
+      gender: answers.gender,
+      availability: answers.availability,
+    },
+    side: null,
+    experience: null,
+    goals: [],
+    groups,
+    groupChosen: answers.groupId,
+    ministryName,
   }
+  const questions = page.questions.map((question) => (
+    <AskedQuestion key={question.key} question={question} answering={answering} />
+  ))
 
-  if (at === GROUP_STEP) {
-    if (groups.length === 0) {
-      return screen(
-        <>
-          <NoGroups ministryName={ministryName} discipleshipLink={discipleshipLink} />
-          {back ? (
-            <p>
-              <Link className="btn sec" href={back}>
-                Back
-              </Link>
-            </p>
-          ) : null}
-        </>,
-      )
-    }
+  if (at < wizard.LAST_STEP) {
     return screen(
-      <StepForm wizard={wizard} at={at} answers={answers} via={via} here={here} back={back}>
-        <GroupField groups={groups} chosen={answers.groupId} ministryName={ministryName} />
+      <StepForm wizard={wizard} at={at} answers={answers} via={via} pin={pin} here={here} back={back}>
+        {questions}
       </StepForm>,
     )
   }
@@ -125,9 +118,9 @@ export const GroupIntakeWizard = ({
     // screen as the write it authorises. No Goal: nobody who has named a group
     // is being ranked.
     <form method="post" action={submitTo}>
-      <Hidden wizard={wizard} answers={answers} via={via} />
+      <Hidden wizard={wizard} answers={answers} via={via} pin={pin} dropping={wizard.notCarriedAt(at)} />
 
-      <ContactFields prefill={NOTHING_PREFILLED} />
+      {questions}
       <Agreements ministryName={ministryName} prefill={NOTHING_PREFILLED} />
 
       <FormActions back={back} action="Submit" />

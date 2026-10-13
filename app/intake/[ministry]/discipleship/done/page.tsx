@@ -17,7 +17,8 @@ import {
   selectedSummary,
   sideLabel,
 } from '../../../copy'
-import { firstValue } from '../../../wizard-answers'
+import { firstValue, readPreview, readVersion } from '../../../wizard-answers'
+import { PreviewNotice } from '../../../wizard-shell'
 
 /**
  * What a Person sees the moment the wizard submits. The Welcome Message is already
@@ -33,6 +34,11 @@ import { firstValue } from '../../../wizard-answers'
  * counts travel on the redirect and are checked against those lists rather than
  * rendered; the name and the number do not travel, because they are not going in
  * a URL, so the *Reach you at* row says by text and names no digits.
+ *
+ * Under it, the thank-you of the version of the Ministry's form they answered,
+ * where the Ministry has written one (Pastor feedback, ticket 11). Beneath what
+ * Discipler says rather than in place of it, because what Discipler says here is
+ * the one place they learn what happens next.
  */
 export default async function DiscipleshipIntakeDonePage({
   params,
@@ -44,8 +50,9 @@ export default async function DiscipleshipIntakeDonePage({
   const { ministry } = await params
   const query = await searchParams
 
-  const page = await getIntakeReader().readIntakePage(ministry)
+  const page = await getIntakeReader().readIntakePage(ministry, readVersion(query.v))
   if (!page) notFound()
+  const preview = readPreview(query.preview)
 
   // Compared against the answers rather than rendered, like every other value
   // that arrived in a query string. A side nothing recognises is null rather than a
@@ -82,6 +89,7 @@ export default async function DiscipleshipIntakeDonePage({
 
   return (
     <Centred ministryName={page.ministryName}>
+      {preview ? <PreviewNotice /> : null}
       <div className="tick" aria-hidden="true">
         ✓
       </div>
@@ -92,6 +100,11 @@ export default async function DiscipleshipIntakeDonePage({
           : doneMessage[side](page.ministryName)}{' '}
         We’ve texted you to confirm.
       </p>
+      {page.form.thankYou ? (
+        <p className="muted" style={{ textAlign: 'center' }}>
+          {page.form.thankYou}
+        </p>
+      ) : null}
 
       <div className="summary">
         {rows.map(([label, value]) => (

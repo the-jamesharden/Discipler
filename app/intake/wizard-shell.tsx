@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
-import type { AnswersOf, ChoiceLists, IntakeVia, Wizard } from './wizard-machine'
+import type { AnswersOf, ChoiceLists, FormPin, IntakeVia, Wizard } from './wizard-machine'
 
 /**
  * The pieces every screen of every wizard is built from: the hidden inputs that
@@ -29,11 +29,14 @@ export const Hidden = <L extends ChoiceLists>({
   wizard,
   answers,
   via,
+  pin,
   dropping = [],
 }: {
   readonly wizard: Wizard<L>
   readonly answers: AnswersOf<L>
   readonly via: IntakeVia
+  /** The version of the form this visitor opened, and whether it is a preview. */
+  readonly pin: FormPin
   /** What this screen asks for or rewords. Those are not carried as hidden. */
   readonly dropping?: readonly (keyof L | 'availability')[]
 }) => {
@@ -42,6 +45,11 @@ export const Hidden = <L extends ChoiceLists>({
   return (
     <>
       <input type="hidden" name="via" value={via} />
+      {/* The version they opened, carried to the end, so an edit made while they
+          are part-way through changes nothing in front of them (Pastor feedback,
+          ticket 11). */}
+      <input type="hidden" name="v" value={String(pin.version)} />
+      {pin.preview ? <input type="hidden" name="preview" value="1" /> : null}
       {wizard.CHOICE_FIELDS.map((field) => {
         const answer = answers[field]
         return carried(field) && answer !== null ? (
@@ -58,12 +66,13 @@ export const Hidden = <L extends ChoiceLists>({
 }
 
 /**
- * The design's progress bar: *Step N of M* and a filled track. Percentages of
- * the steps before this one, as the Make project draws it, so the first screen
- * reads 0% and the confirmation reads 100%.
+ * The design's progress bar: *Step N of M* and a filled track, filled N parts in
+ * M, so the bar and the words beside it always agree and the last step -- the one
+ * with Submit on it -- reads 100%. It once filled only the steps before this one,
+ * which left *Step 5 of 5* reading 80% on the screen that finishes the form.
  */
 export const Progress = ({ at, of }: { readonly at: number; readonly of: number }) => {
-  const done = Math.round(((at - 1) / of) * 100)
+  const done = Math.round((at / of) * 100)
   return (
     <div className="progress">
       <div className="progress-labels">
@@ -83,6 +92,18 @@ export const Progress = ({ at, of }: { readonly at: number; readonly of: number 
     </div>
   )
 }
+
+/**
+ * What an Admin previewing the form is told on every screen of it, and on the
+ * page after Submit: that this is the form as a newcomer sees it, and that
+ * nothing they put in it is kept or sent.
+ */
+export const PreviewNotice = () => (
+  <p className="toast" role="status">
+    Preview. This is the form as a newcomer sees it. Nothing you enter is recorded, and nobody
+    is texted.
+  </p>
+)
 
 /**
  * Back and the button that moves on, in one row. Back is a link and not a form
@@ -123,6 +144,7 @@ export const StepForm = <L extends ChoiceLists>({
   at,
   answers,
   via,
+  pin,
   here,
   back,
   children,
@@ -131,13 +153,14 @@ export const StepForm = <L extends ChoiceLists>({
   readonly at: number
   readonly answers: AnswersOf<L>
   readonly via: IntakeVia
+  readonly pin: FormPin
   readonly here: string
   /** The way to the previous screen, or null on the first. */
   readonly back: string | null
   readonly children: ReactNode
 }) => (
   <form method="get" action={here}>
-    <Hidden wizard={wizard} answers={answers} via={via} dropping={wizard.notCarriedAt(at)} />
+    <Hidden wizard={wizard} answers={answers} via={via} pin={pin} dropping={wizard.notCarriedAt(at)} />
     <input type="hidden" name="step" value={String(at + 1)} />
     {children}
     <FormActions back={back} action="Continue" />

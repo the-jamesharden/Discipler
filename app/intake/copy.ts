@@ -158,42 +158,10 @@ export const sideLabel: Record<DeclaredSide, string> = {
   mentee: 'Someone to be mentored',
 }
 
-export const SIDE_QUESTION = 'I’m joining as…'
-
 /** The line under each side, from the Make design. */
 export const sideDescription: Record<DeclaredSide, string> = {
   mentor: 'I am ready to walk alongside and invest in someone else.',
   mentee: 'I am looking for someone to help guide me in my faith.',
-}
-
-/**
- * What the card says under the Ministry's name on each screen, by step. Read by step
- * number here and nowhere else: the screens are told apart by name, and this is
- * a line of copy that follows the number on the progress bar.
- */
-export const stepSubtitle: Record<number, string> = {
-  1: 'Welcome — let’s get you connected.',
-  2: 'Tell us a little about yourself.',
-  3: 'A bit about your experience.',
-  4: 'When are you generally available to meet?',
-  5: 'Nearly there — how we reach you, and what you are hoping for.',
-}
-
-/** The same lines for the group form's four screens. */
-export const groupStepSubtitle: Record<number, string> = {
-  1: 'Tell us a little about yourself.',
-  2: 'When are you generally available to meet?',
-  3: 'Which group would you like to join?',
-  4: 'Nearly there — how we reach you.',
-}
-
-/**
- * The one screen whose question is not the same sentence for both sides. It is
- * still the same question: has this Person done this before.
- */
-export const firstTimeQuestion: Record<DeclaredSide, string> = {
-  mentor: 'Have you mentored someone before?',
-  mentee: 'Have you been discipled by a mentor before?',
 }
 
 /**
@@ -205,7 +173,6 @@ export const DONE_BEFORE_ANSWER = 'Yes, I’ve done this before'
 export const FIRST_TIME_ANSWER = 'No, this is my first time'
 export const DONE_BEFORE_DESCRIPTION = 'I have experience in this role.'
 export const FIRST_TIME_DESCRIPTION = 'I am new to this — and that is perfectly fine.'
-export const FIRST_TIME_HELP = 'This helps us match you thoughtfully.'
 
 export const DONE_HEADING = 'You’re on the list'
 
@@ -229,8 +196,6 @@ export const doneMessageWithoutASide = (ministryName: string): string =>
  */
 
 export const groupHeading = (ministryName: string): string => `Join a group at ${ministryName}`
-
-export const GROUP_QUESTION = 'Which group would you like to join?'
 
 /**
  * The line beneath a group's name on step three when its running period is on a
