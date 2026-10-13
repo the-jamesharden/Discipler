@@ -14,6 +14,7 @@ import {
   GOOD_COLUMN,
   NO_OPEN_CONCERNS,
   NOTHING_YET,
+  OKAY_COLUMN,
   OUTSTANDING_COLUMN,
   PENDING,
   sentOn,
@@ -24,12 +25,17 @@ export const dynamic = 'force-dynamic'
 
 /**
  * The Check-Ins tab: this ISO week's relationship-weeks, in the Ministry's own
- * timezone. Three counts, the date the week's asking began, and three columns.
+ * timezone. Three counts, the date the week's asking began, and one column per
+ * answer the satisfaction question offers: four since it offered A to D (Pastor
+ * feedback, ticket 03).
  *
- * Outstanding and Good list each answered relationship with the date answered.
- * Concern is a sealed count with a note that the words are not listed here and a
- * link to Follow-Up. Nothing on this page reads Concern text; that stays a
- * recorded act on its own page.
+ * Outstanding, Good and Okay list each answered relationship with the date
+ * answered. Concern is a sealed count with a note that the words are not listed
+ * here and a link to Follow-Up. Nothing on this page reads Concern text; that
+ * stays a recorded act on its own page.
+ *
+ * A concern answered to the three-answer question before the change is stored as
+ * `concern`, as one answered D is, so it sits in the sealed column with them.
  */
 
 const Column = ({ checkIns }: { readonly checkIns: readonly CheckInThisWeek[] }) =>
@@ -58,6 +64,7 @@ export default async function CheckInsPage() {
   const pending = week.checkIns.length - answered.length
   const outstanding = answered.filter((checkIn) => checkIn.satisfaction === 'outstanding')
   const good = answered.filter((checkIn) => checkIn.satisfaction === 'good')
+  const okay = answered.filter((checkIn) => checkIn.satisfaction === 'okay')
   const concern = answered.filter((checkIn) => checkIn.satisfaction === 'concern')
   const openConcerns = concern.filter((checkIn) => checkIn.concernOpen).length
 
@@ -101,6 +108,13 @@ export default async function CheckInsPage() {
           </div>
           <div>
             <div className="ci-col-head c">
+              <span>{OKAY_COLUMN}</span>
+              <span>{okay.length}</span>
+            </div>
+            <Column checkIns={okay} />
+          </div>
+          <div>
+            <div className="ci-col-head d">
               <span>{CONCERN_COLUMN}</span>
               <span>{concern.length}</span>
             </div>
