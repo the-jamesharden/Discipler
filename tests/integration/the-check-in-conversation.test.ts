@@ -463,7 +463,17 @@ describe('the check-in conversation', () => {
     const ending = await pairOneToOne(ministry, leader, leaving, formed('2026-01-01T09:00:00Z'))
     const kept = await pairOneToOne(ministry, leader, staying, formed('2026-02-01T09:00:00Z'))
 
-    await start(leader)
+    // On a clock read after the fixtures, not the suite's pinned one. The fixtures
+    // accept and start memberships on the real clock, so once the calendar passed
+    // the pinned date the ending below landed before them, which the database
+    // refuses -- a fact about the fixtures, not the conversation.
+    const today = createTestClock(new Date())
+    const service = () =>
+      createCommandService({ clock: today, ids, store, appBaseUrl: 'https://discipler.test' })
+    const texts = (person: PersonId, body: string) =>
+      service().execute({ type: 'sms.inbound', ministryId: ministry.id, personId: person, body })
+
+    await service().execute({ type: 'checkin.start', ministryId: ministry.id, personId: leader })
 
     // Tess's relationship ends between the question and the reply -- through the
     // command that ends one, which also closes every membership on it. A direct
