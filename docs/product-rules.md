@@ -337,6 +337,16 @@ The first-time question comes on a later page than the matching question, which 
 A page added goes just before the last, and a page with nothing on it is skipped by the wizard.
 The two agreements are not questions on the form: they are on the last page of both forms, in the versioned wording a consent record points at, and no Admin edits them.
 
+**A Ministry's own questions are shown and never matched on.**
+An Admin adds questions of the Ministry's own to either form from *Add a question* at the foot of any page: short text, long text, one choice, several choices, or yes and no (Pastor feedback, ticket 12; James, Lavish review of 2026-10-12).
+Each is marked *Your question*, is worded, given a hint, made required or optional, moved and saved like any other, and the two choice kinds have their choices worded in place.
+A choice is reworded and keeps every answer that picked it, as a question does; a choice is not taken off, because its answers would go with it.
+Short and long text are asked on the last page only, for the reason the name is; the other three kinds may be asked on any page.
+The answers are kept with the submission they were given on and show to an Admin on the person page, and on the pair card and the group card under the person they belong to, each under the question as the form words it now.
+They never show on the Roster row, a Leader never sees them, and **nothing that pairs people reads them**: not Suggested Pairs, not the pairing rules, not the age rule.
+Those run on Discipler's own questions, whose meaning the product knows; a Ministry's own question means whatever the Ministry meant by it.
+The reopened Intake asks them too, with the answers already in them, from the form the Person last answered.
+
 ## Settled: Suggestion Tie-Breaking
 
 Candidates with identical availability overlap and the same Discipleship Goal are ordered by who has waited longest since completing intake.
