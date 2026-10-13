@@ -230,6 +230,11 @@ export interface IntakeAnswers {
   readonly ageBand?: AgeBand
   readonly gender?: Gender
   readonly goalId?: string | null
+  /**
+   * What they typed after choosing Other. Given, it is their goal in place of any
+   * option: the goal is one choice, and the database refuses both.
+   */
+  readonly goalOther?: string
   readonly availability?: readonly AvailabilitySlot[]
 }
 
@@ -269,7 +274,9 @@ export const completeIntake = async (
       submitted_at: submittedAt,
       age_band: answers.ageBand ?? '25-34',
       gender: answers.gender ?? 'female',
-      discipleship_goal_id: answers.goalId ?? goal?.id ?? null,
+      discipleship_goal_id:
+        answers.goalOther === undefined ? (answers.goalId ?? goal?.id ?? null) : null,
+      discipleship_goal_other: answers.goalOther ?? null,
     })
     .select('id')
     .single()

@@ -1167,8 +1167,8 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       ;({ rows } = await client.query<{ id: string }>(
         `insert into intake_submission
            (ministry_id, person_id, submitted_at, age_band, gender, discipleship_goal_id,
-            first_time)
-         values ($1, $2, $3, $4, $5, $6, $7)
+            first_time, discipleship_goal_other)
+         values ($1, $2, $3, $4, $5, $6, $7, $8)
          returning id`,
         [
           intake.ministryId,
@@ -1182,6 +1182,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
           // null, because a submission that predates the question has not answered
           // it.
           intake.firstTime,
+          intake.goalOther,
         ],
       ))
     } catch (error) {

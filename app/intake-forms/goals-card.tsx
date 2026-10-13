@@ -47,7 +47,8 @@ export const GoalsCard = ({
     </div>
     <p className="card-lead">
       Both forms end by asking <em>What are you hoping for?</em> These are the options a
-      person chooses from.
+      person chooses from. After them comes <em>Other</em>, on every form, with a box for
+      their own words.
     </p>
 
     {refusal ? (

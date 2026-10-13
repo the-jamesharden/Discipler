@@ -59,6 +59,7 @@ describe('The availability grid', () => {
       ageBand: '25-34',
       gender: 'female',
       goalId: '00000000-0000-4000-8000-000000000009',
+      goalOther: null,
       availability: everySlot,
       smsConsent: true,
       contactSharing: 'granted',

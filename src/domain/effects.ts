@@ -17,6 +17,7 @@ import type {
   DiscipleshipGoalId,
   Gender,
   IntakePath,
+  OtherGoal,
 } from './intake'
 import type { FollowUpResolution, NewFollowUpItem } from './follow-up'
 import type {
@@ -182,8 +183,10 @@ export interface IntakeRecord {
   readonly corrections: ContactCorrection | null
   readonly ageBand: AgeBand
   readonly gender: Gender
-  /** Null on the group path, which asks no Goal. */
+  /** Null on the group path, which asks no Goal, and where they chose Other. */
   readonly goalId: DiscipleshipGoalId | null
+  /** What they typed after choosing Other. Never set beside `goalId`. */
+  readonly goalOther: OtherGoal | null
   readonly availability: readonly AvailabilitySlot[]
   /**
    * Optional on the form. When it is given it lands on the Person, because an

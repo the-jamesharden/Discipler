@@ -50,6 +50,13 @@ export const selectedSummary = (hours: number, days: number): string =>
     ? 'No hours selected yet.'
     : `${hours} hour${hours === 1 ? '' : 's'} selected across ${days} day${days === 1 ? '' : 's'}.`
 
+/**
+ * The goal question's last option, and the box it opens. *Other* on every
+ * Ministry's form, whatever the Ministry's own options are worded as.
+ */
+export const GOAL_OTHER_OPTION = 'Other'
+export const GOAL_OTHER_BOX = 'In a few words, what are you hoping for?'
+
 const REFUSALS: Record<IntakeRefusal, string> = {
   'intake.name_missing': 'Please give your name.',
   'intake.phone_missing': 'Please give a mobile number we can text.',
@@ -59,6 +66,7 @@ const REFUSALS: Record<IntakeRefusal, string> = {
   'intake.age_band_unknown': 'Please choose an age range.',
   'intake.gender_unknown': 'Please choose an option.',
   'intake.goal_not_selected': 'Please choose what you are hoping for.',
+  'intake.goal_other_missing': 'You chose Other. Please write in a few words what you are hoping for.',
   // Names the real route out, because the form is not one. This form grants consent
   // and never withdraws it: a prefilled link an Admin sent, producing a withdrawal
   // that reads as the Person's own act, is the wrong shape for a decision that has
