@@ -3,7 +3,7 @@ import { relationshipId } from '~/domain/ids'
 import { isRelationshipOutcome } from '~/domain/relationships'
 import { currentAdmin } from '~/platform/supabase/current-admin'
 import { getCommandService } from '~/service/container'
-import { backToFollowUp, done, field, refusalCodeOf, refused } from '../../actions'
+import { backFrom, backToFollowUp, done, field, refusalCodeOf, refused } from '../../actions'
 
 /**
  * An Admin ending a relationship that has run, with an outcome and a reason,
@@ -20,13 +20,15 @@ export async function POST(request: NextRequest) {
   if (!admin) return NextResponse.redirect(new URL('/login', request.url), { status: 303 })
 
   const form = await request.formData()
+  // Follow-Up, or the pair card the form was posted from.
+  const back = backFrom(form)
   const relationship = field(form, 'relationshipId')
-  if (!relationship) return backToFollowUp(request)
+  if (!relationship) return backToFollowUp(request, undefined, back)
 
   const reason = field(form, 'reason')?.trim() ?? ''
   const outcome = field(form, 'outcome')
-  if (!isRelationshipOutcome(outcome)) return refused(request, 'ending.outcome_not_recognised')
-  if (reason === '') return refused(request, 'ending.reason_is_required')
+  if (!isRelationshipOutcome(outcome)) return refused(request, 'ending.outcome_not_recognised', back)
+  if (reason === '') return refused(request, 'ending.reason_is_required', back)
 
   try {
     await getCommandService().execute({
@@ -39,9 +41,9 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     const code = refusalCodeOf(error)
-    if (code) return refused(request, code)
+    if (code) return refused(request, code, back)
     throw error
   }
 
-  return done(request, 'ended')
+  return done(request, 'ended', back)
 }

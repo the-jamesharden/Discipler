@@ -381,7 +381,12 @@ provisioning (which makes a one-pastor church impossible to set up), or nothing 
 until codes ship (which means the pilot's answer to a locked-out sole Admin is somebody
 running SQL). Each is a different bet about who the first pilot Ministries are.
 
-## Open: the Admin relationship detail
+## Resolved: the Admin relationship detail
+
+Resolved on 2026-10-12 by the pair card (Pastor feedback, ticket 07), which James settled in a Lavish review of mock-ups.
+Pressing a one-to-one or a 1:2 pair on the Overview opens it over the page: both people with the contact details they agreed to share, read through the consent rule `public.contact_to_share` carries (ADR-0010), their Intake answers, the last check-in answer and the Material.
+There is no six-week history on it; material history stays on Materials, and Follow-Up's fuller card (ticket 10) adds what has happened.
+The original question is kept below.
 
 The design prototype opens a relationship detail behind every card: every member's
 number and email, six weeks of check-in history and the Material. Ticket 31 left it out.

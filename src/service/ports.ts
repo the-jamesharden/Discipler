@@ -98,11 +98,12 @@ import type {
 } from '~/domain/ids'
 import type { ParticipationStatus } from '~/domain/participation'
 import type { Suggestions } from '~/domain/suggestions'
-import type { NewRelationship } from '~/domain/relationships'
+import type { NewRelationship, PairShape } from '~/domain/relationships'
 import type { RatesLineHistory, SettledMessage } from '~/domain/rates-line'
 import type { CareReason, RelationshipState, SettledRelationshipState } from '~/domain/relationship-state'
 import type { InvitationState } from '~/domain/invitations'
 import type { MemberRole } from '~/domain/relationships'
+import type { PausePeriodWeeks } from '~/domain/pause'
 import type { NewPerson, PhoneNumber, RosterKey } from '~/domain/roster'
 
 /**
@@ -1977,6 +1978,76 @@ export interface SuggestedPairsReader {
 }
 
 /**
+ * The pair card (Pastor feedback, ticket 07): one one-to-one or 1:2 pair as the
+ * card over the Overview shows it, and as Check-Ins and Follow-Up will (tickets
+ * 09 and 10). Read by `pairCardFrom` out of whichever page's document opened it.
+ *
+ * One Person on it, on their side of this pair. The side is this pair's and no
+ * other's: somebody who leads one pair and is discipled in another is a
+ * Discipler on one card and a Disciple on the other, and neither card mentions
+ * the other pair.
+ */
+export interface PairCardPerson {
+  readonly personId: PersonId
+  readonly fullName: string
+  readonly role: 'leader' | 'participant'
+  /**
+   * Null where there is none, and where the Person has not currently agreed to
+   * share their contact details: the card reads them through the consent rule
+   * Nudge reads (ADR-0010), and an Admin who could tell the two apart would be
+   * reading a consent decision by inference. So the card leaves either out.
+   */
+  readonly phone: string | null
+  readonly email: string | null
+  /** Off their latest Intake submission, null where they have none. */
+  readonly ageBand: AgeBand | null
+  /** The Ministry's current wording of the goal they chose, null where none. */
+  readonly goal: string | null
+  /** What they typed after *Other* on the goal (ticket 06), null where they chose an option or nothing. */
+  readonly goalOther: OtherGoal | null
+}
+
+/** One reading of a Concern on the card, as `concern_viewing` recorded it. */
+export interface ConcernReading {
+  readonly concernId: ConcernId
+  readonly viewedAt: Date
+  /** Null where the reader is not on this Ministry's Roster. */
+  readonly viewerName: string | null
+  /** Whether the signed-in Admin read it themselves. */
+  readonly byThisReader: boolean
+}
+
+export interface PairCard {
+  readonly relationshipId: RelationshipId
+  readonly shape: PairShape
+  /** When the Admin paired them. */
+  readonly pairedAt: Date
+  readonly state: RelationshipState
+  /** Empty unless Stalled: which condition fired, in the unit it reports. */
+  readonly reasons: readonly CareReason[]
+  readonly openConcerns: number
+  /** The Discipler first, then the Disciples, each side by name. */
+  readonly people: readonly PairCardPerson[]
+  /** The latest week anybody answered for this pair. Never the words of a Concern. */
+  readonly lastCheckIn: {
+    readonly answeredAt: Date
+    readonly met: boolean | null
+    readonly satisfaction: Satisfaction | null
+  } | null
+  /** The period running now; a null title is no Material yet. */
+  readonly material: { readonly title: string | null; readonly since: Date } | null
+  /** Unresolved, newest first. Their words are read as the card opens. */
+  readonly concerns: readonly OutstandingConcern[]
+  /** Every recorded reading of those Concerns before this opening, newest first. */
+  readonly readings: readonly ConcernReading[]
+  /** The signed-in Admin's own name, for the reading this opening records. */
+  readonly readerName: string | null
+  /** An expired Pause waiting on **Resume**, with the period that ran out. */
+  readonly pauseExpired: { readonly periodWeeks: PausePeriodWeeks } | null
+  readonly timeZone: string
+}
+
+/**
  * The Overview tab's ports.
  *
  * One relationship as the Overview lists it: who is in it, when it started, and
@@ -1994,6 +2065,11 @@ export interface OverviewRelationship {
   readonly reasons: readonly CareReason[]
   /** Unresolved Concerns standing beside it, whatever its state. */
   readonly openConcerns: number
+  /**
+   * Which pair it is, where pressing its card opens the pair card (Pastor
+   * feedback, ticket 07), and null for a Group, whose card is ticket 08's.
+   */
+  readonly pairShape: PairShape | null
 }
 
 export interface Overview {
@@ -2020,6 +2096,8 @@ export interface Overview {
 export interface OverviewPage {
   readonly overview: Overview
   readonly care: readonly CareNeededItem[]
+  /** The pair card the address names, or null where it names none this Admin may open. */
+  readonly card: PairCard | null
 }
 
 export interface OverviewReader {
@@ -2029,7 +2107,7 @@ export interface OverviewReader {
    * Ministry; an empty Ministry comes back as zeros and an empty list rather than
    * as a failure.
    */
-  readOverviewPage(): Promise<AdminPage<OverviewPage>>
+  readOverviewPage(card?: RelationshipId | null): Promise<AdminPage<OverviewPage>>
 }
 
 /**

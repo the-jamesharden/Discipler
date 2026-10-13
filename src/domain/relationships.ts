@@ -131,6 +131,31 @@ export const needsAName = (
   !(shape === ONE_TO_TWO && leaderCount === 1 && participantCount === 2)
 
 /**
+ * The two pairs the pair card opens on (Pastor feedback, ticket 07): a
+ * one-to-one, and a 1:2 pair. A Group's card is another thing (ticket 08).
+ */
+export type PairShape = 'one_to_one' | typeof ONE_TO_TWO
+
+/**
+ * Which pair a relationship is, or null where it is a Group. Read off its name
+ * and who is in it now, never its kind (ADR-0004: the kind is a capacity
+ * declaration, and copy follows the live count). A Group has a name; a one-to-one
+ * and a 1:2 pair have none (`needsAName` above, and
+ * `20261013000500_a_one_to_two_pair_has_no_name.sql`). Without a name, one
+ * Discipler and one Disciple is a one-to-one, and one Discipler and two is a 1:2
+ * pair; anything larger is no pair, whatever it lacks.
+ */
+export const pairShapeOf = (
+  name: string | null,
+  leaderCount: number,
+  participantCount: number,
+): PairShape | null => {
+  if (name !== null || leaderCount > 1) return null
+  if (participantCount <= 1) return 'one_to_one'
+  return participantCount === 2 ? ONE_TO_TWO : null
+}
+
+/**
  * What the boundary accepts as a group's name: something, once trimmed. The
  * database carries the same rule as `relationship_name_is_not_blank`.
  */

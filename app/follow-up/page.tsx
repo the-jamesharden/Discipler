@@ -1,11 +1,11 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { personIdFrom } from '~/domain/ids'
-import { RELATIONSHIP_OUTCOMES } from '~/domain/relationships'
 import { getCareNeededReader } from '~/service/container'
 import type { CareMember, CareNeededItem } from '~/service/ports'
 import { pairPopupHref } from '../roster/lists'
 import { AdminShell, NotAnAdmin } from '../shell'
+import { EndForm } from './end-form'
 import { ReinviteButton } from './reinvite-button'
 import {
   CANCEL,
@@ -19,8 +19,6 @@ import {
   COPY_IT_BY_HAND,
   COPY_LINK_TO_REINVITE,
   declinedTitle,
-  END,
-  ENDING_EXPLANATION,
   followUpLine,
   followUpTag,
   itemCount,
@@ -29,10 +27,8 @@ import {
   needsCareTag,
   NOTHING_NEEDS_ATTENTION,
   numberNotShared,
-  outcomeLabel,
   readConcerns,
   READS_AS_A_CONCERN,
-  REASON_PLACEHOLDER,
   RESOLVE,
   RESUME,
   SEE_CONTACT_DETAILS,
@@ -98,38 +94,6 @@ const ContactReveal = ({
       </p>
     ) : null}
   </>
-)
-
-const EndForm = ({ relationshipId }: { readonly relationshipId: string }) => (
-  <details>
-    <summary className="fu-btn danger">{END}</summary>
-    <form method="post" action="/follow-up/relationship/end" className="notice" style={{ marginTop: '0.5rem' }}>
-      <input type="hidden" name="relationshipId" value={relationshipId} />
-      <p>{ENDING_EXPLANATION}</p>
-      <div className="field">
-        <label className="label" htmlFor={`outcome:${relationshipId}`}>
-          Outcome
-        </label>
-        <select id={`outcome:${relationshipId}`} name="outcome" required defaultValue="">
-          <option value="" disabled>
-            Choose one
-          </option>
-          {RELATIONSHIP_OUTCOMES.map((outcome) => (
-            <option key={outcome} value={outcome}>
-              {outcomeLabel[outcome]}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="field">
-        <label className="label" htmlFor={`reason:${relationshipId}`}>
-          Reason
-        </label>
-        <textarea id={`reason:${relationshipId}`} name="reason" required placeholder={REASON_PLACEHOLDER} />
-      </div>
-      <button type="submit">{END}</button>
-    </form>
-  </details>
 )
 
 /**
