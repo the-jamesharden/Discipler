@@ -324,6 +324,12 @@ describe('applying a command\'s effects', () => {
         saveIntakeForm: async () => {
           throw new Error('no Intake form should have been saved')
         },
+        answersTo: async () => {
+          throw new Error('no answers to a question should have been read')
+        },
+        removeIntakeAnswers: async () => {
+          throw new Error('no answers to a question should have been deleted')
+        },
         recordIntake: async () => {
           throw new Error('Intake should not have been touched')
         },

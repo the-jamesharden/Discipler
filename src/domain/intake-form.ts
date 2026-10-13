@@ -1,4 +1,5 @@
 import type { Branded } from './branded'
+import type { IntakeSubmissionId, PersonId } from './ids'
 import { GROUP_PATH, type IntakePath } from './intake'
 import { readWording } from './wording'
 
@@ -118,12 +119,12 @@ export type ProductUse = 'pairing_rules' | 'age_rule' | 'suggested_pairs'
  *
  * `requiredFixed` covers more than name and phone. Gender, age band, the matching
  * question, availability and the group are what the pairing rules, Suggested
- * Pairs and the groups form run on, and none of them yet says what it does for
- * somebody who skipped the question: a Person with no gender, for one, would meet
- * the safeguarding rule with nothing to match. So they stay required until the
- * ticket that lets them be removed (13) decides what each surface does without
- * them. Name and phone are *always asked*, which is a stronger thing: they are who
- * somebody is to Discipler, and ticket 13 cannot remove them either.
+ * Pairs and the groups form run on. A form may stop asking one of them altogether
+ * (ticket 13), and then each of those surfaces says it is doing without it; what
+ * none of them does is meet one Person who answered beside another who skipped,
+ * so a question asked is asked of everybody. Name and phone are *always asked*,
+ * which is a stronger thing: they are who somebody is to Discipler, so they are
+ * never removed either.
  *
  * `staysOnTheLastPage` is about the address bar. Every page but the last moves on
  * by a GET, carrying the answers so far in the URL, and the last page is the only
@@ -143,6 +144,14 @@ export interface BuiltInRules {
   readonly requiredFixed: boolean
   readonly staysOnTheLastPage: boolean
   readonly after: BuiltInQuestion | null
+  /**
+   * A question that cannot be asked without another one on the form: the
+   * first-time question is put in the words of the side, and has no words without
+   * it. So the side is not removed while the first-time question is asked, and
+   * the first-time question is not added back to a form that no longer asks the
+   * side (ticket 13).
+   */
+  readonly needs: BuiltInQuestion | null
 }
 
 export const BUILT_IN: Readonly<Record<BuiltInQuestion, BuiltInRules>> = {
@@ -153,6 +162,7 @@ export const BUILT_IN: Readonly<Record<BuiltInQuestion, BuiltInRules>> = {
     requiredFixed: true,
     staysOnTheLastPage: false,
     after: null,
+    needs: null,
   },
   ageBand: {
     kind: 'one_choice',
@@ -161,6 +171,7 @@ export const BUILT_IN: Readonly<Record<BuiltInQuestion, BuiltInRules>> = {
     requiredFixed: true,
     staysOnTheLastPage: false,
     after: null,
+    needs: null,
   },
   gender: {
     kind: 'one_choice',
@@ -169,6 +180,7 @@ export const BUILT_IN: Readonly<Record<BuiltInQuestion, BuiltInRules>> = {
     requiredFixed: true,
     staysOnTheLastPage: false,
     after: null,
+    needs: null,
   },
   experience: {
     kind: 'one_choice',
@@ -177,6 +189,7 @@ export const BUILT_IN: Readonly<Record<BuiltInQuestion, BuiltInRules>> = {
     requiredFixed: false,
     staysOnTheLastPage: false,
     after: 'side',
+    needs: 'side',
   },
   availability: {
     kind: 'hourly_grid',
@@ -185,6 +198,7 @@ export const BUILT_IN: Readonly<Record<BuiltInQuestion, BuiltInRules>> = {
     requiredFixed: true,
     staysOnTheLastPage: false,
     after: null,
+    needs: null,
   },
   goalId: {
     kind: 'goal_choice',
@@ -193,6 +207,7 @@ export const BUILT_IN: Readonly<Record<BuiltInQuestion, BuiltInRules>> = {
     requiredFixed: false,
     staysOnTheLastPage: true,
     after: null,
+    needs: null,
   },
   groupId: {
     kind: 'group_choice',
@@ -201,6 +216,7 @@ export const BUILT_IN: Readonly<Record<BuiltInQuestion, BuiltInRules>> = {
     requiredFixed: true,
     staysOnTheLastPage: false,
     after: 'gender',
+    needs: null,
   },
   fullName: {
     kind: 'short_text',
@@ -209,6 +225,7 @@ export const BUILT_IN: Readonly<Record<BuiltInQuestion, BuiltInRules>> = {
     requiredFixed: true,
     staysOnTheLastPage: true,
     after: null,
+    needs: null,
   },
   phone: {
     kind: 'phone',
@@ -217,6 +234,7 @@ export const BUILT_IN: Readonly<Record<BuiltInQuestion, BuiltInRules>> = {
     requiredFixed: true,
     staysOnTheLastPage: true,
     after: null,
+    needs: null,
   },
   email: {
     kind: 'email',
@@ -225,6 +243,7 @@ export const BUILT_IN: Readonly<Record<BuiltInQuestion, BuiltInRules>> = {
     requiredFixed: false,
     staysOnTheLastPage: true,
     after: null,
+    needs: null,
   },
 }
 
@@ -301,6 +320,7 @@ export const rulesOf = (question: FormQuestion): BuiltInRules =>
         requiredFixed: false,
         staysOnTheLastPage: isTypedKind(question.kind),
         after: null,
+        needs: null,
       }
     : BUILT_IN[question.key]
 
@@ -459,9 +479,18 @@ export type IntakeFormRefusal =
   | 'intake_form.choices_repeat'
   /**
    * A choice already on the form emptied. Choices are reworded and added, and
-   * taking one off waits for the removal rule questions follow (ticket 13).
+   * taking one off would take its answers with it, which is the removal rule
+   * questions follow (ticket 13), not an edit.
    */
   | 'intake_form.choice_kept'
+  /** Name or mobile number removed: they are who somebody is (ticket 13). */
+  | 'intake_form.always_asked'
+  /**
+   * The side removed while the first-time question, worded from it, is still
+   * asked; or the first-time question added back to a form that no longer asks
+   * the side.
+   */
+  | 'intake_form.worded_from_it'
 
 /** One page of an order an Admin dragged into: the page, and its questions top to bottom. */
 export interface PageLayout {
@@ -676,6 +705,99 @@ export const addQuestion = (
     index === at ? { ...each, questions: [...each.questions, added] } : each,
   )
 
+  const refusal = arrangementRefusal(pages)
+  if (refusal) return { refusal }
+  return saved(form, pages)
+}
+
+/**
+ * Whether a question may be removed at all: every one but the name and the
+ * mobile number (ticket 13).
+ */
+export const isRemovable = (question: FormQuestion): boolean => !rulesOf(question).alwaysAsked
+
+/**
+ * The question on this form that cannot be asked without this one, if there is
+ * one: the first-time question, while the side is being removed.
+ */
+export const neededBy = (form: IntakeForm, key: string): FormQuestion | undefined =>
+  questionsOf(form).find((question) => !isOwnQuestion(question) && BUILT_IN[question.key].needs === key)
+
+/**
+ * The form without one of its questions (ticket 13). Taking a question off the
+ * form is half of a removal: its answers are deleted beside the new version, by
+ * the effect the boundary adds, because a removal destroys what it removes
+ * (ADR-0014). A question the product reads may be removed like any other; what
+ * stops working is said to the Admin before it happens and by each surface
+ * afterwards.
+ */
+export const removeQuestion = (form: IntakeForm, key: string): FormEdit => {
+  const question = questionOn(form, key)
+  if (!question) return { refusal: 'intake_form.not_found' }
+  if (!isRemovable(question)) return { refusal: 'intake_form.always_asked' }
+  if (neededBy(form, key)) return { refusal: 'intake_form.worded_from_it' }
+
+  return saved(
+    form,
+    form.pages.map((each) => ({ ...each, questions: each.questions.filter((one) => one.key !== key) })),
+  )
+}
+
+/**
+ * Whether removing a question deletes anything (ticket 13). Every question's
+ * answers are deleted with it but two, which keep none of their own. The email
+ * somebody gave is kept on the Person beside their name and number, as the
+ * contact detail it is, whichever form asked for it. And the choice of group is
+ * not kept as an answer at all: picking a group joins it or asks to, and what
+ * stands is the membership or the request, which a removal does not touch.
+ */
+export const removalDeletesAnswers = (key: QuestionKey): boolean =>
+  key !== 'email' && key !== 'groupId' && key !== 'fullName' && key !== 'phone'
+
+/**
+ * One answer given to a question, as a removal reads it just before deleting it
+ * (ticket 13), so the history event can keep what the live tables no longer will
+ * (ADR-0014). One per submission it was given on, superseded ones included.
+ *
+ * `answer` is as it was stored: a gender, an age band or a side; true or false
+ * for the first-time question; the hours ticked as `monday:08` keys; the goal as
+ * `{ goalId }` or `{ other }`; and a Ministry's own question's answer as it
+ * was kept.
+ */
+export interface AnswerGiven {
+  readonly submissionId: IntakeSubmissionId
+  readonly personId: PersonId
+  readonly submittedAt: Date
+  readonly answer: unknown
+}
+
+/**
+ * Discipler's own questions this form asked as it was first served and no
+ * longer asks: the ones removed from it, which *Add a question* offers back
+ * (ticket 13). In the order the preset asks them.
+ */
+export const removedQuestions = (form: IntakeForm): readonly BuiltInQuestion[] =>
+  questionsOf(presetForm(form.name)).flatMap((question) =>
+    !isOwnQuestion(question) && !questionOn(form, question.key) ? [question.key] : [],
+  )
+
+/**
+ * One of Discipler's own questions, put back at the foot of a page in the words
+ * the preset asks it in (ticket 13). It is the same question, under the same key,
+ * and it starts with no answers: the ones given before were deleted when it was
+ * removed.
+ */
+export const addBackQuestion = (form: IntakeForm, pageId: string, key: string): FormEdit => {
+  const at = form.pages.findIndex((each) => each.id === pageId)
+  if (at < 0) return { refusal: 'intake_form.not_found' }
+  if (!isBuiltInQuestion(key) || !removedQuestions(form).includes(key)) return { refusal: 'intake_form.changed' }
+  const needs = BUILT_IN[key].needs
+  if (needs !== null && !questionOn(form, needs)) return { refusal: 'intake_form.worded_from_it' }
+
+  const asked = questionOn(presetForm(form.name), key)!
+  const pages = form.pages.map((each, index) =>
+    index === at ? { ...each, questions: [...each.questions, asked] } : each,
+  )
   const refusal = arrangementRefusal(pages)
   if (refusal) return { refusal }
   return saved(form, pages)

@@ -45,6 +45,7 @@ import type {
   RelationshipCancellation,
   RelationshipEnding,
   ShortNameChange,
+  IntakeAnswersRemoval,
   IntakeFormSaving,
 } from '~/domain/effects'
 import {
@@ -73,7 +74,14 @@ import {
   type StatedGoal,
 } from '~/domain/discipleship-goals'
 import { discipleshipGoalId, type Gender, type IntakePath } from '~/domain/intake'
-import { presetForm, PRESET_VERSION, type IntakeForm } from '~/domain/intake-form'
+import {
+  isOwnQuestionKey,
+  presetForm,
+  PRESET_VERSION,
+  type AnswerGiven,
+  type IntakeForm,
+  type QuestionKey,
+} from '~/domain/intake-form'
 import { asDefinition, formOrPreset, intakeFormFrom } from './intake-form-document'
 import { materialTitle, type MaterialItem, type MaterialOnOffer } from '~/domain/materials'
 import {
@@ -1064,6 +1072,81 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
         saving.savedBy,
       ],
     )
+  },
+
+  async answersTo(form: IntakePath, key: QuestionKey): Promise<readonly AnswerGiven[]> {
+    // Read before the delete, in the one transaction the command opened and
+    // behind the form's lock, so nothing can answer this question between what
+    // history records and what the delete takes (Pastor feedback, ticket 13).
+    const query = answersQuery(key)
+    if (query === null) return []
+    const { rows } = await client.query<{
+      intake_submission_id: string
+      person_id: string
+      submitted_at: Date
+      answer: unknown
+    }>(query, [form, key])
+
+    return rows.map((row) => ({
+      submissionId: intakeSubmissionId(row.intake_submission_id),
+      personId: personId(row.person_id),
+      submittedAt: row.submitted_at,
+      answer: row.answer,
+    }))
+  },
+
+  async removeIntakeAnswers(removal: IntakeAnswersRemoval) {
+    // Each question's answers where that question keeps them, on the
+    // submissions made from the form it is removed from. Every statement is
+    // scoped by the policies on this connection, like every write here.
+    const fromThisForm = `select f.intake_submission_id
+                            from app.intake_submission_forms(app.command_ministry_id()) f
+                           where f.form = $1`
+    const { form, key } = removal
+    if (isOwnQuestionKey(key)) {
+      await client.query(`delete from intake_answer where question_key = $1`, [key])
+      return
+    }
+    switch (key) {
+      case 'ageBand':
+        await client.query(`update intake_submission set age_band = null where id in (${fromThisForm})`, [form])
+        return
+      case 'gender':
+        await client.query(`update intake_submission set gender = null where id in (${fromThisForm})`, [form])
+        return
+      case 'experience':
+        await client.query(`update intake_submission set first_time = null where id in (${fromThisForm})`, [form])
+        return
+      case 'goalId':
+        await client.query(
+          `update intake_submission
+              set discipleship_goal_id = null, discipleship_goal_other = null
+            where id in (${fromThisForm})`,
+          [form],
+        )
+        return
+      case 'availability':
+        await client.query(`delete from intake_availability where intake_submission_id in (${fromThisForm})`, [form])
+        return
+      case 'side':
+        // On the consent records the mentor and mentee form wrote, and nothing on
+        // them but the side: the trigger on `consent_record` refuses any other
+        // change, so what anybody agreed to stands exactly as it was.
+        await client.query(
+          `update consent_record
+              set declared_side = null
+            where intake_path = $1
+              and declared_side is not null`,
+          [form],
+        )
+        return
+      case 'email':
+      case 'groupId':
+      case 'fullName':
+      case 'phone':
+        // Nothing kept as an answer to delete (`removalDeletesAnswers`).
+        return
+    }
   },
 
   async ministryShortName(): Promise<ShortName> {
@@ -4029,5 +4112,66 @@ export const createPostgresInboundReader = (
       }
     },
     close: () => pool.end(),
+  }
+}
+
+/**
+ * The query reading every answer to one question on the submissions made from one
+ * form (`$1`), each with the submission it was given on, oldest first; or null
+ * for a question that keeps no answers of its own (Pastor feedback, ticket 13).
+ * `$2` is the question's key, which only a Ministry's own question reads.
+ */
+const answersQuery = (key: QuestionKey): string | null => {
+  const submissions = `select f.intake_submission_id, f.person_id, f.submitted_at
+                         from app.intake_submission_forms(app.command_ministry_id()) f
+                        where f.form = $1 and $2::text is not null`
+  const column = (answer: string, answered: string) =>
+    `select s.intake_submission_id, s.person_id, s.submitted_at, ${answer} as answer
+       from (${submissions}) s
+       join intake_submission i on i.id = s.intake_submission_id
+      where ${answered}
+      order by s.submitted_at, s.intake_submission_id`
+  if (isOwnQuestionKey(key)) {
+    return `select a.intake_submission_id, i.person_id, i.submitted_at, a.answer
+              from intake_answer a
+              join intake_submission i on i.id = a.intake_submission_id
+             where a.question_key = $2 and $1::text is not null
+             order by i.submitted_at, a.intake_submission_id`
+  }
+  switch (key) {
+    case 'ageBand':
+      return column('to_jsonb(i.age_band)', 'i.age_band is not null')
+    case 'gender':
+      return column('to_jsonb(i.gender)', 'i.gender is not null')
+    case 'experience':
+      return column('to_jsonb(i.first_time)', 'i.first_time is not null')
+    case 'goalId':
+      return column(
+        `case when i.discipleship_goal_id is not null
+              then jsonb_build_object('goalId', i.discipleship_goal_id)
+              else jsonb_build_object('other', i.discipleship_goal_other) end`,
+        'i.discipleship_goal_id is not null or i.discipleship_goal_other is not null',
+      )
+    case 'availability':
+      return `select s.intake_submission_id, s.person_id, s.submitted_at,
+                     to_jsonb(array_agg(a.day::text || ':' || a.hour::text order by a.day, a.hour)) as answer
+                from (${submissions}) s
+                join intake_availability a on a.intake_submission_id = s.intake_submission_id
+               group by s.intake_submission_id, s.person_id, s.submitted_at
+               order by s.submitted_at, s.intake_submission_id`
+    case 'side':
+      // On the consent records written with each submission, both of which
+      // carry it: one answer per submission.
+      return `select distinct on (s.submitted_at, s.intake_submission_id)
+                     s.intake_submission_id, s.person_id, s.submitted_at, to_jsonb(c.declared_side) as answer
+                from (${submissions}) s
+                join consent_record c on c.person_id = s.person_id and c.decided_at = s.submitted_at
+               where c.intake_path = $1 and c.declared_side is not null
+               order by s.submitted_at, s.intake_submission_id`
+    case 'email':
+    case 'groupId':
+    case 'fullName':
+    case 'phone':
+      return null
   }
 }

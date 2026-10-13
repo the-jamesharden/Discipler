@@ -27,7 +27,7 @@ import type {
   RelationshipKeyword,
 } from './keywords'
 import type { NewIntakeLink } from './intake-link'
-import type { IntakeForm } from './intake-form'
+import type { IntakeForm, QuestionKey } from './intake-form'
 import type { MaterialFile, MaterialItem, MaterialTitle } from './materials'
 import type { OwnAnswer } from './own-answers'
 import type { MinistrySettings } from './ministry-settings'
@@ -185,8 +185,9 @@ export interface IntakeRecord {
    * reach the number Discipler dials.
    */
   readonly corrections: ContactCorrection | null
-  readonly ageBand: AgeBand
-  readonly gender: Gender
+  /** Null where the form no longer asks it (Pastor feedback, ticket 13). */
+  readonly ageBand: AgeBand | null
+  readonly gender: Gender | null
   /** Null on the group path, which asks no Goal, and where they chose Other. */
   readonly goalId: DiscipleshipGoalId | null
   /** What they typed after choosing Other. Never set beside `goalId`. */
@@ -563,6 +564,19 @@ export interface IntakeFormSaving {
 }
 
 /**
+ * Every answer given to one question on one of a Ministry's forms, deleted
+ * (Pastor feedback, ticket 13). A question the Ministry added has its answers by
+ * its key; one of Discipler's own has them in the columns and rows that question
+ * fills, on the submissions made from that form. ADR-0014: a removal destroys its
+ * answers, and history keeps what they were.
+ */
+export interface IntakeAnswersRemoval {
+  readonly ministryId: MinistryId
+  readonly form: IntakePath
+  readonly key: QuestionKey
+}
+
+/**
  * The short name a Ministry now goes by (Pastor feedback, ticket 04). Nothing
  * here lets the old one go: the database holds every name a Ministry has had,
  * and keeps it opening that Ministry's forms.
@@ -901,6 +915,7 @@ export type Effect =
   | { readonly kind: 'settings.save'; readonly saving: MinistrySettingsSaving }
   | { readonly kind: 'shortName.change'; readonly change: ShortNameChange }
   | { readonly kind: 'intakeForm.save'; readonly saving: IntakeFormSaving }
+  | { readonly kind: 'intakeForm.removeAnswers'; readonly removal: IntakeAnswersRemoval }
   | { readonly kind: 'goal.add'; readonly goal: NewDiscipleshipGoal }
   | { readonly kind: 'goal.rename'; readonly renaming: DiscipleshipGoalRenaming }
   | { readonly kind: 'goal.reorder'; readonly order: DiscipleshipGoalOrder }
@@ -947,6 +962,11 @@ export const changeShortName = (change: ShortNameChange): Effect => ({
 export const saveIntakeForm = (saving: IntakeFormSaving): Effect => ({
   kind: 'intakeForm.save',
   saving,
+})
+
+export const removeIntakeAnswers = (removal: IntakeAnswersRemoval): Effect => ({
+  kind: 'intakeForm.removeAnswers',
+  removal,
 })
 
 export const addDiscipleshipGoal = (goal: NewDiscipleshipGoal): Effect => ({

@@ -186,7 +186,34 @@ export const intakeFormsPageFrom = (doc: PageDocument): IntakeFormsPage => ({
   timeZone: text(doc.timezone),
   shortName: shortNameOf(doc),
   forms: formsOf(doc),
+  answerCounts: answerCountsOf(doc),
 })
+
+/**
+ * How many people have answered each question on each form, which a removal
+ * would delete (Pastor feedback, ticket 13). A question the Ministry added is
+ * counted by its key whichever form it is on, so its count is under both. A
+ * question nobody has answered has no row and counts none. Checked, like the
+ * goals' counts: a removal offered with the wrong number is the one thing this
+ * surface must not do.
+ */
+const answerCountsOf = (doc: PageDocument): IntakeFormsPage['answerCounts'] => {
+  if (!Array.isArray(doc.answer_counts)) throw new Error('Intake forms was not told how many people answered')
+  const counts: Record<IntakePath, Record<string, number>> = { discipleship: {}, group: {} }
+  for (const row of list(doc, 'answer_counts')) {
+    const key = text(row.question_key)
+    const people = count(row.people)
+    if (key === null || people === null) throw new Error('A count of answers arrived with no question or no count')
+    if (row.form === null) {
+      for (const form of INTAKE_PATHS) counts[form][key] = people
+    } else if (isOneOf(INTAKE_PATHS, row.form)) {
+      counts[row.form][key] = people
+    } else {
+      throw new Error(`A count of answers arrived that names no form: ${JSON.stringify(row.form)}`)
+    }
+  }
+  return counts
+}
 
 /**
  * Both forms, each from its latest saved version or, where the Ministry has never

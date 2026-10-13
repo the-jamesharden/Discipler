@@ -56,6 +56,7 @@ import {
   recordMaterialNotice,
   restorePerson,
   saveMinistrySettings,
+  removeIntakeAnswers,
   saveIntakeForm,
   changeShortName,
   setKeywordExchangeTarget,
@@ -178,6 +179,7 @@ import {
   type Gender,
 } from './intake'
 import {
+  addBackQuestion,
   addPage,
   addQuestion,
   arrangeQuestions,
@@ -189,8 +191,12 @@ import {
   ownQuestionKey,
   ownQuestionsOf,
   questionOn,
+  removalDeletesAnswers,
+  removedQuestions,
+  removeQuestion,
   renamePage,
   requiredOn,
+  type AnswerGiven,
   type FormEdit,
   type FormQuestion,
   type IntakeForm,
@@ -540,6 +546,13 @@ export interface CommandContext {
    * removal record that it cost nothing while blanking a congregation's answers.
    */
   readonly goalAnswers?: readonly StatedGoal[]
+  /**
+   * Every answer given to the question an `intake_form.remove_question` names,
+   * read before the removal deletes them (Pastor feedback, ticket 13). Loaded on
+   * that one command's behalf, and only where the removal deletes anything.
+   * Absent rather than empty for the reason `goalAnswers` is.
+   */
+  readonly questionAnswers?: readonly AnswerGiven[]
   /**
    * Every live Material this Ministry holds, each with how many accepted, unended
    * relationships are working through it. Loaded on the three `material.*`
@@ -909,6 +922,17 @@ const theAnswersAboutToGo = (context: CommandContext): readonly StatedGoal[] => 
     throw new Error('No answers were loaded for the Discipleship Goal being removed')
   }
   return context.goalAnswers
+}
+
+/**
+ * The answers a question's removal is about to delete, or a loud failure rather
+ * than an empty list, for the reason `theAnswersAboutToGo` gives.
+ */
+const theQuestionAnswersAboutToGo = (context: CommandContext): readonly AnswerGiven[] => {
+  if (!context.questionAnswers) {
+    throw new Error('No answers were loaded for the question being removed')
+  }
+  return context.questionAnswers
 }
 
 /**
@@ -4894,11 +4918,14 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       // and which of the Ministry's own questions it asked (ticket 12). The
       // reopened page is not the wizard: it asks Discipler's questions by today's
       // rules, and the Ministry's own questions of the form it drew them from.
+      // Neither asks what that form no longer asks (ticket 13): a question an
+      // Admin removed is gone from the wizard and the reopened page alike.
       const asked = context.intakeForm ?? null
       const reading = readIntakeForm(
         command.form,
         asked && !command.token ? requiredOn(asked) : REQUIRED_TODAY,
         asked ? ownQuestionsOf(asked) : [],
+        new Set(asked ? removedQuestions(asked) : []),
       )
       if ('refusals' in reading) throw new IntakeRefused(reading.refusals)
       // Which version of the Ministry's form this submission answered, where it
@@ -5711,6 +5738,57 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         (saved) => ({
           type: 'intake_form.question_added',
           payload: { key, pageId: command.pageId, ...questionAsRecorded(questionOn(saved, key)) },
+        }),
+      )
+    }
+
+    case 'intake_form.remove_question': {
+      const form = theFormBeingEdited(context)
+      const was = questionOn(form, command.key)
+      const edit = removeQuestion(form, command.key)
+      // Read only for a removal that will happen and deletes something: a refusal
+      // or a question with nothing kept has nothing to write down.
+      const deletes = was !== undefined && removalDeletesAnswers(was.key)
+      const given = edit !== null && 'form' in edit && deletes ? theQuestionAnswersAboutToGo(context) : []
+      const saving = savingTheForm(command, context, edit, () => ({
+        type: 'intake_form.question_removed',
+        // What it cost, written down at the moment it is spent, as a goal
+        // option's removal writes it (ADR-0014). `answersLost` is the people the
+        // Admin was warned about; `deletedAnswers` is every submission the delete
+        // touches, superseded ones included, each with what it said: the live
+        // tables keep none of it afterwards, so this event is the only record.
+        payload: {
+          key: command.key,
+          question: questionAsRecorded(was),
+          answersLost: new Set(given.map((answer) => answer.personId)).size,
+          deletedAnswers: given.map((answer) => ({
+            submissionId: answer.submissionId,
+            personId: answer.personId,
+            submittedAt: answer.submittedAt.toISOString(),
+            answer: answer.answer,
+          })),
+        },
+      }))
+      if (saving.effects.length === 0 || !deletes) return saving
+      return {
+        ...saving,
+        effects: [
+          ...saving.effects,
+          removeIntakeAnswers({ ministryId: command.ministryId, form: command.form, key: was.key }),
+        ],
+      }
+    }
+
+    case 'intake_form.add_back_question': {
+      const form = theFormBeingEdited(context)
+      return savingTheForm(
+        command,
+        context,
+        addBackQuestion(form, command.pageId, command.key),
+        // Recorded as any question added is, with the words it came back in.
+        (saved) => ({
+          type: 'intake_form.question_added',
+          payload: { key: command.key, pageId: command.pageId, ...questionAsRecorded(questionOn(saved, command.key)) },
         }),
       )
     }

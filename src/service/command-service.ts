@@ -19,7 +19,7 @@ import {
 } from '~/domain/errors'
 import type { FollowUpItemId, IdSource, ImportRowId, PersonId, RelationshipId } from '~/domain/ids'
 import { answersNoGroupInMind, INTAKE_PATHS, isOneOf } from '~/domain/intake'
-import type { IntakeForm } from '~/domain/intake-form'
+import { removalDeletesAnswers, type IntakeForm, type QuestionKey } from '~/domain/intake-form'
 import type { IntakeLinkToken } from '~/domain/intake-link'
 import { REMOVED_FROM_THE_ROSTER, type PairingToLetGo } from '~/domain/removal'
 import type { InvitationToken } from '~/domain/invitations'
@@ -279,6 +279,9 @@ export const applyEffects = async (
   const intakeFormSaves = effects.flatMap((effect) =>
     effect.kind === 'intakeForm.save' ? [effect.saving] : [],
   )
+  const removedAnswers = effects.flatMap((effect) =>
+    effect.kind === 'intakeForm.removeAnswers' ? [effect.removal] : [],
+  )
   const addedGoals = effects.flatMap((effect) =>
     effect.kind === 'goal.add' ? [effect.goal] : [],
   )
@@ -478,6 +481,10 @@ export const applyEffects = async (
   // database refuses a version number already taken, and being refused after
   // history had recorded the edit would leave a record of a form nobody is served.
   for (const saving of intakeFormSaves) await unit.saveIntakeForm(saving)
+  // The answers to a question removed with that save (Pastor feedback, ticket
+  // 13), in the same transaction as the version that no longer asks it and the
+  // history that keeps what they said: all three land, or none does.
+  for (const removal of removedAnswers) await unit.removeIntakeAnswers(removal)
 
   // The option, then the list it belongs to. An addition lands before the
   // renumbering that would place it, and a removal before the renumbering that
@@ -649,6 +656,8 @@ const INTAKE_FORM_EDITS = [
   'intake_form.add_page',
   'intake_form.rename_page',
   'intake_form.edit_text',
+  'intake_form.remove_question',
+  'intake_form.add_back_question',
 ] as const
 
 const editsAnIntakeForm = (
@@ -1176,6 +1185,12 @@ export const createCommandService = ({
         // -- and written into the event that outlives them.
         ...(command.type === 'goal.remove'
           ? { goalAnswers: await unit.answersPointingAt(command.goalId) }
+          : {}),
+        // The same for a question's removal (Pastor feedback, ticket 13): read
+        // after the form, behind its lock, and only where the removal deletes
+        // anything, so what history keeps is what the delete is about to take.
+        ...(command.type === 'intake_form.remove_question' && removalDeletesAnswers(command.key as QuestionKey)
+          ? { questionAnswers: await unit.answersTo(command.form, command.key as QuestionKey) }
           : {}),
         // Read inside the transaction, behind the same advisory lock the goal
         // list takes, so two Admins cannot both create the same title against a

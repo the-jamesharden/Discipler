@@ -1,6 +1,6 @@
 import type { Branded } from './branded'
 import { relationshipId, type RelationshipId } from './ids'
-import type { OwnQuestion } from './intake-form'
+import type { BuiltInQuestion, OwnQuestion } from './intake-form'
 import { readOwnAnswers, type OwnAnswer, type OwnAnswerRefusal, type OwnAnswersAsSent } from './own-answers'
 import { asEmail, asPhoneNumber, type PhoneNumber } from './roster'
 import { readWording } from './wording'
@@ -230,8 +230,12 @@ export interface IntakeSubmissionDraft {
   readonly fullName: string
   readonly phone: PhoneNumber
   readonly email: string | null
-  readonly ageBand: AgeBand
-  readonly gender: Gender
+  /**
+   * Null where the form no longer asks it (Pastor feedback, ticket 13), and only
+   * there: a form that asks the age band or the gender asks it of everybody.
+   */
+  readonly ageBand: AgeBand | null
+  readonly gender: Gender | null
   /**
    * Null on the group path and only there. The Goal is the suggestion tiebreaker,
    * and a Person who named a group is not being ranked against anybody -- so the
@@ -243,6 +247,7 @@ export interface IntakeSubmissionDraft {
    * goal is one choice. Both null on the group path.
    */
   readonly goalOther: OtherGoal | null
+  /** Empty where the form no longer asks when somebody is free (ticket 13). */
   readonly availability: readonly AvailabilitySlot[]
   readonly smsConsent: true
   readonly contactSharingConsent: boolean
@@ -390,6 +395,9 @@ export const REQUIRED_TODAY: ReadonlySet<string> = new Set([
   'phone',
 ])
 
+/** Nothing removed: every question Discipler asks on a form is still asked. */
+const ASKS_EVERYTHING: ReadonlySet<BuiltInQuestion> = new Set()
+
 /**
  * Reads one submitted form. The order of the checks is the order of the fields on
  * the page, so the list of refusals reads top to bottom the way the Person filled
@@ -403,13 +411,21 @@ export const REQUIRED_TODAY: ReadonlySet<string> = new Set([
  *
  * `own` is the Ministry's own questions on that version (ticket 12), which arrive
  * under `fields.own` and are read by `readOwnAnswers`.
+ *
+ * `notAsked` is Discipler's own questions the form has stopped asking (ticket
+ * 13): removed by an Admin, so not on the version opened, or, for the reopened
+ * page, not on the form the Person last answered. Each is neither required nor
+ * read. An answer to one arriving anyway is not the form Discipler served, and is
+ * refused as an answer with no question is.
  */
 export const readIntakeForm = (
   fields: IntakeFormFields,
   required: ReadonlySet<string> = REQUIRED_TODAY,
   own: readonly OwnQuestion[] = [],
+  notAsked: ReadonlySet<BuiltInQuestion> = ASKS_EVERYTHING,
 ): IntakeReading => {
   const refusals: IntakeRefusal[] = []
+  const asks = (question: BuiltInQuestion) => !notAsked.has(question)
 
   // The wizard's first and third screens, read first because that is where they
   // are. A form that did not ask carries all three as null and passes through:
@@ -421,8 +437,11 @@ export const readIntakeForm = (
 
   if (rawPath !== null && path === null) refusals.push('intake.path_unknown')
 
-  const askedTheSide = path === 'discipleship'
+  const askedTheSide = path === 'discipleship' && asks('side')
   const askedTheGroup = path === GROUP_PATH
+  // The groups form with its group question removed (ticket 13): everybody on it
+  // is somebody with no group in mind, which is what Follow-Up asks an Admin about.
+  const askedWhichGroup = askedTheGroup && asks('groupId')
 
   // Said once however many answers had no question: it is one problem with the
   // form, not one per field.
@@ -432,7 +451,9 @@ export const readIntakeForm = (
 
   if (askedTheSide) {
     if (declaredSide === null) refusals.push('intake.side_unknown')
-    if (experience === null && required.has('experience')) {
+    if (!asks('experience')) {
+      if (fields.experience !== null) answerWithNoQuestion()
+    } else if (experience === null && required.has('experience')) {
       refusals.push('intake.first_time_unanswered')
     }
   } else if (fields.declaredSide !== null || fields.experience !== null) {
@@ -454,7 +475,8 @@ export const readIntakeForm = (
   const groupId =
     rawGroup === null || answersNoGroupInMind(rawGroup) ? null : relationshipId(rawGroup)
   if (askedTheGroup) {
-    if (rawGroup === null) refusals.push('intake.group_not_selected')
+    if (rawGroup === null && askedWhichGroup) refusals.push('intake.group_not_selected')
+    if (rawGroup !== null && !askedWhichGroup) answerWithNoQuestion()
     if (fields.goalId !== null || fields.goalOther !== null) answerWithNoQuestion()
   } else if (rawGroup !== null) {
     answerWithNoQuestion()
@@ -484,16 +506,27 @@ export const readIntakeForm = (
   // Discipler served. Reported rather than dropped, for the same reason an import
   // reports a row it cannot read: a silently smaller availability is a Person who
   // quietly never overlaps with anybody.
-  if (slotUnreadable) refusals.push('intake.availability_unreadable')
+  if (!asks('availability')) {
+    if (fields.availability.length > 0) answerWithNoQuestion()
+  } else if (slotUnreadable) refusals.push('intake.availability_unreadable')
   else if (availability.length === 0) refusals.push('intake.availability_not_selected')
 
-  if (!isOneOf(AGE_BANDS, fields.ageBand)) refusals.push('intake.age_band_unknown')
-  if (!isOneOf(GENDERS, fields.gender)) refusals.push('intake.gender_unknown')
+  if (!asks('ageBand')) {
+    if (fields.ageBand !== null) answerWithNoQuestion()
+  } else if (!isOneOf(AGE_BANDS, fields.ageBand)) refusals.push('intake.age_band_unknown')
+  if (!asks('gender')) {
+    if (fields.gender !== null) answerWithNoQuestion()
+  } else if (!isOneOf(GENDERS, fields.gender)) refusals.push('intake.gender_unknown')
 
   // Asked of every form but the group one, which has a question of its own in the
-  // Goal's place.
+  // Goal's place, and of none whose goal question was removed.
   const goalId = fields.goalId?.trim() || null
-  if (!goalId && !askedTheGroup && required.has('goalId')) refusals.push('intake.goal_not_selected')
+  if (!asks('goalId') && !askedTheGroup && (goalId !== null || fields.goalOther !== null)) {
+    answerWithNoQuestion()
+  }
+  if (!goalId && !askedTheGroup && asks('goalId') && required.has('goalId')) {
+    refusals.push('intake.goal_not_selected')
+  }
 
   // Other, and the words that make it an answer. Choosing it with the box empty
   // is not choosing a goal, so it is refused as the unchosen goal is. Words in the
@@ -521,7 +554,8 @@ export const readIntakeForm = (
 
   const raw = fields.email?.trim() || null
   const email = raw === null ? null : asEmail(raw)
-  if (raw === null && required.has('email')) refusals.push('intake.email_missing')
+  if (raw !== null && !asks('email')) answerWithNoQuestion()
+  if (raw === null && asks('email') && required.has('email')) refusals.push('intake.email_missing')
   if (raw !== null && email === null) refusals.push('intake.email_unreadable')
 
   // The Ministry's own questions, each read against how the version they opened
@@ -538,8 +572,8 @@ export const readIntakeForm = (
       fullName: fullName!,
       phone: phone!,
       email,
-      ageBand: fields.ageBand as AgeBand,
-      gender: fields.gender as Gender,
+      ageBand: asks('ageBand') ? (fields.ageBand as AgeBand) : null,
+      gender: asks('gender') ? (fields.gender as Gender) : null,
       goalId: askedTheGroup || choseOther || !goalId ? null : discipleshipGoalId(goalId),
       goalOther: askedTheGroup ? null : goalOther,
       availability,

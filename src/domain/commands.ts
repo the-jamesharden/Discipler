@@ -798,6 +798,32 @@ export type Command =
       readonly name: string
       readonly editedBy: string
     }
+  /**
+   * One question off the form, and every answer given to it deleted (Pastor
+   * feedback, ticket 13; ADR-0014). Any question but the name and the mobile
+   * number. The answers are read before they go and written into the removal's
+   * history event, which is then the only record of them.
+   */
+  | {
+      readonly type: 'intake_form.remove_question'
+      readonly ministryId: MinistryId
+      readonly form: IntakePath
+      readonly key: string
+      readonly editedBy: string
+    }
+  /**
+   * One of Discipler's own questions this form no longer asks, put back at the
+   * foot of a page in the words the preset asks it in (ticket 13). Its old answers
+   * are not: they were deleted when it was removed.
+   */
+  | {
+      readonly type: 'intake_form.add_back_question'
+      readonly ministryId: MinistryId
+      readonly form: IntakePath
+      readonly pageId: string
+      readonly key: string
+      readonly editedBy: string
+    }
   /** The intro on the first page, or the thank-you after Submit. */
   | {
       readonly type: 'intake_form.edit_text'
