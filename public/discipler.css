@@ -262,18 +262,33 @@ button.goal-handle:active { cursor: grabbing; }
 
 .rel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; }
 .rel-card { display: block; padding: 1.1rem 1.25rem; border: 1px solid var(--border); border-left-width: 4px; border-left-color: var(--border); border-radius: 6px; background: rgba(45, 80, 22, 0.02); color: inherit; text-decoration: none; transition: background 0.2s ease; }
-a.rel-card:hover { background: rgba(45, 80, 22, 0.05); }
+a.rel-card:hover { box-shadow: 0 3px 14px rgba(45, 80, 22, 0.12); }
 .rel-card.s-needs_care { border-left-color: var(--red-concern); background: linear-gradient(135deg, rgba(220, 53, 69, 0.06), rgba(220, 53, 69, 0.03)); }
 .rel-card.s-stalled { border-left-color: var(--amber); background: linear-gradient(135deg, rgba(201, 122, 26, 0.08), rgba(201, 122, 26, 0.03)); }
 .rel-card.s-paused { border-left-color: var(--neutral); background: rgba(122, 122, 122, 0.04); opacity: 0.8; }
 .rel-card.s-awaiting_leader_acceptance { border-left-color: var(--accent); background: rgba(201, 168, 106, 0.06); }
+/* The Overview's cards, coloured by what they need (Pastor feedback, ticket 02):
+   green when healthy, yellow (the amber Stalled has always been) when stalled,
+   red while a Concern is unresolved, grey when paused or awaiting acceptance.
+   Classed by the need and not the state, because red follows the Concern badge
+   rather than the week it was raised (`app/overview/need.ts`); the Materials
+   folders keep their own `s-` classes. Each card also carries its word, so the
+   colour is never the only way to tell. The healthy edge is the darker green so
+   it holds 3:1 against the page, and a pill on a tinted card is lightened or
+   greyed where its usual tint would take its words under 4.5:1. */
+.rel-card.need-healthy { border-left-color: var(--primary-light); background: linear-gradient(135deg, rgba(127, 175, 140, 0.12), rgba(127, 175, 140, 0.04)); }
+.rel-card.need-stalled { border-left-color: var(--amber); background: linear-gradient(135deg, rgba(201, 122, 26, 0.08), rgba(201, 122, 26, 0.03)); }
+.rel-card.need-concern { border-left-color: var(--red-concern); background: linear-gradient(135deg, rgba(220, 53, 69, 0.06), rgba(220, 53, 69, 0.03)); }
+.rel-card.need-inactive { border-left-color: var(--neutral); background: rgba(122, 122, 122, 0.05); }
+.rel-card[class*='need-'] .pill.stalled { background: rgba(201, 122, 26, 0.12); }
+.rel-card.need-inactive .pill { background: rgba(122, 122, 122, 0.16); color: #5f5f5f; }
 .rel-leader { font-weight: 700; }
 .rel-people { font-size: 0.88rem; color: var(--text); margin-top: 0.15rem; }
 .rel-meta { font-size: 0.78rem; color: var(--text-light); margin-top: 0.5rem; }
 .rel-reason { font-size: 0.82rem; margin-top: 0.5rem; line-height: 1.45; }
 .rel-reason.needscare { color: var(--red-ink); }
 .rel-reason.stalled { color: var(--amber-ink); }
-.rel-reason.review { color: var(--neutral); }
+.rel-reason.review { color: #5f5f5f; }
 
 .pill { display: inline-block; font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.15rem 0.5rem; border-radius: 3px; vertical-align: middle; white-space: nowrap; }
 .pill.healthy { background: rgba(127, 175, 140, 0.25); color: #2f6b41; }

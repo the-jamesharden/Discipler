@@ -12,12 +12,12 @@ import {
   OVERVIEW_SUBTITLE,
   QUICK_STATS,
   relationshipCount,
-  statePill,
   TILES,
   withPeople,
 } from './copy'
 import { Donut } from './donut'
 import { flaggedIn, flagsFor } from './flags'
+import { cardPill, needOf } from './need'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,11 +28,14 @@ export const dynamic = 'force-dynamic'
  * relationship. The rates are the prototype's three definitions and are kept
  * apart: the response rate and the meeting rate must never be conflated.
  *
- * The cards are for triage: who needs a call this week. A pill only when the
- * state is worth naming, so Healthy shows nothing; the flag line comes from the
- * care items and not the state, so an unresolved Concern still shows on a
- * relationship that has since answered. Each card links to the relationship's
- * Follow-Up item where one exists, because there is no relationship detail page.
+ * The cards are for triage: who needs a call this week. Each is coloured by
+ * what it needs and carries the word for it (Pastor feedback, ticket 02): green
+ * and *Healthy*, yellow and *Stalled*, red while a Concern is unresolved, grey
+ * and *Paused* or *Awaiting acceptance*. The flag line comes from the care items
+ * and not the state, so an unresolved Concern still shows, and still colours the
+ * card red, on a relationship that has since answered. Each card links to the
+ * relationship's Follow-Up item where one exists, because there is no
+ * relationship detail page.
  */
 
 export default async function OverviewPage() {
@@ -136,14 +139,16 @@ export default async function OverviewPage() {
           <div className="rel-grid">
             {overview.relationships.map((relationship) => {
               const { flags, tone } = flagsFor(relationship.relationshipId, care)
+              const pill = cardPill(relationship)
+              const className = `rel-card need-${needOf(relationship)}`
               const body = (
                 <>
                   <div className="rel-leader">
                     {relationship.leaderNames.join(', ') || 'Nobody leading'}
-                    {relationship.state !== 'healthy' ? (
+                    {pill ? (
                       <>
                         {' '}
-                        <span className={`pill ${relationship.state}`}>{statePill[relationship.state]}</span>
+                        <span className={`pill ${pill.state}`}>{pill.label}</span>
                       </>
                     ) : null}
                   </div>
@@ -156,13 +161,13 @@ export default async function OverviewPage() {
               return flagged.has(relationship.relationshipId) ? (
                 <Link
                   key={relationship.relationshipId}
-                  className={`rel-card s-${relationship.state}`}
+                  className={className}
                   href={`/follow-up#relationship-${relationship.relationshipId}`}
                 >
                   {body}
                 </Link>
               ) : (
-                <div key={relationship.relationshipId} className={`rel-card s-${relationship.state}`}>
+                <div key={relationship.relationshipId} className={className}>
                   {body}
                 </div>
               )
