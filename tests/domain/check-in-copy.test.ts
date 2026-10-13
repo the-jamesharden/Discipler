@@ -59,8 +59,24 @@ describe('the check-in conversation', () => {
     )
   })
 
-  it('offers the three satisfaction tokens by name', () => {
-    expect(satisfactionQuestion({ ministryName })).toBe(
+  /**
+   * Four answers, so there is no middle one to default to, and only D is a
+   * concern (Pastor feedback, ticket 03). Word for word as James wrote it.
+   */
+  it('offers the four satisfaction tokens by name', () => {
+    expect(satisfactionQuestion({ ministryName, wording: 'a_to_d' })).toBe(
+      'ABC Church: How did the meeting go? ' +
+        'Reply A for outstanding, B for good, C for okay, D for concern.',
+    )
+  })
+
+  /**
+   * The question as it was sent before the change. Still composed, because a
+   * three-answer question sent before the change is re-sent in its own words when
+   * it is reminded, and clarified in them: its `C` is read as concern.
+   */
+  it('composes the three-answer question as it was sent before the change', () => {
+    expect(satisfactionQuestion({ ministryName, wording: 'a_to_c' })).toBe(
       'ABC Church: How did the meeting go? Reply A for outstanding, B for good, C for concern.',
     )
   })
@@ -84,15 +100,25 @@ describe('the check-in conversation', () => {
    * message.
    */
   it('offers the open question’s replies again, and only that question’s', () => {
-    expect(checkInClarification({ ministryName, question: 'met' })).toBe(
+    const wording = 'a_to_d'
+    expect(checkInClarification({ ministryName, question: 'met', wording })).toBe(
       'ABC Church: Sorry, we didn’t catch that. Reply 1 for yes, 2 for no.',
     )
-    expect(checkInClarification({ ministryName, question: 'satisfaction' })).toBe(
+    expect(checkInClarification({ ministryName, question: 'satisfaction', wording })).toBe(
+      'ABC Church: Sorry, we didn’t catch that. ' +
+        'Reply A for outstanding, B for good, C for okay, D for concern.',
+    )
+    expect(checkInClarification({ ministryName, question: 'concern_detail', wording })).toBe(
+      'ABC Church: Sorry, we didn’t catch that. Please tell us more about the concern.',
+    )
+  })
+
+  it('offers a three-answer question’s replies in the words it was sent with', () => {
+    expect(
+      checkInClarification({ ministryName, question: 'satisfaction', wording: 'a_to_c' }),
+    ).toBe(
       'ABC Church: Sorry, we didn’t catch that. ' +
         'Reply A for outstanding, B for good, C for concern.',
-    )
-    expect(checkInClarification({ ministryName, question: 'concern_detail' })).toBe(
-      'ABC Church: Sorry, we didn’t catch that. Please tell us more about the concern.',
     )
   })
 
@@ -100,7 +126,9 @@ describe('the check-in conversation', () => {
     // The monthly language rode on the message that opened the conversation. A
     // clarification is not a new month and not a new conversation.
     for (const question of ['met', 'satisfaction', 'concern_detail'] as const) {
-      expect(checkInClarification({ ministryName, question })).not.toContain('STOP')
+      for (const wording of ['a_to_c', 'a_to_d'] as const) {
+        expect(checkInClarification({ ministryName, question, wording })).not.toContain('STOP')
+      }
     }
   })
 

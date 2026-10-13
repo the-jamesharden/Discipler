@@ -495,7 +495,7 @@ Clarification handling inside a keyword exchange is identical to a check-in: at 
 
 A keyword arriving where a relationship's check-in question is currently open **withdraws that pending question** rather than leaving it to age. Otherwise pausing a relationship would contribute to it being flagged `Stalled` on resume, which is precisely what the pause rules exist to prevent.
 
-A bare, exact keyword is still a keyword during the concern detail step. The `C` is already recorded and the badge already raised, so nothing is lost by treating it as one, and the alternative records `PAUSE` as the text of someone's hardest week while ignoring a request to step back. Prose containing the word is unaffected — matching is whole-message.
+A bare, exact keyword is still a keyword during the concern detail step. The `D` is already recorded and the badge already raised, so nothing is lost by treating it as one, and the alternative records `PAUSE` as the text of someone's hardest week while ignoring a request to step back. Prose containing the word is unaffected — matching is whole-message.
 
 ## Settled: No Inbound Message Falls Through to Silence
 
@@ -574,7 +574,7 @@ See `docs/consent-language.md` and `src/domain/rates-line.ts`.
 
 ## Settled: Replies Are Matched Whole-Message, Not by Substring
 
-Discipler advertises the explicit form — *"Reply 1 for yes, 2 for no"*, *"Reply A for outstanding, B for good, C for concern"* — because digits and letters avoid both typos and an unbounded space of word variants. Behind that, an enumerated list of tokens, synonyms, and known typos is accepted: `yes`, `y`, `yeah`, `nope`, `great`, `good`, `concern`, and misspellings including `gret` and `oncern`.
+Discipler advertises the explicit form — *"Reply 1 for yes, 2 for no"*, *"Reply A for outstanding, B for good, C for okay, D for concern"* — because digits and letters avoid both typos and an unbounded space of word variants. Behind that, an enumerated list of tokens, synonyms, and known typos is accepted: `yes`, `y`, `yeah`, `nope`, `great`, `good`, `ok`, `okay`, `concern`, and misspellings including `gret` and `oncern`.
 
 **Matching is against the whole message**, after stripping punctuation, emoji, and a closed list of leading and trailing pleasantries. It is not a substring search.
 
@@ -776,13 +776,28 @@ pairing may never cross gender.
 
 ## Settled: What the Satisfaction Tokens Store
 
-`A` is **outstanding**, `B` is **good**, `C` is **concern**. These are the values
-written to history, not only the letters advertised in the message, and `good` is the
-stored value — not `okay`, which appeared once in this document's description of the
-quarterly report and has been corrected.
+`A` is **outstanding**, `B` is **good**, `C` is **okay**, `D` is **concern**.
+These are the values written to history, not only the letters advertised in the message.
+Only `concern` is a concern: D alone draws the concern detail request, raises the badge and puts the relationship in `Needs Care` for the week.
+`okay` is recorded and raises nothing.
 
-The accepted synonyms behind them are unchanged: `great`/`gret` for A, `good` for B,
-`concern`/`oncern` for C.
+The accepted synonyms behind them: `great`/`gret` for A, `good` for B, `ok`/`okay` for C, `concern`/`oncern` for D.
+
+**Quality rate** is (outstanding + good) / rated, on the Overview and in Quick Stats.
+Okay counts against it: it is a rated week that was neither.
+
+> **Supersedes:** three answers, *"Reply A for outstanding, B for good, C for concern"*, in which `C` stored **concern**.
+> The question became four answers on 2026-10-12, from pastor feedback, so there is no middle answer to default to (Pastor feedback, ticket 03).
+> Do not restore three answers.
+> `okay` was once a word this section ruled out, when it appeared by mistake in the description of the quarterly report for `good`; it is now a stored value of its own, and `good` is still `good`.
+
+**A reply is read against the wording its question was sent with**, never the wording in force when the reply arrives.
+Every check-in question records which answers it offered when it was sent, and its reply, its reminder and any clarification of it go by that record.
+A leader sent the three-answer question before the change who replies `C` after it meant concern, and it is recorded as a concern, with the badge raised and the detail asked for.
+A question sent before the change has no such record and is read as the three-answer question it was.
+
+Stored answers keep their meaning.
+They are stored as words, so a stored `concern` never becomes `okay`, and no stored answer was rewritten by the change.
 
 ## Settled: A Covered Week Counts, Whether or Not Its Question Was Reached
 
@@ -812,7 +827,7 @@ No precedence rule exists between `Stalled` and `Needs Care` because the two can
 both hold.
 
 `Needs Care` requires a Concern raised this week, which requires the Leader to answer
-`1` and then `C`. That reply establishes a meeting happened and that the week was
+`1` and then `D`. That reply establishes a meeting happened and that the week was
 answered, which resets the consecutive-unanswered count to zero and breaks the
 consecutive-not-meeting streak. Both Stalled conditions are cleared by the very reply
 that raises the Concern.
@@ -939,7 +954,7 @@ the four cases are stated together:
 - **Check-in question** — forty-eight hours after the original send: twenty-four to the
   reminder, twenty-four more before the sequence advances. Also timed out immediately
   when a new week's sequence begins.
-- **Concern detail request** — the same forty-eight hours. The `C` and the badge are
+- **Concern detail request** — the same forty-eight hours. The `D` and the badge are
   already recorded, so nothing is lost by passing over it.
 - **Keyword Exchange** — twenty-four hours after it opened, with no reminder.
 - **Messages expecting no reply** — the Welcome Message, the Starter Message, the

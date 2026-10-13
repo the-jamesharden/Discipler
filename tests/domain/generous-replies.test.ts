@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { readCheckInReply, type CheckInQuestion, type CheckInReply } from '~/domain/check-in'
+import {
+  readCheckInReply,
+  type CheckInQuestion,
+  type CheckInReply,
+  type CheckInWording,
+} from '~/domain/check-in'
 
 /**
  * The whole of `docs/adr/0003-whole-message-reply-matching.md`, as a table.
@@ -12,8 +17,11 @@ import { readCheckInReply, type CheckInQuestion, type CheckInReply } from '~/dom
  * row below that expects `unreadable` is load-bearing, not a gap.
  */
 
-const reads = (question: CheckInQuestion, body: string): CheckInReply =>
-  readCheckInReply(question, body)
+const reads = (
+  question: CheckInQuestion,
+  body: string,
+  wording: CheckInWording = 'a_to_d',
+): CheckInReply => readCheckInReply({ question, wording }, body)
 
 const met = (value: boolean): CheckInReply => ({ kind: 'met', met: value })
 
@@ -97,7 +105,15 @@ describe('reading a reply to *how did it go*', () => {
     ['B', 'good'],
     ['good', 'good'],
     ['good thanks', 'good'],
-    ['C', 'concern'],
+    ['C', 'okay'],
+    // A pleasantry everywhere else, and an answer here: a message that is only
+    // `ok` is never stripped to nothing, so it reaches the list whole.
+    ['ok', 'okay'],
+    ['OK', 'okay'],
+    ['okay', 'okay'],
+    ['Okay.', 'okay'],
+    ['ok thanks', 'okay'],
+    ['D', 'concern'],
     ['concern', 'concern'],
     ['oncern', 'concern'],
   ]
@@ -108,12 +124,45 @@ describe('reading a reply to *how did it go*', () => {
     })
   }
 
+  it('takes an ok around another answer as the courtesy it is', () => {
+    expect(reads('satisfaction', 'ok good')).toEqual({ kind: 'satisfaction', satisfaction: 'good' })
+    expect(reads('satisfaction', 'okay D')).toEqual({ kind: 'satisfaction', satisfaction: 'concern' })
+  })
+
+  /**
+   * The three-answer question, as it was sent before October 2026. Its words
+   * read as they always did, its `C` is a concern, and nothing it never offered
+   * is read at all.
+   */
+  const asSentBefore: ReadonlyArray<readonly [string, string]> = [
+    ['A', 'outstanding'],
+    ['great', 'outstanding'],
+    ['B', 'good'],
+    ['good', 'good'],
+    ['C', 'concern'],
+    ['concern', 'concern'],
+    ['oncern', 'concern'],
+  ]
+
+  for (const [body, satisfaction] of asSentBefore) {
+    it(`reads ${JSON.stringify(body)} to the three-answer question as ${satisfaction}`, () => {
+      expect(reads('satisfaction', body, 'a_to_c')).toEqual({ kind: 'satisfaction', satisfaction })
+    })
+  }
+
+  it('refuses D and okay to the three-answer question, which offered neither', () => {
+    for (const body of ['D', 'ok', 'okay']) {
+      expect(reads('satisfaction', body, 'a_to_c')).toEqual({ kind: 'unreadable' })
+    }
+  })
+
   it('refuses a reply carrying two answers', () => {
     expect(reads('satisfaction', 'B or C')).toEqual({ kind: 'unreadable' })
+    expect(reads('satisfaction', 'C or D')).toEqual({ kind: 'unreadable' })
   })
 
   it('refuses a negation of a token rather than reading the token inside it', () => {
-    for (const body of ["it wasn't great", 'not good', 'no concerns']) {
+    for (const body of ["it wasn't great", 'not good', 'no concerns', 'not ok', 'it was ok']) {
       expect(reads('satisfaction', body)).toEqual({ kind: 'unreadable' })
     }
   })

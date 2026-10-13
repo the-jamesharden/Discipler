@@ -64,7 +64,7 @@ const NOTHING_YET: Overview = {
  * the Stalled rule uses, so the denominator here is the denominator there.
  */
 const countsOf = (answers: readonly RelationshipWeekAnswer[]): CheckInCounts => {
-  const rated = { outstanding: 0, good: 0, concern: 0 }
+  const rated = { outstanding: 0, good: 0, okay: 0, concern: 0 }
   let answered = 0
   let held = 0
 

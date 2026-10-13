@@ -147,8 +147,9 @@ export default async function OverviewPage({
             emptyLabel={NO_CHECK_INS_YET}
             segments={[
               { label: 'Outstanding (A)', value: overview.counts.rated.outstanding, colour: 'var(--green-fit)' },
-              { label: 'Good (B)', value: overview.counts.rated.good, colour: 'var(--yellow-fit)' },
-              { label: 'Concern (C)', value: overview.counts.rated.concern, colour: 'var(--red-concern)' },
+              { label: 'Good (B)', value: overview.counts.rated.good, colour: 'var(--light-green-fit)' },
+              { label: 'Okay (C)', value: overview.counts.rated.okay, colour: 'var(--yellow-fit)' },
+              { label: 'Concern (D)', value: overview.counts.rated.concern, colour: 'var(--red-concern)' },
             ]}
           />
         </div>

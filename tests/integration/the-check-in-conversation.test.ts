@@ -93,7 +93,7 @@ describe('the check-in conversation', () => {
 
     // Emily: met, and a Concern.
     await texts(james, '1')
-    await texts(james, 'C')
+    await texts(james, 'D')
     await texts(james, 'He has lost his job.')
     // Marcus: did not meet. One reply, and straight on.
     await texts(james, '2')
@@ -102,11 +102,13 @@ describe('the check-in conversation', () => {
     await texts(james, 'A')
 
     expect((await inbox(james)).slice(1)).toEqual([
-      'ABC Church: How did the meeting go? Reply A for outstanding, B for good, C for concern.',
+      'ABC Church: How did the meeting go? ' +
+        'Reply A for outstanding, B for good, C for okay, D for concern.',
       'ABC Church: Please tell us more about the concern.',
       'ABC Church: Did you meet with Marcus Bell this week? Reply 1 for yes, 2 for no.',
       'ABC Church: Did you meet with Ade Okafor this week? Reply 1 for yes, 2 for no.',
-      'ABC Church: How did the meeting go? Reply A for outstanding, B for good, C for concern.',
+      'ABC Church: How did the meeting go? ' +
+        'Reply A for outstanding, B for good, C for okay, D for concern.',
       'ABC Church: Thank you. We’ll check in with you next week.',
     ])
 
@@ -151,6 +153,50 @@ describe('the check-in conversation', () => {
       [james],
     )
     expect(sequences).toEqual([{ outcome: 'completed' }])
+
+    // Every question says which answers it offered, so each reply can be read
+    // against the wording it was sent with.
+    const { rows: wordings } = await pool.query<{ wording: string | null }>(
+      `select distinct c.wording from checkin_prompt c
+         join checkin_sequence s on s.id = c.sequence_id
+        where s.person_id = $1`,
+      [james],
+    )
+    expect(wordings).toEqual([{ wording: 'a_to_d' }])
+  })
+
+  it('records a C as okay, asks nothing more about it and moves on', async () => {
+    const leader = await congregant('Ruth Okafor')
+    const participant = await congregant('Abi Lowe')
+    await pairOneToOne(ministry, leader, participant, {
+      createdAt: new Date('2026-04-01T09:00:00Z'),
+    })
+
+    await start(leader)
+    await texts(leader, '1')
+    await texts(leader, 'C')
+
+    expect((await inbox(leader)).slice(1)).toEqual([
+      'ABC Church: How did the meeting go? ' +
+        'Reply A for outstanding, B for good, C for okay, D for concern.',
+      'ABC Church: Thank you. We’ll check in with you next week.',
+    ])
+
+    const { rows } = await pool.query<{ satisfaction: string | null }>(
+      `select c.satisfaction from checkin_prompt c
+         join checkin_sequence s on s.id = c.sequence_id
+        where s.person_id = $1 and c.question = 'satisfaction'`,
+      [leader],
+    )
+    expect(rows).toEqual([{ satisfaction: 'okay' }])
+
+    const { rows: concerns } = await pool.query(
+      `select 1 from concern c
+         join relationship_member m on m.relationship_id = c.relationship_id
+        where m.person_id = $1`,
+      [leader],
+    )
+    expect(concerns).toEqual([])
   })
 
   it('clarifies twice, then keeps listening -- against the real cap', async () => {
@@ -413,7 +459,17 @@ describe('the check-in conversation', () => {
       createdAt: new Date('2026-02-01T09:00:00Z'),
     })
 
-    await start(leader)
+    // On a clock read after the fixtures, not the suite's pinned one. The fixtures
+    // accept and start memberships on the real clock, so once the calendar passed
+    // the pinned date the ending below landed before them, which the database
+    // refuses -- a fact about the fixtures, not the conversation.
+    const today = createTestClock(new Date())
+    const service = () =>
+      createCommandService({ clock: today, ids, store, appBaseUrl: 'https://discipler.test' })
+    const texts = (person: PersonId, body: string) =>
+      service().execute({ type: 'sms.inbound', ministryId: ministry.id, personId: person, body })
+
+    await service().execute({ type: 'checkin.start', ministryId: ministry.id, personId: leader })
 
     // Tess's relationship ends between the question and the reply -- through the
     // command that ends one, which also closes every membership on it. A direct

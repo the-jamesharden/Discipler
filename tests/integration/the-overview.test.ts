@@ -138,7 +138,7 @@ describe('the Overview', () => {
       sent: 1,
       answered: 1,
       held: 1,
-      rated: { outstanding: 1, good: 0, concern: 0 },
+      rated: { outstanding: 1, good: 0, okay: 0, concern: 0 },
     })
     expect(checkInRates(overview.counts)).toEqual({ response: 100, meeting: 100, quality: 100 })
     expect(overview.completedThisWeek).toBe(1)
@@ -171,7 +171,7 @@ describe('the Overview', () => {
       sent: 1,
       answered: 1,
       held: 0,
-      rated: { outstanding: 0, good: 0, concern: 0 },
+      rated: { outstanding: 0, good: 0, okay: 0, concern: 0 },
     })
     // A perfect response rate and no meeting rate. One number for both would be
     // wrong about one of them, which is why the two are kept apart.
@@ -196,7 +196,7 @@ describe('the Overview', () => {
       sent: 2,
       answered: 1,
       held: 1,
-      rated: { outstanding: 0, good: 1, concern: 0 },
+      rated: { outstanding: 0, good: 1, okay: 0, concern: 0 },
     })
     // Half of sent answered; all of answered held; all of rated good.
     expect(checkInRates(overview.counts)).toEqual({ response: 50, meeting: 100, quality: 100 })
@@ -216,7 +216,7 @@ describe('the Overview', () => {
     await church.tickAt(at(1))
     await church.tickAt(at(2))
     await church.replyAt(minutesAfter(at(2), 1), leader, '1')
-    await church.replyAt(minutesAfter(at(2), 2), leader, 'C')
+    await church.replyAt(minutesAfter(at(2), 2), leader, 'D')
     await church.replyAt(minutesAfter(at(2), 3), leader, 'They have stopped coming on Sundays.')
 
     const overview = await church.overviewAt(minutesAfter(at(2), 4))
@@ -225,7 +225,7 @@ describe('the Overview', () => {
       sent: 3,
       answered: 2,
       held: 2,
-      rated: { outstanding: 1, good: 0, concern: 1 },
+      rated: { outstanding: 1, good: 0, okay: 0, concern: 1 },
     })
     expect(checkInRates(overview.counts)).toEqual({ response: 67, meeting: 100, quality: 50 })
     // Only week two is this week. Week zero was completed too, but not this week.
@@ -233,6 +233,34 @@ describe('the Overview', () => {
     expect(overview.relationships).toMatchObject([{ state: 'needs_care', openConcerns: 1 }])
     // Nothing on the tab carries the Concern's words.
     expect(JSON.stringify(overview)).not.toContain('stopped coming')
+  })
+
+  it('counts an okay as rated, and against the quality rate', async () => {
+    const church = await aMinistry('Middling Chapel')
+    const { leader } = await church.leading('Middling Leader', 2)
+
+    // One relationship good, the other okay. Okay is rated and is neither
+    // outstanding nor good, so the quality rate is one of two.
+    await church.tickAt(at(0))
+    await church.replyAt(minutesAfter(at(0), 1), leader, '1')
+    await church.replyAt(minutesAfter(at(0), 2), leader, 'B')
+    await church.replyAt(minutesAfter(at(0), 3), leader, '1')
+    await church.replyAt(minutesAfter(at(0), 4), leader, 'C')
+
+    const overview = await church.overviewAt(minutesAfter(at(0), 5))
+
+    expect(overview.counts).toEqual({
+      sent: 2,
+      answered: 2,
+      held: 2,
+      rated: { outstanding: 0, good: 1, okay: 1, concern: 0 },
+    })
+    expect(checkInRates(overview.counts)).toEqual({ response: 100, meeting: 100, quality: 50 })
+    // An okay raises nothing, so both relationships stay healthy.
+    expect(overview.relationships).toMatchObject([
+      { state: 'healthy', openConcerns: 0 },
+      { state: 'healthy', openConcerns: 0 },
+    ])
   })
 
   it('hides an unaccepted relationship younger than five days, and counts it', async () => {
