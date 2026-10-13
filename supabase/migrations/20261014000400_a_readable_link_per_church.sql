@@ -44,10 +44,12 @@ as $$
 $$;
 
 -- A check constraint below calls it, and a function in a constraint is executed
--- with the privileges of whoever writes the row: the command connection, when an
--- Admin renames.
-revoke execute on function app.short_name_is_reserved(text) from public, anon, authenticated, service_role;
-grant execute on function app.short_name_is_reserved(text) to discipler_command;
+-- with the privileges of whoever writes the row -- any column of it, since every
+-- check is evaluated on every update: the command connection, when an Admin saves
+-- settings or renames, and the service role, which a pilot's settings are written
+-- with.
+revoke execute on function app.short_name_is_reserved(text) from public, anon, authenticated;
+grant execute on function app.short_name_is_reserved(text) to discipler_command, service_role;
 
 -- What a Ministry's name reads as in a link: lowercased, the common accents
 -- dropped, apostrophes taken out so *St. Mark's* is `st-marks`, an ampersand said
@@ -99,16 +101,28 @@ comment on table held_short_name is
   'keeps opening the forms, so a row is never updated or deleted, and the key '
   'refuses the name to any other Ministry for good.';
 
+-- A name goes only with its Ministry: a Ministry deleted outright -- which its
+-- append-only history refuses for every Ministry the product opens, so only a
+-- bare row ever is -- takes its names with it by the cascade. Its forms are gone
+-- then, and there is nothing left for a printed link to open.
 create function app.reject_giving_back_a_short_name()
 returns trigger
 language plpgsql
+security definer
+set search_path = ''
 as $$
 begin
+  if tg_op = 'DELETE'
+     and not exists (select 1 from public.ministry m where m.id = old.ministry_id) then
+    return old;
+  end if;
   raise exception
     'held_short_name is kept for good: % is not permitted', tg_op
     using errcode = 'restrict_violation';
 end;
 $$;
+
+revoke execute on function app.reject_giving_back_a_short_name() from public, anon, authenticated, service_role;
 
 create trigger held_short_name_no_update
   before update on held_short_name
