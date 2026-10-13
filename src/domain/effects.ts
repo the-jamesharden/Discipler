@@ -27,6 +27,7 @@ import type {
   RelationshipKeyword,
 } from './keywords'
 import type { NewIntakeLink } from './intake-link'
+import type { IntakeForm } from './intake-form'
 import type { MaterialFile, MaterialItem, MaterialTitle } from './materials'
 import type { MinistrySettings } from './ministry-settings'
 import type { InvitationToken, NewInvitation, WithdrawnAs } from './invitations'
@@ -203,6 +204,11 @@ export interface IntakeRecord {
    * ask.
    */
   readonly firstTime: boolean | null
+  /**
+   * Which version of the Ministry's form they answered (Pastor feedback, ticket
+   * 11): 0 for the preset, null where the form was not one of the Ministry's two.
+   */
+  readonly formVersion: number | null
   /** The consent version the Person actually saw, recorded with each decision. */
   readonly consentVersion: string
   readonly source: ConsentSource
@@ -534,6 +540,20 @@ export interface NewDiscipleshipGoal {
   readonly label: GoalWording
   readonly position: number
   readonly createdAt: Date
+}
+
+/**
+ * One of a Ministry's Intake forms, saved as its next version (Pastor feedback,
+ * ticket 11). A new row and never an update: somebody part-way through the form
+ * is still being served the version before, and a submission records which one it
+ * answered.
+ */
+export interface IntakeFormSaving {
+  readonly ministryId: MinistryId
+  readonly form: IntakeForm
+  readonly savedAt: Date
+  /** The Admin's account, as the session named it. */
+  readonly savedBy: string
 }
 
 /**
@@ -874,6 +894,7 @@ export type Effect =
   | { readonly kind: 'intendedPairing.close'; readonly closure: IntendedPairingClosure }
   | { readonly kind: 'settings.save'; readonly saving: MinistrySettingsSaving }
   | { readonly kind: 'shortName.change'; readonly change: ShortNameChange }
+  | { readonly kind: 'intakeForm.save'; readonly saving: IntakeFormSaving }
   | { readonly kind: 'goal.add'; readonly goal: NewDiscipleshipGoal }
   | { readonly kind: 'goal.rename'; readonly renaming: DiscipleshipGoalRenaming }
   | { readonly kind: 'goal.reorder'; readonly order: DiscipleshipGoalOrder }
@@ -915,6 +936,11 @@ export const saveMinistrySettings = (saving: MinistrySettingsSaving): Effect => 
 export const changeShortName = (change: ShortNameChange): Effect => ({
   kind: 'shortName.change',
   change,
+})
+
+export const saveIntakeForm = (saving: IntakeFormSaving): Effect => ({
+  kind: 'intakeForm.save',
+  saving,
 })
 
 export const addDiscipleshipGoal = (goal: NewDiscipleshipGoal): Effect => ({

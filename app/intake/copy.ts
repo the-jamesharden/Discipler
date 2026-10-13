@@ -95,6 +95,7 @@ const REFUSALS: Record<IntakeRefusal, string> = {
   'intake.group_not_open_to_you':
     'That group is not open to you. Please choose a different group.',
   'intake.email_unreadable': 'That does not look like an email address.',
+  'intake.email_missing': 'Please give your email address.',
   'intake.link_expired':
     'This link has expired. Ask whoever sent it to you for a new one.',
   // Deliberately says nothing about who. A name and a number together are who a

@@ -1,6 +1,7 @@
 import type { PasswordResetRefusal } from './accounts'
 import type { RelationshipId } from './ids'
 import type { IntakeRefusal } from './intake'
+import type { IntakeFormRefusal } from './intake-form'
 import type { MinistrySettingsRefusal } from './ministry-settings'
 import type { RemovalRefusal } from './removal'
 import type { ShortNameRefusal } from './short-name'
@@ -702,6 +703,18 @@ export class MinistrySettingsRefused extends Error {
   constructor(readonly refusals: readonly MinistrySettingsRefusal[]) {
     super(refusals.join(', '))
     this.name = 'MinistrySettingsRefused'
+  }
+}
+
+/**
+ * An edit to one of the Ministry's Intake forms that could not be made, and why
+ * (Pastor feedback, ticket 11). One reason: the editor saves one question, one
+ * order or one name at a time.
+ */
+export class IntakeFormRefused extends Error {
+  constructor(readonly refusal: IntakeFormRefusal) {
+    super(refusal)
+    this.name = 'IntakeFormRefused'
   }
 }
 

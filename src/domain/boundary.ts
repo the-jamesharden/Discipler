@@ -56,6 +56,7 @@ import {
   recordMaterialNotice,
   restorePerson,
   saveMinistrySettings,
+  saveIntakeForm,
   changeShortName,
   setKeywordExchangeTarget,
   sweepOutstandingReplies,
@@ -89,6 +90,7 @@ import {
   MaterialRefused,
   MinistrySettingsRefused,
   ShortNameRefused,
+  IntakeFormRefused,
   PairingRefused,
   PasswordResetRefused,
   PauseRefused,
@@ -174,6 +176,19 @@ import {
   type DiscipleshipGoalId,
   type Gender,
 } from './intake'
+import {
+  addPage,
+  arrangeQuestions,
+  editQuestion,
+  editText,
+  layoutOf,
+  moveQuestion,
+  questionOn,
+  renamePage,
+  requiredOn,
+  type FormEdit,
+  type IntakeForm,
+} from './intake-form'
 import {
   intakeLinkState,
   intakeLinkToken,
@@ -330,6 +345,14 @@ export interface CommandContext {
    * behalf so that history can record what it was. Absent on everything else.
    */
   readonly shortName?: ShortName
+  /**
+   * One of the Ministry's Intake forms (Pastor feedback, ticket 11). Loaded on an
+   * edit's behalf as it stands now, behind a lock, so two Admins cannot both save
+   * the next version of it; and on `intake.submit`'s behalf as the version the
+   * Person opened, which is what their answers are read against. Absent on
+   * everything else, and on a submission from a form that is not one of the two.
+   */
+  readonly intakeForm?: IntakeForm
   /**
    * Who is being paired, or who is already in the relationship being accepted --
    * their names and the numbers Discipler would text. Loaded on the command's
@@ -880,6 +903,60 @@ const theAnswersAboutToGo = (context: CommandContext): readonly StatedGoal[] => 
     throw new Error('No answers were loaded for the Discipleship Goal being removed')
   }
   return context.goalAnswers
+}
+
+/**
+ * The Intake form an edit decides against, or a loud failure rather than the
+ * preset: a read that silently became *this Ministry never edited* would save
+ * the next edit over the preset and throw away every edit before it.
+ */
+const theFormBeingEdited = (context: CommandContext): IntakeForm => {
+  if (!context.intakeForm) throw new Error('No Intake form was loaded for this edit')
+  return context.intakeForm
+}
+
+/**
+ * One edit to an Intake form, applied: refused, a no-op, or saved as the next
+ * version with history saying what changed. Every edit is recorded in the
+ * Ministry's history with the version it made, so the words a form asked in on
+ * any date can be read back from history alone.
+ */
+const savingTheForm = (
+  command: Extract<Command, { readonly type: `intake_form.${string}` }>,
+  context: CommandContext,
+  edit: FormEdit,
+  recorded: (form: IntakeForm) => { readonly type: string; readonly payload: Record<string, unknown> },
+): CommandResult => {
+  if (edit === null) return { effects: [], rejections: [] }
+  if ('refusal' in edit) throw new IntakeFormRefused(edit.refusal)
+
+  const now = context.clock.now()
+  const { type, payload } = recorded(edit.form)
+
+  return {
+    effects: [
+      saveIntakeForm({
+        ministryId: command.ministryId,
+        form: edit.form,
+        savedAt: now,
+        savedBy: command.editedBy,
+      }),
+      appendHistory({
+        ministryId: command.ministryId,
+        occurredAt: now,
+        type,
+        subjectType: 'ministry',
+        subjectId: command.ministryId,
+        payload: {
+          form: command.form,
+          version: edit.form.version,
+          editedBy: command.editedBy,
+          ...payload,
+        },
+      }),
+    ],
+    rejections: [],
+  }
 }
 
 /**
@@ -4788,7 +4865,12 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         }
       }
 
-      const reading = readIntakeForm(command.form)
+      // Against the version of the Ministry's form the Person opened, which says
+      // which of the questions an Admin may make optional were optional for them.
+      const asked = context.intakeForm ?? null
+      const reading = asked
+        ? readIntakeForm(command.form, requiredOn(asked))
+        : readIntakeForm(command.form)
       if ('refusals' in reading) throw new IntakeRefused(reading.refusals)
 
       const { submission } = reading
@@ -4972,6 +5054,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           availability: submission.availability,
           email: submission.email,
           firstTime: submission.firstTime,
+          formVersion: asked ? asked.version : null,
           consentVersion: CONSENT_VERSION,
           source: submission.source,
           // What they were answering and which side they said they were on, on
@@ -5014,6 +5097,10 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             // can blank. On the submission too; here because history is where a
             // goal stated on a given date is read back from, as the option is.
             goalOther: submission.goalOther,
+            // Which version of the Ministry's form they were answering (Pastor
+            // feedback, ticket 11), so the words they were asked in can be read
+            // back for any submission. Null on a form that is not one of the two.
+            formVersion: asked ? asked.version : null,
             // The name they gave on this submission, the same way
             // `person.joined_at_intake` records the one they joined under. A
             // correction overwrites `person.full_name`, and without this the name
@@ -5527,6 +5614,106 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         ],
         rejections: [],
       }
+    }
+
+    case 'intake_form.edit_question': {
+      const form = theFormBeingEdited(context)
+      const was = questionOn(form, command.key)
+      return savingTheForm(
+        command,
+        context,
+        editQuestion(form, command.key, {
+          wording: command.wording,
+          menteeWording: command.menteeWording,
+          hint: command.hint,
+          required: command.required,
+        }),
+        (saved) => {
+          const now = questionOn(saved, command.key)
+          // What the question said before and after, which the new version keeps
+          // and the history keeps beside it: a reworded question is the same
+          // question, and the answers given to the old words stay its answers.
+          const said = (question: typeof was) => ({
+            wording: question?.wording ?? null,
+            menteeWording: question?.menteeWording ?? null,
+            hint: question?.hint ?? null,
+            required: question?.required ?? null,
+          })
+          return {
+            type: 'intake_form.question_edited',
+            payload: { key: command.key, from: said(was), to: said(now) },
+          }
+        },
+      )
+    }
+
+    case 'intake_form.arrange': {
+      const form = theFormBeingEdited(context)
+      return savingTheForm(
+        command,
+        context,
+        arrangeQuestions(form, command.layout),
+        (saved) => ({
+          type: 'intake_form.arranged',
+          payload: { from: layoutOf(form), to: layoutOf(saved) },
+        }),
+      )
+    }
+
+    case 'intake_form.move_question': {
+      const form = theFormBeingEdited(context)
+      return savingTheForm(
+        command,
+        context,
+        moveQuestion(form, command.key, command.direction),
+        // Recorded as an arrangement, because that is what it is: one press of a
+        // button that a drag would have made the same order with.
+        (saved) => ({
+          type: 'intake_form.arranged',
+          payload: { from: layoutOf(form), to: layoutOf(saved) },
+        }),
+      )
+    }
+
+    case 'intake_form.add_page': {
+      const form = theFormBeingEdited(context)
+      const id = context.ids.next()
+      return savingTheForm(command, context, addPage(form, id, command.name), (saved) => ({
+        type: 'intake_form.page_added',
+        payload: {
+          pageId: id,
+          name: saved.pages.find((each) => each.id === id)?.name ?? null,
+        },
+      }))
+    }
+
+    case 'intake_form.rename_page': {
+      const form = theFormBeingEdited(context)
+      const named = (each: IntakeForm) =>
+        each.pages.find((one) => one.id === command.pageId)?.name ?? null
+      return savingTheForm(
+        command,
+        context,
+        renamePage(form, command.pageId, command.name),
+        (saved) => ({
+          type: 'intake_form.page_renamed',
+          payload: { pageId: command.pageId, from: named(form), to: named(saved) },
+        }),
+      )
+    }
+
+    case 'intake_form.edit_text': {
+      const form = theFormBeingEdited(context)
+      const said = (each: IntakeForm) => (command.which === 'intro' ? each.intro : each.thankYou)
+      return savingTheForm(
+        command,
+        context,
+        editText(form, command.which, command.text),
+        (saved) => ({
+          type: command.which === 'intro' ? 'intake_form.intro_edited' : 'intake_form.thank_you_edited',
+          payload: { from: said(form), to: said(saved) },
+        }),
+      )
     }
 
     case 'material.create': {

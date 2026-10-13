@@ -66,7 +66,9 @@ import type {
   RelationshipCancellation,
   RelationshipEnding,
   ShortNameChange,
+  IntakeFormSaving,
 } from '~/domain/effects'
+import type { IntakeForm } from '~/domain/intake-form'
 import type {
   FollowUpPayload,
   FollowUpResolution,
@@ -87,7 +89,15 @@ import type { InvitationToken, NewInvitation } from '~/domain/invitations'
 import type { MinistrySetupState, NewMinistrySetup } from '~/domain/ministry-setup'
 import type { MinistrySetupRefusal } from '~/domain/errors'
 import type { HistoryEvent, NewHistoryEvent } from '~/domain/history'
-import type { AgeBand, AvailabilitySlot, DeclaredSide, DiscipleshipGoalId, Gender, OtherGoal } from '~/domain/intake'
+import type {
+  AgeBand,
+  AvailabilitySlot,
+  DeclaredSide,
+  DiscipleshipGoalId,
+  Gender,
+  IntakePath,
+  OtherGoal,
+} from '~/domain/intake'
 import type {
   ConcernId,
   FollowUpItemId,
@@ -571,6 +581,24 @@ export interface UnitOfWork {
    * when another Ministry holds it or ever held it, which only the database can see.
    */
   changeShortName(change: ShortNameChange): Promise<void>
+
+  /**
+   * One of this Ministry's Intake forms as it stands now (Pastor feedback, ticket
+   * 11): its latest saved version, or the preset where it has never been edited.
+   * Read behind a lock on that form, so two Admins saving at once cannot both
+   * decide against the same version and both claim the next number.
+   */
+  intakeForm(form: IntakePath): Promise<IntakeForm>
+
+  /**
+   * One version of one of this Ministry's Intake forms, as somebody opened it:
+   * the preset for version 0, a saved version otherwise, and null for a version
+   * this Ministry never saved. Versions are never changed, so this takes no lock.
+   */
+  intakeFormVersion(form: IntakePath, version: number): Promise<IntakeForm | null>
+
+  /** The next version of one of this Ministry's Intake forms. */
+  saveIntakeForm(saving: IntakeFormSaving): Promise<void>
 
   /**
    * Every Discipleship Goal option this Ministry offers, in the order the form

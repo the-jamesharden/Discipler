@@ -45,6 +45,7 @@ import type {
   RelationshipCancellation,
   RelationshipEnding,
   ShortNameChange,
+  IntakeFormSaving,
 } from '~/domain/effects'
 import {
   followUpPayload,
@@ -71,7 +72,9 @@ import {
   type OfferedGoal,
   type StatedGoal,
 } from '~/domain/discipleship-goals'
-import { discipleshipGoalId, type Gender } from '~/domain/intake'
+import { discipleshipGoalId, type Gender, type IntakePath } from '~/domain/intake'
+import { presetForm, PRESET_VERSION, type IntakeForm } from '~/domain/intake-form'
+import { asDefinition, formOrPreset, intakeFormFrom } from './intake-form-document'
 import { materialTitle, type MaterialItem, type MaterialOnOffer } from '~/domain/materials'
 import {
   roleNoun,
@@ -1014,6 +1017,55 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     }
   },
 
+  async intakeForm(form: IntakePath): Promise<IntakeForm> {
+    // One edit to one form at a time, as the goal list is edited: two Admins
+    // saving at once would otherwise both read version N and both save N + 1,
+    // and the loser would meet the version's unique key as an unhandled error
+    // rather than finding their edit made on top of the other's. Keyed on the
+    // Ministry and the form, so editing one form does not make the other wait.
+    await client.query(
+      `select pg_advisory_xact_lock(hashtextextended(app.command_ministry_id()::text || ':intake_form:' || $1, 0))`,
+      [form],
+    )
+
+    // The latest saved version, scoped by the policy on this connection like
+    // every other read here. None is the preset.
+    const { rows } = await client.query<{ version: number; definition: unknown }>(
+      `select version, definition
+         from intake_form_version
+        where form = $1
+        order by version desc
+        limit 1`,
+      [form],
+    )
+    return formOrPreset(form, rows[0])
+  },
+
+  async intakeFormVersion(form: IntakePath, version: number): Promise<IntakeForm | null> {
+    if (version === PRESET_VERSION) return presetForm(form)
+    const { rows } = await client.query<{ version: number; definition: unknown }>(
+      `select version, definition from intake_form_version where form = $1 and version = $2`,
+      [form, version],
+    )
+    const row = rows[0]
+    return row ? intakeFormFrom(form, Number(row.version), row.definition) : null
+  },
+
+  async saveIntakeForm(saving: IntakeFormSaving) {
+    await client.query(
+      `insert into intake_form_version (ministry_id, form, version, definition, saved_at, saved_by)
+       values ($1, $2, $3, $4, $5, $6)`,
+      [
+        saving.ministryId,
+        saving.form.name,
+        saving.form.version,
+        JSON.stringify(asDefinition(saving.form)),
+        saving.savedAt,
+        saving.savedBy,
+      ],
+    )
+  },
+
   async ministryShortName(): Promise<ShortName> {
     // The row itself, scoped by the policy on this connection, as the settings
     // read above it is.
@@ -1212,8 +1264,8 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       ;({ rows } = await client.query<{ id: string }>(
         `insert into intake_submission
            (ministry_id, person_id, submitted_at, age_band, gender, discipleship_goal_id,
-            first_time, discipleship_goal_other)
-         values ($1, $2, $3, $4, $5, $6, $7, $8)
+            first_time, discipleship_goal_other, form_version)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          returning id`,
         [
           intake.ministryId,
@@ -1228,6 +1280,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
           // it.
           intake.firstTime,
           intake.goalOther,
+          intake.formVersion,
         ],
       ))
     } catch (error) {
