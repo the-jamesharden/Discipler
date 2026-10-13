@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { AGE_BANDS } from '~/domain/intake'
+import { AGE_BANDS, INTAKE_PATHS } from '~/domain/intake'
 import {
   MOST_BANDS_APART,
   QUIET_HOURS,
@@ -9,8 +9,10 @@ import { getMinistrySettingsReader } from '~/service/container'
 import { AccountMenu, NotAnAdmin, PageShell } from '../shell'
 import { TimezoneSelect } from '../timezone-select'
 import {
+  AGE_NOT_ASKED,
   DAYS,
   gapLabel,
+  genderNotAsked,
   hourLabel,
   messagePreviews,
   refusalMessages,
@@ -49,7 +51,10 @@ export default async function MinistrySettingsPage({
   if (resolution.status === 'signed-out') redirect('/login')
 
   const admin = resolution.admin
-  const { settings } = resolution.page
+  const { settings, removed } = resolution.page
+  // The forms that no longer ask what a rule reads (ticket 13), each said beside it.
+  const withoutGender = INTAKE_PATHS.filter((form) => removed[form].includes('gender'))
+  const withoutAge = removed.discipleship.includes('ageBand')
   const query = await searchParams
 
   const refusals = refusalMessages(query.error)
@@ -207,6 +212,11 @@ export default async function MinistrySettingsPage({
           <p className="subtle">
             Turning this off permits mixed one-to-ones throughout this ministry.
           </p>
+          {withoutGender.length > 0 ? (
+            <p className="notice" role="note">
+              {genderNotAsked(withoutGender)}
+            </p>
+          ) : null}
 
           <h3>Age</h3>
           {/* The word *above* is on the label and in the help text, because the
@@ -233,6 +243,11 @@ export default async function MinistrySettingsPage({
               </option>
             ))}
           </select>
+          {withoutAge ? (
+            <p className="notice" role="note">
+              {AGE_NOT_ASKED}
+            </p>
+          ) : null}
 
           <h3>Check-in</h3>
           <p className="subtle">

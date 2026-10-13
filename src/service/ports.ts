@@ -66,9 +66,10 @@ import type {
   RelationshipCancellation,
   RelationshipEnding,
   ShortNameChange,
+  IntakeAnswersRemoval,
   IntakeFormSaving,
 } from '~/domain/effects'
-import type { IntakeForm } from '~/domain/intake-form'
+import type { AnswerGiven, BuiltInQuestion, IntakeForm, QuestionKey } from '~/domain/intake-form'
 import type { OwnAnswerShown } from '~/domain/own-answers'
 import type {
   FollowUpKind,
@@ -111,7 +112,7 @@ import type {
   RelationshipId,
 } from '~/domain/ids'
 import type { ParticipationStatus } from '~/domain/participation'
-import type { Suggestions } from '~/domain/suggestions'
+import type { SuggestionQuestion, Suggestions } from '~/domain/suggestions'
 import type { CardShape, NewRelationship } from '~/domain/relationships'
 import type { RatesLineHistory, SettledMessage } from '~/domain/rates-line'
 import type { CareReason, RelationshipState, SettledRelationshipState } from '~/domain/relationship-state'
@@ -601,6 +602,22 @@ export interface UnitOfWork {
 
   /** The next version of one of this Ministry's Intake forms. */
   saveIntakeForm(saving: IntakeFormSaving): Promise<void>
+
+  /**
+   * Every answer given to one question on one of this Ministry's forms, each
+   * with the submission it was given on, read just before a removal deletes them
+   * (Pastor feedback, ticket 13). Every submission, superseded ones included: the
+   * delete takes rows, and the rows are what history has to keep.
+   *
+   * A question the Ministry added is read by its key. One of Discipler's own is
+   * read off the submissions made from that form, a submission being from the
+   * groups form where its consent records say so and from the mentor and mentee
+   * form otherwise (`app.intake_submission_forms`).
+   */
+  answersTo(form: IntakePath, key: QuestionKey): Promise<readonly AnswerGiven[]>
+
+  /** Those answers, deleted. */
+  removeIntakeAnswers(removal: IntakeAnswersRemoval): Promise<void>
 
   /**
    * Every Discipleship Goal option this Ministry offers, in the order the form
@@ -1646,6 +1663,12 @@ export interface IntakeFormsPage {
    * ticket 11).
    */
   readonly forms: Readonly<Record<IntakePath, IntakeForm>>
+  /**
+   * How many people have answered each question on each form, by question key:
+   * the people whose answers removing it would delete (ticket 13). A key with no
+   * entry has no answers.
+   */
+  readonly answerCounts: Readonly<Record<IntakePath, Readonly<Record<string, number>>>>
 }
 
 export interface IntakeFormsReader {
@@ -1665,7 +1688,17 @@ export interface IntakeFormsReader {
  * what this Ministry's settings are.
  */
 export interface MinistrySettingsReader {
-  readSettingsPage(): Promise<AdminPage<{ readonly settings: MinistrySettings }>>
+  readSettingsPage(): Promise<
+    AdminPage<{
+      readonly settings: MinistrySettings
+      /**
+       * Discipler's own questions each form no longer asks (Pastor feedback,
+       * ticket 13), so the Pairing section can say which of its rules cannot be
+       * applied to whom.
+       */
+      readonly removed: Readonly<Record<IntakePath, readonly BuiltInQuestion[]>>
+    }>
+  >
 }
 
 /**
@@ -2161,6 +2194,11 @@ export interface CareNeededReader {
 export interface SuggestedPairsPage {
   readonly followUpCount: number
   readonly suggestions: Suggestions
+  /**
+   * What the tab reads that the mentor and mentee form no longer asks (Pastor
+   * feedback, ticket 13), each of which it says it is doing without.
+   */
+  readonly unasked: readonly SuggestionQuestion[]
 }
 
 export interface SuggestedPairsReader {

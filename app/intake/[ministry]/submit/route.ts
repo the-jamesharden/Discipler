@@ -7,7 +7,7 @@ import {
   readIntakeForm,
   type IntakeFormFields,
 } from '~/domain/intake'
-import { ownQuestionsOf, requiredOn } from '~/domain/intake-form'
+import { ownQuestionsOf, removedQuestions, requiredOn } from '~/domain/intake-form'
 import { getCommandService, getIntakeReader, settlePlannedPairings } from '~/service/container'
 import { groupWizardFor } from '../../group-wizard-answers'
 import { consentSourceOf, ownAnswersAsQuery, submittedIntakeForm, textField } from '../../submitted-form'
@@ -74,14 +74,24 @@ export async function POST(
     })
   }
 
+  // Somebody with no group in mind, and everybody on a form that no longer asks
+  // which group (ticket 13): the Ministry has been asked to place them.
+  const waitsToBePlaced =
+    answersNoGroupInMind(form.groupId) || (form.groupId === null && removedQuestions(page.form).includes('groupId'))
+
   // What the done page says of a preview: what a newcomer would be told, with the
   // group they picked looked up as the real thing looks it up, and nothing done.
   if (preview) {
-    const reading = readIntakeForm(form, requiredOn(page.form), ownQuestionsOf(page.form))
+    const reading = readIntakeForm(
+      form,
+      requiredOn(page.form),
+      ownQuestionsOf(page.form),
+      new Set(removedQuestions(page.form)),
+    )
     if ('refusals' in reading) return backToTheForm(reading.refusals)
     const picked = page.groups.find((group) => group.relationshipId === form.groupId)
     const done = new URLSearchParams()
-    if (answersNoGroupInMind(form.groupId)) done.set('outcome', 'placement')
+    if (waitsToBePlaced) done.set('outcome', 'placement')
     if (picked) {
       done.set('groupId', picked.relationshipId)
       done.set('outcome', picked.joinRequiresApproval ? 'requested' : 'joined')
@@ -127,7 +137,7 @@ export async function POST(
   const done = new URLSearchParams()
   // No group in mind: the Ministry has been asked to place them, which is what
   // the page says (Group form exits, ticket 01).
-  if (answersNoGroupInMind(form.groupId)) done.set('outcome', 'placement')
+  if (waitsToBePlaced) done.set('outcome', 'placement')
   if (chosen) {
     done.set('groupId', chosen.relationshipId)
     // *Joined* covers somebody who was already in it: they are in it, which is

@@ -1,4 +1,4 @@
-import type { Tier } from '~/domain/suggestions'
+import type { SuggestionQuestion, Tier } from '~/domain/suggestions'
 
 /**
  * What the Suggested Pairs tab says. The wording is the design prototype's
@@ -33,3 +33,24 @@ export const PAIR = 'Pair'
 
 /** `Intake Sep 1`, beside a name on the No Schedule Overlap list. */
 export const intakeOn = (date: string): string => `Intake ${date}`
+
+/**
+ * What the tab says it is doing without, once the Ministry's mentor and mentee
+ * form no longer asks something it reads (Pastor feedback, ticket 13): said
+ * rather than quietly done, in the ticket's words.
+ */
+export const DOING_WITHOUT: Record<SuggestionQuestion, string> = {
+  availability:
+    'The mentor and mentee form no longer asks when people are free, so Suggested Pairs cannot suggest anybody. Every pairing is made by hand, from the Roster.',
+  side:
+    'The mentor and mentee form no longer asks who would like to disciple somebody, so Suggested Pairs cannot tell who offered to disciple. It suggests as Disciplers only people who already disciple somebody.',
+  gender:
+    'The mentor and mentee form no longer asks gender, so the gender pairing rules cannot be applied: these suggestions are not matched by gender.',
+  ageBand:
+    'The mentor and mentee form no longer asks age, so the age rule cannot be applied: these suggestions are not kept within your age gap.',
+  goalId:
+    'The mentor and mentee form no longer asks what people are hoping for, so there is no goal tiebreaker.',
+}
+
+/** Where a question can be put back. */
+export const PUT_IT_BACK = 'Add a question back on Intake forms'

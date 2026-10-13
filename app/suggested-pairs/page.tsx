@@ -6,6 +6,7 @@ import { pairPopupHref } from '../roster/lists'
 import { AdminShell, NotAnAdmin, shortDate } from '../shell'
 import {
   CREATE_RELATIONSHIP,
+  DOING_WITHOUT,
   IS_LED,
   LEADS,
   NO_SCHEDULE_OVERLAP,
@@ -13,6 +14,7 @@ import {
   NO_SUGGESTIONS,
   ONE_TO_ONE_ONLY,
   PAIR,
+  PUT_IT_BACK,
   SUGGESTED_PAIRS,
   TIER_LABEL,
   intakeOn,
@@ -48,6 +50,11 @@ export default async function SuggestedPairsPage() {
   if (page.status === 'signed-out') redirect('/login')
 
   const { pairs, noScheduleOverlap } = page.page.suggestions
+  // Without availability it suggests nobody, and that is the one thing to say;
+  // otherwise each input it is doing without, above what it suggests anyway.
+  const unasked = page.page.unasked
+  const cannotSuggest = unasked.includes('availability')
+  const sayings = cannotSuggest ? [DOING_WITHOUT.availability] : unasked.map((question) => DOING_WITHOUT[question])
 
   return (
     <AdminShell admin={page.admin} current="suggested-pairs" followUpCount={page.page.followUpCount}>
@@ -57,7 +64,18 @@ export default async function SuggestedPairsPage() {
           <span className="muted">{ONE_TO_ONE_ONLY}</span>
         </div>
 
-        {pairs.length === 0 ? (
+        {sayings.length > 0 ? (
+          <div className="notice" role="note">
+            {sayings.map((saying) => (
+              <p key={saying}>{saying}</p>
+            ))}
+            <p>
+              <Link href="/intake-forms#form-editor">{PUT_IT_BACK}</Link>
+            </p>
+          </div>
+        ) : null}
+
+        {cannotSuggest ? null : pairs.length === 0 ? (
           <div className="empty">
             <p>{NO_SUGGESTIONS}</p>
           </div>
