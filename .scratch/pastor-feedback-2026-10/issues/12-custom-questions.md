@@ -74,7 +74,8 @@ Decisions made while building, each the conservative reading of a gap, with the 
   The question goes across the list and the answer under it, because a Ministry's question is a sentence and the list's own terms are a word or two.
 - The person page reads a new page function, `person_intake_page(intake_person_id)`, which is `person_page()`'s document with the one Person's answers and the forms beside it; the Roster's own document does not carry them, since the Roster row never shows them.
   `person_page()` stays until this has shipped (ADR-0023).
-- **Never matched on**: `tests/domain/own-answers-are-never-matched-on.test.ts` allows only a listed set of files to name the answers at all and names the pairing files that must never be on it, and `tests/integration/custom-questions.test.ts` asserts that `suggestion_inputs`, `roster` and the Roster, Pair and Suggested Pairs page functions never read `intake_answer` and hand back none of what was said.
+- **Never matched on**: `tests/integration/custom-questions.test.ts` (*is never read by Suggested Pairs, the Roster or any pairing rule*) asserts that `suggestion_inputs`, `roster` and the Roster, Pair and Suggested Pairs page functions never read `intake_answer` and hand back none of what was said.
+  A source-grep test in `tests/domain` that allowed only a listed set of files to name the answers was removed in the no-mistakes review (James, 2026-10-13), because the repository's test rules forbid tests that read source; the integration test proves it by running them.
 
 ### The reopened Intake
 

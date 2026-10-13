@@ -10,7 +10,8 @@ import { rosterPageFrom } from './roster-reader'
  * and beside it the one Person's answers to the Ministry's own Intake questions,
  * which the Roster row never shows. A file of its own, apart from the Roster's
  * reader, because those answers are shown and never matched on, and the Roster's
- * rows are what the Pair popup's rules read (`own-answers-are-never-matched-on`).
+ * rows are what the Pair popup's rules read; `tests/integration/custom-questions.test.ts`
+ * proves the Roster's page hands back none of them.
  */
 
 /**

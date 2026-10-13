@@ -9,9 +9,9 @@ import { readWording } from './wording'
  * are never matched on. Nothing that ranks, pairs or filters people reads them:
  * Suggested Pairs, the pairing rules and the age rule run on Discipler's own
  * questions, whose meaning the product knows, and a Ministry's own question means
- * whatever the Ministry meant by it. That is a rule about what future code may do,
- * so a test fences this module off from the pairing code
- * (`tests/domain/own-answers-are-never-matched-on.test.ts`).
+ * whatever the Ministry meant by it. The pairing reads are the database's, and
+ * `tests/integration/custom-questions.test.ts` proves by running them that none
+ * reads or hands back an answer.
  *
  * Only types come in from `intake-form.ts`, because `intake.ts` reads a
  * submission's answers through here and `intake-form.ts` already reads
