@@ -221,6 +221,9 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; }
 .toast ul { margin: 0.35rem 0 0 1.2rem; }
 .notice { background: rgba(201, 168, 106, 0.12); border: 1px solid var(--accent); border-radius: 6px; padding: 0.9rem 1.1rem; font-size: 0.87rem; margin-bottom: 1.25rem; line-height: 1.5; }
 .notice p:last-child { margin-bottom: 0; }
+/* A notice that ends its card, as Suggested Pairs' does when it suggests nobody, sits on the card's own padding. */
+.card > .notice:last-child { margin-bottom: 0; }
+.card select + .notice { margin-top: 0.75rem; }
 .empty { padding: 2.5rem 1rem; text-align: center; color: var(--text-light); }
 td .empty, li .empty { padding: 0; text-align: left; }
 
