@@ -292,6 +292,7 @@ The intake form is a native Discipler form, not a third-party form. The availabi
 ## Settled: Suggestion Tie-Breaking
 
 Candidates with identical availability overlap and the same Discipleship Goal are ordered by who has waited longest since completing intake.
+A goal typed after Other counts as the same goal on the rule in *The Discipleship Goal Is a Tiebreaker, Not a Tier Gate*.
 
 The ordering must be stable — a list that reshuffles between page loads teaches an admin not to trust it — and longest-waiting is the tie-break that quietly serves the person who has been overlooked.
 
@@ -644,6 +645,12 @@ before it removes anything.
 
 Goals are never shared or compared across ministries.
 
+Every ministry's goal question ends with **Other**, which is not one of its options.
+Choosing it opens a short box, and the box is required: Other with nothing written is refused as an unanswered goal is.
+The goal stays one choice, an option or Other with its words, never both.
+No admin can rename, move or remove Other, and removing an option never touches what somebody typed.
+The typed words are shown to an admin on the person page's intake answers and on the pair card, and never on the Roster row.
+
 ## Settled: Suggestion Tiers Are Counts of Shared Cells
 
 The availability grid is seven days by twelve hours, so an overlap is a count out of eighty-four shared cells.
@@ -752,6 +759,11 @@ their calendars.
 
 This closes the ADR conflict flagged in the core-operating-loop spec header and in
 ticket 04, and unblocks ticket 04's tier tests.
+
+A goal typed after **Other** is the same tiebreaker with the same weight.
+Two people share a goal when both typed the same thing once capitals, spaces and punctuation are ignored, and in no other case: not *grieving* for *grief*, not a typo, and never a typed goal against an option worded alike.
+The reason says it in the Disciple's own words: *"Four shared time slots. You both wrote "grief"."*
+Why the match is exact is recorded in ADR-0001's second amendment (Pastor feedback 2026-10, ticket 06).
 
 ## Settled: The Age Band Constraint Has a Direction
 

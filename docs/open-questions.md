@@ -397,14 +397,21 @@ wanted, and where it lives -- a page under Follow-Up, or a page of its own. Unti
 each Overview card links to the relationship's Follow-Up item where one exists, and to
 nothing where none does. This is decision 10 of ticket 31.
 
-## Open: one Discipleship Goal or several
+## Resolved: one Discipleship Goal, plus Other
 
 The Figma Make wizard multi-selects goals; the backend records one Ministry-owned goal as
 the suggestion tiebreaker (ticket 21, ADR-0014), and several would change the data model
 and ADR-0014's counting. Ticket 31 kept one, drawn as the design's option buttons, so the
-screen changes and nothing underneath it does. What needs answering: whether several
-goals are wanted at all, and if so what the tiebreaker becomes. This is decision 7 of
-ticket 31.
+screen changes and nothing underneath it does. The question was whether several goals
+are wanted at all, and if so what the tiebreaker becomes. This was decision 7 of ticket 31.
+
+**One goal, plus Other.**
+The goal question stays one choice.
+Every Ministry's form ends with *Other*, which opens a required short box for the Person's own words, so somebody whose hope is not on the list is no longer made to pick the nearest wrong option.
+Two people who typed the same thing, ignoring capitals, spaces and punctuation, share a goal for Suggested Pairs exactly as two people who chose the same option do.
+
+Settled 2026-10-12 in James's grilling of the pastor feedback (`.scratch/pastor-feedback-2026-10/spec.md`, *"Other" on the Intake goal*).
+Recorded in ADR-0001's second amendment and in `docs/product-rules.md` under *Each Ministry Owns Its Discipleship Goal Options* and *The Discipleship Goal Is a Tiebreaker, Not a Tier Gate*.
 
 ## Deferred with the quarterly report
 

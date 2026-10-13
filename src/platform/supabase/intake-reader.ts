@@ -1,6 +1,7 @@
 import pg from 'pg'
 import {
   discipleshipGoalId,
+  otherGoal,
   slotKey,
   type AgeBand,
   type Gender,
@@ -59,6 +60,7 @@ const prefillFor = async (
     age_band: AgeBand
     gender: Gender
     discipleship_goal_id: string | null
+    discipleship_goal_other: string | null
   }>(
     // The same tiebreak the database's own latest-submission reads use, down to
     // the last term: `public.relationship_availability` and the pairing gender
@@ -68,7 +70,7 @@ const prefillFor = async (
     // tiebreak is the planner's, so this form could prefill one submission while
     // the Leader dashboard read the other. A Person would then be shown answers
     // that are not the ones standing against them.
-    `select id, age_band, gender, discipleship_goal_id
+    `select id, age_band, gender, discipleship_goal_id, discipleship_goal_other
        from intake_submission
       where person_id = $1
       order by submitted_at desc, created_at desc, id desc
@@ -103,6 +105,11 @@ const prefillFor = async (
     gender: submission?.gender ?? null,
     goalId: submission?.discipleship_goal_id
       ? discipleshipGoalId(submission.discipleship_goal_id)
+      : null,
+    // What they typed after Other, which ticks Other again with their words in its
+    // box: the same answer, offered back to be kept or changed.
+    goalOther: submission?.discipleship_goal_other
+      ? otherGoal(submission.discipleship_goal_other)
       : null,
     // Keyed by the domain and not by a template string beside it, so the form is
     // prefilled with the same spelling it submits.

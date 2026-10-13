@@ -97,3 +97,38 @@ expressible as configuration, and neither requires overturning the other.
 The direction has to be written down because the setting is a single integer and an
 integer with no stated direction is read as symmetric by whoever implements it next.
 A symmetric reading would exclude most of the ministry's real pairings.
+
+## Amended - a goal typed after Other is a suggestion input, matched exactly
+
+Pastor feedback 2026-10, ticket 06.
+The goal question gains *Other*, the last option on every Ministry's form, which opens a short box the Person types their own goal into.
+It is not one of the Ministry's options: there is no row for it, and no Admin can rename, move or remove it.
+The goal stays one choice, so a Person holds either an option or a typed goal, never both.
+
+### What changes
+
+The Discipleship Goal input now has two kinds of answer.
+Two people share a goal when they chose the same option, as before, or when both chose Other and typed the same thing.
+A shared typed goal is a tiebreaker with exactly the weight of a shared option: it orders candidates within a tier and never moves anyone between tiers, as the first amendment above requires.
+The reason sentence says it in the Disciple's own words: *"Four shared time slots. You both wrote "grief"."*
+A typed goal never matches an option, however alike the two are worded.
+The four inputs and the two categories are unchanged; this widens what one ranking input can hold.
+
+### Why
+
+A pastor asked for it: a Ministry's list cannot name everything somebody comes hoping for, and a Person whose hope is not on the list was forced to pick the nearest wrong option, which then ranked them on a goal they did not hold.
+Letting what they typed count is what makes their answer worth giving.
+
+### Why the match is exact
+
+*The same thing* means the same text once capitals, spaces and punctuation are ignored, and nothing looser.
+*Grief* and *grief.* match; *grieving* and *grief* do not, and nor does a typo.
+A text with nothing left once punctuation is set aside matches nobody.
+
+This is the old rejection of *free-text personal information as a similarity score*, kept rather than reversed.
+That option was rejected because a similarity score cannot be explained in one sentence on a card.
+An exact match can: *you both wrote "grief"* is a fact a pastor can check by reading the two answers, and it claims nothing about what either person meant.
+Anything fuzzier - stemming, synonyms, spelling correction, an embedding - would be a judgment about what somebody meant, made by the product and presented as a reason, which is exactly the opaque scoring this ADR exists to keep out.
+The cost is that two people who wrote *grieving* and *grief* are not drawn together by the card; an Admin reading both answers still can.
+
+The rule lives in `sameOtherGoal` in `src/domain/suggestions.ts`, and the typed words are stored on `intake_submission.discipleship_goal_other`.

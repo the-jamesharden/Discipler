@@ -4960,6 +4960,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           ageBand: submission.ageBand,
           gender: submission.gender,
           goalId: submission.goalId,
+          goalOther: submission.goalOther,
           availability: submission.availability,
           email: submission.email,
           firstTime: submission.firstTime,
@@ -5001,6 +5002,10 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             // `discipleship_goal.renamed` and `.removed` are what resolve an id to
             // the words that stood on any given date.
             goalId: submission.goalId,
+            // What they typed after Other, which no edit to the Ministry's list
+            // can blank. On the submission too; here because history is where a
+            // goal stated on a given date is read back from, as the option is.
+            goalOther: submission.goalOther,
             // The name they gave on this submission, the same way
             // `person.joined_at_intake` records the one they joined under. A
             // correction overwrites `person.full_name`, and without this the name

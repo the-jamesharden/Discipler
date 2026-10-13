@@ -548,6 +548,7 @@ describe('a Ministry’s Discipleship Goal options', () => {
           ageBand: '25-34',
           gender: 'female',
           goalId: retired,
+          goalOther: null,
           email: null,
           smsConsent: true,
           contactSharing: 'granted',

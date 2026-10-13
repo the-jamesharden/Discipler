@@ -1,6 +1,8 @@
-import { AGE_BANDS, NO_GROUP_IN_MIND, SLOT_HOURS, WEEKDAYS } from '~/domain/intake'
+import { AGE_BANDS, NO_GROUP_IN_MIND, OTHER_GOAL, SLOT_HOURS, WEEKDAYS } from '~/domain/intake'
 import type { DiscipleshipGoalOption, IntakePrefill, JoinableGroup } from '~/service/ports'
 import {
+  GOAL_OTHER_BOX,
+  GOAL_OTHER_OPTION,
   GROUP_QUESTION,
   hourLabel,
   NO_GROUP_IN_MIND_ANSWER,
@@ -41,6 +43,7 @@ export const NOTHING_PREFILLED: IntakePrefill = {
   ageBand: null,
   gender: null,
   goalId: null,
+  goalOther: null,
   availability: [],
   contactSharing: null,
 }
@@ -171,6 +174,17 @@ export const AvailabilityGrid = ({
  * One goal from the Ministry's own list, as option buttons. One rather than the
  * design's several: the Goal is the suggestion tiebreaker and the backend records
  * one (ticket 21, ADR-0014) -- decision 7 of ticket 31.
+ *
+ * Then *Other*, last on every Ministry's form and not one of its options, which
+ * opens a box for the Person's own words (Pastor feedback 2026-10, ticket 06). It
+ * is the same radio group, so the goal stays one choice.
+ *
+ * The box is opened by the stylesheet and no script, as the option buttons are
+ * painted: it is hidden while Other is not ticked, and shown always by a browser
+ * that cannot tell, which is the safe way round. It carries no `required`, because
+ * a required box that is hidden would stop somebody who chose an option from
+ * submitting at all; Other with the box empty is refused when it arrives, the way
+ * every other unanswered question on this form is.
  */
 export const GoalField = ({
   goals,
@@ -179,7 +193,7 @@ export const GoalField = ({
   readonly goals: readonly DiscipleshipGoalOption[]
   readonly prefill: IntakePrefill
 }) => (
-  <fieldset>
+  <fieldset className="goal-question">
     <legend>What are you hoping for?</legend>
     <p className="subtle">Choose the one that fits best.</p>
     <div className="choices grid-2">
@@ -196,6 +210,23 @@ export const GoalField = ({
           {goal.label}
         </label>
       ))}
+      <label className="option" htmlFor={`goal:${OTHER_GOAL}`}>
+        <input
+          id={`goal:${OTHER_GOAL}`}
+          type="radio"
+          name="goalId"
+          value={OTHER_GOAL}
+          required
+          defaultChecked={prefill.goalOther !== null}
+        />
+        {GOAL_OTHER_OPTION}
+      </label>
+    </div>
+    <div className="field goal-other">
+      <label className="label" htmlFor="goalOther">
+        {GOAL_OTHER_BOX}
+      </label>
+      <input id="goalOther" name="goalOther" type="text" defaultValue={prefill.goalOther ?? ''} />
     </div>
   </fieldset>
 )

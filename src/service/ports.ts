@@ -85,7 +85,7 @@ import type { InvitationToken, NewInvitation } from '~/domain/invitations'
 import type { MinistrySetupState, NewMinistrySetup } from '~/domain/ministry-setup'
 import type { MinistrySetupRefusal } from '~/domain/errors'
 import type { HistoryEvent, NewHistoryEvent } from '~/domain/history'
-import type { AgeBand, AvailabilitySlot, DeclaredSide, DiscipleshipGoalId, Gender } from '~/domain/intake'
+import type { AgeBand, AvailabilitySlot, DeclaredSide, DiscipleshipGoalId, Gender, OtherGoal } from '~/domain/intake'
 import type {
   ConcernId,
   FollowUpItemId,
@@ -1084,6 +1084,19 @@ export interface RosterEntry {
    */
   readonly gender: Gender | null
   /**
+   * The goal on their latest Intake submission, as the Ministry currently words the
+   * option they chose, or null where they chose Other, the form asked no goal, or
+   * the Ministry has since removed the option.
+   *
+   * With `goalOther`, the goal Suggested Pairs is ranking them on, read off the same
+   * submission. For the person page's intake answers and the pair card, and never
+   * the Roster row: a goal is a pastoral answer, and a list of every name with it
+   * beside them is not where an Admin should meet it.
+   */
+  readonly goal: string | null
+  /** What they typed after choosing Other on that submission. Never set beside `goal`. */
+  readonly goalOther: OtherGoal | null
+  /**
    * The pairings an import planned for this Person that are still worth showing:
    * the ones waiting on Intake, and the refused ones whose Follow-Up Item an Admin
    * has not yet resolved. Each says which side of it this Person is.
@@ -1495,6 +1508,8 @@ export interface IntakePrefill {
   readonly ageBand: AgeBand | null
   readonly gender: Gender | null
   readonly goalId: DiscipleshipGoalId | null
+  /** What they typed after choosing Other, which ticks Other. Never set beside `goalId`. */
+  readonly goalOther: OtherGoal | null
   /**
    * Slot keys as the grid submits them -- `monday:08`. Deliberately the form's
    * own wire shape rather than `AvailabilitySlot`, because this is what the form

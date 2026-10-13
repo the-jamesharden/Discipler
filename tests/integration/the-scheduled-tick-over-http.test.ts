@@ -140,6 +140,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the scheduled tick, as the scheduler ru
         ageBand: '25-34',
         gender: 'female',
         goalId: goals[0].id as string,
+        goalOther: null,
         availability: ['monday:12'],
         smsConsent: true,
         contactSharing: 'granted',
