@@ -409,6 +409,12 @@ a.fu-open .fu-body { display: block; flex: 1 1 auto; min-width: 0; }
 a.fu-open .fu-age { font-size: 0.78rem; color: var(--text-light); white-space: nowrap; }
 a.fu-open .chev { width: 18px; height: 18px; color: var(--text-light); flex: none; }
 a.fu-open:hover .chev { color: var(--primary); }
+/* On a phone how long it has held sits on the tag's line, so the names and the reason keep the width. */
+@media (max-width: 600px) {
+  a.fu-open { position: relative; gap: 0.6rem; padding: 0.95rem 1rem; }
+  a.fu-open .fu-age { position: absolute; top: 0.95rem; right: calc(1rem + 18px + 0.6rem); line-height: 1.5rem; }
+  a.fu-open .fu-tags { padding-right: 4.5rem; min-height: 1.5rem; }
+}
 .audit { font-size: 0.78rem; color: var(--text-light); border-top: 1px solid var(--border); margin-top: 1rem; padding-top: 0.7rem; }
 
 /* ---- tables ---- */
@@ -1075,7 +1081,7 @@ details.pc-member[open] .pc-chev { transform: rotate(180deg); }
 .pc-band .pc-contact { margin: 0.6rem 0 0; }
 /* The group dropdown and its button on a Wants a group item (Group form exits, ticket 01, S-8), taking the room the row has before Resolve; on a phone the form takes a row of its own and the select one inside it, so the select is never squeezed to a few letters beside the button. */
 .pc-band form.fu-place { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; flex: 1 1 320px; min-width: 0; }
-.pc-band form.fu-place select { flex: 1 1 170px; width: auto; min-width: 0; margin: 0; }
+.pc-band form.fu-place select { flex: 1 1 170px; width: auto; min-width: 0; margin: 0; padding: 0.3rem 0.55rem; font-size: 0.85rem; }
 /* What Copy link to re-invite leader says back, on a line of its own under the buttons; the field is only there where the browser refused the clipboard. */
 .pc-band .fu-copied { flex-basis: 100%; margin: 0; font-size: 0.86rem; }
 .fu-copied input { display: block; width: 100%; margin: 0.4rem 0 0; }
@@ -1091,4 +1097,5 @@ details.pc-member[open] .pc-chev { transform: rotate(180deg); }
   .pc-side + .pc-side { border-left: 0; border-top: 1px solid var(--border); }
   .pc-facts dl.pc-kv { grid-template-columns: auto minmax(0, 1fr); }
   .pc-member-who { flex-direction: column; align-items: flex-start; }
+  .pc-history li { grid-template-columns: 5.2rem minmax(0, 1fr); gap: 0.6rem; }
 }

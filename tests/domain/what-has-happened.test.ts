@@ -219,9 +219,22 @@ describe('what has happened on a pair carrying a Concern', () => {
       { id: concern, relationship_id: pair, raised_by: mark, raised_at: iso(raisedAt), resolved_at: null },
     ],
     readings: [
+      // This Admin earlier the same day, which this opening stands for.
       {
         concern_id: concern,
-        viewed_at: iso(later(raisedAt, 3)),
+        viewed_at: iso(later(raisedAt, 5)),
+        viewer_name: 'Pastor Dan Reyes',
+        by_this_reader: true,
+      },
+      {
+        concern_id: concern,
+        viewed_at: iso(later(raisedAt, 2)),
+        viewer_name: 'Pastor Ann Lee',
+        by_this_reader: false,
+      },
+      {
+        concern_id: concern,
+        viewed_at: iso(later(raisedAt, 1)),
         viewer_name: 'Pastor Ann Lee',
         by_this_reader: false,
       },
@@ -229,10 +242,10 @@ describe('what has happened on a pair carrying a Concern', () => {
   })
   const page = followUpPageFrom(doc, createTestClock(now), pair)
 
-  it('lists this reading and the earlier one, who raised it, and the D it was raised from, never its words', () => {
+  it('lists each reader once a day at their latest, who raised it, and the D it was raised from, never its words', () => {
     expect(page.card!.happened).toEqual([
       { kind: 'concern_read', at: now, by: 'Pastor Dan Reyes' },
-      { kind: 'concern_read', at: later(raisedAt, 3), by: 'Pastor Ann Lee' },
+      { kind: 'concern_read', at: later(raisedAt, 2), by: 'Pastor Ann Lee' },
       { kind: 'concern_raised', at: raisedAt, by: 'Mark Wilson' },
       { kind: 'check_in', at: monday(1), outcome: 'concern' },
     ])

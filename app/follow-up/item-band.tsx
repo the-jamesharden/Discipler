@@ -65,8 +65,9 @@ export const ItemBand = ({
   const resumes = kind === 'pause_expired' && relationship !== null && paused
   const cancels = kind === 'relationship_unaccepted' && relationship !== null && !item.awaiting?.running
   const pairs = kind === 'intended_pairing_refused' && item.personId !== null
-  // Its own action is the one drawn solid; Resolve beside it is quiet. Where
-  // Resolve is all there is, it is the one action.
+  // Its own action is the one drawn solid, except Cancel, which ends something
+  // and stays quiet; Resolve beside it is quiet. Where Resolve is all there is,
+  // it is the one action.
   const resolveClass = places || reinvites || resumes || cancels || pairs ? 'small sec' : 'small'
 
   return (
@@ -117,7 +118,8 @@ export const ItemBand = ({
           <form method="post" action="/follow-up/relationship/cancel">
             <input type="hidden" name="relationshipId" value={relationship} />
             <input type="hidden" name="back" value={back} />
-            <button type="submit" className="small">
+            {/* Quiet, and red under the pointer, as it was on the list: it ends what nobody started. */}
+            <button type="submit" className="small sec danger">
               {CANCEL}
             </button>
           </form>

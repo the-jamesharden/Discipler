@@ -429,7 +429,9 @@ export const happeningLine = (entry: Happening, now: Date, timeZone: string): st
     case 'item_raised': {
       // Named where the reason does not name them: a decline says only what
       // they were invited to.
-      const reason = itemReason(entry.item)
+      // As it was when raised: an unaccepted relationship's wait is today's
+      // figure, and the line is dated by the day it was raised.
+      const reason = itemReason({ ...entry.item, waitedDays: null })
       const about = entry.item.personName
       return about && !reason.includes(about) ? `Raised about ${about}: ${reason}` : `Raised: ${reason}`
     }

@@ -7,6 +7,7 @@ import {
   UNANSWERED_WEEKS_BEFORE_STALLED,
   weeksBehindTheStall,
 } from '~/domain/relationship-state'
+import { calendarDayOf } from '~/domain/week'
 import type {
   CareNeededItem,
   CareNeededReader,
@@ -147,8 +148,8 @@ export const followUpCardFrom = (
  * - the check-ins that led to it: the very weeks the stall was derived from
  *   (`weeksBehindTheStall`), and the week each unresolved Concern was answered
  *   D in;
- * - who read the Concern, and when: every recorded reading, and the one this
- *   opening records;
+ * - who read the Concern, and when: every reader on every day they read it, at
+ *   the latest time that day, this opening included;
  * - the earlier items and Concerns, and who resolved them.
  *
  * Never the words of a Concern, which this never sees. Who opened the contact
@@ -179,10 +180,19 @@ export const whatHasHappened = ({
       happened.push({ kind: 'concern_raised', at: concern.raisedAt, by: concern.raisedByName })
     }
     // The reading this opening records, which the page makes after this read,
-    // and every one recorded before it.
-    if (pair.concerns.length > 0) happened.push({ kind: 'concern_read', at: now, by: pair.readerName })
-    for (const reading of pair.readings) {
-      happened.push({ kind: 'concern_read', at: reading.viewedAt, by: reading.viewerName })
+    // and every one recorded before it: one line per reader per day, at their
+    // latest, so an Admin who opens the card five times one morning is one line
+    // and not five.
+    const readings = [
+      ...(pair.concerns.length > 0 ? [{ at: now, by: pair.readerName }] : []),
+      ...pair.readings.map((reading) => ({ at: reading.viewedAt, by: reading.viewerName })),
+    ].sort((a, b) => b.at.getTime() - a.at.getTime())
+    const seen = new Set<string>()
+    for (const reading of readings) {
+      const key = `${reading.by ?? ''}|${history.timeZone ? calendarDayOf(reading.at, history.timeZone) : ''}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      happened.push({ kind: 'concern_read', ...reading })
     }
 
     // The D each unresolved Concern was raised from.
