@@ -553,11 +553,18 @@ img.qr { display: block; max-width: 100%; height: auto; background: #ffffff; bor
 .form-tile-name { font-weight: 700; margin: 0; }
 .form-tile img.qr { border: 0; border-radius: 0; margin: 0; }
 .form-tile code { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 0.84rem; background: rgba(45, 80, 22, 0.05); border: 1px solid var(--border); padding: 0.35rem 0.6rem; border-radius: 5px; overflow-wrap: anywhere; align-self: center; }
-.form-tile code b { color: var(--primary); }
+/* The short name is kept whole where it fits, so a narrow tile breaks the link
+   before it rather than in the middle of the church's own word. */
+.form-tile code b { color: var(--primary); display: inline-block; }
 .form-tile .btn-row { justify-content: center; }
 @media (max-width: 640px) {
   .form-tiles { grid-template-columns: minmax(0, 1fr); }
   .short-name { grid-template-columns: minmax(0, 1fr); }
+  /* The address sits above the field on a phone, so the field keeps the width
+     a church's name needs. */
+  .link-edit { flex-direction: column; }
+  .link-edit span { border-right: 1px solid var(--border); border-bottom: 0; border-radius: 5px 5px 0 0; }
+  .link-edit input[type="text"] { border-radius: 0 0 5px 5px; }
 }
 figure { margin: 0 0 1rem; }
 figcaption { font-size: 0.8rem; color: var(--text-light); margin-bottom: 0.25rem; }
