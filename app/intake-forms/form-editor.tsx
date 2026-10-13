@@ -12,6 +12,7 @@ import {
 import {
   ABOUT,
   ADD_A_PAGE,
+  ADD_PAGE,
   ALWAYS_ASKED,
   CANCEL,
   dragLabel,
@@ -180,7 +181,7 @@ export const FormEditor = ({
             <input id="fe-new-page" name="name" type="text" required />
             <div className="btn-row">
               <button type="submit" className="small">
-                {SAVE}
+                {ADD_PAGE}
               </button>
               <Link className="btn sec small" href={editorHref(form.name, {}, 'add-page')}>
                 {CANCEL}
@@ -227,9 +228,9 @@ const PageBox = ({
           </Link>
         </h3>
         <span className="muted">
-          {first ? <TextSummary form={form} which="intro" /> : null}
+          {first ? <TextSummary form={form} which="intro" saved={state.saved === 'intro'} /> : null}
           {first && last ? ' · ' : null}
-          {last ? <TextSummary form={form} which="thank_you" /> : null}
+          {last ? <TextSummary form={form} which="thank_you" saved={state.saved === 'thank_you'} /> : null}
           {!first && !last ? questionCount(page.questions.length) : null}
         </span>
       </div>
@@ -278,10 +279,24 @@ const PageBox = ({
 }
 
 /** The head of the first or last page: what its intro or thank-you says, and *Edit*. */
-const TextSummary = ({ form, which }: { readonly form: IntakeForm; readonly which: FormText }) => {
+const TextSummary = ({
+  form,
+  which,
+  saved,
+}: {
+  readonly form: IntakeForm
+  readonly which: FormText
+  readonly saved: boolean
+}) => {
   const text = which === 'intro' ? form.intro : form.thankYou
   return (
     <span id={`text-${which}`}>
+      {saved ? (
+        <span className="fe-saved" role="status">
+          {SAVED_LIVE}
+        </span>
+      ) : null}
+      {saved ? ' ' : null}
       {`${which === 'intro' ? INTRO : THANK_YOU}: `}
       {text ? `“${text}”` : NONE_YET}{' '}
       <Link href={editorHref(form.name, { writing: which }, `text-${which}`)}>{EDIT}</Link>

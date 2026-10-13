@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
         layout: layout as readonly PageLayout[],
         editedBy: admin.userId,
       }),
-    { params: {}, anchor: 'form-editor' },
+    { params: { formSaved: 'order' }, anchor: 'form-editor' },
     { params: {}, anchor: 'form-editor' },
   )
 }

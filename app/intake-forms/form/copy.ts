@@ -51,6 +51,7 @@ export const THANK_YOU_HINT =
 
 export const ADD_A_PAGE = '+ Add a page'
 export const PAGE_NAME = 'Page name'
+export const ADD_PAGE = 'Add page'
 export const NEW_PAGE_HINT =
   'Its name is the line at the top of the page. It goes just before the last page, empty: move questions onto it.'
 

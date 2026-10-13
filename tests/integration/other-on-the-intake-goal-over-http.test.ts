@@ -155,7 +155,8 @@ describe.skipIf(skipUnlessAppIsRunning)('Other on the Intake goal, over HTTP', (
   it('tells the Admin editing the goals that Other follows them, and offers no control over it', async () => {
     const { response, html } = await getPage('/intake-forms', cookie)
     expect(response.status).toBe(200)
-    expect(html).toContain('After them comes <em>Other</em>, on every form, with a box for')
+    // Said of the mentor and mentee form alone since ticket 11: the groups form never asks it.
+    expect(html).toContain('After them comes <em>Other</em>, always, with a box for')
     // Not one of the options: nothing on the card renames, moves or removes it.
     expect(html).not.toMatch(/value="other"/)
   })

@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
         direction,
         editedBy: admin.userId,
       }),
-    { params: {}, anchor: `q-${key}` },
+    { params: { formSaved: key }, anchor: `q-${key}` },
     { params: {}, anchor: `q-${key}` },
   )
 }
