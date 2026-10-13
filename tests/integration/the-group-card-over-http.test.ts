@@ -43,6 +43,10 @@ const rowOf = (card: string, fullName: string): string => {
   return card.slice(start, end)
 }
 
+/** The line over the names, as it reads: its parts are drawn apart so a narrow card wraps between them. */
+const headOf = (html: string): string =>
+  (/<p class="pc-kind">(.*?)<\/p>/.exec(html)?.[1] ?? '').replace(/<[^>]*>/g, '')
+
 describe.skipIf(skipUnlessAppIsRunning)('the group card', () => {
   let store: ReturnType<typeof createPostgresEffectStore>
   let pool: pg.Pool
@@ -125,7 +129,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the group card', () => {
     const card = cardIn(opened.html)
 
     // The head: Group, the gender it declared and since when, its name, its state.
-    expect(card).toContain('Group · women · formed')
+    expect(headOf(card)).toMatch(/^Group · women · formed /)
     expect(card).toMatch(/<h2 id="pc-title" class="card-title">Tuesday Women<\/h2>/)
     expect(card).toContain('<span class="pill healthy">Healthy</span>')
 
@@ -195,7 +199,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the group card', () => {
     await recordConsentDecision(church.ministry, pat, 'contact_sharing', false)
 
     const card = cardIn((await getPage(`/overview?card=${group.id}`, cookie)).html)
-    expect(card).toContain('Group · mixed · formed')
+    expect(headOf(card)).toMatch(/^Group · mixed · formed /)
     expect(card).toMatch(/Grace First<\/div><span class="pc-role">Discipler<\/span>/)
     expect(card).toMatch(/Henry Second<\/div><span class="pc-role">Discipler<\/span>/)
     expect(card).toContain('Disciples · 2')

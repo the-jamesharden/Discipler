@@ -39,6 +39,10 @@ const cardIn = (html: string): string => {
   return html.slice(start, end < 0 ? undefined : end)
 }
 
+/** The line over the names, as it reads: its parts are drawn apart so a narrow card wraps between them. */
+const headOf = (html: string): string =>
+  (/<p class="pc-kind">(.*?)<\/p>/.exec(html)?.[1] ?? '').replace(/<[^>]*>/g, '')
+
 describe.skipIf(skipUnlessAppIsRunning)('the pair card', () => {
   let store: ReturnType<typeof createPostgresEffectStore>
   let pool: pg.Pool
@@ -121,7 +125,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the pair card', () => {
     expect(opened.html).toContain('All relationships')
     expect(opened.html).toContain(`id="rel-${relationship}"`)
     const html = cardIn(opened.html)
-    expect(html).toContain('One to one · paired')
+    expect(headOf(html)).toMatch(/^One to one · paired /)
     expect(html).toContain('Grace Lead and Chloe Follow')
     expect(html).toContain('<span class="pc-role">Discipler</span>')
     expect(html).toContain('<span class="pc-role">Disciple</span>')
@@ -348,13 +352,13 @@ describe.skipIf(skipUnlessAppIsRunning)('the pair card', () => {
     expect(overview).toContain(`href="/overview?card=${group.id}"`)
 
     const { html } = await getPage(`/overview?card=${pair.id}`, cookie)
-    expect(html).toContain('1:2 pair · paired')
+    expect(headOf(html)).toMatch(/^1:2 pair · paired /)
     expect(html).toContain('Claire Two, Ana Two and Beth Two')
     expect(cardIn(html)).not.toContain('pc-member')
 
     // The name is what tells them apart (ADR-0004), not the kind they share.
     const theGroup = cardIn((await getPage(`/overview?card=${group.id}`, cookie)).html)
-    expect(theGroup).toContain('Group · women · formed')
+    expect(headOf(theGroup)).toMatch(/^Group · women · formed /)
     expect(theGroup).toContain('Thursday Women')
     expect(theGroup).toContain('Disciples · 2')
   })

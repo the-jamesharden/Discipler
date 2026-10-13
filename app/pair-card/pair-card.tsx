@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Fragment } from 'react'
 import { goalAsShown } from '~/domain/discipleship-goals'
 import { A_GROUP } from '~/domain/relationships'
 import type { PairCard as Card, PairCardPerson } from '~/service/ports'
@@ -109,7 +110,18 @@ export const PairCard = ({
       <div className="modal paircard" role="dialog" aria-modal="true" aria-labelledby="pc-title">
         <div className="pc-head">
           <div>
-            <p className="pc-kind">{head}</p>
+            <p className="pc-kind">
+              {/* A narrow card wraps the line between its parts, never inside one. */}
+              {head.split(' · ').map((part, index, parts) =>
+                index < parts.length - 1 ? (
+                  <Fragment key={index}>
+                    <span>{`${part} ·`}</span>{' '}
+                  </Fragment>
+                ) : (
+                  <span key={index}>{part}</span>
+                ),
+              )}
+            </p>
             <h2 id="pc-title" className="card-title">{title}</h2>
             <span className={`pill ${pill.state}`}>{pill.label}</span>
           </div>
@@ -251,8 +263,10 @@ const Member = ({ person }: { readonly person: PairCardPerson }) => {
       <span className="avatar alt" aria-hidden="true">
         {initialsOf(person.fullName)}
       </span>
-      <span className="pc-name">{person.fullName}</span>
-      {person.phone ? <span className="pc-row-phone">{displayPhone(person.phone)}</span> : null}
+      <span className="pc-member-who">
+        <span className="pc-name">{person.fullName}</span>
+        {person.phone ? <span className="pc-row-phone">{displayPhone(person.phone)}</span> : null}
+      </span>
     </>
   )
   const opens = person.phone || person.email || person.ageBand || goalAsShown(person.goal, person.goalOther)
