@@ -8,7 +8,17 @@ import {
   type RelationshipId,
 } from '~/domain/ids'
 import { goalWording, type OfferedGoal } from '~/domain/discipleship-goals'
-import { AGE_BANDS, GENDERS, discipleshipGoalId, isOneOf } from '~/domain/intake'
+import {
+  AGE_BANDS,
+  GENDERS,
+  discipleshipGoalId,
+  GROUP_PATH,
+  INTAKE_PATHS,
+  isOneOf,
+  type IntakePath,
+} from '~/domain/intake'
+import type { IntakeForm } from '~/domain/intake-form'
+import { formOrPreset } from './intake-form-document'
 import { shortName, type ShortName } from '~/domain/short-name'
 import type {
   IntakeFormsPage,
@@ -175,7 +185,27 @@ export const intakeFormsPageFrom = (doc: PageDocument): IntakeFormsPage => ({
   materials: liveMaterialRows(doc).map(({ materialId, title }): MaterialOption => ({ materialId, title })),
   timeZone: text(doc.timezone),
   shortName: shortNameOf(doc),
+  forms: formsOf(doc),
 })
+
+/**
+ * Both forms, each from its latest saved version or, where the Ministry has never
+ * edited it, the preset. A row naming a form Discipler does not have is the
+ * function and this reader having drifted apart.
+ */
+const formsOf = (doc: PageDocument): Readonly<Record<IntakePath, IntakeForm>> => {
+  const rows = new Map<IntakePath, { version: number; definition: unknown }>()
+  for (const row of list(doc, 'intake_forms')) {
+    if (!isOneOf(INTAKE_PATHS, row.form) || typeof row.version !== 'number') {
+      throw new Error(`An Intake form arrived that names no form: ${JSON.stringify(row.form)}`)
+    }
+    rows.set(row.form, { version: row.version, definition: row.definition })
+  }
+  return {
+    discipleship: formOrPreset('discipleship', rows.get('discipleship')),
+    [GROUP_PATH]: formOrPreset(GROUP_PATH, rows.get(GROUP_PATH)),
+  } as Record<IntakePath, IntakeForm>
+}
 
 /**
  * The Ministry's short name, which both links and both QR codes are built from.

@@ -34,21 +34,35 @@ export const GoalsCard = ({
   goals,
   removing,
   refusal,
+  asked,
 }: {
   readonly goals: readonly OfferedGoal[]
   /** The option an Admin has asked to remove, looked up on the list, or null. */
   readonly removing: OfferedGoal | null
   /** Why the last edit was refused, in words, or null. */
   readonly refusal: string | null
+  /**
+   * The goals question as the mentor and mentee form words it now, or null
+   * where the form does not ask it.
+   */
+  readonly asked: string | null
 }) => (
   <div className="card" id="goals" style={{ marginTop: '1.5rem' }}>
     <div className="card-head">
       <h2 className="card-title">The goals question</h2>
     </div>
+    {/* The mentor and mentee form alone: the groups form never asks it (Pastor
+        feedback, ticket 11, which found this card saying *both forms*). In the
+        form's own words, which the editor above may have changed. */}
     <p className="card-lead">
-      Both forms end by asking <em>What are you hoping for?</em> These are the options a
-      person chooses from. After them comes <em>Other</em>, on every form, with a box for
-      their own words.
+      {asked ? (
+        <>
+          The mentor and mentee form asks <em>{asked}</em>
+          {/[.?!…]$/.test(asked) ? ' ' : '. '}
+        </>
+      ) : null}
+      These are the options a person chooses from. After them comes <em>Other</em>, always,
+      with a box for their own words.
     </p>
 
     {refusal ? (
@@ -184,13 +198,15 @@ export const GoalsCard = ({
  * once per document: `next/script` remembers an id it has loaded and does not run
  * it again when the page is navigated back to. So it listens on the document, for
  * whichever list is on it, and marks the document rather than the list as having
- * script. The order the list was drawn in is kept on the list itself, the first
+ * script. It guards on a mark of its own rather than on `js`, which the form
+ * editor's drag on the same page sets too (Pastor feedback, ticket 11). The order the list was drawn in is kept on the list itself, the first
  * time a handle is touched, which is before anything has moved.
  */
 const DRAG_TO_REORDER = `
 (() => {
   const html = document.documentElement;
-  if (html.classList.contains('js')) return;
+  if (html.dataset.goalDrag) return;
+  html.dataset.goalDrag = 'on';
   html.classList.add('js');
 
   const rows = (list) => Array.from(list.querySelectorAll('.goal-row'));
