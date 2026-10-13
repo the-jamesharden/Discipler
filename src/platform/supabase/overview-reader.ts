@@ -3,11 +3,11 @@ import { daysSince, systemClock, type Clock } from '~/domain/clock'
 import { relationshipId, type MinistryId, type RelationshipId } from '~/domain/ids'
 import { NO_CHECK_INS, type CheckInCounts } from '~/domain/overview'
 import { deriveRelationshipState } from '~/domain/relationship-state'
-import { ACCEPTANCE_ESCALATION_DAYS, pairShapeOf } from '~/domain/relationships'
+import { ACCEPTANCE_ESCALATION_DAYS } from '~/domain/relationships'
 import { isoWeekOf } from '~/domain/week'
 import type { Overview, OverviewReader, OverviewRelationship } from '~/service/ports'
 import { careNeededFrom } from './care-needed-reader'
-import { adminPage, documentFor, list, readPageDocument, type PageDocument } from './page'
+import { adminPage, documentFor, readPageDocument, type PageDocument } from './page'
 import { pairCardFrom } from './pair-card-reader'
 import {
   answersFrom,
@@ -77,29 +77,8 @@ const countsOf = (answers: readonly RelationshipWeekAnswer[]): CheckInCounts => 
   return { sent: answers.length, answered, held, rated }
 }
 
-/**
- * What each unended relationship is called, off the document's
- * `relationship_names`, by id: null for the one-to-ones and 1:2 pairs that have
- * no name, which is what tells their cards to open the pair card.
- */
-export const namesOfRelationships = (doc: PageDocument): ReadonlyMap<string, string | null> =>
-  new Map(
-    list(doc, 'relationship_names').flatMap((row) => {
-      const id = text(row.id)
-      return id ? [[id, text(row.name)] as const] : []
-    }),
-  )
-
-/**
- * The whole tab, out of one page's history and one reading of the clock, with
- * what each relationship is called so its card knows whether it opens the pair
- * card.
- */
-export const overviewFrom = (
-  history: HistoryInputs,
-  clock: Clock,
-  names: ReadonlyMap<string, string | null> = new Map(),
-): Overview => {
+/** The whole tab, out of one page's history and one reading of the clock. */
+export const overviewFrom = (history: HistoryInputs, clock: Clock): Overview => {
   // A Ministry an Admin does not belong to comes back with no zone, and there is
   // nothing to derive a week against. The empty state rather than a guessed zone:
   // every counter below is anchored to one, and the wrong zone is a wrong answer.
@@ -190,8 +169,6 @@ export const overviewFrom = (
       state: derived.state,
       reasons: derived.reasons,
       openConcerns: derived.openConcerns,
-      // A relationship the document did not name is not guessed into a pair.
-      pairShape: names.has(id) ? pairShapeOf(names.get(id) ?? null, leaders.length, participants.length) : null,
     })
   }
 
@@ -225,7 +202,7 @@ export const readOverview = async (
   clock: Clock,
 ): Promise<Overview> => {
   const doc = await documentFor(supabase, ministryId, 'overview_page')
-  return doc ? overviewFrom(historyOf(doc), clock, namesOfRelationships(doc)) : NOTHING_YET
+  return doc ? overviewFrom(historyOf(doc), clock) : NOTHING_YET
 }
 
 /**
@@ -261,7 +238,7 @@ export const overviewDocument = (
 export const overviewPageFrom = (doc: PageDocument, clock: Clock) => {
   const history = historyOf(doc)
   return {
-    overview: overviewFrom(history, clock, namesOfRelationships(doc)),
+    overview: overviewFrom(history, clock),
     care: careNeededFrom(history, clock),
     card: pairCardFrom(doc, history, clock),
   }

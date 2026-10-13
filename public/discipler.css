@@ -1032,6 +1032,23 @@ dl.pc-kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .pc-actions summary::-webkit-details-marker { display: none; }
 .pc-end { color: var(--text-light); font-size: 0.82rem; text-decoration: underline; text-underline-offset: 2px; background: none; border: 0; padding: 0.3rem 0; font-weight: 500; cursor: pointer; }
 .pc-end:hover { color: var(--red-ink); }
+/* The card's group form (Pastor feedback, ticket 08): the leader in full, then a row per Disciple that opens in place. */
+.pc-people.one-side { grid-template-columns: minmax(0, 1fr); }
+.pc-group { padding: 0.4rem 1.4rem 1rem; }
+.pc-group-label { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-light); margin: 0.8rem 0 0.4rem; }
+.pc-member { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 0.45rem; background: var(--surface); }
+.pc-member-row { display: flex; align-items: center; gap: 0.7rem; padding: 0.55rem 0.8rem; }
+div.pc-member-row { padding-right: calc(0.8rem + 14px + 0.7rem); }
+summary.pc-member-row { list-style: none; cursor: pointer; }
+summary.pc-member-row::-webkit-details-marker { display: none; }
+summary.pc-member-row:hover .pc-name { color: var(--primary); }
+.pc-member-row .avatar { width: 30px; height: 30px; font-size: 0.72rem; flex: none; background: var(--accent); }
+.pc-member-row .pc-name { font-size: 0.95rem; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pc-row-phone { font-size: 0.82rem; color: var(--text-light); white-space: nowrap; flex: none; }
+.pc-chev { width: 14px; height: 14px; color: var(--text-light); transition: transform 0.15s; flex: none; }
+details.pc-member[open] .pc-chev { transform: rotate(180deg); }
+.pc-member-body { padding: 0 0.8rem 0.8rem 3.1rem; }
+.pc-member-body .pc-contact { margin-bottom: 0.6rem; }
 @media (max-width: 600px) {
   .modal.paircard { margin: 0 0 auto; border-radius: 10px; }
   .pc-people { grid-template-columns: minmax(0, 1fr); }

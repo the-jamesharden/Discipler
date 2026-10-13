@@ -321,7 +321,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the pair card', () => {
     expect(elsewhere.location).toMatch(/\/follow-up\?error=/)
   })
 
-  it('opens a 1:2 pair with both Disciples, and leaves a Group to its own card', async () => {
+  it('opens a 1:2 pair with both Disciples, and a Group of the same three in its group form', async () => {
     const church = await aMinistry('Shapes Chapel')
     const { cookie } = await signIn(church.ministry)
     const pair = await formGroup(church.ministry, {
@@ -345,14 +345,18 @@ describe.skipIf(skipUnlessAppIsRunning)('the pair card', () => {
 
     const overview = (await getPage('/overview', cookie)).html
     expect(overview).toContain(`href="/overview?card=${pair.id}"`)
-    expect(overview).not.toContain(`href="/overview?card=${group.id}"`)
+    expect(overview).toContain(`href="/overview?card=${group.id}"`)
 
     const { html } = await getPage(`/overview?card=${pair.id}`, cookie)
     expect(html).toContain('1:2 pair · paired')
     expect(html).toContain('Claire Two, Ana Two and Beth Two')
+    expect(cardIn(html)).not.toContain('pc-member')
 
-    // Asked for anyway, a Group has no pair card: the Overview, unchanged.
-    expect((await getPage(`/overview?card=${group.id}`, cookie)).html).not.toContain('data-testid="pair-card"')
+    // The name is what tells them apart (ADR-0004), not the kind they share.
+    const theGroup = cardIn((await getPage(`/overview?card=${group.id}`, cookie)).html)
+    expect(theGroup).toContain('Group · women · formed')
+    expect(theGroup).toContain('Thursday Women')
+    expect(theGroup).toContain('Disciples · 2')
   })
 
   it('opens nothing for an address that names no card of this Ministry', async () => {

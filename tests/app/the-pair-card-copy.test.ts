@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { pairShapeOf } from '~/domain/relationships'
+import { cardShapeOf, pairShapeOf } from '~/domain/relationships'
 import {
   ago,
+  callFirst,
   checkInLine,
   concernLabel,
+  disciplesLabel,
+  groupLine,
   kindLine,
   materialLine,
   pairTitle,
@@ -36,6 +39,45 @@ describe('which pairs open the pair card', () => {
     expect(pairShapeOf("Tuesday Women's", 1, 1)).toBeNull()
     expect(pairShapeOf(null, 1, 3)).toBeNull()
     expect(pairShapeOf(null, 2, 1)).toBeNull()
+  })
+})
+
+describe('which relationships open the card in its group form', () => {
+  it('is every relationship that is no pair: one with a name, or a nameless one larger than a pair', () => {
+    expect(cardShapeOf("Tuesday Women's", 1, 2)).toBe('a_group')
+    expect(cardShapeOf("Tuesday Women's", 1, 11)).toBe('a_group')
+    expect(cardShapeOf(null, 2, 1)).toBe('a_group')
+    expect(cardShapeOf(null, 1, 3)).toBe('a_group')
+  })
+
+  it('leaves the pairs as they are', () => {
+    expect(cardShapeOf(null, 1, 1)).toBe('one_to_one')
+    expect(cardShapeOf(null, 1, 2)).toBe('one_to_two')
+  })
+})
+
+describe('the group form', () => {
+  it('says Group, the gender it declared, and since when', () => {
+    expect(groupLine('female', new Date('2026-09-07T14:00:00Z'), now, zone)).toBe(
+      'Group · women · formed 7 Sep, 5 weeks ago',
+    )
+    expect(groupLine('male', new Date('2026-10-12T14:00:00Z'), now, zone)).toBe('Group · men · formed 12 Oct, today')
+  })
+
+  it('calls a Group that declared no gender mixed', () => {
+    expect(groupLine(null, new Date('2026-09-07T14:00:00Z'), now, zone)).toBe(
+      'Group · mixed · formed 7 Sep, 5 weeks ago',
+    )
+  })
+
+  it('counts the Disciples over their rows', () => {
+    expect(disciplesLabel(3)).toBe('Disciples · 3')
+    expect(disciplesLabel(1)).toBe('Disciples · 1')
+  })
+
+  it('offers to call a Disciple by their first name, as it offers to text them', () => {
+    expect(callFirst('Mia Torres')).toBe('Call Mia')
+    expect(textThem('Mia Torres')).toBe('Text Mia')
   })
 })
 

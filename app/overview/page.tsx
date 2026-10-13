@@ -20,7 +20,7 @@ import {
   withPeople,
 } from './copy'
 import { Donut } from './donut'
-import { flaggedIn, flagsFor } from './flags'
+import { flagsFor } from './flags'
 import { cardPill, needOf } from './need'
 
 export const dynamic = 'force-dynamic'
@@ -39,11 +39,10 @@ export const dynamic = 'force-dynamic'
  * and not the state, so an unresolved Concern still shows, and still colours the
  * card red, on a relationship that has since answered.
  *
- * Pressing a one-to-one or a 1:2 pair opens the pair card over the page
- * (Pastor feedback, ticket 07): this same page at `?card=`, so the address says
- * which card is open, it works without script, and closing it is a link back to
- * `/overview`. A Group's card still links to its Follow-Up item where one
- * exists, until its own card (ticket 08).
+ * Pressing any card opens the pair card over the page (Pastor feedback, ticket
+ * 07), or for a Group the same card in its group form (ticket 08): this same
+ * page at `?card=`, so the address says which card is open, it works without
+ * script, and closing it is a link back to `/overview`.
  */
 
 export default async function OverviewPage({
@@ -82,7 +81,6 @@ export default async function OverviewPage({
   const rates = checkInRates(overview.counts)
   const notMet = overview.counts.answered - overview.counts.held
   const rated = ratedTotal(overview.counts)
-  const flagged = flaggedIn(care)
 
   const tiles = [
     {
@@ -198,7 +196,7 @@ export default async function OverviewPage({
               )
               // No prefetch: opening a card reads its Concern and records the
               // reading, which only an Admin's press may do.
-              return relationship.pairShape !== null ? (
+              return (
                 <Link
                   key={relationship.relationshipId}
                   id={`rel-${relationship.relationshipId}`}
@@ -209,18 +207,6 @@ export default async function OverviewPage({
                 >
                   {body}
                 </Link>
-              ) : flagged.has(relationship.relationshipId) ? (
-                <Link
-                  key={relationship.relationshipId}
-                  className={className}
-                  href={`/follow-up#relationship-${relationship.relationshipId}`}
-                >
-                  {body}
-                </Link>
-              ) : (
-                <div key={relationship.relationshipId} className={className}>
-                  {body}
-                </div>
               )
             })}
           </div>

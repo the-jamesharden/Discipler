@@ -98,7 +98,7 @@ import type {
 } from '~/domain/ids'
 import type { ParticipationStatus } from '~/domain/participation'
 import type { Suggestions } from '~/domain/suggestions'
-import type { NewRelationship, PairShape } from '~/domain/relationships'
+import type { CardShape, NewRelationship } from '~/domain/relationships'
 import type { RatesLineHistory, SettledMessage } from '~/domain/rates-line'
 import type { CareReason, RelationshipState, SettledRelationshipState } from '~/domain/relationship-state'
 import type { InvitationState } from '~/domain/invitations'
@@ -1980,7 +1980,8 @@ export interface SuggestedPairsReader {
 /**
  * The pair card (Pastor feedback, ticket 07): one one-to-one or 1:2 pair as the
  * card over the Overview shows it, and as Check-Ins and Follow-Up will (tickets
- * 09 and 10). Read by `pairCardFrom` out of whichever page's document opened it.
+ * 09 and 10). A Group opens the same card in its group form (ticket 08). Read by
+ * `pairCardFrom` out of whichever page's document opened it.
  *
  * One Person on it, on their side of this pair. The side is this pair's and no
  * other's: somebody who leads one pair and is discipled in another is a
@@ -2019,8 +2020,16 @@ export interface ConcernReading {
 
 export interface PairCard {
   readonly relationshipId: RelationshipId
-  readonly shape: PairShape
-  /** When the Admin paired them. */
+  /** A one-to-one, a 1:2 pair, or a Group, which the card draws in its group form. */
+  readonly shape: CardShape
+  /** A Group's name; null for a pair, which is called by its people. */
+  readonly name: string | null
+  /**
+   * The gender a Group declared when it was formed, null where it declared none,
+   * which for a Group is mixed. Said on a Group's card only.
+   */
+  readonly declaredGender: Gender | null
+  /** When the Admin paired them, or formed the Group. */
   readonly pairedAt: Date
   readonly state: RelationshipState
   /** Empty unless Stalled: which condition fired, in the unit it reports. */
@@ -2065,11 +2074,6 @@ export interface OverviewRelationship {
   readonly reasons: readonly CareReason[]
   /** Unresolved Concerns standing beside it, whatever its state. */
   readonly openConcerns: number
-  /**
-   * Which pair it is, where pressing its card opens the pair card (Pastor
-   * feedback, ticket 07), and null for a Group, whose card is ticket 08's.
-   */
-  readonly pairShape: PairShape | null
 }
 
 export interface Overview {

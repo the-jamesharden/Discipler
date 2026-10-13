@@ -795,6 +795,8 @@ export interface GroupOptions {
   readonly disciples: readonly GroupPersonSeed[]
   /** Null leaves it Awaiting Leader Acceptance. Now, where it is not said. */
   readonly acceptedAt?: Date | null
+  /** When it was formed, for a check-in test that has to say. Now, where it is not said. */
+  readonly createdAt?: Date
   readonly joinRequiresApproval?: boolean
 }
 
@@ -828,6 +830,7 @@ export const formGroup = async (
       declared_gender: options.declaredGender,
       join_requires_approval: options.joinRequiresApproval ?? false,
       accepted_at: acceptedAt?.toISOString() ?? null,
+      ...(options.createdAt ? { created_at: options.createdAt.toISOString() } : {}),
     })
     .select('id')
     .single()

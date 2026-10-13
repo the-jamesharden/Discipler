@@ -18,7 +18,12 @@ Whatever needs the pastor sits in a band straight under the names: an unresolved
 The concern's words show as the card opens and the reading is recorded (see *Check-Ins*).
 **End relationship** is a quiet link at the foot that opens the usual outcome and reason step.
 The card sends nothing.
-A group's card still goes to its Follow-Up item until the group card is built.
+Pressing a group opens the same card in its group form.
+Its head says *Group*, the gender the group declared (women, men or mixed) and since when it was formed, its name and its state.
+The leader is shown in full, as a person is on a pair, with the role Discipler, and a co-leader beneath them.
+Under *Disciples · N* each Disciple is a row with their name and phone, and pressing the row opens their Call and Text links, email, age band and goal, without script.
+The band, the facts and **End relationship** are the pair card's, and so is the consent rule on the contact details.
+Who is in a group is still changed on the Roster, not on the card.
 
 Each relationship card is coloured by what it needs.
 **Green** is healthy, the default.
