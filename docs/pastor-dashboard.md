@@ -10,6 +10,16 @@ The pastor dashboard is a single web application with six tabs: **Overview**, **
 
 The Overview tab answers "how is the ministry doing right now" without the pastor having to open anything else. It shows the total number of active discipleship relationships, the meeting rate derived from check-in responses, the response completion rate, the number of check-ins completed this week, and the number of items flagged for follow-up this week — where that follow-up count combines stalled relationships, relationships carrying an unresolved concern, relationships whose pause has expired, and relationships carrying an open swap request. Two pie charts sit alongside these figures: a **Meeting Completion** chart showing the ratio of meetings completed to meetings missed, and a **Check-In Ratings** chart showing the distribution of A (outstanding), B (good), and C (concern) responses. A **Quick Stats** panel repeats the headline figures in compact form: total relationships including groups, response completion rate, meeting rate, quality rate (the proportion of A and B responses against C), text-message response rate, and total active relationships. Below the charts, the Overview lists every active and paused relationship and group; a paused one is listed in place and visibly marked `Paused` so the pastor can tell it apart from an active, stalled, or ended relationship. A paused relationship is listed but not counted among the active relationships, on the same principle that takes an ended one out of the active counts. Those carrying a concern are flagged in place and can be opened directly to reveal the full name and phone number of the people involved.
 
+Pressing a one-to-one or a 1:2 pair opens the **pair card** over the Overview, and the address says which card is open, so a refresh keeps it and closing it returns to the Overview.
+Its head says the shape and since when, both names and the state.
+The two people sit side by side, the Discipler on the left and the Disciple on the right, each with their role in this pair, their phone with Call and Text, their email, their age band and their goal; contact details reach the card only for someone who currently agrees to share them, the rule Nudge reads (ADR-0010), and a missing one is left out rather than announced.
+Beneath them are the last check-in answer and its date and the material running now.
+Whatever needs the pastor sits in a band straight under the names: an unresolved concern with its words, who raised it and **Resolve**; a stall with the condition that fired and how long it has held; an expired pause with **Resume**.
+The concern's words show as the card opens and the reading is recorded (see *Check-Ins*).
+**End relationship** is a quiet link at the foot that opens the usual outcome and reason step.
+The card sends nothing.
+A group's card still goes to its Follow-Up item until the group card is built.
+
 Each relationship card is coloured by what it needs.
 **Green** is healthy, the default.
 **Yellow** is stalled.
@@ -22,7 +32,11 @@ Two metrics carry the operational picture and must not be conflated: **Response 
 
 ## Check-Ins
 
-The Check-Ins tab is the week's raw operational picture. It shows how many check-ins have been completed, how many are still pending, and how many concerns were raised, with the completed responses broken down at the top into A (outstanding), B (good), and C (concern). The A and B headings expand into the threads behind them. The C heading does not. Concerns are never presented as a browsable list, never exported, and never quoted in a report — an admin reading "four concerns this week" opens each person individually to see what was said. Raw concern text is the most sensitive data in the product, and the extra click is deliberate friction, not an oversight.
+The Check-Ins tab is the week's raw operational picture. It shows how many check-ins have been completed, how many are still pending, and how many concerns were raised, with the completed responses broken down at the top into A (outstanding), B (good), and C (concern). The A and B headings expand into the threads behind them. The C heading does not. Concerns are never presented as a browsable list, never exported, and never quoted in a report — an admin reading "four concerns this week" opens each relationship's card to see what was said.
+Raw concern text is the most sensitive data in the product, so its words show in one place only: the pair card of the relationship it is about, which shows them as it opens.
+Opening the card is the read, and it is recorded exactly as `Read the concern` records it, one viewing per concern; a line under the concern on the card says who read it and when.
+This reverses an earlier rule, that reading a concern took a deliberate extra click past the list as friction (James, 2026-10-12, Pastor feedback ticket 07).
+The friction that stays is everything else above: no list of the words, no export, no report, and the words never on the Overview grid, the Check-Ins columns or the Follow-Up list.
 
 Resolving a concern clears its text, and nothing offers to keep it. A ministry should not accumulate a permanent file of people's worst weeks — not by never deciding to, and not by deciding to either.
 

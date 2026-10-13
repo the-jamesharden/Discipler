@@ -10,7 +10,7 @@
 -- Most of what the card shows is already in the history every Admin tab reads:
 -- who is in the pair, the weeks, the answers, the Concerns, the Pause, the open
 -- Follow-Up Items. What is not is gathered here, for the one relationship the
--- address names: what kind of relationship it is and whether it has a name,
+-- address names: whether it has a name, which is what tells a pair from a Group,
 -- each person's age band and goal off their latest Intake, their phone and
 -- email where they agreed to share them, the Material running now, and who has
 -- read its unresolved Concerns. The card is shared: the Check-Ins and Follow-Up
@@ -92,7 +92,6 @@ set search_path = ''
 as $$
   select jsonb_build_object(
     'relationship_id', r.id,
-    'kind', r.kind,
     'name', r.name,
     'created_at', r.created_at,
     'accepted_at', r.accepted_at,
@@ -183,13 +182,14 @@ grant execute on function app.pair_card(uuid, uuid) to authenticated;
 -- ---------------------------------------------------------------------------
 -- 3. The Overview says which cards open the pair card
 -- ---------------------------------------------------------------------------
--- A one-to-one is one by its kind. A 1:2 pair is a group by its kind, told
--- apart from a Group of the same three people only by having no name
--- (`20261013000500_a_one_to_two_pair_has_no_name.sql`), and the history carries
--- neither. So the Overview's document gains each unended relationship's kind
--- and name. Everything else in it is `20260926000100`'s unchanged, and the two
--- pages that alias it, Check-Ins and (until it read for itself) Suggested
--- Pairs, gain the same key and read nothing off it.
+-- A Group has a name; a one-to-one and a 1:2 pair have none
+-- (`20261013000500_a_one_to_two_pair_has_no_name.sql`), and which of the two a
+-- nameless one is follows who is in it now, which the history already says.
+-- Never the kind, which is a capacity declaration and nothing else (ADR-0004).
+-- So the Overview's document gains each unended relationship's name, and its
+-- cards know which open the pair card. Everything else in it is
+-- `20260926000100`'s unchanged, and Check-Ins, which aliases it, gains the same
+-- key and reads nothing off it.
 create or replace function public.overview_page()
 returns jsonb
 language plpgsql
@@ -205,8 +205,8 @@ begin
   ministry := (doc -> 'admin' ->> 'ministry_id')::uuid;
   return doc || jsonb_build_object(
     'history', app.history_inputs(ministry),
-    'shapes', coalesce(
-      (select jsonb_agg(jsonb_build_object('id', r.id, 'kind', r.kind, 'name', r.name))
+    'relationship_names', coalesce(
+      (select jsonb_agg(jsonb_build_object('id', r.id, 'name', r.name))
          from public.relationship r
         where r.ministry_id = ministry
           and r.ended_at is null),

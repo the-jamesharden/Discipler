@@ -950,3 +950,60 @@ ul.rtags { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; lis
 .rtag .dir { color: var(--text-light); font-size: 0.74rem; }
 .rtag.grp { background: #fbf6ec; border-color: #ecdcbc; color: #6f5520; }
 .pill.opted_out { background: rgba(220, 53, 69, 0.1); color: var(--red-ink); }
+
+/* ---- the pair card (Pastor feedback, ticket 07) ----
+   One pair over the page that opened it: the head, a band for whatever needs the
+   Admin, the two people side by side, the facts, and End relationship at the
+   foot. `app/pair-card/pair-card.tsx`. The Discipler's column is on the left and
+   the Disciples' on the right; a 1:2 pair stacks its two Disciples in theirs. */
+.modal.paircard { position: relative; max-width: 640px; padding: 0; border-radius: 12px; overflow-x: hidden; overflow-y: auto; margin: 4vh 0 auto; }
+.pc-head { display: flex; align-items: flex-start; gap: 0.8rem; padding: 1.25rem 1.4rem 1rem; border-bottom: 1px solid var(--border); }
+.pc-head > div { flex: 1 1 auto; min-width: 0; }
+.pc-kind { font-size: 0.74rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-light); margin: 0 0 0.2rem; }
+.pc-head .card-title { font-size: 1.45rem; font-weight: 700; margin: 0; }
+.pc-head .pill { margin-top: 0.35rem; }
+.pc-notice { margin: 0.9rem 1.4rem 0; box-shadow: none; }
+.pc-band { padding: 0.95rem 1.4rem; border-bottom: 1px solid var(--border); font-size: 0.92rem; line-height: 1.5; }
+.pc-band p { margin: 0; }
+.pc-band.concern { background: linear-gradient(135deg, rgba(220, 53, 69, 0.08), rgba(220, 53, 69, 0.03)); border-left: 4px solid var(--red-concern); }
+.pc-band.stalled { background: linear-gradient(135deg, rgba(201, 122, 26, 0.1), rgba(201, 122, 26, 0.03)); border-left: 4px solid var(--amber); }
+.pc-band.review { background: rgba(122, 122, 122, 0.06); border-left: 4px solid var(--neutral); }
+.pc-band .pc-band-label { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; margin: 0 0 0.3rem; }
+.pc-band.concern .pc-band-label { color: var(--red-ink); }
+.pc-band.stalled .pc-band-label { color: var(--amber-ink); }
+.pc-band.review .pc-band-label { color: #5f5f5f; }
+.pc-band .pc-quote { font-family: var(--serif); font-size: 1.12rem; line-height: 1.45; color: var(--text); margin: 0.1rem 0 0.45rem; }
+.pc-band .btn-row { margin-top: 0.7rem; }
+.pc-audit { font-size: 0.76rem; color: var(--text-light); padding: 0.6rem 1.4rem 0.9rem; margin: 0; border-bottom: 1px solid var(--border); }
+.pc-people { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.pc-side { min-width: 0; }
+.pc-side + .pc-side { border-left: 1px solid var(--border); }
+.pc-person { padding: 1.1rem 1.4rem 1.2rem; min-width: 0; }
+.pc-person + .pc-person { border-top: 1px solid var(--border); }
+.pc-person .person { margin-bottom: 0.7rem; align-items: flex-start; }
+.pc-person .avatar { width: 42px; height: 42px; font-size: 0.9rem; }
+.pc-person .avatar.alt { background: var(--accent); }
+.pc-name { font-weight: 700; font-size: 1.02rem; line-height: 1.25; }
+.pc-role { display: inline-block; margin-top: 0.25rem; font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.12rem 0.45rem; border-radius: 3px; background: rgba(45, 80, 22, 0.08); color: var(--primary); }
+.pc-contact { display: flex; flex-direction: column; gap: 0.35rem; margin: 0 0 0.85rem; }
+.pc-contact a { display: inline-flex; align-items: center; gap: 0.5rem; color: var(--text); text-decoration: none; font-size: 0.9rem; min-width: 0; }
+.pc-contact a span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pc-contact a:hover { color: var(--primary); }
+.pc-contact .ico { width: 16px; height: 16px; flex: none; color: var(--primary-light); }
+dl.pc-kv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0.25rem 0.8rem; font-size: 0.84rem; margin: 0; }
+dl.pc-kv dt { color: var(--text-light); }
+dl.pc-kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.pc-facts { padding: 0.95rem 1.4rem; background: rgba(45, 80, 22, 0.025); border-top: 1px solid var(--border); }
+.pc-facts dl.pc-kv { grid-template-columns: 8.5rem minmax(0, 1fr); }
+.pc-actions { padding: 0.85rem 1.4rem 1rem; border-top: 1px solid var(--border); text-align: right; }
+.pc-actions details { text-align: left; }
+.pc-actions summary { list-style: none; display: block; text-align: right; }
+.pc-actions summary::-webkit-details-marker { display: none; }
+.pc-end { color: var(--text-light); font-size: 0.82rem; text-decoration: underline; text-underline-offset: 2px; background: none; border: 0; padding: 0.3rem 0; font-weight: 500; cursor: pointer; }
+.pc-end:hover { color: var(--red-ink); }
+@media (max-width: 600px) {
+  .modal.paircard { margin: 0 0 auto; border-radius: 10px; }
+  .pc-people { grid-template-columns: minmax(0, 1fr); }
+  .pc-side + .pc-side { border-left: 0; border-top: 1px solid var(--border); }
+  .pc-facts dl.pc-kv { grid-template-columns: auto minmax(0, 1fr); }
+}

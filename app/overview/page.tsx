@@ -1,7 +1,11 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { relationshipIdFrom } from '~/domain/ids'
 import { checkInRates, ratedTotal } from '~/domain/overview'
 import { getOverviewReader } from '~/service/container'
+import { careOutcomeMessage, careRefusalMessage } from '../follow-up/copy'
+import { readTheConcerns } from '../pair-card/open'
+import { PairCard } from '../pair-card/pair-card'
 import { AdminShell, NotAnAdmin } from '../shell'
 import {
   ALL_RELATIONSHIPS,
@@ -33,21 +37,47 @@ export const dynamic = 'force-dynamic'
  * and *Healthy*, yellow and *Stalled*, red while a Concern is unresolved, grey
  * and *Paused* or *Awaiting acceptance*. The flag line comes from the care items
  * and not the state, so an unresolved Concern still shows, and still colours the
- * card red, on a relationship that has since answered. Each card links to the
- * relationship's Follow-Up item where one exists, because there is no
- * relationship detail page.
+ * card red, on a relationship that has since answered.
+ *
+ * Pressing a one-to-one or a 1:2 pair opens the pair card over the page
+ * (Pastor feedback, ticket 07): this same page at `?card=`, so the address says
+ * which card is open, it works without script, and closing it is a link back to
+ * `/overview`. A Group's card still links to its Follow-Up item where one
+ * exists, until its own card (ticket 08).
  */
 
-export default async function OverviewPage() {
-  // One read: the session verdict, the tab and the Care Needed list come from one
-  // document, so the Needs Follow-Up tile, the tab badge and the flag lines on
-  // the cards are all this one list.
-  const page = await getOverviewReader().readOverviewPage()
+export default async function OverviewPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ card?: string; done?: string; error?: string }>
+}) {
+  const query = await searchParams
+  // Whatever arrives in the address is whatever somebody typed there: an id or
+  // nothing, and the card is read only for a relationship this Admin's own
+  // Ministry holds.
+  const asked = relationshipIdFrom(query.card)
+
+  // One read: the session verdict, the tab, the Care Needed list and the card
+  // come from one document, so the Needs Follow-Up tile, the tab badge, the flag
+  // lines on the cards and the card itself are all this one list.
+  const page = await getOverviewReader().readOverviewPage(asked)
   if (page.status === 'not-an-admin') return <NotAnAdmin title="Ministry overview" />
   if (page.status === 'signed-out') redirect('/login')
 
   const { admin } = page
-  const { overview, care } = page.page
+  const { overview, care, card } = page.page
+
+  // Opening the card reads its Concerns, and records the reading as *Read the
+  // concern* does. After the read and never instead of it.
+  const words = card ? await readTheConcerns(card, admin) : []
+  const now = new Date()
+  const outcome = careOutcomeMessage(query.done)
+  const refusal = careRefusalMessage(query.error)
+  const notice = refusal
+    ? { tone: 'refused' as const, said: refusal }
+    : outcome
+      ? { tone: 'done' as const, said: outcome }
+      : null
 
   const rates = checkInRates(overview.counts)
   const notMet = overview.counts.answered - overview.counts.held
@@ -79,6 +109,13 @@ export default async function OverviewPage() {
 
   return (
     <AdminShell admin={admin} current="overview" subtitle={OVERVIEW_SUBTITLE} followUpCount={care.length}>
+      {/* What a card's action did, said here once the card it came from has
+          gone: the relationship ended, and there is no card to say it on. */}
+      {notice && !card ? (
+        <p className={notice.tone === 'refused' ? 'toast error' : 'toast'} role={notice.tone === 'refused' ? 'alert' : 'status'}>
+          {notice.said}
+        </p>
+      ) : null}
       <ul className="stats">
         {tiles.map((tile) => (
           <li key={tile.label} className="stat">
@@ -158,7 +195,20 @@ export default async function OverviewPage() {
                   ) : null}
                 </>
               )
-              return flagged.has(relationship.relationshipId) ? (
+              // No prefetch: opening a card reads its Concern and records the
+              // reading, which only an Admin's press may do.
+              return relationship.pairShape !== null ? (
+                <Link
+                  key={relationship.relationshipId}
+                  id={`rel-${relationship.relationshipId}`}
+                  className={className}
+                  href={`/overview?card=${relationship.relationshipId}`}
+                  scroll={false}
+                  prefetch={false}
+                >
+                  {body}
+                </Link>
+              ) : flagged.has(relationship.relationshipId) ? (
                 <Link
                   key={relationship.relationshipId}
                   className={className}
@@ -175,6 +225,19 @@ export default async function OverviewPage() {
           </div>
         )}
       </div>
+
+      {card ? (
+        <PairCard
+          card={card}
+          words={words}
+          now={now}
+          // Back to the card it was opened from: without script the browser
+          // scrolls there, and with it the page has not moved.
+          close={`/overview#rel-${card.relationshipId}`}
+          back={`/overview?card=${card.relationshipId}`}
+          notice={notice}
+        />
+      ) : null}
     </AdminShell>
   )
 }
