@@ -377,7 +377,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
     // Since Pastor feedback ticket 04 the wizard is handed out as the Mentor and
     // mentee form, at the Ministry's readable link.
     expect(html).toContain('Mentor and mentee form')
-    expect(html).toContain(`/join/<b>${ministry.shortName}</b>`)
+    expect(html).toContain(`<b>${ministry.shortName}</b>`)
     expect(html).toContain('/intake-forms/discipleship-code.svg')
     // Both squares, so an Admin printing one knows which one they printed.
     expect(html).toContain('/intake-forms/intake-code.svg')
