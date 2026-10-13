@@ -20,6 +20,7 @@ const PAGE_FUNCTIONS = [
   'assign_material_page',
   'check_ins_page',
   'edit_material_page',
+  'follow_up_card_page',
   'follow_up_page',
   'intake_forms_page',
   'material_page',
