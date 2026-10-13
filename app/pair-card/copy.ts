@@ -152,14 +152,17 @@ export const NO_CHECK_IN_YET = 'None answered yet'
 export const NO_MATERIAL_YET = 'No material yet'
 
 /**
- * Each answer as the letter the Leader texted and its word, as the three are
- * stored today. A fourth answer (ticket 03) is a fourth key, and the build
- * fails until it is worded.
+ * Each stored answer as the letter it carries now and its word (Pastor
+ * feedback, ticket 03). Stored as words, so a concern given when C meant
+ * concern still reads *D concern*: the letter is today's, the meaning is the
+ * one recorded. A fifth answer is a fifth key, and the build fails until it is
+ * worded.
  */
 export const SATISFACTION: Record<Satisfaction, string> = {
   outstanding: 'A outstanding',
   good: 'B good',
-  concern: 'C concern',
+  okay: 'C okay',
+  concern: 'D concern',
 }
 
 /** *Mon 12 Oct · Met · B good*. Never the words of a Concern. */

@@ -109,7 +109,8 @@ describe('the people and the facts', () => {
     const answeredAt = new Date('2026-10-13T00:05:00Z')
     expect(checkInLine({ answeredAt, met: true, satisfaction: 'good' }, zone)).toBe('Mon 12 Oct · Met · B good')
     expect(checkInLine({ answeredAt, met: false, satisfaction: null }, zone)).toBe('Mon 12 Oct · Did not meet')
-    expect(checkInLine({ answeredAt, met: true, satisfaction: 'concern' }, zone)).toBe('Mon 12 Oct · Met · C concern')
+    expect(checkInLine({ answeredAt, met: true, satisfaction: 'okay' }, zone)).toBe('Mon 12 Oct · Met · C okay')
+    expect(checkInLine({ answeredAt, met: true, satisfaction: 'concern' }, zone)).toBe('Mon 12 Oct · Met · D concern')
   })
 
   it('says the Material running now and since when, or that there is none yet', () => {

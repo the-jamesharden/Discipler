@@ -81,10 +81,10 @@ describe.skipIf(skipUnlessAppIsRunning)('the Overview cards, coloured by need', 
         const formedAt = new Date(firstWeek.getTime() - weeks(1))
         return pairOneToOne(ministry, leader, participant, { createdAt: formedAt, acceptedAt: formedAt })
       },
-      /** Met, then a Concern in words, in the week of `week`. */
+      /** Met, then D and a Concern in words, in the week of `week`. */
       raiseAConcern: async (week: Date, leader: PersonId, words: string) => {
         await replyAt(minutesAfter(week, 1), leader, '1')
-        await replyAt(minutesAfter(week, 2), leader, 'C')
+        await replyAt(minutesAfter(week, 2), leader, 'D')
         await replyAt(minutesAfter(week, 3), leader, words)
       },
     }

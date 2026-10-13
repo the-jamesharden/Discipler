@@ -165,7 +165,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the pair card', () => {
     const relationship = await church.pairedEarly(leader, await church.congregant('Emily Quiet'))
     await church.tickAt(at(0))
     await church.replyAt(minutesAfter(at(0), 1), leader, '1')
-    await church.replyAt(minutesAfter(at(0), 2), leader, 'C')
+    await church.replyAt(minutesAfter(at(0), 2), leader, 'D')
     const words = 'Her father is in hospital and she has stopped sleeping.'
     await church.replyAt(minutesAfter(at(0), 3), leader, words)
 
@@ -184,7 +184,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the pair card', () => {
     expect(html).toContain('Read by Pastor of Worried Chapel at')
     expect(html).toContain('Resolve and clear this text')
     // The last answer says the meeting and the letter, never the words.
-    expect(html).toContain('Mon 24 Aug · Met · C concern')
+    expect(html).toContain('Mon 24 Aug · Met · D concern')
 
     const { rows: readings } = await pool.query(
       `select viewed_by from concern_viewing where concern_id = $1`,
