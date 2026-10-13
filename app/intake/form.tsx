@@ -1,13 +1,20 @@
-import { ownQuestionsOf, type IntakeForm as MinistryForm } from '~/domain/intake-form'
+import {
+  ownQuestionsOf,
+  removedQuestions,
+  type BuiltInQuestion,
+  type IntakeForm as MinistryForm,
+} from '~/domain/intake-form'
 import type { DiscipleshipGoalOption, IntakePrefill } from '~/service/ports'
 import {
   AgeBandField,
   Agreements,
   AvailabilityGrid,
-  ContactFields,
+  EmailField,
   GenderField,
   GoalField,
+  NameField,
   OwnQuestionField,
+  PhoneField,
 } from './fields'
 
 /**
@@ -25,6 +32,9 @@ import {
  * 12), from the form the Person last answered, in that form's order and words,
  * with their answers already in them. The version they come from travels with the
  * answers, as the wizard's does, so they are read against the questions shown.
+ *
+ * It does not ask what that form no longer asks (ticket 13): a question an Admin
+ * removed, with every answer to it, is not put back in front of anybody here.
  */
 
 export const IntakeForm = ({
@@ -42,25 +52,31 @@ export const IntakeForm = ({
   readonly prefill: IntakePrefill
   /** The form whose own questions are asked after Discipler's. */
   readonly form: MinistryForm
-}) => (
-  <form method="post" action={action}>
-    {/* The route the Person arrived by, recorded on each consent record. */}
-    <input type="hidden" name="via" value={via} />
-    <input type="hidden" name="v" value={String(form.version)} />
+}) => {
+  const removed = removedQuestions(form)
+  const asks = (key: BuiltInQuestion) => !removed.includes(key)
+  return (
+    <form method="post" action={action}>
+      {/* The route the Person arrived by, recorded on each consent record. */}
+      <input type="hidden" name="via" value={via} />
+      <input type="hidden" name="v" value={String(form.version)} />
 
-    <ContactFields prefill={prefill} />
-    <AgeBandField prefill={prefill} />
-    <GenderField prefill={prefill} />
-    <AvailabilityGrid availability={prefill.availability} />
-    <GoalField goals={goals} prefill={prefill} />
-    {ownQuestionsOf(form).map((question) => (
-      <OwnQuestionField key={question.key} question={question} given={prefill.own[question.key] ?? []} />
-    ))}
-    <Agreements ministryName={ministryName} prefill={prefill} />
+      <NameField prefill={prefill} />
+      <PhoneField prefill={prefill} />
+      {asks('email') ? <EmailField prefill={prefill} /> : null}
+      {asks('ageBand') ? <AgeBandField prefill={prefill} /> : null}
+      {asks('gender') ? <GenderField prefill={prefill} /> : null}
+      {asks('availability') ? <AvailabilityGrid availability={prefill.availability} /> : null}
+      {asks('goalId') ? <GoalField goals={goals} prefill={prefill} /> : null}
+      {ownQuestionsOf(form).map((question) => (
+        <OwnQuestionField key={question.key} question={question} given={prefill.own[question.key] ?? []} />
+      ))}
+      <Agreements ministryName={ministryName} prefill={prefill} />
 
-    <div className="form-actions">
-      <span />
-      <button type="submit">Submit</button>
-    </div>
-  </form>
-)
+      <div className="form-actions">
+        <span />
+        <button type="submit">Submit</button>
+      </div>
+    </form>
+  )
+}

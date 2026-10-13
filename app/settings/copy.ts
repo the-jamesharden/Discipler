@@ -1,4 +1,4 @@
-import { AGE_BANDS } from '~/domain/intake'
+import { AGE_BANDS, type IntakePath } from '~/domain/intake'
 import {
   MOST_BANDS_APART,
   QUIET_HOURS,
@@ -148,3 +148,22 @@ export const messagePreviews = (): readonly MessagePreview[] => [
     'What a leader receives when they are paired',
   ),
 ]
+
+/**
+ * What the Pairing section says beside a rule that cannot be applied, once a
+ * form no longer asks what it reads (Pastor feedback, ticket 13). The gender
+ * rule binds every pairing, so it is said of whichever forms stopped asking; the
+ * age rule is Suggested Pairs' alone, which reads the mentor and mentee form.
+ */
+export const genderNotAsked = (forms: readonly IntakePath[]): string =>
+  forms.length === 2
+    ? 'Neither of your Intake forms asks gender any more, so this rule cannot be applied to anybody who joins from them.'
+    : `Your ${FORM_NAME[forms[0]!]} no longer asks gender, so this rule cannot be applied to anybody who fills it in.`
+
+export const AGE_NOT_ASKED =
+  'Your mentor and mentee form no longer asks age, so the age rule cannot be applied: Suggested Pairs suggests people of any age together.'
+
+const FORM_NAME: Record<IntakePath, string> = {
+  discipleship: 'mentor and mentee form',
+  group: 'groups form',
+}

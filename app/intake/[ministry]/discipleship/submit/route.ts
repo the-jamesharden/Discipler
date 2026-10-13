@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { IntakeRefused } from '~/domain/errors'
 import { readIntakeForm, type IntakeFormFields } from '~/domain/intake'
-import { ownQuestionsOf, requiredOn } from '~/domain/intake-form'
+import { ownQuestionsOf, removedQuestions, requiredOn } from '~/domain/intake-form'
 import { getCommandService, getIntakeReader, settlePlannedPairings } from '~/service/container'
 import {
   discipleshipWizardFor,
@@ -84,7 +84,12 @@ export async function POST(
   if (preview) {
     // Read as the real thing is, so an Admin trying the form meets its refusals,
     // and then nothing: no command, no Person, no text.
-    const reading = readIntakeForm(form, requiredOn(page.form), ownQuestionsOf(page.form))
+    const reading = readIntakeForm(
+      form,
+      requiredOn(page.form),
+      ownQuestionsOf(page.form),
+      new Set(removedQuestions(page.form)),
+    )
     if ('refusals' in reading) return backToTheForm(reading.refusals)
     return NextResponse.redirect(
       new URL(`/intake/${page.ministryId}/discipleship/done?${doneQuery(form, pin)}`, request.url),
@@ -133,9 +138,13 @@ const doneQuery = (
   if (form.ageBand) done.set('ageBand', form.ageBand)
   if (form.gender) done.set('gender', form.gender)
   if (form.experience) done.set('experience', form.experience)
+  // None where the form no longer asks when somebody is free (ticket 13), which
+  // the summary then leaves out rather than saying *no hours*.
   const ticked = new Set(form.availability)
-  done.set('hours', String(ticked.size))
-  done.set('days', String(new Set([...ticked].map((key) => key.split(':')[0])).size))
+  if (ticked.size > 0) {
+    done.set('hours', String(ticked.size))
+    done.set('days', String(new Set([...ticked].map((key) => key.split(':')[0])).size))
+  }
   done.set('v', String(pin.version))
   if (pin.preview) done.set('preview', '1')
   return done
