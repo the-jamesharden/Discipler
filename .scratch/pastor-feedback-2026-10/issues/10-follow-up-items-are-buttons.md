@@ -9,7 +9,7 @@ Today: every item carries its own row of buttons, *See contact details*, *Read t
 
 **Blocked by:** 07, 08
 
-**Status:** needs-triage
+**Status:** ready-for-agent
 
 ## Acceptance
 
