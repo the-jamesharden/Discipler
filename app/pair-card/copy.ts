@@ -197,6 +197,31 @@ export const checkInLine = (
     .filter((part): part is string => part !== null)
     .join(' · ')
 
+/**
+ * The band the card opens with on Check-Ins (Pastor feedback, ticket 09): this
+ * week's answer and when it came, *This week · Met · B good · answered 9:07am*.
+ * The day is named where it was not today, *answered Sat 10 Oct, 3:12pm*, as a
+ * Check-Ins week runs seven days. Never the words of a Concern.
+ */
+export const thisWeekLine = (
+  answer: { readonly answeredAt: Date; readonly met: boolean | null; readonly satisfaction: Satisfaction | null },
+  now: Date,
+  timeZone: string,
+): string => {
+  const day = onWhichDay(answer.answeredAt, now, timeZone)
+  const time = clockTime(answer.answeredAt, timeZone)
+  const when =
+    day === 'today' ? time : day === 'yesterday' ? `yesterday, ${time}` : `${weekdayDayMonth(answer.answeredAt, timeZone)}, ${time}`
+  return [
+    'This week',
+    answer.met === null ? null : answer.met ? 'Met' : 'Did not meet',
+    answer.satisfaction ? SATISFACTION[answer.satisfaction] : null,
+    `answered ${when}`,
+  ]
+    .filter((part): part is string => part !== null)
+    .join(' · ')
+}
+
 /** *The Master Plan of Evangelism, since 14 Sep*. */
 export const materialLine = (material: { readonly title: string | null; readonly since: Date } | null, timeZone: string): string =>
   material?.title ? `${material.title}, since ${dayMonth(material.since, timeZone)}` : NO_MATERIAL_YET

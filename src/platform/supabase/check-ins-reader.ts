@@ -1,10 +1,17 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { systemClock, type Clock } from '~/domain/clock'
-import { relationshipId, type MinistryId } from '~/domain/ids'
+import { concernId, relationshipId, type MinistryId, type RelationshipId } from '~/domain/ids'
 import { isoWeekOf } from '~/domain/week'
-import type { CheckInsReader, CheckInThisWeek, ThisWeeksCheckIns } from '~/service/ports'
+import type {
+  CheckInsPage,
+  CheckInsReader,
+  CheckInThisWeek,
+  ThisWeeksAnswer,
+  ThisWeeksCheckIns,
+} from '~/service/ports'
 import { careNeededFrom, historyFor } from './care-needed-reader'
-import { adminPage, readPageDocument } from './page'
+import { adminPage, documentFor, list, readPageDocument, type PageDocument } from './page'
+import { pairCardFrom } from './pair-card-reader'
 import {
   answersFrom,
   byNames,
@@ -13,6 +20,7 @@ import {
   type HistoryInputs,
   type RelationshipWeekAnswer,
 } from './relationship-history'
+import { text } from './rows'
 import { createSupabaseServerClient } from './server-client'
 
 /**
@@ -62,6 +70,19 @@ const oneEntryPerRelationship = (
 }
 
 /**
+ * Every relationship-week of the ISO week `now` falls in, in the Ministry's zone.
+ *
+ * The whole history is read and this week is filtered out of it here rather than
+ * in SQL, because *which week a row falls in* is a rule about time and every one
+ * of those is decided by `isoWeekOf` against the Ministry's zone -- never by a
+ * `date_trunc` in a query that would have to agree with it.
+ */
+const thisWeeksRows = (history: HistoryInputs, timeZone: string, now: Date): readonly RelationshipWeekAnswer[] => {
+  const week = isoWeekOf(now, timeZone)
+  return answersFrom(history).filter((row) => isoWeekOf(row.openedAt, timeZone) === week)
+}
+
+/**
  * The whole tab, out of one page's history and one reading of the clock.
  */
 export const checkInsFrom = (history: HistoryInputs | null, clock: Clock): ThisWeeksCheckIns => {
@@ -76,15 +97,8 @@ export const checkInsFrom = (history: HistoryInputs | null, clock: Clock): ThisW
   if (!history || !timeZone) return { week: isoWeekOf(now, 'UTC'), sentAt: null, checkIns: [] }
 
   const week = isoWeekOf(now, timeZone)
-
-  const answers = answersFrom(history)
   const members = membersFrom(history)
-
-  // The whole history is read and this week is filtered out of it here rather than
-  // in SQL, because *which week a row falls in* is a rule about time and every one
-  // of those is decided by `isoWeekOf` against the Ministry's zone -- never by a
-  // `date_trunc` in a query that would have to agree with it.
-  const thisWeek = answers.filter((row) => isoWeekOf(row.openedAt, timeZone) === week)
+  const thisWeek = thisWeeksRows(history, timeZone, now)
 
   // When this week's first conversation opened -- the earliest of them, because a
   // Ministry with three Leaders has three conversations and the page prints one
@@ -138,20 +152,88 @@ export const readThisWeeksCheckIns = async (
   checkInsFrom(await historyFor(supabase, ministryId, 'check_ins_page'), clock)
 
 /**
+ * This week's answer for one relationship, as the row the list shows for it
+ * says it, and the unresolved Concern that answer raised (Pastor feedback,
+ * ticket 09). Null where nothing was answered for it this week.
+ *
+ * The Concern is the one whose words came in this same conversation:
+ * `concernSequences` says, for each unresolved Concern on the card, which
+ * conversation raised it, by the exact join `concern_open` makes, never by when
+ * it was raised. A Concern from another week, or from a second conversation the
+ * list did not show, keeps its own band on the card.
+ */
+export const thisWeeksAnswerFor = (
+  relationship: RelationshipId,
+  history: HistoryInputs,
+  concernSequences: readonly Record<string, unknown>[],
+  clock: Clock,
+): ThisWeeksAnswer | null => {
+  const timeZone = history.timeZone
+  if (!timeZone) return null
+
+  const row = oneEntryPerRelationship(
+    thisWeeksRows(history, timeZone, clock.now()).filter((week) => week.relationshipId === relationship),
+  )[0]
+  if (!row?.answeredAt) return null
+
+  const raised = concernSequences.find((each) => text(each.sequence_id) === row.sequenceId)
+  const raisedId = raised ? text(raised.concern_id) : null
+  return {
+    answeredAt: row.answeredAt,
+    met: row.met,
+    satisfaction: row.satisfaction,
+    concernId: raisedId ? concernId(raisedId) : null,
+  }
+}
+
+/**
+ * Which page function answers: the tab's own, or with a card open the one that
+ * adds the card beside it (Pastor feedback, ticket 09). Still one read.
+ */
+export const checkInsDocument = (
+  card: RelationshipId | null,
+): [page: string, args?: Readonly<Record<string, unknown>>] =>
+  card === null ? ['check_ins_page'] : ['check_ins_card_page', { card_relationship_id: card }]
+
+/** The tab, the badge's number and the card the address names, out of one document. */
+export const checkInsPageFrom = (doc: PageDocument, clock: Clock): CheckInsPage => {
+  const history = historyOf(doc)
+  const card = pairCardFrom(doc, history, clock)
+  return {
+    week: checkInsFrom(history, clock),
+    followUpCount: careNeededFrom(history, clock).length,
+    card,
+    cardThisWeek: card
+      ? thisWeeksAnswerFor(card.relationshipId, history, list(doc, 'card_concern_sequences'), clock)
+      : null,
+  }
+}
+
+/**
+ * The tab with a card open, against whichever signed-in client it is handed, for
+ * the tests that drive it with a real session; null where the session does not
+ * administer the Ministry named.
+ */
+export const readCheckInsWithACard = async (
+  supabase: SupabaseClient,
+  ministryId: MinistryId,
+  card: RelationshipId,
+  clock: Clock,
+): Promise<CheckInsPage | null> => {
+  const doc = await documentFor(supabase, ministryId, ...checkInsDocument(card))
+  return doc ? checkInsPageFrom(doc, clock) : null
+}
+
+/**
  * Built with a clock rather than reaching for one, because which ISO week it is
  * is a time-dependent rule like any other, and the composition root is what
- * decides whose clock answers it. The badge's number derives from the same
- * document as the week, so the two cannot be read at different moments.
+ * decides whose clock answers it. The badge's number and the card derive from
+ * the same document as the week, so none of them can be read at a different
+ * moment.
  */
 export const createSupabaseCheckInsReader = (clock: Clock = systemClock): CheckInsReader => ({
-  async readCheckInsPage() {
-    const doc = await readPageDocument(await createSupabaseServerClient(), 'check_ins_page')
-    return adminPage(doc, () => {
-      const history = historyOf(doc)
-      return {
-        week: checkInsFrom(history, clock),
-        followUpCount: careNeededFrom(history, clock).length,
-      }
-    })
+  async readCheckInsPage(card: RelationshipId | null = null) {
+    const doc = await readPageDocument(await createSupabaseServerClient(), ...checkInsDocument(card))
+    return adminPage(doc, () => checkInsPageFrom(doc, clock))
   },
 })
