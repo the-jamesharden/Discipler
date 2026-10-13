@@ -96,6 +96,7 @@ import {
 } from './errors'
 import type { PersonToRemove } from './removal'
 import {
+  CHECK_IN_WORDING,
   CLARIFICATIONS_PER_QUESTION,
   PASSED_OVER,
   advanceCheckIn,
@@ -113,6 +114,7 @@ import {
   type CheckInResolution,
   type CheckInSequenceId,
   type CheckInSnapshot,
+  type CheckInWording,
   type OpenPrompt,
   type OpenSequence,
 } from './check-in'
@@ -1283,7 +1285,7 @@ const sayToLeader = (
 
 const ask = (
   asking: Asking,
-  prompt: Omit<NewCheckInPrompt, 'id' | 'ministryId' | 'sequenceId' | 'askedAt'>,
+  prompt: Omit<NewCheckInPrompt, 'id' | 'ministryId' | 'sequenceId' | 'askedAt' | 'wording'>,
   body: string,
   ratesLine: RatesLineOccasion,
 ): readonly Effect[] => [
@@ -1292,6 +1294,11 @@ const ask = (
     ministryId: asking.ministryId,
     sequenceId: asking.sequenceId,
     askedAt: asking.now,
+    // Every question is sent in the wording in force, and says so, because its
+    // reply is read against the wording it was sent with and not the one in
+    // force when the reply arrives. `askWhetherTheyMet` and `askNext` compose the
+    // body in the same wording.
+    wording: CHECK_IN_WORDING,
     ...prompt,
   }),
   // The one message in the rhythm that takes the Leader's number: it is a
@@ -1307,10 +1314,16 @@ const ask = (
  * `discloseOptOut` is only ever true on the message that opens a conversation.
  * That is the check-in that may carry the rates line, once a month (Text wording,
  * ticket 01), and a reminder is not another one: it is that same message again.
+ *
+ * `wording` for the same reason. A reminder re-sends the question in the words it
+ * was first sent with, because those are what its reply is read against: a
+ * three-answer question sent before the change and reminded after it still offers
+ * C for concern, and its `C` is still read as one.
  */
 const bodyOfQuestion = (
   asking: Asking,
   question: CheckInQuestion,
+  wording: CheckInWording,
   relationship: CheckInRelationship,
   discloseOptOut: boolean,
 ): string => {
@@ -1329,7 +1342,7 @@ const bodyOfQuestion = (
     })
   }
   return question === 'satisfaction'
-    ? satisfactionQuestion({ ministryName })
+    ? satisfactionQuestion({ ministryName, wording })
     : concernDetailRequest({ ministryName })
 }
 
@@ -1353,7 +1366,7 @@ const askWhetherTheyMet = (
       position,
       question: 'met',
     },
-    bodyOfQuestion(asking, 'met', relationship, true),
+    bodyOfQuestion(asking, 'met', CHECK_IN_WORDING, relationship, true),
     'once_a_month',
   )
 
@@ -1378,15 +1391,16 @@ const askNext = (
       position: advance.position,
       question: advance.question,
     },
-    bodyOfQuestion(asking, advance.question, advance.relationship, false),
+    bodyOfQuestion(asking, advance.question, CHECK_IN_WORDING, advance.relationship, false),
     'never',
   )
 
 /**
  * A reply as it is stored. The three columns are exclusive by question -- a
  * `met` answer has no rating and a rating has no prose -- and the letters the
- * message advertised are nowhere in it: `C` is stored as `concern`, so renaming a
- * token in copy can never re-tokenise a Ministry's history.
+ * message advertised are nowhere in it: `D` is stored as `concern`, so renaming a
+ * token in copy can never re-tokenise a Ministry's history. It was renamed once:
+ * `C` was concern until the question offered four answers, and is okay now.
  */
 const recorded = (reply: CheckInReply) => ({
   met: reply.kind === 'met' ? reply.met : null,
@@ -1803,7 +1817,7 @@ const chaseTheOpenQuestion = (
       // pointless.
       sayToLeader(
         asking,
-        bodyOfQuestion(asking, awaiting.question, relationship, false),
+        bodyOfQuestion(asking, awaiting.question, awaiting.wording, relationship, false),
         'no_reply',
         'never',
       ),
@@ -3564,7 +3578,10 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         }
       }
 
-      const reply = readCheckInReply(awaiting.question, command.body)
+      // Read against the wording the question was sent with, which is not always
+      // the wording in force: a three-answer question sent before the change and
+      // answered `C` after it is a concern.
+      const reply = readCheckInReply(awaiting, command.body)
       const answered = sequence.covering[awaiting.position - 1]
 
       const asking: Asking = {
@@ -3605,6 +3622,9 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
               promptId: awaiting.promptId,
               personId: checkIn.personId,
               question: awaiting.question,
+              // Which answers the question offered, so a `D` sent to a
+              // three-answer question reads back as the miss it was.
+              wording: awaiting.wording,
               body: command.body,
               clarified: clarifying,
             },
@@ -3623,7 +3643,11 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             }),
             sayToLeader(
               asking,
-              checkInClarification({ ministryName, question: awaiting.question }),
+              checkInClarification({
+                ministryName,
+                question: awaiting.question,
+                wording: awaiting.wording,
+              }),
               // The valid replies to the question already out, said again. It asks
               // nothing new, so the question it restates keeps the number.
               'no_reply',

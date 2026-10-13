@@ -25,7 +25,10 @@ export interface CheckInRates {
   readonly response: number
   /** Held over answered. */
   readonly meeting: number
-  /** Outstanding plus good over rated. */
+  /**
+   * Outstanding plus good over rated. Okay counts against it: it is a rated week
+   * that was neither (Pastor feedback, ticket 03).
+   */
   readonly quality: number
 }
 
@@ -33,7 +36,7 @@ export const NO_CHECK_INS: CheckInCounts = {
   sent: 0,
   answered: 0,
   held: 0,
-  rated: { outstanding: 0, good: 0, concern: 0 },
+  rated: { outstanding: 0, good: 0, okay: 0, concern: 0 },
 }
 
 /**
@@ -45,7 +48,7 @@ export const percentage = (part: number, whole: number): number =>
   whole <= 0 ? 0 : Math.round((part / whole) * 100)
 
 export const ratedTotal = (counts: CheckInCounts): number =>
-  counts.rated.outstanding + counts.rated.good + counts.rated.concern
+  counts.rated.outstanding + counts.rated.good + counts.rated.okay + counts.rated.concern
 
 export const checkInRates = (counts: CheckInCounts): CheckInRates => ({
   response: percentage(counts.answered, counts.sent),

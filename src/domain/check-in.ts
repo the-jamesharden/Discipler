@@ -27,11 +27,42 @@ export const checkInPromptId = (value: string): CheckInPromptId => value as Chec
 export type CheckInQuestion = 'met' | 'satisfaction' | 'concern_detail'
 
 /**
- * What `A`, `B` and `C` are recorded as. The stored value is the word, not the
- * letter the message advertised: the letters are copy and could be renumbered,
- * and a pilot's first check-in cannot be re-tokenised afterwards.
+ * What `A`, `B`, `C` and `D` are recorded as. The stored value is the word, not
+ * the letter the message advertised: the letters are copy and could be
+ * renumbered, and a pilot's first check-in cannot be re-tokenised afterwards.
+ *
+ * They were, once. Until October 2026 the question offered three answers and `C`
+ * was concern; it now offers four and `C` is okay (Pastor feedback, ticket 03).
+ * Every `concern` stored before then is still a concern, because what was stored
+ * was the word.
+ *
+ * Only `concern` is a concern. `okay` is recorded and raises nothing.
  */
-export type Satisfaction = 'outstanding' | 'good' | 'concern'
+export type Satisfaction = 'outstanding' | 'good' | 'okay' | 'concern'
+
+/**
+ * Which answers a question offered when it was sent: `a_to_c` the three-answer
+ * question, `C` for concern, and `a_to_d` the four-answer one, `C` for okay and
+ * `D` for concern.
+ *
+ * **A reply is read against the wording its question was sent with**, never the
+ * wording in force when it arrives. A Leader sent the three-answer question on a
+ * Monday who replies `C` on the Tuesday after the change meant concern, and
+ * reading it as okay would turn a relationship that needs care into one that
+ * raised nothing -- silently, which is the failure ADR 0003 exists to prevent.
+ *
+ * Only the satisfaction question has ever been worded two ways. The meeting
+ * question and the Concern detail request read the same under both, so every
+ * prompt carries a wording and on those two it changes nothing.
+ *
+ * Kept, not retired, while any three-answer question can still be open: the last
+ * one sent before the change is reminded a day later and passed over a day after
+ * that, but a stored prompt is history and its wording is what it was asked in.
+ */
+export type CheckInWording = 'a_to_c' | 'a_to_d'
+
+/** The wording every question is sent with now. */
+export const CHECK_IN_WORDING: CheckInWording = 'a_to_d'
 
 /**
  * The enumerated list, and the only place a reply becomes a fact.
@@ -70,18 +101,48 @@ const MET_TOKENS: ReadonlyMap<string, boolean> = new Map([
   ['no we didnt', false],
 ])
 
-const SATISFACTION_TOKENS: ReadonlyMap<string, Satisfaction> = new Map([
-  ['a', 'outstanding'],
+/**
+ * The words, as against the letters, mean the same thing under either wording:
+ * `great` was outstanding before the change and is outstanding after it.
+ */
+const SATISFACTION_WORDS: ReadonlyArray<readonly [string, Satisfaction]> = [
   ['great', 'outstanding'],
   // A typo that happened. `gret` is one edit from `great` and one from `greet`,
   // which is exactly why the list is enumerated instead of computed.
   ['gret', 'outstanding'],
-  ['b', 'good'],
   ['good', 'good'],
-  ['c', 'concern'],
   ['concern', 'concern'],
+  // Another that happened, the first letter lost.
   ['oncern', 'concern'],
-])
+]
+
+/**
+ * One list per wording, because a letter means what the question it answers
+ * said it meant. `C` is concern on a three-answer question and okay on a
+ * four-answer one; `D` and `okay` answer only the question that offered them.
+ *
+ * `ok` and `okay` are pleasantries as well, which is no contradiction. A
+ * pleasantry is stripped from either end of a longer message -- `ok good` is
+ * `good` -- and never down to nothing, so a message that is only `ok` reaches this
+ * list whole and is read as the answer it now is.
+ */
+const SATISFACTION_TOKENS: Readonly<Record<CheckInWording, ReadonlyMap<string, Satisfaction>>> = {
+  a_to_c: new Map([
+    ['a', 'outstanding'],
+    ['b', 'good'],
+    ['c', 'concern'],
+    ...SATISFACTION_WORDS,
+  ]),
+  a_to_d: new Map([
+    ['a', 'outstanding'],
+    ['b', 'good'],
+    ['c', 'okay'],
+    ['ok', 'okay'],
+    ['okay', 'okay'],
+    ['d', 'concern'],
+    ...SATISFACTION_WORDS,
+  ]),
+}
 
 /**
  * The carrier opt-out and the rest of the keyword set are `keywords.ts`'s. They are
@@ -119,8 +180,14 @@ const UNREADABLE: CheckInReply = { kind: 'unreadable' }
  * `1` answering *how did it go* is unreadable, because a satisfaction rating is
  * the only thing that question has an answer for -- and reading it as anything
  * else would record a rating nobody gave.
+ *
+ * And against the wording that question was sent with, for the reason
+ * `CheckInWording` gives: a `C` means what the message that asked for it said.
  */
-export const readCheckInReply = (question: CheckInQuestion, body: string): CheckInReply => {
+export const readCheckInReply = (
+  { question, wording }: { readonly question: CheckInQuestion; readonly wording: CheckInWording },
+  body: string,
+): CheckInReply => {
   // Prose is the point here, so nothing is matched at all -- including the
   // tokens. Trimmed only, because leading whitespace is the transport's and not
   // something the Leader typed, and everything else is the Leader's own words.
@@ -136,7 +203,7 @@ export const readCheckInReply = (question: CheckInQuestion, body: string): Check
     return met === undefined ? UNREADABLE : { kind: 'met', met }
   }
 
-  const satisfaction = SATISFACTION_TOKENS.get(token)
+  const satisfaction = SATISFACTION_TOKENS[wording].get(token)
   return satisfaction ? { kind: 'satisfaction', satisfaction } : UNREADABLE
 }
 
@@ -200,6 +267,12 @@ export interface OpenPrompt {
   readonly relationshipId: RelationshipId
   readonly position: number
   readonly question: CheckInQuestion
+  /**
+   * The answers it offered when it was sent, which is what its reply is read
+   * against and what a reminder or a clarification offers again. Never the
+   * wording in force now: see `CheckInWording`.
+   */
+  readonly wording: CheckInWording
   /** When it was sent. The twenty-four hours to the reminder are measured here. */
   readonly askedAt: Date
   /**

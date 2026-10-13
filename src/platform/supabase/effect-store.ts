@@ -2702,12 +2702,13 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
         relationship_id: string
         position: number
         question: OpenPrompt['question']
+        wording: OpenPrompt['wording'] | null
         asked_at: Date
         reminded_at: Date | null
         clarifications_sent: number
         answered_at: Date | null
       }>(
-        `select id, relationship_id, position, question,
+        `select id, relationship_id, position, question, wording,
                 asked_at, reminded_at, clarifications_sent, answered_at
            from checkin_prompt
           where sequence_id = $1
@@ -2770,6 +2771,11 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
                 relationshipId: relationshipId(latest.relationship_id),
                 position: latest.position,
                 question: latest.question,
+                // Null on a prompt the code from before the wording was recorded
+                // sent, before migration `20261014000300` or in the window between
+                // it and the deploy after it. That code sent only the three-answer
+                // question, so null is `a_to_c`, and its `C` is a concern.
+                wording: latest.wording ?? 'a_to_c',
                 // The two clocks and the cap, read from the row rather than
                 // counted from history: what Discipler said is a different number
                 // from what the Leader typed, and it is Discipler's side that is
@@ -2885,8 +2891,8 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
   async askCheckInQuestion(prompt) {
     await client.query(
       `insert into checkin_prompt
-         (id, ministry_id, sequence_id, relationship_id, role, position, question, asked_at)
-       values ($1, $2, $3, $4, $5, $6, $7, $8)`,
+         (id, ministry_id, sequence_id, relationship_id, role, position, question, wording, asked_at)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
       [
         prompt.id,
         prompt.ministryId,
@@ -2895,6 +2901,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
         prompt.role,
         prompt.position,
         prompt.question,
+        prompt.wording,
         prompt.askedAt,
       ],
     )

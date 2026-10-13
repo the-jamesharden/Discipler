@@ -55,6 +55,7 @@ const awaiting = (over: Partial<OpenPrompt> = {}): OpenPrompt => ({
   relationshipId: emily,
   position: 1,
   question: 'concern_detail',
+  wording: 'a_to_d',
   askedAt: asked,
   remindedAt: null,
   clarificationsSent: 0,
