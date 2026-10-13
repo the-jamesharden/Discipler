@@ -1,4 +1,5 @@
 import { readdirSync } from 'node:fs'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { handleCommand, type CommandContext } from '~/domain/boundary'
@@ -111,11 +112,22 @@ describe('reading a short name an Admin typed', () => {
     const routes = readdirSync(app, { withFileTypes: true })
       .filter((entry) => entry.isDirectory() && !entry.name.startsWith('[') && !entry.name.startsWith('('))
       .map((entry) => entry.name)
+      // A folder of components, such as the pair card's, answers no address.
+      .filter((name) => servesAnAddress(join(app, name)))
 
     expect(routes.length).toBeGreaterThan(10)
     for (const route of routes) expect(RESERVED_SHORT_NAMES, route).toContain(route)
   })
 })
+
+// Whether a folder under app/ holds a page or a route handler at any depth.
+function servesAnAddress(folder: string): boolean {
+  return readdirSync(folder, { withFileTypes: true }).some((entry) =>
+    entry.isDirectory()
+      ? servesAnAddress(join(folder, entry.name))
+      : /^(page|route)\.tsx?$/.test(entry.name),
+  )
+}
 
 describe('a short name as it arrives in a link', () => {
   it('is read case-blind, since somebody typing what they heard may use capitals', () => {
