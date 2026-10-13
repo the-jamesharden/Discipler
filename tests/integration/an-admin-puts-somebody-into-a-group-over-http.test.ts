@@ -1,6 +1,7 @@
 import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app'
+import { openTheCardAbout } from '../support/follow-up'
 import {
   aTestPhoneNumber,
   addPerson,
@@ -347,18 +348,19 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin puts a Disciple into a group, 
         [ministry.id, group.id, new Date()],
       )
 
-      const before = await getPage('/follow-up', cookie)
-      expect(before.html.replace(/<!-- -->/g, '')).toContain(
+      // On the card the item opens (Pastor feedback, ticket 10).
+      const { card } = await openTheCardAbout(cookie, claire.name)
+      expect(card).toContain(
         `${claire.name} was invited to help lead this group and has not answered. The group carries on meanwhile.`,
       )
       // A running group is never cancelled over one leader who has not answered.
-      expect(before.html).not.toContain('/follow-up/relationship/cancel')
+      expect(card).not.toContain('/follow-up/relationship/cancel')
 
-      // Pressed as the page offers it: the form's own action and its own hidden field.
-      const form = before.html.match(
+      // Pressed as the card offers it: the form's own action and its own hidden field.
+      const form = card.match(
         /<form[^>]*action="(\/follow-up\/resolve)"[^>]*>\s*<input[^>]*name="itemId"[^>]*value="([^"]+)"/,
       )
-      expect(form, 'the page offers no Resolve form').not.toBeNull()
+      expect(form, 'the card offers no Resolve form').not.toBeNull()
       const pressed = await fetch(`${baseUrl}${form![1]}`, {
         method: 'POST',
         redirect: 'manual',

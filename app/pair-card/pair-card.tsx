@@ -1,8 +1,8 @@
 import Link from 'next/link'
-import { Fragment } from 'react'
+import { Fragment, type ReactNode } from 'react'
 import { goalAsShown } from '~/domain/discipleship-goals'
 import { A_GROUP } from '~/domain/relationships'
-import type { PairCard as Card, PairCardPerson } from '~/service/ports'
+import type { CardSubject, PairCard as Card, PairCardPerson } from '~/service/ports'
 import { EndForm } from '../follow-up/end-form'
 import { followUpLine, RESUME } from '../follow-up/copy'
 import { Mail, Message, Phone } from '../icons'
@@ -59,7 +59,10 @@ import type { ConcernWords } from './open'
  * of them. Everything else, the band, the facts and the foot, is the pair's.
  *
  * Shared: Check-Ins and Follow-Up open the same card (tickets 09 and 10), with
- * their own address for `back` and `close`.
+ * their own address for `back` and `close`. Follow-Up draws its fuller form
+ * (ticket 10) through `followUp`: each open item on the pair a band of its own
+ * with its actions, in place of the card's own expired-Pause band, and *What
+ * has happened* under the facts.
  */
 export const PairCard = ({
   card,
@@ -68,6 +71,7 @@ export const PairCard = ({
   close,
   back,
   notice,
+  followUp,
 }: {
   readonly card: Card
   /** The Concerns' words, read as the card opened; one per Concern on the card. */
@@ -79,6 +83,8 @@ export const PairCard = ({
   readonly back: string
   /** What a route just did, or why it could not, already in words. */
   readonly notice: { readonly tone: 'done' | 'refused'; readonly said: string } | null
+  /** Follow-Up's fuller card: its items' bands, and what has happened. */
+  readonly followUp?: { readonly bands: ReactNode; readonly history: ReactNode }
 }) => {
   const { timeZone } = card
   const names = card.people.map((person) => person.fullName)
@@ -110,18 +116,7 @@ export const PairCard = ({
       <div className="modal paircard" role="dialog" aria-modal="true" aria-labelledby="pc-title">
         <div className="pc-head">
           <div>
-            <p className="pc-kind">
-              {/* A narrow card wraps the line between its parts, never inside one. */}
-              {head.split(' · ').map((part, index, parts) =>
-                index < parts.length - 1 ? (
-                  <Fragment key={index}>
-                    <span>{`${part} ·`}</span>{' '}
-                  </Fragment>
-                ) : (
-                  <span key={index}>{part}</span>
-                ),
-              )}
-            </p>
+            <HeadLine line={head} />
             <h2 id="pc-title" className="card-title">{title}</h2>
             <span className={`pill ${pill.state}`}>{pill.label}</span>
           </div>
@@ -170,7 +165,9 @@ export const PairCard = ({
           )
         })}
 
-        {card.pauseExpired ? (
+        {followUp?.bands}
+
+        {card.pauseExpired && !followUp ? (
           <div className="pc-band review">
             <p className="pc-band-label">{PAUSE_EXPIRED}</p>
             <p>{followUpLine({ kind: 'pause_expired', periodWeeks: card.pauseExpired.periodWeeks }, null, null)}</p>
@@ -222,6 +219,8 @@ export const PairCard = ({
           </dl>
         </div>
 
+        {followUp?.history}
+
         {/* Nothing to end before a Leader has accepted: that is cancelled, from Follow-Up. */}
         {card.state !== 'awaiting_leader_acceptance' ? (
           <div className="pc-actions">
@@ -233,16 +232,35 @@ export const PairCard = ({
   )
 }
 
-/** One person: who, on which side, how to reach them, and what they said at Intake. */
-const Person = ({ person }: { readonly person: PairCardPerson }) => (
+/** The line over the names. A narrow card wraps it between its parts, never inside one. */
+export const HeadLine = ({ line }: { readonly line: string }) => (
+  <p className="pc-kind">
+    {line.split(' · ').map((part, index, parts) =>
+      index < parts.length - 1 ? (
+        <Fragment key={index}>
+          <span>{`${part} ·`}</span>{' '}
+        </Fragment>
+      ) : (
+        <span key={index}>{part}</span>
+      ),
+    )}
+  </p>
+)
+
+/**
+ * One person: who, on which side, how to reach them, and what they said at
+ * Intake. Somebody a Follow-Up item is about who is on no pair (ticket 10) is
+ * drawn the same, with no side.
+ */
+export const Person = ({ person }: { readonly person: PairCardPerson | CardSubject }) => (
   <div className="pc-person">
     <div className="person">
-      <span className={person.role === 'leader' ? 'avatar' : 'avatar alt'} aria-hidden="true">
+      <span className={'role' in person && person.role === 'leader' ? 'avatar' : 'avatar alt'} aria-hidden="true">
         {initialsOf(person.fullName)}
       </span>
       <div>
         <div className="pc-name">{person.fullName}</div>
-        <span className="pc-role">{ROLE[person.role]}</span>
+        {'role' in person ? <span className="pc-role">{ROLE[person.role]}</span> : null}
       </div>
     </div>
     <Contact person={person} call={displayPhone} />
@@ -296,11 +314,11 @@ const Member = ({ person }: { readonly person: PairCardPerson }) => {
  * on a pair, where nothing else shows it, and *Call Mia* on a Group's row, which
  * already does.
  */
-const Contact = ({
+export const Contact = ({
   person,
   call,
 }: {
-  readonly person: PairCardPerson
+  readonly person: PairCardPerson | CardSubject
   readonly call: (phone: string) => string
 }) =>
   person.phone || person.email ? (
@@ -327,7 +345,7 @@ const Contact = ({
   ) : null
 
 /** Their age band and goal off their latest Intake, each left out where they gave none. */
-const Answers = ({ person }: { readonly person: PairCardPerson }) => {
+const Answers = ({ person }: { readonly person: PairCardPerson | CardSubject }) => {
   const goal = goalAsShown(person.goal, person.goalOther)
   return person.ageBand || goal ? (
     <dl className="pc-kv">
