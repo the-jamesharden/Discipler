@@ -185,7 +185,7 @@ _Avoid_: slug, handle, or vanity URL; and reading a renamed Ministry's old name 
 
 **Discipleship Intake Wizard**:
 The second form a Ministry hands out, on its own Ministry Intake Link and its own QR code, beside the original one. It asks the same things the single-page form asks, one screen at a time, and it asks one thing first that the other form never asks: which side of a discipleship relationship this Person is offering to stand on. Nothing is written until the last screen submits, so an abandoned wizard leaves no Person, no submission and no consent record.
-_Avoid_: calling it a mentor link and a mentee link (there is one link and the side is an answer inside it), and a separate form (the questions are the same ones, in the same words, asked over more screens)
+_Avoid_: calling it a mentor link and a mentee link (there is one link and the side is an answer inside it), and a separate form (the questions are the same ones, asked over more screens in the words of the Ministry's Intake Form)
 
 **Declared Side**:
 Mentor or Mentee, as a Person answered it on the Discipleship Intake Wizard. It is a preference they stated and never a decision anybody made about them: answering Mentor presets the Pair popup on *Disciples somebody* and feeds Suggested Pairs, and makes nobody a Discipler, since that is a side of one pairing (see Discipler / Disciple). It is read back from their latest intake that asked, so answering the other side later changes it, and a form that asked nothing changes nothing.
@@ -198,6 +198,14 @@ _Avoid_: a suggestion input (ADR-0001 fixes those, and this is not one of them),
 **Intake Path**:
 Which form a Person was answering, kept on their consent record beside the route they arrived by. The two are separate questions: the path says *which form*, and the route says *a link a pastor sent or a QR code they scanned*.
 _Avoid_: folding either into the other, and reading an absent path as anything but *the form did not ask*
+
+**Intake Form**:
+One of a Ministry's two forms as the Ministry has made it, one per Intake Path: the Mentor and mentee form and the Groups form. It is its Form Pages in order, each question's wording and hint and whether it is required, an intro and a thank-you. It is the Ministry's to edit on Intake forms, and every Ministry starts from today's form, the preset. Each save is a new version and never a change to an old one; a Person is served the version they opened until they submit, and their submission records it. See `docs/product-rules.md`, *A Ministry Controls Its Intake Forms*.
+_Avoid_: calling an edit a new form (it is the next version of the same one), a question's wording as its identity (a reworded question keeps its answers), and the single page an Intake Link reopens (that one is not edited)
+
+**Form Page**:
+One page of an Intake Form, which is one screen of the wizard, with its name as the line at the top of that screen. A page with nothing on it is skipped.
+_Avoid_: a step number as the page's identity (pages are added and questions move between them)
 
 **Response-Required Message**:
 A message in the Check-In Rhythm that expects a reply from its recipient.
