@@ -18,7 +18,8 @@ import {
   PauseRefused,
 } from '~/domain/errors'
 import type { FollowUpItemId, IdSource, ImportRowId, PersonId, RelationshipId } from '~/domain/ids'
-import { answersNoGroupInMind } from '~/domain/intake'
+import { answersNoGroupInMind, INTAKE_PATHS, isOneOf } from '~/domain/intake'
+import type { IntakeForm } from '~/domain/intake-form'
 import type { IntakeLinkToken } from '~/domain/intake-link'
 import { REMOVED_FROM_THE_ROSTER, type PairingToLetGo } from '~/domain/removal'
 import type { InvitationToken } from '~/domain/invitations'
@@ -275,6 +276,9 @@ export const applyEffects = async (
   const shortNameChanges = effects.flatMap((effect) =>
     effect.kind === 'shortName.change' ? [effect.change] : [],
   )
+  const intakeFormSaves = effects.flatMap((effect) =>
+    effect.kind === 'intakeForm.save' ? [effect.saving] : [],
+  )
   const addedGoals = effects.flatMap((effect) =>
     effect.kind === 'goal.add' ? [effect.goal] : [],
   )
@@ -470,6 +474,11 @@ export const applyEffects = async (
   // can open.
   for (const change of shortNameChanges) await unit.changeShortName(change)
 
+  // Before the history saying it happened, like every other write here: the
+  // database refuses a version number already taken, and being refused after
+  // history had recorded the edit would leave a record of a form nobody is served.
+  for (const saving of intakeFormSaves) await unit.saveIntakeForm(saving)
+
   // The option, then the list it belongs to. An addition lands before the
   // renumbering that would place it, and a removal before the renumbering that
   // closes the gap it left -- so the order written is always the order of the
@@ -627,6 +636,44 @@ const editsTheGoalList = (
   command: Command,
 ): command is Extract<Command, { type: (typeof GOAL_LIST_EDITS)[number] }> =>
   (GOAL_LIST_EDITS as readonly string[]).includes(command.type)
+
+/**
+ * The six ways an Admin edits one of the Ministry's Intake forms, each of which
+ * decides against the form as it stands (Pastor feedback, ticket 11).
+ */
+const INTAKE_FORM_EDITS = [
+  'intake_form.edit_question',
+  'intake_form.arrange',
+  'intake_form.move_question',
+  'intake_form.add_page',
+  'intake_form.rename_page',
+  'intake_form.edit_text',
+] as const
+
+const editsAnIntakeForm = (
+  command: Command,
+): command is Extract<Command, { type: (typeof INTAKE_FORM_EDITS)[number] }> =>
+  (INTAKE_FORM_EDITS as readonly string[]).includes(command.type)
+
+/**
+ * The version of the Ministry's form a submission was answering: the one its
+ * Person opened, carried from screen to screen, and the form as it stands now
+ * where that version is not one this Ministry saved. Nothing for a submission
+ * from a form that is not one of the two -- the tokenized reopen link -- which is
+ * read as today's form was.
+ */
+const theFormOpened = async (
+  unit: UnitOfWork,
+  command: Extract<Command, { type: 'intake.submit' }>,
+): Promise<{ intakeForm?: IntakeForm }> => {
+  const path = command.form.intakePath?.trim() ?? null
+  if (!isOneOf(INTAKE_PATHS, path)) return {}
+  const opened =
+    command.formVersion === undefined
+      ? null
+      : await unit.intakeFormVersion(path, command.formVersion)
+  return { intakeForm: opened ?? (await unit.intakeForm(path)) }
+}
 
 /**
  * The three ways an Admin edits the Ministry's own list of Materials. Each of
@@ -1108,6 +1155,16 @@ export const createCommandService = ({
           : {}),
         ...(editsTheGoalList(command)
           ? { goals: await unit.discipleshipGoals() }
+          : {}),
+        // An edit to an Intake form decides against the form as it stands, read
+        // behind that form's lock so two Admins saving at once cannot both claim
+        // the next version (Pastor feedback, ticket 11).
+        ...(editsAnIntakeForm(command)
+          ? { intakeForm: await unit.intakeForm(command.form) }
+          : {}),
+        // A submission is read against the version of the form its Person opened.
+        ...(command.type === 'intake.submit'
+          ? await theFormOpened(unit, command)
           : {}),
         // Only the removal, and only before it happens. `on delete set null` is
         // about to make this unanswerable, so the answers are read here -- inside

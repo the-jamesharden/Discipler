@@ -1,27 +1,42 @@
 import { describe, expect, it } from 'vitest'
 import { DECLARED_SIDES } from '~/domain/intake'
 import {
+  addPage,
+  editQuestion,
+  layoutOf,
+  arrangeQuestions,
+  presetForm,
+  questionOn,
+  type FormEdit,
+  type IntakeForm,
+} from '~/domain/intake-form'
+import {
   DONE_BEFORE_ANSWER,
   FIRST_TIME_ANSWER,
   doneMessage,
-  firstTimeQuestion,
   refusalMessages,
   sideLabel,
 } from '../../app/intake/copy'
+import { asAsked } from '../../app/intake/fields'
 import {
   answersAsQuery,
   asksAt,
   AVAILABILITY_STEP,
+  discipleshipWizardFor,
   FIRST_TIME_STEP,
   furthestStep,
   LAST_STEP,
   notCarriedAt,
+  readPreview,
+  readVersion,
   readWizardAnswers,
   SCREENS,
   SIDE_STEP,
   stepToShow,
   stuckOnAvailability,
 } from '../../app/intake/wizard-answers'
+
+const experience = questionOn(presetForm('discipleship'), 'experience')!
 
 /**
  * The wizard's two decisions that are not the domain's: which screen somebody is
@@ -32,14 +47,14 @@ describe('what the wizard says', () => {
   it('words every side-dependent line for both sides', () => {
     for (const side of DECLARED_SIDES) {
       expect(sideLabel[side]).toBeTruthy()
-      expect(firstTimeQuestion[side]).toBeTruthy()
+      expect(side === 'mentee' ? experience.menteeWording : experience.wording).toBeTruthy()
       expect(doneMessage[side]('Riverside Chapel')).toContain('Riverside Chapel')
     }
   })
 
   it('asks the first-time question in the words of the side', () => {
-    expect(firstTimeQuestion.mentor).toBe('Have you mentored someone before?')
-    expect(firstTimeQuestion.mentee).toBe('Have you been discipled by a mentor before?')
+    expect(experience.wording).toBe('Have you mentored someone before?')
+    expect(experience.menteeWording).toBe('Have you been discipled by a mentor before?')
   })
 
   /**
@@ -303,5 +318,87 @@ describe('the one screen a browser will not stop somebody leaving unanswered', (
         availability: ['monday:12'],
       }),
     ).toBe(false)
+  })
+})
+
+/**
+ * The wizard's screens are the pages of the version of the Ministry's form the
+ * visitor opened (Pastor feedback, ticket 11). Today's form is the preset, and
+ * every test above is about it; these are about a form an Admin has edited.
+ */
+describe('a wizard drawn from a Ministry’s own form', () => {
+  const saved = (edit: FormEdit): IntakeForm => {
+    if (edit === null || 'refusal' in edit) throw new Error('Expected the edit to be saved')
+    return edit.form
+  }
+  const preset = presetForm('discipleship')
+
+  it('is today’s five screens for a Ministry that never edited', () => {
+    expect(discipleshipWizardFor(preset).SCREENS).toEqual(SCREENS)
+  })
+
+  it('asks a question on the page an Admin moved it to', () => {
+    const layout = layoutOf(preset).map((page) => ({ ...page, keys: [...page.keys] }))
+    layout[1]!.keys = ['ageBand']
+    layout[3]!.keys = ['gender', 'availability']
+    const wizard = discipleshipWizardFor(saved(arrangeQuestions(preset, layout)))
+
+    expect(wizard.asksAt(2)).toEqual(['ageBand'])
+    expect(wizard.asksAt(4)).toEqual(['gender', 'availability'])
+    // Answering the age alone now reaches the first-time question.
+    expect(wizard.furthestStep(wizard.readAnswers({ side: 'mentee', ageBand: '25-34' }))).toBe(3)
+  })
+
+  it('skips a page with nothing on it, so a new page is not a blank screen', () => {
+    const withPage = saved(addPage(preset, 'more', 'A little more'))
+    const wizard = discipleshipWizardFor(withPage)
+    expect(wizard.LAST_STEP).toBe(5)
+  })
+
+  it('lets somebody past a question the form made optional, without answering it', () => {
+    const optional = saved(
+      editQuestion(preset, 'experience', {
+        wording: experience.wording,
+        menteeWording: experience.menteeWording,
+        hint: '',
+        required: false,
+      }),
+    )
+    const wizard = discipleshipWizardFor(optional)
+    const upToExperience = wizard.readAnswers({ side: 'mentee', ageBand: '25-34', gender: 'female' })
+    expect(wizard.furthestStep(upToExperience)).toBe(4)
+    // And still carries it when it was answered.
+    expect(wizard.notCarriedAt(3)).toEqual(['experience'])
+  })
+
+  it('says a question is optional in the words it is asked in', () => {
+    expect(asAsked(questionOn(preset, 'email')!)).toBe('Email (optional)')
+    expect(asAsked(questionOn(preset, 'gender')!)).toBe('Gender')
+    expect(asAsked(experience, experience.menteeWording!)).toBe(
+      'Have you been discipled by a mentor before?',
+    )
+  })
+
+  it('carries the version opened, and a preview, from screen to screen', () => {
+    const back = answersAsQuery(readWizardAnswers({ side: 'mentor' }), 'link', 1, {
+      version: 3,
+      preview: true,
+    })
+    expect(back.get('v')).toBe('3')
+    expect(back.get('preview')).toBe('1')
+
+    expect(answersAsQuery(readWizardAnswers({}), 'link', 1, { version: 0, preview: false }).get('preview')).toBeNull()
+  })
+
+  it('reads a version and a preview off a URL, and nothing else as either', () => {
+    expect(readVersion('3')).toBe(3)
+    expect(readVersion('0')).toBe(0)
+    expect(readVersion('-1')).toBeNull()
+    expect(readVersion('3.5')).toBeNull()
+    expect(readVersion('<script>')).toBeNull()
+    expect(readVersion(undefined)).toBeNull()
+    expect(readPreview('1')).toBe(true)
+    expect(readPreview('yes')).toBe(false)
+    expect(readPreview(undefined)).toBe(false)
   })
 })

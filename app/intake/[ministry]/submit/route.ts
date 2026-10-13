@@ -1,10 +1,17 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { IntakeRefused, PairingRefused } from '~/domain/errors'
-import { answersNoGroupInMind, GROUP_PATH, NO_GROUP_IN_MIND, type IntakeFormFields } from '~/domain/intake'
+import {
+  answersNoGroupInMind,
+  GROUP_PATH,
+  NO_GROUP_IN_MIND,
+  readIntakeForm,
+  type IntakeFormFields,
+} from '~/domain/intake'
+import { requiredOn } from '~/domain/intake-form'
 import { getCommandService, getIntakeReader, settlePlannedPairings } from '~/service/container'
-import { groupWizard } from '../../group-wizard-answers'
+import { groupWizardFor } from '../../group-wizard-answers'
 import { consentSourceOf, submittedIntakeForm, textField } from '../../submitted-form'
-import { readVia } from '../../wizard-machine'
+import { readPreview, readVersion, readVia } from '../../wizard-machine'
 
 /**
  * The group form's last step, and the only write it makes. An ordinary form POST
@@ -27,11 +34,18 @@ export async function POST(
   // Checked against a real Ministry rather than trusted out of the URL, so a
   // fabricated link cannot reach the boundary as a command against an identifier
   // of its own.
-  const page = await getIntakeReader().readGroupIntakePage(ministry)
-  if (!page) return NextResponse.redirect(new URL('/', request.url), { status: 303 })
-
   const submitted = await request.formData()
   const via = textField(submitted, 'via')
+  const preview = readPreview(textField(submitted, 'preview'))
+
+  const page = await getIntakeReader().readGroupIntakePage(
+    ministry,
+    readVersion(textField(submitted, 'v')),
+  )
+  if (!page) return NextResponse.redirect(new URL('/', request.url), { status: 303 })
+
+  const groupWizard = groupWizardFor(page.form)
+  const pin = { version: page.form.version, preview }
 
   const form: IntakeFormFields = submittedIntakeForm(submitted, {
     source: consentSourceOf(via),
@@ -52,9 +66,28 @@ export async function POST(
       },
       { groupId: [...page.groups.map((group) => group.relationshipId), NO_GROUP_IN_MIND] },
     )
-    const params = groupWizard.answersAsQuery(answers, readVia(via), groupWizard.LAST_STEP)
+    const params = groupWizard.answersAsQuery(answers, readVia(via), groupWizard.LAST_STEP, pin)
     params.set('refused', refusals.join(' '))
     return NextResponse.redirect(new URL(`/intake/${page.ministryId}?${params}`, request.url), {
+      status: 303,
+    })
+  }
+
+  // What the done page says of a preview: what a newcomer would be told, with the
+  // group they picked looked up as the real thing looks it up, and nothing done.
+  if (preview) {
+    const reading = readIntakeForm(form, requiredOn(page.form))
+    if ('refusals' in reading) return backToTheForm(reading.refusals)
+    const picked = page.groups.find((group) => group.relationshipId === form.groupId)
+    const done = new URLSearchParams()
+    if (answersNoGroupInMind(form.groupId)) done.set('outcome', 'placement')
+    if (picked) {
+      done.set('groupId', picked.relationshipId)
+      done.set('outcome', picked.joinRequiresApproval ? 'requested' : 'joined')
+    }
+    done.set('v', String(pin.version))
+    done.set('preview', '1')
+    return NextResponse.redirect(new URL(`/intake/${page.ministryId}/done?${done}`, request.url), {
       status: 303,
     })
   }
@@ -69,6 +102,7 @@ export async function POST(
       type: 'intake.submit',
       ministryId: page.ministryId,
       form,
+      formVersion: page.form.version,
     })
     asked = effects.some((effect) => effect.kind === 'followUp.raise')
   } catch (error) {
@@ -99,6 +133,7 @@ export async function POST(
     // what the page says.
     done.set('outcome', asked ? 'requested' : 'joined')
   }
+  done.set('v', String(pin.version))
 
   return NextResponse.redirect(
     new URL(`/intake/${page.ministryId}/done?${done}`, request.url),

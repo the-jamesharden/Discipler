@@ -9,17 +9,20 @@ import {
   type Weekday,
 } from '~/domain/intake'
 import { intakeLinkState } from '~/domain/intake-link'
+import { GROUP_PATH, type IntakePath } from '~/domain/intake'
+import { PRESET_VERSION, presetForm, type IntakeForm } from '~/domain/intake-form'
 import { shortName, type ShortName } from '~/domain/short-name'
 import { ministryId, personId, relationshipId } from '~/domain/ids'
 import type {
   DiscipleshipGoalOption,
   GroupIntakePage,
-  IntakePage,
   IntakePrefill,
+  IntakeWizardPage,
   IntakeReader,
   JoinableGroup,
   ReopenedIntakePage,
 } from '~/service/ports'
+import { formOrPreset, intakeFormFrom } from './intake-form-document'
 import { declaredGenderOf, looksLikeAnId } from './rows'
 
 /**
@@ -121,13 +124,43 @@ const prefillFor = async (
   }
 }
 
+/**
+ * The version of one of the Ministry's forms a visitor is served: the one they
+ * opened, where the URL carries a version this Ministry saved (or the preset's
+ * 0), and otherwise the form as it stands now. A version is never changed once
+ * saved, so somebody part-way through is served exactly what they started.
+ *
+ * Read on the connection that has already said which Ministry it acts for, so a
+ * version number in a hand-written URL can only ever name this Ministry's forms.
+ */
+const servedForm = async (
+  client: pg.PoolClient,
+  name: IntakePath,
+  opened: number | null | undefined,
+): Promise<IntakeForm> => {
+  if (opened === PRESET_VERSION) return presetForm(name)
+  if (opened !== null && opened !== undefined && Number.isInteger(opened) && opened > 0) {
+    const { rows } = await client.query<{ version: number; definition: unknown }>(
+      `select version, definition from intake_form_version where form = $1 and version = $2`,
+      [name, opened],
+    )
+    const row = rows[0]
+    if (row) return intakeFormFrom(name, Number(row.version), row.definition)
+  }
+  const { rows } = await client.query<{ version: number; definition: unknown }>(
+    `select version, definition from intake_form_version where form = $1 order by version desc limit 1`,
+    [name],
+  )
+  return formOrPreset(name, rows[0])
+}
+
 export const createPostgresIntakeReader = (
   connectionString: string,
 ): PostgresIntakeReader => {
   const pool = new pg.Pool({ connectionString })
 
   return {
-    async readIntakePage(id: string): Promise<IntakePage | null> {
+    async readIntakePage(id: string, version?: number | null): Promise<IntakeWizardPage | null> {
       // A link is typed, forwarded and scanned off a printed page, so the identifier
       // in it is not to be trusted into a query as a uuid until it looks like one.
       if (!looksLikeAnId(id)) return null
@@ -154,14 +187,19 @@ export const createPostgresIntakeReader = (
           label: row.label,
         }))
 
-        return { ministryId: ministryId(id), ministryName: name, goals }
+        return {
+          ministryId: ministryId(id),
+          ministryName: name,
+          goals,
+          form: await servedForm(client, 'discipleship', version),
+        }
       } finally {
         await client.query('rollback')
         client.release()
       }
     },
 
-    async readGroupIntakePage(id: string): Promise<GroupIntakePage | null> {
+    async readGroupIntakePage(id: string, version?: number | null): Promise<GroupIntakePage | null> {
       if (!looksLikeAnId(id)) return null
 
       const client = await pool.connect()
@@ -199,7 +237,12 @@ export const createPostgresIntakeReader = (
           materialTitle: row.material_title,
         }))
 
-        return { ministryId: ministryId(id), ministryName: name, groups }
+        return {
+          ministryId: ministryId(id),
+          ministryName: name,
+          groups,
+          form: await servedForm(client, GROUP_PATH, version),
+        }
       } finally {
         await client.query('rollback')
         client.release()

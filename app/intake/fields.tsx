@@ -1,13 +1,30 @@
-import { AGE_BANDS, NO_GROUP_IN_MIND, OTHER_GOAL, SLOT_HOURS, WEEKDAYS } from '~/domain/intake'
+import {
+  AGE_BANDS,
+  DECLARED_SIDES,
+  EXPERIENCE_ANSWERS,
+  GROUP_PATH,
+  NO_GROUP_IN_MIND,
+  OTHER_GOAL,
+  SLOT_HOURS,
+  WEEKDAYS,
+  type DeclaredSide,
+  type ExperienceAnswer,
+} from '~/domain/intake'
+import { presetForm, questionOn, type BuiltInQuestion, type FormQuestion } from '~/domain/intake-form'
 import type { DiscipleshipGoalOption, IntakePrefill, JoinableGroup } from '~/service/ports'
 import {
+  DONE_BEFORE_ANSWER,
+  DONE_BEFORE_DESCRIPTION,
+  FIRST_TIME_ANSWER,
+  FIRST_TIME_DESCRIPTION,
   GOAL_OTHER_BOX,
   GOAL_OTHER_OPTION,
-  GROUP_QUESTION,
   hourLabel,
   NO_GROUP_IN_MIND_ANSWER,
   noGroupInMindDescription,
   selectedSummary,
+  sideDescription,
+  sideLabel,
   weekdayFullLabel,
   weekdayLabel,
   workingThrough,
@@ -16,12 +33,17 @@ import {
 /**
  * The questions Intake asks, each as its own piece.
  *
- * There are two forms now -- the single page anybody may open, and the discipleship
- * wizard that spreads the same questions across screens -- and they ask the same
+ * There are three forms -- the single page an Admin's link reopens, and the two
+ * wizards that spread the same questions across screens -- and they ask the same
  * things. Split here rather than copied, because the copy that matters most is the
  * one it would be worst to have two of: the SMS agreement is the wording a consent
  * record points at by version, and two screens quietly drifting apart would leave
  * `consent_record.version` naming text that depends on which form somebody used.
+ *
+ * Each question is asked in the words of the Ministry's own form (Pastor feedback,
+ * ticket 11): its wording, its hint and whether it may be left. A field handed no
+ * question asks in the preset's words, which are today's -- the reopened single
+ * page is one of those.
  *
  * Every control is a real form field. The design's option buttons are labels
  * around radios, painted by the stylesheet, so the screens work before any script
@@ -48,47 +70,95 @@ export const NOTHING_PREFILLED: IntakePrefill = {
   contactSharing: null,
 }
 
+/** The preset's question, for a field asked without a form: today's words. */
+const preset = (key: BuiltInQuestion): FormQuestion =>
+  questionOn(presetForm('discipleship'), key) ?? questionOn(presetForm(GROUP_PATH), key)!
+
+/**
+ * A question's wording as somebody reads it: said to be optional where the form
+ * lets it be left, which is how the email has always read -- *Email (optional)*.
+ */
+export const asAsked = (question: FormQuestion, wording: string = question.wording): string =>
+  question.required ? wording : `${wording} (optional)`
+
+/** The line under a question, where the form gives it one. */
+const Hint = ({ question }: { readonly question: FormQuestion }) =>
+  question.hint ? <p className="subtle">{question.hint}</p> : null
+
+export const NameField = ({
+  prefill,
+  asked = preset('fullName'),
+}: {
+  readonly prefill: IntakePrefill
+  readonly asked?: FormQuestion
+}) => (
+  <div className="field">
+    <label className="label" htmlFor="fullName">
+      {asAsked(asked)}
+    </label>
+    <Hint question={asked} />
+    <input
+      id="fullName"
+      name="fullName"
+      required
+      autoComplete="name"
+      defaultValue={prefill.fullName ?? ''}
+    />
+  </div>
+)
+
+export const PhoneField = ({
+  prefill,
+  asked = preset('phone'),
+}: {
+  readonly prefill: IntakePrefill
+  readonly asked?: FormQuestion
+}) => (
+  <div className="field">
+    <label className="label" htmlFor="phone">
+      {asAsked(asked)}
+    </label>
+    <Hint question={asked} />
+    <input
+      id="phone"
+      name="phone"
+      type="tel"
+      required
+      autoComplete="tel"
+      defaultValue={prefill.phone ?? ''}
+    />
+  </div>
+)
+
+export const EmailField = ({
+  prefill,
+  asked = preset('email'),
+}: {
+  readonly prefill: IntakePrefill
+  readonly asked?: FormQuestion
+}) => (
+  <div className="field">
+    <label className="label" htmlFor="email">
+      {asAsked(asked)}
+    </label>
+    <Hint question={asked} />
+    <input
+      id="email"
+      name="email"
+      type="email"
+      required={asked.required}
+      autoComplete="email"
+      defaultValue={prefill.email ?? ''}
+    />
+  </div>
+)
+
+/** The three ways to reach somebody, together, as the reopened single page asks them. */
 export const ContactFields = ({ prefill }: { readonly prefill: IntakePrefill }) => (
   <>
-    <div className="field">
-      <label className="label" htmlFor="fullName">
-        Your name
-      </label>
-      <input
-        id="fullName"
-        name="fullName"
-        required
-        autoComplete="name"
-        defaultValue={prefill.fullName ?? ''}
-      />
-    </div>
-
-    <div className="field">
-      <label className="label" htmlFor="phone">
-        Mobile number
-      </label>
-      <input
-        id="phone"
-        name="phone"
-        type="tel"
-        required
-        autoComplete="tel"
-        defaultValue={prefill.phone ?? ''}
-      />
-    </div>
-
-    <div className="field">
-      <label className="label" htmlFor="email">
-        Email (optional)
-      </label>
-      <input
-        id="email"
-        name="email"
-        type="email"
-        autoComplete="email"
-        defaultValue={prefill.email ?? ''}
-      />
-    </div>
+    <NameField prefill={prefill} />
+    <PhoneField prefill={prefill} />
+    <EmailField prefill={prefill} />
   </>
 )
 
@@ -104,15 +174,17 @@ const daysAmong = (keys: ReadonlySet<string>): number =>
  */
 export const AvailabilityGrid = ({
   availability,
+  asked = preset('availability'),
 }: {
   readonly availability: readonly string[]
+  readonly asked?: FormQuestion
 }) => {
   const selected = new Set(availability)
 
   return (
     <fieldset>
-      <legend>When could you meet?</legend>
-      <p className="subtle">Select every hour that could work — not just your best one.</p>
+      <legend>{asAsked(asked)}</legend>
+      <Hint question={asked} />
       <ul className="avail-legend">
         <li>
           <i style={{ background: 'rgba(45, 80, 22, 0.06)' }} /> Not available
@@ -189,13 +261,15 @@ export const AvailabilityGrid = ({
 export const GoalField = ({
   goals,
   prefill,
+  asked = preset('goalId'),
 }: {
   readonly goals: readonly DiscipleshipGoalOption[]
   readonly prefill: IntakePrefill
+  readonly asked?: FormQuestion
 }) => (
   <fieldset className="goal-question">
-    <legend>What are you hoping for?</legend>
-    <p className="subtle">Choose the one that fits best.</p>
+    <legend>{asAsked(asked)}</legend>
+    <Hint question={asked} />
     <div className="choices grid-2">
       {goals.map((goal) => (
         <label key={goal.id} className="option" htmlFor={`goal:${goal.id}`}>
@@ -204,7 +278,7 @@ export const GoalField = ({
             type="radio"
             name="goalId"
             value={goal.id}
-            required
+            required={asked.required}
             defaultChecked={prefill.goalId === goal.id}
           />
           {goal.label}
@@ -216,7 +290,7 @@ export const GoalField = ({
           type="radio"
           name="goalId"
           value={OTHER_GOAL}
-          required
+          required={asked.required}
           defaultChecked={prefill.goalOther !== null}
         />
         {GOAL_OTHER_OPTION}
@@ -243,13 +317,16 @@ export const GroupField = ({
   groups,
   chosen,
   ministryName,
+  asked = preset('groupId'),
 }: {
   readonly groups: readonly JoinableGroup[]
   readonly chosen: string | null
   readonly ministryName: string
+  readonly asked?: FormQuestion
 }) => (
   <fieldset>
-    <legend>{GROUP_QUESTION}</legend>
+    <legend>{asAsked(asked)}</legend>
+    <Hint question={asked} />
     <div className="choices stack">
       {groups.map((group) => (
         <label key={group.relationshipId} className="option" htmlFor={`group:${group.relationshipId}`}>
@@ -287,9 +364,16 @@ export const GroupField = ({
 )
 
 /** A band and never an exact age. See docs/adr/0001-pairing-suggestion-inputs.md. */
-export const AgeBandField = ({ prefill }: { readonly prefill: IntakePrefill }) => (
+export const AgeBandField = ({
+  prefill,
+  asked = preset('ageBand'),
+}: {
+  readonly prefill: IntakePrefill
+  readonly asked?: FormQuestion
+}) => (
   <fieldset>
-    <legend className="plain">Age range</legend>
+    <legend className="plain">{asAsked(asked)}</legend>
+    <Hint question={asked} />
     <div className="choices grid-3">
       {AGE_BANDS.map((band) => (
         <label key={band} className="option centred-text" htmlFor={`ageBand:${band}`}>
@@ -313,9 +397,16 @@ export const AgeBandField = ({ prefill }: { readonly prefill: IntakePrefill }) =
  * Asked of everybody, on every form. Exactly two options: `GENDERS` is male and
  * female, and gender is a pairing constraint -- decision 6 of ticket 31.
  */
-export const GenderField = ({ prefill }: { readonly prefill: IntakePrefill }) => (
+export const GenderField = ({
+  prefill,
+  asked = preset('gender'),
+}: {
+  readonly prefill: IntakePrefill
+  readonly asked?: FormQuestion
+}) => (
   <fieldset>
-    <legend className="plain">Gender</legend>
+    <legend className="plain">{asAsked(asked)}</legend>
+    <Hint question={asked} />
     <div className="choices">
       <label className="option centred-text" htmlFor="gender:female">
         <input
@@ -344,11 +435,148 @@ export const GenderField = ({ prefill }: { readonly prefill: IntakePrefill }) =>
 )
 
 /**
+ * The discipleship wizard's first question: which side of a discipleship
+ * relationship the Person is offering to stand on. The first-time question and
+ * the closing line are worded from this answer.
+ */
+export const SideField = ({
+  chosen,
+  asked = preset('side'),
+}: {
+  readonly chosen: DeclaredSide | null
+  readonly asked?: FormQuestion
+}) => (
+  <fieldset>
+    <legend>{asAsked(asked)}</legend>
+    <Hint question={asked} />
+    <div className="choices stack">
+      {DECLARED_SIDES.map((option) => (
+        <label key={option} className="option" htmlFor={`side:${option}`}>
+          <input
+            id={`side:${option}`}
+            type="radio"
+            name="side"
+            value={option}
+            required
+            defaultChecked={chosen === option}
+          />
+          <span className="option-title">{sideLabel[option]}</span>
+          <span className="option-desc">{sideDescription[option]}</span>
+        </label>
+      ))}
+    </div>
+  </fieldset>
+)
+
+/**
+ * Whether this is their first time, put in the words of the side they offered:
+ * the form words it once for a mentor and once for somebody to be mentored.
+ *
+ * Two answers, worded as statements rather than as yes and no, so the answer is
+ * legible without the question. The values say the same thing the labels do, for
+ * the reason the labels are worded this way at all.
+ */
+export const ExperienceField = ({
+  side,
+  chosen,
+  asked = preset('experience'),
+}: {
+  readonly side: DeclaredSide | null
+  readonly chosen: ExperienceAnswer | null
+  readonly asked?: FormQuestion
+}) => (
+  <fieldset>
+    <legend>
+      {asAsked(asked, side === 'mentee' ? (asked.menteeWording ?? asked.wording) : asked.wording)}
+    </legend>
+    <Hint question={asked} />
+    <div className="choices stack">
+      {EXPERIENCE_ANSWERS.map((option) => (
+        <label key={option} className="option" htmlFor={`experience:${option}`}>
+          <input
+            id={`experience:${option}`}
+            type="radio"
+            name="experience"
+            value={option}
+            required={asked.required}
+            defaultChecked={chosen === option}
+          />
+          <span className="option-title">
+            {option === 'first_time' ? FIRST_TIME_ANSWER : DONE_BEFORE_ANSWER}
+          </span>
+          <span className="option-desc">
+            {option === 'first_time' ? FIRST_TIME_DESCRIPTION : DONE_BEFORE_DESCRIPTION}
+          </span>
+        </label>
+      ))}
+    </div>
+  </fieldset>
+)
+
+/**
+ * Everything a screen of either wizard knows when it asks a question: the answers
+ * carried so far, and the lists the Ministry offers.
+ */
+export interface Answering {
+  readonly prefill: IntakePrefill
+  readonly side: DeclaredSide | null
+  readonly experience: ExperienceAnswer | null
+  readonly goals: readonly DiscipleshipGoalOption[]
+  readonly groups: readonly JoinableGroup[]
+  readonly groupChosen: string | null
+  readonly ministryName: string
+}
+
+/**
+ * One question of the Ministry's form, as the field that asks it (Pastor feedback,
+ * ticket 11). The wizards draw each page by handing every question on it here,
+ * in the order the form has them.
+ */
+export const AskedQuestion = ({
+  question,
+  answering,
+}: {
+  readonly question: FormQuestion
+  readonly answering: Answering
+}) => {
+  switch (question.key) {
+    case 'side':
+      return <SideField asked={question} chosen={answering.side} />
+    case 'ageBand':
+      return <AgeBandField asked={question} prefill={answering.prefill} />
+    case 'gender':
+      return <GenderField asked={question} prefill={answering.prefill} />
+    case 'experience':
+      return <ExperienceField asked={question} side={answering.side} chosen={answering.experience} />
+    case 'availability':
+      return <AvailabilityGrid asked={question} availability={answering.prefill.availability} />
+    case 'goalId':
+      return <GoalField asked={question} goals={answering.goals} prefill={answering.prefill} />
+    case 'groupId':
+      return (
+        <GroupField
+          asked={question}
+          groups={answering.groups}
+          chosen={answering.groupChosen}
+          ministryName={answering.ministryName}
+        />
+      )
+    case 'fullName':
+      return <NameField asked={question} prefill={answering.prefill} />
+    case 'phone':
+      return <PhoneField asked={question} prefill={answering.prefill} />
+    case 'email':
+      return <EmailField asked={question} prefill={answering.prefill} />
+  }
+}
+
+/**
  * Both consents, and always on the screen with the Submit button. The checkbox that
  * grants consent belongs on the same screen as the write it authorises.
  *
  * The wording is carried over verbatim from the form that first asked it, because
- * a consent record points at this wording by version.
+ * a consent record points at this wording by version. It is not one of the form's
+ * questions and no Admin edits it.
  */
 export const Agreements = ({
   ministryName,

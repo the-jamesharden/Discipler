@@ -307,6 +307,36 @@ The older links by Ministry id, `/intake/<ministry id>` and `/intake/<ministry i
 Intake forms shows the two readable links, and both QR codes encode them.
 No text Discipler sends hands out a Ministry's Intake link.
 
+## Settled: A Ministry Controls Its Intake Forms
+
+Each Ministry edits its two Intake forms, the mentor and mentee form and the groups form, each on its own, from Intake forms (Pastor feedback, ticket 11; James, Lavish review of 2026-10-12).
+Each form is a list of pages, and each page is one screen of the wizard with its name as the line at the top of it.
+An Admin rewords any question, gives it a hint, moves it within its page or onto another, adds pages and renames them, and writes an intro said on the first page and a thank-you said after Submit.
+
+**Today's form is every Ministry's preset.**
+A Ministry that has never edited is served the form the wizard always asked, in the same words, on the same pages, with *Other* on the goal question; nothing changes for anybody until an Admin edits.
+
+**A save is live at once, and somebody part-way through finishes the version they opened.**
+Every save is a new version of the form and never a change to an old one.
+The wizard is served the latest version when somebody opens it and carries that version from screen to screen to the end, so an edit made while they are filling it in moves nothing in front of them.
+Each submission records which version it answered.
+Every edit is recorded in the Ministry's history with what it replaced and who made it.
+*Preview form* opens the form exactly as a newcomer sees it and records nothing: no Person, no consent and no text.
+
+A rename keeps every answer already given, because a question is the same question whatever it is called (ADR-0014).
+
+**What is always asked.**
+Name and mobile number are asked on every form, of everybody, and cannot be made optional: they are who somebody is to Discipler.
+Gender, age band, the matching question (*I'm joining as…*), availability and, on the groups form, the choice of group also stay required, because the pairing rules, the age rule, Suggested Pairs and the groups form read them and do not yet say what they do without them; each is marked on its row with what uses it.
+An Admin may make the goal, the first-time question and the email optional or required.
+The choices of the built-in questions are not edited in the form: the goal's are the Ministry's own goals, edited as before with *Other* always last, and the groups are the Ministry's groups.
+
+**Where a question may be asked.**
+Name, mobile number, email and the goal stay on the last page, beside Submit, because every earlier page moves on by a link that carries its answers in the address, and what somebody types does not go into an address.
+The first-time question comes on a later page than the matching question, which words it, and the choice of group on a later page than gender, which decides the groups offered.
+A page added goes just before the last, and a page with nothing on it is skipped by the wizard.
+The two agreements are not questions on the form: they are on the last page of both forms, in the versioned wording a consent record points at, and no Admin edits them.
+
 ## Settled: Suggestion Tie-Breaking
 
 Candidates with identical availability overlap and the same Discipleship Goal are ordered by who has waited longest since completing intake.
@@ -361,7 +391,9 @@ Required: name, phone number, availability, gender, Discipleship Goal, SMS conse
 
 Optional: email address.
 
-Gender and Discipleship Goal are required because both feed suggestion — gender is an absolute constraint, so a missing value would make a person unsuggestable entirely.
+That is every Ministry's preset form. Since Pastor feedback ticket 11 a Ministry may make the Discipleship Goal optional, and the email required, on its own form (see *A Ministry Controls Its Intake Forms*); somebody who leaves an optional goal unanswered is ranked on availability alone, as somebody whose option was removed is.
+
+Gender is required because it feeds suggestion — gender is an absolute constraint, so a missing value would make a person unsuggestable entirely — and no Ministry's form can make it optional.
 
 There is one intake form. Gender is a required field on that same form, selected by the person while they complete it, and it feeds the pairing eligibility and suggestion rules from there. There is no separate gender intake form and no separate gender intake workflow.
 

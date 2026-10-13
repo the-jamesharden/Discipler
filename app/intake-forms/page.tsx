@@ -7,6 +7,10 @@ import { getIntakeFormsReader } from '~/service/container'
 import { groupMaterialField, MATERIAL_FIELD } from '../materials/assigning'
 import { dayMonthYear, NO_MATERIAL } from '../materials/copy'
 import { AccountMenu, NotAnAdmin, PageShell } from '../shell'
+import { GROUP_PATH, INTAKE_PATHS, isOneOf } from '~/domain/intake'
+import { isFormText, questionOn } from '~/domain/intake-form'
+import { FormEditor } from './form-editor'
+import { formRefusalMessage } from './form/copy'
 import { GoalsCard } from './goals-card'
 import { LinkCard } from './link-card'
 import { refusalMessage as goalRefusalMessage } from './goals/copy'
@@ -82,6 +86,17 @@ export default async function IntakeFormsPage({
     /** The short name was just changed, or why it could not be. */
     shortName?: string
     shortNameError?: string
+    /**
+     * The form editor (Pastor feedback, ticket 11): which form is shown, what is
+     * open on it, what was just saved and why an edit was refused.
+     */
+    form?: string
+    question?: string
+    renaming?: string
+    writing?: string
+    addingPage?: string
+    formSaved?: string
+    formError?: string
   }>
 }) {
   const resolution = await getIntakeFormsReader().readIntakeFormsPage()
@@ -119,6 +134,11 @@ export default async function IntakeFormsPage({
   // says: an option this Ministry does not offer warns about nothing.
   const removing = goals.find((goal) => goal.id === query.removing) ?? null
   const goalFailure = goalRefusalMessage(query.goalError)
+
+  // The form the editor shows: the mentor and mentee form unless the toggle
+  // asked for the groups form. Whatever else arrived names nothing.
+  const editing = isOneOf(INTAKE_PATHS, query.form) ? query.form : 'discipleship'
+  const formPath = `/join/${resolution.page.shortName}${editing === GROUP_PATH ? '/groups' : ''}`
 
   return (
     <PageShell
@@ -190,9 +210,31 @@ export default async function IntakeFormsPage({
         </div>
       ) : null}
 
-      {/* The goals question, between the forms and the groups: it is asked on both
-          forms, where the groups belong to the group link alone. */}
-      <GoalsCard goals={goals} removing={removing} refusal={goalFailure} />
+      {/* Each form's pages and questions, one form at a time (Pastor feedback,
+          ticket 11). Above the goals and the groups, whose choices are two of its
+          questions'. */}
+      <FormEditor
+        form={resolution.page.forms[editing]}
+        path={formPath}
+        state={{
+          question: query.question ?? null,
+          renaming: query.renaming ?? null,
+          writing: isFormText(query.writing) ? query.writing : null,
+          addingPage: query.addingPage === '1',
+          saved: query.formSaved ?? null,
+          refusal: formRefusalMessage(query.formError),
+        }}
+      />
+
+      {/* The goals question's options, between the form editor and the groups:
+          it is asked on the mentor and mentee form, where the groups belong to
+          the groups form alone. */}
+      <GoalsCard
+        goals={goals}
+        removing={removing}
+        refusal={goalFailure}
+        asked={questionOn(resolution.page.forms.discipleship, 'goalId')?.wording ?? null}
+      />
 
       {/* Every live group, for the two things an Admin decides about each: what it
           is called, and whether picking it on the link asks. Here rather than on

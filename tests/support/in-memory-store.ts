@@ -56,7 +56,9 @@ import type {
   RelationshipCancellation,
   RelationshipEnding,
   ShortNameChange,
+  IntakeFormSaving,
 } from '~/domain/effects'
+import { presetForm, type IntakeForm } from '~/domain/intake-form'
 import type { FollowUpResolution, NewFollowUpItem } from '~/domain/follow-up'
 import type { NewIntakeLink } from '~/domain/intake-link'
 import type { PersonRemoval, PersonRestoration, PersonToRemove } from '~/domain/removal'
@@ -136,6 +138,8 @@ export interface InMemoryStore extends EffectStore {
   readonly settingsSaved: readonly MinistrySettings[]
   /** Every short name this store's Ministry was given, in the order it was given. */
   readonly shortNamesChanged: readonly ShortNameChange[]
+  /** Every version of an Intake form this store saved, in the order it saved them. */
+  readonly intakeFormsSaved: readonly IntakeFormSaving[]
   /** Every option added, reworded, reordered or removed, in the order it happened. */
   readonly addedGoals: readonly NewDiscipleshipGoal[]
   readonly renamedGoals: readonly DiscipleshipGoalRenaming[]
@@ -224,6 +228,11 @@ export interface InMemoryStore extends EffectStore {
   settings: MinistrySettings
   /** The short name `short_name.change` decides against: the one before the change. */
   shortName: ShortName
+  /**
+   * Every saved version of the Ministry's Intake forms, oldest first. Empty is a
+   * Ministry that never edited, which is served the preset.
+   */
+  intakeForms: readonly IntakeForm[]
   /** The real store looked again and the unanswered invitation had been answered. */
   nothingLeftToRaise?: boolean
   failOn?:
@@ -271,6 +280,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
   const keywordClosures: KeywordExchangeClosure[] = []
   const settingsSaved: MinistrySettings[] = []
   const shortNamesChanged: ShortNameChange[] = []
+  const intakeFormsSaved: IntakeFormSaving[] = []
   const addedGoals: NewDiscipleshipGoal[] = []
   const renamedGoals: DiscipleshipGoalRenaming[] = []
   const goalOrders: DiscipleshipGoalOrder[] = []
@@ -410,6 +420,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
     get shortNamesChanged() {
       return [...shortNamesChanged]
     },
+    get intakeFormsSaved() {
+      return [...intakeFormsSaved]
+    },
     get addedGoals() {
       return [...addedGoals]
     },
@@ -484,6 +497,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       cadence: { day: 1, hour: 9 },
     },
     shortName: shortName('riverside-chapel'),
+    intakeForms: [],
     async transact(_ministryId: MinistryId, work) {
       const stagedHistory: HistoryEvent[] = []
       const stagedOutbox: SettledMessage[] = []
@@ -522,6 +536,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       const stagedPlanClosures: IntendedPairingClosure[] = []
       const stagedSettings: MinistrySettings[] = []
       const stagedShortNames: ShortNameChange[] = []
+      const stagedIntakeForms: IntakeFormSaving[] = []
       const stagedAddedGoals: NewDiscipleshipGoal[] = []
       const stagedRenamedGoals: DiscipleshipGoalRenaming[] = []
       const stagedGoalOrders: DiscipleshipGoalOrder[] = []
@@ -819,6 +834,17 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         async changeShortName(change) {
           stagedShortNames.push(change)
         },
+        async intakeForm(name) {
+          const saved = store.intakeForms.filter((form) => form.name === name)
+          return saved[saved.length - 1] ?? presetForm(name)
+        },
+        async intakeFormVersion(name, version) {
+          if (version === 0) return presetForm(name)
+          return store.intakeForms.find((form) => form.name === name && form.version === version) ?? null
+        },
+        async saveIntakeForm(saving) {
+          stagedIntakeForms.push(saving)
+        },
         async recordIntake(intake) {
           if (store.failOn === 'recordIntake') throw new Error('Intake unavailable')
           stagedIntakes.push(intake)
@@ -927,6 +953,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       planClosures.push(...stagedPlanClosures)
       settingsSaved.push(...stagedSettings)
       shortNamesChanged.push(...stagedShortNames)
+      intakeFormsSaved.push(...stagedIntakeForms)
       addedGoals.push(...stagedAddedGoals)
       renamedGoals.push(...stagedRenamedGoals)
       goalOrders.push(...stagedGoalOrders)

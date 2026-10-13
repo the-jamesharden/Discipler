@@ -66,7 +66,9 @@ import type {
   RelationshipCancellation,
   RelationshipEnding,
   ShortNameChange,
+  IntakeFormSaving,
 } from '~/domain/effects'
+import type { IntakeForm } from '~/domain/intake-form'
 import type {
   FollowUpPayload,
   FollowUpResolution,
@@ -87,7 +89,15 @@ import type { InvitationToken, NewInvitation } from '~/domain/invitations'
 import type { MinistrySetupState, NewMinistrySetup } from '~/domain/ministry-setup'
 import type { MinistrySetupRefusal } from '~/domain/errors'
 import type { HistoryEvent, NewHistoryEvent } from '~/domain/history'
-import type { AgeBand, AvailabilitySlot, DeclaredSide, DiscipleshipGoalId, Gender, OtherGoal } from '~/domain/intake'
+import type {
+  AgeBand,
+  AvailabilitySlot,
+  DeclaredSide,
+  DiscipleshipGoalId,
+  Gender,
+  IntakePath,
+  OtherGoal,
+} from '~/domain/intake'
 import type {
   ConcernId,
   FollowUpItemId,
@@ -571,6 +581,24 @@ export interface UnitOfWork {
    * when another Ministry holds it or ever held it, which only the database can see.
    */
   changeShortName(change: ShortNameChange): Promise<void>
+
+  /**
+   * One of this Ministry's Intake forms as it stands now (Pastor feedback, ticket
+   * 11): its latest saved version, or the preset where it has never been edited.
+   * Read behind a lock on that form, so two Admins saving at once cannot both
+   * decide against the same version and both claim the next number.
+   */
+  intakeForm(form: IntakePath): Promise<IntakeForm>
+
+  /**
+   * One version of one of this Ministry's Intake forms, as somebody opened it:
+   * the preset for version 0, a saved version otherwise, and null for a version
+   * this Ministry never saved. Versions are never changed, so this takes no lock.
+   */
+  intakeFormVersion(form: IntakePath, version: number): Promise<IntakeForm | null>
+
+  /** The next version of one of this Ministry's Intake forms. */
+  saveIntakeForm(saving: IntakeFormSaving): Promise<void>
 
   /**
    * Every Discipleship Goal option this Ministry offers, in the order the form
@@ -1497,6 +1525,16 @@ export interface IntakePage {
 }
 
 /**
+ * The mentor and mentee form's wizard: the Intake page, with the version of the
+ * Ministry's form it is serving (Pastor feedback, ticket 11) -- the one the
+ * Person opened, carried in the URL from screen to screen, or the form as it
+ * stands now for somebody arriving fresh.
+ */
+export interface IntakeWizardPage extends IntakePage {
+  readonly form: IntakeForm
+}
+
+/**
  * The same page, reopened by the one Person a token names, with what they last
  * told this Ministry already in it.
  *
@@ -1574,6 +1612,12 @@ export interface IntakeFormsPage {
    * which the field at the top of the page edits (Pastor feedback, ticket 04).
    */
   readonly shortName: ShortName
+  /**
+   * Both of the Ministry's Intake forms as they stand, each its latest saved
+   * version or the preset where it has never been edited (Pastor feedback,
+   * ticket 11).
+   */
+  readonly forms: Readonly<Record<IntakePath, IntakeForm>>
 }
 
 export interface IntakeFormsReader {
@@ -1625,14 +1669,20 @@ export interface GroupIntakePage {
    * the submission checks the same thing again in the domain.
    */
   readonly groups: readonly JoinableGroup[]
+  /** The version of the Ministry's groups form being served, as on `IntakeWizardPage`. */
+  readonly form: IntakeForm
 }
 
 export interface IntakeReader {
-  /** Null when the link names no Ministry this Discipler holds. */
-  readIntakePage(id: string): Promise<IntakePage | null>
+  /**
+   * Null when the link names no Ministry this Discipler holds. `version` is the
+   * version of the form the Person opened; one this Ministry never saved, or
+   * none, is served the form as it stands now.
+   */
+  readIntakePage(id: string, version?: number | null): Promise<IntakeWizardPage | null>
 
   /** The same Ministry's group form. Null for the same reason. */
-  readGroupIntakePage(id: string): Promise<GroupIntakePage | null>
+  readGroupIntakePage(id: string, version?: number | null): Promise<GroupIntakePage | null>
 
   /** Null when the token names nobody. Expired links still answer. */
   readReopenedIntakePage(token: string): Promise<ReopenedIntakePage | null>

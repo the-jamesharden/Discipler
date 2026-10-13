@@ -9,7 +9,8 @@ import {
   REQUESTED_HEADING,
   requestedMessage,
 } from '../../copy'
-import { firstValue } from '../../wizard-machine'
+import { firstValue, readPreview, readVersion } from '../../wizard-machine'
+import { PreviewNotice } from '../../wizard-shell'
 
 /**
  * What a Person sees the moment the group form submits. The Welcome Message is
@@ -20,19 +21,28 @@ import { firstValue } from '../../wizard-machine'
  * The group arrives as an identifier in the query string and is looked up against
  * the groups the link offers, never rendered. A group nothing recognises is said
  * without a name rather than in a guess.
+ *
+ * Under it, the thank-you of the version of the Ministry's groups form they
+ * answered, where the Ministry has written one (Pastor feedback, ticket 11).
  */
 export default async function GroupIntakeDonePage({
   params,
   searchParams,
 }: {
   params: Promise<{ ministry: string }>
-  searchParams: Promise<{ groupId?: string | string[]; outcome?: string | string[] }>
+  searchParams: Promise<{
+    groupId?: string | string[]
+    outcome?: string | string[]
+    v?: string | string[]
+    preview?: string | string[]
+  }>
 }) {
   const { ministry } = await params
   const query = await searchParams
 
-  const page = await getIntakeReader().readGroupIntakePage(ministry)
+  const page = await getIntakeReader().readGroupIntakePage(ministry, readVersion(query.v))
   if (!page) notFound()
+  const preview = readPreview(query.preview)
 
   const asked = firstValue(query.groupId)
   const group = page.groups.find((each) => each.relationshipId === asked) ?? null
@@ -59,6 +69,7 @@ export default async function GroupIntakeDonePage({
 
   return (
     <Centred ministryName={page.ministryName}>
+      {preview ? <PreviewNotice /> : null}
       <div className="tick" aria-hidden="true">
         ✓
       </div>
@@ -66,6 +77,11 @@ export default async function GroupIntakeDonePage({
       <p className="muted" style={{ textAlign: 'center' }}>
         {message} We’ve texted you to confirm.
       </p>
+      {page.form.thankYou ? (
+        <p className="muted" style={{ textAlign: 'center' }}>
+          {page.form.thankYou}
+        </p>
+      ) : null}
       <p className="card-note">You can close this page.</p>
     </Centred>
   )

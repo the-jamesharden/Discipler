@@ -60,12 +60,44 @@ type FieldOf<L extends ChoiceLists> = keyof L | 'availability'
 export interface Screen<L extends ChoiceLists> {
   readonly asks: readonly FieldOf<L>[]
   readonly rewords: readonly FieldOf<L>[]
+  /**
+   * What the screen asks that may be left unanswered, because the Ministry's
+   * form made it optional (Pastor feedback, ticket 11). Asked and not carried
+   * like everything else on the screen, and never what stops somebody moving on.
+   */
+  readonly optional?: readonly FieldOf<L>[]
 }
 
 export type WizardQuery = Record<string, string | string[] | undefined>
 
 /** How somebody reached the wizard. Anything else is the link, which is the primary path. */
 export type IntakeVia = 'link' | 'qr'
+
+/**
+ * Which version of the Ministry's form somebody opened, and whether it is an
+ * Admin's preview (Pastor feedback, ticket 11). Carried from screen to screen
+ * like the answers, so somebody part-way through is served the version they
+ * started however the form is edited meanwhile, and a preview stays a preview
+ * to the end, where it records nothing.
+ */
+export interface FormPin {
+  readonly version: number
+  readonly preview: boolean
+}
+
+/**
+ * The version a URL names, or null for none: a whole number from 0 up. A
+ * version this Ministry never saved is the reader's to replace with the form
+ * as it stands.
+ */
+export const readVersion = (value: string | string[] | null | undefined): number | null => {
+  const raw = firstValue(value) ?? ''
+  return /^\d{1,9}$/.test(raw) ? Number.parseInt(raw, 10) : null
+}
+
+/** Whether a URL or a form says this is an Admin's preview. Only `1` is. */
+export const readPreview = (value: string | string[] | null | undefined): boolean =>
+  firstValue(value) === '1'
 
 /**
  * The first value under a name, for the several places a query string may honestly
@@ -167,16 +199,19 @@ export const defineWizard = <L extends ChoiceLists>(
     }) as Answers
 
   /**
-   * How far these answers reach: the first screen whose question is still
+   * How far these answers reach: the first screen with a required question still
    * unanswered.
    *
    * One rule rather than a guard per screen. Somebody who edits the step in the
    * URL gets the earliest screen they have not answered -- which is what they
-   * would have been shown anyway.
+   * would have been shown anyway. A question the form made optional stops
+   * nobody, answered or not.
    */
   const furthestStep = (answers: Answers): number => {
     const unanswered = screens.findIndex((screen) =>
-      screen.asks.some((field) => !answered(answers, field)),
+      screen.asks.some(
+        (field) => !(screen.optional ?? []).includes(field) && !answered(answers, field),
+      ),
     )
     return unanswered === -1 ? LAST_STEP : unanswered + 1
   }
@@ -213,10 +248,17 @@ export const defineWizard = <L extends ChoiceLists>(
    * carries exactly the answers Discipler recognises and nothing somebody typed
    * into a URL.
    */
-  const answersAsQuery = (answers: Answers, via: IntakeVia, step: number): URLSearchParams => {
+  const answersAsQuery = (
+    answers: Answers,
+    via: IntakeVia,
+    step: number,
+    pin?: FormPin,
+  ): URLSearchParams => {
     const params = new URLSearchParams()
     params.set('step', String(step))
     if (via === 'qr') params.set('via', 'qr')
+    if (pin) params.set('v', String(pin.version))
+    if (pin?.preview) params.set('preview', '1')
     for (const field of CHOICE_FIELDS) {
       const answer = answers[field]
       if (answer !== null) params.set(field, answer)

@@ -315,6 +315,15 @@ describe('applying a command\'s effects', () => {
         changeShortName: async () => {
           throw new Error('the short name should not have been changed')
         },
+        intakeForm: async () => {
+          throw new Error('no Intake form should have been read')
+        },
+        intakeFormVersion: async () => {
+          throw new Error('no version of an Intake form should have been read')
+        },
+        saveIntakeForm: async () => {
+          throw new Error('no Intake form should have been saved')
+        },
         recordIntake: async () => {
           throw new Error('Intake should not have been touched')
         },

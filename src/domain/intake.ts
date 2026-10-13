@@ -298,6 +298,8 @@ export type IntakeRefusal =
   | 'intake.contact_sharing_undecided'
   | 'intake.source_unknown'
   | 'intake.email_unreadable'
+  /** The form asks for an email and none was given (Pastor feedback, ticket 11). */
+  | 'intake.email_missing'
   /**
    * The wizard's first screen, unanswered, and its third. Both are ordinary
    * refusals a Person can act on: they name a screen they can go back to.
@@ -358,11 +360,38 @@ export type IntakeReading =
   | { readonly refusals: readonly IntakeRefusal[] }
 
 /**
+ * The questions today's forms will not take a submission without: everything but
+ * the email. What a submission is read against when it names no form of the
+ * Ministry's own -- the tokenized reopen link, which is not the wizard -- and the
+ * required flags of every Ministry's preset form (`presetForm`).
+ */
+export const REQUIRED_TODAY: ReadonlySet<string> = new Set([
+  'side',
+  'ageBand',
+  'gender',
+  'experience',
+  'availability',
+  'goalId',
+  'groupId',
+  'fullName',
+  'phone',
+])
+
+/**
  * Reads one submitted form. The order of the checks is the order of the fields on
  * the page, so the list of refusals reads top to bottom the way the Person filled
  * it in.
+ *
+ * `required` is the form's own say on which questions may be left unanswered
+ * (Pastor feedback, ticket 11): the version of the Ministry's form the Person
+ * opened, by question key. Only the questions an Admin may make optional read it
+ * -- the email, the first-time question and the goal -- because every other one
+ * is required by Discipler whatever a form says (`BUILT_IN` in `intake-form.ts`).
  */
-export const readIntakeForm = (fields: IntakeFormFields): IntakeReading => {
+export const readIntakeForm = (
+  fields: IntakeFormFields,
+  required: ReadonlySet<string> = REQUIRED_TODAY,
+): IntakeReading => {
   const refusals: IntakeRefusal[] = []
 
   // The wizard's first and third screens, read first because that is where they
@@ -386,7 +415,9 @@ export const readIntakeForm = (fields: IntakeFormFields): IntakeReading => {
 
   if (askedTheSide) {
     if (declaredSide === null) refusals.push('intake.side_unknown')
-    if (experience === null) refusals.push('intake.first_time_unanswered')
+    if (experience === null && required.has('experience')) {
+      refusals.push('intake.first_time_unanswered')
+    }
   } else if (fields.declaredSide !== null || fields.experience !== null) {
     // An answer with no question. Refused rather than dropped, because dropping it
     // writes a consent record that says a Person was asked nothing when they were
@@ -445,7 +476,7 @@ export const readIntakeForm = (fields: IntakeFormFields): IntakeReading => {
   // Asked of every form but the group one, which has a question of its own in the
   // Goal's place.
   const goalId = fields.goalId?.trim() || null
-  if (!goalId && !askedTheGroup) refusals.push('intake.goal_not_selected')
+  if (!goalId && !askedTheGroup && required.has('goalId')) refusals.push('intake.goal_not_selected')
 
   // Other, and the words that make it an answer. Choosing it with the box empty
   // is not choosing a goal, so it is refused as the unchosen goal is. Words in the
@@ -473,6 +504,7 @@ export const readIntakeForm = (fields: IntakeFormFields): IntakeReading => {
 
   const raw = fields.email?.trim() || null
   const email = raw === null ? null : asEmail(raw)
+  if (raw === null && required.has('email')) refusals.push('intake.email_missing')
   if (raw !== null && email === null) refusals.push('intake.email_unreadable')
 
   if (refusals.length > 0) return { refusals }
@@ -484,7 +516,7 @@ export const readIntakeForm = (fields: IntakeFormFields): IntakeReading => {
       email,
       ageBand: fields.ageBand as AgeBand,
       gender: fields.gender as Gender,
-      goalId: askedTheGroup || choseOther ? null : discipleshipGoalId(goalId!),
+      goalId: askedTheGroup || choseOther || !goalId ? null : discipleshipGoalId(goalId),
       goalOther: askedTheGroup ? null : goalOther,
       availability,
       smsConsent: true,

@@ -18,7 +18,8 @@ export interface TypedLink {
   readonly label: string | null
 }
 import type { MinistrySettingsFields } from './ministry-settings'
-import type { DiscipleshipGoalId, Gender, IntakeFormFields } from './intake'
+import type { DiscipleshipGoalId, Gender, IntakeFormFields, IntakePath } from './intake'
+import type { FormText, MoveDirection, PageLayout } from './intake-form'
 import type { IntakeLinkToken } from './intake-link'
 import type { InvitationToken } from './invitations'
 import type { PausePeriodWeeks } from './pause'
@@ -103,6 +104,13 @@ export type Command =
        * second one.
        */
       readonly token?: IntakeLinkToken
+      /**
+       * Which version of the Ministry's form the Person opened, which is the one
+       * they were shown to the end and the one their answers are read against
+       * (Pastor feedback, ticket 11). Absent on a form that is not one of the
+       * Ministry's two -- the tokenized reopen link -- which is read as today's.
+       */
+      readonly formVersion?: number
     }
   /**
    * An Admin issuing a Person the link that reopens their own Intake form,
@@ -699,6 +707,75 @@ export type Command =
       readonly shortName: string
       /** The Admin's account, as the session named it, for the record. */
       readonly changedBy: string
+    }
+  /**
+   * The six ways an Admin edits one of the Ministry's two Intake forms (Pastor
+   * feedback, ticket 11). Each is saved as it is made and is live at once: the
+   * form is saved as a new version, which everybody who opens it from then on is
+   * served, while somebody already part-way through finishes the one they opened.
+   *
+   * Everything arrives as typed. What counts as wording, which questions must stay
+   * required and where each may be asked are rules, and live on the domain side of
+   * this boundary (`intake-form.ts`).
+   */
+  | {
+      readonly type: 'intake_form.edit_question'
+      readonly ministryId: MinistryId
+      readonly form: IntakePath
+      readonly key: string
+      readonly wording: string
+      /** The first-time question's wording for somebody to be mentored. */
+      readonly menteeWording: string | null
+      readonly hint: string
+      readonly required: boolean
+      /** The Admin's account, as the session named it, for the record. */
+      readonly editedBy: string
+    }
+  /**
+   * The whole form in the order an Admin dragged it into: every page, and each
+   * page's questions top to bottom. The whole order rather than a move, for the
+   * reason `goal.reorder` gives: a drag can land a question anywhere, and the page
+   * transmits the Admin's act rather than computing it.
+   */
+  | {
+      readonly type: 'intake_form.arrange'
+      readonly ministryId: MinistryId
+      readonly form: IntakePath
+      readonly layout: readonly PageLayout[]
+      readonly editedBy: string
+    }
+  /** One question, one place up or down, for an editor whose script has not run. */
+  | {
+      readonly type: 'intake_form.move_question'
+      readonly ministryId: MinistryId
+      readonly form: IntakePath
+      readonly key: string
+      readonly direction: MoveDirection
+      readonly editedBy: string
+    }
+  | {
+      readonly type: 'intake_form.add_page'
+      readonly ministryId: MinistryId
+      readonly form: IntakePath
+      readonly name: string
+      readonly editedBy: string
+    }
+  | {
+      readonly type: 'intake_form.rename_page'
+      readonly ministryId: MinistryId
+      readonly form: IntakePath
+      readonly pageId: string
+      readonly name: string
+      readonly editedBy: string
+    }
+  /** The intro on the first page, or the thank-you after Submit. */
+  | {
+      readonly type: 'intake_form.edit_text'
+      readonly ministryId: MinistryId
+      readonly form: IntakePath
+      readonly which: FormText
+      readonly text: string
+      readonly editedBy: string
     }
   /**
    * *Not my number.* It changes nothing -- a forwarded link can never re-point an

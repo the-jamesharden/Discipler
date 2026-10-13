@@ -4,13 +4,14 @@ import { Centred } from '../../../shell'
 import { refusalMessages } from '../../copy'
 import { IntakeWizard } from '../../wizard'
 import {
+  discipleshipWizardFor,
   firstValue,
+  readPreview,
+  readVersion,
   readVia,
-  readWizardAnswers,
-  stepToShow,
-  stuckOnAvailability,
   type WizardQuery,
 } from '../../wizard-answers'
+import { PreviewNotice } from '../../wizard-shell'
 
 /**
  * The discipleship Intake link: a second link for the same Ministry, opening a
@@ -23,6 +24,11 @@ import {
  *
  * Like the page beside it, this is ordinary forms and no JavaScript. It is filled
  * in by somebody who will never have an account.
+ *
+ * Its screens are the version of the Ministry's form the visitor opened (Pastor
+ * feedback, ticket 11): the URL carries the version from screen to screen, and
+ * a visitor arriving fresh is served the form as it stands. `?preview=1` is an
+ * Admin's *Preview form*, which is the same form and records nothing.
  */
 export default async function DiscipleshipIntakePage({
   params,
@@ -34,12 +40,14 @@ export default async function DiscipleshipIntakePage({
   const { ministry } = await params
   const query = await searchParams
 
-  const page = await getIntakeReader().readIntakePage(ministry)
+  const page = await getIntakeReader().readIntakePage(ministry, readVersion(query.v))
   if (!page) notFound()
 
-  const answers = readWizardAnswers(query)
-  const step = stepToShow(query.step, answers)
+  const wizard = discipleshipWizardFor(page.form)
+  const answers = wizard.readAnswers(query)
+  const step = wizard.stepToShow(query.step, answers)
   const via = readVia(query.via)
+  const preview = readPreview(query.preview)
   const refused = firstValue(query.refused)
   // The codes a refused submission came back with, and the one this page can raise
   // on its own: Continue with nothing ticked on the grid. Both, because a refused
@@ -48,7 +56,7 @@ export default async function DiscipleshipIntakePage({
   // back round to discover the others one at a time.
   const problems = refusalMessages(
     refused,
-    stuckOnAvailability(query.step, answers) ? 'intake.availability_not_selected' : undefined,
+    wizard.stuckOnAvailability(query.step, answers) ? 'intake.availability_not_selected' : undefined,
   )
 
   const here = `/intake/${page.ministryId}/discipleship`
@@ -56,6 +64,7 @@ export default async function DiscipleshipIntakePage({
   return (
     <Centred ministryName={page.ministryName}>
       <p className="visually-hidden">{`Join discipleship at ${page.ministryName}`}</p>
+      {preview ? <PreviewNotice /> : null}
       {problems.length > 0 ? (
         <div className="toast error" role="alert">
           <p>Please check the following:</p>
@@ -75,6 +84,8 @@ export default async function DiscipleshipIntakePage({
         ministryName={page.ministryName}
         goals={page.goals}
         via={via}
+        form={page.form}
+        preview={preview}
       />
     </Centred>
   )

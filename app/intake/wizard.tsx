@@ -1,35 +1,9 @@
-import { DECLARED_SIDES, EXPERIENCE_ANSWERS } from '~/domain/intake'
+import { askedPages, type IntakeForm } from '~/domain/intake-form'
 import type { DiscipleshipGoalOption } from '~/service/ports'
+import { Agreements, AskedQuestion, NOTHING_PREFILLED, type Answering } from './fields'
 import {
-  DONE_BEFORE_ANSWER,
-  DONE_BEFORE_DESCRIPTION,
-  FIRST_TIME_ANSWER,
-  FIRST_TIME_DESCRIPTION,
-  FIRST_TIME_HELP,
-  firstTimeQuestion,
-  SIDE_QUESTION,
-  sideDescription,
-  sideLabel,
-  stepSubtitle,
-} from './copy'
-import {
-  AgeBandField,
-  Agreements,
-  AvailabilityGrid,
-  ContactFields,
-  GenderField,
-  GoalField,
-  NOTHING_PREFILLED,
-} from './fields'
-import {
-  AGE_AND_GENDER_STEP,
-  answersAsQuery,
-  AVAILABILITY_STEP,
-  discipleshipWizard,
-  FIRST_TIME_STEP,
-  furthestStep,
-  LAST_STEP,
-  SIDE_STEP,
+  discipleshipWizardFor,
+  type FormPin,
   type IntakeVia,
   type WizardAnswers,
 } from './wizard-answers'
@@ -44,20 +18,19 @@ import { FormActions, Hidden, Progress, StepForm } from './wizard-shell'
  * preference the Person stated, and the second is the weaker of the two claims,
  * which is the point -- leading stays a plan an Admin records (ticket 16).
  *
- * Both sides are asked the same five things in the same order and differ only in
- * wording, which lives in `copy.ts` as a record keyed on the side. The fields
- * themselves are the ones the group form asks, imported rather than restated:
- * `Agreements` in particular is the wording a consent record points at by version,
- * and two forms drifting apart would make that version ambiguous.
+ * Its screens are the pages of the Ministry's own form (Pastor feedback, ticket
+ * 11), in the version the Person opened: each page's name is the line at the top
+ * of its screen, and its questions are asked in the order and the words the form
+ * has them. A Ministry that never edited is served the preset, which is the five
+ * screens the wizard always had. The fields themselves are the ones the group form
+ * asks, imported rather than restated: `Agreements` in particular is the wording a
+ * consent record points at by version, and two forms drifting apart would make
+ * that version ambiguous.
  *
- * Steps one to four are GET forms back to this same page; step five is the only
- * POST, and it is the only write. An abandoned wizard leaves nothing behind. The
- * screens are the Make project's, drawn server-side: the option buttons are labels
- * around radios, and the progress bar is a number the page already knows.
- *
- * Which screen is which is read from `wizard-answers` by name and never by
- * position, for the reason the screen list gives: the order is written down in one
- * place, and a screen added in the middle must not have to be found again here.
+ * Every screen but the last is a GET form back to this same page; the last is the
+ * only POST, and it is the only write. An abandoned wizard leaves nothing behind.
+ * The screens are the Make project's, drawn server-side: the option buttons are
+ * labels around radios, and the progress bar is a number the page already knows.
  */
 
 export const IntakeWizard = ({
@@ -68,116 +41,67 @@ export const IntakeWizard = ({
   ministryName,
   goals,
   via,
+  form,
+  preview,
 }: {
   readonly step: number
   readonly answers: WizardAnswers
-  /** The wizard's own URL. Steps one to four come back to it. */
+  /** The wizard's own URL. Every screen but the last comes back to it. */
   readonly here: string
   readonly submitTo: string
   readonly ministryName: string
   readonly goals: readonly DiscipleshipGoalOption[]
   readonly via: IntakeVia
+  /** The version of the Ministry's form this visitor opened. */
+  readonly form: IntakeForm
+  /** An Admin's preview, which records nothing. */
+  readonly preview: boolean
 }) => {
+  const wizard = discipleshipWizardFor(form)
+  const pin: FormPin = { version: form.version, preview }
+
   // The screen actually shown. Clamped here as well as on the page, because the
   // step after this one is now derived from it: a component handed a step the
   // answers do not reach would otherwise render one screen and name another on its
   // Continue button.
-  const at = Math.min(Math.max(step, SIDE_STEP), furthestStep(answers))
+  const at = Math.min(Math.max(step, wizard.FIRST_STEP), wizard.furthestStep(answers))
+  const page = askedPages(form)[at - 1]
+  if (!page) throw new Error(`The form has no page ${at} to show`)
 
-  // Never null on a screen that reads it, because `at` cannot reach one until the
-  // first question is answered. Narrowed here once so the wording lookups below are
-  // not each asserting it.
-  const side = answers.side
+  const back =
+    at === wizard.FIRST_STEP ? null : `${here}?${wizard.answersAsQuery(answers, via, at - 1, pin)}`
 
-  const wizard = discipleshipWizard
-  const back = at === SIDE_STEP ? null : `${here}?${answersAsQuery(answers, via, at - 1)}`
+  const answering: Answering = {
+    prefill: {
+      ...NOTHING_PREFILLED,
+      ageBand: answers.ageBand,
+      gender: answers.gender,
+      availability: answers.availability,
+    },
+    side: answers.side,
+    experience: answers.experience,
+    goals,
+    groups: [],
+    groupChosen: null,
+    ministryName,
+  }
+  const questions = page.questions.map((question) => (
+    <AskedQuestion key={question.key} question={question} answering={answering} />
+  ))
 
   const screen = (children: React.ReactNode) => (
     <>
-      <p className="sub">{stepSubtitle[at] ?? ''}</p>
-      <Progress at={at} of={LAST_STEP} />
+      <p className="sub">{page.name}</p>
+      <Progress at={at} of={wizard.LAST_STEP} />
+      {at === wizard.FIRST_STEP && form.intro ? <p className="card-lead">{form.intro}</p> : null}
       {children}
     </>
   )
 
-  if (at === SIDE_STEP || side === null) {
+  if (at < wizard.LAST_STEP) {
     return screen(
-      <StepForm wizard={wizard} at={at} answers={answers} via={via} here={here} back={back}>
-        <fieldset>
-          <legend>{SIDE_QUESTION}</legend>
-          {/* Nothing else on the screen. The first-time question and the closing
-              line are worded from this answer, so anything beside it would be
-              said in words that do not yet exist -- which is also why answering
-              it again drops the first-time answer rather than carrying it. */}
-          <div className="choices stack">
-            {DECLARED_SIDES.map((option) => (
-              <label key={option} className="option" htmlFor={`side:${option}`}>
-                <input
-                  id={`side:${option}`}
-                  type="radio"
-                  name="side"
-                  value={option}
-                  required
-                  defaultChecked={answers.side === option}
-                />
-                <span className="option-title">{sideLabel[option]}</span>
-                <span className="option-desc">{sideDescription[option]}</span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
-      </StepForm>,
-    )
-  }
-
-  if (at === AGE_AND_GENDER_STEP) {
-    return screen(
-      <StepForm wizard={wizard} at={at} answers={answers} via={via} here={here} back={back}>
-        <AgeBandField prefill={{ ...NOTHING_PREFILLED, ageBand: answers.ageBand }} />
-        <GenderField prefill={{ ...NOTHING_PREFILLED, gender: answers.gender }} />
-      </StepForm>,
-    )
-  }
-
-  if (at === FIRST_TIME_STEP) {
-    return screen(
-      <StepForm wizard={wizard} at={at} answers={answers} via={via} here={here} back={back}>
-        <fieldset>
-          <legend>{firstTimeQuestion[side]}</legend>
-          <p className="subtle">{FIRST_TIME_HELP}</p>
-          {/* Two answers, worded as statements rather than as yes and no, so
-              the answer is legible without the question. The values say the
-              same thing the labels do, for the reason the labels are worded
-              this way at all. */}
-          <div className="choices stack">
-            {EXPERIENCE_ANSWERS.map((option) => (
-              <label key={option} className="option" htmlFor={`experience:${option}`}>
-                <input
-                  id={`experience:${option}`}
-                  type="radio"
-                  name="experience"
-                  value={option}
-                  required
-                  defaultChecked={answers.experience === option}
-                />
-                <span className="option-title">
-                  {option === 'first_time' ? FIRST_TIME_ANSWER : DONE_BEFORE_ANSWER}
-                </span>
-                <span className="option-desc">
-                  {option === 'first_time' ? FIRST_TIME_DESCRIPTION : DONE_BEFORE_DESCRIPTION}
-                </span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
-      </StepForm>,
-    )
-  }
-
-  if (at === AVAILABILITY_STEP) {
-    return screen(
-      <StepForm wizard={wizard} at={at} answers={answers} via={via} here={here} back={back}>
-        <AvailabilityGrid availability={answers.availability} />
+      <StepForm wizard={wizard} at={at} answers={answers} via={via} pin={pin} here={here} back={back}>
+        {questions}
       </StepForm>,
     )
   }
@@ -187,13 +111,13 @@ export const IntakeWizard = ({
     // are here rather than earlier because the checkbox that grants consent
     // belongs on the same screen as the write it authorises -- and the design's
     // missing screen was added here, beside the goal, for that reason (decision 5
-    // of ticket 31).
+    // of ticket 31). The form keeps every question typed into on this page, so
+    // nothing typed ever travels in a URL.
     <form method="post" action={submitTo}>
-      {/* Nothing is asked again here, so everything is carried. */}
-      <Hidden wizard={wizard} answers={answers} via={via} />
+      {/* Everything the earlier screens asked, carried; what this one asks, not. */}
+      <Hidden wizard={wizard} answers={answers} via={via} pin={pin} dropping={wizard.notCarriedAt(at)} />
 
-      <GoalField goals={goals} prefill={NOTHING_PREFILLED} />
-      <ContactFields prefill={NOTHING_PREFILLED} />
+      {questions}
       <Agreements ministryName={ministryName} prefill={NOTHING_PREFILLED} />
 
       <FormActions back={back} action="Submit" />
