@@ -184,6 +184,12 @@ describe.skipIf(skipUnlessAppIsRunning)('the Intake form editor, over HTTP', () 
     const { html: open } = await getPage('/intake-forms?form=discipleship&question=gender', cookie)
     expect(open).toContain('action="/intake-forms/form/question"')
     expect(open).toContain('Hint under it')
+    // Boxes that wrap, so an Admin on a phone reads the whole wording they are
+    // editing rather than the first few words of it.
+    expect(open).toMatch(/<textarea[^>]*name="wording"/)
+    expect(open).toMatch(/<textarea[^>]*name="hint"/)
+    const { html: experience } = await getPage('/intake-forms?form=discipleship&question=experience', cookie)
+    expect(experience).toMatch(/<textarea[^>]*name="menteeWording"/)
 
     const { location } = await post('/intake-forms/form/question', {
       form: 'discipleship',

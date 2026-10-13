@@ -57,7 +57,9 @@ import {
  * titled with its number and name, the first with its intro and the last with its
  * thank-you in its head, and every question is a row with its wording and chips
  * saying what kind it is, whether it is optional and what in the product uses it.
- * *Edit* opens the row in place: wording, hint and *Required*. Saving makes it live
+ * *Edit* opens the row in place: wording, hint and *Required*. The wording and the
+ * hint are boxes that wrap rather than one-line fields, so an Admin on a phone reads
+ * the whole of what they are editing. Saving makes it live
  * at once, as the form's next version, and the row says so.
  *
  * Everything is an ordinary form or link, so the editor works before any script
@@ -404,10 +406,10 @@ const QuestionRow = ({
               <label htmlFor={`fe-wording-${question.key}`}>
                 {question.menteeWording !== null ? MENTOR_WORDING : QUESTION}
               </label>
-              <input
+              <textarea
                 id={`fe-wording-${question.key}`}
                 name="wording"
-                type="text"
+                rows={1}
                 required
                 defaultValue={question.wording}
               />
@@ -415,10 +417,10 @@ const QuestionRow = ({
             {question.menteeWording !== null ? (
               <div>
                 <label htmlFor={`fe-mentee-${question.key}`}>{MENTEE_WORDING}</label>
-                <input
+                <textarea
                   id={`fe-mentee-${question.key}`}
                   name="menteeWording"
-                  type="text"
+                  rows={1}
                   required
                   defaultValue={question.menteeWording}
                 />
@@ -426,7 +428,7 @@ const QuestionRow = ({
             ) : null}
             <div>
               <label htmlFor={`fe-hint-${question.key}`}>{HINT}</label>
-              <input id={`fe-hint-${question.key}`} name="hint" type="text" defaultValue={question.hint ?? ''} />
+              <textarea id={`fe-hint-${question.key}`} name="hint" rows={1} defaultValue={question.hint ?? ''} />
             </div>
             <div className="row2">
               <div>

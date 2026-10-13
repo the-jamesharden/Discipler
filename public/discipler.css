@@ -315,6 +315,9 @@ button.fe-handle:active { cursor: grabbing; }
 .fe-edit { display: grid; gap: 0.7rem; margin-top: 0.6rem; }
 .fe-edit label:not(.check) { font-size: 0.8rem; color: var(--text-light); display: block; margin-bottom: 0.2rem; }
 .fe-edit input[type="text"], .fe-edit select { width: 100%; margin: 0; padding: 0.5rem 0.6rem; font-size: 0.9rem; }
+/* The wording and the hint wrap, and grow to what they hold where the browser can
+   size a box to its content; a desktop row reads as the mock-up's one-line field. */
+.fe-edit textarea { width: 100%; margin: 0; padding: 0.5rem 0.6rem; font-size: 0.9rem; line-height: 1.4; min-height: 0; height: auto; resize: vertical; field-sizing: content; }
 .fe-edit .row2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.7rem; }
 .fe-spacer { display: block; font-size: 0.8rem; margin-bottom: 0.2rem; }
 .fe-edit .check { display: flex; align-items: center; gap: 0.45rem; margin: 0.45rem 0 0; font-size: 0.88rem; color: var(--text); }
@@ -331,6 +334,10 @@ button.fe-handle:active { cursor: grabbing; }
   .fe-q { grid-template-columns: auto minmax(0, 1fr); padding: 0.65rem 0.75rem; gap: 0.3rem 0.6rem; }
   .fe-q-actions { grid-column: 2; justify-content: flex-start; }
   .fe-edit .row2 { grid-template-columns: minmax(0, 1fr); }
+  /* Where a box cannot grow to its content (Safari), three lines show a long
+     wording whole rather than its first few words. */
+  .fe-edit textarea { min-height: 4.6em; }
+  @supports (field-sizing: content) { .fe-edit textarea { min-height: 0; } }
   .fe-edit .fe-spacer { display: none; }
   .fe-page-head { padding: 0.6rem 0.75rem; }
 }
