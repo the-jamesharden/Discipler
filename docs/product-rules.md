@@ -289,6 +289,24 @@ The person is never locked out of answering; only Discipler's side of the conver
 
 The intake form is a native Discipler form, not a third-party form. The availability grid, versioned consent capture, and tokenized prefill are all impossible in a generic form product, and all three are load-bearing.
 
+## Settled: A Readable Link per Church
+
+Each Ministry has a **Short Name**, and its two Intake forms live at links built from it, readable enough to print on a bulletin and say from the pulpit (Pastor feedback, ticket 04; James, 2026-10-12).
+`/join/<short name>` opens the mentor and mentee form, and `/join/<short name>/groups` opens the groups form.
+`?via=qr` on either means what it always has: the Person arrived by scanning a QR code, and their consent record says so.
+
+A short name is lowercase letters, digits and single dashes between them, and is unique across Discipler.
+A Ministry is given one from its name when it opens, with `-2`, `-3` and so on added where another Ministry already has that name; every Ministry that existed when this shipped was given one the same way, oldest first.
+An Admin changes it on Intake forms, and the change is recorded in the Ministry's history with the name it replaced and who changed it.
+A name another Ministry has, or one of the app's own routes needs, is refused with a sentence saying why.
+
+**Every short name a Ministry has ever had keeps opening its forms, forever**, because QR codes get printed on bulletins.
+So a short name is never given back: no other Ministry can take a name a Ministry has let go of, and a Ministry may take back a name it held before.
+The older links by Ministry id, `/intake/<ministry id>` and `/intake/<ministry id>/discipleship`, keep working too; nothing hands them out any more.
+
+Intake forms shows the two readable links, and both QR codes encode them.
+No text Discipler sends hands out a Ministry's Intake link.
+
 ## Settled: Suggestion Tie-Breaking
 
 Candidates with identical availability overlap and the same Discipleship Goal are ordered by who has waited longest since completing intake.

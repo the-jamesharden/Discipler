@@ -1,6 +1,6 @@
 import type { CheckInQuestion, CheckInWording } from './check-in'
 import type { MaterialText } from './material-notices'
-import type { MinistryId } from './ids'
+import type { ShortName } from './short-name'
 import type { RelationshipKeyword } from './keywords'
 
 /**
@@ -192,15 +192,20 @@ export const intakeReopenLink = (baseUrl: string, token: string): string =>
   `${host(baseUrl)}/intake/reopen/${token}`
 
 /**
- * The one Intake link a whole Ministry hands out. It names the Ministry and carries
- * no token, which is what makes it printable: it goes on a bulletin and on a screen
- * in front of a room, so there is nothing on it that could be secret from anybody.
+ * The link a whole Ministry hands out for its mentor and mentee form: its short
+ * name, readable enough to print on a bulletin and say from the pulpit (Pastor
+ * feedback, ticket 04). It carries no token, which is what makes it printable --
+ * there is nothing on it that could be secret from anybody.
  *
- * Nothing composes this one into a message either. An Admin reads it off the Roster
+ * It opens the discipleship wizard, which asks first whether the Person is
+ * offering to mentor or asking to be mentored. The older `/intake/<ministry id>`
+ * links keep working; nothing hands them out any more.
+ *
+ * Nothing composes this one into a message. An Admin copies it off Intake forms
  * and sends it in whatever conversation they are already having.
  */
-export const ministryIntakeLink = (baseUrl: string, ministry: MinistryId): string =>
-  `${host(baseUrl)}/intake/${ministry}`
+export const ministryJoinLink = (baseUrl: string, shortName: ShortName): string =>
+  `${host(baseUrl)}/join/${shortName}`
 
 /**
  * The same link, for the QR code. The one difference between them is `?via=qr`, and
@@ -208,28 +213,22 @@ export const ministryIntakeLink = (baseUrl: string, ministry: MinistryId): strin
  * flag: the form turns it into `qr_code` rather than `pastor_link`, and a compliance
  * review asks which of those a Person's consent was recorded under.
  */
-export const ministryIntakeQrLink = (baseUrl: string, ministry: MinistryId): string =>
-  `${ministryIntakeLink(baseUrl, ministry)}?via=qr`
+export const ministryJoinQrLink = (baseUrl: string, shortName: ShortName): string =>
+  `${ministryJoinLink(baseUrl, shortName)}?via=qr`
 
 /**
- * The second link the same Ministry hands out: the discipleship wizard, which asks
- * first whether the Person is offering to mentor or asking to be mentored.
+ * The second link the same Ministry hands out: the groups form, for somebody who
+ * wants to join one of its groups.
  *
  * A second link and not a second form behind the first, because an Admin sends
- * whichever fits the conversation and prints whichever fits the room. It carries no
- * token either, for the same reason -- there is nothing on it that could be secret
- * from anybody.
+ * whichever fits the conversation and prints whichever fits the room.
  */
-export const ministryDiscipleshipIntakeLink = (
-  baseUrl: string,
-  ministry: MinistryId,
-): string => `${ministryIntakeLink(baseUrl, ministry)}/discipleship`
+export const ministryGroupsJoinLink = (baseUrl: string, shortName: ShortName): string =>
+  `${ministryJoinLink(baseUrl, shortName)}/groups`
 
 /** The same link, for its own QR code, differing in the one thing `source` records. */
-export const ministryDiscipleshipIntakeQrLink = (
-  baseUrl: string,
-  ministry: MinistryId,
-): string => `${ministryDiscipleshipIntakeLink(baseUrl, ministry)}?via=qr`
+export const ministryGroupsJoinQrLink = (baseUrl: string, shortName: ShortName): string =>
+  `${ministryGroupsJoinLink(baseUrl, shortName)}?via=qr`
 
 /**
  * Where a Leader sees everyone in what they lead and how to reach them. It carries

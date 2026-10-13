@@ -1,11 +1,12 @@
 import type { FollowUpRefusal, GroupRefusal, MaterialAssignmentRefusal } from '~/domain/errors'
 import type { Gender } from '~/domain/intake'
+import { SHORT_NAME_LONGEST, type ShortNameRefusal } from '~/domain/short-name'
 import { refusalIn } from '../refusals'
 import { REFUSALS } from '../roster/copy'
 
 /**
- * Everything the Intake forms page says in words: the two links, the captions under
- * their QR codes, the Groups panel that decides what the group link offers, and the
+ * Everything the Intake forms page says in words: the short name and the two links
+ * built from it, the captions under their QR codes, the Groups panel that decides what the group link offers, and the
  * people waiting to be admitted through it. All of it lived in `app/roster/copy.ts`
  * while these sat at the foot of the Roster; ticket 32 gave them a page of their own
  * and the words moved with them.
@@ -24,19 +25,72 @@ export const AWAITING_LEADER_ACCEPTANCE = 'Awaiting Leader Acceptance'
 export const INTAKE_FORMS = 'Intake forms'
 
 /**
+ * The card at the top of the page (Pastor feedback, ticket 04): the Ministry's
+ * short name, then the two forms side by side, each with its QR code, its
+ * readable link and the two things an Admin does with them. James's Lavish
+ * review of 2026-10-12 settled it with no helper sentences, so these are labels.
+ */
+export const SHORT_NAME_LABEL = "Your church's short name"
+export const SAVE_SHORT_NAME = 'Save'
+/**
+ * Said once the name has changed. The second sentence is the one worry an Admin
+ * has at that moment, and the product's answer to it.
+ */
+export const SHORT_NAME_SAVED =
+  'Saved. Links and QR codes printed with the old name still open your forms.'
+export const COPY_LINK = 'Copy link'
+export const LINK_COPIED = 'Copied.'
+export const DOWNLOAD_QR_CODE = 'Download QR code'
+
+/** The two forms, by the names the tiles give them. */
+export const MENTOR_AND_MENTEE_FORM = 'Mentor and mentee form'
+export const GROUPS_FORM = 'Groups form'
+
+/** What a screen reader is told each square is. */
+export const qrCodeAlt = (form: string, ministryName: string): string =>
+  `QR code opening the ${form.toLowerCase()} for ${ministryName}`
+
+/**
  * What is printed under each QR code, so the square answers *which form is this*
  * on its own.
  *
  * The Ministry's name and the form's, because both are questions somebody standing
  * in front of the poster may have and neither is answered by a square. An Admin
- * holds two of these and prints one; a room reads the one that got printed.
+ * holds two of these and prints one; a room reads the one that got printed. The
+ * form is named as its tile names it.
  */
 export const qrCodeCaption = {
-  // The original link, which since ticket 29 opens the group form. Captioned for
-  // what it opens now, so a room reads which form it is scanning.
-  intake: (ministryName: string) => `${ministryName} — Join a group`,
-  discipleship: (ministryName: string) => `${ministryName} — Discipleship`,
+  mentorAndMentee: (ministryName: string) => `${ministryName} - ${MENTOR_AND_MENTEE_FORM}`,
+  groups: (ministryName: string) => `${ministryName} - ${GROUPS_FORM}`,
 }
+
+/**
+ * What each downloaded square is called: the link it opens, spelled as a file,
+ * so an Admin with both in a folder of downloads can tell which is which.
+ */
+export const qrCodeFilename = {
+  mentorAndMentee: (shortName: string) => `${shortName}-qr-code.svg`,
+  groups: (shortName: string) => `${shortName}-groups-qr-code.svg`,
+}
+
+/**
+ * Why a short name was refused, in the Admin's words. The boundary and the
+ * database deal in codes; each sentence says what to do about it.
+ */
+const SHORT_NAME_REFUSALS: Record<ShortNameRefusal, string> = {
+  'short_name.missing': 'Give your church a short name. Both links are built from it.',
+  'short_name.unreadable':
+    'A short name uses only lowercase letters, digits and single dashes between words, like grace-church.',
+  'short_name.too_long': `A short name can be at most ${SHORT_NAME_LONGEST} characters, so it is easy to say and to type.`,
+  'short_name.reserved':
+    'That short name is one of Discipler’s own pages, so it cannot be a church’s. Try another.',
+  'short_name.taken':
+    'Another church has that short name, or had it once and its printed links still use it. Try another.',
+}
+
+/** The sentence for a refusal that came back on the query string, or null. */
+export const shortNameRefusalMessage = (code: string | undefined): string | null =>
+  refusalIn(SHORT_NAME_REFUSALS, code)
 
 /**
  * The Groups panel: every live group, named or not, with the two things an Admin

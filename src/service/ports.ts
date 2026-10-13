@@ -65,6 +65,7 @@ import type {
   PersonRenaming,
   RelationshipCancellation,
   RelationshipEnding,
+  ShortNameChange,
 } from '~/domain/effects'
 import type {
   FollowUpPayload,
@@ -75,6 +76,7 @@ import type { OfferedGoal, StatedGoal } from '~/domain/discipleship-goals'
 import type { MaterialItem, MaterialOnOffer } from '~/domain/materials'
 import type { MaterialRecipient } from '~/domain/material-notices'
 import type { MinistrySettings, MinistryVoice } from '~/domain/ministry-settings'
+import type { ShortName } from '~/domain/short-name'
 import type { IntakeLinkState, IntakeLinkToken, NewIntakeLink } from '~/domain/intake-link'
 import type { InboundSnapshot } from '~/domain/keywords'
 import type {
@@ -556,6 +558,19 @@ export interface UnitOfWork {
    * won.
    */
   saveMinistrySettings(settings: MinistrySettings): Promise<void>
+
+  /**
+   * The short name this Ministry goes by now, loaded on `short_name.change`'s
+   * behalf, inside the unit of work so the name history records as *what it was*
+   * is the one that was actually there when the change was decided.
+   */
+  ministryShortName(): Promise<ShortName>
+
+  /**
+   * The Ministry's new short name. Refused with `ShortNameRefused('short_name.taken')`
+   * when another Ministry holds it or ever held it, which only the database can see.
+   */
+  changeShortName(change: ShortNameChange): Promise<void>
 
   /**
    * Every Discipleship Goal option this Ministry offers, in the order the form
@@ -1554,6 +1569,11 @@ export interface IntakeFormsPage {
   readonly materials: readonly MaterialOption[]
   /** The Ministry's IANA zone, which "Working through it since" is printed in. */
   readonly timeZone: string | null
+  /**
+   * The short name both readable links and both QR codes are built from, and
+   * which the field at the top of the page edits (Pastor feedback, ticket 04).
+   */
+  readonly shortName: ShortName
 }
 
 export interface IntakeFormsReader {
@@ -1616,6 +1636,12 @@ export interface IntakeReader {
 
   /** Null when the token names nobody. Expired links still answer. */
   readReopenedIntakePage(token: string): Promise<ReopenedIntakePage | null>
+
+  /**
+   * The Ministry a readable link names, by any short name it has ever held, with
+   * the one it holds now. Null when no Ministry has ever held it.
+   */
+  ministryNamed(name: ShortName): Promise<{ readonly ministryId: MinistryId; readonly shortName: ShortName } | null>
 }
 
 /**

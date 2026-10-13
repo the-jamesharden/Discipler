@@ -44,6 +44,7 @@ import type {
   ParticipantDeparture,
   RelationshipCancellation,
   RelationshipEnding,
+  ShortNameChange,
 } from '~/domain/effects'
 import {
   followUpPayload,
@@ -90,6 +91,7 @@ import {
   EndingRefused,
   FollowUpRefused,
   GoalRefused,
+  ShortNameRefused,
   GroupJoinRefused,
   ImportRowResolutionRefused,
   IntakeRefused,
@@ -105,6 +107,7 @@ import {
   type PairingRefusal,
 } from '~/domain/errors'
 import type { HistoryEvent } from '~/domain/history'
+import { shortName, type ShortName } from '~/domain/short-name'
 import type { PersonRemoval, PersonRestoration, PersonToRemove } from '~/domain/removal'
 import type { RatesLineHistory, SettledMessage } from '~/domain/rates-line'
 import {
@@ -201,6 +204,21 @@ const asGoalRefusal = (error: unknown): GoalRefused | undefined =>
   constraintViolated(error) === 'discipleship_goal_ministry_id_label_key'
     ? new GoalRefused('goal.already_offered')
     : undefined
+
+/**
+ * A short name somebody else has, or had, as the database sees it. The boundary
+ * cannot read another Ministry's names, so this is the first anybody learns of
+ * it; a name a route needs is refused by the boundary before it gets here, and
+ * the check below it is only the database agreeing.
+ */
+const asShortNameRefusal = (error: unknown): ShortNameRefused | undefined => {
+  const constraint = constraintViolated(error)
+  if (constraint === 'ministry_short_name_is_unique' || constraint === 'held_short_name_pkey') {
+    return new ShortNameRefused('short_name.taken')
+  }
+  if (constraint === 'ministry_short_name_is_not_a_route') return new ShortNameRefused('short_name.reserved')
+  return undefined
+}
 
 /** Writes a Material's new items, each where the boundary placed it. */
 const insertMaterialItems = async (
@@ -993,6 +1011,33 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // defect rather than a settings form somebody filled in wrong.
     if (rowCount !== 1) {
       throw new Error('This command has no Ministry to save the settings of')
+    }
+  },
+
+  async ministryShortName(): Promise<ShortName> {
+    // The row itself, scoped by the policy on this connection, as the settings
+    // read above it is.
+    const { rows } = await client.query<{ short_name: string }>(`select short_name from ministry`)
+
+    const row = rows[0]
+    if (!row) throw new Error('This command has no Ministry to read the short name of')
+    return shortName(row.short_name)
+  },
+
+  async changeShortName(change: ShortNameChange) {
+    // The trigger on `ministry` holds the new name for good as the row changes.
+    // Another Ministry holding it now is refused by the column's own key, and one
+    // that held it once by the key on every name ever held -- the one fact the
+    // boundary could not see, so it is translated here into the refusal it is.
+    let rowCount: number | null
+    try {
+      ;({ rowCount } = await client.query(`update ministry set short_name = $1`, [change.shortName]))
+    } catch (error) {
+      throw asShortNameRefusal(error) ?? error
+    }
+
+    if (rowCount !== 1) {
+      throw new Error('This command has no Ministry to give a short name to')
     }
   },
 

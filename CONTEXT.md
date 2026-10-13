@@ -91,7 +91,7 @@ What a Ministry calls a group, typed by an Admin when forming it and editable fr
 _Avoid_: Naming a one-to-one or a 1:2 pair, or reading an unnamed group as broken -- it predates the name, or is a 1:2 pair
 
 **Group Intake Link**:
-The Ministry's original Intake link, `/intake/<ministry>`, which since ticket 29 opens the form for somebody who wants to join one of the Ministry's groups. It asks gender and age band, when they could meet, and which group, and never the Discipleship Goal. The discipleship wizard is the other link.
+The Ministry's link for somebody who wants to join one of its groups, `/join/<short name>/groups` (see Short Name); the original `/intake/<ministry>` opens the same form. It asks gender and age band, when they could meet, and which group, and never the Discipleship Goal. Intake forms calls it the Groups form. The discipleship wizard is the other link.
 _Avoid_: "the Intake link" without saying which
 
 **Join Approval**:
@@ -178,6 +178,10 @@ _Avoid_: an account (nothing about it gives anyone one), and the Intake form as 
 **Ministry Intake Link**:
 An intake link a whole ministry hands out. It names the ministry, carries no token, and is both the link a pastor sends and the link its QR code opens — so it is printable in a way the Intake Link above is not. It does not know who opened it, which is why the form asks. The two routes to it are the same link and differ only in whether it was scanned; which route somebody came by is kept on their consent record, because that is the question a compliance review asks. A ministry has more than one: the original link, and the Discipleship Intake Wizard below, each with its own QR code.
 _Avoid_: calling it the Intake Link (that one is a single person's, prefilled, and expires), and treating a QR code as a second form (each one opens its own link, saying it was scanned)
+
+**Short Name**:
+The word a Ministry's two Ministry Intake Links are built from, so they can be printed on a bulletin and said from the pulpit: `/join/<short name>` for the Discipleship Intake Wizard, which Intake forms calls the Mentor and mentee form, and `/join/<short name>/groups` for the Group Intake Link. Lowercase letters, digits and dashes, unique across Discipler, given from the Ministry's name when it opens, and changed by an Admin on Intake forms, which is recorded in the Ministry's history. Every short name a Ministry has ever held keeps opening its forms forever, because QR codes get printed, so no other Ministry can ever take one. See `docs/product-rules.md`, *A Readable Link per Church*.
+_Avoid_: slug, handle, or vanity URL; and reading a renamed Ministry's old name as free
 
 **Discipleship Intake Wizard**:
 The second form a Ministry hands out, on its own Ministry Intake Link and its own QR code, beside the original one. It asks the same things the single-page form asks, one screen at a time, and it asks one thing first that the other form never asks: which side of a discipleship relationship this Person is offering to stand on. Nothing is written until the last screen submits, so an abandoned wizard leaves no Person, no submission and no consent record.

@@ -107,6 +107,11 @@ export interface MinistryFixture extends MinistryRef {
    *  on the sender is asserting on *this* Ministry's identity and not on a
    *  constant every Ministry would satisfy. */
   readonly sendingNumber: string
+  /**
+   * The short name the Ministry was given as it opened. Fixtures share names, so
+   * it is often the name with a number after it, and only provisioning knows which.
+   */
+  readonly shortName: string
 }
 
 /**
@@ -216,6 +221,7 @@ export const createMinistryWithAdmin = async (
     adminPersonId: provisioned.adminPersonId,
     // Stored rather than typed, for the same reason as the number above.
     sendingNumber: provisioned.sendingNumber,
+    shortName: provisioned.shortName,
   }
 }
 

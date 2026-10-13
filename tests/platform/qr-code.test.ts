@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { ministryId } from '~/domain/ids'
-import { ministryIntakeQrLink } from '~/domain/outbound-copy'
-import { QUIET_ZONE_MODULES, renderQrCode } from '~/platform/qr/qr-code'
+import { ministryJoinQrLink } from '~/domain/outbound-copy'
+import { shortName } from '~/domain/short-name'
+import { QUIET_ZONE_MODULES, renderQrCode, renderQrSquare } from '~/platform/qr/qr-code'
 
 /**
  * The vendor boundary for the one QR code Discipler draws.
@@ -19,13 +19,10 @@ import { QUIET_ZONE_MODULES, renderQrCode } from '~/platform/qr/qr-code'
  * it in this file would be a second author of the one string a compliance review
  * ends up reading.
  */
-const link = ministryIntakeQrLink(
-  'https://discipler.example',
-  ministryId('9d1b0c44-2f5e-4a67-8c3d-71ea45b90f28'),
-)
+const link = ministryJoinQrLink('https://discipler.example', shortName('fairmount-church'))
 
 /** What the caption under every square says, so the tests draw one the way a route does. */
-const caption = 'Fairmount Church — Intake'
+const caption = 'Fairmount Church - Mentor and mentee form'
 
 /**
  * The grid the QR was drawn on, read back off the `viewBox`.
@@ -101,7 +98,7 @@ describe('the QR code Discipler draws', () => {
     // The Ministry is in the link, so two Ministries that got the same square would
     // be one Ministry's people landing on another's Intake form.
     const mine = await renderQrCode(link, caption)
-    const theirs = await renderQrCode(link.replace('9d1b0c44', '11110000'), caption)
+    const theirs = await renderQrCode(link.replace('fairmount-church', 'ridgeway-church'), caption)
 
     expect(theirs).not.toBe(mine)
   })
@@ -126,8 +123,8 @@ describe('the QR code Discipler draws', () => {
   })
 
   it('sets a long Ministry’s name smaller rather than off the edge of the page', async () => {
-    const long = await renderQrCode(link, 'Fairmount Community Church of the Resurrection — Discipleship')
-    const short = await renderQrCode(link, 'Hope — Intake')
+    const long = await renderQrCode(link, 'Fairmount Community Church of the Resurrection - Mentor and mentee form')
+    const short = await renderQrCode(link, 'Hope - Groups form')
 
     const typeSize = (svg: string) => Number(/<text[^>]*font-size="([\d.]+)"/.exec(svg)![1])
 
@@ -149,5 +146,17 @@ describe('the QR code Discipler draws', () => {
 
   it('draws the same code twice for the same link', async () => {
     expect(await renderQrCode(link, caption)).toBe(await renderQrCode(link, caption))
+  })
+
+  it('draws the page’s square from the same modules as the file, without the caption', async () => {
+    // What an Admin looks at on Intake forms and what they download and print
+    // cannot come to encode different things: the file is this square with a
+    // band added underneath.
+    const square = await renderQrSquare(link)
+    const file = await renderQrCode(link, caption)
+
+    expect(square).not.toContain(caption)
+    expect(square).not.toContain('<text')
+    expect(darkCoordinates(file)).toEqual(darkCoordinates(square))
   })
 })

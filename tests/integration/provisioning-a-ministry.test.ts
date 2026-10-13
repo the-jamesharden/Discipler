@@ -96,7 +96,7 @@ describe('provisioning a Ministry and its first Admin', () => {
       type: string
       subject_type: string
       subject_id: string
-      payload: { name: string; adminPersonId: string }
+      payload: { name: string; adminPersonId: string; shortName: string }
     }>(`select type, subject_type, subject_id, payload from ministry_event where ministry_id = $1`, [
       ministry.id,
     ])
@@ -109,9 +109,16 @@ describe('provisioning a Ministry and its first Admin', () => {
         type: 'ministry.opened',
         subject_type: 'ministry',
         subject_id: ministry.id,
-        payload: { name: 'Opened Chapel', adminPersonId: ministry.adminPersonId },
+        payload: {
+          name: 'Opened Chapel',
+          adminPersonId: ministry.adminPersonId,
+          // Given from its name as it opened, with a number after it when an
+          // earlier Ministry already held the plain one.
+          shortName: ministry.shortName,
+        },
       },
     ])
+    expect(ministry.shortName).toMatch(/^opened-chapel(-\d+)?$/)
   })
 
   it('reads a number typed the way an operator would type it', async () => {

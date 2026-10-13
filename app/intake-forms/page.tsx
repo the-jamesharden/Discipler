@@ -1,19 +1,14 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import {
-  ministryDiscipleshipIntakeLink,
-  ministryIntakeLink,
-} from '~/domain/outbound-copy'
 import { personId } from '~/domain/ids'
 import { appBaseUrl } from '~/platform/supabase/credentials'
 import type { MaterialOption, MinistryGroup } from '~/service/ports'
 import { getIntakeFormsReader } from '~/service/container'
-import { Download, Printer } from '../icons'
 import { groupMaterialField, MATERIAL_FIELD } from '../materials/assigning'
 import { dayMonthYear, NO_MATERIAL } from '../materials/copy'
 import { AccountMenu, NotAnAdmin, PageShell } from '../shell'
-import { ClipboardField } from './clipboard-field'
 import { GoalsCard } from './goals-card'
+import { LinkCard } from './link-card'
 import { refusalMessage as goalRefusalMessage } from './goals/copy'
 import {
   ADMIT,
@@ -35,6 +30,7 @@ import {
   INTAKE_FORMS,
   REQUIRE_APPROVAL_LABEL,
   SAVE_GROUP,
+  shortNameRefusalMessage,
   UNNAMED_GROUP,
   WAITING_EXPLANATION,
   WAITING_HEADING,
@@ -47,9 +43,9 @@ import {
 export const dynamic = 'force-dynamic'
 
 /**
- * The Admin's half of the Intake sentence: the two Ministry Intake Links and the two
- * QR codes that open them, the groups the group link offers, and whoever is waiting
- * to be admitted through it.
+ * The Admin's half of the Intake sentence: the Ministry's short name, the two
+ * readable links built from it and the two QR codes that open them, the groups the
+ * groups form offers, and whoever is waiting to be admitted through it.
  *
  * All of it sat at the foot of the Roster from ticket 27 to ticket 32, below the
  * import. Ticket 32 moved it here so the Roster is a list of people and the things
@@ -62,19 +58,11 @@ export const dynamic = 'force-dynamic'
  * forms handed out here, so the card that edits them sits between the links and
  * the groups.
  *
- * Nothing about the links changed in the move. Each is composed from the session
- * rather than read from anywhere: it is the Ministry's identifier and the configured
- * host, and there is nothing about it to store. The QR code's variant of each is
- * composed by the route that draws the code, which is the only thing that needs it.
+ * Since Pastor feedback ticket 04 the links are built from the Ministry's short
+ * name, which the page reads and an Admin edits at the top of it, rather than from
+ * its identifier. The older `/intake/<ministry id>` links keep working, and so does
+ * every short name the Ministry has held.
  */
-
-/**
- * How large each code is drawn on the page, in CSS pixels. The square scales, so
- * this is a display decision and it lives here rather than in the stylesheet: it is
- * the number that decides whether an Admin can hold a phone up to their own screen,
- * which is one of the two things the code is for.
- */
-const QR_CODE_ON_SCREEN = 320
 
 export default async function IntakeFormsPage({
   searchParams,
@@ -91,6 +79,9 @@ export default async function IntakeFormsPage({
     /** The goal option an Admin has asked to remove, and why a goal edit was refused. */
     removing?: string
     goalError?: string
+    /** The short name was just changed, or why it could not be. */
+    shortName?: string
+    shortNameError?: string
   }>
 }) {
   const resolution = await getIntakeFormsReader().readIntakeFormsPage()
@@ -99,11 +90,6 @@ export default async function IntakeFormsPage({
   if (resolution.status === 'signed-out') redirect('/login')
 
   const admin = resolution.admin
-  const intakeLink = ministryIntakeLink(appBaseUrl(), admin.ministryId)
-  // Two links because an Admin sends whichever fits the conversation: this one opens
-  // the wizard that asks first whether somebody is offering to mentor or asking to
-  // be mentored.
-  const discipleshipLink = ministryDiscipleshipIntakeLink(appBaseUrl(), admin.ministryId)
 
   // The Ministry's groups and whoever is waiting to join one, read on every load
   // rather than only after a redirect: a request that appeared only there would
@@ -142,128 +128,15 @@ export default async function IntakeFormsPage({
       actions={<AccountMenu ministry />}
       wide
     >
-      <div className="two-up">
-        <div className="card">
-          <div className="card-head">
-            <h2 className="card-title">The group link</h2>
-          </div>
-          <p className="card-lead">
-            One link, for everybody who wants to join one of this Ministry’s groups. It
-            does not know who opens it, so it asks — their age, gender, when they could
-            meet, and which group — which is what lets the same link be sent to one
-            person and put in front of a room. A group appears on it once you have
-            named it below. Picking a group joins it, unless you have set that group
-            to ask you first. It is not the Intake link on a Person’s Roster row: that
-            one is theirs alone, arrives with their answers already in it, and runs out.
-          </p>
-
-          <label className="label" htmlFor="intakeLink">The link to send</label>
-          {/* A field rather than a sentence, because what an Admin does with this is
-              paste it into a text message -- and a button beside it, because the
-              criterion is that they can *copy* it and selecting a field by hand is not
-              something the page offers them. The field is still a field underneath: a
-              browser running no script leaves an Admin exactly where they were. */}
-          <ClipboardField id="intakeLink" value={intakeLink} />
-          <p className="subtle">
-            Intake completed through this link is recorded as sent by a pastor.
-          </p>
-
-          <h3>The QR code</h3>
-          <p className="subtle">
-            The same form, reached by scanning. Intake completed this way is recorded
-            as scanned from a QR code, which is a different record from the one above —
-            a compliance review asks which of the two a Person agreed through, so it is
-            worth knowing which one you handed out.
-          </p>
-          {/* Drawn by the route rather than inlined here, so the square an Admin
-              prints and the square they are looking at cannot come to differ.
-
-              The code carries the same link with `?via=qr` on it, and that link is
-              deliberately not offered as a second field to copy: a link texted from
-              here would record every Person who followed it as having scanned a code
-              nobody printed, which is the one distinction this panel exists to keep
-              honest. */}
-          <img
-            className="qr"
-            src="/intake-forms/intake-code.svg"
-            alt={`QR code opening the group form for ${admin.ministryName}`}
-            width={QR_CODE_ON_SCREEN}
-            height={QR_CODE_ON_SCREEN}
-          />
-          <p className="btn-row">
-            {/* Two actions rather than a tab and some knowledge of the browser. Saving
-                is the download, which names the file on the way out so an Admin
-                recognises it later in a folder of downloads. Printing is the tab: a
-                browser printing the square on its own puts it on the paper at whatever
-                size the paper is, which is what the page around it would prevent. */}
-            <a className="ghost-btn small" href="/intake-forms/intake-code.svg" download="intake-qr-code.svg">
-              <Download />
-              Save the QR code
-            </a>
-            <a className="ghost-btn small" href="/intake-forms/intake-code.svg" target="_blank" rel="noreferrer">
-              <Printer />
-              Open it on its own, to print
-            </a>
-          </p>
-        </div>
-
-        {/* The second link, and the second code. They are handed out side by side and
-            the difference between them is what an Admin has to be able to see before
-            they print one: this one asks which side of a discipleship relationship
-            somebody is offering to stand on, and the one beside it does not ask. */}
-        <div className="card">
-          <div className="card-head">
-            <h2 className="card-title">The discipleship link</h2>
-          </div>
-          <p className="card-lead">
-            A step-by-step form for discipleship. Its first question is whether the
-            person is joining as a mentor or as someone to be mentored, and both are
-            then asked the same things — their age, gender, whether this is their first
-            time, when they could meet, and what they are hoping for. Answering{' '}
-            <em>mentor</em> puts them on the Roster as a Discipler. Pairing them with
-            somebody is still yours to decide.
-          </p>
-
-          <label className="label" htmlFor="discipleshipLink">The link to send</label>
-          <ClipboardField id="discipleshipLink" value={discipleshipLink} />
-          <p className="subtle">
-            Intake completed through this link is recorded as sent by a pastor, exactly
-            like the link beside it.
-          </p>
-
-          <h3>The discipleship QR code</h3>
-          <p className="subtle">
-            The same wizard, reached by scanning — and a different square from the one
-            beside it. Printing the wrong one puts the wrong form in front of a room.
-          </p>
-          <img
-            className="qr"
-            src="/intake-forms/discipleship-code.svg"
-            alt={`QR code opening the discipleship form for ${admin.ministryName}`}
-            width={QR_CODE_ON_SCREEN}
-            height={QR_CODE_ON_SCREEN}
-          />
-          <p className="btn-row">
-            <a
-              className="ghost-btn small"
-              href="/intake-forms/discipleship-code.svg"
-              download="discipleship-intake-qr-code.svg"
-            >
-              <Download />
-              Save the discipleship QR code
-            </a>
-            <a
-              className="ghost-btn small"
-              href="/intake-forms/discipleship-code.svg"
-              target="_blank"
-              rel="noreferrer"
-            >
-              <Printer />
-              Open it on its own, to print
-            </a>
-          </p>
-        </div>
-      </div>
+      {/* The short name and the two readable links built from it, with their QR
+          codes (Pastor feedback, ticket 04). */}
+      <LinkCard
+        ministryName={admin.ministryName}
+        shortName={resolution.page.shortName}
+        baseUrl={appBaseUrl()}
+        saved={query.shortName === 'saved'}
+        refusal={shortNameRefusalMessage(query.shortNameError)}
+      />
 
       {/* Whoever picked a group that asks first. Shown only when somebody has, or
           when an answer just landed: a heading over nothing is noise. Above the

@@ -65,6 +65,7 @@ describe('every ministry-owned table', () => {
       'discipleship_goal',
       'follow_up_item',
       'held_import_row',
+      'held_short_name',
       'intake_availability',
       'intake_link',
       'intake_submission',

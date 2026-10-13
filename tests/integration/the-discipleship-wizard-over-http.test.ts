@@ -374,13 +374,15 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
   it('hands the Admin both links and both QR codes, each labelled', async () => {
     const { html } = await getPage('/intake-forms', cookie)
 
-    expect(html).toContain(`/intake/${ministry.id}/discipleship`)
-    expect(html).toContain('The discipleship link')
+    // Since Pastor feedback ticket 04 the wizard is handed out as the Mentor and
+    // mentee form, at the Ministry's readable link.
+    expect(html).toContain('Mentor and mentee form')
+    expect(html).toContain(`<b>${ministry.shortName}</b>`)
     expect(html).toContain('/intake-forms/discipleship-code.svg')
     // Both squares, so an Admin printing one knows which one they printed.
     expect(html).toContain('/intake-forms/intake-code.svg')
-    expect(html).toContain('discipleship-intake-qr-code.svg')
-    expect(html).toContain('intake-qr-code.svg')
+    expect(html).toContain(`download="${ministry.shortName}-qr-code.svg"`)
+    expect(html).toContain(`download="${ministry.shortName}-groups-qr-code.svg"`)
 
     const code = await fetch(`${baseUrl}/intake-forms/discipleship-code.svg`, {
       headers: { cookie },
@@ -394,7 +396,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
     // square nobody in the room can tell from the other one.
     const drawn = await code.text()
     expect(drawn).toContain('<svg')
-    expect(drawn).toContain('Discipleship')
+    expect(drawn).toContain('Mentor and mentee form')
   })
 
   it('shows the offer under Offered to disciple in the Everyone menu, and as no tag on the row', async () => {
