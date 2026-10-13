@@ -25,6 +25,7 @@ const PAGE_FUNCTIONS = [
   'material_page',
   'materials_page',
   'new_material_page',
+  'overview_card_page',
   'overview_page',
   'pair_page',
   'person_page',

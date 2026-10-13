@@ -28,6 +28,17 @@ import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app
  * each returns to the card.
  */
 
+/**
+ * The card's own markup: from the dialog to the end of the drawn page, short of
+ * the scripts after it, which carry the whole page's data again.
+ */
+const cardIn = (html: string): string => {
+  const start = html.indexOf('data-testid="pair-card"')
+  if (start < 0) return ''
+  const end = html.indexOf('<script', start)
+  return html.slice(start, end < 0 ? undefined : end)
+}
+
 describe.skipIf(skipUnlessAppIsRunning)('the pair card', () => {
   let store: ReturnType<typeof createPostgresEffectStore>
   let pool: pg.Pool
@@ -102,11 +113,12 @@ describe.skipIf(skipUnlessAppIsRunning)('the pair card', () => {
     expect(overview.html).toContain(`href="/overview?card=${relationship}"`)
     expect(overview.html).not.toContain('data-testid="pair-card"')
 
-    const { response, html } = await getPage(`/overview?card=${relationship}`, cookie)
-    expect(response.status).toBe(200)
-    expect(html).toContain('data-testid="pair-card"')
+    const opened = await getPage(`/overview?card=${relationship}`, cookie)
+    expect(opened.response.status).toBe(200)
     // Over the Overview, which is still drawn behind it.
-    expect(html).toContain('All relationships')
+    expect(opened.html).toContain('All relationships')
+    expect(opened.html).toContain(`id="rel-${relationship}"`)
+    const html = cardIn(opened.html)
     expect(html).toContain('One to one · paired')
     expect(html).toContain('Grace Lead and Chloe Follow')
     expect(html).toContain('<span class="pc-role">Discipler</span>')
@@ -118,8 +130,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the pair card', () => {
     expect(html).toContain('The Master Plan of Evangelism, since')
     expect(html).toContain('None answered yet')
     // Every way out is the Overview behind it.
-    expect(html).toContain(`class="modal-close" href="/overview#rel-${relationship}"`)
-    expect(html).toContain(`id="rel-${relationship}"`)
+    expect(html).toMatch(new RegExp(`class="modal-close"[^>]*href="/overview#rel-${relationship}"`))
     expect(html).toContain('End relationship…')
   })
 
@@ -147,13 +158,11 @@ describe.skipIf(skipUnlessAppIsRunning)('the pair card', () => {
     const leads = await pairOneToOne(church.ministry, middle, await church.congregant('Dina Down'))
     const isIn = await pairOneToOne(church.ministry, await church.congregant('Uma Up'), middle)
 
-    const leading = (await getPage(`/overview?card=${leads}`, cookie)).html
-    const card = leading.slice(leading.indexOf('data-testid="pair-card"'))
+    const card = cardIn((await getPage(`/overview?card=${leads}`, cookie)).html)
     expect(card).toMatch(/Mona Middle<\/div><span class="pc-role">Discipler/)
     expect(card).not.toContain('Uma Up')
 
-    const discipled = (await getPage(`/overview?card=${isIn}`, cookie)).html
-    const other = discipled.slice(discipled.indexOf('data-testid="pair-card"'))
+    const other = cardIn((await getPage(`/overview?card=${isIn}`, cookie)).html)
     expect(other).toMatch(/Mona Middle<\/div><span class="pc-role">Disciple</)
     expect(other).not.toContain('Dina Down')
   })
@@ -246,7 +255,11 @@ describe.skipIf(skipUnlessAppIsRunning)('the pair card', () => {
       back: `/overview?card=${relationship}`,
     })
     expect(resumed.location).toContain(`/overview?card=${relationship}&done=resumed`)
-    expect((await getPage(`/overview?card=${relationship}`, cookie)).html).not.toContain('Pause expired')
+    // The item stays on Follow-Up, where an Admin resolves it; the card has
+    // nothing left to offer for it.
+    const after = cardIn((await getPage(`/overview?card=${relationship}`, cookie)).html)
+    expect(after).toContain('data-testid="pair-card"')
+    expect(after).not.toContain('Pause expired')
   })
 
   it('ends the relationship through the existing step, and lands on the Overview without it', async () => {
