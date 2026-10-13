@@ -6,7 +6,7 @@ Today: `public/discipler.css` tints needs_care red, stalled amber, paused grey a
 
 **Blocked by:** nothing
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 ## Acceptance
 

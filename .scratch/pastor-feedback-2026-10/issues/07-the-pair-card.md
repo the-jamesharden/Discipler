@@ -9,7 +9,7 @@ Today: a flagged Overview card is a link to `/follow-up#relationship-<id>`, a he
 
 **Blocked by:** nothing. Ticket 06's Other text appears here once 06 lands.
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 ## Acceptance
 

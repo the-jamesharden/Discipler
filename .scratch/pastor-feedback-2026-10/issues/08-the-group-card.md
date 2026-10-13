@@ -6,7 +6,7 @@ Design: `.lavish/pastor-feedback/mock-group.html`, settled in James's Lavish rev
 
 **Blocked by:** 07
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 ## Acceptance
 
