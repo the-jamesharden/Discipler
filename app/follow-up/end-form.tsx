@@ -4,28 +4,28 @@ import { END, ENDING_EXPLANATION, outcomeLabel, REASON_PLACEHOLDER } from './cop
 /**
  * Ending a relationship: the outcome and the reason, both required, behind one
  * press that opens them. The browser's own disclosure, so it opens with script
- * or without. Shared by the Follow-Up items and the pair card (Pastor feedback,
- * ticket 07), which end a relationship through the same route; the card passes
- * `back` so the route returns to it, and draws its press as the quiet link at
- * its foot.
+ * or without. Drawn at the foot of the pair card (Pastor feedback, ticket 07),
+ * as the quiet link that is the one place a relationship is ended from since
+ * Follow-Up's items became buttons that open the card (ticket 10); the card
+ * passes `back` so the route returns to it.
  */
 export const EndForm = ({
   relationshipId,
   back,
   summary = END,
-  summaryClassName = 'fu-btn danger',
+  summaryClassName,
 }: {
   readonly relationshipId: string
-  /** The page the route returns to, where it is not Follow-Up. */
-  readonly back?: string
+  /** The card the route returns to. */
+  readonly back: string
   readonly summary?: string
-  readonly summaryClassName?: string
+  readonly summaryClassName: string
 }) => (
   <details>
     <summary className={summaryClassName}>{summary}</summary>
     <form method="post" action="/follow-up/relationship/end" className="notice" style={{ marginTop: '0.5rem' }}>
       <input type="hidden" name="relationshipId" value={relationshipId} />
-      {back ? <input type="hidden" name="back" value={back} /> : null}
+      <input type="hidden" name="back" value={back} />
       <p>{ENDING_EXPLANATION}</p>
       <div className="field">
         <label className="label" htmlFor={`outcome:${relationshipId}`}>

@@ -77,14 +77,32 @@ The last two are review conditions, not care flags. A pause and a swap request a
 
 No follow-up item clears itself. An expired pause is not resolved by expiring, and a swap request is not resolved by being recorded; each waits for an admin to act.
 
-Four actions are available from a follow-up item and no others. **Nudge**, always, which reveals the participant's contact details so the admin can reach them directly — it sends nothing. **Resolve**, which clears the item — on a concern-based item it clears the concern text by default; on a swap request it records that the admin reviewed the request and left the relationship in place. **Resume relationship**, on a paused relationship, which lifts the pause, releases the Starter Message, and lets the relationship's underlying derived state resurface — a relationship that was stalled when it was paused is stalled again until an answered check-in clears it. **End relationship**, always, with a recorded reason.
+Each item on the list is one button: its tag, the names, one line of reason, how long it has held, and an arrow, with nothing else to press.
+A concern's words are never on the list.
+Pressing an item opens the relationship's card over the list, the same pair card or group card the Overview opens, in a fuller form: every open item on that relationship sits in a band under the names with the actions it offers, and a **What has happened** list sits under the facts.
+So a pair carrying a concern, a stall and a swap request is one card with three bands, whichever of the three was pressed.
+An item about a person with no live relationship (*Wants a group*, *Texted a keyword*, *Pair not made*) opens a card of its own: the item in its band, the person as the pair card draws a person, and what has happened.
+This is James's decision of 2026-10-12, Pastor feedback ticket 10; until then every item carried its own row of buttons.
+
+**What has happened** lists, newest first and read from the stored history alone: when each item was raised and why, a stall dated by the week that crossed its threshold; the check-ins that led to it, which are the very weeks the stall was derived from and the week a concern was answered D; who read the concern, and when; and the earlier follow-up items and concerns for the pair, and who resolved them.
+The words of an earlier, resolved concern never appear, because resolving cleared them.
+Who opened the contact details is not listed: opening the card records nothing, as Nudge recorded nothing, so there is no stored fact to list.
+
+Four actions live in the card.
+**Nudge** is opening the card itself: the contact details of the people on it reach it through the consent check, and it sends nothing.
+**Resolve** sits in each item's band and clears the item; on a swap request it records that the admin reviewed the request and left the relationship in place; on a concern it is **Resolve and clear this text**, which clears the words.
+**Resume relationship** sits in an expired pause's band while the relationship is still paused; it lifts the pause, releases the Starter Message, and lets the relationship's underlying derived state resurface, so a relationship that was stalled when it was paused is stalled again until an answered check-in clears it.
+**End relationship** is the quiet link at the card's foot, with a recorded outcome and reason, and is on nothing on the list.
+Beside them an item keeps what it already offered, moved into its band and nothing new: *Copy link to re-invite leader* on an invitation that ran out, *Cancel relationship* on one nobody accepted unless it is a group already running, *Pair by hand* on a pairing an import could not make, and *Contact info* on a declined invitation.
+A stall has no button in its band, because it clears itself when the leader answers.
 
 Nudge and *see contact details* were listed here as two separate actions, one of which sent an additional check-in. They are one action, and it sends nothing. See `docs/adr/0010-nudge-reveals-a-number-and-sends-nothing.md`.
+Since ticket 10 it is no longer a button either: opening the card is the reveal.
 
 Reassigning or replacing somebody needs no separate action. Ending a relationship returns everyone in it to `Ready to Pair`, and the admin pairs them from the Roster in the usual way.
 
 A **Wants a group** item is somebody who signed up on the group Intake link with no group in mind.
-It says when they signed up and what their Intake says of their gender, age band and availability, and offers two actions and no others: a dropdown of the groups open to them with **Place in this group**, and **Resolve**.
+On the list it says when they signed up; its card says what their Intake says of their gender, age band and availability, and offers two actions and no others: a dropdown of the groups open to them with **Place in this group**, and **Resolve**.
 Placing them is the Roster's **Add to group** act, `group.add_participant`: it resolves the item in the same transaction and lands on the Roster with the receipt that act gives.
 
 Messaging a participant through Discipler is deliberately absent. The admin picks up the phone; the product's job is to say who needs a call, not to become another inbox.

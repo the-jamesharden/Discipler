@@ -70,6 +70,7 @@ import type {
 } from '~/domain/effects'
 import type { IntakeForm } from '~/domain/intake-form'
 import type {
+  FollowUpKind,
   FollowUpPayload,
   FollowUpResolution,
   NewFollowUpItem,
@@ -1817,6 +1818,13 @@ export interface FollowUpCareItem {
   /** The Person the item is about, when it is about one. */
   readonly personName: string | null
   /**
+   * Everyone in the relationship the item is about, as its card shows them, and
+   * empty for an item about a Person alone. Follow-Up names an item by them
+   * (Pastor feedback, ticket 10), and the card tells by them whether the Person
+   * the item is about is one of its people.
+   */
+  readonly members: readonly CareMember[]
+  /**
    * When the relationship the item is about was created. The underlying fact, kept
    * alongside the derived one: history and any later question about this item are
    * answered from the instant, never from a number somebody rounded.
@@ -2021,22 +2029,101 @@ export interface FollowUpPage {
    */
   readonly items: readonly CareNeededItem[]
   /**
-   * The details behind `Nudge` for the one Person a reveal named: their number, so
-   * the Admin can make the call themselves. Null where nobody was named and where
-   * the Person has not currently agreed to share them.
-   *
-   * One Person at a time rather than a column on every care item. The list is read
-   * to decide who needs a call; a number on every row would disclose the whole
-   * Ministry's contact details to answer a question nobody asked of most of them.
-   * The consent rule is reached through the definer function that checks Ministry
-   * membership first, as the signed-in Admin.
+   * Every relationship of the Ministry that has not ended. An item about one of
+   * them opens that relationship's card; an item whose relationship has ended,
+   * or that has none, opens a card of its own.
    */
-  readonly revealed: ContactDetails | null
+  readonly liveRelationships: ReadonlySet<string>
+  /** The card the address names, or null where it names none this Admin may open. */
+  readonly card: FollowUpCard | null
 }
 
+/**
+ * Follow-Up's fuller card (Pastor feedback, ticket 10): the pair card of ticket
+ * 07, or the group card of ticket 08, with each open item on it drawn as a band
+ * with its actions, and *What has happened* under the facts. An item about a
+ * Person and no live relationship has no pair to open, and its card is the item
+ * and the Person it is about.
+ *
+ * Opening it is the reveal *See contact details* was: the details reach it
+ * through the consent check Nudge reads (ADR-0010), and nothing is recorded,
+ * because Nudge recorded nothing.
+ */
+export interface FollowUpCard {
+  /** What the address names: a relationship's id, or one item's where it has no live relationship. */
+  readonly key: string
+  /** The relationship's card, or null on an item's own card. */
+  readonly pair: PairCard | null
+  /** The open Follow-Up Items the card is about, each a band with today's actions. */
+  readonly items: readonly FollowUpCareItem[]
+  /**
+   * Whoever those items are about, with what their latest Intake says and the
+   * contact details they agreed to share. The pair card already shows its own
+   * people; a band shows the rest.
+   */
+  readonly subjects: readonly CardSubject[]
+  /** Newest first. */
+  readonly happened: readonly Happening[]
+  readonly timeZone: string
+}
+
+/** Somebody an item is about, as the card shows a person, without a side: they may be on no pair. */
+export type CardSubject = Omit<PairCardPerson, 'role'>
+
+/**
+ * One line of *What has happened*, read from the stored history and nothing
+ * else. Exactly what the ticket lists: when each item was raised and why; the
+ * check-ins that led to it; who read the Concern, and when; and the earlier
+ * items and Concerns, with who resolved them. Never the words of a Concern:
+ * an unresolved one's are in the band, and a resolved one's were cleared.
+ *
+ * Who opened the contact details is not among them. Opening the card is the
+ * reveal Nudge was, and Nudge records nothing (ADR-0010), so there is no
+ * stored fact to list.
+ */
+export type Happening =
+  | { readonly kind: 'item_raised'; readonly at: Date; readonly item: FollowUpCareItem }
+  | { readonly kind: 'concern_raised'; readonly at: Date; readonly by: string | null }
+  | {
+      readonly kind: 'stalled'
+      readonly at: Date
+      readonly reason: CareReason['kind']
+      /** How many weeks in a row it took. */
+      readonly weeks: number
+    }
+  | {
+      readonly kind: 'check_in'
+      /** When the check-in was asked. */
+      readonly at: Date
+      readonly outcome: 'unanswered' | 'did_not_meet' | 'concern'
+    }
+  | { readonly kind: 'concern_read'; readonly at: Date; readonly by: string | null }
+  | {
+      readonly kind: 'earlier_item'
+      /** When it was raised. */
+      readonly at: Date
+      readonly itemKind: FollowUpKind
+      /** Who it was about, where it was about one Person. */
+      readonly personName: string | null
+      readonly resolvedAt: Date
+      /** Null where the Admin who resolved it has left the Roster, or nobody did. */
+      readonly resolvedBy: string | null
+    }
+  | {
+      readonly kind: 'earlier_concern'
+      readonly at: Date
+      readonly raisedBy: string | null
+      readonly resolvedAt: Date
+      readonly resolvedBy: string | null
+    }
+
 export interface CareNeededReader {
-  /** The Follow-Up tab, with the one Person a reveal names or none. */
-  readFollowUpPage(reveal: PersonId | null): Promise<AdminPage<FollowUpPage>>
+  /**
+   * The Follow-Up tab, with the card the address names open over it or none.
+   * `card` is whatever arrived in the address, a uuid or nothing; the card is
+   * read only for what this Admin's own Ministry holds.
+   */
+  readFollowUpPage(card: string | null): Promise<AdminPage<FollowUpPage>>
 }
 
 /**

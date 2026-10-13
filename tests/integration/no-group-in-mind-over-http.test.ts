@@ -1,6 +1,7 @@
 import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app'
+import { openTheCardAbout } from '../support/follow-up'
 import {
   aTestPhoneNumber,
   createMinistryWithAdmin,
@@ -151,19 +152,22 @@ describe.skipIf(skipUnlessAppIsRunning)('no group in mind, over HTTP', () => {
     expect(resolved.location).toContain('done=resolved')
   })
 
-  it('shows the item on Follow-Up as S-8 draws it, with only the groups open to them', async () => {
-    const { html } = await getPage('/follow-up', cookie)
-    expect(html).toContain('Wants a group')
-    expect(html).toContain(jonah.fullName)
-    expect(html).toMatch(
+  it('shows the item on Follow-Up as S-8 draws it, its card with only the groups open to them', async () => {
+    // The list says when they signed up; the card the item opens (Pastor
+    // feedback, ticket 10) says the rest, and offers the groups.
+    const { item, card } = await openTheCardAbout(cookie, jonah.fullName)
+    expect(item).toContain('Wants a group')
+    expect(item).toMatch(/Signed up on the group link on \d{1,2} [A-Z][a-z]{2} with no group in mind\./)
+    expect(item).not.toContain('<form')
+    expect(card).toMatch(
       /Signed up on the group link on \d{1,2} [A-Z][a-z]{2} with no group in mind\. Men(&#x27;|')s, 25 to 34, available Tuesday and Thursday evenings\./,
     )
-    expect(html).toContain('action="/follow-up/place"')
-    expect(html).toContain(`value="${mens.id}"`)
-    expect(html).toContain(`value="${mixed.id}"`)
-    expect(html).not.toContain(`value="${womens.id}"`)
-    expect(html).toContain('Place in this group')
-    expect(html).toContain('Resolve')
+    expect(card).toContain('action="/follow-up/place"')
+    expect(card).toContain(`value="${mens.id}"`)
+    expect(card).toContain(`value="${mixed.id}"`)
+    expect(card).not.toContain(`value="${womens.id}"`)
+    expect(card).toContain('Place in this group')
+    expect(card).toContain('Resolve')
   })
 
   it('counts the item in the Follow-Up badge on every tab', async () => {
@@ -173,11 +177,11 @@ describe.skipIf(skipUnlessAppIsRunning)('no group in mind, over HTTP', () => {
     }
   })
 
-  it('refuses a group not open to them, and leaves the item standing', async () => {
-    const refused = await post('/follow-up/place', { personId: jonah.id, groupId: womens.id })
+  it('refuses a group not open to them back on the card, and leaves the item standing', async () => {
+    const { address } = await openTheCardAbout(cookie, jonah.fullName)
+    const refused = await post('/follow-up/place', { personId: jonah.id, groupId: womens.id, back: address })
     expect(refused.response.status).toBe(303)
-    expect(refused.location).toContain('/follow-up')
-    expect(refused.location).toContain('error=relationship.gender_does_not_match_the_declaration')
+    expect(refused.location).toContain(`${address}&error=relationship.gender_does_not_match_the_declaration`)
 
     const { html } = await getPage('/follow-up', cookie)
     expect(html).toContain('Wants a group')

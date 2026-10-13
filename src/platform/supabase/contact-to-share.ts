@@ -12,10 +12,10 @@ import { rows, text } from './rows'
  * load-bearing there: it answers about a Person in the named Ministry, and only for
  * a caller who belongs to it.
  *
- * The Follow-Up tab reaches the same function inside `follow_up_page`, where a
- * reveal travels with the page rather than as a second read, and parses the row it
- * gets with `contactDetailsFrom` below. This direct call is how the consent rule is
- * driven on its own, with a real session, by the tests that are about it.
+ * The Admin's cards read the same predicate through `pair_card_contacts` and
+ * `person_card_contacts`, inside their page's one read (Pastor feedback, tickets
+ * 07 and 10): opening a card is the reveal. This direct call is how the consent
+ * rule is driven on its own, with a real session, by the tests that are about it.
  */
 export const readContactToShare = async (
   client: SupabaseClient,

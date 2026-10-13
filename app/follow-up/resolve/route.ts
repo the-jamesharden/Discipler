@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { followUpItemId } from '~/domain/ids'
 import { currentAdmin } from '~/platform/supabase/current-admin'
 import { getCommandService } from '~/service/container'
-import { backToFollowUp, done, field, refusalCodeOf, refused } from '../actions'
+import { backFrom, backToFollowUp, done, field, refusalCodeOf, refused } from '../actions'
 
 /**
  * An Admin closing a Follow-Up Item, which is the only thing that closes one. An
@@ -15,10 +15,12 @@ export async function POST(request: NextRequest) {
   if (!admin) return NextResponse.redirect(new URL('/login', request.url), { status: 303 })
 
   const form = await request.formData()
+  // Follow-Up, or the card the form was posted from.
+  const back = backFrom(form)
   const item = field(form, 'itemId')
   // A form with no item did not come from Care Needed; back to the page rather
   // than to the boundary as a command about nothing.
-  if (!item) return backToFollowUp(request)
+  if (!item) return backToFollowUp(request, undefined, back)
 
   try {
     await getCommandService().execute({
@@ -29,9 +31,9 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     const code = refusalCodeOf(error)
-    if (code) return refused(request, code)
+    if (code) return refused(request, code, back)
     throw error
   }
 
-  return done(request, 'resolved')
+  return done(request, 'resolved', back)
 }

@@ -301,3 +301,26 @@ export const deriveRelationshipState = (
 
   return settled('healthy')
 }
+
+/**
+ * The weeks a Stalled state was derived from, oldest first: the trailing run of
+ * unanswered weeks behind *gone silent*, or of weeks reported as no meeting
+ * behind *not meeting*. Empty unless the history derives Stalled.
+ *
+ * Follow-Up's fuller card lists them as the check-ins that led to the item
+ * (Pastor feedback, ticket 10), and it is told when the stall began by the week
+ * that crossed the threshold. So these are the very weeks the derivation
+ * counted, one per ISO week in the Ministry's zone, and not a second reading of
+ * the history that could come to disagree with the number on the item.
+ */
+export const weeksBehindTheStall = (
+  history: RelationshipHistory,
+  now: Date,
+): readonly RelationshipWeek[] => {
+  const reason = deriveRelationshipState(history, now).reasons[0]
+  if (!reason) return []
+
+  const weeks = oneEntryPerWeek(history.weeks.filter(isDetermined), history.timeZone)
+  const run = trailingRunOf(reason.kind === 'gone_silent' ? 'unanswered' : 'did_not_meet', weeks)
+  return weeks.slice(weeks.length - run)
+}

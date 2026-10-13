@@ -1,9 +1,9 @@
 import Link from 'next/link'
-import { Fragment } from 'react'
+import { Fragment, type ReactNode } from 'react'
 import { goalAsShown } from '~/domain/discipleship-goals'
 import { A_GROUP } from '~/domain/relationships'
 import type { Satisfaction } from '~/domain/check-in'
-import type { PairCard as Card, PairCardPerson, ThisWeeksAnswer } from '~/service/ports'
+import type { CardSubject, PairCard as Card, PairCardPerson, ThisWeeksAnswer } from '~/service/ports'
 import { EndForm } from '../follow-up/end-form'
 import { followUpLine, RESUME } from '../follow-up/copy'
 import { Mail, Message, Phone } from '../icons'
@@ -66,6 +66,9 @@ import type { ConcernWords } from './open'
  * letter is on the tab. Where that answer raised a Concern still unresolved, it
  * is that Concern's band, its words under the week's line; the Last check-in
  * fact, which would say the same answer again, is left out.
+ * Follow-Up draws its fuller form (ticket 10) through `followUp`: each open
+ * item on the pair a band of its own with its actions, in place of the card's
+ * own expired-Pause band, and *What has happened* under the facts.
  */
 export const PairCard = ({
   card,
@@ -75,6 +78,7 @@ export const PairCard = ({
   back,
   notice,
   thisWeek = null,
+  followUp,
 }: {
   readonly card: Card
   /** The Concerns' words, read as the card opened; one per Concern on the card. */
@@ -88,6 +92,8 @@ export const PairCard = ({
   readonly notice: { readonly tone: 'done' | 'refused'; readonly said: string } | null
   /** This week's answer, where the card opened from Check-Ins and one came this week. */
   readonly thisWeek?: ThisWeeksAnswer | null
+  /** Follow-Up's fuller card: its items' bands, and what has happened. */
+  readonly followUp?: { readonly bands: ReactNode; readonly history: ReactNode }
 }) => {
   const { timeZone } = card
   const names = card.people.map((person) => person.fullName)
@@ -194,7 +200,9 @@ export const PairCard = ({
           )
         })}
 
-        {card.pauseExpired ? (
+        {followUp?.bands}
+
+        {card.pauseExpired && !followUp ? (
           <div className="pc-band review">
             <p className="pc-band-label">{PAUSE_EXPIRED}</p>
             <p>{followUpLine({ kind: 'pause_expired', periodWeeks: card.pauseExpired.periodWeeks }, null, null)}</p>
@@ -250,6 +258,8 @@ export const PairCard = ({
           </dl>
         </div>
 
+        {followUp?.history}
+
         {/* Nothing to end before a Leader has accepted: that is cancelled, from Follow-Up. */}
         {card.state !== 'awaiting_leader_acceptance' ? (
           <div className="pc-actions">
@@ -290,16 +300,27 @@ const ANSWER_BAND: Record<Satisfaction | 'none', string> = {
   none: 'review',
 }
 
-/** One person: who, on which side, how to reach them, and what they said at Intake. */
-const Person = ({ person }: { readonly person: PairCardPerson }) => (
+/** The line over the names, wrapped between its parts, for the item's own card on Follow-Up (ticket 10). */
+export const HeadLine = ({ line }: { readonly line: string }) => (
+  <p className="pc-kind">
+    <BetweenParts line={line} />
+  </p>
+)
+
+/**
+ * One person: who, on which side, how to reach them, and what they said at
+ * Intake. Somebody a Follow-Up item is about who is on no pair (ticket 10) is
+ * drawn the same, with no side.
+ */
+export const Person = ({ person }: { readonly person: PairCardPerson | CardSubject }) => (
   <div className="pc-person">
     <div className="person">
-      <span className={person.role === 'leader' ? 'avatar' : 'avatar alt'} aria-hidden="true">
+      <span className={'role' in person && person.role === 'leader' ? 'avatar' : 'avatar alt'} aria-hidden="true">
         {initialsOf(person.fullName)}
       </span>
       <div>
         <div className="pc-name">{person.fullName}</div>
-        <span className="pc-role">{ROLE[person.role]}</span>
+        {'role' in person ? <span className="pc-role">{ROLE[person.role]}</span> : null}
       </div>
     </div>
     <Contact person={person} call={displayPhone} />
@@ -353,11 +374,11 @@ const Member = ({ person }: { readonly person: PairCardPerson }) => {
  * on a pair, where nothing else shows it, and *Call Mia* on a Group's row, which
  * already does.
  */
-const Contact = ({
+export const Contact = ({
   person,
   call,
 }: {
-  readonly person: PairCardPerson
+  readonly person: PairCardPerson | CardSubject
   readonly call: (phone: string) => string
 }) =>
   person.phone || person.email ? (
@@ -384,7 +405,7 @@ const Contact = ({
   ) : null
 
 /** Their age band and goal off their latest Intake, each left out where they gave none. */
-const Answers = ({ person }: { readonly person: PairCardPerson }) => {
+const Answers = ({ person }: { readonly person: PairCardPerson | CardSubject }) => {
   const goal = goalAsShown(person.goal, person.goalOther)
   return person.ageBand || goal ? (
     <dl className="pc-kv">

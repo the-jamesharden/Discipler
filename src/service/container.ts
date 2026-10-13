@@ -19,7 +19,7 @@ import {
   createPostgresInvitationReader,
   type PostgresInvitationReader,
 } from '~/platform/supabase/invitation-reader'
-import { createSupabaseCareNeededReader } from '~/platform/supabase/care-needed-reader'
+import { createSupabaseCareNeededReader } from '~/platform/supabase/follow-up-page-reader'
 import { createSupabaseCheckInsReader } from '~/platform/supabase/check-ins-reader'
 import { supabaseIntakeFormsReader } from '~/platform/supabase/intake-forms-reader'
 import { supabaseLeaderDashboardReader } from '~/platform/supabase/leader-dashboard'

@@ -10,7 +10,7 @@ export interface ConcernWords {
 
 /**
  * Opening the card reads its Concerns (Pastor feedback, ticket 07), and the read
- * is recorded exactly as *Read the concern* records it: through
+ * is recorded exactly as *Read the concern* recorded it on Follow-Up: through
  * `CommandService.openConcern`, which writes the viewing in the same transaction
  * that returns the words, one Concern at a time. The words are shown because they
  * were read, never the other way round, so a card that shows them has left the

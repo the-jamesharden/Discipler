@@ -2,6 +2,7 @@ import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app'
 import { addPerson, aTestPhoneNumber, createMinistryWithAdmin, localSupabase, type MinistryFixture } from '../support/local-supabase'
+import { openTheCardAbout } from '../support/follow-up'
 import { chosenIn, offersToMentor, popupIn } from '../support/pair-popup'
 
 /**
@@ -111,7 +112,8 @@ describe.skipIf(skipUnlessAppIsRunning)('the old Pair page’s address, over HTT
       [ministry.id, taylor, crypto.randomUUID()],
     )
 
-    const { html } = await getPage('/follow-up', cookie)
+    // On the card the item opens (Pastor feedback, ticket 10).
+    const { html } = await openTheCardAbout(cookie, 'Taylor Brooks')
     expect(html).not.toContain('href="/roster/pair')
     const byHand = html.match(/<a [^>]*href="([^"]*)"[^>]*>Pair by hand<\/a>/)?.[1]?.replace(/&amp;/g, '&')
     expect(byHand).toBe(`/roster?pair=${taylor}&side=disciple`)
