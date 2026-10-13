@@ -55,6 +55,7 @@ import type {
   GroupConfiguration,
   RelationshipCancellation,
   RelationshipEnding,
+  ShortNameChange,
 } from '~/domain/effects'
 import type { FollowUpResolution, NewFollowUpItem } from '~/domain/follow-up'
 import type { NewIntakeLink } from '~/domain/intake-link'
@@ -77,6 +78,7 @@ import {
   type PhoneNumber,
   type RosterKey,
 } from '~/domain/roster'
+import { shortName, type ShortName } from '~/domain/short-name'
 import type { EffectStore, UnitOfWork } from '~/service/ports'
 
 export interface InMemoryStore extends EffectStore {
@@ -132,6 +134,8 @@ export interface InMemoryStore extends EffectStore {
   readonly keywordClosures: readonly KeywordExchangeClosure[]
   /** Every settings form this store saved, in the order the effects saved them. */
   readonly settingsSaved: readonly MinistrySettings[]
+  /** Every short name this store's Ministry was given, in the order it was given. */
+  readonly shortNamesChanged: readonly ShortNameChange[]
   /** Every option added, reworded, reordered or removed, in the order it happened. */
   readonly addedGoals: readonly NewDiscipleshipGoal[]
   readonly renamedGoals: readonly DiscipleshipGoalRenaming[]
@@ -218,6 +222,8 @@ export interface InMemoryStore extends EffectStore {
    * form was saved.
    */
   settings: MinistrySettings
+  /** The short name `short_name.change` decides against: the one before the change. */
+  shortName: ShortName
   /** The real store looked again and the unanswered invitation had been answered. */
   nothingLeftToRaise?: boolean
   failOn?:
@@ -264,6 +270,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
   const keywordClarifications: KeywordExchangeClarification[] = []
   const keywordClosures: KeywordExchangeClosure[] = []
   const settingsSaved: MinistrySettings[] = []
+  const shortNamesChanged: ShortNameChange[] = []
   const addedGoals: NewDiscipleshipGoal[] = []
   const renamedGoals: DiscipleshipGoalRenaming[] = []
   const goalOrders: DiscipleshipGoalOrder[] = []
@@ -400,6 +407,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
     get settingsSaved() {
       return [...settingsSaved]
     },
+    get shortNamesChanged() {
+      return [...shortNamesChanged]
+    },
     get addedGoals() {
       return [...addedGoals]
     },
@@ -473,6 +483,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       suggestMaxAgeBandGap: DEFAULT_AGE_BAND_GAP,
       cadence: { day: 1, hour: 9 },
     },
+    shortName: shortName('riverside-chapel'),
     async transact(_ministryId: MinistryId, work) {
       const stagedHistory: HistoryEvent[] = []
       const stagedOutbox: SettledMessage[] = []
@@ -510,6 +521,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       const stagedPlans: NewIntendedPairing[] = []
       const stagedPlanClosures: IntendedPairingClosure[] = []
       const stagedSettings: MinistrySettings[] = []
+      const stagedShortNames: ShortNameChange[] = []
       const stagedAddedGoals: NewDiscipleshipGoal[] = []
       const stagedRenamedGoals: DiscipleshipGoalRenaming[] = []
       const stagedGoalOrders: DiscipleshipGoalOrder[] = []
@@ -801,6 +813,12 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         async saveMinistrySettings(settings) {
           stagedSettings.push(settings)
         },
+        async ministryShortName() {
+          return store.shortName
+        },
+        async changeShortName(change) {
+          stagedShortNames.push(change)
+        },
         async recordIntake(intake) {
           if (store.failOn === 'recordIntake') throw new Error('Intake unavailable')
           stagedIntakes.push(intake)
@@ -908,6 +926,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       plans.push(...stagedPlans)
       planClosures.push(...stagedPlanClosures)
       settingsSaved.push(...stagedSettings)
+      shortNamesChanged.push(...stagedShortNames)
       addedGoals.push(...stagedAddedGoals)
       renamedGoals.push(...stagedRenamedGoals)
       goalOrders.push(...stagedGoalOrders)

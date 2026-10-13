@@ -685,6 +685,22 @@ export type Command =
       readonly changedBy: string
     }
   /**
+   * An Admin giving their Ministry a new short name on Intake forms (Pastor
+   * feedback, ticket 04), which both readable links and both QR codes are built
+   * from. The name arrives as typed: what a short name may be is a rule, and
+   * rules live on the domain side of this boundary.
+   *
+   * The old name is not let go. Every name a Ministry has held keeps opening its
+   * forms, because a QR code printed on last month's bulletin still carries it.
+   */
+  | {
+      readonly type: 'short_name.change'
+      readonly ministryId: MinistryId
+      readonly shortName: string
+      /** The Admin's account, as the session named it, for the record. */
+      readonly changedBy: string
+    }
+  /**
    * *Not my number.* It changes nothing -- a forwarded link can never re-point an
    * account -- and raises a persistent item for an Admin, because the alternative
    * is that Leader's check-ins reaching a stranger indefinitely.

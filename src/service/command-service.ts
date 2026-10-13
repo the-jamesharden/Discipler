@@ -272,6 +272,9 @@ export const applyEffects = async (
   const settingsSaves = effects.flatMap((effect) =>
     effect.kind === 'settings.save' ? [effect.saving] : [],
   )
+  const shortNameChanges = effects.flatMap((effect) =>
+    effect.kind === 'shortName.change' ? [effect.change] : [],
+  )
   const addedGoals = effects.flatMap((effect) =>
     effect.kind === 'goal.add' ? [effect.goal] : [],
   )
@@ -460,6 +463,12 @@ export const applyEffects = async (
   // being refused after history had already recorded the change would leave a
   // Ministry's record claiming a cadence nothing ever ran on.
   for (const saving of settingsSaves) await unit.saveMinistrySettings(saving.settings)
+
+  // Before the history saying it happened, like every other write here: the
+  // database refuses a name another Ministry holds or once held, and being refused
+  // after history had recorded the change would leave a record of a link nobody
+  // can open.
+  for (const change of shortNameChanges) await unit.changeShortName(change)
 
   // The option, then the list it belongs to. An addition lands before the
   // renumbering that would place it, and a removal before the renumbering that
@@ -1090,6 +1099,12 @@ export const createCommandService = ({
         // already replaced.
         ...(command.type === 'settings.update'
           ? { settings: await unit.ministrySettings() }
+          : {}),
+        // Read inside the transaction for the same reason, so the name history
+        // records as *what it was* is the one a second Admin had not already
+        // replaced.
+        ...(command.type === 'short_name.change'
+          ? { shortName: await unit.ministryShortName() }
           : {}),
         ...(editsTheGoalList(command)
           ? { goals: await unit.discipleshipGoals() }

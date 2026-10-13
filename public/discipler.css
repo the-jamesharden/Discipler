@@ -535,6 +535,30 @@ img.qr { display: block; max-width: 100%; height: auto; background: #ffffff; bor
 .copyable input { margin-bottom: 0; }
 .copyable button { white-space: nowrap; }
 .copied { color: var(--text-light); font-size: 0.85rem; min-width: 4.5rem; }
+
+/* The link card at the top of Intake forms (Pastor feedback, ticket 04): the
+   short name with the address in front of it and Save beside it, then the two
+   forms as even tiles. The tiles are one grid row, so they are the same height
+   whatever either link's length; each tile's third row takes the slack, so the
+   buttons sit on one line across both. */
+.short-name { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.35rem 0.6rem; align-items: end; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border); }
+.short-name label { grid-column: 1 / -1; font-family: var(--serif); font-size: 1.2rem; font-weight: 600; color: var(--primary); }
+.short-name button { height: 100%; }
+.short-name .toast { grid-column: 1 / -1; margin: 0.5rem 0 0; box-shadow: none; }
+.link-edit { display: flex; align-items: stretch; min-width: 0; }
+.link-edit span { display: flex; align-items: center; padding: 0.5rem 0.6rem; background: var(--bg); border: 1px solid var(--border); border-right: 0; border-radius: 5px 0 0 5px; font-size: 0.88rem; color: var(--text-light); white-space: nowrap; }
+.link-edit input[type="text"] { flex: 1 1 auto; min-width: 0; padding: 0.5rem 0.6rem; border-radius: 0 5px 5px 0; }
+.form-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-top: 1.25rem; }
+.form-tile { border: 1px solid var(--border); border-radius: 8px; padding: 1.1rem; display: grid; grid-template-rows: auto auto 1fr auto; justify-items: center; gap: 0.75rem; text-align: center; min-width: 0; }
+.form-tile-name { font-weight: 700; margin: 0; }
+.form-tile img.qr { border: 0; border-radius: 0; margin: 0; }
+.form-tile code { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 0.84rem; background: rgba(45, 80, 22, 0.05); border: 1px solid var(--border); padding: 0.35rem 0.6rem; border-radius: 5px; overflow-wrap: anywhere; align-self: center; }
+.form-tile code b { color: var(--primary); }
+.form-tile .btn-row { justify-content: center; }
+@media (max-width: 640px) {
+  .form-tiles { grid-template-columns: minmax(0, 1fr); }
+  .short-name { grid-template-columns: minmax(0, 1fr); }
+}
 figure { margin: 0 0 1rem; }
 figcaption { font-size: 0.8rem; color: var(--text-light); margin-bottom: 0.25rem; }
 blockquote { background: rgba(45, 80, 22, 0.04); border-left: 3px solid var(--primary); padding: 0.6rem 0.8rem; border-radius: 0 5px 5px 0; font-size: 0.88rem; line-height: 1.5; }

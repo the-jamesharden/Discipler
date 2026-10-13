@@ -56,6 +56,7 @@ import {
   recordMaterialNotice,
   restorePerson,
   saveMinistrySettings,
+  changeShortName,
   setKeywordExchangeTarget,
   sweepOutstandingReplies,
   withdrawInvitation,
@@ -87,6 +88,7 @@ import {
   MaterialAssignmentRefused,
   MaterialRefused,
   MinistrySettingsRefused,
+  ShortNameRefused,
   PairingRefused,
   PasswordResetRefused,
   PauseRefused,
@@ -264,6 +266,7 @@ import {
   type RowRejection,
 } from './roster'
 import { readRosterFile } from './roster-csv'
+import { readShortName, type ShortName } from './short-name'
 import { classifyImport, type SideRef } from './roster-import'
 
 /**
@@ -320,6 +323,11 @@ export interface CommandContext {
    * else.
    */
   readonly settings?: MinistrySettings
+  /**
+   * The short name this Ministry goes by now, loaded on `short_name.change`'s
+   * behalf so that history can record what it was. Absent on everything else.
+   */
+  readonly shortName?: ShortName
   /**
    * Who is being paired, or who is already in the relationship being accepted --
    * their names and the numbers Discipler would text. Loaded on the command's
@@ -5453,6 +5461,39 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             subjectType: 'ministry',
             subjectId: command.ministryId,
             payload: { changedBy: command.changedBy, changes },
+          }),
+        ],
+        rejections: [],
+      }
+    }
+
+    case 'short_name.change': {
+      const was = context.shortName
+      if (!was) throw new Error('short_name.change was handed no short name to change')
+
+      const reading = readShortName(command.shortName)
+      if ('refusal' in reading) throw new ShortNameRefused(reading.refusal)
+
+      // The name it already has, typed again. Nothing happened, so nothing is
+      // written and history says nothing, as with a settings form saved unchanged.
+      if (reading.shortName === was) return { effects: [], rejections: [] }
+
+      const now = context.clock.now()
+
+      return {
+        effects: [
+          changeShortName({ ministryId: command.ministryId, shortName: reading.shortName }),
+          // The name it went by, which the update overwrites on the row and which
+          // every link printed before today still carries. Whether another
+          // Ministry holds the new one is the database's to say: no connection
+          // acting for this Ministry may read another's names.
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'ministry.short_name_changed',
+            subjectType: 'ministry',
+            subjectId: command.ministryId,
+            payload: { changedBy: command.changedBy, from: was, to: reading.shortName },
           }),
         ],
         rejections: [],

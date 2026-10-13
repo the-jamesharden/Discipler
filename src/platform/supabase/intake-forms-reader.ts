@@ -9,6 +9,7 @@ import {
 } from '~/domain/ids'
 import { goalWording, type OfferedGoal } from '~/domain/discipleship-goals'
 import { AGE_BANDS, GENDERS, discipleshipGoalId, isOneOf } from '~/domain/intake'
+import { shortName, type ShortName } from '~/domain/short-name'
 import type {
   IntakeFormsPage,
   IntakeFormsReader,
@@ -173,7 +174,19 @@ export const intakeFormsPageFrom = (doc: PageDocument): IntakeFormsPage => ({
   // the Materials tab and the Pair popup share (Materials, ticket 03).
   materials: liveMaterialRows(doc).map(({ materialId, title }): MaterialOption => ({ materialId, title })),
   timeZone: text(doc.timezone),
+  shortName: shortNameOf(doc),
 })
+
+/**
+ * The Ministry's short name, which both links and both QR codes are built from.
+ * Raised when it is missing rather than drawn as an empty field: every Ministry
+ * has one, and a page built without it would hand out a link to nobody's forms.
+ */
+const shortNameOf = (doc: PageDocument): ShortName => {
+  const name = text(doc.short_name)
+  if (name === null) throw new Error('Intake forms was not told the Ministry’s short name')
+  return shortName(name)
+}
 
 export const supabaseIntakeFormsReader: IntakeFormsReader = {
   async readIntakeFormsPage() {

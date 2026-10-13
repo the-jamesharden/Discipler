@@ -33,6 +33,7 @@ import type { RatesLineOccasion } from './rates-line'
 import type { PersonRemoval, PersonRestoration } from './removal'
 import type { MemberRole, NewRelationship, RelationshipOutcome } from './relationships'
 import type { HeldImportRow, ImportRowAnswer, NewPerson, PhoneNumber } from './roster'
+import type { ShortName } from './short-name'
 
 /**
  * Commands return effects; they never perform I/O. The application service is the
@@ -527,6 +528,16 @@ export interface NewDiscipleshipGoal {
 }
 
 /**
+ * The short name a Ministry now goes by (Pastor feedback, ticket 04). Nothing
+ * here lets the old one go: the database holds every name a Ministry has had,
+ * and keeps it opening that Ministry's forms.
+ */
+export interface ShortNameChange {
+  readonly ministryId: MinistryId
+  readonly shortName: ShortName
+}
+
+/**
  * One option, reworded. The id does not change, and that is the whole of what
  * this effect is for: every answer pointing at this option goes on pointing at
  * it, because a reworded option is the same option.
@@ -853,6 +864,7 @@ export type Effect =
   | { readonly kind: 'intendedPairing.plan'; readonly plan: NewIntendedPairing }
   | { readonly kind: 'intendedPairing.close'; readonly closure: IntendedPairingClosure }
   | { readonly kind: 'settings.save'; readonly saving: MinistrySettingsSaving }
+  | { readonly kind: 'shortName.change'; readonly change: ShortNameChange }
   | { readonly kind: 'goal.add'; readonly goal: NewDiscipleshipGoal }
   | { readonly kind: 'goal.rename'; readonly renaming: DiscipleshipGoalRenaming }
   | { readonly kind: 'goal.reorder'; readonly order: DiscipleshipGoalOrder }
@@ -889,6 +901,11 @@ export const closeIntendedPairing = (closure: IntendedPairingClosure): Effect =>
 export const saveMinistrySettings = (saving: MinistrySettingsSaving): Effect => ({
   kind: 'settings.save',
   saving,
+})
+
+export const changeShortName = (change: ShortNameChange): Effect => ({
+  kind: 'shortName.change',
+  change,
 })
 
 export const addDiscipleshipGoal = (goal: NewDiscipleshipGoal): Effect => ({

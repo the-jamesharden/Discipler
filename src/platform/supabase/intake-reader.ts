@@ -8,6 +8,7 @@ import {
   type Weekday,
 } from '~/domain/intake'
 import { intakeLinkState } from '~/domain/intake-link'
+import { shortName, type ShortName } from '~/domain/short-name'
 import { ministryId, personId, relationshipId } from '~/domain/ids'
 import type {
   DiscipleshipGoalOption,
@@ -192,6 +193,30 @@ export const createPostgresIntakeReader = (
         }))
 
         return { ministryId: ministryId(id), ministryName: name, groups }
+      } finally {
+        await client.query('rollback')
+        client.release()
+      }
+    },
+
+    async ministryNamed(name: ShortName) {
+      const client = await pool.connect()
+      try {
+        await client.query('begin')
+        await client.query('set local role discipler_command')
+
+        // Any name the Ministry has ever held, and the one it holds now, from the
+        // one function that may look across every Ministry's names: the
+        // connection has not said which Ministry it acts for, and cannot until
+        // this has answered.
+        const { rows } = await client.query<{ ministry_id: string; short_name: string }>(
+          `select ministry_id, short_name from app.ministry_named($1)`,
+          [name],
+        )
+        const found = rows[0]
+        return found
+          ? { ministryId: ministryId(found.ministry_id), shortName: shortName(found.short_name) }
+          : null
       } finally {
         await client.query('rollback')
         client.release()

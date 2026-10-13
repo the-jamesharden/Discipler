@@ -309,6 +309,12 @@ describe('applying a command\'s effects', () => {
         saveMinistrySettings: async () => {
           throw new Error('the settings should not have been saved')
         },
+        ministryShortName: async () => {
+          throw new Error('the short name should not have been read')
+        },
+        changeShortName: async () => {
+          throw new Error('the short name should not have been changed')
+        },
         recordIntake: async () => {
           throw new Error('Intake should not have been touched')
         },
