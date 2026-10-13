@@ -83,7 +83,7 @@ describe.skipIf(skipUnlessAppIsRunning)('removing a question, over HTTP', () => 
 
     const asking = await page('/intake-forms?form=discipleship&question=availability&removingQuestion=1')
     expect(asking).toContain(
-      'Remove “When could you meet?” Suggested Pairs ranks people by the hours they share. Without this question it cannot suggest anybody: the tab will say so and you will pair everyone by hand. It also deletes the answers 1 person has already given. This cannot be undone.',
+      'Remove “When could you meet?” Suggested Pairs ranks people by the hours they share. Without this question it cannot suggest anybody: the tab will say so and you will pair everyone by hand. It also deletes the answer 1 person has already given. This cannot be undone.',
     )
     expect(asking).toContain('Remove it and its answer')
     expect(asking).toContain('Keep it')
