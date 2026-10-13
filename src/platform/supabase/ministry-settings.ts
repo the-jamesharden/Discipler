@@ -77,7 +77,7 @@ export const supabaseMinistrySettingsReader: MinistrySettingsReader = {
 
       return {
         settings: asSettings(section(page, 'settings')),
-        removed: removedFromTheForms(page.intake_forms),
+        removed: removedFromTheForms(page.intake_forms_asked),
       }
     })
   },

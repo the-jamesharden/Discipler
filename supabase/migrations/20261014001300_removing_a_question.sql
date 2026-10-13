@@ -307,14 +307,48 @@ revoke execute on function public.intake_forms_page() from public, anon, service
 grant execute on function public.intake_forms_page() to authenticated;
 
 -- ---------------------------------------------------------------------------
--- 7. Suggested Pairs and Settings carry the forms
+-- 7. Suggested Pairs and Settings carry which of Discipler's questions each
+--    form asks
 -- ---------------------------------------------------------------------------
--- Each says what it does without a question a form no longer asks, so each
--- reads the forms as they stand: `app.intake_forms_now`, the read the person
--- page and the cards make.
+-- Each says what it does without a question a form no longer asks. What they
+-- are told is the keys of Discipler's own questions on the latest version of
+-- each form the Ministry has edited, and nothing else: not the form's words,
+-- and not the Ministry's own questions, which nothing that pairs people reads
+-- (ticket 12). A form never edited is absent and asks everything.
+create function app.intake_forms_asked(target_ministry_id uuid)
+returns jsonb
+language sql
+stable
+security invoker
+set search_path = ''
+as $$
+  select coalesce(
+    jsonb_agg(jsonb_build_object(
+                'form', latest.form,
+                'asks', coalesce(
+                  (select jsonb_agg(asked.question ->> 'key')
+                     from jsonb_array_elements(latest.definition -> 'pages') as page (body)
+                    cross join jsonb_array_elements(page.body -> 'questions') as asked (question)
+                    where (asked.question ->> 'key') not like 'custom:%'),
+                  '[]'::jsonb))
+              order by latest.form),
+    '[]'::jsonb
+  )
+    from (select distinct on (v.form) v.form, v.definition
+            from public.intake_form_version v
+           where v.ministry_id = target_ministry_id
+           order by v.form, v.version desc) latest;
+$$;
+
+comment on function app.intake_forms_asked(uuid) is
+  'Which of Discipler''s own questions the latest version of each Intake form '
+  'the Ministry has edited asks, by key. Never the Ministry''s own questions.';
+
+revoke execute on function app.intake_forms_asked(uuid) from public, anon, service_role;
+grant execute on function app.intake_forms_asked(uuid) to authenticated;
 --
 -- `suggested_pairs_page` restated whole from `20261007000100_suggested_pairs.sql`
--- with `intake_forms` added.
+-- with `intake_forms_asked` added.
 create or replace function public.suggested_pairs_page()
 returns jsonb
 language plpgsql
@@ -343,7 +377,7 @@ begin
     ),
     -- What the mentor and mentee form no longer asks is what the tab says it is
     -- doing without (ticket 13).
-    'intake_forms', app.intake_forms_now(ministry)
+    'intake_forms_asked', app.intake_forms_asked(ministry)
   );
 end;
 $$;
@@ -352,8 +386,8 @@ revoke execute on function public.suggested_pairs_page() from public, anon, serv
 grant execute on function public.suggested_pairs_page() to authenticated;
 
 -- `settings_page` restated whole from `20260926000100_a_page_is_one_read.sql`
--- with `intake_forms` added: the Pairing section says when a form no longer
--- asks what its two rules read.
+-- with `intake_forms_asked` added: the Pairing section says when a form no
+-- longer asks what its two rules read.
 create or replace function public.settings_page()
 returns jsonb
 language plpgsql
@@ -369,7 +403,7 @@ begin
   ministry := (doc -> 'admin' ->> 'ministry_id')::uuid;
   return doc || jsonb_build_object(
     'settings', (select to_jsonb(s) from public.ministry_settings(ministry) s limit 1),
-    'intake_forms', app.intake_forms_now(ministry)
+    'intake_forms_asked', app.intake_forms_asked(ministry)
   );
 end;
 $$;

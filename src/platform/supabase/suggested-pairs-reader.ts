@@ -146,7 +146,7 @@ export const candidatesFrom = (doc: PageDocument): readonly SuggestionCandidate[
  * Pairs suggests one-to-ones, which is what that form signs people up for.
  */
 export const unaskedFrom = (doc: PageDocument): readonly SuggestionQuestion[] => {
-  const removed = removedFromTheForms(doc.intake_forms).discipleship
+  const removed = removedFromTheForms(doc.intake_forms_asked).discipleship
   return SUGGESTION_QUESTIONS.filter((question) => removed.includes(question))
 }
 

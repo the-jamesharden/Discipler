@@ -7,7 +7,7 @@ import {
   isOwnQuestionKey,
   presetForm,
   PRESET_VERSION,
-  removedQuestions,
+  questionsOf,
   type BuiltInQuestion,
   type FormPage,
   type FormQuestion,
@@ -184,18 +184,31 @@ export const formsNowFrom = (value: unknown): readonly IntakeForm[] =>
 
 /**
  * Discipler's own questions each of the Ministry's two forms no longer asks
- * (Pastor feedback, ticket 13), off a page document's `intake_forms`: what each
- * surface that reads one of them says it is doing without. A form never edited
- * asks everything. Required, unlike the answers' words: a document that said
- * nothing about the forms would read as *nothing removed*, and a surface would
- * go on quietly doing less without saying why.
+ * (Pastor feedback, ticket 13), off a page document's `intake_forms_asked`: the
+ * keys of Discipler's questions on the latest version of each form it has edited
+ * (`app.intake_forms_asked`), against what that form's preset asks. A form never
+ * edited is absent and asks everything. What each surface that reads one of them
+ * says it is doing without.
+ *
+ * Required, unlike the answers' words: a document that said nothing about the
+ * forms would read as *nothing removed*, and a surface would go on quietly doing
+ * less without saying why.
  */
 export const removedFromTheForms = (value: unknown): Readonly<Record<IntakePath, readonly BuiltInQuestion[]>> => {
   if (!Array.isArray(value)) throw new Error('The page said nothing about the Ministry’s Intake forms')
-  const forms = formsNowFrom(value)
-  const removedFrom = (name: IntakePath) => {
-    const form = forms.find((each) => each.name === name)
-    return form ? removedQuestions(form) : []
+  const asked = new Map<IntakePath, readonly unknown[]>()
+  for (const row of value as Record<string, unknown>[]) {
+    if (!isOneOf(INTAKE_PATHS, row.form) || !Array.isArray(row.asks)) {
+      throw new Error(`An Intake form arrived that names no form or no questions: ${JSON.stringify(row.form)}`)
+    }
+    asked.set(row.form, row.asks)
+  }
+  const removedFrom = (name: IntakePath): readonly BuiltInQuestion[] => {
+    const asks = asked.get(name)
+    if (!asks) return []
+    return questionsOf(presetForm(name)).flatMap((question) =>
+      isBuiltInQuestion(question.key) && !asks.includes(question.key) ? [question.key] : [],
+    )
   }
   return { discipleship: removedFrom('discipleship'), [GROUP_PATH]: removedFrom(GROUP_PATH) } as Record<
     IntakePath,
