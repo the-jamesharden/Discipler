@@ -2,11 +2,18 @@ import Link from 'next/link'
 import Script from 'next/script'
 import { INTAKE_PATHS, type IntakePath } from '~/domain/intake'
 import {
+  addBackQuestion,
   hasChoices,
   isOwnQuestion,
+  isRemovable,
   isTypedKind,
   moveQuestion,
+  neededBy,
   OWN_KINDS,
+  presetForm,
+  questionOn,
+  removalDeletesAnswers,
+  removedQuestions,
   rulesOf,
   type FormPage,
   type FormQuestion,
@@ -21,8 +28,11 @@ import {
   ABOUT_YOUR_QUESTION,
   ADD_A_PAGE,
   ADD_A_QUESTION,
+  ADD_BACK,
+  addBackLabel,
   ADD_KIND,
   addKindLabel,
+  answersDeleted,
   ADD_PAGE,
   ALWAYS_ASKED,
   CANCEL,
@@ -36,6 +46,7 @@ import {
   HINT,
   INTRO,
   INTRO_HINT,
+  KEEP_IT,
   KIND,
   KIND_IN_FULL,
   KIND_LABEL,
@@ -45,9 +56,11 @@ import {
   MORE_CHOICES,
   moveDown,
   moveUp,
+  NEEDED_FIRST,
   NEW_PAGE_HINT,
   NEW_QUESTION,
   NONE_YET,
+  NOTHING_KEPT,
   OPTIONAL,
   PAGE_NAME,
   pageTitle,
@@ -55,9 +68,14 @@ import {
   QUESTION,
   questionCount,
   RENAME,
+  REMOVE_QUESTION,
+  REMOVED_LIVE,
+  removeIt,
+  removeTitle,
   REQUIRED,
   SAVE,
   SAVED_LIVE,
+  STOPS_WORKING,
   THANK_YOU,
   THANK_YOU_HINT,
   TYPED_ON_THE_LAST_PAGE,
@@ -90,6 +108,11 @@ import {
 export interface EditorState {
   /** The question whose row is open. */
   readonly question: string | null
+  /**
+   * The open question's *Remove question…* was pressed: the row asks once more,
+   * saying what it deletes, and only its second button removes (ticket 13).
+   */
+  readonly removing: boolean
   /** The page whose name is being changed. */
   readonly renaming: string | null
   /** The intro or the thank-you being written. */
@@ -99,7 +122,10 @@ export interface EditorState {
   readonly adding: { readonly pageId: string; readonly kind: OwnKind } | null
   /** What was typed into a question being added that was refused, put back. */
   readonly draft: QuestionDraft | null
-  /** A question key, `page:<id>`, `page`, `intro`, `thank_you` or `order`. */
+  /**
+   * A question key, `page:<id>`, `page`, `intro`, `thank_you`, `order`, or
+   * `removed:<page id>` for a question just removed from that page.
+   */
   readonly saved: string | null
   /** Why the last edit was refused, in words. */
   readonly refusal: string | null
@@ -120,11 +146,14 @@ const editorHref = (form: IntakePath, params: Record<string, string> = {}, ancho
 export const FormEditor = ({
   form,
   path,
+  answerCounts,
   state,
 }: {
   readonly form: IntakeForm
   /** Where the form is, as a pastor says it: `/join/<short name>`, and `/groups` after. */
   readonly path: string
+  /** How many people have answered each question on this form, by key (ticket 13). */
+  readonly answerCounts: Readonly<Record<string, number>>
   readonly state: EditorState
 }) => {
   // Said where the edit was being made, so an Admin who pressed Save on a row
@@ -186,6 +215,7 @@ export const FormEditor = ({
           <PageBox
             key={page.id}
             form={form}
+            answerCounts={answerCounts}
             page={page}
             number={index + 1}
             first={index === 0}
@@ -240,6 +270,7 @@ export const FormEditor = ({
 
 const PageBox = ({
   form,
+  answerCounts,
   page,
   number,
   first,
@@ -247,6 +278,7 @@ const PageBox = ({
   state,
 }: {
   readonly form: IntakeForm
+  readonly answerCounts: Readonly<Record<string, number>>
   readonly page: FormPage
   readonly number: number
   readonly first: boolean
@@ -274,6 +306,11 @@ const PageBox = ({
       {state.saved === `page:${page.id}` ? (
         <p className="fe-saved fe-note" role="status">
           {SAVED_LIVE}
+        </p>
+      ) : null}
+      {state.saved === `removed:${page.id}` ? (
+        <p className="fe-saved fe-note" role="status">
+          {REMOVED_LIVE}
         </p>
       ) : null}
 
@@ -306,7 +343,13 @@ const PageBox = ({
 
       <ul className="fe-qs" data-page-id={page.id}>
         {page.questions.map((question) => (
-          <QuestionRow key={question.key} form={form} question={question} state={state} />
+          <QuestionRow
+            key={question.key}
+            form={form}
+            question={question}
+            answered={answerCounts[question.key] ?? 0}
+            state={state}
+          />
         ))}
       </ul>
       {page.questions.length === 0 && state.adding?.pageId !== page.id ? (
@@ -336,22 +379,52 @@ const AddAQuestion = ({
   readonly page: FormPage
   readonly number: number
   readonly last: boolean
-}) => (
-  <div className="fe-add">
-    <span className="fe-add-label">{ADD_A_QUESTION}</span>
-    {OWN_KINDS.filter((kind) => last || !isTypedKind(kind)).map((kind) => (
-      <Link
-        key={kind}
-        className="btn sec small"
-        href={editorHref(form.name, { adding: kind, addTo: page.id }, 'new-question')}
-        aria-label={addKindLabel(kind, `page ${number}`)}
-      >
-        {ADD_KIND[kind]}
-      </Link>
-    ))}
-    {last ? null : <span className="fe-add-note">{TYPED_ON_THE_LAST_PAGE}</span>}
-  </div>
-)
+}) => {
+  // Discipler's own questions this form no longer asks, each offered on the pages
+  // it may be asked on, in the words it comes back in (ticket 13).
+  const back = removedQuestions(form).filter((key) => {
+    const added = addBackQuestion(form, page.id, key)
+    return added !== null && !('refusal' in added)
+  })
+  return (
+    <div className="fe-add">
+      <span className="fe-add-label">{ADD_A_QUESTION}</span>
+      {OWN_KINDS.filter((kind) => last || !isTypedKind(kind)).map((kind) => (
+        <Link
+          key={kind}
+          className="btn sec small"
+          href={editorHref(form.name, { adding: kind, addTo: page.id }, 'new-question')}
+          aria-label={addKindLabel(kind, `page ${number}`)}
+        >
+          {ADD_KIND[kind]}
+        </Link>
+      ))}
+      {last ? null : <span className="fe-add-note">{TYPED_ON_THE_LAST_PAGE}</span>}
+      {back.length > 0 ? (
+        <form method="post" action="/intake-forms/form/add-back" className="fe-add-back">
+          <input type="hidden" name="form" value={form.name} />
+          <input type="hidden" name="pageId" value={page.id} />
+          <span className="fe-add-label">{ADD_BACK}</span>
+          {back.map((key) => {
+            const wording = questionOn(presetForm(form.name), key)!.wording
+            return (
+              <button
+                key={key}
+                type="submit"
+                name="key"
+                value={key}
+                className="sec small"
+                aria-label={addBackLabel(wording, `page ${number}`)}
+              >
+                {wording}
+              </button>
+            )
+          })}
+        </form>
+      ) : null}
+    </div>
+  )
+}
 
 /**
  * A question being added, open in place at the foot of its page: worded, given a
@@ -579,13 +652,17 @@ const shownWording = (question: FormQuestion): string =>
 const QuestionRow = ({
   form,
   question,
+  answered,
   state,
 }: {
   readonly form: IntakeForm
   readonly question: FormQuestion
+  /** How many people have answered it, which removing it deletes. */
+  readonly answered: number
   readonly state: EditorState
 }) => {
   const open = state.question === question.key
+  const removing = open && state.removing && isRemovable(question)
   const anchor = `q-${question.key}`
   const rules = rulesOf(question)
   const about = isOwnQuestion(question) ? aboutYourQuestion(question.kind) : ABOUT[question.key]
@@ -609,7 +686,9 @@ const QuestionRow = ({
       <div>
         <div className="fe-wording">{shownWording(question)}</div>
         <Chips question={question} />
-        {open ? (
+        {removing ? (
+          <Removal form={form} question={question} answered={answered} state={state} />
+        ) : open ? (
           <form method="post" action="/intake-forms/form/question" className="fe-edit">
             <input type="hidden" name="form" value={form.name} />
             <input type="hidden" name="key" value={question.key} />
@@ -680,6 +759,19 @@ const QuestionRow = ({
               <Link className="btn sec small" href={editorHref(form.name, {}, anchor)}>
                 {CANCEL}
               </Link>
+              {isRemovable(question) ? (
+                <>
+                  <span className="spacer" aria-hidden="true" />
+                  {/* The first of two presses: it asks again, in place, and
+                      removes nothing. */}
+                  <Link
+                    className="btn sec small danger"
+                    href={editorHref(form.name, { question: question.key, removingQuestion: '1' }, anchor)}
+                  >
+                    {REMOVE_QUESTION}
+                  </Link>
+                </>
+              ) : null}
             </div>
           </form>
         ) : null}
@@ -718,6 +810,70 @@ const QuestionRow = ({
         </div>
       )}
     </li>
+  )
+}
+
+/** The page a question is on, by its id. */
+const pageOf = (form: IntakeForm, key: string): string =>
+  form.pages.find((page) => page.questions.some((question) => question.key === key))?.id ?? ''
+
+/**
+ * The second press, in the row in place of its fields (Pastor feedback, ticket
+ * 13; `.lavish/pastor-feedback/mock-forms-remove.html`): what is being removed,
+ * what stops working where the product reads it, how many people's answers go
+ * with it and that this cannot be undone, then the one button that removes and
+ * one that keeps it. The side, while the first-time question is worded from it,
+ * says so and offers only to keep it.
+ */
+const Removal = ({
+  form,
+  question,
+  answered,
+  state,
+}: {
+  readonly form: IntakeForm
+  readonly question: FormQuestion
+  readonly answered: number
+  readonly state: EditorState
+}) => {
+  const anchor = `q-${question.key}`
+  const blocked = neededBy(form, question.key) !== undefined
+  const stops = isOwnQuestion(question) ? undefined : STOPS_WORKING[form.name][question.key]
+  const deletes = removalDeletesAnswers(question.key)
+  const people = deletes ? answered : 0
+  const cost = deletes ? answersDeleted(people, stops !== undefined) : NOTHING_KEPT[question.key]
+  return (
+    <div className="fe-edit">
+      {state.refusal ? (
+        <p className="toast error" role="alert">
+          {state.refusal}
+        </p>
+      ) : null}
+      <div className="fe-warn fe-removal" role="alert">
+        <strong>{removeTitle(question.wording)}</strong>
+        {blocked ? (
+          <p>{NEEDED_FIRST}</p>
+        ) : (
+          <>
+            {stops ? <p>{stops}</p> : null}
+            {cost ? <p>{cost}</p> : null}
+          </>
+        )}
+      </div>
+      <form method="post" action="/intake-forms/form/remove-question" className="btn-row">
+        <input type="hidden" name="form" value={form.name} />
+        <input type="hidden" name="key" value={question.key} />
+        <input type="hidden" name="pageId" value={pageOf(form, question.key)} />
+        {blocked ? null : (
+          <button type="submit" className="small decline-yes">
+            {removeIt(people)}
+          </button>
+        )}
+        <Link className="btn sec small" href={editorHref(form.name, { question: question.key }, anchor)}>
+          {KEEP_IT}
+        </Link>
+      </form>
+    </div>
   )
 }
 

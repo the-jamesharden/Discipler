@@ -123,6 +123,75 @@ export const ABOUT_TYPED =
   'It is asked on the last page, beside Submit, so what is typed never goes into a web address.'
 export const ABOUT_CHOICES = 'Reword a choice and everybody who picked it keeps their answer.'
 
+/**
+ * Removing a question (Pastor feedback, ticket 13; settled in James's Lavish
+ * review of 2026-10-12, `.lavish/pastor-feedback/mock-forms-remove.html`): the
+ * open row's last button, and what the row says in its place when it is pressed.
+ */
+export const REMOVE_QUESTION = 'Remove question…'
+export const KEEP_IT = 'Keep it'
+export const removeTitle = (wording: string): string => `Remove “${wording}”`
+
+/**
+ * What stops working without a question the product reads, said before the
+ * second press, in the ticket's words. Keyed by the form as well as the
+ * question, because the groups form offers groups by gender and the mentor and
+ * mentee form does not.
+ */
+export const STOPS_WORKING: Readonly<Record<IntakePath, Partial<Record<string, string>>>> = {
+  discipleship: {
+    availability:
+      'Suggested Pairs ranks people by the hours they share. Without this question it cannot suggest anybody: the tab will say so and you will pair everyone by hand.',
+    gender:
+      'The gender pairing rules read this answer. Without this question they cannot be applied to anybody who fills in this form: Suggested Pairs and the settings will say so.',
+    ageBand:
+      'The age rule reads this answer. Without this question it cannot be applied: Suggested Pairs will say so and suggest people of any age together.',
+    goalId:
+      'Suggested Pairs uses this answer as a tiebreaker. Without this question there is no goal tiebreaker: the tab will say so.',
+    side:
+      'Suggested Pairs uses this answer to tell who offered to disciple. Without this question it cannot tell who offered: the tab will say so, and it will suggest as Disciplers only people who already disciple somebody.',
+  },
+  group: {
+    gender:
+      'The gender pairing rules read this answer. Without this question they cannot be applied to anybody who fills in this form, so it offers only the groups open to men and women alike.',
+    groupId:
+      'This is what the groups form is for. Without this question nobody who fills it in chooses a group: each one waits in Follow-Up for you to place them.',
+  },
+}
+
+/** Why the side cannot go while the first-time question is still asked. */
+export const NEEDED_FIRST =
+  'The first-time question is worded from this answer, so it cannot be asked without it. Remove the first-time question first.'
+
+/**
+ * How many people's answers a removal deletes, and that it cannot be undone.
+ * `also` where a sentence about what stops working comes first.
+ */
+export const answersDeleted = (people: number, also: boolean): string =>
+  people === 0
+    ? 'Nobody has answered it yet, so no answers are deleted.'
+    : `It ${also ? 'also ' : ''}deletes the ${people === 1 ? 'answer 1 person has' : `answers ${people} people have`} already given. This cannot be undone.`
+
+/** The two questions whose removal deletes nothing, said in place of a count. */
+export const NOTHING_KEPT: Partial<Record<string, string>> = {
+  email: 'The emails people gave are kept with their names and numbers, so no answers are deleted.',
+  groupId: 'Everybody stays in the group they joined, and every request waiting stays, so no answers are deleted.',
+}
+
+/** The second press. */
+export const removeIt = (people: number): string =>
+  people === 0 ? 'Remove it' : people === 1 ? 'Remove it and its answer' : `Remove it and its ${people} answers`
+
+/** Said where the question was, once it has gone. */
+export const REMOVED_LIVE = 'Removed, live now'
+
+/**
+ * *Add a question* offers back each of Discipler's own questions the form no
+ * longer asks, by the words it is asked in.
+ */
+export const ADD_BACK = 'Add back:'
+export const addBackLabel = (wording: string, page: string): string => `Add “${wording}” back to ${page}`
+
 /** The buttons for an editor whose script has not run. */
 export const moveUp = (wording: string): string => `Move “${wording}” up`
 export const moveDown = (wording: string): string => `Move “${wording}” down`
@@ -173,6 +242,10 @@ const REFUSALS: Record<IntakeFormRefusal, string> = {
     'A choice cannot be emptied: the answers that picked it would go with it. Reword it instead.',
   'intake_form.asked_too_soon':
     'That would ask a question before the answer it is worded from: the first-time question comes after “I’m joining as…”, and the choice of group after Gender.',
+  'intake_form.always_asked':
+    'Name and mobile number are asked of everybody: they are who somebody is to Discipler, so they cannot be removed.',
+  'intake_form.worded_from_it':
+    'The first-time question is worded from “I’m joining as…”, so the form asks the one only while it asks the other.',
 }
 
 /** The sentence for a refusal that came back on the query string, or null. */

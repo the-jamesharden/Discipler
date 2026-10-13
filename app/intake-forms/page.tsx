@@ -97,6 +97,8 @@ export default async function IntakeFormsPage({
     addingPage?: string
     formSaved?: string
     formError?: string
+    /** The open question's removal, asked once more in place (ticket 13). */
+    removingQuestion?: string
     /**
      * A question being added (ticket 12): its kind, the page it goes at the foot
      * of, and what was typed into it where it was refused.
@@ -226,8 +228,10 @@ export default async function IntakeFormsPage({
       <FormEditor
         form={resolution.page.forms[editing]}
         path={formPath}
+        answerCounts={resolution.page.answerCounts[editing]}
         state={{
           question: query.question ?? null,
+          removing: query.removingQuestion === '1',
           renaming: query.renaming ?? null,
           writing: isFormText(query.writing) ? query.writing : null,
           addingPage: query.addingPage === '1',

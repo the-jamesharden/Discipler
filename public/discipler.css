@@ -340,6 +340,16 @@ button.fe-handle:active { cursor: grabbing; }
 .fe-qs + .fe-new, .fe-empty + .fe-new { border-top: 1px solid var(--border); }
 .fe-new { border-bottom: 0; }
 .fe-new .fe-handle, .js .fe-new .fe-handle { visibility: hidden; }
+/* Removing a question (Pastor feedback, ticket 13): the open row's last button,
+   pushed to the right of Save and Cancel, and what the row says in place of its
+   fields once it is pressed, in the colour of a loss. The questions a form no
+   longer asks are offered back on a line of their own at the foot of a page. */
+.fe-edit .btn-row .spacer { flex: 1; }
+.fe-removal { border-color: var(--red-concern); background: rgba(220, 53, 69, 0.05); }
+.fe-removal p { margin: 0.35rem 0 0; }
+.fe-edit form.btn-row { margin: 0; }
+.fe-add-back { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; flex-basis: 100%; margin: 0; }
+.fe-add-back button { margin: 0; }
 fieldset.fe-choice-boxes { display: grid; gap: 0.5rem; margin: 0; padding: 0; border: 0; min-width: 0; }
 /* Room for a few choices before any are typed, where the other boxes grow from one line. */
 .fe-edit textarea.fe-choices { min-height: 4.6em; }
