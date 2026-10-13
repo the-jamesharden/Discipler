@@ -1,8 +1,8 @@
 import pg from 'pg'
+import { looksLikeAnId } from '~/domain/ids'
 import type { MaterialItem } from '~/domain/materials'
 import type { DisciplesMaterialPage, MaterialPageReader } from '~/service/ports'
 import { materialItemFrom } from './material-items'
-import { looksLikeAnId } from './rows'
 
 /**
  * A Disciple's Material page (Richer materials, ticket 04). Served to somebody

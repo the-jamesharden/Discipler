@@ -1,7 +1,11 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { relationshipIdFrom } from '~/domain/ids'
 import { checkInRates, ratedTotal } from '~/domain/overview'
 import { getOverviewReader } from '~/service/container'
+import { careOutcomeMessage, careRefusalMessage } from '../follow-up/copy'
+import { readTheConcerns } from '../pair-card/open'
+import { PairCard } from '../pair-card/pair-card'
 import { AdminShell, NotAnAdmin } from '../shell'
 import {
   ALL_RELATIONSHIPS,
@@ -13,12 +17,12 @@ import {
   OVERVIEW_SUBTITLE,
   QUICK_STATS,
   relationshipCount,
-  statePill,
   TILES,
   withPeople,
 } from './copy'
 import { Donut } from './donut'
-import { flaggedIn, flagsFor } from './flags'
+import { flagsFor } from './flags'
+import { cardPill, needOf } from './need'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,28 +34,55 @@ export const dynamic = 'force-dynamic'
  * apart: the response rate and the meeting rate must never be conflated. They
  * and both rings are over last week, and every one of them says so.
  *
- * The cards are for triage: who needs a call this week. A pill only when the
- * state is worth naming, so Healthy shows nothing; the flag line comes from the
- * care items and not the state, so an unresolved Concern still shows on a
- * relationship that has since answered. Each card links to the relationship's
- * Follow-Up item where one exists, because there is no relationship detail page.
+ * The cards are for triage: who needs a call this week. Each is coloured by
+ * what it needs and carries the word for it (Pastor feedback, ticket 02): green
+ * and *Healthy*, yellow and *Stalled*, red while a Concern is unresolved, grey
+ * and *Paused* or *Awaiting acceptance*. The flag line comes from the care items
+ * and not the state, so an unresolved Concern still shows, and still colours the
+ * card red, on a relationship that has since answered.
+ *
+ * Pressing any card opens the pair card over the page (Pastor feedback, ticket
+ * 07), or for a Group the same card in its group form (ticket 08): this same
+ * page at `?card=`, so the address says which card is open, it works without
+ * script, and closing it is a link back to `/overview`.
  */
 
-export default async function OverviewPage() {
-  // One read: the session verdict, the tab and the Care Needed list come from one
-  // document, so the Needs Follow-Up tile, the tab badge and the flag lines on
-  // the cards are all this one list.
-  const page = await getOverviewReader().readOverviewPage()
+export default async function OverviewPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ card?: string; done?: string; error?: string }>
+}) {
+  const query = await searchParams
+  // Whatever arrives in the address is whatever somebody typed there: an id or
+  // nothing, and the card is read only for a relationship this Admin's own
+  // Ministry holds.
+  const asked = relationshipIdFrom(query.card)
+
+  // One read: the session verdict, the tab, the Care Needed list and the card
+  // come from one document, so the Needs Follow-Up tile, the tab badge, the flag
+  // lines on the cards and the card itself are all this one list.
+  const page = await getOverviewReader().readOverviewPage(asked)
   if (page.status === 'not-an-admin') return <NotAnAdmin title="Ministry overview" />
   if (page.status === 'signed-out') redirect('/login')
 
   const { admin } = page
-  const { overview, care } = page.page
+  const { overview, care, card } = page.page
+
+  // Opening the card reads its Concerns, and records the reading as *Read the
+  // concern* does. After the read and never instead of it.
+  const words = card ? await readTheConcerns(card.concerns, admin) : []
+  const now = new Date()
+  const outcome = careOutcomeMessage(query.done)
+  const refusal = careRefusalMessage(query.error)
+  const notice = refusal
+    ? { tone: 'refused' as const, said: refusal }
+    : outcome
+      ? { tone: 'done' as const, said: outcome }
+      : null
 
   const rates = checkInRates(overview.counts)
   const notMet = overview.counts.answered - overview.counts.held
   const rated = ratedTotal(overview.counts)
-  const flagged = flaggedIn(care)
 
   const tiles = [
     {
@@ -79,6 +110,13 @@ export default async function OverviewPage() {
 
   return (
     <AdminShell admin={admin} current="overview" subtitle={OVERVIEW_SUBTITLE} followUpCount={care.length}>
+      {/* What a card's action did, said here once the card it came from has
+          gone: the relationship ended, and there is no card to say it on. */}
+      {notice && !card ? (
+        <p className={notice.tone === 'refused' ? 'toast error' : 'toast'} role={notice.tone === 'refused' ? 'alert' : 'status'}>
+          {notice.said}
+        </p>
+      ) : null}
       <ul className="stats">
         {tiles.map((tile) => (
           <li key={tile.label} className="stat">
@@ -116,8 +154,9 @@ export default async function OverviewPage() {
             emptyLabel={NO_CHECK_INS_LAST_WEEK}
             segments={[
               { label: 'Outstanding (A)', value: overview.counts.rated.outstanding, colour: 'var(--green-fit)' },
-              { label: 'Good (B)', value: overview.counts.rated.good, colour: 'var(--yellow-fit)' },
-              { label: 'Concern (C)', value: overview.counts.rated.concern, colour: 'var(--red-concern)' },
+              { label: 'Good (B)', value: overview.counts.rated.good, colour: 'var(--light-green-fit)' },
+              { label: 'Okay (C)', value: overview.counts.rated.okay, colour: 'var(--yellow-fit)' },
+              { label: 'Concern (D)', value: overview.counts.rated.concern, colour: 'var(--red-concern)' },
             ]}
           />
         </div>
@@ -148,14 +187,16 @@ export default async function OverviewPage() {
           <div className="rel-grid">
             {overview.relationships.map((relationship) => {
               const { flags, tone } = flagsFor(relationship.relationshipId, care)
+              const pill = cardPill(relationship)
+              const className = `rel-card need-${needOf(relationship)}`
               const body = (
                 <>
                   <div className="rel-leader">
                     {relationship.leaderNames.join(', ') || 'Nobody leading'}
-                    {relationship.state !== 'healthy' ? (
+                    {pill ? (
                       <>
                         {' '}
-                        <span className={`pill ${relationship.state}`}>{statePill[relationship.state]}</span>
+                        <span className={`pill ${pill.state}`}>{pill.label}</span>
                       </>
                     ) : null}
                   </div>
@@ -165,23 +206,37 @@ export default async function OverviewPage() {
                   ) : null}
                 </>
               )
-              return flagged.has(relationship.relationshipId) ? (
+              // No prefetch: opening a card reads its Concern and records the
+              // reading, which only an Admin's press may do.
+              return (
                 <Link
                   key={relationship.relationshipId}
-                  className={`rel-card s-${relationship.state}`}
-                  href={`/follow-up#relationship-${relationship.relationshipId}`}
+                  id={`rel-${relationship.relationshipId}`}
+                  className={className}
+                  href={`/overview?card=${relationship.relationshipId}`}
+                  scroll={false}
+                  prefetch={false}
                 >
                   {body}
                 </Link>
-              ) : (
-                <div key={relationship.relationshipId} className={`rel-card s-${relationship.state}`}>
-                  {body}
-                </div>
               )
             })}
           </div>
         )}
       </div>
+
+      {card ? (
+        <PairCard
+          card={card}
+          words={words}
+          now={now}
+          // Back to the card it was opened from: without script the browser
+          // scrolls there, and with it the page has not moved.
+          close={`/overview#rel-${card.relationshipId}`}
+          back={`/overview?card=${card.relationshipId}`}
+          notice={notice}
+        />
+      ) : null}
     </AdminShell>
   )
 }

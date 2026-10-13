@@ -55,6 +55,7 @@ describe('the discipleship wizard', () => {
     ageBand: '25-34',
     gender: 'female',
     goalId: await firstGoalId(),
+    goalOther: null,
     availability: ['monday:12'],
     smsConsent: true,
     contactSharing: 'granted',
@@ -157,10 +158,13 @@ describe('the discipleship wizard', () => {
     await expect(insert(null, 'mentor')).rejects.toThrow(
       /consent_record_declared_side_follows_the_path/,
     )
-    // The discipleship path with no side is a wizard that skipped its first screen.
-    await expect(insert('discipleship', null)).rejects.toThrow(
+    // A side belongs to the discipleship path and to no other.
+    await expect(insert('group', 'mentee')).rejects.toThrow(
       /consent_record_declared_side_follows_the_path/,
     )
+    // The discipleship path with no side is a form that no longer asks it
+    // (Pastor feedback, ticket 13), or one whose answers were removed with it.
+    await expect(insert('discipleship', null)).resolves.toBeTruthy()
   })
 })
 
@@ -203,6 +207,7 @@ describe('what the Roster derives from the wizard', () => {
         ageBand: '25-34',
         gender: 'female',
         goalId: await firstGoalId(),
+        goalOther: null,
         availability: ['monday:12'],
         smsConsent: true,
         contactSharing: 'granted',

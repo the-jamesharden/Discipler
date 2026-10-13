@@ -49,6 +49,7 @@ describe('Completing Intake', () => {
     ageBand: '25-34',
     gender: 'female',
     goalId: await firstGoalId(),
+    goalOther: null,
     availability: ['monday:12', 'thursday:18'],
     smsConsent: true,
     contactSharing: 'granted',

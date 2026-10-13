@@ -1,4 +1,6 @@
 import type { IntakeFormFields, IntakePath } from '~/domain/intake'
+import { OWN_QUESTION_PREFIX } from '~/domain/intake-form'
+import type { OwnAnswersAsSent } from '~/domain/own-answers'
 
 /**
  * One field as the form sent it, and null for a field it did not send or sent as a
@@ -61,6 +63,7 @@ export const submittedIntakeForm = (
     ageBand: text('ageBand'),
     gender: text('gender'),
     goalId: text('goalId'),
+    goalOther: text('goalOther'),
     availability: submitted
       .getAll('availability')
       .filter((value): value is string => typeof value === 'string'),
@@ -76,5 +79,28 @@ export const submittedIntakeForm = (
     // The group form's own screen. Read on every route for the reason the side is:
     // a group named on a route that declares no group path is refused, not dropped.
     groupId: text('groupId'),
+    // The Ministry's own questions (Pastor feedback, ticket 12), every field
+    // named for one, with every value under it: several choices sends several.
+    // Read whichever route this is, so an answer to a question the form did not
+    // ask is refused rather than dropped.
+    own: ownAnswersSent(submitted),
   }
 }
+
+/** Every value under every field named for one of the Ministry's own questions. */
+const ownAnswersSent = (submitted: FormData): OwnAnswersAsSent =>
+  Object.fromEntries(
+    [...new Set([...submitted.keys()].filter((name) => name.startsWith(OWN_QUESTION_PREFIX)))].map((name) => [
+      name,
+      submitted.getAll(name).filter((value): value is string => typeof value === 'string'),
+    ]),
+  )
+
+/**
+ * The answers to the Ministry's own questions as a query string carries them, for
+ * the way back to the last step after a refusal. The wizard reads them as it reads
+ * any URL, so only the choice questions' answers survive: what was typed is not
+ * going in a URL.
+ */
+export const ownAnswersAsQuery = (form: IntakeFormFields): Record<string, string[]> =>
+  Object.fromEntries(Object.entries(form.own ?? {}).map(([key, values]) => [key, [...values]]))

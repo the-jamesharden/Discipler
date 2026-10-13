@@ -4,6 +4,7 @@ import type {
   CheckInPromptId,
   CheckInQuestion,
   CheckInSequenceId,
+  CheckInWording,
   Satisfaction,
 } from './check-in'
 import type { ConcernResolution, ConcernViewing, NewConcern } from './concerns'
@@ -17,6 +18,7 @@ import type {
   DiscipleshipGoalId,
   Gender,
   IntakePath,
+  OtherGoal,
 } from './intake'
 import type { FollowUpResolution, NewFollowUpItem } from './follow-up'
 import type {
@@ -25,7 +27,9 @@ import type {
   RelationshipKeyword,
 } from './keywords'
 import type { NewIntakeLink } from './intake-link'
+import type { IntakeForm, QuestionKey } from './intake-form'
 import type { MaterialFile, MaterialItem, MaterialTitle } from './materials'
+import type { OwnAnswer } from './own-answers'
 import type { MinistrySettings } from './ministry-settings'
 import type { InvitationToken, NewInvitation, WithdrawnAs } from './invitations'
 import type { OutboundMessageKind, OutstandingReplyCutoff } from './outstanding-reply'
@@ -33,6 +37,7 @@ import type { RatesLineOccasion } from './rates-line'
 import type { PersonRemoval, PersonRestoration } from './removal'
 import type { MemberRole, NewRelationship, RelationshipOutcome } from './relationships'
 import type { HeldImportRow, ImportRowAnswer, NewPerson, PhoneNumber } from './roster'
+import type { ShortName } from './short-name'
 
 /**
  * Commands return effects; they never perform I/O. The application service is the
@@ -180,10 +185,13 @@ export interface IntakeRecord {
    * reach the number Discipler dials.
    */
   readonly corrections: ContactCorrection | null
-  readonly ageBand: AgeBand
-  readonly gender: Gender
-  /** Null on the group path, which asks no Goal. */
+  /** Null where the form no longer asks it (Pastor feedback, ticket 13). */
+  readonly ageBand: AgeBand | null
+  readonly gender: Gender | null
+  /** Null on the group path, which asks no Goal, and where they chose Other. */
   readonly goalId: DiscipleshipGoalId | null
+  /** What they typed after choosing Other. Never set beside `goalId`. */
+  readonly goalOther: OtherGoal | null
   readonly availability: readonly AvailabilitySlot[]
   /**
    * Optional on the form. When it is given it lands on the Person, because an
@@ -198,6 +206,16 @@ export interface IntakeRecord {
    * ask.
    */
   readonly firstTime: boolean | null
+  /**
+   * Which version of the Ministry's form they answered (Pastor feedback, ticket
+   * 11): 0 for the preset, null where the form was not one of the Ministry's two.
+   */
+  readonly formVersion: number | null
+  /**
+   * The answers to the Ministry's own questions (Pastor feedback, ticket 12), one
+   * row each beside the submission. Shown to an Admin, never matched on.
+   */
+  readonly ownAnswers: readonly OwnAnswer[]
   /** The consent version the Person actually saw, recorded with each decision. */
   readonly consentVersion: string
   readonly source: ConsentSource
@@ -430,6 +448,11 @@ export interface NewCheckInPrompt {
   /** Position in the conversation, so history reads back in the order it happened. */
   readonly position: number
   readonly question: CheckInQuestion
+  /**
+   * The answers it offered, which is what its reply will be read against. Always
+   * the wording in force when it is sent; see `CheckInWording`.
+   */
+  readonly wording: CheckInWording
   readonly askedAt: Date
 }
 
@@ -447,7 +470,7 @@ export interface CheckInAnswer {
   readonly answeredAt: Date
   /** Set by a `met` answer, null on every other question. */
   readonly met: boolean | null
-  /** `outstanding`, `good` or `concern` -- the word, never the letter. */
+  /** `outstanding`, `good`, `okay` or `concern` -- the word, never the letter. */
   readonly satisfaction: Satisfaction | null
   /** The Concern in the Leader's own words. Prose, unparsed. */
   readonly detail: string | null
@@ -524,6 +547,43 @@ export interface NewDiscipleshipGoal {
   readonly label: GoalWording
   readonly position: number
   readonly createdAt: Date
+}
+
+/**
+ * One of a Ministry's Intake forms, saved as its next version (Pastor feedback,
+ * ticket 11). A new row and never an update: somebody part-way through the form
+ * is still being served the version before, and a submission records which one it
+ * answered.
+ */
+export interface IntakeFormSaving {
+  readonly ministryId: MinistryId
+  readonly form: IntakeForm
+  readonly savedAt: Date
+  /** The Admin's account, as the session named it. */
+  readonly savedBy: string
+}
+
+/**
+ * Every answer given to one question on one of a Ministry's forms, deleted
+ * (Pastor feedback, ticket 13). A question the Ministry added has its answers by
+ * its key; one of Discipler's own has them in the columns and rows that question
+ * fills, on the submissions made from that form. ADR-0014: a removal destroys its
+ * answers, and history keeps what they were.
+ */
+export interface IntakeAnswersRemoval {
+  readonly ministryId: MinistryId
+  readonly form: IntakePath
+  readonly key: QuestionKey
+}
+
+/**
+ * The short name a Ministry now goes by (Pastor feedback, ticket 04). Nothing
+ * here lets the old one go: the database holds every name a Ministry has had,
+ * and keeps it opening that Ministry's forms.
+ */
+export interface ShortNameChange {
+  readonly ministryId: MinistryId
+  readonly shortName: ShortName
 }
 
 /**
@@ -853,6 +913,9 @@ export type Effect =
   | { readonly kind: 'intendedPairing.plan'; readonly plan: NewIntendedPairing }
   | { readonly kind: 'intendedPairing.close'; readonly closure: IntendedPairingClosure }
   | { readonly kind: 'settings.save'; readonly saving: MinistrySettingsSaving }
+  | { readonly kind: 'shortName.change'; readonly change: ShortNameChange }
+  | { readonly kind: 'intakeForm.save'; readonly saving: IntakeFormSaving }
+  | { readonly kind: 'intakeForm.removeAnswers'; readonly removal: IntakeAnswersRemoval }
   | { readonly kind: 'goal.add'; readonly goal: NewDiscipleshipGoal }
   | { readonly kind: 'goal.rename'; readonly renaming: DiscipleshipGoalRenaming }
   | { readonly kind: 'goal.reorder'; readonly order: DiscipleshipGoalOrder }
@@ -889,6 +952,21 @@ export const closeIntendedPairing = (closure: IntendedPairingClosure): Effect =>
 export const saveMinistrySettings = (saving: MinistrySettingsSaving): Effect => ({
   kind: 'settings.save',
   saving,
+})
+
+export const changeShortName = (change: ShortNameChange): Effect => ({
+  kind: 'shortName.change',
+  change,
+})
+
+export const saveIntakeForm = (saving: IntakeFormSaving): Effect => ({
+  kind: 'intakeForm.save',
+  saving,
+})
+
+export const removeIntakeAnswers = (removal: IntakeAnswersRemoval): Effect => ({
+  kind: 'intakeForm.removeAnswers',
+  removal,
 })
 
 export const addDiscipleshipGoal = (goal: NewDiscipleshipGoal): Effect => ({

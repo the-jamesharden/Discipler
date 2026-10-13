@@ -36,8 +36,13 @@ export const NO_CHECK_INS_LAST_WEEK = 'No check-ins last week'
 export const relationshipCount = (active: number, hidden: number): string =>
   `${active} active${hidden > 0 ? ` · ${hidden} awaiting acceptance, not yet surfaced` : ''}`
 
-/** The pill on a card, where the state is worth naming. Healthy shows nothing. */
-export const statePill: Record<Exclude<RelationshipState, 'healthy'>, string> = {
+/**
+ * The pill naming a card's state. The Overview names every state, Healthy
+ * included, because its cards are coloured and a colour needs its word beside it
+ * (Pastor feedback, ticket 02); the Materials folders name all but Healthy.
+ */
+export const statePill: Record<RelationshipState, string> = {
+  healthy: 'Healthy',
   awaiting_leader_acceptance: 'Awaiting acceptance',
   stalled: 'Stalled',
   needs_care: 'Needs care',

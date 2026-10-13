@@ -67,6 +67,7 @@ describe('no group in mind', () => {
         ageBand: '25-34',
         gender: 'male',
         goalId: null,
+        goalOther: null,
         availability: ['tuesday:18', 'thursday:18'],
         smsConsent: true,
         contactSharing: 'granted',

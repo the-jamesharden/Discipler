@@ -592,6 +592,13 @@ export const IMPORT_IS_NEVER_CONSENT =
 export const OFFERED_TO_MENTOR = 'Offered to mentor'
 
 /**
+ * The person page's label for the goal question's answer, in the words the
+ * question itself asks (*What are you hoping for?*) and the pair card uses. The
+ * answer beside it is `goalAsShown`'s.
+ */
+export const HOPING_FOR = 'Hoping for'
+
+/**
  * Whether this is their first time, per Disciple, in the Pair popup. Both
  * answers are said outright, including *has done this before* -- said only for the
  * first-timers, a blank would read as *no* rather than as *nobody asked them*.

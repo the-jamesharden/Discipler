@@ -65,8 +65,14 @@ import type {
   PersonRenaming,
   RelationshipCancellation,
   RelationshipEnding,
+  ShortNameChange,
+  IntakeAnswersRemoval,
+  IntakeFormSaving,
 } from '~/domain/effects'
+import type { AnswerGiven, BuiltInQuestion, IntakeForm, QuestionKey } from '~/domain/intake-form'
+import type { OwnAnswerShown } from '~/domain/own-answers'
 import type {
+  FollowUpKind,
   FollowUpPayload,
   FollowUpResolution,
   NewFollowUpItem,
@@ -75,6 +81,7 @@ import type { OfferedGoal, StatedGoal } from '~/domain/discipleship-goals'
 import type { MaterialItem, MaterialOnOffer } from '~/domain/materials'
 import type { MaterialRecipient } from '~/domain/material-notices'
 import type { MinistrySettings, MinistryVoice } from '~/domain/ministry-settings'
+import type { ShortName } from '~/domain/short-name'
 import type { IntakeLinkState, IntakeLinkToken, NewIntakeLink } from '~/domain/intake-link'
 import type { InboundSnapshot } from '~/domain/keywords'
 import type {
@@ -85,7 +92,15 @@ import type { InvitationToken, NewInvitation } from '~/domain/invitations'
 import type { MinistrySetupState, NewMinistrySetup } from '~/domain/ministry-setup'
 import type { MinistrySetupRefusal } from '~/domain/errors'
 import type { HistoryEvent, NewHistoryEvent } from '~/domain/history'
-import type { AgeBand, AvailabilitySlot, DeclaredSide, DiscipleshipGoalId, Gender } from '~/domain/intake'
+import type {
+  AgeBand,
+  AvailabilitySlot,
+  DeclaredSide,
+  DiscipleshipGoalId,
+  Gender,
+  IntakePath,
+  OtherGoal,
+} from '~/domain/intake'
 import type {
   ConcernId,
   FollowUpItemId,
@@ -97,12 +112,13 @@ import type {
   RelationshipId,
 } from '~/domain/ids'
 import type { ParticipationStatus } from '~/domain/participation'
-import type { Suggestions } from '~/domain/suggestions'
-import type { NewRelationship } from '~/domain/relationships'
+import type { SuggestionQuestion, Suggestions } from '~/domain/suggestions'
+import type { CardShape, NewRelationship } from '~/domain/relationships'
 import type { RatesLineHistory, SettledMessage } from '~/domain/rates-line'
 import type { CareReason, RelationshipState, SettledRelationshipState } from '~/domain/relationship-state'
 import type { InvitationState } from '~/domain/invitations'
 import type { MemberRole } from '~/domain/relationships'
+import type { PausePeriodWeeks } from '~/domain/pause'
 import type { NewPerson, PhoneNumber, RosterKey } from '~/domain/roster'
 
 /**
@@ -555,6 +571,58 @@ export interface UnitOfWork {
    * won.
    */
   saveMinistrySettings(settings: MinistrySettings): Promise<void>
+
+  /**
+   * The short name this Ministry goes by now, loaded on `short_name.change`'s
+   * behalf, inside the unit of work so the name history records as *what it was*
+   * is the one that was actually there when the change was decided.
+   */
+  ministryShortName(): Promise<ShortName>
+
+  /**
+   * The Ministry's new short name. Refused with `ShortNameRefused('short_name.taken')`
+   * when another Ministry holds it or ever held it, which only the database can see.
+   */
+  changeShortName(change: ShortNameChange): Promise<void>
+
+  /**
+   * One of this Ministry's Intake forms as it stands now (Pastor feedback, ticket
+   * 11): its latest saved version, or the preset where it has never been edited.
+   * Read behind a lock on that form, so two Admins saving at once cannot both
+   * decide against the same version and both claim the next number. Read on a
+   * submission's behalf too, beside the version its Person opened, because an
+   * answer to a question this no longer asks is dropped (James, 2026-10-13).
+   */
+  intakeForm(form: IntakePath): Promise<IntakeForm>
+
+  /**
+   * One version of one of this Ministry's Intake forms, as somebody opened it:
+   * the preset for version 0, a saved version otherwise, and null for a version
+   * this Ministry never saved. Read behind the same lock as `intakeForm`: the
+   * version never changes, but a submission read against it must not land while
+   * a question's removal stands between reading the answers it takes and
+   * deleting them (ticket 13).
+   */
+  intakeFormVersion(form: IntakePath, version: number): Promise<IntakeForm | null>
+
+  /** The next version of one of this Ministry's Intake forms. */
+  saveIntakeForm(saving: IntakeFormSaving): Promise<void>
+
+  /**
+   * Every answer given to one question on one of this Ministry's forms, each
+   * with the submission it was given on, read just before a removal deletes them
+   * (Pastor feedback, ticket 13). Every submission, superseded ones included: the
+   * delete takes rows, and the rows are what history has to keep.
+   *
+   * A question the Ministry added is read by its key. One of Discipler's own is
+   * read off the submissions made from that form, a submission being from the
+   * groups form where its consent records say so and from the mentor and mentee
+   * form otherwise (`app.intake_submission_forms`).
+   */
+  answersTo(form: IntakePath, key: QuestionKey): Promise<readonly AnswerGiven[]>
+
+  /** Those answers, deleted. */
+  removeIntakeAnswers(removal: IntakeAnswersRemoval): Promise<void>
 
   /**
    * Every Discipleship Goal option this Ministry offers, in the order the form
@@ -1083,6 +1151,19 @@ export interface RosterEntry {
    */
   readonly gender: Gender | null
   /**
+   * The goal on their latest Intake submission, as the Ministry currently words the
+   * option they chose, or null where they chose Other, the form asked no goal, or
+   * the Ministry has since removed the option.
+   *
+   * With `goalOther`, the goal Suggested Pairs is ranking them on, read off the same
+   * submission. For the person page's intake answers and the pair card, and never
+   * the Roster row: a goal is a pastoral answer, and a list of every name with it
+   * beside them is not where an Admin should meet it.
+   */
+  readonly goal: string | null
+  /** What they typed after choosing Other on that submission. Never set beside `goal`. */
+  readonly goalOther: OtherGoal | null
+  /**
    * The pairings an import planned for this Person that are still worth showing:
    * the ones waiting on Intake, and the refused ones whose Follow-Up Item an Admin
    * has not yet resolved. Each says which side of it this Person is.
@@ -1280,8 +1361,21 @@ export interface RemovedPerson {
 /** The three surfaces that draw from the Roster's document, each read under its own name. */
 export type RosterSurface = 'roster' | 'person' | 'pair'
 
+/** The person page's read: the Roster's, with one Person's own answers beside it. */
+export interface PersonPage extends RosterPage {
+  /** Their answers to the Ministry's own questions off their latest submission, in the form's order. */
+  readonly ownAnswers: readonly OwnAnswerShown[]
+}
+
 export interface RosterReader {
   readRosterPage(surface: RosterSurface): Promise<AdminPage<RosterPage>>
+
+  /**
+   * The person page: the Roster's document, and beside it this one Person's
+   * answers to the Ministry's own Intake questions (Pastor feedback, ticket 12),
+   * which the Roster row never shows and so the Roster never reads.
+   */
+  readPersonPage(person: string): Promise<AdminPage<PersonPage>>
 
   /**
    * The link this Person currently holds, or null where they hold none and where
@@ -1468,6 +1562,16 @@ export interface IntakePage {
 }
 
 /**
+ * The mentor and mentee form's wizard: the Intake page, with the version of the
+ * Ministry's form it is serving (Pastor feedback, ticket 11) -- the one the
+ * Person opened, carried in the URL from screen to screen, or the form as it
+ * stands now for somebody arriving fresh.
+ */
+export interface IntakeWizardPage extends IntakePage {
+  readonly form: IntakeForm
+}
+
+/**
  * The same page, reopened by the one Person a token names, with what they last
  * told this Ministry already in it.
  *
@@ -1480,6 +1584,13 @@ export interface ReopenedIntakePage extends IntakePage {
   readonly personId: PersonId
   readonly state: IntakeLinkState
   readonly prefill: IntakePrefill
+  /**
+   * The form whose own questions the page asks after Discipler's (Pastor
+   * feedback, ticket 12): the latest version of the form the Person last
+   * answered, or the mentor and mentee form where they have answered neither.
+   * The page asks Discipler's questions in today's words whatever it says.
+   */
+  readonly form: IntakeForm
 }
 
 /**
@@ -1494,6 +1605,8 @@ export interface IntakePrefill {
   readonly ageBand: AgeBand | null
   readonly gender: Gender | null
   readonly goalId: DiscipleshipGoalId | null
+  /** What they typed after choosing Other, which ticks Other. Never set beside `goalId`. */
+  readonly goalOther: OtherGoal | null
   /**
    * Slot keys as the grid submits them -- `monday:08`. Deliberately the form's
    * own wire shape rather than `AvailabilitySlot`, because this is what the form
@@ -1508,6 +1621,12 @@ export interface IntakePrefill {
    * because that is what the form has to let them change back.
    */
   readonly contactSharing: 'granted' | 'declined' | null
+  /**
+   * Their answers to the Ministry's own questions on their latest submission
+   * (ticket 12), as the form sends them back: each question's values by key,
+   * the ids of the choices, `yes` or `no`, or the words typed.
+   */
+  readonly own: Readonly<Record<string, readonly string[]>>
 }
 
 /**
@@ -1538,6 +1657,23 @@ export interface IntakeFormsPage {
   readonly materials: readonly MaterialOption[]
   /** The Ministry's IANA zone, which "Working through it since" is printed in. */
   readonly timeZone: string | null
+  /**
+   * The short name both readable links and both QR codes are built from, and
+   * which the field at the top of the page edits (Pastor feedback, ticket 04).
+   */
+  readonly shortName: ShortName
+  /**
+   * Both of the Ministry's Intake forms as they stand, each its latest saved
+   * version or the preset where it has never been edited (Pastor feedback,
+   * ticket 11).
+   */
+  readonly forms: Readonly<Record<IntakePath, IntakeForm>>
+  /**
+   * How many people have answered each question on each form, by question key:
+   * the people whose answers removing it would delete (ticket 13). A key with no
+   * entry has no answers.
+   */
+  readonly answerCounts: Readonly<Record<IntakePath, Readonly<Record<string, number>>>>
 }
 
 export interface IntakeFormsReader {
@@ -1557,7 +1693,17 @@ export interface IntakeFormsReader {
  * what this Ministry's settings are.
  */
 export interface MinistrySettingsReader {
-  readSettingsPage(): Promise<AdminPage<{ readonly settings: MinistrySettings }>>
+  readSettingsPage(): Promise<
+    AdminPage<{
+      readonly settings: MinistrySettings
+      /**
+       * Discipler's own questions each form no longer asks (Pastor feedback,
+       * ticket 13), so the Pairing section can say which of its rules cannot be
+       * applied to whom.
+       */
+      readonly removed: Readonly<Record<IntakePath, readonly BuiltInQuestion[]>>
+    }>
+  >
 }
 
 /**
@@ -1589,17 +1735,29 @@ export interface GroupIntakePage {
    * the submission checks the same thing again in the domain.
    */
   readonly groups: readonly JoinableGroup[]
+  /** The version of the Ministry's groups form being served, as on `IntakeWizardPage`. */
+  readonly form: IntakeForm
 }
 
 export interface IntakeReader {
-  /** Null when the link names no Ministry this Discipler holds. */
-  readIntakePage(id: string): Promise<IntakePage | null>
+  /**
+   * Null when the link names no Ministry this Discipler holds. `version` is the
+   * version of the form the Person opened; one this Ministry never saved, or
+   * none, is served the form as it stands now.
+   */
+  readIntakePage(id: string, version?: number | null): Promise<IntakeWizardPage | null>
 
   /** The same Ministry's group form. Null for the same reason. */
-  readGroupIntakePage(id: string): Promise<GroupIntakePage | null>
+  readGroupIntakePage(id: string, version?: number | null): Promise<GroupIntakePage | null>
 
   /** Null when the token names nobody. Expired links still answer. */
   readReopenedIntakePage(token: string): Promise<ReopenedIntakePage | null>
+
+  /**
+   * The Ministry a readable link names, by any short name it has ever held, with
+   * the one it holds now. Null when no Ministry has ever held it.
+   */
+  ministryNamed(name: ShortName): Promise<{ readonly ministryId: MinistryId; readonly shortName: ShortName } | null>
 }
 
 /**
@@ -1724,6 +1882,13 @@ export interface FollowUpCareItem {
   readonly personId: PersonId | null
   /** The Person the item is about, when it is about one. */
   readonly personName: string | null
+  /**
+   * Everyone in the relationship the item is about, as its card shows them, and
+   * empty for an item about a Person alone. Follow-Up names an item by them
+   * (Pastor feedback, ticket 10), and the card tells by them whether the Person
+   * the item is about is one of its people.
+   */
+  readonly members: readonly CareMember[]
   /**
    * When the relationship the item is about was created. The underlying fact, kept
    * alongside the derived one: history and any later question about this item are
@@ -1929,22 +2094,119 @@ export interface FollowUpPage {
    */
   readonly items: readonly CareNeededItem[]
   /**
-   * The details behind `Nudge` for the one Person a reveal named: their number, so
-   * the Admin can make the call themselves. Null where nobody was named and where
-   * the Person has not currently agreed to share them.
-   *
-   * One Person at a time rather than a column on every care item. The list is read
-   * to decide who needs a call; a number on every row would disclose the whole
-   * Ministry's contact details to answer a question nobody asked of most of them.
-   * The consent rule is reached through the definer function that checks Ministry
-   * membership first, as the signed-in Admin.
+   * Every relationship of the Ministry that has not ended. An item about one of
+   * them opens that relationship's card; an item whose relationship has ended,
+   * or that has none, opens a card of its own.
    */
-  readonly revealed: ContactDetails | null
+  readonly liveRelationships: ReadonlySet<string>
+  /** The card the address names, or null where it names none this Admin may open. */
+  readonly card: FollowUpCard | null
 }
 
+/**
+ * Follow-Up's fuller card (Pastor feedback, ticket 10): the pair card of ticket
+ * 07, or the group card of ticket 08, with each open item on it drawn as a band
+ * with its actions, and *What has happened* under the facts. An item about a
+ * Person and no live relationship has no pair to open, and its card is the item
+ * and the Person it is about.
+ *
+ * Opening it is the reveal *See contact details* was: the details reach it
+ * through the consent check Nudge reads (ADR-0010), and nothing is recorded,
+ * because Nudge recorded nothing.
+ */
+export interface FollowUpCard {
+  /** What the address names: a relationship's id, or one item's where it has no live relationship. */
+  readonly key: string
+  /** The relationship's card, or null on an item's own card. */
+  readonly pair: PairCard | null
+  /** The open Follow-Up Items the card is about, each a band with today's actions. */
+  readonly items: readonly FollowUpCareItem[]
+  /**
+   * Whoever those items are about, with what their latest Intake says and the
+   * contact details they agreed to share. The pair card already shows its own
+   * people; a band shows the rest.
+   */
+  readonly subjects: readonly CardSubject[]
+  /**
+   * A relationship that has ended with Concerns still unresolved, on the card
+   * of its own its badge opens: ending a pair resolves none of them, and
+   * `pair` is null once it has ended. Null on every other card.
+   */
+  readonly ended: EndedConcerns | null
+  /** Newest first. */
+  readonly happened: readonly Happening[]
+  readonly timeZone: string
+}
+
+/**
+ * The unresolved Concerns of a relationship that has ended, with who has read
+ * them, as the pair card carries them while it runs.
+ */
+export interface EndedConcerns {
+  readonly item: ConcernCareItem
+  /** Newest first. */
+  readonly readings: readonly ConcernReading[]
+  /** The signed-in Admin's own name, for the reading this opening records. */
+  readonly readerName: string | null
+}
+
+/** Somebody an item is about, as the card shows a person, without a side: they may be on no pair. */
+export type CardSubject = Omit<PairCardPerson, 'role'>
+
+/**
+ * One line of *What has happened*, read from the stored history and nothing
+ * else. Exactly what the ticket lists: when each item was raised and why; the
+ * check-ins that led to it; who read the Concern, and when; and the earlier
+ * items and Concerns, with who resolved them. Never the words of a Concern:
+ * an unresolved one's are in the band, and a resolved one's were cleared.
+ *
+ * Who opened the contact details is not among them. Opening the card is the
+ * reveal Nudge was, and Nudge records nothing (ADR-0010), so there is no
+ * stored fact to list.
+ */
+export type Happening =
+  | { readonly kind: 'item_raised'; readonly at: Date; readonly item: FollowUpCareItem }
+  | { readonly kind: 'concern_raised'; readonly at: Date; readonly by: string | null }
+  | {
+      readonly kind: 'stalled'
+      readonly at: Date
+      readonly reason: CareReason['kind']
+      /** How many weeks in a row it took. */
+      readonly weeks: number
+    }
+  | {
+      readonly kind: 'check_in'
+      /** When the check-in was asked. */
+      readonly at: Date
+      readonly outcome: 'unanswered' | 'did_not_meet' | 'concern'
+    }
+  | { readonly kind: 'concern_read'; readonly at: Date; readonly by: string | null }
+  | {
+      readonly kind: 'earlier_item'
+      /** When it was raised. */
+      readonly at: Date
+      readonly itemKind: FollowUpKind
+      /** Who it was about, where it was about one Person. */
+      readonly personName: string | null
+      readonly resolvedAt: Date
+      /** Null where the Admin who resolved it has left the Roster, or nobody did. */
+      readonly resolvedBy: string | null
+    }
+  | {
+      readonly kind: 'earlier_concern'
+      readonly at: Date
+      readonly raisedBy: string | null
+      readonly resolvedAt: Date
+      readonly resolvedBy: string | null
+    }
+
 export interface CareNeededReader {
-  /** The Follow-Up tab, with the one Person a reveal names or none. */
-  readFollowUpPage(reveal: PersonId | null): Promise<AdminPage<FollowUpPage>>
+  /**
+   * The Follow-Up tab, with the card the address names open over it or none.
+   * `card` is whatever arrived in the address, a uuid or nothing; the card is
+   * read only for what this Admin's own Ministry holds.
+   */
+  readFollowUpPage(card: string | null): Promise<AdminPage<FollowUpPage>>
 }
 
 /**
@@ -1955,10 +2217,100 @@ export interface CareNeededReader {
 export interface SuggestedPairsPage {
   readonly followUpCount: number
   readonly suggestions: Suggestions
+  /**
+   * What the tab reads that the mentor and mentee form no longer asks (Pastor
+   * feedback, ticket 13), each of which it says it is doing without.
+   */
+  readonly unasked: readonly SuggestionQuestion[]
 }
 
 export interface SuggestedPairsReader {
   readSuggestedPairsPage(): Promise<AdminPage<SuggestedPairsPage>>
+}
+
+/**
+ * The pair card (Pastor feedback, ticket 07): one one-to-one or 1:2 pair as the
+ * card over the Overview shows it, and as Check-Ins and Follow-Up will (tickets
+ * 09 and 10). A Group opens the same card in its group form (ticket 08). Read by
+ * `pairCardFrom` out of whichever page's document opened it.
+ *
+ * One Person on it, on their side of this pair. The side is this pair's and no
+ * other's: somebody who leads one pair and is discipled in another is a
+ * Discipler on one card and a Disciple on the other, and neither card mentions
+ * the other pair.
+ */
+export interface PairCardPerson {
+  readonly personId: PersonId
+  readonly fullName: string
+  readonly role: 'leader' | 'participant'
+  /**
+   * Null where there is none, and where the Person has not currently agreed to
+   * share their contact details: the card reads them through the consent rule
+   * Nudge reads (ADR-0010), and an Admin who could tell the two apart would be
+   * reading a consent decision by inference. So the card leaves either out.
+   */
+  readonly phone: string | null
+  readonly email: string | null
+  /** Off their latest Intake submission, null where they have none. */
+  readonly ageBand: AgeBand | null
+  /** The Ministry's current wording of the goal they chose, null where none. */
+  readonly goal: string | null
+  /** What they typed after *Other* on the goal (ticket 06), null where they chose an option or nothing. */
+  readonly goalOther: OtherGoal | null
+  /**
+   * Their answers to the Ministry's own questions off the same submission
+   * (ticket 12), each under the question as the form words it now. Shown and
+   * never matched on.
+   */
+  readonly ownAnswers: readonly OwnAnswerShown[]
+}
+
+/** One reading of a Concern on the card, as `concern_viewing` recorded it. */
+export interface ConcernReading {
+  readonly concernId: ConcernId
+  readonly viewedAt: Date
+  /** Null where the reader is not on this Ministry's Roster. */
+  readonly viewerName: string | null
+  /** Whether the signed-in Admin read it themselves. */
+  readonly byThisReader: boolean
+}
+
+export interface PairCard {
+  readonly relationshipId: RelationshipId
+  /** A one-to-one, a 1:2 pair, or a Group, which the card draws in its group form. */
+  readonly shape: CardShape
+  /** A Group's name; null for a pair, which is called by its people. */
+  readonly name: string | null
+  /**
+   * The gender a Group declared when it was formed, null where it declared none,
+   * which for a Group is mixed. Said on a Group's card only.
+   */
+  readonly declaredGender: Gender | null
+  /** When the Admin paired them, or formed the Group. */
+  readonly pairedAt: Date
+  readonly state: RelationshipState
+  /** Empty unless Stalled: which condition fired, in the unit it reports. */
+  readonly reasons: readonly CareReason[]
+  readonly openConcerns: number
+  /** The Discipler first, then the Disciples, each side by name. */
+  readonly people: readonly PairCardPerson[]
+  /** The latest week anybody answered for this pair. Never the words of a Concern. */
+  readonly lastCheckIn: {
+    readonly answeredAt: Date
+    readonly met: boolean | null
+    readonly satisfaction: Satisfaction | null
+  } | null
+  /** The period running now; a null title is no Material yet. */
+  readonly material: { readonly title: string | null; readonly since: Date } | null
+  /** Unresolved, newest first. Their words are read as the card opens. */
+  readonly concerns: readonly OutstandingConcern[]
+  /** Every recorded reading of those Concerns before this opening, newest first. */
+  readonly readings: readonly ConcernReading[]
+  /** The signed-in Admin's own name, for the reading this opening records. */
+  readonly readerName: string | null
+  /** An expired Pause waiting on **Resume**, with the period that ran out. */
+  readonly pauseExpired: { readonly periodWeeks: PausePeriodWeeks } | null
+  readonly timeZone: string
 }
 
 /**
@@ -2005,6 +2357,8 @@ export interface Overview {
 export interface OverviewPage {
   readonly overview: Overview
   readonly care: readonly CareNeededItem[]
+  /** The pair card the address names, or null where it names none this Admin may open. */
+  readonly card: PairCard | null
 }
 
 export interface OverviewReader {
@@ -2014,7 +2368,7 @@ export interface OverviewReader {
    * Ministry; an empty Ministry comes back as zeros and an empty list rather than
    * as a failure.
    */
-  readOverviewPage(): Promise<AdminPage<OverviewPage>>
+  readOverviewPage(card?: RelationshipId | null): Promise<AdminPage<OverviewPage>>
 }
 
 /**
@@ -2044,10 +2398,33 @@ export interface ThisWeeksCheckIns {
   readonly checkIns: readonly CheckInThisWeek[]
 }
 
-/** What the Check-Ins tab derives from its document: the week, and the badge's number. */
+/**
+ * This week's answer for the relationship whose card is open on Check-Ins, which
+ * the card opens with in its band (Pastor feedback, ticket 09). Never the words
+ * of a Concern.
+ */
+export interface ThisWeeksAnswer {
+  readonly answeredAt: Date
+  readonly met: boolean | null
+  readonly satisfaction: Satisfaction | null
+  /**
+   * The unresolved Concern this answer raised, whose words the same band
+   * carries; null where it raised none or it has been resolved.
+   */
+  readonly concernId: ConcernId | null
+}
+
+/**
+ * What the Check-Ins tab derives from its document: the week, the badge's
+ * number, and the pair card the address names (Pastor feedback, ticket 09).
+ */
 export interface CheckInsPage {
   readonly week: ThisWeeksCheckIns
   readonly followUpCount: number
+  /** The pair card the address names, or null where it names none this Admin may open. */
+  readonly card: PairCard | null
+  /** This week's answer for the card's relationship, or null where none came this week. */
+  readonly cardThisWeek: ThisWeeksAnswer | null
 }
 
 export interface CheckInsReader {
@@ -2057,7 +2434,7 @@ export interface CheckInsReader {
    * time through `CommandService.openConcern`, and the authenticated role holds
    * no grant on that column.
    */
-  readCheckInsPage(): Promise<AdminPage<CheckInsPage>>
+  readCheckInsPage(card?: RelationshipId | null): Promise<AdminPage<CheckInsPage>>
 }
 
 /**

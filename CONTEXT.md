@@ -42,7 +42,7 @@ The process by which a person provides the information and consent needed to ent
 One of the eighty-four selectable windows on the intake grid: each day of the week divided into one-hour slots from 8am to 8pm. See `docs/adr/0018-the-hourly-grid.md`.
 
 **Discipleship Goal**:
-The single outcome a participant selects at intake to describe what they are seeking from discipleship. The options offered are the ministry's own. An option is a row and answers point at it, so rewording one is not asking a new question; removing one blanks the answers that pointed at it, taking a stated goal off every live surface. ADR-0014 records why that is allowed and how the record survives it: the blanked answers are written into the removal event before the delete runs.
+The single outcome a participant selects at intake to describe what they are seeking from discipleship. The options offered are the ministry's own. An option is a row and answers point at it, so rewording one is not asking a new question; removing one blanks the answers that pointed at it, taking a stated goal off every live surface. ADR-0014 records why that is allowed and how the record survives it: the blanked answers are written into the removal event before the delete runs. The question ends with **Other**, which is not one of the ministry's options: choosing it means typing the goal in the person's own words, and that typed goal is the answer in place of an option. Two typed goals are the same goal for suggestion only when they match exactly in the sense ADR-0001's second amendment records; no edit to the ministry's options touches one.
 
 **Chosen By**:
 How many people's *current* intake answer points at a particular Discipleship Goal option. People and not submissions: intake is append-only and re-submittable, so somebody who has since changed their answer counts only against the option they now hold. It is what an admin is warned with before removing an option, and the number the removal writes into history — where it becomes the only surviving record of what was lost. One definition, in `public.discipleship_goal_options`, is read by both the goals card on Intake forms that warns and the command boundary that records, so the two cannot disagree.
@@ -91,7 +91,7 @@ What a Ministry calls a group, typed by an Admin when forming it and editable fr
 _Avoid_: Naming a one-to-one or a 1:2 pair, or reading an unnamed group as broken -- it predates the name, or is a 1:2 pair
 
 **Group Intake Link**:
-The Ministry's original Intake link, `/intake/<ministry>`, which since ticket 29 opens the form for somebody who wants to join one of the Ministry's groups. It asks gender and age band, when they could meet, and which group, and never the Discipleship Goal. The discipleship wizard is the other link.
+The Ministry's link for somebody who wants to join one of its groups, `/join/<short name>/groups` (see Short Name); the original `/intake/<ministry>` opens the same form. It asks gender and age band, when they could meet, and which group, and never the Discipleship Goal. Intake forms calls it the Groups form. The discipleship wizard is the other link.
 _Avoid_: "the Intake link" without saying which
 
 **Join Approval**:
@@ -179,9 +179,13 @@ _Avoid_: an account (nothing about it gives anyone one), and the Intake form as 
 An intake link a whole ministry hands out. It names the ministry, carries no token, and is both the link a pastor sends and the link its QR code opens — so it is printable in a way the Intake Link above is not. It does not know who opened it, which is why the form asks. The two routes to it are the same link and differ only in whether it was scanned; which route somebody came by is kept on their consent record, because that is the question a compliance review asks. A ministry has more than one: the original link, and the Discipleship Intake Wizard below, each with its own QR code.
 _Avoid_: calling it the Intake Link (that one is a single person's, prefilled, and expires), and treating a QR code as a second form (each one opens its own link, saying it was scanned)
 
+**Short Name**:
+The word a Ministry's two Ministry Intake Links are built from, so they can be printed on a bulletin and said from the pulpit: `/join/<short name>` for the Discipleship Intake Wizard, which Intake forms calls the Mentor and mentee form, and `/join/<short name>/groups` for the Group Intake Link. Lowercase letters, digits and dashes, unique across Discipler, given from the Ministry's name when it opens, and changed by an Admin on Intake forms, which is recorded in the Ministry's history. Every short name a Ministry has ever held keeps opening its forms forever, because QR codes get printed, so no other Ministry can ever take one. See `docs/product-rules.md`, *A Readable Link per Church*.
+_Avoid_: slug, handle, or vanity URL; and reading a renamed Ministry's old name as free
+
 **Discipleship Intake Wizard**:
 The second form a Ministry hands out, on its own Ministry Intake Link and its own QR code, beside the original one. It asks the same things the single-page form asks, one screen at a time, and it asks one thing first that the other form never asks: which side of a discipleship relationship this Person is offering to stand on. Nothing is written until the last screen submits, so an abandoned wizard leaves no Person, no submission and no consent record.
-_Avoid_: calling it a mentor link and a mentee link (there is one link and the side is an answer inside it), and a separate form (the questions are the same ones, in the same words, asked over more screens)
+_Avoid_: calling it a mentor link and a mentee link (there is one link and the side is an answer inside it), and a separate form (the questions are the same ones, asked over more screens in the words of the Ministry's Intake Form)
 
 **Declared Side**:
 Mentor or Mentee, as a Person answered it on the Discipleship Intake Wizard. It is a preference they stated and never a decision anybody made about them: answering Mentor presets the Pair popup on *Disciples somebody* and feeds Suggested Pairs, and makes nobody a Discipler, since that is a side of one pairing (see Discipler / Disciple). It is read back from their latest intake that asked, so answering the other side later changes it, and a form that asked nothing changes nothing.
@@ -195,6 +199,14 @@ _Avoid_: a suggestion input (ADR-0001 fixes those, and this is not one of them),
 Which form a Person was answering, kept on their consent record beside the route they arrived by. The two are separate questions: the path says *which form*, and the route says *a link a pastor sent or a QR code they scanned*.
 _Avoid_: folding either into the other, and reading an absent path as anything but *the form did not ask*
 
+**Intake Form**:
+One of a Ministry's two forms as the Ministry has made it, one per Intake Path: the Mentor and mentee form and the Groups form. It is its Form Pages in order, each question's wording and hint and whether it is required, an intro and a thank-you. It is the Ministry's to edit on Intake forms, and every Ministry starts from today's form, the preset. Each save is a new version and never a change to an old one; a Person is served the version they opened until they submit, and their submission records it. See `docs/product-rules.md`, *A Ministry Controls Its Intake Forms*.
+_Avoid_: calling an edit a new form (it is the next version of the same one), a question's wording as its identity (a reworded question keeps its answers), and the single page an Intake Link reopens (that one is not edited)
+
+**Form Page**:
+One page of an Intake Form, which is one screen of the wizard, with its name as the line at the top of that screen. A page with nothing on it is skipped.
+_Avoid_: a step number as the page's identity (pages are added and questions move between them)
+
 **Response-Required Message**:
 A message in the Check-In Rhythm that expects a reply from its recipient.
 
@@ -206,7 +218,7 @@ _Avoid_: prompt. The database columns predate this entry and spell it `prompt_ke
 A recorded answer to a meeting-related question in the Check-In Rhythm, held against the question it answers and the person who sent it. Only leaders are asked today, so only leaders answer; a response is never keyed to the relationship alone, because a ministry may later ask participants too and a relationship is not assumed to have one respondent.
 
 **Satisfaction**:
-How a leader reported a meeting that happened: outstanding, good, or concern. The stored value is the word, never the letter the message offered — a token could be renumbered, and a pilot's recorded history cannot be.
+How a leader reported a meeting that happened: outstanding, good, okay, or concern, offered as A to D. Only concern is a Concern; okay raises nothing. The stored value is the word, never the letter the message offered — the letters were renumbered once, when C went from concern to okay, and no stored answer changed meaning. A reply is read against the answers its question offered when it was sent; `docs/product-rules.md`, *What the Satisfaction Tokens Store*, holds the rule and why there are four.
 
 **Relationship State**:
 Discipler's current interpretation of how a discipleship relationship is doing based on its recorded ministry history. One of: Awaiting Leader Acceptance, Healthy, Stalled, Needs Care, Paused, Ended. A relationship holds exactly one state at a time.

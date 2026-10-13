@@ -284,7 +284,7 @@ export const deriveRelationshipState = (
 
   // An assertion rather than a precedence rule, which the settled comment on
   // ticket 10 asks for by name. The two cannot both hold today: a Concern needs a
-  // `1` and then a `C`, and that `1` establishes both that the week was answered
+  // `1` and then a `D`, and that `1` establishes both that the week was answered
   // and that a meeting happened -- clearing both Stalled conditions with the very
   // reply that raises the Concern. A precedence rule would be dead code that goes
   // quietly wrong the day a Participant check-in or an Admin can raise one. This
@@ -300,4 +300,27 @@ export const deriveRelationshipState = (
   if (reasons.length > 0) return { state: 'stalled', reasons, openConcerns }
 
   return settled('healthy')
+}
+
+/**
+ * The weeks a Stalled state was derived from, oldest first: the trailing run of
+ * unanswered weeks behind *gone silent*, or of weeks reported as no meeting
+ * behind *not meeting*. Empty unless the history derives Stalled.
+ *
+ * Follow-Up's fuller card lists them as the check-ins that led to the item
+ * (Pastor feedback, ticket 10), and it is told when the stall began by the week
+ * that crossed the threshold. So these are the very weeks the derivation
+ * counted, one per ISO week in the Ministry's zone, and not a second reading of
+ * the history that could come to disagree with the number on the item.
+ */
+export const weeksBehindTheStall = (
+  history: RelationshipHistory,
+  now: Date,
+): readonly RelationshipWeek[] => {
+  const reason = deriveRelationshipState(history, now).reasons[0]
+  if (!reason) return []
+
+  const weeks = oneEntryPerWeek(history.weeks.filter(isDetermined), history.timeZone)
+  const run = trailingRunOf(reason.kind === 'gone_silent' ? 'unanswered' : 'did_not_meet', weeks)
+  return weeks.slice(weeks.length - run)
 }

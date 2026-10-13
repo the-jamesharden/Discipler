@@ -1,34 +1,36 @@
-import { beforeAll, describe, expect, it } from 'vitest'
-import { ministryId } from '~/domain/ids'
-import { ministryIntakeQrLink } from '~/domain/outbound-copy'
-import { renderQrCode } from '~/platform/qr/qr-code'
-import { qrCodeCaption } from '../../app/intake-forms/copy'
+import pg from 'pg'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { ministryGroupsJoinQrLink, ministryJoinQrLink } from '~/domain/outbound-copy'
+import { shortName, type ShortName } from '~/domain/short-name'
+import { renderQrCode, renderQrSquare } from '~/platform/qr/qr-code'
+import { qrCodeCaption, qrCodeFilename } from '../../app/intake-forms/copy'
 import {
   addPersonWithAccount,
   aTestPhoneNumber,
   createMinistryWithAdmin,
+  localSupabase,
   type MinistryFixture,
 } from '../support/local-supabase'
 import { baseUrl, getPage, signIn, signInAs, skipUnlessAppIsRunning } from '../support/app'
 
 /**
- * The Admin's half of the Intake sentence. Ticket 03 built the form and both routes
- * to it; nothing handed the Admin either one, so the only way to obtain the link was
- * to know the Ministry's identifier and type the URL -- which is not a route a
- * pastor has.
+ * The Admin's half of the Intake sentence, driven the way an Admin drives it: sign
+ * in, open Intake forms from the Account menu, read the links off the page, and
+ * then open them the way somebody they were sent to would.
  *
- * Everything here is driven the way an Admin drives it: sign in, open Intake forms
- * from the Account menu, read the link off the page, and then open that link the way
- * somebody they sent it to would. The links sat at the foot of the Roster until
- * ticket 32 gave them this page.
+ * Since Pastor feedback ticket 04 the two links are readable -- `/join/<short
+ * name>` for the mentor and mentee form and `/join/<short name>/groups` for the
+ * groups form -- in one card at the top of the page, with the short name an Admin
+ * can change above them and a tile per form below.
  */
 
-describe.skipIf(skipUnlessAppIsRunning)('the Ministry Intake Link an Admin can send', () => {
+describe.skipIf(skipUnlessAppIsRunning)('the readable links an Admin hands out', () => {
   let ministry: MinistryFixture
   let cookie: string
   /** A second Ministry, because one path answers every Admin with their own code. */
   let neighbour: MinistryFixture
   let neighbourCookie: string
+  let pool: pg.Pool
 
   beforeAll(async () => {
     ministry = await createMinistryWithAdmin('Fairmount Church')
@@ -36,40 +38,84 @@ describe.skipIf(skipUnlessAppIsRunning)('the Ministry Intake Link an Admin can s
 
     neighbour = await createMinistryWithAdmin('Ridgeway Church')
     neighbourCookie = (await signIn(neighbour)).cookie
+
+    pool = new pg.Pool({ connectionString: localSupabase().databaseUrl })
   })
 
-  /** The link as the page actually renders it, rather than as this file assumes it. */
-  const linkOnThePage = (html: string, of: MinistryFixture): string => {
-    const found = new RegExp(`https?://[^"]*/intake/${of.id}`).exec(html)
-    if (!found) throw new Error('Intake forms did not show this Ministry’s Intake link')
+  afterAll(async () => {
+    await pool.end()
+  })
+
+  /** A short name no earlier run has used, since every name is held for good. */
+  const freshName = (stem: string): string =>
+    `${stem}-${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`
+
+  /** The card as it rendered, rather than the flight payload after it. */
+  const asRendered = (html: string) => html.slice(html.indexOf('<main'), html.indexOf('</main>'))
+
+  /** The short name the page shows in its field. */
+  const fieldOn = (html: string): string | null => {
+    const field = /<input[^>]*id="shortName"[^>]*>/.exec(html)?.[0]
+    return field ? (/value="([^"]*)"/.exec(field)?.[1] ?? null) : null
+  }
+
+  /** The link a tile shows, tags stripped, as an Admin reads it. */
+  const shownLink = (html: string, tile: 'mentor-and-mentee' | 'groups'): string => {
+    const code = new RegExp(`<code id="${tile}-link">([\\s\\S]*?)</code>`).exec(html)
+    if (!code) throw new Error(`Intake forms showed no ${tile} link`)
+    return code[1]!.replace(/<[^>]+>/g, '')
+  }
+
+  /**
+   * What *Copy link* puts on the clipboard: the whole link, scheme and all, handed
+   * to the button in the page's payload.
+   */
+  const copiedLink = (html: string, name: string): string => {
+    const found = new RegExp(`https?://[^"\\\\\\s<]*/join/${name}(?=[\\\\"])`).exec(html)
+    if (!found) throw new Error('Intake forms gave Copy link nothing to copy')
     return found[0]
   }
 
-  /** The same link, opened against the app under test rather than its configured host. */
+  /** Each square the page draws, as the SVG inside its data URI. */
+  const squaresOn = (html: string): string[] =>
+    [...html.matchAll(/<img[^>]*class="qr"[^>]*src="data:image\/svg\+xml;charset=utf-8,([^"]+)"/g)].map(
+      (match) => decodeURIComponent(match[1]!),
+    )
+
   const pathOf = (link: string): string => {
     const url = new URL(link)
     return `${url.pathname}${url.search}`
   }
 
-  /**
-   * The same link as the code carries it, asked of the domain rather than re-authored
-   * here. `?via=qr` is the whole difference between what a pastor texts and what a
-   * room scans, and it is written in one place so a drift in it fails the domain test
-   * rather than leaving two files agreeing with each other about the wrong thing.
-   */
-  const scanned = (link: string, of: MinistryFixture): string =>
-    ministryIntakeQrLink(new URL(link).origin, ministryId(of.id))
+  const post = (path: string, as: string, body: Record<string, string>) =>
+    fetch(`${baseUrl}${path}`, {
+      method: 'POST',
+      redirect: 'manual',
+      headers: { cookie: as, 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(body),
+    })
 
-  const qrCode = (as: string) =>
-    fetch(`${baseUrl}/intake-forms/intake-code.svg`, { redirect: 'manual', headers: { cookie: as } })
+  const download = (route: string, as: string) =>
+    fetch(`${baseUrl}/intake-forms/${route}`, { redirect: 'manual', headers: { cookie: as } })
+
+  const opened = async (path: string) => {
+    const response = await fetch(`${baseUrl}${path}`, { redirect: 'manual' })
+    const location = response.headers.get('location')
+    return { status: response.status, location: location ? new URL(location, baseUrl) : null }
+  }
+
+  const shortNameOf = async (of: MinistryFixture): Promise<ShortName> => {
+    const { rows } = await pool.query<{ short_name: string }>(
+      `select short_name from ministry where id = $1`,
+      [of.id],
+    )
+    return shortName(rows[0]!.short_name)
+  }
 
   it('is reached from the Account menu on the screen an Admin is already on', async () => {
-    // A page nobody finds is no page. The Roster carried the links until ticket 32;
-    // now it carries the way to them, in the menu every Admin page shares.
     const { html: roster } = await getPage('/roster', cookie)
     expect(roster).toContain('href="/intake-forms"')
-    expect(roster).not.toContain('The group link')
-    expect(roster).not.toContain('intake-code.svg')
+    expect(roster).not.toContain('/join/')
   })
 
   it('is the Admin’s page and not a Leader’s', async () => {
@@ -80,138 +126,261 @@ describe.skipIf(skipUnlessAppIsRunning)('the Ministry Intake Link an Admin can s
 
     const { html } = await getPage('/intake-forms', leadersCookie)
     expect(html).toContain('This account is not an Admin of a Ministry')
-    expect(html).not.toContain(`/intake/${ministry.id}`)
+    expect(html).not.toContain(`/join/${ministry.shortName}`)
 
     const { response } = await getPage('/intake-forms', '')
     expect(response.status).toBe(307)
     expect(response.headers.get('location')).toContain('/login')
   })
 
-  it('shows the Ministry’s Intake link where an Admin can copy it', async () => {
+  it('shows the short name first, editable, with the address in front of it and Save', async () => {
     const { html } = await getPage('/intake-forms', cookie)
-    const link = linkOnThePage(html, ministry)
+    const card = asRendered(html)
 
-    // In a field rather than in prose, because the thing an Admin does with it is
-    // paste it into a text message.
-    expect(html).toContain(`value="${link}"`)
-    expect(link.endsWith(`/intake/${ministry.id}`)).toBe(true)
-
-    // And a control that copies it, because the criterion is that an Admin can copy
-    // it -- selecting a field by hand is something they can do, not something the
-    // page offers. Server-rendered, so the field is a field with or without script.
-    expect(html).toContain('Copy</button>')
+    expect(card).toContain('Your church&#x27;s short name')
+    expect(fieldOn(card)).toBe(ministry.shortName)
+    expect(card).toMatch(/<span aria-hidden="true">[^<]*\/join\/<\/span>/)
+    expect(card).toContain('action="/intake-forms/short-name"')
+    // Before both tiles, because both links are built from it.
+    expect(card.indexOf('id="shortName"')).toBeLessThan(card.indexOf('Mentor and mentee form'))
   })
 
-  it('says which consent each of the two routes records', async () => {
+  it('shows the two forms as tiles, each with its readable link, Copy link and Download QR code', async () => {
     const { html } = await getPage('/intake-forms', cookie)
+    const card = asRendered(html)
 
-    // `consent_record.source` is `pastor_link` or `qr_code` and a compliance review
-    // asks which. The Admin choosing between the two is the person deciding it, so
-    // the page says so rather than leaving it to be discovered afterwards.
-    expect(html).toContain('recorded as sent by a pastor')
-    expect(html).toContain('recorded as scanned from a QR code')
+    expect(card.indexOf('Mentor and mentee form')).toBeLessThan(card.indexOf('Groups form'))
+    expect(shownLink(card, 'mentor-and-mentee')).toMatch(new RegExp(`/join/${ministry.shortName}$`))
+    expect(shownLink(card, 'groups')).toMatch(new RegExp(`/join/${ministry.shortName}/groups$`))
+    expect(card.match(/>Copy link</g)).toHaveLength(2)
+    expect(card.match(/>Download QR code</g)).toHaveLength(2)
+
+    // One card, not today's two, and no helper sentences in it.
+    expect(card).not.toContain('The group link')
+    expect(card).not.toContain('The discipleship link')
+    expect(card).not.toContain('recorded as')
+    expect(card).not.toContain(`/intake/${ministry.id}`)
+
+    // Copy link copies the whole link, and not the scanned one: texted from here,
+    // `?via=qr` would record a scan nobody made.
+    expect(new URL(copiedLink(html, ministry.shortName)).pathname).toBe(`/join/${ministry.shortName}`)
+    expect(html).not.toContain(`/join/${ministry.shortName}?via=qr`)
   })
 
-  it('renders the QR code, and the code opens the same link saying it was scanned', async () => {
+  it('draws each square from the readable link, saying it was scanned', async () => {
     const { html } = await getPage('/intake-forms', cookie)
-    const link = linkOnThePage(html, ministry)
+    const origin = new URL(copiedLink(html, ministry.shortName)).origin
+    const name = shortName(ministry.shortName)
 
-    expect(html).toContain('src="/intake-forms/intake-code.svg"')
+    expect(squaresOn(asRendered(html))).toEqual([
+      await renderQrSquare(ministryJoinQrLink(origin, name)),
+      await renderQrSquare(ministryGroupsJoinQrLink(origin, name)),
+    ])
+  })
 
-    const response = await qrCode(cookie)
-    expect(response.status).toBe(200)
-    expect(response.headers.get('content-type')).toContain('image/svg+xml')
+  it('downloads each square captioned and named for its form, encoding the same link', async () => {
+    const { html } = await getPage('/intake-forms', cookie)
+    const origin = new URL(copiedLink(html, ministry.shortName)).origin
+    const name = shortName(ministry.shortName)
 
-    // The square encodes *this* Ministry's link with `?via=qr` on it. Encoding the
-    // plain link would put every scan in the record as though a pastor had sent it.
-    expect(await response.text()).toBe(
-      await renderQrCode(scanned(link, ministry), qrCodeCaption.intake('Fairmount Church')),
+    expect(html).toContain('href="/intake-forms/discipleship-code.svg"')
+    expect(html).toContain(`download="${qrCodeFilename.mentorAndMentee(name)}"`)
+    expect(html).toContain('href="/intake-forms/intake-code.svg"')
+    expect(html).toContain(`download="${qrCodeFilename.groups(name)}"`)
+
+    const mentoring = await download('discipleship-code.svg', cookie)
+    expect(mentoring.status).toBe(200)
+    expect(mentoring.headers.get('content-type')).toContain('image/svg+xml')
+    expect(mentoring.headers.get('content-disposition')).toContain(qrCodeFilename.mentorAndMentee(name))
+    expect(await mentoring.text()).toBe(
+      await renderQrCode(ministryJoinQrLink(origin, name), qrCodeCaption.mentorAndMentee('Fairmount Church')),
+    )
+
+    const groups = await download('intake-code.svg', cookie)
+    expect(groups.headers.get('content-disposition')).toContain(qrCodeFilename.groups(name))
+    expect(await groups.text()).toBe(
+      await renderQrCode(ministryGroupsJoinQrLink(origin, name), qrCodeCaption.groups('Fairmount Church')),
     )
   })
 
-  it('draws the code on the page big enough to hold a phone up to', async () => {
-    const { html } = await getPage('/intake-forms', cookie)
-
-    // The square scales, so the size in the file decides nothing here. What decides
-    // whether an Admin can scan their own screen is what the page asks for, and
-    // that is the half of the criterion a test of the encoder cannot reach.
-    const tag = /<img[^>]*class="qr"[^>]*>/.exec(html)
-    expect(tag).not.toBeNull()
-
-    const askedFor = /width="(\d+)"/.exec(tag![0])
-    expect(askedFor).not.toBeNull()
-    expect(Number(askedFor![1])).toBeGreaterThanOrEqual(320)
-  })
-
-  it('does not offer the code’s own link as a second thing to send', async () => {
-    const { html } = await getPage('/intake-forms', cookie)
-
-    // A field holding `?via=qr` would be texted, and every Person who followed it
-    // would be recorded as having scanned a code nobody printed -- which is the one
-    // distinction the panel above it exists to keep honest.
-    expect(html).not.toContain(`value="${scanned(linkOnThePage(html, ministry), ministry)}"`)
-  })
-
-  it('offers the code on its own, so it can be printed or saved', async () => {
-    const { html } = await getPage('/intake-forms', cookie)
-
-    // Two actions the page provides, rather than a tab and the Admin's knowledge of
-    // their browser: the download saves it, the tab is where it is printed from.
-    expect(html).toContain('download="intake-qr-code.svg"')
-    expect(html).toContain('target="_blank"')
-
-    const response = await qrCode(cookie)
-
-    // Named on the way out too, because the Admin saving it is going to look for it
-    // again in a folder of downloads, and it scales because it is going on paper.
-    expect(response.headers.get('content-disposition')).toContain('intake-qr-code.svg')
-    expect(await response.text()).toContain('viewBox')
-  })
-
   it('draws each Ministry its own code, from the one URL they both request', async () => {
-    const mine = await qrCode(cookie)
-    const theirs = await qrCode(neighbourCookie)
+    const mine = await download('intake-code.svg', cookie)
+    const theirs = await download('intake-code.svg', neighbourCookie)
 
     expect(await mine.text()).not.toBe(await theirs.text())
-
     // One path, two answers: a shared cache holding the first would hand one
     // Ministry's congregation another Ministry's Intake form.
     expect(mine.headers.get('cache-control')).toContain('private')
     expect(mine.headers.get('cache-control')).toContain('no-store')
   })
 
-  it('is not served to somebody with no session', async () => {
-    const response = await fetch(`${baseUrl}/intake-forms/intake-code.svg`, { redirect: 'manual' })
-
-    expect(response.status).not.toBe(200)
-    expect(response.headers.get('content-type') ?? '').not.toContain('image/svg+xml')
+  it('does not serve a code to somebody with no session', async () => {
+    for (const route of ['intake-code.svg', 'discipleship-code.svg']) {
+      const response = await download(route, '')
+      expect(response.status).not.toBe(200)
+      expect(response.headers.get('content-type') ?? '').not.toContain('image/svg+xml')
+    }
   })
 
-  it('hands the Admin a link that actually opens their Ministry’s form', async () => {
+  it('opens the mentor and mentee form at the short name, and the groups form at /groups', async () => {
     const { html } = await getPage('/intake-forms', cookie)
-    const link = linkOnThePage(html, ministry)
+    const link = copiedLink(html, ministry.shortName)
 
-    // The point of the ticket, asserted end to end: what the page hands over is not
-    // merely well-formed, it is the form.
-    const sent = await fetch(`${baseUrl}${pathOf(link)}`, { redirect: 'manual' })
-    expect(sent.status).toBe(200)
+    const mentoring = await opened(pathOf(link))
+    expect(mentoring.status).toBe(307)
+    expect(mentoring.location?.pathname).toBe(`/intake/${ministry.id}/discipleship`)
 
-    const form = await sent.text()
-    // Two assertions rather than one sentence: React puts a comment between the
-    // static half of a heading and the interpolated half, so the Ministry's name and
-    // the words in front of it are not adjacent in the markup.
-    //
-    // Since ticket 29 the link opens the group form. This Ministry has no group to
-    // offer, which is every Ministry on day one, so what it serves is the page that
-    // says so and points at the discipleship wizard -- never a dead page.
-    expect(form).toContain('Join a group at')
-    expect(form).toContain('Fairmount Church')
-    expect(form).toContain(`/intake/${ministry.id}/discipleship`)
+    const groups = await opened(`${pathOf(link)}/groups`)
+    expect(groups.status).toBe(307)
+    expect(groups.location?.pathname).toBe(`/intake/${ministry.id}`)
 
-    const fromTheCode = await fetch(`${baseUrl}${pathOf(scanned(link, ministry))}`, {
-      redirect: 'manual',
+    // Followed to the end, each is its form.
+    expect(await (await fetch(`${baseUrl}${pathOf(link)}`)).text()).toContain('Join discipleship at')
+    expect(await (await fetch(`${baseUrl}${pathOf(link)}/groups`)).text()).toContain('Join a group at')
+  })
+
+  it('carries ?via=qr to the form, which records a scan exactly as it did', async () => {
+    const scanned = await opened(`/join/${ministry.shortName}/groups?via=qr`)
+
+    expect(scanned.location?.pathname).toBe(`/intake/${ministry.id}`)
+    expect(scanned.location?.searchParams.get('via')).toBe('qr')
+  })
+
+  it('opens the forms when the link is typed with capitals', async () => {
+    const typed = await opened(`/join/${ministry.shortName.toUpperCase()}`)
+
+    expect(typed.status).toBe(307)
+    expect(typed.location?.pathname).toBe(`/intake/${ministry.id}/discipleship`)
+  })
+
+  it('opens nothing at a short name nobody has held', async () => {
+    for (const path of [`/join/${freshName('nobody')}`, `/join/${freshName('nobody')}/groups`, '/join/not%20a%20name']) {
+      expect((await opened(path)).status, path).toBe(404)
+    }
+  })
+
+  it('keeps the older links by Ministry id working', async () => {
+    expect((await opened(`/intake/${ministry.id}`)).status).toBe(200)
+    expect((await opened(`/intake/${ministry.id}/discipleship`)).status).toBe(200)
+  })
+
+  describe('changing the short name', () => {
+    it('takes the new one, says so, and builds both links and both codes from it', async () => {
+      const renamed = await createMinistryWithAdmin('Wexford Chapel')
+      const { cookie: renamedCookie } = await signIn(renamed)
+      const wanted = freshName('wexford')
+
+      const saved = await post('/intake-forms/short-name', renamedCookie, { shortName: wanted })
+      expect(saved.status).toBe(303)
+      expect(new URL(saved.headers.get('location')!).search).toBe('?shortName=saved')
+
+      const { html } = await getPage('/intake-forms?shortName=saved', renamedCookie)
+      const card = asRendered(html)
+      expect(card).toContain('Saved. Links and QR codes printed with the old name still open your forms.')
+      expect(fieldOn(card)).toBe(wanted)
+      expect(shownLink(card, 'mentor-and-mentee')).toMatch(new RegExp(`/join/${wanted}$`))
+      expect(shownLink(card, 'groups')).toMatch(new RegExp(`/join/${wanted}/groups$`))
+      expect(await shortNameOf(renamed)).toBe(wanted)
     })
-    expect(fromTheCode.status).toBe(200)
-    expect(await fromTheCode.text()).toContain('Join a group at')
+
+    it('keeps every name it has had opening its forms, forever', async () => {
+      const renamed = await createMinistryWithAdmin('Ashgrove Chapel')
+      const { cookie: renamedCookie } = await signIn(renamed)
+      const first = renamed.shortName
+      const second = freshName('ashgrove')
+      const third = freshName('ashgrove-chapel')
+
+      await post('/intake-forms/short-name', renamedCookie, { shortName: second })
+      await post('/intake-forms/short-name', renamedCookie, { shortName: third })
+      expect(await shortNameOf(renamed)).toBe(third)
+
+      for (const held of [first, second, third]) {
+        const scanned = await opened(`/join/${held}/groups?via=qr`)
+        expect(scanned.status, held).toBe(307)
+        expect(scanned.location?.pathname, held).toBe(`/intake/${renamed.id}`)
+      }
+    })
+
+    it('records the rename in the Ministry’s history, with who made it', async () => {
+      const renamed = await createMinistryWithAdmin('Larchmont Chapel')
+      const { cookie: renamedCookie } = await signIn(renamed)
+      const wanted = freshName('larchmont')
+
+      await post('/intake-forms/short-name', renamedCookie, { shortName: wanted })
+
+      const { rows } = await pool.query<{ subject_type: string; payload: Record<string, unknown> }>(
+        `select subject_type, payload from ministry_event
+          where ministry_id = $1 and type = 'ministry.short_name_changed'`,
+        [renamed.id],
+      )
+      expect(rows).toEqual([
+        {
+          subject_type: 'ministry',
+          payload: { changedBy: renamed.adminUserId, from: renamed.shortName, to: wanted },
+        },
+      ])
+    })
+
+    it('refuses a name another church has, saying why, and changes nothing', async () => {
+      const refused = await post('/intake-forms/short-name', cookie, { shortName: neighbour.shortName })
+      const location = new URL(refused.headers.get('location')!)
+      expect(location.searchParams.get('shortNameError')).toBe('short_name.taken')
+
+      const { html } = await getPage(`${location.pathname}${location.search}`, cookie)
+      expect(asRendered(html)).toContain('Another church has that short name, or had it once')
+      // The name typed is not carried back: the field shows the name that stands.
+      expect(fieldOn(asRendered(html))).toBe(ministry.shortName)
+      expect(await shortNameOf(ministry)).toBe(ministry.shortName)
+    })
+
+    it('refuses a name another church had once, because its printed links still use it', async () => {
+      const leaving = await createMinistryWithAdmin('Brookfield Chapel')
+      const { cookie: leavingCookie } = await signIn(leaving)
+      await post('/intake-forms/short-name', leavingCookie, { shortName: freshName('brookfield') })
+
+      const refused = await post('/intake-forms/short-name', cookie, { shortName: leaving.shortName })
+      expect(new URL(refused.headers.get('location')!).searchParams.get('shortNameError')).toBe('short_name.taken')
+      expect(await shortNameOf(ministry)).toBe(ministry.shortName)
+    })
+
+    it('refuses a name the app’s own routes need, saying why', async () => {
+      const refused = await post('/intake-forms/short-name', cookie, { shortName: 'overview' })
+      const location = new URL(refused.headers.get('location')!)
+      expect(location.searchParams.get('shortNameError')).toBe('short_name.reserved')
+
+      const { html } = await getPage(`${location.pathname}${location.search}`, cookie)
+      expect(asRendered(html)).toContain('one of Discipler’s own pages')
+    })
+
+    it('refuses a name a link cannot carry plainly, saying why', async () => {
+      const refused = await post('/intake-forms/short-name', cookie, { shortName: 'fairmount church' })
+      const location = new URL(refused.headers.get('location')!)
+      expect(location.searchParams.get('shortNameError')).toBe('short_name.unreadable')
+
+      const { html } = await getPage(`${location.pathname}${location.search}`, cookie)
+      expect(asRendered(html)).toContain('only lowercase letters, digits and single dashes')
+    })
+
+    it('takes back a name it had before', async () => {
+      const returning = await createMinistryWithAdmin('Holloway Chapel')
+      const { cookie: returningCookie } = await signIn(returning)
+      const original = returning.shortName
+
+      await post('/intake-forms/short-name', returningCookie, { shortName: freshName('holloway') })
+      const back = await post('/intake-forms/short-name', returningCookie, { shortName: original })
+
+      expect(new URL(back.headers.get('location')!).search).toBe('?shortName=saved')
+      expect(await shortNameOf(returning)).toBe(original)
+    })
+
+    it('is an Admin’s to change and nobody else’s', async () => {
+      const leader = await addPersonWithAccount(ministry, 'Rowan Price', 'leader', { phone: aTestPhoneNumber() })
+      const { cookie: leadersCookie } = await signInAs(leader)
+
+      await post('/intake-forms/short-name', leadersCookie, { shortName: freshName('hijack') })
+      await post('/intake-forms/short-name', '', { shortName: freshName('hijack') })
+
+      expect(await shortNameOf(ministry)).toBe(ministry.shortName)
+    })
   })
 })

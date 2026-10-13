@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { daysSince, systemClock, type Clock } from '~/domain/clock'
+import { daysSince, type Clock } from '~/domain/clock'
 import {
   isFollowUpKind,
   readFollowUpPayload,
@@ -8,16 +8,8 @@ import {
 import { followUpItemId, personId, relationshipId, type MinistryId } from '~/domain/ids'
 import { AGE_BANDS, GENDERS, isOneOf, readSlot } from '~/domain/intake'
 import { deriveRelationshipState } from '~/domain/relationship-state'
-import type {
-  CareMember,
-  CareNeededItem,
-  CareNeededReader,
-  ContactDetails,
-  FollowUpCareItem,
-  PlacementWanted,
-} from '~/service/ports'
-import { contactDetailsFrom } from './contact-to-share'
-import { adminPage, documentFor, readPageDocument, type PageDocument } from './page'
+import type { CareMember, CareNeededItem, FollowUpCareItem, PlacementWanted } from '~/service/ports'
+import { documentFor, type PageDocument } from './page'
 import {
   concernsFrom,
   historyOf,
@@ -30,7 +22,6 @@ import {
   type HistoryInputs,
 } from './relationship-history'
 import { rows, text } from './rows'
-import { createSupabaseServerClient } from './server-client'
 
 /**
  * The Care Needed view: open Follow-Up Items, relationships whose *derived* state
@@ -163,6 +154,18 @@ export const followUpItemsFrom = (
     }
   }
 
+  // Everyone in each relationship, as its card shows them (Pastor feedback,
+  // ticket 10): Follow-Up names an item by them.
+  const members = membersFrom(history, nameOf)
+  const membersOf = (relationship: string | null): CareMember[] =>
+    relationship === null
+      ? []
+      : (members.get(relationship)?.people ?? []).map((person) => ({
+          personId: personId(person.personId),
+          fullName: person.fullName,
+          role: person.role,
+        }))
+
   // Once for the whole list, so two items read in the same breath cannot disagree
   // about what day it is -- and from the injected clock, like every other
   // time-dependent rule in this codebase.
@@ -196,6 +199,7 @@ export const followUpItemsFrom = (
         relationshipId: item.relationshipId ? relationshipId(item.relationshipId) : null,
         personId: item.personId ? personId(item.personId) : null,
         personName: item.personId ? (nameOf.get(item.personId) ?? null) : null,
+        members: membersOf(item.relationshipId),
         relationshipCreatedAt: createdAt,
         // The derived number the view shows, beside the instant it came from. The
         // instant is what the data keeps; freezing this into the payload instead
@@ -359,23 +363,6 @@ export const readCareNeeded = async (
 }
 
 /**
- * What `Nudge` revealed, out of the page's document: the row `contact_to_share`
- * gave for the one Person the reveal named, or null. No row is the answer, not a
- * failure: the Person has not agreed to share, or has no number, or is not
- * somebody this caller may ask about. The function does not distinguish them and
- * neither may this -- an Admin who could tell "withheld" from "no such Person"
- * would be reading consent by inference.
- */
-const revealedFrom = (doc: PageDocument, person: string | null): ContactDetails | null => {
-  const row = doc.reveal
-  if (person === null || row === null || row === undefined) return null
-  if (typeof row !== 'object' || Array.isArray(row)) {
-    throw new Error(`Contact details for ${person} came back as something other than a row`)
-  }
-  return contactDetailsFrom(row as Record<string, unknown>, person)
-}
-
-/**
  * What each `group_placement_wanted` item shows, out of the Follow-Up tab's
  * document (Group form exits, ticket 01): the Person's latest Intake answers and
  * the groups open to them. The groups arrive as the group form reads them, and
@@ -444,26 +431,3 @@ export const withPlacements = (
     return { ...item, placement }
   })
 }
-
-/**
- * Built with a clock rather than reaching for one, because how long an item has
- * waited is a time-dependent rule like any other -- as is which ISO week it is,
- * which both counters are anchored to -- and the composition root is what decides
- * whose clock answers them.
- */
-export const createSupabaseCareNeededReader = (clock: Clock = systemClock): CareNeededReader => ({
-  async readFollowUpPage(reveal) {
-    const doc = await readPageDocument(
-      await createSupabaseServerClient(),
-      'follow_up_page',
-      reveal === null ? undefined : { reveal_person_id: reveal },
-    )
-    return adminPage(doc, () => {
-      const history = historyOf(doc)
-      return {
-        items: withPlacements(careNeededFrom(history, clock), doc, history),
-        revealed: revealedFrom(doc, reveal),
-      }
-    })
-  },
-})

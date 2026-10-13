@@ -8,9 +8,32 @@ The pastor dashboard is a single web application with six tabs: **Overview**, **
 
 ## Overview
 
-The Overview tab answers "how is the ministry doing right now" without the pastor having to open anything else. It shows the total number of active discipleship relationships, the meeting rate derived from check-in responses, the response completion rate, the number of check-ins completed this week, and the number of items flagged for follow-up this week — where that follow-up count combines stalled relationships, relationships carrying an unresolved concern, relationships whose pause has expired, and relationships carrying an open swap request. Two pie charts sit alongside these figures: a **Meeting Completion** chart showing the ratio of meetings completed to meetings missed, and a **Check-In Ratings** chart showing the distribution of A (outstanding), B (good), and C (concern) responses. A **Quick Stats** panel repeats the headline figures in compact form: total relationships including groups, response completion rate, meeting rate, quality rate (the proportion of A and B responses against C), text-message response rate, and total active relationships. Below the charts, the Overview lists every active and paused relationship and group; a paused one is listed in place and visibly marked `Paused` so the pastor can tell it apart from an active, stalled, or ended relationship. A paused relationship is listed but not counted among the active relationships, on the same principle that takes an ended one out of the active counts. Those carrying a concern are flagged in place and can be opened directly to reveal the full name and phone number of the people involved.
+The Overview tab answers "how is the ministry doing right now" without the pastor having to open anything else. It shows the total number of active discipleship relationships, the meeting rate derived from check-in responses, the response completion rate, the number of check-ins completed this week, and the number of items flagged for follow-up this week — where that follow-up count combines stalled relationships, relationships carrying an unresolved concern, relationships whose pause has expired, and relationships carrying an open swap request. Two pie charts sit alongside these figures: a **Meeting Completion** chart showing the ratio of meetings completed to meetings missed, and a **Check-In Ratings** chart showing the distribution of A (outstanding), B (good), C (okay), and D (concern) responses. A **Quick Stats** panel repeats the headline figures in compact form: total relationships including groups, response completion rate, meeting rate, quality rate (A and B responses over every rated response, so C okay counts against it as well as D), text-message response rate, and total active relationships. Below the charts, the Overview lists every active and paused relationship and group; a paused one is listed in place and visibly marked `Paused` so the pastor can tell it apart from an active, stalled, or ended relationship. A paused relationship is listed but not counted among the active relationships, on the same principle that takes an ended one out of the active counts. Those carrying a concern are flagged in place and can be opened directly to reveal the full name and phone number of the people involved.
 
-Two metrics carry the operational picture and must not be conflated: **Response Rate** is check-ins answered divided by check-ins sent, and **Meeting Rate** is meetings held divided by check-ins answered. A ministry can have a high response rate and a poor meeting rate; collapsing them hides exactly the problem the product exists to surface. On the Check-In Ratings chart, A renders green, B yellow, and C red. Quick Stats is a panel inside Overview, not a separate tab.
+Pressing a one-to-one or a 1:2 pair opens the **pair card** over the Overview, and the address says which card is open, so a refresh keeps it and closing it returns to the Overview.
+Its head says the shape and since when, both names and the state.
+The two people sit side by side, the Discipler on the left and the Disciple on the right, each with their role in this pair, their phone with Call and Text, their email, their age band and their goal; contact details reach the card only for someone who currently agrees to share them, the rule Nudge reads (ADR-0010), and a missing one is left out rather than announced.
+Beneath them are the last check-in answer and its date and the material running now.
+Whatever needs the pastor sits in a band straight under the names: an unresolved concern with its words, who raised it and **Resolve**; a stall with the condition that fired and how long it has held; an expired pause with **Resume**.
+The concern's words show as the card opens and the reading is recorded (see *Check-Ins*).
+**End relationship** is a quiet link at the foot that opens the usual outcome and reason step.
+The card sends nothing.
+Pressing a group opens the same card in its group form.
+Its head says *Group*, the gender the group declared (women, men or mixed) and since when it was formed, its name and its state.
+The leader is shown in full, as a person is on a pair, with the role Discipler, and a co-leader beneath them.
+Under *Disciples · N* each Disciple is a row with their name and phone, and pressing the row opens their Call and Text links, email, age band and goal, without script.
+The band, the facts and **End relationship** are the pair card's, and so is the consent rule on the contact details.
+Who is in a group is still changed on the Roster, not on the card.
+
+Each relationship card is coloured by what it needs.
+**Green** is healthy, the default.
+**Yellow** is stalled.
+**Red** is a relationship carrying an unresolved concern, for as long as the concern stays unresolved and not only the week it was raised: Needs Care lasts the week, and the red lasts until an Admin resolves the concern.
+Red wins over yellow when a stalled relationship also carries an unresolved concern, and over grey when a paused one does, because a pause resolves nothing.
+**Grey** is inactive: paused or awaiting acceptance, and each keeps its own label.
+Every colour is backed by words on the card, the state's pill (`Healthy`, `Stalled`, `Needs care`, `Paused`, `Awaiting acceptance`) and the flag line (`Concern`), so the meaning never rests on colour alone; a card that is red only for its concern drops the `Healthy` pill rather than show a green word on a red card.
+
+Two metrics carry the operational picture and must not be conflated: **Response Rate** is check-ins answered divided by check-ins sent, and **Meeting Rate** is meetings held divided by check-ins answered. A ministry can have a high response rate and a poor meeting rate; collapsing them hides exactly the problem the product exists to surface. On the Check-In Ratings chart, A renders green, B light green, C yellow, and D red, with a legend naming all four. The ratings were three, with C for concern, until 2026-10-12; they became four so there is no middle answer to default to, and `docs/product-rules.md`, *What the Satisfaction Tokens Store*, says why three must not come back. Quick Stats is a panel inside Overview, not a separate tab.
 
 The rates, both charts and the rate rows in Quick Stats cover last week: the last whole Week, in the Ministry Timezone, and each of them says *last week* on the screen.
 A whole week rather than the current one, because the current week reads 0% until the Check-In Cadence comes round and then climbs as answers arrive.
@@ -18,7 +41,20 @@ The check-ins completed this week, the follow-up count and the relationship coun
 
 ## Check-Ins
 
-The Check-Ins tab is the week's raw operational picture. It shows how many check-ins have been completed, how many are still pending, and how many concerns were raised, with the completed responses broken down at the top into A (outstanding), B (good), and C (concern). The A and B headings expand into the threads behind them. The C heading does not. Concerns are never presented as a browsable list, never exported, and never quoted in a report — an admin reading "four concerns this week" opens each person individually to see what was said. Raw concern text is the most sensitive data in the product, and the extra click is deliberate friction, not an oversight.
+The Check-Ins tab is the week's raw operational picture.
+It shows how many check-ins have been completed, how many are still pending, and how many concerns are still open, then the completed responses in four columns, A (outstanding), B (good), C (okay), and D (concern), each heading coloured as its slice of the Overview's Check-In Ratings chart.
+There is no summary strip above them.
+Every column lists the relationships behind it by name, with the date answered, D included: a D whose concern is still unresolved is marked red, and its words are never on the list.
+This replaces a sealed D column that showed only a count and the way to Follow-Up (James, 2026-10-12, Pastor feedback ticket 09).
+Pressing any relationship in any column opens the same pair card the Overview opens, or its group form for a group, over Check-Ins; the address says which card is open, and closing it returns to the row it came from.
+On Check-Ins the card opens with this week's answer and when it came in its first band, in the Ministry's timezone (*This week · Met · B good · answered 9:07am*), coloured as its letter's column; the Last check-in fact, which would say the same answer again, is left out.
+Where this week's answer raised a concern that is still unresolved, that band is the concern's, its words under the week's line, with **Resolve**; a concern from an earlier week that is still unresolved keeps its own band beneath it.
+Resolving from the card clears the concern on Check-Ins and on Follow-Up alike, and the card says so where the pastor is; ending the relationship from the card says so at the top of Check-Ins.
+Concerns are never presented as a browsable list, never exported, and never quoted in a report — an admin reading "four concerns this week" opens each relationship's card to see what was said.
+Raw concern text is the most sensitive data in the product, so its words show in one place only: the pair card of the relationship it is about, which shows them as it opens.
+Opening the card is the read, and it is recorded exactly as the retired `Read the concern` button recorded it, one viewing per concern; a line under the concern on the card says who read it and when.
+This reverses an earlier rule, that reading a concern took a deliberate extra click past the list as friction (James, 2026-10-12, Pastor feedback ticket 07).
+The friction that stays is everything else above: no list of the words, no export, no report, and the words never on the Overview grid, the Check-Ins columns or the Follow-Up list.
 
 Resolving a concern clears its text, and nothing offers to keep it. A ministry should not accumulate a permanent file of people's worst weeks — not by never deciding to, and not by deciding to either.
 
@@ -45,14 +81,33 @@ The last two are review conditions, not care flags. A pause and a swap request a
 
 No follow-up item clears itself. An expired pause is not resolved by expiring, and a swap request is not resolved by being recorded; each waits for an admin to act.
 
-Four actions are available from a follow-up item and no others. **Nudge**, always, which reveals the participant's contact details so the admin can reach them directly — it sends nothing. **Resolve**, which clears the item — on a concern-based item it clears the concern text by default; on a swap request it records that the admin reviewed the request and left the relationship in place. **Resume relationship**, on a paused relationship, which lifts the pause, releases the Starter Message, and lets the relationship's underlying derived state resurface — a relationship that was stalled when it was paused is stalled again until an answered check-in clears it. **End relationship**, always, with a recorded reason.
+Each item on the list is one button: its tag, the names, one line of reason, how long it has held, and an arrow, with nothing else to press.
+A concern's words are never on the list.
+Pressing an item opens the relationship's card over the list, the same pair card or group card the Overview opens, in a fuller form: every open item on that relationship sits in a band under the names with the actions it offers, and a **What has happened** list sits under the facts.
+So a pair carrying a concern, a stall and a swap request is one card with three bands, whichever of the three was pressed.
+An item about a person with no live relationship (*Wants a group*, *Texted a keyword*, *Pair not made*) opens a card of its own: the item in its band, the person as the pair card draws a person, and what has happened.
+Ending a relationship resolves none of its concerns, so a concern on an ended relationship stays on the list, named by who raised it, and opens a card of its own too: each concern's band with its words and **Resolve**, who has read them, and what has happened, with no people, facts or **End relationship**, because the pair is over.
+This is James's decision of 2026-10-12, Pastor feedback ticket 10; until then every item carried its own row of buttons.
+
+**What has happened** lists, newest first and read from the stored history alone: when each item was raised and why, a stall dated by the week that crossed its threshold; the check-ins that led to it, which are the very weeks the stall was derived from and the week a concern was answered D; who read the concern, and when; and the earlier follow-up items and concerns for the pair, and who resolved them.
+The words of an earlier, resolved concern never appear, because resolving cleared them.
+Who opened the contact details is not listed: opening the card records nothing, as Nudge recorded nothing, so there is no stored fact to list.
+
+Four actions live in the card.
+**Nudge** is opening the card itself: the contact details of the people on it reach it through the consent check, and it sends nothing.
+**Resolve** sits in each item's band and clears the item; on a swap request it records that the admin reviewed the request and left the relationship in place; on a concern it is **Resolve and clear this text**, which clears the words.
+**Resume relationship** sits in an expired pause's band while the relationship is still paused; it lifts the pause, releases the Starter Message, and lets the relationship's underlying derived state resurface, so a relationship that was stalled when it was paused is stalled again until an answered check-in clears it.
+**End relationship** is the quiet link at the card's foot, with a recorded outcome and reason, and is on nothing on the list.
+Beside them an item keeps what it already offered, moved into its band and nothing new: *Copy link to re-invite leader* on an invitation that ran out, *Cancel relationship* on one nobody accepted unless it is a group already running, *Pair by hand* on a pairing an import could not make, and *Contact info* on a declined invitation.
+A stall has no button in its band, because it clears itself when the leader answers.
 
 Nudge and *see contact details* were listed here as two separate actions, one of which sent an additional check-in. They are one action, and it sends nothing. See `docs/adr/0010-nudge-reveals-a-number-and-sends-nothing.md`.
+Since ticket 10 it is no longer a button either: opening the card is the reveal.
 
 Reassigning or replacing somebody needs no separate action. Ending a relationship returns everyone in it to `Ready to Pair`, and the admin pairs them from the Roster in the usual way.
 
 A **Wants a group** item is somebody who signed up on the group Intake link with no group in mind.
-It says when they signed up and what their Intake says of their gender, age band and availability, and offers two actions and no others: a dropdown of the groups open to them with **Place in this group**, and **Resolve**.
+On the list it says when they signed up; its card says what their Intake says of their gender, age band and availability, and offers two actions and no others: a dropdown of the groups open to them with **Place in this group**, and **Resolve**.
 Placing them is the Roster's **Add to group** act, `group.add_participant`: it resolves the item in the same transaction and lands on the Roster with the receipt that act gives.
 
 Messaging a participant through Discipler is deliberately absent. The admin picks up the phone; the product's job is to say who needs a call, not to become another inbox.

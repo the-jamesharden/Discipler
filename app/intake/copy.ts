@@ -50,6 +50,22 @@ export const selectedSummary = (hours: number, days: number): string =>
     ? 'No hours selected yet.'
     : `${hours} hour${hours === 1 ? '' : 's'} selected across ${days} day${days === 1 ? '' : 's'}.`
 
+/**
+ * The goal question's last option, and the box it opens. *Other* on every
+ * Ministry's form, whatever the Ministry's own options are worded as.
+ */
+/**
+ * The two answers a yes-or-no question of the Ministry's own offers (Pastor
+ * feedback, ticket 12), as the form says them and as an Admin reads them back.
+ */
+export const YES_NO_LABEL: Record<'yes' | 'no', string> = { yes: 'Yes', no: 'No' }
+
+/** Said under a several-choices question, whose options look like one choice's. */
+export const AS_MANY_AS_APPLY = 'Choose as many as apply.'
+
+export const GOAL_OTHER_OPTION = 'Other'
+export const GOAL_OTHER_BOX = 'In a few words, what are you hoping for?'
+
 const REFUSALS: Record<IntakeRefusal, string> = {
   'intake.name_missing': 'Please give your name.',
   'intake.phone_missing': 'Please give a mobile number we can text.',
@@ -59,6 +75,7 @@ const REFUSALS: Record<IntakeRefusal, string> = {
   'intake.age_band_unknown': 'Please choose an age range.',
   'intake.gender_unknown': 'Please choose an option.',
   'intake.goal_not_selected': 'Please choose what you are hoping for.',
+  'intake.goal_other_missing': 'You chose Other. Please write in a few words what you are hoping for.',
   // Names the real route out, because the form is not one. This form grants consent
   // and never withdraws it: a prefilled link an Admin sent, producing a withdrawal
   // that reads as the Person's own act, is the wrong shape for a decision that has
@@ -87,6 +104,14 @@ const REFUSALS: Record<IntakeRefusal, string> = {
   'intake.group_not_open_to_you':
     'That group is not open to you. Please choose a different group.',
   'intake.email_unreadable': 'That does not look like an email address.',
+  'intake.email_missing': 'Please give your email address.',
+  // The Ministry's own questions (Pastor feedback, ticket 12). Said of every
+  // question at once rather than naming one: a browser holds somebody on a
+  // required box or choice before it is sent, so what reaches this is a set of
+  // checkboxes left empty, which is on the screen they are looking at.
+  'intake.question_unanswered': 'Please answer every question that is not marked optional.',
+  'intake.answer_unreadable': 'Something went wrong reading one of your answers. Please try again.',
+  'intake.answer_too_long': 'One of your answers is longer than its box takes. Please shorten it.',
   'intake.link_expired':
     'This link has expired. Ask whoever sent it to you for a new one.',
   // Deliberately says nothing about who. A name and a number together are who a
@@ -149,42 +174,10 @@ export const sideLabel: Record<DeclaredSide, string> = {
   mentee: 'Someone to be mentored',
 }
 
-export const SIDE_QUESTION = 'I’m joining as…'
-
 /** The line under each side, from the Make design. */
 export const sideDescription: Record<DeclaredSide, string> = {
   mentor: 'I am ready to walk alongside and invest in someone else.',
   mentee: 'I am looking for someone to help guide me in my faith.',
-}
-
-/**
- * What the card says under the Ministry's name on each screen, by step. Read by step
- * number here and nowhere else: the screens are told apart by name, and this is
- * a line of copy that follows the number on the progress bar.
- */
-export const stepSubtitle: Record<number, string> = {
-  1: 'Welcome — let’s get you connected.',
-  2: 'Tell us a little about yourself.',
-  3: 'A bit about your experience.',
-  4: 'When are you generally available to meet?',
-  5: 'Nearly there — how we reach you, and what you are hoping for.',
-}
-
-/** The same lines for the group form's four screens. */
-export const groupStepSubtitle: Record<number, string> = {
-  1: 'Tell us a little about yourself.',
-  2: 'When are you generally available to meet?',
-  3: 'Which group would you like to join?',
-  4: 'Nearly there — how we reach you.',
-}
-
-/**
- * The one screen whose question is not the same sentence for both sides. It is
- * still the same question: has this Person done this before.
- */
-export const firstTimeQuestion: Record<DeclaredSide, string> = {
-  mentor: 'Have you mentored someone before?',
-  mentee: 'Have you been discipled by a mentor before?',
 }
 
 /**
@@ -196,7 +189,6 @@ export const DONE_BEFORE_ANSWER = 'Yes, I’ve done this before'
 export const FIRST_TIME_ANSWER = 'No, this is my first time'
 export const DONE_BEFORE_DESCRIPTION = 'I have experience in this role.'
 export const FIRST_TIME_DESCRIPTION = 'I am new to this — and that is perfectly fine.'
-export const FIRST_TIME_HELP = 'This helps us match you thoughtfully.'
 
 export const DONE_HEADING = 'You’re on the list'
 
@@ -220,8 +212,6 @@ export const doneMessageWithoutASide = (ministryName: string): string =>
  */
 
 export const groupHeading = (ministryName: string): string => `Join a group at ${ministryName}`
-
-export const GROUP_QUESTION = 'Which group would you like to join?'
 
 /**
  * The line beneath a group's name on step three when its running period is on a

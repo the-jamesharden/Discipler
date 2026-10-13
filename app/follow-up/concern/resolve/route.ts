@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { concernId } from '~/domain/ids'
 import { currentAdmin } from '~/platform/supabase/current-admin'
 import { getCommandService } from '~/service/container'
-import { backToFollowUp, done, field, refusalCodeOf, refused } from '../../actions'
+import { backFrom, backToFollowUp, done, field, refusalCodeOf, refused } from '../../actions'
 
 /**
  * An Admin resolving a Concern, which is the only thing that closes one. No
@@ -15,8 +15,10 @@ export async function POST(request: NextRequest) {
   if (!admin) return NextResponse.redirect(new URL('/login', request.url), { status: 303 })
 
   const form = await request.formData()
+  // Follow-Up, or the pair card the form was posted from.
+  const back = backFrom(form)
   const concern = field(form, 'concernId')
-  if (!concern) return backToFollowUp(request)
+  if (!concern) return backToFollowUp(request, undefined, back)
 
   try {
     await getCommandService().execute({
@@ -27,9 +29,9 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     const code = refusalCodeOf(error)
-    if (code) return refused(request, code)
+    if (code) return refused(request, code, back)
     throw error
   }
 
-  return done(request, 'concern-resolved')
+  return done(request, 'concern-resolved', back)
 }

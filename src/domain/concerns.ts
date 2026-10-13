@@ -25,7 +25,7 @@ export interface NewConcern {
   readonly ministryId: MinistryId
   readonly relationshipId: RelationshipId
   /**
-   * Who raised it. The Leader answering `C` today; recorded rather than assumed,
+   * Who raised it. The Leader answering `D` today; recorded rather than assumed,
    * because a Participant check-in would raise one the same way and the two must
    * be tellable apart without reading the prose.
    */

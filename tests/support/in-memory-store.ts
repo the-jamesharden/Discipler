@@ -55,7 +55,11 @@ import type {
   GroupConfiguration,
   RelationshipCancellation,
   RelationshipEnding,
+  ShortNameChange,
+  IntakeAnswersRemoval,
+  IntakeFormSaving,
 } from '~/domain/effects'
+import { presetForm, type AnswerGiven, type IntakeForm } from '~/domain/intake-form'
 import type { FollowUpResolution, NewFollowUpItem } from '~/domain/follow-up'
 import type { NewIntakeLink } from '~/domain/intake-link'
 import type { PersonRemoval, PersonRestoration, PersonToRemove } from '~/domain/removal'
@@ -77,6 +81,7 @@ import {
   type PhoneNumber,
   type RosterKey,
 } from '~/domain/roster'
+import { shortName, type ShortName } from '~/domain/short-name'
 import type { EffectStore, UnitOfWork } from '~/service/ports'
 
 export interface InMemoryStore extends EffectStore {
@@ -132,6 +137,12 @@ export interface InMemoryStore extends EffectStore {
   readonly keywordClosures: readonly KeywordExchangeClosure[]
   /** Every settings form this store saved, in the order the effects saved them. */
   readonly settingsSaved: readonly MinistrySettings[]
+  /** Every short name this store's Ministry was given, in the order it was given. */
+  readonly shortNamesChanged: readonly ShortNameChange[]
+  /** Every version of an Intake form this store saved, in the order it saved them. */
+  readonly intakeFormsSaved: readonly IntakeFormSaving[]
+  /** Every question whose answers this store deleted, in the order it deleted them. */
+  readonly removedIntakeAnswers: readonly IntakeAnswersRemoval[]
   /** Every option added, reworded, reordered or removed, in the order it happened. */
   readonly addedGoals: readonly NewDiscipleshipGoal[]
   readonly renamedGoals: readonly DiscipleshipGoalRenaming[]
@@ -218,6 +229,15 @@ export interface InMemoryStore extends EffectStore {
    * form was saved.
    */
   settings: MinistrySettings
+  /** The short name `short_name.change` decides against: the one before the change. */
+  shortName: ShortName
+  /**
+   * Every saved version of the Ministry's Intake forms, oldest first. Empty is a
+   * Ministry that never edited, which is served the preset.
+   */
+  intakeForms: readonly IntakeForm[]
+  /** The answers each question holds, by key, as a removal reads them (ticket 13). */
+  questionAnswers: Readonly<Record<string, readonly AnswerGiven[]>>
   /** The real store looked again and the unanswered invitation had been answered. */
   nothingLeftToRaise?: boolean
   failOn?:
@@ -264,6 +284,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
   const keywordClarifications: KeywordExchangeClarification[] = []
   const keywordClosures: KeywordExchangeClosure[] = []
   const settingsSaved: MinistrySettings[] = []
+  const shortNamesChanged: ShortNameChange[] = []
+  const intakeFormsSaved: IntakeFormSaving[] = []
+  const removedIntakeAnswers: IntakeAnswersRemoval[] = []
   const addedGoals: NewDiscipleshipGoal[] = []
   const renamedGoals: DiscipleshipGoalRenaming[] = []
   const goalOrders: DiscipleshipGoalOrder[] = []
@@ -400,6 +423,15 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
     get settingsSaved() {
       return [...settingsSaved]
     },
+    get shortNamesChanged() {
+      return [...shortNamesChanged]
+    },
+    get intakeFormsSaved() {
+      return [...intakeFormsSaved]
+    },
+    get removedIntakeAnswers() {
+      return [...removedIntakeAnswers]
+    },
     get addedGoals() {
       return [...addedGoals]
     },
@@ -473,6 +505,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       suggestMaxAgeBandGap: DEFAULT_AGE_BAND_GAP,
       cadence: { day: 1, hour: 9 },
     },
+    shortName: shortName('riverside-chapel'),
+    intakeForms: [],
+    questionAnswers: {},
     async transact(_ministryId: MinistryId, work) {
       const stagedHistory: HistoryEvent[] = []
       const stagedOutbox: SettledMessage[] = []
@@ -510,6 +545,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       const stagedPlans: NewIntendedPairing[] = []
       const stagedPlanClosures: IntendedPairingClosure[] = []
       const stagedSettings: MinistrySettings[] = []
+      const stagedShortNames: ShortNameChange[] = []
+      const stagedIntakeForms: IntakeFormSaving[] = []
+      const stagedRemovedAnswers: IntakeAnswersRemoval[] = []
       const stagedAddedGoals: NewDiscipleshipGoal[] = []
       const stagedRenamedGoals: DiscipleshipGoalRenaming[] = []
       const stagedGoalOrders: DiscipleshipGoalOrder[] = []
@@ -801,6 +839,29 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         async saveMinistrySettings(settings) {
           stagedSettings.push(settings)
         },
+        async ministryShortName() {
+          return store.shortName
+        },
+        async changeShortName(change) {
+          stagedShortNames.push(change)
+        },
+        async intakeForm(name) {
+          const saved = store.intakeForms.filter((form) => form.name === name)
+          return saved[saved.length - 1] ?? presetForm(name)
+        },
+        async intakeFormVersion(name, version) {
+          if (version === 0) return presetForm(name)
+          return store.intakeForms.find((form) => form.name === name && form.version === version) ?? null
+        },
+        async saveIntakeForm(saving) {
+          stagedIntakeForms.push(saving)
+        },
+        async answersTo(_form, key) {
+          return store.questionAnswers[key] ?? []
+        },
+        async removeIntakeAnswers(removal) {
+          stagedRemovedAnswers.push(removal)
+        },
         async recordIntake(intake) {
           if (store.failOn === 'recordIntake') throw new Error('Intake unavailable')
           stagedIntakes.push(intake)
@@ -908,6 +969,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       plans.push(...stagedPlans)
       planClosures.push(...stagedPlanClosures)
       settingsSaved.push(...stagedSettings)
+      shortNamesChanged.push(...stagedShortNames)
+      intakeFormsSaved.push(...stagedIntakeForms)
+      removedIntakeAnswers.push(...stagedRemovedAnswers)
       addedGoals.push(...stagedAddedGoals)
       renamedGoals.push(...stagedRenamedGoals)
       goalOrders.push(...stagedGoalOrders)

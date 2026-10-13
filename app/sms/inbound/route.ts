@@ -10,7 +10,7 @@ import {
  * Only Twilio may speak here.
  *
  * A number is public, and this route acts on the say-so of one: `STOP` opts a
- * congregant out of their Ministry, `PAUSE` suspends a relationship, `C` raises a
+ * congregant out of their Ministry, `PAUSE` suspends a relationship, `D` raises a
  * Concern against somebody's name. Unverified, anybody who knows a mobile number
  * can do all three as that person.
  *

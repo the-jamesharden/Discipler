@@ -107,6 +107,11 @@ export interface MinistryFixture extends MinistryRef {
    *  on the sender is asserting on *this* Ministry's identity and not on a
    *  constant every Ministry would satisfy. */
   readonly sendingNumber: string
+  /**
+   * The short name the Ministry was given as it opened. Fixtures share names, so
+   * it is often the name with a number after it, and only provisioning knows which.
+   */
+  readonly shortName: string
 }
 
 /**
@@ -216,6 +221,7 @@ export const createMinistryWithAdmin = async (
     adminPersonId: provisioned.adminPersonId,
     // Stored rather than typed, for the same reason as the number above.
     sendingNumber: provisioned.sendingNumber,
+    shortName: provisioned.shortName,
   }
 }
 
@@ -230,6 +236,11 @@ export interface IntakeAnswers {
   readonly ageBand?: AgeBand
   readonly gender?: Gender
   readonly goalId?: string | null
+  /**
+   * What they typed after choosing Other. Given, it is their goal in place of any
+   * option: the goal is one choice, and the database refuses both.
+   */
+  readonly goalOther?: string
   readonly availability?: readonly AvailabilitySlot[]
 }
 
@@ -269,7 +280,9 @@ export const completeIntake = async (
       submitted_at: submittedAt,
       age_band: answers.ageBand ?? '25-34',
       gender: answers.gender ?? 'female',
-      discipleship_goal_id: answers.goalId ?? goal?.id ?? null,
+      discipleship_goal_id:
+        answers.goalOther === undefined ? (answers.goalId ?? goal?.id ?? null) : null,
+      discipleship_goal_other: answers.goalOther ?? null,
     })
     .select('id')
     .single()
@@ -788,6 +801,8 @@ export interface GroupOptions {
   readonly disciples: readonly GroupPersonSeed[]
   /** Null leaves it Awaiting Leader Acceptance. Now, where it is not said. */
   readonly acceptedAt?: Date | null
+  /** When it was formed, for a check-in test that has to say. Now, where it is not said. */
+  readonly createdAt?: Date
   readonly joinRequiresApproval?: boolean
 }
 
@@ -821,6 +836,7 @@ export const formGroup = async (
       declared_gender: options.declaredGender,
       join_requires_approval: options.joinRequiresApproval ?? false,
       accepted_at: acceptedAt?.toISOString() ?? null,
+      ...(options.createdAt ? { created_at: options.createdAt.toISOString() } : {}),
     })
     .select('id')
     .single()

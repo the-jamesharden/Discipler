@@ -9,10 +9,12 @@ import type {
 } from '~/domain/errors'
 import type { FollowUpPayload } from '~/domain/follow-up'
 import { WEEKDAYS, type AgeBand, type AvailabilitySlot, type Gender, type Weekday } from '~/domain/intake'
-import type { PlacementWanted } from '~/service/ports'
+import type { FollowUpCareItem, Happening, PlacementWanted } from '~/service/ports'
+import { ago, clockTime, onWhichDay, SATISFACTION, weekdayDayMonth } from '../pair-card/copy'
 import { weekdayFullLabel } from '../intake/copy'
 import { dayMonth } from '../materials/copy'
 import { asList } from '~/domain/outbound-copy'
+import { daysSince } from '~/domain/clock'
 import type { CareReason, RelationshipState } from '~/domain/relationship-state'
 import type { RelationshipOutcome } from '~/domain/relationships'
 import { refusalIn } from '../refusals'
@@ -94,8 +96,23 @@ const plural = (count: number, one: string, many: string) => (count === 1 ? one 
  * The sentence on a Follow-Up Item. The text is the payload's, said with the
  * names the item carries. `personName` is who the item is about, when it is about
  * one Person; `waitedDays` is how long the relationship has waited as of now.
+ *
+ * The band on the item's card says all of it; the item on the list says the
+ * reason alone (`followUpParts`), so the list is one line of reason per item
+ * (Pastor feedback, ticket 10).
  */
-export const followUpLine = (
+export const followUpLine = (...said: Parameters<typeof followUpParts>): string => {
+  const { reason, more } = followUpParts(...said)
+  return more === null ? reason : `${reason} ${more}`
+}
+
+/** A Follow-Up Item's sentence in two: why it is here, and what else the card says of it. */
+export interface LineParts {
+  readonly reason: string
+  readonly more: string | null
+}
+
+export const followUpParts = (
   payload: FollowUpPayload,
   personName: string | null,
   waitedDays: number | null,
@@ -105,7 +122,7 @@ export const followUpLine = (
     readonly running: boolean
     readonly ledByNobody: boolean
   } | null = null,
-): string => {
+): LineParts => {
   const who = personName ?? 'Somebody'
   switch (payload.kind) {
     case 'relationship_unaccepted': {
@@ -113,61 +130,94 @@ export const followUpLine = (
       // Somebody an Admin added to a group already running. Nothing is held up
       // and there is nothing to cancel, so it says neither.
       if (awaiting?.running && awaited) {
-        return `${asList(awaited)} ${awaited.length === 1 ? 'was' : 'were'} invited to help lead this group and ${
-          awaited.length === 1 ? 'has' : 'have'
-        } not answered. The group carries on meanwhile.`
+        return {
+          reason: `${asList(awaited)} ${awaited.length === 1 ? 'was' : 'were'} invited to help lead this group and ${
+            awaited.length === 1 ? 'has' : 'have'
+          } not answered.`,
+          more: 'The group carries on meanwhile.',
+        }
       }
       // Its only Leader declined, or never answered and was withdrawn at two
       // weeks. It does not cancel itself: this is where an Admin cancels it, and
       // the item about the Leader is where they are invited again.
       if (!awaited && !personName && awaiting && !awaiting.running) {
-        return `Nobody leads this relationship: whoever was invited to declined or did not answer${
-          waitedDays === null ? '' : `; it has waited ${waitedDays} ${plural(waitedDays, 'day', 'days')}`
-        }. Everyone in it is held out of the suggestion pool until somebody accepts it or it is cancelled.`
+        return {
+          reason: `Nobody leads this relationship: whoever was invited to declined or did not answer${
+            waitedDays === null ? '' : `; it has waited ${waitedDays} ${plural(waitedDays, 'day', 'days')}`
+          }.`,
+          more: 'Everyone in it is held out of the suggestion pool until somebody accepts it or it is cancelled.',
+        }
       }
-      return `${awaited ? asList(awaited) : (personName ?? 'The leader')} ${
-        awaited && awaited.length > 1 ? 'have' : 'has'
-      } not accepted this relationship${
-        waitedDays === null ? '' : `; it has waited ${waitedDays} ${plural(waitedDays, 'day', 'days')}`
-      }. Everyone in it is held out of the suggestion pool until it is accepted or cancelled.`
+      return {
+        reason: `${awaited ? asList(awaited) : (personName ?? 'The leader')} ${
+          awaited && awaited.length > 1 ? 'have' : 'has'
+        } not accepted this relationship${
+          waitedDays === null ? '' : `; it has waited ${waitedDays} ${plural(waitedDays, 'day', 'days')}`
+        }.`,
+        more: 'Everyone in it is held out of the suggestion pool until it is accepted or cancelled.',
+      }
     }
     case 'pause_expired':
-      return `Paused for ${payload.periodWeeks} ${plural(payload.periodWeeks, 'week', 'weeks')}; that period has elapsed and the relationship has not resumed. Still paused, and nobody has moved.`
+      return {
+        reason: `Paused for ${payload.periodWeeks} ${plural(payload.periodWeeks, 'week', 'weeks')}; that period has elapsed and the relationship has not resumed.`,
+        more: 'Still paused, and nobody has moved.',
+      }
     case 'swap_requested':
-      return payload.requestedBy === 'leader'
-        ? `${who} asked to be matched with a different participant. The relationship is unchanged while it waits.`
-        : `${who} asked for a different leader. The relationship is unchanged while it waits.`
+      return {
+        reason:
+          payload.requestedBy === 'leader'
+            ? `${who} asked to be matched with a different participant.`
+            : `${who} asked for a different leader.`,
+        more: 'The relationship is unchanged while it waits.',
+      }
     case 'participant_keyword':
-      return `${who} texted ${payload.keyword}. Nothing was changed on their behalf; it is yours to answer.`
+      return {
+        reason: `${who} texted ${payload.keyword}.`,
+        more: 'Nothing was changed on their behalf; it is yours to answer.',
+      }
     case 'invitation_number_disputed':
-      return `${who} said the number Discipler holds is not theirs. Nothing was changed. Until it is put right, their check-ins reach a stranger.`
+      return {
+        reason: `${who} said the number Discipler holds is not theirs.`,
+        more: 'Nothing was changed. Until it is put right, their check-ins reach a stranger.',
+      }
     case 'match_declined': {
       const what = invited?.leadsAGroup === false ? 'this pairing' : 'this group'
       if (invited?.running) {
-        return `Invited to help lead ${what}. The invitation has been withdrawn, and ${
-          invited.leadsAGroup ? 'the group' : 'it'
-        } carries on.`
+        return {
+          reason: `Invited to help lead ${what}.`,
+          more: `The invitation has been withdrawn, and ${invited.leadsAGroup ? 'the group' : 'it'} carries on.`,
+        }
       }
-      return `Invited to lead ${what}. The invitation has been withdrawn${
-        invited?.ledByNobody ? ', and nobody leads it now' : ''
-      }.`
+      return {
+        reason: `Invited to lead ${what}.`,
+        more: `The invitation has been withdrawn${invited?.ledByNobody ? ', and nobody leads it now' : ''}.`,
+      }
     }
     case 'invitation_expired':
       // James's sentence. He wrote *her invite*; the product knows no pronoun for
       // a Leader, so it says *their*, which he has seen and let stand.
-      return `${invitedAs(invited?.leadsAGroup ?? true)} ${
-        personName ?? 'somebody'
-      } has not responded in two weeks, their invite has expired.`
+      return {
+        reason: `${invitedAs(invited?.leadsAGroup ?? true)} ${
+          personName ?? 'somebody'
+        } has not responded in two weeks, their invite has expired.`,
+        more: null,
+      }
     case 'group_join_requested':
-      return `${who} asked to join a group you have set to ask first. Admit or decline them from Intake forms.`
+      return {
+        reason: `${who} asked to join a group you have set to ask first.`,
+        more: 'Admit or decline them from Intake forms.',
+      }
     case 'intended_pairing_refused':
       // The refusal in the Pair popup's own words, so the Admin reads the same
       // sentence they would have read pairing by hand -- and then does that.
-      return `${who} was imported paired with somebody, and once both had completed Intake the pairing could not be made. ${pairingRefusalMessage(payload.refusal) ?? ''} Pair them by hand from the Roster, or resolve this.`
+      return {
+        reason: `${who} was imported paired with somebody, and once both had completed Intake the pairing could not be made.`,
+        more: `${pairingRefusalMessage(payload.refusal) ?? ''} Pair them by hand from the Roster, or resolve this.`,
+      }
     case 'group_placement_wanted':
-      // Said only where the item's Intake could not be read; `placementLine` is
+      // Said only where the item's Intake could not be read; `placementParts` is
       // the sentence S-8 draws.
-      return `${who} signed up on the group link with no group in mind.`
+      return { reason: `${who} signed up on the group link with no group in mind.`, more: null }
   }
 }
 
@@ -179,6 +229,12 @@ export const followUpLine = (
  * whatever of it is missing is left out rather than guessed.
  */
 export const placementLine = (raisedAt: Date, placement: PlacementWanted): string => {
+  const { reason, more } = placementParts(raisedAt, placement)
+  return more === null ? reason : `${reason} ${more}`
+}
+
+/** The same in two: when they signed up, which the list says, and the rest, which the card adds. */
+export const placementParts = (raisedAt: Date, placement: PlacementWanted): LineParts => {
   const about = [
     placement.gender ? GENDER_OF_A_GROUP[placement.gender] : null,
     placement.ageBand ? ageBandWords(placement.ageBand) : null,
@@ -186,11 +242,12 @@ export const placementLine = (raisedAt: Date, placement: PlacementWanted): strin
   ].filter((part): part is string => part !== null)
 
   const signedUp = `Signed up on the group link on ${dayMonth(raisedAt, placement.timeZone)} with no group in mind.`
-  const described = about.length === 0 ? '' : ` ${capitalised(about.join(', '))}.`
+  const described = about.length === 0 ? null : `${capitalised(about.join(', '))}.`
   // Every group closed to them, or none left: the dropdown is not drawn, so the
   // line says why there is nothing to choose from.
-  const nothingOpen = placement.groups.length === 0 ? ` ${NO_GROUP_OPEN_TO_THEM}` : ''
-  return `${signedUp}${described}${nothingOpen}`
+  const nothingOpen = placement.groups.length === 0 ? NO_GROUP_OPEN_TO_THEM : null
+  const more = [described, nothingOpen].filter((part): part is string => part !== null).join(' ')
+  return { reason: signedUp, more: more === '' ? null : more }
 }
 
 export const NO_GROUP_OPEN_TO_THEM = 'No group is open to them right now.'
@@ -271,8 +328,28 @@ export const NEEDS_CARE_LINE = 'A concern was raised in this week’s check-in.'
 
 export const stalledLine = (reason: CareReason): string =>
   reason.kind === 'gone_silent'
-    ? `Gone silent — ${reason.days} ${plural(reason.days, 'day', 'days')} since last contact.`
-    : `Responding, not meeting — ${reason.weeks} ${plural(reason.weeks, 'week', 'weeks')} reported as no meeting.`
+    ? `Gone silent: ${reason.days} ${plural(reason.days, 'day', 'days')} since last contact.`
+    : `Answering, not meeting: ${reason.weeks} ${plural(reason.weeks, 'week', 'weeks')} reported as no meeting.`
+
+/** How long a stall has held, in the unit its condition reports, for the list's right-hand edge. */
+export const stallHeld = (reason: CareReason): string =>
+  reason.kind === 'gone_silent'
+    ? `${reason.days} ${plural(reason.days, 'day', 'days')}`
+    : `${reason.weeks} ${plural(reason.weeks, 'week', 'weeks')}`
+
+/**
+ * How long an item has stood, for the list's right-hand edge: *today*,
+ * *3 days*, *5 weeks*, *2 months*. The pair card's `ago` without the *ago*, on
+ * the same steps, so the list and the card cannot round one item two ways.
+ */
+export const heldFor = (since: Date, now: Date): string => {
+  const days = daysSince(since, now)
+  if (days <= 0) return 'today'
+  if (days < 14) return `${days} ${plural(days, 'day', 'days')}`
+  if (days < 63) return `${Math.floor(days / 7)} weeks`
+  const months = Math.floor(days / 30)
+  return `${months} ${plural(months, 'month', 'months')}`
+}
 
 export const concernTag = (count: number): string =>
   count === 1 ? 'Concern' : `${count} concerns`
@@ -281,9 +358,6 @@ export const concernLine = (count: number): string =>
   count === 1
     ? 'A concern was raised and has not been resolved.'
     : `${count} concerns raised and not yet resolved.`
-
-export const readConcerns = (count: number): string =>
-  count === 1 ? 'Read the concern' : `Read ${count} concerns`
 
 /** The state pill on a care item, where the state is worth naming. */
 export const stateLabel: Record<RelationshipState, string> = {
@@ -295,27 +369,106 @@ export const stateLabel: Record<RelationshipState, string> = {
   ended: 'Ended',
 }
 
-/** Who a care item is about, said as the prototype says it: leader and the rest. */
+/**
+ * Who a care item is about: the Discipler, then who they disciple, as the
+ * Follow-Up list James settled draws it (*Rachel Adams → Emily Davis*; Pastor
+ * feedback, ticket 10).
+ */
 export const whoIsInIt = (leaderNames: readonly string[], participantNames: readonly string[]): string => {
   const leaders = leaderNames.length === 0 ? 'Nobody leading' : leaderNames.join(', ')
   const participants = participantNames.length === 0 ? 'nobody else' : participantNames.join(', ')
-  return `${leaders} & ${participants}`
+  return `${leaders} → ${participants}`
 }
 
 /** The actions, worded once. */
 export const RESOLVE = 'Resolve'
-export const SEE_CONTACT_DETAILS = 'See contact details'
 export const RESUME = 'Resume relationship'
 export const CANCEL = 'Cancel relationship'
 export const END = 'End relationship'
 
+/** What a Follow-Up Item says on the list: its reason alone. */
+export const itemReason = (item: FollowUpCareItem): string =>
+  item.placement
+    ? placementParts(item.raisedAt, item.placement).reason
+    : followUpParts(item.payload, item.personName, item.waitedDays, item.awaiting, item.invited).reason
+
+/** What a Follow-Up Item says in its band on the card: all of it. */
+export const itemLine = (item: FollowUpCareItem): string =>
+  item.placement
+    ? placementLine(item.raisedAt, item.placement)
+    : followUpLine(item.payload, item.personName, item.waitedDays, item.awaiting, item.invited)
+
 /**
- * What the reveal says. One sentence for every way a number can be absent --
- * declined, withdrawn, never asked, no number on file -- because an Admin who
- * could tell them apart would be reading a consent decision by inference.
+ * The label over an item's band: its tag, and who it is about where the card
+ * does not already show them (*Invitation declined · Claire Martinez*).
  */
-export const numberNotShared = (fullName: string): string =>
-  `${fullName} has not agreed to share their number.`
+export const itemBandLabel = (kind: FollowUpPayload['kind'], who: string | null): string =>
+  who ? `${followUpTag[kind]} · ${who}` : followUpTag[kind]
+
+/** *Follow-Up · raised 9 Oct, 3 days ago*, over an item's own card. */
+export const itemCardLine = (raisedAt: Date, now: Date, timeZone: string): string =>
+  `Follow-Up · raised ${dayMonth(raisedAt, timeZone)}, ${ago(raisedAt, now)}`
+
+/**
+ * Over the card of a relationship that has ended with its Concerns unresolved:
+ * *Ended · Concern unresolved*, or *Ended · 2 concerns unresolved*.
+ */
+export const endedCardLine = (count: number): string => `Ended · ${concernTag(count)} unresolved`
+
+// ---------------------------------------------------------------------------
+// What has happened (Pastor feedback, ticket 10)
+// ---------------------------------------------------------------------------
+
+export const WHAT_HAS_HAPPENED = 'What has happened'
+
+/** The day a line of *What has happened* is dated: *Mon 12 Oct*. */
+export const happenedOn = (at: Date, timeZone: string): string => weekdayDayMonth(at, timeZone)
+
+/**
+ * One line of *What has happened*. Never the words of a Concern: an earlier
+ * one's were cleared when it was resolved, and the line says so.
+ */
+export const happeningLine = (entry: Happening, now: Date, timeZone: string): string => {
+  const resolved = (by: string | null, at: Date) =>
+    `resolved ${by ? `by ${by} ` : ''}${onWhichDay(at, now, timeZone)}`
+  switch (entry.kind) {
+    case 'item_raised': {
+      // Named where the reason does not name them: a decline says only what
+      // they were invited to.
+      // As it was when raised: an unaccepted relationship's wait is today's
+      // figure, and the line is dated by the day it was raised.
+      const reason = itemReason({ ...entry.item, waitedDays: null })
+      const about = entry.item.personName
+      return about && !reason.includes(about) ? `Raised about ${about}: ${reason}` : `Raised: ${reason}`
+    }
+    case 'concern_raised':
+      return entry.by
+        ? `${entry.by} raised a concern in the weekly check-in.`
+        : 'A concern was raised in the weekly check-in.'
+    case 'stalled':
+      return entry.reason === 'gone_silent'
+        ? `Stalled: ${entry.weeks} check-ins in a row went unanswered.`
+        : `Stalled: ${entry.weeks} weeks running reported as no meeting.`
+    case 'check_in':
+      return entry.outcome === 'unanswered'
+        ? 'Check-in not answered.'
+        : entry.outcome === 'did_not_meet'
+          ? 'Check-in answered: did not meet.'
+          : `Check-in answered: ${SATISFACTION.concern}.`
+    case 'concern_read':
+      return `${entry.by ?? 'An Admin'} read the concern at ${clockTime(entry.at, timeZone)}.`
+    case 'earlier_item':
+      return `${followUpTag[entry.itemKind]}${entry.personName ? ` (${entry.personName})` : ''}, ${resolved(
+        entry.resolvedBy,
+        entry.resolvedAt,
+      )}.`
+    case 'earlier_concern':
+      return `Concern${entry.raisedBy ? ` raised by ${entry.raisedBy}` : ''}, ${resolved(
+        entry.resolvedBy,
+        entry.resolvedAt,
+      )} and its words cleared.`
+  }
+}
 
 export const ENDING_EXPLANATION =
   'Ending preserves the history untouched. Everyone in it returns to Ready to Pair '

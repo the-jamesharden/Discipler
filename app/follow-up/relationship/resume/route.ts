@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { relationshipId } from '~/domain/ids'
 import { currentAdmin } from '~/platform/supabase/current-admin'
 import { getCommandService } from '~/service/container'
-import { backToFollowUp, done, field, refusalCodeOf, refused } from '../../actions'
+import { backFrom, backToFollowUp, done, field, refusalCodeOf, refused } from '../../actions'
 
 /**
  * An Admin resuming a paused relationship, which with ending it is the only thing
@@ -16,8 +16,10 @@ export async function POST(request: NextRequest) {
   if (!admin) return NextResponse.redirect(new URL('/login', request.url), { status: 303 })
 
   const form = await request.formData()
+  // Follow-Up, or the pair card the form was posted from.
+  const back = backFrom(form)
   const relationship = field(form, 'relationshipId')
-  if (!relationship) return backToFollowUp(request)
+  if (!relationship) return backToFollowUp(request, undefined, back)
 
   try {
     await getCommandService().execute({
@@ -28,9 +30,9 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     const code = refusalCodeOf(error)
-    if (code) return refused(request, code)
+    if (code) return refused(request, code, back)
     throw error
   }
 
-  return done(request, 'resumed')
+  return done(request, 'resumed', back)
 }

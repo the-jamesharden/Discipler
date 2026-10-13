@@ -7,6 +7,7 @@ import {
   type CheckInQuestion,
   type CheckInRelationship,
   type CheckInSnapshot,
+  type CheckInWording,
   type OpenSequence,
 } from '~/domain/check-in'
 import type { Effect } from '~/domain/effects'
@@ -51,7 +52,12 @@ const covers = (
 const emilysTurn = covers(emily, march, ['Emily'])
 const theGroupsTurn = covers(theGroup, june, ['Marcus', 'Dan'])
 
-const open = (question: CheckInQuestion, position = 1, covering = [emilysTurn, theGroupsTurn]): OpenSequence => ({
+const open = (
+  question: CheckInQuestion,
+  position = 1,
+  covering = [emilysTurn, theGroupsTurn],
+  wording: CheckInWording = 'a_to_d',
+): OpenSequence => ({
   sequenceId: sequence,
   startedAt: new Date('2026-10-05T09:00:00Z'),
   covering,
@@ -60,6 +66,7 @@ const open = (question: CheckInQuestion, position = 1, covering = [emilysTurn, t
     relationshipId: covering[position - 1]!.relationshipId,
     position,
     question,
+    wording,
     // Asked a moment ago and answered straight away. The reminder, the cap and
     // the giving-up are `reminders-and-abandonment.test.ts`.
     askedAt: new Date('2026-10-05T09:00:00Z'),
@@ -98,7 +105,19 @@ const asked = (effects: readonly Effect[]) =>
 describe('answering the meeting question', () => {
   it('follows a yes with the satisfaction question', () => {
     expect(bodies(reply('1', open('met')).effects)).toEqual([
-      'ABC Church: How did the meeting go? Reply A for outstanding, B for good, C for concern.',
+      'ABC Church: How did the meeting go? ' +
+        'Reply A for outstanding, B for good, C for okay, D for concern.',
+    ])
+  })
+
+  it('asks it in the four-answer wording, and says so on the question', () => {
+    // Even when the meeting question it follows was sent before the change: the
+    // satisfaction question is a new question, sent now, in today's words.
+    const { effects } = reply('1', open('met', 1, [emilysTurn, theGroupsTurn], 'a_to_c'))
+    expect(asked(effects)[0]).toMatchObject({ question: 'satisfaction', wording: 'a_to_d' })
+    expect(bodies(effects)).toEqual([
+      'ABC Church: How did the meeting go? ' +
+        'Reply A for outstanding, B for good, C for okay, D for concern.',
     ])
   })
 
@@ -130,25 +149,66 @@ describe('answering the meeting question', () => {
       role: 'leader',
       question: 'satisfaction',
       position: 1,
+      wording: 'a_to_d',
     })
   })
 })
 
 describe('answering the satisfaction question', () => {
-  it('stores A as outstanding, B as good and C as concern', () => {
+  it('stores A as outstanding, B as good, C as okay and D as concern', () => {
     const stored = (token: string) =>
       answers(reply(token, open('satisfaction')).effects)[0]?.satisfaction
     expect(stored('A')).toBe('outstanding')
     expect(stored('B')).toBe('good')
-    expect(stored('C')).toBe('concern')
+    expect(stored('C')).toBe('okay')
+    expect(stored('D')).toBe('concern')
   })
 
-  it('asks what the Concern was, and only after a concern', () => {
-    expect(bodies(reply('C', open('satisfaction')).effects)).toEqual([
+  it('asks what the Concern was, and only after a D', () => {
+    expect(bodies(reply('D', open('satisfaction')).effects)).toEqual([
       'ABC Church: Please tell us more about the concern.',
     ])
-    expect(bodies(reply('B', open('satisfaction')).effects)).toEqual([
-      'ABC Church: Did you meet with Marcus and Dan this week? Reply 1 for yes, 2 for no.',
+    for (const token of ['A', 'B', 'C']) {
+      expect(bodies(reply(token, open('satisfaction')).effects)).toEqual([
+        'ABC Church: Did you meet with Marcus and Dan this week? Reply 1 for yes, 2 for no.',
+      ])
+    }
+  })
+
+  it('records an okay and moves on, raising nothing', () => {
+    // C okay is a rating like A and B. It asks for no detail, so no Concern can
+    // follow from it, and the turn ends exactly as a B's does.
+    const { effects } = reply('okay', open('satisfaction'))
+    expect(answers(effects)).toMatchObject([{ satisfaction: 'okay' }])
+    expect(effects.filter((effect) => effect.kind === 'concern.raise')).toEqual([])
+    expect(asked(effects)).toMatchObject([{ relationshipId: theGroup, question: 'met' }])
+  })
+})
+
+/**
+ * **A reply is read against the wording its question was sent with.** The
+ * three-answer question was sent before the change; the Leader replies after it.
+ * Their `C` meant concern, so it is recorded as one and the detail is asked for.
+ */
+describe('answering a satisfaction question sent before the change', () => {
+  const sentBefore = () => open('satisfaction', 1, [emilysTurn, theGroupsTurn], 'a_to_c')
+
+  it('stores its C as the concern it offered, and asks what the Concern was', () => {
+    const { effects } = reply('C', sentBefore())
+    expect(answers(effects)).toMatchObject([{ satisfaction: 'concern' }])
+    expect(bodies(effects)).toEqual(['ABC Church: Please tell us more about the concern.'])
+  })
+
+  it('reads its A and B as they always read', () => {
+    expect(answers(reply('A', sentBefore()).effects)[0]?.satisfaction).toBe('outstanding')
+    expect(answers(reply('B', sentBefore()).effects)[0]?.satisfaction).toBe('good')
+  })
+
+  it('reads a D to it as nothing, because it never offered one', () => {
+    const { effects } = reply('D', sentBefore())
+    expect(answers(effects)).toEqual([])
+    expect(bodies(effects)).toEqual([
+      'ABC Church: Sorry, we didn’t catch that. Reply A for outstanding, B for good, C for concern.',
     ])
   })
 })

@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { personId, relationshipId } from '~/domain/ids'
-import { discipleshipGoalId, type AgeBand, type AvailabilitySlot, type Gender, type Weekday } from '~/domain/intake'
+import { discipleshipGoalId, otherGoal, type AgeBand, type AvailabilitySlot, type Gender, type Weekday } from '~/domain/intake'
 import {
   A_ONE_TO_ONE,
+  sameOtherGoal,
   suggest,
   tierOf,
   type CandidateMembership,
@@ -21,6 +22,9 @@ const DEFAULTS: SuggestionSettings = { suggestGenderMatch: true, suggestMaxAgeBa
 
 const CAREER = { id: discipleshipGoalId('goal-career'), label: 'Career and calling' }
 const PRAYER = { id: discipleshipGoalId('goal-prayer'), label: 'Prayer' }
+
+/** What somebody typed after choosing Other on the goal question. */
+const wrote = (text: string) => ({ other: otherGoal(text) })
 
 /** `hours('monday', 4)`: four one-hour slots from 8am on one day. */
 const hours = (day: Weekday, count: number, from = 8): AvailabilitySlot[] =>
@@ -107,6 +111,75 @@ describe('Suggested Pairs: the tiers', () => {
     const moreTime = person('Zoe Park', { goal: PRAYER })
     const sameGoal = person('Mia Chen', { goal: CAREER, availability: hours('monday', 2) })
     expect(pairsOf([grace, sameGoal, moreTime])).toEqual(['Grace Lee -> Zoe Park', 'Grace Lee -> Mia Chen'])
+  })
+})
+
+describe('Suggested Pairs: a goal typed after Other', () => {
+  it('matches two texts that differ only in capitals, spaces and punctuation', () => {
+    expect(sameOtherGoal(otherGoal('Grief'), otherGoal('grief'))).toBe(true)
+    expect(sameOtherGoal(otherGoal('grief.'), otherGoal('Grief!'))).toBe(true)
+    expect(sameOtherGoal(otherGoal('Grief and loss'), otherGoal('grief, and loss'))).toBe(true)
+    expect(sameOtherGoal(otherGoal("Mom's illness"), otherGoal('moms illness'))).toBe(true)
+    expect(sameOtherGoal(otherGoal('grief and loss'), otherGoal('griefandloss'))).toBe(true)
+  })
+
+  it('matches in no other case: not a different word, not a typo, not words in another order', () => {
+    expect(sameOtherGoal(otherGoal('grief'), otherGoal('grieving'))).toBe(false)
+    expect(sameOtherGoal(otherGoal('grief'), otherGoal('greif'))).toBe(false)
+    expect(sameOtherGoal(otherGoal('grief and loss'), otherGoal('loss and grief'))).toBe(false)
+  })
+
+  it('matches nobody on a text that is only punctuation, since nothing is left to compare', () => {
+    expect(sameOtherGoal(otherGoal('?'), otherGoal('?'))).toBe(false)
+    expect(sameOtherGoal(otherGoal('...'), otherGoal('!!'))).toBe(false)
+  })
+
+  it('counts a shared Other as a shared goal, ordering within the tier exactly as a shared option does', () => {
+    const grace = mentor('Grace Lee', { goal: wrote('Grief') })
+    const differing = person('Zoe Park', { goal: CAREER })
+    const matching = person('Mia Chen', { goal: wrote('grief.') })
+    const { pairs } = suggest([grace, differing, matching], DEFAULTS)
+    expect(pairs.map((pair) => [pair.participant.fullName, pair.tier])).toEqual([
+      ['Mia Chen', 'excellent'],
+      ['Zoe Park', 'excellent'],
+    ])
+  })
+
+  it('weighs a shared Other the same as a shared option, so the longest wait decides between them', () => {
+    const grace = mentor('Grace Lee', { goal: CAREER })
+    const ruth = mentor('Ruth Obi', { goal: wrote('grief') })
+    const later = person('Ana Ruiz', { goal: CAREER, intakeSubmittedAt: new Date('2026-09-10T00:00:00Z') })
+    const earlier = person('Zoe Park', { goal: wrote('Grief'), intakeSubmittedAt: new Date('2026-08-10T00:00:00Z') })
+    expect(pairsOf([grace, ruth, later, earlier])).toEqual(['Ruth Obi -> Zoe Park', 'Grace Lee -> Ana Ruiz'])
+  })
+
+  it('never matches a typed goal against one of the options, even worded alike', () => {
+    const grace = mentor('Grace Lee', { goal: PRAYER, availability: hours('monday', 1) })
+    const ana = person('Ana Ruiz', { goal: wrote('prayer'), availability: hours('monday', 1) })
+    expect(suggest([grace, ana], DEFAULTS).pairs[0]?.reason).toBe('One shared time slot.')
+  })
+
+  it('never lets a shared Other outrank availability', () => {
+    const grace = mentor('Grace Lee', { goal: wrote('grief') })
+    const moreTime = person('Zoe Park', { goal: PRAYER })
+    const sameGoal = person('Mia Chen', { goal: wrote('grief'), availability: hours('monday', 2) })
+    expect(pairsOf([grace, sameGoal, moreTime])).toEqual(['Grace Lee -> Zoe Park', 'Grace Lee -> Mia Chen'])
+  })
+
+  it('says it in the reason, with the text as the Disciple typed it', () => {
+    const grace = mentor('Grace Lee', { goal: wrote('Grief'), availability: [...hours('monday', 2), ...hours('friday', 2)] })
+    const ana = person('Ana Ruiz', { goal: wrote('grief'), availability: [...hours('monday', 2), ...hours('friday', 2)] })
+    expect(suggest([grace, ana], DEFAULTS).pairs[0]?.reason).toBe(
+      'Four shared time slots. You both wrote "grief".',
+    )
+  })
+
+  it('shows the typed goal beside the name as Other with the text', () => {
+    const grace = mentor('Grace Lee')
+    const ana = person('Ana Ruiz', { goal: wrote('learning to pray out loud') })
+    const pair = suggest([grace, ana], DEFAULTS).pairs[0]!
+    expect(pair.participant.goal).toBe('Other: "learning to pray out loud"')
+    expect(pair.leader.goal).toBe('Career and calling')
   })
 })
 

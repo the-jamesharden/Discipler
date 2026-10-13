@@ -4,6 +4,8 @@
 
 accepted
 
+Extended by Pastor feedback ticket 13 (2026-10-14) from the goal's options to every question on an Intake form but the name and the mobile number: see *Every question, since ticket 13* at the end.
+
 ## Decision
 
 A Discipleship Goal option is a row, and an Intake answer points at that row.
@@ -124,3 +126,24 @@ event. Removing an option those submissions chose is still recoverable, because
 `blankedAnswers` is read at removal time and does not depend on the submission event — but
 they have no second, independent record, and a `blankedAnswers` payload lost to a bad
 migration would not be reconstructible for them.
+
+## Every question, since ticket 13
+
+James chose one removal rule for the Intake form editor (Pastor feedback 2026-10, Lavish review of 2026-10-12), and this is it.
+Removing a question from a form takes it off the form's next version and deletes every answer given to it on that form, superseded submissions included.
+The Admin is warned first, in people and in two presses, and the removal's history event, `intake_form.question_removed`, keeps the question as it was worded, `answersLost` (the people warned about) and `deletedAnswers`: each submission the delete took, with its person, when it was given, and what it said.
+So the live tables lose the answers and history keeps them, exactly as for a goal option, and for the same reason: nothing required the fact to be destroyed.
+
+What the answers are depends on the question.
+The age band, the gender, the first-time answer and the goal are columns on `intake_submission`, set to null; the hours are rows in `intake_availability`, deleted; a Ministry's own question's answers are rows in `intake_answer`, deleted.
+The matching question's answer is the side on the consent records its submission wrote, and it is cleared there: the one change a consent record now accepts is its side going to null, with everything that records what somebody agreed to unchanged and still refused any other update.
+The email is kept on the Person as a contact detail, and the choice of group is kept as the membership or the request it made; removing either deletes nothing.
+
+`intake.submitted` events are left as they are, as they are for a removed goal option: they already carry the goal, and they were written about the submission, not about the form.
+A question added back starts with no answers.
+
+Somebody who opened the form before a removal finishes the version they opened, and their answer to the removed question is dropped when they submit: it is never stored, and no history event records it (James, 2026-10-13, like Google Forms).
+Ticket 13 first kept it, because a submission is read against the version its Person opened; but an answer landing after the removal was one nothing showed, counted or could delete, which is the hiding without deleting James turned down.
+What is dropped is what the removal would have deleted had they submitted a moment before it, so the email and the group they picked stand.
+
+Hiding a question without deleting its answers was not built: James chose one rule.

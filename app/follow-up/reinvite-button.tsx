@@ -19,9 +19,12 @@ export const ReinviteButton = ({
   label,
   copied,
   copyByHand,
+  back,
 }: {
   readonly relationshipId: string
   readonly personId: string
+  /** The card it is pressed on, which a refusal with no script returns to. */
+  readonly back: string
   readonly label: string
   /** Said once the link is on the clipboard. */
   readonly copied: string
@@ -92,12 +95,13 @@ export const ReinviteButton = ({
       <form method="post" action="/follow-up/reinvite" onSubmit={reinvite}>
         <input type="hidden" name="relationshipId" value={relationshipId} />
         <input type="hidden" name="personId" value={personId} />
-        <button type="submit" className="fu-btn" disabled={busy}>
+        <input type="hidden" name="back" value={back} />
+        <button type="submit" className="small" disabled={busy}>
           {label}
         </button>
       </form>
       {/* Empty until it is not, so a screen reader announces it when it arrives. */}
-      <p className="fu-reveal fu-copied" role="status" hidden={said === null}>
+      <p className="fu-copied" role="status" hidden={said === null}>
         {said?.text}
         {said?.link ? (
           <input ref={field} type="text" readOnly value={said.link} aria-label="The invitation link" />

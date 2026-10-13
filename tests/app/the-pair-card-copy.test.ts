@@ -1,0 +1,181 @@
+import { describe, expect, it } from 'vitest'
+import { cardShapeOf, pairShapeOf } from '~/domain/relationships'
+import {
+  ago,
+  callFirst,
+  checkInLine,
+  concernLabel,
+  disciplesLabel,
+  groupLine,
+  kindLine,
+  materialLine,
+  pairTitle,
+  readingLine,
+  stallLabel,
+  stallSentence,
+  textThem,
+  thisWeekLine,
+} from '../../app/pair-card/copy'
+
+/**
+ * What the pair card says (Pastor feedback, ticket 07), worded off the reader's
+ * own types with no database near it. Every date in the Ministry's own zone.
+ */
+
+const zone = 'America/New_York'
+// Monday 12 October 2026, 11pm in New York.
+const now = new Date('2026-10-13T03:00:00Z')
+
+describe('which pairs open the pair card', () => {
+  it('is a one-to-one with no name, one Discipler and one Disciple', () => {
+    expect(pairShapeOf(null, 1, 1)).toBe('one_to_one')
+  })
+
+  it('is a 1:2 pair with no name, one Discipler and two Disciples', () => {
+    expect(pairShapeOf(null, 1, 2)).toBe('one_to_two')
+  })
+
+  it('is no pair at all for a Group, which has a name, or a nameless one larger than three', () => {
+    expect(pairShapeOf("Tuesday Women's", 1, 2)).toBeNull()
+    expect(pairShapeOf("Tuesday Women's", 1, 1)).toBeNull()
+    expect(pairShapeOf(null, 1, 3)).toBeNull()
+    expect(pairShapeOf(null, 2, 1)).toBeNull()
+  })
+})
+
+describe('which relationships open the card in its group form', () => {
+  it('is every relationship that is no pair: one with a name, or a nameless one larger than a pair', () => {
+    expect(cardShapeOf("Tuesday Women's", 1, 2)).toBe('a_group')
+    expect(cardShapeOf("Tuesday Women's", 1, 11)).toBe('a_group')
+    expect(cardShapeOf(null, 2, 1)).toBe('a_group')
+    expect(cardShapeOf(null, 1, 3)).toBe('a_group')
+  })
+
+  it('leaves the pairs as they are', () => {
+    expect(cardShapeOf(null, 1, 1)).toBe('one_to_one')
+    expect(cardShapeOf(null, 1, 2)).toBe('one_to_two')
+  })
+})
+
+describe('the group form', () => {
+  it('says Group, the gender it declared, and since when', () => {
+    expect(groupLine('female', new Date('2026-09-07T14:00:00Z'), now, zone)).toBe(
+      'Group · women · formed 7 Sep, 5 weeks ago',
+    )
+    expect(groupLine('male', new Date('2026-10-12T14:00:00Z'), now, zone)).toBe('Group · men · formed 12 Oct, today')
+  })
+
+  it('calls a Group that declared no gender mixed', () => {
+    expect(groupLine(null, new Date('2026-09-07T14:00:00Z'), now, zone)).toBe(
+      'Group · mixed · formed 7 Sep, 5 weeks ago',
+    )
+  })
+
+  it('counts the Disciples over their rows', () => {
+    expect(disciplesLabel(3)).toBe('Disciples · 3')
+    expect(disciplesLabel(1)).toBe('Disciples · 1')
+  })
+
+  it('offers to call a Disciple by their first name, as it offers to text them', () => {
+    expect(callFirst('Mia Torres')).toBe('Call Mia')
+    expect(textThem('Mia Torres')).toBe('Text Mia')
+  })
+})
+
+describe('the head', () => {
+  it('says the shape and since when', () => {
+    expect(kindLine('one_to_one', new Date('2026-09-07T14:00:00Z'), now, zone)).toBe(
+      'One to one · paired 7 Sep, 5 weeks ago',
+    )
+    expect(kindLine('one_to_two', new Date('2026-10-12T14:00:00Z'), now, zone)).toBe('1:2 pair · paired 12 Oct, today')
+  })
+
+  it('counts back in the unit a person would', () => {
+    expect(ago(new Date('2026-10-11T14:00:00Z'), now)).toBe('yesterday')
+    expect(ago(new Date('2026-10-06T14:00:00Z'), now)).toBe('6 days ago')
+    expect(ago(new Date('2026-07-01T14:00:00Z'), now)).toBe('3 months ago')
+  })
+
+  it('names both people, and all three of a 1:2 pair', () => {
+    expect(pairTitle(['Rachel Adams', 'Emily Davis'])).toBe('Rachel Adams and Emily Davis')
+    expect(pairTitle(['Claire Lee', 'Ana Ruiz', 'Beth Shaw'])).toBe('Claire Lee, Ana Ruiz and Beth Shaw')
+  })
+})
+
+describe('the band', () => {
+  it('says who raised a Concern and when', () => {
+    expect(concernLabel('Rachel Adams', new Date('2026-10-13T00:07:00Z'), now, zone)).toBe(
+      'Concern · raised by Rachel Adams today',
+    )
+    expect(concernLabel('Sarah Mitchell', new Date('2026-09-22T00:07:00Z'), now, zone)).toBe(
+      'Concern · raised by Sarah Mitchell on Mon 21 Sep',
+    )
+  })
+
+  it('says who read it, this time and the time before', () => {
+    expect(readingLine({ by: 'Dan Reyes', at: now }, null, now, zone)).toBe(
+      'Read by Dan Reyes at 11:00pm. Resolving clears the words for good.',
+    )
+    expect(
+      readingLine(
+        { by: 'Dan Reyes', at: now },
+        { by: null, at: new Date('2026-10-10T19:12:00Z') },
+        now,
+        zone,
+      ),
+    ).toBe(
+      'Read by Dan Reyes at 11:00pm, and before that by an Admin on Sat 10 Oct at 3:12pm. Resolving clears the words for good.',
+    )
+  })
+
+  it('says this week\'s answer and when it came, opened from Check-Ins (ticket 09)', () => {
+    const today = new Date('2026-10-12T13:07:00Z')
+    expect(thisWeekLine({ answeredAt: today, met: true, satisfaction: 'good' }, now, zone)).toBe(
+      'This week · Met · B\u00a0good · answered 9:07am',
+    )
+    expect(thisWeekLine({ answeredAt: today, met: true, satisfaction: 'concern' }, now, zone)).toBe(
+      'This week · Met · D\u00a0concern · answered 9:07am',
+    )
+    expect(thisWeekLine({ answeredAt: today, met: false, satisfaction: null }, now, zone)).toBe(
+      'This week · Did not meet · answered 9:07am',
+    )
+  })
+
+  it('names the day of an answer that came before today', () => {
+    expect(
+      thisWeekLine({ answeredAt: new Date('2026-10-11T19:12:00Z'), met: true, satisfaction: 'outstanding' }, now, zone),
+    ).toBe('This week · Met · A\u00a0outstanding · answered yesterday, 3:12pm')
+    expect(
+      thisWeekLine({ answeredAt: new Date('2026-10-10T19:12:00Z'), met: true, satisfaction: 'okay' }, now, zone),
+    ).toBe('This week · Met · C\u00a0okay · answered Sat 10 Oct, 3:12pm')
+  })
+
+  it('reports a stall in the unit its condition reports', () => {
+    expect(stallLabel({ kind: 'gone_silent', days: 22 })).toBe('Stalled · gone silent')
+    expect(stallSentence({ kind: 'gone_silent', days: 22 }, 'Mark Wilson').figure).toBe('22 days since last contact')
+    expect(stallLabel({ kind: 'not_meeting', weeks: 3 })).toBe('Stalled · not meeting')
+    expect(stallSentence({ kind: 'not_meeting', weeks: 3 }, 'David Kim').figure).toBe('3 weeks running')
+  })
+})
+
+describe('the people and the facts', () => {
+  it('offers to text somebody by their first name', () => {
+    expect(textThem('Emily Davis')).toBe('Text Emily')
+  })
+
+  it('says the last answer and its date, and never anything else of the week', () => {
+    const answeredAt = new Date('2026-10-13T00:05:00Z')
+    expect(checkInLine({ answeredAt, met: true, satisfaction: 'good' }, zone)).toBe('Mon 12 Oct · Met · B\u00a0good')
+    expect(checkInLine({ answeredAt, met: false, satisfaction: null }, zone)).toBe('Mon 12 Oct · Did not meet')
+    expect(checkInLine({ answeredAt, met: true, satisfaction: 'okay' }, zone)).toBe('Mon 12 Oct · Met · C\u00a0okay')
+    expect(checkInLine({ answeredAt, met: true, satisfaction: 'concern' }, zone)).toBe('Mon 12 Oct · Met · D\u00a0concern')
+  })
+
+  it('says the Material running now and since when, or that there is none yet', () => {
+    expect(materialLine({ title: 'Prayer practices', since: new Date('2026-09-21T15:00:00Z') }, zone)).toBe(
+      'Prayer practices, since 21 Sep',
+    )
+    expect(materialLine({ title: null, since: new Date('2026-09-07T14:00:00Z') }, zone)).toBe('No material yet')
+    expect(materialLine(null, zone)).toBe('No material yet')
+  })
+})

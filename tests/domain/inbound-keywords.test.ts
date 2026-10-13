@@ -1172,6 +1172,7 @@ function aConversationAbout(
       relationshipId: about,
       position: 1,
       question: over.question ?? 'met',
+      wording: 'a_to_d',
       askedAt: new Date(at.getTime() - hours(3)),
       remindedAt: over.remindedAt ?? null,
       clarificationsSent: 0,

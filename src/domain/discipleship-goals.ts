@@ -1,6 +1,6 @@
 import type { Branded } from './branded'
 import type { IntakeSubmissionId, PersonId } from './ids'
-import type { DiscipleshipGoalId } from './intake'
+import type { DiscipleshipGoalId, OtherGoal } from './intake'
 import { readWording } from './wording'
 
 /**
@@ -52,6 +52,20 @@ export interface OfferedGoal {
   /** How many people's current Intake answer points at this option. */
   readonly chosenBy: number
 }
+
+/**
+ * Somebody's goal as an Admin reads it beside their name: the wording of the
+ * option they chose, or `Other: "grief"` for what they typed after Other, or null
+ * where they have none. One spelling, so the person page, Suggested Pairs and the
+ * pair card say a typed goal the same way.
+ *
+ * Quoted, because the words are the Person's own and not one of the Ministry's
+ * options, and an Admin reading the line should be able to tell which it is.
+ */
+export const goalAsShown = (
+  label: string | null,
+  other: OtherGoal | null,
+): string | null => (other !== null ? `Other: "${other}"` : label)
 
 /** Which way along the list an Admin asked to move an option. */
 export type GoalDirection = 'up' | 'down'

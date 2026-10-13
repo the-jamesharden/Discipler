@@ -108,6 +108,7 @@ describe('reopening a Person’s Intake', () => {
         ageBand: '25-34',
         gender: 'female',
         goalId: await firstGoalId(),
+        goalOther: null,
         availability: ['monday:12'],
         smsConsent: true,
         contactSharing: 'granted',

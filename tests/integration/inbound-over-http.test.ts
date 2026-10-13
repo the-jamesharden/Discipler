@@ -134,7 +134,8 @@ describe.skipIf(skipUnlessAppIsRunning)('the inbound webhook', () => {
     // The satisfaction question, sent because a `1` answered the question their
     // sequence was on -- resolved from the number alone.
     expect((await inbox(leader.id)).at(-1)).toBe(
-      'ABC Church: How did the meeting go? Reply A for outstanding, B for good, C for concern.',
+      'ABC Church: How did the meeting go? ' +
+        'Reply A for outstanding, B for good, C for okay, D for concern.',
     )
   })
 

@@ -1,6 +1,7 @@
 import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { baseUrl, cronSecret, getPage, signIn, skipUnlessAppIsRunning } from '../support/app'
+import { itemAbout, openTheCardAbout } from '../support/follow-up'
 import {
   aTestPhoneNumber,
   addPerson,
@@ -24,8 +25,9 @@ const enoughForEveryMinistry = await enoughForATick()
  * Manual pairing, recut ticket 06; decided by James on 2026-09-21. Driven end to
  * end against the running app, with no script anywhere: she declines through the
  * page her link opens and its one confirmation, the two items appear on Follow-Up
- * in red, **Resolve** clears each, **Contact info** opens her page, and **Copy
- * link to re-invite leader** invites her again.
+ * in red, and on the card each opens (Pastor feedback, ticket 10) **Resolve**
+ * clears each, **Contact info** opens her page, and **Copy link to re-invite
+ * leader** invites her again.
  */
 describe.skipIf(skipUnlessAppIsRunning)('declining, and the two weeks, over HTTP', () => {
   let ministry: MinistryFixture
@@ -105,21 +107,22 @@ describe.skipIf(skipUnlessAppIsRunning)('declining, and the two weeks, over HTTP
       )
     ).rows
 
-  /** The item about one Person, as markup: from its `<li` to the next. */
-  const itemAbout = (html: string, name: string) =>
-    words(html)
-      .split('<li')
+  /** The band about one Person on the card their item opens. */
+  const bandAbout = (card: string, name: string) =>
+    card
+      .split('class="pc-band ')
+      .slice(1)
       .find((candidate) => candidate.includes(name))
 
-  /** Pressed as the page offers it: the form's own action and its own hidden field. */
-  const pressResolve = async (item: string) => {
-    const offered = item.match(
-      /<form[^>]*action="(\/follow-up\/resolve)"[^>]*>\s*<input[^>]*name="itemId"[^>]*value="([^"]+)"/,
+  /** Pressed as the card offers it: the form's own action and its own hidden fields. */
+  const pressResolve = async (band: string) => {
+    const offered = band.match(
+      /<form[^>]*action="(\/follow-up\/resolve)"[^>]*>\s*<input[^>]*name="itemId"[^>]*value="([^"]+)"[^>]*>\s*<input[^>]*name="back"[^>]*value="([^"]+)"/,
     )
-    expect(offered, 'the item offers no Resolve form').not.toBeNull()
-    const pressed = await post(offered![1]!, { itemId: offered![2]! }, { cookie })
+    expect(offered, 'the band offers no Resolve form').not.toBeNull()
+    const pressed = await post(offered![1]!, { itemId: offered![2]!, back: offered![3]! }, { cookie })
     expect(pressed.status).toBe(303)
-    expect(pressed.headers.get('location')).toContain('done=resolved')
+    expect(pressed.headers.get('location')).toContain(`${offered![3]!}&done=resolved`)
   }
 
   describe('declining', () => {
@@ -191,32 +194,33 @@ describe.skipIf(skipUnlessAppIsRunning)('declining, and the two weeks, over HTTP
       const { claire, name, link } = await invitedToARunningGroup()
       await post(`${link}/decline/confirm`)
 
-      const { html } = await getPage('/follow-up', cookie)
-      const item = itemAbout(html, name)
-      expect(item, 'no Follow-Up item about her').toBeDefined()
+      const { item, card } = await openTheCardAbout(cookie, name)
 
       // Red, with the left edge and the tag a Concern has, and not grey.
-      expect(item).toContain('class="fu care-concern"')
+      expect(item).toContain('class="fu fu-open care-concern"')
       expect(item).toContain('class="fu-tag concern"')
       expect(item).not.toContain('review')
       expect(item).toContain(`Group leader ${name} Declined`)
-      expect(item).toContain('The invitation has been withdrawn, and the group carries on.')
 
-      // Resolve and Contact info, and nothing else to press.
-      expect(item).toContain('>Resolve</button>')
-      expect(item).toMatch(new RegExp(`<a[^>]*href="/roster/${claire}"[^>]*>Contact info</a>`))
-      expect(item).not.toContain('See contact details')
-      expect(item).not.toContain('End relationship')
-      expect(item).not.toContain('Cancel relationship')
-      // No number is shown on Follow-Up itself.
-      expect(item).not.toMatch(/\+1\d{10}/)
+      // On its card, red too, with Resolve and Contact info, and nothing else to press.
+      const band = bandAbout(card, name)
+      expect(band, 'no band about her on the card').toBeDefined()
+      expect(band).toMatch(/^concern"/)
+      expect(band).toContain('The invitation has been withdrawn, and the group carries on.')
+      expect(band).toContain('>Resolve</button>')
+      expect(band).toMatch(new RegExp(`<a[^>]*href="/roster/${claire}"[^>]*>Contact info</a>`))
+      expect(band).not.toContain('Cancel relationship')
+      // Her number is shown nowhere on Follow-Up.
+      const { rows: number } = await pool.query<{ phone: string }>(`select phone from person where id = $1`, [claire])
+      expect(card).not.toContain(number[0]!.phone)
+      expect(card).not.toContain(`Text ${name.split(' ')[0]}`)
 
       // Contact info opens her page from the Roster.
       const hers = await getPage(`/roster/${claire}`, cookie)
       expect(hers.response.status).toBe(200)
       expect(words(hers.html)).toContain(name)
 
-      await pressResolve(item!)
+      await pressResolve(band!)
       expect(itemAbout((await getPage('/follow-up', cookie)).html, name)).toBeUndefined()
     })
   })
@@ -243,20 +247,20 @@ describe.skipIf(skipUnlessAppIsRunning)('declining, and the two weeks, over HTTP
       await twoWeeksLater(group.id, claire)
 
       expect(await openMembership(group.id, claire)).toEqual([])
-      const { html } = await getPage('/follow-up', cookie)
-      const item = itemAbout(html, name)
-      expect(item, 'no Follow-Up item about her').toBeDefined()
+      const { item, card } = await openTheCardAbout(cookie, name)
 
-      expect(item).toContain('class="fu care-concern"')
+      expect(item).toContain('class="fu fu-open care-concern"')
       expect(item).toContain('class="fu-tag concern"')
       expect(item).toContain('Invitation expired')
       expect(item).toContain(
         `Group leader ${name} has not responded in two weeks, their invite has expired.`,
       )
-      expect(item).toContain('>Resolve</button>')
-      expect(item).toContain('>Copy link to re-invite leader</button>')
-      expect(item).not.toContain('End relationship')
-      expect(item).not.toMatch(/\+1\d{10}/)
+      const band = bandAbout(card, name)
+      expect(band, 'no band about her on the card').toBeDefined()
+      expect(band).toContain('>Resolve</button>')
+      expect(band).toContain('>Copy link to re-invite leader</button>')
+      const { rows: number } = await pool.query<{ phone: string }>(`select phone from person where id = $1`, [claire])
+      expect(card).not.toContain(number[0]!.phone)
 
       // Her old link says what an expired link always said, and offers nothing.
       const expired = words(await (await fetch(`${baseUrl}${link}`)).text())
@@ -264,7 +268,7 @@ describe.skipIf(skipUnlessAppIsRunning)('declining, and the two weeks, over HTTP
       expect(expired).not.toContain('Accept and start')
       expect(expired).not.toContain('<form')
 
-      await pressResolve(item!)
+      await pressResolve(band!)
       expect(itemAbout((await getPage('/follow-up', cookie)).html, name)).toBeUndefined()
     })
 
@@ -273,13 +277,13 @@ describe.skipIf(skipUnlessAppIsRunning)('declining, and the two weeks, over HTTP
       await twoWeeksLater(group.id, claire)
       const textsBefore = await textsTo(claire)
 
-      const item = itemAbout((await getPage('/follow-up', cookie)).html, name)
-      const offered = item?.match(/<form[^>]*action="(\/follow-up\/reinvite)"[^>]*>(.*?)<\/form>/s)
-      expect(offered, 'the item offers no re-invite form').toBeTruthy()
+      const { card, address } = await openTheCardAbout(cookie, name)
+      const offered = bandAbout(card, name)?.match(/<form[^>]*action="(\/follow-up\/reinvite)"[^>]*>(.*?)<\/form>/s)
+      expect(offered, 'the card offers no re-invite form').toBeTruthy()
       const fields = Object.fromEntries(
         [...offered![2]!.matchAll(/name="([^"]+)"[^>]*value="([^"]+)"/g)].map((field) => [field[1]!, field[2]!]),
       )
-      expect(fields).toEqual({ relationshipId: group.id, personId: claire })
+      expect(fields).toEqual({ relationshipId: group.id, personId: claire, back: address })
 
       // As the button's script asks: the link as JSON, never in an address.
       const asked = await post('/follow-up/reinvite', fields, { cookie, accept: 'application/json' })

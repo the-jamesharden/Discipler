@@ -8,7 +8,18 @@ import {
   type RelationshipId,
 } from '~/domain/ids'
 import { goalWording, type OfferedGoal } from '~/domain/discipleship-goals'
-import { AGE_BANDS, GENDERS, discipleshipGoalId, isOneOf } from '~/domain/intake'
+import {
+  AGE_BANDS,
+  GENDERS,
+  discipleshipGoalId,
+  GROUP_PATH,
+  INTAKE_PATHS,
+  isOneOf,
+  type IntakePath,
+} from '~/domain/intake'
+import type { IntakeForm } from '~/domain/intake-form'
+import { formOrPreset } from './intake-form-document'
+import { shortName, type ShortName } from '~/domain/short-name'
 import type {
   IntakeFormsPage,
   IntakeFormsReader,
@@ -173,7 +184,66 @@ export const intakeFormsPageFrom = (doc: PageDocument): IntakeFormsPage => ({
   // the Materials tab and the Pair popup share (Materials, ticket 03).
   materials: liveMaterialRows(doc).map(({ materialId, title }): MaterialOption => ({ materialId, title })),
   timeZone: text(doc.timezone),
+  shortName: shortNameOf(doc),
+  forms: formsOf(doc),
+  answerCounts: answerCountsOf(doc),
 })
+
+/**
+ * How many people have answered each question on each form, which a removal
+ * would delete (Pastor feedback, ticket 13). A question the Ministry added is
+ * counted by its key whichever form it is on, so its count is under both. A
+ * question nobody has answered has no row and counts none. Checked, like the
+ * goals' counts: a removal offered with the wrong number is the one thing this
+ * surface must not do.
+ */
+const answerCountsOf = (doc: PageDocument): IntakeFormsPage['answerCounts'] => {
+  if (!Array.isArray(doc.answer_counts)) throw new Error('Intake forms was not told how many people answered')
+  const counts: Record<IntakePath, Record<string, number>> = { discipleship: {}, group: {} }
+  for (const row of list(doc, 'answer_counts')) {
+    const key = text(row.question_key)
+    const people = count(row.people)
+    if (key === null || people === null) throw new Error('A count of answers arrived with no question or no count')
+    if (row.form === null) {
+      for (const form of INTAKE_PATHS) counts[form][key] = people
+    } else if (isOneOf(INTAKE_PATHS, row.form)) {
+      counts[row.form][key] = people
+    } else {
+      throw new Error(`A count of answers arrived that names no form: ${JSON.stringify(row.form)}`)
+    }
+  }
+  return counts
+}
+
+/**
+ * Both forms, each from its latest saved version or, where the Ministry has never
+ * edited it, the preset. A row naming a form Discipler does not have is the
+ * function and this reader having drifted apart.
+ */
+const formsOf = (doc: PageDocument): Readonly<Record<IntakePath, IntakeForm>> => {
+  const rows = new Map<IntakePath, { version: number; definition: unknown }>()
+  for (const row of list(doc, 'intake_forms')) {
+    if (!isOneOf(INTAKE_PATHS, row.form) || typeof row.version !== 'number') {
+      throw new Error(`An Intake form arrived that names no form: ${JSON.stringify(row.form)}`)
+    }
+    rows.set(row.form, { version: row.version, definition: row.definition })
+  }
+  return {
+    discipleship: formOrPreset('discipleship', rows.get('discipleship')),
+    [GROUP_PATH]: formOrPreset(GROUP_PATH, rows.get(GROUP_PATH)),
+  } as Record<IntakePath, IntakeForm>
+}
+
+/**
+ * The Ministry's short name, which both links and both QR codes are built from.
+ * Raised when it is missing rather than drawn as an empty field: every Ministry
+ * has one, and a page built without it would hand out a link to nobody's forms.
+ */
+const shortNameOf = (doc: PageDocument): ShortName => {
+  const name = text(doc.short_name)
+  if (name === null) throw new Error('Intake forms was not told the Ministry’s short name')
+  return shortName(name)
+}
 
 export const supabaseIntakeFormsReader: IntakeFormsReader = {
   async readIntakeFormsPage() {

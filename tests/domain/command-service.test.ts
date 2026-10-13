@@ -309,6 +309,27 @@ describe('applying a command\'s effects', () => {
         saveMinistrySettings: async () => {
           throw new Error('the settings should not have been saved')
         },
+        ministryShortName: async () => {
+          throw new Error('the short name should not have been read')
+        },
+        changeShortName: async () => {
+          throw new Error('the short name should not have been changed')
+        },
+        intakeForm: async () => {
+          throw new Error('no Intake form should have been read')
+        },
+        intakeFormVersion: async () => {
+          throw new Error('no version of an Intake form should have been read')
+        },
+        saveIntakeForm: async () => {
+          throw new Error('no Intake form should have been saved')
+        },
+        answersTo: async () => {
+          throw new Error('no answers to a question should have been read')
+        },
+        removeIntakeAnswers: async () => {
+          throw new Error('no answers to a question should have been deleted')
+        },
         recordIntake: async () => {
           throw new Error('Intake should not have been touched')
         },

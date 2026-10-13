@@ -99,6 +99,11 @@ export interface ProvisionedMinistry {
   readonly adminPhone: string
   /** Likewise as stored: what a caller asserting on the sender should assert on. */
   readonly sendingNumber: string
+  /**
+   * The short name the Ministry was given from its name as it opened, which its
+   * readable links are built from (Pastor feedback, ticket 04).
+   */
+  readonly shortName: string
 }
 
 /**
@@ -185,11 +190,16 @@ export const provisionMinistry = async (
   try {
     await client.query('begin')
 
-    const created = await client.query<{ id: string }>(
-      `insert into ministry (name, sending_number, timezone) values ($1, $2, $3) returning id`,
+    // The short name is not named here. The database gives it, from the name, in
+    // the same statement, because only it can see which names every other
+    // Ministry has ever held (`20261014000400_a_readable_link_per_church.sql`).
+    const created = await client.query<{ id: string; short_name: string }>(
+      `insert into ministry (name, sending_number, timezone) values ($1, $2, $3)
+       returning id, short_name`,
       [ministry.name, sendingNumber, ministry.timezone],
     )
     const ministryId = created.rows[0]!.id
+    const shortName = created.rows[0]!.short_name
 
     // The link, and the whole reason this is a product path rather than a fixture.
     // An Admin who is later sent an Invitation Link is found here by Acceptance and
@@ -208,12 +218,18 @@ export const provisionMinistry = async (
       [ministryId, account.userId],
     )
 
-    // The first event in this Ministry's history.
+    // The first event in this Ministry's history, with the short name it opened
+    // under: a later rename records what it changed from, and this is where the
+    // first one is written down.
     await client.query(
       `insert into ministry_event
          (ministry_id, occurred_at, type, subject_type, subject_id, payload)
        values ($1, $2, 'ministry.opened', 'ministry', $1, $3)`,
-      [ministryId, at, JSON.stringify({ name: ministry.name, adminPersonId: person.rows[0]!.id })],
+      [
+        ministryId,
+        at,
+        JSON.stringify({ name: ministry.name, adminPersonId: person.rows[0]!.id, shortName }),
+      ],
     )
 
     if (ministry.openedThrough) {
@@ -247,6 +263,7 @@ export const provisionMinistry = async (
       adminPersonId: person.rows[0]!.id,
       adminPhone: phone,
       sendingNumber,
+      shortName,
     }
   } catch (error) {
     await client.query('rollback').catch(() => undefined)

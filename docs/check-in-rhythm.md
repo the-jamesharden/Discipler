@@ -19,13 +19,13 @@ Leader has 2 relationships (a 1:1 joined in March, a group joined in June)
 
 → "ABC Church: Did you meet with Emily this week? Reply 1 for yes, 2 for no."
 Leader → 1
-→ "ABC Church: How did the meeting go? Reply A for outstanding, B for good, C for concern."
-Leader → C
+→ "ABC Church: How did the meeting go? Reply A for outstanding, B for good, C for okay, D for concern."
+Leader → D
 → "ABC Church: Please tell us more about the concern."
 Leader → (free text)
 → "ABC Church: Did you meet with Tuesday Men's Group this week? Reply 1 for yes, 2 for no."
 Leader → 1
-→ "ABC Church: How did the meeting go? Reply A for outstanding, B for good, C for concern."
+→ "ABC Church: How did the meeting go? Reply A for outstanding, B for good, C for okay, D for concern."
 Leader → A
 → "ABC Church: Thank you. We'll check in with you next week."
 ```
@@ -45,11 +45,30 @@ There is one question set. It does not branch on group-versus-one-to-one — onl
 | Starter Message | On acceptance, and on resume from pause | No |
 | Check-in opening question | Weekly, per relationship, in sequence | Yes |
 | Satisfaction question | After a `1` reply | Yes |
-| Concern detail request | After a `C` reply | Yes |
+| Concern detail request | After a `D` reply | Yes |
 | Closing thank-you | After the final relationship | No |
 | Next-day reminder | One day after an unanswered question, held to 8am if that falls at night | Re-send only |
 
 The next-day reminder re-sends the same question. It never counts as a second unanswered message and never advances the two-week stall threshold.
+
+## Four answers, A to D
+
+The satisfaction question offers four answers: A outstanding, B good, C okay, D concern.
+There is no middle answer to default to, and only D is a concern.
+D alone draws the concern detail request, raises the concern badge and puts the relationship in Needs Care for the week.
+C okay is recorded and raises nothing.
+
+Until October 2026 the question offered three answers, *Reply A for outstanding, B for good, C for concern*, and C was the concern.
+It became four on 2026-10-12, from pastor feedback, so that there is no middle answer to default to (Pastor feedback, ticket 03).
+Do not restore three answers: it brings the middle answer back, and it would make C mean concern again on every question sent from then on.
+
+**A reply is read against the wording its question was sent with.**
+Each question records which answers it offered when it was sent, and its reply, any reminder of it and any clarification of it all go by that record and never by the wording in force when the reply arrives.
+A leader sent the three-answer question before the change who replies `C` after it meant concern, and is recorded as having raised one.
+A question sent before the change records no wording, because there was no such record yet, and is read as the three-answer question it was.
+
+Stored answers keep their meaning.
+They are stored as words, never as letters, so a concern recorded before the change is still a concern and no stored answer was rewritten.
 
 Opt-out and rate-disclosure language, the rates line, reaches a person at most once a calendar month, on the first text of that month that may carry it.
 The question that opens a check-in is one of those texts, so a leader's first check-in of a month carries it only where nothing else, a Starter Message say, already did that month.
@@ -67,7 +86,7 @@ See `docs/product-rules.md` for the full rule and the standing caveat that A2P r
 
 ## Care thresholds
 
-A relationship becomes **Stalled** on either of two conditions: two consecutive weekly check-ins with no response, or three consecutive `2` replies. The second catches a leader who answers every week to say they did not meet — fully responsive, never silent, and quietly going nowhere. The care item names which condition fired, and reports a duration in the unit that matches it: **gone silent** reports days since last contact, **responding, not meeting** reports the number of weeks reported as no meeting. The two cannot share a counter — days since last contact is already fourteen or more when silence fires and roughly seven when not-meeting fires, so a shared counter would make a relationship going nowhere for three weeks look more recent than one silent for a fortnight. A `C` response places it in **Needs Care** for that week, and it returns to **Healthy** on the next week that reports a meeting with no concern. A concern raises a badge that persists independently of state until an admin resolves it.
+A relationship becomes **Stalled** on either of two conditions: two consecutive weekly check-ins with no response, or three consecutive `2` replies. The second catches a leader who answers every week to say they did not meet — fully responsive, never silent, and quietly going nowhere. The care item names which condition fired, and reports a duration in the unit that matches it: **gone silent** reports days since last contact, **responding, not meeting** reports the number of weeks reported as no meeting. The two cannot share a counter — days since last contact is already fourteen or more when silence fires and roughly seven when not-meeting fires, so a shared counter would make a relationship going nowhere for three weeks look more recent than one silent for a fortnight. A `D` response places it in **Needs Care** for that week, and it returns to **Healthy** on the next week that reports a meeting with no concern. A concern raises a badge that persists independently of state until an admin resolves it.
 
 A relationship in **Awaiting Leader Acceptance** sends no check-ins and accrues no silence.
 
@@ -79,7 +98,7 @@ The sequence advances only in response to a reply, so a leader who goes quiet af
 
 Twenty-four hours after an unanswered question, Discipler re-sends it once. If that reminder also goes unanswered, the sequence moves on to the next relationship's opening question. An abandoned sequence converts into ordinary unanswered questions, and the two-week stall rule handles it per relationship with no special case.
 
-The same rule applies to the concern detail request: the `C` is already recorded and the badge already raised, so an unanswered request for detail is reminded once and then passed over rather than blocking the rest of the leader's relationships.
+The same rule applies to the concern detail request: the `D` is already recorded and the badge already raised, so an unanswered request for detail is reminded once and then passed over rather than blocking the rest of the leader's relationships.
 
 A `2` reply ends that relationship's check-in immediately and moves to the next one. The satisfaction question is not asked, because a meeting that did not happen has no quality to report.
 
@@ -87,7 +106,7 @@ If a new week's check-in comes due while a sequence is still open, the old seque
 
 ## Replies that do not match
 
-Real people text `yes`, `Yes we did!`, `y`, `nope`, `great`, and emoji. Discipler normalizes before deciding a reply is unusable: matching is case-insensitive and accepts an enumerated list of synonyms and known typos — `yes`/`y`/`yeah` for 1, `no`/`n`/`nope` for 2, `great`/`gret` for A, `good` for B, `concern`/`oncern` for C.
+Real people text `yes`, `Yes we did!`, `y`, `nope`, `great`, and emoji. Discipler normalizes before deciding a reply is unusable: matching is case-insensitive and accepts an enumerated list of synonyms and known typos — `yes`/`y`/`yeah` for 1, `no`/`n`/`nope` for 2, `great`/`gret` for A, `good` for B, `ok`/`okay` for C, `concern`/`oncern` for D. `ok` and `okay` are also on the closed list of pleasantries, which is no contradiction: a message is never stripped down to nothing, so a reply that is only `okay` reaches the list whole, and only an `okay` in front of or behind another answer is taken as a courtesy.
 
 **Matching is against the whole message, not a substring of it.** Punctuation, emoji, and a closed list of leading and trailing pleasantries are stripped first, so `Yes we did!` still resolves; anything else is unreadable and draws a clarification.
 
@@ -139,7 +158,7 @@ Clarifications inside a keyword exchange follow the same cap as a check-in: at m
 
 A keyword that resolves to the relationship whose check-in question is currently open **withdraws that pending question**. Leaving it to age would make pausing a relationship contribute to it being flagged `Stalled` on resume, which is what the pause rules exist to prevent.
 
-A bare, exact keyword is still a keyword during the concern detail request. The `C` is already recorded and the badge already raised, so nothing is lost, and the alternative files `PAUSE` as the text of someone's hardest week while ignoring a request to step back. Prose containing the word is unaffected, because matching is whole-message.
+A bare, exact keyword is still a keyword during the concern detail request. The `D` is already recorded and the badge already raised, so nothing is lost, and the alternative files `PAUSE` as the text of someone's hardest week while ignoring a request to step back. Prose containing the word is unaffected, because matching is whole-message.
 
 ## One conversation per phone
 
@@ -179,7 +198,7 @@ A prompt is **timed out** at the moment a reply to it can no longer change anyth
 | Prompt | Times out |
 |---|---|
 | Check-in opening or satisfaction question | 48 hours after it was sent — 24 to the reminder, 24 more before the sequence advances — or when a new week's sequence begins, whichever is first |
-| Concern detail request | The same 48 hours. The `C` and the badge are already recorded, so nothing is lost by passing over it |
+| Concern detail request | The same 48 hours. The `D` and the badge are already recorded, so nothing is lost by passing over it |
 | Keyword exchange | 24 hours after it opened, with no reminder |
 | Anything expecting no reply | Never open, so never timed out |
 

@@ -56,6 +56,9 @@ import {
   recordMaterialNotice,
   restorePerson,
   saveMinistrySettings,
+  removeIntakeAnswers,
+  saveIntakeForm,
+  changeShortName,
   setKeywordExchangeTarget,
   sweepOutstandingReplies,
   withdrawInvitation,
@@ -87,6 +90,8 @@ import {
   MaterialAssignmentRefused,
   MaterialRefused,
   MinistrySettingsRefused,
+  ShortNameRefused,
+  IntakeFormRefused,
   PairingRefused,
   PasswordResetRefused,
   PauseRefused,
@@ -96,6 +101,7 @@ import {
 } from './errors'
 import type { PersonToRemove } from './removal'
 import {
+  CHECK_IN_WORDING,
   CLARIFICATIONS_PER_QUESTION,
   PASSED_OVER,
   advanceCheckIn,
@@ -113,6 +119,7 @@ import {
   type CheckInResolution,
   type CheckInSequenceId,
   type CheckInSnapshot,
+  type CheckInWording,
   type OpenPrompt,
   type OpenSequence,
 } from './check-in'
@@ -167,9 +174,34 @@ import {
   discipleshipGoalId,
   GROUP_PATH,
   readIntakeForm,
+  REQUIRED_TODAY,
   type DiscipleshipGoalId,
   type Gender,
 } from './intake'
+import {
+  addBackQuestion,
+  addPage,
+  addQuestion,
+  arrangeQuestions,
+  editQuestion,
+  editText,
+  isOwnQuestion,
+  layoutOf,
+  moveQuestion,
+  ownQuestionKey,
+  ownQuestionsOf,
+  questionOn,
+  removalDeletesAnswers,
+  removedQuestions,
+  removeQuestion,
+  renamePage,
+  requiredOn,
+  withoutWhatIsNoLongerAsked,
+  type AnswerGiven,
+  type FormEdit,
+  type FormQuestion,
+  type IntakeForm,
+} from './intake-form'
 import {
   intakeLinkState,
   intakeLinkToken,
@@ -264,6 +296,7 @@ import {
   type RowRejection,
 } from './roster'
 import { readRosterFile } from './roster-csv'
+import { readShortName, type ShortName } from './short-name'
 import { classifyImport, type SideRef } from './roster-import'
 
 /**
@@ -320,6 +353,27 @@ export interface CommandContext {
    * else.
    */
   readonly settings?: MinistrySettings
+  /**
+   * The short name this Ministry goes by now, loaded on `short_name.change`'s
+   * behalf so that history can record what it was. Absent on everything else.
+   */
+  readonly shortName?: ShortName
+  /**
+   * One of the Ministry's Intake forms (Pastor feedback, ticket 11). Loaded on an
+   * edit's behalf as it stands now, behind a lock, so two Admins cannot both save
+   * the next version of it; and on `intake.submit`'s behalf as the version the
+   * Person opened, which is what their answers are read against. Absent on
+   * everything else, and on a submission from a form that is not one of the two.
+   */
+  readonly intakeForm?: IntakeForm
+  /**
+   * The same form as it stands now, loaded beside the version opened on
+   * `intake.submit`'s behalf and behind the same lock. A submission is read
+   * against the version its Person opened, but an answer to a question this no
+   * longer asks is dropped rather than stored (James, 2026-10-13). The same form
+   * as `intakeForm` where nothing has been saved since they opened it.
+   */
+  readonly intakeFormNow?: IntakeForm
   /**
    * Who is being paired, or who is already in the relationship being accepted --
    * their names and the numbers Discipler would text. Loaded on the command's
@@ -501,6 +555,13 @@ export interface CommandContext {
    * removal record that it cost nothing while blanking a congregation's answers.
    */
   readonly goalAnswers?: readonly StatedGoal[]
+  /**
+   * Every answer given to the question an `intake_form.remove_question` names,
+   * read before the removal deletes them (Pastor feedback, ticket 13). Loaded on
+   * that one command's behalf, and only where the removal deletes anything.
+   * Absent rather than empty for the reason `goalAnswers` is.
+   */
+  readonly questionAnswers?: readonly AnswerGiven[]
   /**
    * Every live Material this Ministry holds, each with how many accepted, unended
    * relationships are working through it. Loaded on the three `material.*`
@@ -871,6 +932,89 @@ const theAnswersAboutToGo = (context: CommandContext): readonly StatedGoal[] => 
   }
   return context.goalAnswers
 }
+
+/**
+ * The answers a question's removal is about to delete, or a loud failure rather
+ * than an empty list, for the reason `theAnswersAboutToGo` gives.
+ */
+const theQuestionAnswersAboutToGo = (context: CommandContext): readonly AnswerGiven[] => {
+  if (!context.questionAnswers) {
+    throw new Error('No answers were loaded for the question being removed')
+  }
+  return context.questionAnswers
+}
+
+/**
+ * The Intake form an edit decides against, or a loud failure rather than the
+ * preset: a read that silently became *this Ministry never edited* would save
+ * the next edit over the preset and throw away every edit before it.
+ */
+const theFormBeingEdited = (context: CommandContext): IntakeForm => {
+  if (!context.intakeForm) throw new Error('No Intake form was loaded for this edit')
+  return context.intakeForm
+}
+
+/**
+ * One edit to an Intake form, applied: refused, a no-op, or saved as the next
+ * version with history saying what changed. Every edit is recorded in the
+ * Ministry's history with the version it made, so the words a form asked in on
+ * any date can be read back from history alone.
+ */
+const savingTheForm = (
+  command: Extract<Command, { readonly type: `intake_form.${string}` }>,
+  context: CommandContext,
+  edit: FormEdit,
+  recorded: (form: IntakeForm) => { readonly type: string; readonly payload: Record<string, unknown> },
+): CommandResult => {
+  if (edit === null) return { effects: [], rejections: [] }
+  if ('refusal' in edit) throw new IntakeFormRefused(edit.refusal)
+
+  const now = context.clock.now()
+  const { type, payload } = recorded(edit.form)
+
+  return {
+    effects: [
+      saveIntakeForm({
+        ministryId: command.ministryId,
+        form: edit.form,
+        savedAt: now,
+        savedBy: command.editedBy,
+      }),
+      appendHistory({
+        ministryId: command.ministryId,
+        occurredAt: now,
+        type,
+        subjectType: 'ministry',
+        subjectId: command.ministryId,
+        payload: {
+          form: command.form,
+          version: edit.form.version,
+          editedBy: command.editedBy,
+          ...payload,
+        },
+      }),
+    ],
+    rejections: [],
+  }
+}
+
+/**
+ * A question as history records it: its words and whether it may be left, and
+ * for one of the Ministry's own (ticket 12) its kind and its choices by id, so
+ * the words a choice carried on any date can be read back from history alone.
+ */
+const questionAsRecorded = (question: FormQuestion | undefined): Record<string, unknown> => ({
+  wording: question?.wording ?? null,
+  menteeWording: question?.menteeWording ?? null,
+  hint: question?.hint ?? null,
+  required: question?.required ?? null,
+  ...(question && isOwnQuestion(question)
+    ? {
+        kind: question.kind,
+        choices: question.choices.map((choice) => ({ id: choice.id, wording: choice.wording })),
+      }
+    : {}),
+})
 
 /**
  * The Ministry's own list of Materials, or a loud failure rather than an empty
@@ -1283,7 +1427,7 @@ const sayToLeader = (
 
 const ask = (
   asking: Asking,
-  prompt: Omit<NewCheckInPrompt, 'id' | 'ministryId' | 'sequenceId' | 'askedAt'>,
+  prompt: Omit<NewCheckInPrompt, 'id' | 'ministryId' | 'sequenceId' | 'askedAt' | 'wording'>,
   body: string,
   ratesLine: RatesLineOccasion,
 ): readonly Effect[] => [
@@ -1292,6 +1436,11 @@ const ask = (
     ministryId: asking.ministryId,
     sequenceId: asking.sequenceId,
     askedAt: asking.now,
+    // Every question is sent in the wording in force, and says so, because its
+    // reply is read against the wording it was sent with and not the one in
+    // force when the reply arrives. `askWhetherTheyMet` and `askNext` compose the
+    // body in the same wording.
+    wording: CHECK_IN_WORDING,
     ...prompt,
   }),
   // The one message in the rhythm that takes the Leader's number: it is a
@@ -1307,10 +1456,16 @@ const ask = (
  * `discloseOptOut` is only ever true on the message that opens a conversation.
  * That is the check-in that may carry the rates line, once a month (Text wording,
  * ticket 01), and a reminder is not another one: it is that same message again.
+ *
+ * `wording` for the same reason. A reminder re-sends the question in the words it
+ * was first sent with, because those are what its reply is read against: a
+ * three-answer question sent before the change and reminded after it still offers
+ * C for concern, and its `C` is still read as one.
  */
 const bodyOfQuestion = (
   asking: Asking,
   question: CheckInQuestion,
+  wording: CheckInWording,
   relationship: CheckInRelationship,
   discloseOptOut: boolean,
 ): string => {
@@ -1329,7 +1484,7 @@ const bodyOfQuestion = (
     })
   }
   return question === 'satisfaction'
-    ? satisfactionQuestion({ ministryName })
+    ? satisfactionQuestion({ ministryName, wording })
     : concernDetailRequest({ ministryName })
 }
 
@@ -1353,7 +1508,7 @@ const askWhetherTheyMet = (
       position,
       question: 'met',
     },
-    bodyOfQuestion(asking, 'met', relationship, true),
+    bodyOfQuestion(asking, 'met', CHECK_IN_WORDING, relationship, true),
     'once_a_month',
   )
 
@@ -1378,15 +1533,16 @@ const askNext = (
       position: advance.position,
       question: advance.question,
     },
-    bodyOfQuestion(asking, advance.question, advance.relationship, false),
+    bodyOfQuestion(asking, advance.question, CHECK_IN_WORDING, advance.relationship, false),
     'never',
   )
 
 /**
  * A reply as it is stored. The three columns are exclusive by question -- a
  * `met` answer has no rating and a rating has no prose -- and the letters the
- * message advertised are nowhere in it: `C` is stored as `concern`, so renaming a
- * token in copy can never re-tokenise a Ministry's history.
+ * message advertised are nowhere in it: `D` is stored as `concern`, so renaming a
+ * token in copy can never re-tokenise a Ministry's history. It was renamed once:
+ * `C` was concern until the question offered four answers, and is okay now.
  */
 const recorded = (reply: CheckInReply) => ({
   met: reply.kind === 'met' ? reply.met : null,
@@ -1803,7 +1959,7 @@ const chaseTheOpenQuestion = (
       // pointless.
       sayToLeader(
         asking,
-        bodyOfQuestion(asking, awaiting.question, relationship, false),
+        bodyOfQuestion(asking, awaiting.question, awaiting.wording, relationship, false),
         'no_reply',
         'never',
       ),
@@ -3564,7 +3720,10 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         }
       }
 
-      const reply = readCheckInReply(awaiting.question, command.body)
+      // Read against the wording the question was sent with, which is not always
+      // the wording in force: a three-answer question sent before the change and
+      // answered `C` after it is a concern.
+      const reply = readCheckInReply(awaiting, command.body)
       const answered = sequence.covering[awaiting.position - 1]
 
       const asking: Asking = {
@@ -3605,6 +3764,9 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
               promptId: awaiting.promptId,
               personId: checkIn.personId,
               question: awaiting.question,
+              // Which answers the question offered, so a `D` sent to a
+              // three-answer question reads back as the miss it was.
+              wording: awaiting.wording,
               body: command.body,
               clarified: clarifying,
             },
@@ -3623,7 +3785,11 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             }),
             sayToLeader(
               asking,
-              checkInClarification({ ministryName, question: awaiting.question }),
+              checkInClarification({
+                ministryName,
+                question: awaiting.question,
+                wording: awaiting.wording,
+              }),
               // The valid replies to the question already out, said again. It asks
               // nothing new, so the question it restates keeps the number.
               'no_reply',
@@ -4756,10 +4922,36 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         }
       }
 
-      const reading = readIntakeForm(command.form)
+      // Against the version of the Ministry's form the Person opened, which says
+      // which of the questions an Admin may make optional were optional for them,
+      // and which of the Ministry's own questions it asked (ticket 12). The
+      // reopened page is not the wizard: it asks Discipler's questions by today's
+      // rules, and the Ministry's own questions of the form it drew them from.
+      // Neither asks what that form no longer asks (ticket 13): a question an
+      // Admin removed is gone from the wizard and the reopened page alike.
+      const asked = context.intakeForm ?? null
+      const reading = readIntakeForm(
+        command.form,
+        asked && !command.token ? requiredOn(asked) : REQUIRED_TODAY,
+        asked ? ownQuestionsOf(asked) : [],
+        new Set(asked ? removedQuestions(asked) : []),
+      )
       if ('refusals' in reading) throw new IntakeRefused(reading.refusals)
+      // Which version of the Ministry's form this submission answered, where it
+      // answered one: never the reopened page, which is not one of the two.
+      const formVersion = asked && !command.token ? asked.version : null
 
+      // What is kept of it: everything but the answers to questions the form has
+      // stopped asking since the version opened, which are dropped (James,
+      // 2026-10-13). Read and checked as they were given, so the group picked is
+      // checked against the gender given, as it would have been a moment before
+      // the removal; only what is stored and recorded goes without them.
+      if (asked && !context.intakeFormNow) {
+        throw new Error('intake.submit was handed the form opened and not the form as it stands')
+      }
       const { submission } = reading
+      const kept =
+        asked && context.intakeFormNow ? withoutWhatIsNoLongerAsked(submission, context.intakeFormNow) : submission
       const effects: Effect[] = []
 
       // Two ways of knowing who this is, and the link is the stronger of them.
@@ -4933,19 +5125,22 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           corrections: command.token
             ? { fullName: submission.fullName, phone: submission.phone }
             : null,
-          ageBand: submission.ageBand,
-          gender: submission.gender,
-          goalId: submission.goalId,
-          availability: submission.availability,
-          email: submission.email,
-          firstTime: submission.firstTime,
+          ageBand: kept.ageBand,
+          gender: kept.gender,
+          goalId: kept.goalId,
+          goalOther: kept.goalOther,
+          availability: kept.availability,
+          email: kept.email,
+          firstTime: kept.firstTime,
+          formVersion,
+          ownAnswers: kept.ownAnswers,
           consentVersion: CONSENT_VERSION,
           source: submission.source,
           // What they were answering and which side they said they were on, on
           // every consent record this submission writes. Null where the form did
           // not ask, which is what the single-page form still is.
-          intakePath: submission.intakePath,
-          declaredSide: submission.declaredSide,
+          intakePath: kept.intakePath,
+          declaredSide: kept.declaredSide,
           // Both decisions, always, including a refusal. What is current is the
           // latest record for that consent, so a decision that writes no row is a
           // decision that cannot be seen -- and on a re-submission it silently
@@ -4968,7 +5163,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             source: submission.source,
             consentVersion: CONSENT_VERSION,
             contactSharingConsent: submission.contactSharingConsent,
-            availabilitySlots: submission.availability.length,
+            availabilitySlots: kept.availability.length,
             // The option they picked, for the same reason the name below is here:
             // `intake_submission.discipleship_goal_id` is blanked if the Ministry
             // ever removes this option, and without this the fact that they chose
@@ -4976,7 +5171,21 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             // the wording is the option's own and changes under a rename, and
             // `discipleship_goal.renamed` and `.removed` are what resolve an id to
             // the words that stood on any given date.
-            goalId: submission.goalId,
+            goalId: kept.goalId,
+            // What they typed after Other, which no edit to the Ministry's list
+            // can blank. On the submission too; here because history is where a
+            // goal stated on a given date is read back from, as the option is.
+            goalOther: kept.goalOther,
+            // Which version of the Ministry's form they were answering (Pastor
+            // feedback, ticket 11), so the words they were asked in can be read
+            // back for any submission. Null on a form that is not one of the two.
+            formVersion,
+            // Which of the Ministry's own questions they answered (ticket 12), by
+            // key. The answers themselves are on the submission and not here:
+            // what somebody types to their church can be anything, and history is
+            // a record every Admin surface reads. Which question was answered on
+            // which date is what history needs to keep.
+            ownQuestionsAnswered: kept.ownAnswers.map((answer) => answer.key),
             // The name they gave on this submission, the same way
             // `person.joined_at_intake` records the one they joined under. A
             // correction overwrites `person.full_name`, and without this the name
@@ -5457,6 +5666,219 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         ],
         rejections: [],
       }
+    }
+
+    case 'short_name.change': {
+      const was = context.shortName
+      if (!was) throw new Error('short_name.change was handed no short name to change')
+
+      const reading = readShortName(command.shortName)
+      if ('refusal' in reading) throw new ShortNameRefused(reading.refusal)
+
+      // The name it already has, typed again. Nothing happened, so nothing is
+      // written and history says nothing, as with a settings form saved unchanged.
+      if (reading.shortName === was) return { effects: [], rejections: [] }
+
+      const now = context.clock.now()
+
+      return {
+        effects: [
+          changeShortName({ ministryId: command.ministryId, shortName: reading.shortName }),
+          // The name it went by, which the update overwrites on the row and which
+          // every link printed before today still carries. Whether another
+          // Ministry holds the new one is the database's to say: no connection
+          // acting for this Ministry may read another's names.
+          appendHistory({
+            ministryId: command.ministryId,
+            occurredAt: now,
+            type: 'ministry.short_name_changed',
+            subjectType: 'ministry',
+            subjectId: command.ministryId,
+            payload: { changedBy: command.changedBy, from: was, to: reading.shortName },
+          }),
+        ],
+        rejections: [],
+      }
+    }
+
+    case 'intake_form.edit_question': {
+      const form = theFormBeingEdited(context)
+      const was = questionOn(form, command.key)
+      return savingTheForm(
+        command,
+        context,
+        editQuestion(
+          form,
+          command.key,
+          {
+            wording: command.wording,
+            menteeWording: command.menteeWording,
+            hint: command.hint,
+            required: command.required,
+            ...(command.choices ? { choices: command.choices } : {}),
+          },
+          () => context.ids.next(),
+        ),
+        (saved) => {
+          const now = questionOn(saved, command.key)
+          // What the question said before and after, which the new version keeps
+          // and the history keeps beside it: a reworded question is the same
+          // question, and the answers given to the old words stay its answers.
+          return {
+            type: 'intake_form.question_edited',
+            payload: { key: command.key, from: questionAsRecorded(was), to: questionAsRecorded(now) },
+          }
+        },
+      )
+    }
+
+    case 'intake_form.add_question': {
+      const form = theFormBeingEdited(context)
+      // Minted here, so a key is never one the page made up, and prefixed so it
+      // can never be one of Discipler's own.
+      const key = ownQuestionKey(context.ids.next())
+      return savingTheForm(
+        command,
+        context,
+        addQuestion(
+          form,
+          command.pageId,
+          key,
+          command.kind,
+          {
+            wording: command.wording,
+            menteeWording: null,
+            hint: command.hint,
+            required: command.required,
+            choices: { kept: [], added: command.choices },
+          },
+          () => context.ids.next(),
+        ),
+        (saved) => ({
+          type: 'intake_form.question_added',
+          payload: { key, pageId: command.pageId, ...questionAsRecorded(questionOn(saved, key)) },
+        }),
+      )
+    }
+
+    case 'intake_form.remove_question': {
+      const form = theFormBeingEdited(context)
+      const was = questionOn(form, command.key)
+      const edit = removeQuestion(form, command.key)
+      // Read only for a removal that will happen and deletes something: a refusal
+      // or a question with nothing kept has nothing to write down.
+      const deletes = was !== undefined && removalDeletesAnswers(was.key)
+      const given = edit !== null && 'form' in edit && deletes ? theQuestionAnswersAboutToGo(context) : []
+      const saving = savingTheForm(command, context, edit, () => ({
+        type: 'intake_form.question_removed',
+        // What it cost, written down at the moment it is spent, as a goal
+        // option's removal writes it (ADR-0014). `answersLost` is the people the
+        // Admin was warned about; `deletedAnswers` is every submission the delete
+        // touches, superseded ones included, each with what it said: the live
+        // tables keep none of it afterwards, so this event is the only record.
+        payload: {
+          key: command.key,
+          question: questionAsRecorded(was),
+          answersLost: new Set(given.map((answer) => answer.personId)).size,
+          deletedAnswers: given.map((answer) => ({
+            submissionId: answer.submissionId,
+            personId: answer.personId,
+            submittedAt: answer.submittedAt.toISOString(),
+            answer: answer.answer,
+          })),
+        },
+      }))
+      if (saving.effects.length === 0 || !deletes) return saving
+      return {
+        ...saving,
+        effects: [
+          ...saving.effects,
+          removeIntakeAnswers({ ministryId: command.ministryId, form: command.form, key: was.key }),
+        ],
+      }
+    }
+
+    case 'intake_form.add_back_question': {
+      const form = theFormBeingEdited(context)
+      return savingTheForm(
+        command,
+        context,
+        addBackQuestion(form, command.pageId, command.key),
+        // Recorded as any question added is, with the words it came back in.
+        (saved) => ({
+          type: 'intake_form.question_added',
+          payload: { key: command.key, pageId: command.pageId, ...questionAsRecorded(questionOn(saved, command.key)) },
+        }),
+      )
+    }
+
+    case 'intake_form.arrange': {
+      const form = theFormBeingEdited(context)
+      return savingTheForm(
+        command,
+        context,
+        arrangeQuestions(form, command.layout),
+        (saved) => ({
+          type: 'intake_form.arranged',
+          payload: { from: layoutOf(form), to: layoutOf(saved) },
+        }),
+      )
+    }
+
+    case 'intake_form.move_question': {
+      const form = theFormBeingEdited(context)
+      return savingTheForm(
+        command,
+        context,
+        moveQuestion(form, command.key, command.direction),
+        // Recorded as an arrangement, because that is what it is: one press of a
+        // button that a drag would have made the same order with.
+        (saved) => ({
+          type: 'intake_form.arranged',
+          payload: { from: layoutOf(form), to: layoutOf(saved) },
+        }),
+      )
+    }
+
+    case 'intake_form.add_page': {
+      const form = theFormBeingEdited(context)
+      const id = context.ids.next()
+      return savingTheForm(command, context, addPage(form, id, command.name), (saved) => ({
+        type: 'intake_form.page_added',
+        payload: {
+          pageId: id,
+          name: saved.pages.find((each) => each.id === id)?.name ?? null,
+        },
+      }))
+    }
+
+    case 'intake_form.rename_page': {
+      const form = theFormBeingEdited(context)
+      const named = (each: IntakeForm) =>
+        each.pages.find((one) => one.id === command.pageId)?.name ?? null
+      return savingTheForm(
+        command,
+        context,
+        renamePage(form, command.pageId, command.name),
+        (saved) => ({
+          type: 'intake_form.page_renamed',
+          payload: { pageId: command.pageId, from: named(form), to: named(saved) },
+        }),
+      )
+    }
+
+    case 'intake_form.edit_text': {
+      const form = theFormBeingEdited(context)
+      const said = (each: IntakeForm) => (command.which === 'intro' ? each.intro : each.thankYou)
+      return savingTheForm(
+        command,
+        context,
+        editText(form, command.which, command.text),
+        (saved) => ({
+          type: command.which === 'intro' ? 'intake_form.intro_edited' : 'intake_form.thank_you_edited',
+          payload: { from: said(form), to: said(saved) },
+        }),
+      )
     }
 
     case 'material.create': {

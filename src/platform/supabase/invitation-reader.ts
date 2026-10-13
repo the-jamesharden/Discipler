@@ -1,9 +1,8 @@
 import pg from 'pg'
-import { ministryId, personId } from '~/domain/ids'
+import { looksLikeAnId, ministryId, personId } from '~/domain/ids'
 import { invitationState, isWithdrawnAs } from '~/domain/invitations'
 import { countsAsLeading, type MemberRole } from '~/domain/relationships'
 import type { InvitationPage, InvitationReader } from '~/service/ports'
-import { looksLikeAnId } from './rows'
 
 /**
  * What the Invitation Link's page shows. Like the Intake form, it is served to
