@@ -82,6 +82,7 @@ A concern's words are never on the list.
 Pressing an item opens the relationship's card over the list, the same pair card or group card the Overview opens, in a fuller form: every open item on that relationship sits in a band under the names with the actions it offers, and a **What has happened** list sits under the facts.
 So a pair carrying a concern, a stall and a swap request is one card with three bands, whichever of the three was pressed.
 An item about a person with no live relationship (*Wants a group*, *Texted a keyword*, *Pair not made*) opens a card of its own: the item in its band, the person as the pair card draws a person, and what has happened.
+Ending a relationship resolves none of its concerns, so a concern on an ended relationship stays on the list, named by who raised it, and opens a card of its own too: each concern's band with its words and **Resolve**, who has read them, and what has happened, with no people, facts or **End relationship**, because the pair is over.
 This is James's decision of 2026-10-12, Pastor feedback ticket 10; until then every item carried its own row of buttons.
 
 **What has happened** lists, newest first and read from the stored history alone: when each item was raised and why, a stall dated by the week that crossed its threshold; the check-ins that led to it, which are the very weeks the stall was derived from and the week a concern was answered D; who read the concern, and when; and the earlier follow-up items and concerns for the pair, and who resolved them.
