@@ -338,11 +338,12 @@ ul.ci-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; m
 .ci-col-head.d { background: rgba(220, 53, 69, 0.1); color: var(--red-ink); }
 ul.ci-list { list-style: none; margin: 0; padding: 0; }
 .ci-card { padding: 0.7rem 0.85rem; border: 1px solid var(--border); border-radius: 5px; margin-bottom: 0.5rem; font-size: 0.88rem; }
+/* Each row opens the pair card over the tab (Pastor feedback, ticket 09). */
+a.ci-card { display: block; color: inherit; text-decoration: none; }
+a.ci-card:hover, a.ci-card:focus-visible { border-color: var(--primary-light); background: rgba(45, 80, 22, 0.02); }
+/* A D whose Concern is still unresolved; its words are never on the list. */
+a.ci-card.d { border-left: 3px solid var(--red-concern); }
 .ci-when { font-size: 0.76rem; color: var(--text-light); }
-.sealed { padding: 1.75rem 1.25rem; text-align: center; border: 1px dashed var(--border); border-radius: 6px; background: rgba(220, 53, 69, 0.03); }
-.sealed-count { font-family: var(--serif); font-size: 3rem; font-weight: 700; color: var(--red-concern); line-height: 1; }
-.sealed-label { font-weight: 600; }
-.sealed-note { font-size: 0.82rem; color: var(--text-light); margin: 0.7rem 0 1rem; line-height: 1.5; }
 
 /* ---- suggestions ---- */
 
@@ -1039,6 +1040,14 @@ ul.rtags { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; lis
 .pc-band.concern .pc-band-label { color: var(--red-ink); }
 .pc-band.stalled .pc-band-label { color: var(--amber-ink); }
 .pc-band.review .pc-band-label { color: #5f5f5f; }
+/* This week's answer, opened from Check-Ins (ticket 09): each letter as its column there. */
+.pc-band.answer-a { background: linear-gradient(135deg, rgba(127, 175, 140, 0.16), rgba(127, 175, 140, 0.05)); border-left: 4px solid var(--green-fit); }
+.pc-band.answer-b { background: linear-gradient(135deg, rgba(168, 213, 176, 0.2), rgba(168, 213, 176, 0.06)); border-left: 4px solid var(--light-green-fit); }
+.pc-band.answer-c { background: linear-gradient(135deg, rgba(221, 187, 122, 0.2), rgba(221, 187, 122, 0.06)); border-left: 4px solid var(--yellow-fit); }
+.pc-band.answer-a .pc-band-label { color: #2f6b41; }
+.pc-band.answer-b .pc-band-label { color: #3d7a4c; }
+.pc-band.answer-c .pc-band-label { color: #8a6b28; }
+.pc-band .pc-band-label:last-child { margin-bottom: 0; }
 .pc-band .pc-quote { font-family: var(--serif); font-size: 1.12rem; line-height: 1.45; color: var(--text); margin: 0.1rem 0 0.45rem; }
 .pc-band .btn-row { margin-top: 0.7rem; }
 .pc-audit { font-size: 0.76rem; color: var(--text-light); padding: 0.6rem 1.4rem 0.9rem; margin: 0; border-bottom: 1px solid var(--border); }

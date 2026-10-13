@@ -145,8 +145,9 @@ describe.skipIf(skipUnlessAppIsRunning)('the Admin tabs', () => {
       expect(response.status).toBe(200)
       expect(html).toContain('Completed')
       expect(html).toContain('Pending')
-      expect(html).toContain('Nothing yet this week')
-      expect(html).toContain('No open concerns this week')
+      // Each of the four columns says it is empty, D concern as A, B and C do
+      // (Pastor feedback, ticket 09).
+      expect(html.split('<p class="empty">Nothing yet this week</p>')).toHaveLength(5)
     })
 
     it('renders the Suggested Pairs tab as a working page with the empty state', async () => {

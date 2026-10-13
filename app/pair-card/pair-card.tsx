@@ -2,7 +2,8 @@ import Link from 'next/link'
 import { Fragment } from 'react'
 import { goalAsShown } from '~/domain/discipleship-goals'
 import { A_GROUP } from '~/domain/relationships'
-import type { PairCard as Card, PairCardPerson } from '~/service/ports'
+import type { Satisfaction } from '~/domain/check-in'
+import type { PairCard as Card, PairCardPerson, ThisWeeksAnswer } from '~/service/ports'
 import { EndForm } from '../follow-up/end-form'
 import { followUpLine, RESUME } from '../follow-up/copy'
 import { Mail, Message, Phone } from '../icons'
@@ -33,6 +34,7 @@ import {
   stallLabel,
   stallSentence,
   textThem,
+  thisWeekLine,
   WORDS_CLEARED,
 } from './copy'
 import type { ConcernWords } from './open'
@@ -59,7 +61,11 @@ import type { ConcernWords } from './open'
  * of them. Everything else, the band, the facts and the foot, is the pair's.
  *
  * Shared: Check-Ins and Follow-Up open the same card (tickets 09 and 10), with
- * their own address for `back` and `close`.
+ * their own address for `back` and `close`. Opened from Check-Ins, the card's
+ * first band is this week's answer and when it came (ticket 09), coloured as its
+ * letter is on the tab. Where that answer raised a Concern still unresolved, it
+ * is that Concern's band, its words under the week's line; the Last check-in
+ * fact, which would say the same answer again, is left out.
  */
 export const PairCard = ({
   card,
@@ -68,6 +74,7 @@ export const PairCard = ({
   close,
   back,
   notice,
+  thisWeek = null,
 }: {
   readonly card: Card
   /** The Concerns' words, read as the card opened; one per Concern on the card. */
@@ -79,6 +86,8 @@ export const PairCard = ({
   readonly back: string
   /** What a route just did, or why it could not, already in words. */
   readonly notice: { readonly tone: 'done' | 'refused'; readonly said: string } | null
+  /** This week's answer, where the card opened from Check-Ins and one came this week. */
+  readonly thisWeek?: ThisWeeksAnswer | null
 }) => {
   const { timeZone } = card
   const names = card.people.map((person) => person.fullName)
@@ -101,6 +110,16 @@ export const PairCard = ({
   const thisReading = { by: card.readerName, at: now }
   const other = card.readings.find((reading) => !reading.byThisReader)
   const earlier = other ? { by: other.viewerName, at: other.viewedAt } : null
+
+  // This week's answer opens the card on Check-Ins. The Concern it raised, while
+  // unresolved, is drawn in the same band and first; any other keeps its own.
+  const weekLine = thisWeek ? thisWeekLine(thisWeek, now, timeZone) : null
+  const weeksConcern = thisWeek?.concernId
+    ? card.concerns.find((concern) => concern.id === thisWeek.concernId)
+    : undefined
+  const concerns = weeksConcern
+    ? [weeksConcern, ...card.concerns.filter((concern) => concern !== weeksConcern)]
+    : card.concerns
 
   return (
     <div className="modal-bg open" data-testid="pair-card">
@@ -136,11 +155,21 @@ export const PairCard = ({
           </p>
         ) : null}
 
-        {card.concerns.map((concern) => {
+        {thisWeek && weekLine && !weeksConcern ? (
+          <div className={`pc-band ${ANSWER_BAND[thisWeek.satisfaction ?? 'none']}`}>
+            <p className="pc-band-label">{weekLine}</p>
+          </div>
+        ) : null}
+
+        {concerns.map((concern) => {
           const said = words.find((each) => each.concernId === concern.id)?.words ?? null
           return (
             <div key={concern.id} className="pc-band concern">
-              <p className="pc-band-label">{concernLabel(concern.raisedByName, concern.raisedAt, now, timeZone)}</p>
+              <p className="pc-band-label">
+                {concern === weeksConcern && weekLine
+                  ? weekLine
+                  : concernLabel(concern.raisedByName, concern.raisedAt, now, timeZone)}
+              </p>
               <p className="pc-quote">{said === null ? WORDS_CLEARED : `“${said}”`}</p>
               <form method="post" action="/follow-up/concern/resolve" className="btn-row">
                 <input type="hidden" name="concernId" value={concern.id} />
@@ -215,8 +244,12 @@ export const PairCard = ({
 
         <div className="pc-facts">
           <dl className="pc-kv">
-            <dt>{LAST_CHECK_IN}</dt>
-            <dd>{card.lastCheckIn ? checkInLine(card.lastCheckIn, timeZone) : NO_CHECK_IN_YET}</dd>
+            {thisWeek ? null : (
+              <>
+                <dt>{LAST_CHECK_IN}</dt>
+                <dd>{card.lastCheckIn ? checkInLine(card.lastCheckIn, timeZone) : NO_CHECK_IN_YET}</dd>
+              </>
+            )}
             <dt>{MATERIAL}</dt>
             <dd>{materialLine(card.material, timeZone)}</dd>
           </dl>
@@ -231,6 +264,19 @@ export const PairCard = ({
       </div>
     </div>
   )
+}
+
+/**
+ * The band this week's answer is drawn in, coloured as its letter's column is on
+ * Check-Ins and its slice on the Overview's donut. A D whose Concern has been
+ * resolved, or has not been raised, is still red: it is still what was answered.
+ */
+const ANSWER_BAND: Record<Satisfaction | 'none', string> = {
+  outstanding: 'answer-a',
+  good: 'answer-b',
+  okay: 'answer-c',
+  concern: 'concern',
+  none: 'review',
 }
 
 /** One person: who, on which side, how to reach them, and what they said at Intake. */

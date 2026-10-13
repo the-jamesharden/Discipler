@@ -14,6 +14,7 @@ import {
   stallLabel,
   stallSentence,
   textThem,
+  thisWeekLine,
 } from '../../app/pair-card/copy'
 
 /**
@@ -125,6 +126,28 @@ describe('the band', () => {
     ).toBe(
       'Read by Dan Reyes at 11:00pm, and before that by an Admin on Sat 10 Oct at 3:12pm. Resolving clears the words for good.',
     )
+  })
+
+  it('says this week\'s answer and when it came, opened from Check-Ins (ticket 09)', () => {
+    const today = new Date('2026-10-12T13:07:00Z')
+    expect(thisWeekLine({ answeredAt: today, met: true, satisfaction: 'good' }, now, zone)).toBe(
+      'This week · Met · B\u00a0good · answered 9:07am',
+    )
+    expect(thisWeekLine({ answeredAt: today, met: true, satisfaction: 'concern' }, now, zone)).toBe(
+      'This week · Met · D\u00a0concern · answered 9:07am',
+    )
+    expect(thisWeekLine({ answeredAt: today, met: false, satisfaction: null }, now, zone)).toBe(
+      'This week · Did not meet · answered 9:07am',
+    )
+  })
+
+  it('names the day of an answer that came before today', () => {
+    expect(
+      thisWeekLine({ answeredAt: new Date('2026-10-11T19:12:00Z'), met: true, satisfaction: 'outstanding' }, now, zone),
+    ).toBe('This week · Met · A\u00a0outstanding · answered yesterday, 3:12pm')
+    expect(
+      thisWeekLine({ answeredAt: new Date('2026-10-10T19:12:00Z'), met: true, satisfaction: 'okay' }, now, zone),
+    ).toBe('This week · Met · C\u00a0okay · answered Sat 10 Oct, 3:12pm')
   })
 
   it('reports a stall in the unit its condition reports', () => {
