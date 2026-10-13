@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
-import type { AnswersOf, ChoiceLists, FormPin, IntakeVia, Wizard } from './wizard-machine'
+import type { AnswersOf, ChoiceLists, FieldOf, FormPin, IntakeVia, Wizard } from './wizard-machine'
 
 /**
  * The pieces every screen of every wizard is built from: the hidden inputs that
@@ -38,9 +38,9 @@ export const Hidden = <L extends ChoiceLists>({
   /** The version of the form this visitor opened, and whether it is a preview. */
   readonly pin: FormPin
   /** What this screen asks for or rewords. Those are not carried as hidden. */
-  readonly dropping?: readonly (keyof L | 'availability')[]
+  readonly dropping?: readonly FieldOf<L>[]
 }) => {
-  const carried = (field: keyof L | 'availability') => !dropping.includes(field)
+  const carried = (field: FieldOf<L>) => !dropping.includes(field)
 
   return (
     <>
@@ -61,6 +61,15 @@ export const Hidden = <L extends ChoiceLists>({
             <input key={slot} type="hidden" name="availability" value={slot} />
           ))
         : null}
+      {/* The Ministry's own choice questions (ticket 12), each value an id the
+          form served or yes or no. */}
+      {wizard.OWN_FIELDS.flatMap((field) =>
+        carried(field.key)
+          ? (answers.own[field.key] ?? []).map((value) => (
+              <input key={`${field.key}=${value}`} type="hidden" name={field.key} value={value} />
+            ))
+          : [],
+      )}
     </>
   )
 }

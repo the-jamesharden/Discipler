@@ -128,6 +128,7 @@ describe('what the wizard reads back off its own URL', () => {
       gender: 'male',
       experience: 'done_before',
       availability: ['monday:12', 'friday:18'],
+      own: {},
     })
   })
 
@@ -146,6 +147,7 @@ describe('what the wizard reads back off its own URL', () => {
       gender: null,
       experience: null,
       availability: ['monday:12'],
+      own: {},
     })
   })
 })
@@ -157,7 +159,8 @@ describe('what the wizard reads back off its own URL', () => {
  */
 describe('the list the wizard steps through', () => {
   it('asks for every answer it carries between screens, and asks each of them once', () => {
-    const carried = Object.keys(readWizardAnswers({})).sort()
+    const { own, ...builtIn } = readWizardAnswers({})
+    const carried = [...Object.keys(builtIn), ...Object.keys(own)].sort()
     const asked = SCREENS.flatMap((screen) => [...screen.asks]).sort()
 
     // An answer carried but never asked could not be given; an answer asked on two

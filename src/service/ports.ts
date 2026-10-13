@@ -69,6 +69,7 @@ import type {
   IntakeFormSaving,
 } from '~/domain/effects'
 import type { IntakeForm } from '~/domain/intake-form'
+import type { OwnAnswerShown } from '~/domain/own-answers'
 import type {
   FollowUpKind,
   FollowUpPayload,
@@ -1338,8 +1339,21 @@ export interface RemovedPerson {
 /** The three surfaces that draw from the Roster's document, each read under its own name. */
 export type RosterSurface = 'roster' | 'person' | 'pair'
 
+/** The person page's read: the Roster's, with one Person's own answers beside it. */
+export interface PersonPage extends RosterPage {
+  /** Their answers to the Ministry's own questions off their latest submission, in the form's order. */
+  readonly ownAnswers: readonly OwnAnswerShown[]
+}
+
 export interface RosterReader {
   readRosterPage(surface: RosterSurface): Promise<AdminPage<RosterPage>>
+
+  /**
+   * The person page: the Roster's document, and beside it this one Person's
+   * answers to the Ministry's own Intake questions (Pastor feedback, ticket 12),
+   * which the Roster row never shows and so the Roster never reads.
+   */
+  readPersonPage(person: string): Promise<AdminPage<PersonPage>>
 
   /**
    * The link this Person currently holds, or null where they hold none and where
@@ -1548,6 +1562,13 @@ export interface ReopenedIntakePage extends IntakePage {
   readonly personId: PersonId
   readonly state: IntakeLinkState
   readonly prefill: IntakePrefill
+  /**
+   * The form whose own questions the page asks after Discipler's (Pastor
+   * feedback, ticket 12): the latest version of the form the Person last
+   * answered, or the mentor and mentee form where they have answered neither.
+   * The page asks Discipler's questions in today's words whatever it says.
+   */
+  readonly form: IntakeForm
 }
 
 /**
@@ -1578,6 +1599,12 @@ export interface IntakePrefill {
    * because that is what the form has to let them change back.
    */
   readonly contactSharing: 'granted' | 'declined' | null
+  /**
+   * Their answers to the Ministry's own questions on their latest submission
+   * (ticket 12), as the form sends them back: each question's values by key,
+   * the ids of the choices, `yes` or `no`, or the words typed.
+   */
+  readonly own: Readonly<Record<string, readonly string[]>>
 }
 
 /**
@@ -2169,6 +2196,12 @@ export interface PairCardPerson {
   readonly goal: string | null
   /** What they typed after *Other* on the goal (ticket 06), null where they chose an option or nothing. */
   readonly goalOther: OtherGoal | null
+  /**
+   * Their answers to the Ministry's own questions off the same submission
+   * (ticket 12), each under the question as the form words it now. Shown and
+   * never matched on.
+   */
+  readonly ownAnswers: readonly OwnAnswerShown[]
 }
 
 /** One reading of a Concern on the card, as `concern_viewing` recorded it. */

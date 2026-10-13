@@ -77,6 +77,7 @@ export const IntakeWizard = ({
       ageBand: answers.ageBand,
       gender: answers.gender,
       availability: answers.availability,
+      own: answers.own,
     },
     side: answers.side,
     experience: answers.experience,

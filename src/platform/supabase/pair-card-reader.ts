@@ -5,6 +5,7 @@ import { deriveRelationshipState } from '~/domain/relationship-state'
 import { cardShapeOf } from '~/domain/relationships'
 import type { ConcernReading, PairCard, PairCardPerson } from '~/service/ports'
 import { followUpItemsFrom } from './care-needed-reader'
+import { formsNowFrom, ownAnswersFrom } from './intake-form-document'
 import type { PageDocument } from './page'
 import {
   answersFrom,
@@ -97,6 +98,9 @@ export const pairCardFrom = (doc: PageDocument, history: HistoryInputs, clock: C
 
   const byName = (a: { readonly fullName: string }, b: { readonly fullName: string }) =>
     a.fullName.localeCompare(b.fullName)
+  // The Ministry's forms as they stand, which word each person's answers to its
+  // own questions (ticket 12).
+  const forms = formsNowFrom(row.intake_forms)
 
   const people: PairCardPerson[] = [...[...leaders].sort(byName), ...[...participants].sort(byName)].map(
     (person) => {
@@ -111,6 +115,7 @@ export const pairCardFrom = (doc: PageDocument, history: HistoryInputs, clock: C
         ageBand: ageBandOf(said.age_band),
         goal: text(said.goal),
         goalOther: typed === null ? null : otherGoal(typed),
+        ownAnswers: ownAnswersFrom(forms, said.own_answers),
       }
     },
   )

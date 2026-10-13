@@ -36,6 +36,9 @@ export const typed = (submitted: FormData, name: string): string => {
   return typeof value === 'string' ? value : ''
 }
 
+/** A box typed one to a line, as its lines. The empty ones are the domain's to skip. */
+export const linesOf = (box: string): readonly string[] => box.split(/\r?\n/)
+
 /**
  * The signed-in Admin, the form posted and which of the two forms it is about --
  * or a redirect for a request that is none of those. A form named nowhere is not

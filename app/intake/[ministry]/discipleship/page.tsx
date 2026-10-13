@@ -57,6 +57,7 @@ export default async function DiscipleshipIntakePage({
   const problems = refusalMessages(
     refused,
     wizard.stuckOnAvailability(query.step, answers) ? 'intake.availability_not_selected' : undefined,
+    wizard.stuckOnOwnQuestion(query.step, answers) ? 'intake.question_unanswered' : undefined,
   )
 
   const here = `/intake/${page.ministryId}/discipleship`

@@ -92,6 +92,7 @@ export const GroupIntakeWizard = ({
       ageBand: answers.ageBand,
       gender: answers.gender,
       availability: answers.availability,
+      own: answers.own,
     },
     side: null,
     experience: null,

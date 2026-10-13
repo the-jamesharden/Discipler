@@ -7,10 +7,10 @@ import {
   readIntakeForm,
   type IntakeFormFields,
 } from '~/domain/intake'
-import { requiredOn } from '~/domain/intake-form'
+import { ownQuestionsOf, requiredOn } from '~/domain/intake-form'
 import { getCommandService, getIntakeReader, settlePlannedPairings } from '~/service/container'
 import { groupWizardFor } from '../../group-wizard-answers'
-import { consentSourceOf, submittedIntakeForm, textField } from '../../submitted-form'
+import { consentSourceOf, ownAnswersAsQuery, submittedIntakeForm, textField } from '../../submitted-form'
 import { readPreview, readVersion, readVia } from '../../wizard-machine'
 
 /**
@@ -59,6 +59,7 @@ export async function POST(
   const backToTheForm = (refusals: readonly string[]) => {
     const answers = groupWizard.readAnswers(
       {
+        ...ownAnswersAsQuery(form),
         ageBand: form.ageBand ?? undefined,
         gender: form.gender ?? undefined,
         groupId: form.groupId?.trim() || undefined,
@@ -76,7 +77,7 @@ export async function POST(
   // What the done page says of a preview: what a newcomer would be told, with the
   // group they picked looked up as the real thing looks it up, and nothing done.
   if (preview) {
-    const reading = readIntakeForm(form, requiredOn(page.form))
+    const reading = readIntakeForm(form, requiredOn(page.form), ownQuestionsOf(page.form))
     if ('refusals' in reading) return backToTheForm(reading.refusals)
     const picked = page.groups.find((group) => group.relationshipId === form.groupId)
     const done = new URLSearchParams()

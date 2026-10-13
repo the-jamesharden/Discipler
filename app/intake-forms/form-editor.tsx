@@ -2,19 +2,32 @@ import Link from 'next/link'
 import Script from 'next/script'
 import { INTAKE_PATHS, type IntakePath } from '~/domain/intake'
 import {
-  BUILT_IN,
+  hasChoices,
+  isOwnQuestion,
+  isTypedKind,
   moveQuestion,
+  OWN_KINDS,
+  rulesOf,
   type FormPage,
   type FormQuestion,
   type FormText,
   type IntakeForm,
+  type OwnKind,
 } from '~/domain/intake-form'
 import {
   ABOUT,
+  ABOUT_CHOICES,
+  ABOUT_TYPED,
+  ABOUT_YOUR_QUESTION,
   ADD_A_PAGE,
+  ADD_A_QUESTION,
+  ADD_KIND,
+  addKindLabel,
   ADD_PAGE,
   ALWAYS_ASKED,
   CANCEL,
+  CHOICES,
+  choiceLabel,
   dragLabel,
   EDIT,
   EMPTY_PAGE,
@@ -29,9 +42,11 @@ import {
   LIVE_AS_YOU_SAVE,
   MENTEE_WORDING,
   MENTOR_WORDING,
+  MORE_CHOICES,
   moveDown,
   moveUp,
   NEW_PAGE_HINT,
+  NEW_QUESTION,
   NONE_YET,
   OPTIONAL,
   PAGE_NAME,
@@ -45,8 +60,10 @@ import {
   SAVED_LIVE,
   THANK_YOU,
   THANK_YOU_HINT,
+  TYPED_ON_THE_LAST_PAGE,
   USED_BY,
   WHERE_IT_IS,
+  YOUR_QUESTION,
 } from './form/copy'
 
 /**
@@ -78,10 +95,23 @@ export interface EditorState {
   /** The intro or the thank-you being written. */
   readonly writing: FormText | null
   readonly addingPage: boolean
+  /** The question being added, of which kind and at the foot of which page (ticket 12). */
+  readonly adding: { readonly pageId: string; readonly kind: OwnKind } | null
+  /** What was typed into a question being added that was refused, put back. */
+  readonly draft: QuestionDraft | null
   /** A question key, `page:<id>`, `page`, `intro`, `thank_you` or `order`. */
   readonly saved: string | null
   /** Why the last edit was refused, in words. */
   readonly refusal: string | null
+}
+
+/** A new question's boxes as an Admin left them when it was refused. */
+export interface QuestionDraft {
+  readonly wording: string
+  readonly hint: string
+  readonly required: boolean
+  /** One to a line, as typed. */
+  readonly choices: string
 }
 
 const editorHref = (form: IntakePath, params: Record<string, string> = {}, anchor = 'form-editor') =>
@@ -101,7 +131,11 @@ export const FormEditor = ({
   // reads why beside it; an order or a page added is said at the top.
   const refusedInPlace =
     state.refusal !== null
-    && (state.question !== null || state.renaming !== null || state.writing !== null || state.addingPage)
+    && (state.question !== null
+      || state.renaming !== null
+      || state.writing !== null
+      || state.addingPage
+      || state.adding !== null)
 
   return (
     <div className="card" id="form-editor" style={{ marginTop: '1.5rem' }}>
@@ -275,10 +309,187 @@ const PageBox = ({
           <QuestionRow key={question.key} form={form} question={question} state={state} />
         ))}
       </ul>
-      {page.questions.length === 0 ? <p className="fe-empty">{EMPTY_PAGE}</p> : null}
+      {page.questions.length === 0 && state.adding?.pageId !== page.id ? (
+        <p className="fe-empty">{EMPTY_PAGE}</p>
+      ) : null}
+      {state.adding?.pageId === page.id ? (
+        <NewQuestionRow form={form} page={page} kind={state.adding.kind} state={state} />
+      ) : null}
+      <AddAQuestion form={form} page={page} number={number} last={last} />
     </section>
   )
 }
+
+/**
+ * The foot of a page box (Pastor feedback, ticket 12): *Add a question*, and a
+ * button for each kind, each opening a new row in place to be worded. Links, so
+ * they work before any script. The two kinds somebody types into are offered on
+ * the last page only, and said so on the others.
+ */
+const AddAQuestion = ({
+  form,
+  page,
+  number,
+  last,
+}: {
+  readonly form: IntakeForm
+  readonly page: FormPage
+  readonly number: number
+  readonly last: boolean
+}) => (
+  <div className="fe-add">
+    <span className="fe-add-label">{ADD_A_QUESTION}</span>
+    {OWN_KINDS.filter((kind) => last || !isTypedKind(kind)).map((kind) => (
+      <Link
+        key={kind}
+        className="btn sec small"
+        href={editorHref(form.name, { adding: kind, addTo: page.id }, 'new-question')}
+        aria-label={addKindLabel(kind, `page ${number}`)}
+      >
+        {ADD_KIND[kind]}
+      </Link>
+    ))}
+    {last ? null : <span className="fe-add-note">{TYPED_ON_THE_LAST_PAGE}</span>}
+  </div>
+)
+
+/**
+ * A question being added, open in place at the foot of its page: worded, given a
+ * hint, required or not, and for the two choice kinds its choices, one to a line.
+ * *Save* adds it as the form's next version, live at once.
+ *
+ * Outside the page's list of rows, so the drag never picks it up: it is not on
+ * the form until it is saved.
+ */
+const NewQuestionRow = ({
+  form,
+  page,
+  kind,
+  state,
+}: {
+  readonly form: IntakeForm
+  readonly page: FormPage
+  readonly kind: OwnKind
+  readonly state: EditorState
+}) => {
+  const draft = state.draft
+  return (
+    <div className="fe-q editing fe-new" id="new-question">
+      <span className="fe-handle" aria-hidden="true">
+        ⋮⋮
+      </span>
+      <div>
+        <div className="fe-wording">{NEW_QUESTION}</div>
+        <div className="fe-meta">
+          <span className="fe-chip custom">{YOUR_QUESTION}</span>
+          <span className="fe-chip">{KIND[kind]}</span>
+        </div>
+        <form method="post" action="/intake-forms/form/add-question" className="fe-edit">
+          <input type="hidden" name="form" value={form.name} />
+          <input type="hidden" name="pageId" value={page.id} />
+          <input type="hidden" name="kind" value={kind} />
+          {state.refusal ? (
+            <p className="toast error" role="alert">
+              {state.refusal}
+            </p>
+          ) : null}
+          <div>
+            <label htmlFor="fe-new-wording">{QUESTION}</label>
+            <textarea
+              id="fe-new-wording"
+              name="wording"
+              rows={1}
+              required
+              autoFocus
+              defaultValue={draft?.wording ?? ''}
+            />
+          </div>
+          <div>
+            <label htmlFor="fe-new-hint">{HINT}</label>
+            <textarea id="fe-new-hint" name="hint" rows={1} defaultValue={draft?.hint ?? ''} />
+          </div>
+          {hasChoices(kind) ? (
+            <div>
+              <label htmlFor="fe-new-choices">{CHOICES}</label>
+              <textarea
+                id="fe-new-choices"
+                name="choices"
+                rows={3}
+                required
+                className="fe-choices"
+                defaultValue={draft?.choices ?? ''}
+              />
+            </div>
+          ) : null}
+          <KindAndRequired
+            id="new"
+            kind={KIND_IN_FULL[kind]}
+            required={draft?.required ?? false}
+            fixed={false}
+          />
+          <div className="fe-warn">{aboutYourQuestion(kind)}</div>
+          <div className="btn-row">
+            <button type="submit" className="small">
+              {SAVE}
+            </button>
+            <Link className="btn sec small" href={editorHref(form.name, {}, `page-${page.id}`)}>
+              {CANCEL}
+            </Link>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+/** What an open row says about one of the Ministry's own questions. */
+const aboutYourQuestion = (kind: OwnKind): string =>
+  [ABOUT_YOUR_QUESTION, ...(isTypedKind(kind) ? [ABOUT_TYPED] : []), ...(hasChoices(kind) ? [ABOUT_CHOICES] : [])].join(
+    ' ',
+  )
+
+/**
+ * The open row's kind, which an edit cannot change, and *Required*: greyed and
+ * ticked on a question Discipler keeps required.
+ */
+const KindAndRequired = ({
+  id,
+  kind,
+  required,
+  fixed,
+}: {
+  readonly id: string
+  readonly kind: string
+  readonly required: boolean
+  readonly fixed: boolean
+}) => (
+  <div className="row2">
+    <div>
+      <label htmlFor={`fe-kind-${id}`}>{KIND_LABEL}</label>
+      <select id={`fe-kind-${id}`} disabled>
+        <option>{kind}</option>
+      </select>
+    </div>
+    <div>
+      <span className="fe-spacer" aria-hidden="true">
+        &nbsp;
+      </span>
+      <label className="check" htmlFor={`fe-required-${id}`}>
+        <input
+          id={`fe-required-${id}`}
+          type="checkbox"
+          name="required"
+          value="yes"
+          defaultChecked={required}
+          disabled={fixed}
+        />{' '}
+        {REQUIRED}
+      </label>
+      {/* A disabled box sends nothing, and nothing is *not required*. */}
+      {fixed ? <input type="hidden" name="required" value="yes" /> : null}
+    </div>
+  </div>
+)
 
 /** The head of the first or last page: what its intro or thank-you says, and *Edit*. */
 const TextSummary = ({
@@ -344,11 +555,15 @@ const TextForm = ({
   </form>
 )
 
-/** The chips under a question's wording: what fixes it, what kind it is, and whether it may be left. */
+/**
+ * The chips under a question's wording: whose it is or what fixes it, what kind it
+ * is, and whether it may be left.
+ */
 const Chips = ({ question }: { readonly question: FormQuestion }) => {
-  const rules = BUILT_IN[question.key]
+  const rules = rulesOf(question)
   return (
     <div className="fe-meta">
+      {isOwnQuestion(question) ? <span className="fe-chip custom">{YOUR_QUESTION}</span> : null}
       {rules.alwaysAsked ? <span className="fe-chip fixed">{ALWAYS_ASKED}</span> : null}
       {rules.usedBy ? <span className="fe-chip uses">{USED_BY[rules.usedBy]}</span> : null}
       <span className="fe-chip">{KIND[rules.kind]}</span>
@@ -372,7 +587,8 @@ const QuestionRow = ({
 }) => {
   const open = state.question === question.key
   const anchor = `q-${question.key}`
-  const rules = BUILT_IN[question.key]
+  const rules = rulesOf(question)
+  const about = isOwnQuestion(question) ? aboutYourQuestion(question.kind) : ABOUT[question.key]
   // A move the form would refuse is not offered: the top of the form going up, a
   // question that stays on the last page, the first-time question onto the side's.
   const canMove = (direction: 'up' | 'down') => {
@@ -430,33 +646,33 @@ const QuestionRow = ({
               <label htmlFor={`fe-hint-${question.key}`}>{HINT}</label>
               <textarea id={`fe-hint-${question.key}`} name="hint" rows={1} defaultValue={question.hint ?? ''} />
             </div>
-            <div className="row2">
-              <div>
-                <label htmlFor={`fe-kind-${question.key}`}>{KIND_LABEL}</label>
-                <select id={`fe-kind-${question.key}`} disabled>
-                  <option>{KIND_IN_FULL[rules.kind]}</option>
-                </select>
-              </div>
-              <div>
-                <span className="fe-spacer" aria-hidden="true">
-                  &nbsp;
-                </span>
-                <label className="check" htmlFor={`fe-required-${question.key}`}>
-                  <input
-                    id={`fe-required-${question.key}`}
-                    type="checkbox"
-                    name="required"
-                    value="yes"
-                    defaultChecked={question.required}
-                    disabled={rules.requiredFixed}
-                  />{' '}
-                  {REQUIRED}
-                </label>
-                {/* A disabled box sends nothing, and nothing is *not required*. */}
-                {rules.requiredFixed ? <input type="hidden" name="required" value="yes" /> : null}
-              </div>
-            </div>
-            {ABOUT[question.key] ? <div className="fe-warn">{ABOUT[question.key]}</div> : null}
+            {isOwnQuestion(question) && hasChoices(question.kind) ? (
+              <fieldset className="fe-choice-boxes">
+                {question.choices.map((choice, index) => (
+                  <div key={choice.id}>
+                    <label htmlFor={`fe-choice-${choice.id}`}>{choiceLabel(index + 1)}</label>
+                    <input
+                      id={`fe-choice-${choice.id}`}
+                      type="text"
+                      name={`choice:${choice.id}`}
+                      required
+                      defaultValue={choice.wording}
+                    />
+                  </div>
+                ))}
+                <div>
+                  <label htmlFor={`fe-more-${question.key}`}>{MORE_CHOICES}</label>
+                  <textarea id={`fe-more-${question.key}`} name="moreChoices" rows={1} className="fe-choices" />
+                </div>
+              </fieldset>
+            ) : null}
+            <KindAndRequired
+              id={question.key}
+              kind={KIND_IN_FULL[rules.kind]}
+              required={question.required}
+              fixed={rules.requiredFixed}
+            />
+            {about ? <div className="fe-warn">{about}</div> : null}
             <div className="btn-row">
               <button type="submit" className="small">
                 {SAVE}
