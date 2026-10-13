@@ -291,7 +291,6 @@ const ANSWER_BAND: Record<Satisfaction | 'none', string> = {
   none: 'review',
 }
 
-/** The line over the names, wrapped between its parts, for the item's own card on Follow-Up (ticket 10). */
 /**
  * One unresolved Concern: who raised it and when, or the line it is drawn under,
  * its words as the card opened, and **Resolve**, which clears them.
@@ -351,6 +350,7 @@ export const ReadingLine = ({
   return <p className="pc-audit">{readingLine({ by: readerName, at: now }, earlier, now, timeZone)}</p>
 }
 
+/** The line over the names, wrapped between its parts, for the item's own card on Follow-Up (ticket 10). */
 export const HeadLine = ({ line }: { readonly line: string }) => (
   <p className="pc-kind">
     <BetweenParts line={line} />
