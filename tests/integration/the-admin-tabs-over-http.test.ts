@@ -360,7 +360,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Admin tabs', () => {
       await church.tickAt(at(0))
       const answering = new Date(at(0).getTime() + 60_000)
       await church.replyAt(answering, leader, '1')
-      await church.replyAt(new Date(answering.getTime() + 60_000), leader, 'C')
+      await church.replyAt(new Date(answering.getTime() + 60_000), leader, 'D')
       const words = 'She lost her job and did not want to talk long.'
       await church.replyAt(new Date(answering.getTime() + 120_000), leader, words)
 
