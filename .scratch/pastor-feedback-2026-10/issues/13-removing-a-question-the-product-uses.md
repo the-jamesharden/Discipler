@@ -7,7 +7,7 @@ Design: `.lavish/pastor-feedback/mock-forms-remove.html`, settled in James's Lav
 
 **Blocked by:** 11, 12
 
-**Status:** needs-triage
+**Status:** ready-for-agent
 
 ## Acceptance
 
