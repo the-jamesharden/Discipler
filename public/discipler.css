@@ -1031,6 +1031,8 @@ ul.rtags { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; lis
 .pc-head .card-title { font-size: 1.45rem; font-weight: 700; margin: 0; }
 .pc-head .pill { margin-top: 0.35rem; }
 .pc-notice { margin: 0.9rem 1.4rem 0; box-shadow: none; }
+/* A band straight after what an action did stands clear of it, as the people do. */
+.pc-notice + .pc-band { margin-top: 0.9rem; border-top: 1px solid var(--border); }
 .pc-band { padding: 0.95rem 1.4rem; border-bottom: 1px solid var(--border); font-size: 0.92rem; line-height: 1.5; }
 .pc-band p { margin: 0; }
 .pc-band.concern { background: linear-gradient(135deg, rgba(220, 53, 69, 0.08), rgba(220, 53, 69, 0.03)); border-left: 4px solid var(--red-concern); }
@@ -1048,6 +1050,7 @@ ul.rtags { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; lis
 .pc-band.answer-b .pc-band-label { color: #3d7a4c; }
 .pc-band.answer-c .pc-band-label { color: #8a6b28; }
 .pc-band .pc-band-label:last-child { margin-bottom: 0; }
+.pc-band .pc-band-label span { display: inline-block; }
 .pc-band .pc-quote { font-family: var(--serif); font-size: 1.12rem; line-height: 1.45; color: var(--text); margin: 0.1rem 0 0.45rem; }
 .pc-band .btn-row { margin-top: 0.7rem; }
 .pc-audit { font-size: 0.76rem; color: var(--text-light); padding: 0.6rem 1.4rem 0.9rem; margin: 0; border-bottom: 1px solid var(--border); }

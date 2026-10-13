@@ -33,9 +33,9 @@ const cardIn = (html: string): string => {
   return html.slice(start, end < 0 ? undefined : end)
 }
 
-/** Every band label on the card, as it reads. */
+/** Every band label on the card, as it reads: its parts are drawn apart so a narrow card wraps between them. */
 const bandsOf = (html: string): string[] =>
-  [...html.matchAll(/<p class="pc-band-label">(.*?)<\/p>/g)].map((match) => match[1]!.replace(/<!-- -->/g, ''))
+  [...html.matchAll(/<p class="pc-band-label">(.*?)<\/p>/g)].map((match) => match[1]!.replace(/<[^>]*>/g, ''))
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 

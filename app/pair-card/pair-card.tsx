@@ -130,16 +130,7 @@ export const PairCard = ({
         <div className="pc-head">
           <div>
             <p className="pc-kind">
-              {/* A narrow card wraps the line between its parts, never inside one. */}
-              {head.split(' · ').map((part, index, parts) =>
-                index < parts.length - 1 ? (
-                  <Fragment key={index}>
-                    <span>{`${part} ·`}</span>{' '}
-                  </Fragment>
-                ) : (
-                  <span key={index}>{part}</span>
-                ),
-              )}
+              <BetweenParts line={head} />
             </p>
             <h2 id="pc-title" className="card-title">{title}</h2>
             <span className={`pill ${pill.state}`}>{pill.label}</span>
@@ -157,7 +148,9 @@ export const PairCard = ({
 
         {thisWeek && weekLine && !weeksConcern ? (
           <div className={`pc-band ${ANSWER_BAND[thisWeek.satisfaction ?? 'none']}`}>
-            <p className="pc-band-label">{weekLine}</p>
+            <p className="pc-band-label">
+              <BetweenParts line={weekLine} />
+            </p>
           </div>
         ) : null}
 
@@ -166,9 +159,11 @@ export const PairCard = ({
           return (
             <div key={concern.id} className="pc-band concern">
               <p className="pc-band-label">
-                {concern === weeksConcern && weekLine
-                  ? weekLine
-                  : concernLabel(concern.raisedByName, concern.raisedAt, now, timeZone)}
+                {concern === weeksConcern && weekLine ? (
+                  <BetweenParts line={weekLine} />
+                ) : (
+                  concernLabel(concern.raisedByName, concern.raisedAt, now, timeZone)
+                )}
               </p>
               <p className="pc-quote">{said === null ? WORDS_CLEARED : `“${said}”`}</p>
               <form method="post" action="/follow-up/concern/resolve" className="btn-row">
@@ -265,6 +260,22 @@ export const PairCard = ({
     </div>
   )
 }
+
+/**
+ * A line of parts joined by *·*, which a narrow card wraps between its parts and
+ * never inside one (*answered / 12:18pm*): the head over the names, and this
+ * week's line in the band.
+ */
+const BetweenParts = ({ line }: { readonly line: string }) =>
+  line.split(' · ').map((part, index, parts) =>
+    index < parts.length - 1 ? (
+      <Fragment key={index}>
+        <span>{`${part} ·`}</span>{' '}
+      </Fragment>
+    ) : (
+      <span key={index}>{part}</span>
+    ),
+  )
 
 /**
  * The band this week's answer is drawn in, coloured as its letter's column is on
