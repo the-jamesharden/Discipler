@@ -189,6 +189,9 @@ A relationship does carry a `kind` of `one_to_one` or `group`, declared when it 
 
 Gender matching is an absolute constraint. It is a safeguarding policy, and manual pairing cannot override it. A ministry that wants mixed-gender relationships disables the rule deliberately in settings.
 
+It is applied to everybody whose gender a form asked.
+A Ministry that removes the gender question from a form (Pastor feedback, ticket 13) cannot have it applied to anybody who fills that form in, and Suggested Pairs and the settings say so; see *Removing a question* under *A Ministry Controls Its Intake Forms*.
+
 The age constraint governs suggestion only. A leader more than ten years younger than a participant is not suggested for them, but an admin may pair across that gap manually. Fixed at ten years for V1.
 
 See `docs/adr/0001-pairing-suggestion-inputs.md`.
@@ -326,8 +329,9 @@ Every edit is recorded in the Ministry's history with what it replaced and who m
 A rename keeps every answer already given, because a question is the same question whatever it is called (ADR-0014).
 
 **What is always asked.**
-Name and mobile number are asked on every form, of everybody, and cannot be made optional: they are who somebody is to Discipler.
-Gender, age band, the matching question (*I'm joining as…*), availability and, on the groups form, the choice of group also stay required, because the pairing rules, the age rule, Suggested Pairs and the groups form read them and do not yet say what they do without them; each is marked on its row with what uses it.
+Name and mobile number are asked on every form, of everybody, and can be neither made optional nor removed: they are who somebody is to Discipler.
+Gender, age band, the matching question (*I'm joining as…*), availability and, on the groups form, the choice of group stay required for as long as a form asks them, because the pairing rules, the age rule, Suggested Pairs and the groups form read them and none of them meets one Person who answered beside another who skipped; each is marked on its row with what uses it.
+A form may stop asking any of them altogether (see *Removing a question*).
 An Admin may make the goal, the first-time question and the email optional or required.
 The choices of the built-in questions are not edited in the form: the goal's are the Ministry's own goals, edited as before with *Other* always last, and the groups are the Ministry's groups.
 
@@ -336,6 +340,28 @@ Name, mobile number, email and the goal stay on the last page, beside Submit, be
 The first-time question comes on a later page than the matching question, which words it, and the choice of group on a later page than gender, which decides the groups offered.
 A page added goes just before the last, and a page with nothing on it is skipped by the wizard.
 The two agreements are not questions on the form: they are on the last page of both forms, in the versioned wording a consent record points at, and no Admin edits them.
+
+**Removing a question.**
+Any question but name and mobile number can be removed from either form, a Ministry's own questions included (Pastor feedback, ticket 13; James, Lavish review of 2026-10-12).
+The open row ends in *Remove question…*; pressing it asks once more in place, and only the second button removes.
+The question says how many people's answers it deletes and that this cannot be undone, because a removal destroys its answers (ADR-0014): every answer given to it on that form is deleted, superseded ones too, and the removal's history event keeps what each one said.
+The other form's answers to the same question stay.
+The removal is live at once, as the form's next version; somebody part-way through finishes the version they opened.
+A removed question of Discipler's own is offered back from *Add a question*, in the preset's words, with none of its old answers.
+
+For a question the product reads, the warning also says what stops working, and afterwards each surface that does less says why rather than quietly doing it:
+
+- **Availability** (mentor and mentee form): Suggested Pairs cannot suggest anybody, and every pairing is made by hand. The tab says the form no longer asks when people are free, and lists nobody.
+- **Gender**: the gender pairing rules cannot be applied to anybody who fills in that form. A pairing with somebody whose gender is not known is not refused by them; Suggested Pairs (for the mentor and mentee form) and the Gender section of the settings say so. On the groups form, a form that asks no gender offers only the groups open to men and women alike.
+- **Age band** (mentor and mentee form): the age rule cannot be applied, and Suggested Pairs suggests people of any age together. It and the Age section of the settings say so.
+- **The goal**: there is no goal tiebreaker, and Suggested Pairs says so.
+- **The matching question**: Suggested Pairs cannot tell who offered to disciple, so it suggests as Disciplers only people who already disciple somebody, and says so. The first-time question is worded from it, so the matching question is removed only once the first-time question has been, and the first-time question is added back only to a form that asks the matching question.
+- **The choice of group** (groups form): nobody who fills it in chooses a group; each one waits in Follow-Up to be placed.
+
+While a form asks gender or the age band, somebody with no answer to it is not suggested at all: a rule that cannot be checked for one Person is not quietly dropped for them.
+Suggested Pairs reads the mentor and mentee form, which is the form that signs people up to be paired one to one.
+Two removals delete nothing: the email somebody gave is kept on the Person beside their name and number, and the choice of group is kept as the membership or the request it made, not as an answer.
+The matching question's answers are kept on the consent records the form writes; removing it clears the side on them and changes nothing else on any consent record.
 
 **A Ministry's own questions are shown and never matched on.**
 An Admin adds questions of the Ministry's own to either form from *Add a question* at the foot of any page: short text, long text, one choice, several choices, or yes and no (Pastor feedback, ticket 12; James, Lavish review of 2026-10-12).
@@ -404,6 +430,7 @@ Optional: email address.
 That is every Ministry's preset form. Since Pastor feedback ticket 11 a Ministry may make the Discipleship Goal optional, and the email required, on its own form (see *A Ministry Controls Its Intake Forms*); somebody who leaves an optional goal unanswered is ranked on availability alone, as somebody whose option was removed is.
 
 Gender is required because it feeds suggestion — gender is an absolute constraint, so a missing value would make a person unsuggestable entirely — and no Ministry's form can make it optional.
+Since Pastor feedback ticket 13 a Ministry may remove the gender question from a form altogether, with every answer to it; the gender pairing rules then cannot be applied to anybody who fills in that form, and the surfaces that apply them say so (see *Removing a question* under *A Ministry Controls Its Intake Forms*).
 
 There is one intake form. Gender is a required field on that same form, selected by the person while they complete it, and it feeds the pairing eligibility and suggestion rules from there. There is no separate gender intake form and no separate gender intake workflow.
 
