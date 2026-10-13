@@ -2254,10 +2254,33 @@ export interface ThisWeeksCheckIns {
   readonly checkIns: readonly CheckInThisWeek[]
 }
 
-/** What the Check-Ins tab derives from its document: the week, and the badge's number. */
+/**
+ * This week's answer for the relationship whose card is open on Check-Ins, which
+ * the card opens with in its band (Pastor feedback, ticket 09). Never the words
+ * of a Concern.
+ */
+export interface ThisWeeksAnswer {
+  readonly answeredAt: Date
+  readonly met: boolean | null
+  readonly satisfaction: Satisfaction | null
+  /**
+   * The unresolved Concern this answer raised, whose words the same band
+   * carries; null where it raised none or it has been resolved.
+   */
+  readonly concernId: ConcernId | null
+}
+
+/**
+ * What the Check-Ins tab derives from its document: the week, the badge's
+ * number, and the pair card the address names (Pastor feedback, ticket 09).
+ */
 export interface CheckInsPage {
   readonly week: ThisWeeksCheckIns
   readonly followUpCount: number
+  /** The pair card the address names, or null where it names none this Admin may open. */
+  readonly card: PairCard | null
+  /** This week's answer for the card's relationship, or null where none came this week. */
+  readonly cardThisWeek: ThisWeeksAnswer | null
 }
 
 export interface CheckInsReader {
@@ -2267,7 +2290,7 @@ export interface CheckInsReader {
    * time through `CommandService.openConcern`, and the authenticated role holds
    * no grant on that column.
    */
-  readCheckInsPage(): Promise<AdminPage<CheckInsPage>>
+  readCheckInsPage(card?: RelationshipId | null): Promise<AdminPage<CheckInsPage>>
 }
 
 /**

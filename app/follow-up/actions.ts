@@ -20,9 +20,9 @@ export const FOLLOW_UP = '/follow-up'
 /**
  * Where a route returns to: Follow-Up, or the pair card a form was posted from
  * (Pastor feedback, ticket 07), which sends its own address as `back`. The card
- * may be open on Overview, Check-Ins or Follow-Up. Only a card's address is
- * taken, matched whole, so a body cannot send an Admin anywhere else; anything
- * else is Follow-Up, as it always was.
+ * may be open on Overview, Check-Ins or Follow-Up (tickets 07, 09 and 10). Only a
+ * card's address is taken, matched whole, so a body cannot send an Admin
+ * anywhere else; anything else is Follow-Up, as it always was.
  */
 const A_CARD = /^\/(overview|check-ins|follow-up)\?card=[0-9a-f-]{36}$/i
 

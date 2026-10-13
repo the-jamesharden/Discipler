@@ -1,8 +1,8 @@
 import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createTestClock, weeks } from '~/domain/clock'
-import { concernId, personId, type IdSource, type PersonId } from '~/domain/ids'
-import { readThisWeeksCheckIns } from '~/platform/supabase/check-ins-reader'
+import { concernId, personId, relationshipId, type IdSource, type PersonId } from '~/domain/ids'
+import { readCheckInsWithACard, readThisWeeksCheckIns } from '~/platform/supabase/check-ins-reader'
 import { createPostgresEffectStore } from '~/platform/supabase/effect-store'
 import { createCommandService } from '~/service/command-service'
 import type { ThisWeeksCheckIns } from '~/service/ports'
@@ -81,6 +81,9 @@ describe("this week's Check-Ins", () => {
         }),
       checkInsAt: async (now: Date): Promise<ThisWeeksCheckIns> =>
         readThisWeeksCheckIns(await signInAs(ministry), ministry.id, createTestClock(now)),
+      /** The tab with one relationship's card open, as `?card=` asks for it. */
+      cardAt: async (now: Date, card: string) =>
+        readCheckInsWithACard(await signInAs(ministry), ministry.id, relationshipId(card), createTestClock(now)),
       /** A Leader with `count` relationships, all accepted a week before week zero. */
       leading: async (leaderName: string, count: number) => {
         const leader = await congregant(leaderName)
@@ -298,6 +301,95 @@ describe("this week's Check-Ins", () => {
       expect(error).toBeNull()
       expect(JSON.stringify(data)).not.toContain('lost his job')
       expect(Object.keys((data as object[])[0] ?? {})).not.toContain('detail')
+    })
+  })
+
+  describe('the card a row opens (Pastor feedback, ticket 09)', () => {
+    it("carries this week's answer and when it came, for the card's band", async () => {
+      const church = await aMinistry('Card Week Chapel')
+      const { leader, relationships } = await church.leading('Card Week Leader', 1)
+
+      await church.tickAt(at(0))
+      await church.replyAt(minutesAfter(at(0), 1), leader, '1')
+      await church.replyAt(minutesAfter(at(0), 2), leader, 'B')
+
+      const page = await church.cardAt(minutesAfter(at(0), 3), relationships[0]!)
+      expect(page?.card?.relationshipId).toBe(relationships[0])
+      expect(page?.cardThisWeek).toEqual({
+        answeredAt: minutesAfter(at(0), 2),
+        met: true,
+        satisfaction: 'good',
+        concernId: null,
+      })
+      // The tab is the tab, with the card beside it.
+      expect(page?.week.checkIns).toHaveLength(1)
+    })
+
+    it('names the Concern this week\'s D raised, so its words sit in the same band', async () => {
+      const church = await aMinistry('Card Concern Chapel')
+      const { leader, relationships } = await church.leading('Card Concern Leader', 1)
+
+      await church.tickAt(at(0))
+      await church.replyAt(minutesAfter(at(0), 1), leader, '1')
+      await church.replyAt(minutesAfter(at(0), 2), leader, 'D')
+      await church.replyAt(minutesAfter(at(0), 3), leader, 'She has stopped coming on Sundays.')
+      const { rows } = await pool.query<{ id: string }>(`select id from concern where relationship_id = $1`, [
+        relationships[0],
+      ])
+
+      const page = await church.cardAt(minutesAfter(at(0), 4), relationships[0]!)
+      expect(page?.cardThisWeek).toMatchObject({ satisfaction: 'concern', concernId: rows[0]!.id })
+      expect(page?.card?.concerns.map((concern) => concern.id)).toEqual([rows[0]!.id])
+      expect(JSON.stringify(page)).not.toContain('stopped coming')
+
+      // Resolved: the answer stands and no Concern is named.
+      await church.serviceAt(minutesAfter(at(0), 5)).execute({
+        type: 'concern.resolve',
+        ministryId: church.ministry.id,
+        concernId: concernId(rows[0]!.id),
+        resolvedBy: church.ministry.adminUserId,
+      })
+      const after = await church.cardAt(minutesAfter(at(0), 6), relationships[0]!)
+      expect(after?.cardThisWeek).toMatchObject({ satisfaction: 'concern', concernId: null })
+      expect(after?.card?.concerns).toEqual([])
+    })
+
+    it("leaves last week's unresolved Concern in a band of its own", async () => {
+      const church = await aMinistry('Card Last Week Chapel')
+      const { leader, relationships } = await church.leading('Card Last Week Leader', 1)
+
+      await church.tickAt(at(0))
+      await church.replyAt(minutesAfter(at(0), 1), leader, '1')
+      await church.replyAt(minutesAfter(at(0), 2), leader, 'D')
+      await church.replyAt(minutesAfter(at(0), 3), leader, 'A hard week at home.')
+      await church.tickAt(at(1))
+      await church.replyAt(minutesAfter(at(1), 1), leader, '1')
+      await church.replyAt(minutesAfter(at(1), 2), leader, 'A')
+
+      const page = await church.cardAt(minutesAfter(at(1), 3), relationships[0]!)
+      expect(page?.cardThisWeek).toMatchObject({ satisfaction: 'outstanding', concernId: null })
+      expect(page?.card?.concerns).toHaveLength(1)
+    })
+
+    it('carries no answer for a relationship nothing was answered for this week', async () => {
+      const church = await aMinistry('Card Unanswered Chapel')
+      const { relationships } = await church.leading('Card Unanswered Leader', 1)
+
+      await church.tickAt(at(0))
+
+      const page = await church.cardAt(minutesAfter(at(0), 1), relationships[0]!)
+      expect(page?.card?.relationshipId).toBe(relationships[0])
+      expect(page?.cardThisWeek).toBeNull()
+    })
+
+    it("opens nothing for a relationship of another Ministry's", async () => {
+      const mine = await aMinistry('Card Mine Chapel')
+      const theirs = await aMinistry('Card Theirs Chapel')
+      const { relationships } = await theirs.leading('Card Their Leader', 1)
+
+      const page = await mine.cardAt(at(0), relationships[0]!)
+      expect(page?.card).toBeNull()
+      expect(page?.cardThisWeek).toBeNull()
     })
   })
 

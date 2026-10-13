@@ -37,7 +37,16 @@ Two metrics carry the operational picture and must not be conflated: **Response 
 
 ## Check-Ins
 
-The Check-Ins tab is the week's raw operational picture. It shows how many check-ins have been completed, how many are still pending, and how many concerns were raised, with the completed responses broken down at the top into four columns, A (outstanding), B (good), C (okay), and D (concern). The A, B and C columns list the relationships behind them. The D column does not: it shows a count and the way to Follow-Up. Concerns are never presented as a browsable list, never exported, and never quoted in a report — an admin reading "four concerns this week" opens each relationship's card to see what was said.
+The Check-Ins tab is the week's raw operational picture.
+It shows how many check-ins have been completed, how many are still pending, and how many concerns are still open, then the completed responses in four columns, A (outstanding), B (good), C (okay), and D (concern), each heading coloured as its slice of the Overview's Check-In Ratings chart.
+There is no summary strip above them.
+Every column lists the relationships behind it by name, with the date answered, D included: a D whose concern is still unresolved is marked red, and its words are never on the list.
+This replaces a sealed D column that showed only a count and the way to Follow-Up (James, 2026-10-12, Pastor feedback ticket 09).
+Pressing any relationship in any column opens the same pair card the Overview opens, or its group form for a group, over Check-Ins; the address says which card is open, and closing it returns to the row it came from.
+On Check-Ins the card opens with this week's answer and when it came in its first band, in the Ministry's timezone (*This week · Met · B good · answered 9:07am*), coloured as its letter's column; the Last check-in fact, which would say the same answer again, is left out.
+Where this week's answer raised a concern that is still unresolved, that band is the concern's, its words under the week's line, with **Resolve**; a concern from an earlier week that is still unresolved keeps its own band beneath it.
+Resolving from the card clears the concern on Check-Ins and on Follow-Up alike, and the card says so where the pastor is; ending the relationship from the card says so at the top of Check-Ins.
+Concerns are never presented as a browsable list, never exported, and never quoted in a report — an admin reading "four concerns this week" opens each relationship's card to see what was said.
 Raw concern text is the most sensitive data in the product, so its words show in one place only: the pair card of the relationship it is about, which shows them as it opens.
 Opening the card is the read, and it is recorded exactly as `Read the concern` records it, one viewing per concern; a line under the concern on the card says who read it and when.
 This reverses an earlier rule, that reading a concern took a deliberate extra click past the list as friction (James, 2026-10-12, Pastor feedback ticket 07).
