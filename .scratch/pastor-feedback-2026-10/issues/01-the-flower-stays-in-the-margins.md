@@ -21,3 +21,13 @@ Today: `public/discipler.css`, *the botanical frame*, draws `/botanical/blossom-
 ## Not in this ticket
 
 - Any other change to the look of the Admin surface.
+
+## Comments
+
+Decisions made while building, each with the alternative not taken:
+
+- **The column is kept clear by the stylesheet, not by the paintings.** The frame on the Admin tabs is masked clear of the content box (the container's 1280px less its 1.5rem padding) and fades in over the 3rem beyond it, so nothing shows behind a card, a heading or the gaps between cards at any window width, for Blossom, Tulips and Trees alike. The alternative was recomposing each painting to fit the margin, which cannot work: the margin depends on the window's width and the paintings are drawn with `cover`.
+- **The middle of every composition is bare paper**, and `tests/app/the-flower-stays-in-the-margins.test.ts` checks it for every design at every shape. Only Blossom changed: Tulips and Trees regenerate byte for byte.
+- **Admin tabs below 1424px wide show no painting.** Below that the margin beside the content is under 6rem, which would show only a sliver at each window edge; the ticket allows the sprays to go where there is no margin. The alternative was keeping a faded sliver down to 1280px, which reads as a mistake rather than a frame. A 1366px laptop therefore loses the painting; a 1440px one keeps about 100px of it in each margin.
+- **Sign-in keeps the painting round its card, unmasked.** The card is opaque and is the only content, so nothing shows behind it at any width. On a phone (720px and narrower) the card sits at the top, over the top-right spray, so the top quarter of the painting is masked away and only the bottom-left spray shows, below the card. The alternative was masking a 520px column on sign-in too, which would cut the bottom-left spray with a vertical edge below the card for no gain.
+- **Pages on the tab bar that wear no painting (Check-Ins, Suggested Pairs, Materials) and Intake Forms, which is outside the Admin shell, are unchanged.**

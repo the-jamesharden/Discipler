@@ -89,8 +89,8 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; }
 /* ---- the botanical frame ---- */
 
 /* Watercolour behind the cards on sign-in and on three of the Admin tabs, each its
-   own (`ADMIN_TABS` in `app/shell.tsx`): two corner sprays joined by a vine, or a
-   strip down each side. A layer fixed to the window, drawn by
+   own (`ADMIN_TABS` in `app/shell.tsx`): a spray in two corners, or a strip down
+   each side. A layer fixed to the window, drawn by
    `app/botanical.tsx`, which says nothing and takes no presses. A frame, not
    wallpaper that scrolls away down the Roster.
 
@@ -111,6 +111,25 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; }
 @media (max-aspect-ratio: 68/100) { .botanical-frame { background-image: var(--art-06); } }
 @media (max-aspect-ratio: 53/100) { .botanical-frame { background-image: var(--art-046); } }
 @media print { .botanical-frame { display: none; } }
+
+/* The painting frames the content and never sits behind it (Pastor feedback
+   2026-10, ticket 01): on the Admin tabs it is masked clear of the content column,
+   the container's 1280px less its padding, and fades in over the 3rem beyond it, so
+   no card, heading or gap between cards has a leaf behind it. A window with less
+   than 6rem of margin beside the content (1232px + 2 x 6rem = 1424px) would show only
+   a sliver at each edge, so it shows none. Sign-in's one card is opaque and
+   the painting shows around it; on a phone the card sits at the top, over the
+   top-right spray, so that spray goes and the bottom-left one stays below the card. */
+.container.botanical > .botanical-frame {
+  --edge: calc(50% - min(50%, 640px) + 1.5rem);
+  --keep: linear-gradient(to right, #000 calc(var(--edge) - 3rem), transparent var(--edge), transparent calc(100% - var(--edge)), #000 calc(100% - var(--edge) + 3rem));
+  -webkit-mask-image: var(--keep);
+  mask-image: var(--keep);
+}
+@media (max-width: 1423px) { .container.botanical > .botanical-frame { display: none; } }
+@media (max-width: 720px) {
+  .centred.botanical > .botanical-frame { -webkit-mask-image: linear-gradient(transparent 25%, #000 35%); mask-image: linear-gradient(transparent 25%, #000 35%); }
+}
 
 /* Pressing a tab: the old painting drifts out past the window's edges as the new
    one drifts in from beyond them, over it; to or from a tab with none, only the one
