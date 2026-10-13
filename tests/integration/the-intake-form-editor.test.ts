@@ -138,6 +138,14 @@ describe('a Ministry’s Intake forms', () => {
     ).rejects.toThrow(/is what somebody was asked/)
   })
 
+  it('never deletes a version while its Ministry stands', async () => {
+    await expect(
+      pool.query(`delete from intake_form_version where ministry_id = $1`, [ministry.id]),
+    ).rejects.toThrow(/is what somebody was asked/)
+    const { error } = await serviceRoleClient().from('intake_form_version').delete().eq('ministry_id', ministry.id)
+    expect(error).not.toBeNull()
+  })
+
   it('refuses an edit the form does not allow, and saves nothing', async () => {
     await expect(reword('phone', 'Mobile number', { required: false })).rejects.toBeInstanceOf(IntakeFormRefused)
 

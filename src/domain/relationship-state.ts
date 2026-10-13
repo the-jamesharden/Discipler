@@ -284,7 +284,7 @@ export const deriveRelationshipState = (
 
   // An assertion rather than a precedence rule, which the settled comment on
   // ticket 10 asks for by name. The two cannot both hold today: a Concern needs a
-  // `1` and then a `C`, and that `1` establishes both that the week was answered
+  // `1` and then a `D`, and that `1` establishes both that the week was answered
   // and that a meeting happened -- clearing both Stalled conditions with the very
   // reply that raises the Concern. A precedence rule would be dead code that goes
   // quietly wrong the day a Participant check-in or an Admin can raise one. This

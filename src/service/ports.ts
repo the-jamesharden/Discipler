@@ -596,7 +596,10 @@ export interface UnitOfWork {
   /**
    * One version of one of this Ministry's Intake forms, as somebody opened it:
    * the preset for version 0, a saved version otherwise, and null for a version
-   * this Ministry never saved. Versions are never changed, so this takes no lock.
+   * this Ministry never saved. Read behind the same lock as `intakeForm`: the
+   * version never changes, but a submission read against it must not land while
+   * a question's removal stands between reading the answers it takes and
+   * deleting them (ticket 13).
    */
   intakeFormVersion(form: IntakePath, version: number): Promise<IntakeForm | null>
 
@@ -2122,9 +2125,27 @@ export interface FollowUpCard {
    * people; a band shows the rest.
    */
   readonly subjects: readonly CardSubject[]
+  /**
+   * A relationship that has ended with Concerns still unresolved, on the card
+   * of its own its badge opens: ending a pair resolves none of them, and
+   * `pair` is null once it has ended. Null on every other card.
+   */
+  readonly ended: EndedConcerns | null
   /** Newest first. */
   readonly happened: readonly Happening[]
   readonly timeZone: string
+}
+
+/**
+ * The unresolved Concerns of a relationship that has ended, with who has read
+ * them, as the pair card carries them while it runs.
+ */
+export interface EndedConcerns {
+  readonly item: ConcernCareItem
+  /** Newest first. */
+  readonly readings: readonly ConcernReading[]
+  /** The signed-in Admin's own name, for the reading this opening records. */
+  readonly readerName: string | null
 }
 
 /** Somebody an item is about, as the card shows a person, without a side: they may be on no pair. */

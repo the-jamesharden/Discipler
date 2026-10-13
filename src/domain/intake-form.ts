@@ -72,6 +72,9 @@ export const ownQuestionKey = (id: string): OwnQuestionKey => `${OWN_QUESTION_PR
 /** Any question a form can ask. */
 export type QuestionKey = BuiltInQuestion | OwnQuestionKey
 
+export const isQuestionKey = (value: unknown): value is QuestionKey =>
+  isBuiltInQuestion(value) || isOwnQuestionKey(value)
+
 /**
  * The five kinds a Ministry may add a question as (ticket 12): short text, long
  * text, one choice, several choices, and yes or no.

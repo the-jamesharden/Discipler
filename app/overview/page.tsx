@@ -68,7 +68,7 @@ export default async function OverviewPage({
 
   // Opening the card reads its Concerns, and records the reading as *Read the
   // concern* does. After the read and never instead of it.
-  const words = card ? await readTheConcerns(card, admin) : []
+  const words = card ? await readTheConcerns(card.concerns, admin) : []
   const now = new Date()
   const outcome = careOutcomeMessage(query.done)
   const refusal = careRefusalMessage(query.error)

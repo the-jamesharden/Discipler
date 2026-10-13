@@ -106,6 +106,17 @@ describe('a readable link per church', () => {
       expect(third.shortName).toBe(`${first.shortName}-3`)
     })
 
+    it('starts at -2 where another church’s own name ends in a number', async () => {
+      const word = fresh()
+      const numbered = await createMinistryWithAdmin(`Grace ${word} 300`)
+      const first = await createMinistryWithAdmin(`Grace ${word}`)
+      const second = await createMinistryWithAdmin(`Grace ${word}`)
+
+      expect(numbered.shortName).toBe(`grace-${word}-300`)
+      expect(first.shortName).toBe(`grace-${word}`)
+      expect(second.shortName).toBe(`grace-${word}-2`)
+    })
+
     it('is never given a name the app’s own routes need', async () => {
       const ministry = await createMinistryWithAdmin('Overview')
 

@@ -6,7 +6,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
  * The webhook is reached with no session, no cookie and no token -- only the
  * number in the payload says who is speaking, and a number is public. Without this,
  * anybody who knows a congregant's mobile can post a `STOP` that opts them out of
- * their Ministry, a `PAUSE` that suspends a relationship, or a forged `C` that
+ * their Ministry, a `PAUSE` that suspends a relationship, or a forged `D` that
  * raises a Concern against somebody's name. None of those are recoverable by the
  * congregant, and two of them are silent.
  *

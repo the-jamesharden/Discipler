@@ -15,13 +15,16 @@ import type {
   FollowUpCareItem,
   FollowUpPage,
   CardSubject,
+  ConcernReading,
+  EndedConcerns,
   Happening,
+  OutstandingConcern,
   PairCard,
 } from '~/service/ports'
 import { careNeededFrom, withPlacements } from './care-needed-reader'
 import { formsNowFrom, ownAnswersFrom } from './intake-form-document'
 import { adminPage, readPageDocument, type PageDocument } from './page'
-import { pairCardFrom } from './pair-card-reader'
+import { pairCardFrom, readingsFrom } from './pair-card-reader'
 import {
   answersFrom,
   concernsFrom,
@@ -81,8 +84,8 @@ const ageBandOf = (value: unknown): AgeBand | null =>
 
 /**
  * The card `key` names, or null where it names nothing this Admin may open: a
- * relationship that has ended or is another Ministry's, or an item that has been
- * resolved since.
+ * relationship that is another Ministry's, or has ended with no Concern left
+ * unresolved, or an item that has been resolved since.
  */
 export const followUpCardFrom = (
   doc: PageDocument,
@@ -99,9 +102,17 @@ export const followUpCardFrom = (
   // A relationship's card carries every open item about it; an item's own card,
   // that item alone.
   const onIt = followUps.filter((item) => (pair ? item.relationshipId === key : item.id === key))
-  if (!pair && onIt.length === 0) return null
+  // Ending a pair resolves none of its Concerns, so one that has ended keeps
+  // its badge, and the badge a card of its own to read and resolve them on.
+  const badge = pair
+    ? undefined
+    : items.flatMap((item) => (item.source === 'concern' && item.relationshipId === key ? [item] : []))[0]
+  if (!pair && onIt.length === 0 && !badge) return null
 
   const extra = (doc.follow_up_card ?? {}) as Record<string, unknown>
+  const ended: EndedConcerns | null = badge
+    ? { item: badge, readings: readingsFrom(extra.readings), readerName: text(extra.reader_name) }
+    : null
   const nameOf = namesFrom(history)
   const forms = formsNowFrom(extra.intake_forms)
 
@@ -129,9 +140,11 @@ export const followUpCardFrom = (
     pair,
     items: onIt,
     subjects,
+    ended,
     happened: whatHasHappened({
       history,
       pair,
+      ended,
       items: onIt,
       earlier: rows(extra.earlier),
       earlierConcerns: rows(extra.earlier_concerns),
@@ -162,6 +175,7 @@ export const followUpCardFrom = (
 export const whatHasHappened = ({
   history,
   pair,
+  ended,
   items,
   earlier,
   earlierConcerns,
@@ -169,6 +183,8 @@ export const whatHasHappened = ({
 }: {
   readonly history: HistoryInputs
   readonly pair: PairCard | null
+  /** The unresolved Concerns of a relationship that has ended, on their own card. */
+  readonly ended: EndedConcerns | null
   readonly items: readonly FollowUpCareItem[]
   readonly earlier: readonly Record<string, unknown>[]
   readonly earlierConcerns: readonly Record<string, unknown>[]
@@ -176,10 +192,21 @@ export const whatHasHappened = ({
 }): readonly Happening[] => {
   const happened: Happening[] = items.map((item) => ({ kind: 'item_raised', at: item.raisedAt, item }))
 
-  if (pair) {
-    const id = pair.relationshipId
+  // The unresolved Concerns on the card: the pair's while it runs, and once it
+  // has ended, theirs alone.
+  const concerned: {
+    readonly id: string
+    readonly concerns: readonly OutstandingConcern[]
+    readonly readings: readonly ConcernReading[]
+    readonly readerName: string | null
+  } | null = pair
+    ? { id: pair.relationshipId, concerns: pair.concerns, readings: pair.readings, readerName: pair.readerName }
+    : ended
+      ? { id: ended.item.relationshipId, concerns: ended.item.concerns, readings: ended.readings, readerName: ended.readerName }
+      : null
 
-    for (const concern of pair.concerns) {
+  if (concerned) {
+    for (const concern of concerned.concerns) {
       happened.push({ kind: 'concern_raised', at: concern.raisedAt, by: concern.raisedByName })
     }
     // The reading this opening records, which the page makes after this read,
@@ -187,8 +214,8 @@ export const whatHasHappened = ({
     // latest, so an Admin who opens the card five times one morning is one line
     // and not five.
     const readings = [
-      ...(pair.concerns.length > 0 ? [{ at: now, by: pair.readerName }] : []),
-      ...pair.readings.map((reading) => ({ at: reading.viewedAt, by: reading.viewerName })),
+      ...(concerned.concerns.length > 0 ? [{ at: now, by: concerned.readerName }] : []),
+      ...concerned.readings.map((reading) => ({ at: reading.viewedAt, by: reading.viewerName })),
     ].sort((a, b) => b.at.getTime() - a.at.getTime())
     const seen = new Set<string>()
     for (const reading of readings) {
@@ -200,11 +227,14 @@ export const whatHasHappened = ({
 
     // The D each unresolved Concern was raised from.
     for (const week of answersFrom(history)) {
-      if (week.relationshipId === id && week.satisfaction === 'concern' && week.concernOpen) {
+      if (week.relationshipId === concerned.id && week.satisfaction === 'concern' && week.concernOpen) {
         happened.push({ kind: 'check_in', at: week.openedAt, outcome: 'concern' })
       }
     }
+  }
 
+  if (pair) {
+    const id = pair.relationshipId
     const reason = pair.reasons[0]
     const row = history.relationships.find((each) => text(each.id) === id)
     if (reason && row && history.timeZone) {

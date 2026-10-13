@@ -1,9 +1,9 @@
 import type { Clock } from '~/domain/clock'
+import { looksLikeAnId } from '~/domain/ids'
 import type { PersonPage } from '~/service/ports'
 import { formsNowFrom, ownAnswersFrom } from './intake-form-document'
 import type { PageDocument } from './page'
 import { rosterPageFrom } from './roster-reader'
-import { looksLikeAnId } from './rows'
 
 /**
  * The person page's one read (Pastor feedback, ticket 12): the Roster's document,

@@ -409,6 +409,12 @@ export const itemBandLabel = (kind: FollowUpPayload['kind'], who: string | null)
 export const itemCardLine = (raisedAt: Date, now: Date, timeZone: string): string =>
   `Follow-Up · raised ${dayMonth(raisedAt, timeZone)}, ${ago(raisedAt, now)}`
 
+/**
+ * Over the card of a relationship that has ended with its Concerns unresolved:
+ * *Ended · Concern unresolved*, or *Ended · 2 concerns unresolved*.
+ */
+export const endedCardLine = (count: number): string => `Ended · ${concernTag(count)} unresolved`
+
 // ---------------------------------------------------------------------------
 // What has happened (Pastor feedback, ticket 10)
 // ---------------------------------------------------------------------------

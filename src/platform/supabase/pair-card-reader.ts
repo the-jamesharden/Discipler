@@ -44,6 +44,16 @@ const ageBandOf = (value: unknown): AgeBand | null =>
 
 const genderOf = (value: unknown): Gender | null => GENDERS.find((gender) => gender === value) ?? null
 
+/** Who has read a card's unresolved Concerns, newest first, as the document says it. */
+export const readingsFrom = (value: unknown): ConcernReading[] =>
+  (Array.isArray(value) ? (value as Record<string, unknown>[]) : []).flatMap((reading) => {
+    const concern = text(reading.concern_id)
+    const viewedAt = instant(reading.viewed_at)
+    return concern && viewedAt
+      ? [{ concernId: concernId(concern), viewedAt, viewerName: text(reading.viewer_name), byThisReader: reading.by_this_reader === true }]
+      : []
+  })
+
 /**
  * The card, or null where there is none to show: the address named nothing, or
  * a relationship this Admin cannot see or one that has ended.
@@ -131,15 +141,6 @@ export const pairCardFrom = (doc: PageDocument, history: HistoryInputs, clock: C
   const material = row.material as Record<string, unknown> | null | undefined
   const materialSince = material ? instant(material.started_at) : null
 
-  const readings: ConcernReading[] = (Array.isArray(row.readings) ? (row.readings as Record<string, unknown>[]) : [])
-    .flatMap((reading) => {
-      const concern = text(reading.concern_id)
-      const viewedAt = instant(reading.viewed_at)
-      return concern && viewedAt
-        ? [{ concernId: concernId(concern), viewedAt, viewerName: text(reading.viewer_name), byThisReader: reading.by_this_reader === true }]
-        : []
-    })
-
   // While it is still paused. Resuming leaves the item standing on Follow-Up,
   // where an Admin resolves it, and the card has nothing left to offer for it.
   const expired = pause
@@ -166,7 +167,7 @@ export const pairCardFrom = (doc: PageDocument, history: HistoryInputs, clock: C
         : null,
     material: material && materialSince ? { title: text(material.title), since: materialSince } : null,
     concerns: concerns.outstanding.get(id) ?? [],
-    readings,
+    readings: readingsFrom(row.readings),
     readerName: text(row.reader_name),
     pauseExpired:
       expired && expired.payload.kind === 'pause_expired' ? { periodWeeks: expired.payload.periodWeeks } : null,

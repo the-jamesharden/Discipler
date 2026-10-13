@@ -2,7 +2,7 @@ import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createTestClock } from '~/domain/clock'
 import { IntakeFormRefused } from '~/domain/errors'
-import { ministryId, type IdSource } from '~/domain/ids'
+import { ministryId, personId, type IdSource } from '~/domain/ids'
 import type { IntakeFormFields } from '~/domain/intake'
 import { ownQuestionsOf, questionOn } from '~/domain/intake-form'
 import { createPostgresEffectStore } from '~/platform/supabase/effect-store'
@@ -287,5 +287,158 @@ describe('removing a question from an Intake form', () => {
     const form = (await reader.readIntakePage(ministry.id))!.form
     expect(questionOn(form, 'gender')?.wording).toBe('Gender')
     expect((await counts()).discipleship.gender).toBeUndefined()
+  })
+})
+
+/**
+ * Which form a submission was made from, where the submission does not say: the
+ * tokenized reopen link asks the questions of the form its Person had answered,
+ * and a removal from that form takes its answers, never one from a form they
+ * answered only afterwards. And a submission made while a question is being
+ * removed waits for the removal, so history keeps every answer the delete takes.
+ */
+describe('a submission and the form it is filed under', () => {
+  let ministry: MinistryFixture
+  let store: ReturnType<typeof createPostgresEffectStore>
+  let reader: ReturnType<typeof createPostgresIntakeReader>
+  let pool: pg.Pool
+
+  const ids: IdSource = { next: () => crypto.randomUUID() }
+  const service = () =>
+    createCommandService({ clock: createTestClock(new Date()), ids, store, appBaseUrl: 'https://discipler.test' })
+
+  const answered = (fullName: string, phone: string, extra: Partial<IntakeFormFields> = {}): IntakeFormFields => ({
+    fullName,
+    phone,
+    email: null,
+    ageBand: '25-34',
+    gender: 'female',
+    goalId: 'other',
+    goalOther: 'Prayer',
+    availability: ['monday:12'],
+    smsConsent: true,
+    contactSharing: 'granted',
+    source: 'pastor_link',
+    intakePath: 'discipleship',
+    declaredSide: 'mentee',
+    experience: 'first_time',
+    groupId: null,
+    ...extra,
+  })
+
+  const onTheGroupsForm = {
+    intakePath: 'group',
+    declaredSide: null,
+    experience: null,
+    goalId: null,
+    goalOther: null,
+    groupId: 'none',
+  } as const
+
+  const submit = async (fields: IntakeFormFields) => {
+    const page =
+      fields.intakePath === 'group' ? await reader.readGroupIntakePage(ministry.id) : await reader.readIntakePage(ministry.id)
+    await service().execute({
+      type: 'intake.submit',
+      ministryId: ministryId(ministry.id),
+      form: fields,
+      formVersion: page!.form.version,
+    })
+  }
+
+  const reopenedBy = async (fullName: string, fields: IntakeFormFields) => {
+    const { rows } = await pool.query<{ id: string }>(
+      `select id from person where ministry_id = $1 and full_name = $2`,
+      [ministry.id, fullName],
+    )
+    const { effects } = await service().execute({
+      type: 'intake.reopen',
+      ministryId: ministryId(ministry.id),
+      personId: personId(rows[0]!.id),
+    })
+    const token = effects.flatMap((effect) => (effect.kind === 'intake_link.issue' ? [effect.link.token] : []))[0]!
+    const page = (await reader.readReopenedIntakePage(token))!
+    await service().execute({
+      type: 'intake.submit',
+      ministryId: ministryId(ministry.id),
+      form: fields,
+      token,
+      ownQuestionsFrom: page.form.name,
+      formVersion: page.form.version,
+    })
+  }
+
+  const remove = (key: string, form: 'discipleship' | 'group') =>
+    service().execute({
+      type: 'intake_form.remove_question',
+      ministryId: ministryId(ministry.id),
+      form,
+      key,
+      editedBy: ministry.adminUserId,
+    })
+
+  const ageBandsOf = async (fullName: string) => {
+    const { rows } = await pool.query<{ age_band: string | null }>(
+      `select i.age_band
+         from intake_submission i
+         join person p on p.id = i.person_id
+        where p.ministry_id = $1 and p.full_name = $2
+        order by i.submitted_at, i.id`,
+      [ministry.id, fullName],
+    )
+    return rows.map((row) => row.age_band)
+  }
+
+  beforeAll(async () => {
+    ministry = await createMinistryWithAdmin('Filing Chapel')
+    store = createPostgresEffectStore(localSupabase().databaseUrl)
+    reader = createPostgresIntakeReader(localSupabase().databaseUrl)
+    pool = new pg.Pool({ connectionString: localSupabase().databaseUrl })
+  })
+
+  afterAll(async () => {
+    await store.close()
+    await reader.close()
+    await pool.end()
+  })
+
+  it('makes a submission wait while the same form is being edited', async () => {
+    const holder = await pool.connect()
+    try {
+      await holder.query('begin')
+      await holder.query(
+        `select pg_advisory_xact_lock(hashtextextended($1::text || ':intake_form:' || 'discipleship', 0))`,
+        [ministry.id],
+      )
+
+      let landed = false
+      const submitting = submit(answered('Finn Hale', aTestPhoneNumber())).then(() => {
+        landed = true
+      })
+      await new Promise((resolve) => setTimeout(resolve, 750))
+      expect(landed).toBe(false)
+
+      await holder.query('commit')
+      await submitting
+      expect(landed).toBe(true)
+    } finally {
+      holder.release()
+    }
+  })
+
+  it('files a reopened submission under the form its Person had answered by then', async () => {
+    const eve = { name: 'Eve Park', phone: aTestPhoneNumber() }
+    await submit(answered(eve.name, eve.phone, { ageBand: '25-34' }))
+    await reopenedBy(
+      eve.name,
+      answered(eve.name, eve.phone, { ageBand: '35-44', intakePath: null, declaredSide: null, experience: null }),
+    )
+    await submit(answered(eve.name, eve.phone, { ageBand: '45-54', ...onTheGroupsForm }))
+
+    await remove('ageBand', 'group')
+    expect(await ageBandsOf(eve.name)).toEqual(['25-34', '35-44', null])
+
+    await remove('ageBand', 'discipleship')
+    expect(await ageBandsOf(eve.name)).toEqual([null, null, null])
   })
 })

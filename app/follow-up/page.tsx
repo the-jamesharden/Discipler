@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { looksLikeAnId } from '~/domain/ids'
 import { getCareNeededReader } from '~/service/container'
 import type { FollowUpCard } from '~/service/ports'
 import { readTheConcerns, type ConcernWords } from '../pair-card/open'
@@ -13,6 +14,7 @@ import {
   NOTHING_NEEDS_ATTENTION,
 } from './copy'
 import { anchorOf, cardOf, frontOf } from './front'
+import { EndedCard } from './ended-card'
 import { ItemBand } from './item-band'
 import { ItemCard } from './item-card'
 import { WhatHasHappened } from './what-has-happened'
@@ -48,7 +50,7 @@ export default async function FollowUpPage({
   const query = await searchParams
   // Whatever arrives in the address is whatever somebody typed there: a uuid or
   // nothing, and the card is read only for what this Admin's Ministry holds.
-  const asked = query.card !== undefined && /^[0-9a-f-]{36}$/i.test(query.card) ? query.card.toLowerCase() : null
+  const asked = query.card !== undefined && looksLikeAnId(query.card) ? query.card.toLowerCase() : null
 
   const page = await getCareNeededReader().readFollowUpPage(asked)
   if (page.status === 'not-an-admin') return <NotAnAdmin title={CARE_NEEDED_HEADING} />
@@ -59,7 +61,11 @@ export default async function FollowUpPage({
 
   // Opening the card reads its Concerns, and records the reading as *Read the
   // concern* did. After the read and never instead of it.
-  const words = card?.pair ? await readTheConcerns(card.pair, admin) : []
+  const words = card?.pair
+    ? await readTheConcerns(card.pair.concerns, admin)
+    : card?.ended
+      ? await readTheConcerns(card.ended.item.concerns, admin)
+      : []
   const now = new Date()
 
   const outcome = careOutcomeMessage(query.done)
@@ -134,7 +140,7 @@ export default async function FollowUpPage({
   )
 }
 
-/** The card the address names: the pair card in its fuller form, or an item's own. */
+/** The card the address names: the pair card in its fuller form, an ended pair's Concerns, or an item's own. */
 const TheCard = ({
   card,
   words,
@@ -149,8 +155,11 @@ const TheCard = ({
   const back = `/follow-up?card=${card.key}`
   // Back to the item it was opened from: without script the browser scrolls
   // there, and with it the page has not moved.
-  const close = `/follow-up#${anchorOf(card.key, card.pair === null)}`
+  const close = `/follow-up#${anchorOf(card.key, card.pair === null && card.ended === null)}`
 
+  if (card.ended) {
+    return <EndedCard card={card} ended={card.ended} words={words} now={now} close={close} back={back} notice={notice} />
+  }
   if (!card.pair) return <ItemCard card={card} now={now} close={close} back={back} notice={notice} />
 
   const pair = card.pair

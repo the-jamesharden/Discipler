@@ -155,8 +155,11 @@ create policy held_short_name_command_read on held_short_name
 
 -- The first short name free for a Ministry that wants this one: the name itself
 -- if nobody has ever held it and no route needs it, otherwise `-2`, `-3` and so
--- on, starting past the highest suffix already held so a name a thousand test
--- Ministries share costs one read rather than a thousand. Security definer
+-- on, the lowest nobody holds. That is found in one read rather than counted up
+-- to, so a name a thousand test Ministries share costs one read and not a
+-- thousand: it is `-2`, or one past a suffix somebody holds. A number that is
+-- simply part of a church's name, as in *Grace 300*, is held like any other and
+-- is never counted on from. Security definer
 -- because the answer depends on every Ministry's names, which no connection
 -- acting for one Ministry may read.
 create function app.free_short_name(wanted text)
@@ -175,11 +178,19 @@ begin
     return wanted;
   end if;
 
-  select coalesce(max(substring(h.short_name from length(wanted) + 2)::bigint), 1) + 1
+  select min(c.n)
     into suffix
-    from public.held_short_name h
-   where h.short_name like wanted || '-%'
-     and substring(h.short_name from length(wanted) + 2) ~ '^[0-9]{1,9}$';
+    from (
+      select 2::bigint as n
+      union
+      select substring(h.short_name from length(wanted) + 2)::bigint + 1
+        from public.held_short_name h
+       where h.short_name like wanted || '-%'
+         and substring(h.short_name from length(wanted) + 2) ~ '^[0-9]{1,9}$'
+    ) c
+   where not exists (
+     select 1 from public.held_short_name h where h.short_name = wanted || '-' || c.n
+   );
 
   loop
     -- The suffix always fits: the name is cut back for it, at the cost of its

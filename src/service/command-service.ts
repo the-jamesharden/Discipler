@@ -19,7 +19,7 @@ import {
 } from '~/domain/errors'
 import type { FollowUpItemId, IdSource, ImportRowId, PersonId, RelationshipId } from '~/domain/ids'
 import { answersNoGroupInMind, INTAKE_PATHS, isOneOf } from '~/domain/intake'
-import { removalDeletesAnswers, type IntakeForm, type QuestionKey } from '~/domain/intake-form'
+import { isQuestionKey, removalDeletesAnswers, type IntakeForm } from '~/domain/intake-form'
 import type { IntakeLinkToken } from '~/domain/intake-link'
 import { REMOVED_FROM_THE_ROSTER, type PairingToLetGo } from '~/domain/removal'
 import type { InvitationToken } from '~/domain/invitations'
@@ -1189,8 +1189,8 @@ export const createCommandService = ({
         // The same for a question's removal (Pastor feedback, ticket 13): read
         // after the form, behind its lock, and only where the removal deletes
         // anything, so what history keeps is what the delete is about to take.
-        ...(command.type === 'intake_form.remove_question' && removalDeletesAnswers(command.key as QuestionKey)
-          ? { questionAnswers: await unit.answersTo(command.form, command.key as QuestionKey) }
+        ...(command.type === 'intake_form.remove_question' && isQuestionKey(command.key) && removalDeletesAnswers(command.key)
+          ? { questionAnswers: await unit.answersTo(command.form, command.key) }
           : {}),
         // Read inside the transaction, behind the same advisory lock the goal
         // list takes, so two Admins cannot both create the same title against a

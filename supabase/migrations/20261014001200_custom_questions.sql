@@ -265,7 +265,9 @@ grant execute on function app.pair_card(uuid, uuid) to authenticated;
 -- ---------------------------------------------------------------------------
 -- Restated whole from `20261014001000_follow_up_opens_the_card.sql`, with each
 -- subject's answers and the forms that word them, for the reason the pair card
--- carries them: the card draws a subject as it draws a person on a pair.
+-- carries them: the card draws a subject as it draws a person on a pair. And
+-- with who has read the Concerns still unresolved on a relationship that has
+-- ended, whose card is theirs alone.
 create or replace function app.follow_up_card(target_ministry_id uuid, card_id uuid)
 returns jsonb
 language sql
@@ -362,6 +364,38 @@ as $$
           and c.relationship_id = card_id
           and c.resolved_at is not null),
       '[]'::jsonb
+    ),
+
+    -- For a relationship that has ended with Concerns still unresolved, which
+    -- `app.pair_card` no longer opens: ending a pair resolves none of them, so
+    -- the card of their own is where they are read and resolved. Who has read
+    -- them, as `app.pair_card` says it, and the signed-in Admin's own name.
+    'readings', coalesce(
+      (select jsonb_agg(jsonb_build_object(
+                'concern_id', v.concern_id,
+                'viewed_at', v.viewed_at,
+                'viewer_name', reader.full_name,
+                'by_this_reader', coalesce(v.viewed_by = (select auth.uid()), false))
+              order by v.viewed_at desc, v.id)
+         from public.concern_viewing v
+         join public.concern c
+           on c.id = v.concern_id
+          and c.ministry_id = v.ministry_id
+         left join public.person reader
+           on reader.user_id = v.viewed_by
+          and reader.ministry_id = v.ministry_id
+        where v.ministry_id = target_ministry_id
+          and c.relationship_id = card_id
+          and c.resolved_at is null),
+      '[]'::jsonb
+    ),
+
+    'reader_name', (
+      select p.full_name
+        from public.person p
+       where p.ministry_id = target_ministry_id
+         and p.user_id = (select auth.uid())
+       limit 1
     )
   );
 $$;

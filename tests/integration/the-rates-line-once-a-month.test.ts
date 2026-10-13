@@ -283,6 +283,7 @@ describe('the rates line, once a month', () => {
     const texts = await inbox(church.ministry, leader)
     const which = (body: string) =>
       body.includes('/invitation/x') ? 'invitation' : body.includes('just joined Tuesday men') ? 'joined' : 'starter'
+    expect(texts).toHaveLength(3)
     expect(Object.fromEntries(texts.map((row) => [which(row.body), row.carries_rates_line]))).toEqual({
       invitation: false,
       starter: true,

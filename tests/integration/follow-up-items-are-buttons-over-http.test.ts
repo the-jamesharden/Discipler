@@ -199,6 +199,49 @@ describe.skipIf(skipUnlessAppIsRunning)('Follow-Up items are buttons', () => {
     )
   })
 
+  it('keeps a Concern open on a card of its own once its pair has ended, to read and resolve', async () => {
+    const church = await aMinistry('Ended Worry Chapel')
+    const { cookie } = await signIn(church.ministry)
+    const rachel = await church.congregant('Rachel Ended')
+    const relationship = await church.pairedEarly(rachel, await church.congregant('Emily Ended'))
+    await church.tickAt(at(0))
+    await church.replyAt(minutesAfter(at(0), 1), rachel, '1')
+    await church.replyAt(minutesAfter(at(0), 2), rachel, 'D')
+    const said = 'He has lost his job and is not telling his wife.'
+    await church.replyAt(minutesAfter(at(0), 3), rachel, said)
+
+    const ended = await post('/follow-up/relationship/end', cookie, {
+      relationshipId: relationship,
+      outcome: 'discontinued',
+      reason: 'Moved away.',
+      back: `/follow-up?card=${relationship}`,
+    })
+    expect(ended.location).toContain('done=ended')
+
+    const address = `/follow-up?card=${relationship}`
+    expect((await getPage('/follow-up', cookie)).html).toContain(`href="${address}"`)
+    const card = cardIn((await getPage(address, cookie)).html)
+    expect(card).toContain('<span>Ended ·</span> <span>Concern unresolved</span>')
+    expect(card).toMatch(/<h2 id="pc-title"[^>]*>Rachel Ended<\/h2>/)
+    expect(card).toContain(said)
+    expect(card).toMatch(/Read by Pastor of Ended Worry Chapel at \d{1,2}:\d{2}[ap]m\./)
+    expect(card).toContain('Rachel Ended raised a concern in the weekly check-in.')
+    expect(card).not.toContain('End relationship…')
+
+    const { rows: readings } = await pool.query(
+      `select v.viewed_by from concern_viewing v join concern c on c.id = v.concern_id where c.relationship_id = $1`,
+      [relationship],
+    )
+    expect(readings.map((row) => row.viewed_by)).toEqual([church.ministry.adminUserId])
+
+    const resolved = await post('/follow-up/concern/resolve', cookie, formOn(card, '/follow-up/concern/resolve'))
+    expect(resolved.location).toContain(`/follow-up?card=${relationship}&done=concern-resolved`)
+    const { html } = await getPage(`/follow-up?card=${relationship}&done=concern-resolved`, cookie)
+    expect(words(html)).toContain('Concern resolved and its words cleared.')
+    expect(html).not.toContain('data-testid="pair-card"')
+    expect(html).not.toContain(`href="${address}"`)
+  })
+
   it('opens a stall with the condition that fired, the silent check-ins, and nothing to resolve', async () => {
     const church = await aMinistry('Silent Follow Chapel')
     const { cookie } = await signIn(church.ministry)
@@ -357,6 +400,7 @@ describe.skipIf(skipUnlessAppIsRunning)('Follow-Up items are buttons', () => {
       `/follow-up?card=${theirs}`,
       `/follow-up?card=${rows[0]!.id}`,
       '/follow-up?card=not-an-id',
+      `/follow-up?card=${'-'.repeat(36)}`,
       `/follow-up?card=${crypto.randomUUID()}`,
     ]) {
       const { response, html } = await getPage(path, cookie)

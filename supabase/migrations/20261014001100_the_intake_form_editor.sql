@@ -53,20 +53,34 @@ create index intake_form_version_latest_idx
   on intake_form_version (ministry_id, form, version desc);
 
 -- A version is what somebody was shown; rewriting one would change the words a
--- submission says it answered. DELETE is left to the Ministry's own cascade.
+-- submission says it answered, and deleting one would leave a submission naming
+-- a version nobody can read. It goes only with its Ministry, by the cascade, as
+-- a held short name does.
 create function app.reject_intake_form_rewrite()
 returns trigger
 language plpgsql
+security definer
+set search_path = ''
 as $$
 begin
+  if tg_op = 'DELETE'
+     and not exists (select 1 from public.ministry m where m.id = old.ministry_id) then
+    return old;
+  end if;
   raise exception
     'intake_form_version is what somebody was asked: % is not permitted', tg_op
     using errcode = 'restrict_violation';
 end;
 $$;
 
+revoke execute on function app.reject_intake_form_rewrite() from public, anon, authenticated, service_role;
+
 create trigger intake_form_version_no_update
   before update on intake_form_version
+  for each row execute function app.reject_intake_form_rewrite();
+
+create trigger intake_form_version_no_delete
+  before delete on intake_form_version
   for each row execute function app.reject_intake_form_rewrite();
 
 create trigger intake_form_version_no_truncate
@@ -84,7 +98,7 @@ create policy intake_form_version_read_own_ministry on intake_form_version
 
 revoke all on intake_form_version from anon, authenticated, service_role;
 grant select on intake_form_version to authenticated;
-grant select, insert, delete on intake_form_version to service_role;
+grant select, insert on intake_form_version to service_role;
 grant select, insert on intake_form_version to discipler_command;
 
 create policy intake_form_version_command on intake_form_version

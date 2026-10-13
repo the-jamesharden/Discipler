@@ -13,7 +13,7 @@ import { GROUP_PATH, type IntakePath } from '~/domain/intake'
 import { PRESET_VERSION, presetForm, type IntakeForm } from '~/domain/intake-form'
 import { asSent } from '~/domain/own-answers'
 import { shortName, type ShortName } from '~/domain/short-name'
-import { ministryId, personId, relationshipId } from '~/domain/ids'
+import { looksLikeAnId, ministryId, personId, relationshipId } from '~/domain/ids'
 import type {
   DiscipleshipGoalOption,
   GroupIntakePage,
@@ -24,7 +24,7 @@ import type {
   ReopenedIntakePage,
 } from '~/service/ports'
 import { formOrPreset, intakeFormFrom } from './intake-form-document'
-import { declaredGenderOf, looksLikeAnId } from './rows'
+import { declaredGenderOf } from './rows'
 
 /**
  * What the Intake form needs to render itself. The page is served to somebody with

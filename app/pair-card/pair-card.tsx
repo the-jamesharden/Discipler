@@ -3,7 +3,14 @@ import { Fragment, type ReactNode } from 'react'
 import { goalAsShown } from '~/domain/discipleship-goals'
 import { A_GROUP } from '~/domain/relationships'
 import type { Satisfaction } from '~/domain/check-in'
-import type { CardSubject, PairCard as Card, PairCardPerson, ThisWeeksAnswer } from '~/service/ports'
+import type {
+  CardSubject,
+  ConcernReading,
+  OutstandingConcern,
+  PairCard as Card,
+  PairCardPerson,
+  ThisWeeksAnswer,
+} from '~/service/ports'
 import { EndForm } from '../follow-up/end-form'
 import { followUpLine, RESUME } from '../follow-up/copy'
 import { Mail, Message, Phone } from '../icons'
@@ -112,12 +119,6 @@ export const PairCard = ({
   const sides = [leaders, disciples]
   const leader = leaders[0]?.fullName ?? 'The Discipler'
 
-  // The reading this opening recorded, and the latest by anybody else: whether
-  // somebody has already picked up the phone, not this Admin's own refreshes.
-  const thisReading = { by: card.readerName, at: now }
-  const other = card.readings.find((reading) => !reading.byThisReader)
-  const earlier = other ? { by: other.viewerName, at: other.viewedAt } : null
-
   // This week's answer opens the card on Check-Ins. The Concern it raised, while
   // unresolved, is drawn in the same band and first; any other keeps its own.
   const weekLine = thisWeek ? thisWeekLine(thisWeek, now, timeZone) : null
@@ -161,30 +162,19 @@ export const PairCard = ({
           </div>
         ) : null}
 
-        {concerns.map((concern) => {
-          const said = words.find((each) => each.concernId === concern.id)?.words ?? null
-          return (
-            <div key={concern.id} className="pc-band concern">
-              <p className="pc-band-label">
-                {concern === weeksConcern && weekLine ? (
-                  <BetweenParts line={weekLine} />
-                ) : (
-                  concernLabel(concern.raisedByName, concern.raisedAt, now, timeZone)
-                )}
-              </p>
-              <p className="pc-quote">{said === null ? WORDS_CLEARED : `“${said}”`}</p>
-              <form method="post" action="/follow-up/concern/resolve" className="btn-row">
-                <input type="hidden" name="concernId" value={concern.id} />
-                <input type="hidden" name="back" value={back} />
-                <button type="submit" className="small">
-                  {RESOLVE_AND_CLEAR}
-                </button>
-              </form>
-            </div>
-          )
-        })}
+        {concerns.map((concern) => (
+          <ConcernBand
+            key={concern.id}
+            concern={concern}
+            words={words}
+            label={concern === weeksConcern && weekLine ? <BetweenParts line={weekLine} /> : null}
+            back={back}
+            now={now}
+            timeZone={timeZone}
+          />
+        ))}
         {card.concerns.length > 0 ? (
-          <p className="pc-audit">{readingLine(thisReading, earlier, now, timeZone)}</p>
+          <ReadingLine readerName={card.readerName} readings={card.readings} now={now} timeZone={timeZone} />
         ) : null}
 
         {card.reasons.map((reason) => {
@@ -302,6 +292,65 @@ const ANSWER_BAND: Record<Satisfaction | 'none', string> = {
 }
 
 /** The line over the names, wrapped between its parts, for the item's own card on Follow-Up (ticket 10). */
+/**
+ * One unresolved Concern: who raised it and when, or the line it is drawn under,
+ * its words as the card opened, and **Resolve**, which clears them.
+ */
+export const ConcernBand = ({
+  concern,
+  words,
+  label,
+  back,
+  now,
+  timeZone,
+}: {
+  readonly concern: OutstandingConcern
+  readonly words: readonly ConcernWords[]
+  /** In place of who raised it and when; null for that. */
+  readonly label: ReactNode
+  readonly back: string
+  readonly now: Date
+  readonly timeZone: string
+}) => {
+  const said = words.find((each) => each.concernId === concern.id)?.words ?? null
+  return (
+    <div className="pc-band concern">
+      <p className="pc-band-label">
+        {label ?? concernLabel(concern.raisedByName, concern.raisedAt, now, timeZone)}
+      </p>
+      <p className="pc-quote">{said === null ? WORDS_CLEARED : `“${said}”`}</p>
+      <form method="post" action="/follow-up/concern/resolve" className="btn-row">
+        <input type="hidden" name="concernId" value={concern.id} />
+        <input type="hidden" name="back" value={back} />
+        <button type="submit" className="small">
+          {RESOLVE_AND_CLEAR}
+        </button>
+      </form>
+    </div>
+  )
+}
+
+/**
+ * The line under the Concerns: the reading this opening recorded, and the
+ * latest by anybody else, so an Admin sees whether somebody has already picked
+ * up the phone, not their own refreshes.
+ */
+export const ReadingLine = ({
+  readerName,
+  readings,
+  now,
+  timeZone,
+}: {
+  readonly readerName: string | null
+  readonly readings: readonly ConcernReading[]
+  readonly now: Date
+  readonly timeZone: string
+}) => {
+  const other = readings.find((reading) => !reading.byThisReader)
+  const earlier = other ? { by: other.viewerName, at: other.viewedAt } : null
+  return <p className="pc-audit">{readingLine({ by: readerName, at: now }, earlier, now, timeZone)}</p>
+}
+
 export const HeadLine = ({ line }: { readonly line: string }) => (
   <p className="pc-kind">
     <BetweenParts line={line} />

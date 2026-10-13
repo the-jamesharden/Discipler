@@ -92,7 +92,7 @@ import {
 import { readStandingPause, type StandingPause } from '~/domain/pause'
 import type { MaterialRecipient, MaterialStanding } from '~/domain/material-notices'
 import { materialItemFrom } from './material-items'
-import { count, looksLikeAnId, text } from './rows'
+import { count, text } from './rows'
 import type { MemberRole, RelationshipOutcome } from '~/domain/relationships'
 import type { ConcernResolution, ConcernViewing, NewConcern } from '~/domain/concerns'
 import {
@@ -126,6 +126,7 @@ import {
   followUpItemId,
   importRowId,
   intakeSubmissionId,
+  looksLikeAnId,
   materialId,
   ministryId,
   personId,
@@ -1031,10 +1032,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // and the loser would meet the version's unique key as an unhandled error
     // rather than finding their edit made on top of the other's. Keyed on the
     // Ministry and the form, so editing one form does not make the other wait.
-    await client.query(
-      `select pg_advisory_xact_lock(hashtextextended(app.command_ministry_id()::text || ':intake_form:' || $1, 0))`,
-      [form],
-    )
+    await lockTheIntakeForm(client, form)
 
     // The latest saved version, scoped by the policy on this connection like
     // every other read here. None is the preset.
@@ -1050,6 +1048,10 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
   },
 
   async intakeFormVersion(form: IntakePath, version: number): Promise<IntakeForm | null> {
+    // A submission against the version its Person opened waits behind the same
+    // lock as an edit, so a question's removal cannot read the answers into
+    // history and then delete one that landed in between (ticket 13).
+    await lockTheIntakeForm(client, form)
     if (version === PRESET_VERSION) return presetForm(form)
     const { rows } = await client.query<{ version: number; definition: unknown }>(
       `select version, definition from intake_form_version where form = $1 and version = $2`,
@@ -1151,8 +1153,9 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
 
   async ministryShortName(): Promise<ShortName> {
     // The row itself, scoped by the policy on this connection, as the settings
-    // read above it is.
-    const { rows } = await client.query<{ short_name: string }>(`select short_name from ministry`)
+    // read above it is, and held until the rename commits, so a second Admin's
+    // rename waits and records as *what it was* the name this one gave.
+    const { rows } = await client.query<{ short_name: string }>(`select short_name from ministry for update`)
 
     const row = rows[0]
     if (!row) throw new Error('This command has no Ministry to read the short name of')
@@ -1164,6 +1167,10 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     // Another Ministry holding it now is refused by the column's own key, and one
     // that held it once by the key on every name ever held -- the one fact the
     // boundary could not see, so it is translated here into the refusal it is.
+    //
+    // Behind the lock a Ministry opening takes while it chooses its name, so the
+    // two cannot both take the same one and leave the opening to fail at the key.
+    await client.query(`select pg_advisory_xact_lock(hashtext('held_short_name'))`)
     let rowCount: number | null
     try {
       ;({ rowCount } = await client.query(`update ministry set short_name = $1`, [change.shortName]))
@@ -1405,10 +1412,12 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     }
 
     // Each decision is its own row with its own timestamp and the version of the
-    // wording the Person actually saw. Nothing here is ever updated: the trigger on
-    // this table refuses it, because a consent record migrated forward to newer
-    // wording no longer records what anybody agreed to. A change of mind is therefore
-    // a later row, and `decided_at` is what orders them.
+    // wording the Person actually saw. What anybody agreed to is never updated: the
+    // trigger on this table refuses it, because a consent record migrated forward
+    // to newer wording no longer records what anybody agreed to. The one change it
+    // accepts is clearing the side, when the matching question is removed (Pastor
+    // feedback, ticket 13). A change of mind is therefore a later row, and
+    // `decided_at` is what orders them.
     for (const decision of intake.consentDecisions) {
       await client.query(
         `insert into consent_record
@@ -4113,6 +4122,18 @@ export const createPostgresInboundReader = (
     },
     close: () => pool.end(),
   }
+}
+
+/**
+ * One Intake form of the Ministry this connection acts for, held until the
+ * transaction ends: an edit, a removal and a submission to the same form wait
+ * for each other, and the other form never waits.
+ */
+const lockTheIntakeForm = async (client: PoolClient, form: IntakePath): Promise<void> => {
+  await client.query(
+    `select pg_advisory_xact_lock(hashtextextended(app.command_ministry_id()::text || ':intake_form:' || $1, 0))`,
+    [form],
+  )
 }
 
 /**

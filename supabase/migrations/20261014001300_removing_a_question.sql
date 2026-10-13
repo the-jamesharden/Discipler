@@ -107,9 +107,10 @@ grant delete on intake_answer to discipler_command;
 -- A submission is from the groups form where the consent records written with
 -- it say so, and from the mentor and mentee form otherwise. A submission whose
 -- records name no form -- every one before the wizard, and the tokenized reopen
--- link's -- is the form the Person last answered, by their latest consent record
--- that names one, which is the form the reopened page draws its questions from
--- (ticket 12); and the mentor and mentee form where none does.
+-- link's -- is the form the Person had last answered when they made it, by
+-- their latest consent record by then that names one, which is the form the
+-- reopened page drew its questions from (ticket 12); and the mentor and mentee
+-- form where none does. A form they answered only afterwards is not it.
 --
 -- Read by a removal, which deletes the answers given on the form it is removed
 -- from and not on the other, and by the counts the editor warns with.
@@ -140,6 +141,7 @@ as $$
               from public.consent_record c
              where c.person_id = s.person_id
                and c.intake_path is not null
+               and c.decided_at <= s.submitted_at
              order by c.decided_at desc, c.created_at desc, c.id desc
              limit 1),
            'discipleship'::public.intake_path
