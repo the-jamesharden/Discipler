@@ -196,6 +196,7 @@ import {
   removeQuestion,
   renamePage,
   requiredOn,
+  withoutWhatIsNoLongerAsked,
   type AnswerGiven,
   type FormEdit,
   type FormQuestion,
@@ -365,6 +366,14 @@ export interface CommandContext {
    * everything else, and on a submission from a form that is not one of the two.
    */
   readonly intakeForm?: IntakeForm
+  /**
+   * The same form as it stands now, loaded beside the version opened on
+   * `intake.submit`'s behalf and behind the same lock. A submission is read
+   * against the version its Person opened, but an answer to a question this no
+   * longer asks is dropped rather than stored (James, 2026-10-13). The same form
+   * as `intakeForm` where nothing has been saved since they opened it.
+   */
+  readonly intakeFormNow?: IntakeForm
   /**
    * Who is being paired, or who is already in the relationship being accepted --
    * their names and the numbers Discipler would text. Loaded on the command's
@@ -4932,7 +4941,17 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       // answered one: never the reopened page, which is not one of the two.
       const formVersion = asked && !command.token ? asked.version : null
 
+      // What is kept of it: everything but the answers to questions the form has
+      // stopped asking since the version opened, which are dropped (James,
+      // 2026-10-13). Read and checked as they were given, so the group picked is
+      // checked against the gender given, as it would have been a moment before
+      // the removal; only what is stored and recorded goes without them.
+      if (asked && !context.intakeFormNow) {
+        throw new Error('intake.submit was handed the form opened and not the form as it stands')
+      }
       const { submission } = reading
+      const kept =
+        asked && context.intakeFormNow ? withoutWhatIsNoLongerAsked(submission, context.intakeFormNow) : submission
       const effects: Effect[] = []
 
       // Two ways of knowing who this is, and the link is the stronger of them.
@@ -5106,22 +5125,22 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           corrections: command.token
             ? { fullName: submission.fullName, phone: submission.phone }
             : null,
-          ageBand: submission.ageBand,
-          gender: submission.gender,
-          goalId: submission.goalId,
-          goalOther: submission.goalOther,
-          availability: submission.availability,
-          email: submission.email,
-          firstTime: submission.firstTime,
+          ageBand: kept.ageBand,
+          gender: kept.gender,
+          goalId: kept.goalId,
+          goalOther: kept.goalOther,
+          availability: kept.availability,
+          email: kept.email,
+          firstTime: kept.firstTime,
           formVersion,
-          ownAnswers: submission.ownAnswers,
+          ownAnswers: kept.ownAnswers,
           consentVersion: CONSENT_VERSION,
           source: submission.source,
           // What they were answering and which side they said they were on, on
           // every consent record this submission writes. Null where the form did
           // not ask, which is what the single-page form still is.
-          intakePath: submission.intakePath,
-          declaredSide: submission.declaredSide,
+          intakePath: kept.intakePath,
+          declaredSide: kept.declaredSide,
           // Both decisions, always, including a refusal. What is current is the
           // latest record for that consent, so a decision that writes no row is a
           // decision that cannot be seen -- and on a re-submission it silently
@@ -5144,7 +5163,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             source: submission.source,
             consentVersion: CONSENT_VERSION,
             contactSharingConsent: submission.contactSharingConsent,
-            availabilitySlots: submission.availability.length,
+            availabilitySlots: kept.availability.length,
             // The option they picked, for the same reason the name below is here:
             // `intake_submission.discipleship_goal_id` is blanked if the Ministry
             // ever removes this option, and without this the fact that they chose
@@ -5152,11 +5171,11 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             // the wording is the option's own and changes under a rename, and
             // `discipleship_goal.renamed` and `.removed` are what resolve an id to
             // the words that stood on any given date.
-            goalId: submission.goalId,
+            goalId: kept.goalId,
             // What they typed after Other, which no edit to the Ministry's list
             // can blank. On the submission too; here because history is where a
             // goal stated on a given date is read back from, as the option is.
-            goalOther: submission.goalOther,
+            goalOther: kept.goalOther,
             // Which version of the Ministry's form they were answering (Pastor
             // feedback, ticket 11), so the words they were asked in can be read
             // back for any submission. Null on a form that is not one of the two.
@@ -5166,7 +5185,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             // what somebody types to their church can be anything, and history is
             // a record every Admin surface reads. Which question was answered on
             // which date is what history needs to keep.
-            ownQuestionsAnswered: submission.ownAnswers.map((answer) => answer.key),
+            ownQuestionsAnswered: kept.ownAnswers.map((answer) => answer.key),
             // The name they gave on this submission, the same way
             // `person.joined_at_intake` records the one they joined under. A
             // correction overwrites `person.full_name`, and without this the name

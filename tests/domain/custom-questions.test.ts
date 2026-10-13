@@ -28,7 +28,8 @@ import { asDefinition, intakeFormFrom } from '~/platform/supabase/intake-form-do
  * ticket 12): short text, long text, one choice, several choices or yes/no. The
  * wizard asks them, their answers are kept beside the submission, and they show to
  * an Admin under the question as the Ministry words it now. They are never matched
- * on, which `own-answers-are-never-matched-on.test.ts` fences.
+ * on, which `tests/integration/custom-questions.test.ts` proves against the
+ * database's pairing reads.
  */
 
 const ministry = ministryId('00000000-0000-4000-8000-0000000000aa')
@@ -518,6 +519,7 @@ describe('through the boundary', () => {
           removed: new Set<PersonId>(),
         },
         intakeForm: form,
+        intakeFormNow: form,
         ...(extra.token
           ? {
               intakeLink: {

@@ -347,6 +347,7 @@ The open row ends in *Remove question…*; pressing it asks once more in place, 
 The question says how many people's answers it deletes and that this cannot be undone, because a removal destroys its answers (ADR-0014): every answer given to it on that form is deleted, superseded ones too, and the removal's history event keeps what each one said.
 The other form's answers to the same question stay.
 The removal is live at once, as the form's next version; somebody part-way through finishes the version they opened.
+Whatever they say to the removed question is dropped when they submit and never stored, as Google Forms does, and the rest of what they said is kept (James, 2026-10-13): a removal's answers are gone for good, including ones still being typed.
 A removed question of Discipler's own is offered back from *Add a question*, in the preset's words, with none of its old answers.
 
 For a question the product reads, the warning also says what stops working, and afterwards each surface that does less says why rather than quietly doing it:

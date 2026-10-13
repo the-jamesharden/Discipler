@@ -588,7 +588,7 @@ describe('a submission, read against the version its Person opened', () => {
           whoCompletedIntake: new Set<PersonId>(),
           removed: new Set<PersonId>(),
         },
-        ...(form ? { intakeForm: form } : {}),
+        ...(form ? { intakeForm: form, intakeFormNow: form } : {}),
       } satisfies CommandContext,
     )
 

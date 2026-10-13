@@ -1,6 +1,6 @@
 import type { Branded } from './branded'
 import type { IntakeSubmissionId, PersonId } from './ids'
-import { GROUP_PATH, type IntakePath } from './intake'
+import { GROUP_PATH, type IntakePath, type IntakeSubmissionDraft } from './intake'
 import { readWording } from './wording'
 
 /**
@@ -783,6 +783,39 @@ export const removedQuestions = (form: IntakeForm): readonly BuiltInQuestion[] =
   questionsOf(presetForm(form.name)).flatMap((question) =>
     !isOwnQuestion(question) && !questionOn(form, question.key) ? [question.key] : [],
   )
+
+/**
+ * A submission as it is kept: read against the version its Person opened, kept
+ * against the form as it stands (James, 2026-10-13). An answer to a question the
+ * form has stopped asking since they opened it is dropped and never stored, as
+ * Google Forms drops one; everything else they said is kept. What goes is exactly
+ * what the removal would have deleted had they submitted a moment before it, so
+ * the email and the group they picked stand (`removalDeletesAnswers`).
+ *
+ * Discipler's own questions are dropped by `removedQuestions`, against the form's
+ * preset, so the reopened page keeps the goal it asks of somebody whose last form
+ * was the groups form, which never asked it. A Ministry's own question is dropped
+ * where the form no longer has its key.
+ */
+export const withoutWhatIsNoLongerAsked = (
+  submission: IntakeSubmissionDraft,
+  current: IntakeForm,
+): IntakeSubmissionDraft => {
+  const removed = new Set<QuestionKey>(removedQuestions(current).filter(removalDeletesAnswers))
+  const asked = (key: QuestionKey) =>
+    isOwnQuestionKey(key) ? questionOn(current, key) !== undefined : !removed.has(key)
+  return {
+    ...submission,
+    ageBand: asked('ageBand') ? submission.ageBand : null,
+    gender: asked('gender') ? submission.gender : null,
+    goalId: asked('goalId') ? submission.goalId : null,
+    goalOther: asked('goalId') ? submission.goalOther : null,
+    availability: asked('availability') ? submission.availability : [],
+    declaredSide: asked('side') ? submission.declaredSide : null,
+    firstTime: asked('experience') ? submission.firstTime : null,
+    ownAnswers: submission.ownAnswers.filter((answer) => asked(answer.key)),
+  }
+}
 
 /**
  * One of Discipler's own questions, put back at the foot of a page in the words

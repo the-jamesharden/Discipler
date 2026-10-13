@@ -142,4 +142,8 @@ The email is kept on the Person as a contact detail, and the choice of group is 
 `intake.submitted` events are left as they are, as they are for a removed goal option: they already carry the goal, and they were written about the submission, not about the form.
 A question added back starts with no answers.
 
+Somebody who opened the form before a removal finishes the version they opened, and their answer to the removed question is dropped when they submit: it is never stored, and no history event records it (James, 2026-10-13, like Google Forms).
+Ticket 13 first kept it, because a submission is read against the version its Person opened; but an answer landing after the removal was one nothing showed, counted or could delete, which is the hiding without deleting James turned down.
+What is dropped is what the removal would have deleted had they submitted a moment before it, so the email and the group they picked stand.
+
 Hiding a question without deleting its answers was not built: James chose one rule.

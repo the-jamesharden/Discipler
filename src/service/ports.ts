@@ -589,7 +589,9 @@ export interface UnitOfWork {
    * One of this Ministry's Intake forms as it stands now (Pastor feedback, ticket
    * 11): its latest saved version, or the preset where it has never been edited.
    * Read behind a lock on that form, so two Admins saving at once cannot both
-   * decide against the same version and both claim the next number.
+   * decide against the same version and both claim the next number. Read on a
+   * submission's behalf too, beside the version its Person opened, because an
+   * answer to a question this no longer asks is dropped (James, 2026-10-13).
    */
   intakeForm(form: IntakePath): Promise<IntakeForm>
 

@@ -672,11 +672,17 @@ const editsAnIntakeForm = (
  * from a form that is not one of the two -- the tokenized reopen link -- which is
  * read as today's form was, but for the Ministry's own questions it asked, which
  * are read against the form it drew them from (ticket 12).
+ *
+ * And the form as it stands now beside it, because an answer to a question
+ * removed since the version opened is dropped rather than stored (James,
+ * 2026-10-13). Both are read behind the form's one lock, taken by the first and
+ * held to the end of the transaction, so a removal cannot land between deciding
+ * what is still asked and storing the rest.
  */
 const theFormOpened = async (
   unit: UnitOfWork,
   command: Extract<Command, { type: 'intake.submit' }>,
-): Promise<{ intakeForm?: IntakeForm }> => {
+): Promise<{ intakeForm?: IntakeForm; intakeFormNow?: IntakeForm }> => {
   // The reopened page declares no path, and names the form whose own questions
   // it asked instead (ticket 12).
   const path = command.form.intakePath?.trim() ?? command.ownQuestionsFrom ?? null
@@ -685,7 +691,8 @@ const theFormOpened = async (
     command.formVersion === undefined
       ? null
       : await unit.intakeFormVersion(path, command.formVersion)
-  return { intakeForm: opened ?? (await unit.intakeForm(path)) }
+  const now = await unit.intakeForm(path)
+  return { intakeForm: opened ?? now, intakeFormNow: now }
 }
 
 /**

@@ -4,7 +4,7 @@ import { createTestClock } from '~/domain/clock'
 import { IntakeFormRefused } from '~/domain/errors'
 import { ministryId, personId, type IdSource } from '~/domain/ids'
 import type { IntakeFormFields } from '~/domain/intake'
-import { ownQuestionsOf, questionOn } from '~/domain/intake-form'
+import { ownQuestionsOf, questionOn, type OwnQuestion } from '~/domain/intake-form'
 import { createPostgresEffectStore } from '~/platform/supabase/effect-store'
 import { intakeFormsPageFrom } from '~/platform/supabase/intake-forms-reader'
 import { createPostgresIntakeReader } from '~/platform/supabase/intake-reader'
@@ -440,5 +440,159 @@ describe('a submission and the form it is filed under', () => {
 
     await remove('ageBand', 'discipleship')
     expect(await ageBandsOf(eve.name)).toEqual([null, null, null])
+  })
+})
+
+/**
+ * Somebody who opened a version that still asked a question, and submits it after
+ * an Admin removed that question (James, 2026-10-13). They finish the version they
+ * opened and are not refused, but what they said to the removed question is
+ * dropped, as Google Forms drops it: it is stored nowhere, history does not record
+ * it, and everything else they answered is kept.
+ */
+describe('a submission on a version opened before a removal', () => {
+  let ministry: MinistryFixture
+  let store: ReturnType<typeof createPostgresEffectStore>
+  let reader: ReturnType<typeof createPostgresIntakeReader>
+  let pool: pg.Pool
+
+  const ids: IdSource = { next: () => crypto.randomUUID() }
+  const service = () =>
+    createCommandService({ clock: createTestClock(new Date()), ids, store, appBaseUrl: 'https://discipler.test' })
+
+  const addOwn = (wording: string) =>
+    service().execute({
+      type: 'intake_form.add_question',
+      ministryId: ministryId(ministry.id),
+      form: 'discipleship',
+      pageId: 'last',
+      kind: 'long_text',
+      wording,
+      hint: '',
+      required: false,
+      choices: [],
+      editedBy: ministry.adminUserId,
+    })
+
+  const remove = (key: string) =>
+    service().execute({
+      type: 'intake_form.remove_question',
+      ministryId: ministryId(ministry.id),
+      form: 'discipleship',
+      key,
+      editedBy: ministry.adminUserId,
+    })
+
+  beforeAll(async () => {
+    ministry = await createMinistryWithAdmin('Pinned Version Chapel')
+    store = createPostgresEffectStore(localSupabase().databaseUrl)
+    reader = createPostgresIntakeReader(localSupabase().databaseUrl)
+    pool = new pg.Pool({ connectionString: localSupabase().databaseUrl })
+  })
+
+  afterAll(async () => {
+    await store.close()
+    await reader.close()
+    await pool.end()
+  })
+
+  it('saves the submission without the removed questions’ answers, and keeps every other answer', async () => {
+    await addOwn('Anything else?')
+    await addOwn('How did you hear about us?')
+    const opened = (await reader.readIntakePage(ministry.id))!.form
+    const [removedOwn, keptOwn] = ownQuestionsOf(opened) as [OwnQuestion, OwnQuestion]
+
+    await remove('gender')
+    await remove('availability')
+    await remove(removedOwn.key)
+    const now = (await reader.readIntakePage(ministry.id))!.form
+    expect(now.version).toBe(opened.version + 3)
+
+    const phone = aTestPhoneNumber()
+    await service().execute({
+      type: 'intake.submit',
+      ministryId: ministryId(ministry.id),
+      form: {
+        fullName: 'Gail Moss',
+        phone,
+        email: 'gail@example.test',
+        ageBand: '35-44',
+        gender: 'female',
+        goalId: 'other',
+        goalOther: 'Prayer',
+        availability: ['monday:12', 'tuesday:18'],
+        smsConsent: true,
+        contactSharing: 'granted',
+        source: 'pastor_link',
+        intakePath: 'discipleship',
+        declaredSide: 'mentee',
+        experience: 'first_time',
+        groupId: null,
+        own: { [removedOwn.key]: ['Pray for my sister.'], [keptOwn.key]: ['A friend asked me.'] },
+      },
+      formVersion: opened.version,
+    })
+
+    const { rows: submissions } = await pool.query<{
+      id: string
+      person_id: string
+      form_version: number
+      age_band: string | null
+      gender: string | null
+      first_time: boolean | null
+      discipleship_goal_other: string | null
+      email: string | null
+    }>(
+      `select i.id, i.person_id, i.form_version, i.age_band, i.gender, i.first_time, i.discipleship_goal_other, p.email
+         from intake_submission i
+         join person p on p.id = i.person_id
+        where p.ministry_id = $1 and p.full_name = 'Gail Moss'`,
+      [ministry.id],
+    )
+    expect(submissions).toEqual([
+      expect.objectContaining({
+        form_version: opened.version,
+        age_band: '35-44',
+        gender: null,
+        first_time: true,
+        discipleship_goal_other: 'Prayer',
+        email: 'gail@example.test',
+      }),
+    ])
+    const submission = submissions[0]!
+
+    const { rows: slots } = await pool.query(`select 1 from intake_availability where intake_submission_id = $1`, [
+      submission.id,
+    ])
+    expect(slots).toEqual([])
+
+    const { rows: answers } = await pool.query<{ question_key: string; answer: unknown }>(
+      `select question_key, answer from intake_answer where intake_submission_id = $1`,
+      [submission.id],
+    )
+    expect(answers).toEqual([{ question_key: keptOwn.key, answer: 'A friend asked me.' }])
+
+    const { rows: sides } = await pool.query<{ declared_side: string | null }>(
+      `select declared_side from consent_record where person_id = $1`,
+      [submission.person_id],
+    )
+    expect(sides.map((row) => row.declared_side)).toEqual(['mentee', 'mentee'])
+
+    const { rows: events } = await pool.query<{ type: string; payload: Record<string, unknown> }>(
+      `select type, payload from ministry_event where ministry_id = $1 and subject_id = $2`,
+      [ministry.id, submission.person_id],
+    )
+    const submitted = events.find((event) => event.type === 'intake.submitted')!
+    expect(submitted.payload).toMatchObject({
+      formVersion: opened.version,
+      availabilitySlots: 0,
+      goalOther: 'Prayer',
+      ownQuestionsAnswered: [keptOwn.key],
+    })
+    expect(JSON.stringify(events)).not.toContain(removedOwn.key)
+    const { rows: everything } = await pool.query(`select payload from ministry_event where ministry_id = $1`, [
+      ministry.id,
+    ])
+    expect(JSON.stringify(everything)).not.toContain('Pray for my sister.')
   })
 })

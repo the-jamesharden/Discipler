@@ -4,7 +4,8 @@ import { createTestClock } from '~/domain/clock'
 import type { Command } from '~/domain/commands'
 import type { Effect } from '~/domain/effects'
 import { IntakeFormRefused, IntakeRefused } from '~/domain/errors'
-import { createSequentialIds, intakeSubmissionId, ministryId, personId, type PersonId } from '~/domain/ids'
+import { createSequentialIds, intakeSubmissionId, ministryId, personId, relationshipId, type PersonId } from '~/domain/ids'
+import { intakeLinkToken } from '~/domain/intake-link'
 import { readIntakeForm, type IntakeFormFields } from '~/domain/intake'
 import {
   addBackQuestion,
@@ -355,6 +356,7 @@ describe('a submission to a form that no longer asks something', () => {
           removed: new Set<PersonId>(),
         },
         intakeForm: noGroup,
+        intakeFormNow: noGroup,
       } satisfies CommandContext,
     )
     expect(effects.some((effect) => effect.kind === 'followUp.raise' && effect.item.kind === 'group_placement_wanted')).toBe(true)
@@ -390,6 +392,7 @@ describe('a submission to a form that no longer asks something', () => {
             removed: new Set<PersonId>(),
           },
           intakeForm: noGroup,
+          intakeFormNow: noGroup,
         } satisfies CommandContext,
       ),
     ).toThrow(IntakeRefused)
@@ -443,5 +446,203 @@ describe('Suggested Pairs, once the form no longer asks what it reads', () => {
     expect(pairs(roster)).toEqual([])
     expect(pairs(roster, 'gender')).toEqual([])
     expect(pairs(roster, 'ageBand')).toEqual([])
+  })
+})
+
+/**
+ * Somebody who opened a version that still asked a question, submitting after an
+ * Admin removed it (James, 2026-10-13). They finish the version they opened, read
+ * by its rules, and are not refused; what they said to a question the form as it
+ * stands no longer asks is dropped, as Google Forms drops it, and everything else
+ * is kept. What is dropped is what the removal would have deleted had they
+ * submitted a moment before it, so the email and the group they picked stand.
+ */
+describe('a submission on a version opened before a removal', () => {
+  const typed = (wording: string) => ({
+    wording,
+    menteeWording: null,
+    hint: '',
+    required: false,
+    choices: { kept: [], added: [] },
+  })
+  const noIds = () => {
+    throw new Error('no choice ids are minted for a text question')
+  }
+  const opened = formOf(
+    addQuestion(
+      formOf(addQuestion(mentorAndMentee, 'last', 'custom:story', 'long_text', typed('Anything else?'), noIds)),
+      'last',
+      'custom:heard',
+      'short_text',
+      typed('How did you hear about us?'),
+      noIds,
+    ),
+  )
+  const tuesdayGroup = relationshipId('00000000-0000-4000-8000-0000000000bb')
+
+  const answered: IntakeFormFields = {
+    fullName: 'Gail Moss',
+    phone: '(555) 234-9913',
+    email: 'gail@example.test',
+    ageBand: '35-44',
+    gender: 'female',
+    goalId: 'other',
+    goalOther: 'Prayer',
+    availability: ['monday:12', 'tuesday:18'],
+    smsConsent: true,
+    contactSharing: 'granted',
+    source: 'pastor_link',
+    intakePath: 'discipleship',
+    declaredSide: 'mentee',
+    experience: 'first_time',
+    groupId: null,
+    own: { 'custom:story': ['Pray for my sister.'], 'custom:heard': ['A friend asked me.'] },
+  }
+
+  const submit = (
+    command: Partial<Extract<Command, { type: 'intake.submit' }>>,
+    extra: Partial<CommandContext>,
+  ) =>
+    handleCommand(
+      { type: 'intake.submit', ministryId: ministry, form: answered, formVersion: opened.version, ...command },
+      {
+        ministryId: ministry,
+        clock: createTestClock(at),
+        ids: createSequentialIds(),
+        ministryName: 'Riverside Chapel',
+        appBaseUrl: 'https://discipler.test',
+        roster: {
+          people: new Map(),
+          namesByNumber: new Map(),
+          whoCompletedIntake: new Set<PersonId>(),
+          removed: new Set<PersonId>(),
+        },
+        ...extra,
+      } satisfies CommandContext,
+    )
+
+  const recorded = (effects: readonly Effect[]) =>
+    effects.flatMap((effect) => (effect.kind === 'intake.record' ? [effect.intake] : []))[0]!
+  const submitted = (effects: readonly Effect[]) =>
+    effects.flatMap((effect) =>
+      effect.kind === 'history.append' && effect.event.type === 'intake.submitted' ? [effect.event] : [],
+    )[0]!
+
+  it('keeps everything where nothing was removed since', () => {
+    const { effects } = submit({}, { intakeForm: opened, intakeFormNow: opened })
+    expect(recorded(effects)).toMatchObject({
+      gender: 'female',
+      availability: [
+        { day: 'monday', hour: '12' },
+        { day: 'tuesday', hour: '18' },
+      ],
+      goalOther: 'Prayer',
+      firstTime: true,
+      ownAnswers: [
+        { key: 'custom:story', value: 'Pray for my sister.' },
+        { key: 'custom:heard', value: 'A friend asked me.' },
+      ],
+    })
+  })
+
+  it('drops the answers to what the form no longer asks, and history records none of them', () => {
+    const now = without(opened, 'gender', 'availability', 'goalId', 'experience', 'custom:story')
+    const { effects } = submit({}, { intakeForm: opened, intakeFormNow: now })
+
+    expect(recorded(effects)).toMatchObject({
+      formVersion: opened.version,
+      email: 'gail@example.test',
+      ageBand: '35-44',
+      gender: null,
+      availability: [],
+      goalId: null,
+      goalOther: null,
+      firstTime: null,
+      declaredSide: 'mentee',
+      ownAnswers: [{ key: 'custom:heard', value: 'A friend asked me.' }],
+    })
+    expect(submitted(effects).payload).toMatchObject({
+      formVersion: opened.version,
+      availabilitySlots: 0,
+      goalId: null,
+      goalOther: null,
+      ownQuestionsAnswered: ['custom:heard'],
+    })
+    expect(JSON.stringify(effects)).not.toContain('Pray for my sister.')
+  })
+
+  it('drops the side once the form no longer asks it', () => {
+    const { effects } = submit({}, { intakeForm: opened, intakeFormNow: without(opened, 'experience', 'side') })
+    expect(recorded(effects)).toMatchObject({ declaredSide: null, firstTime: null })
+  })
+
+  it('still reads the version opened, so its required questions are still required', () => {
+    expect(() =>
+      submit(
+        { form: { ...answered, gender: null } },
+        { intakeForm: opened, intakeFormNow: without(opened, 'gender') },
+      ),
+    ).toThrow(IntakeRefused)
+  })
+
+  it('joins the group picked, checked against the gender given, and keeps no gender', () => {
+    const { effects } = submit(
+      {
+        form: {
+          ...answered,
+          intakePath: 'group',
+          declaredSide: null,
+          experience: null,
+          goalId: null,
+          goalOther: null,
+          groupId: tuesdayGroup,
+          own: {},
+        },
+        formVersion: groups.version,
+      },
+      {
+        intakeForm: groups,
+        intakeFormNow: without(groups, 'gender'),
+        groupToJoin: {
+          relationshipId: tuesdayGroup,
+          createdAt: new Date('2026-03-01T09:00:00Z'),
+          acceptedAt: new Date('2026-03-02T09:00:00Z'),
+          endedAt: null,
+          name: 'Tuesday Women’s Group',
+          joinRequiresApproval: false,
+          declaredGender: 'female',
+          pause: null,
+          members: [],
+        },
+      },
+    )
+    expect(recorded(effects)).toMatchObject({ gender: null, intakePath: 'group' })
+    expect(effects.some((effect) => effect.kind === 'relationship.join')).toBe(true)
+  })
+
+  it('keeps the goal on the reopened page of a Person who last answered the groups form, which never asked it', () => {
+    const token = intakeLinkToken('00000000-0000-4000-8000-0000000000cc')
+    const { effects } = submit(
+      {
+        form: { ...answered, intakePath: null, declaredSide: null, experience: null, own: {} },
+        token,
+        ownQuestionsFrom: 'group',
+        formVersion: groups.version,
+      },
+      {
+        intakeForm: groups,
+        intakeFormNow: groups,
+        intakeLink: {
+          personId: personId('00000000-0000-4000-8000-0000000000bb'),
+          token,
+          expiresAt: new Date('2026-10-20T00:00:00Z'),
+        },
+      },
+    )
+    expect(recorded(effects)).toMatchObject({ goalOther: 'Prayer', gender: 'female' })
+  })
+
+  it('fails loudly where the form as it stands was never read', () => {
+    expect(() => submit({}, { intakeForm: opened })).toThrow('as it stands')
   })
 })
