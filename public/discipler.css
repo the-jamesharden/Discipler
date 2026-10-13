@@ -1020,9 +1020,13 @@ ul.rtags { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; lis
    foot. `app/pair-card/pair-card.tsx`. The Discipler's column is on the left and
    the Disciples' on the right; a 1:2 pair stacks its two Disciples in theirs. */
 .modal.paircard { position: relative; max-width: 640px; padding: 0; border-radius: 12px; overflow-x: hidden; overflow-y: auto; margin: 4vh 0 auto; }
+/* Held inside the window under its 4vh, so a long card (a Group of twelve) scrolls within itself and its foot is never below the fold. */
+.modal.paircard { max-height: calc(100vh - 3rem - 4vh); }
+@supports (height: 100dvh) { .modal.paircard { max-height: calc(100dvh - 3rem - 4vh); } }
 .pc-head { display: flex; align-items: flex-start; gap: 0.8rem; padding: 1.25rem 1.4rem 1rem; border-bottom: 1px solid var(--border); }
 .pc-head > div { flex: 1 1 auto; min-width: 0; }
 .pc-kind { font-size: 0.74rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-light); margin: 0 0 0.2rem; }
+.pc-kind span { display: inline-block; }
 .pc-head .card-title { font-size: 1.45rem; font-weight: 700; margin: 0; }
 .pc-head .pill { margin-top: 0.35rem; }
 .pc-notice { margin: 0.9rem 1.4rem 0; box-shadow: none; }
@@ -1064,9 +1068,29 @@ dl.pc-kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .pc-actions summary::-webkit-details-marker { display: none; }
 .pc-end { color: var(--text-light); font-size: 0.82rem; text-decoration: underline; text-underline-offset: 2px; background: none; border: 0; padding: 0.3rem 0; font-weight: 500; cursor: pointer; }
 .pc-end:hover { color: var(--red-ink); }
+/* The card's group form (Pastor feedback, ticket 08): the leader in full, then a row per Disciple that opens in place. */
+.pc-people.one-side { grid-template-columns: minmax(0, 1fr); }
+.pc-group { padding: 0.4rem 1.4rem 1rem; }
+.pc-group-label { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-light); margin: 0.8rem 0 0.4rem; }
+.pc-member { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 0.45rem; background: var(--surface); }
+.pc-member-row { display: flex; align-items: center; gap: 0.7rem; padding: 0.55rem 0.8rem; }
+div.pc-member-row { padding-right: calc(0.8rem + 14px + 0.7rem); }
+summary.pc-member-row { list-style: none; cursor: pointer; }
+summary.pc-member-row::-webkit-details-marker { display: none; }
+summary.pc-member-row:hover .pc-name { color: var(--primary); }
+.pc-member-row .avatar { width: 30px; height: 30px; font-size: 0.72rem; flex: none; background: var(--accent); }
+.pc-member-who { flex: 1 1 auto; min-width: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 0.2rem 0.8rem; }
+.pc-member-row .pc-name { font-size: 0.95rem; min-width: 0; overflow-wrap: anywhere; }
+.pc-row-phone { font-size: 0.82rem; color: var(--text-light); white-space: nowrap; flex: none; font-variant-numeric: tabular-nums; }
+.pc-chev { width: 14px; height: 14px; color: var(--text-light); transition: transform 0.15s; flex: none; }
+details.pc-member[open] .pc-chev { transform: rotate(180deg); }
+.pc-member-body { padding: 0 0.8rem 0.8rem calc(1.5rem + 30px); }
+.pc-member-body .pc-contact { margin-bottom: 0.6rem; }
 @media (max-width: 600px) {
-  .modal.paircard { margin: 0 0 auto; border-radius: 10px; }
+  .modal.paircard { margin: 0 0 auto; border-radius: 10px; max-height: calc(100vh - 3rem); }
+  @supports (height: 100dvh) { .modal.paircard { max-height: calc(100dvh - 3rem); } }
   .pc-people { grid-template-columns: minmax(0, 1fr); }
   .pc-side + .pc-side { border-left: 0; border-top: 1px solid var(--border); }
   .pc-facts dl.pc-kv { grid-template-columns: auto minmax(0, 1fr); }
+  .pc-member-who { flex-direction: column; align-items: flex-start; }
 }

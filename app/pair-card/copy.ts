@@ -1,5 +1,6 @@
 import type { Satisfaction } from '~/domain/check-in'
 import { daysSince } from '~/domain/clock'
+import type { Gender } from '~/domain/intake'
 import type { CareReason } from '~/domain/relationship-state'
 import type { PairShape } from '~/domain/relationships'
 import { calendarDayOf } from '~/domain/week'
@@ -53,6 +54,23 @@ export const ago = (instant: Date, now: Date): string => {
 /** *One to one · paired 7 Sep, 5 weeks ago*, the line over the names. */
 export const kindLine = (shape: PairShape, pairedAt: Date, now: Date, timeZone: string): string =>
   `${SHAPE[shape]} · paired ${dayMonth(pairedAt, timeZone)}, ${ago(pairedAt, now)}`
+
+/**
+ * The gender a Group declared, as its card's head says it (Pastor feedback,
+ * ticket 08). Declaring none is mixed, as it is on the column.
+ */
+export const GROUP_GENDER: Record<Gender, string> = {
+  female: 'women',
+  male: 'men',
+}
+export const MIXED = 'mixed'
+
+/** *Group · women · formed 7 Sep, 5 weeks ago*, the line over a Group's name. */
+export const groupLine = (declared: Gender | null, formedAt: Date, now: Date, timeZone: string): string =>
+  `Group · ${declared ? GROUP_GENDER[declared] : MIXED} · formed ${dayMonth(formedAt, timeZone)}, ${ago(formedAt, now)}`
+
+/** *Disciples · 3*, over a Group's rows. */
+export const disciplesLabel = (count: number): string => `Disciples · ${count}`
 
 /** *Rachel Adams and Emily Davis*; *Claire Lee, Ana Ruiz and Beth Shaw*. */
 export const pairTitle = (names: readonly string[]): string =>
@@ -139,8 +157,12 @@ export const PAUSE_EXPIRED = 'Pause expired'
 export const AGE = 'Age'
 export const HOPING_FOR = 'Hoping for'
 
-export const textThem = (fullName: string): string => `Text ${fullName.trim().split(/\s+/)[0] ?? fullName}`
+const firstName = (fullName: string): string => fullName.trim().split(/\s+/)[0] ?? fullName
+
+export const textThem = (fullName: string): string => `Text ${firstName(fullName)}`
 export const callThem = (fullName: string): string => `Call ${fullName}`
+/** On a Disciple's opened row, where their number is already on the row itself. */
+export const callFirst = (fullName: string): string => `Call ${firstName(fullName)}`
 
 export const LAST_CHECK_IN = 'Last check-in'
 export const MATERIAL = 'Material'

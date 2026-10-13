@@ -1,8 +1,8 @@
 import type { Clock } from '~/domain/clock'
 import { concernId, personId, relationshipId } from '~/domain/ids'
-import { AGE_BANDS, otherGoal, type AgeBand } from '~/domain/intake'
+import { AGE_BANDS, GENDERS, otherGoal, type AgeBand, type Gender } from '~/domain/intake'
 import { deriveRelationshipState } from '~/domain/relationship-state'
-import { pairShapeOf } from '~/domain/relationships'
+import { cardShapeOf } from '~/domain/relationships'
 import type { ConcernReading, PairCard, PairCardPerson } from '~/service/ports'
 import { followUpItemsFrom } from './care-needed-reader'
 import type { PageDocument } from './page'
@@ -19,10 +19,11 @@ import {
 import { text } from './rows'
 
 /**
- * The pair card (Pastor feedback, ticket 07): one one-to-one or 1:2 pair, read
- * out of a page's document. Shared by every page that opens the card, so the
- * Overview, Check-Ins and Follow-Up (tickets 09 and 10) cannot show the same
- * pair three ways: each page function composes `app.pair_card` under `card`,
+ * The pair card (Pastor feedback, ticket 07): one one-to-one or 1:2 pair, or a
+ * Group in the card's group form (ticket 08), read out of a page's document.
+ * Shared by every page that opens the card, so the Overview, Check-Ins and
+ * Follow-Up (tickets 09 and 10) cannot show the same relationship three ways:
+ * each page function composes `app.pair_card` under `card`,
  * beside the history it already reads, and hands both here.
  *
  * The history answers everything it already answers for the tabs -- who is in
@@ -40,10 +41,11 @@ import { text } from './rows'
 const ageBandOf = (value: unknown): AgeBand | null =>
   AGE_BANDS.find((band) => band === value) ?? null
 
+const genderOf = (value: unknown): Gender | null => GENDERS.find((gender) => gender === value) ?? null
+
 /**
- * The card, or null where there is none to show: the address named nothing, a
- * relationship this Admin cannot see or one that has ended, or a Group, whose
- * card is ticket 08's.
+ * The card, or null where there is none to show: the address named nothing, or
+ * a relationship this Admin cannot see or one that has ended.
  */
 export const pairCardFrom = (doc: PageDocument, history: HistoryInputs, clock: Clock): PairCard | null => {
   const card = doc.card
@@ -67,8 +69,8 @@ export const pairCardFrom = (doc: PageDocument, history: HistoryInputs, clock: C
   const leaders = side?.people.filter((person) => person.role === 'leader') ?? []
   const participants = side?.people.filter((person) => person.role === 'participant') ?? []
 
-  const shape = pairShapeOf(text(row.name), leaders.length, participants.length)
-  if (shape === null) return null
+  const name = text(row.name)
+  const shape = cardShapeOf(name, leaders.length, participants.length)
 
   const now = clock.now()
   const acceptedAt = instant(row.accepted_at)
@@ -144,6 +146,8 @@ export const pairCardFrom = (doc: PageDocument, history: HistoryInputs, clock: C
   return {
     relationshipId: relationshipId(id),
     shape,
+    name,
+    declaredGender: genderOf(row.declared_gender),
     // When the Admin paired them, which is what *paired* means on every Admin
     // screen; acceptance is the Leader's act and the history keeps it apart.
     pairedAt: createdAt,

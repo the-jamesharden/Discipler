@@ -153,7 +153,6 @@ describe('the Overview', () => {
         state: 'healthy',
         reasons: [],
         openConcerns: 0,
-        pairShape: 'one_to_one',
       },
     ])
   })
@@ -302,7 +301,6 @@ describe('the Overview', () => {
         state: 'awaiting_leader_acceptance',
         reasons: [],
         openConcerns: 0,
-        pairShape: 'one_to_one',
       },
     ])
     expect(overview.unsurfacedUnaccepted).toBe(0)
