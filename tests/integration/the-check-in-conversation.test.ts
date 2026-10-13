@@ -452,16 +452,12 @@ describe('the check-in conversation', () => {
     const leaving = await congregant('Tess Moreau')
     const staying = await congregant('Hugo Marsh')
 
-    // Formed, accepted and joined on the dates they were formed. This suite's
-    // clock is pinned, and an acceptance left to the fixture is stamped with the
-    // wall clock -- which, once the calendar passed the pinned date, made the
-    // ending below come before the acceptance it ends.
-    const formed = (on: string) => {
-      const at = new Date(on)
-      return { createdAt: at, acceptedAt: at, joinedAt: at }
-    }
-    const ending = await pairOneToOne(ministry, leader, leaving, formed('2026-01-01T09:00:00Z'))
-    const kept = await pairOneToOne(ministry, leader, staying, formed('2026-02-01T09:00:00Z'))
+    const ending = await pairOneToOne(ministry, leader, leaving, {
+      createdAt: new Date('2026-01-01T09:00:00Z'),
+    })
+    const kept = await pairOneToOne(ministry, leader, staying, {
+      createdAt: new Date('2026-02-01T09:00:00Z'),
+    })
 
     // On a clock read after the fixtures, not the suite's pinned one. The fixtures
     // accept and start memberships on the real clock, so once the calendar passed
