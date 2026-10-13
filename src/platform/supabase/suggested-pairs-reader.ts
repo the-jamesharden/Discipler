@@ -1,5 +1,5 @@
 import { systemClock, type Clock } from '~/domain/clock'
-import { AGE_BANDS, discipleshipGoalId, isOneOf, readSlot, type AgeBand, type AvailabilitySlot } from '~/domain/intake'
+import { AGE_BANDS, discipleshipGoalId, isOneOf, otherGoal, readSlot, type AgeBand, type AvailabilitySlot } from '~/domain/intake'
 import { suggest, type SuggestionCandidate, type SuggestionSettings } from '~/domain/suggestions'
 import type { SuggestedPairsPage, SuggestedPairsReader } from '~/service/ports'
 import { careNeededFrom } from './care-needed-reader'
@@ -30,6 +30,7 @@ const inputsOf = (row: Record<string, unknown>): [string, Inputs] => {
     age_band: ageBand,
     goal_id: goalId,
     goal_label: goalLabel,
+    goal_other: goalOther,
     availability,
   } = row
 
@@ -48,6 +49,16 @@ const inputsOf = (row: Record<string, unknown>): [string, Inputs] => {
   if (goalId !== null && (typeof goalId !== 'string' || typeof goalLabel !== 'string' || goalLabel === '')) {
     throw new Error(`A suggestion input arrived with no answer about the goal for ${id}`)
   }
+  // Null is a real answer here too: they chose one of the options, or the form
+  // asked no goal. Anything but words or null is the column missing, which read as
+  // *no typed goal* would quietly stop two people who wrote the same thing from
+  // sharing it.
+  if (goalOther !== null && (typeof goalOther !== 'string' || goalOther === '')) {
+    throw new Error(`A suggestion input arrived with no answer about a typed goal for ${id}`)
+  }
+  if (goalId !== null && goalOther !== null) {
+    throw new Error(`A suggestion input arrived with two goals for ${id}`)
+  }
   if (!Array.isArray(availability) || availability.some((key) => typeof key !== 'string')) {
     throw new Error(`A suggestion input arrived with no availability for ${id}`)
   }
@@ -65,7 +76,9 @@ const inputsOf = (row: Record<string, unknown>): [string, Inputs] => {
       goal:
         typeof goalId === 'string' && typeof goalLabel === 'string'
           ? { id: discipleshipGoalId(goalId), label: goalLabel }
-          : null,
+          : typeof goalOther === 'string'
+            ? { other: otherGoal(goalOther) }
+            : null,
       availability: slots as AvailabilitySlot[],
     },
   ]

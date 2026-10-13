@@ -5,6 +5,7 @@ import { ClipboardField } from '../../intake-forms/clipboard-field'
 import { AccountMenu, initialsOf, NotAnAdmin, PageShell } from '../../shell'
 import { getRosterReader } from '~/service/container'
 import { personId as asPersonId } from '~/domain/ids'
+import { goalAsShown } from '~/domain/discipleship-goals'
 import { intakeReopenLink } from '~/domain/outbound-copy'
 import { appBaseUrl } from '~/platform/supabase/credentials'
 import type { RosterEntry, RosterRelationship } from '~/service/ports'
@@ -12,6 +13,7 @@ import {
   AWAITING_ACCEPTANCE,
   displayPhone,
   firstTimeLabel,
+  HOPING_FOR,
   intakeLinkInstruction,
   isUnpaired,
   NO_ACCOUNT,
@@ -85,6 +87,8 @@ export default async function PersonPage({
   const issued = query.intakeLink
     ? await getRosterReader().liveIntakeLink(admin.ministryId, asPersonId(person.personId))
     : null
+  const hopingFor = goalAsShown(person.goal, person.goalOther)
+
   const issuedLink = issued
     ? { url: intakeReopenLink(appBaseUrl(), issued.token), expiresAt: issued.expiresAt }
     : null
@@ -127,6 +131,16 @@ export default async function PersonPage({
             <dd>{person.phone ? <a href={`tel:${person.phone}`}>{displayPhone(person.phone)}</a> : '-'}</dd>
             <dt>At Intake</dt>
             <dd>{atIntake(person)}</dd>
+            {/* What they are hoping for, as the option's wording or the words they
+                typed after Other (Pastor feedback 2026-10, ticket 06). Left out
+                where there is none, never announced. Here and not on the Roster
+                row. */}
+            {hopingFor === null ? null : (
+              <>
+                <dt>{HOPING_FOR}</dt>
+                <dd>{hopingFor}</dd>
+              </>
+            )}
           </dl>
         </div>
 

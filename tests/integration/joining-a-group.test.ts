@@ -82,6 +82,7 @@ describe('joining a group', () => {
     ageBand: '25-34',
     gender: 'female',
     goalId: null,
+    goalOther: null,
     availability: ['tuesday:19'],
     smsConsent: true,
     contactSharing: 'granted',

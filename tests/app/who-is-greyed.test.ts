@@ -33,6 +33,8 @@ const person = (over: Partial<RosterEntry> = {}): RosterEntry => ({
   phone: null,
   email: null,
   gender: null,
+  goal: null,
+  goalOther: null,
   isAdmin: false,
   intendedPairings: [],
   ...over,

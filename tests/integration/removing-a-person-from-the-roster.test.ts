@@ -305,6 +305,7 @@ describe('removing a Person from the Roster', () => {
       ageBand: '25-34',
       gender: 'female',
       goalId: goal[0]!.id,
+      goalOther: null,
       availability: ['monday:12'],
       smsConsent: true,
       contactSharing: 'granted',

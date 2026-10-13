@@ -61,6 +61,7 @@ export const submittedIntakeForm = (
     ageBand: text('ageBand'),
     gender: text('gender'),
     goalId: text('goalId'),
+    goalOther: text('goalOther'),
     availability: submitted
       .getAll('availability')
       .filter((value): value is string => typeof value === 'string'),

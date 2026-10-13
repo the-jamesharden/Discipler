@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { readIntakeForm, type IntakeFormFields } from '~/domain/intake'
+import { NO_GROUP_IN_MIND, OTHER_GOAL, readIntakeForm, type IntakeFormFields } from '~/domain/intake'
 
 const wellFormed: IntakeFormFields = {
   fullName: 'Emily Johnson',
@@ -8,6 +8,7 @@ const wellFormed: IntakeFormFields = {
   ageBand: '25-34',
   gender: 'female',
   goalId: '00000000-0000-4000-8000-000000000009',
+  goalOther: null,
   availability: ['monday:12', 'thursday:18'],
   smsConsent: true,
   contactSharing: 'granted',
@@ -34,6 +35,7 @@ describe('Reading the Intake form', () => {
         ageBand: '25-34',
         gender: 'female',
         goalId: '00000000-0000-4000-8000-000000000009',
+        goalOther: null,
         availability: [
           { day: 'monday', hour: '12' },
           { day: 'thursday', hour: '18' },
@@ -49,6 +51,18 @@ describe('Reading the Intake form', () => {
         firstTime: null,
         groupId: null,
       },
+    })
+  })
+
+  it('reads Other as the words typed under it, in place of an option', () => {
+    expect(read({ goalId: OTHER_GOAL, goalOther: '  grief   and  loss ' })).toMatchObject({
+      submission: { goalId: null, goalOther: 'grief and loss' },
+    })
+  })
+
+  it('keeps the goal one choice: words left in the box beside an option are not an answer', () => {
+    expect(read({ goalOther: 'grief' })).toMatchObject({
+      submission: { goalId: '00000000-0000-4000-8000-000000000009', goalOther: null },
     })
   })
 
@@ -80,6 +94,17 @@ describe('What the Intake form refuses', () => {
     expect(refusalsOf({ gender: null })).toEqual(['intake.gender_unknown'])
     expect(refusalsOf({ goalId: null })).toEqual(['intake.goal_not_selected'])
     expect(refusalsOf({ ageBand: '30-something' })).toEqual(['intake.age_band_unknown'])
+  })
+
+  it('refuses Other with nothing written under it, as it refuses no goal at all', () => {
+    expect(refusalsOf({ goalId: OTHER_GOAL, goalOther: null })).toEqual(['intake.goal_other_missing'])
+    expect(refusalsOf({ goalId: OTHER_GOAL, goalOther: '   ' })).toEqual(['intake.goal_other_missing'])
+  })
+
+  it('refuses words typed after Other on the group path, which asks no goal', () => {
+    expect(
+      refusalsOf({ intakePath: 'group', groupId: NO_GROUP_IN_MIND, goalId: null, goalOther: 'grief' }),
+    ).toEqual(['intake.path_unknown'])
   })
 
   it('cannot be submitted without SMS consent, because Discipler would have no way to reach them', () => {

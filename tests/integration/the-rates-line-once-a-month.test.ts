@@ -135,6 +135,7 @@ describe('the rates line, once a month', () => {
         ageBand: '25-34',
         gender: 'female',
         goalId: await firstGoalId(church.ministry),
+        goalOther: null,
         availability: ['monday:12'],
         smsConsent: true,
         contactSharing: 'granted',

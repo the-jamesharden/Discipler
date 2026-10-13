@@ -1,6 +1,7 @@
 import type { Branded } from './branded'
 import { relationshipId, type RelationshipId } from './ids'
 import { asEmail, asPhoneNumber, type PhoneNumber } from './roster'
+import { readWording } from './wording'
 
 /**
  * What the Intake form captures, and the rules for reading one. Intake is the single
@@ -155,13 +156,45 @@ export type DiscipleshipGoalId = Branded<string, 'DiscipleshipGoalId'>
 export const discipleshipGoalId = (value: string): DiscipleshipGoalId =>
   value as DiscipleshipGoalId
 
+/**
+ * The goal question's last option, as the form submits it in the goal's own field.
+ *
+ * Not one of the Ministry's options and never a row: every Ministry's form ends
+ * with it, no Admin can rename, move or remove it, and choosing it opens a box the
+ * Person types their own goal into (Pastor feedback 2026-10, ticket 06). A word
+ * rather than an id, so it can never be mistaken for an option a Ministry offers.
+ */
+export const OTHER_GOAL = 'other'
+
+/**
+ * What somebody typed after choosing Other, as `readWording` reads a box: trimmed,
+ * inner whitespace collapsed, and never empty.
+ *
+ * Branded because the difference between what arrived in the box and the words
+ * that will be stored and shown is the whole of the reading, as it is for a
+ * Ministry's own option. Two of these are the same goal by a rule Suggested Pairs
+ * owns (`sameOtherGoal`), which is looser than equality: capitals, spaces and
+ * punctuation do not count.
+ */
+export type OtherGoal = Branded<string, 'OtherGoal'>
+
+/** At the platform edge, where the database is the authority on its own column. */
+export const otherGoal = (value: string): OtherGoal => value as OtherGoal
+
 export interface IntakeFormFields {
   readonly fullName: string | null
   readonly phone: string | null
   readonly email: string | null
   readonly ageBand: string | null
   readonly gender: string | null
+  /** An option's id, or `OTHER_GOAL`. */
   readonly goalId: string | null
+  /**
+   * The box under Other. Read only where Other was chosen: the box is on the page
+   * whichever option is ticked, so words left in it before switching to an option
+   * arrive too, and are not an answer.
+   */
+  readonly goalOther: string | null
   /** Slot keys as the grid submits them -- `monday:08`. */
   readonly availability: readonly string[]
   readonly smsConsent: boolean
@@ -198,6 +231,11 @@ export interface IntakeSubmissionDraft {
    * question is not asked, and a record that said it was would be a guess.
    */
   readonly goalId: DiscipleshipGoalId | null
+  /**
+   * What they typed after choosing Other, and null wherever `goalId` is set: the
+   * goal is one choice. Both null on the group path.
+   */
+  readonly goalOther: OtherGoal | null
   readonly availability: readonly AvailabilitySlot[]
   readonly smsConsent: true
   readonly contactSharingConsent: boolean
@@ -254,6 +292,8 @@ export type IntakeRefusal =
   | 'intake.age_band_unknown'
   | 'intake.gender_unknown'
   | 'intake.goal_not_selected'
+  /** Other was chosen and its box left empty. */
+  | 'intake.goal_other_missing'
   | 'intake.sms_consent_required'
   | 'intake.contact_sharing_undecided'
   | 'intake.source_unknown'
@@ -367,7 +407,7 @@ export const readIntakeForm = (fields: IntakeFormFields): IntakeReading => {
     rawGroup === null || answersNoGroupInMind(rawGroup) ? null : relationshipId(rawGroup)
   if (askedTheGroup) {
     if (rawGroup === null) refusals.push('intake.group_not_selected')
-    if (fields.goalId !== null) answerWithNoQuestion()
+    if (fields.goalId !== null || fields.goalOther !== null) answerWithNoQuestion()
   } else if (rawGroup !== null) {
     answerWithNoQuestion()
   }
@@ -407,6 +447,15 @@ export const readIntakeForm = (fields: IntakeFormFields): IntakeReading => {
   const goalId = fields.goalId?.trim() || null
   if (!goalId && !askedTheGroup) refusals.push('intake.goal_not_selected')
 
+  // Other, and the words that make it an answer. Choosing it with the box empty
+  // is not choosing a goal, so it is refused as the unchosen goal is. Words in the
+  // box beside one of the Ministry's options are dropped rather than refused: the
+  // box sits on the page whichever option is ticked, so somebody who typed and
+  // then picked an option has answered with the option, and done nothing wrong.
+  const choseOther = goalId === OTHER_GOAL
+  const goalOther = choseOther ? (readWording(fields.goalOther) as OtherGoal | null) : null
+  if (choseOther && goalOther === null && !askedTheGroup) refusals.push('intake.goal_other_missing')
+
   // Without it Discipler has no way to reach them at all, and Participation Status
   // would read `No Intake Submitted` however complete the rest of the form was.
   if (!fields.smsConsent) refusals.push('intake.sms_consent_required')
@@ -435,7 +484,8 @@ export const readIntakeForm = (fields: IntakeFormFields): IntakeReading => {
       email,
       ageBand: fields.ageBand as AgeBand,
       gender: fields.gender as Gender,
-      goalId: askedTheGroup ? null : discipleshipGoalId(goalId!),
+      goalId: askedTheGroup || choseOther ? null : discipleshipGoalId(goalId!),
+      goalOther: askedTheGroup ? null : goalOther,
       availability,
       smsConsent: true,
       contactSharingConsent: contactSharing === 'granted',

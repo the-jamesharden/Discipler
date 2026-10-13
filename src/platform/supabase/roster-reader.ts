@@ -6,7 +6,15 @@ import type { RosterIntendedPairing } from '~/service/ports'
 import { isParticipationStatus, type ParticipationStatus } from '~/domain/participation'
 import { isMemberRole, type MemberRole } from '~/domain/relationships'
 import { intakeLinkState, intakeLinkToken } from '~/domain/intake-link'
-import { DECLARED_SIDES, GENDERS, isOneOf, type DeclaredSide, type Gender } from '~/domain/intake'
+import {
+  DECLARED_SIDES,
+  GENDERS,
+  isOneOf,
+  otherGoal,
+  type DeclaredSide,
+  type Gender,
+  type OtherGoal,
+} from '~/domain/intake'
 import { systemClock, type Clock } from '~/domain/clock'
 import type {
   AccountOnTheRoster,
@@ -53,6 +61,8 @@ interface PersonRow {
   readonly phone: PhoneNumber | null
   readonly email: string | null
   readonly gender: Gender | null
+  readonly goal: string | null
+  readonly goalOther: OtherGoal | null
   readonly isAdmin: boolean
 }
 
@@ -74,6 +84,8 @@ const asPersonRow = (row: unknown): PersonRow => {
     phone,
     email,
     gender,
+    goal_label: goal,
+    goal_other: goalOther,
     is_admin: isAdmin,
   } = (row ?? {}) as Record<string, unknown>
 
@@ -125,6 +137,18 @@ const asPersonRow = (row: unknown): PersonRow => {
   if (gender !== null && !isOneOf(GENDERS, gender)) {
     throw new Error(`A Roster row arrived with no gender answer for ${id}`)
   }
+  // Both nullable, and at most one set: the goal is one choice, and null is a real
+  // answer (Other, the group path, a removed option). Anything else is the column
+  // missing, which read as *no goal* would blank every person page's answer.
+  if (goal !== null && (typeof goal !== 'string' || goal === '')) {
+    throw new Error(`A Roster row arrived with no goal answer for ${id}`)
+  }
+  if (goalOther !== null && (typeof goalOther !== 'string' || goalOther === '')) {
+    throw new Error(`A Roster row arrived with no answer about a typed goal for ${id}`)
+  }
+  if (goal !== null && goalOther !== null) {
+    throw new Error(`A Roster row arrived with two goals for ${id}`)
+  }
   // Never null, like the account answer. Read as *not an Admin*, a missing column
   // would offer every Admin a Remove card the removal then refuses.
   if (typeof isAdmin !== 'boolean') {
@@ -141,6 +165,8 @@ const asPersonRow = (row: unknown): PersonRow => {
     phone: phone === null ? null : phoneNumber(phone),
     email,
     gender,
+    goal,
+    goalOther: goalOther === null ? null : otherGoal(goalOther),
     isAdmin,
   }
 }
@@ -352,6 +378,8 @@ export const rosterFrom = (doc: PageDocument): readonly RosterEntry[] => {
     phone: row.phone,
     email: row.email,
     gender: row.gender,
+    goal: row.goal,
+    goalOther: row.goalOther,
     isAdmin: row.isAdmin,
     intendedPairings: plansFor(row.id),
   }))
