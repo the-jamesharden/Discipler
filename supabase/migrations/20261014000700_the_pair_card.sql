@@ -138,14 +138,16 @@ as $$
     ),
 
     -- Every reading of a Concern on this pair that is still unresolved, newest
-    -- first, with the reader's name where they are on this Roster. A resolved
+    -- first, with the reader's name where they are on this Roster and whether
+    -- it was the signed-in Admin's own. A resolved
     -- Concern's readings are left out: its words are gone and the card says
     -- nothing of it.
     'readings', coalesce(
       (select jsonb_agg(jsonb_build_object(
                 'concern_id', v.concern_id,
                 'viewed_at', v.viewed_at,
-                'viewer_name', reader.full_name)
+                'viewer_name', reader.full_name,
+                'by_this_reader', coalesce(v.viewed_by = (select auth.uid()), false))
               order by v.viewed_at desc, v.id)
          from public.concern_viewing v
          join public.concern c

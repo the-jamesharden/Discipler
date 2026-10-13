@@ -78,9 +78,11 @@ export const PairCard = ({
     card.people.filter((person) => person.role === role),
   )
 
-  // The reading this opening recorded, and the one before it.
+  // The reading this opening recorded, and the latest by anybody else: whether
+  // somebody has already picked up the phone, not this Admin's own refreshes.
   const thisReading = { by: card.readerName, at: now }
-  const earlier = card.readings[0] ? { by: card.readings[0].viewerName, at: card.readings[0].viewedAt } : null
+  const other = card.readings.find((reading) => !reading.byThisReader)
+  const earlier = other ? { by: other.viewerName, at: other.viewedAt } : null
 
   return (
     <div className="modal-bg open" data-testid="pair-card">

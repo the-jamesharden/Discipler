@@ -2013,6 +2013,8 @@ export interface ConcernReading {
   readonly viewedAt: Date
   /** Null where the reader is not on this Ministry's Roster. */
   readonly viewerName: string | null
+  /** Whether the signed-in Admin read it themselves. */
+  readonly byThisReader: boolean
 }
 
 export interface PairCard {

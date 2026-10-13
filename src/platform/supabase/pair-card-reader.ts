@@ -128,7 +128,9 @@ export const pairCardFrom = (doc: PageDocument, history: HistoryInputs, clock: C
     .flatMap((reading) => {
       const concern = text(reading.concern_id)
       const viewedAt = instant(reading.viewed_at)
-      return concern && viewedAt ? [{ concernId: concernId(concern), viewedAt, viewerName: text(reading.viewer_name) }] : []
+      return concern && viewedAt
+        ? [{ concernId: concernId(concern), viewedAt, viewerName: text(reading.viewer_name), byThisReader: reading.by_this_reader === true }]
+        : []
     })
 
   // While it is still paused. Resuming leaves the item standing on Follow-Up,

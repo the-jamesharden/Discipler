@@ -198,7 +198,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the pair card', () => {
     expect(html).toContain('Read by Pastor of Worried Chapel at')
     expect(html).toContain('Resolve and clear this text')
     // The last answer says the meeting and the letter, never the words.
-    expect(html).toContain('Mon 24 Aug · Met · D concern')
+    expect(html).toContain('Mon 24 Aug · Met · D\u00a0concern')
 
     const { rows: readings } = await pool.query(
       `select viewed_by from concern_viewing where concern_id = $1`,
@@ -211,9 +211,21 @@ describe.skipIf(skipUnlessAppIsRunning)('the pair card', () => {
     )
     expect(events).toHaveLength(1)
 
-    // A second opening is a second reading, and says who read it before.
+    // A second opening is a second reading, and the line does not name this
+    // Admin's own earlier reading back to them.
     const again = (await getPage(`/overview?card=${relationship}`, cookie)).html
-    expect(again).toContain('and before that by Pastor of Worried Chapel')
+    expect(again).not.toContain('and before that')
+    const { rows: twice } = await pool.query(`select 1 from concern_viewing where concern_id = $1`, [concern])
+    expect(twice).toHaveLength(2)
+
+    // Somebody else's reading is named: here one whose account has since gone,
+    // which the record keeps with nobody against it.
+    await pool.query(
+      `insert into concern_viewing (ministry_id, concern_id, viewed_by, viewed_at) values ($1, $2, null, $3)`,
+      [church.ministry.id, concern, minutesAfter(at(0), 30).toISOString()],
+    )
+    const third = (await getPage(`/overview?card=${relationship}`, cookie)).html
+    expect(third).toContain('and before that by an Admin on Mon 24 Aug at 8:30pm')
 
     const resolved = await post('/follow-up/concern/resolve', cookie, {
       concernId: concern,

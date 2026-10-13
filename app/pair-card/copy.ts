@@ -89,9 +89,9 @@ export const RESOLVE_AND_CLEAR = 'Resolve and clear this text'
 
 /**
  * The line under the band: who read the Concern and when. The reading this card
- * just recorded first, and the one before it where there was one, so an Admin
- * sees at once whether somebody has already picked up the phone. The whole list
- * is Follow-Up's to show (ticket 10).
+ * just recorded first, and the latest by anybody else where there was one, so an
+ * Admin sees at once whether somebody has already picked up the phone. The whole
+ * list is Follow-Up's to show (ticket 10).
  */
 export const readingLine = (
   now: { readonly by: string | null; readonly at: Date },
@@ -151,14 +151,15 @@ export const NO_MATERIAL_YET = 'No material yet'
  * Each stored answer as the letter it carries now and its word (Pastor
  * feedback, ticket 03). Stored as words, so a concern given when C meant
  * concern still reads *D concern*: the letter is today's, the meaning is the
- * one recorded. A fifth answer is a fifth key, and the build fails until it is
- * worded.
+ * one recorded. The letter and its word are held together, so a narrow card
+ * never leaves the letter alone at the end of a line. A fifth answer is a fifth
+ * key, and the build fails until it is worded.
  */
 export const SATISFACTION: Record<Satisfaction, string> = {
-  outstanding: 'A outstanding',
-  good: 'B good',
-  okay: 'C okay',
-  concern: 'D concern',
+  outstanding: 'A\u00a0outstanding',
+  good: 'B\u00a0good',
+  okay: 'C\u00a0okay',
+  concern: 'D\u00a0concern',
 }
 
 /** *Mon 12 Oct · Met · B good*. Never the words of a Concern. */
