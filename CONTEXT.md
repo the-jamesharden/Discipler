@@ -206,7 +206,7 @@ _Avoid_: prompt. The database columns predate this entry and spell it `prompt_ke
 A recorded answer to a meeting-related question in the Check-In Rhythm, held against the question it answers and the person who sent it. Only leaders are asked today, so only leaders answer; a response is never keyed to the relationship alone, because a ministry may later ask participants too and a relationship is not assumed to have one respondent.
 
 **Satisfaction**:
-How a leader reported a meeting that happened: outstanding, good, or concern. The stored value is the word, never the letter the message offered — a token could be renumbered, and a pilot's recorded history cannot be.
+How a leader reported a meeting that happened: outstanding, good, okay, or concern, offered as A to D. Only concern is a Concern; okay raises nothing. The stored value is the word, never the letter the message offered — the letters were renumbered once, when C went from concern to okay, and no stored answer changed meaning. A reply is read against the answers its question offered when it was sent; `docs/product-rules.md`, *What the Satisfaction Tokens Store*, holds the rule and why there are four.
 
 **Relationship State**:
 Discipler's current interpretation of how a discipleship relationship is doing based on its recorded ministry history. One of: Awaiting Leader Acceptance, Healthy, Stalled, Needs Care, Paused, Ended. A relationship holds exactly one state at a time.
