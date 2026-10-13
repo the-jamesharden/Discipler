@@ -13,18 +13,18 @@ Today: only the goal options and the groups can be configured (`app/intake-forms
 
 ## Acceptance
 
-- [ ] Each form, mentor and mentee and groups, has its own editor, chosen by a toggle at its top, showing its short link and *Preview form*.
-- [ ] Each wizard page is a box titled with its number and name, with its intro (first page) or thank-you (last page) text editable from the box's head.
-- [ ] Each question is a row with its wording, chips for what kind it is and whether it is optional, and an *Edit* button that opens it in place: wording, hint and *Required*. Name and phone are marked *Always asked* and cannot be made optional.
-- [ ] Each built-in question the product uses is marked with what uses it: *Pairing rules use this* (gender), *The age rule uses this* (age band), *Suggested Pairs uses this* (the matching question, availability, goal). The goal's choices stay edited under *Goals* as today, with Other always last.
-- [ ] Rows drag to reorder within and between pages, with buttons for a page whose script has not run, as the goals list does; pages can be added and renamed.
-- [ ] **Saving a question makes it live at once**, saying *Saved, live now* beside it. Somebody already part-way through the form finishes the version they opened.
-- [ ] *Preview form* opens the form as a newcomer sees it and records nothing.
-- [ ] A rename keeps every answer already given (ADR 0014).
-- [ ] The wizard reads its pages, order, wording, hints and required flags from the Ministry's form, and a Ministry that has never edited sees exactly today's form.
-- [ ] Every edit is recorded in the Ministry's history.
-- [ ] `docs/product-rules.md` says a Ministry controls its forms, what is always asked, and the preset; `CONTEXT.md` names the form and its pages.
-- [ ] Checked by eye in a real browser against the mock-up, editing each form and previewing it, at desktop and phone width.
+- [x] Each form, mentor and mentee and groups, has its own editor, chosen by a toggle at its top, showing its short link and *Preview form*. (89216d1)
+- [x] Each wizard page is a box titled with its number and name, with its intro (first page) or thank-you (last page) text editable from the box's head. (89216d1, 85a9426)
+- [x] Each question is a row with its wording, chips for what kind it is and whether it is optional, and an *Edit* button that opens it in place: wording, hint and *Required*. Name and phone are marked *Always asked* and cannot be made optional. (d51bfe1, 89216d1)
+- [x] Each built-in question the product uses is marked with what uses it: *Pairing rules use this* (gender), *The age rule uses this* (age band), *Suggested Pairs uses this* (the matching question, availability, goal). The goal's choices stay edited under *Goals* as today, with Other always last. (89216d1)
+- [x] Rows drag to reorder within and between pages, with buttons for a page whose script has not run, as the goals list does; pages can be added and renamed. (d51bfe1, 89216d1, 85a9426; a real mouse drag across pages checked in Chrome)
+- [x] **Saving a question makes it live at once**, saying *Saved, live now* beside it. Somebody already part-way through the form finishes the version they opened. (d51bfe1, cbb799a, 89216d1, 85a9426)
+- [x] *Preview form* opens the form as a newcomer sees it and records nothing. (cbb799a, 89216d1)
+- [x] A rename keeps every answer already given (ADR 0014). (d51bfe1)
+- [x] The wizard reads its pages, order, wording, hints and required flags from the Ministry's form, and a Ministry that has never edited sees exactly today's form. (cbb799a, 89216d1)
+- [x] Every edit is recorded in the Ministry's history. (d51bfe1)
+- [x] `docs/product-rules.md` says a Ministry controls its forms, what is always asked, and the preset; `CONTEXT.md` names the form and its pages. (a582389)
+- [x] Checked by eye in a real browser against the mock-up, editing each form and previewing it, at desktop and phone width. (85a9426, headless Chrome at 1440 wide and a 390x844 frame, and Chrome for the drag)
 
 ## Not in this ticket
 
