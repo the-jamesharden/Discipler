@@ -44,6 +44,9 @@ import type {
   ParticipantDeparture,
   RelationshipCancellation,
   RelationshipEnding,
+  ShortNameChange,
+  IntakeAnswersRemoval,
+  IntakeFormSaving,
 } from '~/domain/effects'
 import {
   followUpPayload,
@@ -70,7 +73,16 @@ import {
   type OfferedGoal,
   type StatedGoal,
 } from '~/domain/discipleship-goals'
-import { discipleshipGoalId, type Gender } from '~/domain/intake'
+import { discipleshipGoalId, type Gender, type IntakePath } from '~/domain/intake'
+import {
+  isOwnQuestionKey,
+  presetForm,
+  PRESET_VERSION,
+  type AnswerGiven,
+  type IntakeForm,
+  type QuestionKey,
+} from '~/domain/intake-form'
+import { asDefinition, formOrPreset, intakeFormFrom } from './intake-form-document'
 import { materialTitle, type MaterialItem, type MaterialOnOffer } from '~/domain/materials'
 import {
   roleNoun,
@@ -80,7 +92,7 @@ import {
 import { readStandingPause, type StandingPause } from '~/domain/pause'
 import type { MaterialRecipient, MaterialStanding } from '~/domain/material-notices'
 import { materialItemFrom } from './material-items'
-import { count, looksLikeAnId, text } from './rows'
+import { count, text } from './rows'
 import type { MemberRole, RelationshipOutcome } from '~/domain/relationships'
 import type { ConcernResolution, ConcernViewing, NewConcern } from '~/domain/concerns'
 import {
@@ -90,6 +102,7 @@ import {
   EndingRefused,
   FollowUpRefused,
   GoalRefused,
+  ShortNameRefused,
   GroupJoinRefused,
   ImportRowResolutionRefused,
   IntakeRefused,
@@ -105,6 +118,7 @@ import {
   type PairingRefusal,
 } from '~/domain/errors'
 import type { HistoryEvent } from '~/domain/history'
+import { shortName, type ShortName } from '~/domain/short-name'
 import type { PersonRemoval, PersonRestoration, PersonToRemove } from '~/domain/removal'
 import type { RatesLineHistory, SettledMessage } from '~/domain/rates-line'
 import {
@@ -112,6 +126,7 @@ import {
   followUpItemId,
   importRowId,
   intakeSubmissionId,
+  looksLikeAnId,
   materialId,
   ministryId,
   personId,
@@ -201,6 +216,21 @@ const asGoalRefusal = (error: unknown): GoalRefused | undefined =>
   constraintViolated(error) === 'discipleship_goal_ministry_id_label_key'
     ? new GoalRefused('goal.already_offered')
     : undefined
+
+/**
+ * A short name somebody else has, or had, as the database sees it. The boundary
+ * cannot read another Ministry's names, so this is the first anybody learns of
+ * it; a name a route needs is refused by the boundary before it gets here, and
+ * the check below it is only the database agreeing.
+ */
+const asShortNameRefusal = (error: unknown): ShortNameRefused | undefined => {
+  const constraint = constraintViolated(error)
+  if (constraint === 'ministry_short_name_is_unique' || constraint === 'held_short_name_pkey') {
+    return new ShortNameRefused('short_name.taken')
+  }
+  if (constraint === 'ministry_short_name_is_not_a_route') return new ShortNameRefused('short_name.reserved')
+  return undefined
+}
 
 /** Writes a Material's new items, each where the boundary placed it. */
 const insertMaterialItems = async (
@@ -996,6 +1026,163 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     }
   },
 
+  async intakeForm(form: IntakePath): Promise<IntakeForm> {
+    // One edit to one form at a time, as the goal list is edited: two Admins
+    // saving at once would otherwise both read version N and both save N + 1,
+    // and the loser would meet the version's unique key as an unhandled error
+    // rather than finding their edit made on top of the other's. Keyed on the
+    // Ministry and the form, so editing one form does not make the other wait.
+    await lockTheIntakeForm(client, form)
+
+    // The latest saved version, scoped by the policy on this connection like
+    // every other read here. None is the preset.
+    const { rows } = await client.query<{ version: number; definition: unknown }>(
+      `select version, definition
+         from intake_form_version
+        where form = $1
+        order by version desc
+        limit 1`,
+      [form],
+    )
+    return formOrPreset(form, rows[0])
+  },
+
+  async intakeFormVersion(form: IntakePath, version: number): Promise<IntakeForm | null> {
+    // A submission against the version its Person opened waits behind the same
+    // lock as an edit, so a question's removal cannot read the answers into
+    // history and then delete one that landed in between (ticket 13).
+    await lockTheIntakeForm(client, form)
+    if (version === PRESET_VERSION) return presetForm(form)
+    const { rows } = await client.query<{ version: number; definition: unknown }>(
+      `select version, definition from intake_form_version where form = $1 and version = $2`,
+      [form, version],
+    )
+    const row = rows[0]
+    return row ? intakeFormFrom(form, Number(row.version), row.definition) : null
+  },
+
+  async saveIntakeForm(saving: IntakeFormSaving) {
+    await client.query(
+      `insert into intake_form_version (ministry_id, form, version, definition, saved_at, saved_by)
+       values ($1, $2, $3, $4, $5, $6)`,
+      [
+        saving.ministryId,
+        saving.form.name,
+        saving.form.version,
+        JSON.stringify(asDefinition(saving.form)),
+        saving.savedAt,
+        saving.savedBy,
+      ],
+    )
+  },
+
+  async answersTo(form: IntakePath, key: QuestionKey): Promise<readonly AnswerGiven[]> {
+    // Read before the delete, in the one transaction the command opened and
+    // behind the form's lock, so nothing can answer this question between what
+    // history records and what the delete takes (Pastor feedback, ticket 13).
+    const query = answersQuery(key)
+    if (query === null) return []
+    const { rows } = await client.query<{
+      intake_submission_id: string
+      person_id: string
+      submitted_at: Date
+      answer: unknown
+    }>(query, [form, key])
+
+    return rows.map((row) => ({
+      submissionId: intakeSubmissionId(row.intake_submission_id),
+      personId: personId(row.person_id),
+      submittedAt: row.submitted_at,
+      answer: row.answer,
+    }))
+  },
+
+  async removeIntakeAnswers(removal: IntakeAnswersRemoval) {
+    // Each question's answers where that question keeps them, on the
+    // submissions made from the form it is removed from. Every statement is
+    // scoped by the policies on this connection, like every write here.
+    const fromThisForm = `select f.intake_submission_id
+                            from app.intake_submission_forms(app.command_ministry_id()) f
+                           where f.form = $1`
+    const { form, key } = removal
+    if (isOwnQuestionKey(key)) {
+      await client.query(`delete from intake_answer where question_key = $1`, [key])
+      return
+    }
+    switch (key) {
+      case 'ageBand':
+        await client.query(`update intake_submission set age_band = null where id in (${fromThisForm})`, [form])
+        return
+      case 'gender':
+        await client.query(`update intake_submission set gender = null where id in (${fromThisForm})`, [form])
+        return
+      case 'experience':
+        await client.query(`update intake_submission set first_time = null where id in (${fromThisForm})`, [form])
+        return
+      case 'goalId':
+        await client.query(
+          `update intake_submission
+              set discipleship_goal_id = null, discipleship_goal_other = null
+            where id in (${fromThisForm})`,
+          [form],
+        )
+        return
+      case 'availability':
+        await client.query(`delete from intake_availability where intake_submission_id in (${fromThisForm})`, [form])
+        return
+      case 'side':
+        // On the consent records the mentor and mentee form wrote, and nothing on
+        // them but the side: the trigger on `consent_record` refuses any other
+        // change, so what anybody agreed to stands exactly as it was.
+        await client.query(
+          `update consent_record
+              set declared_side = null
+            where intake_path = $1
+              and declared_side is not null`,
+          [form],
+        )
+        return
+      case 'email':
+      case 'groupId':
+      case 'fullName':
+      case 'phone':
+        // Nothing kept as an answer to delete (`removalDeletesAnswers`).
+        return
+    }
+  },
+
+  async ministryShortName(): Promise<ShortName> {
+    // The row itself, scoped by the policy on this connection, as the settings
+    // read above it is, and held until the rename commits, so a second Admin's
+    // rename waits and records as *what it was* the name this one gave.
+    const { rows } = await client.query<{ short_name: string }>(`select short_name from ministry for update`)
+
+    const row = rows[0]
+    if (!row) throw new Error('This command has no Ministry to read the short name of')
+    return shortName(row.short_name)
+  },
+
+  async changeShortName(change: ShortNameChange) {
+    // The trigger on `ministry` holds the new name for good as the row changes.
+    // Another Ministry holding it now is refused by the column's own key, and one
+    // that held it once by the key on every name ever held -- the one fact the
+    // boundary could not see, so it is translated here into the refusal it is.
+    //
+    // Behind the lock a Ministry opening takes while it chooses its name, so the
+    // two cannot both take the same one and leave the opening to fail at the key.
+    await client.query(`select pg_advisory_xact_lock(hashtext('held_short_name'))`)
+    let rowCount: number | null
+    try {
+      ;({ rowCount } = await client.query(`update ministry set short_name = $1`, [change.shortName]))
+    } catch (error) {
+      throw asShortNameRefusal(error) ?? error
+    }
+
+    if (rowCount !== 1) {
+      throw new Error('This command has no Ministry to give a short name to')
+    }
+  },
+
   async createPeople(people: readonly NewPerson[]) {
     for (const person of people) {
       try {
@@ -1167,8 +1354,8 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       ;({ rows } = await client.query<{ id: string }>(
         `insert into intake_submission
            (ministry_id, person_id, submitted_at, age_band, gender, discipleship_goal_id,
-            first_time)
-         values ($1, $2, $3, $4, $5, $6, $7)
+            first_time, discipleship_goal_other, form_version)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          returning id`,
         [
           intake.ministryId,
@@ -1182,6 +1369,8 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
           // null, because a submission that predates the question has not answered
           // it.
           intake.firstTime,
+          intake.goalOther,
+          intake.formVersion,
         ],
       ))
     } catch (error) {
@@ -1211,11 +1400,24 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       )
     }
 
+    // The answers to the Ministry's own questions, beside the submission they
+    // were given on (Pastor feedback, ticket 12). Shown to an Admin and read by
+    // nothing that pairs anybody.
+    for (const answer of intake.ownAnswers) {
+      await client.query(
+        `insert into intake_answer (ministry_id, intake_submission_id, question_key, answer)
+         values ($1, $2, $3, $4)`,
+        [intake.ministryId, submissionId, answer.key, JSON.stringify(answer.value)],
+      )
+    }
+
     // Each decision is its own row with its own timestamp and the version of the
-    // wording the Person actually saw. Nothing here is ever updated: the trigger on
-    // this table refuses it, because a consent record migrated forward to newer
-    // wording no longer records what anybody agreed to. A change of mind is therefore
-    // a later row, and `decided_at` is what orders them.
+    // wording the Person actually saw. What anybody agreed to is never updated: the
+    // trigger on this table refuses it, because a consent record migrated forward
+    // to newer wording no longer records what anybody agreed to. The one change it
+    // accepts is clearing the side, when the matching question is removed (Pastor
+    // feedback, ticket 13). A change of mind is therefore a later row, and
+    // `decided_at` is what orders them.
     for (const decision of intake.consentDecisions) {
       await client.query(
         `insert into consent_record
@@ -2702,12 +2904,13 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
         relationship_id: string
         position: number
         question: OpenPrompt['question']
+        wording: OpenPrompt['wording'] | null
         asked_at: Date
         reminded_at: Date | null
         clarifications_sent: number
         answered_at: Date | null
       }>(
-        `select id, relationship_id, position, question,
+        `select id, relationship_id, position, question, wording,
                 asked_at, reminded_at, clarifications_sent, answered_at
            from checkin_prompt
           where sequence_id = $1
@@ -2770,6 +2973,11 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
                 relationshipId: relationshipId(latest.relationship_id),
                 position: latest.position,
                 question: latest.question,
+                // Null on a prompt the code from before the wording was recorded
+                // sent, before migration `20261014000300` or in the window between
+                // it and the deploy after it. That code sent only the three-answer
+                // question, so null is `a_to_c`, and its `C` is a concern.
+                wording: latest.wording ?? 'a_to_c',
                 // The two clocks and the cap, read from the row rather than
                 // counted from history: what Discipler said is a different number
                 // from what the Leader typed, and it is Discipler's side that is
@@ -2885,8 +3093,8 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
   async askCheckInQuestion(prompt) {
     await client.query(
       `insert into checkin_prompt
-         (id, ministry_id, sequence_id, relationship_id, role, position, question, asked_at)
-       values ($1, $2, $3, $4, $5, $6, $7, $8)`,
+         (id, ministry_id, sequence_id, relationship_id, role, position, question, wording, asked_at)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
       [
         prompt.id,
         prompt.ministryId,
@@ -2895,6 +3103,7 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
         prompt.role,
         prompt.position,
         prompt.question,
+        prompt.wording,
         prompt.askedAt,
       ],
     )
@@ -3912,5 +4121,78 @@ export const createPostgresInboundReader = (
       }
     },
     close: () => pool.end(),
+  }
+}
+
+/**
+ * One Intake form of the Ministry this connection acts for, held until the
+ * transaction ends: an edit, a removal and a submission to the same form wait
+ * for each other, and the other form never waits.
+ */
+const lockTheIntakeForm = async (client: PoolClient, form: IntakePath): Promise<void> => {
+  await client.query(
+    `select pg_advisory_xact_lock(hashtextextended(app.command_ministry_id()::text || ':intake_form:' || $1, 0))`,
+    [form],
+  )
+}
+
+/**
+ * The query reading every answer to one question on the submissions made from one
+ * form (`$1`), each with the submission it was given on, oldest first; or null
+ * for a question that keeps no answers of its own (Pastor feedback, ticket 13).
+ * `$2` is the question's key, which only a Ministry's own question reads.
+ */
+const answersQuery = (key: QuestionKey): string | null => {
+  const submissions = `select f.intake_submission_id, f.person_id, f.submitted_at
+                         from app.intake_submission_forms(app.command_ministry_id()) f
+                        where f.form = $1 and $2::text is not null`
+  const column = (answer: string, answered: string) =>
+    `select s.intake_submission_id, s.person_id, s.submitted_at, ${answer} as answer
+       from (${submissions}) s
+       join intake_submission i on i.id = s.intake_submission_id
+      where ${answered}
+      order by s.submitted_at, s.intake_submission_id`
+  if (isOwnQuestionKey(key)) {
+    return `select a.intake_submission_id, i.person_id, i.submitted_at, a.answer
+              from intake_answer a
+              join intake_submission i on i.id = a.intake_submission_id
+             where a.question_key = $2 and $1::text is not null
+             order by i.submitted_at, a.intake_submission_id`
+  }
+  switch (key) {
+    case 'ageBand':
+      return column('to_jsonb(i.age_band)', 'i.age_band is not null')
+    case 'gender':
+      return column('to_jsonb(i.gender)', 'i.gender is not null')
+    case 'experience':
+      return column('to_jsonb(i.first_time)', 'i.first_time is not null')
+    case 'goalId':
+      return column(
+        `case when i.discipleship_goal_id is not null
+              then jsonb_build_object('goalId', i.discipleship_goal_id)
+              else jsonb_build_object('other', i.discipleship_goal_other) end`,
+        'i.discipleship_goal_id is not null or i.discipleship_goal_other is not null',
+      )
+    case 'availability':
+      return `select s.intake_submission_id, s.person_id, s.submitted_at,
+                     to_jsonb(array_agg(a.day::text || ':' || a.hour::text order by a.day, a.hour)) as answer
+                from (${submissions}) s
+                join intake_availability a on a.intake_submission_id = s.intake_submission_id
+               group by s.intake_submission_id, s.person_id, s.submitted_at
+               order by s.submitted_at, s.intake_submission_id`
+    case 'side':
+      // On the consent records written with each submission, both of which
+      // carry it: one answer per submission.
+      return `select distinct on (s.submitted_at, s.intake_submission_id)
+                     s.intake_submission_id, s.person_id, s.submitted_at, to_jsonb(c.declared_side) as answer
+                from (${submissions}) s
+                join consent_record c on c.person_id = s.person_id and c.decided_at = s.submitted_at
+               where c.intake_path = $1 and c.declared_side is not null
+               order by s.submitted_at, s.intake_submission_id`
+    case 'email':
+    case 'groupId':
+    case 'fullName':
+    case 'phone':
+      return null
   }
 }

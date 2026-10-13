@@ -3,7 +3,7 @@ import { GroupJoinRefused, PairingRefused } from '~/domain/errors'
 import { personIdFrom, relationshipIdFrom } from '~/domain/ids'
 import { currentAdmin } from '~/platform/supabase/current-admin'
 import { getCommandService } from '~/service/container'
-import { backToFollowUp, field, refused } from '../actions'
+import { backFrom, backToFollowUp, field, refused } from '../actions'
 
 /**
  * **Place in this group**, on a *Wants a group* item (Group form exits, ticket 01,
@@ -18,23 +18,26 @@ import { backToFollowUp, field, refused } from '../actions'
  *
  * On success the Admin lands on the Roster with the receipt **Add to group**
  * gives, which says whether anybody was texted and shows them in the group. A
- * refusal comes back here in the joining's and the pairing's own codes.
+ * refusal comes back to the card it was pressed on, in the joining's and the
+ * pairing's own codes.
  */
 export async function POST(request: NextRequest) {
   const admin = await currentAdmin()
   if (!admin) return NextResponse.redirect(new URL('/login', request.url), { status: 303 })
 
   const form = await request.formData()
+  // Follow-Up, or the card the form was posted from, where a refusal is said.
+  const back = backFrom(form)
   // Text nobody vouched for. An id not shaped like one names nobody, and is
   // refused as naming nobody rather than handed to the database to fail a cast.
   const personId = personIdFrom(field(form, 'personId') ?? undefined)
-  if (personId === null) return refused(request, 'joining.person_not_found')
+  if (personId === null) return refused(request, 'joining.person_not_found', back)
   const rawGroup = field(form, 'groupId')
   // No group chosen: the select is required, so this is a body Care Needed did
   // not send. Back to the page, as a form with no item is.
-  if (rawGroup === null) return backToFollowUp(request)
+  if (rawGroup === null) return backToFollowUp(request, undefined, back)
   const relationshipId = relationshipIdFrom(rawGroup)
-  if (relationshipId === null) return refused(request, 'joining.group_not_found')
+  if (relationshipId === null) return refused(request, 'joining.group_not_found', back)
 
   let told: boolean
   try {
@@ -48,7 +51,7 @@ export async function POST(request: NextRequest) {
     told = effects.some((effect) => effect.kind === 'message.enqueue')
   } catch (error) {
     if (error instanceof GroupJoinRefused || error instanceof PairingRefused) {
-      return refused(request, error.refusal)
+      return refused(request, error.refusal, back)
     }
     throw error
   }

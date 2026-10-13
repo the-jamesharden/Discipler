@@ -1,8 +1,16 @@
 import { systemClock, type Clock } from '~/domain/clock'
-import { AGE_BANDS, discipleshipGoalId, isOneOf, readSlot, type AgeBand, type AvailabilitySlot } from '~/domain/intake'
-import { suggest, type SuggestionCandidate, type SuggestionSettings } from '~/domain/suggestions'
+import { AGE_BANDS, discipleshipGoalId, isOneOf, otherGoal, readSlot, type AgeBand, type AvailabilitySlot } from '~/domain/intake'
+import {
+  A_ONE_TO_ONE,
+  suggest,
+  SUGGESTION_QUESTIONS,
+  type SuggestionCandidate,
+  type SuggestionQuestion,
+  type SuggestionSettings,
+} from '~/domain/suggestions'
 import type { SuggestedPairsPage, SuggestedPairsReader } from '~/service/ports'
 import { careNeededFrom } from './care-needed-reader'
+import { removedFromTheForms } from './intake-form-document'
 import { adminPage, list, readPageDocument, type PageDocument } from './page'
 import { historyOf, instant } from './relationship-history'
 import { rosterFrom } from './roster-reader'
@@ -17,7 +25,7 @@ import { createSupabaseServerClient } from './server-client'
 interface Inputs {
   readonly intakeSubmittedAt: Date
   readonly consentsToTexts: boolean
-  readonly ageBand: AgeBand
+  readonly ageBand: AgeBand | null
   readonly goal: SuggestionCandidate['goal']
   readonly availability: readonly AvailabilitySlot[]
 }
@@ -30,6 +38,7 @@ const inputsOf = (row: Record<string, unknown>): [string, Inputs] => {
     age_band: ageBand,
     goal_id: goalId,
     goal_label: goalLabel,
+    goal_other: goalOther,
     availability,
   } = row
 
@@ -39,14 +48,27 @@ const inputsOf = (row: Record<string, unknown>): [string, Inputs] => {
     throw new Error(`A suggestion input arrived with no Intake time for ${id}`)
   }
   if (typeof consents !== 'boolean') throw new Error(`A suggestion input arrived with no consent answer for ${id}`)
-  // Required on every submission, so a band nothing recognises is the enum having
-  // grown past this reader, and ranking against a guessed band is the age rule
-  // applied to somebody it was never asked about.
-  if (!isOneOf(AGE_BANDS, ageBand)) throw new Error(`A suggestion input arrived with no age band for ${id}`)
+  // Null is a real answer since a form may stop asking it (Pastor feedback,
+  // ticket 13). A band nothing recognises is the enum having grown past this
+  // reader, and ranking against a guessed band is the age rule applied to
+  // somebody it was never asked about.
+  if (ageBand !== null && !isOneOf(AGE_BANDS, ageBand)) {
+    throw new Error(`A suggestion input arrived with no age band for ${id}`)
+  }
   // Null is a real answer: the Ministry retired the option they chose, and they
   // are ranked on availability alone until they answer again.
   if (goalId !== null && (typeof goalId !== 'string' || typeof goalLabel !== 'string' || goalLabel === '')) {
     throw new Error(`A suggestion input arrived with no answer about the goal for ${id}`)
+  }
+  // Null is a real answer here too: they chose one of the options, or the form
+  // asked no goal. Anything but words or null is the column missing, which read as
+  // *no typed goal* would quietly stop two people who wrote the same thing from
+  // sharing it.
+  if (goalOther !== null && (typeof goalOther !== 'string' || goalOther === '')) {
+    throw new Error(`A suggestion input arrived with no answer about a typed goal for ${id}`)
+  }
+  if (goalId !== null && goalOther !== null) {
+    throw new Error(`A suggestion input arrived with two goals for ${id}`)
   }
   if (!Array.isArray(availability) || availability.some((key) => typeof key !== 'string')) {
     throw new Error(`A suggestion input arrived with no availability for ${id}`)
@@ -65,7 +87,9 @@ const inputsOf = (row: Record<string, unknown>): [string, Inputs] => {
       goal:
         typeof goalId === 'string' && typeof goalLabel === 'string'
           ? { id: discipleshipGoalId(goalId), label: goalLabel }
-          : null,
+          : typeof goalOther === 'string'
+            ? { other: otherGoal(goalOther) }
+            : null,
       availability: slots as AvailabilitySlot[],
     },
   ]
@@ -115,11 +139,26 @@ export const candidatesFrom = (doc: PageDocument): readonly SuggestionCandidate[
   })
 }
 
+/**
+ * What Suggested Pairs reads that the mentor and mentee form no longer asks
+ * (Pastor feedback, ticket 13), in the order the tab says it. That form and not
+ * the groups form: the side and the goal are asked on no other, and Suggested
+ * Pairs suggests one-to-ones, which is what that form signs people up for.
+ */
+export const unaskedFrom = (doc: PageDocument): readonly SuggestionQuestion[] => {
+  const removed = removedFromTheForms(doc.intake_forms_asked).discipleship
+  return SUGGESTION_QUESTIONS.filter((question) => removed.includes(question))
+}
+
 /** Everything the tab shows, from its one document. Exported so a test can drive it with a real session. */
-export const suggestedPairsPageFrom = (doc: PageDocument, clock: Clock): SuggestedPairsPage => ({
-  followUpCount: careNeededFrom(historyOf(doc), clock).length,
-  suggestions: suggest(candidatesFrom(doc), settingsFrom(doc)),
-})
+export const suggestedPairsPageFrom = (doc: PageDocument, clock: Clock): SuggestedPairsPage => {
+  const unasked = unaskedFrom(doc)
+  return {
+    followUpCount: careNeededFrom(historyOf(doc), clock).length,
+    suggestions: suggest(candidatesFrom(doc), settingsFrom(doc), A_ONE_TO_ONE, new Set(unasked)),
+    unasked,
+  }
+}
 
 /**
  * Built with a clock for the badge's number alone: the ranking itself needs none,

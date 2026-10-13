@@ -6,7 +6,7 @@ import { appBaseUrl } from '~/platform/supabase/credentials'
 import { currentAdmin } from '~/platform/supabase/current-admin'
 import { getCommandService } from '~/service/container'
 import { escapeHtml, htmlDocument } from '../../document'
-import { backToFollowUp, field, FOLLOW_UP, refused } from '../actions'
+import { backFrom, backToFollowUp, field, refused } from '../actions'
 import {
   careRefusalMessage,
   COPY_IT_BY_HAND,
@@ -32,10 +32,13 @@ export const dynamic = 'force-dynamic'
  */
 export async function POST(request: NextRequest) {
   const wantsJson = (request.headers.get('accept') ?? '').includes('application/json')
+  const form = await request.formData()
+  // Follow-Up, or the card the form was posted from.
+  const back = backFrom(form)
   const refuse = (code: string) =>
     wantsJson
       ? NextResponse.json({ error: careRefusalMessage(code) }, { status: 409 })
-      : refused(request, code)
+      : refused(request, code, back)
 
   const admin = await currentAdmin()
   if (!admin) {
@@ -44,10 +47,9 @@ export async function POST(request: NextRequest) {
       : NextResponse.redirect(new URL('/login', request.url), { status: 303 })
   }
 
-  const form = await request.formData()
   const relationship = relationshipIdFrom(field(form, 'relationshipId') ?? undefined)
   const person = personIdFrom(field(form, 'personId') ?? undefined)
-  if (!relationship || !person) return wantsJson ? refuse('reinvite.not_found') : backToFollowUp(request)
+  if (!relationship || !person) return wantsJson ? refuse('reinvite.not_found') : backToFollowUp(request, undefined, back)
 
   let link: string
   try {
@@ -84,7 +86,7 @@ export async function POST(request: NextRequest) {
       + '<header class="header"><div>'
       + `<h1>${escapeHtml(COPY_LINK_TO_REINVITE)}</h1>`
       + `<p>${escapeHtml(admin.ministryName)}</p>`
-      + `</div><div class="header-actions"><a href="${FOLLOW_UP}">Back to Follow-Up</a></div></header>`
+      + `</div><div class="header-actions"><a href="${escapeHtml(back)}">Back to Follow-Up</a></div></header>`
       + '<main><div class="card">'
       + `<p class="notice">${escapeHtml(COPY_IT_BY_HAND)}</p>`
       + '<div class="field">'

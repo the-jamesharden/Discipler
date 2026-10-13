@@ -322,7 +322,7 @@ export interface RelationshipWeekAnswer {
   readonly concernOpen: boolean
 }
 
-const SATISFACTIONS: readonly Satisfaction[] = ['outstanding', 'good', 'concern']
+const SATISFACTIONS: readonly Satisfaction[] = ['outstanding', 'good', 'okay', 'concern']
 
 /**
  * A `checkin_satisfaction` column as the domain's word for it, checked rather than

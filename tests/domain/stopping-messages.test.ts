@@ -40,6 +40,7 @@ const openSequence: OpenSequence = {
     relationshipId: emily,
     position: 1,
     question: 'met',
+    wording: 'a_to_d',
     askedAt: new Date('2026-03-02T09:00:00Z'),
     remindedAt: null,
     clarificationsSent: 0,

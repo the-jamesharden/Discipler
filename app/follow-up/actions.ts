@@ -17,17 +17,30 @@ import type { CareOutcome } from './copy'
 
 export const FOLLOW_UP = '/follow-up'
 
-export const backToFollowUp = (request: NextRequest, params?: URLSearchParams) =>
-  NextResponse.redirect(
-    new URL(params && [...params].length > 0 ? `${FOLLOW_UP}?${params}` : FOLLOW_UP, request.url),
-    { status: 303 },
-  )
+/**
+ * Where a route returns to: Follow-Up, or the pair card a form was posted from
+ * (Pastor feedback, ticket 07), which sends its own address as `back`. The card
+ * may be open on Overview, Check-Ins or Follow-Up (tickets 07, 09 and 10). Only a
+ * card's address is taken, matched whole, so a body cannot send an Admin
+ * anywhere else; anything else is Follow-Up, as it always was.
+ */
+const A_CARD = /^\/(overview|check-ins|follow-up)\?card=[0-9a-f-]{36}$/i
 
-export const done = (request: NextRequest, outcome: CareOutcome) =>
-  backToFollowUp(request, new URLSearchParams({ done: outcome }))
+export const backFrom = (form: FormData): string => {
+  const back = field(form, 'back')
+  return back !== null && A_CARD.test(back) ? back : FOLLOW_UP
+}
 
-export const refused = (request: NextRequest, code: string) =>
-  backToFollowUp(request, new URLSearchParams({ error: code }))
+export const backToFollowUp = (request: NextRequest, params?: URLSearchParams, to: string = FOLLOW_UP) => {
+  const query = params && [...params].length > 0 ? `${to.includes('?') ? '&' : '?'}${params}` : ''
+  return NextResponse.redirect(new URL(`${to}${query}`, request.url), { status: 303 })
+}
+
+export const done = (request: NextRequest, outcome: CareOutcome, to: string = FOLLOW_UP) =>
+  backToFollowUp(request, new URLSearchParams({ done: outcome }), to)
+
+export const refused = (request: NextRequest, code: string, to: string = FOLLOW_UP) =>
+  backToFollowUp(request, new URLSearchParams({ error: code }), to)
 
 /** A field as it arrived, or null for one the form did not send. */
 export const field = (form: FormData, name: string): string | null => {

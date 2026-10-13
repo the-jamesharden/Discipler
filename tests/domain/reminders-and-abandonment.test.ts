@@ -66,6 +66,7 @@ const awaiting = (over: Partial<OpenPrompt> = {}): OpenPrompt => ({
   relationshipId: emily,
   position: 1,
   question: 'met',
+  wording: 'a_to_d',
   askedAt: asked,
   remindedAt: null,
   clarificationsSent: 0,
@@ -154,6 +155,21 @@ describe('a reply Discipler cannot read', () => {
       openSequence: openSequence({ awaiting: awaiting({ question: 'satisfaction' }) }),
     })
     expect(bodies(replying('sort of', rating).effects)).toEqual([
+      'ABC Church: Sorry, we didn’t catch that. ' +
+        'Reply A for outstanding, B for good, C for okay, D for concern.',
+    ])
+  })
+
+  it('names them in the words the open question was sent with', () => {
+    // A three-answer question sent before the change and still open after it.
+    // Its `C` is read as concern, so offering it C for okay would tell the Leader
+    // the opposite of how their reply is about to be read.
+    const sentBefore = snapshot({
+      openSequence: openSequence({
+        awaiting: awaiting({ question: 'satisfaction', wording: 'a_to_c' }),
+      }),
+    })
+    expect(bodies(replying('D', sentBefore).effects)).toEqual([
       'ABC Church: Sorry, we didn’t catch that. Reply A for outstanding, B for good, C for concern.',
     ])
   })
@@ -168,7 +184,7 @@ describe('a reply Discipler cannot read', () => {
     const event = eventOf(replying('yess').effects, 'checkin.reply_unreadable')
     expect(event).toMatchObject({
       subjectId: emily,
-      payload: { sequenceId, question: 'met', body: 'yess' },
+      payload: { sequenceId, question: 'met', wording: 'a_to_d', body: 'yess' },
     })
   })
 
@@ -215,7 +231,8 @@ describe('a reply Discipler cannot read', () => {
       { answer: { promptId, met: true } },
     ])
     expect(bodies(result.effects)).toEqual([
-      'ABC Church: How did the meeting go? Reply A for outstanding, B for good, C for concern.',
+      'ABC Church: How did the meeting go? ' +
+        'Reply A for outstanding, B for good, C for okay, D for concern.',
     ])
   })
 })
@@ -238,6 +255,19 @@ describe('a question nobody answered', () => {
     expect(result.effects.filter((effect) => effect.kind === 'checkin.ask')).toEqual([])
     expect(result.effects.filter((effect) => effect.kind === 'checkin.remind')).toMatchObject([
       { reminder: { promptId } },
+    ])
+  })
+
+  it('is re-sent in the words it was first sent with', () => {
+    // Sent before the change and reminded after it. A reminder is the same
+    // question again, and its reply is read against the three answers it offered.
+    const sentBefore = snapshot({
+      openSequence: openSequence({
+        awaiting: awaiting({ question: 'satisfaction', wording: 'a_to_c' }),
+      }),
+    })
+    expect(bodies(ticking(after(hours(24)), sentBefore).effects)).toEqual([
+      'ABC Church: How did the meeting go? Reply A for outstanding, B for good, C for concern.',
     ])
   })
 
@@ -503,7 +533,8 @@ describe('a Pause reaching a relationship before its turn in the conversation di
   const MARCUS_QUESTION =
     'ABC Church: Did you meet with Marcus and Dan this week? Reply 1 for yes, 2 for no.'
   const RATING_QUESTION =
-    'ABC Church: How would you rate how it went? Reply 1 for great, 2 for okay, 3 for I have a concern.'
+    'ABC Church: How did the meeting go? ' +
+    'Reply A for outstanding, B for good, C for okay, D for concern.'
 
   it('asks nothing about it when a reply moves the conversation on', () => {
     // Emily's question answered, Marcus paused since. The next question in the

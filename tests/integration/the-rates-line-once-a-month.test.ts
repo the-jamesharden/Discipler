@@ -135,6 +135,7 @@ describe('the rates line, once a month', () => {
         ageBand: '25-34',
         gender: 'female',
         goalId: await firstGoalId(church.ministry),
+        goalOther: null,
         availability: ['monday:12'],
         smsConsent: true,
         contactSharing: 'granted',
@@ -277,8 +278,17 @@ describe('the rates line, once a month', () => {
       ),
     )
 
+    // One command enqueues all three at the same instant, so nothing orders the
+    // rows; each is named by what it says instead.
     const texts = await inbox(church.ministry, leader)
-    expect(texts.map((row) => row.carries_rates_line)).toEqual([false, true, false])
+    const which = (body: string) =>
+      body.includes('/invitation/x') ? 'invitation' : body.includes('just joined Tuesday men') ? 'joined' : 'starter'
+    expect(texts).toHaveLength(3)
+    expect(Object.fromEntries(texts.map((row) => [which(row.body), row.carries_rates_line]))).toEqual({
+      invitation: false,
+      starter: true,
+      joined: false,
+    })
     expect(texts.filter((row) => row.body.includes(LINE))).toHaveLength(1)
   })
 

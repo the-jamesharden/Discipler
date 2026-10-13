@@ -7,7 +7,9 @@ import {
   type DeclaredSide,
   type DiscipleshipGoalId,
   type Gender,
+  type OtherGoal,
 } from './intake'
+import { goalAsShown } from './discipleship-goals'
 import type { MinistrySettings } from './ministry-settings'
 import type { MemberRole } from './relationships'
 
@@ -50,10 +52,40 @@ export const TIER_CUTOFFS = {
 export const TIERS = ['excellent', 'good', 'recommended'] as const
 export type Tier = (typeof TIERS)[number]
 
-/** A goal as the suggestion names it: matched by id, spoken by the Ministry's current wording. */
-export interface SuggestionGoal {
-  readonly id: DiscipleshipGoalId
-  readonly label: string
+/**
+ * A goal as the suggestion names it. One of the Ministry's options is matched by id
+ * and spoken by the Ministry's current wording; what somebody typed after Other is
+ * matched by `sameOtherGoal` and spoken as they typed it. The two never match each
+ * other, however alike they read: a typed goal is the Person's own words, and an
+ * option is the Ministry's.
+ */
+export type SuggestionGoal =
+  | { readonly id: DiscipleshipGoalId; readonly label: string }
+  | { readonly other: OtherGoal }
+
+/**
+ * Two typed goals, compared as they are once capitals, spaces and punctuation are
+ * set aside, and in no other way.
+ *
+ * Exact on purpose (ADR-0001, amended for Pastor feedback 2026-10, ticket 06).
+ * *Grief* and *grief.* are one goal written twice; *grieving* and *grief*, or a
+ * typo, are not, because the rule that would join them is a judgment about what
+ * somebody meant, and a reason card has to be a fact anybody can check by reading
+ * both answers. Canonically equivalent text is the same text, so both are put in
+ * one Unicode form first. A text that is nothing but punctuation leaves nothing to
+ * compare and matches nobody.
+ */
+export const sameOtherGoal = (one: OtherGoal, other: OtherGoal): boolean => {
+  const key = (text: OtherGoal) => text.normalize('NFC').toLowerCase().replace(/[\p{P}\s]/gu, '')
+  const ours = key(one)
+  return ours !== '' && ours === key(other)
+}
+
+/** Whether two people share a goal: the same option, or the same words after Other. */
+const sameGoal = (one: SuggestionGoal | null, other: SuggestionGoal | null): boolean => {
+  if (one === null || other === null) return false
+  if ('other' in one) return 'other' in other && sameOtherGoal(one.other, other.other)
+  return !('other' in other) && one.id === other.id
 }
 
 /** One open membership, as far as the pools and the exclusions need to know it. */
@@ -111,6 +143,32 @@ export type SuggestionKind =
 export const A_ONE_TO_ONE: SuggestionKind = { countsAsAGroup: false }
 
 export type SuggestionSettings = Pick<MinistrySettings, 'suggestGenderMatch' | 'suggestMaxAgeBandGap'>
+
+/**
+ * The questions Suggested Pairs reads that the Ministry's mentor and mentee form
+ * no longer asks (Pastor feedback, ticket 13). An Admin may remove any of them;
+ * each removal deletes every answer given, and Suggested Pairs then does without
+ * the input rather than reading the silence as an answer, and says so:
+ *
+ * - **availability**: nobody shares an hour with anybody, so it suggests nobody,
+ *   and every pairing is made by hand;
+ * - **gender**: the gender pairing rules cannot be applied, so a suggestion is
+ *   not held to them;
+ * - **ageBand**: the age rule cannot be applied, so a suggestion is not held to it;
+ * - **goalId**: nobody's goal is known, so there is no goal tiebreaker;
+ * - **side**: it cannot tell who offered to disciple, so it offers as Disciplers
+ *   only people who already disciple somebody.
+ *
+ * The last two need nothing here: with every answer deleted, nobody shares a goal
+ * and nobody said *mentor*. The first three do, because while a form asks gender
+ * or age, somebody without an answer is somebody the rule cannot be checked
+ * against and is not suggested, which is what keeps a safeguarding rule from
+ * quietly lapsing for one Person.
+ */
+export const SUGGESTION_QUESTIONS = ['availability', 'gender', 'ageBand', 'goalId', 'side'] as const
+export type SuggestionQuestion = (typeof SUGGESTION_QUESTIONS)[number]
+
+export const ASKS_ALL_OF_THEM: ReadonlySet<SuggestionQuestion> = new Set()
 
 declare const reasonBrand: unique symbol
 
@@ -239,6 +297,7 @@ export const maySuggest = (
   participant: SuggestionCandidate,
   settings: SuggestionSettings,
   kind: SuggestionKind,
+  unasked: ReadonlySet<SuggestionQuestion> = ASKS_ALL_OF_THEM,
 ): boolean => {
   if (leader.personId === participant.personId) return false
 
@@ -246,12 +305,17 @@ export const maySuggest = (
   if (participant.memberships.some((membership) => leaderIn.has(membership.relationshipId))) return false
 
   if (kind.countsAsAGroup) {
+    // A group's own declaration binds whether or not the form asks: nobody whose
+    // gender is not known is suggested into a group that declared one.
     if (kind.declaredGender !== null) {
       if (leader.gender !== kind.declaredGender || participant.gender !== kind.declaredGender) return false
     }
-  } else if (settings.suggestGenderMatch) {
+  } else if (settings.suggestGenderMatch && !unasked.has('gender')) {
     if (leader.gender === null || leader.gender !== participant.gender) return false
   }
+
+  // The age rule cannot be applied where the form no longer asks the age band.
+  if (unasked.has('ageBand')) return true
 
   // One direction only: a Participant at most N bands above their Leader, and no
   // limit below. An older person discipling a younger one is the common case.
@@ -296,18 +360,30 @@ const inWords = (count: number): string => {
  * *Four shared time slots. You both selected Career and calling.* The goal is named
  * only where it matches, and a mismatch never: what two people do not have in common
  * is a judgment about them, not a statement about their calendars.
+ *
+ * A shared typed goal is *You both wrote "grief".*, in the Disciple's own words, as
+ * a shared option is spoken from the Disciple's side. Quoted, because it is what
+ * somebody wrote and not one of the Ministry's options.
  */
 const reasonFor = (slots: number, goal: SuggestionGoal | null): SuggestionReason => {
   const said = inWords(slots)
   const first = `${said.charAt(0).toUpperCase()}${said.slice(1)} shared time slot${slots === 1 ? '' : 's'}.`
-  return (goal === null ? first : `${first} You both selected ${goal.label}.`) as SuggestionReason
+  if (goal === null) return first as SuggestionReason
+  return ('other' in goal
+    ? `${first} You both wrote "${goal.other}".`
+    : `${first} You both selected ${goal.label}.`) as SuggestionReason
 }
 
 const shown = (person: SuggestionCandidate): SuggestedPerson => ({
   personId: person.personId,
   fullName: person.fullName,
   ageBand: person.ageBand,
-  goal: person.goal?.label ?? null,
+  goal:
+    person.goal === null
+      ? null
+      : 'other' in person.goal
+        ? goalAsShown(null, person.goal.other)
+        : person.goal.label,
   // Everyone shown came through a pool, and both pools begin at a completed Intake.
   intakeSubmittedAt: person.intakeSubmittedAt!,
 })
@@ -351,7 +427,13 @@ export const suggest = (
   roster: readonly SuggestionCandidate[],
   settings: SuggestionSettings,
   kind: SuggestionKind = A_ONE_TO_ONE,
+  unasked: ReadonlySet<SuggestionQuestion> = ASKS_ALL_OF_THEM,
 ): Suggestions => {
+  // Without availability there is nothing to rank by, and nobody listed under
+  // No Schedule Overlap shares less time than anybody else: the tab says why
+  // instead of listing everybody there.
+  if (unasked.has('availability')) return { pairs: [], noScheduleOverlap: [] }
+
   const leaders = leaderPool(roster, kind)
   const participants = participantPool(roster, kind)
 
@@ -360,7 +442,7 @@ export const suggest = (
 
   for (const participant of participants) {
     const ranked = leaders.flatMap((leader): Ranked[] => {
-      if (!maySuggest(leader, participant, settings, kind)) return []
+      if (!maySuggest(leader, participant, settings, kind, unasked)) return []
       const shared = sharedSlots(leader, participant)
       const tier = tierOf(shared.length, new Set(shared.map((slot) => slot.day)).size)
       if (tier === null) return []
@@ -370,10 +452,7 @@ export const suggest = (
           participant,
           tier,
           slots: shared.length,
-          sharedGoal:
-            leader.goal !== null && participant.goal !== null && leader.goal.id === participant.goal.id
-              ? participant.goal
-              : null,
+          sharedGoal: sameGoal(leader.goal, participant.goal) ? participant.goal : null,
           undiscipled: !participant.memberships.some((membership) => membership.role === 'participant'),
         },
       ]

@@ -1,6 +1,7 @@
 import pg from 'pg'
 import {
   discipleshipGoalId,
+  otherGoal,
   slotKey,
   type AgeBand,
   type Gender,
@@ -8,17 +9,22 @@ import {
   type Weekday,
 } from '~/domain/intake'
 import { intakeLinkState } from '~/domain/intake-link'
-import { ministryId, personId, relationshipId } from '~/domain/ids'
+import { GROUP_PATH, type IntakePath } from '~/domain/intake'
+import { PRESET_VERSION, presetForm, type IntakeForm } from '~/domain/intake-form'
+import { asSent } from '~/domain/own-answers'
+import { shortName, type ShortName } from '~/domain/short-name'
+import { looksLikeAnId, ministryId, personId, relationshipId } from '~/domain/ids'
 import type {
   DiscipleshipGoalOption,
   GroupIntakePage,
-  IntakePage,
   IntakePrefill,
+  IntakeWizardPage,
   IntakeReader,
   JoinableGroup,
   ReopenedIntakePage,
 } from '~/service/ports'
-import { declaredGenderOf, looksLikeAnId } from './rows'
+import { formOrPreset, intakeFormFrom } from './intake-form-document'
+import { declaredGenderOf } from './rows'
 
 /**
  * What the Intake form needs to render itself. The page is served to somebody with
@@ -59,6 +65,7 @@ const prefillFor = async (
     age_band: AgeBand
     gender: Gender
     discipleship_goal_id: string | null
+    discipleship_goal_other: string | null
   }>(
     // The same tiebreak the database's own latest-submission reads use, down to
     // the last term: `public.relationship_availability` and the pairing gender
@@ -68,7 +75,7 @@ const prefillFor = async (
     // tiebreak is the planner's, so this form could prefill one submission while
     // the Leader dashboard read the other. A Person would then be shown answers
     // that are not the ones standing against them.
-    `select id, age_band, gender, discipleship_goal_id
+    `select id, age_band, gender, discipleship_goal_id, discipleship_goal_other
        from intake_submission
       where person_id = $1
       order by submitted_at desc, created_at desc, id desc
@@ -82,6 +89,15 @@ const prefillFor = async (
   const { rows: slots } = submission
     ? await client.query<{ day: Weekday; hour: SlotHour }>(
         `select day, hour from intake_availability where intake_submission_id = $1`,
+        [submission.id],
+      )
+    : { rows: [] }
+
+  // Their answers to the Ministry's own questions (Pastor feedback, ticket 12),
+  // offered back as the form sends them.
+  const { rows: answers } = submission
+    ? await client.query<{ question_key: string; answer: unknown }>(
+        `select question_key, answer from intake_answer where intake_submission_id = $1`,
         [submission.id],
       )
     : { rows: [] }
@@ -104,13 +120,70 @@ const prefillFor = async (
     goalId: submission?.discipleship_goal_id
       ? discipleshipGoalId(submission.discipleship_goal_id)
       : null,
+    // What they typed after Other, which ticks Other again with their words in its
+    // box: the same answer, offered back to be kept or changed.
+    goalOther: submission?.discipleship_goal_other
+      ? otherGoal(submission.discipleship_goal_other)
+      : null,
     // Keyed by the domain and not by a template string beside it, so the form is
     // prefilled with the same spelling it submits.
     availability: slots.map(slotKey),
     // Never asked stays never asked. Rendering it as `declined` would put an answer
     // in front of the Person that they never gave.
     contactSharing: currentSharing === null ? null : currentSharing ? 'granted' : 'declined',
+    own: Object.fromEntries(answers.map((row) => [row.question_key, asSent(row.answer)])),
   }
+}
+
+/**
+ * The form whose own questions the reopened page asks (Pastor feedback, ticket
+ * 12): the latest version of the form this Person last answered, by the path
+ * their latest consent record names, and the mentor and mentee form where none
+ * does -- somebody who has never submitted, or whose every submission came
+ * through this page, which declares no path. The reopened page asks the goal, so
+ * it is the mentor and mentee form's page in all but name.
+ */
+const formLastAnswered = async (client: pg.PoolClient, person: string): Promise<IntakeForm> => {
+  const { rows } = await client.query<{ intake_path: IntakePath }>(
+    `select intake_path
+       from consent_record
+      where person_id = $1
+        and intake_path is not null
+      order by decided_at desc, created_at desc, id desc
+      limit 1`,
+    [person],
+  )
+  return servedForm(client, rows[0]?.intake_path ?? 'discipleship', null)
+}
+
+/**
+ * The version of one of the Ministry's forms a visitor is served: the one they
+ * opened, where the URL carries a version this Ministry saved (or the preset's
+ * 0), and otherwise the form as it stands now. A version is never changed once
+ * saved, so somebody part-way through is served exactly what they started.
+ *
+ * Read on the connection that has already said which Ministry it acts for, so a
+ * version number in a hand-written URL can only ever name this Ministry's forms.
+ */
+const servedForm = async (
+  client: pg.PoolClient,
+  name: IntakePath,
+  opened: number | null | undefined,
+): Promise<IntakeForm> => {
+  if (opened === PRESET_VERSION) return presetForm(name)
+  if (opened !== null && opened !== undefined && Number.isInteger(opened) && opened > 0) {
+    const { rows } = await client.query<{ version: number; definition: unknown }>(
+      `select version, definition from intake_form_version where form = $1 and version = $2`,
+      [name, opened],
+    )
+    const row = rows[0]
+    if (row) return intakeFormFrom(name, Number(row.version), row.definition)
+  }
+  const { rows } = await client.query<{ version: number; definition: unknown }>(
+    `select version, definition from intake_form_version where form = $1 order by version desc limit 1`,
+    [name],
+  )
+  return formOrPreset(name, rows[0])
 }
 
 export const createPostgresIntakeReader = (
@@ -119,7 +192,7 @@ export const createPostgresIntakeReader = (
   const pool = new pg.Pool({ connectionString })
 
   return {
-    async readIntakePage(id: string): Promise<IntakePage | null> {
+    async readIntakePage(id: string, version?: number | null): Promise<IntakeWizardPage | null> {
       // A link is typed, forwarded and scanned off a printed page, so the identifier
       // in it is not to be trusted into a query as a uuid until it looks like one.
       if (!looksLikeAnId(id)) return null
@@ -146,14 +219,19 @@ export const createPostgresIntakeReader = (
           label: row.label,
         }))
 
-        return { ministryId: ministryId(id), ministryName: name, goals }
+        return {
+          ministryId: ministryId(id),
+          ministryName: name,
+          goals,
+          form: await servedForm(client, 'discipleship', version),
+        }
       } finally {
         await client.query('rollback')
         client.release()
       }
     },
 
-    async readGroupIntakePage(id: string): Promise<GroupIntakePage | null> {
+    async readGroupIntakePage(id: string, version?: number | null): Promise<GroupIntakePage | null> {
       if (!looksLikeAnId(id)) return null
 
       const client = await pool.connect()
@@ -191,7 +269,36 @@ export const createPostgresIntakeReader = (
           materialTitle: row.material_title,
         }))
 
-        return { ministryId: ministryId(id), ministryName: name, groups }
+        return {
+          ministryId: ministryId(id),
+          ministryName: name,
+          groups,
+          form: await servedForm(client, GROUP_PATH, version),
+        }
+      } finally {
+        await client.query('rollback')
+        client.release()
+      }
+    },
+
+    async ministryNamed(name: ShortName) {
+      const client = await pool.connect()
+      try {
+        await client.query('begin')
+        await client.query('set local role discipler_command')
+
+        // Any name the Ministry has ever held, and the one it holds now, from the
+        // one function that may look across every Ministry's names: the
+        // connection has not said which Ministry it acts for, and cannot until
+        // this has answered.
+        const { rows } = await client.query<{ ministry_id: string; short_name: string }>(
+          `select ministry_id, short_name from app.ministry_named($1)`,
+          [name],
+        )
+        const found = rows[0]
+        return found
+          ? { ministryId: ministryId(found.ministry_id), shortName: shortName(found.short_name) }
+          : null
       } finally {
         await client.query('rollback')
         client.release()
@@ -256,6 +363,7 @@ export const createPostgresIntakeReader = (
           personId: personId(link.person_id),
           state: intakeLinkState(link.expires_at, new Date()),
           prefill: await prefillFor(client, link.person_id),
+          form: await formLastAnswered(client, link.person_id),
         }
       } finally {
         await client.query('rollback')

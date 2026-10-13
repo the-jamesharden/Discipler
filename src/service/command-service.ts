@@ -18,7 +18,8 @@ import {
   PauseRefused,
 } from '~/domain/errors'
 import type { FollowUpItemId, IdSource, ImportRowId, PersonId, RelationshipId } from '~/domain/ids'
-import { answersNoGroupInMind } from '~/domain/intake'
+import { answersNoGroupInMind, INTAKE_PATHS, isOneOf } from '~/domain/intake'
+import { isQuestionKey, removalDeletesAnswers, type IntakeForm } from '~/domain/intake-form'
 import type { IntakeLinkToken } from '~/domain/intake-link'
 import { REMOVED_FROM_THE_ROSTER, type PairingToLetGo } from '~/domain/removal'
 import type { InvitationToken } from '~/domain/invitations'
@@ -272,6 +273,15 @@ export const applyEffects = async (
   const settingsSaves = effects.flatMap((effect) =>
     effect.kind === 'settings.save' ? [effect.saving] : [],
   )
+  const shortNameChanges = effects.flatMap((effect) =>
+    effect.kind === 'shortName.change' ? [effect.change] : [],
+  )
+  const intakeFormSaves = effects.flatMap((effect) =>
+    effect.kind === 'intakeForm.save' ? [effect.saving] : [],
+  )
+  const removedAnswers = effects.flatMap((effect) =>
+    effect.kind === 'intakeForm.removeAnswers' ? [effect.removal] : [],
+  )
   const addedGoals = effects.flatMap((effect) =>
     effect.kind === 'goal.add' ? [effect.goal] : [],
   )
@@ -461,6 +471,21 @@ export const applyEffects = async (
   // Ministry's record claiming a cadence nothing ever ran on.
   for (const saving of settingsSaves) await unit.saveMinistrySettings(saving.settings)
 
+  // Before the history saying it happened, like every other write here: the
+  // database refuses a name another Ministry holds or once held, and being refused
+  // after history had recorded the change would leave a record of a link nobody
+  // can open.
+  for (const change of shortNameChanges) await unit.changeShortName(change)
+
+  // Before the history saying it happened, like every other write here: the
+  // database refuses a version number already taken, and being refused after
+  // history had recorded the edit would leave a record of a form nobody is served.
+  for (const saving of intakeFormSaves) await unit.saveIntakeForm(saving)
+  // The answers to a question removed with that save (Pastor feedback, ticket
+  // 13), in the same transaction as the version that no longer asks it and the
+  // history that keeps what they said: all three land, or none does.
+  for (const removal of removedAnswers) await unit.removeIntakeAnswers(removal)
+
   // The option, then the list it belongs to. An addition lands before the
   // renumbering that would place it, and a removal before the renumbering that
   // closes the gap it left -- so the order written is always the order of the
@@ -618,6 +643,57 @@ const editsTheGoalList = (
   command: Command,
 ): command is Extract<Command, { type: (typeof GOAL_LIST_EDITS)[number] }> =>
   (GOAL_LIST_EDITS as readonly string[]).includes(command.type)
+
+/**
+ * The ways an Admin edits one of the Ministry's Intake forms, each of which
+ * decides against the form as it stands (Pastor feedback, tickets 11 and 12).
+ */
+const INTAKE_FORM_EDITS = [
+  'intake_form.edit_question',
+  'intake_form.add_question',
+  'intake_form.arrange',
+  'intake_form.move_question',
+  'intake_form.add_page',
+  'intake_form.rename_page',
+  'intake_form.edit_text',
+  'intake_form.remove_question',
+  'intake_form.add_back_question',
+] as const
+
+const editsAnIntakeForm = (
+  command: Command,
+): command is Extract<Command, { type: (typeof INTAKE_FORM_EDITS)[number] }> =>
+  (INTAKE_FORM_EDITS as readonly string[]).includes(command.type)
+
+/**
+ * The version of the Ministry's form a submission was answering: the one its
+ * Person opened, carried from screen to screen, and the form as it stands now
+ * where that version is not one this Ministry saved. Nothing for a submission
+ * from a form that is not one of the two -- the tokenized reopen link -- which is
+ * read as today's form was, but for the Ministry's own questions it asked, which
+ * are read against the form it drew them from (ticket 12).
+ *
+ * And the form as it stands now beside it, because an answer to a question
+ * removed since the version opened is dropped rather than stored (James,
+ * 2026-10-13). Both are read behind the form's one lock, taken by the first and
+ * held to the end of the transaction, so a removal cannot land between deciding
+ * what is still asked and storing the rest.
+ */
+const theFormOpened = async (
+  unit: UnitOfWork,
+  command: Extract<Command, { type: 'intake.submit' }>,
+): Promise<{ intakeForm?: IntakeForm; intakeFormNow?: IntakeForm }> => {
+  // The reopened page declares no path, and names the form whose own questions
+  // it asked instead (ticket 12).
+  const path = command.form.intakePath?.trim() ?? command.ownQuestionsFrom ?? null
+  if (!isOneOf(INTAKE_PATHS, path)) return {}
+  const opened =
+    command.formVersion === undefined
+      ? null
+      : await unit.intakeFormVersion(path, command.formVersion)
+  const now = await unit.intakeForm(path)
+  return { intakeForm: opened ?? now, intakeFormNow: now }
+}
 
 /**
  * The three ways an Admin edits the Ministry's own list of Materials. Each of
@@ -1091,8 +1167,24 @@ export const createCommandService = ({
         ...(command.type === 'settings.update'
           ? { settings: await unit.ministrySettings() }
           : {}),
+        // Read inside the transaction for the same reason, so the name history
+        // records as *what it was* is the one a second Admin had not already
+        // replaced.
+        ...(command.type === 'short_name.change'
+          ? { shortName: await unit.ministryShortName() }
+          : {}),
         ...(editsTheGoalList(command)
           ? { goals: await unit.discipleshipGoals() }
+          : {}),
+        // An edit to an Intake form decides against the form as it stands, read
+        // behind that form's lock so two Admins saving at once cannot both claim
+        // the next version (Pastor feedback, ticket 11).
+        ...(editsAnIntakeForm(command)
+          ? { intakeForm: await unit.intakeForm(command.form) }
+          : {}),
+        // A submission is read against the version of the form its Person opened.
+        ...(command.type === 'intake.submit'
+          ? await theFormOpened(unit, command)
           : {}),
         // Only the removal, and only before it happens. `on delete set null` is
         // about to make this unanswerable, so the answers are read here -- inside
@@ -1100,6 +1192,12 @@ export const createCommandService = ({
         // -- and written into the event that outlives them.
         ...(command.type === 'goal.remove'
           ? { goalAnswers: await unit.answersPointingAt(command.goalId) }
+          : {}),
+        // The same for a question's removal (Pastor feedback, ticket 13): read
+        // after the form, behind its lock, and only where the removal deletes
+        // anything, so what history keeps is what the delete is about to take.
+        ...(command.type === 'intake_form.remove_question' && isQuestionKey(command.key) && removalDeletesAnswers(command.key)
+          ? { questionAnswers: await unit.answersTo(command.form, command.key) }
           : {}),
         // Read inside the transaction, behind the same advisory lock the goal
         // list takes, so two Admins cannot both create the same title against a

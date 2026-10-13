@@ -58,6 +58,14 @@ export const relationshipIdFrom = (value: string | undefined): RelationshipId | 
   value !== undefined && UUID.test(value) ? relationshipId(value) : null
 
 /**
+ * Whether a value from outside -- a token in an address, an id in a form -- has
+ * the shape of an id at all, in either case. Asked before it reaches a `uuid`
+ * parameter, where anything else is a cast error rather than the *not found* it
+ * actually is.
+ */
+export const looksLikeAnId = (value: string): boolean => UUID.test(value.toLowerCase())
+
+/**
  * Where new identifiers come from. Injected for the same reason the clock is: a
  * command that mints an id from inside the domain is no longer a pure function of
  * its inputs, and a test cannot say what it produced.

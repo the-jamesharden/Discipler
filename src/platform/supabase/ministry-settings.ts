@@ -1,5 +1,6 @@
 import { roleNoun, type MinistrySettings } from '~/domain/ministry-settings'
 import type { MinistrySettingsReader } from '~/service/ports'
+import { removedFromTheForms } from './intake-form-document'
 import { adminPage, readPageDocument, section } from './page'
 import { count, text } from './rows'
 import { createSupabaseServerClient } from './server-client'
@@ -74,7 +75,10 @@ export const supabaseMinistrySettingsReader: MinistrySettingsReader = {
       // may not read.
       if (page.settings === null) throw new Error('This account administers no such Ministry')
 
-      return { settings: asSettings(section(page, 'settings')) }
+      return {
+        settings: asSettings(section(page, 'settings')),
+        removed: removedFromTheForms(page.intake_forms_asked),
+      }
     })
   },
 }

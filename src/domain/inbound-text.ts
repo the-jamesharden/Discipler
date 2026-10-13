@@ -40,6 +40,11 @@ export const plainWords = (body: string): string =>
  *
  * Anything that does mean yes or no is a token in the tables that use this. That is
  * the same treatment ADR-0003 gives `we didn't`: part of a token, never a wrapper.
+ *
+ * `ok` and `okay` are also the satisfaction question's `C` since it offered four
+ * answers (Pastor feedback, ticket 03). That holds because a message is never
+ * stripped down to nothing: `ok` on its own reaches the reader whole and is read as
+ * okay, and only an `ok` in front of or behind another answer is a courtesy.
  */
 const PLEASANTRIES: readonly string[] = [
   'hi',

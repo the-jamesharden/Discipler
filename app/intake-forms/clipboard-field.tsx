@@ -59,3 +59,55 @@ export const ClipboardField = ({
     </div>
   )
 }
+
+/**
+ * *Copy link* on a tile of the link card (Pastor feedback, ticket 04): the same
+ * clipboard write as the field above, for a link the card shows as text rather
+ * than in a field.
+ *
+ * The link stays on the page as text whatever the browser does, so without script
+ * an Admin selects it and copies it by hand. When the clipboard refuses, the text
+ * it would have copied is selected for them, which leaves them one keystroke away.
+ */
+export const CopyLinkButton = ({
+  value,
+  shows,
+  label,
+  confirmation,
+}: {
+  readonly value: string
+  /** The id of the element showing the link, selected when the clipboard refuses. */
+  readonly shows: string
+  /**
+   * The words, handed in by the server rather than imported here, so the page's
+   * copy module stays out of the one bundle that runs in the browser.
+   */
+  readonly label: string
+  readonly confirmation: string
+}) => {
+  const [copied, setCopied] = useState(false)
+
+  const putOnClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(value)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), CONFIRMATION_MS)
+    } catch {
+      const shown = document.getElementById(shows)
+      if (shown) window.getSelection()?.selectAllChildren(shown)
+    }
+  }
+
+  return (
+    <>
+      <button type="button" className="sec small" onClick={putOnClipboard}>
+        {copied ? confirmation : label}
+      </button>
+      {/* Said to a screen reader as well as on the button, empty until it is so a
+          blank one is not read out on load. */}
+      <span className="visually-hidden" role="status">
+        {copied ? confirmation : ''}
+      </span>
+    </>
+  )
+}

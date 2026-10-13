@@ -161,6 +161,7 @@ describe('coming back through Intake', () => {
     ageBand: '25-34',
     gender: 'female',
     goalId: '00000000-0000-4000-8000-000000000009',
+    goalOther: null,
     availability: ['tuesday:18'],
     smsConsent: true,
     contactSharing: 'granted',

@@ -1,5 +1,5 @@
 import pg from 'pg'
-import { ministryId } from '~/domain/ids'
+import { looksLikeAnId, ministryId } from '~/domain/ids'
 import { MinistrySetupRefused } from '~/domain/errors'
 import {
   issueMinistrySetup,
@@ -11,7 +11,6 @@ import { asPhoneNumber } from '~/domain/roster'
 import { isKnownTimezone } from '~/domain/week'
 import type { MinistrySetup, MinistrySetupPage } from '~/service/ports'
 import { MinistryNotProvisioned, provisionMinistry } from './provisioning'
-import { looksLikeAnId } from './rows'
 
 /**
  * The Ministry Setup Link, on the trusted connection and nothing else.

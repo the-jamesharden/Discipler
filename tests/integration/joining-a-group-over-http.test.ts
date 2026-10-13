@@ -270,8 +270,9 @@ describe.skipIf(skipUnlessAppIsRunning)('joining a group through the link', () =
   })
 
   it('captions the original QR code for the form it now opens', async () => {
+    // Named as its tile on Intake forms names it (Pastor feedback, ticket 04).
     const code = await fetch(`${baseUrl}/intake-forms/intake-code.svg`, { headers: { cookie }, redirect: 'manual' })
     expect(code.status).toBe(200)
-    expect(await code.text()).toContain('Join a group')
+    expect(await code.text()).toContain('Groups form')
   })
 })

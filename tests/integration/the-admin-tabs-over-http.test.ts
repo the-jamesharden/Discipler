@@ -13,6 +13,7 @@ import {
   type MinistryFixture,
 } from '../support/local-supabase'
 import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app'
+import { openTheCardAbout } from '../support/follow-up'
 
 /**
  * The Admin surface as an Admin reaches it: sign in, land on the Overview, and
@@ -145,8 +146,9 @@ describe.skipIf(skipUnlessAppIsRunning)('the Admin tabs', () => {
       expect(response.status).toBe(200)
       expect(html).toContain('Completed')
       expect(html).toContain('Pending')
-      expect(html).toContain('Nothing yet this week')
-      expect(html).toContain('No open concerns this week')
+      // Each of the four columns says it is empty, D concern as A, B and C do
+      // (Pastor feedback, ticket 09).
+      expect(html.split('<p class="empty">Nothing yet this week</p>')).toHaveLength(5)
     })
 
     it('renders the Suggested Pairs tab as a working page with the empty state', async () => {
@@ -187,7 +189,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Admin tabs', () => {
   })
 
   describe('Care Needed', () => {
-    it('lists a Follow-Up Item, reveals a number and sends nothing, and resolves it', async () => {
+    it('lists a Follow-Up Item, reveals a number on its card and sends nothing, and resolves it', async () => {
       const church = await aMinistry('Keyword Chapel')
       const { cookie } = await signIn(church.ministry)
       const person = personId(await addPerson(church.ministry, 'Liam Okafor', { phone: '+15559990001' }))
@@ -205,19 +207,15 @@ describe.skipIf(skipUnlessAppIsRunning)('the Admin tabs', () => {
       const before = await getPage('/follow-up', cookie)
       expect(before.html).toContain('Texted a keyword')
       expect(before.html).toContain('Liam Okafor')
-      expect(before.html).toContain('See contact details')
       expect(before.html).toContain('tab-badge')
-      // The number is not on the list. It is one reveal away, behind consent.
+      // The number is not on the list. Opening the item's card is the reveal,
+      // behind consent (Pastor feedback, ticket 10).
       expect(before.html).not.toContain('+15559990001')
 
-      const reveal = await post('/follow-up/contact', cookie, { personId: person })
-      expect(reveal.response.status).toBe(303)
-      expect(reveal.location).toContain(`reveal=${person}`)
-      // The Person travels on the query string and the number never does.
-      expect(reveal.location).not.toContain('5559990001')
-
-      const revealed = await getPage(`/follow-up?reveal=${person}`, cookie)
-      expect(revealed.html).toContain('+15559990001')
+      const { card, address } = await openTheCardAbout(cookie, 'Liam Okafor')
+      expect(card).toContain('tel:+15559990001')
+      // The item travels in the address and the number never does.
+      expect(address).not.toContain('5559990001')
 
       const { rows: sent } = await pool.query(
         `select 1 from outbound_message where ministry_id = $1 and person_id = $2`,
@@ -229,7 +227,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Admin tabs', () => {
         `select id from follow_up_item where ministry_id = $1 and person_id = $2 and resolved_at is null`,
         [church.ministry.id, person],
       )
-      const resolved = await post('/follow-up/resolve', cookie, { itemId: rows[0]!.id })
+      const resolved = await post('/follow-up/resolve', cookie, { itemId: rows[0]!.id, back: address })
       expect(resolved.response.status).toBe(303)
       expect(resolved.location).toContain('done=resolved')
 
@@ -238,7 +236,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Admin tabs', () => {
       expect(after.html).not.toContain('Liam Okafor')
     })
 
-    it('renders the list unchanged when the reveal names nothing', async () => {
+    it('renders the list unchanged when the card names nothing', async () => {
       const church = await aMinistry('Stale Bookmark Chapel')
       const { cookie } = await signIn(church.ministry)
       const person = personId(await addPerson(church.ministry, 'Noor Haddad', { phone: '+15559990003' }))
@@ -253,16 +251,16 @@ describe.skipIf(skipUnlessAppIsRunning)('the Admin tabs', () => {
         }),
       )
 
-      for (const asked of ['anything', 'not-a-uuid', crypto.randomUUID()]) {
-        const { response, html } = await getPage(`/follow-up?reveal=${asked}`, cookie)
+      for (const asked of ['anything', 'not-a-uuid', crypto.randomUUID(), person]) {
+        const { response, html } = await getPage(`/follow-up?card=${asked}`, cookie)
         expect(response.status).toBe(200)
         expect(html).toContain('Noor Haddad')
-        expect(html).toContain('See contact details')
+        expect(html).not.toContain('data-testid="pair-card"')
         expect(html).not.toContain('+15559990003')
       }
     })
 
-    it('withholds a number its Person has not agreed to share', async () => {
+    it('withholds a number its Person has not agreed to share, and does not say so', async () => {
       const church = await aMinistry('Withheld Chapel')
       const { cookie } = await signIn(church.ministry)
       const person = personId(
@@ -280,9 +278,10 @@ describe.skipIf(skipUnlessAppIsRunning)('the Admin tabs', () => {
         }),
       )
 
-      const { html } = await getPage(`/follow-up?reveal=${person}`, cookie)
-      expect(html).toContain('Nia Bello has not agreed to share their number')
-      expect(html).not.toContain('+15559990002')
+      const { card } = await openTheCardAbout(cookie, 'Nia Bello')
+      expect(card).toContain('Nia Bello')
+      expect(card).not.toContain('+15559990002')
+      expect(card).not.toContain('Text Nia')
     })
 
     it('shows a relationship nobody accepted after five days, and cancels it', async () => {
@@ -300,10 +299,10 @@ describe.skipIf(skipUnlessAppIsRunning)('the Admin tabs', () => {
       })
       await church.tickAt(new Date(formedAt.getTime() + days(5)))
 
-      const { html } = await getPage('/follow-up', cookie)
-      expect(html).toContain('Awaiting acceptance')
-      expect(html).toContain('has not accepted this relationship')
-      expect(html).toContain('Cancel relationship')
+      const { item, card, address } = await openTheCardAbout(cookie, 'Isaac Prince')
+      expect(item).toContain('Awaiting acceptance')
+      expect(item).toContain('has not accepted this relationship')
+      expect(card).toContain('Cancel relationship')
 
       const { rows } = await pool.query(
         `select relationship_id from follow_up_item where ministry_id = $1 and kind = 'relationship_unaccepted'`,
@@ -311,8 +310,9 @@ describe.skipIf(skipUnlessAppIsRunning)('the Admin tabs', () => {
       )
       const cancelled = await post('/follow-up/relationship/cancel', cookie, {
         relationshipId: rows[0]!.relationship_id,
+        back: address,
       })
-      expect(cancelled.location).toContain('done=cancelled')
+      expect(cancelled.location).toContain(`${address}&done=cancelled`)
 
       const overview = await getPage('/overview', cookie)
       expect(overview.html).not.toContain('Isaac Prince')
@@ -349,7 +349,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Admin tabs', () => {
       expect(rows[0]?.ended_at).not.toBeNull()
     })
 
-    it('reads a Concern only on its own page, records the viewing, and never lists the words', async () => {
+    it('reads a Concern only on its card, records the viewing, and never lists the words', async () => {
       const church = await aMinistry('Concerned Chapel')
       const { cookie } = await signIn(church.ministry)
       const leader = await church.congregant('Concerned Leader')
@@ -360,13 +360,12 @@ describe.skipIf(skipUnlessAppIsRunning)('the Admin tabs', () => {
       await church.tickAt(at(0))
       const answering = new Date(at(0).getTime() + 60_000)
       await church.replyAt(answering, leader, '1')
-      await church.replyAt(new Date(answering.getTime() + 60_000), leader, 'C')
+      await church.replyAt(new Date(answering.getTime() + 60_000), leader, 'D')
       const words = 'She lost her job and did not want to talk long.'
       await church.replyAt(new Date(answering.getTime() + 120_000), leader, words)
 
       const list = await getPage('/follow-up', cookie)
       expect(list.html).toContain('Concern')
-      expect(list.html).toContain('Read the concern')
       expect(list.html).not.toContain(words)
 
       const checkIns = await getPage('/check-ins', cookie)
@@ -379,12 +378,11 @@ describe.skipIf(skipUnlessAppIsRunning)('the Admin tabs', () => {
       const { rows } = await pool.query(`select id from concern where ministry_id = $1`, [church.ministry.id])
       const concern = rows[0]!.id as string
 
-      const opened = await post('/follow-up/concern/view', cookie, { concernId: concern })
-      expect(opened.response.status).toBe(200)
-      expect(opened.response.headers.get('cache-control')).toContain('no-store')
-      expect(opened.html).toContain(words)
-      expect(opened.html).toContain('This view was recorded')
-      expect(opened.html).toContain('Resolve')
+      // Opening the item's card is the read (Pastor feedback, tickets 07 and 10).
+      const opened = await openTheCardAbout(cookie, 'Concerned Leader')
+      expect(opened.card).toContain(words)
+      expect(opened.card).toContain('Read by')
+      expect(opened.card).toContain('Resolve and clear this text')
 
       const { rows: viewings } = await pool.query(
         `select viewed_by from concern_viewing where concern_id = $1`,
@@ -396,7 +394,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Admin tabs', () => {
       expect(resolved.location).toContain('done=concern-resolved')
 
       const after = await getPage('/follow-up', cookie)
-      expect(after.html).not.toContain('Read the concern')
+      expect(after.html).not.toContain('Concerned Leader')
       const { rows: cleared } = await pool.query(`select detail from concern where id = $1`, [concern])
       expect(cleared[0]?.detail).toBeNull()
     })

@@ -45,6 +45,9 @@ describe('the settings page answers in one read', () => {
         person_id: riverside.adminPersonId,
       },
       settings: separate,
+      // Which of Discipler's questions each edited form asks (Pastor feedback,
+      // ticket 13): none edited, so none listed.
+      intake_forms_asked: [],
     })
     expect(separate).toMatchObject({ name: 'Riverside Chapel' })
   })

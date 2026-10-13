@@ -1,6 +1,6 @@
-import type { CheckInQuestion } from './check-in'
+import type { CheckInQuestion, CheckInWording } from './check-in'
 import type { MaterialText } from './material-notices'
-import type { MinistryId } from './ids'
+import type { ShortName } from './short-name'
 import type { RelationshipKeyword } from './keywords'
 
 /**
@@ -192,15 +192,20 @@ export const intakeReopenLink = (baseUrl: string, token: string): string =>
   `${host(baseUrl)}/intake/reopen/${token}`
 
 /**
- * The one Intake link a whole Ministry hands out. It names the Ministry and carries
- * no token, which is what makes it printable: it goes on a bulletin and on a screen
- * in front of a room, so there is nothing on it that could be secret from anybody.
+ * The link a whole Ministry hands out for its mentor and mentee form: its short
+ * name, readable enough to print on a bulletin and say from the pulpit (Pastor
+ * feedback, ticket 04). It carries no token, which is what makes it printable --
+ * there is nothing on it that could be secret from anybody.
  *
- * Nothing composes this one into a message either. An Admin reads it off the Roster
+ * It opens the discipleship wizard, which asks first whether the Person is
+ * offering to mentor or asking to be mentored. The older `/intake/<ministry id>`
+ * links keep working; nothing hands them out any more.
+ *
+ * Nothing composes this one into a message. An Admin copies it off Intake forms
  * and sends it in whatever conversation they are already having.
  */
-export const ministryIntakeLink = (baseUrl: string, ministry: MinistryId): string =>
-  `${host(baseUrl)}/intake/${ministry}`
+export const ministryJoinLink = (baseUrl: string, shortName: ShortName): string =>
+  `${host(baseUrl)}/join/${shortName}`
 
 /**
  * The same link, for the QR code. The one difference between them is `?via=qr`, and
@@ -208,28 +213,22 @@ export const ministryIntakeLink = (baseUrl: string, ministry: MinistryId): strin
  * flag: the form turns it into `qr_code` rather than `pastor_link`, and a compliance
  * review asks which of those a Person's consent was recorded under.
  */
-export const ministryIntakeQrLink = (baseUrl: string, ministry: MinistryId): string =>
-  `${ministryIntakeLink(baseUrl, ministry)}?via=qr`
+export const ministryJoinQrLink = (baseUrl: string, shortName: ShortName): string =>
+  `${ministryJoinLink(baseUrl, shortName)}?via=qr`
 
 /**
- * The second link the same Ministry hands out: the discipleship wizard, which asks
- * first whether the Person is offering to mentor or asking to be mentored.
+ * The second link the same Ministry hands out: the groups form, for somebody who
+ * wants to join one of its groups.
  *
  * A second link and not a second form behind the first, because an Admin sends
- * whichever fits the conversation and prints whichever fits the room. It carries no
- * token either, for the same reason -- there is nothing on it that could be secret
- * from anybody.
+ * whichever fits the conversation and prints whichever fits the room.
  */
-export const ministryDiscipleshipIntakeLink = (
-  baseUrl: string,
-  ministry: MinistryId,
-): string => `${ministryIntakeLink(baseUrl, ministry)}/discipleship`
+export const ministryGroupsJoinLink = (baseUrl: string, shortName: ShortName): string =>
+  `${ministryJoinLink(baseUrl, shortName)}/groups`
 
 /** The same link, for its own QR code, differing in the one thing `source` records. */
-export const ministryDiscipleshipIntakeQrLink = (
-  baseUrl: string,
-  ministry: MinistryId,
-): string => `${ministryDiscipleshipIntakeLink(baseUrl, ministry)}?via=qr`
+export const ministryGroupsJoinQrLink = (baseUrl: string, shortName: ShortName): string =>
+  `${ministryGroupsJoinLink(baseUrl, shortName)}?via=qr`
 
 /**
  * Where a Leader sees everyone in what they lead and how to reach them. It carries
@@ -551,9 +550,14 @@ export interface RelationshipNaming {
 export const relationshipSubject = ({ name, otherSide }: RelationshipNaming): string =>
   name ?? asList([...otherSide])
 
+const MEETING_REPLIES = 'Reply 1 for yes, 2 for no.'
+// The Concern step names no tokens, because it takes prose. What it offers
+// instead is the whole of what it wants.
+const CONCERN_DETAIL_WANTED = 'Please tell us more about the concern.'
+
 /**
  * What each question tells the Leader they may reply, written once and keyed by
- * the question itself.
+ * the wording and then the question itself.
  *
  * Once, and as a map rather than a branch, because the clarification is these
  * sentences said again: a Leader whose reply could not be read is told exactly
@@ -561,13 +565,26 @@ export const relationshipSubject = ({ name, otherSide }: RelationshipNaming): st
  * other would leave a clarification advertising a reply that no longer works, and
  * a question added to `CheckInQuestion` fails to compile here until it says what
  * it accepts.
+ *
+ * Keyed by the wording because a question is offered again -- reminded, clarified
+ * -- in the words it was first sent with, and read against them (`CheckInWording`).
+ * Only the satisfaction question differs between the two.
  */
-const VALID_REPLIES_TO: Readonly<Record<CheckInQuestion, string>> = {
-  met: 'Reply 1 for yes, 2 for no.',
-  satisfaction: 'Reply A for outstanding, B for good, C for concern.',
-  // The Concern step names no tokens, because it takes prose. What it offers
-  // instead is the whole of what it wants.
-  concern_detail: 'Please tell us more about the concern.',
+const VALID_REPLIES_TO: Readonly<Record<CheckInWording, Readonly<Record<CheckInQuestion, string>>>> = {
+  // Until October 2026. Composed still for a three-answer question sent before
+  // the change and reminded or clarified after it.
+  a_to_c: {
+    met: MEETING_REPLIES,
+    satisfaction: 'Reply A for outstanding, B for good, C for concern.',
+    concern_detail: CONCERN_DETAIL_WANTED,
+  },
+  // Four answers, so there is no middle one to default to (Pastor feedback,
+  // ticket 03). Word for word as James wrote it.
+  a_to_d: {
+    met: MEETING_REPLIES,
+    satisfaction: 'Reply A for outstanding, B for good, C for okay, D for concern.',
+    concern_detail: CONCERN_DETAIL_WANTED,
+  },
 }
 
 export interface MeetingQuestion {
@@ -601,7 +618,7 @@ export const meetingQuestion = ({
     // invitation to get here -- so the A2P prefix has no occasion to appear.
     identifyDelivery: false,
     discloseOptOut,
-    body: `Did you meet with ${subject} this week? ${VALID_REPLIES_TO.met}`,
+    body: `Did you meet with ${subject} this week? ${MEETING_REPLIES}`,
   })
 
 export interface CheckInMessage {
@@ -619,26 +636,36 @@ const checkInSentence =
   ({ ministryName }: CheckInMessage): string =>
     composeMessage({ ministryName, identifyDelivery: false, discloseOptOut: false, body })
 
+export interface SatisfactionQuestion extends CheckInMessage {
+  /** The wording it is sent with: the one in force, or a reminder's own. */
+  readonly wording: CheckInWording
+}
+
 /**
  * Asked only after a `1`. A meeting that did not happen has no quality to report,
  * and asking anyway would cost a Leader a second reply to say so again.
  *
- * The letters are copy. What a `C` is *stored* as is `concern`, decided in
+ * The letters are copy. What a `D` is *stored* as is `concern`, decided in
  * `check-in.ts`, so renaming a token here can never silently re-tokenise a
- * Ministry's history.
+ * Ministry's history -- which is how `C` went from concern to okay without one
+ * stored concern becoming anything else.
  */
-export const satisfactionQuestion = checkInSentence(
-  `How did the meeting go? ${VALID_REPLIES_TO.satisfaction}`,
-)
+export const satisfactionQuestion = ({ ministryName, wording }: SatisfactionQuestion): string =>
+  checkInSentence(`How did the meeting go? ${VALID_REPLIES_TO[wording].satisfaction}`)({
+    ministryName,
+  })
 
 /**
- * Asked only after a `C`. The Concern is already recorded by the time this goes
- * out, so an unanswered request for detail loses nothing that was already said.
+ * Asked only after a concern. The Concern is already recorded by the time this
+ * goes out, so an unanswered request for detail loses nothing that was already
+ * said.
  */
-export const concernDetailRequest = checkInSentence(VALID_REPLIES_TO.concern_detail)
+export const concernDetailRequest = checkInSentence(CONCERN_DETAIL_WANTED)
 
 export interface ClarificationMessage extends CheckInMessage {
   readonly question: CheckInQuestion
+  /** The wording the question being clarified was sent with. */
+  readonly wording: CheckInWording
 }
 
 /**
@@ -646,16 +673,24 @@ export interface ClarificationMessage extends CheckInMessage {
  * the valid replies again.
  *
  * It names the replies to the question that is *open*, never the whole set. A
- * Leader who typed prose at the rating question is offered A, B and C, because
+ * Leader who typed prose at the rating question is offered A, B, C and D, because
  * offering them `1` as well would invite an answer to a question that has already
- * been answered.
+ * been answered. And in the words that question was sent with: a three-answer
+ * question still open after the change is offered A, B and C, C for concern,
+ * because that is how its reply is read.
  *
  * It does not repeat the question itself. The Leader has it -- they replied to it
  * moments ago -- and re-asking would read as though Discipler had lost the thread
  * rather than one message.
  */
-export const checkInClarification = ({ ministryName, question }: ClarificationMessage): string =>
-  checkInSentence(`Sorry, we didn’t catch that. ${VALID_REPLIES_TO[question]}`)({ ministryName })
+export const checkInClarification = ({
+  ministryName,
+  question,
+  wording,
+}: ClarificationMessage): string =>
+  checkInSentence(`Sorry, we didn’t catch that. ${VALID_REPLIES_TO[wording][question]}`)({
+    ministryName,
+  })
 
 /**
  * Sent after the *final* relationship and nowhere else. Where a thank-you would

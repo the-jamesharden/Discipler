@@ -1,8 +1,10 @@
 import type { PasswordResetRefusal } from './accounts'
 import type { RelationshipId } from './ids'
 import type { IntakeRefusal } from './intake'
+import type { IntakeFormRefusal } from './intake-form'
 import type { MinistrySettingsRefusal } from './ministry-settings'
 import type { RemovalRefusal } from './removal'
+import type { ShortNameRefusal } from './short-name'
 
 /**
  * Refusals travel as codes, never as prose. The same rule the sign-in page follows:
@@ -701,6 +703,30 @@ export class MinistrySettingsRefused extends Error {
   constructor(readonly refusals: readonly MinistrySettingsRefusal[]) {
     super(refusals.join(', '))
     this.name = 'MinistrySettingsRefused'
+  }
+}
+
+/**
+ * An edit to one of the Ministry's Intake forms that could not be made, and why
+ * (Pastor feedback, ticket 11). One reason: the editor saves one question, one
+ * order or one name at a time.
+ */
+export class IntakeFormRefused extends Error {
+  constructor(readonly refusal: IntakeFormRefusal) {
+    super(refusal)
+    this.name = 'IntakeFormRefused'
+  }
+}
+
+/**
+ * A short name an Admin could not give their Ministry, and why (Pastor feedback,
+ * ticket 04). One reason, not a list: the field is one box, and every reason
+ * after the first would be about a name the Admin is about to change anyway.
+ */
+export class ShortNameRefused extends Error {
+  constructor(readonly refusal: ShortNameRefusal) {
+    super(refusal)
+    this.name = 'ShortNameRefused'
   }
 }
 

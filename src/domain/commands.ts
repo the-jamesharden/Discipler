@@ -18,7 +18,8 @@ export interface TypedLink {
   readonly label: string | null
 }
 import type { MinistrySettingsFields } from './ministry-settings'
-import type { DiscipleshipGoalId, Gender, IntakeFormFields } from './intake'
+import type { DiscipleshipGoalId, Gender, IntakeFormFields, IntakePath } from './intake'
+import type { ChoicesAsTyped, FormText, MoveDirection, PageLayout } from './intake-form'
 import type { IntakeLinkToken } from './intake-link'
 import type { InvitationToken } from './invitations'
 import type { PausePeriodWeeks } from './pause'
@@ -103,6 +104,19 @@ export type Command =
        * second one.
        */
       readonly token?: IntakeLinkToken
+      /**
+       * Which version of the Ministry's form the Person opened, which is the one
+       * they were shown to the end and the one their answers are read against
+       * (Pastor feedback, ticket 11). Absent on a form that is not one of the
+       * Ministry's two -- the tokenized reopen link -- which is read as today's.
+       */
+      readonly formVersion?: number
+      /**
+       * On the reopened page, which declares no path: the form whose own
+       * questions it asked (ticket 12), with `formVersion` the version it drew
+       * them from. The submission's answers to them are read against it.
+       */
+      readonly ownQuestionsFrom?: IntakePath
     }
   /**
    * An Admin issuing a Person the link that reopens their own Intake form,
@@ -683,6 +697,141 @@ export type Command =
        * all, so the record names who changed them.
        */
       readonly changedBy: string
+    }
+  /**
+   * An Admin giving their Ministry a new short name on Intake forms (Pastor
+   * feedback, ticket 04), which both readable links and both QR codes are built
+   * from. The name arrives as typed: what a short name may be is a rule, and
+   * rules live on the domain side of this boundary.
+   *
+   * The old name is not let go. Every name a Ministry has held keeps opening its
+   * forms, because a QR code printed on last month's bulletin still carries it.
+   */
+  | {
+      readonly type: 'short_name.change'
+      readonly ministryId: MinistryId
+      readonly shortName: string
+      /** The Admin's account, as the session named it, for the record. */
+      readonly changedBy: string
+    }
+  /**
+   * The six ways an Admin edits one of the Ministry's two Intake forms (Pastor
+   * feedback, ticket 11). Each is saved as it is made and is live at once: the
+   * form is saved as a new version, which everybody who opens it from then on is
+   * served, while somebody already part-way through finishes the one they opened.
+   *
+   * Everything arrives as typed. What counts as wording, which questions must stay
+   * required and where each may be asked are rules, and live on the domain side of
+   * this boundary (`intake-form.ts`).
+   */
+  | {
+      readonly type: 'intake_form.edit_question'
+      readonly ministryId: MinistryId
+      readonly form: IntakePath
+      readonly key: string
+      readonly wording: string
+      /** The first-time question's wording for somebody to be mentored. */
+      readonly menteeWording: string | null
+      readonly hint: string
+      readonly required: boolean
+      /**
+       * The choices of a choice question the Ministry added (ticket 12): each one
+       * already on it by id, as reworded, and new ones. Absent on every other
+       * question.
+       */
+      readonly choices?: ChoicesAsTyped
+      /** The Admin's account, as the session named it, for the record. */
+      readonly editedBy: string
+    }
+  /**
+   * A question of the Ministry's own, added at the foot of a page (Pastor
+   * feedback, ticket 12): short text, long text, one choice, several choices or
+   * yes/no. Its key is minted by the boundary. `choices` are the lines typed under
+   * a choice question, in order; ignored on the other three kinds.
+   */
+  | {
+      readonly type: 'intake_form.add_question'
+      readonly ministryId: MinistryId
+      readonly form: IntakePath
+      readonly pageId: string
+      readonly kind: string
+      readonly wording: string
+      readonly hint: string
+      readonly required: boolean
+      readonly choices: readonly string[]
+      readonly editedBy: string
+    }
+  /**
+   * The whole form in the order an Admin dragged it into: every page, and each
+   * page's questions top to bottom. The whole order rather than a move, for the
+   * reason `goal.reorder` gives: a drag can land a question anywhere, and the page
+   * transmits the Admin's act rather than computing it.
+   */
+  | {
+      readonly type: 'intake_form.arrange'
+      readonly ministryId: MinistryId
+      readonly form: IntakePath
+      readonly layout: readonly PageLayout[]
+      readonly editedBy: string
+    }
+  /** One question, one place up or down, for an editor whose script has not run. */
+  | {
+      readonly type: 'intake_form.move_question'
+      readonly ministryId: MinistryId
+      readonly form: IntakePath
+      readonly key: string
+      readonly direction: MoveDirection
+      readonly editedBy: string
+    }
+  | {
+      readonly type: 'intake_form.add_page'
+      readonly ministryId: MinistryId
+      readonly form: IntakePath
+      readonly name: string
+      readonly editedBy: string
+    }
+  | {
+      readonly type: 'intake_form.rename_page'
+      readonly ministryId: MinistryId
+      readonly form: IntakePath
+      readonly pageId: string
+      readonly name: string
+      readonly editedBy: string
+    }
+  /**
+   * One question off the form, and every answer given to it deleted (Pastor
+   * feedback, ticket 13; ADR-0014). Any question but the name and the mobile
+   * number. The answers are read before they go and written into the removal's
+   * history event, which is then the only record of them.
+   */
+  | {
+      readonly type: 'intake_form.remove_question'
+      readonly ministryId: MinistryId
+      readonly form: IntakePath
+      readonly key: string
+      readonly editedBy: string
+    }
+  /**
+   * One of Discipler's own questions this form no longer asks, put back at the
+   * foot of a page in the words the preset asks it in (ticket 13). Its old answers
+   * are not: they were deleted when it was removed.
+   */
+  | {
+      readonly type: 'intake_form.add_back_question'
+      readonly ministryId: MinistryId
+      readonly form: IntakePath
+      readonly pageId: string
+      readonly key: string
+      readonly editedBy: string
+    }
+  /** The intro on the first page, or the thank-you after Submit. */
+  | {
+      readonly type: 'intake_form.edit_text'
+      readonly ministryId: MinistryId
+      readonly form: IntakePath
+      readonly which: FormText
+      readonly text: string
+      readonly editedBy: string
     }
   /**
    * *Not my number.* It changes nothing -- a forwarded link can never re-point an

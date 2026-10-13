@@ -20,6 +20,7 @@
   --border: #e8dfd5;
   --shadow: rgba(45, 80, 22, 0.08);
   --green-fit: #7faf8c;
+  --light-green-fit: #a8d5b0;
   --yellow-fit: #ddbb7a;
   --red-concern: #dc3545;
   --red-ink: #b02a37;
@@ -89,8 +90,8 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; }
 /* ---- the botanical frame ---- */
 
 /* Watercolour behind the cards on sign-in and on three of the Admin tabs, each its
-   own (`ADMIN_TABS` in `app/shell.tsx`): two corner sprays joined by a vine, or a
-   strip down each side. A layer fixed to the window, drawn by
+   own (`ADMIN_TABS` in `app/shell.tsx`): a spray in two corners, or a strip down
+   each side. A layer fixed to the window, drawn by
    `app/botanical.tsx`, which says nothing and takes no presses. A frame, not
    wallpaper that scrolls away down the Roster.
 
@@ -111,6 +112,25 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; }
 @media (max-aspect-ratio: 68/100) { .botanical-frame { background-image: var(--art-06); } }
 @media (max-aspect-ratio: 53/100) { .botanical-frame { background-image: var(--art-046); } }
 @media print { .botanical-frame { display: none; } }
+
+/* The painting frames the content and never sits behind it (Pastor feedback
+   2026-10, ticket 01): on the Admin tabs it is masked clear of the content column,
+   the container's 1280px less its padding, and fades in over the 3rem beyond it, so
+   no card, heading or gap between cards has a leaf behind it. A window with less
+   than 6rem of margin beside the content (1232px + 2 x 6rem = 1424px) would show only
+   a sliver at each edge, so it shows none. Sign-in's one card is opaque and
+   the painting shows around it; on a phone the card sits at the top, over the
+   top-right spray, so that spray goes and the bottom-left one stays below the card. */
+.container.botanical > .botanical-frame {
+  --edge: calc(50% - min(50%, 640px) + 1.5rem);
+  --keep: linear-gradient(to right, #000 calc(var(--edge) - 3rem), transparent var(--edge), transparent calc(100% - var(--edge)), #000 calc(100% - var(--edge) + 3rem));
+  -webkit-mask-image: var(--keep);
+  mask-image: var(--keep);
+}
+@media (max-width: 1423px) { .container.botanical > .botanical-frame { display: none; } }
+@media (max-width: 720px) {
+  .centred.botanical > .botanical-frame { -webkit-mask-image: linear-gradient(transparent 25%, #000 35%); mask-image: linear-gradient(transparent 25%, #000 35%); }
+}
 
 /* Pressing a tab: the old painting drifts out past the window's edges as the new
    one drifts in from beyond them, over it; to or from a tab with none, only the one
@@ -201,6 +221,9 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; }
 .toast ul { margin: 0.35rem 0 0 1.2rem; }
 .notice { background: rgba(201, 168, 106, 0.12); border: 1px solid var(--accent); border-radius: 6px; padding: 0.9rem 1.1rem; font-size: 0.87rem; margin-bottom: 1.25rem; line-height: 1.5; }
 .notice p:last-child { margin-bottom: 0; }
+/* A notice that ends its card, as Suggested Pairs' does when it suggests nobody, sits on the card's own padding. */
+.card > .notice:last-child { margin-bottom: 0; }
+.card select + .notice { margin-top: 0.75rem; }
 .empty { padding: 2.5rem 1rem; text-align: center; color: var(--text-light); }
 td .empty, li .empty { padding: 0; text-align: left; }
 
@@ -218,7 +241,9 @@ td .empty, li .empty { padding: 0; text-align: left; }
 .donut { width: 150px; height: 150px; flex-shrink: 0; }
 .donut-figures { display: flex; flex-direction: column; gap: 0.5rem; }
 .donut-figure { font-family: var(--serif); font-size: 2.4rem; line-height: 1.1; color: var(--primary); margin: 0; }
-.donut-legend { list-style: none; font-size: 0.82rem; margin: 0; padding: 0; }
+/* As `ul.donut-legend`, so that it outranks `.card ul`, which indented the legend
+   from the figure above it and pushed a four-line legend under the ring on a phone. */
+ul.donut-legend { list-style: none; font-size: 0.82rem; margin: 0; padding: 0; }
 .donut-legend li { display: flex; align-items: center; gap: 0.45rem; margin-bottom: 0.3rem; }
 .donut-legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
 /* The goals question: one row per option, the cross on the left, the wording in
@@ -243,16 +268,105 @@ button.goal-handle:active { cursor: grabbing; }
 @media (max-width: 720px) {
   .goal-row { grid-template-columns: auto minmax(0, 1fr) auto; row-gap: 0.35rem; }
   .goal-chosen, .goal-move { grid-column: 2; }
+  .goal-row > .goal-handle { grid-column: 3; grid-row: 1; }
 }
-/* A phone. The row keeps its shape and the type shrinks, so the wording stays
-   legible beside its button instead of being cut to a few characters. */
+/* A phone. The wording takes the row's whole width and its button goes under it,
+   so a long option reads in full rather than being cut to a few characters
+   ("Growing in the basics o..." in a box a third of the screen wide). */
 @media (max-width: 480px) {
   .goal-row { column-gap: 0.45rem; }
-  .goal-wording { gap: 0.35rem; }
-  .goal-wording input[type="text"] { font-size: 0.8rem; padding: 0.4rem 0.5rem; }
-  .goal-wording button.small { font-size: 0.7rem; padding: 0.3rem 0.5rem; }
+  .goal-wording { gap: 0.35rem; flex-wrap: wrap; }
+  .goal-wording input[type="text"] { flex: 1 1 100%; font-size: 0.85rem; padding: 0.4rem 0.5rem; }
+  .goal-wording button.small { font-size: 0.72rem; padding: 0.3rem 0.5rem; }
   .goal-chosen { font-size: 0.74rem; }
   .goal-x { width: 24px; height: 24px; font-size: 1rem; }
+}
+
+/* The form editor on Intake forms (Pastor feedback, ticket 11; the mock-up is
+   `.lavish/pastor-feedback/mock-forms-editor.html`). One box per wizard page, one
+   row per question, the row opening in place. The up and down buttons are for a
+   page whose script has not run; the script marks the document `js`, which hides
+   them and shows the drag handles. */
+.fe-bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.fe-bar .card-title { margin-bottom: 0.2rem; }
+.fe-bar code { font-size: 0.85em; overflow-wrap: anywhere; }
+.fe-tabs { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; margin-bottom: 1rem; }
+.fe-tabs .seg { margin: 0; }
+.fe-page { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1rem; background: var(--surface); overflow: hidden; }
+.fe-page-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.4rem 0.8rem; flex-wrap: wrap; padding: 0.65rem 1rem; border-bottom: 1px solid var(--border); background: rgba(45, 80, 22, 0.03); border-radius: 8px 8px 0 0; }
+.fe-page-head h3 { margin: 0; font-size: 1rem; }
+.fe-page-head .muted { font-size: 0.8rem; }
+.fe-rename { font-family: var(--sans); font-size: 0.78rem; font-weight: 400; margin-left: 0.35rem; }
+.card ul.fe-qs { list-style: none; margin: 0; padding: 0; min-height: 0.5rem; }
+.fe-q { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 0.8rem; align-items: center; padding: 0.7rem 1rem; border-bottom: 1px solid var(--border); background: var(--surface); }
+.fe-q:last-child { border-bottom: 0; }
+.fe-q.dragging { opacity: 0.45; }
+.fe-handle, button.fe-handle { visibility: hidden; cursor: grab; background: transparent; color: var(--text-light); border: 1px solid transparent; border-radius: 5px; padding: 0.1rem 0.3rem; font-size: 1.15rem; line-height: 1; letter-spacing: -0.2em; touch-action: none; user-select: none; }
+button.fe-handle:hover, button.fe-handle:focus-visible { background: transparent; border-color: var(--border); color: var(--primary); }
+button.fe-handle:active { cursor: grabbing; }
+.js .fe-handle { visibility: visible; }
+.js .fe-move { display: none; }
+.fe-wording { font-weight: 600; font-size: 0.93rem; overflow-wrap: anywhere; }
+.fe-meta { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.2rem; align-items: center; }
+.fe-chip { font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.12rem 0.45rem; border-radius: 3px; background: rgba(122, 122, 122, 0.12); color: #5f5f5f; }
+.fe-chip.uses { background: rgba(201, 168, 106, 0.22); color: #8a6b28; }
+.fe-chip.fixed { background: rgba(45, 80, 22, 0.08); color: var(--primary); }
+.fe-q-actions { display: flex; gap: 0.4rem; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+.fe-move { display: flex; gap: 0.3rem; }
+.fe-move form { margin: 0; }
+.fe-q.editing { background: rgba(45, 80, 22, 0.025); grid-template-columns: auto minmax(0, 1fr); align-items: start; }
+.fe-edit { display: grid; gap: 0.7rem; margin-top: 0.6rem; }
+.fe-edit label:not(.check) { font-size: 0.8rem; color: var(--text-light); display: block; margin-bottom: 0.2rem; }
+.fe-edit input[type="text"], .fe-edit select { width: 100%; margin: 0; padding: 0.5rem 0.6rem; font-size: 0.9rem; }
+/* The wording and the hint wrap, and grow to what they hold where the browser can
+   size a box to its content; a desktop row reads as the mock-up's one-line field. */
+.fe-edit textarea { width: 100%; margin: 0; padding: 0.5rem 0.6rem; font-size: 0.9rem; line-height: 1.4; min-height: 0; height: auto; resize: vertical; field-sizing: content; }
+.fe-edit .row2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.7rem; }
+.fe-spacer { display: block; font-size: 0.8rem; margin-bottom: 0.2rem; }
+.fe-edit .check { display: flex; align-items: center; gap: 0.45rem; margin: 0.45rem 0 0; font-size: 0.88rem; color: var(--text); }
+.fe-edit .check input { margin: 0; }
+.fe-edit .toast { margin: 0; }
+.fe-warn { font-size: 0.84rem; background: rgba(201, 168, 106, 0.12); border: 1px solid var(--accent); border-radius: 6px; padding: 0.6rem 0.8rem; line-height: 1.45; }
+.fe-saved { font-size: 0.8rem; color: #2f6b41; font-weight: 600; white-space: nowrap; }
+.fe-note { margin: 0; padding: 0.45rem 1rem 0; }
+.fe-empty { margin: 0; padding: 0.8rem 1rem; color: var(--text-light); font-size: 0.85rem; font-style: italic; }
+.fe-inline { padding: 0.8rem 1rem; border-bottom: 1px solid var(--border); display: grid; gap: 0.5rem; }
+.fe-inline .label, .fe-inline .subtle, .fe-inline input, .fe-inline textarea, .fe-inline .toast { margin: 0; }
+#add-page .fe-inline { border: 1px dashed var(--border); border-radius: 8px; }
+/* A question the Ministry added (Pastor feedback, ticket 12): its chip, the row
+   that adds one at the foot of each page, and the new row open above it. */
+.fe-chip.custom { background: rgba(127, 175, 140, 0.25); color: #2f6b41; }
+.fe-add { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; padding: 0.7rem 1rem; border-top: 1px dashed var(--border); }
+.fe-add .btn { margin: 0; }
+.fe-add-label { color: var(--text-light); font-size: 0.85rem; }
+.fe-add-note { color: var(--text-light); font-size: 0.8rem; font-style: italic; }
+.fe-qs + .fe-new, .fe-empty + .fe-new { border-top: 1px solid var(--border); }
+.fe-new { border-bottom: 0; }
+.fe-new .fe-handle, .js .fe-new .fe-handle { visibility: hidden; }
+/* Removing a question (Pastor feedback, ticket 13): the open row's last button,
+   pushed to the right of Save and Cancel, and what the row says in place of its
+   fields once it is pressed, in the colour of a loss. The questions a form no
+   longer asks are offered back on a line of their own at the foot of a page. */
+.fe-edit .btn-row .spacer { flex: 1; }
+.fe-removal { border-color: var(--red-concern); background: rgba(220, 53, 69, 0.05); }
+.fe-removal p { margin: 0.35rem 0 0; }
+.fe-edit form.btn-row { margin: 0; }
+.fe-add-back { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; flex-basis: 100%; margin: 0; }
+.fe-add-back button { margin: 0; }
+fieldset.fe-choice-boxes { display: grid; gap: 0.5rem; margin: 0; padding: 0; border: 0; min-width: 0; }
+/* Room for a few choices before any are typed, where the other boxes grow from one line. */
+.fe-edit textarea.fe-choices { min-height: 4.6em; }
+@media (max-width: 560px) {
+  .fe-q { grid-template-columns: auto minmax(0, 1fr); padding: 0.65rem 0.75rem; gap: 0.3rem 0.6rem; }
+  .fe-q-actions { grid-column: 2; justify-content: flex-start; }
+  .fe-edit .row2 { grid-template-columns: minmax(0, 1fr); }
+  /* Where a box cannot grow to its content (Safari), three lines show a long
+     wording whole rather than its first few words. */
+  .fe-edit textarea { min-height: 4.6em; }
+  @supports (field-sizing: content) { .fe-edit textarea { min-height: 0; } }
+  .fe-edit .fe-spacer { display: none; }
+  .fe-page-head { padding: 0.6rem 0.75rem; }
+  .fe-add { padding: 0.65rem 0.75rem; }
 }
 .qs-row { display: flex; justify-content: space-between; padding: 0.55rem 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
 .qs-row:last-child { border-bottom: none; }
@@ -262,18 +376,33 @@ button.goal-handle:active { cursor: grabbing; }
 
 .rel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; }
 .rel-card { display: block; padding: 1.1rem 1.25rem; border: 1px solid var(--border); border-left-width: 4px; border-left-color: var(--border); border-radius: 6px; background: rgba(45, 80, 22, 0.02); color: inherit; text-decoration: none; transition: background 0.2s ease; }
-a.rel-card:hover { background: rgba(45, 80, 22, 0.05); }
+a.rel-card:hover { box-shadow: 0 3px 14px rgba(45, 80, 22, 0.12); }
 .rel-card.s-needs_care { border-left-color: var(--red-concern); background: linear-gradient(135deg, rgba(220, 53, 69, 0.06), rgba(220, 53, 69, 0.03)); }
 .rel-card.s-stalled { border-left-color: var(--amber); background: linear-gradient(135deg, rgba(201, 122, 26, 0.08), rgba(201, 122, 26, 0.03)); }
 .rel-card.s-paused { border-left-color: var(--neutral); background: rgba(122, 122, 122, 0.04); opacity: 0.8; }
 .rel-card.s-awaiting_leader_acceptance { border-left-color: var(--accent); background: rgba(201, 168, 106, 0.06); }
+/* The Overview's cards, coloured by what they need (Pastor feedback, ticket 02):
+   green when healthy, yellow (the amber Stalled has always been) when stalled,
+   red while a Concern is unresolved, grey when paused or awaiting acceptance.
+   Classed by the need and not the state, because red follows the Concern badge
+   rather than the week it was raised (`app/overview/need.ts`); the Materials
+   folders keep their own `s-` classes. Each card also carries its word, so the
+   colour is never the only way to tell. The healthy edge is the darker green so
+   it holds 3:1 against the page, and a pill on a tinted card is lightened or
+   greyed where its usual tint would take its words under 4.5:1. */
+.rel-card.need-healthy { border-left-color: var(--primary-light); background: linear-gradient(135deg, rgba(127, 175, 140, 0.12), rgba(127, 175, 140, 0.04)); }
+.rel-card.need-stalled { border-left-color: var(--amber); background: linear-gradient(135deg, rgba(201, 122, 26, 0.08), rgba(201, 122, 26, 0.03)); }
+.rel-card.need-concern { border-left-color: var(--red-concern); background: linear-gradient(135deg, rgba(220, 53, 69, 0.06), rgba(220, 53, 69, 0.03)); }
+.rel-card.need-inactive { border-left-color: var(--neutral); background: rgba(122, 122, 122, 0.05); }
+.rel-card[class*='need-'] .pill.stalled { background: rgba(201, 122, 26, 0.12); }
+.rel-card.need-inactive .pill { background: rgba(122, 122, 122, 0.16); color: #5f5f5f; }
 .rel-leader { font-weight: 700; }
 .rel-people { font-size: 0.88rem; color: var(--text); margin-top: 0.15rem; }
 .rel-meta { font-size: 0.78rem; color: var(--text-light); margin-top: 0.5rem; }
 .rel-reason { font-size: 0.82rem; margin-top: 0.5rem; line-height: 1.45; }
 .rel-reason.needscare { color: var(--red-ink); }
 .rel-reason.stalled { color: var(--amber-ink); }
-.rel-reason.review { color: var(--neutral); }
+.rel-reason.review { color: #5f5f5f; }
 
 .pill { display: inline-block; font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.15rem 0.5rem; border-radius: 3px; vertical-align: middle; white-space: nowrap; }
 .pill.healthy { background: rgba(127, 175, 140, 0.25); color: #2f6b41; }
@@ -286,23 +415,27 @@ a.rel-card:hover { background: rgba(45, 80, 22, 0.05); }
 
 /* ---- check-ins ---- */
 
-.ci-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem; list-style: none; }
+/* As `ul.ci-stats` and `ul.ci-list`, so that they outrank `.card ul`, as `ul.fu-list`
+   does: the tiles and the lists sit flush with the column heads above them. */
+ul.ci-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 0 0 1.5rem; padding: 0; list-style: none; }
 .ci-stat { text-align: center; padding: 1rem; border: 1px solid var(--border); border-radius: 6px; }
 .ci-stat-val { font-family: var(--serif); font-size: 2.2rem; line-height: 1; color: var(--primary); }
 .ci-stat-val.pending { color: var(--amber-ink); }
 .ci-stat-val.concern { color: var(--red-concern); }
-.ci-cols { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.25rem; }
+.ci-cols { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.25rem; }
 .ci-col-head { display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.8rem; border-radius: 5px; margin-bottom: 0.75rem; font-weight: 700; font-size: 0.9rem; }
 .ci-col-head.a { background: rgba(127, 175, 140, 0.18); color: #2f6b41; }
-.ci-col-head.b { background: rgba(221, 187, 122, 0.22); color: #8a6b28; }
-.ci-col-head.c { background: rgba(220, 53, 69, 0.1); color: var(--red-ink); }
-.ci-list { list-style: none; }
+.ci-col-head.b { background: rgba(168, 213, 176, 0.16); color: #3d7a4c; }
+.ci-col-head.c { background: rgba(221, 187, 122, 0.22); color: #8a6b28; }
+.ci-col-head.d { background: rgba(220, 53, 69, 0.1); color: var(--red-ink); }
+ul.ci-list { list-style: none; margin: 0; padding: 0; }
 .ci-card { padding: 0.7rem 0.85rem; border: 1px solid var(--border); border-radius: 5px; margin-bottom: 0.5rem; font-size: 0.88rem; }
+/* Each row opens the pair card over the tab (Pastor feedback, ticket 09). */
+a.ci-card { display: block; color: inherit; text-decoration: none; }
+a.ci-card:hover, a.ci-card:focus-visible { border-color: var(--primary-light); background: rgba(45, 80, 22, 0.02); }
+/* A D whose Concern is still unresolved; its words are never on the list. */
+a.ci-card.d { border-left: 3px solid var(--red-concern); }
 .ci-when { font-size: 0.76rem; color: var(--text-light); }
-.sealed { padding: 1.75rem 1.25rem; text-align: center; border: 1px dashed var(--border); border-radius: 6px; background: rgba(220, 53, 69, 0.03); }
-.sealed-count { font-family: var(--serif); font-size: 3rem; font-weight: 700; color: var(--red-concern); line-height: 1; }
-.sealed-label { font-weight: 600; }
-.sealed-note { font-size: 0.82rem; color: var(--text-light); margin: 0.7rem 0 1rem; line-height: 1.5; }
 
 /* ---- suggestions ---- */
 
@@ -359,25 +492,22 @@ ul.fu-list { list-style: none; margin: 0; padding: 0; }
 .fu-tag.concern { background: rgba(220, 53, 69, 0.12); color: var(--red-ink); }
 .fu-tag.stalled { background: rgba(201, 122, 26, 0.16); color: var(--amber-ink); }
 .fu-tag.review { background: rgba(122, 122, 122, 0.14); color: #5f5f5f; }
-.fu-who { font-weight: 700; }
-.fu-line { font-size: 0.88rem; margin-top: 0.3rem; line-height: 1.45; }
-.fu-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.9rem; align-items: center; }
-.fu-actions form { display: inline; }
-/* The ending form folds out of the row it sits in: the summary is one more button
-   in the row and the form, once opened, takes the whole width below it. */
-.fu-actions details { display: contents; }
-.fu-actions details > summary { list-style: none; }
-.fu-actions details > summary::-webkit-details-marker { display: none; }
-.fu-actions details > form { flex-basis: 100%; display: block; }
-.fu-btn { padding: 0.4rem 0.8rem; font-size: 0.82rem; border: 1px solid var(--border); background: var(--surface); border-radius: 5px; cursor: pointer; color: var(--text); font-weight: 500; text-decoration: none; display: inline-block; }
-.fu-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--surface); }
-.fu-btn.danger:hover { border-color: var(--red-concern); color: var(--red-concern); }
-.fu-reveal { margin-top: 0.75rem; font-size: 0.9rem; }
-/* What Copy link to re-invite leader says back, on a line of its own under the
-   buttons; the field is only there where the browser refused the clipboard. */
-.fu-actions .fu-copied { flex-basis: 100%; margin: 0; }
-.fu-copied input { display: block; width: 100%; margin: 0.4rem 0 0; }
-.sms { background: rgba(45, 80, 22, 0.04); border-left: 3px solid var(--primary); padding: 0.6rem 0.8rem; border-radius: 0 5px 5px 0; font-size: 0.9rem; margin: 0.4rem 0; line-height: 1.5; white-space: pre-wrap; }
+.fu-who { display: block; font-weight: 700; }
+.fu-line { display: block; font-size: 0.88rem; margin-top: 0.3rem; line-height: 1.45; }
+/* Pastor feedback, ticket 10: each item is one button, its tag, the names, one
+   line of reason, how long it has held and an arrow; its card holds the rest. */
+a.fu-open { display: flex; align-items: center; gap: 1rem; color: inherit; text-decoration: none; background: var(--surface); transition: background 0.15s, border-color 0.15s; }
+a.fu-open:hover { background: rgba(45, 80, 22, 0.03); border-color: var(--primary-light); }
+a.fu-open .fu-body { display: block; flex: 1 1 auto; min-width: 0; }
+a.fu-open .fu-age { font-size: 0.78rem; color: var(--text-light); white-space: nowrap; }
+a.fu-open .chev { width: 18px; height: 18px; color: var(--text-light); flex: none; }
+a.fu-open:hover .chev { color: var(--primary); }
+/* On a phone how long it has held sits on the tag's line, so the names and the reason keep the width. */
+@media (max-width: 600px) {
+  a.fu-open { position: relative; gap: 0.6rem; padding: 0.95rem 1rem; }
+  a.fu-open .fu-age { position: absolute; top: 0.95rem; right: calc(1rem + 18px + 0.6rem); line-height: 1.5rem; }
+  a.fu-open .fu-tags { padding-right: 4.5rem; min-height: 1.5rem; }
+}
 .audit { font-size: 0.78rem; color: var(--text-light); border-top: 1px solid var(--border); margin-top: 1rem; padding-top: 0.7rem; }
 
 /* ---- tables ---- */
@@ -456,6 +586,11 @@ input[type="file"] { display: block; margin-bottom: 1rem; font-size: 0.88rem; }
 .option:has(input:focus-visible) { outline: 2px solid var(--primary); outline-offset: 2px; }
 .option-title { display: block; font-weight: 700; color: var(--primary); }
 .option-desc { display: block; color: var(--text-light); font-size: 0.85rem; margin-top: 0.15rem; }
+/* Other on the Intake goal (Pastor feedback 2026-10, ticket 06): its box opens under
+   the options when Other is ticked, with no script. Hidden only by a browser that
+   can tell Other is not ticked, so one that cannot still shows it. */
+.goal-question .goal-other { margin-top: -0.25rem; }
+.goal-question:not(:has(input[value="other"]:checked)) .goal-other { display: none; }
 .form-actions { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; margin-top: 1.5rem; }
 .form-actions .btn.sec { font-weight: 500; }
 
@@ -535,6 +670,38 @@ img.qr { display: block; max-width: 100%; height: auto; background: #ffffff; bor
 .copyable input { margin-bottom: 0; }
 .copyable button { white-space: nowrap; }
 .copied { color: var(--text-light); font-size: 0.85rem; min-width: 4.5rem; }
+
+/* The link card at the top of Intake forms (Pastor feedback, ticket 04): the
+   short name with the address in front of it and Save beside it, then the two
+   forms as even tiles. The tiles are one grid row, so they are the same height
+   whatever either link's length; each tile's third row takes the slack, so the
+   buttons sit on one line across both. */
+.short-name { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.35rem 0.6rem; align-items: end; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border); }
+.short-name label { grid-column: 1 / -1; font-family: var(--serif); font-size: 1.2rem; font-weight: 600; color: var(--primary); }
+.short-name button { height: 100%; }
+.short-name .toast { grid-column: 1 / -1; margin: 0.5rem 0 0; box-shadow: none; }
+.link-edit { display: flex; align-items: stretch; min-width: 0; }
+.link-edit span { display: flex; align-items: center; padding: 0.5rem 0.6rem; background: var(--bg); border: 1px solid var(--border); border-right: 0; border-radius: 5px 0 0 5px; font-size: 0.88rem; color: var(--text-light); white-space: nowrap; }
+.link-edit input[type="text"] { flex: 1 1 auto; min-width: 0; padding: 0.5rem 0.6rem; border-radius: 0 5px 5px 0; }
+.form-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-top: 1.25rem; }
+.form-tile { border: 1px solid var(--border); border-radius: 8px; padding: 1.1rem; display: grid; grid-template-rows: auto auto 1fr auto; justify-items: center; gap: 0.75rem; text-align: center; min-width: 0; }
+.form-tile-name { font-weight: 700; margin: 0; }
+.form-tile img.qr { border: 0; border-radius: 0; margin: 0; }
+.form-tile code { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 0.84rem; background: rgba(45, 80, 22, 0.05); border: 1px solid var(--border); padding: 0.35rem 0.6rem; border-radius: 5px; overflow-wrap: anywhere; align-self: center; }
+/* The short name and what follows it are kept whole where they fit, so a narrow
+   tile breaks the link before the church's own word rather than inside it. */
+.form-tile code b { color: var(--primary); }
+.form-tile code span { display: inline-block; }
+.form-tile .btn-row { justify-content: center; }
+@media (max-width: 640px) {
+  .form-tiles { grid-template-columns: minmax(0, 1fr); }
+  .short-name { grid-template-columns: minmax(0, 1fr); }
+  /* The address sits above the field on a phone, so the field keeps the width
+     a church's name needs. */
+  .link-edit { flex-direction: column; }
+  .link-edit span { border-right: 1px solid var(--border); border-bottom: 0; border-radius: 5px 5px 0 0; }
+  .link-edit input[type="text"] { border-radius: 0 0 5px 5px; }
+}
 figure { margin: 0 0 1rem; }
 figcaption { font-size: 0.8rem; color: var(--text-light); margin-bottom: 0.25rem; }
 blockquote { background: rgba(45, 80, 22, 0.04); border-left: 3px solid var(--primary); padding: 0.6rem 0.8rem; border-radius: 0 5px 5px 0; font-size: 0.88rem; line-height: 1.5; }
@@ -551,7 +718,7 @@ blockquote { background: rgba(45, 80, 22, 0.04); border-left: 3px solid var(--pr
 @media (max-width: 1100px) {
   .stats { grid-template-columns: repeat(2, 1fr); }
   .charts { grid-template-columns: 1fr 1fr; }
-  .ci-cols { grid-template-columns: 1fr; }
+  .ci-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 860px) {
   .lead-grid, .two-up { grid-template-columns: minmax(0, 1fr); }
@@ -560,7 +727,8 @@ blockquote { background: rgba(45, 80, 22, 0.04); border-left: 3px solid var(--pr
 @media (max-width: 720px) {
   .stats { grid-template-columns: 1fr; }
   .charts { grid-template-columns: 1fr; }
-  .ci-stats { grid-template-columns: 1fr; }
+  ul.ci-stats { grid-template-columns: 1fr; }
+  .ci-cols { grid-template-columns: minmax(0, 1fr); }
   .container { padding: 1.25rem 1rem; }
   .centred { padding: 1rem; }
   /* On a phone the card sits at the top and the brand mark at the foot. */
@@ -572,6 +740,16 @@ blockquote { background: rgba(45, 80, 22, 0.04); border-left: 3px solid var(--pr
 .kv dt { color: var(--text-light); }
 .kv dd { margin: 0; }
 @media (max-width: 480px) { .kv { grid-template-columns: minmax(0, 1fr); gap: 0.1rem 0; } .kv dd { margin-bottom: 0.5rem; } }
+/* An answer to a Ministry's own question (Pastor feedback, ticket 12): the
+   question across the list, the answer under it, a long one keeping its lines. */
+dl .own-question, dl .own-answer { grid-column: 1 / -1; }
+dl .own-question { margin-top: 0.35rem; }
+dl .own-answer { margin-top: -0.2rem; white-space: pre-line; overflow-wrap: anywhere; }
+/* Several choices are ticks painted as option buttons: a ticked one says so, so
+   somebody can see they may pick more than one. */
+.option.several { padding-right: 2.4rem; }
+.option.several::after { content: ''; position: absolute; right: 0.9rem; top: 50%; width: 1rem; height: 1rem; margin-top: -0.5rem; border: 2px solid var(--border); border-radius: 3px; box-sizing: border-box; }
+.option.several:has(input:checked)::after { content: '✓'; background: var(--primary); border-color: var(--primary); color: #fff; font-size: 0.7rem; line-height: 0.75rem; text-align: center; font-weight: 700; }
 
 /* The Everyone menu over the Roster (Roles per pairing, ticket 02), where the
    toggle was: a details element like the Account menu, its options links, so it
@@ -920,12 +1098,6 @@ a.res:hover { border-color: var(--primary); }
 .dpage .mat-panel > .material-body { margin-top: 0; }
 .dpage-foot { text-align: center; font-size: .78rem; color: var(--text-light); margin-top: 1.4rem; line-height: 1.5; }
 .option.dashed { border-style: dashed; }
-/* Group form exits, ticket 01 (S-8): the group dropdown and its button on a
-   Wants a group item, taking the room the row has before Resolve. */
-/* On a phone the form takes a row of its own and the select one inside it, so
-   the select is never squeezed to a few letters beside the button. */
-.fu-actions form.fu-place { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; flex: 1 1 320px; min-width: 0; }
-.fu-actions form.fu-place select { flex: 1 1 170px; }
 /* Roles per pairing, ticket 03: under the name on a person's page, one tag per
    pairing, each saying its direction. A group is sand-coloured, apart from a
    one-to-one at a glance; a state that keeps Pair away is the Roster's own pill. */
@@ -935,3 +1107,109 @@ ul.rtags { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; lis
 .rtag .dir { color: var(--text-light); font-size: 0.74rem; }
 .rtag.grp { background: #fbf6ec; border-color: #ecdcbc; color: #6f5520; }
 .pill.opted_out { background: rgba(220, 53, 69, 0.1); color: var(--red-ink); }
+
+/* ---- the pair card (Pastor feedback, ticket 07) ----
+   One pair over the page that opened it: the head, a band for whatever needs the
+   Admin, the two people side by side, the facts, and End relationship at the
+   foot. `app/pair-card/pair-card.tsx`. The Discipler's column is on the left and
+   the Disciples' on the right; a 1:2 pair stacks its two Disciples in theirs. */
+.modal.paircard { position: relative; max-width: 640px; padding: 0; border-radius: 12px; overflow-x: hidden; overflow-y: auto; margin: 4vh 0 auto; }
+/* Held inside the window under its 4vh, so a long card (a Group of twelve) scrolls within itself and its foot is never below the fold. */
+.modal.paircard { max-height: calc(100vh - 3rem - 4vh); }
+@supports (height: 100dvh) { .modal.paircard { max-height: calc(100dvh - 3rem - 4vh); } }
+.pc-head { display: flex; align-items: flex-start; gap: 0.8rem; padding: 1.25rem 1.4rem 1rem; border-bottom: 1px solid var(--border); }
+.pc-head > div { flex: 1 1 auto; min-width: 0; }
+.pc-kind { font-size: 0.74rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-light); margin: 0 0 0.2rem; }
+.pc-kind span { display: inline-block; }
+.pc-head .card-title { font-size: 1.45rem; font-weight: 700; margin: 0; }
+.pc-head .pill { margin-top: 0.35rem; }
+.pc-notice { margin: 0.9rem 1.4rem 0; box-shadow: none; }
+/* A band straight after what an action did stands clear of it, as the people do. */
+.pc-notice + .pc-band { margin-top: 0.9rem; border-top: 1px solid var(--border); }
+.pc-band { padding: 0.95rem 1.4rem; border-bottom: 1px solid var(--border); font-size: 0.92rem; line-height: 1.5; }
+.pc-band p { margin: 0; }
+.pc-band.concern { background: linear-gradient(135deg, rgba(220, 53, 69, 0.08), rgba(220, 53, 69, 0.03)); border-left: 4px solid var(--red-concern); }
+.pc-band.stalled { background: linear-gradient(135deg, rgba(201, 122, 26, 0.1), rgba(201, 122, 26, 0.03)); border-left: 4px solid var(--amber); }
+.pc-band.review { background: rgba(122, 122, 122, 0.06); border-left: 4px solid var(--neutral); }
+.pc-band .pc-band-label { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; margin: 0 0 0.3rem; }
+.pc-band.concern .pc-band-label { color: var(--red-ink); }
+.pc-band.stalled .pc-band-label { color: var(--amber-ink); }
+.pc-band.review .pc-band-label { color: #5f5f5f; }
+/* This week's answer, opened from Check-Ins (ticket 09): each letter as its column there. */
+.pc-band.answer-a { background: linear-gradient(135deg, rgba(127, 175, 140, 0.16), rgba(127, 175, 140, 0.05)); border-left: 4px solid var(--green-fit); }
+.pc-band.answer-b { background: linear-gradient(135deg, rgba(168, 213, 176, 0.2), rgba(168, 213, 176, 0.06)); border-left: 4px solid var(--light-green-fit); }
+.pc-band.answer-c { background: linear-gradient(135deg, rgba(221, 187, 122, 0.2), rgba(221, 187, 122, 0.06)); border-left: 4px solid var(--yellow-fit); }
+.pc-band.answer-a .pc-band-label { color: #2f6b41; }
+.pc-band.answer-b .pc-band-label { color: #3d7a4c; }
+.pc-band.answer-c .pc-band-label { color: #8a6b28; }
+.pc-band .pc-band-label:last-child { margin-bottom: 0; }
+.pc-band .pc-band-label span { display: inline-block; }
+.pc-band .pc-quote { font-family: var(--serif); font-size: 1.12rem; line-height: 1.45; color: var(--text); margin: 0.1rem 0 0.45rem; }
+.pc-band .btn-row { margin-top: 0.7rem; }
+.pc-audit { font-size: 0.76rem; color: var(--text-light); padding: 0.6rem 1.4rem 0.9rem; margin: 0; border-bottom: 1px solid var(--border); }
+.pc-people { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.pc-side { min-width: 0; }
+.pc-side + .pc-side { border-left: 1px solid var(--border); }
+.pc-person { padding: 1.1rem 1.4rem 1.2rem; min-width: 0; }
+.pc-person + .pc-person { border-top: 1px solid var(--border); }
+.pc-person .person { margin-bottom: 0.7rem; align-items: flex-start; }
+.pc-person .avatar { width: 42px; height: 42px; font-size: 0.9rem; }
+.pc-person .avatar.alt { background: var(--accent); }
+.pc-name { font-weight: 700; font-size: 1.02rem; line-height: 1.25; }
+.pc-role { display: inline-block; margin-top: 0.25rem; font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.12rem 0.45rem; border-radius: 3px; background: rgba(45, 80, 22, 0.08); color: var(--primary); }
+.pc-contact { display: flex; flex-direction: column; gap: 0.35rem; margin: 0 0 0.85rem; }
+.pc-contact a { display: inline-flex; align-items: center; gap: 0.5rem; color: var(--text); text-decoration: none; font-size: 0.9rem; min-width: 0; }
+.pc-contact a span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pc-contact a:hover { color: var(--primary); }
+.pc-contact .ico { width: 16px; height: 16px; flex: none; color: var(--primary-light); }
+dl.pc-kv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0.25rem 0.8rem; font-size: 0.84rem; margin: 0; }
+dl.pc-kv dt { color: var(--text-light); }
+dl.pc-kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.pc-facts { padding: 0.95rem 1.4rem; background: rgba(45, 80, 22, 0.025); border-top: 1px solid var(--border); }
+.pc-facts dl.pc-kv { grid-template-columns: 8.5rem minmax(0, 1fr); }
+.pc-actions { padding: 0.85rem 1.4rem 1rem; border-top: 1px solid var(--border); text-align: right; }
+.pc-actions details { text-align: left; }
+.pc-actions summary { list-style: none; display: block; text-align: right; }
+.pc-actions summary::-webkit-details-marker { display: none; }
+.pc-end { color: var(--text-light); font-size: 0.82rem; text-decoration: underline; text-underline-offset: 2px; background: none; border: 0; padding: 0.3rem 0; font-weight: 500; cursor: pointer; }
+.pc-end:hover { color: var(--red-ink); }
+/* The card's group form (Pastor feedback, ticket 08): the leader in full, then a row per Disciple that opens in place. */
+.pc-people.one-side { grid-template-columns: minmax(0, 1fr); }
+.pc-group { padding: 0.4rem 1.4rem 1rem; }
+.pc-group-label { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-light); margin: 0.8rem 0 0.4rem; }
+.pc-member { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 0.45rem; background: var(--surface); }
+.pc-member-row { display: flex; align-items: center; gap: 0.7rem; padding: 0.55rem 0.8rem; }
+div.pc-member-row { padding-right: calc(0.8rem + 14px + 0.7rem); }
+summary.pc-member-row { list-style: none; cursor: pointer; }
+summary.pc-member-row::-webkit-details-marker { display: none; }
+summary.pc-member-row:hover .pc-name { color: var(--primary); }
+.pc-member-row .avatar { width: 30px; height: 30px; font-size: 0.72rem; flex: none; background: var(--accent); }
+.pc-member-who { flex: 1 1 auto; min-width: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 0.2rem 0.8rem; }
+.pc-member-row .pc-name { font-size: 0.95rem; min-width: 0; overflow-wrap: anywhere; }
+.pc-row-phone { font-size: 0.82rem; color: var(--text-light); white-space: nowrap; flex: none; font-variant-numeric: tabular-nums; }
+.pc-chev { width: 14px; height: 14px; color: var(--text-light); transition: transform 0.15s; flex: none; }
+details.pc-member[open] .pc-chev { transform: rotate(180deg); }
+.pc-member-body { padding: 0 0.8rem 0.8rem calc(1.5rem + 30px); }
+.pc-member-body .pc-contact { margin-bottom: 0.6rem; }
+/* Follow-Up's fuller card (Pastor feedback, ticket 10): an item's band carries its actions, and what has happened sits under the facts, newest first. */
+.pc-band .pc-contact { margin: 0.6rem 0 0; }
+/* The group dropdown and its button on a Wants a group item (Group form exits, ticket 01, S-8), taking the room the row has before Resolve; on a phone the form takes a row of its own and the select one inside it, so the select is never squeezed to a few letters beside the button. */
+.pc-band form.fu-place { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; flex: 1 1 320px; min-width: 0; }
+.pc-band form.fu-place select { flex: 1 1 170px; width: auto; min-width: 0; margin: 0; padding: 0.3rem 0.55rem; font-size: 0.85rem; }
+/* What Copy link to re-invite leader says back, on a line of its own under the buttons; the field is only there where the browser refused the clipboard. */
+.pc-band .fu-copied { flex-basis: 100%; margin: 0; font-size: 0.86rem; }
+.fu-copied input { display: block; width: 100%; margin: 0.4rem 0 0; }
+.pc-history { padding: 0.2rem 1.4rem 0.9rem; border-top: 1px solid var(--border); }
+.pc-history ol { list-style: none; margin: 0; padding: 0; }
+.pc-history li { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); gap: 0.8rem; font-size: 0.85rem; padding: 0.35rem 0; border-bottom: 1px dashed var(--border); }
+.pc-history li:last-child { border-bottom: 0; }
+.pc-history li span { color: var(--text-light); }
+@media (max-width: 600px) {
+  .modal.paircard { margin: 0 0 auto; border-radius: 10px; max-height: calc(100vh - 3rem); }
+  @supports (height: 100dvh) { .modal.paircard { max-height: calc(100dvh - 3rem); } }
+  .pc-people { grid-template-columns: minmax(0, 1fr); }
+  .pc-side + .pc-side { border-left: 0; border-top: 1px solid var(--border); }
+  .pc-facts dl.pc-kv { grid-template-columns: auto minmax(0, 1fr); }
+  .pc-member-who { flex-direction: column; align-items: flex-start; }
+  .pc-history li { grid-template-columns: 5.2rem minmax(0, 1fr); gap: 0.6rem; }
+}

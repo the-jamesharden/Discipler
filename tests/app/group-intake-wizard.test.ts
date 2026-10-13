@@ -29,7 +29,8 @@ describe('the list the group form steps through', () => {
   })
 
   it('asks for every answer it carries between screens, and each of them once', () => {
-    const carried = Object.keys(groupWizard.readAnswers({})).sort()
+    const { own, ...builtIn } = groupWizard.readAnswers({})
+    const carried = [...Object.keys(builtIn), ...Object.keys(own)].sort()
     const asked = groupWizard.SCREENS.flatMap((screen) => [...screen.asks]).sort()
     expect(asked).toEqual(carried)
   })
@@ -80,7 +81,7 @@ describe('what the group form reads back off its own URL', () => {
         { ageBand: '12', gender: '<script>', groupId: 'anything', availability: ['funday:12'] },
         { groupId: offered },
       ),
-    ).toEqual({ ageBand: null, gender: null, groupId: null, availability: [] })
+    ).toEqual({ own: {}, ageBand: null, gender: null, groupId: null, availability: [] })
   })
 })
 

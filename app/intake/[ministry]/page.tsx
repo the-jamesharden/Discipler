@@ -4,8 +4,9 @@ import { getIntakeReader } from '~/service/container'
 import { Centred } from '../../shell'
 import { groupHeading, refusalMessages } from '../copy'
 import { GroupIntakeWizard, NoGroups } from '../group-wizard'
-import { groupWizard } from '../group-wizard-answers'
-import { firstValue, readVia, type WizardQuery } from '../wizard-machine'
+import { groupWizardFor } from '../group-wizard-answers'
+import { firstValue, readPreview, readVersion, readVia, type WizardQuery } from '../wizard-machine'
+import { PreviewNotice } from '../wizard-shell'
 
 /**
  * The Ministry's original Intake link, which since ticket 29 is the form for
@@ -33,12 +34,16 @@ export default async function GroupIntakePage({
   const { ministry } = await params
   const query = await searchParams
 
-  const page = await getIntakeReader().readGroupIntakePage(ministry)
+  const page = await getIntakeReader().readGroupIntakePage(ministry, readVersion(query.v))
   if (!page) notFound()
 
+  // The version of the Ministry's groups form the visitor opened, carried from
+  // screen to screen (Pastor feedback, ticket 11).
+  const groupWizard = groupWizardFor(page.form)
   const here = `/intake/${page.ministryId}`
   const discipleshipLink = `${here}/discipleship`
   const via = readVia(query.via)
+  const preview = readPreview(query.preview)
 
   // Read once without the groups, for the gender; then again with the groups that
   // gender may be offered, so the group answer is checked against exactly the list
@@ -59,11 +64,13 @@ export default async function GroupIntakePage({
     groupWizard.stuckOnAvailability(query.step, answers)
       ? 'intake.availability_not_selected'
       : undefined,
+    groupWizard.stuckOnOwnQuestion(query.step, answers) ? 'intake.question_unanswered' : undefined,
   )
 
   return (
     <Centred ministryName={page.ministryName}>
       <p className="visually-hidden">{groupHeading(page.ministryName)}</p>
+      {preview ? <PreviewNotice /> : null}
       {problems.length > 0 ? (
         <div className="toast error" role="alert">
           <p>Please check the following:</p>
@@ -91,6 +98,8 @@ export default async function GroupIntakePage({
           ministryName={page.ministryName}
           discipleshipLink={discipleshipLink}
           via={via}
+          form={page.form}
+          preview={preview}
         />
       )}
     </Centred>

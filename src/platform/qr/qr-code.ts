@@ -86,6 +86,21 @@ const escapeXml = (text: string): string =>
   )
 
 /**
+ * The square alone, as Intake forms draws it beside the form's name (Pastor
+ * feedback, ticket 04). The page names the form in words around it, so a caption
+ * inside would be the same words again at a size nobody could read; the file an
+ * Admin downloads is `renderQrCode`, captioned, built on this same square.
+ */
+export const renderQrSquare = (text: string): Promise<string> =>
+  QRCode.toString(text, {
+    type: 'svg',
+    errorCorrectionLevel: ERROR_CORRECTION,
+    margin: QUIET_ZONE_MODULES,
+    width: INTRINSIC_WIDTH,
+    color: { dark: DARK, light: LIGHT },
+  })
+
+/**
  * One QR code, captioned with what it opens.
  *
  * The caption is not decoration and the parameter is not optional. A Ministry hands
@@ -99,13 +114,7 @@ const escapeXml = (text: string): string =>
  * caption is not part of, an Admin does not print.
  */
 export const renderQrCode = async (text: string, caption: string): Promise<string> => {
-  const square = await QRCode.toString(text, {
-    type: 'svg',
-    errorCorrectionLevel: ERROR_CORRECTION,
-    margin: QUIET_ZONE_MODULES,
-    width: INTRINSIC_WIDTH,
-    color: { dark: DARK, light: LIGHT },
-  })
+  const square = await renderQrSquare(text)
 
   // The encoder's grid, in modules. Read off the file it produced rather than
   // computed here: how many modules a link needs depends on its length and on the

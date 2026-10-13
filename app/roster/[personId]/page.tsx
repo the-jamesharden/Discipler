@@ -2,9 +2,11 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { CHANGE_YOUR_PASSWORD } from '../../account/copy'
 import { ClipboardField } from '../../intake-forms/clipboard-field'
+import { OwnAnswers } from '../../own-answers'
 import { AccountMenu, initialsOf, NotAnAdmin, PageShell } from '../../shell'
 import { getRosterReader } from '~/service/container'
 import { personId as asPersonId } from '~/domain/ids'
+import { goalAsShown } from '~/domain/discipleship-goals'
 import { intakeReopenLink } from '~/domain/outbound-copy'
 import { appBaseUrl } from '~/platform/supabase/credentials'
 import type { RosterEntry, RosterRelationship } from '~/service/ports'
@@ -12,6 +14,7 @@ import {
   AWAITING_ACCEPTANCE,
   displayPhone,
   firstTimeLabel,
+  HOPING_FOR,
   intakeLinkInstruction,
   isUnpaired,
   NO_ACCOUNT,
@@ -64,14 +67,14 @@ export default async function PersonPage({
     remove?: string
   }>
 }) {
-  const page = await getRosterReader().readRosterPage('person')
+  const { personId } = await params
+  const query = await searchParams
+  const page = await getRosterReader().readPersonPage(personId)
 
   if (page.status === 'not-an-admin') return <NotAnAdmin title="Roster" />
   if (page.status === 'signed-out') redirect('/login')
 
   const { admin } = page
-  const { personId } = await params
-  const query = await searchParams
 
   // The whole Roster and one row of it. There is no single-Person reader, and one
   // read policed by the Roster's own function is the read that cannot show an
@@ -85,6 +88,8 @@ export default async function PersonPage({
   const issued = query.intakeLink
     ? await getRosterReader().liveIntakeLink(admin.ministryId, asPersonId(person.personId))
     : null
+  const hopingFor = goalAsShown(person.goal, person.goalOther)
+
   const issuedLink = issued
     ? { url: intakeReopenLink(appBaseUrl(), issued.token), expiresAt: issued.expiresAt }
     : null
@@ -127,6 +132,20 @@ export default async function PersonPage({
             <dd>{person.phone ? <a href={`tel:${person.phone}`}>{displayPhone(person.phone)}</a> : '-'}</dd>
             <dt>At Intake</dt>
             <dd>{atIntake(person)}</dd>
+            {/* What they are hoping for, as the option's wording or the words they
+                typed after Other (Pastor feedback 2026-10, ticket 06). Left out
+                where there is none, never announced. Here and not on the Roster
+                row. */}
+            {hopingFor === null ? null : (
+              <>
+                <dt>{HOPING_FOR}</dt>
+                <dd>{hopingFor}</dd>
+              </>
+            )}
+            {/* Their answers to the Ministry's own questions (Pastor feedback,
+                ticket 12), each under the question as the form words it now.
+                Here and on the pair card, never on the Roster row. */}
+            <OwnAnswers answers={page.page.ownAnswers} />
           </dl>
         </div>
 

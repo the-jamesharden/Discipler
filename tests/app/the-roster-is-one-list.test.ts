@@ -45,6 +45,8 @@ const person = (fullName: string, over: Partial<RosterEntry> = {}): RosterEntry 
   phone: null,
   email: null,
   gender: 'female',
+  goal: null,
+  goalOther: null,
   isAdmin: false,
   intendedPairings: [],
   ...over,

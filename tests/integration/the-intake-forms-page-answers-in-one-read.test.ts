@@ -130,6 +130,8 @@ describe('the Intake forms page answers in one read', () => {
     ])
     expect(new Date(String(list(doc, 'group_materials')[0]!.started_at))).toEqual(assignedAt)
     expect(doc.timezone).toEqual(expect.any(String))
+    // And the short name both links are built from (Pastor feedback, ticket 04).
+    expect(doc.short_name).toBe(riverside.shortName)
 
     expect(byId(list(doc, 'people'), 'id')).toEqual(
       byId(
@@ -162,6 +164,7 @@ describe('the Intake forms page answers in one read', () => {
     expect(page.materials.map((each) => each.title)).toEqual(['Galatians', 'Romans'])
     expect(page.groups[0]?.running).toEqual({ materialId: materialId(romans), since: assignedAt })
     expect(page.timeZone).toEqual(expect.any(String))
+    expect(page.shortName).toBe(riverside.shortName)
   })
 
   it('carries nothing of the Ministry for a Leader who administers nothing', async () => {

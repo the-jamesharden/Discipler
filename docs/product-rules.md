@@ -189,6 +189,9 @@ A relationship does carry a `kind` of `one_to_one` or `group`, declared when it 
 
 Gender matching is an absolute constraint. It is a safeguarding policy, and manual pairing cannot override it. A ministry that wants mixed-gender relationships disables the rule deliberately in settings.
 
+It is applied to everybody whose gender a form asked.
+A Ministry that removes the gender question from a form (Pastor feedback, ticket 13) cannot have it applied to anybody who fills that form in, and Suggested Pairs and the settings say so; see *Removing a question* under *A Ministry Controls Its Intake Forms*.
+
 The age constraint governs suggestion only. A leader more than ten years younger than a participant is not suggested for them, but an admin may pair across that gap manually. Fixed at ten years for V1.
 
 See `docs/adr/0001-pairing-suggestion-inputs.md`.
@@ -289,9 +292,92 @@ The person is never locked out of answering; only Discipler's side of the conver
 
 The intake form is a native Discipler form, not a third-party form. The availability grid, versioned consent capture, and tokenized prefill are all impossible in a generic form product, and all three are load-bearing.
 
+## Settled: A Readable Link per Church
+
+Each Ministry has a **Short Name**, and its two Intake forms live at links built from it, readable enough to print on a bulletin and say from the pulpit (Pastor feedback, ticket 04; James, 2026-10-12).
+`/join/<short name>` opens the mentor and mentee form, and `/join/<short name>/groups` opens the groups form.
+`?via=qr` on either means what it always has: the Person arrived by scanning a QR code, and their consent record says so.
+
+A short name is lowercase letters, digits and single dashes between them, and is unique across Discipler.
+A Ministry is given one from its name when it opens, with `-2`, `-3` and so on added where another Ministry already has that name; every Ministry that existed when this shipped was given one the same way, oldest first.
+An Admin changes it on Intake forms, and the change is recorded in the Ministry's history with the name it replaced and who changed it.
+A name another Ministry has, or one of the app's own routes needs, is refused with a sentence saying why.
+
+**Every short name a Ministry has ever had keeps opening its forms, forever**, because QR codes get printed on bulletins.
+So a short name is never given back: no other Ministry can take a name a Ministry has let go of, and a Ministry may take back a name it held before.
+The older links by Ministry id, `/intake/<ministry id>` and `/intake/<ministry id>/discipleship`, keep working too; nothing hands them out any more.
+
+Intake forms shows the two readable links, and both QR codes encode them.
+No text Discipler sends hands out a Ministry's Intake link.
+
+## Settled: A Ministry Controls Its Intake Forms
+
+Each Ministry edits its two Intake forms, the mentor and mentee form and the groups form, each on its own, from Intake forms (Pastor feedback, ticket 11; James, Lavish review of 2026-10-12).
+Each form is a list of pages, and each page is one screen of the wizard with its name as the line at the top of it.
+An Admin rewords any question, gives it a hint, moves it within its page or onto another, adds pages and renames them, and writes an intro said on the first page and a thank-you said after Submit.
+
+**Today's form is every Ministry's preset.**
+A Ministry that has never edited is served the form the wizard always asked, in the same words, on the same pages, with *Other* on the goal question; nothing changes for anybody until an Admin edits.
+
+**A save is live at once, and somebody part-way through finishes the version they opened.**
+Every save is a new version of the form and never a change to an old one.
+The wizard is served the latest version when somebody opens it and carries that version from screen to screen to the end, so an edit made while they are filling it in moves nothing in front of them.
+Each submission records which version it answered.
+Every edit is recorded in the Ministry's history with what it replaced and who made it.
+*Preview form* opens the form exactly as a newcomer sees it and records nothing: no Person, no consent and no text.
+
+A rename keeps every answer already given, because a question is the same question whatever it is called (ADR-0014).
+
+**What is always asked.**
+Name and mobile number are asked on every form, of everybody, and can be neither made optional nor removed: they are who somebody is to Discipler.
+Gender, age band, the matching question (*I'm joining as…*), availability and, on the groups form, the choice of group stay required for as long as a form asks them, because the pairing rules, the age rule, Suggested Pairs and the groups form read them and none of them meets one Person who answered beside another who skipped; each is marked on its row with what uses it.
+A form may stop asking any of them altogether (see *Removing a question*).
+An Admin may make the goal, the first-time question and the email optional or required.
+The choices of the built-in questions are not edited in the form: the goal's are the Ministry's own goals, edited as before with *Other* always last, and the groups are the Ministry's groups.
+
+**Where a question may be asked.**
+Name, mobile number, email and the goal stay on the last page, beside Submit, because every earlier page moves on by a link that carries its answers in the address, and what somebody types does not go into an address.
+The first-time question comes on a later page than the matching question, which words it, and the choice of group on a later page than gender, which decides the groups offered.
+A page added goes just before the last, and a page with nothing on it is skipped by the wizard.
+The two agreements are not questions on the form: they are on the last page of both forms, in the versioned wording a consent record points at, and no Admin edits them.
+
+**Removing a question.**
+Any question but name and mobile number can be removed from either form, a Ministry's own questions included (Pastor feedback, ticket 13; James, Lavish review of 2026-10-12).
+The open row ends in *Remove question…*; pressing it asks once more in place, and only the second button removes.
+The question says how many people's answers it deletes and that this cannot be undone, because a removal destroys its answers (ADR-0014): every answer given to it on that form is deleted, superseded ones too, and the removal's history event keeps what each one said.
+The other form's answers to the same question stay.
+The removal is live at once, as the form's next version; somebody part-way through finishes the version they opened.
+Whatever they say to the removed question is dropped when they submit and never stored, as Google Forms does, and the rest of what they said is kept (James, 2026-10-13): a removal's answers are gone for good, including ones still being typed.
+A removed question of Discipler's own is offered back from *Add a question*, in the preset's words, with none of its old answers.
+
+For a question the product reads, the warning also says what stops working, and afterwards each surface that does less says why rather than quietly doing it:
+
+- **Availability** (mentor and mentee form): Suggested Pairs cannot suggest anybody, and every pairing is made by hand. The tab says the form no longer asks when people are free, and lists nobody.
+- **Gender**: the gender pairing rules cannot be applied to anybody who fills in that form. A pairing with somebody whose gender is not known is not refused by them; Suggested Pairs (for the mentor and mentee form) and the Gender section of the settings say so. On the groups form, a form that asks no gender offers only the groups open to men and women alike.
+- **Age band** (mentor and mentee form): the age rule cannot be applied, and Suggested Pairs suggests people of any age together. It and the Age section of the settings say so.
+- **The goal**: there is no goal tiebreaker, and Suggested Pairs says so.
+- **The matching question**: Suggested Pairs cannot tell who offered to disciple, so it suggests as Disciplers only people who already disciple somebody, and says so. The first-time question is worded from it, so the matching question is removed only once the first-time question has been, and the first-time question is added back only to a form that asks the matching question.
+- **The choice of group** (groups form): nobody who fills it in chooses a group; each one waits in Follow-Up to be placed.
+
+While a form asks gender or the age band, somebody with no answer to it is not suggested at all: a rule that cannot be checked for one Person is not quietly dropped for them.
+Suggested Pairs reads the mentor and mentee form, which is the form that signs people up to be paired one to one.
+Two removals delete nothing: the email somebody gave is kept on the Person beside their name and number, and the choice of group is kept as the membership or the request it made, not as an answer.
+The matching question's answers are kept on the consent records the form writes; removing it clears the side on them and changes nothing else on any consent record.
+
+**A Ministry's own questions are shown and never matched on.**
+An Admin adds questions of the Ministry's own to either form from *Add a question* at the foot of any page: short text, long text, one choice, several choices, or yes and no (Pastor feedback, ticket 12; James, Lavish review of 2026-10-12).
+Each is marked *Your question*, is worded, given a hint, made required or optional, moved and saved like any other, and the two choice kinds have their choices worded in place.
+A choice is reworded and keeps every answer that picked it, as a question does; a choice is not taken off, because its answers would go with it.
+Short and long text are asked on the last page only, for the reason the name is; the other three kinds may be asked on any page.
+The answers are kept with the submission they were given on and show to an Admin on the person page, and on the pair card and the group card under the person they belong to, each under the question as the form words it now.
+They never show on the Roster row, a Leader never sees them, and **nothing that pairs people reads them**: not Suggested Pairs, not the pairing rules, not the age rule.
+Those run on Discipler's own questions, whose meaning the product knows; a Ministry's own question means whatever the Ministry meant by it.
+The reopened Intake asks them too, with the answers already in them, from the form the Person last answered.
+
 ## Settled: Suggestion Tie-Breaking
 
 Candidates with identical availability overlap and the same Discipleship Goal are ordered by who has waited longest since completing intake.
+A goal typed after Other counts as the same goal on the rule in *The Discipleship Goal Is a Tiebreaker, Not a Tier Gate*.
 
 The ordering must be stable — a list that reshuffles between page loads teaches an admin not to trust it — and longest-waiting is the tie-break that quietly serves the person who has been overlooked.
 
@@ -342,7 +428,10 @@ Required: name, phone number, availability, gender, Discipleship Goal, SMS conse
 
 Optional: email address.
 
-Gender and Discipleship Goal are required because both feed suggestion — gender is an absolute constraint, so a missing value would make a person unsuggestable entirely.
+That is every Ministry's preset form. Since Pastor feedback ticket 11 a Ministry may make the Discipleship Goal optional, and the email required, on its own form (see *A Ministry Controls Its Intake Forms*); somebody who leaves an optional goal unanswered is ranked on availability alone, as somebody whose option was removed is.
+
+Gender is required because it feeds suggestion — gender is an absolute constraint, so a missing value would make a person unsuggestable entirely — and no Ministry's form can make it optional.
+Since Pastor feedback ticket 13 a Ministry may remove the gender question from a form altogether, with every answer to it; the gender pairing rules then cannot be applied to anybody who fills in that form, and the surfaces that apply them say so (see *Removing a question* under *A Ministry Controls Its Intake Forms*).
 
 There is one intake form. Gender is a required field on that same form, selected by the person while they complete it, and it feeds the pairing eligibility and suggestion rules from there. There is no separate gender intake form and no separate gender intake workflow.
 
@@ -495,7 +584,7 @@ Clarification handling inside a keyword exchange is identical to a check-in: at 
 
 A keyword arriving where a relationship's check-in question is currently open **withdraws that pending question** rather than leaving it to age. Otherwise pausing a relationship would contribute to it being flagged `Stalled` on resume, which is precisely what the pause rules exist to prevent.
 
-A bare, exact keyword is still a keyword during the concern detail step. The `C` is already recorded and the badge already raised, so nothing is lost by treating it as one, and the alternative records `PAUSE` as the text of someone's hardest week while ignoring a request to step back. Prose containing the word is unaffected — matching is whole-message.
+A bare, exact keyword is still a keyword during the concern detail step. The `D` is already recorded and the badge already raised, so nothing is lost by treating it as one, and the alternative records `PAUSE` as the text of someone's hardest week while ignoring a request to step back. Prose containing the word is unaffected — matching is whole-message.
 
 ## Settled: No Inbound Message Falls Through to Silence
 
@@ -574,7 +663,7 @@ See `docs/consent-language.md` and `src/domain/rates-line.ts`.
 
 ## Settled: Replies Are Matched Whole-Message, Not by Substring
 
-Discipler advertises the explicit form — *"Reply 1 for yes, 2 for no"*, *"Reply A for outstanding, B for good, C for concern"* — because digits and letters avoid both typos and an unbounded space of word variants. Behind that, an enumerated list of tokens, synonyms, and known typos is accepted: `yes`, `y`, `yeah`, `nope`, `great`, `good`, `concern`, and misspellings including `gret` and `oncern`.
+Discipler advertises the explicit form — *"Reply 1 for yes, 2 for no"*, *"Reply A for outstanding, B for good, C for okay, D for concern"* — because digits and letters avoid both typos and an unbounded space of word variants. Behind that, an enumerated list of tokens, synonyms, and known typos is accepted: `yes`, `y`, `yeah`, `nope`, `great`, `good`, `ok`, `okay`, `concern`, and misspellings including `gret` and `oncern`.
 
 **Matching is against the whole message**, after stripping punctuation, emoji, and a closed list of leading and trailing pleasantries. It is not a substring search.
 
@@ -643,6 +732,12 @@ alone until they answer again. The admin surface that edits the list must say so
 before it removes anything.
 
 Goals are never shared or compared across ministries.
+
+Every ministry's goal question ends with **Other**, which is not one of its options.
+Choosing it opens a short box, and the box is required: Other with nothing written is refused as an unanswered goal is.
+The goal stays one choice, an option or Other with its words, never both.
+No admin can rename, move or remove Other, and removing an option never touches what somebody typed.
+The typed words are shown to an admin on the person page's intake answers and on the pair card, and never on the Roster row.
 
 ## Settled: Suggestion Tiers Are Counts of Shared Cells
 
@@ -753,6 +848,11 @@ their calendars.
 This closes the ADR conflict flagged in the core-operating-loop spec header and in
 ticket 04, and unblocks ticket 04's tier tests.
 
+A goal typed after **Other** is the same tiebreaker with the same weight.
+Two people share a goal when both typed the same thing once capitals, spaces and punctuation are ignored, and in no other case: not *grieving* for *grief*, not a typo, and never a typed goal against an option worded alike.
+The reason says it in the Disciple's own words: *"Four shared time slots. You both wrote "grief"."*
+Why the match is exact is recorded in ADR-0001's second amendment (Pastor feedback 2026-10, ticket 06).
+
 ## Settled: The Age Band Constraint Has a Direction
 
 The age constraint limits how much **older** a Participant may be than their Leader,
@@ -776,13 +876,28 @@ pairing may never cross gender.
 
 ## Settled: What the Satisfaction Tokens Store
 
-`A` is **outstanding**, `B` is **good**, `C` is **concern**. These are the values
-written to history, not only the letters advertised in the message, and `good` is the
-stored value — not `okay`, which appeared once in this document's description of the
-quarterly report and has been corrected.
+`A` is **outstanding**, `B` is **good**, `C` is **okay**, `D` is **concern**.
+These are the values written to history, not only the letters advertised in the message.
+Only `concern` is a concern: D alone draws the concern detail request, raises the badge and puts the relationship in `Needs Care` for the week.
+`okay` is recorded and raises nothing.
 
-The accepted synonyms behind them are unchanged: `great`/`gret` for A, `good` for B,
-`concern`/`oncern` for C.
+The accepted synonyms behind them: `great`/`gret` for A, `good` for B, `ok`/`okay` for C, `concern`/`oncern` for D.
+
+**Quality rate** is (outstanding + good) / rated, on the Overview and in Quick Stats.
+Okay counts against it: it is a rated week that was neither.
+
+> **Supersedes:** three answers, *"Reply A for outstanding, B for good, C for concern"*, in which `C` stored **concern**.
+> The question became four answers on 2026-10-12, from pastor feedback, so there is no middle answer to default to (Pastor feedback, ticket 03).
+> Do not restore three answers.
+> `okay` was once a word this section ruled out, when it appeared by mistake in the description of the quarterly report for `good`; it is now a stored value of its own, and `good` is still `good`.
+
+**A reply is read against the wording its question was sent with**, never the wording in force when the reply arrives.
+Every check-in question records which answers it offered when it was sent, and its reply, its reminder and any clarification of it go by that record.
+A leader sent the three-answer question before the change who replies `C` after it meant concern, and it is recorded as a concern, with the badge raised and the detail asked for.
+A question sent before the change has no such record and is read as the three-answer question it was.
+
+Stored answers keep their meaning.
+They are stored as words, so a stored `concern` never becomes `okay`, and no stored answer was rewritten by the change.
 
 ## Settled: A Covered Week Counts, Whether or Not Its Question Was Reached
 
@@ -812,7 +927,7 @@ No precedence rule exists between `Stalled` and `Needs Care` because the two can
 both hold.
 
 `Needs Care` requires a Concern raised this week, which requires the Leader to answer
-`1` and then `C`. That reply establishes a meeting happened and that the week was
+`1` and then `D`. That reply establishes a meeting happened and that the week was
 answered, which resets the consecutive-unanswered count to zero and breaks the
 consecutive-not-meeting streak. Both Stalled conditions are cleared by the very reply
 that raises the Concern.
@@ -939,7 +1054,7 @@ the four cases are stated together:
 - **Check-in question** — forty-eight hours after the original send: twenty-four to the
   reminder, twenty-four more before the sequence advances. Also timed out immediately
   when a new week's sequence begins.
-- **Concern detail request** — the same forty-eight hours. The `C` and the badge are
+- **Concern detail request** — the same forty-eight hours. The `D` and the badge are
   already recorded, so nothing is lost by passing over it.
 - **Keyword Exchange** — twenty-four hours after it opened, with no reminder.
 - **Messages expecting no reply** — the Welcome Message, the Starter Message, the
