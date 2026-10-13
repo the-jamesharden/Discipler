@@ -2003,8 +2003,8 @@ export interface PairCardPerson {
   readonly ageBand: AgeBand | null
   /** The Ministry's current wording of the goal they chose, null where none. */
   readonly goal: string | null
-  /** What they typed under *Other* on the goal (ticket 06), null where they typed nothing. */
-  readonly goalOther: string | null
+  /** What they typed after *Other* on the goal (ticket 06), null where they chose an option or nothing. */
+  readonly goalOther: OtherGoal | null
 }
 
 /** One reading of a Concern on the card, as `concern_viewing` recorded it. */

@@ -4,7 +4,6 @@ import {
   ago,
   checkInLine,
   concernLabel,
-  goalLine,
   kindLine,
   materialLine,
   pairTitle,
@@ -95,12 +94,6 @@ describe('the band', () => {
 })
 
 describe('the people and the facts', () => {
-  it('shows the goal as given, and the words typed under Other where there are some', () => {
-    expect(goalLine('Marriage and family', null)).toBe('Marriage and family')
-    expect(goalLine('Other', 'learning to pray out loud')).toBe('Other: "learning to pray out loud"')
-    expect(goalLine(null, null)).toBeNull()
-  })
-
   it('offers to text somebody by their first name', () => {
     expect(textThem('Emily Davis')).toBe('Text Emily')
   })

@@ -1,6 +1,6 @@
 import type { Clock } from '~/domain/clock'
 import { concernId, personId, relationshipId } from '~/domain/ids'
-import { AGE_BANDS, type AgeBand } from '~/domain/intake'
+import { AGE_BANDS, otherGoal, type AgeBand } from '~/domain/intake'
 import { deriveRelationshipState } from '~/domain/relationship-state'
 import { pairShapeOf } from '~/domain/relationships'
 import type { ConcernReading, PairCard, PairCardPerson } from '~/service/ports'
@@ -99,6 +99,7 @@ export const pairCardFrom = (doc: PageDocument, history: HistoryInputs, clock: C
   const people: PairCardPerson[] = [...[...leaders].sort(byName), ...[...participants].sort(byName)].map(
     (person) => {
       const said = details.get(person.personId) ?? {}
+      const typed = text(said.goal_other)
       return {
         personId: personId(person.personId),
         fullName: person.fullName,
@@ -107,8 +108,7 @@ export const pairCardFrom = (doc: PageDocument, history: HistoryInputs, clock: C
         email: text(said.email),
         ageBand: ageBandOf(said.age_band),
         goal: text(said.goal),
-        // Ticket 06's text under *Other*, read where the document carries it.
-        goalOther: text(said.goal_other),
+        goalOther: typed === null ? null : otherGoal(typed),
       }
     },
   )

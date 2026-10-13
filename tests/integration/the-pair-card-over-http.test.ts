@@ -81,8 +81,10 @@ describe.skipIf(skipUnlessAppIsRunning)('the pair card', () => {
     )
     const serviceAt = (now: Date) =>
       createCommandService({ clock: createTestClock(now), ids, store, appBaseUrl: 'https://discipler.test' })
-    const congregant = async (fullName: string, email?: string) => {
-      const id = personId(await addPerson(ministry, fullName, { phone: aNumber() }))
+    const congregant = async (fullName: string, email?: string, goalOther?: string) => {
+      const id = personId(
+        await addPerson(ministry, fullName, { phone: aNumber(), ...(goalOther ? { answers: { goalOther } } : {}) }),
+      )
       if (email) await pool.query(`update person set email = $1 where id = $2`, [email, id])
       return id
     }
@@ -104,7 +106,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the pair card', () => {
     const church = await aMinistry('Card Chapel')
     const { cookie } = await signIn(church.ministry)
     const leader = await church.congregant('Grace Lead', 'grace@example.com')
-    const disciple = await church.congregant('Chloe Follow', 'chloe@example.com')
+    const disciple = await church.congregant('Chloe Follow', 'chloe@example.com', 'learning to pray out loud')
     const relationship = await pairOneToOne(church.ministry, leader, disciple)
     const plan = await addMaterial(church.ministry, 'The Master Plan of Evangelism')
     await assignMaterial(relationship, plan, church.ministry.adminUserId)
@@ -127,6 +129,9 @@ describe.skipIf(skipUnlessAppIsRunning)('the pair card', () => {
     expect(html).toContain('mailto:grace@example.com')
     expect(html).toContain('Text Chloe')
     expect(html).toContain('25-34')
+    // The goal as chosen, and the words typed after Other as typed.
+    expect(html).toContain('Growing in the basics of faith')
+    expect(html).toContain('Other: &quot;learning to pray out loud&quot;')
     expect(html).toContain('The Master Plan of Evangelism, since')
     expect(html).toContain('None answered yet')
     // Every way out is the Overview behind it.

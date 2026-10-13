@@ -139,10 +139,6 @@ export const PAUSE_EXPIRED = 'Pause expired'
 export const AGE = 'Age'
 export const HOPING_FOR = 'Hoping for'
 
-/** The goal as they gave it; *Other* with the words they typed, once Intake asks (ticket 06). */
-export const goalLine = (goal: string | null, other: string | null): string | null =>
-  other ? `Other: "${other}"` : goal
-
 export const textThem = (fullName: string): string => `Text ${fullName.trim().split(/\s+/)[0] ?? fullName}`
 export const callThem = (fullName: string): string => `Call ${fullName}`
 

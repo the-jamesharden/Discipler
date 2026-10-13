@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { goalAsShown } from '~/domain/discipleship-goals'
 import type { PairCard as Card, PairCardPerson } from '~/service/ports'
 import { EndForm } from '../follow-up/end-form'
 import { followUpLine, RESUME } from '../follow-up/copy'
@@ -13,7 +14,6 @@ import {
   checkInLine,
   concernLabel,
   END_RELATIONSHIP,
-  goalLine,
   HOPING_FOR,
   kindLine,
   LAST_CHECK_IN,
@@ -185,7 +185,7 @@ export const PairCard = ({
 
 /** One person: who, on which side, how to reach them, and what they said at Intake. */
 const Person = ({ person }: { readonly person: PairCardPerson }) => {
-  const goal = goalLine(person.goal, person.goalOther)
+  const goal = goalAsShown(person.goal, person.goalOther)
   return (
     <div className="pc-person">
       <div className="person">

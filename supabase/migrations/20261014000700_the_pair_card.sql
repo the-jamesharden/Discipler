@@ -79,10 +79,9 @@ grant execute on function public.pair_card_contacts(uuid, uuid) to authenticated
 -- the policy that lets an Admin see who read what). Null for a relationship the
 -- Admin cannot see, or one that has ended: there is no card for either.
 --
--- The goal is the Ministry's current wording of the option chosen on the latest
--- submission, as Suggested Pairs reads it. Ticket 06 adds the text typed under
--- *Other*; it goes into `people` beside `goal`, as `goal_other`, and the reader
--- already shows it where it arrives.
+-- The goal is what the latest submission said, as Suggested Pairs reads it: the
+-- Ministry's current wording of the option chosen, or the words typed after
+-- *Other* (`20261014000600_other_on_the_intake_goal.sql`), never both.
 create function app.pair_card(target_ministry_id uuid, target_relationship_id uuid)
 returns jsonb
 language sql
@@ -104,11 +103,12 @@ as $$
                 'person_id', m.person_id,
                 'age_band', latest.age_band,
                 'goal', g.label,
+                'goal_other', latest.discipleship_goal_other,
                 'phone', c.phone,
                 'email', c.email))
          from public.relationship_member m
          left join lateral (
-           select i.age_band, i.discipleship_goal_id
+           select i.age_band, i.discipleship_goal_id, i.discipleship_goal_other
              from public.intake_submission i
             where i.person_id = m.person_id
             order by i.submitted_at desc, i.created_at desc, i.id desc
