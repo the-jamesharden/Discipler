@@ -10,13 +10,13 @@ Today: `public/discipler.css`, *the botanical frame*, draws `/botanical/blossom-
 
 ## Acceptance
 
-- [ ] The middle vine is gone from every image variant, regenerated through `scripts/botanical/compose.mjs` rather than edited by hand.
-- [ ] The top-right and bottom-left sprays stay, and show in the margins outside the content column on every Admin tab and on sign-in.
-- [ ] Nothing of the painting shows behind the content column, including in the gaps between cards.
-- [ ] Narrow windows and phones still look deliberate: where there is no margin, the sprays stay at the corners and clear of the content, or go.
-- [ ] The tabs that wear their own painting (PR #22) follow the same rule.
-- [ ] Print still hides it.
-- [ ] Checked by eye in a real browser on every Admin tab and sign-in, at desktop and phone width.
+- [x] The middle vine is gone from every image variant, regenerated through `scripts/botanical/compose.mjs` rather than edited by hand. (47a3532)
+- [x] The top-right and bottom-left sprays stay, and show in the margins outside the content column on every Admin tab and on sign-in. (47a3532, dfa7cc7)
+- [x] Nothing of the painting shows behind the content column, including in the gaps between cards. (dfa7cc7)
+- [x] Narrow windows and phones still look deliberate: where there is no margin, the sprays stay at the corners and clear of the content, or go. (dfa7cc7)
+- [x] The tabs that wear their own painting (PR #22) follow the same rule. (dfa7cc7)
+- [x] Print still hides it. (dfa7cc7)
+- [x] Checked by eye in a real browser on every Admin tab and sign-in, at desktop and phone width. (dfa7cc7)
 
 ## Not in this ticket
 
