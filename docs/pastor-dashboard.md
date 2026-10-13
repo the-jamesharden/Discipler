@@ -35,6 +35,10 @@ Every colour is backed by words on the card, the state's pill (`Healthy`, `Stall
 
 Two metrics carry the operational picture and must not be conflated: **Response Rate** is check-ins answered divided by check-ins sent, and **Meeting Rate** is meetings held divided by check-ins answered. A ministry can have a high response rate and a poor meeting rate; collapsing them hides exactly the problem the product exists to surface. On the Check-In Ratings chart, A renders green, B light green, C yellow, and D red, with a legend naming all four. The ratings were three, with C for concern, until 2026-10-12; they became four so there is no middle answer to default to, and `docs/product-rules.md`, *What the Satisfaction Tokens Store*, says why three must not come back. Quick Stats is a panel inside Overview, not a separate tab.
 
+The rates, both charts and the rate rows in Quick Stats cover last week: the last whole Week, in the Ministry Timezone, and each of them says *last week* on the screen.
+A whole week rather than the current one, because the current week reads 0% until the Check-In Cadence comes round and then climbs as answers arrive.
+The check-ins completed this week, the follow-up count and the relationship counts are the current figures.
+
 ## Check-Ins
 
 The Check-Ins tab is the week's raw operational picture.

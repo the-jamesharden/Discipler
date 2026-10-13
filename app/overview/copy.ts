@@ -8,12 +8,15 @@ import type { CareReason, RelationshipState } from '~/domain/relationship-state'
 
 export const OVERVIEW_SUBTITLE = 'Discipleship relationships, week by week'
 
-/** The five tiles, in the prototype's order. The sub-line says what the number is. */
+/**
+ * The five tiles, in the prototype's order. The sub-line says what the number is,
+ * and for a rate which week it is over.
+ */
 export const TILES = {
   active: { label: 'Active Relationships', sub: 'Pairs and groups' },
   activeWithPaused: (paused: number) => `${paused} paused, not counted`,
-  meeting: { label: 'Meeting Rate', sub: 'Meetings held / check-ins answered' },
-  response: { label: 'Response Rate', sub: 'Check-ins answered / check-ins sent' },
+  meeting: { label: 'Meeting Rate', sub: 'Last week · held / answered' },
+  response: { label: 'Response Rate', sub: 'Last week · answered / sent' },
   thisWeek: { label: 'This Week', sub: 'Check-ins completed' },
   followUp: { label: 'Needs Follow-Up', sub: 'Stalled, concerns, pauses, swaps, unaccepted' },
 } as const
@@ -23,8 +26,11 @@ export const CHECK_IN_RATINGS = 'Check-In Ratings'
 export const QUICK_STATS = 'Quick Stats'
 export const ALL_RELATIONSHIPS = 'All relationships'
 
+/** Beside each chart's title: the rates and both rings are over last week alone. */
+export const LAST_WEEK = 'Last week'
+
 export const NO_RELATIONSHIPS = 'No relationships yet. Pair someone from the Roster to begin.'
-export const NO_CHECK_INS_YET = 'No check-ins yet'
+export const NO_CHECK_INS_LAST_WEEK = 'No check-ins last week'
 
 /** *N active · M awaiting acceptance, not yet surfaced*, the prototype's count line. */
 export const relationshipCount = (active: number, hidden: number): string =>

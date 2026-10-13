@@ -21,8 +21,8 @@ import {
  * commands ran on.
  *
  * Every scenario gets a Ministry of its own. The scheduled tick runs for a whole
- * Ministry at once, and the rates run over every relationship-week on record, so
- * two scenarios sharing one would each count the other's weeks -- a coupling
+ * Ministry at once, and the rates run over every relationship-week of last week,
+ * so two scenarios sharing one would each count the other's weeks -- a coupling
  * between tests and not a fact about the product.
  */
 
@@ -36,6 +36,8 @@ describe('the Overview', () => {
 
   const at = (week: number) => new Date(firstWeek.getTime() + weeks(week))
   const minutesAfter = (instant: Date, n: number) => new Date(instant.getTime() + n * 60_000)
+  /** An hour before a week's tick: inside that week, with the week before it whole. */
+  const beforeTheTick = (week: number) => minutesAfter(at(week), -60)
 
   beforeAll(async () => {
     store = createPostgresEffectStore(localSupabase().databaseUrl)
@@ -132,7 +134,13 @@ describe('the Overview', () => {
     await church.replyAt(minutesAfter(at(0), 1), leader, '1')
     await church.replyAt(minutesAfter(at(0), 2), leader, 'A')
 
-    const overview = await church.overviewAt(minutesAfter(at(0), 3))
+    // While its week runs, the week is in *This Week* and not yet in the rates.
+    const sameWeek = await church.overviewAt(minutesAfter(at(0), 3))
+    expect(sameWeek.completedThisWeek).toBe(1)
+    expect(sameWeek.counts).toEqual(NO_CHECK_INS)
+
+    // The week after, it is last week: in the rates, and out of *This Week*.
+    const overview = await church.overviewAt(beforeTheTick(1))
 
     expect(overview.counts).toEqual({
       sent: 1,
@@ -141,7 +149,7 @@ describe('the Overview', () => {
       rated: { outstanding: 1, good: 0, okay: 0, concern: 0 },
     })
     expect(checkInRates(overview.counts)).toEqual({ response: 100, meeting: 100, quality: 100 })
-    expect(overview.completedThisWeek).toBe(1)
+    expect(overview.completedThisWeek).toBe(0)
     expect(overview.active).toBe(1)
     expect(overview.paused).toBe(0)
     expect(overview.relationships).toEqual([
@@ -164,7 +172,7 @@ describe('the Overview', () => {
     await church.tickAt(at(0))
     await church.replyAt(minutesAfter(at(0), 1), leader, '2')
 
-    const overview = await church.overviewAt(minutesAfter(at(0), 2))
+    const overview = await church.overviewAt(beforeTheTick(1))
 
     expect(overview.counts).toEqual({
       sent: 1,
@@ -175,7 +183,6 @@ describe('the Overview', () => {
     // A perfect response rate and no meeting rate. One number for both would be
     // wrong about one of them, which is why the two are kept apart.
     expect(checkInRates(overview.counts)).toEqual({ response: 100, meeting: 0, quality: 0 })
-    expect(overview.completedThisWeek).toBe(1)
   })
 
   it('keeps the three denominators apart', async () => {
@@ -189,7 +196,7 @@ describe('the Overview', () => {
     await church.replyAt(minutesAfter(at(0), 1), leader, '1')
     await church.replyAt(minutesAfter(at(0), 2), leader, 'B')
 
-    const overview = await church.overviewAt(minutesAfter(at(0), 3))
+    const overview = await church.overviewAt(beforeTheTick(1))
 
     expect(overview.counts).toEqual({
       sent: 2,
@@ -199,11 +206,10 @@ describe('the Overview', () => {
     })
     // Half of sent answered; all of answered held; all of rated good.
     expect(checkInRates(overview.counts)).toEqual({ response: 50, meeting: 100, quality: 100 })
-    expect(overview.completedThisWeek).toBe(1)
     expect(overview.active).toBe(2)
   })
 
-  it('counts every relationship-week on record, and this week separately', async () => {
+  it('counts last week alone in the rates, and this week separately', async () => {
     const church = await aMinistry('Remembering Chapel')
     const { leader } = await church.leading('Remembering Leader', 1)
 
@@ -218,20 +224,31 @@ describe('the Overview', () => {
     await church.replyAt(minutesAfter(at(2), 2), leader, 'D')
     await church.replyAt(minutesAfter(at(2), 3), leader, 'They have stopped coming on Sundays.')
 
+    // In week two, last week is the silent one: sent and nothing answered. Week
+    // zero's good week is in no figure, and week two's is only in *This Week*.
     const overview = await church.overviewAt(minutesAfter(at(2), 4))
 
     expect(overview.counts).toEqual({
-      sent: 3,
-      answered: 2,
-      held: 2,
-      rated: { outstanding: 1, good: 0, okay: 0, concern: 1 },
+      sent: 1,
+      answered: 0,
+      held: 0,
+      rated: { outstanding: 0, good: 0, okay: 0, concern: 0 },
     })
-    expect(checkInRates(overview.counts)).toEqual({ response: 67, meeting: 100, quality: 50 })
-    // Only week two is this week. Week zero was completed too, but not this week.
+    expect(checkInRates(overview.counts)).toEqual({ response: 0, meeting: 0, quality: 0 })
     expect(overview.completedThisWeek).toBe(1)
     expect(overview.relationships).toMatchObject([{ state: 'needs_care', openConcerns: 1 }])
     // Nothing on the tab carries the Concern's words.
     expect(JSON.stringify(overview)).not.toContain('stopped coming')
+
+    // In week three, last week is week two.
+    const weekThree = await church.overviewAt(beforeTheTick(3))
+    expect(weekThree.counts).toEqual({
+      sent: 1,
+      answered: 1,
+      held: 1,
+      rated: { outstanding: 0, good: 0, okay: 0, concern: 1 },
+    })
+    expect(weekThree.completedThisWeek).toBe(0)
   })
 
   it('counts an okay as rated, and against the quality rate', async () => {
@@ -246,7 +263,7 @@ describe('the Overview', () => {
     await church.replyAt(minutesAfter(at(0), 3), leader, '1')
     await church.replyAt(minutesAfter(at(0), 4), leader, 'C')
 
-    const overview = await church.overviewAt(minutesAfter(at(0), 5))
+    const overview = await church.overviewAt(beforeTheTick(1))
 
     expect(overview.counts).toEqual({
       sent: 2,
@@ -346,7 +363,7 @@ describe('the Overview', () => {
     ])
   })
 
-  it('gives an ended relationship no card, and keeps its weeks in the rates', async () => {
+  it('gives an ended relationship no card, and keeps last week in the rates', async () => {
     const church = await aMinistry('Finished Chapel')
     const { leader, relationships } = await church.leading('Finished Leader', 1)
 
@@ -368,13 +385,13 @@ describe('the Overview', () => {
       endedBy: church.ministry.adminUserId,
     })
 
-    const overview = await church.overviewAt(minutesAfter(at(0), 4))
+    const overview = await church.overviewAt(beforeTheTick(1))
 
     expect(overview.relationships).toEqual([])
     expect(overview.active).toBe(0)
     expect(overview.paused).toBe(0)
-    // The rates run over every relationship-week on record. A week that happened
-    // does not stop having happened because the relationship later ended.
+    // A week that happened last week does not stop having happened because the
+    // relationship has since ended.
     expect(overview.counts.sent).toBe(1)
     expect(overview.counts.answered).toBe(1)
   })
@@ -404,8 +421,8 @@ describe('the Overview', () => {
     await theirs.replyAt(minutesAfter(at(0), 1), leader, '1')
     await theirs.replyAt(minutesAfter(at(0), 2), leader, 'A')
 
-    // Nothing of theirs in mine.
-    await expect(mine.overviewAt(minutesAfter(at(0), 3))).resolves.toEqual({
+    // Nothing of theirs in mine, read the week after, when theirs is in their rates.
+    await expect(mine.overviewAt(beforeTheTick(1))).resolves.toEqual({
       relationships: [],
       unsurfacedUnaccepted: 0,
       active: 0,
@@ -419,7 +436,7 @@ describe('the Overview', () => {
     // caller names, so there is nothing of theirs to be wrong about.
     const asMine = await signInAs(mine.ministry)
     await expect(
-      readOverview(asMine, theirs.ministry.id, createTestClock(minutesAfter(at(0), 3))),
+      readOverview(asMine, theirs.ministry.id, createTestClock(beforeTheTick(1))),
     ).resolves.toEqual({
       relationships: [],
       unsurfacedUnaccepted: 0,

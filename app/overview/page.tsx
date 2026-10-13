@@ -10,8 +10,9 @@ import { AdminShell, NotAnAdmin } from '../shell'
 import {
   ALL_RELATIONSHIPS,
   CHECK_IN_RATINGS,
+  LAST_WEEK,
   MEETING_COMPLETION,
-  NO_CHECK_INS_YET,
+  NO_CHECK_INS_LAST_WEEK,
   NO_RELATIONSHIPS,
   OVERVIEW_SUBTITLE,
   QUICK_STATS,
@@ -30,7 +31,8 @@ export const dynamic = 'force-dynamic'
  *
  * Five tiles, two rings drawn on the server, Quick Stats, and one card per
  * relationship. The rates are the prototype's three definitions and are kept
- * apart: the response rate and the meeting rate must never be conflated.
+ * apart: the response rate and the meeting rate must never be conflated. They
+ * and both rings are over last week, and every one of them says so.
  *
  * The cards are for triage: who needs a call this week. Each is coloured by
  * what it needs and carries the word for it (Pastor feedback, ticket 02): green
@@ -96,13 +98,14 @@ export default async function OverviewPage({
 
   // Quick Stats' *Text-message response rate* row is the same number as its
   // *Response completion* row in the prototype; the duplicate is dropped and
-  // five rows are kept.
+  // five rows are kept. The three rates sit between two headcounts, which are now
+  // and not last week, so each rate row says its week rather than the panel.
   const quickStats = [
-    ['Total relationships', String(overview.relationships.length + overview.unsurfacedUnaccepted)],
-    ['Response completion', `${rates.response}%`],
-    ['Meeting rate', `${rates.meeting}%`],
-    ['Quality rate', `${rates.quality}%`],
-    ['Active relationships', String(overview.active)],
+    ['Total relationships', String(overview.relationships.length + overview.unsurfacedUnaccepted), false],
+    ['Response completion', `${rates.response}%`, true],
+    ['Meeting rate', `${rates.meeting}%`, true],
+    ['Quality rate', `${rates.quality}%`, true],
+    ['Active relationships', String(overview.active), false],
   ] as const
 
   return (
@@ -126,11 +129,14 @@ export default async function OverviewPage({
 
       <div className="charts">
         <div className="card">
-          <h2 className="card-title">{MEETING_COMPLETION}</h2>
+          <div className="chart-head">
+            <h2 className="card-title">{MEETING_COMPLETION}</h2>
+            <span className="muted">{LAST_WEEK}</span>
+          </div>
           <Donut
             title={MEETING_COMPLETION}
             figure={`${rates.meeting}%`}
-            emptyLabel={NO_CHECK_INS_YET}
+            emptyLabel={NO_CHECK_INS_LAST_WEEK}
             segments={[
               { label: 'Met', value: overview.counts.held, colour: 'var(--green-fit)' },
               { label: 'Did not meet', value: notMet, colour: 'var(--red-concern)' },
@@ -138,11 +144,14 @@ export default async function OverviewPage({
           />
         </div>
         <div className="card">
-          <h2 className="card-title">{CHECK_IN_RATINGS}</h2>
+          <div className="chart-head">
+            <h2 className="card-title">{CHECK_IN_RATINGS}</h2>
+            <span className="muted">{LAST_WEEK}</span>
+          </div>
           <Donut
             title={CHECK_IN_RATINGS}
             figure={rated === 0 ? '0' : `${overview.counts.rated.outstanding}/${rated}`}
-            emptyLabel={NO_CHECK_INS_YET}
+            emptyLabel={NO_CHECK_INS_LAST_WEEK}
             segments={[
               { label: 'Outstanding (A)', value: overview.counts.rated.outstanding, colour: 'var(--green-fit)' },
               { label: 'Good (B)', value: overview.counts.rated.good, colour: 'var(--light-green-fit)' },
@@ -154,9 +163,12 @@ export default async function OverviewPage({
         <div className="card">
           <h2 className="card-title">{QUICK_STATS}</h2>
           <dl>
-            {quickStats.map(([label, value]) => (
+            {quickStats.map(([label, value, lastWeek]) => (
               <div key={label} className="qs-row">
-                <dt>{label}</dt>
+                <dt>
+                  {label}
+                  {lastWeek ? <span className="muted">{` · ${LAST_WEEK.toLowerCase()}`}</span> : null}
+                </dt>
                 <dd className="qs-val">{value}</dd>
               </div>
             ))}

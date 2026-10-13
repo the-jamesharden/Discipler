@@ -134,7 +134,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Admin tabs', () => {
       }
       expect(html).toContain('0%')
       expect(html).toContain('No relationships yet')
-      expect(html).toContain('No check-ins yet')
+      expect(html).toContain('No check-ins last week')
       // Two rings drawn on the server, and no chart library.
       expect(html.match(/<svg[^>]*class="donut"/g)).toHaveLength(2)
       expect(html).not.toContain('chart.js')

@@ -2344,7 +2344,7 @@ export interface Overview {
   /** Accepted, not paused, not ended. */
   readonly active: number
   readonly paused: number
-  /** Over every relationship-week on record. */
+  /** Relationship-weeks in last week, the ISO week before the current one, in the Ministry's timezone. */
   readonly counts: CheckInCounts
   /** Relationship-weeks in the current ISO week, in the Ministry's timezone, with an `answeredAt`. */
   readonly completedThisWeek: number

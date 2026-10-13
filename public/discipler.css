@@ -237,9 +237,11 @@ td .empty, li .empty { padding: 0; text-align: left; }
 .charts { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
 .charts .card { margin-bottom: 0; }
 .charts .card-title { font-size: 1rem; margin-bottom: 0.75rem; }
+.chart-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; margin-bottom: 0.75rem; }
+.chart-head .card-title { margin-bottom: 0; }
 .chart-box { display: flex; align-items: center; justify-content: center; gap: 1.5rem; min-height: 200px; flex-wrap: wrap; }
 .donut { width: 150px; height: 150px; flex-shrink: 0; }
-.donut-figures { display: flex; flex-direction: column; gap: 0.5rem; }
+.donut-figures { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
 .donut-figure { font-family: var(--serif); font-size: 2.4rem; line-height: 1.1; color: var(--primary); margin: 0; }
 /* As `ul.donut-legend`, so that it outranks `.card ul`, which indented the legend
    from the figure above it and pushed a four-line legend under the ring on a phone. */
