@@ -1310,6 +1310,17 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       )
     }
 
+    // The answers to the Ministry's own questions, beside the submission they
+    // were given on (Pastor feedback, ticket 12). Shown to an Admin and read by
+    // nothing that pairs anybody.
+    for (const answer of intake.ownAnswers) {
+      await client.query(
+        `insert into intake_answer (ministry_id, intake_submission_id, question_key, answer)
+         values ($1, $2, $3, $4)`,
+        [intake.ministryId, submissionId, answer.key, JSON.stringify(answer.value)],
+      )
+    }
+
     // Each decision is its own row with its own timestamp and the version of the
     // wording the Person actually saw. Nothing here is ever updated: the trigger on
     // this table refuses it, because a consent record migrated forward to newer

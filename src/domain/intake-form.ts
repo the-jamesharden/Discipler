@@ -33,8 +33,8 @@ import { readWording } from './wording'
 
 /**
  * The questions Discipler itself asks, each keyed by the name its answer travels
- * under. Ticket 12 adds a Ministry's own questions beside these, under keys of
- * their own; nothing here assumes a form holds only these.
+ * under. A Ministry's own questions (ticket 12) sit beside these under keys of
+ * their own, `OwnQuestionKey`.
  */
 export const BUILT_IN_QUESTIONS = [
   'side',
@@ -54,15 +54,56 @@ export const isBuiltInQuestion = (value: unknown): value is BuiltInQuestion =>
   (BUILT_IN_QUESTIONS as readonly unknown[]).includes(value)
 
 /**
+ * A question a Ministry added to its own form (Pastor feedback, ticket 12): `custom:`
+ * and an id minted when it was added. The prefix means it can never be mistaken for
+ * a built-in question, whose keys are plain words, and it is also the name its
+ * answer travels under on the wire.
+ */
+export type OwnQuestionKey = `custom:${string}`
+
+export const OWN_QUESTION_PREFIX = 'custom:'
+
+export const isOwnQuestionKey = (value: unknown): value is OwnQuestionKey =>
+  typeof value === 'string' && /^custom:[0-9A-Za-z-]{1,64}$/.test(value)
+
+export const ownQuestionKey = (id: string): OwnQuestionKey => `${OWN_QUESTION_PREFIX}${id}`
+
+/** Any question a form can ask. */
+export type QuestionKey = BuiltInQuestion | OwnQuestionKey
+
+/**
+ * The five kinds a Ministry may add a question as (ticket 12): short text, long
+ * text, one choice, several choices, and yes or no.
+ */
+export const OWN_KINDS = ['short_text', 'long_text', 'one_choice', 'several_choices', 'yes_no'] as const
+export type OwnKind = (typeof OWN_KINDS)[number]
+
+export const isOwnKind = (value: unknown): value is OwnKind =>
+  (OWN_KINDS as readonly unknown[]).includes(value)
+
+/** The two kinds whose choices the Ministry words. */
+export const hasChoices = (kind: OwnKind): boolean => kind === 'one_choice' || kind === 'several_choices'
+
+/**
+ * The two kinds somebody types into. Asked on the last page and only there, as the
+ * name and the number are: every page but the last moves on by a GET carrying its
+ * answers in the URL, and what somebody types is not going in a URL.
+ */
+export const isTypedKind = (kind: OwnKind): boolean => kind === 'short_text' || kind === 'long_text'
+
+/**
  * What kind of answer a question takes. The built-in questions each have one that
- * never changes; ticket 12's own questions add long text, several choices and
+ * never changes; a Ministry's own questions add long text, several choices and
  * yes/no, and reuse short text and one choice.
  */
 export type QuestionKind =
   | 'short_text'
+  | 'long_text'
   | 'phone'
   | 'email'
   | 'one_choice'
+  | 'several_choices'
+  | 'yes_no'
   | 'hourly_grid'
   /** One choice from the Ministry's goals, with Other last. */
   | 'goal_choice'
@@ -200,17 +241,68 @@ const wordingOf = (raw: string | null | undefined): FormWording | null =>
   readWording(raw) as FormWording | null
 
 /**
- * One question as a form asks it. `menteeWording` is the first-time question's
- * alone: it is put in the words of the side, so it has one wording for a mentor
- * and one for somebody to be mentored, and is null on every other question.
+ * One of Discipler's own questions as a form asks it. `menteeWording` is the
+ * first-time question's alone: it is put in the words of the side, so it has one
+ * wording for a mentor and one for somebody to be mentored, and is null on every
+ * other question.
  */
-export interface FormQuestion {
+export interface BuiltInFormQuestion {
   readonly key: BuiltInQuestion
   readonly wording: FormWording
   readonly menteeWording: FormWording | null
   readonly hint: FormWording | null
   readonly required: boolean
 }
+
+/**
+ * One choice of a Ministry's own question. An id rather than its words, for the
+ * reason a goal option is a row (ADR-0014): an answer points at the choice, so a
+ * reworded choice keeps every answer given to it.
+ */
+export interface OwnChoice {
+  readonly id: string
+  readonly wording: FormWording
+}
+
+/**
+ * A question a Ministry added to its own form (Pastor feedback, ticket 12). Its
+ * kind and choices are the Ministry's, so they are stored with it; nothing in the
+ * product reads its answers but the screens that show them to an Admin.
+ */
+export interface OwnQuestion {
+  readonly key: OwnQuestionKey
+  readonly wording: FormWording
+  readonly menteeWording: null
+  readonly hint: FormWording | null
+  readonly required: boolean
+  readonly kind: OwnKind
+  /** In the order they are offered; empty on the three kinds without choices. */
+  readonly choices: readonly OwnChoice[]
+}
+
+/** One question as a form asks it: Discipler's own, or the Ministry's. */
+export type FormQuestion = BuiltInFormQuestion | OwnQuestion
+
+export const isOwnQuestion = (question: FormQuestion): question is OwnQuestion =>
+  isOwnQuestionKey(question.key)
+
+/**
+ * What Discipler fixes about a question: the `BUILT_IN` table for its own, and for
+ * a Ministry's own question its kind and nothing else. A Ministry's question is
+ * never used by the product, never always asked, may always be made optional, and
+ * stays on the last page where it is typed into.
+ */
+export const rulesOf = (question: FormQuestion): BuiltInRules =>
+  isOwnQuestion(question)
+    ? {
+        kind: question.kind,
+        usedBy: null,
+        alwaysAsked: false,
+        requiredFixed: false,
+        staysOnTheLastPage: isTypedKind(question.kind),
+        after: null,
+      }
+    : BUILT_IN[question.key]
 
 /**
  * One wizard page: one screen, with its name as the line under the Ministry's
@@ -242,7 +334,7 @@ const ask = (
   key: BuiltInQuestion,
   wording: string,
   extra: { readonly hint?: string; readonly menteeWording?: string; readonly required?: boolean } = {},
-): FormQuestion => ({
+): BuiltInFormQuestion => ({
   key,
   wording: formWording(wording),
   menteeWording: extra.menteeWording === undefined ? null : formWording(extra.menteeWording),
@@ -333,8 +425,12 @@ export const questionOn = (form: IntakeForm, key: string): FormQuestion | undefi
  * reader against the version the Person opened, so a question made optional
  * after they started is still optional for them only if it was when they opened.
  */
-export const requiredOn = (form: IntakeForm): ReadonlySet<BuiltInQuestion> =>
+export const requiredOn = (form: IntakeForm): ReadonlySet<QuestionKey> =>
   new Set(questionsOf(form).filter((question) => question.required).map((question) => question.key))
+
+/** The Ministry's own questions on a form, in the order they are asked. */
+export const ownQuestionsOf = (form: IntakeForm): readonly OwnQuestion[] =>
+  questionsOf(form).filter(isOwnQuestion)
 
 /** The pages the wizard steps through: every page with a question on it. */
 export const askedPages = (form: IntakeForm): readonly FormPage[] =>
@@ -355,6 +451,17 @@ export type IntakeFormRefusal =
   | 'intake_form.changed'
   | 'intake_form.stays_on_the_last_page'
   | 'intake_form.asked_too_soon'
+  /** A Ministry's own question of a kind it cannot be (ticket 12). */
+  | 'intake_form.kind_unknown'
+  /** A one-choice or several-choices question with fewer than two choices. */
+  | 'intake_form.needs_two_choices'
+  /** Two choices on one question worded the same. */
+  | 'intake_form.choices_repeat'
+  /**
+   * A choice already on the form emptied. Choices are reworded and added, and
+   * taking one off waits for the removal rule questions follow (ticket 13).
+   */
+  | 'intake_form.choice_kept'
 
 /** One page of an order an Admin dragged into: the page, and its questions top to bottom. */
 export interface PageLayout {
@@ -373,18 +480,19 @@ export const layoutOf = (form: IntakeForm): readonly PageLayout[] =>
  */
 const arrangementRefusal = (pages: readonly FormPage[]): IntakeFormRefusal | null => {
   const last = pages.length - 1
-  const pageOf = new Map<BuiltInQuestion, number>()
+  const pageOf = new Map<QuestionKey, number>()
   pages.forEach((each, index) => {
     for (const question of each.questions) pageOf.set(question.key, index)
   })
+  const placed = pages.flatMap((each, index) => each.questions.map((question) => ({ question, index })))
 
-  for (const [key, index] of pageOf) {
-    if (BUILT_IN[key].staysOnTheLastPage && index !== last) {
+  for (const { question, index } of placed) {
+    if (rulesOf(question).staysOnTheLastPage && index !== last) {
       return 'intake_form.stays_on_the_last_page'
     }
   }
-  for (const [key, index] of pageOf) {
-    const anchor = BUILT_IN[key].after
+  for (const { question, index } of placed) {
+    const anchor = rulesOf(question).after
     const anchorAt = anchor === null ? undefined : pageOf.get(anchor)
     if (anchorAt !== undefined && index <= anchorAt) return 'intake_form.asked_too_soon'
   }
@@ -403,6 +511,18 @@ const saved = (form: IntakeForm, pages: readonly FormPage[]): FormEdit => ({
   form: { ...form, version: form.version + 1, pages },
 })
 
+/**
+ * What an Admin typed into the choices of one of the Ministry's own questions
+ * (ticket 12): each choice already on it, by its id, and the new ones, one to a
+ * line of the box under them.
+ */
+export interface ChoicesAsTyped {
+  readonly kept: readonly { readonly id: string; readonly wording: string }[]
+  readonly added: readonly string[]
+}
+
+const NO_CHOICES: ChoicesAsTyped = { kept: [], added: [] }
+
 /** What an Admin typed into an open question's row. */
 export interface QuestionAsTyped {
   readonly wording: string
@@ -410,9 +530,61 @@ export interface QuestionAsTyped {
   readonly menteeWording: string | null
   readonly hint: string
   readonly required: boolean
+  /** A choice question of the Ministry's own; ignored on every other question. */
+  readonly choices?: ChoicesAsTyped
 }
 
-export const editQuestion = (form: IntakeForm, key: string, typed: QuestionAsTyped): FormEdit => {
+/** Where a new choice's id comes from. A test hands in a sequence; the boundary, its own ids. */
+export type NewId = () => string
+
+const noNewIds: NewId = () => {
+  throw new Error('This edit was given nothing to mint a new id with')
+}
+
+/**
+ * A choice question's choices as an Admin left them: each one already there
+ * reworded where its box was, kept as it was where the box did not come back
+ * (somebody else added it while this row was open), and the new ones after them
+ * in the order they were typed.
+ *
+ * A choice emptied is refused rather than taken off. Answers point at a choice,
+ * so taking one off would take its answers with it, and that is the removal rule
+ * (ADR-0014; ticket 13), not an edit.
+ */
+const choicesAsLeft = (
+  was: readonly OwnChoice[],
+  typed: ChoicesAsTyped,
+  newId: NewId,
+): readonly OwnChoice[] | IntakeFormRefusal => {
+  const kept: OwnChoice[] = []
+  for (const choice of was) {
+    const box = typed.kept.find((each) => each.id === choice.id)
+    if (!box) {
+      kept.push(choice)
+      continue
+    }
+    const wording = wordingOf(box.wording)
+    if (wording === null) return 'intake_form.choice_kept'
+    kept.push(wording === choice.wording ? choice : { ...choice, wording })
+  }
+  const added = typed.added.flatMap((line) => {
+    const wording = wordingOf(line)
+    return wording === null ? [] : [{ id: newId(), wording }]
+  })
+
+  const choices = [...kept, ...added]
+  if (choices.length < 2) return 'intake_form.needs_two_choices'
+  const said = choices.map((choice) => choice.wording.toLocaleLowerCase('en'))
+  if (new Set(said).size !== said.length) return 'intake_form.choices_repeat'
+  return choices
+}
+
+export const editQuestion = (
+  form: IntakeForm,
+  key: string,
+  typed: QuestionAsTyped,
+  newId: NewId = noNewIds,
+): FormEdit => {
   const question = questionOn(form, key)
   if (!question) return { refusal: 'intake_form.not_found' }
 
@@ -422,23 +594,29 @@ export const editQuestion = (form: IntakeForm, key: string, typed: QuestionAsTyp
   if (wording === null || (hasTwoWordings && menteeWording === null)) {
     return { refusal: 'intake_form.question_needs_wording' }
   }
-  if (!typed.required && BUILT_IN[question.key].requiredFixed) {
+  if (!typed.required && rulesOf(question).requiredFixed) {
     return { refusal: 'intake_form.always_required' }
   }
+  // An emptied hint is no hint, rather than a refusal: the hint is optional.
+  const hint = wordingOf(typed.hint)
 
-  const edited: FormQuestion = {
-    ...question,
-    wording,
-    menteeWording,
-    // An emptied hint is no hint, rather than a refusal: the hint is optional.
-    hint: wordingOf(typed.hint),
-    required: typed.required,
+  let edited: FormQuestion
+  if (isOwnQuestion(question)) {
+    const choices = hasChoices(question.kind)
+      ? choicesAsLeft(question.choices, typed.choices ?? NO_CHOICES, newId)
+      : question.choices
+    if (typeof choices === 'string') return { refusal: choices }
+    edited = { ...question, wording, hint, required: typed.required, choices }
+  } else {
+    edited = { ...question, wording, menteeWording, hint, required: typed.required }
   }
+
   if (
     edited.wording === question.wording
     && edited.menteeWording === question.menteeWording
     && edited.hint === question.hint
     && edited.required === question.required
+    && sameChoices(edited, question)
   ) {
     return null
   }
@@ -450,6 +628,57 @@ export const editQuestion = (form: IntakeForm, key: string, typed: QuestionAsTyp
       questions: each.questions.map((one) => (one.key === question.key ? edited : one)),
     })),
   )
+}
+
+const sameChoices = (a: FormQuestion, b: FormQuestion): boolean => {
+  const these = isOwnQuestion(a) ? a.choices : []
+  const those = isOwnQuestion(b) ? b.choices : []
+  return (
+    these.length === those.length
+    && these.every((choice, at) => choice.id === those[at]?.id && choice.wording === those[at]?.wording)
+  )
+}
+
+/**
+ * A question of the Ministry's own, added at the foot of a page (ticket 12): worded
+ * in the row that opened for it, with its choices where its kind has them. A kind
+ * somebody types into is asked on the last page only, for the reason the name is.
+ */
+export const addQuestion = (
+  form: IntakeForm,
+  pageId: string,
+  key: OwnQuestionKey,
+  kind: string,
+  typed: QuestionAsTyped,
+  newId: NewId,
+): FormEdit => {
+  const at = form.pages.findIndex((each) => each.id === pageId)
+  if (at < 0) return { refusal: 'intake_form.not_found' }
+  if (!isOwnKind(kind)) return { refusal: 'intake_form.kind_unknown' }
+  if (questionOn(form, key)) return { refusal: 'intake_form.changed' }
+
+  const wording = wordingOf(typed.wording)
+  if (wording === null) return { refusal: 'intake_form.question_needs_wording' }
+
+  const choices = hasChoices(kind) ? choicesAsLeft([], typed.choices ?? NO_CHOICES, newId) : []
+  if (typeof choices === 'string') return { refusal: choices }
+
+  const added: OwnQuestion = {
+    key,
+    wording,
+    menteeWording: null,
+    hint: wordingOf(typed.hint),
+    required: typed.required,
+    kind,
+    choices,
+  }
+  const pages = form.pages.map((each, index) =>
+    index === at ? { ...each, questions: [...each.questions, added] } : each,
+  )
+
+  const refusal = arrangementRefusal(pages)
+  if (refusal) return { refusal }
+  return saved(form, pages)
 }
 
 /**

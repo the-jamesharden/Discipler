@@ -638,11 +638,12 @@ const editsTheGoalList = (
   (GOAL_LIST_EDITS as readonly string[]).includes(command.type)
 
 /**
- * The six ways an Admin edits one of the Ministry's Intake forms, each of which
- * decides against the form as it stands (Pastor feedback, ticket 11).
+ * The ways an Admin edits one of the Ministry's Intake forms, each of which
+ * decides against the form as it stands (Pastor feedback, tickets 11 and 12).
  */
 const INTAKE_FORM_EDITS = [
   'intake_form.edit_question',
+  'intake_form.add_question',
   'intake_form.arrange',
   'intake_form.move_question',
   'intake_form.add_page',
@@ -660,13 +661,16 @@ const editsAnIntakeForm = (
  * Person opened, carried from screen to screen, and the form as it stands now
  * where that version is not one this Ministry saved. Nothing for a submission
  * from a form that is not one of the two -- the tokenized reopen link -- which is
- * read as today's form was.
+ * read as today's form was, but for the Ministry's own questions it asked, which
+ * are read against the form it drew them from (ticket 12).
  */
 const theFormOpened = async (
   unit: UnitOfWork,
   command: Extract<Command, { type: 'intake.submit' }>,
 ): Promise<{ intakeForm?: IntakeForm }> => {
-  const path = command.form.intakePath?.trim() ?? null
+  // The reopened page declares no path, and names the form whose own questions
+  // it asked instead (ticket 12).
+  const path = command.form.intakePath?.trim() ?? command.ownQuestionsFrom ?? null
   if (!isOneOf(INTAKE_PATHS, path)) return {}
   const opened =
     command.formVersion === undefined

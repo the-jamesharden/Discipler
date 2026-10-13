@@ -1,14 +1,19 @@
-import type { IntakePath } from '~/domain/intake'
+import { INTAKE_PATHS, isOneOf, type IntakePath } from '~/domain/intake'
 import {
   formWording,
   isBuiltInQuestion,
+  isOwnKind,
+  isOwnQuestion,
+  isOwnQuestionKey,
   presetForm,
   PRESET_VERSION,
   type FormPage,
   type FormQuestion,
   type FormWording,
   type IntakeForm,
+  type OwnChoice,
 } from '~/domain/intake-form'
+import { ownAnswersShown, type OwnAnswerShown } from '~/domain/own-answers'
 
 /**
  * One version of an Intake form as `intake_form_version.definition` holds it,
@@ -27,6 +32,13 @@ import {
  *                                     "hint": string | null,
  *                                     "required": boolean } ] } ] }
  *
+ * A Ministry's own question (ticket 12) is keyed `custom:<id>` and adds its kind
+ * and, for the two choice kinds, its choices, each with an id its answers point
+ * at; the three other kinds carry an empty list:
+ *
+ *     { "key": "custom:…", …, "kind": "one_choice",
+ *       "choices": [ { "id": string, "wording": string } ] }
+ *
  * Read strictly: the document is Discipler's own, written by `asDefinition`, and
  * one that does not read is the reader and the writer having drifted apart --
  * served as a guess it would put a question in front of a congregant that nobody
@@ -43,19 +55,48 @@ const wordingIn = (value: unknown, where: string): FormWording => {
 const optionalWordingIn = (value: unknown, where: string): FormWording | null =>
   value === null || value === undefined ? null : wordingIn(value, where)
 
+const choiceIn = (value: unknown, where: string): OwnChoice => {
+  const row = (value ?? {}) as Record<string, unknown>
+  if (typeof row.id !== 'string' || row.id === '') {
+    throw new Error(`A stored Intake form has a choice with no id at ${where}`)
+  }
+  return { id: row.id, wording: wordingIn(row.wording, `${where}.wording`) }
+}
+
 const questionIn = (value: unknown, where: string): FormQuestion => {
   const row = (value ?? {}) as Record<string, unknown>
+  if (typeof row.required !== 'boolean') {
+    throw new Error(`A stored Intake form does not say whether ${String(row.key)} is required`)
+  }
+  const wording = wordingIn(row.wording, `${where}.wording`)
+  const hint = optionalWordingIn(row.hint, `${where}.hint`)
+
+  if (isOwnQuestionKey(row.key)) {
+    if (!isOwnKind(row.kind)) {
+      throw new Error(`A stored Intake form asks ${row.key} as a kind it cannot name at ${where}`)
+    }
+    if (!Array.isArray(row.choices)) {
+      throw new Error(`A stored Intake form's ${row.key} has no list of choices at ${where}`)
+    }
+    return {
+      key: row.key,
+      wording,
+      menteeWording: null,
+      hint,
+      required: row.required,
+      kind: row.kind,
+      choices: row.choices.map((choice, at) => choiceIn(choice, `${where}, choice ${at + 1}`)),
+    }
+  }
+
   if (!isBuiltInQuestion(row.key)) {
     throw new Error(`A stored Intake form asks a question it cannot name at ${where}`)
   }
-  if (typeof row.required !== 'boolean') {
-    throw new Error(`A stored Intake form does not say whether ${row.key} is required`)
-  }
   return {
     key: row.key,
-    wording: wordingIn(row.wording, `${where}.wording`),
+    wording,
     menteeWording: optionalWordingIn(row.menteeWording, `${where}.menteeWording`),
-    hint: optionalWordingIn(row.hint, `${where}.hint`),
+    hint,
     required: row.required,
   }
 }
@@ -103,6 +144,12 @@ export const asDefinition = (form: IntakeForm): Record<string, unknown> => ({
       menteeWording: question.menteeWording,
       hint: question.hint,
       required: question.required,
+      ...(isOwnQuestion(question)
+        ? {
+            kind: question.kind,
+            choices: question.choices.map((choice) => ({ id: choice.id, wording: choice.wording })),
+          }
+        : {}),
     })),
   })),
 })
@@ -118,3 +165,30 @@ export const formOrPreset = (
   row && Number(row.version) !== PRESET_VERSION
     ? intakeFormFrom(name, Number(row.version), row.definition)
     : presetForm(name)
+
+/**
+ * The Ministry's forms as they stand, off a page document's `intake_forms`: the
+ * latest saved version of each form it has edited (`app.intake_forms_now`). A
+ * form it never edited is absent and asks none of the Ministry's own questions,
+ * so it has nothing to word an answer with and is not needed.
+ */
+export const formsNowFrom = (value: unknown): readonly IntakeForm[] =>
+  (Array.isArray(value) ? (value as Record<string, unknown>[]) : []).map((row) => {
+    if (!isOneOf(INTAKE_PATHS, row.form) || typeof row.version !== 'number') {
+      throw new Error(`An Intake form arrived that names no form: ${JSON.stringify(row.form)}`)
+    }
+    return intakeFormFrom(row.form, row.version, row.definition)
+  })
+
+/**
+ * Somebody's answers to the Ministry's own questions (Pastor feedback, ticket
+ * 12), off a document's `own_answers` rows, each under its question as `forms`
+ * word it now.
+ */
+export const ownAnswersFrom = (forms: readonly IntakeForm[], value: unknown): readonly OwnAnswerShown[] =>
+  ownAnswersShown(
+    forms,
+    (Array.isArray(value) ? (value as Record<string, unknown>[]) : []).flatMap((row) =>
+      typeof row.key === 'string' ? [{ key: row.key, value: row.answer }] : [],
+    ),
+  )

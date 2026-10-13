@@ -29,6 +29,7 @@ import type {
 import type { NewIntakeLink } from './intake-link'
 import type { IntakeForm } from './intake-form'
 import type { MaterialFile, MaterialItem, MaterialTitle } from './materials'
+import type { OwnAnswer } from './own-answers'
 import type { MinistrySettings } from './ministry-settings'
 import type { InvitationToken, NewInvitation, WithdrawnAs } from './invitations'
 import type { OutboundMessageKind, OutstandingReplyCutoff } from './outstanding-reply'
@@ -209,6 +210,11 @@ export interface IntakeRecord {
    * 11): 0 for the preset, null where the form was not one of the Ministry's two.
    */
   readonly formVersion: number | null
+  /**
+   * The answers to the Ministry's own questions (Pastor feedback, ticket 12), one
+   * row each beside the submission. Shown to an Admin, never matched on.
+   */
+  readonly ownAnswers: readonly OwnAnswer[]
   /** The consent version the Person actually saw, recorded with each decision. */
   readonly consentVersion: string
   readonly source: ConsentSource
