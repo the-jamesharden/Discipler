@@ -437,3 +437,12 @@ Found on 2026-09-24 while specifying `.scratch/richer-materials/`.
 No code computes a Silence Gap: `identifyDelivery` is set only on the Welcome Message and the `HELP` reply in `src/domain/outbound-copy.ts`, so a person texted again after thirty quiet days gets the Ministry prefix alone.
 Every message path is affected, and the Material change text would inherit the same gap.
 What needs deciding: whether the rule stands as written, in which case the sending layer decides the prefix per recipient at send time from the last text that person was sent, or whether it is dropped with the A2P review this file already asks for before the first pilot.
+
+## Open: whether *What has happened* lists who opened the contact details
+
+Raised on 2026-10-13 by the Follow-Up card (Pastor feedback, ticket 10).
+Ticket 10 asks *What has happened* to list who opened the contact details or read the concern, and when.
+It lists who read the concern, from `concern_viewing`, because every opening of a card records a reading.
+It does not list who opened the contact details, because nothing records that: *See contact details*, which is `Nudge` (`docs/adr/0010-nudge-reveals-a-number-and-sends-nothing.md`), never wrote anything, and opening the card keeps whatever record Nudge kept.
+Listing it would need a new recorded act on every opening of a card that shows contact details, which is a new event and a migration.
+What needs deciding: whether an Admin seeing a Person's contact details is a ministry event worth recording, or whether *What has happened* stays without it.
