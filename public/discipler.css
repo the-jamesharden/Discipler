@@ -286,6 +286,8 @@ ul.donut-legend { list-style: none; font-size: 0.82rem; margin: 0; padding: 0; }
 .growth-dot.now { width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; background: var(--primary); }
 .growth-y { position: absolute; right: calc(100% + 0.5rem); transform: translateY(-50%); font-size: 0.75rem; color: var(--text-light); line-height: 1; }
 .growth-x { position: absolute; top: calc(100% + 0.55rem); transform: translateX(-50%); font-size: 0.75rem; color: var(--text-light); line-height: 1; white-space: nowrap; }
+/* Taller on a phone than on a desk on purpose: at about 290px wide a 100px plot
+   flattens the line. */
 @media (max-width: 560px) {
   .growth-plot { height: 150px; margin-right: 1.1rem; }
   .growth-x.minor { display: none; }
