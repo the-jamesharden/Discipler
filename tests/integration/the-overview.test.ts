@@ -21,9 +21,9 @@ import {
  * commands ran on.
  *
  * Every scenario gets a Ministry of its own. The scheduled tick runs for a whole
- * Ministry at once, and the rates run over every relationship-week of last week,
- * so two scenarios sharing one would each count the other's weeks -- a coupling
- * between tests and not a fact about the product.
+ * Ministry at once, and the rates run over every relationship-week of the last
+ * finished week, so two scenarios sharing one would each count the other's
+ * weeks -- a coupling between tests and not a fact about the product.
  */
 
 describe('the Overview', () => {
@@ -54,16 +54,16 @@ describe('the Overview', () => {
     `+1${String((Date.now() % 1_000_000) * 1_000 + ++numbered).padStart(10, '0')}`
 
   /**
-   * One Ministry, asking on Monday evenings in London, with the handful of verbs a
-   * scenario needs: run the tick, answer a text, read the Overview.
+   * One Ministry, asking on Monday evenings in London unless it is given another
+   * day (0 is Sunday), with the handful of verbs a scenario needs: run the tick, answer a text, read the Overview.
    */
-  const aMinistry = async (name: string) => {
+  const aMinistry = async (name: string, checkInDay = 1) => {
     const ministry = await createMinistryWithAdmin(name)
     await pool.query(
       `update ministry
-          set timezone = 'Europe/London', checkin_day = 1, checkin_hour = 20
+          set timezone = 'Europe/London', checkin_day = $2, checkin_hour = 20
         where id = $1`,
-      [ministry.id],
+      [ministry.id, checkInDay],
     )
 
     const serviceAt = (now: Date) =>
@@ -196,6 +196,13 @@ describe('the Overview', () => {
     await church.replyAt(minutesAfter(at(0), 1), leader, '1')
     await church.replyAt(minutesAfter(at(0), 2), leader, 'B')
 
+    // The second question is reminded a day later and given up on the day after
+    // that, which closes the conversation: until then the week has not finished,
+    // and the rates would be over the week before it. Half past eight in the
+    // evening, inside the hours the tick texts in.
+    await church.tickAt(minutesAfter(at(0), 24 * 60 + 30))
+    await church.tickAt(minutesAfter(at(0), 48 * 60 + 30))
+
     const overview = await church.overviewAt(beforeTheTick(1))
 
     expect(overview.counts).toEqual({
@@ -249,6 +256,59 @@ describe('the Overview', () => {
       rated: { outstanding: 0, good: 0, okay: 0, concern: 1 },
     })
     expect(weekThree.completedThisWeek).toBe(0)
+  })
+
+  it("holds the rates on the week before while last week's conversation is still open", async () => {
+    // Checking in on Sunday evenings, as SAU BCM does: the conversation a Sunday
+    // opens is still running on Monday, so on Monday last week has not finished.
+    const church = await aMinistry('Sunday Chapel', 0)
+    const { leader } = await church.leading('Sunday Leader', 2)
+    const sunday = (week: number) => new Date(at(week).getTime() + days(6))
+    const monday = (week: number) => minutesAfter(at(week), -11 * 60)
+
+    // The first Sunday: both relationships met and outstanding, and the
+    // conversation answered through.
+    await church.tickAt(sunday(0))
+    await church.replyAt(minutesAfter(sunday(0), 1), leader, '1')
+    await church.replyAt(minutesAfter(sunday(0), 2), leader, 'A')
+    await church.replyAt(minutesAfter(sunday(0), 3), leader, '1')
+    await church.replyAt(minutesAfter(sunday(0), 4), leader, 'A')
+
+    // The second Sunday: the first relationship did not meet, and the second's
+    // question is out.
+    await church.tickAt(sunday(1))
+    await church.replyAt(minutesAfter(sunday(1), 1), leader, '2')
+
+    const firstSunday = {
+      sent: 2,
+      answered: 2,
+      held: 2,
+      rated: { outstanding: 2, good: 0, okay: 0, concern: 0 },
+    }
+    const secondSunday = {
+      sent: 2,
+      answered: 1,
+      held: 0,
+      rated: { outstanding: 0, good: 0, okay: 0, concern: 0 },
+    }
+
+    // Monday morning: the second Sunday's conversation can still be answered, so
+    // its one answer so far is not last week's figure, and the first Sunday's is.
+    await expect(church.overviewAt(monday(2))).resolves.toMatchObject({ counts: firstSunday })
+
+    // Its last question is reminded on Monday evening and given up on Tuesday
+    // evening, which closes it and finishes the week. Half past eight, inside
+    // the hours the tick texts in.
+    await church.tickAt(minutesAfter(sunday(1), 24 * 60 + 30))
+    await expect(church.overviewAt(minutesAfter(sunday(1), 25 * 60))).resolves.toMatchObject({ counts: firstSunday })
+    await church.tickAt(minutesAfter(sunday(1), 48 * 60 + 30))
+    await expect(church.overviewAt(minutesAfter(sunday(1), 49 * 60))).resolves.toMatchObject({ counts: secondSunday })
+
+    // And holds still until the next week finishes: this Sunday's conversation
+    // opens in this week, and next Monday finds it still running.
+    await church.tickAt(sunday(2))
+    await expect(church.overviewAt(minutesAfter(sunday(2), 1))).resolves.toMatchObject({ counts: secondSunday })
+    await expect(church.overviewAt(monday(3))).resolves.toMatchObject({ counts: secondSunday })
   })
 
   it('counts an okay as rated, and against the quality rate', async () => {

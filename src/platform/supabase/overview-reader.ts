@@ -10,10 +10,10 @@ import {
   type GrowthRelationship,
 } from '~/domain/growth'
 import { relationshipId, type MinistryId, type RelationshipId } from '~/domain/ids'
-import { NO_CHECK_INS, type CheckInCounts } from '~/domain/overview'
+import { NO_CHECK_INS, lastFinishedWeek, type CheckInCounts } from '~/domain/overview'
 import { deriveRelationshipState } from '~/domain/relationship-state'
 import { ACCEPTANCE_ESCALATION_DAYS } from '~/domain/relationships'
-import { isoWeekOf, weeksApart } from '~/domain/week'
+import { isoWeekOf } from '~/domain/week'
 import type { Overview, OverviewGrowth, OverviewReader, OverviewRelationship } from '~/service/ports'
 import { careNeededFrom } from './care-needed-reader'
 import { adminPage, documentFor, list, readPageDocument, section, type PageDocument } from './page'
@@ -36,7 +36,8 @@ import { createSupabaseServerClient } from './server-client'
 
 /**
  * The Overview tab: every live relationship with the state its history derives,
- * the two headcounts, and the three rates over last week's relationship-weeks.
+ * the two headcounts, and the three rates over the relationship-weeks of the last
+ * finished week (`lastFinishedWeek`).
  *
  * The state is `deriveRelationshipState` over exactly the history Care Needed
  * reads -- the same rows, from the same document -- so the two tabs cannot
@@ -188,20 +189,20 @@ export const overviewFrom = (history: HistoryInputs, clock: Clock): Overview => 
     (week) => week.answeredAt !== null && isoWeekOf(week.openedAt, timeZone) === thisWeek,
   ).length
 
-  // The rates are last week's: the last whole week, so they hold still all week
-  // rather than reading 0% until the cadence comes round and climbing as answers
-  // arrive. `weeksApart` rather than seven days back, because a week that lost an
-  // hour to the clocks changing is shorter than seven days.
-  const lastWeek = answers.filter(
-    (week) => weeksApart(isoWeekOf(week.openedAt, timeZone), thisWeek) === 1,
-  )
+  // The rates are last week's, where last week is the last finished week: the
+  // most recent before this one whose sequences have all closed, so the figures
+  // hold still from the moment it finishes rather than reading 0% until its
+  // answers arrive. The rows carry their sequence's closing, so they are what
+  // says whether a week has finished.
+  const lastWeek = lastFinishedWeek(answers, now, timeZone)
+  const lastWeeks = answers.filter((week) => isoWeekOf(week.openedAt, timeZone) === lastWeek)
 
   return {
     relationships: relationships.sort(byNames),
     unsurfacedUnaccepted,
     active,
     paused,
-    counts: countsOf(lastWeek),
+    counts: countsOf(lastWeeks),
     completedThisWeek,
   }
 }

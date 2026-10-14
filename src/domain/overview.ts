@@ -1,13 +1,15 @@
 import type { Satisfaction } from './check-in'
+import { isoWeekOf, weekAfter, type IsoWeek } from './week'
 
 /**
  * The numbers the Overview tab reads off the Week-by-Week History. Facts in, rates
  * out, and the three rates are kept apart on purpose: the response rate and the
  * meeting rate answer different questions and must never be conflated.
  *
- * Over last week's relationship-weeks: the last whole ISO week, in the Ministry's
- * timezone. Every figure that carries them says *last week*, so the window is on
- * the screen and not only in the denominator.
+ * Over last week's relationship-weeks, where last week is the last finished week
+ * (`lastFinishedWeek` below), in the Ministry's timezone. Every figure that
+ * carries them says *last week*, so the window is on the screen and not only in
+ * the denominator.
  */
 export interface CheckInCounts {
   /** Weeks a Leader was asked about a relationship: every relationship-week covered. */
@@ -55,3 +57,43 @@ export const checkInRates = (counts: CheckInCounts): CheckInRates => ({
   meeting: percentage(counts.held, counts.answered),
   quality: percentage(counts.rated.outstanding + counts.rated.good, ratedTotal(counts)),
 })
+
+/**
+ * The week the rates and both rings are over: the last finished week. The most
+ * recent ISO week before the current one, in the Ministry's timezone, whose
+ * Check-In Sequences have all closed.
+ *
+ * Not simply the week before this one. A relationship-week belongs to the week
+ * its sequence opened in, and a sequence stays open while answers can still
+ * come -- its questions are reminded and given up on a day apart, and a new
+ * week's cadence displaces whatever is left. So a Ministry that checks in late
+ * in the week would see the week before this one read 0% on Monday and climb as
+ * the answers arrived, the very thing a window of last week exists to stop.
+ * Waiting for the week to finish holds the figures still from the moment it
+ * does until the next one does, whatever day the cadence falls on.
+ *
+ * Closed is `closedAt` set, however the sequence ended -- answered through, or
+ * abandoned because it was given up on, displaced, opted out of or emptied by a
+ * Pause -- because nothing more can arrive in a closed sequence. Every one of
+ * the week's sequences, not most: one still running is one whose answers would
+ * still move the figures.
+ *
+ * A week nobody was asked in has nothing still running, so it is finished and
+ * reads as empty rather than as the week before it, which would be a different
+ * week under the words *last week*. A week still running is passed over and no
+ * more, so a sequence that never closed holds up its own week and no later one.
+ */
+export const lastFinishedWeek = (
+  sequences: readonly { readonly openedAt: Date; readonly closedAt: Date | null }[],
+  now: Date,
+  timeZone: string,
+): IsoWeek => {
+  const running = new Set(
+    sequences.filter((sequence) => sequence.closedAt === null).map((sequence) => isoWeekOf(sequence.openedAt, timeZone)),
+  )
+
+  // Each step back passes one week that is in the set, and the set is finite.
+  let week = weekAfter(isoWeekOf(now, timeZone), -1)
+  while (running.has(week)) week = weekAfter(week, -1)
+  return week
+}
