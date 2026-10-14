@@ -50,10 +50,10 @@ export const dynamic = 'force-dynamic'
  * page at `?card=`, so the address says which card is open, it works without
  * script, and closing it is a link back to `/overview`.
  *
- * Under the tiles, full width, the growth chart (Pastor feedback, ticket 05):
- * what it counts and whether by weeks or months is in the address as well, at
- * `?growth=` and `?by=`, and moves nothing else on the page. A card opened and
- * closed keeps it.
+ * Under the rings and Quick Stats, full width and short, the growth chart
+ * (Pastor feedback, ticket 05): what it counts and whether by weeks or months
+ * is in the address as well, at `?growth=` and `?by=`, and moves nothing else
+ * on the page. A card opened and closed keeps it.
  */
 
 export default async function OverviewPage({
@@ -137,8 +137,6 @@ export default async function OverviewPage({
         ))}
       </ul>
 
-      {growth ? <GrowthChart growth={growth} /> : null}
-
       <div className="charts">
         <div className="card">
           <div className="chart-head">
@@ -187,6 +185,8 @@ export default async function OverviewPage({
           </dl>
         </div>
       </div>
+
+      {growth ? <GrowthChart growth={growth} /> : null}
 
       <div className="card">
         <div className="card-head">

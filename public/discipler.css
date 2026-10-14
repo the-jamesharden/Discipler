@@ -255,7 +255,8 @@ ul.donut-legend { list-style: none; font-size: 0.82rem; margin: 0; padding: 0; }
 .donut-legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
 
 /* The growth chart (Pastor feedback, ticket 05; the mock-up is
-   `.lavish/pastor-feedback/mock-growth.html`): full width under the tiles. The
+   `.lavish/pastor-feedback/mock-growth.html`): full width under the donuts and
+   Quick Stats, and short, a secondary panel rather than the page's centre. The
    line and the grid are a stretched SVG, and the dots and labels sit over it as
    HTML at the same percentages, so text keeps its size from a phone to a desk. */
 .growth-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem 1rem; flex-wrap: wrap; margin-bottom: 0.4rem; }
@@ -276,7 +277,7 @@ ul.donut-legend { list-style: none; font-size: 0.82rem; margin: 0; padding: 0; }
 .growth-now .stat-value { margin: 0; }
 .growth-change { font-size: 0.88rem; color: var(--text-light); font-weight: 700; }
 .growth-change.up { color: #2f6b41; }
-.growth-plot { position: relative; height: 190px; margin: 0.75rem 1.4rem 1.6rem 2.4rem; }
+.growth-plot { position: relative; height: 100px; margin: 0.75rem 1.4rem 1.6rem 2.4rem; }
 .growth-plot svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .growth-plot .grid { stroke: var(--border); stroke-width: 1; shape-rendering: crispEdges; }
 .growth-area { fill: rgba(79, 154, 98, 0.12); }

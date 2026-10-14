@@ -151,13 +151,15 @@ describe.skipIf(skipUnlessAppIsRunning)('the Admin tabs', () => {
       return found[0]!
     }
 
-    it('draws the growth chart under the tiles, opening on Total discipled by weeks', async () => {
+    it('draws the growth chart under the rings, opening on Total discipled by weeks', async () => {
       const { html } = await getPage('/overview', cookie)
 
-      // Full width under the tiles and above the two rings (Pastor feedback, ticket 05).
-      const chart = html.indexOf('Growth in discipleship')
-      expect(chart).toBeGreaterThan(html.indexOf('Needs Follow-Up'))
-      expect(chart).toBeLessThan(html.indexOf('Meeting Completion'))
+      // Full width under the two rings and Quick Stats, and above the cards
+      // (Pastor feedback, ticket 05, moved on 2026-10-14).
+      const order = ['Needs Follow-Up', 'Meeting Completion', 'Quick Stats', 'Growth in discipleship', 'All relationships']
+      const positions = order.map((words) => html.indexOf(words))
+      expect(positions[0]).toBeGreaterThan(-1)
+      expect(positions).toEqual([...positions].sort((a, b) => a - b))
 
       // A Ministry opened today: one point, now, and what it counts.
       expect(html).toContain('people discipled now')

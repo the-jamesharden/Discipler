@@ -47,7 +47,7 @@ A Week in which nobody was asked, a brand-new Ministry's or one where every rela
 When a chart has nothing to draw it says why: *No check-ins last week* when none were sent, and otherwise *Nothing answered last week* on Meeting Completion and *Nothing rated last week* on Check-In Ratings.
 The check-ins completed this week, the follow-up count and the relationship counts are the current figures.
 
-Under the tiles, full width and above the two charts, a green line shows **growth in discipleship** over time.
+Under the two charts and Quick Stats, full width and short so it reads as a secondary panel, a green line shows **growth in discipleship** over time.
 A dropdown picks what it counts, and it opens on **Total discipled**: everybody being discipled, counted once even when they are in a pair and a group.
 **People in mentorship** counts the Disciples in one-to-ones and 1:2 pairs, and **People in groups** the Disciples in Groups.
 All three count Disciples only, each person once, and never a Discipler for leading, though a Discipler who is discipled somewhere else is counted there.

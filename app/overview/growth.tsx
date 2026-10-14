@@ -17,9 +17,9 @@ import { overviewAddress } from './growth-address'
 import { plotOf } from './growth-plot'
 
 /**
- * The growth chart (Pastor feedback, ticket 05): full width under the tiles and
- * above the donuts, a green line of how many people were being discipled at the
- * end of each week or month, ending on now. Drawn on the server like the
+ * The growth chart (Pastor feedback, ticket 05): full width under the donuts
+ * and Quick Stats, a short green line of how many people were being discipled
+ * at the end of each week or month, ending on now. Drawn on the server like the
  * donuts, with no chart library.
  *
  * The dropdown is a `details` of three links, as the Account menu is, and the
