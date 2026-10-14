@@ -6,7 +6,7 @@ Today: Overview has two server-drawn SVG donuts and no time series, and a test a
 
 **Blocked by:** the weekly donut change (Overview's rates and donuts covering last week) reaching `main`, which another session was shipping on 2026-10-12.
 
-**Status:** needs-triage
+**Status:** ready-for-agent
 
 ## Acceptance
 
