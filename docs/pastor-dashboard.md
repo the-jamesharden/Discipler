@@ -39,6 +39,21 @@ The rates, both charts and the rate rows in Quick Stats cover last week: the las
 A whole week rather than the current one, because the current week reads 0% until the Check-In Cadence comes round and then climbs as answers arrive.
 The check-ins completed this week, the follow-up count and the relationship counts are the current figures.
 
+Under the tiles, full width and above the two charts, a green line shows **growth in discipleship** over time.
+A dropdown picks what it counts, and it opens on **Total discipled**: everybody being discipled, counted once even when they are in a pair and a group.
+**People in mentorship** counts the Disciples in one-to-ones and 1:2 pairs, and **People in groups** the Disciples in Groups.
+All three count Disciples only, each person once, and never a Discipler for leading, though a Discipler who is discipled somewhere else is counted there.
+A pair is told from a Group as the cards tell them apart, by the Group's name and who is in it then, never by the relationship's kind.
+A relationship counts from when it was accepted until it ended, a person from when they joined it until they left, and a paused relationship counts in none of the three for as long as its Pause stands.
+A toggle on the chart switches it between the last 12 weeks and every month since the Ministry opened; nothing else on the Overview changes with it.
+The last point is the live count now, and every earlier point is the count at the end of that week or month in the Ministry Timezone.
+Every point is derived from the stored history of relationships, memberships, Pauses and Resumes, so a relationship ended or paused last month shows as it stood then.
+A week or month before the Ministry opened is drawn as nothing rather than as zero, so a young Ministry's line starts part way across, and a Ministry younger than a week or a month shows the one point it has, now, and says it opened this week or this month.
+The months view is a year across at the least, so a few months sit at the right as a few weeks do.
+Above the line are the number now and the change across the chart, such as *+13 in 12 weeks*.
+The dropdown is a menu of links and the toggle two links, so both work without script, and what is picked is in the address (`?growth=` and `?by=`).
+Like the donuts it is drawn on the server, with no chart library.
+
 ## Check-Ins
 
 The Check-Ins tab is the week's raw operational picture.

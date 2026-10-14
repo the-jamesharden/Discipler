@@ -1,13 +1,22 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { daysSince, systemClock, type Clock } from '~/domain/clock'
+import {
+  OPENING_CHOICE,
+  growthSeries,
+  type GrowthChoice,
+  type GrowthHistory,
+  type GrowthMembership,
+  type GrowthPause,
+  type GrowthRelationship,
+} from '~/domain/growth'
 import { relationshipId, type MinistryId, type RelationshipId } from '~/domain/ids'
 import { NO_CHECK_INS, type CheckInCounts } from '~/domain/overview'
 import { deriveRelationshipState } from '~/domain/relationship-state'
 import { ACCEPTANCE_ESCALATION_DAYS } from '~/domain/relationships'
 import { isoWeekOf, weeksApart } from '~/domain/week'
-import type { Overview, OverviewReader, OverviewRelationship } from '~/service/ports'
+import type { Overview, OverviewGrowth, OverviewReader, OverviewRelationship } from '~/service/ports'
 import { careNeededFrom } from './care-needed-reader'
-import { adminPage, documentFor, readPageDocument, type PageDocument } from './page'
+import { adminPage, documentFor, list, readPageDocument, section, type PageDocument } from './page'
 import { pairCardFrom } from './pair-card-reader'
 import {
   answersFrom,
@@ -224,12 +233,12 @@ export const readOverview = async (
  * tile, the badge and the flag lines cannot disagree.
  */
 export const createSupabaseOverviewReader = (clock: Clock = systemClock): OverviewReader => ({
-  async readOverviewPage(card: RelationshipId | null = null) {
+  async readOverviewPage(card: RelationshipId | null = null, growth: GrowthChoice = OPENING_CHOICE) {
     const doc = await readPageDocument(
       await createSupabaseServerClient(),
       ...overviewDocument(card),
     )
-    return adminPage(doc, () => overviewPageFrom(doc, clock))
+    return adminPage(doc, () => overviewPageFrom(doc, clock, growth))
   },
 })
 
@@ -242,14 +251,108 @@ export const overviewDocument = (
 ): [page: string, args?: Readonly<Record<string, unknown>>] =>
   card === null ? ['overview_page'] : ['overview_card_page', { card_relationship_id: card }]
 
-/** The tab, its Care Needed list and the card the address names, out of one document. */
-export const overviewPageFrom = (doc: PageDocument, clock: Clock) => {
+/**
+ * The tab, its Care Needed list, the card the address names and the growth
+ * chart as the address picked it, out of one document.
+ */
+export const overviewPageFrom = (doc: PageDocument, clock: Clock, growth: GrowthChoice = OPENING_CHOICE) => {
   const history = historyOf(doc)
   return {
     overview: overviewFrom(history, clock),
     care: careNeededFrom(history, clock),
     card: pairCardFrom(doc, history, clock),
+    growth: growthChartFrom(doc, history.timeZone, growth, clock),
   }
+}
+
+/**
+ * The `growth` part of the Overview's document: everything a past point is
+ * counted from (`20261014001400_the_growth_chart.sql`). Every list is the
+ * whole history, ended rows included, because a point last month has to see
+ * what stood last month.
+ *
+ * Raised rather than skipped where a row lacks what it must have, for the
+ * reason the rest of this reader raises: a person quietly left out of a count
+ * is a wrong number shown confidently.
+ */
+export const growthHistoryFrom = (doc: PageDocument): GrowthHistory => {
+  const growth = section(doc, 'growth')
+  const openedAt = instant(growth.opened_at)
+  if (!openedAt) throw new Error('The growth chart was not told when the Ministry opened')
+
+  const relationships = list(growth, 'relationships').map((row): GrowthRelationship => {
+    const id = text(row.id)
+    const createdAt = instant(row.created_at)
+    if (!id || !createdAt) {
+      throw new Error(`A relationship arrived with no id or no created_at: ${JSON.stringify(row)}`)
+    }
+    return {
+      id,
+      // A blank name is no name, as `readGroupName` reads one.
+      name: typeof row.name === 'string' && row.name.trim() !== '' ? row.name : null,
+      createdAt,
+      acceptedAt: instant(row.accepted_at),
+      endedAt: instant(row.ended_at),
+    }
+  })
+
+  const members = list(growth, 'members').map((row): GrowthMembership => {
+    const relationship = text(row.relationship_id)
+    const person = text(row.person_id)
+    const startedAt = instant(row.started_at)
+    if (!relationship || !person || !startedAt || (row.role !== 'leader' && row.role !== 'participant')) {
+      throw new Error(`A membership arrived without its relationship, person, role or start: ${JSON.stringify(row)}`)
+    }
+    return {
+      relationshipId: relationship,
+      personId: person,
+      role: row.role,
+      startedAt,
+      endedAt: instant(row.ended_at),
+      acceptedAt: instant(row.accepted_at),
+    }
+  })
+
+  const pauses = list(growth, 'pauses').map((row): GrowthPause => {
+    const relationship = text(row.relationship_id)
+    const at = instant(row.occurred_at)
+    const kind = row.type === 'relationship.paused' ? 'paused' : row.type === 'relationship.resumed' ? 'resumed' : null
+    if (!relationship || !at || !kind) {
+      throw new Error(`A Pause arrived without its relationship, kind or time: ${JSON.stringify(row)}`)
+    }
+    return { relationshipId: relationship, kind, at }
+  })
+
+  return { openedAt, relationships, members, pauses }
+}
+
+/**
+ * The chart, against the same clock as the rest of the tab. None for a Ministry
+ * with no zone: a week is only a week against one, and none is guessed.
+ */
+const growthChartFrom = (
+  doc: PageDocument,
+  timeZone: string | null,
+  choice: GrowthChoice,
+  clock: Clock,
+): OverviewGrowth | null =>
+  timeZone
+    ? { choice, timeZone, series: growthSeries(growthHistoryFrom(doc), choice, timeZone, clock.now()) }
+    : null
+
+/**
+ * The growth chart against whichever signed-in client it is handed, for the
+ * tests that drive it with a real session; null where the session does not
+ * administer the Ministry named.
+ */
+export const readGrowth = async (
+  supabase: SupabaseClient,
+  ministryId: MinistryId,
+  choice: GrowthChoice,
+  clock: Clock,
+): Promise<OverviewGrowth | null> => {
+  const doc = await documentFor(supabase, ministryId, 'overview_page')
+  return doc ? growthChartFrom(doc, historyOf(doc).timeZone, choice, clock) : null
 }
 
 /**

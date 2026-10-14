@@ -141,6 +141,53 @@ describe.skipIf(skipUnlessAppIsRunning)('the Admin tabs', () => {
       expect(html).not.toContain('<script src="https://cdn')
     })
 
+    /** The opening tag of the one link whose words are these. */
+    const linkTo = (html: string, words: string): string => {
+      const found = html.match(new RegExp(`<a [^>]*>${words}</a>`, 'g')) ?? []
+      expect(found, words).toHaveLength(1)
+      return found[0]!
+    }
+
+    it('draws the growth chart under the tiles, opening on Total discipled by weeks', async () => {
+      const { html } = await getPage('/overview', cookie)
+
+      // Full width under the tiles and above the two rings (Pastor feedback, ticket 05).
+      const chart = html.indexOf('Growth in discipleship')
+      expect(chart).toBeGreaterThan(html.indexOf('Needs Follow-Up'))
+      expect(chart).toBeLessThan(html.indexOf('Meeting Completion'))
+
+      // A Ministry opened today: one point, now, and what it counts.
+      expect(html).toContain('people discipled now')
+      expect(html).toContain('Opened this week')
+      expect(html.match(/class="growth-dot[^"]*"/g)).toHaveLength(1)
+      expect(html).toMatch(/<summary[^>]*>Total discipled<svg/)
+      expect(linkTo(html, 'Weeks')).toContain('href="/overview"')
+      expect(linkTo(html, 'Weeks')).toContain('aria-current="true"')
+    })
+
+    it('keeps what the chart counts and by what in the address, as links that need no script', async () => {
+      const { response, html } = await getPage('/overview?growth=groups&by=months', cookie)
+      expect(response.status).toBe(200)
+
+      expect(html).toMatch(/<summary[^>]*>People in groups<svg/)
+      expect(html).toContain('people in groups now')
+      expect(html).toContain('Opened this month')
+      // Each link keeps the other control's choice and nothing else.
+      expect(linkTo(html, 'Months')).toContain('href="/overview?growth=groups&amp;by=months"')
+      expect(linkTo(html, 'Months')).toContain('aria-current="true"')
+      expect(linkTo(html, 'Weeks')).toContain('href="/overview?growth=groups"')
+      expect(linkTo(html, 'Weeks')).not.toContain('aria-current')
+      expect(linkTo(html, 'Total discipled')).toContain('href="/overview?by=months"')
+      expect(linkTo(html, 'People in mentorship')).toContain('href="/overview?growth=mentorship&amp;by=months"')
+      expect(linkTo(html, 'People in groups')).toContain('aria-current="true"')
+      // Plain links in a `details`: no form, no script to submit one.
+      expect(html).toMatch(/<details class="growth-pick">/)
+
+      // Anything the address says that the chart does not know is the opening choice.
+      const odd = await getPage('/overview?growth=everybody&by=years', cookie)
+      expect(odd.html).toMatch(/<summary[^>]*>Total discipled<svg/)
+    })
+
     it('renders the Check-Ins tab with three zero counts', async () => {
       const { response, html } = await getPage('/check-ins', cookie)
       expect(response.status).toBe(200)

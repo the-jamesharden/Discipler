@@ -22,6 +22,8 @@ import {
 } from './copy'
 import { Donut } from './donut'
 import { flagsFor } from './flags'
+import { GrowthChart } from './growth'
+import { growthChoiceFrom, overviewAddress } from './growth-address'
 import { cardPill, needOf } from './need'
 
 export const dynamic = 'force-dynamic'
@@ -45,28 +47,34 @@ export const dynamic = 'force-dynamic'
  * 07), or for a Group the same card in its group form (ticket 08): this same
  * page at `?card=`, so the address says which card is open, it works without
  * script, and closing it is a link back to `/overview`.
+ *
+ * Under the tiles, full width, the growth chart (Pastor feedback, ticket 05):
+ * what it counts and whether by weeks or months is in the address as well, at
+ * `?growth=` and `?by=`, and moves nothing else on the page. A card opened and
+ * closed keeps it.
  */
 
 export default async function OverviewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ card?: string; done?: string; error?: string }>
+  searchParams: Promise<{ card?: string; done?: string; error?: string; growth?: string; by?: string }>
 }) {
   const query = await searchParams
   // Whatever arrives in the address is whatever somebody typed there: an id or
   // nothing, and the card is read only for a relationship this Admin's own
   // Ministry holds.
   const asked = relationshipIdFrom(query.card)
+  const chart = growthChoiceFrom(query)
 
   // One read: the session verdict, the tab, the Care Needed list and the card
   // come from one document, so the Needs Follow-Up tile, the tab badge, the flag
   // lines on the cards and the card itself are all this one list.
-  const page = await getOverviewReader().readOverviewPage(asked)
+  const page = await getOverviewReader().readOverviewPage(asked, chart)
   if (page.status === 'not-an-admin') return <NotAnAdmin title="Ministry overview" />
   if (page.status === 'signed-out') redirect('/login')
 
   const { admin } = page
-  const { overview, care, card } = page.page
+  const { overview, care, card, growth } = page.page
 
   // Opening the card reads its Concerns, and records the reading as *Read the
   // concern* does. After the read and never instead of it.
@@ -126,6 +134,8 @@ export default async function OverviewPage({
           </li>
         ))}
       </ul>
+
+      {growth ? <GrowthChart growth={growth} /> : null}
 
       <div className="charts">
         <div className="card">
@@ -213,7 +223,7 @@ export default async function OverviewPage({
                   key={relationship.relationshipId}
                   id={`rel-${relationship.relationshipId}`}
                   className={className}
-                  href={`/overview?card=${relationship.relationshipId}`}
+                  href={overviewAddress(chart, relationship.relationshipId)}
                   scroll={false}
                   prefetch={false}
                 >
@@ -232,7 +242,7 @@ export default async function OverviewPage({
           now={now}
           // Back to the card it was opened from: without script the browser
           // scrolls there, and with it the page has not moved.
-          close={`/overview#rel-${card.relationshipId}`}
+          close={`${overviewAddress(chart)}#rel-${card.relationshipId}`}
           back={`/overview?card=${card.relationshipId}`}
           notice={notice}
         />
