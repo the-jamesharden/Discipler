@@ -7,7 +7,7 @@ Design: `.lavish/pastor-feedback/mock-forms-editor.html` (the *Add a question* r
 
 **Blocked by:** 07, 11
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 ## Acceptance
 

@@ -9,7 +9,7 @@ Today: only the goal options and the groups can be configured (`app/intake-forms
 
 **Blocked by:** 06
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 ## Acceptance
 

@@ -6,7 +6,7 @@ Today: `public/discipler.css`, *the botanical frame*, draws `/botanical/blossom-
 
 **Blocked by:** nothing
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 ## Acceptance
 

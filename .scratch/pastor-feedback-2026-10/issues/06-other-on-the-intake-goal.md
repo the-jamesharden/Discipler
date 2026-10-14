@@ -8,7 +8,7 @@ James asked for this ticket to go last.
 
 **Blocked by:** nothing
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 ## Acceptance
 

@@ -8,7 +8,7 @@ Today: A and B list cards that go nowhere, and concern is a sealed count with *G
 
 **Blocked by:** 03, 07, 08
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 ## Acceptance
 
