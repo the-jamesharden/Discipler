@@ -50,4 +50,3 @@ Decisions made while building, each the conservative reading, with the alternati
   On a phone every other date label is dropped.
   Each dot carries its own words for a pointer resting on it (*Week of 27 Jul: 14*, *Now: 27*), and the plot says the whole line to a screen reader.
 - **Only the Overview's document carries the history behind the chart.** Check-Ins aliased the Overview's document, so the shared part became `app.history_page()` and Check-Ins answers with that alone (migration `20261014001400_the_growth_chart.sql`).
-
