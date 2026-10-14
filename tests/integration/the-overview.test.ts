@@ -196,13 +196,6 @@ describe('the Overview', () => {
     await church.replyAt(minutesAfter(at(0), 1), leader, '1')
     await church.replyAt(minutesAfter(at(0), 2), leader, 'B')
 
-    // The second question is reminded a day later and given up on the day after
-    // that, which closes the conversation: until then the week has not finished,
-    // and the rates would be over the week before it. Half past eight in the
-    // evening, inside the hours the tick texts in.
-    await church.tickAt(minutesAfter(at(0), 24 * 60 + 30))
-    await church.tickAt(minutesAfter(at(0), 48 * 60 + 30))
-
     const overview = await church.overviewAt(beforeTheTick(1))
 
     expect(overview.counts).toEqual({
@@ -297,8 +290,8 @@ describe('the Overview', () => {
     await expect(church.overviewAt(monday(2))).resolves.toMatchObject({ counts: firstSunday })
 
     // Its last question is reminded on Monday evening and given up on Tuesday
-    // evening, which closes it and finishes the week. Half past eight, inside
-    // the hours the tick texts in.
+    // evening, which closes it; the week has finished by then, forty-eight hours
+    // after it opened. Half past eight, inside the hours the tick texts in.
     await church.tickAt(minutesAfter(sunday(1), 24 * 60 + 30))
     await expect(church.overviewAt(minutesAfter(sunday(1), 25 * 60))).resolves.toMatchObject({ counts: firstSunday })
     await church.tickAt(minutesAfter(sunday(1), 48 * 60 + 30))

@@ -2347,8 +2347,8 @@ export interface Overview {
   readonly paused: number
   /**
    * Relationship-weeks in last week: the last finished week, the most recent ISO
-   * week before the current one whose sequences have all closed, in the
-   * Ministry's timezone (`lastFinishedWeek`).
+   * week before the current one whose sequences have all closed or opened
+   * forty-eight hours ago, in the Ministry's timezone (`lastFinishedWeek`).
    */
   readonly counts: CheckInCounts
   /** Relationship-weeks in the current ISO week, in the Ministry's timezone, with an `answeredAt`. */

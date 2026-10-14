@@ -190,10 +190,11 @@ export const overviewFrom = (history: HistoryInputs, clock: Clock): Overview => 
   ).length
 
   // The rates are last week's, where last week is the last finished week: the
-  // most recent before this one whose sequences have all closed, so the figures
-  // hold still from the moment it finishes rather than reading 0% until its
-  // answers arrive. The rows carry their sequence's closing, so they are what
-  // says whether a week has finished.
+  // most recent before this one whose sequences have all closed or been waited
+  // on for forty-eight hours, so the figures hold still from the moment it
+  // finishes rather than reading 0% until its answers arrive. The rows carry
+  // their sequence's opening and closing, so they are what says whether a week
+  // has finished.
   const lastWeek = lastFinishedWeek(answers, now, timeZone)
   const lastWeeks = answers.filter((week) => isoWeekOf(week.openedAt, timeZone) === lastWeek)
 

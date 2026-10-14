@@ -1,4 +1,4 @@
-import type { Satisfaction } from './check-in'
+import { REMINDER_AFTER_HOURS, type Satisfaction } from './check-in'
 import { isoWeekOf, weekAfter, type IsoWeek } from './week'
 
 /**
@@ -59,9 +59,18 @@ export const checkInRates = (counts: CheckInCounts): CheckInRates => ({
 })
 
 /**
+ * How long the Overview waits on a week's Check-In Sequence before it reads the
+ * week anyway: one question's full lapse, a day to the reminder and a day more
+ * before the conversation moves on. Derived from the reminder rather than written
+ * down as forty-eight, because whatever the reminder clock becomes, this is twice
+ * it.
+ */
+export const WEEK_WAITED_ON_FOR_HOURS = REMINDER_AFTER_HOURS * 2
+
+/**
  * The week the rates and both rings are over: the last finished week. The most
  * recent ISO week before the current one, in the Ministry's timezone, whose
- * Check-In Sequences have all closed.
+ * Check-In Sequences have all closed or opened `WEEK_WAITED_ON_FOR_HOURS` ago.
  *
  * Not simply the week before this one. A relationship-week belongs to the week
  * its sequence opened in, and a sequence stays open while answers can still
@@ -78,18 +87,27 @@ export const checkInRates = (counts: CheckInCounts): CheckInRates => ({
  * the week's sequences, not most: one still running is one whose answers would
  * still move the figures.
  *
+ * But waited on for forty-eight hours from its opening and no longer. A Leader
+ * who answers nothing is passed over one relationship at a time, two days each,
+ * so their conversation can run until the next cadence displaces it; waiting on
+ * it would make *last week* quietly mean the week before last for as long as
+ * they stayed silent. The answers that matter have come by then, and one that
+ * arrives later may still move last week's figures, which is accepted.
+ *
  * A week nobody was asked in has nothing still running, so it is finished and
  * reads as empty rather than as the week before it, which would be a different
- * week under the words *last week*. A week still running is passed over and no
- * more, so a sequence that never closed holds up its own week and no later one.
+ * week under the words *last week*.
  */
 export const lastFinishedWeek = (
   sequences: readonly { readonly openedAt: Date; readonly closedAt: Date | null }[],
   now: Date,
   timeZone: string,
 ): IsoWeek => {
+  const waitedOn = WEEK_WAITED_ON_FOR_HOURS * 3_600_000
   const running = new Set(
-    sequences.filter((sequence) => sequence.closedAt === null).map((sequence) => isoWeekOf(sequence.openedAt, timeZone)),
+    sequences
+      .filter((sequence) => sequence.closedAt === null && now.getTime() - sequence.openedAt.getTime() < waitedOn)
+      .map((sequence) => isoWeekOf(sequence.openedAt, timeZone)),
   )
 
   // Each step back passes one week that is in the set, and the set is finite.

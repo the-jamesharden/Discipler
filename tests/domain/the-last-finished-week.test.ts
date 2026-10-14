@@ -8,7 +8,8 @@ import type { HistoryInputs } from '~/platform/supabase/relationship-history'
 /**
  * Which week the Overview's rates and rings are over (follow-up to PR #27):
  * the last finished week, the most recent ISO week before the current one, in
- * the Ministry Timezone, whose Check-In Sequences have all closed.
+ * the Ministry Timezone, whose Check-In Sequences have all closed or opened
+ * forty-eight hours ago.
  *
  * A relationship-week belongs to the week its sequence opened in, and a
  * sequence stays open while answers can still come. Read as plain *the week
@@ -16,7 +17,7 @@ import type { HistoryInputs } from '~/platform/supabase/relationship-history'
  * read 0% on Monday and climb as the answers came in -- the very thing the
  * window exists to stop. Read as the last finished week, the figures hold still
  * from the moment a week finishes until the next one does, on every check-in
- * day.
+ * day, and a Leader who never answers holds a week up for two days and no more.
  *
  * Driven through `overviewFrom` with no database near it, so the window is
  * proved in milliseconds against the zones the product is used in.
@@ -133,6 +134,13 @@ describe('the last finished week, on a Sunday cadence', () => {
     expect(countsAt(historyOf(chicago, w40, w41Closed, w42Open), chicagoAt(19, 9))).toEqual(TWO_SENT_ONE_NOT_MET)
     expect(windowAt(historyOf(chicago, w40, w41Closed, w42Open), chicagoAt(19, 9))).toBe(isoWeek('2026-W41'))
   })
+
+  it("moves on to last week by Tuesday at four, whether or not last Sunday's sequence has closed", () => {
+    const history = historyOf(chicago, w40, w41Open)
+    expect(windowAt(history, chicagoAt(13, 15))).toBe(isoWeek('2026-W40'))
+    expect(countsAt(history, chicagoAt(13, 16))).toEqual(TWO_SENT_ONE_NOT_MET)
+    expect(windowAt(history, chicagoAt(13, 16))).toBe(isoWeek('2026-W41'))
+  })
 })
 
 describe('the last finished week, on a Thursday cadence', () => {
@@ -143,11 +151,17 @@ describe('the last finished week, on a Thursday cadence', () => {
     expect(countsAt(historyOf(chicago, w40, w41), chicagoAt(12, 0, 10))).toEqual(TWO_SENT_ONE_NOT_MET)
   })
 
-  it('is the week before when a sequence of last week is still open on Monday', () => {
+  it('is last week from Monday even while a silent Leader keeps its sequence open', () => {
     // A Leader with three relationships who answered none: each question waits a
     // day, is reminded and waits another, so the conversation runs into this week.
+    // Thursday's check-in went out more than forty-eight hours before Monday.
     const w41 = aSequence(chicagoAt(8, 16), null, [null, null, null])
-    expect(countsAt(historyOf(chicago, w40, w41), chicagoAt(12, 9))).toEqual(ONE_OUTSTANDING)
+    expect(countsAt(historyOf(chicago, w40, w41), chicagoAt(12, 0))).toEqual({
+      sent: 3,
+      answered: 0,
+      held: 0,
+      rated: { outstanding: 0, good: 0, okay: 0, concern: 0 },
+    })
   })
 })
 
@@ -185,18 +199,26 @@ describe('what finished means', () => {
     })
   })
 
-  it('reaches back past more than one week still open', () => {
-    // Not a thing the cadence leaves behind, since a new week displaces the old
-    // one's sequence; but a stuck sequence skips its own week and no more.
-    const w39 = aSequence(chicagoAt(27, 16, 9), chicagoAt(29, 16, 9), [notMet, null])
-    const w40Open = aSequence(chicagoAt(4, 16), null, [outstanding])
-    const w41Open = aSequence(chicagoAt(11, 16), null, [outstanding])
-    expect(countsAt(historyOf(chicago, w39, w40Open, w41Open), monday)).toEqual(TWO_SENT_ONE_NOT_MET)
-    expect(windowAt(historyOf(chicago, w39, w40Open, w41Open), monday)).toBe(isoWeek('2026-W39'))
+  it('is every sequence closed or opened forty-eight hours ago, so a silent Leader holds a week up two days at most', () => {
+    // A Leader with four relationships who answers nothing is passed over one
+    // relationship at a time, two days each, so their Sunday conversation is
+    // still open on Wednesday and would run until the next Sunday displaced it.
+    const silent = aSequence(chicagoAt(11, 16), null, [null, null, null, null])
+    const history = historyOf(chicago, w40, silent)
+    const silentWeek = { sent: 4, answered: 0, held: 0, rated: { outstanding: 0, good: 0, okay: 0, concern: 0 } }
 
-    // The week after, the stuck week is behind a finished one and holds nothing up.
-    const w42 = aSequence(chicagoAt(18, 16), chicagoAt(18, 18), [outstanding])
-    expect(countsAt(historyOf(chicago, w39, w40Open, w41Open, w42), chicagoAt(19, 9))).toEqual(ONE_OUTSTANDING)
+    expect(countsAt(history, later(chicagoAt(11, 16), 47))).toEqual(ONE_OUTSTANDING)
+    expect(countsAt(history, later(chicagoAt(11, 16), 48))).toEqual(silentWeek)
+    expect(countsAt(history, chicagoAt(15, 9))).toEqual(silentWeek)
+    expect(windowAt(history, chicagoAt(17, 20))).toBe(isoWeek('2026-W41'))
+  })
+
+  it('waits on a stuck sequence no longer than any other', () => {
+    // Never closed at all: past its forty-eight hours it holds nothing up, its
+    // own week included.
+    const w40Stuck = aSequence(chicagoAt(4, 16), null, [notMet, null])
+    expect(windowAt(historyOf(chicago, w40Stuck), chicagoAt(6, 15))).toBe(isoWeek('2026-W39'))
+    expect(countsAt(historyOf(chicago, w40Stuck), chicagoAt(6, 16))).toEqual(TWO_SENT_ONE_NOT_MET)
   })
 
   it('is true of a week nobody was asked in, which reads as empty rather than as the week before', () => {
