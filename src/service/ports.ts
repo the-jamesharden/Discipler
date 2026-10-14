@@ -27,6 +27,7 @@ import type {
 } from '~/domain/boundary'
 import type { CheckInSnapshot, Satisfaction } from '~/domain/check-in'
 import type { CheckInCounts } from '~/domain/overview'
+import type { GrowthChoice, GrowthSeries } from '~/domain/growth'
 import type { IsoWeek } from '~/domain/week'
 import type { ConcernResolution, ConcernViewing, NewConcern } from '~/domain/concerns'
 import type {
@@ -2359,6 +2360,19 @@ export interface OverviewPage {
   readonly care: readonly CareNeededItem[]
   /** The pair card the address names, or null where it names none this Admin may open. */
   readonly card: PairCard | null
+  /**
+   * The growth chart, as the address picked it (Pastor feedback, ticket 05), or
+   * null where the Ministry has no zone to count a week in, which only a
+   * Ministry the caller cannot see has.
+   */
+  readonly growth: OverviewGrowth | null
+}
+
+/** The growth chart's line, what it counts, and the zone its weeks and months are the Ministry's in. */
+export interface OverviewGrowth {
+  readonly choice: GrowthChoice
+  readonly series: GrowthSeries
+  readonly timeZone: string
 }
 
 export interface OverviewReader {
@@ -2368,7 +2382,7 @@ export interface OverviewReader {
    * Ministry; an empty Ministry comes back as zeros and an empty list rather than
    * as a failure.
    */
-  readOverviewPage(card?: RelationshipId | null): Promise<AdminPage<OverviewPage>>
+  readOverviewPage(card?: RelationshipId | null, growth?: GrowthChoice): Promise<AdminPage<OverviewPage>>
 }
 
 /**
