@@ -300,3 +300,43 @@ export const cadenceInstantOf = (
     cadence.hour,
   )
 }
+
+/**
+ * The instant a week opens on a Ministry's wall: midnight at the start of its
+ * Monday, in the Ministry's zone. What *the end of a week* is measured against
+ * (Pastor feedback, ticket 05): a week ends the instant the next one opens, so a
+ * week that lost an hour to the clocks changing ends an hour sooner, not seven
+ * whole days after the last.
+ */
+export const weekOpensAt = (week: IsoWeek, timeZone: string): Date => {
+  const [year, number] = week.split('-W')
+  const monday = new Date(mondayOpening(Number(year), Number(number)))
+  return instantOfLocalTime(timeZone, monday.getUTCFullYear(), monday.getUTCMonth() + 1, monday.getUTCDate(), 0)
+}
+
+/** The ISO week `count` weeks after this one, or before it for a negative count. */
+export const weekAfter = (week: IsoWeek, count: number): IsoWeek => {
+  const [year, number] = week.split('-W')
+  // A calendar coordinate, so reading it back in UTC is reading the civil date.
+  return isoWeekOf(new Date(mondayOpening(Number(year), Number(number)) + count * 7 * DAY), 'UTC')
+}
+
+/** The instant a calendar month opens on a Ministry's wall: midnight on its first. */
+export const monthOpensAt = (month: CalendarMonth, timeZone: string): Date => {
+  const [year, number] = month.split('-')
+  return instantOfLocalTime(timeZone, Number(year), Number(number), 1, 0)
+}
+
+/** The calendar month `count` months after this one, or before it for a negative count. */
+export const monthAfter = (month: CalendarMonth, count: number): CalendarMonth => {
+  const [year, number] = month.split('-')
+  const after = new Date(Date.UTC(Number(year), Number(number) - 1 + count, 1))
+  return calendarMonthOf(after, 'UTC')
+}
+
+/** How many calendar months separate two of them: `0` for the same month, negative when the later is earlier. */
+export const monthsApart = (earlier: CalendarMonth, later: CalendarMonth): number => {
+  const [fromYear, fromMonth] = earlier.split('-').map(Number)
+  const [toYear, toMonth] = later.split('-').map(Number)
+  return (toYear! - fromYear!) * 12 + (toMonth! - fromMonth!)
+}
