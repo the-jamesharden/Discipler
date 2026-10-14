@@ -134,7 +134,10 @@ describe.skipIf(skipUnlessAppIsRunning)('the Admin tabs', () => {
       }
       expect(html).toContain('0%')
       expect(html).toContain('No relationships yet')
-      expect(html).toContain('No check-ins last week')
+      // Both rings empty because nothing was sent, which each says in the same words.
+      expect(html.match(/<li class="muted">No check-ins last week<\/li>/g)).toHaveLength(2)
+      expect(html).not.toContain('Nothing answered')
+      expect(html).not.toContain('Nothing rated')
       // Two rings drawn on the server, and no chart library.
       expect(html.match(/<svg[^>]*class="donut"/g)).toHaveLength(2)
       expect(html).not.toContain('chart.js')
