@@ -241,12 +241,17 @@ td .empty, li .empty { padding: 0; text-align: left; }
 .chart-head .card-title { margin-bottom: 0; }
 .chart-box { display: flex; align-items: center; justify-content: center; gap: 1.5rem; min-height: 200px; flex-wrap: wrap; }
 .donut { width: 150px; height: 150px; flex-shrink: 0; }
-.donut-figures { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
+/* Beside the ring wherever eight rems are left beside it, and no wider than its
+   words: a long empty line such as *Nothing answered last week* folds onto two
+   lines next to the ring rather than dropping the figure under it, so the two
+   rings keep one shape whichever of them is empty. */
+.donut-figures { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; flex: 1 1 8rem; max-width: max-content; }
 .donut-figure { font-family: var(--serif); font-size: 2.4rem; line-height: 1.1; color: var(--primary); margin: 0; }
 /* As `ul.donut-legend`, so that it outranks `.card ul`, which indented the legend
    from the figure above it and pushed a four-line legend under the ring on a phone. */
 ul.donut-legend { list-style: none; font-size: 0.82rem; margin: 0; padding: 0; }
 .donut-legend li { display: flex; align-items: center; gap: 0.45rem; margin-bottom: 0.3rem; }
+.donut-legend li.muted { text-align: center; text-wrap: balance; }
 .donut-legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
 
 /* The growth chart (Pastor feedback, ticket 05; the mock-up is
