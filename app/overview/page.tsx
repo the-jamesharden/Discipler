@@ -12,10 +12,11 @@ import {
   CHECK_IN_RATINGS,
   LAST_WEEK,
   MEETING_COMPLETION,
-  NO_CHECK_INS_LAST_WEEK,
+  meetingRingEmpty,
   NO_RELATIONSHIPS,
   OVERVIEW_SUBTITLE,
   QUICK_STATS,
+  ratingsRingEmpty,
   relationshipCount,
   TILES,
   withPeople,
@@ -34,7 +35,8 @@ export const dynamic = 'force-dynamic'
  * Five tiles, two rings drawn on the server, Quick Stats, and one card per
  * relationship. The rates are the prototype's three definitions and are kept
  * apart: the response rate and the meeting rate must never be conflated. They
- * and both rings are over last week, and every one of them says so.
+ * and both rings are over last week -- the last finished week -- and every one
+ * of them says so.
  *
  * The cards are for triage: who needs a call this week. Each is coloured by
  * what it needs and carries the word for it (Pastor feedback, ticket 02): green
@@ -146,7 +148,7 @@ export default async function OverviewPage({
           <Donut
             title={MEETING_COMPLETION}
             figure={`${rates.meeting}%`}
-            emptyLabel={NO_CHECK_INS_LAST_WEEK}
+            emptyLabel={meetingRingEmpty(overview.counts)}
             segments={[
               { label: 'Met', value: overview.counts.held, colour: 'var(--green-fit)' },
               { label: 'Did not meet', value: notMet, colour: 'var(--red-concern)' },
@@ -161,7 +163,7 @@ export default async function OverviewPage({
           <Donut
             title={CHECK_IN_RATINGS}
             figure={rated === 0 ? '0' : `${overview.counts.rated.outstanding}/${rated}`}
-            emptyLabel={NO_CHECK_INS_LAST_WEEK}
+            emptyLabel={ratingsRingEmpty(overview.counts)}
             segments={[
               { label: 'Outstanding (A)', value: overview.counts.rated.outstanding, colour: 'var(--green-fit)' },
               { label: 'Good (B)', value: overview.counts.rated.good, colour: 'var(--light-green-fit)' },

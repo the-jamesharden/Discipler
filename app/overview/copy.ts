@@ -1,5 +1,6 @@
 import type { FollowUpPayload } from '~/domain/follow-up'
 import type { GrowthMeasure, GrowthScale } from '~/domain/growth'
+import type { CheckInCounts } from '~/domain/overview'
 import type { CareReason, RelationshipState } from '~/domain/relationship-state'
 import { calendarDayOf } from '~/domain/week'
 
@@ -32,7 +33,22 @@ export const ALL_RELATIONSHIPS = 'All relationships'
 export const LAST_WEEK = 'Last week'
 
 export const NO_RELATIONSHIPS = 'No relationships yet. Pair someone from the Roster to begin.'
+
+/**
+ * What each ring says when it has nothing to draw, each its own (James,
+ * 2026-10-14): Meeting Completion is over the weeks answered and Check-In
+ * Ratings over the weeks rated, so *no check-ins* is said only when none were
+ * sent, and a week whose questions went out says which part never came back.
+ */
 export const NO_CHECK_INS_LAST_WEEK = 'No check-ins last week'
+export const NOTHING_ANSWERED_LAST_WEEK = 'Nothing answered last week'
+export const NOTHING_RATED_LAST_WEEK = 'Nothing rated last week'
+
+export const meetingRingEmpty = (counts: CheckInCounts): string =>
+  counts.sent === 0 ? NO_CHECK_INS_LAST_WEEK : NOTHING_ANSWERED_LAST_WEEK
+
+export const ratingsRingEmpty = (counts: CheckInCounts): string =>
+  counts.sent === 0 ? NO_CHECK_INS_LAST_WEEK : NOTHING_RATED_LAST_WEEK
 
 /** *N active · M awaiting acceptance, not yet surfaced*, the prototype's count line. */
 export const relationshipCount = (active: number, hidden: number): string =>
