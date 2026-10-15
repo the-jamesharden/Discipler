@@ -1374,7 +1374,9 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
           intake.firstTime,
           intake.goalOther,
           intake.formVersion,
-          // The same three states, for the same readers. The words go in as they
+          // Like the first-time answer, one of three states -- open to a 1:2, one
+          // to one only, or null where the form did not ask -- read by the Roster
+          // for the Pair popups and Suggested Pairs. The words go in as they
           // arrived: the column is an enum of the two the form offers.
           intake.oneToTwo,
         ],

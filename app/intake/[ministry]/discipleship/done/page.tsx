@@ -33,9 +33,10 @@ import { PreviewNotice } from '../../../wizard-shell'
  *
  * The design's confirmation card carries a summary. The answers that are one of
  * a short list -- the side, the band, the gender, the experience, the one-to-two
- * answer -- and the two counts travel on the redirect and are checked against those lists rather than
- * rendered; the name and the number do not travel, because they are not going in
- * a URL, so the *Reach you at* row says by text and names no digits.
+ * answer -- and the two counts travel on the redirect and are checked against
+ * those lists rather than rendered; the name and the number do not travel,
+ * because they are not going in a URL, so the *Reach you at* row says by text and
+ * names no digits.
  *
  * Under it, the thank-you of the version of the Ministry's form they answered,
  * where the Ministry has written one (Pastor feedback, ticket 11). Beneath what
