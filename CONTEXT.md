@@ -196,7 +196,7 @@ Whether a person said this is their first time — being discipled, or mentoring
 _Avoid_: a suggestion input (ADR-0001 fixes those, and this is not one of them), a filter on the candidate list, and reading an unanswered one as *no*
 
 **One-to-Two Answer**:
-Whether a person said they are open to a 1:2: being discipled alongside one other person, or discipling two people together, whichever Declared Side they offered. The First-Time Answer's twin: worded from the side, carried as two words rather than yes and no, and refused unanswered at the boundary (`readIntakeForm` in `src/domain/intake.ts`) only where the form served asks it. It is shown beside a name on the pairing surfaces for the Admin making the pairing, and binds nothing.
+Whether a person said they are open to a 1:2: being discipled alongside one other person, or discipling two people together, whichever Declared Side they offered. The First-Time Answer's twin: the question is worded from the side, and the answer is carried as two words rather than as yes and no. It is shown beside a name on the pairing surfaces for the Admin making the pairing, and binds nothing.
 _Avoid_: a suggestion input or a filter on either pairing surface (it filters nobody and ranks nobody, which is what keeps it outside ADR-0001), reading an unanswered one as *no*, and a gate on the 1:2 shape the manual pairing screen offers
 
 **Intake Path**:
