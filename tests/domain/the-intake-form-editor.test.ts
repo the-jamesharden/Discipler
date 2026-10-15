@@ -667,6 +667,41 @@ describe('a submission, read against the version its Person opened', () => {
     )
   })
 
+  /**
+   * Somebody who opened the preset before the one-to-two question joined it, and
+   * posts a last page that never asked it (Suggestions beyond the one-to-one,
+   * ticket 01): no field for it arrives, and the answer is kept as *the form did
+   * not ask*.
+   */
+  it('takes a submission to the preset with no one-to-two field, and records no answer to it', () => {
+    const { effects } = submit(mentorAndMentee, {
+      ...answered,
+      goalId: '00000000-0000-4000-8000-000000000009',
+      experience: 'first_time',
+      oneToTwo: null,
+    })
+    const [intake] = effects.flatMap((effect) => (effect.kind === 'intake.record' ? [effect.intake] : []))
+    expect(intake).toMatchObject({ oneToTwo: null, firstTime: true, formVersion: 0 })
+  })
+
+  /**
+   * An edited version is saved after the question existed, so nobody opened one
+   * that was missing it: one that asks it as required refuses the submission
+   * with no field for it, as it refuses one sent empty.
+   */
+  it('refuses a submission with no one-to-two field to an edited version that asks it', () => {
+    const edited = formOf(renamePage(mentorAndMentee, 'welcome', 'Welcome'))
+    expect(edited.version).toBe(1)
+    expect(() =>
+      submit(edited, {
+        ...answered,
+        goalId: '00000000-0000-4000-8000-000000000009',
+        experience: 'first_time',
+        oneToTwo: null,
+      }),
+    ).toThrow(expect.objectContaining({ refusals: ['intake.one_to_two_unanswered'] }))
+  })
+
   it('refuses a missing email once a version asks for one', () => {
     const emailRequired = formOf(
       editQuestion(mentorAndMentee, 'email', { wording: 'Email', menteeWording: null, hint: '', required: true }),

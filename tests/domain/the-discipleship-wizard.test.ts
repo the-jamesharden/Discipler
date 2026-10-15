@@ -133,24 +133,13 @@ describe('what the wizard refuses', () => {
   })
 
   /**
-   * Refused where the form sent the field and it is not one of the two answers:
-   * the person was shown the question, and what came back is not an answer to it.
+   * Refused on a form that asks it, whether the field came back empty, in other
+   * words, or not at all. Which forms did not ask it is `notAskedOf`'s to say.
    */
-  it('refuses the one-to-two field sent empty, or in any other words', () => {
+  it('refuses the one-to-two question unanswered, empty, or in any other words', () => {
+    expect(refusalsOf({ oneToTwo: null })).toEqual(['intake.one_to_two_unanswered'])
     expect(refusalsOf({ oneToTwo: '' })).toEqual(['intake.one_to_two_unanswered'])
     expect(refusalsOf({ oneToTwo: 'maybe' })).toEqual(['intake.one_to_two_unanswered'])
-  })
-
-  /**
-   * A submission with no one-to-two field at all was never shown the question,
-   * and is kept with the answer null, *the form did not ask*. That is somebody
-   * who opened the wizard on version 0 before the question joined it, and posts
-   * a last page that never asked it: the version number they carry is the same,
-   * so the field is the only sign of what they were shown. A browser cannot send
-   * the question's screen without an answer, because its radios are required.
-   */
-  it('keeps a submission that never showed the question, with no answer to it', () => {
-    expect(read({ oneToTwo: null })).toMatchObject({ submission: { oneToTwo: null, firstTime: true } })
   })
 
   /**

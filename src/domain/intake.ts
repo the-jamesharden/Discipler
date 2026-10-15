@@ -443,9 +443,10 @@ const ASKS_EVERYTHING: ReadonlySet<BuiltInQuestion> = new Set()
  * `own` is the Ministry's own questions on that version (ticket 12), which arrive
  * under `fields.own` and are read by `readOwnAnswers`.
  *
- * `notAsked` is Discipler's own questions the form has stopped asking (ticket
- * 13): removed by an Admin, so not on the version opened, or, for the reopened
- * page, not on the form the Person last answered. Each is neither required nor
+ * `notAsked` is Discipler's own questions the form did not ask (`notAskedOf`):
+ * removed by an Admin (ticket 13), so not on the version opened, or, for the
+ * reopened page, not on the form the Person last answered; and the one-to-two
+ * question on a preset opened before it joined. Each is neither required nor
  * read. An answer to one arriving anyway is not the form Discipler served, and is
  * refused as an answer with no question is.
  */
@@ -488,16 +489,11 @@ export const readIntakeForm = (
     } else if (experience === null && required.has('experience')) {
       refusals.push('intake.first_time_unanswered')
     }
-    // Its twin (Suggestions beyond the one-to-one, ticket 01), with one rule more:
-    // a submission with no field at all was never shown it and is kept as *the
-    // form did not ask*. It joined version 0 of every Ministry's form, so
-    // somebody who opened that version before it did posts a last page that
-    // never asked it, under the same version number. A browser cannot send the
-    // question's own screen unanswered, since its radios are required, so only a
-    // field sent empty or in other words is refused.
+    // Its twin (Suggestions beyond the one-to-one, ticket 01). Which forms did
+    // not ask it, the preset opened before it joined among them, is `notAskedOf`.
     if (!asks('oneToTwo')) {
       if (fields.oneToTwo !== null) answerWithNoQuestion()
-    } else if (oneToTwo === null && fields.oneToTwo !== null && required.has('oneToTwo')) {
+    } else if (oneToTwo === null && required.has('oneToTwo')) {
       refusals.push('intake.one_to_two_unanswered')
     }
   } else if (fields.declaredSide !== null || fields.experience !== null || fields.oneToTwo !== null) {

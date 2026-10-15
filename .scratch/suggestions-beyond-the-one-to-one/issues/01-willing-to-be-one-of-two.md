@@ -154,11 +154,13 @@ Decisions made in the port, each the conservative reading, with the alternative 
 - **Refused only where the form served asks it.**
   An answer to it on a form that does not ask it is refused as an answer with no question (`intake.path_unknown`).
   An answer to it dropped by a removal after the version opened is not stored (`withoutWhatIsNoLongerAsked`).
-- **A submission with no one-to-two field at all is kept, with the answer null; only a field sent empty or in other words is refused** (`readIntakeForm`; from the review, 2026-10-15).
+- **A submission to the preset (version 0) with no one-to-two field at all is kept, with the answer null; on any other version, and on the preset with the field sent empty or in other words, it is refused** (`notAskedOf`; from the review, 2026-10-15).
   The question joined version 0, so somebody who opened the wizard before the deploy carries the same `v=0` as somebody after it, and the version cannot tell their forms apart.
   What can is the field: the wizard carries an answer between screens as a hidden input and posts the radios of the last page, and a browser cannot send the question's own screen unanswered because its radios are required.
   So a last page that never showed the question arrives with no `oneToTwo` field, and is stored as *the form did not ask*, which is what it was.
-  The cost is that a body crafted to skip the screen is stored as null too, which records nothing untrue.
+  An edited version is always saved after the question existed, so nobody opened one that was missing it.
+  A submission to an edited version that asks the question as required is refused with `intake.one_to_two_unanswered` whether the field arrived empty or not at all (James, 2026-10-15).
+  The cost is that a body crafted to skip the preset's screen is stored as null too, which records nothing untrue.
   For somebody who opened the wizard before the deploy and moves between screens after it, the step numbers shift: the next screen is drawn from the preset as it now stands, so they meet the new question at step 4 before the grid, and a later step in their address is brought back to it.
   That is unavoidable while both forms are version 0.
   Alternative: a marker field naming the screens served, which would need the wizard machine to carry something that is not an answer.

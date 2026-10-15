@@ -1,6 +1,6 @@
 import type { Branded } from './branded'
 import type { IntakeSubmissionId, PersonId } from './ids'
-import { GROUP_PATH, type IntakePath, type IntakeSubmissionDraft } from './intake'
+import { GROUP_PATH, type IntakeFormFields, type IntakePath, type IntakeSubmissionDraft } from './intake'
 import { readWording } from './wording'
 
 /**
@@ -809,6 +809,24 @@ export const removedQuestions = (form: IntakeForm): readonly BuiltInQuestion[] =
   questionsOf(presetForm(form.name)).flatMap((question) =>
     !isOwnQuestion(question) && !questionOn(form, question.key) ? [question.key] : [],
   )
+
+/**
+ * Discipler's own questions a submission's form did not ask: the ones removed
+ * from the version opened, and the one-to-two question where that version is the
+ * preset and no field for it arrived (Suggestions beyond the one-to-one, ticket
+ * 01). It joined version 0, so somebody who opened the preset before it did
+ * posts a last page that never asked it, under the same version number. The
+ * field is the only sign of that, and a browser cannot send the question's own
+ * screen without it, since its radios are required. An edited version is always
+ * saved after the question existed, so nobody opened one that was missing it,
+ * and a submission to one that asks it is refused without an answer, field or
+ * no field.
+ */
+export const notAskedOf = (form: IntakeForm, fields: IntakeFormFields): ReadonlySet<BuiltInQuestion> =>
+  new Set([
+    ...removedQuestions(form),
+    ...(form.version === PRESET_VERSION && fields.oneToTwo === null ? (['oneToTwo'] as const) : []),
+  ])
 
 /**
  * A submission as it is kept: read against the version its Person opened, kept

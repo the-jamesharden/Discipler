@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { IntakeRefused } from '~/domain/errors'
 import { readIntakeForm, type IntakeFormFields } from '~/domain/intake'
-import { ownQuestionsOf, removedQuestions, requiredOn, stillKept, type QuestionKey } from '~/domain/intake-form'
+import { notAskedOf, ownQuestionsOf, requiredOn, stillKept, type QuestionKey } from '~/domain/intake-form'
 import { getCommandService, getIntakeReader, settlePlannedPairings } from '~/service/container'
 import {
   discipleshipWizardFor,
@@ -95,7 +95,7 @@ export async function POST(
       form,
       requiredOn(page.form),
       ownQuestionsOf(page.form),
-      new Set(removedQuestions(page.form)),
+      notAskedOf(page.form, form),
     )
     if ('refusals' in reading) return backToTheForm(reading.refusals)
     return NextResponse.redirect(
