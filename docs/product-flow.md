@@ -89,7 +89,7 @@ Placing them is `group.add_participant`, the same act as **Add to group** on the
 The Admin may instead resolve the item alone.
 
 Somebody on the group Intake link who meant to sign up for one-to-one discipleship finds "I meant to sign up for mentorship" under the group step's actions (Group form exits, ticket 02).
-It links to the discipleship wizard carrying the answers they already gave that both forms ask, so it opens on the mentor-or-mentee question with those screens already answered.
+It links to the discipleship wizard carrying the answers they already gave that both forms ask, so it opens on the mentor-or-mentee question and Continue passes the screens those answers already fill; Back still shows them, filled.
 Following it writes nothing, and the way runs one direction only: the discipleship wizard has no link back to the group form.
 
 Constraints filter before anything is ranked. Gender must match and is absolute — manual pairing cannot override it. The age band constraint governs suggestion only and an admin may pair across it. Whoever survives is ranked by availability overlap, with Discipleship Goal separating candidates who already have comparable overlap, and ties broken by who has waited longest since intake.
