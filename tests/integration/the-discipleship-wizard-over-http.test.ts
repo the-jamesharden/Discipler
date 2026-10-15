@@ -111,17 +111,24 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
   })
 
   it('will not open a later screen than the answers reach', async () => {
-    const { html } = await open({ step: '5' })
+    const { html } = await open({ step: '6' })
     expect(html).toContain('I’m joining as')
     expect(html).not.toContain('name="smsConsent"')
   })
 
-  it('asks both sides the same five things, wording the third one for the side', async () => {
-    const answered = { ageBand: '35-44', gender: 'male', experience: 'first_time' }
+  it('asks both sides the same six things, wording the third and fourth for the side', async () => {
+    const answered = {
+      ageBand: '35-44',
+      gender: 'male',
+      experience: 'first_time',
+      oneToTwo: 'open_to_one_to_two',
+    }
     const aged = { ageBand: '35-44', gender: 'male' }
+    const experienced = { ...aged, experience: 'first_time' }
 
-    // Age and gender, then the first-time question, then the grid, then everything
-    // the single page already asks. Both sides are asked all five.
+    // Age and gender, then the first-time question, then whether they are open to
+    // a 1:2, then the grid, then everything the single page already asks. Both
+    // sides are asked all six.
     const two = await open({ step: '2', side: 'mentor' })
     expect(two.html).toContain('name="ageBand"')
     expect(two.html).toContain('name="gender"')
@@ -134,33 +141,53 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
     expect(mentor.html).toContain('Have you mentored someone before?')
     expect(mentor.html).toContain('Yes, I’ve done this before')
 
-    const four = await open({ step: '4', side: 'mentor', ...answered })
-    expect(four.html).toContain('monday:08')
-    expect(four.html).toContain('sunday:19')
+    // The fourth screen, in the mentee side's words as James gave them and the
+    // mentor side in the same shape (Suggestions beyond the one-to-one, ticket
+    // 01). Two answers each, sentences on their own, under the help line.
+    const menteeFour = await open({ step: '4', side: 'mentee', ...experienced })
+    expect(menteeFour.html).toContain('One more about how you’d be paired.')
+    expect(menteeFour.html).toContain('Open to being mentored alongside another mentee if needed')
+    expect(menteeFour.html).toContain('Sometimes one mentor walks with two people at once. Either answer is fine.')
+    expect(menteeFour.html).toContain('Yes, I’m open to being one of two')
+    expect(menteeFour.html).toContain('No, I’d rather meet one-to-one')
+    expect(menteeFour.html).toContain('value="open_to_one_to_two"')
+    expect(menteeFour.html).toContain('value="one_to_one_only"')
 
-    const five = await open({
-      step: '5',
+    const mentorFour = await open({ step: '4', side: 'mentor', ...experienced })
+    expect(mentorFour.html).toContain('Open to mentoring two mentees together if needed')
+    expect(mentorFour.html).toContain('Yes, I’m open to mentoring two together')
+    expect(mentorFour.html).toContain('No, one mentee at a time')
+    expect(mentorFour.html).not.toContain('Open to being mentored alongside another mentee')
+
+    const five = await open({ step: '5', side: 'mentor', ...answered })
+    expect(five.html).toContain('monday:08')
+    expect(five.html).toContain('sunday:19')
+
+    const six = await open({
+      step: '6',
       side: 'mentor',
       ...answered,
       availability: ['wednesday:18'],
     })
-    expect(five.html).toContain('name="fullName"')
-    expect(five.html).toContain('name="phone"')
-    expect(five.html).toContain('name="goalId"')
-    expect(five.html).toContain('name="smsConsent"')
-    expect(five.html).toContain('value="declined"')
+    expect(six.html).toContain('name="fullName"')
+    expect(six.html).toContain('name="phone"')
+    expect(six.html).toContain('name="goalId"')
+    expect(six.html).toContain('name="smsConsent"')
+    expect(six.html).toContain('value="declined"')
     // The earlier answers are still on the page, on their way to the one POST.
-    expect(five.html).toContain('value="mentor"')
-    expect(five.html).toContain('value="first_time"')
+    expect(six.html).toContain('value="mentor"')
+    expect(six.html).toContain('value="first_time"')
+    expect(six.html).toContain('name="oneToTwo" value="open_to_one_to_two"')
   })
 
   it('says why the grid would not move on, rather than silently redrawing it', async () => {
     const { html } = await open({
-      step: '5',
+      step: '6',
       side: 'mentee',
       ageBand: '25-34',
       gender: 'female',
       experience: 'first_time',
+      oneToTwo: 'open_to_one_to_two',
     })
 
     // The one screen with no `required` field on it, because a checkbox set cannot
@@ -177,12 +204,14 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
       ageBand: '35-44',
       gender: 'male',
       experience: 'done_before',
+      oneToTwo: 'one_to_one_only',
       availability: ['friday:18'],
     })
 
     // The screen asks age and gender, so it does not carry them as hidden --
     // but the answers after it are still on their way to the one POST.
     expect(html).toContain('name="experience" value="done_before"')
+    expect(html).toContain('name="oneToTwo" value="one_to_one_only"')
     expect(html).toContain('name="availability" value="friday:18"')
   })
 
@@ -198,10 +227,13 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
       ageBand: '25-34',
       gender: 'female',
       experience: 'done_before',
+      oneToTwo: 'open_to_one_to_two',
       availability: ['friday:18'],
     })
 
     expect(html).not.toContain('name="experience"')
+    // The one-to-two answer is worded from the side too, and goes the same way.
+    expect(html).not.toContain('name="oneToTwo"')
     // Everything the side does not word is still on its way forward.
     expect(html).toContain('name="ageBand" value="25-34"')
     expect(html).toContain('name="gender" value="female"')
@@ -210,7 +242,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
     // And the question is put again rather than skipped: the wizard cannot reach
     // the grid until it has an answer worded for the side now declared.
     const after = await open({
-      step: '4',
+      step: '5',
       side: 'mentor',
       ageBand: '25-34',
       gender: 'female',
@@ -220,7 +252,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
   })
 
   it('writes nothing at all until the last step submits', async () => {
-    // Four screens' worth of answers, and then the browser is closed.
+    // Five screens' worth of answers, and then the browser is closed.
     await open({ step: '2', side: 'mentee' })
     await open({ step: '3', side: 'mentee', ageBand: '25-34', gender: 'female' })
     await open({
@@ -229,6 +261,14 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
       ageBand: '25-34',
       gender: 'female',
       experience: 'first_time',
+    })
+    await open({
+      step: '5',
+      side: 'mentee',
+      ageBand: '25-34',
+      gender: 'female',
+      experience: 'first_time',
+      oneToTwo: 'one_to_one_only',
     })
 
     const { rows } = await pool.query(
@@ -247,6 +287,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
         ageBand: '45-54',
         gender: 'male',
         experience: 'done_before',
+        oneToTwo: 'one_to_one_only',
         fullName: 'Solomon Adeyemi',
         phone: '555 812 0200',
         email: 'solomon@example.test',
@@ -260,6 +301,11 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
     expect(response.status).toBe(303)
     expect(location).toContain('/discipleship/done')
     expect(location).toContain('side=mentor')
+    // The done page says it back in the side's words (Suggestions beyond the
+    // one-to-one, ticket 01).
+    expect(location).toContain('oneToTwo=one_to_one_only')
+    const done = await fetch(new URL(location, baseUrl), { redirect: 'manual' }).then((each) => each.text())
+    expect(done).toContain('No, one mentee at a time')
 
     const { rows } = await pool.query(
       `select participation_status(p) as status from person p
@@ -283,11 +329,12 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
     }
 
     const { rows: submissions } = await pool.query(
-      `select i.first_time from intake_submission i join person p on p.id = i.person_id
+      `select i.first_time, i.one_to_two from intake_submission i join person p on p.id = i.person_id
         where i.ministry_id = $1 and p.full_name = 'Solomon Adeyemi'`,
       [ministry.id],
     )
     expect(submissions[0].first_time).toBe(false)
+    expect(submissions[0].one_to_two).toBe('one_to_one_only')
   })
 
   it('says what happens next in the words of the side they declared', async () => {
@@ -316,6 +363,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
         ageBand: '25-34',
         gender: 'female',
         experience: 'first_time',
+        oneToTwo: 'open_to_one_to_two',
         fullName: 'Nadia Farouk',
         phone: '555 812 0201',
         goalId: await goalId(),
@@ -354,6 +402,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
 
     expect(location).toContain('intake.side_unknown')
     expect(location).toContain('intake.first_time_unanswered')
+    expect(location).toContain('intake.one_to_two_unanswered')
     expect(await countOf('intake_submission', 'Skipper Jones')).toBe(0)
   })
 
@@ -368,6 +417,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
     expect(html).toContain('Join a group at Riverside Chapel')
     expect(html).not.toContain('name="side"')
     expect(html).not.toContain('name="experience"')
+    expect(html).not.toContain('name="oneToTwo"')
     expect(html).not.toContain('name="goalId"')
   })
 
@@ -430,11 +480,20 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
 
     const fromHal = popupIn((await getPage(`/roster?pair=${hal}`, cookie)).html)
     expect(fromHal).toContain('Solomon Adeyemi')
-    expect((await getPage(`/roster/${solomon}`, cookie)).html).toContain('Has done this before')
+    // And what he said about being one of two is on his row from this side, in
+    // the Roster's words, said outright so a blank means nobody asked
+    // (Suggestions beyond the one-to-one, ticket 01). He is listed all the same.
+    expect(fromHal).toContain('Prefers one-to-one')
+    const personPage = (await getPage(`/roster/${solomon}`, cookie)).html
+    expect(personPage).toContain('Has done this before')
+    // The person page does not say it: it is for the pairing surfaces alone.
+    expect(personPage).not.toContain('Prefers one-to-one')
 
     const fromHim = popupIn((await getPage(`/roster?pair=${solomon}`, cookie)).html)
     expect(fromHim).toContain('Hal Reeves')
     expect(fromHim).not.toContain('New to this')
     expect(fromHim).not.toContain('Has done this before')
+    expect(fromHim).not.toContain('Prefers one-to-one')
+    expect(fromHim).not.toContain('Open to one-to-two')
   })
 })

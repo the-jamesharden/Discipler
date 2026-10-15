@@ -18,6 +18,7 @@ const person = (fullName: string, relationships: readonly RosterRelationship[] =
   relationships,
   declaredSide: null,
   firstTime: null,
+  oneToTwo: null,
   holdsAnAccount: false,
   phone: null,
   email: null,

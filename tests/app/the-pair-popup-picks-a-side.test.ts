@@ -30,6 +30,7 @@ const person = (over: Partial<RosterEntry> = {}): RosterEntry => ({
   relationships: [],
   declaredSide: null,
   firstTime: null,
+  oneToTwo: null,
   holdsAnAccount: false,
   phone: null,
   email: null,

@@ -29,6 +29,7 @@ const person = (over: Partial<RosterEntry> = {}): RosterEntry => ({
   relationships: [],
   declaredSide: null,
   firstTime: null,
+  oneToTwo: null,
   holdsAnAccount: false,
   phone: null,
   email: null,
@@ -222,6 +223,41 @@ describe('a Disciple while what is ticked would make a 1:2 pair', () => {
   it('is never greyed with no gender on file, and nobody is when the Discipler has none to declare', () => {
     expect(greyedInAOneToTwo({ discipler: claire, disciple: person() })).toBeNull()
     expect(greyedInAOneToTwo({ discipler: person(), disciple: tom })).toBeNull()
+  })
+
+  /**
+   * What either of them answered about being one of two greys nobody
+   * (Suggestions beyond the one-to-one, ticket 01): the answer is beside the name
+   * for the Admin, and a 1:2 ticked against it is the Admin's call.
+   */
+  it('is never greyed for having said one-to-one only, on either side of it', () => {
+    const saidNo = person({ gender: 'female', oneToTwo: 'one_to_one_only' })
+    expect(greyedInAOneToTwo({ discipler: claire, disciple: saidNo })).toBeNull()
+    const disciplerWhoSaidNo = person({ gender: 'female', oneToTwo: 'one_to_one_only' })
+    expect(greyedInAOneToTwo({ discipler: disciplerWhoSaidNo, disciple: saidNo })).toBeNull()
+  })
+
+  /**
+   * The answer binds nothing (James, 2026-09-18). Somebody who said one-to-one
+   * only is listed from either side, in the Roster's order, exactly where they
+   * would be had nobody asked, and greyed for nothing a one-to-one would not
+   * grey them for.
+   */
+  it('lists somebody who said one-to-one only, from either side, as if nobody had asked', () => {
+    const oneToOneOnly = person({ gender: 'female', oneToTwo: 'one_to_one_only' })
+    const openToIt = person({ gender: 'female', oneToTwo: 'open_to_one_to_two' })
+    const notAsked = person({ gender: 'female' })
+    const roster = [oneToOneOnly, claire, openToIt, notAsked]
+
+    expect(disciplersShownTo({ roster, disciple: notAsked, genderMatchEnforced: true })).toEqual([
+      oneToOneOnly,
+      claire,
+      openToIt,
+    ])
+    for (const each of [oneToOneOnly, openToIt]) {
+      expect(greyedForADisciple({ genderMatchEnforced: true, disciple: notAsked, discipler: each })).toBeNull()
+      expect(greyedForADiscipler({ genderMatchEnforced: true, discipler: claire, disciple: each })).toBeNull()
+    }
   })
 })
 

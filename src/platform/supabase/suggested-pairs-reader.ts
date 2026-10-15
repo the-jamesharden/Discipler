@@ -129,6 +129,7 @@ export const candidatesFrom = (doc: PageDocument): readonly SuggestionCandidate[
       consentsToTexts: said?.consentsToTexts ?? false,
       optedOut: person.participationStatus === 'opted_out',
       declaredSide: person.declaredSide,
+      oneToTwo: person.oneToTwo,
       memberships: person.relationships.map((relationship) => ({
         relationshipId: relationship.relationshipId,
         role: relationship.role,

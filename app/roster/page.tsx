@@ -540,6 +540,7 @@ export default async function RosterPage({
             email: discipler.email,
             phone: discipler.phone,
             leads: leadsCount(discipler),
+            oneToTwo: discipler.oneToTwo,
             listedFirst: listedFirst(side, discipler),
             doingNow: PAIR_POPUP.doingNow(discipler.relationships, { leading: false }),
             invited: PAIR_POPUP.invited(discipler.fullName, discipler.relationships),
@@ -569,6 +570,7 @@ export default async function RosterPage({
             email: disciple.email,
             phone: disciple.phone,
             firstTime: disciple.firstTime,
+            oneToTwo: disciple.oneToTwo,
             listedFirst: listedFirst(side, disciple),
             doingNow: PAIR_POPUP.doingNow(disciple.relationships, { leading: true }),
             // Against each thing the ticks can make (Manual pairing, recut tickets 02

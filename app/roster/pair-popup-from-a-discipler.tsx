@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import type { Gender } from '~/domain/intake'
-import { displayPhone, firstTimeLabel, PAIR_POPUP } from './copy'
+import type { Gender, OneToTwoAnswer } from '~/domain/intake'
+import { displayPhone, firstTimeLabel, oneToTwoLabel, PAIR_POPUP } from './copy'
 import { CLEAR } from './import-copy'
 import type { PairSide } from './lists'
 import type { RosterView } from './menu'
@@ -68,6 +68,8 @@ export interface PairPopupDisciple {
   readonly phone: string | null
   /** What they said about whether this is their first time, or null where nobody asked. Ranks and filters nobody. */
   readonly firstTime: boolean | null
+  /** Whether they said they are open to a 1:2, or null where nobody asked. Ranks and filters nobody either. */
+  readonly oneToTwo: OneToTwoAnswer | null
   /** Whether they head the list, as having asked to be discipled, or are folded under Everyone else. */
   readonly listedFirst: boolean
   /** What they do now, every pairing with its direction, for the row's second line, or none. Hides and greys nobody. */
@@ -203,6 +205,7 @@ export const PairPopupFromADiscipler = ({
         disciple.email,
         disciple.phone ? displayPhone(disciple.phone) : null,
         disciple.firstTime === null ? null : firstTimeLabel(disciple.firstTime),
+        disciple.oneToTwo === null ? null : oneToTwoLabel[disciple.oneToTwo],
       ]}
       also={disciple.doingNow}
       greyed={greyedNow.get(disciple.id)?.why ?? null}
