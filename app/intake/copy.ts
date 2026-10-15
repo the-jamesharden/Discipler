@@ -230,6 +230,14 @@ export const noGroupInMindDescription = (ministryName: string): string =>
   `We’ll let ${ministryName} know you’d like to be placed in one.`
 
 /**
+ * The line under step three's actions, for somebody who meant the discipleship
+ * form (Group form exits, ticket 02, S-7). The second half is the link, which
+ * takes what they have already answered across with them.
+ */
+export const MEANT_FOR_MENTORSHIP_QUESTION = 'Looking for one-to-one discipleship instead?'
+export const MEANT_FOR_MENTORSHIP_LINK = 'I meant to sign up for mentorship'
+
+/**
  * What the link says when there is nothing to join: a Ministry with no group the
  * form could offer, or a Person every group is closed to. The same page, because
  * to the Person the list is empty either way. It says so plainly and points at

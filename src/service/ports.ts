@@ -1738,6 +1738,13 @@ export interface GroupIntakePage {
   readonly groups: readonly JoinableGroup[]
   /** The version of the Ministry's groups form being served, as on `IntakeWizardPage`. */
   readonly form: IntakeForm
+  /**
+   * The Ministry's mentor and mentee form as it stands now, which is what
+   * somebody opening it fresh would be served. Step three links across to it for
+   * somebody who meant to sign up for mentorship (Group form exits, ticket 02),
+   * carrying only the answers it still asks.
+   */
+  readonly discipleshipForm: IntakeForm
 }
 
 export interface IntakeReader {
