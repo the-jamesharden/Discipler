@@ -133,13 +133,24 @@ describe('what the wizard refuses', () => {
   })
 
   /**
-   * Unanswered is refused on the form that asks it, and only there: null on any
-   * other form is *the form did not ask*, never a refusal, which is what lets the
-   * correction form leave the question out and the Roster keep an earlier answer.
+   * Refused where the form sent the field and it is not one of the two answers:
+   * the person was shown the question, and what came back is not an answer to it.
    */
-  it('refuses the discipleship path with the one-to-two question unanswered', () => {
-    expect(refusalsOf({ oneToTwo: null })).toEqual(['intake.one_to_two_unanswered'])
+  it('refuses the one-to-two field sent empty, or in any other words', () => {
+    expect(refusalsOf({ oneToTwo: '' })).toEqual(['intake.one_to_two_unanswered'])
     expect(refusalsOf({ oneToTwo: 'maybe' })).toEqual(['intake.one_to_two_unanswered'])
+  })
+
+  /**
+   * A submission with no one-to-two field at all was never shown the question,
+   * and is kept with the answer null, *the form did not ask*. That is somebody
+   * who opened the wizard on version 0 before the question joined it, and posts
+   * a last page that never asked it: the version number they carry is the same,
+   * so the field is the only sign of what they were shown. A browser cannot send
+   * the question's screen without an answer, because its radios are required.
+   */
+  it('keeps a submission that never showed the question, with no answer to it', () => {
+    expect(read({ oneToTwo: null })).toMatchObject({ submission: { oneToTwo: null, firstTime: true } })
   })
 
   /**
@@ -164,7 +175,7 @@ describe('what the wizard refuses', () => {
   })
 
   it('reports all three at once rather than one screen at a time', () => {
-    expect(refusalsOf({ declaredSide: null, experience: null, oneToTwo: null })).toEqual([
+    expect(refusalsOf({ declaredSide: null, experience: null, oneToTwo: '' })).toEqual([
       'intake.side_unknown',
       'intake.first_time_unanswered',
       'intake.one_to_two_unanswered',

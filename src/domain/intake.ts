@@ -227,7 +227,11 @@ export interface IntakeFormFields {
   readonly intakePath: string | null
   readonly declaredSide: string | null
   readonly experience: string | null
-  /** Whether they are open to a 1:2, worded from the side as the first-time question is. Null where the form did not ask. */
+  /**
+   * Whether they are open to a 1:2, worded from the side as the first-time
+   * question is. Null where the form sent no such field, which is the form not
+   * having asked; an empty string is the field sent with nothing chosen.
+   */
   readonly oneToTwo: string | null
   /**
    * The group path's one question, in place of the Discipleship Goal: which of
@@ -431,10 +435,10 @@ const ASKS_EVERYTHING: ReadonlySet<BuiltInQuestion> = new Set()
  *
  * `required` is the form's own say on which questions may be left unanswered
  * (Pastor feedback, ticket 11): the version of the Ministry's form the Person
- * opened, by question key. Only the questions an Admin may make optional read it
- * -- the email, the first-time question, the one-to-two question and the goal --
- * because every other one
- * is required by Discipler whatever a form says (`BUILT_IN` in `intake-form.ts`).
+ * opened, by question key. Only the questions an Admin may make optional read
+ * it -- the email, the first-time question, the one-to-two question and the goal
+ * -- because every other one is required by Discipler whatever a form says
+ * (`BUILT_IN` in `intake-form.ts`).
  *
  * `own` is the Ministry's own questions on that version (ticket 12), which arrive
  * under `fields.own` and are read by `readOwnAnswers`.
@@ -484,11 +488,16 @@ export const readIntakeForm = (
     } else if (experience === null && required.has('experience')) {
       refusals.push('intake.first_time_unanswered')
     }
-    // Its twin, by the same rules (Suggestions beyond the one-to-one, ticket 01):
-    // refused unanswered only where the form asks it and keeps it required.
+    // Its twin (Suggestions beyond the one-to-one, ticket 01), with one rule more:
+    // a submission with no field at all was never shown it and is kept as *the
+    // form did not ask*. It joined version 0 of every Ministry's form, so
+    // somebody who opened that version before it did posts a last page that
+    // never asked it, under the same version number. A browser cannot send the
+    // question's own screen unanswered, since its radios are required, so only a
+    // field sent empty or in other words is refused.
     if (!asks('oneToTwo')) {
       if (fields.oneToTwo !== null) answerWithNoQuestion()
-    } else if (oneToTwo === null && required.has('oneToTwo')) {
+    } else if (oneToTwo === null && fields.oneToTwo !== null && required.has('oneToTwo')) {
       refusals.push('intake.one_to_two_unanswered')
     }
   } else if (fields.declaredSide !== null || fields.experience !== null || fields.oneToTwo !== null) {

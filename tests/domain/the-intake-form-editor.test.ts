@@ -660,7 +660,7 @@ describe('a submission, read against the version its Person opened', () => {
   })
 
   it('refuses the same submission against the preset, which asks for all three', () => {
-    expect(() => submit(mentorAndMentee)).toThrow(
+    expect(() => submit(mentorAndMentee, { ...answered, oneToTwo: '' })).toThrow(
       expect.objectContaining({
         refusals: ['intake.first_time_unanswered', 'intake.one_to_two_unanswered', 'intake.goal_not_selected'],
       }),

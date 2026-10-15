@@ -402,8 +402,63 @@ describe.skipIf(skipUnlessAppIsRunning)('the discipleship Intake wizard', () => 
 
     expect(location).toContain('intake.side_unknown')
     expect(location).toContain('intake.first_time_unanswered')
-    expect(location).toContain('intake.one_to_two_unanswered')
     expect(await countOf('intake_submission', 'Skipper Jones')).toBe(0)
+  })
+
+  /**
+   * Somebody who opened the wizard before the one-to-two question joined version
+   * 0, and posts its last page after (Suggestions beyond the one-to-one, ticket
+   * 01). Their page never asked it, so no field for it arrives, and that is how
+   * the boundary tells them apart from somebody who was asked: they are taken,
+   * and nothing is recorded for a question they never saw.
+   */
+  it('takes a last page posted from before the one-to-two question, and records no answer to it', async () => {
+    const { location } = await submit(
+      {
+        via: 'link',
+        v: '0',
+        side: 'mentee',
+        ageBand: '25-34',
+        gender: 'female',
+        experience: 'first_time',
+        fullName: 'Early Bird',
+        phone: '555 812 0205',
+        goalId: await goalId(),
+        smsConsent: 'yes',
+        contactSharing: 'granted',
+      },
+      ['monday:12'],
+    )
+    expect(location).toContain('/discipleship/done')
+    expect(location).not.toContain('oneToTwo=')
+
+    const { rows } = await pool.query(
+      `select i.first_time, i.one_to_two from intake_submission i join person p on p.id = i.person_id
+        where i.ministry_id = $1 and p.full_name = 'Early Bird'`,
+      [ministry.id],
+    )
+    expect(rows).toEqual([{ first_time: true, one_to_two: null }])
+  })
+
+  it('refuses a one-to-two field sent with no answer in it', async () => {
+    const { location } = await submit(
+      {
+        side: 'mentee',
+        ageBand: '25-34',
+        gender: 'female',
+        experience: 'first_time',
+        oneToTwo: '',
+        via: 'link',
+        fullName: 'Blank Answer',
+        phone: '555 812 0206',
+        goalId: await goalId(),
+        smsConsent: 'yes',
+        contactSharing: 'granted',
+      },
+      ['monday:12'],
+    )
+    expect(new URL(location, baseUrl).searchParams.get('refused')).toBe('intake.one_to_two_unanswered')
+    expect(await countOf('intake_submission', 'Blank Answer')).toBe(0)
   })
 
   it('serves the group form on the original link, and the wizard still declares its own path', async () => {
