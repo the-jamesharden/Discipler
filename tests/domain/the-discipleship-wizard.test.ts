@@ -3,13 +3,14 @@ import {
   DECLARED_SIDES,
   INTAKE_PATHS,
   readIntakeForm,
+  REQUIRED_TODAY,
   type IntakeFormFields,
 } from '~/domain/intake'
 
 /**
- * The three answers the discipleship wizard adds to the form Intake already read:
- * which form was being answered, which side the Person offered to stand on, and
- * whether this is their first time.
+ * The four answers the discipleship wizard adds to the form Intake already read:
+ * which form was being answered, which side the Person offered to stand on,
+ * whether this is their first time, and whether they are open to a 1:2.
  *
  * They are read here rather than at each step, because nothing is written until the
  * last step submits: the wizard carries every earlier answer forward as hidden
@@ -32,6 +33,7 @@ const wizardForm: IntakeFormFields = {
   intakePath: 'discipleship',
   declaredSide: 'mentee',
   experience: 'first_time',
+  oneToTwo: 'open_to_one_to_two',
   groupId: null,
 }
 
@@ -82,11 +84,35 @@ describe('what the wizard records', () => {
     })
   })
 
-  it('leaves all three null on a form that did not ask', () => {
+  /**
+   * The first-time answer's twin (Suggestions beyond the one-to-one, ticket 01),
+   * carried as words for the same reason and all the way to the row: the screen
+   * words the question as a statement to agree with, so a yes/no would be read
+   * against a question that is not on the row. The answer binds nothing; what is
+   * recorded is what they said, in the two words the form offers.
+   */
+  it('records whether they are open to a 1:2, in the words they answered', () => {
+    expect(read({ oneToTwo: 'open_to_one_to_two' })).toMatchObject({
+      submission: { oneToTwo: 'open_to_one_to_two' },
+    })
+    expect(read({ oneToTwo: 'one_to_one_only' })).toMatchObject({
+      submission: { oneToTwo: 'one_to_one_only' },
+    })
+  })
+
+  it('takes the one-to-two answer from either side, under the same two words', () => {
+    for (const side of DECLARED_SIDES) {
+      expect(read({ declaredSide: side, oneToTwo: 'one_to_one_only' })).toMatchObject({
+        submission: { declaredSide: side, oneToTwo: 'one_to_one_only' },
+      })
+    }
+  })
+
+  it('leaves all four null on a form that did not ask', () => {
     expect(
-      read({ intakePath: null, declaredSide: null, experience: null }),
+      read({ intakePath: null, declaredSide: null, experience: null, oneToTwo: null }),
     ).toMatchObject({
-      submission: { intakePath: null, declaredSide: null, firstTime: null },
+      submission: { intakePath: null, declaredSide: null, firstTime: null, oneToTwo: null },
     })
   })
 
@@ -106,10 +132,42 @@ describe('what the wizard refuses', () => {
     expect(refusalsOf({ experience: 'maybe' })).toContain('intake.first_time_unanswered')
   })
 
-  it('reports both at once rather than one screen at a time', () => {
-    expect(refusalsOf({ declaredSide: null, experience: null })).toEqual([
+  /**
+   * Unanswered is refused on the form that asks it, and only there: null on any
+   * other form is *the form did not ask*, never a refusal, which is what lets the
+   * correction form leave the question out and the Roster keep an earlier answer.
+   */
+  it('refuses the discipleship path with the one-to-two question unanswered', () => {
+    expect(refusalsOf({ oneToTwo: null })).toEqual(['intake.one_to_two_unanswered'])
+    expect(refusalsOf({ oneToTwo: 'maybe' })).toEqual(['intake.one_to_two_unanswered'])
+  })
+
+  /**
+   * A Ministry's form that does not ask it -- removed, or an edited form saved
+   * before the question existed (Pastor feedback, ticket 13) -- takes the
+   * submission without it, and refuses an answer to it as an answer with no
+   * question. A form that made it optional takes it unanswered too.
+   */
+  it('refuses it unanswered only where the form asks it', () => {
+    const notAsked = new Set(['oneToTwo'] as const)
+    expect(readIntakeForm({ ...wizardForm, oneToTwo: null }, REQUIRED_TODAY, [], notAsked)).toMatchObject({
+      submission: { oneToTwo: null },
+    })
+    expect(
+      readIntakeForm({ ...wizardForm, oneToTwo: 'one_to_one_only' }, REQUIRED_TODAY, [], notAsked),
+    ).toEqual({ refusals: ['intake.path_unknown'] })
+
+    const optional = new Set([...REQUIRED_TODAY].filter((key) => key !== 'oneToTwo'))
+    expect(readIntakeForm({ ...wizardForm, oneToTwo: null }, optional)).toMatchObject({
+      submission: { oneToTwo: null },
+    })
+  })
+
+  it('reports all three at once rather than one screen at a time', () => {
+    expect(refusalsOf({ declaredSide: null, experience: null, oneToTwo: null })).toEqual([
       'intake.side_unknown',
       'intake.first_time_unanswered',
+      'intake.one_to_two_unanswered',
     ])
   })
 
@@ -123,6 +181,10 @@ describe('what the wizard refuses', () => {
     expect(refusalsOf({ intakePath: null })).toEqual(['intake.path_unknown'])
     expect(
       refusalsOf({ intakePath: null, declaredSide: null }),
+    ).toEqual(['intake.path_unknown'])
+    // The one-to-two answer alone, on a form with no path, is the same thing.
+    expect(
+      refusalsOf({ intakePath: null, declaredSide: null, experience: null }),
     ).toEqual(['intake.path_unknown'])
   })
 

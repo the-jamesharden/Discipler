@@ -70,6 +70,7 @@ describe('A Person can change their mind about a consent', () => {
         intakePath: null,
         declaredSide: null,
         experience: null,
+        oneToTwo: null,
         groupId: null,
         ...overrides,
       },

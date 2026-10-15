@@ -82,6 +82,7 @@ describe('Other on the Intake goal', () => {
         intakePath: 'discipleship',
         declaredSide: 'mentee',
         experience: 'first_time',
+        oneToTwo: 'open_to_one_to_two',
         groupId: null,
         ...overrides,
       },

@@ -88,21 +88,27 @@ describe.skipIf(skipUnlessAppIsRunning)('the Intake form editor, over HTTP', () 
     return { response, location: response.headers.get('location') ?? '' }
   }
 
-  const MENTEE = { side: 'mentee', ageBand: '25-34', gender: 'female', experience: 'first_time' }
+  const MENTEE = {
+    side: 'mentee',
+    ageBand: '25-34',
+    gender: 'female',
+    experience: 'first_time',
+    oneToTwo: 'open_to_one_to_two',
+  }
 
   it('serves a Ministry that never edited exactly today’s mentor and mentee form', async () => {
     expect(screenOf(await wizard({}))).toEqual({
       sub: 'Welcome — let’s get you connected.',
-      progress: 'Step 1 of 5',
-      percent: '20%',
+      progress: 'Step 1 of 6',
+      percent: '17%',
       legends: ['I’m joining as…'],
       labels: [],
       hints: [],
     })
     expect(screenOf(await wizard({ step: '2', side: 'mentee' }))).toEqual({
       sub: 'Tell us a little about yourself.',
-      progress: 'Step 2 of 5',
-      percent: '40%',
+      progress: 'Step 2 of 6',
+      percent: '33%',
       legends: ['Age range', 'Gender'],
       labels: [],
       hints: [],
@@ -115,15 +121,27 @@ describe.skipIf(skipUnlessAppIsRunning)('the Intake form editor, over HTTP', () 
     expect(screenOf(await wizard({ step: '3', side: 'mentor', ageBand: '25-34', gender: 'female' })).legends).toEqual([
       'Have you mentored someone before?',
     ])
-    expect(screenOf(await wizard({ step: '4', ...MENTEE }))).toMatchObject({
+    // Beside the first-time page, its twin (Suggestions beyond the one-to-one,
+    // ticket 01), worded from the side.
+    const upToOneToTwo = { side: 'mentee', ageBand: '25-34', gender: 'female', experience: 'first_time' }
+    expect(screenOf(await wizard({ step: '4', ...upToOneToTwo }))).toMatchObject({
+      sub: 'One more about how you’d be paired.',
+      progress: 'Step 4 of 6',
+      legends: ['Open to being mentored alongside another mentee if needed'],
+      hints: ['Sometimes one mentor walks with two people at once. Either answer is fine.'],
+    })
+    expect(screenOf(await wizard({ step: '4', ...upToOneToTwo, side: 'mentor' })).legends).toEqual([
+      'Open to mentoring two mentees together if needed',
+    ])
+    expect(screenOf(await wizard({ step: '5', ...MENTEE }))).toMatchObject({
       sub: 'When are you generally available to meet?',
       legends: ['When could you meet?'],
       hints: ['Select every hour that could work — not just your best one.'],
     })
     // The last step, which used to read 80%.
-    expect(screenOf(await wizard({ step: '5', ...MENTEE, availability: 'monday:12' }))).toEqual({
+    expect(screenOf(await wizard({ step: '6', ...MENTEE, availability: 'monday:12' }))).toEqual({
       sub: 'Nearly there — how we reach you, and what you are hoping for.',
-      progress: 'Step 5 of 5',
+      progress: 'Step 6 of 6',
       percent: '100%',
       legends: ['What are you hoping for?', 'Agreements'],
       labels: ['In a few words, what are you hoping for?', 'Your name', 'Mobile number', 'Email (optional)'],
@@ -163,7 +181,15 @@ describe.skipIf(skipUnlessAppIsRunning)('the Intake form editor, over HTTP', () 
     expect(html).toContain('Mentor and mentee form')
     expect(html).toContain(`/join/${ministry.shortName}?preview=1`)
     expect(html).toContain('Page 1 · Welcome — let’s get you connected.')
-    expect(html).toContain('Page 5 · Nearly there — how we reach you, and what you are hoping for.')
+    expect(html).toContain('Page 5 · When are you generally available to meet?')
+    expect(html).toContain('Page 6 · Nearly there — how we reach you, and what you are hoping for.')
+    // The one-to-two question's row: both its wordings, and no mark of a use,
+    // since nothing that pairs people reads it (Suggestions beyond the one-to-one,
+    // ticket 01).
+    expect(html).toContain('Page 4 · One more about how you’d be paired.')
+    expect(html).toContain(
+      'Open to mentoring two mentees together if needed / Open to being mentored alongside another mentee if needed',
+    )
     expect(html).toContain('Pairing rules use this')
     expect(html).toContain('The age rule uses this')
     expect(html).toContain('Suggested Pairs uses this')
@@ -230,6 +256,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Intake form editor, over HTTP', () 
       ['welcome', ['side', 'fullName']],
       ['about-you', ['ageBand', 'gender']],
       ['experience', ['experience']],
+      ['one-to-two', ['oneToTwo']],
       ['availability', ['availability']],
       ['last', ['goalId', 'phone', 'email']],
     ]
@@ -254,6 +281,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Intake form editor, over HTTP', () 
       ['welcome', ['side', 'gender']],
       ['about-you', ['ageBand']],
       ['experience', ['experience']],
+      ['one-to-two', ['oneToTwo']],
       ['availability', ['availability']],
       ['last', ['goalId', 'fullName', 'phone', 'email']],
     ]
@@ -317,7 +345,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Intake form editor, over HTTP', () 
       text: 'Pastor Dan will be in touch this week.',
     })
 
-    const last = screenOf(await wizard({ step: '5', side: 'mentee', ageBand: '25-34', gender: 'female', experience: 'first_time', availability: 'monday:12' }))
+    const last = screenOf(await wizard({ step: '6', ...MENTEE, availability: 'monday:12' }))
     expect(last.legends[0]).toBe('What are you hoping for? (optional)')
 
     const body = new URLSearchParams({

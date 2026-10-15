@@ -93,7 +93,7 @@ describe('adding a question of the Ministry’s own', () => {
       'custom:help',
       'custom:member',
     ])
-    expect(withOneOfEach.pages[4]!.questions.map((question) => question.key)).toEqual([
+    expect(withOneOfEach.pages[5]!.questions.map((question) => question.key)).toEqual([
       'goalId',
       'fullName',
       'phone',
@@ -288,7 +288,7 @@ describe('the stored document', () => {
 
   it('refuses a stored question of a kind it cannot name', () => {
     const definition = asDefinition(withOneOfEach) as { pages: { questions: Record<string, unknown>[] }[] }
-    definition.pages[4]!.questions[5]!.kind = 'essay'
+    definition.pages[5]!.questions[5]!.kind = 'essay'
     expect(() => intakeFormFrom('discipleship', 5, definition)).toThrow(/kind it cannot name/)
   })
 })
@@ -309,6 +309,7 @@ describe('reading the answers', () => {
     intakePath: 'discipleship',
     declaredSide: 'mentee',
     experience: 'first_time',
+    oneToTwo: 'open_to_one_to_two',
     groupId: null,
   }
   const asked = ownQuestionsOf(withOneOfEach)
@@ -500,6 +501,7 @@ describe('through the boundary', () => {
           intakePath: 'discipleship',
           declaredSide: 'mentee',
           experience: 'first_time',
+          oneToTwo: 'open_to_one_to_two',
           groupId: null,
           own: sent,
           ...fields,
@@ -555,7 +557,7 @@ describe('through the boundary', () => {
       withOneOfEach,
       { 'custom:church': ['c2'] },
       { token: intakeLinkToken('00000000-0000-4000-8000-0000000000cc'), ownQuestionsFrom: 'discipleship' },
-      { intakePath: null, declaredSide: null, experience: null },
+      { intakePath: null, declaredSide: null, experience: null, oneToTwo: null },
     )
     const [intake] = effects.flatMap((effect) => (effect.kind === 'intake.record' ? [effect.intake] : []))
     expect(intake).toMatchObject({ formVersion: null, ownAnswers: [{ key: 'custom:church', value: 'c2' }] })

@@ -99,9 +99,9 @@ describe.skipIf(skipUnlessAppIsRunning)('custom questions, over HTTP', () => {
     const adds = [...html.matchAll(/<div class="fe-add">([\s\S]*?)<\/div>/g)].map((match) =>
       [...(match[1] ?? '').matchAll(/<a [^>]*>([^<]+)<\/a>/g)].map((link) => link[1]),
     )
-    expect(adds).toHaveLength(5)
-    for (const page of adds.slice(0, 4)) expect(page).toEqual(['One choice', 'Several choices', 'Yes / no'])
-    expect(adds[4]).toEqual(['Short text', 'Long text', 'One choice', 'Several choices', 'Yes / no'])
+    expect(adds).toHaveLength(6)
+    for (const page of adds.slice(0, 5)) expect(page).toEqual(['One choice', 'Several choices', 'Yes / no'])
+    expect(adds[5]).toEqual(['Short text', 'Long text', 'One choice', 'Several choices', 'Yes / no'])
     expect(html).toContain('Short and long text are asked on the last page.')
   })
 
@@ -164,7 +164,13 @@ describe.skipIf(skipUnlessAppIsRunning)('custom questions, over HTTP', () => {
     expect(after!.choices[0]!.id).toBe(service!.choices[0]!.id)
   })
 
-  const ANSWERED = { side: 'mentee', ageBand: '25-34', gender: 'female', experience: 'first_time' }
+  const ANSWERED = {
+    side: 'mentee',
+    ageBand: '25-34',
+    gender: 'female',
+    experience: 'first_time',
+    oneToTwo: 'open_to_one_to_two',
+  }
 
   it('asks each with the control for its kind, carrying a choice between screens', async () => {
     const member = keys['Are you a member here?']!
@@ -178,7 +184,7 @@ describe.skipIf(skipUnlessAppIsRunning)('custom questions, over HTTP', () => {
     expect(clean(second)).toContain('Are you a member here?')
 
     const last = await fetch(
-      `${baseUrl}/intake/${ministry.id}/discipleship?${params({ step: '5', ...ANSWERED, [member]: 'yes', availability: 'monday:12' })}`,
+      `${baseUrl}/intake/${ministry.id}/discipleship?${params({ step: '6', ...ANSWERED, [member]: 'yes', availability: 'monday:12' })}`,
       { redirect: 'manual' },
     ).then((page) => page.text())
     // Carried from page 2 as a hidden input, as the built-in answers are.

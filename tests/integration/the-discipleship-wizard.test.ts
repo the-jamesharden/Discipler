@@ -17,8 +17,8 @@ import {
  * What the discipleship wizard records, and what the Roster then derives from it.
  *
  * The wizard's screens are HTTP; this is everything underneath them -- one whole
- * form arriving at the boundary, the two columns beside `source`, the column on the
- * submission, and the signal the Roster row reads back.
+ * form arriving at the boundary, the two columns beside `source`, the two columns
+ * on the submission, and the signals the Roster row reads back.
  */
 describe('the discipleship wizard', () => {
   let ministry: MinistryFixture
@@ -63,6 +63,7 @@ describe('the discipleship wizard', () => {
     intakePath: 'discipleship',
     declaredSide: 'mentee',
     experience: 'first_time',
+    oneToTwo: 'open_to_one_to_two',
     groupId: null,
     ...overrides,
   })
@@ -87,7 +88,7 @@ describe('the discipleship wizard', () => {
 
   const submissionRows = async (fullName: string) => {
     const { rows } = await pool.query(
-      `select i.first_time
+      `select i.first_time, i.one_to_two
          from intake_submission i join person p on p.id = i.person_id
         where i.ministry_id = $1 and p.full_name = $2
         order by i.submitted_at`,
@@ -126,6 +127,26 @@ describe('the discipleship wizard', () => {
     expect((await submissionRows('Tom Whitfield'))[0].first_time).toBe(false)
   })
 
+  /**
+   * The first-time answer's twin (Suggestions beyond the one-to-one, ticket 01),
+   * and unlike it the words reach the column: a row is legible without the screen
+   * that asked, and no reader has to remember which way a boolean was spelled.
+   */
+  it('records the one-to-two answer on the submission, in the words they gave', async () => {
+    await submit({ fullName: 'Leah Mensah', phone: '5552341006', oneToTwo: 'open_to_one_to_two' })
+    await submit({ fullName: 'Owen Blake', phone: '5552341007', oneToTwo: 'one_to_one_only' })
+
+    expect((await submissionRows('Leah Mensah'))[0].one_to_two).toBe('open_to_one_to_two')
+    expect((await submissionRows('Owen Blake'))[0].one_to_two).toBe('one_to_one_only')
+  })
+
+  it('refuses a one-to-two answer in any other words, at the column', async () => {
+    const person = await addPerson(ministry, 'Yes Sayer', { phone: '+15552341008' })
+    await expect(
+      pool.query(`update intake_submission set one_to_two = 'yes' where person_id = $1`, [person]),
+    ).rejects.toThrow(/invalid input value for enum one_to_two_answer/)
+  })
+
   it('writes nulls for a form that did not ask, and backfills nothing', async () => {
     await submit({
       fullName: 'Grace Lindqvist',
@@ -133,6 +154,7 @@ describe('the discipleship wizard', () => {
       intakePath: null,
       declaredSide: null,
       experience: null,
+      oneToTwo: null,
     })
 
     for (const row of await consentRows('Grace Lindqvist')) {
@@ -140,6 +162,7 @@ describe('the discipleship wizard', () => {
       expect(row.declared_side).toBeNull()
     }
     expect((await submissionRows('Grace Lindqvist'))[0].first_time).toBeNull()
+    expect((await submissionRows('Grace Lindqvist'))[0].one_to_two).toBeNull()
   })
 
   it('refuses a consent record whose side and path disagree', async () => {
@@ -215,6 +238,7 @@ describe('what the Roster derives from the wizard', () => {
         intakePath: 'discipleship',
         declaredSide: 'mentee',
         experience: 'first_time',
+        oneToTwo: 'open_to_one_to_two',
         groupId: null,
         ...overrides,
       },
@@ -262,6 +286,7 @@ describe('what the Roster derives from the wizard', () => {
       phone: '5552342003',
       declaredSide: 'mentor',
       experience: 'first_time',
+      oneToTwo: 'one_to_one_only',
     })
 
     clock.advanceTo(new Date('2026-05-02T09:00:00Z'))
@@ -273,13 +298,16 @@ describe('what the Roster derives from the wizard', () => {
       intakePath: null,
       declaredSide: null,
       experience: null,
+      oneToTwo: null,
     })
 
     const row = await rosterRow('Iris Kaminski')
     expect(row.declared_side).toBe('mentor')
-    // The same rule, on the column the pairing surface reads. Correcting somebody's
-    // number is not them saying they have done this before.
+    // The same rule, on the columns the pairing surfaces read. Correcting somebody's
+    // number is not them saying they have done this before, and it is not them
+    // withdrawing what they said about being one of two.
     expect(row.first_time).toBe(true)
+    expect(row.one_to_two).toBe('one_to_one_only')
   })
 
   it('says nothing about a Person no form ever asked', async () => {
@@ -290,6 +318,9 @@ describe('what the Roster derives from the wizard', () => {
     const row = await rosterRow('Silent Sam')
     expect(row.declared_side).toBeNull()
     expect(row.first_time).toBeNull()
+    // A submission that predates the question reads null everywhere: null is *the
+    // form did not ask*, and the pairing surfaces say nothing for it.
+    expect(row.one_to_two).toBeNull()
   })
 
   it('carries the latest submission’s first-time answer to the pairing surface', async () => {
@@ -307,5 +338,37 @@ describe('what the Roster derives from the wizard', () => {
       experience: 'done_before',
     })
     expect((await rosterRow('Dee Okonkwo')).first_time).toBe(false)
+  })
+
+  it('carries the latest submission’s one-to-two answer to the pairing surfaces', async () => {
+    await submit({ fullName: 'Kai Nakamura', phone: '5552342006', oneToTwo: 'one_to_one_only' })
+    expect((await rosterRow('Kai Nakamura')).one_to_two).toBe('one_to_one_only')
+
+    clock.advanceTo(new Date('2026-07-02T09:00:00Z'))
+    await submit({ fullName: 'Kai Nakamura', phone: '5552342006', oneToTwo: 'open_to_one_to_two' })
+    expect((await rosterRow('Kai Nakamura')).one_to_two).toBe('open_to_one_to_two')
+  })
+
+  /**
+   * The function has been dropped and recreated to widen it, so it takes the
+   * platform's defaults for every role the migrations do not restate.
+   * `service_role` is revoked beside `anon` and `public`, which is the rule
+   * `20261008000300` settled: this is a `security definer` function over a
+   * Ministry's phone numbers, emails and genders, and nothing reads it with a
+   * service key. It is the belt behind `app.is_admin_of`, which already filters
+   * every row out for a caller with no session.
+   */
+  it('is executable by a signed-in session and by nobody else', async () => {
+    const { rows } = await pool.query<{ role: string; may: boolean }>(`
+      select r.role, has_function_privilege(r.role, 'public.roster(uuid)', 'execute') as may
+        from unnest(array['authenticated', 'anon', 'service_role', 'public']) with ordinality as r(role, at)
+       order by r.at
+    `)
+    expect(rows).toEqual([
+      { role: 'authenticated', may: true },
+      { role: 'anon', may: false },
+      { role: 'service_role', may: false },
+      { role: 'public', may: false },
+    ])
   })
 })

@@ -143,6 +143,7 @@ describe('the rates line, once a month', () => {
         intakePath: null,
         declaredSide: null,
         experience: null,
+        oneToTwo: null,
         groupId: null,
       },
     })

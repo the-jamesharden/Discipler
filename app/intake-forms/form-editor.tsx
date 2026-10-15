@@ -56,7 +56,7 @@ import {
   MORE_CHOICES,
   moveDown,
   moveUp,
-  NEEDED_FIRST,
+  neededFirst,
   NEW_PAGE_HINT,
   NEW_QUESTION,
   NONE_YET,
@@ -645,7 +645,7 @@ const Chips = ({ question }: { readonly question: FormQuestion }) => {
   )
 }
 
-/** A question's wording as its row shows it: both of the first-time question's. */
+/** A question's wording as its row shows it: both of a question worded from the side. */
 const shownWording = (question: FormQuestion): string =>
   question.menteeWording ? `${question.wording} / ${question.menteeWording}` : question.wording
 
@@ -667,7 +667,7 @@ const QuestionRow = ({
   const rules = rulesOf(question)
   const about = isOwnQuestion(question) ? aboutYourQuestion(question.kind) : ABOUT[question.key]
   // A move the form would refuse is not offered: the top of the form going up, a
-  // question that stays on the last page, the first-time question onto the side's.
+  // question that stays on the last page, a question worded from the side onto the side's.
   const canMove = (direction: 'up' | 'down') => {
     const moved = moveQuestion(form, question.key, direction)
     return moved !== null && !('refusal' in moved)
@@ -822,8 +822,8 @@ const pageOf = (form: IntakeForm, key: string): string =>
  * 13; `.lavish/pastor-feedback/mock-forms-remove.html`): what is being removed,
  * what stops working where the product reads it, how many people's answers go
  * with it and that this cannot be undone, then the one button that removes and
- * one that keeps it. The side, while the first-time question is worded from it,
- * says so and offers only to keep it.
+ * one that keeps it. The side, while the first-time or one-to-two question is
+ * worded from it, says so and offers only to keep it.
  */
 const Removal = ({
   form,
@@ -837,7 +837,8 @@ const Removal = ({
   readonly state: EditorState
 }) => {
   const anchor = `q-${question.key}`
-  const blocked = neededBy(form, question.key) !== undefined
+  const needing = neededBy(form, question.key)
+  const blocked = needing.length > 0
   const stops = isOwnQuestion(question) ? undefined : STOPS_WORKING[form.name][question.key]
   const deletes = removalDeletesAnswers(question.key)
   const people = deletes ? answered : 0
@@ -852,7 +853,7 @@ const Removal = ({
       <div className="fe-warn fe-removal" role="alert">
         <strong>{removeTitle(question.wording)}</strong>
         {blocked ? (
-          <p>{NEEDED_FIRST}</p>
+          <p>{neededFirst(needing.map((each) => each.key))}</p>
         ) : (
           <>
             {stops ? <p>{stops}</p> : null}

@@ -54,7 +54,7 @@ const refusalOf = (edit: ReturnType<typeof editQuestion>) => {
 }
 
 describe('every Ministry’s preset is today’s form', () => {
-  it('asks the mentor and mentee form’s questions on today’s five pages, in today’s words', () => {
+  it('asks the mentor and mentee form’s questions on today’s six pages, in today’s words', () => {
     expect(mentorAndMentee.version).toBe(0)
     expect(mentorAndMentee.intro).toBeNull()
     expect(mentorAndMentee.thankYou).toBeNull()
@@ -62,6 +62,9 @@ describe('every Ministry’s preset is today’s form', () => {
       ['Welcome — let’s get you connected.', ['I’m joining as…']],
       ['Tell us a little about yourself.', ['Age range', 'Gender']],
       ['A bit about your experience.', ['Have you mentored someone before?']],
+      // Beside the first-time page, its twin (Suggestions beyond the one-to-one,
+      // ticket 01), so every Ministry that never edited asks it.
+      ['One more about how you’d be paired.', ['Open to mentoring two mentees together if needed']],
       ['When are you generally available to meet?', ['When could you meet?']],
       [
         'Nearly there — how we reach you, and what you are hoping for.',
@@ -70,6 +73,11 @@ describe('every Ministry’s preset is today’s form', () => {
     ])
     expect(questionOn(mentorAndMentee, 'experience')?.menteeWording).toBe(
       'Have you been discipled by a mentor before?',
+    )
+    // The mentee side in James's words (2026-09-22), the mentor side in the same
+    // shape (approved 2026-10-15).
+    expect(questionOn(mentorAndMentee, 'oneToTwo')?.menteeWording).toBe(
+      'Open to being mentored alongside another mentee if needed',
     )
   })
 
@@ -82,10 +90,15 @@ describe('every Ministry’s preset is today’s form', () => {
     ])
     expect(questionOn(groups, 'goalId')).toBeUndefined()
     expect(questionOn(groups, 'side')).toBeUndefined()
+    // Worded from the side, so never asked where the side is not.
+    expect(questionOn(groups, 'oneToTwo')).toBeUndefined()
   })
 
   it('keeps today’s hints', () => {
     expect(questionOn(mentorAndMentee, 'experience')?.hint).toBe('This helps us match you thoughtfully.')
+    expect(questionOn(mentorAndMentee, 'oneToTwo')?.hint).toBe(
+      'Sometimes one mentor walks with two people at once. Either answer is fine.',
+    )
     expect(questionOn(mentorAndMentee, 'availability')?.hint).toBe(
       'Select every hour that could work — not just your best one.',
     )
@@ -95,7 +108,7 @@ describe('every Ministry’s preset is today’s form', () => {
 
   it('requires everything but the email, as today', () => {
     expect([...requiredOn(mentorAndMentee)].sort()).toEqual(
-      ['ageBand', 'availability', 'experience', 'fullName', 'gender', 'goalId', 'phone', 'side'].sort(),
+      ['ageBand', 'availability', 'experience', 'fullName', 'gender', 'goalId', 'oneToTwo', 'phone', 'side'].sort(),
     )
     expect(requiredOn(groups).has('email')).toBe(false)
     expect(requiredOn(groups).has('groupId')).toBe(true)
@@ -117,6 +130,7 @@ describe('every Ministry’s preset is today’s form', () => {
       intakePath: 'discipleship',
       declaredSide: 'mentee',
       experience: null,
+      oneToTwo: null,
       groupId: null,
     }
     expect(readIntakeForm(fields, requiredOn(mentorAndMentee))).toEqual(readIntakeForm(fields))
@@ -134,6 +148,17 @@ describe('what Discipler fixes about the questions it asks', () => {
 
   it('always asks the name and the phone, and only those', () => {
     expect(BUILT_IN_QUESTIONS.filter((key) => BUILT_IN[key].alwaysAsked)).toEqual(['fullName', 'phone'])
+  })
+
+  /**
+   * The one-to-two question is the first-time question's twin in every rule
+   * (Suggestions beyond the one-to-one, ticket 01): worded from the side, so
+   * asked after it and only beside it; read by nothing that pairs people, so
+   * marked with no use; and free to be made optional or removed.
+   */
+  it('holds the one-to-two question to every rule the first-time question is held to', () => {
+    expect(BUILT_IN.oneToTwo).toEqual(BUILT_IN.experience)
+    expect(BUILT_IN.oneToTwo).toMatchObject({ usedBy: null, after: 'side', needs: 'side', requiredFixed: false })
   })
 })
 
@@ -267,6 +292,7 @@ describe('arranging the questions', () => {
       ['side', 'gender'],
       ['ageBand'],
       ['experience'],
+      ['oneToTwo'],
       ['availability'],
       ['goalId', 'fullName', 'phone', 'email'],
     ])
@@ -276,7 +302,7 @@ describe('arranging the questions', () => {
   it('keeps on the last page what is typed in and never travels in a web address', () => {
     for (const key of ['fullName', 'phone', 'email', 'goalId']) {
       const layout = layoutWith(mentorAndMentee, (pages) => {
-        pages[4]!.keys = pages[4]!.keys.filter((each) => each !== key)
+        pages[5]!.keys = pages[5]!.keys.filter((each) => each !== key)
         pages[0]!.keys.push(key)
       })
       expect(refusalOf(arrangeQuestions(mentorAndMentee, layout))).toBe('intake_form.stays_on_the_last_page')
@@ -289,6 +315,22 @@ describe('arranging the questions', () => {
       pages[0]!.keys.push('experience')
     })
     expect(refusalOf(arrangeQuestions(mentorAndMentee, experienceWithSide))).toBe('intake_form.asked_too_soon')
+
+    // The one-to-two question is worded from the side too (Suggestions beyond
+    // the one-to-one, ticket 01), and may share a page with the first-time one.
+    const oneToTwoWithSide = layoutWith(mentorAndMentee, (pages) => {
+      pages[3]!.keys = []
+      pages[0]!.keys.push('oneToTwo')
+    })
+    expect(refusalOf(arrangeQuestions(mentorAndMentee, oneToTwoWithSide))).toBe('intake_form.asked_too_soon')
+    const besideFirstTime = layoutWith(mentorAndMentee, (pages) => {
+      pages[3]!.keys = []
+      pages[2]!.keys.push('oneToTwo')
+    })
+    expect(layoutOf(formOf(arrangeQuestions(mentorAndMentee, besideFirstTime)))[2]!.keys).toEqual([
+      'experience',
+      'oneToTwo',
+    ])
 
     const groupBeforeGender = layoutWith(groups, (pages) => {
       pages[2]!.keys = []
@@ -338,11 +380,12 @@ describe('pages', () => {
       'welcome',
       'about-you',
       'experience',
+      'one-to-two',
       'availability',
       'page-6',
       'last',
     ])
-    expect(form.pages[4]).toEqual({ id: 'page-6', name: 'A little more', questions: [] })
+    expect(form.pages[5]).toEqual({ id: 'page-6', name: 'A little more', questions: [] })
     expect(askedPages(form).map((page) => page.id)).not.toContain('page-6')
 
     const filled = formOf(moveQuestion(form, 'availability', 'down'))
@@ -350,6 +393,7 @@ describe('pages', () => {
       'welcome',
       'about-you',
       'experience',
+      'one-to-two',
       'page-6',
       'last',
     ])
@@ -550,23 +594,35 @@ describe('a submission, read against the version its Person opened', () => {
     intakePath: 'discipleship',
     declaredSide: 'mentee',
     experience: null,
+    oneToTwo: null,
     groupId: null,
   }
 
   const optional = formOf(
     editQuestion(
       formOf(
-        editQuestion(mentorAndMentee, 'goalId', {
-          wording: 'What are you hoping for?',
-          menteeWording: null,
-          hint: '',
-          required: false,
-        }),
+        editQuestion(
+          formOf(
+            editQuestion(mentorAndMentee, 'goalId', {
+              wording: 'What are you hoping for?',
+              menteeWording: null,
+              hint: '',
+              required: false,
+            }),
+          ),
+          'experience',
+          {
+            wording: 'Have you mentored someone before?',
+            menteeWording: 'Have you been discipled by a mentor before?',
+            hint: '',
+            required: false,
+          },
+        ),
       ),
-      'experience',
+      'oneToTwo',
       {
-        wording: 'Have you mentored someone before?',
-        menteeWording: 'Have you been discipled by a mentor before?',
+        wording: 'Open to mentoring two mentees together if needed',
+        menteeWording: 'Open to being mentored alongside another mentee if needed',
         hint: '',
         required: false,
       },
@@ -595,17 +651,19 @@ describe('a submission, read against the version its Person opened', () => {
   it('takes a submission that skipped the questions this version made optional, and records the version', () => {
     const { effects } = submit(optional)
     const [intake] = effects.flatMap((effect) => (effect.kind === 'intake.record' ? [effect.intake] : []))
-    expect(intake).toMatchObject({ goalId: null, goalOther: null, firstTime: null, formVersion: 2 })
+    expect(intake).toMatchObject({ goalId: null, goalOther: null, firstTime: null, oneToTwo: null, formVersion: 3 })
 
     const [event] = effects.flatMap((effect) =>
       effect.kind === 'history.append' && effect.event.type === 'intake.submitted' ? [effect.event] : [],
     )
-    expect(event!.payload.formVersion).toBe(2)
+    expect(event!.payload.formVersion).toBe(3)
   })
 
-  it('refuses the same submission against the preset, which asks for both', () => {
+  it('refuses the same submission against the preset, which asks for all three', () => {
     expect(() => submit(mentorAndMentee)).toThrow(
-      expect.objectContaining({ refusals: ['intake.first_time_unanswered', 'intake.goal_not_selected'] }),
+      expect.objectContaining({
+        refusals: ['intake.first_time_unanswered', 'intake.one_to_two_unanswered', 'intake.goal_not_selected'],
+      }),
     )
   })
 
@@ -614,7 +672,12 @@ describe('a submission, read against the version its Person opened', () => {
       editQuestion(mentorAndMentee, 'email', { wording: 'Email', menteeWording: null, hint: '', required: true }),
     )
     expect(() =>
-      submit(emailRequired, { ...answered, goalId: '00000000-0000-4000-8000-000000000009', experience: 'first_time' }),
+      submit(emailRequired, {
+        ...answered,
+        goalId: '00000000-0000-4000-8000-000000000009',
+        experience: 'first_time',
+        oneToTwo: 'one_to_one_only',
+      }),
     ).toThrow(expect.objectContaining({ refusals: ['intake.email_missing'] }))
   })
 

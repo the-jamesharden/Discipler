@@ -116,6 +116,7 @@ describe('reopening a Person’s Intake', () => {
         intakePath: null,
         declaredSide: null,
         experience: null,
+        oneToTwo: null,
         groupId: null,
         ...overrides,
       },

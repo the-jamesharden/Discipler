@@ -1,5 +1,6 @@
 import type { IntakePath } from '~/domain/intake'
 import type { IntakeFormRefusal, OwnKind, ProductUse, QuestionKind } from '~/domain/intake-form'
+import { asList } from '~/domain/outbound-copy'
 import { refusalIn } from '../../refusals'
 
 /**
@@ -159,9 +160,29 @@ export const STOPS_WORKING: Readonly<Record<IntakePath, Partial<Record<string, s
   },
 }
 
-/** Why the side cannot go while the first-time question is still asked. */
-export const NEEDED_FIRST =
-  'The first-time question is worded from this answer, so it cannot be asked without it. Remove the first-time question first.'
+/**
+ * The questions worded from the side, as the editor names them where the side's
+ * removal is held up by them.
+ */
+const WORDED_FROM_THE_SIDE: Partial<Record<string, string>> = {
+  experience: 'the first-time question',
+  oneToTwo: 'the one-to-two question',
+}
+
+/**
+ * Why the side cannot go while a question worded from it is still asked: the
+ * first-time question, the one-to-two question (Suggestions beyond the
+ * one-to-one, ticket 01), or both, named in the order the form asks them.
+ */
+export const neededFirst = (keys: readonly string[]): string => {
+  const names = keys.map((key) => WORDED_FROM_THE_SIDE[key] ?? 'a question')
+  const [only] = names
+  if (names.length === 1 && only !== undefined) {
+    return `${only.charAt(0).toUpperCase()}${only.slice(1)} is worded from this answer, so it cannot be asked without it. Remove ${only} first.`
+  }
+  const both = asList(names)
+  return `${both.charAt(0).toUpperCase()}${both.slice(1)} are worded from this answer, so neither can be asked without it. Remove them first.`
+}
 
 /**
  * How many people's answers a removal deletes, and that it cannot be undone.
@@ -213,9 +234,11 @@ export const ABOUT: Partial<Record<string, string>> = {
     'The gender pairing rules read this answer, so everybody is asked it. Female and Male are fixed.',
   ageBand: 'The age rule reads this answer, so everybody is asked it. The age ranges are fixed.',
   side:
-    'Suggested Pairs uses this to tell who offered to disciple and who wants to be discipled, so everybody is asked it. Its two answers are fixed, and the first-time question is worded from it, so that question comes on a later page.',
+    'Suggested Pairs uses this to tell who offered to disciple and who wants to be discipled, so everybody is asked it. Its two answers are fixed, and the first-time and one-to-two questions are worded from it, so they come on a later page.',
   experience:
     'It is put in the words of the side somebody chose, so it is worded twice and comes on a page after “I’m joining as…”. Its two answers are fixed.',
+  oneToTwo:
+    'It is put in the words of the side somebody chose, so it is worded twice and comes on a page after “I’m joining as…”. Its two answers are fixed. You see the answer beside each name when you pair people, on the Pair popup and Suggested Pairs; it filters and ranks nobody.',
   availability:
     'Suggested Pairs ranks people by the hours they share, so everybody is asked it. The grid is fixed: an hour at a time, 8am to 8pm, every day.',
   goalId:
@@ -241,11 +264,11 @@ const REFUSALS: Record<IntakeFormRefusal, string> = {
   'intake_form.choice_kept':
     'A choice cannot be emptied: the answers that picked it would go with it. Reword it instead.',
   'intake_form.asked_too_soon':
-    'That would ask a question before the answer it is worded from: the first-time question comes after “I’m joining as…”, and the choice of group after Gender.',
+    'That would ask a question before the answer it is worded from: the first-time and one-to-two questions come after “I’m joining as…”, and the choice of group after Gender.',
   'intake_form.always_asked':
     'Name and mobile number are asked of everybody: they are who somebody is to Discipler, so they cannot be removed.',
   'intake_form.worded_from_it':
-    'The first-time question is worded from “I’m joining as…”, so the form asks the one only while it asks the other.',
+    'The first-time and one-to-two questions are worded from “I’m joining as…”, so neither can be asked on a form that does not ask it.',
 }
 
 /** The sentence for a refusal that came back on the query string, or null. */

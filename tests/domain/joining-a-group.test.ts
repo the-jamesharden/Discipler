@@ -90,6 +90,7 @@ const groupForm: IntakeFormFields = {
   intakePath: GROUP_PATH,
   declaredSide: null,
   experience: null,
+  oneToTwo: null,
   groupId: group,
 }
 
@@ -138,7 +139,13 @@ describe('what the group form asks, and does not', () => {
 
   it('refuses a group named on a path that did not ask for one', () => {
     expect(
-      refusalsOf({ intakePath: 'discipleship', declaredSide: 'mentee', experience: 'first_time', goalId: 'g' }),
+      refusalsOf({
+        intakePath: 'discipleship',
+        declaredSide: 'mentee',
+        experience: 'first_time',
+        oneToTwo: 'open_to_one_to_two',
+        goalId: 'g',
+      }),
     ).toEqual(['intake.path_unknown'])
     expect(refusalsOf({ intakePath: null, goalId: 'g' })).toEqual(['intake.path_unknown'])
   })

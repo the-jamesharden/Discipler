@@ -112,6 +112,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a pairing is texted at once', () => {
       ageBand: '45-54',
       gender: 'male',
       experience: 'done_before',
+      oneToTwo: 'open_to_one_to_two',
       fullName: 'Isaac Planned',
       phone: disciplerPhone,
       goalId: await goalId(),

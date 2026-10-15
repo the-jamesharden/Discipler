@@ -12,6 +12,7 @@ import {
   addQuestion,
   BUILT_IN_QUESTIONS,
   isRemovable,
+  neededBy,
   presetForm,
   questionOn,
   questionsOf,
@@ -77,7 +78,21 @@ describe('removing a question from the form', () => {
 
   it('keeps the side while the first-time question, worded from it, is asked', () => {
     expect(refusalOf(removeQuestion(mentorAndMentee, 'side'))).toBe('intake_form.worded_from_it')
-    expect(keysOf(without(mentorAndMentee, 'experience', 'side'))).not.toContain('side')
+    expect(keysOf(without(mentorAndMentee, 'experience', 'oneToTwo', 'side'))).not.toContain('side')
+  })
+
+  /**
+   * The one-to-two question is worded from the side too (Suggestions beyond the
+   * one-to-one, ticket 01), so the side waits for both, and the editor names
+   * whichever of them is still asked.
+   */
+  it('keeps the side while the one-to-two question, worded from it, is asked', () => {
+    expect(neededBy(mentorAndMentee, 'side').map((question) => question.key)).toEqual(['experience', 'oneToTwo'])
+    expect(refusalOf(removeQuestion(without(mentorAndMentee, 'experience'), 'side'))).toBe('intake_form.worded_from_it')
+    expect(neededBy(without(mentorAndMentee, 'experience'), 'side').map((question) => question.key)).toEqual([
+      'oneToTwo',
+    ])
+    expect(neededBy(mentorAndMentee, 'gender')).toEqual([])
   })
 
   it('removes a question of the Ministry’s own', () => {
@@ -135,8 +150,19 @@ describe('adding a removed question back', () => {
   })
 
   it('does not add back the first-time question to a form that no longer asks the side', () => {
-    const removed = without(mentorAndMentee, 'experience', 'side')
+    const removed = without(mentorAndMentee, 'experience', 'oneToTwo', 'side')
     expect(refusalOf(addBackQuestion(removed, 'experience', 'experience'))).toBe('intake_form.worded_from_it')
+  })
+
+  it('adds back the one-to-two question only after the side, and only beside it', () => {
+    const removed = without(mentorAndMentee, 'oneToTwo')
+    expect(removedQuestions(removed)).toEqual(['oneToTwo'])
+    expect(refusalOf(addBackQuestion(removed, 'welcome', 'oneToTwo'))).toBe('intake_form.asked_too_soon')
+    const back = formOf(addBackQuestion(removed, 'one-to-two', 'oneToTwo'))
+    expect(questionOn(back, 'oneToTwo')).toEqual(questionOn(mentorAndMentee, 'oneToTwo'))
+
+    const noSide = without(mentorAndMentee, 'experience', 'oneToTwo', 'side')
+    expect(refusalOf(addBackQuestion(noSide, 'one-to-two', 'oneToTwo'))).toBe('intake_form.worded_from_it')
   })
 
   it('refuses a question already on the form, or one this form never asked', () => {
@@ -301,21 +327,45 @@ describe('a submission to a form that no longer asks something', () => {
     intakePath: 'discipleship',
     declaredSide: null,
     experience: null,
+    oneToTwo: null,
     groupId: null,
   }
 
   const removedFrom = (form: IntakeForm) => new Set<BuiltInQuestion>(removedQuestions(form))
-  const bare = without(mentorAndMentee, 'gender', 'ageBand', 'availability', 'goalId', 'experience', 'side', 'email')
+  const bare = without(
+    mentorAndMentee,
+    'gender',
+    'ageBand',
+    'availability',
+    'goalId',
+    'experience',
+    'oneToTwo',
+    'side',
+    'email',
+  )
 
   it('is taken without any of them, and records none of them', () => {
     const reading = readIntakeForm(answered, requiredOn(bare), [], removedFrom(bare))
     expect(reading).toMatchObject({
-      submission: { ageBand: null, gender: null, availability: [], goalId: null, declaredSide: null, firstTime: null },
+      submission: {
+        ageBand: null,
+        gender: null,
+        availability: [],
+        goalId: null,
+        declaredSide: null,
+        firstTime: null,
+        oneToTwo: null,
+      },
     })
   })
 
   it('refuses an answer to a question it no longer asks: that is not the form Discipler served', () => {
-    for (const extra of [{ gender: 'female' }, { ageBand: '25-34' }, { availability: ['monday:08'] }, { goalId: 'other', goalOther: 'Grief' }]) {
+    for (const extra of [
+      { gender: 'female' },
+      { ageBand: '25-34' },
+      { availability: ['monday:08'] },
+      { goalId: 'other', goalOther: 'Grief' },
+    ]) {
       expect(readIntakeForm({ ...answered, ...extra }, requiredOn(bare), [], removedFrom(bare))).toEqual({
         refusals: ['intake.path_unknown'],
       })
@@ -417,6 +467,7 @@ describe('Suggested Pairs, once the form no longer asks what it reads', () => {
       consentsToTexts: true,
       optedOut: false,
       declaredSide: null,
+      oneToTwo: null,
       memberships: [],
       ...overrides,
     }
@@ -495,6 +546,7 @@ describe('a submission on a version opened before a removal', () => {
     intakePath: 'discipleship',
     declaredSide: 'mentee',
     experience: 'first_time',
+    oneToTwo: 'open_to_one_to_two',
     groupId: null,
     own: { 'custom:story': ['Pray for my sister.'], 'custom:heard': ['A friend asked me.'] },
   }
@@ -538,6 +590,7 @@ describe('a submission on a version opened before a removal', () => {
       ],
       goalOther: 'Prayer',
       firstTime: true,
+      oneToTwo: 'open_to_one_to_two',
       ownAnswers: [
         { key: 'custom:story', value: 'Pray for my sister.' },
         { key: 'custom:heard', value: 'A friend asked me.' },
@@ -546,7 +599,7 @@ describe('a submission on a version opened before a removal', () => {
   })
 
   it('drops the answers to what the form no longer asks, and history records none of them', () => {
-    const now = without(opened, 'gender', 'availability', 'goalId', 'experience', 'custom:story')
+    const now = without(opened, 'gender', 'availability', 'goalId', 'experience', 'oneToTwo', 'custom:story')
     const { effects } = submit({}, { intakeForm: opened, intakeFormNow: now })
 
     expect(recorded(effects)).toMatchObject({
@@ -558,6 +611,7 @@ describe('a submission on a version opened before a removal', () => {
       goalId: null,
       goalOther: null,
       firstTime: null,
+      oneToTwo: null,
       declaredSide: 'mentee',
       ownAnswers: [{ key: 'custom:heard', value: 'A friend asked me.' }],
     })
@@ -572,8 +626,8 @@ describe('a submission on a version opened before a removal', () => {
   })
 
   it('drops the side once the form no longer asks it', () => {
-    const { effects } = submit({}, { intakeForm: opened, intakeFormNow: without(opened, 'experience', 'side') })
-    expect(recorded(effects)).toMatchObject({ declaredSide: null, firstTime: null })
+    const { effects } = submit({}, { intakeForm: opened, intakeFormNow: without(opened, 'experience', 'oneToTwo', 'side') })
+    expect(recorded(effects)).toMatchObject({ declaredSide: null, firstTime: null, oneToTwo: null })
   })
 
   it('still reads the version opened, so its required questions are still required', () => {
@@ -593,6 +647,7 @@ describe('a submission on a version opened before a removal', () => {
           intakePath: 'group',
           declaredSide: null,
           experience: null,
+          oneToTwo: null,
           goalId: null,
           goalOther: null,
           groupId: tuesdayGroup,
@@ -624,7 +679,7 @@ describe('a submission on a version opened before a removal', () => {
     const token = intakeLinkToken('00000000-0000-4000-8000-0000000000cc')
     const { effects } = submit(
       {
-        form: { ...answered, intakePath: null, declaredSide: null, experience: null, own: {} },
+        form: { ...answered, intakePath: null, declaredSide: null, experience: null, oneToTwo: null, own: {} },
         token,
         ownQuestionsFrom: 'group',
         formVersion: groups.version,

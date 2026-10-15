@@ -1,0 +1,25 @@
+-- Suggestions beyond the one-to-one, ticket 01 -- the Roster keeps its three-role revoke
+--
+-- `20261010000100_open_to_being_one_of_two.sql` dropped and recreated
+-- `public.roster(uuid)` to widen it by the one-to-two answer, and
+-- `20261014000600_other_on_the_intake_goal.sql` did it again to widen it by the
+-- goal. Both restated the grants as `from public, anon`, which is what the
+-- function carried before, and one role short of the rule this repository settled
+-- on in `20261008000300_assigning_a_material.sql`: "A new function gets the
+-- platform's default execute for `anon` and `service_role`; neither reads this,
+-- so both are revoked."
+--
+-- A dropped function takes its grants with it and the recreated one takes the
+-- platform's defaults, so `service_role` holds execute on a `security definer`
+-- function that returns a Ministry's phone numbers, emails and genders. It
+-- returns nothing today: the function's own `app.is_admin_of` resolves
+-- `auth.uid()` to null for a service key, so every row is filtered out. This is
+-- the belt behind that brace, restored here rather than by editing either
+-- migration that dropped it, which production has already applied.
+--
+-- First written on the ticket's branch as `20261011000100`, which never reached
+-- production or `main`; this is the same statement under a timestamp after every
+-- migration since.
+-- ---------------------------------------------------------------------------
+
+revoke execute on function public.roster(uuid) from service_role;

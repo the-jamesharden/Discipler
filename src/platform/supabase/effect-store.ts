@@ -1119,6 +1119,9 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       case 'experience':
         await client.query(`update intake_submission set first_time = null where id in (${fromThisForm})`, [form])
         return
+      case 'oneToTwo':
+        await client.query(`update intake_submission set one_to_two = null where id in (${fromThisForm})`, [form])
+        return
       case 'goalId':
         await client.query(
           `update intake_submission
@@ -1354,8 +1357,8 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       ;({ rows } = await client.query<{ id: string }>(
         `insert into intake_submission
            (ministry_id, person_id, submitted_at, age_band, gender, discipleship_goal_id,
-            first_time, discipleship_goal_other, form_version)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            first_time, discipleship_goal_other, form_version, one_to_two)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          returning id`,
         [
           intake.ministryId,
@@ -1371,6 +1374,9 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
           intake.firstTime,
           intake.goalOther,
           intake.formVersion,
+          // The same three states, for the same readers. The words go in as they
+          // arrived: the column is an enum of the two the form offers.
+          intake.oneToTwo,
         ],
       ))
     } catch (error) {
@@ -4166,6 +4172,8 @@ const answersQuery = (key: QuestionKey): string | null => {
       return column('to_jsonb(i.gender)', 'i.gender is not null')
     case 'experience':
       return column('to_jsonb(i.first_time)', 'i.first_time is not null')
+    case 'oneToTwo':
+      return column('to_jsonb(i.one_to_two)', 'i.one_to_two is not null')
     case 'goalId':
       return column(
         `case when i.discipleship_goal_id is not null

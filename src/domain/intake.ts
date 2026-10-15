@@ -151,6 +151,21 @@ export const EXPERIENCE_ANSWERS = ['first_time', 'done_before'] as const
 export type ExperienceAnswer = (typeof EXPERIENCE_ANSWERS)[number]
 
 /**
+ * Whether the Person is open to a 1:2 -- being discipled alongside one other
+ * person, or discipling two people together, whichever side they declared
+ * (Suggestions beyond the one-to-one, ticket 01). The first-time answer's twin:
+ * carried as words, so *open to a 1:2* cannot be read as a yes to the wrong
+ * question, and the same two words in the database, so the answer is legible on a
+ * row without the screen that asked it.
+ *
+ * It binds nothing (James, 2026-09-18). It is shown beside a name on the pairing
+ * surfaces for the Admin making the pairing, and it filters nobody and ranks
+ * nobody on either of them -- which is what keeps it outside ADR-0001.
+ */
+export const ONE_TO_TWO_ANSWERS = ['open_to_one_to_two', 'one_to_one_only'] as const
+export type OneToTwoAnswer = (typeof ONE_TO_TWO_ANSWERS)[number]
+
+/**
  * The options a Ministry offers. The list is the Ministry's own -- set before a
  * semester begins -- so a goal is an identifier here rather than a value.
  */
@@ -203,7 +218,7 @@ export interface IntakeFormFields {
   readonly contactSharing: string | null
   readonly source: string | null
   /**
-   * The three the wizard adds, and which the single-page form leaves null. They
+   * The four the wizard adds, and which the single-page form leaves null. They
    * arrive here together with everything else because nothing is written until the
    * wizard's last step submits: each screen carries the earlier answers forward as
    * hidden inputs, so what reaches this reader is one whole form however many
@@ -212,6 +227,8 @@ export interface IntakeFormFields {
   readonly intakePath: string | null
   readonly declaredSide: string | null
   readonly experience: string | null
+  /** Whether they are open to a 1:2, worded from the side as the first-time question is. Null where the form did not ask. */
+  readonly oneToTwo: string | null
   /**
    * The group path's one question, in place of the Discipleship Goal: which of
    * the Ministry's groups the Person wants to join, as the identifier the form
@@ -259,6 +276,12 @@ export interface IntakeSubmissionDraft {
    * mentoring, whichever side they declared. Null where the form did not ask.
    */
   readonly firstTime: boolean | null
+  /**
+   * Whether they are open to a 1:2, in the words the form carried. Null where the
+   * form did not ask, and never a refusal: the answer is for the Admin to read and
+   * binds nothing.
+   */
+  readonly oneToTwo: OneToTwoAnswer | null
   /**
    * The group the Person asked to join. Null on every path but the group one, and
    * null on it too for a Person with no group in mind: `intakePath` is what tells
@@ -324,6 +347,8 @@ export type IntakeRefusal =
    */
   | 'intake.side_unknown'
   | 'intake.first_time_unanswered'
+  /** The one-to-two question, unanswered: the same kind of refusal as the first-time one. */
+  | 'intake.one_to_two_unanswered'
   /**
    * The form named a path Discipler does not serve, or carried an answer with no
    * path to belong to. Held to the same rule as `source_unknown` and for the same
@@ -388,6 +413,7 @@ export const REQUIRED_TODAY: ReadonlySet<string> = new Set([
   'ageBand',
   'gender',
   'experience',
+  'oneToTwo',
   'availability',
   'goalId',
   'groupId',
@@ -406,7 +432,8 @@ const ASKS_EVERYTHING: ReadonlySet<BuiltInQuestion> = new Set()
  * `required` is the form's own say on which questions may be left unanswered
  * (Pastor feedback, ticket 11): the version of the Ministry's form the Person
  * opened, by question key. Only the questions an Admin may make optional read it
- * -- the email, the first-time question and the goal -- because every other one
+ * -- the email, the first-time question, the one-to-two question and the goal --
+ * because every other one
  * is required by Discipler whatever a form says (`BUILT_IN` in `intake-form.ts`).
  *
  * `own` is the Ministry's own questions on that version (ticket 12), which arrive
@@ -427,13 +454,14 @@ export const readIntakeForm = (
   const refusals: IntakeRefusal[] = []
   const asks = (question: BuiltInQuestion) => !notAsked.has(question)
 
-  // The wizard's first and third screens, read first because that is where they
-  // are. A form that did not ask carries all three as null and passes through:
-  // the single-page form is one of those and stays one until ticket 29.
+  // The wizard's side and the two questions worded from it, read first because
+  // that is where they are. A form that did not ask carries all of them as null
+  // and passes through: the single-page form is one of those.
   const rawPath = fields.intakePath?.trim() || null
   const path = isOneOf(INTAKE_PATHS, rawPath) ? rawPath : null
   const declaredSide = isOneOf(DECLARED_SIDES, fields.declaredSide) ? fields.declaredSide : null
   const experience = isOneOf(EXPERIENCE_ANSWERS, fields.experience) ? fields.experience : null
+  const oneToTwo = isOneOf(ONE_TO_TWO_ANSWERS, fields.oneToTwo) ? fields.oneToTwo : null
 
   if (rawPath !== null && path === null) refusals.push('intake.path_unknown')
 
@@ -456,7 +484,14 @@ export const readIntakeForm = (
     } else if (experience === null && required.has('experience')) {
       refusals.push('intake.first_time_unanswered')
     }
-  } else if (fields.declaredSide !== null || fields.experience !== null) {
+    // Its twin, by the same rules (Suggestions beyond the one-to-one, ticket 01):
+    // refused unanswered only where the form asks it and keeps it required.
+    if (!asks('oneToTwo')) {
+      if (fields.oneToTwo !== null) answerWithNoQuestion()
+    } else if (oneToTwo === null && required.has('oneToTwo')) {
+      refusals.push('intake.one_to_two_unanswered')
+    }
+  } else if (fields.declaredSide !== null || fields.experience !== null || fields.oneToTwo !== null) {
     // An answer with no question. Refused rather than dropped, because dropping it
     // writes a consent record that says a Person was asked nothing when they were
     // looking at a screen that asked them something. The group path is held to
@@ -583,6 +618,7 @@ export const readIntakeForm = (
       intakePath: path,
       declaredSide,
       firstTime: experience === null ? null : experience === 'first_time',
+      oneToTwo,
       groupId: askedTheGroup ? groupId : null,
       ownAnswers: 'answers' in ownReading ? ownReading.answers : [],
     },

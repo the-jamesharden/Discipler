@@ -1,4 +1,11 @@
-import { SLOT_HOURS, type DeclaredSide, type IntakeRefusal, type SlotHour, type Weekday } from '~/domain/intake'
+import {
+  SLOT_HOURS,
+  type DeclaredSide,
+  type IntakeRefusal,
+  type OneToTwoAnswer,
+  type SlotHour,
+  type Weekday,
+} from '~/domain/intake'
 import { asList } from '~/domain/outbound-copy'
 
 /**
@@ -90,6 +97,9 @@ const REFUSALS: Record<IntakeRefusal, string> = {
     'Please tell us whether you are joining as a mentor or as someone to be '
     + 'mentored.',
   'intake.first_time_unanswered': 'Please tell us whether this is your first time.',
+  // One sentence for both sides, since refusals are not worded per side.
+  'intake.one_to_two_unanswered':
+    'Please tell us whether you’re open to a mentor working with two mentees together.',
   // Says the same thing `intake.source_unknown` says, because it is the same kind
   // of thing: a form that cannot say what it was asking is not one Discipler
   // served, and there is nothing on it the Person can correct.
@@ -189,6 +199,30 @@ export const DONE_BEFORE_ANSWER = 'Yes, I’ve done this before'
 export const FIRST_TIME_ANSWER = 'No, this is my first time'
 export const DONE_BEFORE_DESCRIPTION = 'I have experience in this role.'
 export const FIRST_TIME_DESCRIPTION = 'I am new to this — and that is perfectly fine.'
+
+/**
+ * The one-to-two question's two answers (Suggestions beyond the one-to-one,
+ * ticket 01), worded from the side so each reads as a sentence on its own, as the
+ * first-time answers do. The question above them is the Ministry's form's, in its
+ * two wordings; the answers are fixed, like every built-in question's. The values
+ * on the wire are the same two words for both sides (`ONE_TO_TWO_ANSWERS`), and
+ * the pairing surfaces say them in their own words beside a name.
+ */
+export const oneToTwoAnswerLabel: Record<DeclaredSide, Record<OneToTwoAnswer, string>> = {
+  mentor: {
+    open_to_one_to_two: 'Yes, I’m open to mentoring two together',
+    one_to_one_only: 'No, one mentee at a time',
+  },
+  mentee: {
+    open_to_one_to_two: 'Yes, I’m open to being one of two',
+    one_to_one_only: 'No, I’d rather meet one-to-one',
+  },
+}
+
+export const oneToTwoDescription: Record<OneToTwoAnswer, string> = {
+  open_to_one_to_two: 'If it helps the pairing work out.',
+  one_to_one_only: 'That is perfectly fine too.',
+}
 
 export const DONE_HEADING = 'You’re on the list'
 
