@@ -195,6 +195,10 @@ _Avoid_: a role (that is Leader or Participant, decided at pairing), a mark an A
 Whether a person said this is their first time — being discipled, or mentoring, whichever Declared Side they offered. The question is worded from the side, and the answer is carried as two words rather than as yes and no, because the form words them as statements and a `yes` meaning *first time* reads backwards. It is read on the pairing screen, per candidate, and nowhere else: it ranks nobody and refuses nobody.
 _Avoid_: a suggestion input (ADR-0001 fixes those, and this is not one of them), a filter on the candidate list, and reading an unanswered one as *no*
 
+**One-to-Two Answer**:
+Whether a person said they are open to a 1:2: being discipled alongside one other person, or discipling two people together, whichever Declared Side they offered. The First-Time Answer's twin: worded from the side, carried as two words rather than yes and no, and refused unanswered at the boundary (`readIntakeForm` in `src/domain/intake.ts`) only where the form served asks it. It is shown beside a name on the pairing surfaces for the Admin making the pairing, and binds nothing.
+_Avoid_: a suggestion input or a filter on either pairing surface (it filters nobody and ranks nobody, which is what keeps it outside ADR-0001), reading an unanswered one as *no*, and a gate on the 1:2 shape the manual pairing screen offers
+
 **Intake Path**:
 Which form a Person was answering, kept on their consent record beside the route they arrived by. The two are separate questions: the path says *which form*, and the route says *a link a pastor sent or a QR code they scanned*.
 _Avoid_: folding either into the other, and reading an absent path as anything but *the form did not ask*
