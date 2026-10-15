@@ -158,6 +158,32 @@ export const enoughForATick = async (): Promise<number> => {
 const TAKEN_NUMBER_TRIES = 20
 
 /**
+ * A generated number no account holds yet, for a Person a test takes through
+ * Acceptance over HTTP. Acceptance mints their account from the number on their
+ * Person record, so a number some earlier run's account already holds is refused
+ * there as `account.already_exists`, far from the fixture that picked it; this
+ * steps past one before it is used, as the minting fixtures do. Auth keeps the
+ * number without its plus sign.
+ */
+export const aPhoneNumberNobodyHolds = async (): Promise<string> => {
+  const client = new pg.Client({ connectionString: localSupabase().databaseUrl })
+  await client.connect()
+  try {
+    for (let tries = 0; tries < TAKEN_NUMBER_TRIES; tries++) {
+      const phone = aTestPhoneNumber()
+      const { rows } = await client.query(`select 1 from auth.users where phone in ($1, $2)`, [
+        phone,
+        phone.replace(/^\+/, ''),
+      ])
+      if (rows.length === 0) return phone
+    }
+  } finally {
+    await client.end()
+  }
+  throw new Error(`Every one of ${TAKEN_NUMBER_TRIES} generated numbers is already held by an account`)
+}
+
+/**
  * The password every fixture account holds. One constant rather than a literal at
  * each mint, so a suite signing somebody in never has to know which helper made
  * them. Long enough to clear `SHORTEST_PASSWORD`; a test about the password rule
