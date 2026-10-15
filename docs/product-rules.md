@@ -361,6 +361,7 @@ For a question the product reads, the warning also says what stops working, and 
 
 While a form asks gender or the age band, somebody with no answer to it is not suggested at all: a rule that cannot be checked for one Person is not quietly dropped for them.
 Suggested Pairs reads the mentor and mentee form, which is the form that signs people up to be paired one to one.
+The group step's link across to the mentor and mentee form (Group form exits, ticket 02) carries an answer only where both forms still ask the question; an answer either form no longer asks stays behind.
 Two removals delete nothing: the email somebody gave is kept on the Person beside their name and number, and the choice of group is kept as the membership or the request it made, not as an answer.
 The matching question's answers are kept on the consent records the form writes; removing it clears the side on them and changes nothing else on any consent record.
 
