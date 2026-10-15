@@ -21,11 +21,12 @@ import { FormActions, Hidden, Progress, StepForm } from './wizard-shell'
  * Its screens are the pages of the Ministry's own form (Pastor feedback, ticket
  * 11), in the version the Person opened: each page's name is the line at the top
  * of its screen, and its questions are asked in the order and the words the form
- * has them. A Ministry that never edited is served the preset, which is the five
- * screens the wizard always had. The fields themselves are the ones the group form
- * asks, imported rather than restated: `Agreements` in particular is the wording a
- * consent record points at by version, and two forms drifting apart would make
- * that version ambiguous.
+ * has them. A Ministry that never edited is served the preset: the five screens
+ * the wizard always had, and the one-to-two question's beside the first-time one
+ * (Suggestions beyond the one-to-one, ticket 01). The fields themselves are the
+ * ones the group form asks, imported rather than restated: `Agreements` in
+ * particular is the wording a consent record points at by version, and two forms
+ * drifting apart would make that version ambiguous.
  *
  * Every screen but the last is a GET form back to this same page; the last is the
  * only POST, and it is the only write. An abandoned wizard leaves nothing behind.
@@ -84,6 +85,7 @@ export const IntakeWizard = ({
     },
     side: answers.side,
     experience: answers.experience,
+    oneToTwo: answers.oneToTwo,
     goals,
     groups: [],
     groupChosen: null,

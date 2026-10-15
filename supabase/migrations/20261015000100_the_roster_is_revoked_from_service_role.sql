@@ -1,0 +1,23 @@
+-- Suggestions beyond the one-to-one, ticket 01 -- the Roster is revoked from service_role
+--
+-- Every migration that has created or recreated `public.roster(uuid)`, back to
+-- `20260910000100`, revoked execute `from public, anon` and never from
+-- `service_role`, which keeps the platform's default grant on a new function.
+-- That is one role short of the rule this repository settled on in
+-- `20261008000300_assigning_a_material.sql`: "A new function gets the platform's
+-- default execute for `anon` and `service_role`; neither reads this, so both are
+-- revoked." So `service_role` has always held execute on this `security definer`
+-- function, which returns a Ministry's phone numbers, emails and genders.
+--
+-- It returns nothing to a service key today: the function's own
+-- `app.is_admin_of` resolves `auth.uid()` to null for one, so every row is
+-- filtered out. This closes a gap that was always there, as the belt behind that
+-- brace, in a migration of its own rather than by editing any that production
+-- has already applied.
+--
+-- First written on the ticket's branch as `20261011000100`, which never reached
+-- production or `main`; this is the same statement under a timestamp after every
+-- migration since.
+-- ---------------------------------------------------------------------------
+
+revoke execute on function public.roster(uuid) from service_role;

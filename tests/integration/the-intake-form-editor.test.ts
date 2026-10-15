@@ -161,7 +161,8 @@ describe('a Ministry’s Intake forms', () => {
 
     const form = (await reader.readIntakePage(ministry.id))!.form
     const layout = layoutOf(form).map((page) => ({ ...page, keys: [...page.keys] }))
-    layout[4]!.keys = layout[4]!.keys.filter((key) => key !== 'fullName')
+    const last = layout[layout.length - 1]!
+    last.keys = last.keys.filter((key) => key !== 'fullName')
     layout[0]!.keys.push('fullName')
     await expect(
       service().execute({
@@ -196,6 +197,7 @@ describe('a Ministry’s Intake forms', () => {
       intakePath: 'discipleship',
       declaredSide: 'mentee',
       experience: 'first_time',
+      oneToTwo: 'open_to_one_to_two',
       groupId: null,
     }
 

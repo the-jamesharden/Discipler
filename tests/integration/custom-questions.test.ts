@@ -73,6 +73,7 @@ describe('a Ministry’s own Intake questions', () => {
     intakePath: 'discipleship',
     declaredSide: side,
     experience: 'first_time',
+    oneToTwo: 'open_to_one_to_two',
     groupId: null,
     own,
   })

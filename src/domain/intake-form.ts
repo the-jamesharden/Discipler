@@ -42,6 +42,7 @@ export const BUILT_IN_QUESTIONS = [
   'ageBand',
   'gender',
   'experience',
+  'oneToTwo',
   'availability',
   'goalId',
   'groupId',
@@ -136,9 +137,9 @@ export type ProductUse = 'pairing_rules' | 'age_rule' | 'suggested_pairs'
  * there.
  *
  * `after` is a question worded or filtered from an earlier answer: the first-time
- * question is put in the words of the side, and the groups on offer are the ones
- * open to the gender given. Asked on the same page as that answer, or before it,
- * there would be nothing to word it from.
+ * and one-to-two questions are put in the words of the side, and the groups on
+ * offer are the ones open to the gender given. Asked on the same page as that
+ * answer, or before it, there would be nothing to word it from.
  */
 export interface BuiltInRules {
   readonly kind: QuestionKind
@@ -149,10 +150,9 @@ export interface BuiltInRules {
   readonly after: BuiltInQuestion | null
   /**
    * A question that cannot be asked without another one on the form: the
-   * first-time question is put in the words of the side, and has no words without
-   * it. So the side is not removed while the first-time question is asked, and
-   * the first-time question is not added back to a form that no longer asks the
-   * side (ticket 13).
+   * first-time and one-to-two questions are put in the words of the side, and
+   * have no words without it. So the side is not removed while either is asked,
+   * and neither is added back to a form that no longer asks the side (ticket 13).
    */
   readonly needs: BuiltInQuestion | null
 }
@@ -186,6 +186,19 @@ export const BUILT_IN: Readonly<Record<BuiltInQuestion, BuiltInRules>> = {
     needs: null,
   },
   experience: {
+    kind: 'one_choice',
+    usedBy: null,
+    alwaysAsked: false,
+    requiredFixed: false,
+    staysOnTheLastPage: false,
+    after: 'side',
+    needs: 'side',
+  },
+  // The first-time question's twin in every rule (Suggestions beyond the
+  // one-to-one, ticket 01): worded from the side, read by nothing in the product
+  // but the pairing surfaces that show it beside a name, and so free to be made
+  // optional or removed.
+  oneToTwo: {
     kind: 'one_choice',
     usedBy: null,
     alwaysAsked: false,
@@ -264,9 +277,9 @@ const wordingOf = (raw: string | null | undefined): FormWording | null =>
 
 /**
  * One of Discipler's own questions as a form asks it. `menteeWording` is the
- * first-time question's alone: it is put in the words of the side, so it has one
- * wording for a mentor and one for somebody to be mentored, and is null on every
- * other question.
+ * first-time and one-to-two questions' alone: each is put in the words of the
+ * side, so it has one wording for a mentor and one for somebody to be mentored,
+ * and is null on every other question.
  */
 export interface BuiltInFormQuestion {
   readonly key: BuiltInQuestion
@@ -392,6 +405,16 @@ const PRESETS: Readonly<Record<IntakePath, IntakeForm>> = {
         ask('experience', 'Have you mentored someone before?', {
           menteeWording: 'Have you been discipled by a mentor before?',
           hint: 'This helps us match you thoughtfully.',
+        }),
+      ]),
+      // A page of its own beside the first-time one, as the wizard first asked it
+      // (Suggestions beyond the one-to-one, ticket 01). A statement to agree with,
+      // in James's words for the mentee side (2026-09-22) and the same shape for
+      // a mentor (approved 2026-10-15).
+      page('one-to-two', 'One more about how you’d be paired.', [
+        ask('oneToTwo', 'Open to mentoring two mentees together if needed', {
+          menteeWording: 'Open to being mentored alongside another mentee if needed',
+          hint: 'Sometimes one mentor walks with two people at once. Either answer is fine.',
         }),
       ]),
       page('availability', 'When are you generally available to meet?', [
@@ -720,11 +743,14 @@ export const addQuestion = (
 export const isRemovable = (question: FormQuestion): boolean => !rulesOf(question).alwaysAsked
 
 /**
- * The question on this form that cannot be asked without this one, if there is
- * one: the first-time question, while the side is being removed.
+ * The questions on this form that cannot be asked without this one, in the order
+ * they are asked: the first-time and one-to-two questions, while the side is
+ * being removed. Empty for every other question.
  */
-export const neededBy = (form: IntakeForm, key: string): FormQuestion | undefined =>
-  questionsOf(form).find((question) => !isOwnQuestion(question) && BUILT_IN[question.key].needs === key)
+export const neededBy = (form: IntakeForm, key: string): readonly BuiltInFormQuestion[] =>
+  questionsOf(form).filter(
+    (question): question is BuiltInFormQuestion => !isOwnQuestion(question) && BUILT_IN[question.key].needs === key,
+  )
 
 /**
  * The form without one of its questions (ticket 13). Taking a question off the
@@ -738,7 +764,7 @@ export const removeQuestion = (form: IntakeForm, key: string): FormEdit => {
   const question = questionOn(form, key)
   if (!question) return { refusal: 'intake_form.not_found' }
   if (!isRemovable(question)) return { refusal: 'intake_form.always_asked' }
-  if (neededBy(form, key)) return { refusal: 'intake_form.worded_from_it' }
+  if (neededBy(form, key).length > 0) return { refusal: 'intake_form.worded_from_it' }
 
   return saved(
     form,
@@ -763,9 +789,9 @@ export const removalDeletesAnswers = (key: QuestionKey): boolean =>
  * (ADR-0014). One per submission it was given on, superseded ones included.
  *
  * `answer` is as it was stored: a gender, an age band or a side; true or false
- * for the first-time question; the hours ticked as `monday:08` keys; the goal as
- * `{ goalId }` or `{ other }`; and a Ministry's own question's answer as it
- * was kept.
+ * for the first-time question; one of its two words for the one-to-two
+ * question; the hours ticked as `monday:08` keys; the goal as `{ goalId }` or
+ * `{ other }`; and a Ministry's own question's answer as it was kept.
  */
 export interface AnswerGiven {
   readonly submissionId: IntakeSubmissionId
@@ -811,6 +837,7 @@ export const withoutWhatIsNoLongerAsked = (
     availability: asked('availability') ? submission.availability : [],
     declaredSide: asked('side') ? submission.declaredSide : null,
     firstTime: asked('experience') ? submission.firstTime : null,
+    oneToTwo: asked('oneToTwo') ? submission.oneToTwo : null,
     ownAnswers: submission.ownAnswers.filter((answer) => asked(answer.key)),
   }
 }

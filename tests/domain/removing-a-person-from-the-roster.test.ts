@@ -169,6 +169,7 @@ describe('coming back through Intake', () => {
     intakePath: null,
     declaredSide: null,
     experience: null,
+    oneToTwo: null,
     groupId: null,
   }
   const key = rosterKey({ fullName: 'Hannah Brooks', phone: phoneNumber('+15555991044') })

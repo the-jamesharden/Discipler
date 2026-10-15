@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import type { SuggestedPair, SuggestedPerson } from '~/domain/suggestions'
 import { getSuggestedPairsReader } from '~/service/container'
+import { oneToTwoLabel } from '../roster/copy'
 import { pairPopupHref } from '../roster/lists'
 import { AdminShell, NotAnAdmin, shortDate } from '../shell'
 import {
@@ -22,9 +23,23 @@ import {
 
 export const dynamic = 'force-dynamic'
 
-/** `Discipler · 25-34 · Career and calling`, the line under a name on a card. */
+/**
+ * The parts of a line under a name, the dot held to the part before it, so a line
+ * that wraps on a phone breaks after a dot and never starts a line with one.
+ */
+const PARTS = '\u00a0· '
+
+/**
+ * `Discipler · 25-34 · Career and calling · Open to one-to-two`, the line under a
+ * name on a card. The last part is the one-to-two answer in the Roster's words,
+ * beside the name as on the Pair popup, and absent where no form asked
+ * (Suggestions beyond the one-to-one, ticket 01). It ranked nobody above.
+ */
 const roleLine = (role: string, person: SuggestedPerson): string =>
-  [role, person.ageBand, person.goal].filter((part) => part !== null).join(' · ')
+  [role, person.ageBand, person.goal, oneToTwoOf(person)].filter((part) => part !== null).join(PARTS)
+
+const oneToTwoOf = (person: SuggestedPerson): string | null =>
+  person.oneToTwo === null ? null : oneToTwoLabel[person.oneToTwo]
 
 /**
  * Accepting a suggestion opens the Pair popup from the Discipler with the Disciple
@@ -112,9 +127,9 @@ export default async function SuggestedPairsPage() {
                 <div>
                   <div className="nso-name">{person.fullName}</div>
                   <div className="muted">
-                    {[person.ageBand, person.goal, intakeOn(shortDate(person.intakeSubmittedAt))]
+                    {[person.ageBand, person.goal, oneToTwoOf(person), intakeOn(shortDate(person.intakeSubmittedAt))]
                       .filter((part) => part !== null)
-                      .join(' · ')}
+                      .join(PARTS)}
                   </div>
                 </div>
                 {/* Their own popup, on *Is discipled* whatever the preset would say of

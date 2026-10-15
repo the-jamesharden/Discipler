@@ -556,6 +556,7 @@ describe('a Ministry’s Discipleship Goal options', () => {
           intakePath: null,
           declaredSide: null,
           experience: null,
+          oneToTwo: null,
           groupId: null,
         },
       }),

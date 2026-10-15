@@ -1,4 +1,4 @@
-import { AGE_BANDS, DECLARED_SIDES, EXPERIENCE_ANSWERS, GENDERS } from '~/domain/intake'
+import { AGE_BANDS, DECLARED_SIDES, EXPERIENCE_ANSWERS, GENDERS, ONE_TO_TWO_ANSWERS } from '~/domain/intake'
 import { askedPages, isOwnQuestion, presetForm, type BuiltInQuestion, type IntakeForm } from '~/domain/intake-form'
 import { defineWizard, ownFieldFor, ownFieldsOf, type AnswersOf, type Screen } from './wizard-machine'
 
@@ -20,7 +20,7 @@ export {
  */
 
 /**
- * Each single-choice answer beside the list it has to come from. The four are
+ * Each single-choice answer beside the list it has to come from. The five are
  * written down here and nowhere else: what a screen carries forward as a hidden
  * input, what `readWizardAnswers` accepts off a query string and what the way back
  * puts into one are all read from this table.
@@ -30,6 +30,7 @@ const LISTS = {
   ageBand: AGE_BANDS,
   gender: GENDERS,
   experience: EXPERIENCE_ANSWERS,
+  oneToTwo: ONE_TO_TWO_ANSWERS,
 } as const
 
 export type WizardAnswers = AnswersOf<typeof LISTS>
@@ -47,6 +48,7 @@ const CARRIED: Partial<Record<BuiltInQuestion, Carried>> = {
   ageBand: 'ageBand',
   gender: 'gender',
   experience: 'experience',
+  oneToTwo: 'oneToTwo',
   availability: 'availability',
 }
 
@@ -57,8 +59,10 @@ const CARRIED: Partial<Record<BuiltInQuestion, Carried>> = {
  * A screen asking the side rewords the first-time question: *have you mentored
  * someone before* and *have you been discipled before* are different questions, so
  * a side re-answered drops the first-time answer rather than carrying it under the
- * wrong words. The form keeps the first-time question on a later page than the
- * side, so it is always asked again in the words that now apply.
+ * wrong words. The one-to-two question is worded from the side too -- *mentoring
+ * two mentees together* and *being mentored alongside another mentee* -- and is
+ * dropped for the same reason. The form keeps both on a later page than the side,
+ * so each is always asked again in the words that now apply.
  */
 export const screensOf = (form: IntakeForm): readonly Screen<typeof LISTS>[] =>
   askedPages(form).map((page) => {
@@ -69,7 +73,7 @@ export const screensOf = (form: IntakeForm): readonly Screen<typeof LISTS>[] =>
     const asks = carried.map((each) => each.field)
     return {
       asks,
-      rewords: asks.includes('side') ? ['experience'] : [],
+      rewords: asks.includes('side') ? ['experience', 'oneToTwo'] : [],
       optional: carried.filter((each) => !each.required).map((each) => each.field),
     }
   })
@@ -79,7 +83,7 @@ export const discipleshipWizardFor = (form: IntakeForm) =>
   defineWizard(LISTS, screensOf(form), ownFieldsOf(form))
 
 /**
- * The wizard every Ministry is served until it edits its form: today's five
+ * The wizard every Ministry is served until it edits its form: today's six
  * screens. Its names are what the tests read the stepping rules by.
  */
 const wizard = discipleshipWizardFor(presetForm('discipleship'))
@@ -107,5 +111,6 @@ export const {
 export const SIDE_STEP = wizard.stepAsking('side')
 export const AGE_AND_GENDER_STEP = wizard.stepAsking('ageBand')
 export const FIRST_TIME_STEP = wizard.stepAsking('experience')
+export const ONE_TO_TWO_STEP = wizard.stepAsking('oneToTwo')
 
 export const readWizardAnswers = wizard.readAnswers

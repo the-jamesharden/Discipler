@@ -107,6 +107,7 @@ export const GroupIntakeWizard = ({
     },
     side: null,
     experience: null,
+    oneToTwo: null,
     goals: [],
     groups,
     groupChosen: answers.groupId,

@@ -76,7 +76,7 @@ describe.skipIf(skipUnlessAppIsRunning)('removing a question, over HTTP', () => 
 
   it('asks once more in place, saying what stops working and how many answers it deletes', async () => {
     const { location } = await submitTheWizard(
-      { side: 'mentee', ageBand: '25-34', gender: 'female', experience: 'first_time' },
+      { side: 'mentee', ageBand: '25-34', gender: 'female', experience: 'first_time', oneToTwo: 'open_to_one_to_two' },
       ['monday:12'],
     )
     expect(location).toContain('/discipleship/done')
@@ -101,8 +101,17 @@ describe.skipIf(skipUnlessAppIsRunning)('removing a question, over HTTP', () => 
     expect(await asking('gender')).toContain('Without this question they cannot be applied')
     expect(await asking('ageBand')).toContain('Without this question it cannot be applied')
     expect(await asking('goalId')).toContain('Without this question there is no goal tiebreaker')
-    expect(await asking('side')).toContain('Remove the first-time question first.')
+    // Both questions worded from it hold it, and are named (Suggestions beyond
+    // the one-to-one, ticket 01).
+    expect(await asking('side')).toContain(
+      'The first-time question and the one-to-two question are worded from this answer, so neither can be asked without it. Remove them first.',
+    )
     expect(await asking('side')).not.toContain('Remove it')
+    // Nothing that pairs people reads the one-to-two answer, so its removal says
+    // only what it deletes.
+    expect(await asking('oneToTwo')).toContain(
+      'Remove “Open to mentoring two mentees together if needed” It deletes the answer 1 person has already given. This cannot be undone.',
+    )
     expect(await asking('email')).toContain(
       'The emails people gave are kept with their names and numbers, so no answers are deleted.',
     )
@@ -131,10 +140,10 @@ describe.skipIf(skipUnlessAppIsRunning)('removing a question, over HTTP', () => 
 
   it('serves the wizard without it, and takes a submission that never saw it', async () => {
     const welcome = await fetch(`${baseUrl}/intake/${ministry.id}/discipleship`).then((response) => response.text())
-    expect(clean(welcome)).toContain('Step 1 of 4')
+    expect(clean(welcome)).toContain('Step 1 of 5')
 
     const { location } = await submitTheWizard(
-      { side: 'mentor', ageBand: '35-44', gender: 'male', experience: 'done_before' },
+      { side: 'mentor', ageBand: '35-44', gender: 'male', experience: 'done_before', oneToTwo: 'one_to_one_only' },
       [],
     )
     expect(location).toContain('/discipleship/done')
@@ -161,7 +170,14 @@ describe.skipIf(skipUnlessAppIsRunning)('removing a question, over HTTP', () => 
   it('leaves an answer it dropped off the page after Submit', async () => {
     // Version 1 still asked gender; the test before this one removed it.
     const { location } = await submitTheWizard(
-      { v: '1', side: 'mentee', ageBand: '25-34', gender: 'female', experience: 'first_time' },
+      {
+        v: '1',
+        side: 'mentee',
+        ageBand: '25-34',
+        gender: 'female',
+        experience: 'first_time',
+        oneToTwo: 'open_to_one_to_two',
+      },
       [],
     )
     expect(location).toContain('/discipleship/done')
@@ -170,11 +186,46 @@ describe.skipIf(skipUnlessAppIsRunning)('removing a question, over HTTP', () => 
     const done = clean(await fetch(location).then((response) => response.text()))
     expect(done).toContain('Age range 25-34')
     expect(done).not.toContain('Gender')
+    // What they said about being one of two, in their side's words.
+    expect(done).toContain('Pairing Yes, I’m open to being one of two')
+  })
+
+  it('removes the one-to-two question with its answers, and then the side waits only for the first-time question', async () => {
+    const { location } = await post('/intake-forms/form/remove-question', {
+      form: 'discipleship',
+      key: 'oneToTwo',
+      pageId: 'one-to-two',
+    })
+    // Said on the page box it was on, as every removal is.
+    expect(location).toContain('formSaved=removed%3Aone-to-two')
+
+    const { rows } = await pool.query(
+      `select 1 from intake_submission where ministry_id = $1 and one_to_two is not null`,
+      [ministry.id],
+    )
+    expect(rows).toEqual([])
+    const { rows: events } = await pool.query(
+      `select payload from ministry_event
+        where ministry_id = $1 and type = 'intake_form.question_removed' and payload ->> 'key' = 'oneToTwo'`,
+      [ministry.id],
+    )
+    expect(events).toEqual([{ payload: expect.objectContaining({ answersLost: 3 }) }])
+
+    expect(await page('/intake-forms?form=discipleship&question=side&removingQuestion=1')).toContain(
+      'The first-time question is worded from this answer, so it cannot be asked without it. Remove the first-time question first.',
+    )
+    // The wizard skips the page it emptied, and takes a submission without it.
+    const welcome = await fetch(`${baseUrl}/intake/${ministry.id}/discipleship`).then((response) => response.text())
+    expect(clean(welcome)).toContain('Step 1 of 4')
+    const submitted = await submitTheWizard({ side: 'mentee', ageBand: '25-34', experience: 'first_time' }, [])
+    expect(submitted.location).toContain('/discipleship/done')
+    expect(submitted.location).not.toContain('oneToTwo=')
   })
 
   it('offers a removed question back from Add a question, with none of its old answers', async () => {
     const editor = await page('/intake-forms?form=discipleship')
     expect(editor).toContain('Add back: Gender')
+    expect(editor).toContain('Open to mentoring two mentees together if needed')
     expect(editor).toContain('When could you meet?')
 
     const { location } = await post('/intake-forms/form/add-back', {

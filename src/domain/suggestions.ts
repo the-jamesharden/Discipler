@@ -7,6 +7,7 @@ import {
   type DeclaredSide,
   type DiscipleshipGoalId,
   type Gender,
+  type OneToTwoAnswer,
   type OtherGoal,
 } from './intake'
 import { goalAsShown } from './discipleship-goals'
@@ -123,6 +124,13 @@ export interface SuggestionCandidate {
   readonly optedOut: boolean
   /** The side they answered at their latest Intake, or null where the form did not ask. */
   readonly declaredSide: DeclaredSide | null
+  /**
+   * Whether they said they are open to a 1:2, or null where no form asked
+   * (Suggestions beyond the one-to-one, ticket 01). Carried to the card and read
+   * by nothing in the ranking: it is not one of ADR-0001's four inputs, and it
+   * filters nobody out of either pool.
+   */
+  readonly oneToTwo: OneToTwoAnswer | null
   readonly memberships: readonly CandidateMembership[]
 }
 
@@ -187,6 +195,8 @@ export interface SuggestedPerson {
   readonly fullName: string
   readonly ageBand: AgeBand | null
   readonly goal: string | null
+  /** Shown beside the name, in the words the Roster's copy gives it. Never ranked on. */
+  readonly oneToTwo: OneToTwoAnswer | null
   /** When the Intake being ranked was given: how long they have waited. */
   readonly intakeSubmittedAt: Date
 }
@@ -384,6 +394,7 @@ const shown = (person: SuggestionCandidate): SuggestedPerson => ({
       : 'other' in person.goal
         ? goalAsShown(null, person.goal.other)
         : person.goal.label,
+  oneToTwo: person.oneToTwo,
   // Everyone shown came through a pool, and both pools begin at a completed Intake.
   intakeSubmittedAt: person.intakeSubmittedAt!,
 })

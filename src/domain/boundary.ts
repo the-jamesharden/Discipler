@@ -5132,6 +5132,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           availability: kept.availability,
           email: kept.email,
           firstTime: kept.firstTime,
+          oneToTwo: kept.oneToTwo,
           formVersion,
           ownAnswers: kept.ownAnswers,
           consentVersion: CONSENT_VERSION,

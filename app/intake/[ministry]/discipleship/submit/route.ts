@@ -76,6 +76,7 @@ export async function POST(
       ageBand: form.ageBand ?? undefined,
       gender: form.gender ?? undefined,
       experience: form.experience ?? undefined,
+      oneToTwo: form.oneToTwo ?? undefined,
       availability: [...form.availability],
     })
     const params = wizard.answersAsQuery(answers, readVia(via), wizard.LAST_STEP, pin)
@@ -153,6 +154,7 @@ const doneQuery = async (
   if (form.ageBand && kept('ageBand')) done.set('ageBand', form.ageBand)
   if (form.gender && kept('gender')) done.set('gender', form.gender)
   if (form.experience && kept('experience')) done.set('experience', form.experience)
+  if (form.oneToTwo && kept('oneToTwo')) done.set('oneToTwo', form.oneToTwo)
   // None where the form no longer asks when somebody is free (ticket 13), which
   // the summary then leaves out rather than saying *no hours*.
   const ticked = new Set(kept('availability') ? form.availability : [])

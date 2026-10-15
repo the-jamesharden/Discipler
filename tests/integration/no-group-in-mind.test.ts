@@ -75,6 +75,7 @@ describe('no group in mind', () => {
         intakePath: GROUP_PATH,
         declaredSide: null,
         experience: null,
+        oneToTwo: null,
         groupId: NO_GROUP_IN_MIND,
         ...over,
       },

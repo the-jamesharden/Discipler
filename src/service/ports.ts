@@ -100,6 +100,7 @@ import type {
   DiscipleshipGoalId,
   Gender,
   IntakePath,
+  OneToTwoAnswer,
   OtherGoal,
 } from '~/domain/intake'
 import type {
@@ -1117,6 +1118,16 @@ export interface RosterEntry {
    * filtered list.
    */
   readonly firstTime: boolean | null
+  /**
+   * Whether their latest submission that asked said they are open to a 1:2, in
+   * the words it carried. Null where no submission has ever asked, which is not a
+   * refusal (Suggestions beyond the one-to-one, ticket 01).
+   *
+   * Shown beside their name by the pairing surfaces -- the Pair popup from either
+   * side, and Suggested Pairs -- and read by nothing else. It filters nobody and
+   * ranks nobody on either, which is what keeps it outside ADR-0001.
+   */
+  readonly oneToTwo: OneToTwoAnswer | null
   /**
    * Whether this Person holds an account -- a Leader who accepted their Invitation
    * Link, or an Admin who was provisioned. Derived from `person.user_id`, never

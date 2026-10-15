@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { displayPhone, PAIR_POPUP } from './copy'
+import type { OneToTwoAnswer } from '~/domain/intake'
+import { displayPhone, oneToTwoLabel, PAIR_POPUP } from './copy'
 import { CLEAR } from './import-copy'
 import type { PairSide } from './lists'
 import type { RosterView } from './menu'
@@ -38,6 +39,12 @@ export interface PairPopupDiscipler {
   readonly phone: string | null
   /** How many people they already lead. */
   readonly leads: number
+  /**
+   * Whether they said they are open to a 1:2, or null where nobody asked
+   * (Suggestions beyond the one-to-one, ticket 01). Shown beside the name, as the
+   * first-time note is from the other side; it ranks and filters nobody.
+   */
+  readonly oneToTwo: OneToTwoAnswer | null
   /** Whether they head the list, as disciplining somebody already or having offered to, or are folded under Everyone else. */
   readonly listedFirst: boolean
   /** What they are discipled in now, in words, for the row's second line, or none. What they lead is `leads`. */
@@ -98,7 +105,12 @@ export const PairPopupFromADisciple = ({
       mark="radio"
       name="leaderId"
       person={each}
-      details={[each.email, each.phone ? displayPhone(each.phone) : null, PAIR_POPUP.leads(each.leads)]}
+      details={[
+        each.email,
+        each.phone ? displayPhone(each.phone) : null,
+        PAIR_POPUP.leads(each.leads),
+        each.oneToTwo === null ? null : oneToTwoLabel[each.oneToTwo],
+      ]}
       also={each.doingNow}
       greyed={each.greyed}
       // With a group the server sent chosen, a refused join restored, the form

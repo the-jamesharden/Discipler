@@ -373,6 +373,7 @@ describe('an Admin puts a Disciple into a group', () => {
           intakePath: GROUP_PATH,
           declaredSide: null,
           experience: null,
+          oneToTwo: null,
           groupId: group,
         },
       })

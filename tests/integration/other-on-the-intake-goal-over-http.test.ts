@@ -37,10 +37,11 @@ describe.skipIf(skipUnlessAppIsRunning)('Other on the Intake goal, over HTTP', (
     ageBand: '25-34',
     gender: 'female',
     experience: 'first_time',
+    oneToTwo: 'open_to_one_to_two',
   }
 
   const lastStep = async () => {
-    const query = new URLSearchParams({ step: '5', ...ANSWERED })
+    const query = new URLSearchParams({ step: '6', ...ANSWERED })
     query.append('availability', 'monday:12')
     const response = await fetch(`${baseUrl}/intake/${ministry.id}/discipleship?${query}`, {
       redirect: 'manual',
@@ -102,7 +103,7 @@ describe.skipIf(skipUnlessAppIsRunning)('Other on the Intake goal, over HTTP', (
     expect(response.status).toBe(303)
     // The one problem, and nothing else: the rest of the form was answered.
     expect(new URL(location).searchParams.get('refused')).toBe('intake.goal_other_missing')
-    expect(location).toContain('step=5')
+    expect(location).toContain('step=6')
 
     const html = await fetch(new URL(location, baseUrl), { redirect: 'manual' }).then((page) => page.text())
     expect(html).toContain('You chose Other. Please write in a few words what you are hoping for.')

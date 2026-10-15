@@ -313,6 +313,7 @@ describe('removing a Person from the Roster', () => {
       intakePath: null,
       declaredSide: null,
       experience: null,
+      oneToTwo: null,
       groupId: null,
     }
     await service().execute({ type: 'intake.submit', ministryId: ministry.id, form })

@@ -41,6 +41,7 @@ const person = (fullName: string, over: Partial<RosterEntry> = {}): RosterEntry 
   relationships: [],
   declaredSide: null,
   firstTime: null,
+  oneToTwo: null,
   holdsAnAccount: false,
   phone: null,
   email: null,
