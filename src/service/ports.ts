@@ -1740,9 +1740,9 @@ export interface GroupIntakePage {
   readonly form: IntakeForm
   /**
    * The Ministry's mentor and mentee form as it stands now, which is what
-   * somebody opening it fresh would be served. Step three links across to it for
-   * somebody who meant to sign up for mentorship (Group form exits, ticket 02),
-   * carrying only the answers it still asks.
+   * somebody opening it fresh would be served. The group step links across to
+   * it for somebody who meant to sign up for mentorship (Group form exits,
+   * ticket 02), carrying only the answers it still asks.
    */
   readonly discipleshipForm: IntakeForm
 }

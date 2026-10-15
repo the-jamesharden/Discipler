@@ -10,6 +10,7 @@ import {
   LAST_STEP,
   SIDE_STEP,
   answersAsQuery,
+  discipleshipWizard,
   furthestStep,
   readWizardAnswers,
   stepToShow,
@@ -54,14 +55,15 @@ describe('the switch to the discipleship wizard', () => {
     expect(MEANT_FOR_MENTORSHIP_LINK).toBe('I meant to sign up for mentorship')
   })
 
-  it('carries the age band, the gender and the availability, pinned to the form it opens', () => {
+  it('carries the age band, the gender and the availability, pinned to the form it opens, and names them carried', () => {
     const query = mentorshipSwitchQuery(preset)
     expect(query.get('step')).toBe(String(SIDE_STEP))
     expect(query.get('v')).toBe('0')
     expect(query.get('ageBand')).toBe('25-34')
     expect(query.get('gender')).toBe('male')
     expect(query.getAll('availability')).toEqual(['tuesday:18', 'thursday:18'])
-    expect([...new Set(query.keys())].sort()).toEqual(['ageBand', 'availability', 'gender', 'step', 'v'])
+    expect(query.getAll('carried')).toEqual(['ageBand', 'gender', 'availability'])
+    expect([...new Set(query.keys())].sort()).toEqual(['ageBand', 'availability', 'carried', 'gender', 'step', 'v'])
   })
 
   it('carries how they reached the form, and an Admin’s preview stays a preview', () => {
@@ -92,19 +94,54 @@ describe('the switch to the discipleship wizard', () => {
     expect(stepToShow(query.step, answers)).toBe(SIDE_STEP)
   })
 
-  it('lets Continue move past the carried screens once the side is given, and Back show them filled', () => {
+  it('skips the carried screens on Continue, and Back still walks to each of them filled', () => {
     const query = asQuery(mentorshipSwitchQuery(preset))
+    const carried = discipleshipWizard.readCarried(query.carried)
+    const answers = readWizardAnswers(query)
+
+    // From the side, Continue goes past age and gender to the first-time question.
+    expect(discipleshipWizard.nextStep(SIDE_STEP, answers, carried)).toBe(FIRST_TIME_STEP)
+    // And from there past the availability to the last page.
     const sideGiven = readWizardAnswers({ ...query, side: 'mentee' })
-    // The age and gender screen is passed: the first unanswered one is the first-time question.
-    expect(furthestStep(sideGiven)).toBe(FIRST_TIME_STEP)
-    expect(stepToShow(String(AGE_AND_GENDER_STEP), sideGiven)).toBe(AGE_AND_GENDER_STEP)
+    expect(discipleshipWizard.nextStep(FIRST_TIME_STEP, sideGiven, carried)).toBe(LAST_STEP)
 
-    const back = asQuery(answersAsQuery(sideGiven, 'link', AGE_AND_GENDER_STEP))
+    // Back is the screen before, every time, with the carried answers in it.
+    const back = asQuery(answersAsQuery(sideGiven, 'link', AGE_AND_GENDER_STEP, { version: 0, preview: false, carried }))
+    expect(back.step).toEqual([String(AGE_AND_GENDER_STEP)])
+    expect(back.carried).toEqual(['ageBand', 'gender', 'availability'])
     expect(readWizardAnswers(back)).toMatchObject({ ageBand: '25-34', gender: 'male' })
+    expect(stepToShow(back.step, readWizardAnswers(back))).toBe(AGE_AND_GENDER_STEP)
 
-    const firstTimeGiven = readWizardAnswers({ ...query, side: 'mentee', experience: 'first_time' })
-    expect(furthestStep(firstTimeGiven)).toBe(LAST_STEP)
-    expect(stepToShow(String(AVAILABILITY_STEP), firstTimeGiven)).toBe(AVAILABILITY_STEP)
+    // An answer changed there is kept, and Continue goes on to the next unanswered screen.
+    const changed = readWizardAnswers({ ...back, ageBand: '35-44' })
+    expect(changed.ageBand).toBe('35-44')
+    expect(discipleshipWizard.nextStep(AGE_AND_GENDER_STEP, changed, carried)).toBe(FIRST_TIME_STEP)
+    expect(furthestStep(readWizardAnswers({ ...query, side: 'mentee', experience: 'first_time' }))).toBe(LAST_STEP)
+  })
+
+  it('changes nothing for somebody who opened the discipleship form themselves', () => {
+    const answers = readWizardAnswers({
+      side: 'mentee', ageBand: '25-34', gender: 'male', experience: 'first_time', availability: ['tuesday:18'],
+    })
+    expect(discipleshipWizard.nextStep(SIDE_STEP, answers)).toBe(AGE_AND_GENDER_STEP)
+    expect(discipleshipWizard.nextStep(FIRST_TIME_STEP, answers)).toBe(AVAILABILITY_STEP)
+    expect(discipleshipWizard.nextStep(AVAILABILITY_STEP, answers)).toBe(LAST_STEP)
+  })
+
+  it('passes only a screen whose every question was carried and is still answered', () => {
+    const answers = readWizardAnswers({ side: 'mentee', ageBand: '25-34', availability: ['tuesday:18'] })
+    // The gender was not carried and is not answered: age and gender is asked.
+    expect(discipleshipWizard.nextStep(SIDE_STEP, answers, ['ageBand', 'availability'])).toBe(AGE_AND_GENDER_STEP)
+    // Named as carried but not answered is asked too.
+    expect(discipleshipWizard.nextStep(FIRST_TIME_STEP, readWizardAnswers({ side: 'mentee' }), ['availability'])).toBe(
+      AVAILABILITY_STEP,
+    )
+    // Only fields this wizard asks survive the read, each once, in screen order.
+    expect(discipleshipWizard.readCarried(['experience', 'side', 'groupId', '<script>', 'ageBand', 'ageBand'])).toEqual([
+      'side',
+      'ageBand',
+      'experience',
+    ])
   })
 })
 

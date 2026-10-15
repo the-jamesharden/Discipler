@@ -163,7 +163,10 @@ export const GroupIntakeWizard = ({
 const MeantForMentorship = ({ href }: { readonly href: string }) => (
   <p className="card-note">
     {`${MEANT_FOR_MENTORSHIP_QUESTION} `}
-    <Link href={href}>{MEANT_FOR_MENTORSHIP_LINK}</Link>
+    {/* Whole, so the link drops to the next line rather than leaving its last word there alone. */}
+    <Link className="nowrap" href={href}>
+      {MEANT_FOR_MENTORSHIP_LINK}
+    </Link>
   </p>
 )
 

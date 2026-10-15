@@ -214,14 +214,14 @@ export const doneMessageWithoutASide = (ministryName: string): string =>
 export const groupHeading = (ministryName: string): string => `Join a group at ${ministryName}`
 
 /**
- * The line beneath a group's name on step three when its running period is on a
+ * The line beneath a group's name on the group step when its running period is on a
  * Material (Materials, ticket 03, S-7). A group on none shows its name alone, and
  * nothing is said about the absence.
  */
 export const workingThrough = (materialTitle: string): string => `Working through ${materialTitle}`
 
 /**
- * The dashed last option on step three, for somebody who found no group that
+ * The dashed last option on the group step, for somebody who found no group that
  * fits (Group form exits, ticket 01, S-7). Choosing it asks the Ministry to place
  * them, and the done page says the Ministry has been told.
  */
@@ -230,7 +230,7 @@ export const noGroupInMindDescription = (ministryName: string): string =>
   `We’ll let ${ministryName} know you’d like to be placed in one.`
 
 /**
- * The line under step three's actions, for somebody who meant the discipleship
+ * The line under the group step's actions, for somebody who meant the discipleship
  * form (Group form exits, ticket 02, S-7). The second half is the link, which
  * takes what they have already answered across with them.
  */

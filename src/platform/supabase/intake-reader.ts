@@ -275,7 +275,7 @@ export const createPostgresIntakeReader = (
           groups,
           form: await servedForm(client, GROUP_PATH, version),
           // As it stands now, whichever groups form version was opened: it is
-          // the form the switch on step three opens fresh.
+          // the form the switch on the group step opens fresh.
           discipleshipForm: await servedForm(client, 'discipleship', null),
         }
       } finally {

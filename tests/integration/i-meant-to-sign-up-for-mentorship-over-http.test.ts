@@ -61,7 +61,7 @@ const actionOf = (html: string, method: 'get' | 'post'): string | null => {
 
 /** The address the switch's link points at, as a browser would follow it. */
 const switchIn = (html: string): string | null => {
-  const note = html.match(/<p class="card-note">Looking for one-to-one discipleship instead\? <a href="([^"]+)">I meant to sign up for mentorship<\/a><\/p>/)
+  const note = html.match(/<p class="card-note">Looking for one-to-one discipleship instead\? <a [^>]*\bhref="([^"]+)"[^>]*>I meant to sign up for mentorship<\/a><\/p>/)
   return note ? note[1]!.replace(/&amp;/g, '&') : null
 }
 
@@ -145,6 +145,9 @@ describe.skipIf(skipUnlessAppIsRunning)('I meant to sign up for mentorship, over
     expect([...link.searchParams]).toEqual([
       ['step', '1'],
       ['v', '0'],
+      ['carried', 'ageBand'],
+      ['carried', 'gender'],
+      ['carried', 'availability'],
       ['ageBand', '25-34'],
       ['gender', 'male'],
       ['availability', 'tuesday:18'],
@@ -179,28 +182,28 @@ describe.skipIf(skipUnlessAppIsRunning)('I meant to sign up for mentorship, over
     expect(await written()).toEqual(before)
   })
 
-  it('shows the carried answers filled, moves past them on Continue, and finishes as the side they declared', async () => {
+  it('skips the carried screens on Continue, shows them filled on Back, and finishes as the side they declared', async () => {
     const landed = { path: switchIn(stepThree.html)!, ...(await open(switchIn(stepThree.html)!)) }
+    const backFrom = (html: string) =>
+      open(html.match(/<a class="btn sec" href="([^"]+)">Back<\/a>/)![1]!.replace(/&amp;/g, '&'))
 
-    const ageAndGender = await continueFrom(landed.path, landed.html, [['side', 'mentor']])
+    // One Continue from the side: past age and gender, onto the first-time question.
+    const firstTime = await continueFrom(landed.path, landed.html, [['side', 'mentor']])
+    expect(firstTime.html).toContain('Step 3 of 5')
+    expect(firstTime.html).toContain('Have you mentored someone before?')
+    // Back from here is the age and gender screen, filled.
+    const ageAndGender = await backFrom(firstTime.html)
     expect(ageAndGender.html).toContain('Step 2 of 5')
     expect(checkedOn(ageAndGender.html)).toEqual([['ageBand', '25-34'], ['gender', 'male']])
 
-    const firstTime = await continueFrom(ageAndGender.path, ageAndGender.html)
-    expect(firstTime.html).toContain('Step 3 of 5')
-    expect(firstTime.html).toContain('Have you mentored someone before?')
-    // Back from here is the age and gender screen with them still filled.
-    const back = firstTime.html.match(/<a class="btn sec" href="([^"]+)">Back<\/a>/)?.[1]?.replace(/&amp;/g, '&')
-    const again = await open(back!)
-    expect(checkedOn(again.html)).toEqual([['ageBand', '25-34'], ['gender', 'male']])
-
-    const availability = await continueFrom(firstTime.path, firstTime.html, [['experience', 'first_time']])
-    expect(availability.html).toContain('Step 4 of 5')
-    expect(checkedOn(availability.html)).toEqual([['availability', 'tuesday:18'], ['availability', 'thursday:18']])
-
-    const last = await continueFrom(availability.path, availability.html)
+    // One Continue from the first-time question: past the availability, onto the last page.
+    const last = await continueFrom(firstTime.path, firstTime.html, [['experience', 'first_time']])
     expect(last.html).toContain('Step 5 of 5')
     expect(last.html).toContain('name="fullName"')
+    // Back from here is the availability, filled.
+    const availability = await backFrom(last.html)
+    expect(availability.html).toContain('Step 4 of 5')
+    expect(checkedOn(availability.html)).toEqual([['availability', 'tuesday:18'], ['availability', 'thursday:18']])
 
     const { rows: goals } = await pool.query<{ id: string }>(
       `select id from discipleship_goal where ministry_id = $1 order by position limit 1`,
@@ -238,6 +241,7 @@ describe.skipIf(skipUnlessAppIsRunning)('I meant to sign up for mentorship, over
     expect(roster.html).toContain(fullName)
     expect(roster.html).toContain('Offered to mentor')
 
+    // The Roster draws nobody's availability, so what they gave is read where it is kept.
     const { rows: slots } = await pool.query<{ slot: string }>(
       `select a.day || ':' || a.hour as slot from intake_availability a
          join intake_submission i on i.id = a.intake_submission_id
@@ -246,6 +250,26 @@ describe.skipIf(skipUnlessAppIsRunning)('I meant to sign up for mentorship, over
       [rows[0]!.id],
     )
     expect(slots.map((row) => row.slot)).toEqual(['tuesday:18', 'thursday:18'])
+  })
+
+  it('keeps an answer changed on a carried screen, and still skips the rest', async () => {
+    const landed = { path: switchIn(stepThree.html)!, ...(await open(switchIn(stepThree.html)!)) }
+    const firstTime = await continueFrom(landed.path, landed.html, [['side', 'mentee']])
+    const back = firstTime.html.match(/<a class="btn sec" href="([^"]+)">Back<\/a>/)![1]!.replace(/&amp;/g, '&')
+    const ageAndGender = { path: back, ...(await open(back)) }
+    const again = await continueFrom(ageAndGender.path, ageAndGender.html, [['ageBand', '35-44']])
+    expect(again.html).toContain('Step 3 of 5')
+    expect(fieldsOf(again.html)).toEqual(expect.arrayContaining([['ageBand', '35-44'], ['gender', 'male']]))
+    const last = await continueFrom(again.path, again.html, [['experience', 'done_before']])
+    expect(last.html).toContain('Step 5 of 5')
+    expect(fieldsOf(last.html)).toContainEqual(['ageBand', '35-44'])
+  })
+
+  it('shows every screen to somebody who opened the discipleship form themselves', async () => {
+    const path = `/intake/${ministry.id}/discipleship?ageBand=25-34&gender=male&availability=tuesday%3A18`
+    const first = await open(path)
+    const next = await continueFrom(path, first.html, [['side', 'mentor']])
+    expect(next.html).toContain('Step 2 of 5')
   })
 
   it('carries nothing the mentor and mentee form no longer asks, so its submission is not refused', async () => {

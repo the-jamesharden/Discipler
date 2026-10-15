@@ -2,7 +2,6 @@ import { AGE_BANDS, GENDERS, GROUP_PATH } from '~/domain/intake'
 import {
   askedPages,
   isOwnQuestion,
-  isOwnQuestionKey,
   presetForm,
   type BuiltInQuestion,
   type IntakeForm,
@@ -83,31 +82,11 @@ export const groupWizard = groupWizardFor(presetForm(GROUP_PATH))
 
 /**
  * The discipleship wizard's query for somebody on the group form who meant to
- * sign up for mentorship instead (Group form exits, ticket 02): the line under
- * the group step's actions links to it, so what they already answered goes
- * across with them and is not asked twice.
- *
- * Built by the two wizards rather than from a list of names. The group wizard
- * writes its answers as the query it would carry to one of its own screens; the
- * discipleship wizard reads back from that whatever it shares with the group
- * form, checked against its own lists; and the discipleship wizard writes the
- * result as the query of the screen it would open on. So the answers carried
- * are exactly those both forms ask -- on the presets the age band, the gender
- * and the availability -- and nothing else: not the group, which the other form
- * has no question for, and none of a Ministry's own questions, which are each
- * one form's.
- *
- * Both forms are a Ministry's to edit (Pastor feedback, tickets 11 and 13), so
- * either may have stopped asking one of the three. An answer the group form did
- * not ask is not carried even if the URL holds one, and one the discipleship
- * form no longer asks is not carried either, because its submission would
- * refuse an answer to a question it does not ask.
- *
- * The step is the first the discipleship wizard has unanswered -- on the preset,
- * the mentor-or-mentee question -- and the version is the one these answers were
- * matched against, so the page that opens is the form they were matched to.
- * `via` travels as it does between screens, and an Admin's preview stays a
- * preview: following the link from one records nothing at the other end either.
+ * sign up for mentorship (Group form exits, ticket 02; its decisions say why
+ * each part is so). Each wizard writes and reads its own query: the answers go
+ * across for the questions both forms ask, read back against the discipleship
+ * wizard's lists, opening on its first unanswered screen, pinned to the version
+ * they were matched against, and named as carried so Continue goes past them.
  */
 export const mentorshipSwitchQuery = ({
   groupForm,
@@ -124,11 +103,9 @@ export const mentorshipSwitchQuery = ({
 }): URLSearchParams => {
   const group = groupWizardFor(groupForm)
   const discipleship = discipleshipWizardFor(discipleshipForm)
-  const asked = (screens: readonly { readonly asks: readonly unknown[] }[]): readonly string[] =>
-    screens.flatMap((screen) => screen.asks.map(String)).filter((field) => !isOwnQuestionKey(field))
 
-  const groupAsks = new Set(asked(group.SCREENS))
-  const shared = asked(discipleship.SCREENS).filter((field) => groupAsks.has(field))
+  const groupAsks: ReadonlySet<string> = new Set(group.ASKED_BUILT_IN)
+  const shared = discipleship.ASKED_BUILT_IN.filter((field) => groupAsks.has(field))
   const given = group.answersAsQuery(answers, via, group.FIRST_STEP)
   const carried = discipleship.readAnswers(
     Object.fromEntries(shared.map((field) => [field, given.getAll(field)])),
@@ -137,6 +114,7 @@ export const mentorshipSwitchQuery = ({
   return discipleship.answersAsQuery(carried, via, discipleship.furthestStep(carried), {
     version: discipleshipForm.version,
     preview,
+    carried: shared.filter((field) => discipleship.answered(carried, field)),
   })
 }
 

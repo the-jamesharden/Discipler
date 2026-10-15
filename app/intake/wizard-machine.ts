@@ -61,6 +61,9 @@ export type AnswersOf<L extends ChoiceLists> = {
 
 export type FieldOf<L extends ChoiceLists> = keyof L | 'availability' | OwnQuestionKey
 
+/** One of Discipler's own questions a wizard carries, by the field it travels under. */
+export type BuiltInFieldOf<L extends ChoiceLists> = (keyof L & string) | 'availability'
+
 /**
  * One of the Ministry's own questions a wizard carries between screens (ticket
  * 12): a choice question, whose answers are ids Discipler served and so may go in
@@ -136,6 +139,13 @@ export type IntakeVia = 'link' | 'qr'
 export interface FormPin {
   readonly version: number
   readonly preview: boolean
+  /**
+   * The answers the group form's switch brought with somebody (Group form
+   * exits, ticket 02), by field, or none for everybody who opened this form
+   * itself. Carried to the end like the version, so Continue can go past a
+   * screen they already answered on the other form; see `nextStep`.
+   */
+  readonly carried?: readonly string[]
 }
 
 /**
@@ -213,6 +223,22 @@ export const defineWizard = <L extends ChoiceLists>(
   const FIRST_STEP = 1
   const AVAILABILITY_STEP = stepAsking('availability')
 
+  /** Discipler's own questions this wizard asks, by the field each travels under, in screen order. */
+  const ASKED_BUILT_IN: readonly BuiltInFieldOf<L>[] = screens.flatMap((screen) =>
+    screen.asks.filter(
+      (field): field is BuiltInFieldOf<L> => typeof field === 'string' && !isOwnQuestionKey(field),
+    ),
+  )
+
+  /**
+   * Which answers the switch says it carried, off a query string: only fields
+   * this wizard asks, each once. Nothing else in a URL survives the read.
+   */
+  const readCarried = (value: string | string[] | undefined): readonly BuiltInFieldOf<L>[] => {
+    const named = new Set(all(value))
+    return ASKED_BUILT_IN.filter((field) => named.has(field))
+  }
+
   /** Whether an answer has been given. The grid is a list, so its empty is a length. */
   const answered = (answers: Answers, field: Field): boolean =>
     isOwnQuestionKey(field)
@@ -288,6 +314,36 @@ export const defineWizard = <L extends ChoiceLists>(
     Math.min(requestedStep(requested), furthestStep(answers))
 
   /**
+   * The step Continue on this screen names: the next one, for everybody who
+   * opened this form themselves. For somebody the group form's switch brought
+   * here (Group form exits, ticket 02, decision 5), a screen whose every
+   * question the switch carried, and which is still answered, is passed, so
+   * they are not asked again what they told the other form. What this screen
+   * asks or rewords is about to be answered again, so it is never what a later
+   * screen is passed on. The last screen is never passed, and Back is not
+   * this: it walks to every screen.
+   */
+  const nextStep = (at: number, answers: Answers, carried: readonly string[] = []): number => {
+    const changing = notCarriedAt(at)
+    const alreadyGiven = (step: number): boolean => {
+      const asks = asksAt(step)
+      return (
+        asks.length > 0
+        && asks.every(
+          (field) =>
+            typeof field === 'string'
+            && carried.includes(field)
+            && !changing.includes(field)
+            && answered(answers, field),
+        )
+      )
+    }
+    let next = Math.min(at + 1, LAST_STEP)
+    while (next < LAST_STEP && alreadyGiven(next)) next += 1
+    return next
+  }
+
+  /**
    * The availability screen is the only one a browser will not stop somebody
    * leaving unanswered: a checkbox set cannot express *at least one of these*.
    * Every other screen is a `required` radio or select, so pressing Continue there
@@ -340,6 +396,7 @@ export const defineWizard = <L extends ChoiceLists>(
     if (via === 'qr') params.set('via', 'qr')
     if (pin) params.set('v', String(pin.version))
     if (pin?.preview) params.set('preview', '1')
+    for (const field of pin?.carried ?? []) params.append('carried', field)
     for (const field of CHOICE_FIELDS) {
       const answer = answers[field]
       if (answer !== null) params.set(field, answer)
@@ -355,16 +412,20 @@ export const defineWizard = <L extends ChoiceLists>(
     CHOICE_FIELDS,
     OWN_FIELDS: own,
     SCREENS: screens,
+    ASKED_BUILT_IN,
     FIRST_STEP,
     LAST_STEP,
     AVAILABILITY_STEP,
     asksAt,
     notCarriedAt,
     stepAsking,
+    readCarried,
+    answered,
     readAnswers,
     furthestStep,
     requestedStep,
     stepToShow,
+    nextStep,
     stuckOnAvailability,
     stuckOnOwnQuestion,
     answersAsQuery,

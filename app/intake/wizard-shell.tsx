@@ -50,6 +50,11 @@ export const Hidden = <L extends ChoiceLists>({
           ticket 11). */}
       <input type="hidden" name="v" value={String(pin.version)} />
       {pin.preview ? <input type="hidden" name="preview" value="1" /> : null}
+      {/* What the group form's switch brought with them (Group form exits,
+          ticket 02), carried to the end like the version. */}
+      {(pin.carried ?? []).map((field) => (
+        <input key={`carried=${field}`} type="hidden" name="carried" value={field} />
+      ))}
       {wizard.CHOICE_FIELDS.map((field) => {
         const answer = answers[field]
         return carried(field) && answer !== null ? (
@@ -141,7 +146,8 @@ export const FormActions = ({
 /**
  * The shell every step but the last shares: a GET back to the wizard's own page,
  * carrying every answer this screen is neither asking for nor rewording, and
- * naming the screen after it on Continue.
+ * naming the screen after it on Continue -- or, for somebody the group form's
+ * switch brought, the next screen they have not already answered (`nextStep`).
  *
  * Both of those are read from the screen list rather than written per screen. Which
  * fields a screen carries was once four hand-written lists, and getting one wrong is
@@ -170,7 +176,7 @@ export const StepForm = <L extends ChoiceLists>({
 }) => (
   <form method="get" action={here}>
     <Hidden wizard={wizard} answers={answers} via={via} pin={pin} dropping={wizard.notCarriedAt(at)} />
-    <input type="hidden" name="step" value={String(at + 1)} />
+    <input type="hidden" name="step" value={String(wizard.nextStep(at, answers, pin.carried))} />
     {children}
     <FormActions back={back} action="Continue" />
   </form>
