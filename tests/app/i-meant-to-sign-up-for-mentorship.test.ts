@@ -8,6 +8,7 @@ import {
   discipleshipWizardFor,
   FIRST_TIME_STEP,
   LAST_STEP,
+  ONE_TO_TWO_STEP,
   SIDE_STEP,
   answersAsQuery,
   discipleshipWizard,
@@ -101,9 +102,11 @@ describe('the switch to the discipleship wizard', () => {
 
     // From the side, Continue goes past age and gender to the first-time question.
     expect(discipleshipWizard.nextStep(SIDE_STEP, answers, carried)).toBe(FIRST_TIME_STEP)
-    // And from there past the availability to the last page.
+    // From there to the one-to-two question, which the switch never carries.
     const sideGiven = readWizardAnswers({ ...query, side: 'mentee' })
-    expect(discipleshipWizard.nextStep(FIRST_TIME_STEP, sideGiven, carried)).toBe(LAST_STEP)
+    expect(discipleshipWizard.nextStep(FIRST_TIME_STEP, sideGiven, carried)).toBe(ONE_TO_TWO_STEP)
+    // And from that past the availability to the last page.
+    expect(discipleshipWizard.nextStep(ONE_TO_TWO_STEP, sideGiven, carried)).toBe(LAST_STEP)
 
     // Back is the screen before, every time, with the carried answers in it.
     const back = asQuery(answersAsQuery(sideGiven, 'link', AGE_AND_GENDER_STEP, { version: 0, preview: false, carried }))
@@ -116,15 +119,19 @@ describe('the switch to the discipleship wizard', () => {
     const changed = readWizardAnswers({ ...back, ageBand: '35-44' })
     expect(changed.ageBand).toBe('35-44')
     expect(discipleshipWizard.nextStep(AGE_AND_GENDER_STEP, changed, carried)).toBe(FIRST_TIME_STEP)
-    expect(furthestStep(readWizardAnswers({ ...query, side: 'mentee', experience: 'first_time' }))).toBe(LAST_STEP)
+    expect(
+      furthestStep(readWizardAnswers({ ...query, side: 'mentee', experience: 'first_time', oneToTwo: 'one_to_one_only' })),
+    ).toBe(LAST_STEP)
   })
 
   it('changes nothing for somebody who opened the discipleship form themselves', () => {
     const answers = readWizardAnswers({
-      side: 'mentee', ageBand: '25-34', gender: 'male', experience: 'first_time', availability: ['tuesday:18'],
+      side: 'mentee', ageBand: '25-34', gender: 'male', experience: 'first_time', oneToTwo: 'one_to_one_only',
+      availability: ['tuesday:18'],
     })
     expect(discipleshipWizard.nextStep(SIDE_STEP, answers)).toBe(AGE_AND_GENDER_STEP)
-    expect(discipleshipWizard.nextStep(FIRST_TIME_STEP, answers)).toBe(AVAILABILITY_STEP)
+    expect(discipleshipWizard.nextStep(FIRST_TIME_STEP, answers)).toBe(ONE_TO_TWO_STEP)
+    expect(discipleshipWizard.nextStep(ONE_TO_TWO_STEP, answers)).toBe(AVAILABILITY_STEP)
     expect(discipleshipWizard.nextStep(AVAILABILITY_STEP, answers)).toBe(LAST_STEP)
   })
 
@@ -133,7 +140,7 @@ describe('the switch to the discipleship wizard', () => {
     // The gender was not carried and is not answered: age and gender is asked.
     expect(discipleshipWizard.nextStep(SIDE_STEP, answers, ['ageBand', 'availability'])).toBe(AGE_AND_GENDER_STEP)
     // Named as carried but not answered is asked too.
-    expect(discipleshipWizard.nextStep(FIRST_TIME_STEP, readWizardAnswers({ side: 'mentee' }), ['availability'])).toBe(
+    expect(discipleshipWizard.nextStep(ONE_TO_TWO_STEP, readWizardAnswers({ side: 'mentee' }), ['availability'])).toBe(
       AVAILABILITY_STEP,
     )
     // Only fields this wizard asks survive the read, each once, in screen order.
@@ -168,9 +175,11 @@ describe('the switch across two forms a Ministry has edited', () => {
   })
 
   it('opens on the first question the discipleship form still has unanswered', () => {
-    // A form that asks no availability and no side opens past both.
+    // A form that asks no side, and so none of the questions worded from it,
+    // opens past the carried screens on the last page.
     const noFirstTime = saved(removeQuestion(presetForm('discipleship'), 'experience'))
-    const discipleshipForm = saved(removeQuestion(noFirstTime, 'side'))
+    const noOneToTwo = saved(removeQuestion(noFirstTime, 'oneToTwo'))
+    const discipleshipForm = saved(removeQuestion(noOneToTwo, 'side'))
     const wizard = discipleshipWizardFor(discipleshipForm)
     const query = mentorshipSwitchQuery({ ...preset, discipleshipForm })
     expect(query.get('step')).toBe(String(wizard.LAST_STEP))

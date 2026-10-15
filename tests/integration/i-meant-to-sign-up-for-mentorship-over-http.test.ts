@@ -168,7 +168,7 @@ describe.skipIf(skipUnlessAppIsRunning)('I meant to sign up for mentorship, over
     expect(landed.response.status).toBe(200)
     expect(landed.html).toContain('I’m joining as')
     expect(landed.html).toContain('value="mentor"')
-    expect(landed.html).toContain('Step 1 of 5')
+    expect(landed.html).toContain('Step 1 of 6')
     expect(fieldsOf(landed.html)).toEqual(
       expect.arrayContaining([
         ['ageBand', '25-34'],
@@ -189,20 +189,25 @@ describe.skipIf(skipUnlessAppIsRunning)('I meant to sign up for mentorship, over
 
     // One Continue from the side: past age and gender, onto the first-time question.
     const firstTime = await continueFrom(landed.path, landed.html, [['side', 'mentor']])
-    expect(firstTime.html).toContain('Step 3 of 5')
+    expect(firstTime.html).toContain('Step 3 of 6')
     expect(firstTime.html).toContain('Have you mentored someone before?')
     // Back from here is the age and gender screen, filled.
     const ageAndGender = await backFrom(firstTime.html)
-    expect(ageAndGender.html).toContain('Step 2 of 5')
+    expect(ageAndGender.html).toContain('Step 2 of 6')
     expect(checkedOn(ageAndGender.html)).toEqual([['ageBand', '25-34'], ['gender', 'male']])
 
-    // One Continue from the first-time question: past the availability, onto the last page.
-    const last = await continueFrom(firstTime.path, firstTime.html, [['experience', 'first_time']])
-    expect(last.html).toContain('Step 5 of 5')
+    // From the first-time question to the one-to-two question, which the switch never carries.
+    const oneToTwo = await continueFrom(firstTime.path, firstTime.html, [['experience', 'first_time']])
+    expect(oneToTwo.html).toContain('Step 4 of 6')
+    expect(oneToTwo.html).toContain('Open to mentoring two mentees together if needed')
+
+    // One Continue from that: past the availability, onto the last page.
+    const last = await continueFrom(oneToTwo.path, oneToTwo.html, [['oneToTwo', 'one_to_one_only']])
+    expect(last.html).toContain('Step 6 of 6')
     expect(last.html).toContain('name="fullName"')
     // Back from here is the availability, filled.
     const availability = await backFrom(last.html)
-    expect(availability.html).toContain('Step 4 of 5')
+    expect(availability.html).toContain('Step 5 of 6')
     expect(checkedOn(availability.html)).toEqual([['availability', 'tuesday:18'], ['availability', 'thursday:18']])
 
     const { rows: goals } = await pool.query<{ id: string }>(
@@ -258,10 +263,12 @@ describe.skipIf(skipUnlessAppIsRunning)('I meant to sign up for mentorship, over
     const back = firstTime.html.match(/<a class="btn sec" href="([^"]+)">Back<\/a>/)![1]!.replace(/&amp;/g, '&')
     const ageAndGender = { path: back, ...(await open(back)) }
     const again = await continueFrom(ageAndGender.path, ageAndGender.html, [['ageBand', '35-44']])
-    expect(again.html).toContain('Step 3 of 5')
+    expect(again.html).toContain('Step 3 of 6')
     expect(fieldsOf(again.html)).toEqual(expect.arrayContaining([['ageBand', '35-44'], ['gender', 'male']]))
-    const last = await continueFrom(again.path, again.html, [['experience', 'done_before']])
-    expect(last.html).toContain('Step 5 of 5')
+    const oneToTwo = await continueFrom(again.path, again.html, [['experience', 'done_before']])
+    expect(oneToTwo.html).toContain('Step 4 of 6')
+    const last = await continueFrom(oneToTwo.path, oneToTwo.html, [['oneToTwo', 'open_to_one_to_two']])
+    expect(last.html).toContain('Step 6 of 6')
     expect(fieldsOf(last.html)).toContainEqual(['ageBand', '35-44'])
   })
 
@@ -269,7 +276,7 @@ describe.skipIf(skipUnlessAppIsRunning)('I meant to sign up for mentorship, over
     const path = `/intake/${ministry.id}/discipleship?ageBand=25-34&gender=male&availability=tuesday%3A18`
     const first = await open(path)
     const next = await continueFrom(path, first.html, [['side', 'mentor']])
-    expect(next.html).toContain('Step 2 of 5')
+    expect(next.html).toContain('Step 2 of 6')
   })
 
   it('carries nothing the mentor and mentee form no longer asks, so its submission is not refused', async () => {

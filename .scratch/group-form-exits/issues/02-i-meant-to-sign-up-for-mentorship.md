@@ -47,10 +47,10 @@
 5. **For somebody the switch brought, Continue skips the carried screens; nobody else's stepping changes.**
    The spec and S-7's note say the carried steps are skipped (the orchestrator's review of 2026-10-15 reversed a first build that only showed them filled).
    The switch names what it carried in a query field the machine owns, `carried` (on the presets `carried=ageBand&carried=gender&carried=availability`), written and read like `via` and `v`, carried on every screen and through a refused last step, and read back only for fields the wizard asks.
-   After the mentor-or-mentee screen, Continue names the next screen with something unanswered, passing any screen whose every question the switch carried and is still answered: on the preset, one Continue lands on the first-time question and the next on the last page.
+   After the mentor-or-mentee screen, Continue names the next screen with something unanswered, passing any screen whose every question the switch carried and is still answered: on the preset, one Continue lands on the first-time question, the next on the one-to-two question (Suggestions beyond the one-to-one, ticket 01), which the switch never carries, and the next on the last page, past the availability.
    Back still walks to every screen, showing the carried ones filled, and an answer changed there is kept; a screen with a question of the Ministry's own, or with an optional question left blank, is never passed.
    Without `carried`, Continue names the next screen as it always has, so somebody who presses Back and then Continue in the ordinary wizard sees every screen.
-   The progress bar still counts every screen, so it reads *Step 3 of 5* after one Continue, because Back still leads through step 2.
+   The progress bar still counts every screen, so it reads *Step 3 of 6* after one Continue, because Back still leads through step 2.
    Alternatives: skip every answered screen for everybody, which changes the ordinary wizard (somebody who goes Back to change the side would be thrown past everything they had answered); or a bare *came by the switch* flag, which could not tell a carried screen from one they answered themselves on this form and then went Back from.
 6. **`via` travels as between steps**: `via=qr` when they came by the QR code, nothing for the link, which is the default.
 7. **An Admin's preview stays a preview**: following the line from *Preview form* opens the mentor and mentee form with `preview=1`, so nothing is recorded at the other end either.
@@ -66,6 +66,7 @@
 Typecheck clean; `npx vitest run tests/domain tests/app` whole green; the touched integration suites green through the lock; the whole suite three times back to back through the lock, each run 241 files passed with none skipped, 3603 tests passed and 1 skipped (the existing `it.skip` in `invitation-over-http.test.ts`).
 There is no lint script or ESLint config in the repository; `next build` (run inside the lock) and the typecheck are the gates.
 Looked at in headless Chrome at 1440 wide and in a 390x844 frame: the group step beside S-7 with the link whole on its own line, the discipleship wizard opened on *I'm joining as…*, one Continue landing on the first-time question, and Back showing the age and gender, and the availability, filled.
+On `ship/intake-2026-10-15`, with the one-to-two page merged, the switch journey was walked again in a 390x844 frame: the side, the first-time question (*Step 3 of 6*), the one-to-two question (*Step 4 of 6*), then the last page (*Step 6 of 6*), past the carried availability.
 
 **Fixed on the way.**
 `a-material-chosen-at-pairing-over-http` failed once with `account.already_exists`: Acceptance mints the account from the Person's number, and a generated number had already been minted by an earlier run on the long-lived local stack.
