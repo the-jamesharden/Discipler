@@ -4,6 +4,7 @@ import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app
 import {
   addMaterial,
   addPerson,
+  aPhoneNumberNobodyHolds,
   createMinistryWithAdmin,
   formGroup,
   localSupabase,
@@ -73,6 +74,9 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     await offersToMentor(claire)
     sam = await addPerson(ministry, 'Sam Lee', { phone: '+17065557781', answers: { gender: 'female' } })
     await pool.query(`update person set email = 'sam.l@example.org' where id = $1`, [sam])
+    // And she said one-to-one only, which is on her row and keeps her on the list
+    // (Suggestions beyond the one-to-one, ticket 01).
+    await pool.query(`update intake_submission set one_to_two = 'one_to_one_only' where person_id = $1`, [sam])
     // No number and no address, and she said this is her first time.
     ana = await addPerson(ministry, 'Ana Ruiz', { answers: { gender: 'female' } })
     await pool.query(`update intake_submission set first_time = true where person_id = $1`, [ana])
@@ -173,6 +177,9 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
     expect(samRow).toContain('Sam Lee')
     expect(samRow).toContain('sam.l@example.org')
     expect(samRow).toContain('(706) 555-7781')
+    // The one-to-two answer beside the name, said outright, and the row is open.
+    expect(detailsOf(samRow)).toBe('sam.l@example.org · (706) 555-7781 · Prefers one-to-one')
+    expectOpen(popup, sam)
 
     // Each missing detail is simply absent, and the first-time note is the Pair page's.
     const anaRow = rowFor(popup, ana)
@@ -674,7 +681,8 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
       letters = await addMaterial(chapel, 'Romans')
     })
 
-    const woman = (fullName: string) => addPerson(chapel, fullName, { phone: number(), answers: { gender: 'female' } })
+    const woman = async (fullName: string) =>
+      addPerson(chapel, fullName, { phone: await aPhoneNumberNobodyHolds(), answers: { gender: 'female' } })
     const discipler = async (fullName: string) => {
       const id = await woman(fullName)
       await offersToMentor(id, chapel)

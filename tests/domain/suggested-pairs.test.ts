@@ -52,6 +52,7 @@ const person = (
     consentsToTexts: true,
     optedOut: false,
     declaredSide: null,
+    oneToTwo: null,
     memberships: [],
     ...overrides,
   }
@@ -180,6 +181,42 @@ describe('Suggested Pairs: a goal typed after Other', () => {
     const pair = suggest([grace, ana], DEFAULTS).pairs[0]!
     expect(pair.participant.goal).toBe('Other: "learning to pray out loud"')
     expect(pair.leader.goal).toBe('Career and calling')
+  })
+})
+
+/**
+ * The one-to-two answer is not a suggestion input (Suggestions beyond the
+ * one-to-one, ticket 01): ADR-0001's four are the only ones, and it is not among
+ * them. It reaches the card, beside the name, and the ranking never reads it.
+ */
+describe('Suggested Pairs: the one-to-two answer', () => {
+  it('filters nobody and ranks nobody, whatever either side answered', () => {
+    const asked = [
+      mentor('Grace Lee', { oneToTwo: 'one_to_one_only' }),
+      person('Ana Ruiz', { oneToTwo: 'one_to_one_only', availability: hours('monday', 2) }),
+      person('Mia Chen', { oneToTwo: 'open_to_one_to_two' }),
+    ]
+    const notAsked = asked.map((candidate) => ({ ...candidate, oneToTwo: null }))
+
+    const shape = (roster: readonly SuggestionCandidate[]) =>
+      suggest(roster, DEFAULTS).pairs.map(({ tier, reason, leader, participant }) => [
+        tier,
+        reason,
+        leader.fullName,
+        participant.fullName,
+      ])
+    expect(shape(asked)).toEqual(shape(notAsked))
+    expect(shape(asked).map(([, , , participant]) => participant)).toEqual(['Mia Chen', 'Ana Ruiz'])
+  })
+
+  it('carries each answer to the card, and null where nobody asked', () => {
+    const grace = mentor('Grace Lee', { oneToTwo: 'open_to_one_to_two' })
+    const ana = person('Ana Ruiz', { oneToTwo: 'one_to_one_only' })
+    const zoe = person('Zoe Park', { availability: [] })
+    const { pairs, noScheduleOverlap } = suggest([grace, ana, zoe], DEFAULTS)
+    expect(pairs[0]?.leader.oneToTwo).toBe('open_to_one_to_two')
+    expect(pairs[0]?.participant.oneToTwo).toBe('one_to_one_only')
+    expect(noScheduleOverlap[0]?.oneToTwo).toBeNull()
   })
 })
 

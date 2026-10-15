@@ -10,9 +10,11 @@ import {
   DECLARED_SIDES,
   GENDERS,
   isOneOf,
+  ONE_TO_TWO_ANSWERS,
   otherGoal,
   type DeclaredSide,
   type Gender,
+  type OneToTwoAnswer,
   type OtherGoal,
 } from '~/domain/intake'
 import { systemClock, type Clock } from '~/domain/clock'
@@ -58,6 +60,7 @@ interface PersonRow {
   readonly participationStatus: ParticipationStatus
   readonly declaredSide: DeclaredSide | null
   readonly firstTime: boolean | null
+  readonly oneToTwo: OneToTwoAnswer | null
   readonly holdsAnAccount: boolean
   readonly phone: PhoneNumber | null
   readonly email: string | null
@@ -81,6 +84,7 @@ const asPersonRow = (row: unknown): PersonRow => {
     participation_status: status,
     declared_side: side,
     first_time: firstTime,
+    one_to_two: oneToTwo,
     holds_an_account: holdsAnAccount,
     phone,
     email,
@@ -111,6 +115,12 @@ const asPersonRow = (row: unknown): PersonRow => {
   }
   if (firstTime !== null && typeof firstTime !== 'boolean') {
     throw new Error(`A Roster row arrived with no first-time answer for ${id}`)
+  }
+  // The same rule as the two above it: null is *the form did not ask*, and
+  // anything else is one of the two words the form offers or the column and this
+  // reader having drifted apart.
+  if (oneToTwo !== null && !isOneOf(ONE_TO_TWO_ANSWERS, oneToTwo)) {
+    throw new Error(`A Roster row arrived with no one-to-two answer for ${id}`)
   }
   // `user_id is not null` is never null itself, so anything but a boolean here is
   // the select list and this reader having drifted apart. Read as *holds none*, a
@@ -162,6 +172,7 @@ const asPersonRow = (row: unknown): PersonRow => {
     participationStatus: status,
     declaredSide: side,
     firstTime,
+    oneToTwo,
     holdsAnAccount,
     phone: phone === null ? null : phoneNumber(phone),
     email,
@@ -375,6 +386,7 @@ export const rosterFrom = (doc: PageDocument): readonly RosterEntry[] => {
     participationStatus: row.participationStatus,
     declaredSide: row.declaredSide,
     firstTime: row.firstTime,
+    oneToTwo: row.oneToTwo,
     holdsAnAccount: row.holdsAnAccount,
     phone: row.phone,
     email: row.email,

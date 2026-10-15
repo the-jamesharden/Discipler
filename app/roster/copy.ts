@@ -1,5 +1,5 @@
 import type { GroupJoinRefusal, ImportRowRefusal, PairingRefusal } from '~/domain/errors'
-import type { Gender } from '~/domain/intake'
+import type { Gender, OneToTwoAnswer } from '~/domain/intake'
 import { asList } from '~/domain/outbound-copy'
 import type { MemberRole } from '~/domain/relationships'
 import type { RemovalRefusal } from '~/domain/removal'
@@ -611,6 +611,24 @@ export const HOPING_FOR = 'Hoping for'
  */
 export const firstTimeLabel = (firstTime: boolean): string =>
   firstTime ? 'New to this' : 'Has done this before'
+
+/**
+ * Whether they are open to a 1:2, beside a name on the pairing surfaces
+ * (Suggestions beyond the one-to-one, ticket 01). Both answers are said outright,
+ * as the first-time ones are, so a blank reads as *the form did not ask* and never
+ * as a quiet no. Said in the same words for either side, because a row's latest
+ * side and latest answer can come from different submissions: a mentor open to
+ * two and a mentee open to being one of two are both open to one-to-two. It
+ * filters nobody and ranks nobody.
+ *
+ * In words and not as *1:2*, because a Suggested Pairs card carries no figure but
+ * the age band -- a number on it reads as a score -- and not as *one-to-one only*,
+ * which heads that page meaning something else.
+ */
+export const oneToTwoLabel: Record<OneToTwoAnswer, string> = {
+  open_to_one_to_two: 'Open to one-to-two',
+  one_to_one_only: 'Prefers one-to-one',
+}
 
 /**
  * The same fact in the words the person page says it in, since ticket 36: lower

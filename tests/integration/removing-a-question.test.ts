@@ -50,6 +50,7 @@ describe('removing a question from an Intake form', () => {
     intakePath: 'discipleship',
     declaredSide: 'mentee',
     experience: 'first_time',
+    oneToTwo: 'open_to_one_to_two',
     groupId: null,
     ...extra,
   })
@@ -85,10 +86,11 @@ describe('removing a question from an Intake form', () => {
       age_band: string | null
       gender: string | null
       first_time: boolean | null
+      one_to_two: string | null
       discipleship_goal_other: string | null
       slots: number
     }>(
-      `select i.id, i.age_band, i.gender, i.first_time, i.discipleship_goal_other,
+      `select i.id, i.age_band, i.gender, i.first_time, i.one_to_two, i.discipleship_goal_other,
               (select count(*)::int from intake_availability a where a.intake_submission_id = i.id) as slots
          from intake_submission i
          join person p on p.id = i.person_id
@@ -132,12 +134,20 @@ describe('removing a question from an Intake form', () => {
     // on the groups form, whose answers no removal from the other form touches.
     await submit({ ...answered(names.ana, phones.ana), own: { [anythingElse]: ['Pray for my mum.'] } })
     await submit(answered(names.ana, phones.ana, { availability: ['friday:09'] }))
-    await submit(answered(names.ben, phones.ben, { declaredSide: 'mentor', gender: 'male', experience: 'done_before' }))
+    await submit(
+      answered(names.ben, phones.ben, {
+        declaredSide: 'mentor',
+        gender: 'male',
+        experience: 'done_before',
+        oneToTwo: 'one_to_one_only',
+      }),
+    )
     await submit(
       answered(names.cara, phones.cara, {
         intakePath: 'group',
         declaredSide: null,
         experience: null,
+        oneToTwo: null,
         goalId: null,
         goalOther: null,
         groupId: 'none',
@@ -158,12 +168,15 @@ describe('removing a question from an Intake form', () => {
       gender: 2,
       ageBand: 2,
       experience: 2,
+      // The first-time question's twin (Suggestions beyond the one-to-one, ticket 01).
+      oneToTwo: 2,
       goalId: 2,
       side: 2,
       [anythingElse]: 1,
     })
     expect(group).toMatchObject({ availability: 1, gender: 1, ageBand: 1 })
     expect(group.side).toBeUndefined()
+    expect(group.oneToTwo).toBeUndefined()
   })
 
   it('deletes the hours ticked on that form, superseded ones too, and history keeps them', async () => {
@@ -204,6 +217,18 @@ describe('removing a question from an Intake form', () => {
   it('takes the side off the consent records, and nothing else on them', async () => {
     await expect(remove('side')).rejects.toThrow(IntakeFormRefused)
     await remove('experience')
+    // The one-to-two question is worded from the side too, so it holds the side
+    // until it goes, and takes its answers with it.
+    await expect(remove('side')).rejects.toThrow(IntakeFormRefused)
+    await remove('oneToTwo')
+    expect((await submissionsOf(names.ana)).map((row) => row.one_to_two)).toEqual([null, null])
+    expect((await submissionsOf(names.ben)).map((row) => row.one_to_two)).toEqual([null])
+    expect(((await removalEvent('oneToTwo'))!.deletedAnswers as { answer: unknown }[]).map((each) => each.answer)).toEqual([
+      'open_to_one_to_two',
+      'open_to_one_to_two',
+      'one_to_one_only',
+    ])
+    expect((await removalEvent('oneToTwo'))!.answersLost).toBe(2)
     await remove('side')
 
     const { rows } = await pool.query<{ declared_side: string | null; granted: boolean; intake_path: string | null }>(
@@ -249,12 +274,13 @@ describe('removing a question from an Intake form', () => {
         availability: [],
         declaredSide: null,
         experience: null,
+        oneToTwo: null,
         goalId: null,
         goalOther: null,
       }),
     )
     expect(await submissionsOf(names.dev)).toEqual([
-      expect.objectContaining({ age_band: null, gender: null, first_time: null, slots: 0 }),
+      expect.objectContaining({ age_band: null, gender: null, first_time: null, one_to_two: null, slots: 0 }),
     ])
     const { rows } = await pool.query<{ declared_side: string | null; intake_path: string }>(
       `select c.declared_side, c.intake_path
@@ -322,6 +348,7 @@ describe('a submission and the form it is filed under', () => {
     intakePath: 'discipleship',
     declaredSide: 'mentee',
     experience: 'first_time',
+    oneToTwo: 'open_to_one_to_two',
     groupId: null,
     ...extra,
   })
@@ -330,6 +357,7 @@ describe('a submission and the form it is filed under', () => {
     intakePath: 'group',
     declaredSide: null,
     experience: null,
+    oneToTwo: null,
     goalId: null,
     goalOther: null,
     groupId: 'none',
@@ -431,7 +459,13 @@ describe('a submission and the form it is filed under', () => {
     await submit(answered(eve.name, eve.phone, { ageBand: '25-34' }))
     await reopenedBy(
       eve.name,
-      answered(eve.name, eve.phone, { ageBand: '35-44', intakePath: null, declaredSide: null, experience: null }),
+      answered(eve.name, eve.phone, {
+        ageBand: '35-44',
+        intakePath: null,
+        declaredSide: null,
+        experience: null,
+        oneToTwo: null,
+      }),
     )
     await submit(answered(eve.name, eve.phone, { ageBand: '45-54', ...onTheGroupsForm }))
 
@@ -527,6 +561,7 @@ describe('a submission on a version opened before a removal', () => {
         intakePath: 'discipleship',
         declaredSide: 'mentee',
         experience: 'first_time',
+        oneToTwo: 'open_to_one_to_two',
         groupId: null,
         own: { [removedOwn.key]: ['Pray for my sister.'], [keptOwn.key]: ['A friend asked me.'] },
       },

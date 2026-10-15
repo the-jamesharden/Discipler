@@ -110,6 +110,7 @@ describe('the Ministry’s own questions in the wizard', () => {
       intakePath: 'discipleship',
       declaredSide: null,
       experience: null,
+      oneToTwo: null,
       groupId: null,
       own: { 'custom:church': ['c4'], 'custom:prayer': ['For my mum'] },
     })

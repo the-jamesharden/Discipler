@@ -36,6 +36,11 @@ describe.skipIf(skipUnlessAppIsRunning)('Suggested Pairs, over HTTP', () => {
     await offersToMentor(pool, ministry, claire)
     sam = await woman('Sam Lee', slots('tuesday:18', 'tuesday:19'))
     ana = await woman('Ana Ruiz', slots('sunday:08'))
+    // What each said about being one of two goes on the card and the row, and
+    // keeps nobody off either (Suggestions beyond the one-to-one, ticket 01).
+    await pool.query(`update intake_submission set one_to_two = 'open_to_one_to_two' where person_id = $1`, [claire])
+    await pool.query(`update intake_submission set one_to_two = 'one_to_one_only' where person_id = $1`, [sam])
+    await pool.query(`update intake_submission set one_to_two = 'one_to_one_only' where person_id = $1`, [ana])
   })
 
   afterAll(async () => {
@@ -52,6 +57,10 @@ describe.skipIf(skipUnlessAppIsRunning)('Suggested Pairs, over HTTP', () => {
     expect(card).toContain('Claire Martinez')
     expect(card).toContain('Sam Lee')
     expect(card).toMatch(/Two shared time slots\. You both selected [^<]+\./)
+    // The one-to-two answers beside the names, in the Roster's words. Sam said
+    // one-to-one only and is suggested all the same.
+    expect(card).toContain('Open to one-to-two')
+    expect(card).toContain('Prefers one-to-one')
     // The age band is the only figure on a card, and it is a range, never a score.
     expect(card!.replace(/<[^>]*>/g, ' ').replace(/\d{2}-\d{2}/g, '')).not.toMatch(/\d/)
     // The placeholder's apology is gone.
@@ -76,6 +85,7 @@ describe.skipIf(skipUnlessAppIsRunning)('Suggested Pairs, over HTTP', () => {
     expect(section).toBeDefined()
     expect(section).toContain('No Schedule Overlap')
     expect(section).toContain('Ana Ruiz')
+    expect(section).toContain('Prefers one-to-one')
     expect(section).not.toMatch(/Excellent fit|Good fit|Recommended/)
     // On *Is discipled*, whatever the preset would say (Roles per pairing, ticket 01).
     expect(section).toContain(`href="/roster?pair=${ana}&amp;side=disciple"`)

@@ -18,6 +18,7 @@ import type {
   DiscipleshipGoalId,
   Gender,
   IntakePath,
+  OneToTwoAnswer,
   OtherGoal,
 } from './intake'
 import type { FollowUpResolution, NewFollowUpItem } from './follow-up'
@@ -206,6 +207,13 @@ export interface IntakeRecord {
    * ask.
    */
   readonly firstTime: boolean | null
+  /**
+   * Whether they are open to a 1:2, beside the first-time answer and for the same
+   * reason: read per candidate by the pairing surfaces and by nothing else
+   * (Suggestions beyond the one-to-one, ticket 01). Null where the form did not
+   * ask, never a refusal.
+   */
+  readonly oneToTwo: OneToTwoAnswer | null
   /**
    * Which version of the Ministry's form they answered (Pastor feedback, ticket
    * 11): 0 for the preset, null where the form was not one of the Ministry's two.

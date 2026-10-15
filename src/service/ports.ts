@@ -100,6 +100,7 @@ import type {
   DiscipleshipGoalId,
   Gender,
   IntakePath,
+  OneToTwoAnswer,
   OtherGoal,
 } from '~/domain/intake'
 import type {
@@ -1118,6 +1119,16 @@ export interface RosterEntry {
    */
   readonly firstTime: boolean | null
   /**
+   * Whether their latest submission that asked said they are open to a 1:2, in
+   * the words it carried. Null where no submission has ever asked, which is not a
+   * refusal (Suggestions beyond the one-to-one, ticket 01).
+   *
+   * Shown beside their name by the pairing surfaces -- the Pair popup from either
+   * side, and Suggested Pairs -- and read by nothing else. It filters nobody and
+   * ranks nobody on either, which is what keeps it outside ADR-0001.
+   */
+  readonly oneToTwo: OneToTwoAnswer | null
+  /**
    * Whether this Person holds an account -- a Leader who accepted their Invitation
    * Link, or an Admin who was provisioned. Derived from `person.user_id`, never
    * stored beside it.
@@ -1738,6 +1749,13 @@ export interface GroupIntakePage {
   readonly groups: readonly JoinableGroup[]
   /** The version of the Ministry's groups form being served, as on `IntakeWizardPage`. */
   readonly form: IntakeForm
+  /**
+   * The Ministry's mentor and mentee form as it stands now, which is what
+   * somebody opening it fresh would be served. The group step links across to
+   * it for somebody who meant to sign up for mentorship (Group form exits,
+   * ticket 02), carrying only the answers it still asks.
+   */
+  readonly discipleshipForm: IntakeForm
 }
 
 export interface IntakeReader {

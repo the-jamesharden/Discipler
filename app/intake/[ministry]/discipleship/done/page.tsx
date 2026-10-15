@@ -5,6 +5,7 @@ import {
   EXPERIENCE_ANSWERS,
   GENDERS,
   isOneOf,
+  ONE_TO_TWO_ANSWERS,
 } from '~/domain/intake'
 import { getIntakeReader } from '~/service/container'
 import { Centred } from '../../../../shell'
@@ -14,6 +15,7 @@ import {
   doneMessage,
   doneMessageWithoutASide,
   FIRST_TIME_ANSWER,
+  oneToTwoAnswerLabel,
   selectedSummary,
   sideLabel,
 } from '../../../copy'
@@ -30,10 +32,11 @@ import { PreviewNotice } from '../../../wizard-shell'
  * because the Ministry pairs people and Discipler does not.
  *
  * The design's confirmation card carries a summary. The answers that are one of
- * a short list -- the side, the band, the gender, the experience -- and the two
- * counts travel on the redirect and are checked against those lists rather than
- * rendered; the name and the number do not travel, because they are not going in
- * a URL, so the *Reach you at* row says by text and names no digits.
+ * a short list -- the side, the band, the gender, the experience, the one-to-two
+ * answer -- and the two counts travel on the redirect and are checked against
+ * those lists rather than rendered; the name and the number do not travel,
+ * because they are not going in a URL, so the *Reach you at* row says by text and
+ * names no digits.
  *
  * Under it, the thank-you of the version of the Ministry's form they answered,
  * where the Ministry has written one (Pastor feedback, ticket 11). Beneath what
@@ -71,6 +74,7 @@ export default async function DiscipleshipIntakeDonePage({
   const ageBand = oneOf(AGE_BANDS, query.ageBand)
   const gender = oneOf(GENDERS, query.gender)
   const experience = oneOf(EXPERIENCE_ANSWERS, query.experience)
+  const oneToTwo = oneOf(ONE_TO_TWO_ANSWERS, query.oneToTwo)
   const hours = count(query.hours)
   const days = count(query.days)
 
@@ -81,6 +85,9 @@ export default async function DiscipleshipIntakeDonePage({
     ...(experience
       ? [['Experience', experience === 'first_time' ? FIRST_TIME_ANSWER : DONE_BEFORE_ANSWER] as const]
       : []),
+    // Said in the side's words, so only with a side: an answer with no side to
+    // word it from would be said in a guess.
+    ...(side && oneToTwo ? [['Pairing', oneToTwoAnswerLabel[side][oneToTwo]] as const] : []),
     ...(hours !== null && days !== null
       ? [['Availability', selectedSummary(hours, days).replace(/\.$/, '')] as const]
       : []),

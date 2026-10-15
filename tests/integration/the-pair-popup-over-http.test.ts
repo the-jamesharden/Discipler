@@ -103,6 +103,9 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Disciple', () =>
     const dana = await addPerson(ministry, 'Dana Whitfield', { phone: number() })
     const grace = await addPerson(ministry, 'Grace Lee', { phone: '+17065559638' })
     await pool.query(`update person set email = 'grace@example.org' where id = $1`, [grace])
+    // She said she is open to mentoring two together, which her row says from this
+    // side (Suggestions beyond the one-to-one, ticket 01).
+    await pool.query(`update intake_submission set one_to_two = 'open_to_one_to_two' where person_id = $1`, [grace])
     const emily = await addPerson(ministry, 'Emily Davis', { phone: number() })
     await pairOneToOne(ministry, grace, emily)
     // No number and no address: each missing detail is simply absent.
@@ -124,7 +127,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Disciple', () =>
     const bareRow = rowFor(popup, bare)
     expect(bareRow).toContain('Noor Haddad')
     expect(detailsOf(bareRow)).toBe('leads nobody yet')
-    expect(detailsOf(graceRow)).toBe('grace@example.org · (706) 555-9638 · leads 1')
+    expect(detailsOf(graceRow)).toBe('grace@example.org · (706) 555-9638 · leads 1 · Open to one-to-two')
     expect(bareRow).not.toContain('>-<')
 
     // Exactly one can be chosen, and nothing else is asked: no boxes, no shape, no

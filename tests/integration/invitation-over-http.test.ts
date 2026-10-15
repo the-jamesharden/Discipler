@@ -6,7 +6,7 @@ import { createPostgresEffectStore } from '~/platform/supabase/effect-store'
 import { createCommandService } from '~/service/command-service'
 import { baseUrl, signInAs, skipUnlessAppIsRunning } from '../support/app'
 import {
-  aTestPhoneNumber,
+  aPhoneNumberNobodyHolds,
   addPerson,
   completeIntake,
   createMinistryWithAdmin,
@@ -40,7 +40,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Leader opening their Invitation Link'
   // auth account against one, and the database keeps it after the suite ends, so a
   // number that only avoids collisions within a run is not enough.
   const roster = async (fullName: string) =>
-    personId(await addPerson(ministry, fullName, { phone: aTestPhoneNumber() }))
+    personId(await addPerson(ministry, fullName, { phone: await aPhoneNumberNobodyHolds() }))
 
   const pair = async (leaderIds: PersonId[], participantIds: PersonId[]) => {
     const service = createCommandService({

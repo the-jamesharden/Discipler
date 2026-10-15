@@ -318,6 +318,7 @@ An Admin rewords any question, gives it a hint, moves it within its page or onto
 
 **Today's form is every Ministry's preset.**
 A Ministry that has never edited is served the form the wizard always asked, in the same words, on the same pages, with *Other* on the goal question; nothing changes for anybody until an Admin edits.
+The one-to-two question (Suggestions beyond the one-to-one, ticket 01) joined the preset on a page of its own after the first-time question, so every Ministry that has never edited asks it; a Ministry that saved an edited form before it existed does not ask it until an Admin adds it from *Add a question*.
 
 **A save is live at once, and somebody part-way through finishes the version they opened.**
 Every save is a new version of the form and never a change to an old one.
@@ -332,12 +333,12 @@ A rename keeps every answer already given, because a question is the same questi
 Name and mobile number are asked on every form, of everybody, and can be neither made optional nor removed: they are who somebody is to Discipler.
 Gender, age band, the matching question (*I'm joining as…*), availability and, on the groups form, the choice of group stay required for as long as a form asks them, because the pairing rules, the age rule, Suggested Pairs and the groups form read them and none of them meets one Person who answered beside another who skipped; each is marked on its row with what uses it.
 A form may stop asking any of them altogether (see *Removing a question*).
-An Admin may make the goal, the first-time question and the email optional or required.
+An Admin may make the goal, the first-time question, the one-to-two question and the email optional or required.
 The choices of the built-in questions are not edited in the form: the goal's are the Ministry's own goals, edited as before with *Other* always last, and the groups are the Ministry's groups.
 
 **Where a question may be asked.**
 Name, mobile number, email and the goal stay on the last page, beside Submit, because every earlier page moves on by a link that carries its answers in the address, and what somebody types does not go into an address.
-The first-time question comes on a later page than the matching question, which words it, and the choice of group on a later page than gender, which decides the groups offered.
+The first-time and one-to-two questions come on a later page than the matching question, which words them, and the choice of group on a later page than gender, which decides the groups offered.
 A page added goes just before the last, and a page with nothing on it is skipped by the wizard.
 The two agreements are not questions on the form: they are on the last page of both forms, in the versioned wording a consent record points at, and no Admin edits them.
 
@@ -356,11 +357,13 @@ For a question the product reads, the warning also says what stops working, and 
 - **Gender**: the gender pairing rules cannot be applied to anybody who fills in that form. A pairing with somebody whose gender is not known is not refused by them; Suggested Pairs (for the mentor and mentee form) and the Gender section of the settings say so. On the groups form, a form that asks no gender offers only the groups open to men and women alike.
 - **Age band** (mentor and mentee form): the age rule cannot be applied, and Suggested Pairs suggests people of any age together. It and the Age section of the settings say so.
 - **The goal**: there is no goal tiebreaker, and Suggested Pairs says so.
-- **The matching question**: Suggested Pairs cannot tell who offered to disciple, so it suggests as Disciplers only people who already disciple somebody, and says so. The first-time question is worded from it, so the matching question is removed only once the first-time question has been, and the first-time question is added back only to a form that asks the matching question.
+- **The matching question**: Suggested Pairs cannot tell who offered to disciple, so it suggests as Disciplers only people who already disciple somebody, and says so. The first-time and one-to-two questions are worded from it, so the matching question is removed only once both of them have been, and either is added back only to a form that asks the matching question.
+- **The one-to-two question** (mentor and mentee form) turns nothing off: nothing that pairs people reads it, so its warning says only how many answers it deletes, and afterwards the Pair popup and Suggested Pairs simply show no note beside a name.
 - **The choice of group** (groups form): nobody who fills it in chooses a group; each one waits in Follow-Up to be placed.
 
 While a form asks gender or the age band, somebody with no answer to it is not suggested at all: a rule that cannot be checked for one Person is not quietly dropped for them.
 Suggested Pairs reads the mentor and mentee form, which is the form that signs people up to be paired one to one.
+The group step's link across to the mentor and mentee form (Group form exits, ticket 02) carries an answer only where both forms still ask the question; an answer either form no longer asks stays behind.
 Two removals delete nothing: the email somebody gave is kept on the Person beside their name and number, and the choice of group is kept as the membership or the request it made, not as an answer.
 The matching question's answers are kept on the consent records the form writes; removing it clears the side on them and changes nothing else on any consent record.
 

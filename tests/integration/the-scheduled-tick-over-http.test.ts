@@ -148,6 +148,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the scheduled tick, as the scheduler ru
         intakePath: null,
         declaredSide: null,
         experience: null,
+        oneToTwo: null,
         groupId: null,
       },
     })

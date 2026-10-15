@@ -188,11 +188,11 @@ import {
   isOwnQuestion,
   layoutOf,
   moveQuestion,
+  notAskedOf,
   ownQuestionKey,
   ownQuestionsOf,
   questionOn,
   removalDeletesAnswers,
-  removedQuestions,
   removeQuestion,
   renamePage,
   requiredOn,
@@ -4934,7 +4934,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         command.form,
         asked && !command.token ? requiredOn(asked) : REQUIRED_TODAY,
         asked ? ownQuestionsOf(asked) : [],
-        new Set(asked ? removedQuestions(asked) : []),
+        asked ? notAskedOf(asked, command.form) : undefined,
       )
       if ('refusals' in reading) throw new IntakeRefused(reading.refusals)
       // Which version of the Ministry's form this submission answered, where it
@@ -5132,6 +5132,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           availability: kept.availability,
           email: kept.email,
           firstTime: kept.firstTime,
+          oneToTwo: kept.oneToTwo,
           formVersion,
           ownAnswers: kept.ownAnswers,
           consentVersion: CONSENT_VERSION,

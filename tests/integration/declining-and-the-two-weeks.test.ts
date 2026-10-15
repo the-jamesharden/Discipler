@@ -8,6 +8,7 @@ import { createPostgresEffectStore } from '~/platform/supabase/effect-store'
 import { createPostgresInvitationReader } from '~/platform/supabase/invitation-reader'
 import { createCommandService } from '~/service/command-service'
 import {
+  aPhoneNumberNobodyHolds,
   aTestPhoneNumber,
   addPerson,
   createMinistryWithAdmin,
@@ -136,7 +137,7 @@ describe('declining an invitation, and one nobody answers', () => {
 
   const anAccount = async () => {
     const { data, error } = await serviceRoleClient().auth.admin.createUser({
-      phone: aTestPhoneNumber(),
+      phone: await aPhoneNumberNobodyHolds(),
       password: 'a-long-enough-password',
       phone_confirm: true,
     })

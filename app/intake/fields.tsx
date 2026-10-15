@@ -4,11 +4,13 @@ import {
   EXPERIENCE_ANSWERS,
   GROUP_PATH,
   NO_GROUP_IN_MIND,
+  ONE_TO_TWO_ANSWERS,
   OTHER_GOAL,
   SLOT_HOURS,
   WEEKDAYS,
   type DeclaredSide,
   type ExperienceAnswer,
+  type OneToTwoAnswer,
 } from '~/domain/intake'
 import {
   isOwnQuestion,
@@ -30,6 +32,8 @@ import {
   hourLabel,
   NO_GROUP_IN_MIND_ANSWER,
   noGroupInMindDescription,
+  oneToTwoAnswerLabel,
+  oneToTwoDescription,
   selectedSummary,
   sideDescription,
   sideLabel,
@@ -447,8 +451,8 @@ export const GenderField = ({
 
 /**
  * The discipleship wizard's first question: which side of a discipleship
- * relationship the Person is offering to stand on. The first-time question and
- * the closing line are worded from this answer.
+ * relationship the Person is offering to stand on. The first-time question, the
+ * one-to-two question and the closing line are worded from this answer.
  */
 export const SideField = ({
   chosen,
@@ -518,6 +522,52 @@ export const ExperienceField = ({
           <span className="option-desc">
             {option === 'first_time' ? FIRST_TIME_DESCRIPTION : DONE_BEFORE_DESCRIPTION}
           </span>
+        </label>
+      ))}
+    </div>
+  </fieldset>
+)
+
+/**
+ * Whether they are open to a 1:2 (Suggestions beyond the one-to-one, ticket 01):
+ * the first-time question's twin, put in the words of the side they offered, a
+ * statement to agree with rather than a question. The two answers are sentences
+ * on their own in the side's words, and the values are the same two words for
+ * both sides: the pairing surfaces say them beside a name without knowing which
+ * screen asked.
+ *
+ * Never asked without a side: the form keeps it on a later page than the side,
+ * so a screen reaching it always has one. Should one arrive without (a URL edited
+ * by hand), it is said in a mentor's words rather than not at all, as the
+ * first-time question is.
+ */
+export const OneToTwoField = ({
+  side,
+  chosen,
+  asked = preset('oneToTwo'),
+}: {
+  readonly side: DeclaredSide | null
+  readonly chosen: OneToTwoAnswer | null
+  readonly asked?: FormQuestion
+}) => (
+  <fieldset>
+    <legend>
+      {asAsked(asked, side === 'mentee' ? (asked.menteeWording ?? asked.wording) : asked.wording)}
+    </legend>
+    <Hint question={asked} />
+    <div className="choices stack">
+      {ONE_TO_TWO_ANSWERS.map((option) => (
+        <label key={option} className="option" htmlFor={`oneToTwo:${option}`}>
+          <input
+            id={`oneToTwo:${option}`}
+            type="radio"
+            name="oneToTwo"
+            value={option}
+            required={asked.required}
+            defaultChecked={chosen === option}
+          />
+          <span className="option-title">{oneToTwoAnswerLabel[side ?? 'mentor'][option]}</span>
+          <span className="option-desc">{oneToTwoDescription[option]}</span>
         </label>
       ))}
     </div>
@@ -634,6 +684,7 @@ export interface Answering {
   readonly prefill: IntakePrefill
   readonly side: DeclaredSide | null
   readonly experience: ExperienceAnswer | null
+  readonly oneToTwo: OneToTwoAnswer | null
   readonly goals: readonly DiscipleshipGoalOption[]
   readonly groups: readonly JoinableGroup[]
   readonly groupChosen: string | null
@@ -664,6 +715,8 @@ export const AskedQuestion = ({
       return <GenderField asked={question} prefill={answering.prefill} />
     case 'experience':
       return <ExperienceField asked={question} side={answering.side} chosen={answering.experience} />
+    case 'oneToTwo':
+      return <OneToTwoField asked={question} side={answering.side} chosen={answering.oneToTwo} />
     case 'availability':
       return <AvailabilityGrid asked={question} availability={answering.prefill.availability} />
     case 'goalId':

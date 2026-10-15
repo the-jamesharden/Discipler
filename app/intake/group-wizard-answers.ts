@@ -1,6 +1,20 @@
 import { AGE_BANDS, GENDERS, GROUP_PATH } from '~/domain/intake'
-import { askedPages, isOwnQuestion, presetForm, type BuiltInQuestion, type IntakeForm } from '~/domain/intake-form'
-import { defineWizard, ownFieldFor, ownFieldsOf, type AnswersOf, type Screen } from './wizard-machine'
+import {
+  askedPages,
+  isOwnQuestion,
+  presetForm,
+  type BuiltInQuestion,
+  type IntakeForm,
+} from '~/domain/intake-form'
+import { discipleshipWizardFor } from './wizard-answers'
+import {
+  defineWizard,
+  ownFieldFor,
+  ownFieldsOf,
+  type AnswersOf,
+  type IntakeVia,
+  type Screen,
+} from './wizard-machine'
 
 /**
  * The group form: the wizard behind `/intake/<ministry>` since ticket 29. Today's
@@ -65,6 +79,44 @@ export const groupWizardFor = (form: IntakeForm) =>
 
 /** The wizard every Ministry is served until it edits its groups form. */
 export const groupWizard = groupWizardFor(presetForm(GROUP_PATH))
+
+/**
+ * The discipleship wizard's query for somebody on the group form who meant to
+ * sign up for mentorship (Group form exits, ticket 02; its decisions say why
+ * each part is so). Each wizard writes and reads its own query: the answers go
+ * across for the questions both forms ask, read back against the discipleship
+ * wizard's lists, opening on its first unanswered screen, pinned to the version
+ * they were matched against, and named as carried so Continue goes past them.
+ */
+export const mentorshipSwitchQuery = ({
+  groupForm,
+  discipleshipForm,
+  answers,
+  via,
+  preview,
+}: {
+  readonly groupForm: IntakeForm
+  readonly discipleshipForm: IntakeForm
+  readonly answers: GroupWizardAnswers
+  readonly via: IntakeVia
+  readonly preview: boolean
+}): URLSearchParams => {
+  const group = groupWizardFor(groupForm)
+  const discipleship = discipleshipWizardFor(discipleshipForm)
+
+  const groupAsks: ReadonlySet<string> = new Set(group.ASKED_BUILT_IN)
+  const shared = discipleship.ASKED_BUILT_IN.filter((field) => groupAsks.has(field))
+  const given = group.answersAsQuery(answers, via, group.FIRST_STEP)
+  const carried = discipleship.readAnswers(
+    Object.fromEntries(shared.map((field) => [field, given.getAll(field)])),
+  )
+
+  return discipleship.answersAsQuery(carried, via, discipleship.furthestStep(carried), {
+    version: discipleshipForm.version,
+    preview,
+    carried: shared.filter((field) => discipleship.answered(carried, field)),
+  })
+}
 
 export const GROUP_AGE_AND_GENDER_STEP = groupWizard.stepAsking('ageBand')
 export const GROUP_AVAILABILITY_STEP = groupWizard.AVAILABILITY_STEP

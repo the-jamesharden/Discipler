@@ -13,7 +13,7 @@ import { invitationToken } from '~/domain/invitations'
 import { createCommandService } from '~/service/command-service'
 import { createPostgresEffectStore } from '~/platform/supabase/effect-store'
 import {
-  aTestPhoneNumber,
+  aPhoneNumberNobodyHolds,
   addMaterial,
   addPerson,
   createMinistryWithAdmin,
@@ -81,7 +81,7 @@ describe('a Material chosen at pairing', () => {
 
   const anAccount = async () => {
     const { data, error } = await serviceRoleClient().auth.admin.createUser({
-      phone: aTestPhoneNumber(),
+      phone: await aPhoneNumberNobodyHolds(),
       password: 'a-long-enough-password',
       phone_confirm: true,
     })

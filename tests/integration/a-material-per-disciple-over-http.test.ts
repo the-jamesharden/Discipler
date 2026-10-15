@@ -4,7 +4,7 @@ import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app
 import {
   addMaterial,
   addPerson,
-  aTestPhoneNumber,
+  aPhoneNumberNobodyHolds,
   createMinistryWithAdmin,
   localSupabase,
   type MinistryFixture,
@@ -37,8 +37,8 @@ describe.skipIf(skipUnlessAppIsRunning)('a Material per Disciple in a separate s
     await pool.end()
   })
 
-  const woman = (fullName: string) =>
-    addPerson(ministry, fullName, { phone: aTestPhoneNumber(), answers: { gender: 'female' } })
+  const woman = async (fullName: string) =>
+    addPerson(ministry, fullName, { phone: await aPhoneNumberNobodyHolds(), answers: { gender: 'female' } })
 
   const pairSeparately = (leader: string, participants: string[], more: [string, string][] = []) =>
     postPairing(cookie, [

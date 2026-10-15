@@ -67,6 +67,7 @@ describe('The availability grid', () => {
       intakePath: null,
       declaredSide: null,
       experience: null,
+      oneToTwo: null,
       groupId: null,
     }
 

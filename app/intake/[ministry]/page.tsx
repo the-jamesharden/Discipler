@@ -99,6 +99,7 @@ export default async function GroupIntakePage({
           discipleshipLink={discipleshipLink}
           via={via}
           form={page.form}
+          discipleshipForm={page.discipleshipForm}
           preview={preview}
         />
       )}

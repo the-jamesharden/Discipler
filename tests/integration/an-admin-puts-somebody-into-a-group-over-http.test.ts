@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app'
 import { openTheCardAbout } from '../support/follow-up'
 import {
+  aPhoneNumberNobodyHolds,
   aTestPhoneNumber,
   addPerson,
   createMinistryWithAdmin,
@@ -235,7 +236,7 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin puts a Disciple into a group, 
   describe('a Discipler added as another leader', () => {
     const aDiscipler = async () => {
       const name = named('Claire')
-      return { name, id: await addPerson(ministry, name, { phone: aTestPhoneNumber(), answers: { gender: 'male' } }) }
+      return { name, id: await addPerson(ministry, name, { phone: await aPhoneNumberNobodyHolds(), answers: { gender: 'male' } }) }
     }
 
     const leadsIt = async (group: string, person: string) => {

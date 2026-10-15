@@ -43,6 +43,7 @@ const noGroupForm: IntakeFormFields = {
   intakePath: GROUP_PATH,
   declaredSide: null,
   experience: null,
+  oneToTwo: null,
   groupId: NO_GROUP_IN_MIND,
 }
 
@@ -94,6 +95,7 @@ describe('the intake boundary, on the group path', () => {
       intakePath: 'discipleship',
       declaredSide: 'mentee',
       experience: 'first_time',
+      oneToTwo: 'open_to_one_to_two',
       goalId: 'some-goal',
     })
     expect('refusals' in result && result.refusals).toEqual(['intake.path_unknown'])
@@ -148,6 +150,7 @@ describe('submitting with no group in mind', () => {
       intakePath: 'discipleship',
       declaredSide: 'mentee',
       experience: 'first_time',
+      oneToTwo: 'open_to_one_to_two',
       goalId: '00000000-0000-4000-8000-0000000000c1',
       groupId: null,
     })

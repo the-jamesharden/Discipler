@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { IntakeRefused } from '~/domain/errors'
 import { readIntakeForm, type IntakeFormFields } from '~/domain/intake'
-import { ownQuestionsOf, removedQuestions, requiredOn, stillKept, type QuestionKey } from '~/domain/intake-form'
+import { notAskedOf, ownQuestionsOf, requiredOn, stillKept, type QuestionKey } from '~/domain/intake-form'
 import { getCommandService, getIntakeReader, settlePlannedPairings } from '~/service/container'
 import {
   discipleshipWizardFor,
@@ -48,7 +48,13 @@ export async function POST(
   if (!page) return NextResponse.redirect(new URL('/', request.url), { status: 303 })
 
   const wizard = discipleshipWizardFor(page.form)
-  const pin = { version: page.form.version, preview }
+  // What the group form's switch carried, kept if the last step is sent back
+  // (Group form exits, ticket 02).
+  const pin = {
+    version: page.form.version,
+    preview,
+    carried: wizard.readCarried(submitted.getAll('carried').filter((value) => typeof value === 'string')),
+  }
 
   const form: IntakeFormFields = submittedIntakeForm(submitted, {
     source: consentSourceOf(via),
@@ -70,6 +76,7 @@ export async function POST(
       ageBand: form.ageBand ?? undefined,
       gender: form.gender ?? undefined,
       experience: form.experience ?? undefined,
+      oneToTwo: form.oneToTwo ?? undefined,
       availability: [...form.availability],
     })
     const params = wizard.answersAsQuery(answers, readVia(via), wizard.LAST_STEP, pin)
@@ -88,7 +95,7 @@ export async function POST(
       form,
       requiredOn(page.form),
       ownQuestionsOf(page.form),
-      new Set(removedQuestions(page.form)),
+      notAskedOf(page.form, form),
     )
     if ('refusals' in reading) return backToTheForm(reading.refusals)
     return NextResponse.redirect(
@@ -147,6 +154,7 @@ const doneQuery = async (
   if (form.ageBand && kept('ageBand')) done.set('ageBand', form.ageBand)
   if (form.gender && kept('gender')) done.set('gender', form.gender)
   if (form.experience && kept('experience')) done.set('experience', form.experience)
+  if (form.oneToTwo && kept('oneToTwo')) done.set('oneToTwo', form.oneToTwo)
   // None where the form no longer asks when somebody is free (ticket 13), which
   // the summary then leaves out rather than saying *no hours*.
   const ticked = new Set(kept('availability') ? form.availability : [])

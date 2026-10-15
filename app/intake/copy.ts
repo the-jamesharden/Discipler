@@ -1,4 +1,11 @@
-import { SLOT_HOURS, type DeclaredSide, type IntakeRefusal, type SlotHour, type Weekday } from '~/domain/intake'
+import {
+  SLOT_HOURS,
+  type DeclaredSide,
+  type IntakeRefusal,
+  type OneToTwoAnswer,
+  type SlotHour,
+  type Weekday,
+} from '~/domain/intake'
 import { asList } from '~/domain/outbound-copy'
 
 /**
@@ -90,6 +97,11 @@ const REFUSALS: Record<IntakeRefusal, string> = {
     'Please tell us whether you are joining as a mentor or as someone to be '
     + 'mentored.',
   'intake.first_time_unanswered': 'Please tell us whether this is your first time.',
+  // One sentence for both sides, since a refusal knows its code and not the side:
+  // a mentor open to mentoring two and a mentee open to being one of two are both
+  // open to one mentor meeting with two mentees.
+  'intake.one_to_two_unanswered':
+    'Please tell us whether you’re open to one mentor meeting with two mentees together.',
   // Says the same thing `intake.source_unknown` says, because it is the same kind
   // of thing: a form that cannot say what it was asking is not one Discipler
   // served, and there is nothing on it the Person can correct.
@@ -190,6 +202,30 @@ export const FIRST_TIME_ANSWER = 'No, this is my first time'
 export const DONE_BEFORE_DESCRIPTION = 'I have experience in this role.'
 export const FIRST_TIME_DESCRIPTION = 'I am new to this — and that is perfectly fine.'
 
+/**
+ * The one-to-two question's two answers (Suggestions beyond the one-to-one,
+ * ticket 01), worded from the side so each reads as a sentence on its own, as the
+ * first-time answers do. The question above them is the Ministry's form's, in its
+ * two wordings; the answers are fixed, like every built-in question's. The values
+ * on the wire are the same two words for both sides (`ONE_TO_TWO_ANSWERS`), and
+ * the pairing surfaces say them in their own words beside a name.
+ */
+export const oneToTwoAnswerLabel: Record<DeclaredSide, Record<OneToTwoAnswer, string>> = {
+  mentor: {
+    open_to_one_to_two: 'Yes, I’m open to mentoring two together',
+    one_to_one_only: 'No, one mentee at a time',
+  },
+  mentee: {
+    open_to_one_to_two: 'Yes, I’m open to being one of two',
+    one_to_one_only: 'No, I’d rather meet one-to-one',
+  },
+}
+
+export const oneToTwoDescription: Record<OneToTwoAnswer, string> = {
+  open_to_one_to_two: 'If it helps the pairing work out.',
+  one_to_one_only: 'That is perfectly fine too.',
+}
+
 export const DONE_HEADING = 'You’re on the list'
 
 /**
@@ -214,20 +250,28 @@ export const doneMessageWithoutASide = (ministryName: string): string =>
 export const groupHeading = (ministryName: string): string => `Join a group at ${ministryName}`
 
 /**
- * The line beneath a group's name on step three when its running period is on a
+ * The line beneath a group's name on the group step when its running period is on a
  * Material (Materials, ticket 03, S-7). A group on none shows its name alone, and
  * nothing is said about the absence.
  */
 export const workingThrough = (materialTitle: string): string => `Working through ${materialTitle}`
 
 /**
- * The dashed last option on step three, for somebody who found no group that
+ * The dashed last option on the group step, for somebody who found no group that
  * fits (Group form exits, ticket 01, S-7). Choosing it asks the Ministry to place
  * them, and the done page says the Ministry has been told.
  */
 export const NO_GROUP_IN_MIND_ANSWER = 'I don’t have a group in mind'
 export const noGroupInMindDescription = (ministryName: string): string =>
   `We’ll let ${ministryName} know you’d like to be placed in one.`
+
+/**
+ * The line under the group step's actions, for somebody who meant the discipleship
+ * form (Group form exits, ticket 02, S-7). The second half is the link, which
+ * takes what they have already answered across with them.
+ */
+export const MEANT_FOR_MENTORSHIP_QUESTION = 'Looking for one-to-one discipleship instead?'
+export const MEANT_FOR_MENTORSHIP_LINK = 'I meant to sign up for mentorship'
 
 /**
  * What the link says when there is nothing to join: a Ministry with no group the

@@ -48,6 +48,9 @@ export default async function DiscipleshipIntakePage({
   const step = wizard.stepToShow(query.step, answers)
   const via = readVia(query.via)
   const preview = readPreview(query.preview)
+  // Somebody the group form's switch brought here, and what it carried
+  // (Group form exits, ticket 02).
+  const carried = wizard.readCarried(query.carried)
   const refused = firstValue(query.refused)
   // The codes a refused submission came back with, and the one this page can raise
   // on its own: Continue with nothing ticked on the grid. Both, because a refused
@@ -87,6 +90,7 @@ export default async function DiscipleshipIntakePage({
         via={via}
         form={page.form}
         preview={preview}
+        carried={carried}
       />
     </Centred>
   )

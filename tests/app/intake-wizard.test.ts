@@ -14,6 +14,8 @@ import {
   DONE_BEFORE_ANSWER,
   FIRST_TIME_ANSWER,
   doneMessage,
+  oneToTwoAnswerLabel,
+  oneToTwoDescription,
   refusalMessages,
   sideLabel,
 } from '../../app/intake/copy'
@@ -27,6 +29,7 @@ import {
   furthestStep,
   LAST_STEP,
   notCarriedAt,
+  ONE_TO_TWO_STEP,
   readPreview,
   readVersion,
   readWizardAnswers,
@@ -37,6 +40,7 @@ import {
 } from '../../app/intake/wizard-answers'
 
 const experience = questionOn(presetForm('discipleship'), 'experience')!
+const oneToTwo = questionOn(presetForm('discipleship'), 'oneToTwo')!
 
 /**
  * The wizard's two decisions that are not the domain's: which screen somebody is
@@ -48,8 +52,30 @@ describe('what the wizard says', () => {
     for (const side of DECLARED_SIDES) {
       expect(sideLabel[side]).toBeTruthy()
       expect(side === 'mentee' ? experience.menteeWording : experience.wording).toBeTruthy()
+      expect(side === 'mentee' ? oneToTwo.menteeWording : oneToTwo.wording).toBeTruthy()
       expect(doneMessage[side]('Riverside Chapel')).toContain('Riverside Chapel')
     }
+  })
+
+  /**
+   * The mentee side in James's words (2026-09-22), and the mentor side in the same
+   * shape (approved 2026-10-15; Suggestions beyond the one-to-one, ticket 01).
+   * Statements to agree with rather than questions, so each answer is a sentence
+   * on its own.
+   */
+  it('asks the one-to-two question in the words of the side', () => {
+    expect(oneToTwo.menteeWording).toBe('Open to being mentored alongside another mentee if needed')
+    expect(oneToTwo.wording).toBe('Open to mentoring two mentees together if needed')
+    expect(oneToTwo.hint).toBe('Sometimes one mentor walks with two people at once. Either answer is fine.')
+  })
+
+  it('offers two one-to-two answers per side that read as sentences on their own', () => {
+    expect(oneToTwoAnswerLabel.mentee.open_to_one_to_two).toBe('Yes, I’m open to being one of two')
+    expect(oneToTwoAnswerLabel.mentee.one_to_one_only).toBe('No, I’d rather meet one-to-one')
+    expect(oneToTwoAnswerLabel.mentor.open_to_one_to_two).toBe('Yes, I’m open to mentoring two together')
+    expect(oneToTwoAnswerLabel.mentor.one_to_one_only).toBe('No, one mentee at a time')
+    expect(oneToTwoDescription.open_to_one_to_two).toBe('If it helps the pairing work out.')
+    expect(oneToTwoDescription.one_to_one_only).toBe('That is perfectly fine too.')
   })
 
   it('asks the first-time question in the words of the side', () => {
@@ -72,12 +98,15 @@ describe('what the wizard says', () => {
     expect(doneMessage.mentor('Riverside Chapel')).toContain('someone for you to mentor')
   })
 
-  it('has a sentence for each of the three things the wizard can refuse', () => {
+  it('has a sentence for each of the four things the wizard can refuse', () => {
     expect(refusalMessages('intake.side_unknown')).toEqual([
       'Please tell us whether you are joining as a mentor or as someone to be mentored.',
     ])
     expect(refusalMessages('intake.first_time_unanswered')).toEqual([
       'Please tell us whether this is your first time.',
+    ])
+    expect(refusalMessages('intake.one_to_two_unanswered')).toEqual([
+      'Please tell us whether you’re open to one mentor meeting with two mentees together.',
     ])
     expect(refusalMessages('intake.path_unknown')).toEqual([
       'This link is incomplete. Please ask for a new one.',
@@ -113,11 +142,12 @@ describe('what the wizard says', () => {
 
 describe('what the wizard reads back off its own URL', () => {
   const answered = {
-    step: '5',
+    step: '6',
     side: 'mentor',
     ageBand: '35-44',
     gender: 'male',
     experience: 'done_before',
+    oneToTwo: 'one_to_one_only',
     availability: ['monday:12', 'friday:18'],
   }
 
@@ -127,6 +157,7 @@ describe('what the wizard reads back off its own URL', () => {
       ageBand: '35-44',
       gender: 'male',
       experience: 'done_before',
+      oneToTwo: 'one_to_one_only',
       availability: ['monday:12', 'friday:18'],
       own: {},
     })
@@ -139,6 +170,7 @@ describe('what the wizard reads back off its own URL', () => {
         ageBand: '12',
         gender: 'unspecified',
         experience: 'sometimes',
+        oneToTwo: 'yes',
         availability: ['monday:12', 'funday:12', 'monday:teatime'],
       }),
     ).toEqual({
@@ -146,6 +178,7 @@ describe('what the wizard reads back off its own URL', () => {
       ageBand: null,
       gender: null,
       experience: null,
+      oneToTwo: null,
       availability: ['monday:12'],
       own: {},
     })
@@ -188,8 +221,11 @@ describe('the list the wizard steps through', () => {
   it('names its screens in the order it asks them', () => {
     expect(SIDE_STEP).toBe(1)
     expect(FIRST_TIME_STEP).toBe(3)
-    expect(AVAILABILITY_STEP).toBe(4)
-    expect(LAST_STEP).toBe(5)
+    // Beside the first-time step, its twin (Suggestions beyond the one-to-one,
+    // ticket 01).
+    expect(ONE_TO_TWO_STEP).toBe(4)
+    expect(AVAILABILITY_STEP).toBe(5)
+    expect(LAST_STEP).toBe(6)
   })
 
   /**
@@ -200,12 +236,13 @@ describe('the list the wizard steps through', () => {
    * reads, and a first-timer recorded as experienced is a mistake nothing
    * downstream could notice.
    */
-  it('drops the answer its own question rewords, and carries everything else', () => {
-    expect(notCarriedAt(SIDE_STEP)).toEqual(['side', 'experience'])
+  it('drops the answers its own question rewords, and carries everything else', () => {
+    // The one-to-two question is worded from the side too, and goes the same way.
+    expect(notCarriedAt(SIDE_STEP)).toEqual(['side', 'experience', 'oneToTwo'])
 
     // Every other screen drops only what it is asking for. Somebody correcting
     // their age keeps the availability they gave after it.
-    for (const step of [2, FIRST_TIME_STEP, AVAILABILITY_STEP, LAST_STEP]) {
+    for (const step of [2, FIRST_TIME_STEP, ONE_TO_TWO_STEP, AVAILABILITY_STEP, LAST_STEP]) {
       expect(notCarriedAt(step)).toEqual([...asksAt(step)])
     }
   })
@@ -216,6 +253,7 @@ describe('the list the wizard steps through', () => {
       ageBand: '25-34',
       gender: 'female',
       experience: 'done_before',
+      oneToTwo: 'open_to_one_to_two',
       availability: ['monday:12'],
     })
 
@@ -227,6 +265,7 @@ describe('the list the wizard steps through', () => {
     const afterSwitchingSides = readWizardAnswers({ ...carriedOn, side: 'mentor' })
 
     expect(afterSwitchingSides.experience).toBeNull()
+    expect(afterSwitchingSides.oneToTwo).toBeNull()
     // And nothing else is lost on the way: the age, the gender and the grid are
     // worded from nothing, so re-answering the side has no claim on them.
     expect(afterSwitchingSides.ageBand).toBe('25-34')
@@ -267,6 +306,18 @@ describe('which screen somebody is entitled to see', () => {
           ageBand: '25-34',
           gender: 'female',
           experience: 'first_time',
+          oneToTwo: 'one_to_one_only',
+        }),
+      ),
+    ).toBe(5)
+    expect(
+      furthestStep(
+        readWizardAnswers({
+          side: 'mentee',
+          ageBand: '25-34',
+          gender: 'female',
+          experience: 'first_time',
+          oneToTwo: 'one_to_one_only',
           availability: 'monday:12',
         }),
       ),
@@ -275,7 +326,7 @@ describe('which screen somebody is entitled to see', () => {
 
   it('never shows a later screen than the answers reach, however the URL is edited', () => {
     const halfway = readWizardAnswers({ side: 'mentee' })
-    expect(stepToShow('5', halfway)).toBe(2)
+    expect(stepToShow('6', halfway)).toBe(2)
     expect(stepToShow('99', halfway)).toBe(2)
     expect(stepToShow('-3', halfway)).toBe(1)
   })
@@ -286,12 +337,14 @@ describe('which screen somebody is entitled to see', () => {
       ageBand: '45-54',
       gender: 'male',
       experience: 'first_time',
+      oneToTwo: 'open_to_one_to_two',
       availability: ['tuesday:09'],
     })
     const back = answersAsQuery(answers, 'qr', 3)
 
     expect(back.get('step')).toBe('3')
     expect(back.get('side')).toBe('mentor')
+    expect(back.get('oneToTwo')).toBe('open_to_one_to_two')
     expect(back.get('via')).toBe('qr')
     expect(back.getAll('availability')).toEqual(['tuesday:09'])
   })
@@ -303,20 +356,21 @@ describe('the one screen a browser will not stop somebody leaving unanswered', (
     ageBand: '25-34',
     gender: 'female',
     experience: 'first_time',
+    oneToTwo: 'open_to_one_to_two',
   })
 
   it('says why the grid would not move on, rather than silently redrawing it', () => {
-    expect(stuckOnAvailability('5', upToTheGrid)).toBe(true)
+    expect(stuckOnAvailability('6', upToTheGrid)).toBe(true)
   })
 
   it('says nothing on the way in, when nobody has pressed Continue yet', () => {
-    expect(stuckOnAvailability('4', upToTheGrid)).toBe(false)
+    expect(stuckOnAvailability('5', upToTheGrid)).toBe(false)
   })
 
   it('says nothing on the screens whose own fields are required', () => {
-    expect(stuckOnAvailability('4', readWizardAnswers({ side: 'mentee' }))).toBe(false)
+    expect(stuckOnAvailability('5', readWizardAnswers({ side: 'mentee' }))).toBe(false)
     expect(
-      stuckOnAvailability('5', {
+      stuckOnAvailability('6', {
         ...upToTheGrid,
         availability: ['monday:12'],
       }),
@@ -336,18 +390,18 @@ describe('a wizard drawn from a Ministry’s own form', () => {
   }
   const preset = presetForm('discipleship')
 
-  it('is today’s five screens for a Ministry that never edited', () => {
+  it('is today’s six screens for a Ministry that never edited', () => {
     expect(discipleshipWizardFor(preset).SCREENS).toEqual(SCREENS)
   })
 
   it('asks a question on the page an Admin moved it to', () => {
     const layout = layoutOf(preset).map((page) => ({ ...page, keys: [...page.keys] }))
     layout[1]!.keys = ['ageBand']
-    layout[3]!.keys = ['gender', 'availability']
+    layout[4]!.keys = ['gender', 'availability']
     const wizard = discipleshipWizardFor(saved(arrangeQuestions(preset, layout)))
 
     expect(wizard.asksAt(2)).toEqual(['ageBand'])
-    expect(wizard.asksAt(4)).toEqual(['gender', 'availability'])
+    expect(wizard.asksAt(5)).toEqual(['gender', 'availability'])
     // Answering the age alone now reaches the first-time question.
     expect(wizard.furthestStep(wizard.readAnswers({ side: 'mentee', ageBand: '25-34' }))).toBe(3)
   })
@@ -355,7 +409,7 @@ describe('a wizard drawn from a Ministry’s own form', () => {
   it('skips a page with nothing on it, so a new page is not a blank screen', () => {
     const withPage = saved(addPage(preset, 'more', 'A little more'))
     const wizard = discipleshipWizardFor(withPage)
-    expect(wizard.LAST_STEP).toBe(5)
+    expect(wizard.LAST_STEP).toBe(6)
   })
 
   it('lets somebody past a question the form made optional, without answering it', () => {
