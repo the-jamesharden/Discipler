@@ -106,7 +106,7 @@ describe('what the wizard says', () => {
       'Please tell us whether this is your first time.',
     ])
     expect(refusalMessages('intake.one_to_two_unanswered')).toEqual([
-      'Please tell us whether you’re open to a mentor working with two mentees together.',
+      'Please tell us whether you’re open to one mentor meeting with two mentees together.',
     ])
     expect(refusalMessages('intake.path_unknown')).toEqual([
       'This link is incomplete. Please ask for a new one.',

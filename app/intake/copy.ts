@@ -97,9 +97,11 @@ const REFUSALS: Record<IntakeRefusal, string> = {
     'Please tell us whether you are joining as a mentor or as someone to be '
     + 'mentored.',
   'intake.first_time_unanswered': 'Please tell us whether this is your first time.',
-  // One sentence for both sides, since refusals are not worded per side.
+  // One sentence for both sides, since a refusal knows its code and not the side:
+  // a mentor open to mentoring two and a mentee open to being one of two are both
+  // open to one mentor meeting with two mentees.
   'intake.one_to_two_unanswered':
-    'Please tell us whether you’re open to a mentor working with two mentees together.',
+    'Please tell us whether you’re open to one mentor meeting with two mentees together.',
   // Says the same thing `intake.source_unknown` says, because it is the same kind
   // of thing: a form that cannot say what it was asking is not one Discipler
   // served, and there is nothing on it the Person can correct.
