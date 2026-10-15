@@ -138,7 +138,7 @@ const doneQuery = async (
   ministry: string,
 ): Promise<URLSearchParams> => {
   const current = await getIntakeReader().readIntakePage(ministry)
-  const kept = (key: QuestionKey) => (current ? stillKept(current.form)(key) : true)
+  const kept: (key: QuestionKey) => boolean = current ? stillKept(current.form) : () => true
 
   const done = new URLSearchParams()
   if ((form.declaredSide === 'mentor' || form.declaredSide === 'mentee') && kept('side')) {
