@@ -63,9 +63,13 @@
    Alternative: draw availability on the person page, which is new UI and wants a mock-up first.
 
 **What was checked.**
-Typecheck clean; `npx vitest run tests/domain tests/app` whole green; the touched integration suites green through the lock; the whole suite three times back to back through the lock (numbers in the final report).
+Typecheck clean; `npx vitest run tests/domain tests/app` whole green; the touched integration suites green through the lock; the whole suite three times back to back through the lock, each run 241 files passed with none skipped, 3603 tests passed and 1 skipped (the existing `it.skip` in `invitation-over-http.test.ts`).
 There is no lint script or ESLint config in the repository; `next build` (run inside the lock) and the typecheck are the gates.
 Looked at in headless Chrome at 1440 wide and in a 390x844 frame: the group step beside S-7 with the link whole on its own line, the discipleship wizard opened on *I'm joining as…*, one Continue landing on the first-time question, and Back showing the age and gender, and the availability, filled.
+
+**Fixed on the way.**
+`a-material-chosen-at-pairing-over-http` failed once with `account.already_exists`: Acceptance mints the account from the Person's number, and a generated number had already been minted by an earlier run on the long-lived local stack.
+`aPhoneNumberNobodyHolds` in `tests/support/local-supabase.ts` steps past such a number, as the minting fixtures already do, and the three suites that accept through one helper now use it.
 
 **Needs James.**
 - Decision 4: whether *Nothing to join yet* on the group step should carry the answers across too; today its link opens the discipleship form empty.
