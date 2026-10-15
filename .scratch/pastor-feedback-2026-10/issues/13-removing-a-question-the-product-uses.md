@@ -81,7 +81,7 @@ Decisions made while building, each the conservative reading of a gap, with the 
   James, 2026-10-13, from the no-mistakes review: this is how Google Forms behaves, and it keeps a removal's promise that the answers are gone, which a later submission on an older version would otherwise break with an answer nothing shows, counts or could delete.
   What is dropped is exactly what the removal would have deleted had they submitted a moment before it (`withoutWhatIsNoLongerAsked`): the email and the group they picked stand, and a group is still checked against the gender they gave, as it would have been then, even where that gender is not kept.
   The submission reads the form as it stands behind the same lock as the version opened, so a removal cannot land between the two.
-  The done page still echoes what they answered, as it is built from the answers sent rather than from what was kept.
+  The done page lists only what was kept: its summary is built by the same rule (`stillKept`), read against the form as it stands (fixed 2026-10-14; it first echoed the answers sent).
   This reverses what this ticket first built, which recorded their answer because a submission is read against the version its Person opened (ticket 11).
 - An answer to a question the version does not ask is refused as `intake.path_unknown`, as an answer with no question always has been: it is not the form Discipler served.
 
