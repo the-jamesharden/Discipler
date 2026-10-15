@@ -350,13 +350,12 @@ describe('what the Roster derives from the wizard', () => {
   })
 
   /**
-   * The function has been dropped and recreated to widen it, so it takes the
-   * platform's defaults for every role the migrations do not restate.
    * `service_role` is revoked beside `anon` and `public`, which is the rule
-   * `20261008000300` settled: this is a `security definer` function over a
-   * Ministry's phone numbers, emails and genders, and nothing reads it with a
-   * service key. It is the belt behind `app.is_admin_of`, which already filters
-   * every row out for a caller with no session.
+   * `20261008000300` settled and which this function had never been held to: it
+   * is a `security definer` function over a Ministry's phone numbers, emails and
+   * genders, and nothing reads it with a service key. It is the belt behind
+   * `app.is_admin_of`, which already filters every row out for a caller with no
+   * session.
    */
   it('is executable by a signed-in session and by nobody else', async () => {
     const { rows } = await pool.query<{ role: string; may: boolean }>(`
