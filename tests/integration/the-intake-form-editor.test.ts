@@ -129,6 +129,16 @@ describe('a Ministry’s Intake forms', () => {
     expect((await reader.readIntakePage(ministry.id, 99))?.form.version).toBe(2)
   })
 
+  it('hands the groups form the mentor and mentee form as it stands, for the switch to it', async () => {
+    // Group form exits, ticket 02: the group step links across carrying only what
+    // the other form still asks, so it is read as it stands now, whichever
+    // version of the groups form somebody opened.
+    const groups = await reader.readGroupIntakePage(ministry.id, 0)
+    expect(groups?.form).toEqual(presetForm('group'))
+    expect(groups?.discipleshipForm.version).toBe(2)
+    expect(groups?.discipleshipForm).toEqual((await reader.readIntakePage(ministry.id))?.form)
+  })
+
   it('never rewrites a version', async () => {
     await expect(
       pool.query(

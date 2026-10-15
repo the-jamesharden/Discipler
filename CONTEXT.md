@@ -91,7 +91,7 @@ What a Ministry calls a group, typed by an Admin when forming it and editable fr
 _Avoid_: Naming a one-to-one or a 1:2 pair, or reading an unnamed group as broken -- it predates the name, or is a 1:2 pair
 
 **Group Intake Link**:
-The Ministry's link for somebody who wants to join one of its groups, `/join/<short name>/groups` (see Short Name); the original `/intake/<ministry>` opens the same form. It asks gender and age band, when they could meet, and which group, and never the Discipleship Goal. Intake forms calls it the Groups form. The discipleship wizard is the other link.
+The Ministry's link for somebody who wants to join one of its groups, `/join/<short name>/groups` (see Short Name); the original `/intake/<ministry>` opens the same form. It asks gender and age band, when they could meet, and which group, and never the Discipleship Goal. Intake forms calls it the Groups form. The discipleship wizard is the other link, and the group step links across to it.
 _Avoid_: "the Intake link" without saying which
 
 **Join Approval**:

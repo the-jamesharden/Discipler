@@ -14,6 +14,7 @@ import { groupJoinedMessage, leaderDashboardLink } from '~/domain/outbound-copy'
 import { createPostgresEffectStore } from '~/platform/supabase/effect-store'
 import { createCommandService } from '~/service/command-service'
 import {
+  aPhoneNumberNobodyHolds,
   aTestPhoneNumber,
   addPerson,
   createMinistryWithAdmin,
@@ -492,7 +493,7 @@ describe('an Admin puts a Disciple into a group', () => {
       const [token] = await liveInvitations(group, person)
       if (!token) throw new Error('no live invitation to accept on')
       const { data, error } = await serviceRoleClient().auth.admin.createUser({
-        phone: aTestPhoneNumber(),
+        phone: await aPhoneNumberNobodyHolds(),
         password: 'a-long-enough-password',
         phone_confirm: true,
       })

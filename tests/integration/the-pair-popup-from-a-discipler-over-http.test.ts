@@ -4,6 +4,7 @@ import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app
 import {
   addMaterial,
   addPerson,
+  aPhoneNumberNobodyHolds,
   createMinistryWithAdmin,
   formGroup,
   localSupabase,
@@ -674,7 +675,8 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup, from a Discipler', () =
       letters = await addMaterial(chapel, 'Romans')
     })
 
-    const woman = (fullName: string) => addPerson(chapel, fullName, { phone: number(), answers: { gender: 'female' } })
+    const woman = async (fullName: string) =>
+      addPerson(chapel, fullName, { phone: await aPhoneNumberNobodyHolds(), answers: { gender: 'female' } })
     const discipler = async (fullName: string) => {
       const id = await woman(fullName)
       await offersToMentor(id, chapel)

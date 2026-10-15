@@ -7,7 +7,7 @@ import { invitationToken } from '~/domain/invitations'
 import { createCommandService } from '~/service/command-service'
 import { createPostgresEffectStore } from '~/platform/supabase/effect-store'
 import {
-  aTestPhoneNumber,
+  aPhoneNumberNobodyHolds,
   addPerson,
   createMinistryWithAdmin,
   localSupabase,
@@ -82,7 +82,7 @@ describe('accepting an Invitation Link', () => {
    */
   const anAccount = async () => {
     const { data, error } = await serviceRoleClient().auth.admin.createUser({
-      phone: aTestPhoneNumber(),
+      phone: await aPhoneNumberNobodyHolds(),
       password: 'a-long-enough-password',
       phone_confirm: true,
     })
@@ -425,7 +425,7 @@ describe('the two things a token raises instead of changing', () => {
     }
 
     const { data, error } = await serviceRoleClient().auth.admin.createUser({
-      phone: aTestPhoneNumber(),
+      phone: await aPhoneNumberNobodyHolds(),
       password: 'a-long-enough-password',
       phone_confirm: true,
     })

@@ -4,7 +4,7 @@ import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app
 import {
   addMaterial,
   addPerson,
-  aTestPhoneNumber,
+  aPhoneNumberNobodyHolds,
   createMinistryWithAdmin,
   localSupabase,
   type MinistryFixture,
@@ -34,7 +34,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Material chosen at pairing, over HTTP
     await pool.end()
   })
 
-  const roster = (fullName: string) => addPerson(ministry, fullName, { phone: aTestPhoneNumber() })
+  const roster = async (fullName: string) => addPerson(ministry, fullName, { phone: await aPhoneNumberNobodyHolds() })
 
   /** As the popup posts a Group from its Discipler's side (Manual pairing, recut ticket 05). */
   const pairAGroup = async (leader: string, participants: string[], material: string) => {

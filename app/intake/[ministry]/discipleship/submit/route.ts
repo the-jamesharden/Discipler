@@ -48,7 +48,13 @@ export async function POST(
   if (!page) return NextResponse.redirect(new URL('/', request.url), { status: 303 })
 
   const wizard = discipleshipWizardFor(page.form)
-  const pin = { version: page.form.version, preview }
+  // What the group form's switch carried, kept if the last step is sent back
+  // (Group form exits, ticket 02).
+  const pin = {
+    version: page.form.version,
+    preview,
+    carried: wizard.readCarried(submitted.getAll('carried').filter((value) => typeof value === 'string')),
+  }
 
   const form: IntakeFormFields = submittedIntakeForm(submitted, {
     source: consentSourceOf(via),

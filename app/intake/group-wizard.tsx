@@ -1,9 +1,15 @@
 import Link from 'next/link'
 import { askedPages, type IntakeForm } from '~/domain/intake-form'
 import type { JoinableGroup } from '~/service/ports'
-import { NO_GROUPS_ALTERNATIVE, NO_GROUPS_HEADING, noGroupsMessage } from './copy'
+import {
+  MEANT_FOR_MENTORSHIP_LINK,
+  MEANT_FOR_MENTORSHIP_QUESTION,
+  NO_GROUPS_ALTERNATIVE,
+  NO_GROUPS_HEADING,
+  noGroupsMessage,
+} from './copy'
 import { Agreements, AskedQuestion, NOTHING_PREFILLED, type Answering } from './fields'
-import { groupWizardFor, type GroupWizardAnswers } from './group-wizard-answers'
+import { groupWizardFor, mentorshipSwitchQuery, type GroupWizardAnswers } from './group-wizard-answers'
 import type { FormPin, IntakeVia } from './wizard-machine'
 import { FormActions, Hidden, Progress, StepForm } from './wizard-shell'
 
@@ -35,6 +41,7 @@ export const GroupIntakeWizard = ({
   discipleshipLink,
   via,
   form,
+  discipleshipForm,
   preview,
 }: {
   readonly step: number
@@ -49,6 +56,8 @@ export const GroupIntakeWizard = ({
   readonly via: IntakeVia
   /** The version of the Ministry's groups form this visitor opened. */
   readonly form: IntakeForm
+  /** The Ministry's mentor and mentee form as it stands, which the switch on the group step opens. */
+  readonly discipleshipForm: IntakeForm
   /** An Admin's preview, which records nothing. */
   readonly preview: boolean
 }) => {
@@ -70,8 +79,10 @@ export const GroupIntakeWizard = ({
     </>
   )
 
+  const asksTheGroup = page.questions.some((question) => question.key === 'groupId')
+
   // The screen that asks which group, with nothing to offer this Person.
-  if (page.questions.some((question) => question.key === 'groupId') && groups.length === 0) {
+  if (asksTheGroup && groups.length === 0) {
     return screen(
       <>
         <NoGroups ministryName={ministryName} discipleshipLink={discipleshipLink} />
@@ -105,11 +116,23 @@ export const GroupIntakeWizard = ({
     <AskedQuestion key={question.key} question={question} answering={answering} />
   ))
 
+  // For somebody who meant the discipleship form: under the group step's
+  // actions, and outside its form, so following it submits nothing (Group form
+  // exits, ticket 02, S-7). One way only; the discipleship wizard has no link back.
+  const meantForMentorship = asksTheGroup ? (
+    <MeantForMentorship
+      href={`${discipleshipLink}?${mentorshipSwitchQuery({ groupForm: form, discipleshipForm, answers, via, preview })}`}
+    />
+  ) : null
+
   if (at < wizard.LAST_STEP) {
     return screen(
-      <StepForm wizard={wizard} at={at} answers={answers} via={via} pin={pin} here={here} back={back}>
-        {questions}
-      </StepForm>,
+      <>
+        <StepForm wizard={wizard} at={at} answers={answers} via={via} pin={pin} here={here} back={back}>
+          {questions}
+        </StepForm>
+        {meantForMentorship}
+      </>,
     )
   }
 
@@ -118,16 +141,34 @@ export const GroupIntakeWizard = ({
     // earlier because the checkbox that grants consent belongs on the same
     // screen as the write it authorises. No Goal: nobody who has named a group
     // is being ranked.
-    <form method="post" action={submitTo}>
-      <Hidden wizard={wizard} answers={answers} via={via} pin={pin} dropping={wizard.notCarriedAt(at)} />
+    <>
+      <form method="post" action={submitTo}>
+        <Hidden wizard={wizard} answers={answers} via={via} pin={pin} dropping={wizard.notCarriedAt(at)} />
 
-      {questions}
-      <Agreements ministryName={ministryName} prefill={NOTHING_PREFILLED} />
+        {questions}
+        <Agreements ministryName={ministryName} prefill={NOTHING_PREFILLED} />
 
-      <FormActions back={back} action="Submit" />
-    </form>,
+        <FormActions back={back} action="Submit" />
+      </form>
+      {meantForMentorship}
+    </>,
   )
 }
+
+/**
+ * The line under the group step's actions: the way across to the discipleship
+ * wizard for somebody who meant to sign up for that, with what they have already
+ * answered carried in the address so it is not asked twice.
+ */
+const MeantForMentorship = ({ href }: { readonly href: string }) => (
+  <p className="card-note">
+    {`${MEANT_FOR_MENTORSHIP_QUESTION} `}
+    {/* Whole, so the link drops to the next line rather than leaving its last word there alone. */}
+    <Link className="nowrap" href={href}>
+      {MEANT_FOR_MENTORSHIP_LINK}
+    </Link>
+  </p>
+)
 
 /**
  * What the link shows when there is nothing to join. Rendered by the page when the

@@ -43,6 +43,7 @@ export const IntakeWizard = ({
   via,
   form,
   preview,
+  carried = [],
 }: {
   readonly step: number
   readonly answers: WizardAnswers
@@ -56,9 +57,11 @@ export const IntakeWizard = ({
   readonly form: IntakeForm
   /** An Admin's preview, which records nothing. */
   readonly preview: boolean
+  /** What the group form's switch brought with them, if it did (Group form exits, ticket 02). */
+  readonly carried?: readonly string[]
 }) => {
   const wizard = discipleshipWizardFor(form)
-  const pin: FormPin = { version: form.version, preview }
+  const pin: FormPin = { version: form.version, preview, carried }
 
   // The screen actually shown. Clamped here as well as on the page, because the
   // step after this one is now derived from it: a component handed a step the
