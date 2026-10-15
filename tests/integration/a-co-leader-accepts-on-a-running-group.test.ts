@@ -7,6 +7,7 @@ import { createPostgresEffectStore } from '~/platform/supabase/effect-store'
 import { createPostgresInvitationReader } from '~/platform/supabase/invitation-reader'
 import { createCommandService } from '~/service/command-service'
 import {
+  aPhoneNumberNobodyHolds,
   aTestPhoneNumber,
   addPerson,
   createMinistryWithAdmin,
@@ -99,7 +100,7 @@ describe('a co-leader accepts on a group already running', () => {
   ) => {
     const token = await liveToken(group, person)
     const { data, error } = await serviceRoleClient().auth.admin.createUser({
-      phone: aTestPhoneNumber(),
+      phone: await aPhoneNumberNobodyHolds(),
       password: 'a-long-enough-password',
       phone_confirm: true,
     })
@@ -379,7 +380,7 @@ describe('a co-leader accepts on a group already running', () => {
       const racers = await Promise.all(
         [group.first, group.claire].map(async (person) => {
           const { data, error } = await serviceRoleClient().auth.admin.createUser({
-            phone: aTestPhoneNumber(),
+            phone: await aPhoneNumberNobodyHolds(),
             password: 'a-long-enough-password',
             phone_confirm: true,
           })

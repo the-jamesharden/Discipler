@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { baseUrl, cronSecret, getPage, signIn, skipUnlessAppIsRunning } from '../support/app'
 import { itemAbout, openTheCardAbout } from '../support/follow-up'
 import {
+  aPhoneNumberNobodyHolds,
   aTestPhoneNumber,
   addPerson,
   createMinistryWithAdmin,
@@ -69,7 +70,7 @@ describe.skipIf(skipUnlessAppIsRunning)('declining, and the two weeks, over HTTP
       })),
     })
     const name = named('Claire')
-    const claire = await addPerson(ministry, name, { phone: aTestPhoneNumber(), answers: { gender: 'male' } })
+    const claire = await addPerson(ministry, name, { phone: await aPhoneNumberNobodyHolds(), answers: { gender: 'male' } })
     const added = await fetch(`${baseUrl}/roster/pair/join`, {
       method: 'POST',
       redirect: 'manual',

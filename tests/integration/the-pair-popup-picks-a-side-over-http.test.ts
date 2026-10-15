@@ -2,6 +2,7 @@ import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app'
 import {
+  aPhoneNumberNobodyHolds,
   aTestPhoneNumber,
   addPerson,
   createMinistryWithAdmin,
@@ -311,7 +312,8 @@ describe.skipIf(skipUnlessAppIsRunning)('the Pair popup picks a side', () => {
   it('pairs Emily to disciple Sarah through the real route: Emily is invited and gains an account by accepting, and Sarah hears nothing until then', async () => {
     const chapel = await createMinistryWithAdmin('Riverside Chapel, Emily Disciples Sarah')
     const theirCookie = (await signIn(chapel)).cookie
-    const woman = (fullName: string) => addPerson(chapel, fullName, { phone: aTestPhoneNumber(), answers: { gender: 'female' } })
+    const woman = async (fullName: string) =>
+      addPerson(chapel, fullName, { phone: await aPhoneNumberNobodyHolds(), answers: { gender: 'female' } })
     const grace = await woman('Grace Lee')
     const emily = await woman('Emily Davis')
     const sarah = await woman('Sarah Kim')
