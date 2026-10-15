@@ -762,8 +762,13 @@ blockquote { background: rgba(45, 80, 22, 0.04); border-left: 3px solid var(--pr
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
 
 @media (max-width: 1100px) {
-  .stats { grid-template-columns: repeat(2, 1fr); }
+  /* The five tiles as three over two, and Quick Stats across under the two
+     rings, so no card sits alone beside an empty cell. */
+  .stats { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .stats .stat { grid-column: span 2; }
+  .stats .stat:nth-child(n + 4) { grid-column: span 3; }
   .charts { grid-template-columns: 1fr 1fr; }
+  .charts > .card:nth-child(3) { grid-column: 1 / -1; }
   .ci-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 860px) {
@@ -772,6 +777,7 @@ blockquote { background: rgba(45, 80, 22, 0.04); border-left: 3px solid var(--pr
 }
 @media (max-width: 720px) {
   .stats { grid-template-columns: 1fr; }
+  .stats .stat, .stats .stat:nth-child(n + 4) { grid-column: auto; }
   .charts { grid-template-columns: 1fr; }
   ul.ci-stats { grid-template-columns: 1fr; }
   .ci-cols { grid-template-columns: minmax(0, 1fr); }

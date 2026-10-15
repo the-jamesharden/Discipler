@@ -158,6 +158,20 @@ describe.skipIf(skipUnlessAppIsRunning)('removing a question, over HTTP', () => 
     expect(await page('/suggested-pairs')).not.toContain('no longer asks gender')
   })
 
+  it('leaves an answer it dropped off the page after Submit', async () => {
+    // Version 1 still asked gender; the test before this one removed it.
+    const { location } = await submitTheWizard(
+      { v: '1', side: 'mentee', ageBand: '25-34', gender: 'female', experience: 'first_time' },
+      [],
+    )
+    expect(location).toContain('/discipleship/done')
+    expect(location).not.toContain('gender=')
+
+    const done = clean(await fetch(location).then((response) => response.text()))
+    expect(done).toContain('Age range 25-34')
+    expect(done).not.toContain('Gender')
+  })
+
   it('offers a removed question back from Add a question, with none of its old answers', async () => {
     const editor = await page('/intake-forms?form=discipleship')
     expect(editor).toContain('Add back: Gender')

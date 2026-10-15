@@ -801,9 +801,7 @@ export const withoutWhatIsNoLongerAsked = (
   submission: IntakeSubmissionDraft,
   current: IntakeForm,
 ): IntakeSubmissionDraft => {
-  const removed = new Set<QuestionKey>(removedQuestions(current).filter(removalDeletesAnswers))
-  const asked = (key: QuestionKey) =>
-    isOwnQuestionKey(key) ? questionOn(current, key) !== undefined : !removed.has(key)
+  const asked = stillKept(current)
   return {
     ...submission,
     ageBand: asked('ageBand') ? submission.ageBand : null,
@@ -815,6 +813,16 @@ export const withoutWhatIsNoLongerAsked = (
     firstTime: asked('experience') ? submission.firstTime : null,
     ownAnswers: submission.ownAnswers.filter((answer) => asked(answer.key)),
   }
+}
+
+/**
+ * Whether an answer to this question is kept against the form as it stands, the
+ * one rule `withoutWhatIsNoLongerAsked` applies. Also what the page after Submit
+ * reads, so it never lists an answer that was just dropped.
+ */
+export const stillKept = (current: IntakeForm): ((key: QuestionKey) => boolean) => {
+  const removed = new Set<QuestionKey>(removedQuestions(current).filter(removalDeletesAnswers))
+  return (key) => (isOwnQuestionKey(key) ? questionOn(current, key) !== undefined : !removed.has(key))
 }
 
 /**

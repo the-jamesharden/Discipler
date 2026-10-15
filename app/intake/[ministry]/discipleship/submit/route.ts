@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { IntakeRefused } from '~/domain/errors'
 import { readIntakeForm, type IntakeFormFields } from '~/domain/intake'
-import { ownQuestionsOf, removedQuestions, requiredOn } from '~/domain/intake-form'
+import { ownQuestionsOf, removedQuestions, requiredOn, stillKept, type QuestionKey } from '~/domain/intake-form'
 import { getCommandService, getIntakeReader, settlePlannedPairings } from '~/service/container'
 import {
   discipleshipWizardFor,
@@ -92,7 +92,7 @@ export async function POST(
     )
     if ('refusals' in reading) return backToTheForm(reading.refusals)
     return NextResponse.redirect(
-      new URL(`/intake/${page.ministryId}/discipleship/done?${doneQuery(form, pin)}`, request.url),
+      new URL(`/intake/${page.ministryId}/discipleship/done?${await doneQuery(form, pin, page.ministryId)}`, request.url),
       { status: 303 },
     )
   }
@@ -115,7 +115,7 @@ export async function POST(
   await settlePlannedPairings(page.ministryId)
 
   return NextResponse.redirect(
-    new URL(`/intake/${page.ministryId}/discipleship/done?${doneQuery(form, pin)}`, request.url),
+    new URL(`/intake/${page.ministryId}/discipleship/done?${await doneQuery(form, pin, page.ministryId)}`, request.url),
     { status: 303 },
   )
 }
@@ -126,21 +126,30 @@ export async function POST(
  * from a short list the done page checks against, or a count. The name and the
  * number are not among them -- those are not going in a URL -- and the done page
  * says so in words instead. The version, for the form's own thank-you.
+ *
+ * Only what was kept: an answer to a question the Ministry's form has stopped
+ * asking since this version opened was dropped on submit, so the summary does
+ * not list it either. Read against the form as it stands now, by the same rule
+ * the submission was kept by.
  */
-const doneQuery = (
+const doneQuery = async (
   form: IntakeFormFields,
   pin: { readonly version: number; readonly preview: boolean },
-): URLSearchParams => {
+  ministry: string,
+): Promise<URLSearchParams> => {
+  const current = await getIntakeReader().readIntakePage(ministry)
+  const kept: (key: QuestionKey) => boolean = current ? stillKept(current.form) : () => true
+
   const done = new URLSearchParams()
-  if (form.declaredSide === 'mentor' || form.declaredSide === 'mentee') {
+  if ((form.declaredSide === 'mentor' || form.declaredSide === 'mentee') && kept('side')) {
     done.set('side', form.declaredSide)
   }
-  if (form.ageBand) done.set('ageBand', form.ageBand)
-  if (form.gender) done.set('gender', form.gender)
-  if (form.experience) done.set('experience', form.experience)
+  if (form.ageBand && kept('ageBand')) done.set('ageBand', form.ageBand)
+  if (form.gender && kept('gender')) done.set('gender', form.gender)
+  if (form.experience && kept('experience')) done.set('experience', form.experience)
   // None where the form no longer asks when somebody is free (ticket 13), which
   // the summary then leaves out rather than saying *no hours*.
-  const ticked = new Set(form.availability)
+  const ticked = new Set(kept('availability') ? form.availability : [])
   if (ticked.size > 0) {
     done.set('hours', String(ticked.size))
     done.set('days', String(new Set([...ticked].map((key) => key.split(':')[0])).size))
