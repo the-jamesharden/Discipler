@@ -1,5 +1,5 @@
 import type { IntakePath } from '~/domain/intake'
-import type { IntakeFormRefusal, OwnKind, ProductUse, QuestionKind } from '~/domain/intake-form'
+import type { BuiltInQuestion, IntakeFormRefusal, OwnKind, ProductUse, QuestionKind } from '~/domain/intake-form'
 import { asList } from '~/domain/outbound-copy'
 import { refusalIn } from '../../refusals'
 
@@ -161,27 +161,38 @@ export const STOPS_WORKING: Readonly<Record<IntakePath, Partial<Record<string, s
 }
 
 /**
- * The questions worded from the side, as the editor names them where the side's
- * removal is held up by them.
+ * Each of Discipler's own questions as a sentence names it. Which of them hold the
+ * side is the domain's (`neededBy`, from `BUILT_IN`); how they are named is this
+ * screen's.
  */
-const WORDED_FROM_THE_SIDE: Partial<Record<string, string>> = {
+const QUESTION_NAME: Readonly<Record<BuiltInQuestion, string>> = {
+  side: 'the matching question',
+  ageBand: 'the age range question',
+  gender: 'the gender question',
   experience: 'the first-time question',
   oneToTwo: 'the one-to-two question',
+  availability: 'the availability question',
+  goalId: 'the goals question',
+  groupId: 'the group question',
+  fullName: 'the name',
+  phone: 'the mobile number',
+  email: 'the email',
 }
+
+const sentenceCase = (text: string): string => `${text.charAt(0).toUpperCase()}${text.slice(1)}`
 
 /**
  * Why the side cannot go while a question worded from it is still asked: the
  * first-time question, the one-to-two question (Suggestions beyond the
  * one-to-one, ticket 01), or both, named in the order the form asks them.
  */
-export const neededFirst = (keys: readonly string[]): string => {
-  const names = keys.map((key) => WORDED_FROM_THE_SIDE[key] ?? 'a question')
+export const neededFirst = (keys: readonly BuiltInQuestion[]): string => {
+  const names = keys.map((key) => QUESTION_NAME[key])
   const [only] = names
   if (names.length === 1 && only !== undefined) {
-    return `${only.charAt(0).toUpperCase()}${only.slice(1)} is worded from this answer, so it cannot be asked without it. Remove ${only} first.`
+    return `${sentenceCase(only)} is worded from this answer, so it cannot be asked without it. Remove ${only} first.`
   }
-  const both = asList(names)
-  return `${both.charAt(0).toUpperCase()}${both.slice(1)} are worded from this answer, so neither can be asked without it. Remove them first.`
+  return `${sentenceCase(asList(names))} are worded from this answer, so neither can be asked without it. Remove them first.`
 }
 
 /**

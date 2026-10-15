@@ -747,8 +747,10 @@ export const isRemovable = (question: FormQuestion): boolean => !rulesOf(questio
  * they are asked: the first-time and one-to-two questions, while the side is
  * being removed. Empty for every other question.
  */
-export const neededBy = (form: IntakeForm, key: string): readonly FormQuestion[] =>
-  questionsOf(form).filter((question) => !isOwnQuestion(question) && BUILT_IN[question.key].needs === key)
+export const neededBy = (form: IntakeForm, key: string): readonly BuiltInFormQuestion[] =>
+  questionsOf(form).filter(
+    (question): question is BuiltInFormQuestion => !isOwnQuestion(question) && BUILT_IN[question.key].needs === key,
+  )
 
 /**
  * The form without one of its questions (ticket 13). Taking a question off the
