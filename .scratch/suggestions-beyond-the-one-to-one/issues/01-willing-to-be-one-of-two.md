@@ -131,4 +131,14 @@ Decisions made in the port, each the conservative reading, with the alternative 
 - **The branch's second migration is still needed and re-created as `20261015000100_the_roster_is_revoked_from_service_role.sql`.** `20261014000600_other_on_the_intake_goal.sql` dropped and recreated `public.roster(uuid)` again and restated only `from public, anon`, so `service_role` still holds execute on main; the old `20261011000100` timestamp was never used. A test asserts who may execute it.
 - **The done page** keeps the branch's *Pairing* row in the side's words, only where the answer was kept and a side is known.
 
-Nothing needs James beyond pushing the two migrations to production with the branch.
+What was checked:
+
+- `npm run typecheck`: clean. The repository has no lint script or linter configured.
+- `npx vitest run tests/domain tests/app`: 105 files, 2212 passed, 0 skipped, 0 failed.
+- `LOCKED_TESTS_PORT=3173 scripts/locked-tests.sh -- <the 25 touched integration files>`: 2 failed on test expectations (the removal's saved marker names the page, `one-to-two`, and the editor now has six page boxes), fixed, then covered by the whole suite.
+- `LOCKED_TESTS_PORT=3173 scripts/locked-tests.sh --times 3`: three runs, each 240 files passed, 0 skipped files, 3603 passed and 1 skipped test (the pre-existing skip), 0 failed.
+- By eye on this checkout's build at 1440 wide and in a 390x844 frame: step 4 for both sides; the done page's *Pairing* row; the editor's row for the question, its open row, its removal confirmation (*It deletes the answers 5 people have already given.*) and the side's removal held by both questions; both Pair popups; Suggested Pairs' card and No Schedule Overlap row.
+
+Fixed on the way, outside the ticket: a question that wrapped onto a second line on a phone had the body's leading and read as two loose lines (`legend` now has a heading's line height); a wrapped answer on the done page's summary left one word alone (`text-wrap: balance`); a Suggested Pairs line under a name that wrapped started its second line with the separator dot (the dot is now held to the part before it).
+
+Nothing needs James beyond pushing the two new migrations to production with the branch.
