@@ -7,6 +7,12 @@ import type {
 import type { IntendedPairingId } from '~/domain/ids'
 import type { PersonRemoval, PersonRestoration, PersonToRemove } from '~/domain/removal'
 import type { PairingRefusal } from '~/domain/errors'
+import type {
+  PhoneCheckAttempt,
+  PhoneCheckEnding,
+  PhoneCode,
+  RecentCodeRequests,
+} from '~/domain/phone-check'
 import type { AccountCreationRefusal, PasswordChangeRefusal } from '~/domain/accounts'
 import type {
   HeldImportRow,
@@ -1584,6 +1590,80 @@ export interface EmailSender {
    * compose, and never hands it on.
    */
   send(email: Email): Promise<void>
+}
+
+/**
+ * Twilio Verify, behind this and nowhere else (Exponential launch, ticket 09).
+ * It texts a 6-digit code to an Admin's own phone from Twilio's own senders and
+ * judges the code typed back, so the code itself never passes through Discipler.
+ *
+ * Not a `MessageTransport`: nothing it sends is a Discipler message. It goes out
+ * under the Verify service rather than from Discipler's numbers, so it is neither
+ * held by the texting gate nor counted against the campaign.
+ */
+export interface PhoneVerifier {
+  /**
+   * Asks Twilio to text a code. A second ask while a code is still live resends
+   * within the same verification, so the SID may be one already held.
+   *
+   * A refusal Twilio gives about the number comes back as a value; anything else
+   * -- a 5xx, a socket that died, a service that is not configured -- is thrown.
+   */
+  sendCode(to: PhoneNumber): Promise<PhoneCodeSending>
+  /** Throws on anything that is not Twilio's verdict on the code. */
+  checkCode(verificationSid: string, code: PhoneCode): Promise<PhoneCodeVerdict>
+  /** Stops a verification's code from working. Already gone is not a failure. */
+  cancel(verificationSid: string): Promise<void>
+}
+
+export type PhoneCodeSending =
+  | { readonly sent: string }
+  /**
+   * `outside_permitted_countries` is the service's own geographic permissions
+   * refusing the number, the backstop behind `isUsPhone`; `undeliverable` is
+   * every other refusal about the number, a landline or one Twilio cannot route.
+   */
+  | { readonly refused: 'outside_permitted_countries' | 'undeliverable' }
+
+/**
+ * Twilio's answer to a code. `gone` is a verification Twilio no longer holds --
+ * expired, approved already, or canceled -- and `tries_used_up` is Twilio's own
+ * limit on checks reached.
+ */
+export type PhoneCodeVerdict = 'approved' | 'wrong' | 'gone' | 'tries_used_up'
+
+/**
+ * Where phone checks are kept: one row per attempt and one per code asked for,
+ * on the trusted connection, because they belong to an Admin's account and to no
+ * single Ministry.
+ */
+export interface PhoneChecks {
+  /** The phone on the Admin's own Roster row, or null where they hold none. */
+  adminPhone(ministryId: MinistryId, userId: string): Promise<PhoneNumber | null>
+  /** Whether this Admin has ever verified this phone. */
+  isVerified(userId: string, phone: PhoneNumber): Promise<boolean>
+  /**
+   * One transaction holding this Admin's and this phone's locks, so a double
+   * click cannot pass the code limits twice or open two attempts.
+   */
+  transact<T>(userId: string, phone: PhoneNumber, work: (unit: PhoneCheckUnit) => Promise<T>): Promise<T>
+}
+
+export interface PhoneCheckUnit {
+  /** This Admin's latest attempt at this phone, ended or not. */
+  latestAttempt(): Promise<PhoneCheckAttempt | null>
+  /** Every code asked for since `since`, by this Admin to any phone and to this phone by anybody. */
+  recentCodeRequests(since: Date): Promise<RecentCodeRequests>
+  /** A new attempt, with no code yet. Returns its id. */
+  startAttempt(at: Date): Promise<string>
+  recordCodeRequest(attemptId: string, at: Date): Promise<void>
+  recordVerificationSid(attemptId: string, verificationSid: string): Promise<void>
+  /** One more code tried, counted before Twilio is asked so no sixth can slip past. */
+  recordTry(attemptId: string): Promise<void>
+  /** A try Twilio never judged, given back. */
+  returnTry(attemptId: string): Promise<void>
+  /** Ends an attempt that has not ended. One that already has keeps its ending. */
+  end(attemptId: string, ending: PhoneCheckEnding, at: Date): Promise<void>
 }
 
 export interface DiscipleshipGoalOption {

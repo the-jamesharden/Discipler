@@ -40,12 +40,18 @@ import { createSupabaseMaterialsReader } from '~/platform/supabase/materials-rea
 import { createSupabaseOverviewReader } from '~/platform/supabase/overview-reader'
 import { createTwilioTransport } from '~/platform/twilio/message-transport'
 import { createResendTransport } from '~/platform/resend/email-transport'
+import { createTwilioVerifier } from '~/platform/twilio/phone-verifier'
+import {
+  createPostgresPhoneChecks,
+  type PostgresPhoneChecks,
+} from '~/platform/supabase/phone-checks'
 import { supabaseAccounts } from '~/platform/supabase/accounts'
 import { createSupabaseRosterReader } from '~/platform/supabase/roster-reader'
 import { createSupabaseSuggestedPairsReader } from '~/platform/supabase/suggested-pairs-reader'
 import { createCommandService, type CommandService } from './command-service'
 import { createEmailSender } from './email-sender'
 import { dispatchQueue, NoSendingNumber, type DispatchOutcome } from './outbound-dispatch'
+import { createPhoneCheck, type PhoneCheck } from './phone-check'
 import type {
   Accounts,
   CareNeededReader,
@@ -119,6 +125,8 @@ let outboundQueue: PostgresOutboundQueue | undefined
 let ministryDirectory: PostgresMinistryDirectory | undefined
 let messageTransport: MessageTransport | undefined
 let emailSender: EmailSender | undefined
+let phoneChecks: PostgresPhoneChecks | undefined
+let phoneCheck: PhoneCheck | undefined
 
 export const getCommandService = (): CommandService => {
   if (!commandService) {
@@ -305,6 +313,24 @@ export const getEmailSender = (): EmailSender => {
 }
 
 /**
+ * Checking an Admin's own phone with a Twilio Verify code (Exponential launch,
+ * ticket 09). Its records belong to an account and to no Ministry, so they are
+ * kept on the trusted connection; Verify texts from Twilio's own senders, so
+ * nothing here passes through the outbound queue or its drain.
+ */
+export const getPhoneCheck = (): PhoneCheck => {
+  if (!phoneCheck) {
+    phoneChecks = createPostgresPhoneChecks(commandDatabaseUrl())
+    phoneCheck = createPhoneCheck({
+      checks: phoneChecks,
+      verifier: createTwilioVerifier(),
+      clock: systemClock,
+    })
+  }
+  return phoneCheck
+}
+
+/**
  * One drain of one Ministry's queue, assembled from the parts above so that its
  * callers cannot assemble it differently. The scheduler drains after its tick, and
  * every request whose command queued a message drains after its response, the
@@ -368,6 +394,7 @@ export const closeCommandService = async (): Promise<void> => {
   const inbound = inboundReader
   const queue = outboundQueue
   const directory = ministryDirectory
+  const checks = phoneChecks
   commandService = undefined
   commandStore = undefined
   intakeReader = undefined
@@ -375,6 +402,8 @@ export const closeCommandService = async (): Promise<void> => {
   inboundReader = undefined
   outboundQueue = undefined
   ministryDirectory = undefined
+  phoneChecks = undefined
+  phoneCheck = undefined
   // The transport holds no pool -- it is `fetch` and a pair of credentials -- so
   // there is nothing of its to close, only the reference to drop.
   messageTransport = undefined
@@ -385,6 +414,7 @@ export const closeCommandService = async (): Promise<void> => {
   await inbound?.close()
   await queue?.close()
   await directory?.close()
+  await checks?.close()
 }
 
 export const getRosterReader = (): RosterReader => createSupabaseRosterReader(systemClock)

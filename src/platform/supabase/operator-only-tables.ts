@@ -20,4 +20,9 @@
  * `public`, fails on one that is neither church-scoped nor named here, and holds
  * every name here to that shape.
  */
-export const OPERATOR_ONLY_TABLES: readonly string[] = ['ministry_setup']
+export const OPERATOR_ONLY_TABLES: readonly string[] = [
+  'ministry_setup',
+  // Checking an Admin's own phone with Twilio Verify (Exponential launch, ticket 09).
+  'phone_check',
+  'phone_check_code',
+]
