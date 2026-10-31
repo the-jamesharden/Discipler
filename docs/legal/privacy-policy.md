@@ -1,7 +1,10 @@
 # Discipler Privacy Policy
 
 > **Draft, not yet published or reviewed by a lawyer.**
+> Written for James and a lawyer to review; it is not legal advice.
 > Replaces the policy live at trydiscipler.com/privacy (effective July 23, 2026).
+> Updated on 2026-10-31 for the Exponential launch: self sign-up, Stripe billing, email from Discipler, referrals, the contact form and the AI help assistant.
+> Self sign-up stays off in production until this policy and the Terms of Service are published.
 > Everything in [square brackets] is still to be filled in before publishing.
 > Delete this box before publishing.
 
@@ -21,7 +24,8 @@ In privacy-law terms, your ministry is the controller (or "business") and Discip
 
 Your ministry may have its own privacy notice describing how it uses your information, and you can ask your ministry about it directly.
 
-A smaller set of information Discipler collects for its own purposes, such as messages you send to our support address and visits to our website.
+A smaller set of information Discipler collects for its own purposes: the details a church gives when it signs up for Discipler and pays for it, messages sent to our support address or through our contact form, questions administrators ask our help assistant, and visits to our website.
+For that information, Discipler is the controller.
 This policy covers both.
 
 Each ministry's information is kept separate from every other ministry's.
@@ -57,28 +61,64 @@ Discipler texts nobody and pairs nobody until that person completes the intake f
 Only leaders are asked check-in questions.
 If you are being discipled, the texts you receive are mostly to welcome you and introduce your leader.
 
+### Information a church gives when it signs up
+
+When someone signs a church or ministry up for Discipler, we collect:
+
+- their email address and mobile phone number, and a code we email to confirm the address
+- their full name, the church or ministry's name, its timezone, and, if they choose to say, where they heard about Discipler
+- whether the church is a church plant, and if it applies for the church plant offer, its launch date, its sending or partner church, its average weekly attendance, its lead pastor, and anything else they choose to tell us
+- whether they pay monthly or yearly, any offer or referral link they used, and their agreement to our Terms of Service and this Privacy Policy, recorded with the version they agreed to and when
+
+### Payment information
+
+Card and bank details are entered only on forms provided by Stripe, our payment processor, and never reach Discipler's servers.
+If you add a bank account, you sign in to your bank through Stripe, under Stripe's own privacy policy.
+Discipler keeps only Stripe's reference numbers, the card brand and its last four digits or the bank's name, the plan, and the history of invoices and payments.
+
 ### Account information
 
-Leaders and ministry administrators sign in with their phone number and a password.
+Leaders sign in with their phone number and a password.
+Administrators who signed up with an email address can sign in with that email address or their phone number, and can reset a forgotten password through a one-time link we email them.
 Your password is stored in hashed form, and nobody at Discipler or your ministry can read it.
 We keep records of sign-ins and sessions so we can keep accounts secure.
+
+When an administrator first sends themselves a test check-in, we text a code to their phone to confirm it is theirs.
 
 ### Materials
 
 Ministry administrators may upload discipleship materials, such as PDFs or written text.
+
+### The help assistant
+
+Administrators can ask Ask Discipler, our AI help assistant, questions about using Discipler.
+We keep each administrator's questions and the answers so the conversation can continue, and only that administrator can read them.
+The assistant answers from Discipler's help pages only.
+It never receives your ministry's records about its people, such as names, phone numbers, check-in replies or concerns.
+The box asks administrators not to type names, phone numbers or prayer requests, but anything they do type is sent to the assistant along with their question.
 
 ### Technical information
 
 When you use the Discipler website or app, our hosting providers automatically record information such as your IP address, browser type, device type, the pages you request and the time of each request.
 We use this only to run, secure and fix the service.
 
-Discipler uses only the cookies needed to keep you signed in.
+Discipler's own cookies are only those needed to keep you signed in and to carry you from one step of signing up to the next.
+A referral link carries its code in the web address, not in a cookie.
 We do not use analytics cookies, advertising trackers or cross-site tracking.
+
+Two providers we rely on run their own technology in your browser:
+
+- When you add or change a card or bank account, Stripe's payment form loads from Stripe and uses its own cookies and device information to prevent fraud, as Stripe's privacy policy describes.
+- When you sign up, or use our contact form without signing in, Cloudflare Turnstile checks that a person rather than a program is using the form, using information about your browser and device, as Cloudflare's privacy policy describes.
+
+[Lawyer: confirm the cookie and device-information disclosures for Stripe.js and Cloudflare Turnstile, and whether either needs consent anywhere Discipler operates.]
+
 Our public website loads its fonts from Google Fonts, which means your browser tells Google your IP address when the page loads.
 
 ### Support
 
-If you email us, we keep your message and our reply so we can help you.
+If you email us or use the contact, bug report or feature request form, we keep your message and our reply so we can help you.
+A bug report also records the address of the page you were on and your browser, but never what was on the page.
 
 ### Sensitive information
 
@@ -98,26 +138,39 @@ The product does not need them.
 - To show your ministry's administrators how relationships are going, which ones may need care, and what needs follow-up.
 - To prepare reports for your ministry about its own program, such as response rates, how meetings are going, how materials are working, and patterns by age range and gender within that ministry.
 - To create and secure accounts, prevent fraud and abuse, and keep each ministry's information separate.
-- To answer support requests.
+- To let a church sign itself up, confirm that a person and not a program is signing up, and confirm its email address and the administrator's phone.
+- To answer support requests and administrators' questions to the help assistant.
 - To fix problems and improve how Discipler works for your ministry.
-- To bill ministries for the service and keep business records.
+- To bill ministries for the service through Stripe, apply offers and referral credits, review church plant applications, and keep business records.
+- To email administrators about their own account: sign-in and confirmation codes, password reset links, reminders before a free trial ends, payment notices, and one reminder if a sign-up was left unfinished.
 - To meet legal obligations and enforce our Terms of Service.
 
-We do not use your information to market to you.
+We do not use your information to market other products or services to you, and we never sell or rent email addresses or phone numbers.
 We do not use artificial intelligence to make decisions about you, and we do not use your information to train artificial intelligence models.
-If that ever changes, we will update this policy before it does.
+The help assistant answers administrators' questions about using Discipler; it is not used to make any decision about anyone, and it never receives your ministry's records about its people.
+Its questions are sent to our AI providers with zero data retention, so the providers do not keep them or train on them.
+If any of this ever changes, we will update this policy before it does.
 
 ## 4. Text messages
 
-When you complete your ministry's intake form and check the text-message consent box, which is unchecked by default, you agree to receive text messages from your ministry through Discipler.
-A sample of the form is at trydiscipler.com/sms-opt-in.
+There are two ways to agree to receive text messages through Discipler, and samples of both are at trydiscipler.com/sms-opt-in.
 
-- Messages are sent by Discipler LLC on behalf of the church or ministry running your discipleship program, and carry your ministry's name.
-  Some messages also name Discipler as the service delivering them.
+- **Your ministry's intake form.**
+  When you complete it and check the text-message consent box, which is unchecked by default, you agree to receive text messages from your ministry through Discipler.
+- **Signing a church up.**
+  When an administrator signs a church up for Discipler, the page that asks for their mobile phone number says, under that field: "By continuing, you agree to receive texts from Discipler at this number, including sign-in codes and test check-ins. Msg frequency varies. Msg & data rates may apply. Reply STOP to opt out, HELP for help."
+  This lets Discipler text that administrator the codes and test check-ins they ask for, and nothing else.
+
+- Messages are sent by Discipler LLC on behalf of the church or ministry running your discipleship program.
+  Every message starts with your ministry's name followed by "via Discipler", for example "Riverside Chapel via Discipler: Did you meet with Jordan this week? Reply 1 for yes, 2 for no."
+- Messages come from phone numbers Discipler owns and shares across the ministries it serves.
+  You always hear from the same number for the same ministry.
 - Messages may include a welcome message, an introduction to your leader or the people you will lead, meeting reminders, weekly check-ins, follow-up questions and program coordination.
+  An administrator receives only the codes and test check-ins they ask for.
 - Message frequency varies.
   Leaders typically receive 3-5 messages per week during an active relationship (up to approximately 24 per month), and people being discipled receive far fewer.
-- Message and data rates may apply.
+  An administrator receives a code when they confirm their phone, and the messages of each test check-in they send themselves, at most 3 test check-ins a day.
+- Msg & data rates may apply.
 - Consent to receive text messages is not a condition of any purchase.
   Discipler's check-ins run by text, so the intake form asks for this consent.
   If you do not want texts, talk to your ministry about being discipled without Discipler.
@@ -127,6 +180,7 @@ A sample of the form is at trydiscipler.com/sms-opt-in.
 - Leaders can also reply PAUSE, RESUME or SWAP to manage a single relationship.
 - Carriers are not liable for delayed or undelivered messages.
 
+Mobile phone numbers are never shared with third parties or affiliates for marketing or promotional purposes.
 No mobile information will be shared with third parties or affiliates for marketing or promotional purposes.
 Text messaging originator opt-in data and consent will not be shared with any third parties, except the providers that deliver the text messages.
 
@@ -146,7 +200,12 @@ Discipler never puts anyone's phone number in a text message.
 |---|---|---|
 | Supabase | Database and sign-in | Canada |
 | Vercel | Website and app hosting | United States |
-| Twilio | Sending and receiving text messages | United States |
+| Twilio | Sending and receiving text messages, and texting codes to confirm a phone | United States |
+| Stripe | Payments, subscriptions and invoices | United States |
+| Resend | Sending email, such as codes, password reset links and account notices | United States |
+| Cloudflare Turnstile | Checking that a person, not a program, is signing up or using the contact form | United States, and Cloudflare's global network |
+| Vercel AI Gateway | Passing administrators' help-assistant questions to the AI model, with zero data retention | United States |
+| Anthropic | The AI model behind the help assistant, with zero data retention | United States |
 | Google Fonts | Font delivery for our public website | United States |
 
 We will keep this list current here.
@@ -161,12 +220,14 @@ If Discipler is involved in a merger, acquisition or sale of assets, information
 We will notify ministries before information is transferred and becomes subject to a different privacy policy.
 
 We never sell personal information, and we never share it for targeted advertising.
-We never give one ministry's information to another ministry.
+We never give one ministry's information to another ministry, with one narrow exception.
+When a church signs up through another church's referral link and pays its first bill, the inviting church sees a one-month credit on its own billing page.
+That tells the inviting church that a church it invited has paid, but never which church, and nothing else about it.
 
 ## 6. Where information is stored
 
 Discipler's database is hosted in Canada.
-Our hosting and text-message providers process information in the United States.
+Our hosting, text-message, payment, email and AI providers process information in the United States, and Cloudflare Turnstile runs on Cloudflare's global network.
 By using Discipler, you understand that your information will be processed in Canada and the United States.
 
 ## 7. How long we keep information
@@ -179,7 +240,19 @@ Your past history stays in your ministry's records unless you ask for it to be d
 
 We keep consent records and opt-out (STOP) records for as long as we may need them to honor your choice and show that messages were sent with consent, even after other information is deleted.
 
-When a ministry stops using Discipler, it can ask for a copy of its information within 30 days.
+Some information is kept for a set time, whatever else happens:
+
+- Messages sent through the contact, bug report or feature request form, and support emails, are kept for 12 months and then deleted.
+- Help assistant conversations are deleted 90 days after they are written.
+- Email codes stop working after 10 minutes, and are stored only in a form that cannot be turned back into the code.
+- A sign-up abandoned before the account was created is deleted after [period].
+- Billing records, such as invoices and payments, are kept for [period] to meet tax and accounting obligations.
+- Each agreement to our terms is kept, with its version and time, for as long as the account exists and for [period] afterwards.
+
+When a church's subscription ends, by cancelling or because payment could not be collected, its information is kept and its pages become read-only, so it can restart.
+[How long an ended subscription's information is kept before it is deleted, if the church does not restart.]
+
+When a ministry stops using Discipler and asks to close its account, it can ask for a copy of its information within 30 days.
 We then delete the ministry's information within 90 days, except backups, which are overwritten on a rolling basis within 30 more days, and anything we must keep by law.
 
 Our service providers keep their own operational logs, such as text-message delivery records, for the periods set out in their policies.
@@ -215,6 +288,7 @@ You can stop all text messages at any time by replying STOP.
 
 Each ministry's information is separated in the database itself, so a request made for one ministry cannot read or change another ministry's information.
 Information travels over encrypted connections, passwords are stored in hashed form, and access by Discipler staff is limited to what their work requires.
+Card and bank details never reach Discipler's servers, and the emails Discipler sends never carry the names, phone numbers or concerns of the people in a ministry's program.
 No system is perfectly secure, and we cannot guarantee that information will never be accessed without permission.
 
 If we learn of a security breach affecting your information, we will notify the affected ministries without undue delay, and notify affected people directly where the law requires it.
@@ -232,7 +306,7 @@ Because Discipler does not use tracking technologies, there is nothing for a Do 
 
 ## 12. Links to other sites
 
-Our website links to other sites, such as Calendly for booking a call.
+Our website and app link to other sites, such as Calendly for booking a call, Zoom for office hours, and Stripe's billing pages for updating a payment method or cancelling.
 Those sites have their own privacy policies, and we are not responsible for how they handle information.
 
 ## 13. Changes to this policy

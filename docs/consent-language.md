@@ -38,6 +38,7 @@ An Admin from before sign-up has no such consent.
 The test check-in's card shows them the same sentence with "By sending" in place of "By continuing", above its button, and sending is their agreement.
 
 This is different wording from Statement 1, so it is recorded with a version identifier of its own, never `2026-09-v1`.
+The public description of this opt-in, for the carrier registration, is drafted for trydiscipler.com/sms-opt-in in `docs/legal/sms-opt-in-sign-up-section.md`.
 
 ## Statement 1 — SMS consent
 
