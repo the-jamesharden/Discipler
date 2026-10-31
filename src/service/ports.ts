@@ -129,6 +129,7 @@ import type { InvitationState } from '~/domain/invitations'
 import type { MemberRole } from '~/domain/relationships'
 import type { PausePeriodWeeks } from '~/domain/pause'
 import type { NewPerson, PhoneNumber, RosterKey } from '~/domain/roster'
+import type { WaitingOnYou } from '~/domain/waiting-on-you'
 
 /**
  * Everything the application service needs from the outside world. The domain
@@ -2531,6 +2532,18 @@ export interface OverviewPage {
    * Ministry the caller cannot see has.
    */
   readonly growth: OverviewGrowth | null
+  /**
+   * The unpaired pop-up's counts and which showing of it this visit belongs to
+   * (Exponential launch, ticket 29), or null where the Ministry has no zone to
+   * count a day in or the token names no session.
+   */
+  readonly waiting: OverviewWaiting | null
+}
+
+/** Who is waiting on the Admin, and the showing (`showingOf`) the card is shown once in. */
+export interface OverviewWaiting {
+  readonly waiting: WaitingOnYou
+  readonly showing: string
 }
 
 /** The growth chart's line, what it counts, and the zone its weeks and months are the Ministry's in. */
