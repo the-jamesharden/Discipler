@@ -1644,12 +1644,8 @@ export interface SharedNumberCapacity {
  */
 export interface SharedNumbersNearCapacity {
   readonly concern: CapacityConcern
-  /** How many numbers are in the shared set. */
-  readonly numbers: number
-  /** How many (phone, church) pairs the set carries. */
-  readonly recipients: number
-  /** The most churches one phone is in, each on its own number. */
-  readonly mostChurchesOnOnePhone: number
+  /** The counts the watch read. */
+  readonly load: SharedNumberLoad
   /** YYYY-MM-DD, UTC. */
   readonly day: string
 }

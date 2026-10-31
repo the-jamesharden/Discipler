@@ -71,9 +71,7 @@ describe('Watching the shared numbers', () => {
     expect(it_.told).toEqual([
       {
         concern: 'recipients',
-        numbers: 8,
-        recipients: 1300,
-        mostChurchesOnOnePhone: 1,
+        load: { numbers: 8, recipients: 1300, mostChurchesOnOnePhone: 1 },
         day: '2026-11-09',
       },
     ])

@@ -34,9 +34,7 @@ export const watchSharedNumberCapacity = async ({
 
     await alerts.sharedNumbersNearCapacity({
       concern,
-      numbers: load.numbers,
-      recipients: load.recipients,
-      mostChurchesOnOnePhone: load.mostChurchesOnOnePhone,
+      load,
       day: clock.now().toISOString().slice(0, 10),
     })
     await numbers.recordRaised(concern, clock.now(), load)

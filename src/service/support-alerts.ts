@@ -14,7 +14,8 @@ const CONCERN_SAYS: Readonly<Record<CapacityConcern, string>> = {
  * listed even by mistake.
  */
 export const createEmailSupportAlerts = (sender: EmailSender): SupportAlerts => ({
-  async sharedNumbersNearCapacity({ concern, numbers, recipients, mostChurchesOnOnePhone, day }) {
+  async sharedNumbersNearCapacity({ concern, load, day }) {
+    const { numbers, recipients, mostChurchesOnOnePhone } = load
     await sender.send({
       kind: 'numbersNearCapacity',
       subject: emailSubject`The shared numbers are near capacity`,

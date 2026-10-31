@@ -21,9 +21,7 @@ const recording = () => {
 
 const nearCapacity: SharedNumbersNearCapacity = {
   concern: 'recipients',
-  numbers: 8,
-  recipients: 1290,
-  mostChurchesOnOnePhone: 2,
+  load: { numbers: 8, recipients: 1290, mostChurchesOnOnePhone: 2 },
   day: '2026-11-09',
 }
 
