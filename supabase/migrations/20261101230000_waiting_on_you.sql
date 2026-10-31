@@ -18,6 +18,10 @@
 -- status. Nothing is recorded and no table changes: whether the card has been
 -- shown in this sign-in today is the browser's to remember, not the database's.
 --
+-- Definer with the Roster's own Admin test, as `public.roster` is: a
+-- Participation Status is read off the whole `person` row, and no browser grant
+-- reaches all of its columns (ADR-0021). Counts leave it, and nothing else.
+--
 -- `overview_card_page` composes `overview_page` and so carries it too; the
 -- Check-Ins tab answers with `app.history_page()` and does not.
 -- ---------------------------------------------------------------------------
@@ -26,7 +30,7 @@ create function app.waiting_on_you(target_ministry_id uuid)
 returns jsonb
 language sql
 stable
-security invoker
+security definer
 set search_path = ''
 as $$
   with on_the_roster as (
@@ -37,6 +41,7 @@ as $$
                       and m.ended_at is null) as in_a_relationship
       from public.person p
      where p.ministry_id = target_ministry_id
+       and app.is_admin_of(target_ministry_id)
        and not exists (select 1
                          from public.person_removal x
                         where x.person_id = p.id
