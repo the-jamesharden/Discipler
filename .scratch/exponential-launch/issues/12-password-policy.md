@@ -53,3 +53,7 @@
 - Production Supabase Auth's own minimum password length is a dashboard setting (Authentication, then Providers or Policies, "Minimum password length"); set it to 8 so the public Auth API agrees with the app.
   `supabase/config.toml` changes only the local stack, and only after `supabase stop` and `supabase start` (a `db reset` does not restart Auth with the new setting).
 - Optional and separate from this ticket: Supabase's leaked-password protection (Have I Been Pwned) on the production project, which finding F2 in `.scratch/security-hardening/spec.md` also lists. It is a Pro plan setting.
+
+### Checked
+
+- The ticket 12 tests at the Invitation Link, the Ministry Setup Link, the change form (route and port) and the reset passed in the locked run together with ticket 13's: 12 files, 124 passed and 1 skipped (an existing `it.skip`).
