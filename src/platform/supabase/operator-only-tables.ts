@@ -25,4 +25,6 @@ export const OPERATOR_ONLY_TABLES: readonly string[] = [
   // Checking an Admin's own phone with Twilio Verify (Exponential launch, ticket 09).
   'phone_check',
   'phone_check_code',
+  // The sign-in guessing limit (Exponential launch, ticket 13).
+  'sign_in_attempt',
 ]
