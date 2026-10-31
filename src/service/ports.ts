@@ -810,8 +810,9 @@ export interface Accounts {
    *
    * It takes no refusals. Whether this account may be reset at all is decided
    * before anything reaches here -- on the Roster, against the acting Admin's own
-   * Ministry -- and the password is one Discipler generated, so there is no rule
-   * left for the adapter to enforce and nothing an Admin could act on if it did.
+   * Ministry -- and the password is one Discipler generated, so there is nothing
+   * an Admin could act on. A password the rule refuses is thrown on, as a caller
+   * that skipped the rule, rather than set.
    */
   setPassword(userId: string, password: string): Promise<void>
   /**
@@ -828,10 +829,11 @@ export interface Accounts {
    *
    * The current password is checked against the account's own phone, which the
    * adapter reads from the account and never from a caller -- a form carries no
-   * number. A wrong one is a refusal and touches nothing. Too short is refused at
-   * this edge for the reason `create` refuses it, so a caller that forgot the form
-   * rule cannot set what the invitation form would have refused; whether the two
-   * new passwords matched is the form's question alone and never reaches here.
+   * number. A wrong one is a refusal and touches nothing. The password rule
+   * (`newPasswordRefusal`) is applied at this edge for the reason `create` applies
+   * it, so a caller that forgot the form rule cannot set what the invitation form
+   * would have refused; whether the two new passwords matched is the form's
+   * question alone and never reaches here.
    */
   changePassword(
     userId: string,

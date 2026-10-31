@@ -1,3 +1,4 @@
+import { COMMON_PASSWORDS } from './common-passwords'
 import { PASSWORD_WORDS } from './password-words'
 
 /**
@@ -16,7 +17,7 @@ import { PASSWORD_WORDS } from './password-words'
  * own wording, like every refusal.
  */
 export type AccountCreationRefusal =
-  | 'account.password_too_short'
+  | NewPasswordRefusal
   /**
    * Discipler holds no number for this Person, so there is nothing to sign in
    * with -- and nothing to text them either. It is an Admin's to fix.
@@ -60,8 +61,8 @@ export type PasswordResetRefusal =
  * the whole union would have it wording sentences it cannot receive.
  */
 export type PasswordChangeRefusal =
-  /** The same length rule the invitation form applies, and the only rule there is. */
-  | 'account.password_too_short'
+  /** The same rule the invitation form applies, through the same function. */
+  | NewPasswordRefusal
   /**
    * The two new passwords are not the same. Success ends every session, so a
    * mistyped new password would lock the person out until an Admin resets them --
@@ -105,14 +106,73 @@ export const passwordResetRefusal = (
       ? 'account.cannot_reset_yourself'
       : null
 
+/**
+ * Why a password somebody chose is refused. One set, because one rule applies
+ * wherever a person chooses a password -- an Invitation Link, a Ministry Setup
+ * Link, a change of their own, and sign-up once it exists -- and every one of those
+ * surfaces can receive all three (Exponential launch, ticket 12; Q28).
+ */
+export type NewPasswordRefusal =
+  | 'account.password_too_short'
+  /**
+   * Longer than Supabase Auth can store. Far past anything typed by hand; it is a
+   * pasted passphrase or a password manager set very long.
+   */
+  | 'account.password_too_long'
+  /** One of the passwords in `common-passwords.ts`, whatever its capitals. */
+  | 'account.password_too_common'
+
 /** Short enough to type on a phone, long enough to be worth having. */
 export const SHORTEST_PASSWORD = 8
+
+/**
+ * The longest password there is room for, in UTF-8 bytes rather than characters.
+ *
+ * Not a choice of Discipler's. Supabase Auth hashes with bcrypt, which reads 72
+ * bytes and no more, and GoTrue answers a longer password with a 500 rather than a
+ * refusal -- so this is where a person is told instead. It clears the "at least
+ * 64" the launch spec asks for; the ticket's 100-character example does not fit,
+ * which ticket 12's comments record.
+ */
+export const LONGEST_PASSWORD_BYTES = 72
+
+/**
+ * Built on first use rather than at import, because most of what imports this
+ * module wants `SHORTEST_PASSWORD` for a form's `minLength` and never asks.
+ */
+let commonPasswords: ReadonlySet<string> | undefined
+
+const isCommon = (password: string): boolean => {
+  commonPasswords ??= new Set(COMMON_PASSWORDS.split('\n'))
+  return commonPasswords.has(password.toLowerCase())
+}
+
+/**
+ * The rule on a password somebody chose, and the only one. Null is *go ahead*.
+ *
+ * Exported for every place a password is set, so that sign-up, a reset by email
+ * and anything after them ask this rather than restate it: at least
+ * `SHORTEST_PASSWORD` characters, no more than `LONGEST_PASSWORD_BYTES`, and not a
+ * common password in any capitals. Nothing about which kinds of character it
+ * holds, which is the advice NIST SP 800-63B gives and the launch spec adopts.
+ *
+ * Length first, so a short common password is refused for its length: that is the
+ * rule the person can act on without having to guess what else is on the list.
+ */
+export const newPasswordRefusal = (password: string): NewPasswordRefusal | null =>
+  password.length < SHORTEST_PASSWORD
+    ? 'account.password_too_short'
+    : new TextEncoder().encode(password).length > LONGEST_PASSWORD_BYTES
+      ? 'account.password_too_long'
+      : isCommon(password)
+        ? 'account.password_too_common'
+        : null
 
 /**
  * The form's own rules on a new password, checked first and together, before the
  * platform is asked anything. Empty is *go ahead*.
  *
- * In field order -- the new password's length, then whether the repeat matches --
+ * In field order -- the new password itself, then whether the repeat matches --
  * so a person reads their mistakes top to bottom the way they filled the form in,
  * which is how every other form here reports them. Checking these before the port
  * is called also means a form that was going to be refused anyway spends nothing
@@ -127,10 +187,13 @@ export const SHORTEST_PASSWORD = 8
 export const passwordChangeRefusals = (
   newPassword: string,
   newPasswordAgain: string,
-): readonly PasswordChangeRefusal[] => [
-  ...(newPassword.length < SHORTEST_PASSWORD ? (['account.password_too_short'] as const) : []),
-  ...(newPassword !== newPasswordAgain ? (['account.passwords_differ'] as const) : []),
-]
+): readonly PasswordChangeRefusal[] => {
+  const refused = newPasswordRefusal(newPassword)
+  return [
+    ...(refused ? [refused] : []),
+    ...(newPassword !== newPasswordAgain ? (['account.passwords_differ'] as const) : []),
+  ]
+}
 
 /**
  * Where randomness comes from, injected for the reason `IdSource` is: a generator

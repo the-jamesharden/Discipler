@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { passwordResetRefusal, SHORTEST_PASSWORD } from '~/domain/accounts'
+import { newPasswordRefusal, passwordResetRefusal } from '~/domain/accounts'
 import { PasswordResetRefused } from '~/domain/errors'
 import { personId as asPersonId } from '~/domain/ids'
 import { currentAdmin } from '~/platform/supabase/current-admin'
@@ -57,8 +57,10 @@ export async function POST(
   // Not a candidate this product minted. Sent back to the screen that mints one
   // rather than refused in words: there is no code for it because there is no Admin
   // action that produces it -- every button in the product arrives here with four
-  // words in the field -- and the page they land on hands them a fresh one.
-  if (typeof password !== 'string' || password.length < SHORTEST_PASSWORD) {
+  // words in the field -- and the page they land on hands them a fresh one. The
+  // whole password rule, not only its length, so an edited form cannot set
+  // `password1` on somebody's account (Exponential launch, ticket 12).
+  if (typeof password !== 'string' || newPasswordRefusal(password) !== null) {
     return NextResponse.redirect(back, { status: 303 })
   }
 

@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { SHORTEST_PASSWORD } from '~/domain/accounts'
+import { LONGEST_PASSWORD_BYTES, SHORTEST_PASSWORD } from '~/domain/accounts'
 import { supabaseAccounts } from '~/platform/supabase/accounts'
 import {
   addPersonWithAccount,
@@ -132,6 +132,39 @@ describe('changing your own password', () => {
 
     expect(outcome).toEqual({ refusal: 'account.password_too_short' })
     expect((await held.auth.getUser()).data.user?.id).toBe(leader.userId)
+  })
+
+  it('refuses a common password at this edge too, in any capitals (Exponential launch, ticket 12)', async () => {
+    const leader = await addPersonWithAccount(ministry, 'Omar Common', 'leader')
+
+    const outcome = await supabaseAccounts.changePassword(leader.userId, leader.password, 'PASSWORD1')
+
+    expect(outcome).toEqual({ refusal: 'account.password_too_common' })
+    expect((await signInAttempt(leader.phone, leader.password)).error).toBeNull()
+  })
+
+  it('sets a password as long as Supabase Auth can hold, and it signs in', async () => {
+    const leader = await addPersonWithAccount(ministry, 'Omar Longest', 'leader')
+    const longest = 'lantern-'.repeat(9)
+    expect(longest).toHaveLength(LONGEST_PASSWORD_BYTES)
+
+    const outcome = await supabaseAccounts.changePassword(leader.userId, leader.password, longest)
+
+    expect(outcome).toEqual({ changed: true })
+    expect((await signInAttempt(leader.phone, longest)).error).toBeNull()
+  })
+
+  it('refuses a longer one in words, where Supabase Auth would answer with a 500', async () => {
+    const leader = await addPersonWithAccount(ministry, 'Omar Longer', 'leader')
+
+    const outcome = await supabaseAccounts.changePassword(
+      leader.userId,
+      leader.password,
+      'k'.repeat(100),
+    )
+
+    expect(outcome).toEqual({ refusal: 'account.password_too_long' })
+    expect((await signInAttempt(leader.phone, leader.password)).error).toBeNull()
   })
 
   it('serves an account that no Person holds', async () => {

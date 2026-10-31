@@ -221,6 +221,21 @@ describe.skipIf(skipUnlessAppIsRunning)('changing your own password over HTTP', 
     expect((await signInAttempt(leader.phone, leader.password)).error).toBeNull()
   })
 
+  it('refuses a common new password, and the old one still works (Exponential launch, ticket 12)', async () => {
+    const { leader, cookie } = await aSignedInLeader('Nadia Common')
+
+    const { query } = await change(cookie, leader.password, 'password1', 'password1')
+
+    expect(query.get('error')).toBe('account.password_too_common')
+
+    const { html } = await getPage(`/account?${query}`, cookie)
+    expect(html).toContain('one of the most common')
+
+    expect((await getPage('/account', cookie)).response.status).toBe(200)
+    expect((await signInAttempt(leader.phone, leader.password)).error).toBeNull()
+    expect((await signInAttempt(leader.phone, 'password1')).error).not.toBeNull()
+  })
+
   it('checks the current password against the session’s own account, never a number on the form', async () => {
     // Two accounts. Every fixture is minted with the same password, so the one
     // making the change is first given a password of its own -- otherwise a check

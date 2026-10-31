@@ -1,5 +1,5 @@
 import type { PasswordChangeRefusal } from '~/domain/accounts'
-import { PASSWORD_TOO_SHORT } from '../invitation/copy'
+import { PASSWORD_REFUSALS } from '../invitation/copy'
 import { refusalsIn } from '../refusals'
 
 /**
@@ -11,9 +11,9 @@ import { refusalsIn } from '../refusals'
  * the build rather than falling through to a sentence that names nothing.
  */
 const REFUSALS: Record<PasswordChangeRefusal, string> = {
-  // The invitation form's sentence, unchanged: it is the same rule at the same
-  // length, and two wordings of one rule would eventually disagree about the number.
-  'account.password_too_short': PASSWORD_TOO_SHORT,
+  // The invitation form's sentences, unchanged: it is the same rule, and two
+  // wordings of one rule would eventually disagree about the numbers.
+  ...PASSWORD_REFUSALS,
   'account.passwords_differ': 'The two new passwords do not match.',
   'account.current_password_wrong': 'That is not your current password.',
 }
