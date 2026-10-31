@@ -5,6 +5,8 @@
 accepted
 
 Amended by ADR-0027: one text now follows an Admin's act, when the Material a person is working through changes, and the tick sends it rather than the button.
+Amended by ADR-0031: an Admin's button now texts a test check-in to that Admin's own phone.
+The rule is now that no interface action sends free-form text.
 `Nudge` still sends nothing.
 
 ## Decision

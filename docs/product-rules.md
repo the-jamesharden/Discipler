@@ -149,6 +149,11 @@ There are two routes to the form, recorded on each consent record as its source:
 
 An admin cannot attest to consent on a person's behalf, at import or anywhere else. Inbound-keyword opt-in — where a person texts a join word and the inbound message is the consent — is post-V1; if it ships it becomes a third source, having been decided rather than assumed.
 
+> **Amended (Exponential launch, 2026-10-29):** an Admin who signs a church up gives a consent of their own, recorded with the source `ministry_setup`.
+> It lets Discipler text that Admin's phone the texts the sign-up page names, a verification code and the test check-in, and nothing else.
+> It is not an Intake: it changes nothing about the Admin's Participation Status, and being paired still needs an Intake on both sides.
+> Intake is still the only consent gate for anyone being discipled or leading. See `docs/consent-language.md`.
+
 Intake records SMS consent and contact-sharing consent independently, each with its own timestamp, alongside the version of the consent language the person actually saw.
 
 Discipler includes another person's phone number in a message only where the recipient's consent record permits that sharing. Consent is checked when the message is sent, not assumed from enrollment.
@@ -239,6 +244,10 @@ Leaders authenticate with a password, created during acceptance and required bef
 
 The cost of this is understood and accepted: until one-time codes ship, a leader who loses both their session and their password requires a manual reset.
 
+> **Amended (Exponential launch):** an Admin with a verified email resets their own password from "Forgot password?", which emails them a one-time link.
+> Leaders, and Admins without a verified email, keep the manual reset.
+> See `docs/adr/0030-an-admin-signs-in-with-email-or-phone.md`.
+
 ## Settled: Relationships End; History Does Not
 
 `Ended` is a terminal relationship state carrying a recorded reason: completed, leader exited, participant exited, or closed by an admin.
@@ -269,7 +278,7 @@ Three capabilities are deliberately deferred. The **Planning Center API** - V1 s
 
 Deferring the report defers the *interface*, never the data. The week-by-week history that a report will one day read must be complete and correct from the first week of the pilot, because it cannot be reconstructed later.
 
-## Settled: No Interface Action Sends a Message
+## Settled: No Interface Action Sends Free-Form Text
 
 Every outbound message passes a recipient-level check before it sends — consent, an open opt-out, a number to send to — and that check is enforced at the sending layer, not at the button. Any future feature that sends a message inherits it without exception.
 
@@ -281,6 +290,13 @@ The reason is that Discipler's entire participant-facing surface is SMS. A minis
 > When the Material a person is working through changes, the tick sends them one text once the changes have been still for an hour, at most once a day, and only if where things ended up differs from what they were last told.
 > The button still sends nothing; the tick does, through the same recipient check.
 > See `docs/adr/0027-a-material-change-is-texted-once-it-settles.md`.
+
+> **Supersedes (Exponential launch, 2026-10-30):** the rule was *No Interface Action Sends a Message*, and one button now texts.
+> The test check-in texts a real check-in to the signed-in Admin's own phone, and only theirs, so they see what their Leaders get; it is limited per day and counted nowhere.
+> What the rule now forbids is free-form text: no button sends words somebody typed for that send, to anybody.
+> A button may cause a text only when Discipler wrote it, inside the frame Discipler writes for every text, and only to the people the feature names.
+> A broadcast to Disciplers, which James declined on 2026-10-12, is still refused by it.
+> See `docs/adr/0031-the-test-check-in-texts-an-admin.md` and `docs/adr/0034-discipler-writes-the-frame-of-every-text.md`.
 
 ## Settled: Clarification Attempts Are Capped, Listening Is Not
 
@@ -615,6 +631,12 @@ Every message carries the ministry name as a prefix — `ABC Church: Hi James! D
 
 Each ministry sends from its own number for the pilot. Sending identity is modeled as a property of the Ministry from the first line of code, even while every ministry could resolve to the same number, because retrofitting that touches every message path.
 
+> **Supersedes (Exponential launch, 2026-10-30):** no church has its own number any more, and every text names Discipler.
+> Discipler sends for every church from one shared set of Discipler numbers, and each person in each church always hears from the same one.
+> Every text starts "{Messages read as} via Discipler:", where Messages read as is the church's `from_name`, its name unless an Admin changes it: "Riverside Chapel via Discipler: Did you meet with Jordan this week? Reply 1 for yes, 2 for no."
+> The church is still the speaker and still named first; Discipler never speaks for itself in a text, and every text says it comes through Discipler.
+> See `docs/adr/0033-a-shared-set-of-discipler-numbers.md`.
+
 ## Settled: The A2P Compliance Prefix Is a Stated Exception
 
 A2P messaging compliance requires identifying that a message is sent through Discipler. This directly contradicts the rule above, and the exception is recorded here so that it is not later removed as a violation of it.
@@ -632,6 +654,11 @@ A Starter Message that runs to two segments is accepted rather than trimming com
 
 **This has not been reviewed by a lawyer or checked against a live campaign registration.** A2P brand and campaign requirements come from the carriers and the registry, they change, and they are not something to accept on an agent's judgment. Review alongside `docs/consent-language.md` before the first pilot.
 
+> **Supersedes (Exponential launch, 2026-10-30):** the stacked `Discipler:` prefix.
+> Every text now starts "{Messages read as} via Discipler:", the first text to a person included, so the identification this section asked for is on every text rather than on four kinds.
+> Discipler writes that start, the reply choices and the rates and opt-out lines of every text, as a permanent rule, and a church may reword only the check-in's sentences inside them.
+> See `docs/adr/0033-a-shared-set-of-discipler-numbers.md` and `docs/adr/0034-discipler-writes-the-frame-of-every-text.md`.
+
 ## Settled: A Silence Gap Is Thirty Days, Per Person Per Ministry
 
 A silence gap is thirty rolling days since Discipler last sent that person a message.
@@ -640,6 +667,10 @@ The A2P compliance prefix keys off it.
 The participant-facing opt-out language used to key off it as well; since 2026-09-21 that is the rates line's once-a-month rule, below, which counts calendar months and not rolling days.
 
 Rolling days rather than calendar months, because a person messaged on 31 January and again on 1 March has crossed two calendar boundaries with twenty-nine days of contact. Per person per ministry, because every other rule in the product is ministry-scoped and making this one the exception would invite a cross-ministry read of a person's history, which the Ministry isolation rule forbids.
+
+> **Since the Exponential launch nothing keys off a Silence Gap.**
+> The prefix it triggered is on every text now (`docs/adr/0033-a-shared-set-of-discipler-numbers.md`), and the opt-out language follows the rates line's monthly rule.
+> The definition is kept so the history of the two rules reads; a feature that wants it again starts from here.
 
 ## Settled: The Rates Line Reaches a Person Once a Month
 
@@ -788,6 +819,12 @@ footer. Message structure and reply tokens are a state machine, and the opt-out 
 is a carrier obligation; none of the three is a ministry's to vary. They are not
 rendered as disabled fields either — a greyed-out box invites *can you turn that on
 for us?* They are simply not on the screen.
+
+> **Amended (Exponential launch, 2026-10-30):** Settings gains *What the check-in says*, under the check-in day and hour, where an Admin rewrites the check-in's four sentences.
+> The structure, the reply choices and the opt-out footer still stay out: they are the frame Discipler writes around every text, and the composer adds them to whatever the church writes.
+> The help line under `from_name`, shown as Messages read as, says it is followed by "via Discipler" and that a church run by one person can use that person's name.
+> Settings also gains a Billing card, first of its cards; see *Settings Has a Billing Card and a Billing Page*.
+> See `docs/adr/0034-discipler-writes-the-frame-of-every-text.md`.
 
 > **Amends `Settled: Suggestion Constraints`,** which fixed the age constraint at ten
 > years for V1. `suggest_max_age_band_gap` makes it a ministry setting expressed in age
@@ -1157,15 +1194,21 @@ password, and a lost password requires an Admin reset until they ship.
 
 See `docs/adr/0008-the-phone-number-is-the-sign-in-credential.md`.
 
+> **Amended (Exponential launch, 2026-10-29):** the form's one box is "Email or phone".
+> An Admin with a verified email, which every Admin who signs a church up has, may sign in with either, and recovers a lost password from an emailed link.
+> Leaders, and Admins without a verified email, sign in with their phone exactly as above.
+> Every password is at least 8 characters and not a common one.
+> See `docs/adr/0030-an-admin-signs-in-with-email-or-phone.md`.
+
 ## Settled: A Ministry Opens From a Ministry Setup Link
 
-A Ministry comes into existence when its first Admin opens a Ministry Setup Link.
-Whoever runs Discipler mints the link with the church's name, the number it sends from, and the phone its Admin will sign in with, and sends it to the Admin by hand.
-The Admin opens it, sees the church and the number, types their name, chooses their timezone and a password, and that one submit creates their account, the Ministry on that clock, their place on its Roster and their Admin access, and spends the link.
+A Ministry James chooses to comp comes into existence when its first Admin opens a Ministry Setup Link; every other church signs itself up (see *A Church Signs Itself Up*).
+Whoever runs Discipler mints the link with the church's name and the phone its Admin will sign in with, and sends it to the Admin by hand.
+The Admin opens it, sees the church, types their name, chooses their timezone and a password, and that one submit creates their account, the Ministry on that clock, their place on its Roster and their Admin access, and spends the link.
 The timezone has no preselected answer, because a Ministry left on a default was texted at hours nobody chose: every Ministry opened before 2026-09-25 kept UTC, and its check-in hour was read as UTC.
 
-There is no sign-up surface.
-A Ministry exists because an operator said so; the link only moves the typing of the password to the person who owns it.
+A Ministry opened this way exists because an operator said so; the link only moves the typing of the password to the person who owns it.
+It has no subscription, so it texts only while it carries the operator flag *billed outside Stripe*.
 
 The link keeps every property of an Invitation Link: possession of it is the whole authentication, the phone is displayed and never typed, it runs out after a fixed window, it is spent by account creation and not by being opened, and minting again for the same phone replaces it.
 A number that already signs somebody in is refused when the link is minted, so the operator hears it rather than the pastor.
@@ -1173,6 +1216,94 @@ A number that already signs somebody in is refused when the link is minted, so t
 A Ministry opening is the first event in its history, `ministry.opened`, and the arrival of its first Admin is part of that event rather than a second one.
 
 See `docs/adr/0019-a-ministry-opens-from-a-link.md`.
+
+> **Supersedes (Exponential launch, 2026-10-29):** this section said there was no sign-up surface, and that every Ministry existed on an operator's say-so.
+> A church now signs itself up, and the link is kept for comped churches.
+> It no longer names the number a church sends from, because every church sends from Discipler's shared numbers.
+> See `docs/adr/0029-a-church-signs-itself-up.md` and `docs/adr/0033-a-shared-set-of-discipler-numbers.md`.
+
+## Settled: A Church Signs Itself Up
+
+A church opens its own Ministry at `app.trydiscipler.com/signup`, with nobody at Discipler involved (Exponential launch, 2026-10-29).
+Every page of it is subtitled "Create an account", and the sign-in page offers it as a full-width button.
+
+1. **Are you human.** A human check runs on its own page, and is verified on the server before anything costs money.
+2. **Email and mobile phone.** One page asks for both, with the text-message consent under the phone field, word for word in `docs/consent-language.md`.
+   Continuing records the Admin's `ministry_setup` consent.
+3. **Verify your email.** A 6-digit code is emailed; the same answer is given whether or not the address already has an account, and an existing account's owner is told somebody tried.
+4. **Set up your account.** One page asks for the church's name, the Admin's full name, where they heard about Discipler, a password, the timezone, whether the church is a church plant (with its application on the same page), and monthly or yearly, and has the Admin agree to the Terms of Service and the Privacy Policy, recorded with the terms version and the time.
+   The login email is shown and locked.
+   The price of each billing choice is shown here, once, beside its offer.
+5. **Payment.** A card or bank account is taken by Stripe inside Discipler's own sign-up card, with the trial's end date and no prices.
+   Nothing is charged; the trial starts.
+   A bank account is accepted only through instant bank sign-in, never by microdeposits.
+6. **Overview.** The Admin lands signed in on Overview, with onboarding open.
+
+The church is created by `provisionMinistry` in one transaction, as a Setup Link creates one, and its history starts with `ministry.opened`.
+The browser never names the church that is paying; the server decides it, and Supabase's own public sign-up stays off.
+A church that opens its account and leaves before payment is kept with no subscription, texts nobody, is returned to payment at its next sign-in, and is sent one reminder email.
+
+Sign-up stays off in production until James has published the updated Terms of Service and Privacy Policy.
+See `docs/adr/0029-a-church-signs-itself-up.md`.
+
+## Settled: Prices and Offers
+
+One flat price per church, billed monthly or yearly, yearly being 20% off: $97 a month for a church with up to 200 people in active relationships, Disciplers and Disciples counted together, and $147 above 200.
+Every church starts on $97; a church that stays above 200 for a whole month causes an email to support@ asking someone to follow up, and nothing is upgraded automatically.
+Every church gets a free trial with a card or bank account required up front, and nothing is charged until the free days end.
+
+During sign-up a price appears only beside its billing choice, one price and the offer as a percentage, never two prices.
+
+There are three offers:
+
+- **The Exponential special offer**, from the code `EXPO26` or the booth's QR code: more free days, then 20% off the first year, until the code expires.
+  It is never called a founding church rate or a coupon.
+- **A church invited by another church** gets its first paid month free.
+- **A church plant** gets a free year after its trial, once James or Lerone approves its application by operator command.
+  A plant that came through `EXPO26` gets its free days, then the free year, then the Exponential year.
+
+Offers do not otherwise combine: a referral month gives way to the Exponential special offer and to a church plant's year, whichever applies, because each saves the church more.
+Each church can use each offer once.
+
+Every offer ends with its subscription, and a church that restarts pays the normal price with no second trial.
+The exact dates and limits are in `.scratch/exponential-launch/spec.md` and where ticket 04 enforces them.
+
+## Settled: The Billing States
+
+A church's billing state is derived from the history the Stripe webhook records, and the webhook is the only writer of it.
+
+- **In the trial, or paying.** Everything runs.
+- **Payment failed.** Everything keeps running while Stripe retries, and every Admin page carries a banner that cannot be closed until the payment goes through: "Your last payment didn't go through. Discipler keeps running while Stripe tries again." with "Update payment method".
+- **Ended.** Check-ins stop, the dashboard is read-only, and every Admin page carries "Your subscription has ended. Check-ins have stopped and these pages are read-only. Everything is still here." with "Restart Discipler".
+  History is kept.
+  Links people were already texted (Intake forms, accept links, Material pages) keep working and their answers are kept, but nothing is texted until the church restarts.
+- **Billed outside Stripe.** An operator flag for a church billed by agreement, such as SAU BCM and Anthem Community Church, which runs as a paying church with no subscription.
+
+A text goes out for a church only while it is in its trial, paying, in a failed payment's retries, or billed outside Stripe, checked in the one query every outbound text passes through.
+Participants are never texted about billing.
+A church may cancel itself, and the cancellation takes effect at the end of the period it has paid for.
+Any Admin of the church can manage billing.
+
+## Settled: Referrals
+
+Each church has one referral link, `trydiscipler.com/r/<code>`, whose code is random and unguessable and never the church's name.
+"Get a new link" replaces it at once and retires the old code, which then opens sign-up at the normal price.
+
+The Refer page has one Copy button, which copies an approved note with the link; Discipler itself sends no invitation.
+The invited church's first paid month is free.
+The inviting church earns one month free, applied automatically after the invited church pays its first real bill, held for a while after that payment and taken back if the payment is refunded or disputed.
+Where both churches pay with the same card or bank account, or share an email domain, the credit goes to James for review instead; so does a credit earned by a church billed outside Stripe.
+
+No page lists the churches a church invited, and an invited church is never named to the church that invited it.
+An applied credit shows on the inviting church's Billing page, which is the only thing one church learns about another through a referral.
+
+## Settled: Settings Has a Billing Card and a Billing Page
+
+The Billing card is the first card in Settings: one line, such as "Free trial until December 30, 2026, then $77.60 a month · Visa ending 4242", and an "Open billing" button.
+It opens Discipler's own Billing page, which shows the plan, the trial or next payment date and amount, any offer in force, the card brand and last four or the bank's name, any referral credit, and past invoices, all read from Stripe on the server.
+Its buttons open Stripe's billing page straight at the step they name (update the payment method, cancel), because Stripe's page cannot be framed inside Discipler.
+Discipler stores only Stripe's IDs, the card brand and last four digits, never a card or account number.
+After sign-up, prices do show: on Billing, its card in Settings, the restart page and the trial-ending email.
 
 ## Settled: The Follow-Up Item Kinds
 

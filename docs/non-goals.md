@@ -101,6 +101,15 @@ Examples requiring explicit approval include:
 - automated demographic-based pairing
 - generalized event management
 
+Approved for the Exponential launch (2026-10), and approved as these features only, not as precedent for the rest of the list:
+
+- The setup meter, "Jumpstart discipleship", which counts an Admin's real setup steps and ends with one badge when setup is done.
+  It awards no points, keeps no streak, ranks nobody, and goes away at 100%.
+  Gamification, points, streaks and leaderboards stay non-goals.
+- The What's new and office hours cards on Overview, read from files in the repo and dismissed by each Admin.
+- Ask Discipler, the AI guide, which answers from the help docs only and never sees a church's data.
+  `docs/adr/0032-the-ai-guide-answers-from-the-help-docs-only.md` is the approval; speculative AI recommendations stay a non-goal.
+
 ## No Implementation by Inference
 
 If a material product behavior is ambiguous, surface the ambiguity.

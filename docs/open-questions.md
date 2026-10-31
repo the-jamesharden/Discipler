@@ -339,6 +339,20 @@ Recorded in `docs/product-rules.md` under *Settled: A Ministry Opens From a Mini
 Still undecided, and narrower: whether a phone that already signs somebody in may open a second Ministry on the same account.
 The mint refuses it today, while the operator can still act.
 
+## Resolved: a church signs itself up
+
+James asked on 2026-10-12 for a church to be able to sign itself up on the website, without an operator minting a Ministry Setup Link.
+It reversed *There is no sign-up surface* in `docs/product-rules.md` and `docs/adr/0019-a-ministry-opens-from-a-link.md`, and waited for a grilling of its own.
+The hard part was that the Setup Link carried the Ministry's sending number, bought and registered with the carriers by hand.
+
+The grilling of 2026-10-25 to 2026-10-29 answered it.
+A church signs itself up at `app.trydiscipler.com/signup`, and the Setup Link stays for churches James comps.
+The sending number stopped being the church's: every church sends from Discipler's shared numbers, so a new church can text the moment it exists.
+One church per person still holds, and there is no switch between churches.
+
+Settled 2026-10-29.
+Recorded in `docs/product-rules.md` under *Settled: A Church Signs Itself Up*, in `docs/adr/0029-a-church-signs-itself-up.md` and `docs/adr/0033-a-shared-set-of-discipler-numbers.md`.
+
 ## Open: what happens when a Person's Intake contradicts a relationship they are already in
 
 Raised by ticket 25's review, and it is older than that ticket. The Gender Rule is
@@ -380,6 +394,9 @@ is a new kind of actor this product does not have), a second Admin required at
 provisioning (which makes a one-pastor church impossible to set up), or nothing at all
 until codes ship (which means the pilot's answer to a locked-out sole Admin is somebody
 running SQL). Each is a different bet about who the first pilot Ministries are.
+
+Answered on 2026-10-29 for an Admin with a verified email, which every Admin who signs a church up has: "Forgot password?" emails them a one-time reset link (`docs/adr/0030-an-admin-signs-in-with-email-or-phone.md`).
+It stays open for a sole Admin without one, such as a church opened from a Setup Link.
 
 ## Resolved: the Admin relationship detail
 
@@ -430,13 +447,16 @@ V1 ships a spreadsheet paste; the Planning Center API is post-V1. When it return
 - What data, if any, flows back to Planning Center
 - What happens when Planning Center is unavailable
 
-## Open: nothing puts `Discipler:` on the first text after a Silence Gap
+## Resolved: nothing puts `Discipler:` on the first text after a Silence Gap
 
 Found on 2026-09-24 while specifying `.scratch/richer-materials/`.
 *The A2P Compliance Prefix Is a Stated Exception* says `Discipler:` stacks in front of the Ministry prefix on the first message after a thirty-day Silence Gap.
 No code computes a Silence Gap: `identifyDelivery` is set only on the Welcome Message and the `HELP` reply in `src/domain/outbound-copy.ts`, so a person texted again after thirty quiet days gets the Ministry prefix alone.
 Every message path is affected, and the Material change text would inherit the same gap.
 What needs deciding: whether the rule stands as written, in which case the sending layer decides the prefix per recipient at send time from the last text that person was sent, or whether it is dropped with the A2P review this file already asks for before the first pilot.
+
+Moot since the Exponential launch (2026-10-30): every text starts "{Messages read as} via Discipler:", the first after a Silence Gap included, so no text needs a Silence Gap to decide its prefix.
+See `docs/adr/0033-a-shared-set-of-discipler-numbers.md`.
 
 ## Open: whether *What has happened* lists who opened the contact details
 

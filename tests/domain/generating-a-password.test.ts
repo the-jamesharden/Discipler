@@ -66,25 +66,21 @@ describe('the password Discipler generates', () => {
 const oneEditApart = (a: string, b: string): boolean => {
   if (Math.abs(a.length - b.length) > 1) return false
 
-  const rows = Array.from({ length: a.length + 1 }, (_, i) =>
-    Array.from({ length: b.length + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0)),
-  )
+  // Whatever differs starts at the first unequal letter, so one walk decides it.
+  // An edit-distance table per pair, half a million pairs, ran past the test's
+  // time limit on a busy machine.
+  let i = 0
+  while (i < a.length && i < b.length && a[i] === b[i]) i++
 
-  for (let i = 1; i <= a.length; i++) {
-    for (let j = 1; j <= b.length; j++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1
-      rows[i]![j] = Math.min(
-        rows[i - 1]![j]! + 1,
-        rows[i]![j - 1]! + 1,
-        rows[i - 1]![j - 1]! + cost,
-      )
-      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
-        rows[i]![j] = Math.min(rows[i]![j]!, rows[i - 2]![j - 2]! + 1)
-      }
-    }
+  if (a.length === b.length) {
+    const substitution = a.slice(i + 1) === b.slice(i + 1)
+    const transposition =
+      a[i] === b[i + 1] && a[i + 1] === b[i] && a.slice(i + 2) === b.slice(i + 2)
+    return substitution || transposition
   }
 
-  return rows[a.length]![b.length]! <= 1
+  const [longer, shorter] = a.length > b.length ? [a, b] : [b, a]
+  return longer.slice(i + 1) === shorter.slice(i)
 }
 
 describe('the wordlist', () => {

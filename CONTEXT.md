@@ -157,7 +157,11 @@ _Avoid_: Starter Message (its words are true on the day a match is made, not aft
 
 **Password Reset**:
 An Admin setting a new password on somebody else's account, for a person who has lost theirs. Discipler chooses the password, shows it once on screen and sends it nowhere: the Admin reads it out, which is why a reset only works when the two of them can talk. Setting it ends every session on that account — `docs/adr/0016-a-password-change-ends-every-session.md` records why that is a rule and not a behaviour. It is always somebody else's: an Admin holds a session already, so their own is not a recovery.
-_Avoid_: Forgotten password and password recovery (recovery is not self-serve; one-time codes to the number are the post-launch recovery, per ADR-0008, and a person who still holds a session makes a Password Change instead), and Temporary password (nothing expires it or forces a change)
+_Avoid_: Forgotten password and password recovery (that is Forgot Password, below, and only for an Admin with a verified email; for everybody else recovery is not self-serve, and a person who still holds a session makes a Password Change instead), and Temporary password (nothing expires it or forces a change)
+
+**Forgot Password**:
+An Admin with a verified email setting a new password for themselves without a session: the sign-in page's "Forgot password?" emails a one-time reset link to that address and no other. Like a Password Change it ends every session on the account. It exists because an Admin who signed a church up may have nobody above them to give them a Password Reset; a Leader, or an Admin without a verified email, still has only that. See `docs/adr/0030-an-admin-signs-in-with-email-or-phone.md`.
+_Avoid_: Password Reset (that is an Admin acting for somebody else), and a reset by text (one-time codes to the phone are still post-launch)
 
 **Password Change**:
 A person setting a new password on their own account, from a session they already hold, having proved the current one. It is the self-service half of what Password Reset is the assisted half of: reachable by anybody with a session, whether or not a Ministry still holds them, and never on somebody else's behalf. Like a reset it ends every session on the account, the one that asked included, so the person signs in again with what they chose. Nothing is recorded, because the reset event exists to say that somebody else touched the credential.
@@ -168,8 +172,47 @@ The individualized, SMS-delivered link that reveals a new relationship to a pers
 _Avoid_: a Participant's Invitation Link (a Participant answers at Intake and is asked nothing further). The Intake Link below is not one: it asks a Person nothing new and reveals nobody else to them.
 
 **Ministry Setup Link**:
-The link through which a Ministry comes into existence. Whoever runs Discipler mints it, naming the church, the number it sends from and the phone its first Admin signs in with, and sends it by hand; the Admin opens it, types their name, chooses the Ministry Timezone and a password, and that one submit creates their account, the Ministry, their place on its Roster and their Admin access. It is the shape of an Invitation Link pointed at a pastor: possession is the authentication, the phone is displayed and never typed, it runs out after a fixed window, it is spent by account creation and not by being opened, and minting again for the same phone replaces it. Until it is spent it belongs to no Ministry, because there is none yet. See `docs/adr/0019-a-ministry-opens-from-a-link.md`.
-_Avoid_: Sign-up, self-serve onboarding (a Ministry exists because an operator said so; the link only moves the typing of the password to its owner), and Provisioning as a user-facing word (it names the code path, `provisionMinistry`, which the link and the seed script both run)
+The link through which a Ministry James chooses to comp comes into existence; every other church comes in by Sign-Up. Whoever runs Discipler mints it, naming the church and the phone its first Admin signs in with, and sends it by hand; the Admin opens it, types their name, chooses the Ministry Timezone and a password, and that one submit creates their account, the Ministry, their place on its Roster and their Admin access. It is the shape of an Invitation Link pointed at a pastor: possession is the authentication, the phone is displayed and never typed, it runs out after a fixed window, it is spent by account creation and not by being opened, and minting again for the same phone replaces it. Until it is spent it belongs to no Ministry, because there is none yet. A Ministry opened by one has no Subscription, so it texts only while it is Billed Outside Stripe. See `docs/adr/0019-a-ministry-opens-from-a-link.md`, superseded as the usual door by ADR-0029.
+_Avoid_: Sign-Up (that is a church opening itself, with no link), and Provisioning as a user-facing word (it names the code path, `provisionMinistry`, which the link, Sign-Up and the seed script all run)
+
+**Sign-Up**:
+A church opening its own Ministry, with nobody at Discipler involved: a human check, the Admin's email and mobile phone with their consent to be texted, a code emailed to prove the address, one page setting up the account and the church with agreement to the terms, and a card or bank account taken by Stripe, which starts the Free Trial. It creates the Ministry through `provisionMinistry`, as a Ministry Setup Link does, and its history starts with `ministry.opened` the same way. The steps are in `docs/product-rules.md`, *A Church Signs Itself Up*; why it exists is ADR-0029.
+_Avoid_: Registration, account creation (it creates a church as well as an account), and Onboarding (that is what an Admin does after it)
+
+**Subscription**:
+A church's paid use of Discipler, held in Stripe and recorded in Discipler only from what Stripe's webhook reports. A church has at most one, monthly or yearly, and every Admin of the church may manage it. A church with none texts nobody, unless it is Billed Outside Stripe.
+_Avoid_: Plan (a word on the Billing page, not a model term), Account (that is a person's sign-in), and Customer as a model term
+
+**Billing State**:
+Where a church's Subscription stands, derived from the billing history the webhook records and never set by hand: in the Free Trial, paying, payment failed while Stripe retries, or ended. It decides whether the church's texts go out and whether its pages are read-only; `docs/product-rules.md`, *The Billing States*, holds what each state allows. Participants are never told it.
+_Avoid_: Status (a Roster word), Locked
+
+**Free Trial**:
+The free days every Subscription starts with, a card or bank account having been taken up front, during which nothing is charged. A church gets one: restarting an ended Subscription starts paying at once. Its length depends on the Offer, and the numbers live where the Subscription is created.
+_Avoid_: Trial account, Demo (the Demo is the tour)
+
+**Billed Outside Stripe**:
+An operator flag on a church whose use is billed by agreement rather than by a Subscription, such as a church James comps. It counts as paying for every purpose: the church texts and its pages are writable. Only an operator sets it.
+_Avoid_: Free plan, Comped as a model term
+
+**Offer**:
+A saving a church is given on its Subscription: the Exponential Special Offer, a Referred Church's first paid month, or a Church Plant Year. Offers do not combine, except that a Church Plant Year and the Exponential Special Offer follow one another; every Offer ends with its Subscription. Each is shown to the church as what it saves, never as a code or a second price. The terms of each are in `docs/product-rules.md`, *Prices and Offers*.
+_Avoid_: Coupon, discount, founding church rate
+
+**Exponential Special Offer**:
+The Offer for churches met at the Exponential conference, applied by the code `EXPO26` or the booth's QR link, which opens Sign-Up with it already applied. It is never called a coupon or a founding church rate.
+
+**Referral Link**:
+A church's one link for inviting another church, `trydiscipler.com/r/<code>`, whose code is random and never the church's name. Getting a new one retires the old code at once. A church that signs up through it is a Referred Church, and is never named to the church that invited it.
+_Avoid_: Slug, invite code, affiliate link
+
+**Referral Credit**:
+The month free a church earns when a church it invited pays its first real bill. It waits before it is applied and is taken back if that payment is refunded or disputed; where the two churches look like one, it goes to James for review instead. It shows on the inviting church's Billing page, which is the only thing one church learns about another through a referral.
+_Avoid_: Reward, commission, bounty
+
+**Church Plant Year**:
+The Offer of a free year for a church plant, after its Free Trial, once James or Lerone approves the church's application by operator command. The application is asked on Sign-Up and emailed to them; nothing in an email can approve it.
+_Avoid_: Plant discount, grant
 
 **Intake Link**:
 The link an Admin hands one Person so they can reopen their own intake form, prefilled, and correct what it says. It is the only route by which a Participant's availability changes: there is no participant dashboard and no SMS path for it. The Admin is shown the link and passes it on themselves — Discipler never texts it, because the commonest reason to reopen somebody's intake is that the number on file is wrong. Possession of it is the authentication, as with an Invitation Link, and it expires after a fixed window. One live link per person: asking for it again gives back the one they hold, and a new one is minted only once that has run out. It is never consumed — correcting a number today and availability next week is the thing it exists for.
@@ -262,7 +305,7 @@ The short SMS conversation Discipler opens when an inbound keyword needs somethi
 _Avoid_: Menu, prompt (as model terms). "Prompt" is doubly unhelpful here: it is a model term, and where it does appear in the schema it names an Outstanding Reply, which is a different thing.
 
 **Silence Gap**:
-Thirty rolling days since Discipler last sent a person a message, measured per person per ministry. It is the trigger for the compliance identification prefix and for re-sending opt-out language to a participant.
+Thirty rolling days since Discipler last sent a person a message, measured per person per ministry. It was the trigger for the compliance identification prefix and for re-sending opt-out language to a participant. Nothing keys off it any more: the Message Frame names Discipler on every text, and the Rates Line keeps its own monthly rule.
 
 **Check-In Sequence**:
 The single conversation in which a leader answers for every relationship they lead, one after another, in one thread on one day. Relationships are asked about earliest-started first, and the shape of the conversation is fixed when it opens. It advances on a reply, or when a question it asked has been reminded once and still gone unanswered; at most one runs against a leader at a time. A relationship awaiting leader acceptance or paused is not covered by it and accrues no silence.
@@ -275,7 +318,7 @@ _Avoid_: Retry, error message
 A person-level status describing whether someone is being discipled, independent of how any one relationship is doing. One of: No Intake Submitted, Ready to Pair, Paired, Opted Out. Paired means holding at least one open participant membership; leading a relationship never sets it.
 
 **Consent Record**:
-The timestamped, versioned record of what a person agreed to at intake. Discipler shares a phone number only where the consent record permits it.
+The timestamped, versioned record of what a person agreed to at intake. Discipler shares a phone number only where the consent record permits it. One other kind exists: an Admin's own consent at Sign-Up, with the source `ministry_setup`, which lets Discipler text that Admin the codes and Test Check-Ins it names and is never an Intake.
 
 **Swap**:
 A request to be released from a specific discipleship relationship and matched with somebody different. Either side may make one: a leader asking for a different participant, or a participant asking for a different leader — the recorded request says which side asked, because an admin acts differently on each. From a relationship the leader has not yet accepted, it reads as a decline. A swap is a recorded request awaiting admin action. It is never itself a change of relationship state, and the relationship remains intact until an admin resolves it.
@@ -316,4 +359,54 @@ The ISO week in the Ministry Timezone. Defined independently of the Check-In Cad
 The nouns a Ministry uses for the two roles in a relationship, carried into every message that names a role. Wording a Ministry owns, in the same way it owns its Discipleship Goal options; the structure of a message is not. ADR-0015 records the two rules the wording has to obey — the word sits in noun position and names the reader's own role — and why a word a Ministry typed can be neither conjugated nor pluralised on its behalf.
 
 **Sending Name**:
-The name a Ministry's messages read as, distinct from both the display name an Admin sees on their own screens and the number the messages are sent from. Unset means *speak as the display name*.
+The name a Ministry's messages read as, distinct from both the display name an Admin sees on their own screens and the Discipler Number the messages are sent from. Unset means *speak as the display name*. Settings calls it *Messages read as*, and every text starts with it followed by "via Discipler", so a church run by one person can text as that person.
+_Avoid_: From name in prose (it is the column, `from_name`), and sender (that is the Discipler Number)
+
+**Discipler Number**:
+One of the shared set of phone numbers Discipler owns and sends every church's texts from. Each Person, in each Ministry, is given one the first time that Ministry texts them and always hears from it; a Person in two Ministries hears from a different one for each, so a reply or a `STOP` reaches the right Ministry. A number belongs to Discipler and never to a Ministry. See `docs/adr/0033-a-shared-set-of-discipler-numbers.md`.
+_Avoid_: The church's number, sending number (no Ministry has one any more)
+
+**Message Frame**:
+The part of every text Discipler always writes: the "{Sending Name} via Discipler:" start, the reply choices, and the rates and opt-out lines. No church may change it, as a permanent rule, because every church's texts go out under Discipler's carrier registration. See `docs/adr/0034-discipler-writes-the-frame-of-every-text.md`.
+_Avoid_: Template, footer, prefix alone (the frame is all three parts)
+
+**Check-In Wording**:
+A Ministry's own sentences for its check-in, written in Settings' *What the check-in says*: the question, how it went, after a concern, and the thank-you, each inside the Message Frame. "[name]" in one stands for whoever the check-in is about, and a blank one is Discipler's words. A text already sent keeps the words it went out with. No other text is a Ministry's to reword. The length limit is in the command boundary.
+_Avoid_: Custom message, free text (a Ministry cannot send words outside the frame), Ministry Language (that is the two nouns)
+
+**Test Check-In**:
+A real check-in an Admin sends to their own phone, and only theirs, to see what their Leaders get. It walks the same steps in the Ministry's Check-In Wording, has its own record and state machine, is counted nowhere, and gives way to a real check-in on the same phone. How many a day and when an unanswered one ends are decided where it is built. See `docs/adr/0031-the-test-check-in-texts-an-admin.md`.
+_Avoid_: Sample text, preview (a preview is drawn on a screen; this is texted), and counting it as a Meeting Response
+
+**Onboarding**:
+What each Admin is shown on their first sign-in: James's welcome video, then three cards, the Tour, the Test Check-In and the team's office hours, with a checklist of what happens next. Restart onboarding in the Help menu opens it again, at the cards.
+_Avoid_: Sign-Up (that comes before it), Setup (that is the Setup Meter's)
+
+**Tour**:
+The full-screen product demo of Example Ministry inside Onboarding, labelled DEMO, which nothing on can be clicked. Only its Done counts it as taken.
+_Avoid_: Tutorial as a model term (it is the setup step's word), slideshow
+
+**Setup Meter**:
+The bar titled "Jumpstart discipleship" under the tabs on every Admin page until setup is done, counting the Setup Steps a church has taken and pointing at the next. It belongs to the church, is shared by its Admins, never goes down, and ends with one badge per Admin. It awards nothing else: no points, no streak, no ranking. The steps are listed in `docs/pastor-dashboard.md`.
+_Avoid_: Points, score, gamification (it is a checklist that ends), and Progress for anything a relationship does
+
+**Setup Step**:
+One of the things a new church does for real that the Setup Meter counts, from confirming the check-in time to its first relationship being accepted. It ticks itself when the thing happens, from the church's history, and never by an Admin ticking it. Nothing about ratings, meetings or Follow-Up is one.
+
+**Unpaired Pop-Up**:
+The card in the bottom-right of Overview, on the first visit of each sign-in and each day, saying how many people are waiting to be paired or to be sent an Intake link, with a button to each. It leaves out Admins and anyone opted out.
+_Avoid_: Notification, alert (it is a count with two ways onward, and records nothing)
+
+**Ask Discipler**:
+The AI guide in the bottom-right corner of every Admin page, which answers questions about using Discipler from the Help Center and from nothing else. It never sees a Ministry's data, has no tools, and ends each answer with the help page it came from. Each Admin's chats are theirs alone and are deleted after a while; the limits and the retention live where it is built. See `docs/adr/0032-the-ai-guide-answers-from-the-help-docs-only.md`.
+_Avoid_: Chatbot, assistant that knows the church, and AI as a source of recommendations about people
+
+**Help Center**:
+The help docs, written in the repo and served at `/help`. It is what Ask Discipler answers from and links to, and what search lists under Help.
+
+**What's New**:
+Short notes about changes to Discipler, read from a file in the repo and shown as a card on Overview, which each Admin dismisses for themselves.
+_Avoid_: Changelog, announcements, a feed
+
+**Office Hours**:
+The team's regular Zoom call for Admins, set in a file in the repo and shown as a card on Overview and in Onboarding until its date has passed.
