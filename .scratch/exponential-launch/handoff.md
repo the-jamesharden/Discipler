@@ -3,7 +3,8 @@
 Written 2026-10-30 when the first session's context filled up; updated 2026-10-31 when mock-up 5, the last, was finished, and again when 26 to 33 and 40 were triaged.
 The grilling is finished and James confirmed shared understanding.
 All five Lavish mock-ups are done (James, 2026-10-31), and every decision from them is in the spec.
-Nothing is committed or built yet; Stripe and Resend are provisioned (see Blocked on James).
+Stripe and Resend are provisioned (see Blocked on James).
+On 2026-10-31 eleven tickets were built by parallel agents and merged into `launch/exponential` (see "Built so far").
 
 ## Read first
 
@@ -59,6 +60,21 @@ How mock-ups are made, per James's standing preferences (see memory `mock-up-bef
 - To capture a signed-in page: `npx next dev -p 3100`, `npm run seed` (prints the demo Admins as JSON), then `node .lavish/tools/cookie-proxy.mjs 3100 3199 <adminPhone> <ACCOUNT_PASSWORD from tests/support/local-supabase.ts>`, and fetch or shoot `http://127.0.0.1:3199/<path>`.
   Headless Chrome screenshots work well; for phone width, frame the page in a 390px iframe (`.lavish/signup-checkout/_phone.html#<file>`).
 - Check every artifact on a plain `python3 -m http.server` before handing over the Lavish link, and give James the static URL as a fallback.
+
+## Built so far
+
+Tickets 01, 02, 06, 09, 10, 12, 13, 29, 34, 35 and 36 are built and merged on the branch `launch/exponential`, in the worktree `~/Downloads/discipler-worktrees/launch`, cut from `origin/main`.
+That branch, not the main checkout's untracked copy, holds the current `.scratch/exponential-launch`.
+Each ticket's `## Comments` records what was built and every decision made on a gap.
+Their status stays `ready-for-agent` until the branch is merged to main, when they become `shipped`.
+Nothing is pushed: the branch is local, and James pushes the migrations.
+
+- Migrations to review before the push: `20261101060000_the_shared_numbers.sql` (06, with a data step that keeps every existing phone on its number), 09's phone checks, `20261101120000` (12 and 13), `20261101200000` (34, reserves "help") and `20261101230000` (29, redefines `overview_page`).
+- New environment variables: `TWILIO_VERIFY_SERVICE_SID`, `DISCIPLER_ENVIRONMENT`, `MESSAGE_TRANSPORT`, `STAGING_SMS_SIGNING_SECRET`, `STAGING_EMAIL_RECIPIENT`.
+- Operator-only tables added: `phone_check`, `phone_check_code`, `sign_in_attempt`, `shared_number`, `shared_number_capacity_alert`.
+- Texts must keep naming their number as Twilio's `From`: sending by the Messaging Service's SID would make one `STOP` silence every church (ADR-0033).
+
+Next: triage 15 to 25 (23 first), rewrite 04, 18 and 19, then build the next wave in the same way, one worktree per ticket merged into `launch/exponential`.
 
 ## Blocked on James
 
