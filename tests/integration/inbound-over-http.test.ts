@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createTestClock } from '~/domain/clock'
 import { personId, type PersonId } from '~/domain/ids'
 import { createPostgresEffectStore } from '~/platform/supabase/effect-store'
+import { createPostgresOutboundQueue } from '~/platform/supabase/outbound-queue'
 import { createCommandService } from '~/service/command-service'
 import { twilioSignature } from '~/platform/twilio/inbound-signature'
 import { baseUrl, skipUnlessAppIsRunning, twilioAuthToken } from '../support/app'
@@ -247,6 +248,36 @@ describe.skipIf(skipUnlessAppIsRunning)('the inbound webhook', () => {
       [hannah.id],
     )
     expect(rows).toEqual([{ relationship_id: group }])
+  })
+
+  it('places a STOP from a phone in two churches with the church whose number it was sent to', async () => {
+    // Exponential launch, ticket 06: every church texts from the shared numbers,
+    // and a phone in two churches hears from a different number for each. Twilio's
+    // `To` is what says which church a reply is for.
+    const other = await createMinistryWithAdmin('Northgate Fellowship')
+    const phone = aNumber()
+    const here = personId(await addPerson(ministry, 'Leah Moss', { phone }))
+    const there = personId(await addPerson(other, 'Leah Moss', { phone }))
+
+    const queue = createPostgresOutboundQueue(localSupabase().databaseUrl)
+    try {
+      await queue.sendingNumberFor(ministry.id, phone, new Date())
+      const northgateNumber = await queue.sendingNumberFor(other.id, phone, new Date())
+      if (!northgateNumber) throw new Error('Northgate has no number to text from')
+
+      const form = { From: phone, To: northgateNumber, Body: 'STOP' }
+      const response = await posts(form, twilioSignature(signingToken(), webhook, form))
+      expect(response.status).toBe(200)
+
+      const { rows } = await pool.query<{ person_id: string }>(
+        `select person_id from person_opt_out
+          where person_id = any($1::uuid[]) and ended_at is null`,
+        [[here, there]],
+      )
+      expect(rows).toEqual([{ person_id: there }])
+    } finally {
+      await queue.close()
+    }
   })
 
   it('acknowledges a number nobody on any Roster holds, rather than failing', async () => {

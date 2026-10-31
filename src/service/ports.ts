@@ -849,10 +849,11 @@ export interface Accounts {
  * question that cannot be answered inside a Ministry-scoped unit of work, because
  * a text message arrives with a phone number and no session, no URL and no token.
  *
- * A number held by more than one Person resolves to nobody rather than to a
- * guess: filing one congregant's answer against another's relationship is worse
- * than not reading the message. Ticket 26 is what makes a shared number
- * resolvable.
+ * A number held by more than one Person in the church it texted resolves to nobody
+ * rather than to a guess: filing one congregant's answer against another's
+ * relationship is worse than not reading the message. A number held in two churches
+ * is placed by the shared number it texted, since each church texts it from its own
+ * (Exponential launch, ticket 06).
  */
 export interface InboundSender {
   readonly ministryId: MinistryId
@@ -860,7 +861,12 @@ export interface InboundSender {
 }
 
 export interface InboundReader {
-  resolveSender(fromPhone: string): Promise<InboundSender | null>
+  /**
+   * `toNumber` is the shared number the text was sent to, Twilio's `To`. A phone in
+   * one church resolves without it; a phone in two is placed with the church that
+   * texts it from that number, and with nobody when there is none.
+   */
+  resolveSender(fromPhone: string, toNumber: string | null): Promise<InboundSender | null>
 }
 
 export interface EffectStore {
@@ -1493,14 +1499,17 @@ export interface OutboundQueue {
   /** Everything enqueued for this Ministry and neither sent nor withheld. */
   due(ministryId: MinistryId): Promise<readonly QueuedMessage[]>
   /**
-   * The number this Ministry sends from, or null where none is provisioned yet.
+   * The shared number this Ministry texts `toPhone` from: the one the pair was
+   * given, or, the first time, one given now and kept (Exponential launch, ticket
+   * 06). Null when every shared number is already this phone's for another church,
+   * which leaves the message on the queue until a number is added.
    *
-   * Read here rather than taken from configuration because sending identity is a
-   * property of the Ministry: a number in the environment is one congregation's
-   * people receiving texts from another's the first time a second Ministry is
-   * onboarded, and by then it is a migration against live message history.
+   * Read here rather than taken from configuration because a number in the
+   * environment would be every church texting every person from one number, so
+   * that a `STOP` to one church silenced all of them. `at` is when the pair is first
+   * texted, on the drain's clock.
    */
-  sendingNumber(ministryId: MinistryId): Promise<string | null>
+  sendingNumberFor(ministryId: MinistryId, toPhone: string, at: Date): Promise<string | null>
   /** Whether this Person may be sent to *right now*, not when they were queued. */
   mayReceive(ministryId: MinistryId, personId: PersonId): Promise<WithholdingReason | null>
   /** The details to disclose, or null where the Person has not agreed to share. */
@@ -1550,10 +1559,10 @@ export interface OutboundQueue {
 /** Twilio lives behind this and nowhere else. It is not a domain concept. */
 export interface MessageTransport {
   /**
-   * `from` is passed rather than held, because one transport serves every Ministry
-   * and each of them sends as itself. A transport that closed over a number would
-   * make the identity a property of the deployment, which is the thing the spec
-   * rules out.
+   * `from` is passed rather than held, and sent as Twilio's `From` rather than left
+   * to a Messaging Service to pick: which shared number a person hears from is
+   * decided per (phone, church) in the database, and a vendor's own pick would be
+   * one number per phone for every church, so one `STOP` would silence all of them.
    *
    * Throws when the vendor refuses. The row stays neither sent nor withheld, so the
    * next drain picks it up again -- see `dispatchQueue`, which keeps one refusal
@@ -1900,7 +1909,6 @@ export interface MinistrySetup {
    */
   issue(link: {
     readonly ministryName: string
-    readonly sendingNumber: string
     readonly adminPhone: string
   }): Promise<NewMinistrySetup>
   /**

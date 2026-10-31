@@ -18,6 +18,7 @@ import { provisionMinistry } from '../src/platform/supabase/provisioning'
 import {
   ACCOUNT_PASSWORD,
   aTestPhoneNumber,
+  addASharedNumber,
   addPerson,
   publishSupabaseCredentials,
 } from '../tests/support/local-supabase'
@@ -35,12 +36,16 @@ const seed = async (name: string, adminName: string) => {
   // the same stack was refused for `account.already_exists`.
   const provisioned = await provisionMinistry({
     name,
-    sendingNumber: aTestPhoneNumber(),
     timezone: 'America/New_York',
     admin: { fullName: adminName, phone: aTestPhoneNumber(), password: ACCOUNT_PASSWORD },
   })
 
-  return { name, adminName, adminPassword: ACCOUNT_PASSWORD, ...provisioned }
+  // A number in the shared set for each, so a drain on this stack has something to
+  // send from: every church sends from the shared numbers (Exponential launch,
+  // ticket 06), and a fresh stack has none.
+  const sharedNumber = await addASharedNumber()
+
+  return { name, adminName, adminPassword: ACCOUNT_PASSWORD, sharedNumber, ...provisioned }
 }
 
 const riverside = await seed('Riverside Chapel', 'Grace Adeyemi')

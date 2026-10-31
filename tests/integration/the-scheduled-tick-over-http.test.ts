@@ -109,20 +109,20 @@ describe.skipIf(skipUnlessAppIsRunning)('the scheduled tick, as the scheduler ru
     expect(Number.isInteger(outcome.settled.waiting)).toBe(true)
   })
 
-  it('reports a Ministry with no number as unprovisioned rather than failing the run', { timeout: enoughForEveryMinistry }, async () => {
+  it('sends a new church’s first texts from the shared numbers, with no operator step', { timeout: enoughForEveryMinistry }, async () => {
     // Not skipped when absent. This route is the only caller the clock has, and a
     // suite that quietly passed without exercising it would hide the one proof that
     // the scheduler can drive Discipler at all.
     if (!secret) throw new Error('CRON_SECRET is not set, so this cannot be exercised')
 
-    const unprovisioned = await createMinistryWithAdmin('Cron Unprovisioned')
-    await pool.query(`update ministry set sending_number = null where id = $1`, [
-      unprovisioned.id,
-    ])
+    // Exponential launch, ticket 06: a church opened today has no number of its own
+    // and needs none. Before, this was `no_sending_number` until an operator bought
+    // it one.
+    const opened = await createMinistryWithAdmin('Cron Shared Numbers')
 
     const { rows: goals } = await pool.query(
       `select id from discipleship_goal where ministry_id = $1 order by position limit 1`,
-      [unprovisioned.id],
+      [opened.id],
     )
     const service = createCommandService({
       clock,
@@ -130,12 +130,13 @@ describe.skipIf(skipUnlessAppIsRunning)('the scheduled tick, as the scheduler ru
       store,
       appBaseUrl: baseUrl,
     })
+    const typed = `5554${String(Date.now() % 1_000_000).padStart(6, '0')}`
     await service.execute({
       type: 'intake.submit',
-      ministryId: unprovisioned.id,
+      ministryId: opened.id,
       form: {
-        fullName: 'Unprovisioned Person',
-        phone: `5554${String(Date.now() % 1_000_000).padStart(6, '0')}`,
+        fullName: 'First Person Texted',
+        phone: typed,
         email: null,
         ageBand: '25-34',
         gender: 'female',
@@ -155,26 +156,27 @@ describe.skipIf(skipUnlessAppIsRunning)('the scheduled tick, as the scheduler ru
 
     const { status, body } = await tick(`Bearer ${secret}`)
     const outcome = JSON.parse(body) as {
+      awaitingANumber: number
+      capacity: readonly string[] | 'failed'
       errors: { ministryId: string; error: string }[]
     }
 
-    // 200 even so. The scheduler retries a non-2xx, and retrying the whole run to
-    // recover one Ministry would re-drain every other one.
     expect(status).toBe(200)
-    expect(outcome.errors).toContainEqual({
-      ministryId: unprovisioned.id,
-      error: 'no_sending_number',
-    })
+    expect(outcome.errors.filter((one) => one.ministryId === opened.id)).toEqual([])
+    expect(Number.isInteger(outcome.awaitingANumber)).toBe(true)
+    // The capacity watch ran once on the pass, whatever it found.
+    expect(outcome.capacity).not.toBe('failed')
 
-    // And it is still owed: nothing was written off on the way past.
-    const { rows } = await pool.query(
-      `select sent_at, withheld_at from outbound_message where ministry_id = $1`,
-      [unprovisioned.id],
+    // The Welcome went to a number from the shared set, given to this pair on its
+    // first text and kept. Whether Twilio then took it is the transport's business,
+    // and locally it has no account to take it with.
+    const { rows } = await pool.query<{ sending_number: string }>(
+      `select a.sending_number
+         from sending_number_assignment a
+         join shared_number s on s.phone = a.sending_number
+        where a.ministry_id = $1 and a.phone = $2`,
+      [opened.id, `+1${typed}`],
     )
-    expect(rows.length).toBeGreaterThan(0)
-    for (const row of rows) {
-      expect(row.sent_at).toBeNull()
-      expect(row.withheld_at).toBeNull()
-    }
+    expect(rows).toHaveLength(1)
   })
 })

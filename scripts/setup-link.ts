@@ -15,17 +15,18 @@
  *
  *   DATABASE_URL=... NEXT_PUBLIC_APP_URL=https://... \
  *     npx vite-node -c vitest.config.ts scripts/setup-link.ts \
- *       "Anthem Church" "+15551234567" "+15557654321"
+ *       "Anthem Church" "+15557654321"
  *
- * The second argument is the number the Ministry sends from; the third is the
- * phone its Admin will sign in with. Minting again for the same Admin phone
+ * The second argument is the phone its Admin will sign in with. There is no number
+ * to name: the Ministry sends from Discipler's shared numbers (Exponential launch,
+ * ticket 06). Minting again for the same Admin phone
  * replaces the link that is out there, which is the only way one is taken back.
  */
 
-const [ministryName, sendingNumber, adminPhone] = process.argv.slice(2)
+const [ministryName, adminPhone] = process.argv.slice(2)
 
-if (!ministryName || !sendingNumber || !adminPhone) {
-  console.error('Usage: setup-link.ts <ministry name> <sending number> <admin phone>')
+if (!ministryName || !adminPhone) {
+  console.error('Usage: setup-link.ts <ministry name> <admin phone>')
   process.exit(2)
 }
 
@@ -39,13 +40,12 @@ const [{ createSupabaseMinistrySetup }, { appBaseUrl, commandDatabaseUrl }] = aw
 const setup = createSupabaseMinistrySetup(commandDatabaseUrl())
 
 try {
-  const link = await setup.issue({ ministryName, sendingNumber, adminPhone })
+  const link = await setup.issue({ ministryName, adminPhone })
 
   console.log(
     JSON.stringify(
       {
         ministry: link.ministryName,
-        sendsFrom: link.sendingNumber,
         adminSignsInWith: link.adminPhone,
         link: `${appBaseUrl()}/setup/${link.token}`,
         expiresAt: link.expiresAt.toISOString(),

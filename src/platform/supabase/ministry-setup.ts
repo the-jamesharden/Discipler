@@ -50,15 +50,13 @@ export const createSupabaseMinistrySetup = (
   const pool = new pg.Pool({ connectionString })
 
   return {
-    async issue({ ministryName, sendingNumber, adminPhone }): Promise<NewMinistrySetup> {
-      // Both numbers read the way provisioning will read them a fortnight from
-      // now, and refused here if they cannot be -- so a link is never minted for a
-      // Ministry the submit would then refuse to open.
+    async issue({ ministryName, adminPhone }): Promise<NewMinistrySetup> {
+      // The phone read the way provisioning will read it a fortnight from now, and
+      // refused here if it cannot be -- so a link is never minted for a Ministry the
+      // submit would then refuse to open. No sending number: the Ministry sends
+      // from the shared set (Exponential launch, ticket 06).
       const name = ministryName.trim()
       if (!name) throw new MinistrySetupNotIssued('the Ministry needs a name')
-
-      const sender = asPhoneNumber(sendingNumber)
-      if (!sender) throw new MinistrySetupNotIssued(`unreadable sending number: ${sendingNumber}`)
 
       const phone = asPhoneNumber(adminPhone)
       if (!phone) throw new MinistrySetupNotIssued(`unreadable admin phone: ${adminPhone}`)
@@ -66,7 +64,6 @@ export const createSupabaseMinistrySetup = (
       const link = issueMinistrySetup({
         token: ministrySetupToken(token()),
         ministryName: name,
-        sendingNumber: sender,
         adminPhone: phone,
         at: now(),
       })
@@ -88,20 +85,21 @@ export const createSupabaseMinistrySetup = (
         }
 
         // Minting again for the same phone replaces the live link rather than
-        // leaving two. The name and the sending number are replaced with it: the
-        // newest mint is the operator's current intention, typo corrections
-        // included.
+        // leaving two. The name is replaced with it: the newest mint is the
+        // operator's current intention, typo corrections included. A live link
+        // minted before the shared numbers named a number; minting again clears it,
+        // since the Ministry it opens will not send from it.
         await client.query(
           `insert into ministry_setup
-             (token, ministry_name, sending_number, admin_phone, created_at, expires_at)
-           values ($1, $2, $3, $4, $5, $6)
+             (token, ministry_name, admin_phone, created_at, expires_at)
+           values ($1, $2, $3, $4, $5)
            on conflict (admin_phone) where consumed_at is null do update
              set token = excluded.token,
                  ministry_name = excluded.ministry_name,
-                 sending_number = excluded.sending_number,
+                 sending_number = null,
                  created_at = excluded.created_at,
                  expires_at = excluded.expires_at`,
-          [link.token, link.ministryName, link.sendingNumber, link.adminPhone, link.createdAt, link.expiresAt],
+          [link.token, link.ministryName, link.adminPhone, link.createdAt, link.expiresAt],
         )
       } finally {
         client.release()
@@ -143,12 +141,11 @@ export const createSupabaseMinistrySetup = (
 
       const { rows } = await pool.query<{
         ministry_name: string
-        sending_number: string
         admin_phone: string
         expires_at: Date
         consumed_at: Date | null
       }>(
-        `select ministry_name, sending_number, admin_phone, expires_at, consumed_at
+        `select ministry_name, admin_phone, expires_at, consumed_at
            from ministry_setup where token = $1`,
         [candidate],
       )
@@ -172,7 +169,6 @@ export const createSupabaseMinistrySetup = (
       try {
         const provisioned = await provisionMinistry({
           name: row.ministry_name,
-          sendingNumber: row.sending_number,
           timezone: admin.timezone,
           // The number on the link, never one that was typed. The page displays it
           // and offers nowhere to type one, so a forwarded link cannot open a

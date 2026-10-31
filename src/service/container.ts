@@ -42,8 +42,14 @@ import { createTwilioTransport } from '~/platform/twilio/message-transport'
 import { supabaseAccounts } from '~/platform/supabase/accounts'
 import { createSupabaseRosterReader } from '~/platform/supabase/roster-reader'
 import { createSupabaseSuggestedPairsReader } from '~/platform/supabase/suggested-pairs-reader'
+import {
+  createPostgresSharedNumbers,
+  type PostgresSharedNumbers,
+} from '~/platform/supabase/shared-numbers'
+import type { CapacityConcern } from '~/domain/shared-numbers'
 import { createCommandService, type CommandService } from './command-service'
-import { dispatchQueue, NoSendingNumber, type DispatchOutcome } from './outbound-dispatch'
+import { dispatchQueue, type DispatchOutcome } from './outbound-dispatch'
+import { watchSharedNumberCapacity } from './shared-number-capacity'
 import type {
   Accounts,
   CareNeededReader,
@@ -63,7 +69,9 @@ import type {
   OutboundQueue,
   OverviewReader,
   RosterReader,
+  SharedNumberCapacity,
   SuggestedPairsReader,
+  SupportAlerts,
   UnitOfWork,
 } from './ports'
 
@@ -115,6 +123,7 @@ let inboundReader: PostgresInboundReader | undefined
 let outboundQueue: PostgresOutboundQueue | undefined
 let ministryDirectory: PostgresMinistryDirectory | undefined
 let messageTransport: MessageTransport | undefined
+let sharedNumbers: PostgresSharedNumbers | undefined
 
 export const getCommandService = (): CommandService => {
   if (!commandService) {
@@ -193,10 +202,6 @@ const sendWhatWasQueued = async (ministryId: MinistryId): Promise<void> => {
   try {
     await drainOutboundQueue(ministryId)
   } catch (error) {
-    // A Ministry nobody has bought a number for yet is set up and not sending, the
-    // state the scheduler names rather than logs.
-    if (error instanceof NoSendingNumber) return
-
     console.error(`Could not send what was queued in ministry ${ministryId}`, error)
   }
 }
@@ -303,6 +308,43 @@ export const drainOutboundQueue = (ministryId: MinistryId): Promise<DispatchOutc
   })
 
 /**
+ * The shared set of Discipler numbers, read across every church for the capacity
+ * watch. On the trusted connection, as the Setup Link is, because the set belongs
+ * to no church.
+ */
+export const getSharedNumbers = (): SharedNumberCapacity => {
+  if (!sharedNumbers) sharedNumbers = createPostgresSharedNumbers(commandDatabaseUrl())
+  return sharedNumbers
+}
+
+/**
+ * What support@ is told about. **Logged, not yet emailed:** the email sender is
+ * Exponential launch ticket 10, built beside this one, and this is where its
+ * `SupportAlerts` goes when the two are merged. A log line on Vercel is what an
+ * alert is until then, written so it is found by searching for `support@`.
+ */
+const loggedSupportAlerts: SupportAlerts = {
+  async sharedNumbersNearCapacity({ concern, load }) {
+    console.error(
+      `support@: the shared numbers are near capacity (${concern}): ` +
+        `${load.numbers} numbers carry ${load.recipients} recipients, ` +
+        `and one phone is in ${load.mostChurchesOnOnePhone} churches. Buy a number, ` +
+        'add it to discipler-sms, then run scripts/shared-number.ts.',
+    )
+  },
+}
+
+export const getSupportAlerts = (): SupportAlerts => loggedSupportAlerts
+
+/** One pass of the capacity watch, assembled so its callers cannot assemble it differently. */
+export const watchTheSharedNumbers = (): Promise<readonly CapacityConcern[]> =>
+  watchSharedNumberCapacity({
+    numbers: getSharedNumbers(),
+    alerts: getSupportAlerts(),
+    clock: systemClock,
+  })
+
+/**
  * Settles the pairings an import planned for one Ministry, and never fails the
  * page that called it. Three routes call this after a Person's own act -- an
  * Intake submission through any of the three forms -- and one after an import;
@@ -349,6 +391,7 @@ export const closeCommandService = async (): Promise<void> => {
   const inbound = inboundReader
   const queue = outboundQueue
   const directory = ministryDirectory
+  const shared = sharedNumbers
   commandService = undefined
   commandStore = undefined
   intakeReader = undefined
@@ -356,6 +399,7 @@ export const closeCommandService = async (): Promise<void> => {
   inboundReader = undefined
   outboundQueue = undefined
   ministryDirectory = undefined
+  sharedNumbers = undefined
   // The transport holds no pool -- it is `fetch` and a pair of credentials -- so
   // there is nothing of its to close, only the reference to drop.
   messageTransport = undefined
@@ -365,6 +409,7 @@ export const closeCommandService = async (): Promise<void> => {
   await inbound?.close()
   await queue?.close()
   await directory?.close()
+  await shared?.close()
 }
 
 export const getRosterReader = (): RosterReader => createSupabaseRosterReader(systemClock)

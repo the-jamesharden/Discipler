@@ -131,7 +131,6 @@ describe('provisioning a Ministry and its first Admin', () => {
 
     const provisioned = await provisionMinistry({
       name: 'As Typed Chapel',
-      sendingNumber: aTestPhoneNumber(),
       timezone: 'America/New_York',
       admin: { fullName: 'Typed It Out', phone: typed, password: 'a-long-enough-password' },
     })
@@ -153,7 +152,6 @@ describe('provisioning a Ministry and its first Admin', () => {
     await expect(
       provisionMinistry({
         name: 'Unreadable Fellowship',
-        sendingNumber: aTestPhoneNumber(),
         timezone: 'America/New_York',
         admin: { fullName: 'Not A Number', phone: 'ring me', password: 'a-long-enough-password' },
       }),
@@ -165,56 +163,21 @@ describe('provisioning a Ministry and its first Admin', () => {
     expect(rows).toHaveLength(0)
   })
 
-  it('refuses a sending number it cannot read, before there is an account to take back', async () => {
-    // The Ministry's own number is load-bearing too, and `ministry_sending_number_is_e164`
-    // would have caught it -- two statements later, inside the transaction and after
-    // the mint, so an operator's typo came back as a constraint's complaint and cost
-    // an account a compensating discard had to remove. Both numbers are read up
-    // front, so this refusal creates nothing at all.
-    const adminPhone = aTestPhoneNumber()
-
-    await expect(
-      provisionMinistry({
-        name: 'No Sender Fellowship',
-        sendingNumber: 'the church office line',
-        timezone: 'America/New_York',
-        admin: { fullName: 'Unsent', phone: adminPhone, password: 'a-long-enough-password' },
-      }),
-    ).rejects.toThrow(/unreadable sending number/)
-
-    const { rows } = await pool.query(`select id from ministry where name = $1`, [
-      'No Sender Fellowship',
-    ])
-    expect(rows).toHaveLength(0)
-
-    // And no account either, which shows in the one place it would: the Admin's
-    // number is still free. A mint that had happened would refuse this as taken.
+  it('provisions no number: a Ministry sends from the shared numbers the moment it opens', async () => {
+    // Exponential launch, ticket 06. The column an operator once had to fill is gone,
+    // so a church can text its first person with no operator step at all.
     const provisioned = await provisionMinistry({
-      name: 'No Sender Fellowship, Second Attempt',
-      sendingNumber: aTestPhoneNumber(),
+      name: 'Shared Sender Chapel',
       timezone: 'America/New_York',
-      admin: { fullName: 'Unsent', phone: adminPhone, password: 'a-long-enough-password' },
-    })
-    expect(provisioned.adminPhone).toBe(adminPhone)
-  })
-
-  it('stores the sending number as it read it, not as it was handed one', async () => {
-    const typed = aTestPhoneNumber().replace(/^\+1(\d{3})(\d{3})(\d{4})$/, '($1) $2-$3')
-
-    const provisioned = await provisionMinistry({
-      name: 'Typed Sender Chapel',
-      sendingNumber: typed,
-      timezone: 'America/New_York',
-      admin: { fullName: 'Sender Typed', phone: aTestPhoneNumber(), password: 'a-long-enough-password' },
+      admin: { fullName: 'Sender Shared', phone: aTestPhoneNumber(), password: 'a-long-enough-password' },
     })
 
-    expect(provisioned.sendingNumber).toMatch(/^\+1\d{10}$/)
-
-    const { rows } = await pool.query<{ sending_number: string }>(
-      `select sending_number from ministry where id = $1`,
-      [provisioned.ministryId],
+    const { rows } = await pool.query<{ column_name: string }>(
+      `select column_name from information_schema.columns
+        where table_schema = 'public' and table_name = 'ministry' and column_name = 'sending_number'`,
     )
-    expect(rows[0]?.sending_number).toBe(provisioned.sendingNumber)
+    expect(rows).toEqual([])
+    expect(provisioned).not.toHaveProperty('sendingNumber')
   })
 
   it('refuses a number that already signs somebody in, rather than splitting them in two', async () => {
@@ -223,7 +186,6 @@ describe('provisioning a Ministry and its first Admin', () => {
     await expect(
       provisionMinistry({
         name: 'Somebody Else Entirely',
-        sendingNumber: aTestPhoneNumber(),
         timezone: 'America/New_York',
         admin: {
           fullName: 'Same Number',
@@ -258,7 +220,6 @@ describe('provisioning a Ministry and its first Admin', () => {
     await expect(
       provisionMinistry({
         name,
-        sendingNumber: aTestPhoneNumber(),
         timezone: 'America/New_York',
         admin: { fullName: '   ', phone, password: 'a-long-enough-password' },
       }),
@@ -272,7 +233,6 @@ describe('provisioning a Ministry and its first Admin', () => {
     // leaving it to be reconciled.
     const retry = await provisionMinistry({
       name,
-      sendingNumber: aTestPhoneNumber(),
       timezone: 'America/New_York',
       admin: { fullName: 'Named This Time', phone, password: 'a-long-enough-password' },
     })
@@ -283,7 +243,6 @@ describe('provisioning a Ministry and its first Admin', () => {
   it('opens the Ministry on the timezone it is handed, never on a default', async () => {
     const provisioned = await provisionMinistry({
       name: 'Clocked Chapel',
-      sendingNumber: aTestPhoneNumber(),
       timezone: 'America/Chicago',
       admin: { fullName: 'Clock Keeper', phone: aTestPhoneNumber(), password: 'a-long-enough-password' },
     })
@@ -304,7 +263,6 @@ describe('provisioning a Ministry and its first Admin', () => {
     await expect(
       provisionMinistry({
         name,
-        sendingNumber: aTestPhoneNumber(),
         timezone: 'CEST',
         admin: { fullName: 'No Clock', phone: adminPhone, password: 'a-long-enough-password' },
       }),
@@ -316,7 +274,6 @@ describe('provisioning a Ministry and its first Admin', () => {
     // No account either: the number is still free to open a Ministry with.
     const provisioned = await provisionMinistry({
       name: `${name}, Second Attempt`,
-      sendingNumber: aTestPhoneNumber(),
       timezone: 'America/New_York',
       admin: { fullName: 'No Clock', phone: adminPhone, password: 'a-long-enough-password' },
     })
@@ -327,7 +284,6 @@ describe('provisioning a Ministry and its first Admin', () => {
     await expect(
       provisionMinistry({
         name: 'Shortpass Fellowship',
-        sendingNumber: aTestPhoneNumber(),
         timezone: 'America/New_York',
         admin: { fullName: 'Too Short', phone: aTestPhoneNumber(), password: 'short' },
       }),
