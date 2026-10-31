@@ -195,6 +195,42 @@ describe.skipIf(skipUnlessAppIsRunning)('a Leader opening their Invitation Link'
     expect(rows[0].user_id).toBeNull()
   })
 
+  it('refuses a common password, and creates nothing (Exponential launch, ticket 12)', async () => {
+    const david = await roster('David Commonpass')
+    const emily = await roster('Emily Commonpass')
+    await pair([david], [emily])
+    const token = await tokenFor(david)
+
+    const { location } = await post(`/invitation/${token}/accept`, {
+      fullName: 'David Commonpass',
+      password: 'password1',
+    })
+
+    expect(location).toContain('error=account.password_too_common')
+
+    const { rows } = await pool.query(
+      `select consumed_at, (select user_id from person where id = $2) as user_id
+         from invitation where token = $1`,
+      [token, david],
+    )
+    expect(rows[0].consumed_at).toBeNull()
+    expect(rows[0].user_id).toBeNull()
+  })
+
+  it('refuses a password longer than Supabase Auth can hold in words, not with a 500', async () => {
+    const david = await roster('David Longpass')
+    const emily = await roster('Emily Longpass')
+    await pair([david], [emily])
+    const token = await tokenFor(david)
+
+    const { location } = await post(`/invitation/${token}/accept`, {
+      fullName: 'David Longpass',
+      password: 'k'.repeat(100),
+    })
+
+    expect(location).toContain('error=account.password_too_long')
+  })
+
   it('raises an item on "not my number" and changes nothing at all', async () => {
     const david = await roster('David Disputes')
     const emily = await roster('Emily Disputes')

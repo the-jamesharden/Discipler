@@ -772,6 +772,37 @@ export interface UnitOfWork {
 }
 
 /**
+ * Whose account a sign-in is trying, as far as the guessing limit is concerned.
+ * The number typed at the sign-in form, or the account of the session whose
+ * current password is being checked at a change of password.
+ */
+export type SignInAccount = { readonly phone: string } | { readonly userId: string }
+
+/**
+ * One try at a password, reserved before Supabase Auth is asked. It stays counted
+ * as a failure unless the caller says otherwise -- so a try whose request died
+ * half-way counts against the guesser, not for them.
+ */
+export interface SignInAttempt {
+  /** The password was right, or Supabase never answered: this was not a wrong guess. */
+  notAFailure(): Promise<void>
+}
+
+/**
+ * The sign-in guessing limit (Exponential launch, ticket 13; Q34): ten failed
+ * sign-ins per account and per network in fifteen minutes, from
+ * `src/domain/sign-in-limit.ts`.
+ *
+ * One method that counts and reserves together, rather than a check beside a
+ * record, so that simultaneous guesses cannot all read a count of nine. Null is
+ * *held back*: the caller refuses without asking Supabase Auth anything, and says
+ * the same thing whether or not the account exists.
+ */
+export interface SignInLimit {
+  attempt(account: SignInAccount, network: string | null): Promise<SignInAttempt | null>
+}
+
+/**
  * Minting the account somebody signs in with. It is the one thing the application
  * needs from the outside world that creates a user rather than reading or writing
  * a row, which is why it is a port of its own rather than part of the unit of work:
@@ -817,8 +848,9 @@ export interface Accounts {
    *
    * It takes no refusals. Whether this account may be reset at all is decided
    * before anything reaches here -- on the Roster, against the acting Admin's own
-   * Ministry -- and the password is one Discipler generated, so there is no rule
-   * left for the adapter to enforce and nothing an Admin could act on if it did.
+   * Ministry -- and the password is one Discipler generated, so there is nothing
+   * an Admin could act on. A password the rule refuses is thrown on, as a caller
+   * that skipped the rule, rather than set.
    */
   setPassword(userId: string, password: string): Promise<void>
   /**
@@ -835,10 +867,11 @@ export interface Accounts {
    *
    * The current password is checked against the account's own phone, which the
    * adapter reads from the account and never from a caller -- a form carries no
-   * number. A wrong one is a refusal and touches nothing. Too short is refused at
-   * this edge for the reason `create` refuses it, so a caller that forgot the form
-   * rule cannot set what the invitation form would have refused; whether the two
-   * new passwords matched is the form's question alone and never reaches here.
+   * number. A wrong one is a refusal and touches nothing. The password rule
+   * (`newPasswordRefusal`) is applied at this edge for the reason `create` applies
+   * it, so a caller that forgot the form rule cannot set what the invitation form
+   * would have refused; whether the two new passwords matched is the form's
+   * question alone and never reaches here.
    */
   changePassword(
     userId: string,
@@ -846,7 +879,12 @@ export interface Accounts {
     newPassword: string,
   ): Promise<
     | { readonly changed: true }
-    | { readonly refusal: Exclude<PasswordChangeRefusal, 'account.passwords_differ'> }
+    | {
+        readonly refusal: Exclude<
+          PasswordChangeRefusal,
+          'account.passwords_differ' | 'account.too_many_attempts'
+        >
+      }
   >
 }
 

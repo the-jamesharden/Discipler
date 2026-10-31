@@ -131,6 +131,17 @@ describe.skipIf(skipUnlessAppIsRunning)('a pastor opening their Ministry Setup L
     expect(html).toContain('name="password"')
   })
 
+  it('refuses a common password on the page, and the link stays live (Exponential launch, ticket 12)', async () => {
+    const link = await aLink('Commonpass Chapel')
+
+    const { location } = await post(link.token, { fullName: 'Too Common', password: 'Password1', timezone: 'America/Chicago' })
+    expect(location).toContain('error=account.password_too_common')
+
+    const { html } = await open(`${link.token}${new URL(location).search}`)
+    expect(html).toContain('one of the most common')
+    expect(html).toContain('name="password"')
+  })
+
   it('refuses a Ministry with no timezone chosen, and the link stays live', async () => {
     const link = await aLink('Clockless Chapel')
 

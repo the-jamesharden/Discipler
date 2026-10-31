@@ -2,7 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { passwordChangeRefusals } from '~/domain/accounts'
 import { currentUser } from '~/platform/supabase/current-user'
 import { createSupabaseServerClient } from '~/platform/supabase/server-client'
-import { getAccounts } from '~/service/container'
+import { getAccounts, getSignInLimit } from '~/service/container'
+import { networkOf } from '../../auth/network'
 
 /**
  * The change itself, behind the one form. An ordinary form POST like sign-in and
@@ -49,10 +50,33 @@ export async function POST(request: NextRequest) {
   const refused = passwordChangeRefusals(newPassword, typed(form, 'newPasswordAgain'))
   if (refused.length > 0) return back(request, refused)
 
+  // The current password is checked by a sign-in, so it is held to the sign-in
+  // guessing limit (Exponential launch, ticket 13): ten wrong ones per account and
+  // per network in fifteen minutes, and then the platform is not asked. Without it
+  // a borrowed unlocked phone could guess at Supabase's pace, which on Vercel is
+  // the pace of every user put together. Reserved only now, once the form's own
+  // rules have passed, so a form refused for its shape is not a guess.
+  const attempt = await getSignInLimit().attempt(
+    { userId: user.userId },
+    networkOf(request.headers),
+  )
+  if (!attempt) return back(request, ['account.too_many_attempts'])
+
   // The account is the session's own, and only its own. The number the current
   // password is checked against is read from that account inside the port; the
   // form carries none.
-  const outcome = await getAccounts().changePassword(user.userId, currentPassword, newPassword)
+  const outcome = await getAccounts()
+    .changePassword(user.userId, currentPassword, newPassword)
+    .catch(async (thrown: unknown) => {
+      // A fault, not a wrong password: nothing was guessed.
+      await attempt.notAFailure()
+      throw thrown
+    })
+
+  // Only a wrong current password is a guess; a change that went through is not.
+  if (!('refusal' in outcome) || outcome.refusal !== 'account.current_password_wrong') {
+    await attempt.notAFailure()
+  }
   if ('refusal' in outcome) return back(request, [outcome.refusal])
 
   // Every session on the account has ended, this one with them. What is left is a

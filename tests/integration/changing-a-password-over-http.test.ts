@@ -11,7 +11,7 @@ import {
   type AccountFixture,
   type MinistryFixture,
 } from '../support/local-supabase'
-import { baseUrl, getPage, signIn, signInAs, skipUnlessAppIsRunning } from '../support/app'
+import { aNetwork, baseUrl, getPage, signIn, signInAs, skipUnlessAppIsRunning } from '../support/app'
 
 /**
  * A person changing their own password, the way they do it: from a link beside
@@ -52,7 +52,11 @@ describe.skipIf(skipUnlessAppIsRunning)('changing your own password over HTTP', 
     const response = await fetch(`${baseUrl}/account/change`, {
       method: 'POST',
       redirect: 'manual',
-      headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' },
+      headers: {
+        cookie,
+        'content-type': 'application/x-www-form-urlencoded',
+        'x-forwarded-for': aNetwork(),
+      },
       body: new URLSearchParams(body),
     })
     const location = response.headers.get('location') ?? ''
@@ -219,6 +223,21 @@ describe.skipIf(skipUnlessAppIsRunning)('changing your own password over HTTP', 
 
     expect((await getPage('/account', cookie)).response.status).toBe(200)
     expect((await signInAttempt(leader.phone, leader.password)).error).toBeNull()
+  })
+
+  it('refuses a common new password, and the old one still works (Exponential launch, ticket 12)', async () => {
+    const { leader, cookie } = await aSignedInLeader('Nadia Common')
+
+    const { query } = await change(cookie, leader.password, 'password1', 'password1')
+
+    expect(query.get('error')).toBe('account.password_too_common')
+
+    const { html } = await getPage(`/account?${query}`, cookie)
+    expect(html).toContain('one of the most common')
+
+    expect((await getPage('/account', cookie)).response.status).toBe(200)
+    expect((await signInAttempt(leader.phone, leader.password)).error).toBeNull()
+    expect((await signInAttempt(leader.phone, 'password1')).error).not.toBeNull()
   })
 
   it('checks the current password against the session’s own account, never a number on the form', async () => {

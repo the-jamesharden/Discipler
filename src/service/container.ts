@@ -46,6 +46,7 @@ import {
   type PostgresPhoneChecks,
 } from '~/platform/supabase/phone-checks'
 import { supabaseAccounts } from '~/platform/supabase/accounts'
+import { createPostgresSignInLimit, type PostgresSignInLimit } from '~/platform/supabase/sign-in-limit'
 import { createSupabaseRosterReader } from '~/platform/supabase/roster-reader'
 import { createSupabaseSuggestedPairsReader } from '~/platform/supabase/suggested-pairs-reader'
 import { createCommandService, type CommandService } from './command-service'
@@ -72,6 +73,7 @@ import type {
   OutboundQueue,
   OverviewReader,
   RosterReader,
+  SignInLimit,
   SuggestedPairsReader,
   UnitOfWork,
 } from './ports'
@@ -120,6 +122,7 @@ let commandStore: PostgresEffectStore | undefined
 let intakeReader: PostgresIntakeReader | undefined
 let invitationReader: PostgresInvitationReader | undefined
 let ministrySetup: SupabaseMinistrySetup | undefined
+let signInLimit: PostgresSignInLimit | undefined
 let inboundReader: PostgresInboundReader | undefined
 let outboundQueue: PostgresOutboundQueue | undefined
 let ministryDirectory: PostgresMinistryDirectory | undefined
@@ -259,6 +262,16 @@ export const getMaterialPageReader = (): MaterialPageReader => {
 export const getMinistrySetup = (): MinistrySetup => {
   if (!ministrySetup) ministrySetup = createSupabaseMinistrySetup(commandDatabaseUrl())
   return ministrySetup
+}
+
+/**
+ * The sign-in guessing limit counts on the trusted connection, because a sign-in
+ * has no session yet and its table belongs to no Ministry (Exponential launch,
+ * ticket 13).
+ */
+export const getSignInLimit = (): SignInLimit => {
+  if (!signInLimit) signInLimit = createPostgresSignInLimit(commandDatabaseUrl(), systemClock)
+  return signInLimit
 }
 
 /**

@@ -4,9 +4,24 @@
  * stranger puts in `?error=` can appear inside the app's own error styling -- and
  * so the copy is changed in one place rather than at each redirect.
  */
+import { SIGN_IN_WINDOW_MINUTES } from '~/domain/sign-in-limit'
 import { isRefusalIn } from '../refusals'
 
-export type SignInFailure = 'missing-credentials' | 'unreadable-phone' | 'no-such-account'
+export type SignInFailure =
+  | 'missing-credentials'
+  | 'unreadable-phone'
+  | 'no-such-account'
+  | 'too-many-attempts'
+
+/**
+ * The sign-in guessing limit's one sentence, shared with the change-your-password
+ * form, which is held to the same limit (Exponential launch, ticket 13).
+ *
+ * The same whether or not the account exists, because the limit is reached the
+ * same way for both. It names the longest wait there can be: the window rolls, so
+ * a try opens up as soon as the oldest of the ten failures is fifteen minutes old.
+ */
+export const TOO_MANY_ATTEMPTS = `Too many tries. Wait ${SIGN_IN_WINDOW_MINUTES} minutes, then try again.`
 
 const messages: Record<SignInFailure, string> = {
   'missing-credentials': 'Enter your phone number and password.',
@@ -20,6 +35,7 @@ const messages: Record<SignInFailure, string> = {
   // Deliberately vague: a precise message would tell an outsider which phone
   // numbers belong to a Ministry.
   'no-such-account': 'That phone number and password did not match.',
+  'too-many-attempts': TOO_MANY_ATTEMPTS,
 }
 
 /**

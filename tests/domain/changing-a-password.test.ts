@@ -11,8 +11,9 @@ import { passwordChangeRefusals, SHORTEST_PASSWORD } from '~/domain/accounts'
  * platform holds, and the port answers it alone once the form is well-formed.
  */
 
-const long = 'a'.repeat(SHORTEST_PASSWORD)
-const short = 'a'.repeat(SHORTEST_PASSWORD - 1)
+// Not `'a'.repeat(8)`: that one is on the list of common passwords.
+const long = 'tq7-wxzv'
+const short = long.slice(0, SHORTEST_PASSWORD - 1)
 
 describe('the rules on a new password', () => {
   it('accepts a long enough password typed the same twice', () => {
@@ -36,7 +37,13 @@ describe('the rules on a new password', () => {
     ])
   })
 
-  it('places no rule on the new password beyond its length', () => {
+  it('refuses a common password, by the rule every password is held to', () => {
+    expect(passwordChangeRefusals('password1', 'password1')).toEqual([
+      'account.password_too_common',
+    ])
+  })
+
+  it('places no rule on the new password beyond that one', () => {
     // Re-setting the same password is harmless and still ends every session, which
     // is the outcome that matters -- so nothing here asks for it to be different.
     expect(passwordChangeRefusals('correct-horse-battery-staple', 'correct-horse-battery-staple')).toEqual([])

@@ -1,4 +1,9 @@
-import type { AccountCreationRefusal } from '~/domain/accounts'
+import {
+  LONGEST_PASSWORD_BYTES,
+  SHORTEST_PASSWORD,
+  type AccountCreationRefusal,
+  type NewPasswordRefusal,
+} from '~/domain/accounts'
 import type { InvitationRefusal } from '~/domain/errors'
 import { asList } from '~/domain/outbound-copy'
 
@@ -15,11 +20,20 @@ import { asList } from '~/domain/outbound-copy'
 type Problem = InvitationRefusal | AccountCreationRefusal
 
 /**
- * The one sentence for the one length rule. Exported because the change-your-
- * password surface applies the same rule at the same length, and two wordings of
- * it would eventually disagree about the number.
+ * The sentences for the one password rule, `newPasswordRefusal`. Exported because
+ * the Ministry Setup Link and the change-your-password surface apply the same rule,
+ * and two wordings of it would eventually disagree about the numbers -- which are
+ * read from the constants for the same reason.
+ *
+ * The ceiling is counted in bytes and said in characters. They are the same number
+ * for anything typed on an English keyboard, and nobody reaches it by typing.
  */
-export const PASSWORD_TOO_SHORT = 'Choose a password of at least 8 characters.'
+export const PASSWORD_REFUSALS: Record<NewPasswordRefusal, string> = {
+  'account.password_too_short': `Choose a password of at least ${SHORTEST_PASSWORD} characters.`,
+  'account.password_too_long': `Choose a password of no more than ${LONGEST_PASSWORD_BYTES} characters.`,
+  'account.password_too_common':
+    'That password is one of the most common, so it is easy to guess. Choose another.',
+}
 
 const PROBLEMS: Record<Problem, string> = {
   'invitation.not_found':
@@ -31,7 +45,7 @@ const PROBLEMS: Record<Problem, string> = {
   'invitation.not_a_leader': 'This link isn’t yours to accept.',
   'invitation.declined':
     'You declined this invitation, so this link doesn’t open it any more. If you’ve changed your mind, let whoever invited you know.',
-  'account.password_too_short': PASSWORD_TOO_SHORT,
+  ...PASSWORD_REFUSALS,
   'account.no_number_on_file':
     'We don’t have a phone number for you, so there’s nothing to sign you in with. Let whoever invited you know.',
   'account.already_exists':

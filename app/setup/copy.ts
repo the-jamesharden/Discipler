@@ -1,6 +1,6 @@
 import type { AccountCreationRefusal } from '~/domain/accounts'
 import type { MinistrySetupRefusal } from '~/domain/errors'
-import { PASSWORD_TOO_SHORT } from '../invitation/copy'
+import { PASSWORD_REFUSALS } from '../invitation/copy'
 import { refusalIn } from '../refusals'
 
 /**
@@ -22,7 +22,7 @@ const PROBLEMS: Record<Problem, string> = {
     'Your ministry is already set up with this link. Sign in with your phone number and password.',
   'setup.timezone_unknown':
     'Choose the timezone your ministry is in. Every check-in goes out at your chosen hour on that clock.',
-  'account.password_too_short': PASSWORD_TOO_SHORT,
+  ...PASSWORD_REFUSALS,
   'account.no_number_on_file':
     'This link carries no phone number, so there’s nothing to sign you in with. Ask whoever set this up for you to send a new one.',
   'account.already_exists':
