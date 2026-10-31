@@ -15,6 +15,7 @@ James decided it in the grilling (Q66), and the start of every text in the mock-
 - A number belongs to Discipler, not to a church.
 - Each person, in each church, is given one Discipler number the first time that church texts them, and always hears from it.
 - A person in two churches hears from a different Discipler number for each, so their replies never mix and a `STOP` to one church leaves the other running.
+  That holds only because each text is sent with its number as Twilio's `From`, never by the Messaging Service's SID: Twilio scopes a `STOP` to the number it was sent to when a text names its sender, and to every number in the service when the service picks one.
 - A reply is matched by the sender's phone, as before; when that phone is in more than one church, the number it was sent to decides which.
 - Every text starts "{Messages read as} via Discipler:", for example "Riverside Chapel via Discipler: Did you meet with Jordan this week? Reply 1 for yes, 2 for no."
   Messages read as is the church's existing Sending Name setting: the church's name unless an Admin changes it.

@@ -46,6 +46,5 @@
 
 ## Comments
 
-- From building tickets 02 and 09 (2026-10-31): staging records every text instead of sending it, but Verify sends from Twilio's own senders, so nothing stands in for it there yet.
-  `src/platform/twilio/phone-verifier.ts` talks to Verify directly, and the container picks it with no regard for the deployment.
-  This ticket gives the phone verifier a recording stand-in on staging, picked the way `MESSAGE_TRANSPORT` picks the message transport, so a test check-in can be walked through on staging without a real code reaching a real phone.
+- From building tickets 02 and 09 (2026-10-31): Verify sends from Twilio's own senders, outside the message transport, so ticket 02 also gives it a recording stand-in (`src/platform/recording-verifier.ts`), picked by the same `messageTransportKind`.
+  On staging the code is written to the log and is always `000000`, so a test check-in can be walked through there with no real code reaching a real phone.

@@ -149,3 +149,9 @@ Every value below goes on the `staging` environment only, never on Production or
 2. Send a test text in, `STAGING_URL=https://staging.trydiscipler.com STAGING_SMS_SIGNING_SECRET=... VERCEL_AUTOMATION_BYPASS_SECRET=... npm run staging:text -- "<phone>" "HELP"`, where the phone is one on a staging Roster that has completed Intake, expect `200`, and find `Text recorded, not sent` with the reply in the staging logs.
    A number staging does not hold also gets `200`, and no reply, as on production.
 3. Once tickets 15 to 18 are merged and deployed to staging: sign up, pay with `4242 4242 4242 4242`, see the church trialing, and see nothing new in production's Stripe live mode or database.
+
+### Verify's stand-in (2026-10-31, after the merge with ticket 09)
+
+- `src/platform/recording-verifier.ts` writes a Verify code to the log instead of texting it, and the container picks it wherever `messageTransportKind` is `record`, so staging and a developer's `MESSAGE_TRANSPORT=record` never put a real code on a real phone.
+- The code it accepts is always `000000`: the instance that checks a code is not the one that sent it, so it cannot remember one it made up.
+  Production cannot reach it, because `deploymentRefusals` refuses a production deployment set to record.

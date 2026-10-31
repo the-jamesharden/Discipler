@@ -40,6 +40,7 @@ import { createSupabaseMaterialsReader } from '~/platform/supabase/materials-rea
 import { createSupabaseOverviewReader } from '~/platform/supabase/overview-reader'
 import { messageTransportKind } from '~/platform/deployment'
 import { createRecordingTransport } from '~/platform/recording-transport'
+import { createRecordingVerifier } from '~/platform/recording-verifier'
 import { createTwilioTransport } from '~/platform/twilio/message-transport'
 import { createResendTransport } from '~/platform/resend/email-transport'
 import { createTwilioVerifier } from '~/platform/twilio/phone-verifier'
@@ -345,14 +346,18 @@ export const getEmailSender = (): EmailSender => {
  * Checking an Admin's own phone with a Twilio Verify code (Exponential launch,
  * ticket 09). Its records belong to an account and to no Ministry, so they are
  * kept on the trusted connection; Verify texts from Twilio's own senders, so
- * nothing here passes through the outbound queue or its drain.
+ * nothing here passes through the outbound queue or its drain. Wherever texts are
+ * recorded rather than sent, so is the code (Exponential launch, ticket 02).
  */
 export const getPhoneCheck = (): PhoneCheck => {
   if (!phoneCheck) {
     phoneChecks = createPostgresPhoneChecks(commandDatabaseUrl())
     phoneCheck = createPhoneCheck({
       checks: phoneChecks,
-      verifier: createTwilioVerifier(),
+      verifier:
+        messageTransportKind(process.env) === 'record'
+          ? createRecordingVerifier()
+          : createTwilioVerifier(),
       clock: systemClock,
     })
   }
