@@ -26,6 +26,7 @@ import { flagsFor } from './flags'
 import { GrowthChart } from './growth'
 import { growthChoiceFrom, overviewAddress } from './growth-address'
 import { cardPill, needOf } from './need'
+import { WaitingOnYouCard } from './waiting-on-you-card'
 
 export const dynamic = 'force-dynamic'
 
@@ -54,6 +55,9 @@ export const dynamic = 'force-dynamic'
  * (Pastor feedback, ticket 05): what it counts and whether by weeks or months
  * is in the address as well, at `?growth=` and `?by=`, and moves nothing else
  * on the page. A card opened and closed keeps it.
+ *
+ * At the bottom right, the unpaired pop-up (Exponential launch, ticket 29):
+ * who is waiting on the Admin, once a sign-in and once a day.
  */
 
 export default async function OverviewPage({
@@ -76,7 +80,7 @@ export default async function OverviewPage({
   if (page.status === 'signed-out') redirect('/login')
 
   const { admin } = page
-  const { overview, care, card, growth } = page.page
+  const { overview, care, card, growth, waiting } = page.page
 
   // Opening the card reads its Concerns, and records the reading as *Read the
   // concern* does. After the read and never instead of it.
@@ -249,6 +253,8 @@ export default async function OverviewPage({
           notice={notice}
         />
       ) : null}
+
+      {waiting ? <WaitingOnYouCard waiting={waiting} /> : null}
     </AdminShell>
   )
 }

@@ -68,3 +68,19 @@ export const Mail = () => (
     <path d="m22 6-10 7L2 6" />
   </Line>
 )
+
+/** Two people, beside who is waiting on the Admin. */
+export const People = () => (
+  <Line>
+    <circle cx="9" cy="8" r="3.5" />
+    <path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6" />
+    <path d="M16 4.5a3.5 3.5 0 010 7M18 14.3c2.1.7 3.5 2.8 3.5 5.7" />
+  </Line>
+)
+
+/** A cross, on a button that puts something away. */
+export const Cross = () => (
+  <Line>
+    <path d="M6 6l12 12M18 6L6 18" />
+  </Line>
+)
