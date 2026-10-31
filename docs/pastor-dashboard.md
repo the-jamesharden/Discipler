@@ -62,6 +62,13 @@ Above the line are the number now and the change across the chart, such as *+13 
 The dropdown is a menu of links and the toggle two links, so both work without script, and what is picked is in the address (`?growth=` and `?by=`).
 Like the donuts it is drawn on the server, with no chart library.
 
+In the bottom-right corner, a card headed **Waiting on you** tells the pastor who is waiting on them.
+It counts the people who are Ready to Pair and in no relationship on either side, and the people who have not submitted an Intake, leaving out Admins, anyone opted out and anyone removed from the Roster.
+It has a line for each count above zero and a button for each: **Pair them** opens Suggested Pairs, and **Send Intake links** opens the Roster ticked to *Awaiting Intake*.
+It shows only when either count is above zero, and only on the first Overview visit of each sign-in and of each new day in the Ministry Timezone.
+Closing it, moving to another tab, or reloading the Overview puts it away until the next sign-in or the next day; opening a relationship's card on the Overview does not.
+Which sign-in and day it was last shown in is kept by the browser, so nothing is recorded for it.
+
 ## Check-Ins
 
 The Check-Ins tab is the week's raw operational picture.
