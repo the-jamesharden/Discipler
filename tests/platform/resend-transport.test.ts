@@ -150,6 +150,20 @@ describe('handing an email to Resend', () => {
   })
 })
 
+describe('handing an email to Resend on staging', () => {
+  it('sends every email to the one staging address, whoever it was for', async () => {
+    const fetched = respondWith(200, { id: 'email-1' })
+    const staging = createResendTransport(() => ({
+      ...credentials,
+      stagingRecipient: 'staging-inbox@trydiscipler.com',
+    }))
+
+    await staging.deliver(envelope)
+
+    expect(sent(fetched).body.to).toEqual(['staging-inbox@trydiscipler.com'])
+  })
+})
+
 describe('the credentials', () => {
   afterEach(() => vi.unstubAllEnvs())
 
@@ -175,5 +189,45 @@ describe('the credentials', () => {
     vi.stubEnv('RESEND_EMAIL_DOMAIN', 'notify.trydiscipler.com>\r\nBcc: x@y.example')
 
     expect(() => resendCredentials()).toThrow('RESEND_EMAIL_DOMAIN is not a domain')
+  })
+
+  it('on staging, name the one address every email goes to', () => {
+    vi.stubEnv('DISCIPLER_ENVIRONMENT', 'staging')
+    vi.stubEnv('RESEND_API_KEY', 're_staging_key')
+    vi.stubEnv('RESEND_EMAIL_DOMAIN', 'notify.trydiscipler.com')
+    vi.stubEnv('STAGING_EMAIL_RECIPIENT', 'Staging-Inbox@TryDiscipler.com')
+
+    expect(resendCredentials()).toEqual({
+      apiKey: 're_staging_key',
+      sendingDomain: 'notify.trydiscipler.com',
+      stagingRecipient: 'staging-inbox@trydiscipler.com',
+    })
+  })
+
+  it('on staging, refuse to send without that address, so no real Admin is emailed', () => {
+    vi.stubEnv('DISCIPLER_ENVIRONMENT', 'staging')
+    vi.stubEnv('RESEND_API_KEY', 're_staging_key')
+    vi.stubEnv('RESEND_EMAIL_DOMAIN', 'notify.trydiscipler.com')
+    vi.stubEnv('STAGING_EMAIL_RECIPIENT', '')
+
+    expect(() => resendCredentials()).toThrow('STAGING_EMAIL_RECIPIENT is not set')
+  })
+
+  it('on staging, refuse an address that is not one', () => {
+    vi.stubEnv('DISCIPLER_ENVIRONMENT', 'staging')
+    vi.stubEnv('RESEND_API_KEY', 're_staging_key')
+    vi.stubEnv('RESEND_EMAIL_DOMAIN', 'notify.trydiscipler.com')
+    vi.stubEnv('STAGING_EMAIL_RECIPIENT', 'nobody')
+
+    expect(() => resendCredentials()).toThrow('STAGING_EMAIL_RECIPIENT is not an email address')
+  })
+
+  it('ignore the staging address everywhere but staging', () => {
+    vi.stubEnv('DISCIPLER_ENVIRONMENT', '')
+    vi.stubEnv('RESEND_API_KEY', 're_live_key')
+    vi.stubEnv('RESEND_EMAIL_DOMAIN', 'notify.trydiscipler.com')
+    vi.stubEnv('STAGING_EMAIL_RECIPIENT', 'staging-inbox@trydiscipler.com')
+
+    expect(resendCredentials().stagingRecipient).toBeUndefined()
   })
 })

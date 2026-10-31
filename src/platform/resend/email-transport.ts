@@ -12,7 +12,8 @@ import { resendCredentials, type ResendCredentials } from './credentials'
  * **Plain text only.** There is no HTML part, so nothing an email carries can be
  * read as markup, and an email client shows exactly the characters the domain
  * escaped. Where the email goes, its reply-to and its key were all decided when
- * the envelope was opened; this file adds the From address and nothing else.
+ * the envelope was opened; this file adds the From address, and on staging sends
+ * it to the one staging address instead (see `credentials.ts`).
  *
  * Nothing here logs an email's subject or text: a sign-up code is in one.
  */
@@ -55,7 +56,7 @@ export const createResendTransport = (
       throw new UnescapedEmailField('Only an envelope openEnvelope made can be sent.')
     }
 
-    const { apiKey, sendingDomain } = credentials()
+    const { apiKey, sendingDomain, stagingRecipient } = credentials()
 
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -66,7 +67,7 @@ export const createResendTransport = (
       },
       body: JSON.stringify({
         from: `${EMAIL_FROM_NAME} <${EMAIL_FROM_MAILBOX}@${sendingDomain}>`,
-        to: envelope.to,
+        to: stagingRecipient ? [stagingRecipient] : envelope.to,
         reply_to: envelope.replyTo,
         subject: envelope.subject,
         text: envelope.text,
