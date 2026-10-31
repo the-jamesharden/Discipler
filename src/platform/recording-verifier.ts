@@ -11,8 +11,9 @@ import type { PhoneVerifier } from '~/service/ports'
  *
  * The code it accepts is a constant rather than one it made up and remembered:
  * a serverless instance that checks the code is not the one that sent it, and
- * nothing but staging and a developer's machine can choose this verifier, since
- * `deploymentRefusals` refuses a production deployment set to record.
+ * nothing that reaches production's database can choose this verifier, since
+ * `deploymentRefusals` refuses `record` on production and on any deployment, such
+ * as Preview, whose environment reaches production's Supabase project.
  */
 
 export const RECORDED_PHONE_CODE = '000000' as PhoneCode

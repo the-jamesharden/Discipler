@@ -120,6 +120,7 @@ Every value below goes on the `staging` environment only, never on Production or
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | the staging widget's site key (step 5) |
 | `TURNSTILE_SECRET_KEY` | the staging widget's secret key |
 | `RESEND_API_KEY` | the staging Resend key (step 6) |
+| `RESEND_EMAIL_DOMAIN` | `notify.trydiscipler.com`, the domain the key sends from |
 | `STAGING_EMAIL_RECIPIENT` | the one address every staging email goes to, yours |
 
    No `TWILIO_*` variable at all: staging refuses to build with one.
@@ -141,7 +142,7 @@ Every value below goes on the `staging` environment only, never on Production or
 **6. Resend: a staging key**
 
 1. Resend, API Keys, Create: named "staging", Sending access, restricted to `notify.trydiscipler.com`.
-2. Put it in `RESEND_API_KEY` on staging only, and your own address in `STAGING_EMAIL_RECIPIENT`.
+2. Put it in `RESEND_API_KEY` on staging only, `notify.trydiscipler.com` in `RESEND_EMAIL_DOMAIN`, and your own address in `STAGING_EMAIL_RECIPIENT`.
 
 **7. Check it**
 

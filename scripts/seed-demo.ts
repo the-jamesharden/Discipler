@@ -58,8 +58,9 @@ const seed = async (name: string, adminName: string) => {
 
   // A number in the shared set for each, so a drain on this stack has something to
   // send from: every church sends from the shared numbers (Exponential launch,
-  // ticket 06), and a fresh stack has none.
-  const sharedNumber = await addASharedNumber()
+  // ticket 06), and a fresh stack has none. On the database the seed was pointed
+  // at, which on staging is not the local stack.
+  const sharedNumber = await addASharedNumber(process.env.DATABASE_URL)
 
   return { name, adminName, adminPassword: ACCOUNT_PASSWORD, sharedNumber, ...provisioned }
 }

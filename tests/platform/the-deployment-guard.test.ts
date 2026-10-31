@@ -182,6 +182,25 @@ describe('a production deployment', () => {
   })
 })
 
+describe('a Preview deployment', () => {
+  // Preview is neither production nor staging, and it runs on production's database.
+  const preview = {
+    VERCEL_ENV: 'preview',
+    VERCEL_TARGET_ENV: 'preview',
+    DATABASE_URL: `postgresql://postgres:pw@db.${productionRef}.supabase.co:5432/postgres`,
+  }
+
+  it('runs on its own environment', () => {
+    expect(deploymentRefusals(preview)).toEqual([])
+  })
+
+  it('refuses to record texts while it reaches production, where a recorded Verify code would mark a real Admin’s phone checked', () => {
+    expect(deploymentRefusals({ ...preview, MESSAGE_TRANSPORT: 'record' })).toEqual([
+      expect.stringContaining('MESSAGE_TRANSPORT'),
+    ])
+  })
+})
+
 describe('any deployment', () => {
   it('runs with nothing set, as a developer’s machine does', () => {
     expect(deploymentRefusals({})).toEqual([])

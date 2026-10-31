@@ -265,9 +265,14 @@ export const createMinistryWithAdmin = async (
  * grow with the churches would run out for `+15553330001` a few runs in. One more
  * per church keeps a number free for every phone, as the real set is kept by
  * adding a number when volume needs one. Returns the number added.
+ *
+ * `databaseUrl` is the local stack's unless a caller names another, as the demo
+ * seed does for staging.
  */
-export const addASharedNumber = async (): Promise<string> => {
-  const client = new pg.Client({ connectionString: localSupabase().databaseUrl })
+export const addASharedNumber = async (
+  databaseUrl: string = localSupabase().databaseUrl,
+): Promise<string> => {
+  const client = new pg.Client({ connectionString: databaseUrl })
   await client.connect()
   try {
     const number = aTestPhoneNumber()

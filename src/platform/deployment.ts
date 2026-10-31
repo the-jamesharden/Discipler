@@ -104,6 +104,12 @@ export const deploymentRefusals = (env: Environment): string[] => {
     refusals.push(
       'MESSAGE_TRANSPORT is "record" on production, which would drop every text without a word.',
     )
+  } else if (deployment !== 'staging' && transport === 'record' && reachesProduction(env)) {
+    // Preview runs on production's database: recording there would mark real texts
+    // sent and let the recorded Verify code check a real Admin's phone.
+    refusals.push(
+      'MESSAGE_TRANSPORT is "record" on a deployment that reaches production\'s Supabase project, whose texts and phone checks are real.',
+    )
   }
 
   if (deployment === 'staging') refusals.push(...stagingRefusals(env))
@@ -147,6 +153,9 @@ const stagingRefusals = (env: Environment): string[] => {
 
   return refusals
 }
+
+const reachesProduction = (env: Environment): boolean =>
+  Object.values(env).some((value) => typeof value === 'string' && reachesProductionSupabase(value))
 
 /**
  * Whether a value reaches the production project: by its ref in plain text (an API
