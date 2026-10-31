@@ -27,6 +27,7 @@ import type {
 } from '~/domain/boundary'
 import type { CheckInSnapshot, Satisfaction } from '~/domain/check-in'
 import type { CheckInCounts } from '~/domain/overview'
+import type { CapacityConcern, SharedNumberLoad } from '~/domain/shared-numbers'
 import type { GrowthChoice, GrowthSeries } from '~/domain/growth'
 import type { IsoWeek } from '~/domain/week'
 import type { ConcernResolution, ConcernViewing, NewConcern } from '~/domain/concerns'
@@ -1559,6 +1560,38 @@ export interface MessageTransport {
    * from taking the rest of the queue down with it.
    */
   deliver(from: string, to: string, body: string): Promise<void>
+}
+
+/**
+ * The shared set of Discipler numbers, as the capacity watch reads it (Exponential
+ * launch, ticket 06). Across every church, because the set is shared by all of them;
+ * it holds nothing about any one church and returns counts only.
+ */
+export interface SharedNumberCapacity {
+  load(): Promise<SharedNumberLoad>
+  /**
+   * Whether support@ has already been told about this concern while the set held
+   * this many numbers. Keyed by the size so that adding a number re-arms it: the
+   * bigger set filling up is news, the same set staying full is not.
+   */
+  alreadyRaised(concern: CapacityConcern, numbers: number): Promise<boolean>
+  /** Kept as history, with the load it was raised on. */
+  recordRaised(concern: CapacityConcern, at: Date, load: SharedNumberLoad): Promise<void>
+}
+
+/**
+ * What support@ is told about. One method per alert, so a message is never assembled
+ * by a caller who does not know what it says.
+ *
+ * Email reaches support@ through ticket 10's sender, built beside this one; until the
+ * two are merged the composition root logs the alert instead (`container.ts`).
+ */
+export interface SupportAlerts {
+  /** The shared numbers are near capacity: a number should be bought and added. */
+  sharedNumbersNearCapacity(alert: {
+    readonly concern: CapacityConcern
+    readonly load: SharedNumberLoad
+  }): Promise<void>
 }
 
 export interface DiscipleshipGoalOption {
