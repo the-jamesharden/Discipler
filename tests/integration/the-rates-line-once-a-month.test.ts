@@ -193,7 +193,7 @@ describe('the rates line, once a month', () => {
 
     const [, question] = await inbox(church.ministry, leader)
     expect(question).toEqual({
-      body: 'Check-In Chapel: Did you meet with Emily Hart this week? Reply 1 for yes, 2 for no.',
+      body: 'Check-In Chapel via Discipler: Did you meet with Emily Hart this week? Reply 1 for yes, 2 for no.',
       carries_rates_line: false,
     })
   })

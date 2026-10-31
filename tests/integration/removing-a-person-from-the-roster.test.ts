@@ -338,7 +338,7 @@ describe('removing a Person from the Roster', () => {
         await client.query('begin')
         await client.query('set local role discipler_command')
         const { rows } = await client.query<{ person_id: string }>(
-          `select person_id from app.sender_of_inbound($1)`,
+          `select person_id from app.sender_of_inbound($1, null)`,
           [phone],
         )
         await client.query('rollback')
