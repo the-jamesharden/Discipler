@@ -43,3 +43,9 @@
 - Overview's numbers are the same before and after a test.
 - A test left unanswered for an hour is closed, and a `1` sent after that is handled as it would be with no test.
 - A real check-in queued for an Admin's phone closes their open test before it is sent, and the reply lands on the real check-in.
+
+## Comments
+
+- From building tickets 02 and 09 (2026-10-31): staging records every text instead of sending it, but Verify sends from Twilio's own senders, so nothing stands in for it there yet.
+  `src/platform/twilio/phone-verifier.ts` talks to Verify directly, and the container picks it with no regard for the deployment.
+  This ticket gives the phone verifier a recording stand-in on staging, picked the way `MESSAGE_TRANSPORT` picks the message transport, so a test check-in can be walked through on staging without a real code reaching a real phone.
