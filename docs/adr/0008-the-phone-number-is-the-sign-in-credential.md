@@ -4,6 +4,9 @@
 
 accepted
 
+Superseded for an Admin with a verified email by ADR-0030: one box takes an email or a phone, and the email is that Admin's recovery.
+This record still governs every Leader, and every Admin without a verified email.
+
 ## Context
 
 Three parts of the specification named three different sign-in credentials, and one of

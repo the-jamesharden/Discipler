@@ -2,7 +2,11 @@
 
 ## Status
 
-accepted
+superseded by 0029-a-church-signs-itself-up.md
+
+Superseded on 2026-10-29: a church now signs itself up, and the Ministry Setup Link stays as the door for a church James comps, keeping every property decided here.
+The link no longer names the number a church sends from, because every church sends from Discipler's shared numbers (ADR-0033).
+The rest of this record stands as the history of why a sign-up page was first rejected.
 
 ## Decision
 

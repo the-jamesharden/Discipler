@@ -6,6 +6,8 @@ This is the working product description of the pastor-facing dashboard. It is a 
 
 The pastor dashboard is a single web application with six tabs: **Overview**, **Check-Ins**, **Suggested Pairs**, **Follow-Up**, **Materials**, and **Roster**. Every number it shows is derived from the same week-by-week history that drives relationship state and Ministry Intelligence; the dashboard maintains no separate truth of its own.
 
+Around the tabs sit the things every Admin page shares, described under *Around the tabs* below: the header's buttons, search, the setup bar until setup is done, the billing banners when they apply, and the Ask Discipler bubble.
+
 ## Overview
 
 The Overview tab answers "how is the ministry doing right now" without the pastor having to open anything else. It shows the total number of active discipleship relationships, the meeting rate derived from check-in responses, the response completion rate, the number of check-ins completed this week, and the number of items flagged for follow-up this week - where that follow-up count combines stalled relationships, relationships carrying an unresolved concern, relationships whose pause has expired, and relationships carrying an open swap request. Two pie charts sit alongside these figures: a **Meeting Completion** chart showing the ratio of meetings completed to meetings missed, and a **Check-In Ratings** chart showing the distribution of A (outstanding), B (good), C (okay), and D (concern) responses. A **Quick Stats** panel repeats the headline figures in compact form: total relationships including groups, response completion rate, meeting rate, quality rate (A and B responses over every rated response, so C okay counts against it as well as D), and total active relationships. Below the charts, the Overview lists every active and paused relationship and group; a paused one is listed in place and visibly marked `Paused` so the pastor can tell it apart from an active, stalled, or ended relationship. A paused relationship is listed but not counted among the active relationships, on the same principle that takes an ended one out of the active counts. Those carrying a concern are flagged in place and can be opened directly to reveal the full name and phone number of the people involved.
@@ -161,3 +163,98 @@ Removing takes two presses, ends or leaves every pairing they hold the way Unpai
 Roster membership, intake completion, and pairing eligibility are three different things, and the model keeps them separate through four statuses, which decide who can be paired; no screen prints one as a word about a person, and only **Awaiting Intake** and **Opted out** are said, because they are why Pair is missing. **No Intake Submitted** means the person exists on the church roster, including everyone pulled in from Planning Center, but has not completed a Discipler intake form; it carries no implication that they want to participate. **Ready to Pair** means intake is complete and they can be matched or paired manually. **Paired** means they hold at least one open membership *as a participant*, and a paused relationship still counts as Paired. Leading a relationship is not being discipled and never sets this status, so a person who leads two relationships and is discipled by nobody is `Ready to Pair`. **Opted Out** means they have said they do not want to participate, and they are excluded from both pairing workflows and intake follow-up.
 
 V1 ships the spreadsheet paste only; the Planning Center API is deferred. An import populates names, emails, and phone numbers into the roster, and where a row says who disciples whom it records an intended pairing that forms itself once both people have completed intake; the layouts and that rule are settled in `docs/product-rules.md` under *The Import Is a Paste, in One of Two Layouts* and *Importing a Pair Plans It*. Imported people land as No Intake Submitted and cannot receive a check-in until they complete intake themselves. Importing a person is never consent.
+
+## Around the tabs
+
+These are for Admins only in this launch, and may reach Leaders later.
+
+The header's buttons, right-aligned on a phone, are **Refer a church** (with a gift), **Help**, the Settings gear, and a circle with the Admin's initials.
+The initials open the account menu: the Admin's name and "Admin, {Ministry}", The relationships you lead, Intake forms, Change your password, and Sign out.
+There is no switch between churches, because a person belongs to one church.
+On a phone the tab names show three at a time, with a discreet "›" and "‹" to slide between them.
+
+The Help menu holds the Help center, Restart onboarding, What's new (with a New tag), Office hours, Contact support, and a Learn section with Setup videos and the Blog.
+The Help center is the help docs, written in the repo and served at `/help`.
+Contact support is one form for questions, bugs and feature requests, stored and emailed to support@; a bug report carries the page's address and the browser, never what was on the page.
+
+Search is a directory, not a question box.
+It opens with ⌘K, with `/`, or from the search bar at the right end of the tab row.
+With nothing typed it lists pages: the tabs, each Settings section, Intake forms, the Help pages, Account, Refer and Billing.
+Typing groups results under People, Relationships, Materials and Help, each saying where it opens; it never searches what anybody replied.
+
+**Ask Discipler** is a circle in the bottom-right corner of every Admin page: a white speech bubble with a green smile and a gold "AI" tag.
+It answers from the help docs only, never sees the church's data, and ends each answer with the help page it came from (`docs/adr/0032-the-ai-guide-answers-from-the-help-docs-only.md`).
+Until setup is done it is labelled "Start your onboarding here!" and its chat opens on the next setup step; after that it is labelled "Ask Discipler" on hover.
+A minus on its corner tucks it into a slim tab on the right edge, which is remembered for that Admin.
+It is never on the sign-in or sign-up pages, and not on Leaders' pages.
+
+When a payment fails, every Admin page carries a banner under the tabs, above the setup bar, that cannot be closed until the payment goes through.
+When the subscription has ended, the same place says so and offers **Restart Discipler**, and the pages are read-only.
+`docs/product-rules.md`, *The Billing States*, holds the words and what each state stops.
+
+## Onboarding
+
+Each Admin's first sign-in opens the onboarding modal over Overview, with a progress bar, the eyebrow "ONE LAST THING" and the headline "Get {Ministry} running".
+On that first sign-in only, James's welcome video plays inside it first and waits for a click; **Restart onboarding** in the Help menu opens straight to the cards.
+The modal has a close button, and Admins of churches that existed before the launch get it on their first sign-in after it.
+
+Inside are three cards with their buttons level: the tour, the test check-in, and "Speak with the team directly!", which shows the next office hours with a Join on Zoom button over a photo of James.
+Beside them a "what happens next" checklist of six lines is generated from the church's own settings and the product's real rules, with an Edit settings link to the check-in section of Settings.
+
+The tour is a full-screen product demo of Example Ministry, not a slideshow.
+A thin shiny gold bar across the top reads "DEMO", so no pastor mistakes it for their own church, and nothing on its pages can be clicked.
+It has seven steps, one per press of Next: in each a cursor moves and clicks and the camera glides to what it clicked, through Overview, the Roster's Pair pop-up, Check-Ins, Follow-Up, the Intake link, and last Help, Settings and the account menu.
+Each step shows its caption and then one note on the most important thing on that page.
+The last Next reads Done, and only Done counts the tour as taken.
+
+## The setup meter
+
+Until setup is done, a slim bar titled "Jumpstart discipleship" sits under the tabs on every Admin page, showing "{n}% complete · {done} of 7", a thin progress line, and "Next: {step}" with that step's button.
+Resting the pointer on it, focusing it, or tapping it on a phone grows it to show all seven steps as checkboxes nobody can click.
+
+The seven steps belong to the church, shared by every Admin, and never go down:
+
+1. Check-in time confirmed, when an Admin presses Save on Settings' check-in day and hour, changed or not.
+2. Tutorial finished, "Take the 2-minute tour", when the tour's Done is pressed.
+3. Test check-in sent.
+4. People added to the Roster.
+5. First Intake received.
+6. First relationship created.
+7. First relationship accepted.
+
+Each step ticks itself when the thing actually happens, never by an Admin ticking it, and churches that existed before the launch show what their history already says.
+Nothing about ratings, meetings or Follow-Up earns progress, and there are no points.
+A step newly done pops its checkbox the next time that Admin sees the bar, throws confetti and draws a line through its words; at 100% each Admin sees a badge once, a green seal with a sprout over "{Ministry} is up and running" and a "Thank you!" button, and then the bar goes away.
+No animation plays when the device asks for reduced motion.
+
+## The test check-in
+
+The test check-in texts a real check-in to the signed-in Admin's own phone, so they see what their Leaders get.
+It is a card in the onboarding modal and the button on setup step 3.
+The first time, the phone is checked with a 6-digit code; an Admin from before sign-up also sees, above the button, the consent sentence `docs/consent-language.md` gives them.
+
+It walks the same steps as a real check-in, in the church's own words, and its first and last texts are James's.
+It is limited per Admin per day and refused while a real question is open on that phone, each with a message that says please and thank you.
+An unanswered test ends by itself, and ends at once when a real check-in is about to be texted to that phone, so a real reply is never caught by a test.
+Tests show on Check-Ins with a Test tag and are counted nowhere: not on Overview, not on Follow-Up, not in any figure.
+See `docs/adr/0031-the-test-check-in-texts-an-admin.md`.
+
+## The unpaired pop-up
+
+On the first Overview visit of each sign-in and of each new day, a card in the bottom-right corner says how many people need pairing and how many need an Intake link.
+It counts Ready to Pair people in no relationship and No Intake Submitted people, leaving out Admins and anyone opted out.
+**Pair them** opens Suggested Pairs, and **Send Intake links** opens the Roster showing only the people who have not sent an Intake.
+It can be closed, it goes away when the Admin moves to another tab, and it hides while the Ask Discipler chat is open.
+
+## What's new and office hours
+
+Two cards sit in a row at the top of Overview.
+What's new reads its entries from a file in the repo, and each Admin dismisses them for themselves.
+Office hours shows the team's next Zoom call, every two weeks, from a file in the repo, and hides itself once the date has passed.
+
+## Refer and Billing
+
+**Refer a church** opens the Refer page: the offer, "Give a month free. Get a month free.", three steps, and the church's link with one Copy button that copies an approved note with it.
+It lists no invited churches.
+Settings' first card is Billing, which opens Discipler's own Billing page.
+`docs/product-rules.md` holds both, under *Referrals* and *Settings Has a Billing Card and a Billing Page*.

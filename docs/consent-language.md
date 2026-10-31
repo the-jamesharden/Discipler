@@ -12,7 +12,7 @@ Changing any wording below requires a new version identifier. Existing consent r
 
 ## How a person reaches this form
 
-Consent is obtained through the intake form and through nothing else. There are two routes to it, recorded on each consent record as `source`:
+Consent to take part is obtained through the intake form and through nothing else. There are two routes to it, recorded on each consent record as `source`:
 
 - `pastor_link` — a pastor sends the person the link directly. The primary path.
 - `qr_code` — a QR code opening the same link, for a leaders' meeting where a room can complete it together.
@@ -21,9 +21,27 @@ Both put the same wording in front of the same person, so both produce the same 
 
 An admin attesting to consent on a congregant's behalf is not a route, at import or anywhere else. Inbound-keyword opt-in is post-V1.
 
+Since the Exponential launch there is a third source, which is not a route to this form: `ministry_setup`, the Admin's own consent at sign-up, below.
+
+## The Admin's consent at sign-up
+
+An Admin who signs a church up agrees, on the page that asks for their email and mobile phone, to be texted at that phone.
+The wording sits under the phone field, word for word:
+
+> By continuing, you agree to receive texts from Discipler at this number, including sign-in codes and test check-ins. Msg frequency varies. Msg & data rates may apply. Reply STOP to opt out, HELP for help.
+
+Continuing records a consent for that phone with `source = 'ministry_setup'`, when the church is opened.
+It covers the texts it names, a code that proves the phone is theirs and the test check-in, and nothing else: it is never consent to the Check-In Rhythm as a Leader or a Participant.
+It is not an Intake: it does not change the Admin's Participation Status, and being paired still needs an Intake, with both statements below.
+
+An Admin from before sign-up has no such consent.
+The test check-in's card shows them the same sentence with "By sending" in place of "By continuing", above its button, and sending is their agreement.
+
+This is different wording from Statement 1, so it is recorded with a version identifier of its own, never `2026-09-v1`.
+
 ## Statement 1 — SMS consent
 
-Presented as a required checkbox. Discipler sends nothing to anyone whose record lacks it.
+Presented as a required checkbox. Discipler sends nothing to anyone whose record lacks it, except the texts an Admin's own consent above names.
 
 > I agree to receive text messages from **{{ministry_name}}** through Discipler about my discipleship relationship, including a weekly check-in. Message frequency varies. Message and data rates may apply. Reply STOP to opt out or HELP for help.
 
