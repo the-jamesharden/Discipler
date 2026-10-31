@@ -134,7 +134,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the inbound webhook', () => {
     // The satisfaction question, sent because a `1` answered the question their
     // sequence was on -- resolved from the number alone.
     expect((await inbox(leader.id)).at(-1)).toBe(
-      'ABC Church: How did the meeting go? ' +
+      'ABC Church via Discipler: How did the meeting go? ' +
         'Reply A for outstanding, B for good, C for okay, D for concern.',
     )
   })
@@ -231,12 +231,12 @@ describe.skipIf(skipUnlessAppIsRunning)('the inbound webhook', () => {
 
     expect((await texts(hannah.phone, 'SWAP')).status).toBe(200)
     expect((await inbox(hannah.id)).at(-1)).toBe(
-      "ABC Church: Which one would you like us to look at? 1. Grace Lee 2. Tuesday Women's",
+      "ABC Church via Discipler: Which one would you like us to look at? 1. Grace Lee 2. Tuesday Women's",
     )
 
     expect((await texts(hannah.phone, '2')).status).toBe(200)
     expect((await inbox(hannah.id)).at(-1)).toBe(
-      "ABC Church: Thanks for letting us know about Tuesday Women's. We've passed this on " +
+      "ABC Church via Discipler: Thanks for letting us know about Tuesday Women's. We've passed this on " +
         'and someone will be in touch. Nothing changes in the meantime.',
     )
 

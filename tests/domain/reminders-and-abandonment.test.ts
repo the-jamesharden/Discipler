@@ -141,9 +141,9 @@ const eventOf = (effects: readonly Effect[], type: string) =>
   )[0]
 
 const MEETING_QUESTION =
-  'ABC Church: Did you meet with Emily this week? Reply 1 for yes, 2 for no.'
+  'ABC Church via Discipler: Did you meet with Emily this week? Reply 1 for yes, 2 for no.'
 const MEETING_CLARIFICATION =
-  'ABC Church: Sorry, we didn’t catch that. Reply 1 for yes, 2 for no.'
+  'ABC Church via Discipler: Sorry, we didn’t catch that. Reply 1 for yes, 2 for no.'
 
 describe('a reply Discipler cannot read', () => {
   it('answers with the valid replies rather than silence', () => {
@@ -155,7 +155,7 @@ describe('a reply Discipler cannot read', () => {
       openSequence: openSequence({ awaiting: awaiting({ question: 'satisfaction' }) }),
     })
     expect(bodies(replying('sort of', rating).effects)).toEqual([
-      'ABC Church: Sorry, we didn’t catch that. ' +
+      'ABC Church via Discipler: Sorry, we didn’t catch that. ' +
         'Reply A for outstanding, B for good, C for okay, D for concern.',
     ])
   })
@@ -170,7 +170,7 @@ describe('a reply Discipler cannot read', () => {
       }),
     })
     expect(bodies(replying('D', sentBefore).effects)).toEqual([
-      'ABC Church: Sorry, we didn’t catch that. Reply A for outstanding, B for good, C for concern.',
+      'ABC Church via Discipler: Sorry, we didn’t catch that. Reply A for outstanding, B for good, C for concern.',
     ])
   })
 
@@ -231,7 +231,7 @@ describe('a reply Discipler cannot read', () => {
       { answer: { promptId, met: true } },
     ])
     expect(bodies(result.effects)).toEqual([
-      'ABC Church: How did the meeting go? ' +
+      'ABC Church via Discipler: How did the meeting go? ' +
         'Reply A for outstanding, B for good, C for okay, D for concern.',
     ])
   })
@@ -267,7 +267,7 @@ describe('a question nobody answered', () => {
       }),
     })
     expect(bodies(ticking(after(hours(24)), sentBefore).effects)).toEqual([
-      'ABC Church: How did the meeting go? Reply A for outstanding, B for good, C for concern.',
+      'ABC Church via Discipler: How did the meeting go? Reply A for outstanding, B for good, C for concern.',
     ])
   })
 
@@ -298,7 +298,7 @@ describe('a reminder nobody answered', () => {
     const result = ticking(after(hours(48)), reminded())
 
     expect(bodies(result.effects)).toEqual([
-      'ABC Church: Did you meet with Marcus and Dan this week? Reply 1 for yes, 2 for no.',
+      'ABC Church via Discipler: Did you meet with Marcus and Dan this week? Reply 1 for yes, 2 for no.',
     ])
     expect(result.effects.filter((effect) => effect.kind === 'checkin.ask')).toMatchObject([
       { prompt: { relationshipId: marcus, position: 2, question: 'met' } },
@@ -320,7 +320,7 @@ describe('a reminder nobody answered', () => {
     // given up on.
     expect(result.effects.filter((effect) => effect.kind === 'checkin.answer')).toEqual([])
     expect(bodies(result.effects)).toEqual([
-      'ABC Church: Did you meet with Marcus and Dan this week? Reply 1 for yes, 2 for no.',
+      'ABC Church via Discipler: Did you meet with Marcus and Dan this week? Reply 1 for yes, 2 for no.',
     ])
   })
 
@@ -462,7 +462,7 @@ describe('a Pause taken while a question is waiting on an answer', () => {
 
   it('moves the conversation on to the relationships still running', () => {
     expect(bodies(ticking(after(hours(1)), withPaused(emily)).effects)).toEqual([
-      'ABC Church: Did you meet with Marcus and Dan this week? Reply 1 for yes, 2 for no.',
+      'ABC Church via Discipler: Did you meet with Marcus and Dan this week? Reply 1 for yes, 2 for no.',
     ])
   })
 
@@ -531,9 +531,9 @@ describe('a question whose reply a keyword took', () => {
  */
 describe('a Pause reaching a relationship before its turn in the conversation did', () => {
   const MARCUS_QUESTION =
-    'ABC Church: Did you meet with Marcus and Dan this week? Reply 1 for yes, 2 for no.'
+    'ABC Church via Discipler: Did you meet with Marcus and Dan this week? Reply 1 for yes, 2 for no.'
   const RATING_QUESTION =
-    'ABC Church: How did the meeting go? ' +
+    'ABC Church via Discipler: How did the meeting go? ' +
     'Reply A for outstanding, B for good, C for okay, D for concern.'
 
   it('asks nothing about it when a reply moves the conversation on', () => {
@@ -605,7 +605,7 @@ describe('a Pause reaching a relationship before its turn in the conversation di
  */
 describe('a relationship that ended, or that its Leader left, before its turn in the conversation', () => {
   const MARCUS_QUESTION =
-    'ABC Church: Did you meet with Marcus and Dan this week? Reply 1 for yes, 2 for no.'
+    'ABC Church via Discipler: Did you meet with Marcus and Dan this week? Reply 1 for yes, 2 for no.'
 
   const noLongerLeading = (...ids: readonly (typeof emily)[]) => {
     const relationships = covering.map((relationship) => ({
@@ -678,7 +678,7 @@ describe('a new week displacing a question a Pause had already taken back', () =
         (message) => message.body,
       ),
     ).toEqual([
-      'ABC Church: Did you meet with Marcus and Dan this week? Reply 1 for yes, 2 for no.',
+      'ABC Church via Discipler: Did you meet with Marcus and Dan this week? Reply 1 for yes, 2 for no.',
     ])
   })
 })

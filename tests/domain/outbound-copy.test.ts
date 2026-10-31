@@ -2,27 +2,29 @@ import { describe, expect, it } from 'vitest'
 import { relationshipId } from '~/domain/ids'
 import { composeMessage, materialMessage, welcomeMessage } from '~/domain/outbound-copy'
 
-describe('Every message is the Ministry’s voice', () => {
-  it('carries the Ministry name as a prefix', () => {
+describe('Every message starts with Discipler’s frame', () => {
+  // "{Messages read as} via Discipler:" on every text, first contact included
+  // (James, mock-up 3, 2026-10-30): the church is who it reads as, and Discipler is
+  // named on every text the shared numbers carry.
+  it('reads as the Ministry, via Discipler', () => {
     const text = composeMessage({
       ministryName: 'Riverside Chapel',
       body: 'You are all set.',
-      identifyDelivery: false,
       discloseOptOut: false,
     })
 
-    expect(text).toBe('Riverside Chapel: You are all set.')
+    expect(text).toBe('Riverside Chapel via Discipler: You are all set.')
   })
 
-  it('stacks the compliance prefix in front of the Ministry rather than replacing it', () => {
-    const text = composeMessage({
+  it('names Discipler once, never stacked in front of the Ministry', () => {
+    const text = welcomeMessage({
       ministryName: 'Riverside Chapel',
-      body: 'You are all set.',
-      identifyDelivery: true,
-      discloseOptOut: false,
+      fullName: 'Emily Johnson',
+      promises: 'a_match',
     })
 
-    expect(text).toBe('Discipler: Riverside Chapel: You are all set.')
+    expect(text.startsWith('Riverside Chapel via Discipler: ')).toBe(true)
+    expect(text.match(/Discipler/g)).toHaveLength(1)
   })
 })
 
@@ -31,12 +33,11 @@ describe('Opt-out and rate disclosure', () => {
     const text = composeMessage({
       ministryName: 'Riverside Chapel',
       body: 'You are all set.',
-      identifyDelivery: false,
       discloseOptOut: true,
     })
 
     expect(text).toBe(
-      'Riverside Chapel: You are all set. Msg & data rates may apply. Reply STOP to opt out, HELP for help.',
+      'Riverside Chapel via Discipler: You are all set. Msg & data rates may apply. Reply STOP to opt out, HELP for help.',
     )
   })
 
@@ -44,7 +45,6 @@ describe('Opt-out and rate disclosure', () => {
     const text = composeMessage({
       ministryName: 'Riverside Chapel',
       body: 'You are all set.',
-      identifyDelivery: false,
       discloseOptOut: false,
     })
 
@@ -61,7 +61,7 @@ describe('The Welcome Message', () => {
     })
 
     expect(text).toBe(
-      'Discipler: Riverside Chapel: Thanks, Emily — you’re all set. ' +
+      'Riverside Chapel via Discipler: Thanks, Emily — you’re all set. ' +
         'We’ll text you once you’ve been paired with someone to meet with. ' +
         'Msg & data rates may apply. Reply STOP to opt out, HELP for help.',
     )
@@ -80,7 +80,7 @@ describe('The Welcome Message', () => {
     })
 
     expect(text).toBe(
-      'Discipler: Riverside Chapel: Thanks, Emily — you’re all set. ' +
+      'Riverside Chapel via Discipler: Thanks, Emily — you’re all set. ' +
         'Msg & data rates may apply. Reply STOP to opt out, HELP for help.',
     )
     expect(text).not.toContain('matched')
@@ -96,7 +96,7 @@ describe('The Welcome Message', () => {
   it('names nobody it cannot name rather than greeting an empty string', () => {
     expect(
       welcomeMessage({ ministryName: 'Riverside Chapel', fullName: '   ', promises: 'a_match' }),
-    ).toContain('Riverside Chapel: You’re all set.')
+    ).toContain('Riverside Chapel via Discipler: You’re all set.')
   })
 })
 
@@ -112,16 +112,16 @@ describe('The text when a Material changes (Richer materials, tickets 03 and 04)
 
   it('reads as drawn for each of a Leader’s four', () => {
     expect(say({ kind: 'leader_moved', title: 'Romans: Life in the Spirit' }, dashboard)).toBe(
-      `Riverside Chapel: The material for your discipleship is now Romans: Life in the Spirit. See it at ${dashboard}${RATES}`,
+      `Riverside Chapel via Discipler: The material for your discipleship is now Romans: Life in the Spirit. See it at ${dashboard}${RATES}`,
     )
     expect(say({ kind: 'leader_updated', title: 'Romans: Life in the Spirit' }, dashboard)).toBe(
-      `Riverside Chapel: Romans: Life in the Spirit, the material for your discipleship, has been updated. See it at ${dashboard}${RATES}`,
+      `Riverside Chapel via Discipler: Romans: Life in the Spirit, the material for your discipleship, has been updated. See it at ${dashboard}${RATES}`,
     )
     expect(say({ kind: 'leader_several', count: 3 }, dashboard)).toBe(
-      `Riverside Chapel: The material has changed for 3 of your discipleship relationships. See them at ${dashboard}${RATES}`,
+      `Riverside Chapel via Discipler: The material has changed for 3 of your discipleship relationships. See them at ${dashboard}${RATES}`,
     )
     expect(say({ kind: 'leader_none' }, dashboard)).toBe(
-      `Riverside Chapel: Your discipleship no longer has a material assigned. See it at ${dashboard}${RATES}`,
+      `Riverside Chapel via Discipler: Your discipleship no longer has a material assigned. See it at ${dashboard}${RATES}`,
     )
   })
 
@@ -131,9 +131,9 @@ describe('The text when a Material changes (Richer materials, tickets 03 and 04)
         { kind: 'participant_moved', title: 'Romans: Life in the Spirit', leaderNames: ['Grace Lee'], relationshipId: withEmily },
         page,
       ),
-    ).toBe(`Riverside Chapel: Your discipleship material with Grace Lee is now Romans: Life in the Spirit. Open it here: ${page}${RATES}`)
+    ).toBe(`Riverside Chapel via Discipler: Your discipleship material with Grace Lee is now Romans: Life in the Spirit. Open it here: ${page}${RATES}`)
     expect(say({ kind: 'participant_updated', title: 'Romans: Life in the Spirit', relationshipId: withEmily }, page)).toBe(
-      `Riverside Chapel: Your discipleship material, Romans: Life in the Spirit, has been updated. Open it here: ${page}${RATES}`,
+      `Riverside Chapel via Discipler: Your discipleship material, Romans: Life in the Spirit, has been updated. Open it here: ${page}${RATES}`,
     )
   })
 })

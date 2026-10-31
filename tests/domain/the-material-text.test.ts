@@ -202,7 +202,7 @@ describe('the tick', () => {
       expect.objectContaining({
         personId: grace,
         toPhone: '+15555550101',
-        body: `Riverside Chapel: The material for your discipleship is now Romans. See it at https://app.trydiscipler.com/relationships${RATES}`,
+        body: `Riverside Chapel via Discipler: The material for your discipleship is now Romans. See it at https://app.trydiscipler.com/relationships${RATES}`,
         kind: 'no_reply',
         ratesLine: 'once_a_month',
         disclosesPersonId: null,
@@ -301,7 +301,7 @@ describe('when a Disciple is texted (Richer materials, ticket 04)', () => {
     expect(link).toEqual({ ministryId: ministry, personId: emily, relationshipId: withEmily, token: expect.any(String) })
     const [message] = result.effects.flatMap((effect) => (effect.kind === 'message.enqueue' ? [effect.message] : []))
     expect(message?.body).toBe(
-      `Riverside Chapel: Your discipleship material with Grace Lee is now Romans. Open it here: https://app.trydiscipler.com/material/${link?.token}${RATES}`,
+      `Riverside Chapel via Discipler: Your discipleship material with Grace Lee is now Romans. Open it here: https://app.trydiscipler.com/material/${link?.token}${RATES}`,
     )
   })
 

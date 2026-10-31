@@ -46,7 +46,7 @@ describe('the message that carries the Invitation Link', () => {
   })
 
   it('speaks in the Ministry’s voice and carries the link', () => {
-    expect(body.startsWith('Riverside Chapel:')).toBe(true)
+    expect(body.startsWith('Riverside Chapel via Discipler: ')).toBe(true)
     expect(body).toContain(link)
   })
 
@@ -117,7 +117,7 @@ describe('the Starter Message', () => {
    */
   it('names nobody to the Leader, and sends them to the page that does', () => {
     expect(toLeader).toBe(
-      'Riverside Chapel: You have been paired for discipleship. '
+      'Riverside Chapel via Discipler: You have been paired for discipleship. '
         + 'See who you’re meeting with and how to reach them at https://discipler.test/relationships. '
         + 'We’ll check in with you each week to see how it’s going. '
         + 'Msg & data rates may apply. Reply STOP to opt out, HELP for help.',
@@ -127,7 +127,7 @@ describe('the Starter Message', () => {
   /** In James's words, 2026-09-21: *you have been paired for discipleship with [mentor name]*. */
   it('tells the Participant who they have been paired with, in the words James gave', () => {
     expect(toParticipant).toBe(
-      'Riverside Chapel: You have been paired for discipleship with David Ellis. '
+      'Riverside Chapel via Discipler: You have been paired for discipleship with David Ellis. '
         + 'Msg & data rates may apply. Reply STOP to opt out, HELP for help.',
     )
   })
@@ -232,7 +232,7 @@ describe('the reminder a Leader gets at two days', () => {
   })
 
   it('speaks in the Ministry\'s voice and carries the link again', () => {
-    expect(body.startsWith('Riverside Chapel: ')).toBe(true)
+    expect(body.startsWith('Riverside Chapel via Discipler: ')).toBe(true)
     // A reminder that made them go back and find the first text would cost more
     // than the thing it is reminding them of.
     expect(body).toContain(link)
@@ -252,7 +252,6 @@ describe('the reminder a Leader gets at two days', () => {
   })
 
   it('re-discloses nothing, because it is neither first contact nor the Starter Message', () => {
-    expect(body).not.toContain('Discipler:')
     expect(body).not.toContain('Reply STOP to opt out')
   })
 

@@ -43,7 +43,7 @@ describe('how a text names a relationship', () => {
 describe('the check-in conversation', () => {
   it('asks whether the meeting happened, naming who it was with', () => {
     expect(meetingQuestion({ ministryName, subject: 'Emily', discloseOptOut: false })).toBe(
-      'ABC Church: Did you meet with Emily this week? Reply 1 for yes, 2 for no.',
+      'ABC Church via Discipler: Did you meet with Emily this week? Reply 1 for yes, 2 for no.',
     )
   })
 
@@ -55,7 +55,7 @@ describe('the check-in conversation', () => {
         discloseOptOut: false,
       }),
     ).toBe(
-      'ABC Church: Did you meet with Marcus, Dan and Ade this week? Reply 1 for yes, 2 for no.',
+      'ABC Church via Discipler: Did you meet with Marcus, Dan and Ade this week? Reply 1 for yes, 2 for no.',
     )
   })
 
@@ -65,7 +65,7 @@ describe('the check-in conversation', () => {
    */
   it('offers the four satisfaction tokens by name', () => {
     expect(satisfactionQuestion({ ministryName, wording: 'a_to_d' })).toBe(
-      'ABC Church: How did the meeting go? ' +
+      'ABC Church via Discipler: How did the meeting go? ' +
         'Reply A for outstanding, B for good, C for okay, D for concern.',
     )
   })
@@ -77,19 +77,19 @@ describe('the check-in conversation', () => {
    */
   it('composes the three-answer question as it was sent before the change', () => {
     expect(satisfactionQuestion({ ministryName, wording: 'a_to_c' })).toBe(
-      'ABC Church: How did the meeting go? Reply A for outstanding, B for good, C for concern.',
+      'ABC Church via Discipler: How did the meeting go? Reply A for outstanding, B for good, C for concern.',
     )
   })
 
   it('asks for the Concern in prose', () => {
     expect(concernDetailRequest({ ministryName })).toBe(
-      'ABC Church: Please tell us more about the concern.',
+      'ABC Church via Discipler: Please tell us more about the concern.',
     )
   })
 
   it('closes the conversation so the Leader knows it is finished', () => {
     expect(checkInThankYou({ ministryName })).toBe(
-      'ABC Church: Thank you. We’ll check in with you next week.',
+      'ABC Church via Discipler: Thank you. We’ll check in with you next week.',
     )
   })
 
@@ -102,14 +102,14 @@ describe('the check-in conversation', () => {
   it('offers the open question’s replies again, and only that question’s', () => {
     const wording = 'a_to_d'
     expect(checkInClarification({ ministryName, question: 'met', wording })).toBe(
-      'ABC Church: Sorry, we didn’t catch that. Reply 1 for yes, 2 for no.',
+      'ABC Church via Discipler: Sorry, we didn’t catch that. Reply 1 for yes, 2 for no.',
     )
     expect(checkInClarification({ ministryName, question: 'satisfaction', wording })).toBe(
-      'ABC Church: Sorry, we didn’t catch that. ' +
+      'ABC Church via Discipler: Sorry, we didn’t catch that. ' +
         'Reply A for outstanding, B for good, C for okay, D for concern.',
     )
     expect(checkInClarification({ ministryName, question: 'concern_detail', wording })).toBe(
-      'ABC Church: Sorry, we didn’t catch that. Please tell us more about the concern.',
+      'ABC Church via Discipler: Sorry, we didn’t catch that. Please tell us more about the concern.',
     )
   })
 
@@ -117,7 +117,7 @@ describe('the check-in conversation', () => {
     expect(
       checkInClarification({ ministryName, question: 'satisfaction', wording: 'a_to_c' }),
     ).toBe(
-      'ABC Church: Sorry, we didn’t catch that. ' +
+      'ABC Church via Discipler: Sorry, we didn’t catch that. ' +
         'Reply A for outstanding, B for good, C for concern.',
     )
   })
@@ -139,7 +139,7 @@ describe('the check-in conversation', () => {
    */
   it('carries the opt-out and rate disclosure on the month’s first check-in', () => {
     expect(meetingQuestion({ ministryName, subject: 'Emily', discloseOptOut: true })).toBe(
-      'ABC Church: Did you meet with Emily this week? Reply 1 for yes, 2 for no. ' +
+      'ABC Church via Discipler: Did you meet with Emily this week? Reply 1 for yes, 2 for no. ' +
         'Msg & data rates may apply. Reply STOP to opt out, HELP for help.',
     )
   })
