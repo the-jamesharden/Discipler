@@ -50,9 +50,9 @@ about a stranger they had not been told to expect.
 
 Two things follow, and both are built:
 
-- The Welcome Message is **first-ever contact**, so it carries the A2P compliance
-  prefix stacked in front of the Ministry prefix, and the opt-out and rate
-  disclosure: `Discipler: Riverside Chapel: ... Reply STOP to opt out, HELP for help.`
+- The Welcome Message is **first-ever contact**, so it carries the opt-out and rate
+  disclosure, after the start every text has:
+  `Riverside Chapel via Discipler: ... Reply STOP to opt out, HELP for help.`
 - It is the **only** message that precedes a pairing approval. Anything else reaching
   a congregant before their Leader has accepted is a regression, and the rule holds
   unchanged for the mentor and mentee reveals.
@@ -211,7 +211,7 @@ Settled 2026-08-27.
 
 ## Open: pending review before the first pilot
 
-- **A2P compliance requirements have not been checked against a live campaign registration.** The `Discipler:` identification prefix and its trigger points are a product decision made on an understanding of carrier requirements, not a verified one. Review alongside the consent wording.
+- **A2P compliance requirements have not been checked against a live campaign registration.** The "{Messages read as} via Discipler:" start on every text is a product decision made on an understanding of carrier requirements, not a verified one. Review alongside the consent wording.
 - **`docs/consent-language.md` has not had legal review**, including the `HELP` response content.
 - **`checkin.start` outlives the justification it was kept for.** Ticket 08b replaced it as the weekly trigger, and ticket 11 withdrew the Admin "send one additional check-in" action it was then kept for (`docs/adr/0010-nudge-reveals-a-number-and-sends-nothing.md`). It survives only as 08a's test seam, and it carries no cadence check: it can open a second sequence inside one ISO week, which sits against *One sequence per Leader per week*. That rule currently holds only because nothing routes to the command, and on the current reading nothing will. Deciding it means either withdrawing the command or giving the rule a guard that does not depend on nobody calling it.
 - **The Participant reveal branch is unreachable and has not been withdrawn.** Ticket 12 stopped minting a Participant's Invitation Link and ADR-0011 settled that only a Leader is sent one, so the Participant branch of `app/invitation/[token]/page.tsx` and the Participant scoping in `src/platform/supabase/invitation-reader.ts` can no longer be reached by anything. They are kept rather than deleted, alongside an `it.skip` in `invitation-over-http.test.ts` that is now the only description of what that branch does. Deciding it means deciding whether a Participant ever gets a web surface of their own; until then the code and its test are dead weight that reads as live.
@@ -449,11 +449,8 @@ V1 ships a spreadsheet paste; the Planning Center API is post-V1. When it return
 
 ## Resolved: nothing puts `Discipler:` on the first text after a Silence Gap
 
-Found on 2026-09-24 while specifying `.scratch/richer-materials/`.
-*The A2P Compliance Prefix Is a Stated Exception* says `Discipler:` stacks in front of the Ministry prefix on the first message after a thirty-day Silence Gap.
-No code computes a Silence Gap: `identifyDelivery` is set only on the Welcome Message and the `HELP` reply in `src/domain/outbound-copy.ts`, so a person texted again after thirty quiet days gets the Ministry prefix alone.
-Every message path is affected, and the Material change text would inherit the same gap.
-What needs deciding: whether the rule stands as written, in which case the sending layer decides the prefix per recipient at send time from the last text that person was sent, or whether it is dropped with the A2P review this file already asks for before the first pilot.
+Found on 2026-09-24 while specifying `.scratch/richer-materials/`: no code computed a Silence Gap, so a person texted again after thirty quiet days got the Ministry prefix alone.
+Resolved on 2026-10-30 by James in mock-up 3 of the Exponential launch: every text now starts "{Messages read as} via Discipler:", the first text ever sent included, so no text depends on a Silence Gap to name Discipler (Exponential launch, ticket 06).
 
 Moot since the Exponential launch (2026-10-30): every text starts "{Messages read as} via Discipler:", the first after a Silence Gap included, so no text needs a Silence Gap to decide its prefix.
 See `docs/adr/0033-a-shared-set-of-discipler-numbers.md`.

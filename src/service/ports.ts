@@ -33,6 +33,7 @@ import type {
 } from '~/domain/boundary'
 import type { CheckInSnapshot, Satisfaction } from '~/domain/check-in'
 import type { CheckInCounts } from '~/domain/overview'
+import type { CapacityConcern, SharedNumberLoad } from '~/domain/shared-numbers'
 import type { GrowthChoice, GrowthSeries } from '~/domain/growth'
 import type { IsoWeek } from '~/domain/week'
 import type { ConcernResolution, ConcernViewing, NewConcern } from '~/domain/concerns'
@@ -894,10 +895,11 @@ export interface Accounts {
  * question that cannot be answered inside a Ministry-scoped unit of work, because
  * a text message arrives with a phone number and no session, no URL and no token.
  *
- * A number held by more than one Person resolves to nobody rather than to a
- * guess: filing one congregant's answer against another's relationship is worse
- * than not reading the message. Ticket 26 is what makes a shared number
- * resolvable.
+ * A number held by more than one Person in the church it texted resolves to nobody
+ * rather than to a guess: filing one congregant's answer against another's
+ * relationship is worse than not reading the message. A number held in two churches
+ * is placed by the shared number it texted, since each church texts it from its own
+ * (Exponential launch, ticket 06).
  */
 export interface InboundSender {
   readonly ministryId: MinistryId
@@ -905,7 +907,12 @@ export interface InboundSender {
 }
 
 export interface InboundReader {
-  resolveSender(fromPhone: string): Promise<InboundSender | null>
+  /**
+   * `toNumber` is the shared number the text was sent to, Twilio's `To`. A phone in
+   * one church resolves without it; a phone in two is placed with the church that
+   * texts it from that number, and with nobody when there is none.
+   */
+  resolveSender(fromPhone: string, toNumber: string | null): Promise<InboundSender | null>
 }
 
 export interface EffectStore {
@@ -1538,14 +1545,17 @@ export interface OutboundQueue {
   /** Everything enqueued for this Ministry and neither sent nor withheld. */
   due(ministryId: MinistryId): Promise<readonly QueuedMessage[]>
   /**
-   * The number this Ministry sends from, or null where none is provisioned yet.
+   * The shared number this Ministry texts `toPhone` from: the one the pair was
+   * given, or, the first time, one given now and kept (Exponential launch, ticket
+   * 06). Null when every shared number is already this phone's for another church,
+   * which leaves the message on the queue until a number is added.
    *
-   * Read here rather than taken from configuration because sending identity is a
-   * property of the Ministry: a number in the environment is one congregation's
-   * people receiving texts from another's the first time a second Ministry is
-   * onboarded, and by then it is a migration against live message history.
+   * Read here rather than taken from configuration because a number in the
+   * environment would be every church texting every person from one number, so
+   * that a `STOP` to one church silenced all of them. `at` is when the pair is first
+   * texted, on the drain's clock.
    */
-  sendingNumber(ministryId: MinistryId): Promise<string | null>
+  sendingNumberFor(ministryId: MinistryId, toPhone: string, at: Date): Promise<string | null>
   /** Whether this Person may be sent to *right now*, not when they were queued. */
   mayReceive(ministryId: MinistryId, personId: PersonId): Promise<WithholdingReason | null>
   /** The details to disclose, or null where the Person has not agreed to share. */
@@ -1595,16 +1605,61 @@ export interface OutboundQueue {
 /** Twilio lives behind this and nowhere else. It is not a domain concept. */
 export interface MessageTransport {
   /**
-   * `from` is passed rather than held, because one transport serves every Ministry
-   * and each of them sends as itself. A transport that closed over a number would
-   * make the identity a property of the deployment, which is the thing the spec
-   * rules out.
+   * `from` is passed rather than held, and sent as Twilio's `From` rather than left
+   * to a Messaging Service to pick: which shared number a person hears from is
+   * decided per (phone, church) in the database, and a vendor's own pick would be
+   * one number per phone for every church, so one `STOP` would silence all of them.
    *
    * Throws when the vendor refuses. The row stays neither sent nor withheld, so the
    * next drain picks it up again -- see `dispatchQueue`, which keeps one refusal
    * from taking the rest of the queue down with it.
    */
   deliver(from: string, to: string, body: string): Promise<void>
+}
+
+/**
+ * The shared set of Discipler numbers, as the capacity watch reads it (Exponential
+ * launch, ticket 06). Across every church, because the set is shared by all of them;
+ * it holds nothing about any one church and returns counts only.
+ */
+export interface SharedNumberCapacity {
+  load(): Promise<SharedNumberLoad>
+  /**
+   * Whether support@ has already been told about this concern while the set held
+   * this many numbers. Keyed by the size so that adding a number re-arms it: the
+   * bigger set filling up is news, the same set staying full is not.
+   */
+  alreadyRaised(concern: CapacityConcern, numbers: number): Promise<boolean>
+  /** Kept as history, with the load it was raised on. */
+  recordRaised(concern: CapacityConcern, at: Date, load: SharedNumberLoad): Promise<void>
+}
+
+/**
+ * The shared numbers are near capacity: a number should be bought and added.
+ *
+ * Counts and a day only, never a number: the alert goes to support@ as the
+ * `numbersNearCapacity` email (Exponential launch, ticket 10), whose fields strip
+ * anything shaped like a phone number. `day` is the UTC date the watch read the
+ * counts, for the email's `once` key, so a retry on the same day is not sent twice.
+ */
+export interface SharedNumbersNearCapacity {
+  readonly concern: CapacityConcern
+  /** How many numbers are in the shared set. */
+  readonly numbers: number
+  /** How many (phone, church) pairs the set carries. */
+  readonly recipients: number
+  /** The most churches one phone is in, each on its own number. */
+  readonly mostChurchesOnOnePhone: number
+  /** YYYY-MM-DD, UTC. */
+  readonly day: string
+}
+
+/**
+ * What support@ is told about. One method per alert, so a message is never assembled
+ * by a caller who does not know what it says.
+ */
+export interface SupportAlerts {
+  sharedNumbersNearCapacity(alert: SharedNumbersNearCapacity): Promise<void>
 }
 
 /**
@@ -2011,7 +2066,6 @@ export interface MinistrySetup {
    */
   issue(link: {
     readonly ministryName: string
-    readonly sendingNumber: string
     readonly adminPhone: string
   }): Promise<NewMinistrySetup>
   /**

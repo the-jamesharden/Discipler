@@ -39,10 +39,11 @@ const fromTwilio = (request: NextRequest, parameters: Readonly<Record<string, st
 
 /**
  * The one webhook. Every inbound text arrives here -- a check-in answer, a
- * keyword, a message to nobody in particular -- because a phone has one number to
- * reply to and the delivery vendor has one place to send it.
+ * keyword, a message to nobody in particular -- because every shared number sends
+ * its replies to the one place.
  *
- * Resolution is the sender's number to a Person, and then their open Check-In
+ * Resolution is the sender's number to a Person -- and, for a phone in two
+ * churches, the number it texted to the church -- and then their open Check-In
  * Sequence to the question awaiting a reply. Nothing here resolves to *the
  * Person's relationship*: a Leader may hold several, and only the position in
  * their sequence says which one a `1` is about. That second half is the domain's;
@@ -52,7 +53,7 @@ const fromTwilio = (request: NextRequest, parameters: Readonly<Record<string, st
 export async function POST(request: NextRequest) {
   const form = await request.formData()
 
-  // Every form field is signed, not only the two read below -- Twilio signs what it
+  // Every form field is signed, not only the three read below -- Twilio signs what it
   // sent, so a subset would never match.
   const parameters = Object.fromEntries(
     [...form.entries()].flatMap(([key, value]) => (typeof value === 'string' ? [[key, value]] : [])),
@@ -68,25 +69,28 @@ export async function POST(request: NextRequest) {
 
   const from = form.get('From')
   const body = form.get('Body')
+  // The shared number it was sent to. Every church texts from the one shared set,
+  // so for a phone in two churches this is what says which church the reply is for
+  // (Exponential launch, ticket 06). Twilio always sends it; read leniently, since a
+  // phone in one church is placed without it.
+  const to = form.get('To')
 
   // A malformed callback is not a conversation. Answered rather than refused,
   // because a delivery vendor retries a failure and there is nothing here to
   // succeed at on the second attempt.
   if (typeof from !== 'string' || typeof body !== 'string') return acknowledged()
 
-  // A number Discipler does not hold, or one held by more than one Person.
-  // Resolving the second by guessing would file one congregant's answer against
-  // another's relationship, so it resolves to nobody instead.
+  // A number Discipler does not hold, or one held by more than one Person in the
+  // church it texted. Resolving the second by guessing would file one congregant's
+  // answer against another's relationship, so it resolves to nobody instead.
   //
-  // **That second case is unowned, and is not ticket 26's.** Ticket 08a deferred
-  // it there; ticket 26 builds the import report's resolution screen and its own
-  // text keeps the shared number as a legitimate permanent state -- *two rows
-  // sharing a number with different names are still both imported, that is the
-  // couple case ADR-0005 protects*. So a household on one phone is a state the
-  // product creates deliberately and whose replies land here and stop: the check-in
-  // answers are dropped, and the derivation then reports the relationship as gone
-  // silent. No ticket in 01-26 closes that.
-  const sender = await getInboundReader().resolveSender(from)
+  // **That second case is still unowned.** A household on one phone is a state the
+  // product creates deliberately (ADR-0005, the couple case), and its replies land
+  // here and stop: the check-in answers are dropped, and the derivation then reports
+  // the relationship as gone silent. `.scratch/shared-numbers` tickets 01 to 03 are
+  // what close it, within one church; a phone in two churches is no longer that
+  // case, because each church texts it from its own shared number.
+  const sender = await getInboundReader().resolveSender(from, typeof to === 'string' ? to : null)
   if (!sender) return acknowledged()
 
   await getCommandService().execute({

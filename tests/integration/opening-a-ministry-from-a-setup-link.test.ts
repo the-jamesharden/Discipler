@@ -36,14 +36,13 @@ describe('a Ministry Setup Link', () => {
   })
 
   const aLink = (name = 'Anthem Church') =>
-    setup.issue({ ministryName: name, sendingNumber: aTestPhoneNumber(), adminPhone: aTestPhoneNumber() })
+    setup.issue({ ministryName: name, adminPhone: aTestPhoneNumber() })
 
-  it('is minted with both numbers read the way the product reads them', async () => {
+  it('is minted with the Admin’s number read the way the product reads it', async () => {
     const typed = aTestPhoneNumber().replace(/^\+1(\d{3})(\d{3})(\d{4})$/, '($1) $2-$3')
 
     const link = await setup.issue({
       ministryName: '  As Typed Chapel ',
-      sendingNumber: aTestPhoneNumber(),
       adminPhone: typed,
     })
 
@@ -56,13 +55,10 @@ describe('a Ministry Setup Link', () => {
 
   it('refuses a number it cannot read, and mints nothing', async () => {
     await expect(
-      setup.issue({ ministryName: 'Unreadable', sendingNumber: aTestPhoneNumber(), adminPhone: 'ring me' }),
+      setup.issue({ ministryName: 'Unreadable', adminPhone: 'ring me' }),
     ).rejects.toThrow(MinistrySetupNotIssued)
     await expect(
-      setup.issue({ ministryName: 'Unreadable', sendingNumber: 'the office', adminPhone: aTestPhoneNumber() }),
-    ).rejects.toThrow(/unreadable sending number/)
-    await expect(
-      setup.issue({ ministryName: '   ', sendingNumber: aTestPhoneNumber(), adminPhone: aTestPhoneNumber() }),
+      setup.issue({ ministryName: '   ', adminPhone: aTestPhoneNumber() }),
     ).rejects.toThrow(/needs a name/)
   })
 
@@ -72,7 +68,7 @@ describe('a Ministry Setup Link', () => {
     const existing = await createMinistryWithAdmin('Already Here Chapel')
 
     await expect(
-      setup.issue({ ministryName: 'Elsewhere', sendingNumber: aTestPhoneNumber(), adminPhone: existing.adminPhone }),
+      setup.issue({ ministryName: 'Elsewhere', adminPhone: existing.adminPhone }),
     ).rejects.toThrow(/already signs somebody in/)
   })
 
@@ -102,14 +98,14 @@ describe('a Ministry Setup Link', () => {
     expect(opened).toHaveProperty('ministryId')
     if ('refusal' in opened) throw new Error(opened.refusal)
 
-    // The Ministry, sending from the number on the link, on the clock its Admin chose.
-    const ministry = await pool.query<{ name: string; sending_number: string; timezone: string }>(
-      `select name, sending_number, timezone from ministry where id = $1`,
+    // The Ministry, on the clock its Admin chose. It has no number of its own: it
+    // sends from the shared numbers (Exponential launch, ticket 06).
+    const ministry = await pool.query<{ name: string; timezone: string }>(
+      `select name, timezone from ministry where id = $1`,
       [opened.ministryId],
     )
     expect(ministry.rows[0]).toEqual({
       name: 'Northgate Community Church',
-      sending_number: link.sendingNumber,
       timezone: 'America/New_York',
     })
 
@@ -203,8 +199,8 @@ describe('a Ministry Setup Link', () => {
 
   it('minting again for the same phone replaces the link, and the old one opens nothing', async () => {
     const phone = aTestPhoneNumber()
-    const first = await setup.issue({ ministryName: 'First Name Typed Wrong', sendingNumber: aTestPhoneNumber(), adminPhone: phone })
-    const second = await setup.issue({ ministryName: 'First Name Typed Right', sendingNumber: aTestPhoneNumber(), adminPhone: phone })
+    const first = await setup.issue({ ministryName: 'First Name Typed Wrong', adminPhone: phone })
+    const second = await setup.issue({ ministryName: 'First Name Typed Right', adminPhone: phone })
 
     expect(second.token).not.toBe(first.token)
     expect(await setup.read(first.token)).toBeNull()

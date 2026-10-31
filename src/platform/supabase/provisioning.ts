@@ -47,15 +47,6 @@ import { commandDatabaseUrl } from './credentials'
 export interface NewMinistry {
   readonly name: string
   /**
-   * The number this Ministry's messages are sent from. Provisioned with the
-   * Ministry because a Ministry without one cannot send anything, and borrowing
-   * another Ministry's identity is worse than refusing to send.
-   *
-   * Read through `asPhoneNumber` like the Admin's, and typed however an operator
-   * would type it.
-   */
-  readonly sendingNumber: string
-  /**
    * The clock this Ministry's check-in hour, week and quiet hours are read on.
    * Required, because the column's default is UTC, and every Ministry opened
    * before this was asked for kept it and was texted at hours nobody chose
@@ -97,8 +88,6 @@ export interface ProvisionedMinistry {
   readonly adminPersonId: string
   /** The number as it was stored, which is what they sign in with. */
   readonly adminPhone: string
-  /** Likewise as stored: what a caller asserting on the sender should assert on. */
-  readonly sendingNumber: string
   /**
    * The short name the Ministry was given from its name as it opened, which its
    * readable links are built from (Pastor feedback, ticket 04).
@@ -143,19 +132,12 @@ export const provisionMinistry = async (
   const phone = asPhoneNumber(ministry.admin.phone)
   if (!phone) throw new MinistryNotProvisioned(`unreadable phone number: ${ministry.admin.phone}`)
 
-  // The Ministry's own number, read the same way and refused the same way. It is
-  // subject to `ministry_sending_number_is_e164` regardless, so an unreadable one
-  // was never going to be stored -- but it would have failed two statements later,
-  // inside the transaction and after the account was minted, which turns an
-  // operator's typo into a Postgres constraint message and a compensating discard.
-  // Read here, both numbers are known good before anything exists to undo.
-  const sendingNumber = asPhoneNumber(ministry.sendingNumber)
-  if (!sendingNumber) {
-    throw new MinistryNotProvisioned(`unreadable sending number: ${ministry.sendingNumber}`)
-  }
+  // No number is provisioned: a Ministry sends from the shared set the moment it
+  // exists (Exponential launch, ticket 06).
 
-  // And the clock, for the same reason: a zone the database's check would refuse
-  // three statements later is an account minted for a Ministry that never opens.
+  // The clock, read before anything exists to undo: a zone the database's check
+  // would refuse three statements later is an account minted for a Ministry that
+  // never opens.
   if (!isKnownTimezone(ministry.timezone)) {
     throw new MinistryNotProvisioned(`unknown timezone: ${ministry.timezone}`)
   }
@@ -194,9 +176,9 @@ export const provisionMinistry = async (
     // the same statement, because only it can see which names every other
     // Ministry has ever held (`20261014000400_a_readable_link_per_church.sql`).
     const created = await client.query<{ id: string; short_name: string }>(
-      `insert into ministry (name, sending_number, timezone) values ($1, $2, $3)
+      `insert into ministry (name, timezone) values ($1, $2)
        returning id, short_name`,
-      [ministry.name, sendingNumber, ministry.timezone],
+      [ministry.name, ministry.timezone],
     )
     const ministryId = created.rows[0]!.id
     const shortName = created.rows[0]!.short_name
@@ -262,7 +244,6 @@ export const provisionMinistry = async (
       adminUserId: account.userId,
       adminPersonId: person.rows[0]!.id,
       adminPhone: phone,
-      sendingNumber,
       shortName,
     }
   } catch (error) {

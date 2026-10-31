@@ -30,7 +30,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a pastor opening their Ministry Setup L
   })
 
   const aLink = (name: string) =>
-    setup.issue({ ministryName: name, sendingNumber: aTestPhoneNumber(), adminPhone: aTestPhoneNumber() })
+    setup.issue({ ministryName: name, adminPhone: aTestPhoneNumber() })
 
   const open = async (token: string) => {
     const response = await fetch(`${baseUrl}/setup/${token}`, { redirect: 'manual' })

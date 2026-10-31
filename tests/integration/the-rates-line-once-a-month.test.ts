@@ -154,7 +154,7 @@ describe('the rates line, once a month', () => {
     const emily = personId(rows[0]!.id)
 
     const [welcome] = await inbox(church.ministry, emily)
-    expect(welcome).toEqual({ body: expect.stringMatching(/^Discipler: Welcome Chapel: /), carries_rates_line: true })
+    expect(welcome).toEqual({ body: expect.stringMatching(/^Welcome Chapel via Discipler: /), carries_rates_line: true })
     expect(welcome!.body.endsWith(LINE)).toBe(true)
 
     const leader = await church.congregant('James Ellis')
@@ -164,12 +164,12 @@ describe('the rates line, once a month', () => {
     // has never been sent it. One command, decided per Person.
     await church.resumeAt(new Date('2026-07-14T18:00:00Z'), relationship)
     expect((await inbox(church.ministry, emily))[1]).toEqual({
-      body: 'Welcome Chapel: Your discipleship with James Ellis has been resumed!',
+      body: 'Welcome Chapel via Discipler: Your discipleship with James Ellis has been resumed!',
       carries_rates_line: false,
     })
     expect(await inbox(church.ministry, leader)).toEqual([
       {
-        body: `Welcome Chapel: Your discipleship with Emily Hart has been resumed! ${LINE}`,
+        body: `Welcome Chapel via Discipler: Your discipleship with Emily Hart has been resumed! ${LINE}`,
         carries_rates_line: true,
       },
     ])
@@ -193,7 +193,7 @@ describe('the rates line, once a month', () => {
 
     const [, question] = await inbox(church.ministry, leader)
     expect(question).toEqual({
-      body: 'Check-In Chapel: Did you meet with Emily Hart this week? Reply 1 for yes, 2 for no.',
+      body: 'Check-In Chapel via Discipler: Did you meet with Emily Hart this week? Reply 1 for yes, 2 for no.',
       carries_rates_line: false,
     })
   })

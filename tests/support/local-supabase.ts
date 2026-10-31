@@ -113,10 +113,6 @@ export interface MinistryFixture extends MinistryRef {
    * See `docs/adr/0009-one-account-per-human.md`.
    */
   readonly adminPersonId: string
-  /** The number this Ministry sends as. Unique per fixture, so a test asserting
-   *  on the sender is asserting on *this* Ministry's identity and not on a
-   *  constant every Ministry would satisfy. */
-  readonly sendingNumber: string
   /**
    * The short name the Ministry was given as it opened. Fixtures share names, so
    * it is often the name with a number after it, and only provisioning knows which.
@@ -221,7 +217,6 @@ export const createMinistryWithAdmin = async (
   const provision = () =>
     provisionMinistry({
       name,
-      sendingNumber: aTestPhoneNumber(),
       // UTC and said so: every suite was written against the clock a Ministry had
       // before provisioning asked for one, and a suite about a zone sets its own.
       timezone: 'UTC',
@@ -244,6 +239,8 @@ export const createMinistryWithAdmin = async (
     }
   }
 
+  await addASharedNumber()
+
   return {
     id: ministryId(provisioned.ministryId),
     name,
@@ -255,9 +252,29 @@ export const createMinistryWithAdmin = async (
     adminPassword: ACCOUNT_PASSWORD,
     adminUserId: provisioned.adminUserId,
     adminPersonId: provisioned.adminPersonId,
-    // Stored rather than typed, for the same reason as the number above.
-    sendingNumber: provisioned.sendingNumber,
     shortName: provisioned.shortName,
+  }
+}
+
+/**
+ * One more number in the shared set every church sends from (Exponential launch,
+ * ticket 06), added with each fixture Ministry.
+ *
+ * The suites reuse fixed phones across runs and never truncate, and a phone needs a
+ * different shared number for every church that texts it -- so a set that did not
+ * grow with the churches would run out for `+15553330001` a few runs in. One more
+ * per church keeps a number free for every phone, as the real set is kept by
+ * adding a number when volume needs one. Returns the number added.
+ */
+export const addASharedNumber = async (): Promise<string> => {
+  const client = new pg.Client({ connectionString: localSupabase().databaseUrl })
+  await client.connect()
+  try {
+    const number = aTestPhoneNumber()
+    await client.query(`insert into shared_number (phone) values ($1) on conflict do nothing`, [number])
+    return number
+  } finally {
+    await client.end()
   }
 }
 

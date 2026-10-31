@@ -310,9 +310,9 @@ max_frequency = "5s"
 #
 # The values are substituted from the environment and are empty in local
 # development, where no code is ever requested. Discipler's own outbound SMS does
-# not come through here at all: it goes through `MessageTransport` and sends as
-# `ministry.sending_number`, which is a property of the Ministry and not of the
-# deployment.
+# not come through here at all: it goes through `MessageTransport` and sends from
+# the shared number each (phone, church) pair was given (`sending_number_assignment`),
+# never one number for the whole deployment.
 [auth.sms.twilio]
 enabled = true
 account_sid = "env(SUPABASE_AUTH_SMS_TWILIO_ACCOUNT_SID)"

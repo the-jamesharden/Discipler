@@ -4,18 +4,26 @@ import type { ShortName } from './short-name'
 import type { RelationshipKeyword } from './keywords'
 
 /**
- * Every message Discipler sends is the Ministry's voice. Discipler is delivery and
- * never the speaker: it does not name itself in copy, and no message is phrased as
- * reporting to a third party about the Ministry.
+ * Every message Discipler sends is the Ministry's voice, carried by Discipler. The
+ * Ministry speaks -- the name it reads as is the first thing on every text -- and
+ * Discipler is named beside it as the carrier, because the numbers a text comes
+ * from are Discipler's and are shared by every church (The texting numbers, Exponential
+ * launch ticket 06). No message is phrased as Discipler reporting to a third party
+ * about the Ministry.
  *
- * The one exception is the A2P compliance prefix, which carriers require and which
- * therefore has to name the delivery brand. It **stacks** in front of the Ministry
- * prefix rather than replacing it -- `Discipler: ABC Church: ...` -- so the Person
- * still reads their own church as the sender.
+ * **Discipler writes the frame of every text**, as a permanent rule (James, mock-up 3,
+ * 2026-10-30): the "{Messages read as} via Discipler:" start, the reply choices and
+ * the rates line. Each is composed here and nowhere else, so whatever a church may
+ * one day reword inside a text, none of them is a church's to change.
  */
 
-/** The delivery brand, named only where compliance requires it. */
-const DELIVERY_PREFIX = 'Discipler:'
+/**
+ * The start of every text, first contact included. It replaced a `Discipler:` stacked
+ * in front of the Ministry's own prefix on the four A2P occasions (James, mock-up 3):
+ * a person hearing from a number Discipler shares between churches is told both
+ * whose text it is and who carried it, on every text and not only the first.
+ */
+const theStart = (ministryName: string): string => `${ministryName} via Discipler:`
 
 /**
  * The opt-out and rate disclosure: the rates line. Composed into the texts that
@@ -49,37 +57,29 @@ export const withoutRatesLine = (composed: string): string => {
 }
 
 export interface MessageComposition {
+  /** The name the Ministry's messages read as: `from_name`, or its name where none is set. */
   readonly ministryName: string
   readonly body: string
   /**
-   * A2P identification. Required on opt-in messaging, on the first message ever
-   * sent to a Person, on the first after a thirty-day Silence Gap, and on `HELP`.
-   */
-  readonly identifyDelivery: boolean
-  /**
    * Whether this text may carry the opt-out and rate disclosure, composed as it
-   * reads when it does. A separate decision from `identifyDelivery` because the
-   * two are required on different occasions: a Starter Message or a check-in's
-   * opening question may disclose without identifying. Whether it actually does
+   * reads when it does. Required on first contact and on `HELP`; a Starter Message
+   * or a check-in's opening question may carry it too. Whether it actually does
    * this month is `rates-line.ts`'s to decide.
    */
   readonly discloseOptOut: boolean
 }
 
 /**
- * Both flags are stated rather than defaulted. Which occasions require A2P
- * identification and which require the opt-out disclosure is a compliance question,
- * and a caller that did not think about it should not be quietly answered `false`.
+ * The flag is stated rather than defaulted. Which occasions require the opt-out
+ * disclosure is a compliance question, and a caller that did not think about it
+ * should not be quietly answered `false`.
  */
 export const composeMessage = ({
   ministryName,
   body,
-  identifyDelivery,
   discloseOptOut,
-}: MessageComposition): string => {
-  const spoken = `${ministryName}: ${discloseOptOut ? `${body} ${OPT_OUT_DISCLOSURE}` : body}`
-  return identifyDelivery ? `${DELIVERY_PREFIX} ${spoken}` : spoken
-}
+}: MessageComposition): string =>
+  `${theStart(ministryName)} ${discloseOptOut ? `${body} ${OPT_OUT_DISCLOSURE}` : body}`
 
 export interface WelcomeMessage {
   readonly ministryName: string
@@ -103,8 +103,8 @@ const firstNameOf = (fullName: string): string | null =>
 
 /**
  * Sent the moment a Person completes Intake, before any relationship exists. It is
- * the first thing Discipler has ever sent them, so it identifies delivery and
- * carries the opt-out and rate disclosure.
+ * the first thing Discipler has ever sent them, so it carries the opt-out and
+ * rate disclosure.
  *
  * It promises only what the product will actually do next. A Person who has just
  * consented is waiting on a pairing decision an Admin has not made yet, and saying
@@ -115,7 +115,6 @@ export const welcomeMessage = ({ ministryName, fullName, promises }: WelcomeMess
 
   return composeMessage({
     ministryName,
-    identifyDelivery: true,
     discloseOptOut: true,
     body:
       (firstName ? `Thanks, ${firstName} — you’re all set.` : 'You’re all set.') +
@@ -265,9 +264,9 @@ export interface InvitationMessage {
  * after the Leader has chosen to open it and before anything is asked of them. A
  * name in the text would have made the reveal a formality.
  *
- * Neither compliance flag is set. This is not first contact -- the Welcome
+ * It carries no rates line. This is not first contact -- the Welcome
  * Message was -- and it is not the Starter Message, and those are the occasions
- * the two disclosures name. Sending them on every message is its own kind of spam.
+ * the disclosure names. Sending it on every message is its own kind of spam.
  */
 export const invitationMessage = ({
   ministryName,
@@ -282,7 +281,6 @@ export const invitationMessage = ({
 
   return composeMessage({
     ministryName,
-    identifyDelivery: false,
     discloseOptOut: false,
     body:
       (firstName ? `${firstName}, ${paired}` : `${paired[0]!.toUpperCase()}${paired.slice(1)}`) +
@@ -316,7 +314,6 @@ export const starterMessageToLeader = ({
 }: StarterMessageToLeader): string =>
   composeMessage({
     ministryName,
-    identifyDelivery: false,
     discloseOptOut: true,
     body:
       'You have been paired for discipleship. '
@@ -360,7 +357,6 @@ export const groupJoinedMessage = ({
 }: GroupJoinedMessage): string =>
   composeMessage({
     ministryName,
-    identifyDelivery: false,
     discloseOptOut: true,
     body:
       `${firstNameOf(joinerFullName) ?? 'Someone'} just joined ${groupName ?? 'your group'}. `
@@ -399,7 +395,6 @@ export const starterMessageToParticipant = ({
 }: StarterMessageToParticipant): string =>
   composeMessage({
     ministryName,
-    identifyDelivery: false,
     discloseOptOut: true,
     body: `You have been paired for discipleship with ${asList(leaderNames)}.`,
   })
@@ -436,7 +431,6 @@ export interface ResumedMessage {
 export const resumedMessage = ({ ministryName, subject }: ResumedMessage): string =>
   composeMessage({
     ministryName,
-    identifyDelivery: false,
     discloseOptOut: true,
     body: `Your discipleship with ${subject} has been resumed!`,
   })
@@ -464,7 +458,6 @@ export interface MaterialMessage {
 export const materialMessage = ({ ministryName, text, link }: MaterialMessage): string =>
   composeMessage({
     ministryName,
-    identifyDelivery: false,
     discloseOptOut: true,
     body: materialMessageBody(text, link),
   })
@@ -504,8 +497,8 @@ export interface AcceptanceReminderMessage {
  *
  * **Not framed as a failure.** A Leader who has not answered in two days has a
  * week, not a character flaw, and Discipler never texts anybody to tell them they
- * are late. Neither compliance flag is set, for the same reason the invitation
- * sets neither: this is not first contact and it is not the Starter Message.
+ * are late. It carries no rates line, for the same reason the invitation
+ * carries none: this is not first contact and it is not the Starter Message.
  */
 export const acceptanceReminderMessage = ({
   ministryName,
@@ -516,7 +509,6 @@ export const acceptanceReminderMessage = ({
 
   return composeMessage({
     ministryName,
-    identifyDelivery: false,
     discloseOptOut: false,
     body:
       (firstName ? `${firstName}, there’s still someone waiting to hear from you.` : 'There’s still someone waiting to hear from you.') +
@@ -614,9 +606,6 @@ export const meetingQuestion = ({
 }: MeetingQuestion): string =>
   composeMessage({
     ministryName,
-    // A Leader is never first contact -- they completed Intake and accepted an
-    // invitation to get here -- so the A2P prefix has no occasion to appear.
-    identifyDelivery: false,
     discloseOptOut,
     body: `Did you meet with ${subject} this week? ${MEETING_REPLIES}`,
   })
@@ -634,7 +623,7 @@ export interface CheckInMessage {
 const checkInSentence =
   (body: string) =>
   ({ ministryName }: CheckInMessage): string =>
-    composeMessage({ ministryName, identifyDelivery: false, discloseOptOut: false, body })
+    composeMessage({ ministryName, discloseOptOut: false, body })
 
 export interface SatisfactionQuestion extends CheckInMessage {
   /** The wording it is sent with: the one in force, or a reminder's own. */
@@ -742,14 +731,13 @@ const printedMenu = (options: readonly string[]): string =>
  * second line here even if a fourth relationship is formed before the Leader
  * replies.
  *
- * Neither compliance flag is set. A Leader in a keyword exchange is deep inside a
+ * It carries no rates line. A Leader in a keyword exchange is deep inside a
  * conversation they started; this is not first contact and it is not the Starter
  * Message.
  */
 export const keywordMenu = ({ ministryName, keyword, options }: KeywordMenu): string =>
   composeMessage({
     ministryName,
-    identifyDelivery: false,
     discloseOptOut: false,
     body: `${MENU_ASKS[keyword]} ${printedMenu(options)}`,
   })
@@ -783,7 +771,6 @@ export const pauseConfirmation = ({
 }: PauseConfirmation): string =>
   composeMessage({
     ministryName,
-    identifyDelivery: false,
     discloseOptOut: false,
     body:
       `Pause check-ins with ${subject} for ${periodWeeks} ${weekOrWeeks(periodWeeks)}? ` +
@@ -814,7 +801,6 @@ export interface PauseApplied {
 export const pauseApplied = ({ ministryName, subject, periodWeeks }: PauseApplied): string =>
   composeMessage({
     ministryName,
-    identifyDelivery: false,
     discloseOptOut: false,
     body:
       `Done — your check-ins about ${subject} are paused for ${periodWeeks} ` +
@@ -840,7 +826,6 @@ export interface SwapRecorded {
 export const swapRecorded = ({ ministryName, subject }: SwapRecorded): string =>
   composeMessage({
     ministryName,
-    identifyDelivery: false,
     discloseOptOut: false,
     body:
       `Thanks for letting us know about ${subject}. We've passed this on and someone ` +
@@ -868,7 +853,6 @@ const NOTHING_ELIGIBLE: Readonly<Record<RelationshipKeyword, string>> = {
 export const nothingEligible = ({ ministryName, keyword }: NothingEligible): string =>
   composeMessage({
     ministryName,
-    identifyDelivery: false,
     discloseOptOut: false,
     body: NOTHING_ELIGIBLE[keyword],
   })
@@ -901,7 +885,6 @@ export const keywordClarification = ({
 }: KeywordClarification): string =>
   composeMessage({
     ministryName,
-    identifyDelivery: false,
     discloseOptOut: false,
     body: options
       ? `Sorry, we didn't catch that. ${printedMenu(options)}`
@@ -915,11 +898,9 @@ export interface HelpMessage {
 /**
  * The `HELP` response, which changes nothing and is owed to everybody.
  *
- * **It identifies delivery.** A2P compliance names the `HELP` response as one of
- * the four occasions the `Discipler:` prefix is required, and it is the one message
- * whose whole purpose is telling somebody what they are receiving and how to make
- * it stop. See `docs/product-rules.md`, *Settled: The A2P Compliance Prefix Is a
- * Stated Exception*.
+ * **It always carries the rates line.** It is the one message whose whole purpose
+ * is telling somebody what they are receiving and how to make it stop, and like
+ * every text it starts by saying whose it is and that Discipler carried it.
  *
  * It names the keywords and then it names a human. Somebody texting `HELP` may want
  * the word list, and may want their pastor -- and only one of those is something
@@ -928,7 +909,6 @@ export interface HelpMessage {
 export const helpMessage = ({ ministryName }: HelpMessage): string =>
   composeMessage({
     ministryName,
-    identifyDelivery: true,
     discloseOptOut: true,
     body:
       'Reply PAUSE to pause your check-ins, RESUME to start them again, or SWAP to ' +
@@ -953,7 +933,6 @@ export interface AcknowledgedMessage {
 export const acknowledgedMessage = ({ ministryName }: AcknowledgedMessage): string =>
   composeMessage({
     ministryName,
-    identifyDelivery: false,
     discloseOptOut: false,
     body:
       `Thanks for your message. We can't reply to texts here — please contact ` +
@@ -971,7 +950,6 @@ export const acknowledgedMessage = ({ ministryName }: AcknowledgedMessage): stri
 export const keywordPassedOn = ({ ministryName }: AcknowledgedMessage): string =>
   composeMessage({
     ministryName,
-    identifyDelivery: false,
     discloseOptOut: false,
     body:
       `Thanks — we've passed this on to ${ministryName} and someone will be in touch. ` +

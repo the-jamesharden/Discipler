@@ -244,11 +244,11 @@ describe('pausing, resuming, and a period running out', () => {
     // made and would be a Ministry telling somebody they had been matched to the
     // person they have been meeting all year.
     expect(await inbox(church.ministry, leader)).toEqual([
-      'Returning Chapel: Your discipleship with Waiting Participant has been resumed! ' +
+      'Returning Chapel via Discipler: Your discipleship with Waiting Participant has been resumed! ' +
         'Msg & data rates may apply. Reply STOP to opt out, HELP for help.',
     ])
     expect(await inbox(church.ministry, participant)).toEqual([
-      'Returning Chapel: Your discipleship with Back Leader has been resumed! ' +
+      'Returning Chapel via Discipler: Your discipleship with Back Leader has been resumed! ' +
         'Msg & data rates may apply. Reply STOP to opt out, HELP for help.',
     ])
 

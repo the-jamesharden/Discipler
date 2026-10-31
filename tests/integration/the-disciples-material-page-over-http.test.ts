@@ -103,7 +103,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a Disciple’s Material page', () => {
     const text = texts.find((body) => body.includes('Open it here'))
     expect(text).toMatch(
       new RegExp(
-        `^Riverside Chapel: Your discipleship material with Grace Lee is now Romans: Life in the Spirit\\. Open it here: ${baseUrl.replace(/[.:/]/g, '\\$&')}/material/[0-9a-f-]{36}`,
+        `^Riverside Chapel via Discipler: Your discipleship material with Grace Lee is now Romans: Life in the Spirit\\. Open it here: ${baseUrl.replace(/[.:/]/g, '\\$&')}/material/[0-9a-f-]{36}`,
       ),
     )
     token = /\/material\/([0-9a-f-]{36})/.exec(text!)![1]!

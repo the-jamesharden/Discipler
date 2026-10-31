@@ -140,6 +140,10 @@ _Avoid_: Pre-assignment, default Material, assigning a Material at pairing
 Discipler's recurring text-message rhythm for gathering information about whether discipleship meetings are happening and how they are going.
 _Avoid_: Twilio Rhythm (Twilio is a delivery vendor, not a domain concept)
 
+**Shared Number**:
+One of the Discipler-owned numbers every Ministry sends from. Each phone a Ministry texts is given one the first time and keeps it, and a phone in two Ministries hears from a different one for each, so the number a reply was sent to says which Ministry it is for. When the set is near capacity is `src/domain/shared-numbers.ts`'s to decide.
+_Avoid_: the Ministry's number, sending number (no Ministry has a number of its own)
+
 **Welcome Message**:
 The message a person receives on completing intake, before any relationship exists.
 

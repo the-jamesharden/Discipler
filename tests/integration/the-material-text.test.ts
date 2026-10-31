@@ -86,7 +86,7 @@ describe('the text when a Material changes', () => {
     await tickAt(at(61))
     expect((await materialTexts()).map((row) => row.body)).toEqual([
       expect.stringMatching(
-        /^Riverside Chapel: The material for your discipleship is now Romans\. See it at https:\/\/discipler\.test\/relationships/,
+        /^Riverside Chapel via Discipler: The material for your discipleship is now Romans\. See it at https:\/\/discipler\.test\/relationships/,
       ),
     ])
 
@@ -117,7 +117,7 @@ describe('the text when a Material changes', () => {
     await tickAt(new Date('2026-08-20T13:00:00Z'))
     const texts = await materialTexts()
     expect(texts).toHaveLength(2)
-    expect(texts[1]?.body).toMatch(/^Riverside Chapel: The material for your discipleship is now Multiply\./)
+    expect(texts[1]?.body).toMatch(/^Riverside Chapel via Discipler: The material for your discipleship is now Multiply\./)
   })
 
   it('texts nobody for a title-only edit, and says updated when what the Material holds changes', async () => {
@@ -144,7 +144,7 @@ describe('the text when a Material changes', () => {
     const texts = await materialTexts()
     expect(texts).toHaveLength(3)
     expect(texts[2]?.body).toMatch(
-      /^Riverside Chapel: Multiply, revised, the material for your discipleship, has been updated\./,
+      /^Riverside Chapel via Discipler: Multiply, revised, the material for your discipleship, has been updated\./,
     )
   })
 })

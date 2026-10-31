@@ -627,28 +627,28 @@ A participant should feel they are interacting with their church, not with a sof
 
 Every outbound message is the ministry speaking. Discipler is the delivery mechanism and never the speaker: it does not refer to itself by name in message copy, and no message is phrased as reporting to a third party about the ministry.
 
-Every message carries the ministry name as a prefix — `ABC Church: Hi James! Did you meet with David this week? Reply 1 for yes, 2 for no.` — with no exceptions, including menus, confirmations, reminders, and acknowledgements. A lone next-day reminder is the message most likely to be read out of context and least able to afford being unattributed. Where a prefix would tip a message into a second segment, the message is shortened; the attribution is not dropped.
+Every message starts with the name the ministry's messages read as, followed by "via Discipler", as in `ABC Church via Discipler: Did you meet with David this week? Reply 1 for yes, 2 for no.`, with no exceptions, including menus, confirmations, reminders, and acknowledgements.
+A lone next-day reminder is the message most likely to be read out of context and least able to afford being unattributed.
+Where the start would tip a message into a second segment, the message is shortened; the attribution is not dropped.
 
-Each ministry sends from its own number for the pilot. Sending identity is modeled as a property of the Ministry from the first line of code, even while every ministry could resolve to the same number, because retrofitting that touches every message path.
+Every ministry sends from one shared set of Discipler-owned numbers (Exponential launch, 2026-10-30).
+Each (phone, ministry) pair is given one of them the first time that ministry texts that phone, and keeps it, so a person always hears from the same number.
+A phone held in two ministries hears from a different number for each, so its replies never mix and a `STOP` to one ministry's number leaves the other's texts running; a reply from such a phone is placed by the number it was sent to.
+This replaced one number per ministry, which an operator had to buy before a ministry could send.
 
-> **Supersedes (Exponential launch, 2026-10-30):** no church has its own number any more, and every text names Discipler.
-> Discipler sends for every church from one shared set of Discipler numbers, and each person in each church always hears from the same one.
-> Every text starts "{Messages read as} via Discipler:", where Messages read as is the church's `from_name`, its name unless an Admin changes it: "Riverside Chapel via Discipler: Did you meet with Jordan this week? Reply 1 for yes, 2 for no."
-> The church is still the speaker and still named first; Discipler never speaks for itself in a text, and every text says it comes through Discipler.
-> See `docs/adr/0033-a-shared-set-of-discipler-numbers.md`.
+## Settled: Every Text Says It Came via Discipler
 
-## Settled: The A2P Compliance Prefix Is a Stated Exception
+A2P messaging compliance requires identifying that a message is sent through Discipler, and since every ministry sends from Discipler's shared numbers, every text says so.
+This is the one place Discipler names itself, and it is recorded here so that it is not later removed as a violation of the rule above.
 
-A2P messaging compliance requires identifying that a message is sent through Discipler. This directly contradicts the rule above, and the exception is recorded here so that it is not later removed as a violation of it.
+Every text starts "{Messages read as} via Discipler:", as in `ABC Church via Discipler: …`, the first text a person is ever sent included (James, mock-up 3, 2026-10-30).
+Messages read as is the ministry's `from_name`, its name unless an Admin changed it.
+It replaced a `Discipler:` stacked in front of the ministry prefix on opt-in messaging, the first message ever sent, the first after a silence gap and the `HELP` response.
 
-`Discipler:` stacks in front of the ministry prefix — `Discipler: ABC Church: …` — on:
+The church still comes first, because who is speaking is what a participant most needs to see, and "via Discipler" says what carried it without a second prefix.
 
-- opt-in messaging
-- the first message Discipler ever sends a person
-- the first message after a silence gap
-- the `HELP` response
-
-The two prefixes stack rather than substitute because they answer different questions — who is speaking, and what service is delivering it — and collapsing them loses one. On the messages where a participant most needs to see their church's name, dropping the ministry prefix would be the worst possible trade.
+Discipler writes the frame of every text, as a permanent rule: that start, the reply choices, and the rates and opt-out line.
+A ministry may one day reword the check-in's own sentences inside the frame, and never the frame itself.
 
 A Starter Message that runs to two segments is accepted rather than trimming compliance language; carriers reassemble it and the recipient sees one message.
 
@@ -663,7 +663,7 @@ A Starter Message that runs to two segments is accepted rather than trimming com
 
 A silence gap is thirty rolling days since Discipler last sent that person a message.
 
-The A2P compliance prefix keys off it.
+The A2P compliance prefix used to key off it; since every text says "via Discipler" (2026-10-30), nothing does.
 The participant-facing opt-out language used to key off it as well; since 2026-09-21 that is the rates line's once-a-month rule, below, which counts calendar months and not rolling days.
 
 Rolling days rather than calendar months, because a person messaged on 31 January and again on 1 March has crossed two calendar boundaries with twenty-nine days of contact. Per person per ministry, because every other rule in the product is ministry-scoped and making this one the exception would invite a cross-ministry read of a person's history, which the Ministry isolation rule forbids.
@@ -734,8 +734,8 @@ names nobody, and reaches a person who ticked the SMS consent box seconds earlie
 Withholding it would mean the consent a person had just given was first acted on days
 later, by a message about a stranger.
 
-It is first-ever contact, so it carries the A2P compliance prefix stacked in front of
-the ministry prefix, together with the opt-out and rate disclosure.
+It is first-ever contact, so it carries the opt-out and rate disclosure, after the
+"{Messages read as} via Discipler:" start every text has.
 
 Nothing else reaches a congregant before their leader has accepted. The mentor and
 mentee reveals still follow pairing approval, unchanged.

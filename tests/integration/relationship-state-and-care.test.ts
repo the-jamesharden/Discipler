@@ -418,7 +418,7 @@ describe('Relationship State and the Care Needed view', () => {
         [crypto.randomUUID(), met.ministry_id, met.sequence_id, relationships[0], met.position, answering],
       )
       const sentBefore =
-        'Changeover Chapel: How did the meeting go? Reply A for outstanding, B for good, C for concern.'
+        'Changeover Chapel via Discipler: How did the meeting go? Reply A for outstanding, B for good, C for concern.'
       await pool.query(
         `insert into outbound_message
            (ministry_id, person_id, to_phone, body, enqueued_at, scheduled_for,
@@ -447,7 +447,7 @@ describe('Relationship State and the Care Needed view', () => {
       )
       expect(texts.map((text) => text.body).slice(-2)).toEqual([
         sentBefore,
-        'Changeover Chapel: Please tell us more about the concern.',
+        'Changeover Chapel via Discipler: Please tell us more about the concern.',
       ])
 
       await church.replyAt(new Date(replying.getTime() + 60_000), leader, 'They have stopped coming.')

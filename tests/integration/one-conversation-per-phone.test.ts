@@ -162,7 +162,7 @@ describe('one conversation per phone', () => {
     expect(first.sent).toBe(1)
     expect(first.held).toBe(1)
     expect(world.arrivedAt(handset)).toEqual([
-      'Riverside Chapel: Did you meet with Tom Hale this week? Reply 1 for yes, 2 for no. ' +
+      'Riverside Chapel via Discipler: Did you meet with Tom Hale this week? Reply 1 for yes, 2 for no. ' +
         'Msg & data rates may apply. Reply STOP to opt out, HELP for help.',
     ])
 
@@ -251,7 +251,7 @@ describe('one conversation per phone', () => {
     expect(outcome.held).toBe(0)
     expect(world.arrivedAt(handset)).toEqual([
       'Eastbrook Chapel: you have been paired.',
-      'Eastbrook Chapel: Did you meet with Grace Miller this week? Reply 1 for yes, 2 for no. ' +
+      'Eastbrook Chapel via Discipler: Did you meet with Grace Miller this week? Reply 1 for yes, 2 for no. ' +
         'Msg & data rates may apply. Reply STOP to opt out, HELP for help.',
     ])
 

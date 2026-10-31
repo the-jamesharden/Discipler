@@ -216,7 +216,7 @@ describe('the check-in cadence', () => {
       // which rode on the message that opened the conversation. A reminder is
       // neither a new month nor a new conversation.
       expect(chased[1]!.body).toBe(
-        'ABC Church: Did you meet with Sam Doyle this week? Reply 1 for yes, 2 for no.',
+        'ABC Church via Discipler: Did you meet with Sam Doyle this week? Reply 1 for yes, 2 for no.',
       )
       expect(chased[1]!.scheduled_for).toBeNull()
 

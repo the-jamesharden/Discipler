@@ -51,10 +51,17 @@ import { supabaseAccounts } from '~/platform/supabase/accounts'
 import { createPostgresSignInLimit, type PostgresSignInLimit } from '~/platform/supabase/sign-in-limit'
 import { createSupabaseRosterReader } from '~/platform/supabase/roster-reader'
 import { createSupabaseSuggestedPairsReader } from '~/platform/supabase/suggested-pairs-reader'
+import {
+  createPostgresSharedNumbers,
+  type PostgresSharedNumbers,
+} from '~/platform/supabase/shared-numbers'
+import type { CapacityConcern } from '~/domain/shared-numbers'
 import { createCommandService, type CommandService } from './command-service'
 import { createEmailSender } from './email-sender'
-import { dispatchQueue, NoSendingNumber, type DispatchOutcome } from './outbound-dispatch'
+import { dispatchQueue, type DispatchOutcome } from './outbound-dispatch'
 import { createPhoneCheck, type PhoneCheck } from './phone-check'
+import { watchSharedNumberCapacity } from './shared-number-capacity'
+import { createEmailSupportAlerts } from './support-alerts'
 import type {
   Accounts,
   CareNeededReader,
@@ -75,8 +82,10 @@ import type {
   OutboundQueue,
   OverviewReader,
   RosterReader,
+  SharedNumberCapacity,
   SignInLimit,
   SuggestedPairsReader,
+  SupportAlerts,
   UnitOfWork,
 } from './ports'
 
@@ -132,6 +141,7 @@ let messageTransport: MessageTransport | undefined
 let emailSender: EmailSender | undefined
 let phoneChecks: PostgresPhoneChecks | undefined
 let phoneCheck: PhoneCheck | undefined
+let sharedNumbers: PostgresSharedNumbers | undefined
 
 export const getCommandService = (): CommandService => {
   if (!commandService) {
@@ -210,10 +220,6 @@ const sendWhatWasQueued = async (ministryId: MinistryId): Promise<void> => {
   try {
     await drainOutboundQueue(ministryId)
   } catch (error) {
-    // A Ministry nobody has bought a number for yet is set up and not sending, the
-    // state the scheduler names rather than logs.
-    if (error instanceof NoSendingNumber) return
-
     console.error(`Could not send what was queued in ministry ${ministryId}`, error)
   }
 }
@@ -371,6 +377,27 @@ export const drainOutboundQueue = (ministryId: MinistryId): Promise<DispatchOutc
   })
 
 /**
+ * The shared set of Discipler numbers, read across every church for the capacity
+ * watch. On the trusted connection, as the Setup Link is, because the set belongs
+ * to no church.
+ */
+export const getSharedNumbers = (): SharedNumberCapacity => {
+  if (!sharedNumbers) sharedNumbers = createPostgresSharedNumbers(commandDatabaseUrl())
+  return sharedNumbers
+}
+
+/** What support@ is told about, emailed through the one sender. */
+export const getSupportAlerts = (): SupportAlerts => createEmailSupportAlerts(getEmailSender())
+
+/** One pass of the capacity watch, assembled so its callers cannot assemble it differently. */
+export const watchTheSharedNumbers = (): Promise<readonly CapacityConcern[]> =>
+  watchSharedNumberCapacity({
+    numbers: getSharedNumbers(),
+    alerts: getSupportAlerts(),
+    clock: systemClock,
+  })
+
+/**
  * Settles the pairings an import planned for one Ministry, and never fails the
  * page that called it. Three routes call this after a Person's own act -- an
  * Intake submission through any of the three forms -- and one after an import;
@@ -418,6 +445,7 @@ export const closeCommandService = async (): Promise<void> => {
   const queue = outboundQueue
   const directory = ministryDirectory
   const checks = phoneChecks
+  const shared = sharedNumbers
   commandService = undefined
   commandStore = undefined
   intakeReader = undefined
@@ -427,6 +455,7 @@ export const closeCommandService = async (): Promise<void> => {
   ministryDirectory = undefined
   phoneChecks = undefined
   phoneCheck = undefined
+  sharedNumbers = undefined
   // The transport holds no pool -- it is `fetch` and a pair of credentials -- so
   // there is nothing of its to close, only the reference to drop.
   messageTransport = undefined
@@ -438,6 +467,7 @@ export const closeCommandService = async (): Promise<void> => {
   await queue?.close()
   await directory?.close()
   await checks?.close()
+  await shared?.close()
 }
 
 export const getRosterReader = (): RosterReader => createSupabaseRosterReader(systemClock)
