@@ -29,6 +29,14 @@ export const ArrowLeft = () => (
   </Line>
 )
 
+/** The way on: the next help page. */
+export const ArrowRight = () => (
+  <Line>
+    <path d="M5 12h14" />
+    <path d="M12 5l7 7-7 7" />
+  </Line>
+)
+
 /** A file saved to the device. */
 export const Download = () => (
   <Line>

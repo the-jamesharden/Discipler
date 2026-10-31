@@ -41,6 +41,7 @@ export const RESERVED_SHORT_NAMES: readonly string[] = [
   'cron',
   'follow-up',
   'groups',
+  'help',
   'intake',
   'intake-forms',
   'invitation',
