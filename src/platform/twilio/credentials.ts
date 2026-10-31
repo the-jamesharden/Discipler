@@ -25,3 +25,18 @@ export const twilioCredentials = (): TwilioCredentials => ({
   accountSid: required('TWILIO_ACCOUNT_SID'),
   authToken: required('TWILIO_AUTH_TOKEN'),
 })
+
+export interface TwilioVerifySettings extends TwilioCredentials {
+  /**
+   * The Verify service named "Discipler", which sends 6-digit codes to US
+   * numbers only (Exponential launch, ticket 09). A service is where Twilio keeps
+   * the code length, the lifetime and the countries, so they are set there and
+   * not sent with each request.
+   */
+  readonly serviceSid: string
+}
+
+export const twilioVerifySettings = (): TwilioVerifySettings => ({
+  ...twilioCredentials(),
+  serviceSid: required('TWILIO_VERIFY_SERVICE_SID'),
+})
