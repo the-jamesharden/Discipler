@@ -27,4 +27,4 @@ It shows on Check-Ins with a Test tag, and it never changes your Overview, your 
 - If a real check-in is waiting on your phone, answer that first and then try the test again.
 - If a real check-in is about to reach your phone while a test is open, the test ends first, so your real answer always lands on the real check-in.
 
-If something isn't working, write to support@trydiscipler.com and we will help.
+If something isn't working, write to [support@trydiscipler.com](mailto:support@trydiscipler.com) and we will help.

@@ -46,7 +46,7 @@ To update your payment method or cancel, Discipler opens Stripe's own billing pa
 Card and bank details are only ever typed on Stripe's forms.
 Discipler keeps only the card's brand and last four digits.
 A bank account is added by signing in to your bank through Stripe.
-To change to a different bank account, write to support@trydiscipler.com.
+To change to a different bank account, write to [support@trydiscipler.com](mailto:support@trydiscipler.com).
 
 ## If a payment doesn't go through
 

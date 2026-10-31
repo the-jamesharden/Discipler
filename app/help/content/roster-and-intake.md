@@ -13,7 +13,7 @@ There are two ways people arrive on your Roster:
 - **They fill in your Intake form.** Anyone who completes it lands on the Roster by themselves.
 
 Not sure your spreadsheet will come out right?
-Email it to support@trydiscipler.com and we will import it for you.
+Email it to [support@trydiscipler.com](mailto:support@trydiscipler.com) and we will import it for you.
 
 ## Why Intake matters
 

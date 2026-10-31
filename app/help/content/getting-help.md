@@ -13,7 +13,7 @@ The next date and the Join on Zoom link are under Office hours in the Help menu,
 Choose **Contact support** in the Help menu to ask a question, report a bug, or suggest an idea.
 A bug report includes the page you were on and your browser, so we can find it, and never anything on the page.
 
-You can also write to support@trydiscipler.com at any time.
+You can also write to [support@trydiscipler.com](mailto:support@trydiscipler.com) at any time.
 We are happy to import your spreadsheet of people for you, too.
 
 ## More ways to learn
