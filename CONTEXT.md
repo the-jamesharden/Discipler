@@ -140,6 +140,10 @@ _Avoid_: Pre-assignment, default Material, assigning a Material at pairing
 Discipler's recurring text-message rhythm for gathering information about whether discipleship meetings are happening and how they are going.
 _Avoid_: Twilio Rhythm (Twilio is a delivery vendor, not a domain concept)
 
+**Shared Number**:
+One of the Discipler-owned numbers every Ministry sends from. Each phone a Ministry texts is given one the first time and keeps it, and a phone in two Ministries hears from a different one for each, so the number a reply was sent to says which Ministry it is for. When the set is near capacity is `src/domain/shared-numbers.ts`'s to decide.
+_Avoid_: the Ministry's number, sending number (no Ministry has a number of its own)
+
 **Welcome Message**:
 The message a person receives on completing intake, before any relationship exists.
 
@@ -168,7 +172,7 @@ The individualized, SMS-delivered link that reveals a new relationship to a pers
 _Avoid_: a Participant's Invitation Link (a Participant answers at Intake and is asked nothing further). The Intake Link below is not one: it asks a Person nothing new and reveals nobody else to them.
 
 **Ministry Setup Link**:
-The link through which a Ministry comes into existence. Whoever runs Discipler mints it, naming the church, the number it sends from and the phone its first Admin signs in with, and sends it by hand; the Admin opens it, types their name, chooses the Ministry Timezone and a password, and that one submit creates their account, the Ministry, their place on its Roster and their Admin access. It is the shape of an Invitation Link pointed at a pastor: possession is the authentication, the phone is displayed and never typed, it runs out after a fixed window, it is spent by account creation and not by being opened, and minting again for the same phone replaces it. Until it is spent it belongs to no Ministry, because there is none yet. See `docs/adr/0019-a-ministry-opens-from-a-link.md`.
+The link through which a Ministry comes into existence. Whoever runs Discipler mints it, naming the church and the phone its first Admin signs in with, and sends it by hand; the Admin opens it, types their name, chooses the Ministry Timezone and a password, and that one submit creates their account, the Ministry, their place on its Roster and their Admin access. It is the shape of an Invitation Link pointed at a pastor: possession is the authentication, the phone is displayed and never typed, it runs out after a fixed window, it is spent by account creation and not by being opened, and minting again for the same phone replaces it. Until it is spent it belongs to no Ministry, because there is none yet. See `docs/adr/0019-a-ministry-opens-from-a-link.md`.
 _Avoid_: Sign-up, self-serve onboarding (a Ministry exists because an operator said so; the link only moves the typing of the password to its owner), and Provisioning as a user-facing word (it names the code path, `provisionMinistry`, which the link and the seed script both run)
 
 **Intake Link**:

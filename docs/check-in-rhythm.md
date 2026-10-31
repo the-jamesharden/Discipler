@@ -78,9 +78,9 @@ The rule is the same for leaders and participants, and is set out in `docs/produ
 
 Every message is the ministry speaking. Discipler is the delivery mechanism and never the speaker: it does not name itself in message copy, and no message is phrased as reporting to a third party about the ministry. A participant should feel they are interacting with their church, not with a vendor layered between them and their ministry.
 
-Every message carries the ministry name as a prefix, without exception — menus, confirmations, reminders, and acknowledgements included.
+Every message starts with the name the ministry's messages read as, followed by "via Discipler", as in `ABC Church via Discipler: …`, without exception: menus, confirmations, reminders, acknowledgements, and the first text a person is ever sent included.
 
-The one exception to Discipler naming itself is A2P compliance, which requires identifying the service carrying the message. `Discipler:` stacks in front of the ministry prefix on opt-in messaging, on the first message ever sent to a person, on the first message after a silence gap, and on the `HELP` response. The two prefixes stack rather than substitute because they answer different questions — who is speaking, and what is delivering it.
+That is the one place Discipler names itself, because A2P compliance requires identifying the service carrying the message, and every ministry sends from Discipler's shared numbers.
 
 See `docs/product-rules.md` for the full rule and the standing caveat that A2P requirements have not been checked against a live campaign registration.
 
