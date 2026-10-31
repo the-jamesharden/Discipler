@@ -72,3 +72,9 @@
 - At 1280 it matches `s6-popup.html` and `s6-popup-one.html` in words, size, colours, border, shadow and buttons, in the corner rather than above the circle.
 - At 390 it fits inside the page's gutters with no horizontal scroll.
 - Signing in shows it; Roster and back, and a reload, do not; a fresh sign-in shows it again; Dismiss closes it; Pair them lands on Suggested Pairs and Send Intake links on the Awaiting Intake Roster.
+
+### Test results (2026-10-31, at 0a30a4e)
+
+- `npx vitest run tests/domain tests/app`: 108 files and 2242 tests passed.
+- `npx tsc --noEmit`: clean.
+- `scripts/locked-tests.sh` with a server on 3161, over `the-unpaired-pop-up`, `rls-coverage`, `the-overview`, `the-admin-tabs-answer-in-one-read`, `every-page-function-answers`, `the-growth-chart`, `overview-cards-over-http` and `the-admin-tabs-over-http`: 8 files and 64 tests passed, none skipped.
