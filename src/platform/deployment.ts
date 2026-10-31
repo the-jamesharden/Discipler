@@ -126,7 +126,7 @@ const stagingRefusals = (env: Environment): string[] => {
   }
 
   for (const [name, value] of set) {
-    if (namesProductionSupabase(value)) {
+    if (reachesProductionSupabase(value)) {
       refusals.push(`${name} points at production's Supabase project.`)
     }
     if (STRIPE_LIVE_KEY.test(value)) {
@@ -153,7 +153,7 @@ const stagingRefusals = (env: Environment): string[] => {
  * URL, a database host, a pooler user name), or inside a key, whose JWT payload
  * names the project it belongs to.
  */
-const namesProductionSupabase = (value: string): boolean =>
+export const reachesProductionSupabase = (value: string): boolean =>
   value.includes(PRODUCTION_SUPABASE_REF) || jwtProjectRef(value) === PRODUCTION_SUPABASE_REF
 
 const jwtProjectRef = (value: string): string | null => {

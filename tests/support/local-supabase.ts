@@ -56,6 +56,16 @@ export const localSupabase = (): LocalSupabase => {
  * all ask for a Ministry first.
  */
 export const publishSupabaseCredentials = (): void => {
+  // An environment that already names all four is not asked about the local stack
+  // at all, so a script pointed at staging runs on a machine with no stack started.
+  const names = [
+    'NEXT_PUBLIC_SUPABASE_URL',
+    'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+    'SUPABASE_SERVICE_ROLE_KEY',
+    'DATABASE_URL',
+  ]
+  if (names.every((name) => process.env[name])) return
+
   const { apiUrl, anonKey, serviceRoleKey, databaseUrl } = localSupabase()
   process.env.NEXT_PUBLIC_SUPABASE_URL ??= apiUrl
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??= anonKey
