@@ -127,7 +127,14 @@ export const createPhoneCheck = ({
       if (latest && standing?.kind === 'open') {
         id = latest.id
       } else {
-        if (latest && standing?.kind === 'expired') await unit.end(latest.id, 'expired', standing.at)
+        // Only one attempt may be open, so one that is over without its ending
+        // written -- expired unnoticed, or its fifth try still with Twilio -- is
+        // closed here first. An ending already written is kept.
+        if (latest && standing && !latest.ending) {
+          await (standing.kind === 'expired'
+            ? unit.end(latest.id, 'expired', standing.at)
+            : unit.end(latest.id, 'wrong_codes', now))
+        }
         id = await unit.startAttempt(now)
       }
       await unit.recordCodeRequest(id, now)

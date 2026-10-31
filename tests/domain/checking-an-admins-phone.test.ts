@@ -187,6 +187,17 @@ describe('sending a code', () => {
     expect(await phoneCheck.sendCode(jordan)).toEqual({ refusal: 'phone_check.too_many_codes' })
   })
 
+  it('closes an attempt whose five tries are spent before starting the next', async () => {
+    // The fifth try is still with Twilio when the Admin presses for a new code:
+    // its ending is not written yet, and only one attempt may be open at a time.
+    await phoneCheck.sendCode(grace)
+    store.attempts[0]!.codesTried = 5
+
+    await phoneCheck.sendCode(grace)
+
+    expect(store.attempts.map((a) => a.ending)).toEqual(['wrong_codes', null])
+  })
+
   it('starts a new attempt once the last code has expired', async () => {
     await phoneCheck.sendCode(grace)
     clock.advanceBy(minutes(11))
