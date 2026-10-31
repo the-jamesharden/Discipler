@@ -72,6 +72,14 @@ describe('the help pages', () => {
     }
   })
 
+  it('leads the list with each page\'s first sentence', () => {
+    expect(page('overview').lead).toBe('Overview answers one question at a glance: how is your ministry doing right now?')
+    expect(page('check-ins').lead).toBe(
+      'Once a week, on the day and hour you choose in Settings, Discipler texts each Discipler to ask how their week went.',
+    )
+    for (const help of HELP_PAGES) expect(help.summary.startsWith(help.lead), help.slug).toBe(true)
+  })
+
   it('anchors each heading so a link can point at part of a page', () => {
     expect(page('check-ins').headings).toContainEqual({
       text: 'When nobody answers',
