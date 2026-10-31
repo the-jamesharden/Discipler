@@ -20,7 +20,8 @@
     "db:stop": "supabase stop",
     "seed": "vite-node -c vitest.config.ts scripts/seed-demo.ts",
     "setup-link": "vite-node -c vitest.config.ts scripts/setup-link.ts",
-    "smoke:pages": "vite-node -c vitest.config.ts scripts/smoke-pages.ts"
+    "smoke:pages": "vite-node -c vitest.config.ts scripts/smoke-pages.ts",
+    "email:check": "vite-node -c vitest.config.ts scripts/send-test-email.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",

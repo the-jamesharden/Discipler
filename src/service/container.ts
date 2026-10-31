@@ -39,16 +39,19 @@ import {
 import { createSupabaseMaterialsReader } from '~/platform/supabase/materials-reader'
 import { createSupabaseOverviewReader } from '~/platform/supabase/overview-reader'
 import { createTwilioTransport } from '~/platform/twilio/message-transport'
+import { createResendTransport } from '~/platform/resend/email-transport'
 import { supabaseAccounts } from '~/platform/supabase/accounts'
 import { createSupabaseRosterReader } from '~/platform/supabase/roster-reader'
 import { createSupabaseSuggestedPairsReader } from '~/platform/supabase/suggested-pairs-reader'
 import { createCommandService, type CommandService } from './command-service'
+import { createEmailSender } from './email-sender'
 import { dispatchQueue, NoSendingNumber, type DispatchOutcome } from './outbound-dispatch'
 import type {
   Accounts,
   CareNeededReader,
   CheckInsReader,
   EffectStore,
+  EmailSender,
   LeaderDashboardReader,
   InboundReader,
   IntakeFormsReader,
@@ -115,6 +118,7 @@ let inboundReader: PostgresInboundReader | undefined
 let outboundQueue: PostgresOutboundQueue | undefined
 let ministryDirectory: PostgresMinistryDirectory | undefined
 let messageTransport: MessageTransport | undefined
+let emailSender: EmailSender | undefined
 
 export const getCommandService = (): CommandService => {
   if (!commandService) {
@@ -286,6 +290,21 @@ export const getMessageTransport = (): MessageTransport => {
 }
 
 /**
+ * The one way an email leaves Discipler (Exponential launch, ticket 10). Resend is
+ * behind it and nowhere else, and the sender opens every email in the domain
+ * before the vendor sees it, so there is no transport to reach around it: this
+ * getter is the only thing that builds one.
+ *
+ * Built lazily, and its credentials read per send, for the reason the message
+ * transport's are: only Production has a Resend key, and Preview and a
+ * developer's machine run every page without one.
+ */
+export const getEmailSender = (): EmailSender => {
+  if (!emailSender) emailSender = createEmailSender(createResendTransport())
+  return emailSender
+}
+
+/**
  * One drain of one Ministry's queue, assembled from the parts above so that its
  * callers cannot assemble it differently. The scheduler drains after its tick, and
  * every request whose command queued a message drains after its response, the
@@ -359,6 +378,7 @@ export const closeCommandService = async (): Promise<void> => {
   // The transport holds no pool -- it is `fetch` and a pair of credentials -- so
   // there is nothing of its to close, only the reference to drop.
   messageTransport = undefined
+  emailSender = undefined
   await store?.close()
   await reader?.close()
   await invitations?.close()
