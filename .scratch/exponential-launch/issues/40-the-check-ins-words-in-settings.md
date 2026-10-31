@@ -19,7 +19,7 @@
 - "[name]" stands for whoever the check-in is about, composed as `checkInSubject` composes it today, so a group's check-in names the group the same way it does now.
 - A blank line falls back to Discipler's words, and "Use Discipler's wording" clears all four.
 - Each sentence is at most 160 characters, with a counter under the line once it passes 120 (James, triage 2026-10-31); a longer one is refused with its own refusal code.
-- Discipler writes the frame of every text, as a permanent rule (spec, The texting numbers): the "{Messages read as} via Discipler:" start, the reply choices ("Reply 1 for yes, 2 for no." and "Reply A for outstanding, B for good, C for concern.") and the rates and opt-out lines.
+- Discipler writes the frame of every text, as a permanent rule (spec, The texting numbers): the "{Messages read as} via Discipler:" start, the reply choices ("Reply 1 for yes, 2 for no." and "Reply A for outstanding, B for good, C for okay, D for concern.") and the rates and opt-out lines.
   None of the frame can be edited, and each line's help says which ending is always added, so the answer can be counted.
 - A live phone beside the block shows what a mentor receives, frame included, as the Admin types.
 - The test check-in (ticket 28) uses the church's words, through the same composer.
