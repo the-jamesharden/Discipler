@@ -12,7 +12,8 @@ Changing any wording below requires a new version identifier. Existing consent r
 
 ## How a person reaches this form
 
-Consent to take part is obtained through the intake form and through nothing else. There are two routes to it, recorded on each consent record as `source`:
+Consent to take part is obtained through the intake form and through nothing else.
+There are two routes to it, recorded on each consent record as `source`:
 
 - `pastor_link` — a pastor sends the person the link directly. The primary path.
 - `qr_code` — a QR code opening the same link, for a leaders' meeting where a room can complete it together.
@@ -42,7 +43,8 @@ The public description of this opt-in, for the carrier registration, is drafted 
 
 ## Statement 1 — SMS consent
 
-Presented as a required checkbox. Discipler sends nothing to anyone whose record lacks it, except the texts an Admin's own consent above names.
+Presented as a required checkbox.
+Discipler sends nothing to anyone whose record lacks it, except the texts an Admin's own consent above names.
 
 > I agree to receive text messages from **{{ministry_name}}** through Discipler about my discipleship relationship, including a weekly check-in. Message frequency varies. Message and data rates may apply. Reply STOP to opt out or HELP for help.
 
