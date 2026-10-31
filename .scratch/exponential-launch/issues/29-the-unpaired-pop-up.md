@@ -50,7 +50,7 @@
   So a new sign-in or the church's midnight starts a new showing, and the card shows on the first Overview visit of each.
   It is written the moment the card shows, so closing it, moving to another tab and coming back, or reloading the Overview all leave it away until the next showing.
   Opening a pair card or changing the growth chart re-renders the Overview around it and does not hide it, since that is not moving tab.
-  Alternative: a table recording each Admin's showings; rejected because a page read must write nothing, a sign-in is one browser's already, and it would add an operator-free table and a write path for a hint.
+  Alternative: a table recording each Admin's showings; rejected because a page read must write nothing, a sign-in is one browser's already, and it would add a table and a write path for a hint.
   Where the browser refuses storage (some private windows) it shows on every visit rather than never.
   The card is never in the server's markup, so a visit that has seen it does not flash it before the script hides it; without script it does not show.
 - **Send Intake links goes to `/roster?pairings=awaiting-intake`, the Roster menu's existing Awaiting Intake option**, which is exactly the people whose Participation Status is No Intake Submitted.
