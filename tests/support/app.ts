@@ -64,17 +64,42 @@ export const cookiesFrom = (response: Response): string =>
     .join('; ')
 
 /**
+ * A network of its own, as `x-forwarded-for` names it, for a request that tries a
+ * password.
+ *
+ * The sign-in guessing limit counts failures per network (Exponential launch,
+ * ticket 13), and without the header every request in the suite comes from the
+ * one loopback address -- so ten wrong passwords anywhere in a run, or across the
+ * three back-to-back runs, would hold back every sign-in after them. Next keeps a
+ * header the request already carries, which is what lets a test name its network;
+ * on Vercel the header is Vercel's and cannot be named.
+ *
+ * A /64 of its own in the IPv6 documentation range, because the limit counts an
+ * IPv6 address by its /64.
+ */
+export const aNetwork = (): string => {
+  const group = () => Math.floor(Math.random() * 0x10000).toString(16)
+  return `2001:db8:${group()}:${group()}::1`
+}
+
+/**
  * A phone number and a password, which is the credential for every user. See
  * `docs/adr/0008-the-phone-number-is-the-sign-in-credential.md`.
  */
-export const signInAs = async (credential: {
-  readonly phone: string
-  readonly password: string
-}) => {
+export const signInAs = async (
+  credential: {
+    readonly phone: string
+    readonly password: string
+  },
+  network: string = aNetwork(),
+) => {
   const response = await fetch(`${baseUrl}/auth/sign-in`, {
     method: 'POST',
     redirect: 'manual',
-    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    headers: {
+      'content-type': 'application/x-www-form-urlencoded',
+      'x-forwarded-for': network,
+    },
     body: new URLSearchParams({ phone: credential.phone, password: credential.password }),
   })
 

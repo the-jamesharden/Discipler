@@ -103,9 +103,10 @@ export const supabaseAccounts: Accounts = {
 
     // The check is a password sign-in, on a client that keeps nothing. There is no
     // verify-only endpoint, and this one goes through the same door as the sign-in
-    // form and sits behind the same per-IP rate limit -- which is why there is no
-    // limiter of Discipler's own here: the exposure is exactly the one the sign-in
-    // form already has. The session this mints is ended by the update that follows,
+    // form. Supabase's per-address limit on that door counts the server's address,
+    // not the person's, so it is not the limiter: the route that calls this holds
+    // it to Discipler's own sign-in guessing limit first (`SignInLimit`, Exponential
+    // launch ticket 13). The session this mints is ended by the update that follows,
     // like every other session on the account.
     const { anonKey, url } = supabaseCredentials()
     const checking = createClient(url, anonKey, {

@@ -10,7 +10,7 @@ import {
   type AccountFixture,
   type MinistryFixture,
 } from '../support/local-supabase'
-import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app'
+import { aNetwork, baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app'
 
 /**
  * The reset as an Admin performs it: from the row they are looking at, through a
@@ -321,7 +321,7 @@ describe.skipIf(skipUnlessAppIsRunning)('resetting a password over HTTP', () => 
     const theirSignIn = await fetch(`${baseUrl}/auth/sign-in`, {
       method: 'POST',
       redirect: 'manual',
-      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      headers: { 'content-type': 'application/x-www-form-urlencoded', 'x-forwarded-for': aNetwork() },
       body: new URLSearchParams({ phone: leader.phone, password: leader.password }),
     })
     const theirCookie = theirSignIn.headers

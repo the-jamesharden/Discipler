@@ -765,6 +765,37 @@ export interface UnitOfWork {
 }
 
 /**
+ * Whose account a sign-in is trying, as far as the guessing limit is concerned.
+ * The number typed at the sign-in form, or the account of the session whose
+ * current password is being checked at a change of password.
+ */
+export type SignInAccount = { readonly phone: string } | { readonly userId: string }
+
+/**
+ * One try at a password, reserved before Supabase Auth is asked. It stays counted
+ * as a failure unless the caller says otherwise -- so a try whose request died
+ * half-way counts against the guesser, not for them.
+ */
+export interface SignInAttempt {
+  /** The password was right, or Supabase never answered: this was not a wrong guess. */
+  notAFailure(): Promise<void>
+}
+
+/**
+ * The sign-in guessing limit (Exponential launch, ticket 13; Q34): ten failed
+ * sign-ins per account and per network in fifteen minutes, from
+ * `src/domain/sign-in-limit.ts`.
+ *
+ * One method that counts and reserves together, rather than a check beside a
+ * record, so that simultaneous guesses cannot all read a count of nine. Null is
+ * *held back*: the caller refuses without asking Supabase Auth anything, and says
+ * the same thing whether or not the account exists.
+ */
+export interface SignInLimit {
+  attempt(account: SignInAccount, network: string | null): Promise<SignInAttempt | null>
+}
+
+/**
  * Minting the account somebody signs in with. It is the one thing the application
  * needs from the outside world that creates a user rather than reading or writing
  * a row, which is why it is a port of its own rather than part of the unit of work:
@@ -841,7 +872,12 @@ export interface Accounts {
     newPassword: string,
   ): Promise<
     | { readonly changed: true }
-    | { readonly refusal: Exclude<PasswordChangeRefusal, 'account.passwords_differ'> }
+    | {
+        readonly refusal: Exclude<
+          PasswordChangeRefusal,
+          'account.passwords_differ' | 'account.too_many_attempts'
+        >
+      }
   >
 }
 

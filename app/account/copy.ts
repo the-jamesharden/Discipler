@@ -1,5 +1,6 @@
 import type { PasswordChangeRefusal } from '~/domain/accounts'
 import { PASSWORD_REFUSALS } from '../invitation/copy'
+import { TOO_MANY_ATTEMPTS } from '../login/failures'
 import { refusalsIn } from '../refusals'
 
 /**
@@ -16,6 +17,7 @@ const REFUSALS: Record<PasswordChangeRefusal, string> = {
   ...PASSWORD_REFUSALS,
   'account.passwords_differ': 'The two new passwords do not match.',
   'account.current_password_wrong': 'That is not your current password.',
+  'account.too_many_attempts': TOO_MANY_ATTEMPTS,
 }
 
 /**

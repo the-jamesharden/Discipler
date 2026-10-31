@@ -11,7 +11,7 @@ import {
   type AccountFixture,
   type MinistryFixture,
 } from '../support/local-supabase'
-import { baseUrl, getPage, signIn, signInAs, skipUnlessAppIsRunning } from '../support/app'
+import { aNetwork, baseUrl, getPage, signIn, signInAs, skipUnlessAppIsRunning } from '../support/app'
 
 /**
  * A person changing their own password, the way they do it: from a link beside
@@ -52,7 +52,11 @@ describe.skipIf(skipUnlessAppIsRunning)('changing your own password over HTTP', 
     const response = await fetch(`${baseUrl}/account/change`, {
       method: 'POST',
       redirect: 'manual',
-      headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' },
+      headers: {
+        cookie,
+        'content-type': 'application/x-www-form-urlencoded',
+        'x-forwarded-for': aNetwork(),
+      },
       body: new URLSearchParams(body),
     })
     const location = response.headers.get('location') ?? ''

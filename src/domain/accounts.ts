@@ -76,6 +76,12 @@ export type PasswordChangeRefusal =
    * borrowed unlocked phone is a permanent account takeover.
    */
   | 'account.current_password_wrong'
+  /**
+   * Too many wrong current passwords from this account or this network lately, so
+   * the platform was not asked (Exponential launch, ticket 13). The sign-in
+   * guessing limit, applied to the one other place a password is checked.
+   */
+  | 'account.too_many_attempts'
 
 /** Everything an account can be refused for, wherever it was asked. */
 export type AccountRefusal =
