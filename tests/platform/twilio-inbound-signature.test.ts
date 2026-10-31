@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { calledUrl, signatureMatches, twilioSignature } from '~/platform/twilio/inbound-signature'
+import {
+  calledUrl,
+  inboundSigningSecret,
+  signatureMatches,
+  twilioSignature,
+} from '~/platform/twilio/inbound-signature'
 
 /**
  * The other half of the vendor boundary: what Twilio sends *in*, and how Discipler
@@ -141,5 +146,40 @@ describe('the URL the signature is checked against', () => {
     expect(calledUrl('http://127.0.0.1:3000/sms/inbound', new Headers())).toBe(
       'http://127.0.0.1:3000/sms/inbound',
     )
+  })
+})
+
+describe('the secret a request must be signed with', () => {
+  it('is the Twilio account’s auth token, because Twilio signs with it', () => {
+    expect(inboundSigningSecret({ TWILIO_AUTH_TOKEN: 'the-account-token' })).toBe(
+      'the-account-token',
+    )
+  })
+
+  it('is staging’s own test secret on staging, so only a test request James signed gets in', () => {
+    // Staging has no Twilio account and no number, so Twilio never calls it.
+    // Whatever arrives there is a test, and it is signed with a secret that exists
+    // nowhere else (Exponential launch, ticket 02).
+    expect(
+      inboundSigningSecret({
+        DISCIPLER_ENVIRONMENT: 'staging',
+        STAGING_SMS_SIGNING_SECRET: 'a-staging-only-secret',
+      }),
+    ).toBe('a-staging-only-secret')
+  })
+
+  it('is never the account’s token on staging, even if one was left there', () => {
+    expect(
+      inboundSigningSecret({ VERCEL_TARGET_ENV: 'staging', TWILIO_AUTH_TOKEN: 'the-account-token' }),
+    ).toBeNull()
+  })
+
+  it('is never staging’s test secret anywhere else', () => {
+    expect(inboundSigningSecret({ STAGING_SMS_SIGNING_SECRET: 'a-staging-only-secret' })).toBeNull()
+  })
+
+  it('is nothing when unset, which closes the door', () => {
+    expect(inboundSigningSecret({})).toBeNull()
+    expect(inboundSigningSecret({ TWILIO_AUTH_TOKEN: '' })).toBeNull()
   })
 })

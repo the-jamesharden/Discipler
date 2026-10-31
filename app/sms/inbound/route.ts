@@ -1,5 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { calledUrl, signatureMatches } from '~/platform/twilio/inbound-signature'
+import {
+  calledUrl,
+  inboundSigningSecret,
+  signatureMatches,
+} from '~/platform/twilio/inbound-signature'
 import {
   getCommandService,
   getInboundReader,
@@ -7,24 +11,26 @@ import {
 } from '~/service/container'
 
 /**
- * Only Twilio may speak here.
+ * Only Twilio may speak here -- or, on staging, which Twilio never calls, only a
+ * test request signed the same way with staging's own secret (Exponential launch,
+ * ticket 02). `inboundSigningSecret` says which.
  *
  * A number is public, and this route acts on the say-so of one: `STOP` opts a
  * congregant out of their Ministry, `PAUSE` suspends a relationship, `D` raises a
  * Concern against somebody's name. Unverified, anybody who knows a mobile number
  * can do all three as that person.
  *
- * **An unset token is a closed door**, exactly as `CRON_SECRET` is at `/cron/tick`
+ * **An unset secret is a closed door**, exactly as `CRON_SECRET` is at `/cron/tick`
  * and for the same reason: a deployment that forgot to configure it must not be one
  * where anybody can drive the webhook. The tests sign their requests rather than
  * being let past.
  */
 const fromTwilio = (request: NextRequest, parameters: Readonly<Record<string, string>>) => {
-  const authToken = process.env.TWILIO_AUTH_TOKEN
-  if (!authToken) return false
+  const secret = inboundSigningSecret(process.env)
+  if (!secret) return false
 
   return signatureMatches(
-    authToken,
+    secret,
     request.headers.get('x-twilio-signature'),
     calledUrl(request.url, request.headers),
     parameters,

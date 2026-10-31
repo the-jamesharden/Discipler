@@ -38,6 +38,8 @@ import {
 } from '~/platform/supabase/outbound-queue'
 import { createSupabaseMaterialsReader } from '~/platform/supabase/materials-reader'
 import { createSupabaseOverviewReader } from '~/platform/supabase/overview-reader'
+import { messageTransportKind } from '~/platform/deployment'
+import { createRecordingTransport } from '~/platform/recording-transport'
 import { createTwilioTransport } from '~/platform/twilio/message-transport'
 import { createResendTransport } from '~/platform/resend/email-transport'
 import { createTwilioVerifier } from '~/platform/twilio/phone-verifier'
@@ -304,9 +306,17 @@ export const getOutboundQueue = (): OutboundQueue => {
  * Built lazily like everything else here, which matters more than usual: its
  * credentials are only required by a deployment that sends, so a developer running
  * the Roster locally is not stopped by an account they have no use for.
+ *
+ * On staging, and wherever `MESSAGE_TRANSPORT=record` says so, a text is written
+ * to the log instead of sent (Exponential launch, ticket 02).
  */
 export const getMessageTransport = (): MessageTransport => {
-  if (!messageTransport) messageTransport = createTwilioTransport()
+  if (!messageTransport) {
+    messageTransport =
+      messageTransportKind(process.env) === 'record'
+        ? createRecordingTransport()
+        : createTwilioTransport()
+  }
   return messageTransport
 }
 

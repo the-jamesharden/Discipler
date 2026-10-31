@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
+import { deploymentOf, type Environment } from '../deployment'
 
 /**
  * Proving an inbound callback came from Twilio.
@@ -19,6 +20,22 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
  * result with the account's auth token, and base64 it. The signature arrives in
  * `X-Twilio-Signature`.
  */
+
+/**
+ * The secret an inbound request must be signed with, or null when there is none --
+ * which the route treats as a closed door, never an open one.
+ *
+ * Everywhere but staging it is the Twilio account's auth token, because that is
+ * what Twilio signs with. Staging has no Twilio account and no number, so Twilio
+ * never calls it: whatever arrives there is a test, and it must be signed with
+ * `STAGING_SMS_SIGNING_SECRET`, a secret that exists nowhere else (Exponential
+ * launch, ticket 02). Each secret is read only where it belongs, so a token left on
+ * staging by mistake opens nothing there, and staging's secret opens nothing
+ * anywhere else.
+ */
+export const inboundSigningSecret = (env: Environment): string | null =>
+  (deploymentOf(env) === 'staging' ? env.STAGING_SMS_SIGNING_SECRET : env.TWILIO_AUTH_TOKEN) ||
+  null
 
 /**
  * The signature Twilio would have sent for this call. Exported because the tests
