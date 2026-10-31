@@ -1,7 +1,8 @@
 # Refer a church
 
+Share your church's link with another church, and you both get a month free.
 Know a church that would love Discipler?
-Give a month free, and get a month free.
+This is how to tell them.
 
 ## How it works
 

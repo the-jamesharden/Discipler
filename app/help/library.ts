@@ -86,6 +86,8 @@ export interface HelpPage {
   readonly title: string
   /** The first paragraph, as plain words: the line under the title in a list or a search result. */
   readonly summary: string
+  /** The summary's first sentence: what the Help center's list shows under the title, so the list scans. */
+  readonly lead: string
   /** The page's Markdown after its title, every placeholder filled. What the page renders and the AI guide reads. */
   readonly markdown: string
   /** Its `##` headings, in order, for a link to one part of the page. */
@@ -125,12 +127,13 @@ export const readHelpPage = (
 
   const markdown = filled.slice(filled.indexOf('\n') + 1).trim()
   const summary = plainWords(markdown.split(/\n\s*\n/)[0] ?? '')
+  const lead = /^.+?[.?!](?=\s|$)/.exec(summary)?.[0] ?? summary
   const headings = [...markdown.matchAll(/^## (.+)$/gm)].map(([, text]) => ({
     text: text!.trim(),
     anchor: headingAnchor(text!),
   }))
 
-  return { slug, href: `/help/${slug}`, section, title, summary, markdown, headings }
+  return { slug, href: `/help/${slug}`, section, title, summary, lead, markdown, headings }
 }
 
 /** Every help page, in the Help center's order. */
