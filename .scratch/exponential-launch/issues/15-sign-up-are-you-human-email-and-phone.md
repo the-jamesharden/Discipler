@@ -25,3 +25,8 @@
 ## For James
 
 1. Approve mock-up 1 before this is built.
+
+## Comments
+
+- From reviewing ticket 36 (2026-10-31): ticket 36 drafted the legal pages but built no switch, so "sign-up stays off until they are published" (spec, Q30) is this ticket's to hold.
+  Triage it with a way to keep the sign-up pages closed on production until James says the privacy policy and terms are live.

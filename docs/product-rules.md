@@ -152,7 +152,8 @@ An admin cannot attest to consent on a person's behalf, at import or anywhere el
 > **Amended (Exponential launch, 2026-10-29):** an Admin who signs a church up gives a consent of their own, recorded with the source `ministry_setup`.
 > It lets Discipler text that Admin's phone the texts the sign-up page names, a verification code and the test check-in, and nothing else.
 > It is not an Intake: it changes nothing about the Admin's Participation Status, and being paired still needs an Intake on both sides.
-> Intake is still the only consent gate for anyone being discipled or leading. See `docs/consent-language.md`.
+> Intake is still the only consent gate for anyone being discipled or leading.
+> See `docs/consent-language.md`.
 
 Intake records SMS consent and contact-sharing consent independently, each with its own timestamp, alongside the version of the consent language the person actually saw.
 
