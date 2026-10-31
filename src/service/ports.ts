@@ -3,17 +3,24 @@ import type {
   IntendedPairingSnapshot,
   NewIntendedPairing,
   OpenIntendedPairing,
-} from '~/domain/intended-pairing'
-import type { IntendedPairingId } from '~/domain/ids'
-import type { PersonRemoval, PersonRestoration, PersonToRemove } from '~/domain/removal'
-import type { PairingRefusal } from '~/domain/errors'
-import type { AccountCreationRefusal, PasswordChangeRefusal } from '~/domain/accounts'
+} from "~/domain/intended-pairing";
+import type { IntendedPairingId } from "~/domain/ids";
+import type {
+  PersonRemoval,
+  PersonRestoration,
+  PersonToRemove,
+} from "~/domain/removal";
+import type { PairingRefusal } from "~/domain/errors";
+import type {
+  AccountCreationRefusal,
+  PasswordChangeRefusal,
+} from "~/domain/accounts";
 import type {
   HeldImportRow,
   ImportRowAnswer,
   NameOnTheNumber,
-} from '~/domain/roster'
-import type { AvailabilityOverlay } from '~/domain/availability-overlay'
+} from "~/domain/roster";
+import type { AvailabilityOverlay } from "~/domain/availability-overlay";
 import type {
   IntakeLinkSnapshot,
   InvitationHeld,
@@ -24,13 +31,20 @@ import type {
   RelationshipSnapshot,
   RelationshipToAssign,
   UnacceptedRelationship,
-} from '~/domain/boundary'
-import type { CheckInSnapshot, Satisfaction } from '~/domain/check-in'
-import type { CheckInCounts } from '~/domain/overview'
-import type { CapacityConcern, SharedNumberLoad } from '~/domain/shared-numbers'
-import type { GrowthChoice, GrowthSeries } from '~/domain/growth'
-import type { IsoWeek } from '~/domain/week'
-import type { ConcernResolution, ConcernViewing, NewConcern } from '~/domain/concerns'
+} from "~/domain/boundary";
+import type { CheckInSnapshot, Satisfaction } from "~/domain/check-in";
+import type { CheckInCounts } from "~/domain/overview";
+import type {
+  CapacityConcern,
+  SharedNumberLoad,
+} from "~/domain/shared-numbers";
+import type { GrowthChoice, GrowthSeries } from "~/domain/growth";
+import type { IsoWeek } from "~/domain/week";
+import type {
+  ConcernResolution,
+  ConcernViewing,
+  NewConcern,
+} from "~/domain/concerns";
 import type {
   CheckInAnswer,
   CheckInClarification,
@@ -70,30 +84,45 @@ import type {
   ShortNameChange,
   IntakeAnswersRemoval,
   IntakeFormSaving,
-} from '~/domain/effects'
-import type { AnswerGiven, BuiltInQuestion, IntakeForm, QuestionKey } from '~/domain/intake-form'
-import type { OwnAnswerShown } from '~/domain/own-answers'
+} from "~/domain/effects";
+import type {
+  AnswerGiven,
+  BuiltInQuestion,
+  IntakeForm,
+  QuestionKey,
+} from "~/domain/intake-form";
+import type { OwnAnswerShown } from "~/domain/own-answers";
 import type {
   FollowUpKind,
   FollowUpPayload,
   FollowUpResolution,
   NewFollowUpItem,
-} from '~/domain/follow-up'
-import type { OfferedGoal, StatedGoal } from '~/domain/discipleship-goals'
-import type { MaterialItem, MaterialOnOffer } from '~/domain/materials'
-import type { MaterialRecipient } from '~/domain/material-notices'
-import type { MinistrySettings, MinistryVoice } from '~/domain/ministry-settings'
-import type { ShortName } from '~/domain/short-name'
-import type { IntakeLinkState, IntakeLinkToken, NewIntakeLink } from '~/domain/intake-link'
-import type { InboundSnapshot } from '~/domain/keywords'
+} from "~/domain/follow-up";
+import type { OfferedGoal, StatedGoal } from "~/domain/discipleship-goals";
+import type { MaterialItem, MaterialOnOffer } from "~/domain/materials";
+import type { MaterialRecipient } from "~/domain/material-notices";
+import type {
+  MinistrySettings,
+  MinistryVoice,
+} from "~/domain/ministry-settings";
+import type { ShortName } from "~/domain/short-name";
+import type {
+  IntakeLinkState,
+  IntakeLinkToken,
+  NewIntakeLink,
+} from "~/domain/intake-link";
+import type { InboundSnapshot } from "~/domain/keywords";
 import type {
   OutboundMessageKind,
   SerialisationOfAMessage,
-} from '~/domain/outstanding-reply'
-import type { InvitationToken, NewInvitation } from '~/domain/invitations'
-import type { MinistrySetupState, NewMinistrySetup } from '~/domain/ministry-setup'
-import type { MinistrySetupRefusal } from '~/domain/errors'
-import type { HistoryEvent, NewHistoryEvent } from '~/domain/history'
+} from "~/domain/outstanding-reply";
+import type { InvitationToken, NewInvitation } from "~/domain/invitations";
+import type {
+  MinistrySetupState,
+  NewMinistrySetup,
+} from "~/domain/ministry-setup";
+import type { MinistrySetupRefusal } from "~/domain/errors";
+import type { HistoryEvent, NewHistoryEvent } from "~/domain/history";
 import type {
   AgeBand,
   AvailabilitySlot,
@@ -103,7 +132,7 @@ import type {
   IntakePath,
   OneToTwoAnswer,
   OtherGoal,
-} from '~/domain/intake'
+} from "~/domain/intake";
 import type {
   ConcernId,
   FollowUpItemId,
@@ -113,16 +142,20 @@ import type {
   OutboundMessageId,
   PersonId,
   RelationshipId,
-} from '~/domain/ids'
-import type { ParticipationStatus } from '~/domain/participation'
-import type { SuggestionQuestion, Suggestions } from '~/domain/suggestions'
-import type { CardShape, NewRelationship } from '~/domain/relationships'
-import type { RatesLineHistory, SettledMessage } from '~/domain/rates-line'
-import type { CareReason, RelationshipState, SettledRelationshipState } from '~/domain/relationship-state'
-import type { InvitationState } from '~/domain/invitations'
-import type { MemberRole } from '~/domain/relationships'
-import type { PausePeriodWeeks } from '~/domain/pause'
-import type { NewPerson, PhoneNumber, RosterKey } from '~/domain/roster'
+} from "~/domain/ids";
+import type { ParticipationStatus } from "~/domain/participation";
+import type { SuggestionQuestion, Suggestions } from "~/domain/suggestions";
+import type { CardShape, NewRelationship } from "~/domain/relationships";
+import type { RatesLineHistory, SettledMessage } from "~/domain/rates-line";
+import type {
+  CareReason,
+  RelationshipState,
+  SettledRelationshipState,
+} from "~/domain/relationship-state";
+import type { InvitationState } from "~/domain/invitations";
+import type { MemberRole } from "~/domain/relationships";
+import type { PausePeriodWeeks } from "~/domain/pause";
+import type { NewPerson, PhoneNumber, RosterKey } from "~/domain/roster";
 
 /**
  * Everything the application service needs from the outside world. The domain
@@ -143,14 +176,14 @@ import type { NewPerson, PhoneNumber, RosterKey } from '~/domain/roster'
  * have I seen this exact line before, and do I already hold this number.
  */
 export interface RosterReadback {
-  readonly people: ReadonlyMap<RosterKey, PersonId>
-  readonly namesByNumber: ReadonlyMap<PhoneNumber, readonly string[]>
+  readonly people: ReadonlyMap<RosterKey, PersonId>;
+  readonly namesByNumber: ReadonlyMap<PhoneNumber, readonly string[]>;
   /**
    * Who of `people` an Admin has removed from the Roster and who has not come
    * back (Remove from the Roster, ticket 01). They stay in `people`, because an
    * Intake from them has to find the same Person.
    */
-  readonly removed: ReadonlySet<PersonId>
+  readonly removed: ReadonlySet<PersonId>;
 }
 
 export interface UnitOfWork {
@@ -162,14 +195,14 @@ export interface UnitOfWork {
    * it already holds under another name is neither a duplicate nor a new Person
    * until an Admin says which.
    */
-  peopleOnRoster(): Promise<RosterReadback>
+  peopleOnRoster(): Promise<RosterReadback>;
   /**
    * Everyone in this Ministry with at least one Intake submission already on file.
    * Read inside the unit of work like the Roster, and for the same reason: two
    * submissions racing each other must not both read "never submitted" and both
    * enqueue a Welcome Message.
    */
-  peopleWhoCompletedIntake(): Promise<ReadonlySet<PersonId>>
+  peopleWhoCompletedIntake(): Promise<ReadonlySet<PersonId>>;
   /**
    * How this Ministry speaks: the name every outbound message reads as, and the
    * words it calls its two roles by. Read inside the unit of work like everything
@@ -181,13 +214,13 @@ export interface UnitOfWork {
    * separately would be a second round trip for a second half of the same fact --
    * and two answers that could, briefly, disagree about which Ministry is speaking.
    */
-  ministryVoice(): Promise<MinistryVoice>
+  ministryVoice(): Promise<MinistryVoice>;
   /**
    * Refuses with a `RosterImportRefused` when one of these people is already on the
    * Roster -- the case the read above is meant to catch, left to the database as the
    * backstop against two imports racing each other.
    */
-  createPeople(people: readonly NewPerson[]): Promise<void>
+  createPeople(people: readonly NewPerson[]): Promise<void>;
   /**
    * The rows the import would not guess about, kept so an Admin can answer them.
    * Written with the people rather than instead of them: an import that files four
@@ -200,20 +233,20 @@ export interface UnitOfWork {
    * at becomes the one in the file just uploaded, because that is the file the
    * Admin has in front of them.
    */
-  holdImportRows(rows: readonly HeldImportRow[]): Promise<void>
+  holdImportRows(rows: readonly HeldImportRow[]): Promise<void>;
   /**
    * The row an answer is about, or null for an id that names none. Read inside the
    * transaction like everything else, so two Admins working the same import report
    * cannot both find it unanswered and both act on it.
    */
-  heldImportRow(row: ImportRowId): Promise<HeldImportRow | null>
+  heldImportRow(row: ImportRowId): Promise<HeldImportRow | null>;
   /**
    * The Admin's answer, recorded against the row it closes. Never a delete: what a
    * Ministry decided about a congregant's identity is a fact about the Ministry,
    * and the row is what carries it while ticket 07 settles whether a rename is also
    * a history event.
    */
-  resolveImportRow(resolution: ImportRowResolution): Promise<void>
+  resolveImportRow(resolution: ImportRowResolution): Promise<void>;
   /**
    * The name on file becoming the name in the file. One Person row throughout --
    * this is an update to `person.full_name` and nothing else, so `person.id` never
@@ -223,8 +256,10 @@ export interface UnitOfWork {
    * number, which is `person_ministry_identity_uniq` doing the job the domain check
    * above it also does. Two Admins answering at once is what gets past the first.
    */
-  renamePerson(renaming: PersonRenaming): Promise<void>
-  appendHistory(events: readonly NewHistoryEvent[]): Promise<readonly HistoryEvent[]>
+  renamePerson(renaming: PersonRenaming): Promise<void>;
+  appendHistory(
+    events: readonly NewHistoryEvent[],
+  ): Promise<readonly HistoryEvent[]>;
   /**
    * The submission, its availability, the consents it granted, and the email it
    * carried. One call because they are one act, and because the outbound queue
@@ -232,7 +267,7 @@ export interface UnitOfWork {
    * to be written before the Welcome Message is enqueued, not merely in the same
    * transaction.
    */
-  recordIntake(intake: IntakeRecord): Promise<void>
+  recordIntake(intake: IntakeRecord): Promise<void>;
   /**
    * When each of these Persons was last queued a text carrying the rates line,
    * leaving out texts withheld at send time, and the Ministry's timezone that says
@@ -240,38 +275,40 @@ export interface UnitOfWork {
    * so the texts a command queues are settled against the queue as this
    * transaction sees it.
    */
-  ratesLineHistory(people: readonly PersonId[]): Promise<RatesLineHistory>
+  ratesLineHistory(people: readonly PersonId[]): Promise<RatesLineHistory>;
   /**
    * Texts already settled against the rates line: their words are the ones that
    * will be sent, and whether they carry the line is written beside them.
    */
-  enqueueMessages(messages: readonly SettledMessage[]): Promise<void>
+  enqueueMessages(messages: readonly SettledMessage[]): Promise<void>;
   /**
    * Closes whatever conversation this number is holding, so the next scheduled
    * message to it may go out. Does nothing where the number holds none, and
    * nothing at all where the Person has no number.
    */
-  closeOutstandingReply(closure: OutstandingReplyClosure): Promise<void>
+  closeOutstandingReply(closure: OutstandingReplyClosure): Promise<void>;
   /**
    * Closes every conversation the clock has run out on, in one statement. The
    * cutoffs arrive already worked out -- the windows are the Check-In Rhythm's and
    * are read against the injected clock, so nothing here has to know what
    * forty-eight hours means.
    */
-  sweepOutstandingReplies(sweep: OutstandingReplySweep): Promise<void>
+  sweepOutstandingReplies(sweep: OutstandingReplySweep): Promise<void>;
   /**
    * Refuses with a `PairingRefused` carrying a code when a participation cap or the
    * one-role-per-relationship rule is broken. The caps can only be judged against
    * the Ministry's other relationships, so the database is the only thing in a
    * position to judge them -- and it must not do so silently.
    */
-  createRelationship(relationship: NewRelationship): Promise<void>
+  createRelationship(relationship: NewRelationship): Promise<void>;
   /**
    * The names and numbers of the people a command names. Pairing needs them
    * because it texts every Leader an Invitation Link, and a message needs a
    * recipient and a greeting.
    */
-  contactsFor(ids: readonly PersonId[]): Promise<ReadonlyMap<PersonId, PersonContact>>
+  contactsFor(
+    ids: readonly PersonId[],
+  ): Promise<ReadonlyMap<PersonId, PersonContact>>;
   /**
    * The token as the database holds it, with everyone holding an open membership
    * on the relationship it names. Null when nothing answers to it.
@@ -280,38 +317,41 @@ export interface UnitOfWork {
    * difference between a link that has run out and one that was never real, and
    * refusing to resolve either would make those the same screen.
    */
-  resolveInvitation(token: InvitationToken): Promise<InvitationSnapshot | null>
-  issueInvitation(invitation: NewInvitation): Promise<void>
+  resolveInvitation(token: InvitationToken): Promise<InvitationSnapshot | null>;
+  issueInvitation(invitation: NewInvitation): Promise<void>;
   /**
    * Replaces the live invitation this Person holds to this relationship with a new
    * token and a new window. One row throughout: the partial unique index permits
    * one live invitation per person per relationship, and a dead token left beside
    * a live one is a second way in that nothing can revoke.
    */
-  reissueInvitation(invitation: NewInvitation): Promise<void>
+  reissueInvitation(invitation: NewInvitation): Promise<void>;
   /**
    * One Leader agreeing to lead, as one write. The token is spent, the name is
    * stored as given, the account is linked to the Person record, the membership is
    * stamped -- and the relationship itself is stamped when this was the last open
    * leader membership left to agree.
    */
-  acceptInvitation(acceptance: LeaderAcceptance): Promise<void>
+  acceptInvitation(acceptance: LeaderAcceptance): Promise<void>;
   /**
    * One invitation ended without being accepted, as one write: the link is marked
    * withdrawn, its Leader's unaccepted membership gains an end date and is never
    * deleted, and the relationship is stamped where that leaves it with at least
    * one Leader and every one of them accepted.
    */
-  withdrawInvitation(withdrawal: InvitationWithdrawal): Promise<void>
+  withdrawInvitation(withdrawal: InvitationWithdrawal): Promise<void>;
   /**
    * The unanswered invitations whose window had closed as of the instant given:
    * live, unaccepted, on a relationship that has not ended. Candidates, read with
    * no lock; each is decided again by `invitation.expire` behind the row an
    * acceptance holds. The instant is the caller's clock, never the database's.
    */
-  lapsedInvitations(asOf: Date): Promise<readonly InvitationToken[]>
+  lapsedInvitations(asOf: Date): Promise<readonly InvitationToken[]>;
   /** The invitations one Person has held to one relationship, as a re-invitation reads them. */
-  invitationHeldBy(relationship: RelationshipId, person: PersonId): Promise<InvitationHeld>
+  invitationHeldBy(
+    relationship: RelationshipId,
+    person: PersonId,
+  ): Promise<InvitationHeld>;
   /**
    * The token of the invitation one Person holds to one relationship that nobody
    * has answered and nobody has withdrawn, or null. Still theirs once its window
@@ -319,7 +359,10 @@ export interface UnitOfWork {
    * Admin taking it back: `invitation.withdraw` decides again behind the row an
    * acceptance holds. At most one, which the table's own index holds.
    */
-  unansweredInvitationOf(relationship: RelationshipId, person: PersonId): Promise<InvitationToken | null>
+  unansweredInvitationOf(
+    relationship: RelationshipId,
+    person: PersonId,
+  ): Promise<InvitationToken | null>;
   /**
    * Raising an item that already stands changes nothing. Twenty taps on "not my
    * number" is one condition, and the Admin sees one thing to act on.
@@ -329,7 +372,7 @@ export interface UnitOfWork {
    * an unanswered invitation does: the Leader accepted between the tick's read
    * and this write. True otherwise, including where the item already stood open.
    */
-  raiseFollowUp(item: NewFollowUpItem): Promise<boolean>
+  raiseFollowUp(item: NewFollowUpItem): Promise<boolean>;
   /**
    * The pairings an import planned (ADR-0022). Every plan still standing, read by
    * the settle and by an Admin pairing by hand; one plan under its own row lock,
@@ -338,10 +381,12 @@ export interface UnitOfWork {
    * the plan already closed changes nothing: two settles racing is ordinary, and
    * the database refuses the duplicate pairing the loser would have formed.
    */
-  openIntendedPairings(): Promise<readonly OpenIntendedPairing[]>
-  intendedPairingFor(id: IntendedPairingId): Promise<IntendedPairingSnapshot | null>
-  planIntendedPairings(plans: readonly NewIntendedPairing[]): Promise<void>
-  closeIntendedPairing(closure: IntendedPairingClosure): Promise<void>
+  openIntendedPairings(): Promise<readonly OpenIntendedPairing[]>;
+  intendedPairingFor(
+    id: IntendedPairingId,
+  ): Promise<IntendedPairingSnapshot | null>;
+  planIntendedPairings(plans: readonly NewIntendedPairing[]): Promise<void>;
+  closeIntendedPairing(closure: IntendedPairingClosure): Promise<void>;
   /**
    * Takes the locks on the plans a command is about to close, before it writes the
    * relationship that closes them. Settling a plan locks the plan and then writes
@@ -353,19 +398,19 @@ export interface UnitOfWork {
    * holds is locked again at no cost, and one that has since closed is locked all
    * the same, which is harmless.
    */
-  lockIntendedPairings(ids: readonly IntendedPairingId[]): Promise<void>
+  lockIntendedPairings(ids: readonly IntendedPairingId[]): Promise<void>;
   /**
    * Refuses with a `FollowUpRefused` when the item is gone or already closed. Two
    * Admins clicking Resolve on the same row is ordinary, and only the database can
    * see which of them got there first.
    */
-  resolveFollowUp(resolution: FollowUpResolution): Promise<void>
+  resolveFollowUp(resolution: FollowUpResolution): Promise<void>;
   /**
    * Every relationship in this Ministry that nobody has accepted, with the Leaders
    * still to agree and whether each has been reminded. Everything the tick needs to
    * decide anything, read in one place so the domain fetches nothing.
    */
-  unacceptedRelationships(): Promise<readonly UnacceptedRelationship[]>
+  unacceptedRelationships(): Promise<readonly UnacceptedRelationship[]>;
   /**
    * Every relationship in this Ministry a Pause currently stands on, with the
    * period it was taken for and whether an Admin already has an expiry item open
@@ -377,7 +422,7 @@ export interface UnitOfWork {
    * injected clock -- which is what lets a twelve-week pause be proven by a test
    * that runs in milliseconds.
    */
-  pausedRelationships(): Promise<readonly PausedRelationship[]>
+  pausedRelationships(): Promise<readonly PausedRelationship[]>;
   /**
    * Everyone the tick may tell about a Material change, each with every
    * relationship of theirs: what is running, what they were last told, and when
@@ -385,24 +430,26 @@ export interface UnitOfWork {
    * (Richer materials, ticket 03).
    */
   materialRecipients(): Promise<{
-    readonly timeZone: string
-    readonly recipients: readonly MaterialRecipient[]
-  }>
+    readonly timeZone: string;
+    readonly recipients: readonly MaterialRecipient[];
+  }>;
   /** What people have now been told, a row each, never updated. */
-  recordMaterialNotices(notices: readonly MaterialNoticeRecord[]): Promise<void>
+  recordMaterialNotices(
+    notices: readonly MaterialNoticeRecord[],
+  ): Promise<void>;
   /** Disciples' page links, each minted the first time a text carries it (ticket 04). */
-  issueMaterialLinks(links: readonly NewMaterialLink[]): Promise<void>
+  issueMaterialLinks(links: readonly NewMaterialLink[]): Promise<void>;
   /**
    * One relationship as the database holds it now, or null when this Ministry has
    * none by that identifier -- which is the same answer for one that belongs to
    * another Ministry, because the policy on the connection shows neither.
    */
-  relationshipFor(id: RelationshipId): Promise<RelationshipSnapshot | null>
+  relationshipFor(id: RelationshipId): Promise<RelationshipSnapshot | null>;
   /**
    * Withdraws a relationship nobody accepted and closes every open membership on
    * it, which is the whole of returning everyone to the suggestion pool.
    */
-  cancelRelationship(cancellation: RelationshipCancellation): Promise<void>
+  cancelRelationship(cancellation: RelationshipCancellation): Promise<void>;
   /**
    * Ends a relationship that ran and closes every open membership on it, in one
    * transaction and through the one database function that ends a relationship --
@@ -413,14 +460,14 @@ export interface UnitOfWork {
    * the domain decided from: two Admins clicking End is ordinary, and only the
    * second one is wrong.
    */
-  endRelationship(ending: RelationshipEnding): Promise<void>
+  endRelationship(ending: RelationshipEnding): Promise<void>;
   /**
    * Closes one Participant's open membership and nothing else. The row is dated,
    * never deleted, so the weeks they were present for stay attached to the
    * relationship -- and a readmission later is a second row rather than this one
    * reopened.
    */
-  departFromRelationship(departure: ParticipantDeparture): Promise<void>
+  departFromRelationship(departure: ParticipantDeparture): Promise<void>;
   /**
    * The group a submission on the group path named, as the database holds it now
    * and locked, or null for an identifier that names no group this Ministry holds
@@ -428,13 +475,13 @@ export interface UnitOfWork {
    * offers. Takes a string rather than an id because the value arrived in a
    * request body and has proved nothing yet.
    */
-  groupToJoin(id: string): Promise<RelationshipSnapshot | null>
+  groupToJoin(id: string): Promise<RelationshipSnapshot | null>;
   /**
    * One open `group_join_requested` item, locked, or null where the id names no
    * open item of that kind. Read so an admission acts on who actually asked and
    * for which group, rather than on whatever a request body said.
    */
-  joinRequest(itemId: FollowUpItemId): Promise<OpenJoinRequest | null>
+  joinRequest(itemId: FollowUpItemId): Promise<OpenJoinRequest | null>;
   /**
    * The open `group_join_requested` item one Person has for one group, locked, or
    * null where they have none. Read so an Admin putting them into that group
@@ -442,21 +489,24 @@ export interface UnitOfWork {
    * request dedupes while it stands open. A request of theirs for another group is
    * not this one.
    */
-  openJoinRequestFor(personId: PersonId, relationshipId: RelationshipId): Promise<OpenJoinRequest | null>
+  openJoinRequestFor(
+    personId: PersonId,
+    relationshipId: RelationshipId,
+  ): Promise<OpenJoinRequest | null>;
   /**
    * The open `group_placement_wanted` item one Person has, locked, or null where
    * they have none. Read so an Admin putting them into a group, or admitting them
    * to one, resolves it in the same act (Group form exits, ticket 01). At most one: the item names only the
    * Person, and the one-open-item index holds that to one row.
    */
-  openPlacementWantedFor(personId: PersonId): Promise<FollowUpItemId | null>
+  openPlacementWantedFor(personId: PersonId): Promise<FollowUpItemId | null>;
   /**
    * Adds one Participant to a relationship that already exists -- the mirror of a
    * departure. Refuses with a `PairingRefused` when the caps, the Intake gate or
    * the gender rule refuse the membership, exactly as formation does: the same
    * triggers judge the same insert.
    */
-  joinRelationship(membership: NewParticipantMembership): Promise<void>
+  joinRelationship(membership: NewParticipantMembership): Promise<void>;
   /**
    * Adds one Leader, with no Acceptance, to a group that already exists, and
    * touches nothing else about it. Refuses with a `GroupJoinRefused` when they
@@ -464,16 +514,18 @@ export interface UnitOfWork {
    * an opt-out or the group's declared gender refuses the membership, exactly as
    * formation does: the same triggers and indexes judge the same insert.
    */
-  addLeaderToGroup(membership: NewLeaderMembership): Promise<void>
+  addLeaderToGroup(membership: NewLeaderMembership): Promise<void>;
   /** What an Admin called a group and whether joining it asks. */
-  configureGroup(configuration: GroupConfiguration): Promise<void>
+  configureGroup(configuration: GroupConfiguration): Promise<void>;
   /**
    * The relationships an Admin is assigning a Material to many of at once, each as
    * much as the rule reads, locked in one statement (Richer materials, ticket 02).
    * One this Ministry does not hold is left out rather than answered for: the
    * domain refuses the act over it, by name.
    */
-  relationshipsToAssign(ids: readonly RelationshipId[]): Promise<readonly RelationshipToAssign[]>
+  relationshipsToAssign(
+    ids: readonly RelationshipId[],
+  ): Promise<readonly RelationshipToAssign[]>;
   /**
    * For each assignment in turn, closes the Material period that was running and
    * opens a new one at the same instant, through the one database function that
@@ -486,7 +538,7 @@ export interface UnitOfWork {
    * database disagrees with the snapshot the domain decided from, and without one
    * when the Material or the Admin belongs to another Ministry.
    */
-  assignMaterials(assignments: readonly MaterialAssignment[]): Promise<void>
+  assignMaterials(assignments: readonly MaterialAssignment[]): Promise<void>;
 
   /**
    * Everything a check-in command needs about one Person: the live relationships
@@ -497,7 +549,7 @@ export interface UnitOfWork {
    * them has one conversation, and the position in it is the only thing that says
    * which relationship a `1` is about.
    */
-  checkInFor(id: PersonId): Promise<CheckInSnapshot | null>
+  checkInFor(id: PersonId): Promise<CheckInSnapshot | null>;
   /**
    * Every Leader in this Ministry the cadence could make due, with the cadence
    * already resolved as `coalesce(r.checkin_day, ms.checkin_day)`.
@@ -508,25 +560,25 @@ export interface UnitOfWork {
    * boundary and what a mid-week edit does to it -- is provable by a test with no
    * database and no fortnight of waiting.
    */
-  leadersDueForCheckIn(): Promise<readonly CheckInSnapshot[]>
+  leadersDueForCheckIn(): Promise<readonly CheckInSnapshot[]>;
 
-  openCheckInSequence(sequence: NewCheckInSequence): Promise<void>
-  askCheckInQuestion(prompt: NewCheckInPrompt): Promise<void>
-  recordCheckInAnswer(answer: CheckInAnswer): Promise<void>
+  openCheckInSequence(sequence: NewCheckInSequence): Promise<void>;
+  askCheckInQuestion(prompt: NewCheckInPrompt): Promise<void>;
+  recordCheckInAnswer(answer: CheckInAnswer): Promise<void>;
   /** One clarification spent on the open question, against a cap of two. */
-  clarifyCheckInQuestion(clarification: CheckInClarification): Promise<void>
+  clarifyCheckInQuestion(clarification: CheckInClarification): Promise<void>;
   /** The one re-send an unanswered question gets, stamped on that same prompt. */
-  remindCheckInQuestion(reminder: CheckInReminder): Promise<void>
-  closeCheckInSequence(closure: CheckInSequenceClosure): Promise<void>
+  remindCheckInQuestion(reminder: CheckInReminder): Promise<void>;
+  closeCheckInSequence(closure: CheckInSequenceClosure): Promise<void>;
 
   /** The carrier opt-out, at the level the carrier applies it: the Person. */
-  optPersonOut(optOut: PersonOptOut): Promise<void>
+  optPersonOut(optOut: PersonOptOut): Promise<void>;
 
   /**
    * The carrier re-opt-in, `START`, which dates the standing opt-out rather than
    * deleting it. `STOP` in March and `START` in April are two facts.
    */
-  optPersonIn(optIn: PersonOptIn): Promise<void>
+  optPersonIn(optIn: PersonOptIn): Promise<void>;
 
   /**
    * What the Person an inbound text came from holds, what they last asked for, and
@@ -537,27 +589,29 @@ export interface UnitOfWork {
    * reads rather than one because they answer different questions: this one serves
    * a Participant, who has no check-in state at all.
    */
-  inboundFor(id: PersonId): Promise<InboundSnapshot | null>
+  inboundFor(id: PersonId): Promise<InboundSnapshot | null>;
 
   /**
    * A Keyword Exchange, opened. Refused by a partial unique index if one already
    * stands for this Person, which is what makes *at most one open per Person* a
    * property of the data rather than of whichever path happened to write it.
    */
-  openKeywordExchange(exchange: NewKeywordExchange): Promise<void>
+  openKeywordExchange(exchange: NewKeywordExchange): Promise<void>;
 
   /**
    * A menu answered: the relationship the exchange has settled on, and the moment
    * it put its next question. Resets the clarification count, because the
    * confirmation is a new question.
    */
-  setKeywordExchangeTarget(target: KeywordExchangeTarget): Promise<void>
+  setKeywordExchangeTarget(target: KeywordExchangeTarget): Promise<void>;
 
   /** One of the two clarifications Discipler will spend on an exchange's question. */
-  clarifyKeywordExchange(clarification: KeywordExchangeClarification): Promise<void>
+  clarifyKeywordExchange(
+    clarification: KeywordExchangeClarification,
+  ): Promise<void>;
 
   /** An exchange that is no longer open, and why. */
-  closeKeywordExchange(closure: KeywordExchangeClosure): Promise<void>
+  closeKeywordExchange(closure: KeywordExchangeClosure): Promise<void>;
 
   /**
    * This Ministry's settings as they stand, loaded on `settings.update`'s behalf.
@@ -566,27 +620,27 @@ export interface UnitOfWork {
    * records as *what these used to be* are the values that were actually there
    * when the edit was decided -- not ones a second Admin had already replaced.
    */
-  ministrySettings(): Promise<MinistrySettings>
+  ministrySettings(): Promise<MinistrySettings>;
 
   /**
    * One Ministry's settings, saved. Every field at once, because it is one form
    * and a partial write would let two sections of it disagree about which edit
    * won.
    */
-  saveMinistrySettings(settings: MinistrySettings): Promise<void>
+  saveMinistrySettings(settings: MinistrySettings): Promise<void>;
 
   /**
    * The short name this Ministry goes by now, loaded on `short_name.change`'s
    * behalf, inside the unit of work so the name history records as *what it was*
    * is the one that was actually there when the change was decided.
    */
-  ministryShortName(): Promise<ShortName>
+  ministryShortName(): Promise<ShortName>;
 
   /**
    * The Ministry's new short name. Refused with `ShortNameRefused('short_name.taken')`
    * when another Ministry holds it or ever held it, which only the database can see.
    */
-  changeShortName(change: ShortNameChange): Promise<void>
+  changeShortName(change: ShortNameChange): Promise<void>;
 
   /**
    * One of this Ministry's Intake forms as it stands now (Pastor feedback, ticket
@@ -596,7 +650,7 @@ export interface UnitOfWork {
    * submission's behalf too, beside the version its Person opened, because an
    * answer to a question this no longer asks is dropped (James, 2026-10-13).
    */
-  intakeForm(form: IntakePath): Promise<IntakeForm>
+  intakeForm(form: IntakePath): Promise<IntakeForm>;
 
   /**
    * One version of one of this Ministry's Intake forms, as somebody opened it:
@@ -606,10 +660,13 @@ export interface UnitOfWork {
    * a question's removal stands between reading the answers it takes and
    * deleting them (ticket 13).
    */
-  intakeFormVersion(form: IntakePath, version: number): Promise<IntakeForm | null>
+  intakeFormVersion(
+    form: IntakePath,
+    version: number,
+  ): Promise<IntakeForm | null>;
 
   /** The next version of one of this Ministry's Intake forms. */
-  saveIntakeForm(saving: IntakeFormSaving): Promise<void>
+  saveIntakeForm(saving: IntakeFormSaving): Promise<void>;
 
   /**
    * Every answer given to one question on one of this Ministry's forms, each
@@ -622,10 +679,13 @@ export interface UnitOfWork {
    * groups form where its consent records say so and from the mentor and mentee
    * form otherwise (`app.intake_submission_forms`).
    */
-  answersTo(form: IntakePath, key: QuestionKey): Promise<readonly AnswerGiven[]>
+  answersTo(
+    form: IntakePath,
+    key: QuestionKey,
+  ): Promise<readonly AnswerGiven[]>;
 
   /** Those answers, deleted. */
-  removeIntakeAnswers(removal: IntakeAnswersRemoval): Promise<void>
+  removeIntakeAnswers(removal: IntakeAnswersRemoval): Promise<void>;
 
   /**
    * Every Discipleship Goal option this Ministry offers, in the order the form
@@ -635,19 +695,19 @@ export interface UnitOfWork {
    * because the one edit that needs it is the one that destroys it: after the
    * removal there is nothing left to count.
    */
-  discipleshipGoals(): Promise<readonly OfferedGoal[]>
+  discipleshipGoals(): Promise<readonly OfferedGoal[]>;
 
   /** One option, appended to the Ministry's list at the position it was given. */
-  addDiscipleshipGoal(goal: NewDiscipleshipGoal): Promise<void>
+  addDiscipleshipGoal(goal: NewDiscipleshipGoal): Promise<void>;
 
   /**
    * One option, reworded. The row is updated rather than replaced, which is what
    * keeps every answer pointing at it: a reworded option is the same option.
    */
-  renameDiscipleshipGoal(renaming: DiscipleshipGoalRenaming): Promise<void>
+  renameDiscipleshipGoal(renaming: DiscipleshipGoalRenaming): Promise<void>;
 
   /** The Ministry's whole list, renumbered into the order it was handed. */
-  reorderDiscipleshipGoals(order: DiscipleshipGoalOrder): Promise<void>
+  reorderDiscipleshipGoals(order: DiscipleshipGoalOrder): Promise<void>;
 
   /**
    * Every submission pointing at one option, read before it is removed -- because
@@ -658,13 +718,13 @@ export interface UnitOfWork {
    * Every submission and not only the standing ones: `chosenBy` counts people and
    * the delete blanks rows, and it is the rows that have to be written down.
    */
-  answersPointingAt(goalId: DiscipleshipGoalId): Promise<readonly StatedGoal[]>
+  answersPointingAt(goalId: DiscipleshipGoalId): Promise<readonly StatedGoal[]>;
 
   /**
    * One option, deleted. The database blanks it on every submission that chose
    * it, and refuses to delete the last option a Ministry has.
    */
-  removeDiscipleshipGoal(removal: DiscipleshipGoalRemoval): Promise<void>
+  removeDiscipleshipGoal(removal: DiscipleshipGoalRemoval): Promise<void>;
 
   /**
    * Every live Material this Ministry holds, each with how many accepted,
@@ -672,32 +732,32 @@ export interface UnitOfWork {
    * work, so two Admins cannot both create the same title against a list neither
    * of them can see the other's addition on.
    */
-  materials(): Promise<readonly MaterialOnOffer[]>
+  materials(): Promise<readonly MaterialOnOffer[]>;
 
   /**
    * Which of these stored paths some Material of this Ministry already names,
    * removed Materials included. One object is one item, and the paths a form
    * posts are only the browser's word for what it uploaded.
    */
-  materialPathsNamed(paths: readonly string[]): Promise<ReadonlySet<string>>
+  materialPathsNamed(paths: readonly string[]): Promise<ReadonlySet<string>>;
 
   /** One Material, added to the Ministry's list. */
-  createMaterial(material: NewMaterial): Promise<void>
+  createMaterial(material: NewMaterial): Promise<void>;
 
   /**
    * One Material, as it will now read. The row is updated rather than replaced,
    * which is what keeps every period pointing at it.
    */
-  editMaterial(edit: MaterialEdit): Promise<void>
+  editMaterial(edit: MaterialEdit): Promise<void>;
 
   /** One Material, flagged as removed. Never deleted: the periods that name it stay. */
-  removeMaterial(removal: MaterialRemoval): Promise<void>
+  removeMaterial(removal: MaterialRemoval): Promise<void>;
 
   /**
    * The link that reopens one Person's Intake. Replaces whatever link that Person
    * held: one live link each is what an Admin means by *send them a new one*.
    */
-  issueIntakeLink(link: NewIntakeLink): Promise<void>
+  issueIntakeLink(link: NewIntakeLink): Promise<void>;
 
   /**
    * The link a re-submission arrived on, or null where the token names nothing.
@@ -705,14 +765,14 @@ export interface UnitOfWork {
    * injected clock, and a read that refused to resolve one would make *this link
    * has expired* and *this link was never real* the same page.
    */
-  resolveIntakeLink(token: IntakeLinkToken): Promise<IntakeLinkSnapshot | null>
+  resolveIntakeLink(token: IntakeLinkToken): Promise<IntakeLinkSnapshot | null>;
 
   /**
    * The link this Person already holds, or null where they hold none. Read on
    * `intake.reopen`'s behalf so that asking for a link somebody already has does
    * not mint a second one and stop the first from working.
    */
-  intakeLinkFor(person: PersonId): Promise<IntakeLinkSnapshot | null>
+  intakeLinkFor(person: PersonId): Promise<IntakeLinkSnapshot | null>;
 
   /**
    * The account one Person on this Ministry's Roster holds, or null where the
@@ -725,7 +785,7 @@ export interface UnitOfWork {
    * One value for the two cases, because they are one refusal: telling them apart
    * would disclose to an Admin that another Ministry holds that Person.
    */
-  accountHeldBy(person: PersonId): Promise<string | null>
+  accountHeldBy(person: PersonId): Promise<string | null>;
 
   /**
    * The Person a removal names, as the database holds them now, or null where
@@ -734,24 +794,24 @@ export interface UnitOfWork {
    * Person's own row lock, so two Admins removing the same Person cannot both
    * find them on the Roster.
    */
-  personToRemove(person: PersonId): Promise<PersonToRemove | null>
+  personToRemove(person: PersonId): Promise<PersonToRemove | null>;
   /**
    * The removal: the open row, what was queued for them withheld, and their
    * account let go of -- deleted outright where nothing else holds it.
    */
-  removePerson(removal: PersonRemoval): Promise<void>
+  removePerson(removal: PersonRemoval): Promise<void>;
   /** A removed Person back on the Roster, because they filled in Intake again. */
-  restorePerson(restoration: PersonRestoration): Promise<void>
+  restorePerson(restoration: PersonRestoration): Promise<void>;
 
-  raiseConcern(concern: NewConcern): Promise<void>
+  raiseConcern(concern: NewConcern): Promise<void>;
   /** One Admin opening one Concern's text, recorded before the text is handed over. */
-  recordConcernViewing(viewing: ConcernViewing): Promise<void>
+  recordConcernViewing(viewing: ConcernViewing): Promise<void>;
   /**
    * Refuses with a `ConcernRefused` when the Concern is gone or somebody else has
    * already closed it -- the second Admin's click must not overwrite the first
    * Admin's name with their own.
    */
-  resolveConcern(resolution: ConcernResolution): Promise<void>
+  resolveConcern(resolution: ConcernResolution): Promise<void>;
   /**
    * The Leader's words, or null when the Concern is gone or has been resolved and
    * cleared.
@@ -762,7 +822,7 @@ export interface UnitOfWork {
    * reading a Concern without leaving a trace unrepresentable rather than merely
    * discouraged.
    */
-  concernDetailFor(id: ConcernId): Promise<string | null>
+  concernDetailFor(id: ConcernId): Promise<string | null>;
 }
 
 /**
@@ -784,7 +844,9 @@ export interface Accounts {
   create(
     phone: string | null,
     password: string,
-  ): Promise<{ readonly userId: string } | { readonly refusal: AccountCreationRefusal }>
+  ): Promise<
+    { readonly userId: string } | { readonly refusal: AccountCreationRefusal }
+  >;
   /**
    * Undoes a `create` whose acceptance did not land.
    *
@@ -797,7 +859,7 @@ export interface Accounts {
    * the attempt that is failing, and deleting it would sign a working Leader out of
    * their Ministry for good.
    */
-  discard(userId: string): Promise<void>
+  discard(userId: string): Promise<void>;
   /**
    * A new password on an existing account, and every session that account holds
    * ended along with it.
@@ -814,7 +876,7 @@ export interface Accounts {
    * Ministry -- and the password is one Discipler generated, so there is no rule
    * left for the adapter to enforce and nothing an Admin could act on if it did.
    */
-  setPassword(userId: string, password: string): Promise<void>
+  setPassword(userId: string, password: string): Promise<void>;
   /**
    * A person's own change of password: the current one verified, and then exactly
    * what `setPassword` does -- the new one set and every session on the account
@@ -840,8 +902,13 @@ export interface Accounts {
     newPassword: string,
   ): Promise<
     | { readonly changed: true }
-    | { readonly refusal: Exclude<PasswordChangeRefusal, 'account.passwords_differ'> }
-  >
+    | {
+        readonly refusal: Exclude<
+          PasswordChangeRefusal,
+          "account.passwords_differ"
+        >;
+      }
+  >;
 }
 
 /**
@@ -856,8 +923,8 @@ export interface Accounts {
  * (Exponential launch, ticket 06).
  */
 export interface InboundSender {
-  readonly ministryId: MinistryId
-  readonly personId: PersonId
+  readonly ministryId: MinistryId;
+  readonly personId: PersonId;
 }
 
 export interface InboundReader {
@@ -866,7 +933,10 @@ export interface InboundReader {
    * one church resolves without it; a phone in two is placed with the church that
    * texts it from that number, and with nobody when there is none.
    */
-  resolveSender(fromPhone: string, toNumber: string | null): Promise<InboundSender | null>
+  resolveSender(
+    fromPhone: string,
+    toNumber: string | null,
+  ): Promise<InboundSender | null>;
 }
 
 export interface EffectStore {
@@ -879,7 +949,10 @@ export interface EffectStore {
    * store can scope the whole unit of work to it and let the database refuse
    * anything that falls outside.
    */
-  transact<T>(ministryId: MinistryId, work: (unit: UnitOfWork) => Promise<T>): Promise<T>
+  transact<T>(
+    ministryId: MinistryId,
+    work: (unit: UnitOfWork) => Promise<T>,
+  ): Promise<T>;
 }
 
 /**
@@ -896,7 +969,7 @@ export interface EffectStore {
  * a caller could render or leak across a boundary.
  */
 export interface MinistryDirectory {
-  everyMinistry(): Promise<readonly MinistryId[]>
+  everyMinistry(): Promise<readonly MinistryId[]>;
 }
 
 /**
@@ -910,12 +983,12 @@ export interface MinistryDirectory {
 
 /** The Material a relationship is working through, or null where none is assigned. */
 export interface AssignedMaterial {
-  readonly materialId: MaterialId
-  readonly title: string
+  readonly materialId: MaterialId;
+  readonly title: string;
   /** The Ministry's own typed content. Null where the Material is files and links alone. */
-  readonly body: string | null
+  readonly body: string | null;
   /** Its files and links, in order, each ready to open. */
-  readonly items: readonly ItemToOpen[]
+  readonly items: readonly ItemToOpen[];
 }
 
 /**
@@ -924,19 +997,19 @@ export interface AssignedMaterial {
  */
 export type DisciplesMaterialPage =
   | {
-      readonly status: 'open'
-      readonly ministryName: string
-      readonly title: string
-      readonly body: string | null
-      readonly items: readonly MaterialItem[]
+      readonly status: "open";
+      readonly ministryName: string;
+      readonly title: string;
+      readonly body: string | null;
+      readonly items: readonly MaterialItem[];
     }
-  | { readonly status: 'none'; readonly ministryName: string }
-  | { readonly status: 'ended'; readonly ministryName: string }
+  | { readonly status: "none"; readonly ministryName: string }
+  | { readonly status: "ended"; readonly ministryName: string };
 
 /** The reads behind a Disciple's Material page, keyed by its token alone. */
 export interface MaterialPageReader {
   /** The page, or null for a token that names nothing. */
-  readMaterialPage(token: string): Promise<DisciplesMaterialPage | null>
+  readMaterialPage(token: string): Promise<DisciplesMaterialPage | null>;
   /**
    * One file of the Material the link's relationship is on now, or null where
    * the item is not one, the link has ended, or the token names nothing.
@@ -944,7 +1017,7 @@ export interface MaterialPageReader {
   fileOnMaterialPage(
     token: string,
     itemId: string,
-  ): Promise<{ readonly path: string; readonly filename: string } | null>
+  ): Promise<{ readonly path: string; readonly filename: string } | null>;
 }
 
 /**
@@ -956,14 +1029,19 @@ export interface MaterialPageReader {
  */
 export type ItemToOpen =
   | {
-      readonly kind: 'file'
-      readonly id: string
-      readonly filename: string
-      readonly contentType: string
-      readonly bytes: number
-      readonly url: string | null
+      readonly kind: "file";
+      readonly id: string;
+      readonly filename: string;
+      readonly contentType: string;
+      readonly bytes: number;
+      readonly url: string | null;
     }
-  | { readonly kind: 'link'; readonly id: string; readonly url: string; readonly label: string | null }
+  | {
+      readonly kind: "link";
+      readonly id: string;
+      readonly url: string;
+      readonly label: string | null;
+    };
 
 /**
  * One person in the relationship, as the Leader's screen shows them.
@@ -975,32 +1053,32 @@ export type ItemToOpen =
  * Leader who could would be reading a consent decision by inference.
  */
 export interface RelationshipContact {
-  readonly personId: PersonId
-  readonly fullName: string
-  readonly role: MemberRole
+  readonly personId: PersonId;
+  readonly fullName: string;
+  readonly role: MemberRole;
   /**
    * Whether this is the Leader reading the page. Not the same question as `role`:
    * a group may hold several Leaders, and only one of them is signed in.
    */
-  readonly isYou: boolean
-  readonly phone: PhoneNumber | null
+  readonly isYou: boolean;
+  readonly phone: PhoneNumber | null;
 }
 
 export interface RelationshipLed {
-  readonly relationshipId: RelationshipId
-  readonly ministryId: MinistryId
-  readonly ministryName: string
+  readonly relationshipId: RelationshipId;
+  readonly ministryId: MinistryId;
+  readonly ministryName: string;
   /**
    * Whether a Pause currently stands on it. The one thing about a relationship's
    * condition this surface carries: a Pause is the Leader's own act and the reason
    * their weekly check-ins have stopped arriving. How a relationship is *doing* --
    * Healthy, Stalled, Needs Care -- is the Admin's reading and lives on Care Needed.
    */
-  readonly paused: boolean
-  readonly overlay: AvailabilityOverlay
-  readonly material: AssignedMaterial | null
+  readonly paused: boolean;
+  readonly overlay: AvailabilityOverlay;
+  readonly material: AssignedMaterial | null;
   /** Everyone in it, in the order the overlay draws them: the reader, then the rest. */
-  readonly contacts: readonly RelationshipContact[]
+  readonly contacts: readonly RelationshipContact[];
 }
 
 export interface LeaderDashboardReader {
@@ -1015,7 +1093,7 @@ export interface LeaderDashboardReader {
    * without a second account, and a Leader whose last relationship ends stops seeing
    * the surface without anybody revoking anything.
    */
-  readRelationshipsPage(): Promise<RelationshipsPage>
+  readRelationshipsPage(): Promise<RelationshipsPage>;
 }
 
 /**
@@ -1025,8 +1103,8 @@ export interface LeaderDashboardReader {
  * gets none.
  */
 export interface RelationshipsPage {
-  readonly resolution: AdminResolution
-  readonly led: readonly RelationshipLed[]
+  readonly resolution: AdminResolution;
+  readonly led: readonly RelationshipLed[];
 }
 
 /**
@@ -1044,20 +1122,20 @@ export interface RosterRelationship {
    * from the Roster is about one of *these* relationships rather than about the
    * Person, and without the id the row can describe them and do nothing.
    */
-  readonly relationshipId: RelationshipId
-  readonly role: MemberRole
+  readonly relationshipId: RelationshipId;
+  readonly role: MemberRole;
   /** Everyone else in it, whatever their role. A group shows all of them. */
-  readonly withNames: readonly string[]
+  readonly withNames: readonly string[];
   /**
    * The same people, split by what they are in it. The Roster names the other
    * side -- a Discipler's row names who they disciple, a Disciple's row names who
    * disciples them -- and the count is what says *group* on a row, from the live
    * memberships and never from the relationship's kind (ADR-0004).
    */
-  readonly leaderNames: readonly string[]
-  readonly participantNames: readonly string[]
+  readonly leaderNames: readonly string[];
+  readonly participantNames: readonly string[];
   /** Open participant memberships, this Person's included where they are one. */
-  readonly participantCount: number
+  readonly participantCount: number;
   /**
    * Which of the two participation caps this counts against: a Discipler leads one
    * open group at a time and any number of one-to-ones, and a Disciple is in one
@@ -1068,12 +1146,12 @@ export interface RosterRelationship {
    * For showing the caps before the click and for nothing else. What a row is
    * called, and every state, still follows the live count.
    */
-  readonly countsAsAGroup: boolean
+  readonly countsAsAGroup: boolean;
   /**
    * What the Ministry calls it, or null where nobody has named it, which is every
    * one-to-one. For a person's page to say which group a line is about.
    */
-  readonly name: string | null
+  readonly name: string | null;
   /**
    * Derived from `relationship.accepted_at`, never stored as a status. It is the
    * absence of an acceptance rather than a state anybody sets, which is why it
@@ -1084,20 +1162,20 @@ export interface RosterRelationship {
    * pairing, ticket 22). The group is accepted and they have not, so it is true
    * on their row, from their own membership, and false on everybody else's.
    */
-  readonly awaitingAcceptance: boolean
+  readonly awaitingAcceptance: boolean;
 }
 
 export interface RosterEntry {
-  readonly personId: PersonId
-  readonly fullName: string
+  readonly personId: PersonId;
+  readonly fullName: string;
   /**
    * Derived, never stored, and it answers one question: is this Person being
    * discipled. Leading a relationship does not set it. Computed by one SQL function
    * over Intake, consent and open participant memberships.
    */
-  readonly participationStatus: ParticipationStatus
+  readonly participationStatus: ParticipationStatus;
   /** Every open relationship they are in, each with their role in it. */
-  readonly relationships: readonly RosterRelationship[]
+  readonly relationships: readonly RosterRelationship[];
   /**
    * Which side this Person last offered to stand on at Intake, and null where no
    * form has ever asked them.
@@ -1114,7 +1192,7 @@ export interface RosterEntry {
    * one. Nothing an Admin sets stands beside it any more; pairing them is the
    * acceptance.
    */
-  readonly declaredSide: DeclaredSide | null
+  readonly declaredSide: DeclaredSide | null;
   /**
    * Whether their latest submission said this is their first time. Null where the
    * submission predates the question.
@@ -1124,7 +1202,7 @@ export interface RosterEntry {
    * to filter its candidates, because pastoral judgment is never subordinate to a
    * filtered list.
    */
-  readonly firstTime: boolean | null
+  readonly firstTime: boolean | null;
   /**
    * Whether their latest submission that asked said they are open to a 1:2, in
    * the words it carried. Null where no submission has ever asked, which is not a
@@ -1134,7 +1212,7 @@ export interface RosterEntry {
    * side, and Suggested Pairs -- and read by nothing else. It filters nobody and
    * ranks nobody on either, which is what keeps it outside ADR-0001.
    */
-  readonly oneToTwo: OneToTwoAnswer | null
+  readonly oneToTwo: OneToTwoAnswer | null;
   /**
    * Whether this Person holds an account -- a Leader who accepted their Invitation
    * Link, or an Admin who was provisioned. Derived from `person.user_id`, never
@@ -1145,20 +1223,20 @@ export interface RosterEntry {
    * handing out the argument to the one call that can change any of those
    * credentials.
    */
-  readonly holdsAnAccount: boolean
+  readonly holdsAnAccount: boolean;
   /**
    * Whether their own account holds this Ministry's Admin tier. An Admin's page
    * offers no Remove card, because the removal refuses them (Remove from the
    * Roster, ticket 01).
    */
-  readonly isAdmin: boolean
+  readonly isAdmin: boolean;
   /**
    * Their contact details, as the Roster shows them to an Admin (ADR-0021). Read
    * through the Roster's own function and its Admin test, never through a column
    * grant: a Leader session holds no path to a number but the consent check.
    */
-  readonly phone: PhoneNumber | null
-  readonly email: string | null
+  readonly phone: PhoneNumber | null;
+  readonly email: string | null;
   /**
    * The gender on their most recent Intake submission. Null is *never asked*,
    * never a mismatch: the database's own gender checks step aside for a Person
@@ -1168,7 +1246,7 @@ export interface RosterEntry {
    * declares, and by nothing else. It leaves the database by the Roster
    * function's Admin test, as the contact details above do.
    */
-  readonly gender: Gender | null
+  readonly gender: Gender | null;
   /**
    * The goal on their latest Intake submission, as the Ministry currently words the
    * option they chose, or null where they chose Other, the form asked no goal, or
@@ -1179,33 +1257,33 @@ export interface RosterEntry {
    * the Roster row: a goal is a pastoral answer, and a list of every name with it
    * beside them is not where an Admin should meet it.
    */
-  readonly goal: string | null
+  readonly goal: string | null;
   /** What they typed after choosing Other on that submission. Never set beside `goal`. */
-  readonly goalOther: OtherGoal | null
+  readonly goalOther: OtherGoal | null;
   /**
    * The pairings an import planned for this Person that are still worth showing:
    * the ones waiting on Intake, and the refused ones whose Follow-Up Item an Admin
    * has not yet resolved. Each says which side of it this Person is.
    */
-  readonly intendedPairings: readonly RosterIntendedPairing[]
+  readonly intendedPairings: readonly RosterIntendedPairing[];
 }
 
 /** One planned pairing as a Roster row shows it, from one side. */
 export interface RosterIntendedPairing {
-  readonly id: IntendedPairingId
+  readonly id: IntendedPairingId;
   /** This Person's side of it. */
-  readonly role: MemberRole
-  readonly withPersonId: PersonId
-  readonly withName: string
-  readonly state: 'awaiting_intake' | 'refused'
-  readonly refusal: PairingRefusal | null
+  readonly role: MemberRole;
+  readonly withPersonId: PersonId;
+  readonly withName: string;
+  readonly state: "awaiting_intake" | "refused";
+  readonly refusal: PairingRefusal | null;
 }
 
 /** The account one Person holds, for the Admin who is about to reset it. */
 export interface AccountOnTheRoster {
-  readonly personId: PersonId
-  readonly fullName: string
-  readonly userId: string
+  readonly personId: PersonId;
+  readonly fullName: string;
+  readonly userId: string;
 }
 
 /**
@@ -1217,18 +1295,18 @@ export interface AccountOnTheRoster {
  * for an Admin to know which row this is.
  */
 export interface UnansweredImportRow {
-  readonly rowId: ImportRowId
+  readonly rowId: ImportRowId;
   /** 1-based and counting the header, exactly as the import report said it. */
-  readonly line: number
+  readonly line: number;
   /** The name in the file: what either answer is about to put on a Person. */
-  readonly fullName: string
+  readonly fullName: string;
   /**
    * The number the row is held over. Shown to the Admin since ticket 36
    * (ADR-0021): the question is whether this is the same person or somebody else
    * on this number, and it is answered by an Admin who can see which number.
    */
-  readonly phone: PhoneNumber
-  readonly importedAt: Date
+  readonly phone: PhoneNumber;
+  readonly importedAt: Date;
   /**
    * Everyone the Roster already holds on this row's number, and what it holds them
    * under. One answer each, because a number may reach two people and *the same
@@ -1238,13 +1316,13 @@ export interface UnansweredImportRow {
    * still shown: a row that disappeared from the screen would be the silent expiry
    * this whole surface exists to prevent.
    */
-  readonly onThisNumber: readonly NameOnTheNumber[]
+  readonly onThisNumber: readonly NameOnTheNumber[];
 }
 
 /** The live Intake link one Person holds, for the Admin who is about to send it. */
 export interface IssuedIntakeLink {
-  readonly token: IntakeLinkToken
-  readonly expiresAt: Date
+  readonly token: IntakeLinkToken;
+  readonly expiresAt: Date;
 }
 
 /**
@@ -1253,19 +1331,22 @@ export interface IssuedIntakeLink {
  * whether its door is open, whether its Leaders have accepted, and who is in it.
  */
 export interface MinistryGroup {
-  readonly relationshipId: RelationshipId
-  readonly name: string | null
-  readonly declaredGender: Gender | null
-  readonly joinRequiresApproval: boolean
-  readonly accepted: boolean
-  readonly leaderNames: readonly string[]
-  readonly participantNames: readonly string[]
+  readonly relationshipId: RelationshipId;
+  readonly name: string | null;
+  readonly declaredGender: Gender | null;
+  readonly joinRequiresApproval: boolean;
+  readonly accepted: boolean;
+  readonly leaderNames: readonly string[];
+  readonly participantNames: readonly string[];
   /**
    * The group's running Material period, or null on a group nobody has accepted,
    * which has no Material history yet (Materials, ticket 03). `materialId` is null
    * while the running period is on no Material.
    */
-  readonly running: { readonly materialId: MaterialId | null; readonly since: Date } | null
+  readonly running: {
+    readonly materialId: MaterialId | null;
+    readonly since: Date;
+  } | null;
 }
 
 /**
@@ -1275,26 +1356,26 @@ export interface MinistryGroup {
  * admission can name it back.
  */
 export interface JoinRequestOnTheRoster {
-  readonly itemId: FollowUpItemId
-  readonly personId: PersonId
-  readonly fullName: string
-  readonly relationshipId: RelationshipId
-  readonly groupName: string | null
-  readonly gender: Gender | null
-  readonly ageBand: AgeBand | null
-  readonly raisedAt: Date
+  readonly itemId: FollowUpItemId;
+  readonly personId: PersonId;
+  readonly fullName: string;
+  readonly relationshipId: RelationshipId;
+  readonly groupName: string | null;
+  readonly gender: Gender | null;
+  readonly ageBand: AgeBand | null;
+  readonly raisedAt: Date;
 }
 
 /** One live Material as the pairing form's select offers it. */
 export interface MaterialOption {
-  readonly materialId: MaterialId
-  readonly title: string
+  readonly materialId: MaterialId;
+  readonly title: string;
 }
 
 /** Somebody leading a group an Admin could put a Person into. */
 export interface GroupLeader {
-  readonly personId: PersonId
-  readonly fullName: string
+  readonly personId: PersonId;
+  readonly fullName: string;
 }
 
 /**
@@ -1302,28 +1383,28 @@ export interface GroupLeader {
  * open relationship with two or more Disciples, a 1:2 pair included.
  */
 export interface GroupToJoin {
-  readonly relationshipId: RelationshipId
+  readonly relationshipId: RelationshipId;
   /**
    * What the Ministry calls it, or null where nobody has named it. Never
    * backfilled or guessed in the read: how an unnamed row is labelled is the
    * popup's.
    */
-  readonly name: string | null
-  readonly leaders: readonly GroupLeader[]
+  readonly name: string | null;
+  readonly leaders: readonly GroupLeader[];
   /** The live count of open participant memberships, never the relationship's kind (ADR-0004). */
-  readonly discipleCount: number
+  readonly discipleCount: number;
   /** What the group declared at formation. Null is *mixed*, as it is everywhere a declaration is carried. */
-  readonly declaredGender: Gender | null
+  readonly declaredGender: Gender | null;
   /**
    * Null while it is running. Two of the settled Relationship States and never
    * the third: an ended group is not listed. Which wins is `settledStateOf`'s.
    */
-  readonly state: Exclude<SettledRelationshipState, 'ended'> | null
+  readonly state: Exclude<SettledRelationshipState, "ended"> | null;
   /**
    * Everybody in it, in either role, so the surface can leave out a group the
    * Person is already in without a second read.
    */
-  readonly memberIds: readonly PersonId[]
+  readonly memberIds: readonly PersonId[];
 }
 
 /**
@@ -1333,15 +1414,15 @@ export interface GroupToJoin {
  */
 export interface RosterPage {
   /** Scoped to the Admin's Ministry, and enforced as such in the database, not here. */
-  readonly roster: readonly RosterEntry[]
+  readonly roster: readonly RosterEntry[];
   /**
    * The import rows still waiting on an answer, oldest import first. Read with the
    * Roster on every load rather than only after an upload: the report is a redirect
    * and outlives nothing, and a question that appeared only on the redirect would
    * expire the moment an Admin navigated away.
    */
-  readonly held: readonly UnansweredImportRow[]
-  readonly followUpCount: number
+  readonly held: readonly UnansweredImportRow[];
+  readonly followUpCount: number;
   /**
    * Whether the Ministry enforces the absolute gender match on a one-to-one.
    * Read by the Pair surface only, to decide whether Mixed may be offered for a
@@ -1349,52 +1430,52 @@ export interface RosterPage {
    * but that one: the safe default for a safeguarding constraint is enforced,
    * which is the reason the column itself defaults true.
    */
-  readonly suggestGenderMatch: boolean
+  readonly suggestGenderMatch: boolean;
   /**
    * The Ministry's live Materials, in title order. Read by the Pair surface
    * only, and empty on every other. A removed one is not on the list.
    */
-  readonly materials: readonly MaterialOption[]
+  readonly materials: readonly MaterialOption[];
   /**
    * The groups an Admin could put somebody into: running, paused or still
    * awaiting their leader, never ended or cancelled. Read by the Pair surface
    * only, and empty on every other.
    */
-  readonly groups: readonly GroupToJoin[]
+  readonly groups: readonly GroupToJoin[];
   /**
    * Who an Admin has removed from the Roster, with the name and number an import
    * recognises a row by. Read for the import's review, which reports a row naming
    * one of them rather than filing it again, and for the receipt after a removal,
    * which names who went.
    */
-  readonly removed: readonly RemovedPerson[]
+  readonly removed: readonly RemovedPerson[];
 }
 
 /** Somebody removed from the Roster, as the import's review recognises them. */
 export interface RemovedPerson {
-  readonly personId: PersonId
-  readonly fullName: string
-  readonly phone: PhoneNumber | null
+  readonly personId: PersonId;
+  readonly fullName: string;
+  readonly phone: PhoneNumber | null;
 }
 
 /** The three surfaces that draw from the Roster's document, each read under its own name. */
-export type RosterSurface = 'roster' | 'person' | 'pair'
+export type RosterSurface = "roster" | "person" | "pair";
 
 /** The person page's read: the Roster's, with one Person's own answers beside it. */
 export interface PersonPage extends RosterPage {
   /** Their answers to the Ministry's own questions off their latest submission, in the form's order. */
-  readonly ownAnswers: readonly OwnAnswerShown[]
+  readonly ownAnswers: readonly OwnAnswerShown[];
 }
 
 export interface RosterReader {
-  readRosterPage(surface: RosterSurface): Promise<AdminPage<RosterPage>>
+  readRosterPage(surface: RosterSurface): Promise<AdminPage<RosterPage>>;
 
   /**
    * The person page: the Roster's document, and beside it this one Person's
    * answers to the Ministry's own Intake questions (Pastor feedback, ticket 12),
    * which the Roster row never shows and so the Roster never reads.
    */
-  readPersonPage(person: string): Promise<AdminPage<PersonPage>>
+  readPersonPage(person: string): Promise<AdminPage<PersonPage>>;
 
   /**
    * The link this Person currently holds, or null where they hold none and where
@@ -1409,7 +1490,7 @@ export interface RosterReader {
   liveIntakeLink(
     ministryId: MinistryId,
     person: PersonId,
-  ): Promise<IssuedIntakeLink | null>
+  ): Promise<IssuedIntakeLink | null>;
 
   /**
    * The account this one Person holds, or null where the Roster holds no such
@@ -1427,7 +1508,7 @@ export interface RosterReader {
   accountOnTheRoster(
     ministryId: MinistryId,
     person: PersonId,
-  ): Promise<AccountOnTheRoster | null>
+  ): Promise<AccountOnTheRoster | null>;
 }
 
 /**
@@ -1440,39 +1521,39 @@ export interface RosterReader {
  * Whether the queue may send this row on this drain. `held` is not a failure and
  * not a refusal: `claim` says what each of its causes is.
  */
-export type ClaimOutcome = 'claimed' | 'held'
+export type ClaimOutcome = "claimed" | "held";
 
 /** Why the sending layer refused a message. Codes, never prose. */
 export type WithholdingReason =
   /** An Admin removed them from the Roster (Remove from the Roster, ticket 01). */
-  | 'recipient_was_removed'
-  | 'recipient_opted_out'
-  | 'recipient_has_no_sms_consent'
-  | 'recipient_has_no_phone'
+  | "recipient_was_removed"
+  | "recipient_opted_out"
+  | "recipient_has_no_sms_consent"
+  | "recipient_has_no_phone";
 
 export interface QueuedMessage {
-  readonly id: OutboundMessageId
-  readonly personId: PersonId | null
-  readonly toPhone: string | null
-  readonly body: string
+  readonly id: OutboundMessageId;
+  readonly personId: PersonId | null;
+  readonly toPhone: string | null;
+  readonly body: string;
   /**
    * What serialisation reads, and the only thing that says whether this message
    * takes the recipient's number or waits for it. The rules are
    * `~/domain/outstanding-reply`'s; the queue holds none of them.
    */
-  readonly kind: OutboundMessageKind
+  readonly kind: OutboundMessageKind;
   /**
    * Whose contact details this message would include. Resolved at send time,
    * because contact-sharing consent is checked when a message is sent and never
    * assumed from enrolment -- and a body that already carried the number would
    * leave nothing to withhold.
    */
-  readonly disclosesPersonId: PersonId | null
+  readonly disclosesPersonId: PersonId | null;
 }
 
 export interface ContactDetails {
-  readonly fullName: string
-  readonly phone: PhoneNumber
+  readonly fullName: string;
+  readonly phone: PhoneNumber;
 }
 
 /**
@@ -1495,9 +1576,9 @@ export interface OutboundQueue {
    * Per Ministry and not global, for the reason every other method here names the
    * Ministry: one congregation's slow vendor call must not hold another's replies.
    */
-  whileDraining<T>(ministryId: MinistryId, drain: () => Promise<T>): Promise<T>
+  whileDraining<T>(ministryId: MinistryId, drain: () => Promise<T>): Promise<T>;
   /** Everything enqueued for this Ministry and neither sent nor withheld. */
-  due(ministryId: MinistryId): Promise<readonly QueuedMessage[]>
+  due(ministryId: MinistryId): Promise<readonly QueuedMessage[]>;
   /**
    * The shared number this Ministry texts `toPhone` from: the one the pair was
    * given, or, the first time, one given now and kept (Exponential launch, ticket
@@ -1509,11 +1590,21 @@ export interface OutboundQueue {
    * that a `STOP` to one church silenced all of them. `at` is when the pair is first
    * texted, on the drain's clock.
    */
-  sendingNumberFor(ministryId: MinistryId, toPhone: string, at: Date): Promise<string | null>
+  sendingNumberFor(
+    ministryId: MinistryId,
+    toPhone: string,
+    at: Date,
+  ): Promise<string | null>;
   /** Whether this Person may be sent to *right now*, not when they were queued. */
-  mayReceive(ministryId: MinistryId, personId: PersonId): Promise<WithholdingReason | null>
+  mayReceive(
+    ministryId: MinistryId,
+    personId: PersonId,
+  ): Promise<WithholdingReason | null>;
   /** The details to disclose, or null where the Person has not agreed to share. */
-  contactToShare(ministryId: MinistryId, personId: PersonId): Promise<ContactDetails | null>
+  contactToShare(
+    ministryId: MinistryId,
+    personId: PersonId,
+  ): Promise<ContactDetails | null>;
   /**
    * Takes the row and, where the message expects a reply, the recipient's number
    * with it. **Asking and taking are one transaction**, because the question two
@@ -1540,20 +1631,24 @@ export interface OutboundQueue {
     id: OutboundMessageId,
     message: SerialisationOfAMessage,
     at: Date,
-  ): Promise<ClaimOutcome>
+  ): Promise<ClaimOutcome>;
   /**
    * Gives the number back after the vendor refused the message. Without it a
    * message Twilio could not deliver would hold its recipient's conversation for
    * two days over nothing.
    */
-  release(ministryId: MinistryId, id: OutboundMessageId): Promise<void>
-  markSent(ministryId: MinistryId, id: OutboundMessageId, at: Date): Promise<void>
+  release(ministryId: MinistryId, id: OutboundMessageId): Promise<void>;
+  markSent(
+    ministryId: MinistryId,
+    id: OutboundMessageId,
+    at: Date,
+  ): Promise<void>;
   withhold(
     ministryId: MinistryId,
     id: OutboundMessageId,
     reason: WithholdingReason,
     at: Date,
-  ): Promise<void>
+  ): Promise<void>;
 }
 
 /** Twilio lives behind this and nowhere else. It is not a domain concept. */
@@ -1568,7 +1663,7 @@ export interface MessageTransport {
    * next drain picks it up again -- see `dispatchQueue`, which keeps one refusal
    * from taking the rest of the queue down with it.
    */
-  deliver(from: string, to: string, body: string): Promise<void>
+  deliver(from: string, to: string, body: string): Promise<void>;
 }
 
 /**
@@ -1577,15 +1672,19 @@ export interface MessageTransport {
  * it holds nothing about any one church and returns counts only.
  */
 export interface SharedNumberCapacity {
-  load(): Promise<SharedNumberLoad>
+  load(): Promise<SharedNumberLoad>;
   /**
    * Whether support@ has already been told about this concern while the set held
    * this many numbers. Keyed by the size so that adding a number re-arms it: the
    * bigger set filling up is news, the same set staying full is not.
    */
-  alreadyRaised(concern: CapacityConcern, numbers: number): Promise<boolean>
+  alreadyRaised(concern: CapacityConcern, numbers: number): Promise<boolean>;
   /** Kept as history, with the load it was raised on. */
-  recordRaised(concern: CapacityConcern, at: Date, load: SharedNumberLoad): Promise<void>
+  recordRaised(
+    concern: CapacityConcern,
+    at: Date,
+    load: SharedNumberLoad,
+  ): Promise<void>;
 }
 
 /**
@@ -1595,24 +1694,40 @@ export interface SharedNumberCapacity {
  * Email reaches support@ through ticket 10's sender, built beside this one; until the
  * two are merged the composition root logs the alert instead (`container.ts`).
  */
+/**
+ * The shared numbers are near capacity: a number should be bought and added.
+ *
+ * Counts and a day only, never a number: the alert goes to support@ as the
+ * `numbersNearCapacity` email (Exponential launch, ticket 10), whose fields strip
+ * anything shaped like a phone number. `day` is the UTC date the watch read the
+ * counts, for the email's `once` key, so a retry on the same day is not sent twice.
+ */
+export interface SharedNumbersNearCapacity {
+  readonly concern: CapacityConcern;
+  /** How many numbers are in the shared set. */
+  readonly numbers: number;
+  /** How many (phone, church) pairs the set carries. */
+  readonly recipients: number;
+  /** The most churches one phone is in, each on its own number. */
+  readonly mostChurchesOnOnePhone: number;
+  /** YYYY-MM-DD, UTC. */
+  readonly day: string;
+}
+
 export interface SupportAlerts {
-  /** The shared numbers are near capacity: a number should be bought and added. */
-  sharedNumbersNearCapacity(alert: {
-    readonly concern: CapacityConcern
-    readonly load: SharedNumberLoad
-  }): Promise<void>
+  sharedNumbersNearCapacity(alert: SharedNumbersNearCapacity): Promise<void>;
 }
 
 export interface DiscipleshipGoalOption {
-  readonly id: DiscipleshipGoalId
-  readonly label: string
+  readonly id: DiscipleshipGoalId;
+  readonly label: string;
 }
 
 /** What the Intake form needs to render itself, for a visitor with no session. */
 export interface IntakePage {
-  readonly ministryId: MinistryId
-  readonly ministryName: string
-  readonly goals: readonly DiscipleshipGoalOption[]
+  readonly ministryId: MinistryId;
+  readonly ministryName: string;
+  readonly goals: readonly DiscipleshipGoalOption[];
 }
 
 /**
@@ -1622,7 +1737,7 @@ export interface IntakePage {
  * stands now for somebody arriving fresh.
  */
 export interface IntakeWizardPage extends IntakePage {
-  readonly form: IntakeForm
+  readonly form: IntakeForm;
 }
 
 /**
@@ -1635,16 +1750,16 @@ export interface IntakeWizardPage extends IntakePage {
  * that means nothing.
  */
 export interface ReopenedIntakePage extends IntakePage {
-  readonly personId: PersonId
-  readonly state: IntakeLinkState
-  readonly prefill: IntakePrefill
+  readonly personId: PersonId;
+  readonly state: IntakeLinkState;
+  readonly prefill: IntakePrefill;
   /**
    * The form whose own questions the page asks after Discipler's (Pastor
    * feedback, ticket 12): the latest version of the form the Person last
    * answered, or the mentor and mentee form where they have answered neither.
    * The page asks Discipler's questions in today's words whatever it says.
    */
-  readonly form: IntakeForm
+  readonly form: IntakeForm;
 }
 
 /**
@@ -1653,14 +1768,14 @@ export interface ReopenedIntakePage extends IntakePage {
  * a blank form is the right thing to show them.
  */
 export interface IntakePrefill {
-  readonly fullName: string | null
-  readonly phone: string | null
-  readonly email: string | null
-  readonly ageBand: AgeBand | null
-  readonly gender: Gender | null
-  readonly goalId: DiscipleshipGoalId | null
+  readonly fullName: string | null;
+  readonly phone: string | null;
+  readonly email: string | null;
+  readonly ageBand: AgeBand | null;
+  readonly gender: Gender | null;
+  readonly goalId: DiscipleshipGoalId | null;
   /** What they typed after choosing Other, which ticks Other. Never set beside `goalId`. */
-  readonly goalOther: OtherGoal | null
+  readonly goalOther: OtherGoal | null;
   /**
    * Slot keys as the grid submits them -- `monday:08`. Deliberately the form's
    * own wire shape rather than `AvailabilitySlot`, because this is what the form
@@ -1668,19 +1783,19 @@ export interface IntakePrefill {
    * prefill in a different shape would be parsed on the way in and re-encoded on
    * the way out for no reader's benefit.
    */
-  readonly availability: readonly string[]
+  readonly availability: readonly string[];
   /**
    * The decision that currently stands, never merely the last one recorded. A
    * Person who granted contact sharing and later declined it sees `declined`,
    * because that is what the form has to let them change back.
    */
-  readonly contactSharing: 'granted' | 'declined' | null
+  readonly contactSharing: "granted" | "declined" | null;
   /**
    * Their answers to the Ministry's own questions on their latest submission
    * (ticket 12), as the form sends them back: each question's values by key,
    * the ids of the choices, `yes` or `no`, or the words typed.
    */
-  readonly own: Readonly<Record<string, readonly string[]>>
+  readonly own: Readonly<Record<string, readonly string[]>>;
 }
 
 /**
@@ -1701,37 +1816,39 @@ export interface IntakeFormsPage {
    * Every group the Ministry holds that has not ended, named or not, for the panel
    * an Admin names them from and switches approval on.
    */
-  readonly groups: readonly MinistryGroup[]
+  readonly groups: readonly MinistryGroup[];
   /** Everybody waiting to be admitted, oldest request first. */
-  readonly joinRequests: readonly JoinRequestOnTheRoster[]
-  readonly goals: readonly OfferedGoal[]
+  readonly joinRequests: readonly JoinRequestOnTheRoster[];
+  readonly goals: readonly OfferedGoal[];
   /** Everyone on the Roster by name, for saying who a query string refers to. */
-  readonly nameOf: ReadonlyMap<PersonId, string>
+  readonly nameOf: ReadonlyMap<PersonId, string>;
   /** The live Materials, in title order, for each accepted group's dropdown. */
-  readonly materials: readonly MaterialOption[]
+  readonly materials: readonly MaterialOption[];
   /** The Ministry's IANA zone, which "Working through it since" is printed in. */
-  readonly timeZone: string | null
+  readonly timeZone: string | null;
   /**
    * The short name both readable links and both QR codes are built from, and
    * which the field at the top of the page edits (Pastor feedback, ticket 04).
    */
-  readonly shortName: ShortName
+  readonly shortName: ShortName;
   /**
    * Both of the Ministry's Intake forms as they stand, each its latest saved
    * version or the preset where it has never been edited (Pastor feedback,
    * ticket 11).
    */
-  readonly forms: Readonly<Record<IntakePath, IntakeForm>>
+  readonly forms: Readonly<Record<IntakePath, IntakeForm>>;
   /**
    * How many people have answered each question on each form, by question key:
    * the people whose answers removing it would delete (ticket 13). A key with no
    * entry has no answers.
    */
-  readonly answerCounts: Readonly<Record<IntakePath, Readonly<Record<string, number>>>>
+  readonly answerCounts: Readonly<
+    Record<IntakePath, Readonly<Record<string, number>>>
+  >;
 }
 
 export interface IntakeFormsReader {
-  readIntakeFormsPage(): Promise<AdminPage<IntakeFormsPage>>
+  readIntakeFormsPage(): Promise<AdminPage<IntakeFormsPage>>;
 }
 
 /**
@@ -1749,15 +1866,17 @@ export interface IntakeFormsReader {
 export interface MinistrySettingsReader {
   readSettingsPage(): Promise<
     AdminPage<{
-      readonly settings: MinistrySettings
+      readonly settings: MinistrySettings;
       /**
        * Discipler's own questions each form no longer asks (Pastor feedback,
        * ticket 13), so the Pairing section can say which of its rules cannot be
        * applied to whom.
        */
-      readonly removed: Readonly<Record<IntakePath, readonly BuiltInQuestion[]>>
+      readonly removed: Readonly<
+        Record<IntakePath, readonly BuiltInQuestion[]>
+      >;
     }>
-  >
+  >;
 }
 
 /**
@@ -1766,38 +1885,38 @@ export interface MinistrySettingsReader {
  * what an unauthenticated page is told about a group.
  */
 export interface JoinableGroup {
-  readonly relationshipId: RelationshipId
-  readonly name: string
-  readonly declaredGender: Gender | null
-  readonly joinRequiresApproval: boolean
-  readonly leaderFirstNames: readonly string[]
+  readonly relationshipId: RelationshipId;
+  readonly name: string;
+  readonly declaredGender: Gender | null;
+  readonly joinRequiresApproval: boolean;
+  readonly leaderFirstNames: readonly string[];
   /**
    * The title of the Material the group's running period is on, or null where it
    * is on none. Shown beneath the group's name on the form (Materials, ticket 03);
    * nobody picking a group is asked which Material they want.
    */
-  readonly materialTitle: string | null
+  readonly materialTitle: string | null;
 }
 
 /** What the group Intake form needs to render itself, for a visitor with no session. */
 export interface GroupIntakePage {
-  readonly ministryId: MinistryId
-  readonly ministryName: string
+  readonly ministryId: MinistryId;
+  readonly ministryName: string;
   /**
    * Every group the link offers, unfiltered by gender. The form asks gender before
    * it asks which group and filters this list against the answer at the screen;
    * the submission checks the same thing again in the domain.
    */
-  readonly groups: readonly JoinableGroup[]
+  readonly groups: readonly JoinableGroup[];
   /** The version of the Ministry's groups form being served, as on `IntakeWizardPage`. */
-  readonly form: IntakeForm
+  readonly form: IntakeForm;
   /**
    * The Ministry's mentor and mentee form as it stands now, which is what
    * somebody opening it fresh would be served. The group step links across to
    * it for somebody who meant to sign up for mentorship (Group form exits,
    * ticket 02), carrying only the answers it still asks.
    */
-  readonly discipleshipForm: IntakeForm
+  readonly discipleshipForm: IntakeForm;
 }
 
 export interface IntakeReader {
@@ -1806,19 +1925,30 @@ export interface IntakeReader {
    * version of the form the Person opened; one this Ministry never saved, or
    * none, is served the form as it stands now.
    */
-  readIntakePage(id: string, version?: number | null): Promise<IntakeWizardPage | null>
+  readIntakePage(
+    id: string,
+    version?: number | null,
+  ): Promise<IntakeWizardPage | null>;
 
   /** The same Ministry's group form. Null for the same reason. */
-  readGroupIntakePage(id: string, version?: number | null): Promise<GroupIntakePage | null>
+  readGroupIntakePage(
+    id: string,
+    version?: number | null,
+  ): Promise<GroupIntakePage | null>;
 
   /** Null when the token names nobody. Expired links still answer. */
-  readReopenedIntakePage(token: string): Promise<ReopenedIntakePage | null>
+  readReopenedIntakePage(token: string): Promise<ReopenedIntakePage | null>;
 
   /**
    * The Ministry a readable link names, by any short name it has ever held, with
    * the one it holds now. Null when no Ministry has ever held it.
    */
-  ministryNamed(name: ShortName): Promise<{ readonly ministryId: MinistryId; readonly shortName: ShortName } | null>
+  ministryNamed(
+    name: ShortName,
+  ): Promise<{
+    readonly ministryId: MinistryId;
+    readonly shortName: ShortName;
+  } | null>;
 }
 
 /**
@@ -1827,33 +1957,33 @@ export interface IntakeReader {
  * will text them -- displayed, never requested.
  */
 export interface InvitationPage {
-  readonly ministryId: MinistryId
-  readonly ministryName: string
-  readonly personId: PersonId
-  readonly fullName: string
+  readonly ministryId: MinistryId;
+  readonly ministryName: string;
+  readonly personId: PersonId;
+  readonly fullName: string;
   /** Displayed so a Leader cannot mistype their way out of their own check-ins. */
-  readonly phone: string | null
-  readonly role: MemberRole
-  readonly state: InvitationState
+  readonly phone: string | null;
+  readonly role: MemberRole;
+  readonly state: InvitationState;
   /**
    * Whether the invitation was withdrawn without being accepted, by its holder
    * declining or by its fortnight running out (Manual pairing, recut ticket 06).
    * Its holder is no longer on the relationship, so the page offers them nothing
    * to press: what it shows is drawn from the membership that ended with it.
    */
-  readonly withdrawn: boolean
+  readonly withdrawn: boolean;
   /**
    * How many people are on the other side of the relationship. On a withdrawn
    * link it is all that is kept of the reveal: `withNames` and `leadingWith` are
    * empty there, because its holder is no longer somebody they are shown to.
    */
-  readonly pairedWithCount: number
+  readonly pairedWithCount: number;
   /**
    * The account this Person already holds, or null. A Leader may lead any number
    * of one-to-ones, so a second invitation reaches somebody who accepted a first
    * one -- and there is exactly one account per Person, not one per relationship.
    */
-  readonly userId: string | null
+  readonly userId: string | null;
   /**
    * The people on the *other* side of the relationship: the Participants to a
    * Leader, the Leaders to a Participant. This is the reveal, and it is scoped
@@ -1862,14 +1992,14 @@ export interface InvitationPage {
    * `relationship_member` state and which this read, on the trusted connection,
    * is not policed by.
    */
-  readonly withNames: readonly string[]
+  readonly withNames: readonly string[];
   /**
    * The Leaders its holder would be leading *with*, by `countsAsLeading`: once
    * the relationship is running only those who have accepted, and until then
    * everybody it waits on. Empty for somebody leading alone, and always for a
    * Participant, who is shown their Leaders in `withNames` and nobody else.
    */
-  readonly leadingWith: readonly string[]
+  readonly leadingWith: readonly string[];
 }
 
 export interface InvitationReader {
@@ -1881,7 +2011,7 @@ export interface InvitationReader {
    * that was never real and one whose relationship has been deleted -- neither
    * tells its holder anything about a Ministry they have not proved they belong to.
    */
-  readInvitationPage(token: string): Promise<InvitationPage | null>
+  readInvitationPage(token: string): Promise<InvitationPage | null>;
 }
 
 /**
@@ -1889,10 +2019,10 @@ export interface InvitationReader {
  * to agree to: the church they are opening and the number they will sign in with.
  */
 export interface MinistrySetupPage {
-  readonly ministryName: string
+  readonly ministryName: string;
   /** Displayed, never requested. A forwarded link cannot re-point the account. */
-  readonly adminPhone: string
-  readonly state: MinistrySetupState
+  readonly adminPhone: string;
+  readonly state: MinistrySetupState;
 }
 
 /**
@@ -1908,14 +2038,14 @@ export interface MinistrySetup {
    * operator at a terminal, not a person at a page.
    */
   issue(link: {
-    readonly ministryName: string
-    readonly adminPhone: string
-  }): Promise<NewMinistrySetup>
+    readonly ministryName: string;
+    readonly adminPhone: string;
+  }): Promise<NewMinistrySetup>;
   /**
    * Resolving does not consume, like an Invitation Link. Null when nothing
    * answers to the token, which says nothing about whether one ever existed.
    */
-  read(token: string): Promise<MinistrySetupPage | null>
+  read(token: string): Promise<MinistrySetupPage | null>;
   /**
    * The one submit: a name, a password and a timezone become an account, a
    * Ministry on that clock, its first Admin's Person row and their membership, in
@@ -1924,11 +2054,15 @@ export interface MinistrySetup {
    */
   open(
     token: string,
-    admin: { readonly fullName: string; readonly password: string; readonly timezone: string },
+    admin: {
+      readonly fullName: string;
+      readonly password: string;
+      readonly timezone: string;
+    },
   ): Promise<
     | { readonly ministryId: MinistryId }
     | { readonly refusal: MinistrySetupRefusal | AccountCreationRefusal }
-  >
+  >;
 }
 
 /**
@@ -1936,25 +2070,25 @@ export interface MinistrySetup {
  * the only one that is a stored row an Admin closes by hand.
  */
 export interface FollowUpCareItem {
-  readonly id: FollowUpItemId
-  readonly raisedAt: Date
-  readonly relationshipId: RelationshipId | null
-  readonly personId: PersonId | null
+  readonly id: FollowUpItemId;
+  readonly raisedAt: Date;
+  readonly relationshipId: RelationshipId | null;
+  readonly personId: PersonId | null;
   /** The Person the item is about, when it is about one. */
-  readonly personName: string | null
+  readonly personName: string | null;
   /**
    * Everyone in the relationship the item is about, as its card shows them, and
    * empty for an item about a Person alone. Follow-Up names an item by them
    * (Pastor feedback, ticket 10), and the card tells by them whether the Person
    * the item is about is one of its people.
    */
-  readonly members: readonly CareMember[]
+  readonly members: readonly CareMember[];
   /**
    * When the relationship the item is about was created. The underlying fact, kept
    * alongside the derived one: history and any later question about this item are
    * answered from the instant, never from a number somebody rounded.
    */
-  readonly relationshipCreatedAt: Date | null
+  readonly relationshipCreatedAt: Date | null;
   /**
    * How long it has waited, in whole days, as of the moment this was read. What
    * the Care Needed view shows -- computed here off `relationshipCreatedAt` and
@@ -1964,7 +2098,7 @@ export interface FollowUpCareItem {
    * Null exactly when `relationshipCreatedAt` is: an item about a Person and no
    * relationship has nothing that has been waiting.
    */
-  readonly waitedDays: number | null
+  readonly waitedDays: number | null;
   /**
    * For an invitation nobody has answered, and null on every other kind: the
    * Leaders still to answer, by name, and whether the relationship is running
@@ -1974,7 +2108,10 @@ export interface FollowUpCareItem {
    * because the relationship's age is not how long they have waited and the
    * history does not carry when their membership began.
    */
-  readonly awaiting: { readonly names: readonly string[]; readonly running: boolean } | null
+  readonly awaiting: {
+    readonly names: readonly string[];
+    readonly running: boolean;
+  } | null;
   /**
    * For a Leader whose invitation was withdrawn, by declining or at two weeks
    * (Manual pairing, recut ticket 06), and null on every other kind: what they
@@ -1984,22 +2121,22 @@ export interface FollowUpCareItem {
    * with nobody to lead it.
    */
   readonly invited: {
-    readonly leadsAGroup: boolean
-    readonly running: boolean
-    readonly ledByNobody: boolean
-  } | null
+    readonly leadsAGroup: boolean;
+    readonly running: boolean;
+    readonly ledByNobody: boolean;
+  } | null;
   /**
    * For a Person who signed up on the group link with no group in mind (Group
    * form exits, ticket 01), and null on every other kind -- and on every surface
    * but the Follow-Up tab, which is the one that reads it.
    */
-  readonly placement: PlacementWanted | null
+  readonly placement: PlacementWanted | null;
   /**
    * The kind and what it carries, as one value. Not a `kind` field beside a
    * payload: those are two things that can disagree, and only one of them can be
    * narrowed by the compiler at the point a screen reads the period out.
    */
-  readonly payload: FollowUpPayload
+  readonly payload: FollowUpPayload;
 }
 
 /**
@@ -2008,17 +2145,20 @@ export interface FollowUpCareItem {
  */
 export interface PlacementWanted {
   /** Null only for a Person with no Intake on file, which the item's own raising rules out. */
-  readonly gender: Gender | null
-  readonly ageBand: AgeBand | null
-  readonly availability: readonly AvailabilitySlot[]
+  readonly gender: Gender | null;
+  readonly ageBand: AgeBand | null;
+  readonly availability: readonly AvailabilitySlot[];
   /**
    * The groups open to them: exactly the list the group form offers them --
    * accepted, named and unended, of their declared gender or mixed -- in the
    * form's order.
    */
-  readonly groups: readonly { readonly relationshipId: RelationshipId; readonly name: string }[]
+  readonly groups: readonly {
+    readonly relationshipId: RelationshipId;
+    readonly name: string;
+  }[];
   /** The Ministry's zone, which the date they signed up on is said in. */
-  readonly timeZone: string
+  readonly timeZone: string;
 }
 
 /**
@@ -2027,9 +2167,9 @@ export interface PlacementWanted {
  * `contactToShare` is asked with, one Person at a time.
  */
 export interface CareMember {
-  readonly personId: PersonId
-  readonly fullName: string
-  readonly role: MemberRole
+  readonly personId: PersonId;
+  readonly fullName: string;
+  readonly role: MemberRole;
 }
 
 /**
@@ -2038,29 +2178,29 @@ export interface CareMember {
  * Leader answers, which is exactly why it could never have been a Follow-Up Item.
  */
 export interface RelationshipCareItem {
-  readonly relationshipId: RelationshipId
-  readonly state: RelationshipState
+  readonly relationshipId: RelationshipId;
+  readonly state: RelationshipState;
   /**
    * Which condition fired, with its own unit. *Gone silent, 23 days* and
    * *responding, not meeting, 3 weeks* are different conversations, and an Admin
    * has to know which one they are walking into before they pick up the phone.
    */
-  readonly reasons: readonly CareReason[]
+  readonly reasons: readonly CareReason[];
   /** Who to call, and who the relationship is for. */
-  readonly leaderNames: readonly string[]
-  readonly participantNames: readonly string[]
+  readonly leaderNames: readonly string[];
+  readonly participantNames: readonly string[];
   /** Everyone still in it, for the one-at-a-time reveal. */
-  readonly members: readonly CareMember[]
+  readonly members: readonly CareMember[];
   /** Unresolved Concerns standing beside it. A Stalled relationship may have some. */
-  readonly openConcerns: number
+  readonly openConcerns: number;
 }
 
 /** One outstanding Concern, without the words. Opening those is a command. */
 export interface OutstandingConcern {
-  readonly id: ConcernId
-  readonly raisedAt: Date
-  readonly raisedBy: PersonId
-  readonly raisedByName: string | null
+  readonly id: ConcernId;
+  readonly raisedAt: Date;
+  readonly raisedBy: PersonId;
+  readonly raisedByName: string | null;
 }
 
 /**
@@ -2074,12 +2214,12 @@ export interface OutstandingConcern {
  * no other path to it exists.
  */
 export interface ConcernCareItem {
-  readonly relationshipId: RelationshipId
+  readonly relationshipId: RelationshipId;
   /** Newest first. The count the badge shows is this length. */
-  readonly concerns: readonly OutstandingConcern[]
-  readonly participantNames: readonly string[]
+  readonly concerns: readonly OutstandingConcern[];
+  readonly participantNames: readonly string[];
   /** Everyone still in it, for the one-at-a-time reveal. */
-  readonly members: readonly CareMember[]
+  readonly members: readonly CareMember[];
 }
 
 /**
@@ -2089,18 +2229,18 @@ export interface ConcernCareItem {
  * it is.
  */
 export type CareNeededItem =
-  | ({ readonly source: 'follow_up' } & FollowUpCareItem)
-  | ({ readonly source: 'relationship' } & RelationshipCareItem)
-  | ({ readonly source: 'concern' } & ConcernCareItem)
+  | ({ readonly source: "follow_up" } & FollowUpCareItem)
+  | ({ readonly source: "relationship" } & RelationshipCareItem)
+  | ({ readonly source: "concern" } & ConcernCareItem);
 
 /**
  * The signed-in Admin, as every Admin surface is handed them: the one Ministry
  * they administer and their own row on its Roster.
  */
 export interface SignedInAdmin {
-  readonly userId: string
-  readonly ministryId: MinistryId
-  readonly ministryName: string
+  readonly userId: string;
+  readonly ministryId: MinistryId;
+  readonly ministryName: string;
   /**
    * Their own row on their own Roster, or null where they hold none.
    *
@@ -2113,7 +2253,7 @@ export interface SignedInAdmin {
    * Admin membership for somebody its Roster does not. There is no row of theirs to
    * treat specially then, which is what null says.
    */
-  readonly personId: PersonId | null
+  readonly personId: PersonId | null;
 }
 
 /**
@@ -2122,9 +2262,9 @@ export interface SignedInAdmin {
  * with a null.
  */
 export type AdminResolution =
-  | { readonly status: 'admin'; readonly admin: SignedInAdmin }
-  | { readonly status: 'not-an-admin' }
-  | { readonly status: 'signed-out' }
+  | { readonly status: "admin"; readonly admin: SignedInAdmin }
+  | { readonly status: "not-an-admin" }
+  | { readonly status: "signed-out" };
 
 /**
  * A page's whole answer in one read: the session verdict, and what the page
@@ -2134,9 +2274,13 @@ export type AdminResolution =
  * same document, so a page does not resolve the Admin and then read.
  */
 export type AdminPage<T> =
-  | { readonly status: 'admin'; readonly admin: SignedInAdmin; readonly page: T }
-  | { readonly status: 'not-an-admin' }
-  | { readonly status: 'signed-out' }
+  | {
+      readonly status: "admin";
+      readonly admin: SignedInAdmin;
+      readonly page: T;
+    }
+  | { readonly status: "not-an-admin" }
+  | { readonly status: "signed-out" };
 
 /** What the Follow-Up tab derives from its document. */
 export interface FollowUpPage {
@@ -2152,15 +2296,15 @@ export interface FollowUpPage {
    * because how fast a Ministry closes its care items is a question it should be
    * able to ask later.
    */
-  readonly items: readonly CareNeededItem[]
+  readonly items: readonly CareNeededItem[];
   /**
    * Every relationship of the Ministry that has not ended. An item about one of
    * them opens that relationship's card; an item whose relationship has ended,
    * or that has none, opens a card of its own.
    */
-  readonly liveRelationships: ReadonlySet<string>
+  readonly liveRelationships: ReadonlySet<string>;
   /** The card the address names, or null where it names none this Admin may open. */
-  readonly card: FollowUpCard | null
+  readonly card: FollowUpCard | null;
 }
 
 /**
@@ -2176,26 +2320,26 @@ export interface FollowUpPage {
  */
 export interface FollowUpCard {
   /** What the address names: a relationship's id, or one item's where it has no live relationship. */
-  readonly key: string
+  readonly key: string;
   /** The relationship's card, or null on an item's own card. */
-  readonly pair: PairCard | null
+  readonly pair: PairCard | null;
   /** The open Follow-Up Items the card is about, each a band with today's actions. */
-  readonly items: readonly FollowUpCareItem[]
+  readonly items: readonly FollowUpCareItem[];
   /**
    * Whoever those items are about, with what their latest Intake says and the
    * contact details they agreed to share. The pair card already shows its own
    * people; a band shows the rest.
    */
-  readonly subjects: readonly CardSubject[]
+  readonly subjects: readonly CardSubject[];
   /**
    * A relationship that has ended with Concerns still unresolved, on the card
    * of its own its badge opens: ending a pair resolves none of them, and
    * `pair` is null once it has ended. Null on every other card.
    */
-  readonly ended: EndedConcerns | null
+  readonly ended: EndedConcerns | null;
   /** Newest first. */
-  readonly happened: readonly Happening[]
-  readonly timeZone: string
+  readonly happened: readonly Happening[];
+  readonly timeZone: string;
 }
 
 /**
@@ -2203,15 +2347,15 @@ export interface FollowUpCard {
  * them, as the pair card carries them while it runs.
  */
 export interface EndedConcerns {
-  readonly item: ConcernCareItem
+  readonly item: ConcernCareItem;
   /** Newest first. */
-  readonly readings: readonly ConcernReading[]
+  readonly readings: readonly ConcernReading[];
   /** The signed-in Admin's own name, for the reading this opening records. */
-  readonly readerName: string | null
+  readonly readerName: string | null;
 }
 
 /** Somebody an item is about, as the card shows a person, without a side: they may be on no pair. */
-export type CardSubject = Omit<PairCardPerson, 'role'>
+export type CardSubject = Omit<PairCardPerson, "role">;
 
 /**
  * One line of *What has happened*, read from the stored history and nothing
@@ -2225,40 +2369,52 @@ export type CardSubject = Omit<PairCardPerson, 'role'>
  * stored fact to list.
  */
 export type Happening =
-  | { readonly kind: 'item_raised'; readonly at: Date; readonly item: FollowUpCareItem }
-  | { readonly kind: 'concern_raised'; readonly at: Date; readonly by: string | null }
   | {
-      readonly kind: 'stalled'
-      readonly at: Date
-      readonly reason: CareReason['kind']
+      readonly kind: "item_raised";
+      readonly at: Date;
+      readonly item: FollowUpCareItem;
+    }
+  | {
+      readonly kind: "concern_raised";
+      readonly at: Date;
+      readonly by: string | null;
+    }
+  | {
+      readonly kind: "stalled";
+      readonly at: Date;
+      readonly reason: CareReason["kind"];
       /** How many weeks in a row it took. */
-      readonly weeks: number
+      readonly weeks: number;
     }
   | {
-      readonly kind: 'check_in'
+      readonly kind: "check_in";
       /** When the check-in was asked. */
-      readonly at: Date
-      readonly outcome: 'unanswered' | 'did_not_meet' | 'concern'
+      readonly at: Date;
+      readonly outcome: "unanswered" | "did_not_meet" | "concern";
     }
-  | { readonly kind: 'concern_read'; readonly at: Date; readonly by: string | null }
   | {
-      readonly kind: 'earlier_item'
+      readonly kind: "concern_read";
+      readonly at: Date;
+      readonly by: string | null;
+    }
+  | {
+      readonly kind: "earlier_item";
       /** When it was raised. */
-      readonly at: Date
-      readonly itemKind: FollowUpKind
+      readonly at: Date;
+      readonly itemKind: FollowUpKind;
       /** Who it was about, where it was about one Person. */
-      readonly personName: string | null
-      readonly resolvedAt: Date
+      readonly personName: string | null;
+      readonly resolvedAt: Date;
       /** Null where the Admin who resolved it has left the Roster, or nobody did. */
-      readonly resolvedBy: string | null
+      readonly resolvedBy: string | null;
     }
   | {
-      readonly kind: 'earlier_concern'
-      readonly at: Date
-      readonly raisedBy: string | null
-      readonly resolvedAt: Date
-      readonly resolvedBy: string | null
-    }
+      readonly kind: "earlier_concern";
+      readonly at: Date;
+      readonly raisedBy: string | null;
+      readonly resolvedAt: Date;
+      readonly resolvedBy: string | null;
+    };
 
 export interface CareNeededReader {
   /**
@@ -2266,7 +2422,7 @@ export interface CareNeededReader {
    * `card` is whatever arrived in the address, a uuid or nothing; the card is
    * read only for what this Admin's own Ministry holds.
    */
-  readFollowUpPage(card: string | null): Promise<AdminPage<FollowUpPage>>
+  readFollowUpPage(card: string | null): Promise<AdminPage<FollowUpPage>>;
 }
 
 /**
@@ -2275,17 +2431,17 @@ export interface CareNeededReader {
  * read, and the number the shell's badge shows.
  */
 export interface SuggestedPairsPage {
-  readonly followUpCount: number
-  readonly suggestions: Suggestions
+  readonly followUpCount: number;
+  readonly suggestions: Suggestions;
   /**
    * What the tab reads that the mentor and mentee form no longer asks (Pastor
    * feedback, ticket 13), each of which it says it is doing without.
    */
-  readonly unasked: readonly SuggestionQuestion[]
+  readonly unasked: readonly SuggestionQuestion[];
 }
 
 export interface SuggestedPairsReader {
-  readSuggestedPairsPage(): Promise<AdminPage<SuggestedPairsPage>>
+  readSuggestedPairsPage(): Promise<AdminPage<SuggestedPairsPage>>;
 }
 
 /**
@@ -2300,77 +2456,80 @@ export interface SuggestedPairsReader {
  * the other pair.
  */
 export interface PairCardPerson {
-  readonly personId: PersonId
-  readonly fullName: string
-  readonly role: 'leader' | 'participant'
+  readonly personId: PersonId;
+  readonly fullName: string;
+  readonly role: "leader" | "participant";
   /**
    * Null where there is none, and where the Person has not currently agreed to
    * share their contact details: the card reads them through the consent rule
    * Nudge reads (ADR-0010), and an Admin who could tell the two apart would be
    * reading a consent decision by inference. So the card leaves either out.
    */
-  readonly phone: string | null
-  readonly email: string | null
+  readonly phone: string | null;
+  readonly email: string | null;
   /** Off their latest Intake submission, null where they have none. */
-  readonly ageBand: AgeBand | null
+  readonly ageBand: AgeBand | null;
   /** The Ministry's current wording of the goal they chose, null where none. */
-  readonly goal: string | null
+  readonly goal: string | null;
   /** What they typed after *Other* on the goal (ticket 06), null where they chose an option or nothing. */
-  readonly goalOther: OtherGoal | null
+  readonly goalOther: OtherGoal | null;
   /**
    * Their answers to the Ministry's own questions off the same submission
    * (ticket 12), each under the question as the form words it now. Shown and
    * never matched on.
    */
-  readonly ownAnswers: readonly OwnAnswerShown[]
+  readonly ownAnswers: readonly OwnAnswerShown[];
 }
 
 /** One reading of a Concern on the card, as `concern_viewing` recorded it. */
 export interface ConcernReading {
-  readonly concernId: ConcernId
-  readonly viewedAt: Date
+  readonly concernId: ConcernId;
+  readonly viewedAt: Date;
   /** Null where the reader is not on this Ministry's Roster. */
-  readonly viewerName: string | null
+  readonly viewerName: string | null;
   /** Whether the signed-in Admin read it themselves. */
-  readonly byThisReader: boolean
+  readonly byThisReader: boolean;
 }
 
 export interface PairCard {
-  readonly relationshipId: RelationshipId
+  readonly relationshipId: RelationshipId;
   /** A one-to-one, a 1:2 pair, or a Group, which the card draws in its group form. */
-  readonly shape: CardShape
+  readonly shape: CardShape;
   /** A Group's name; null for a pair, which is called by its people. */
-  readonly name: string | null
+  readonly name: string | null;
   /**
    * The gender a Group declared when it was formed, null where it declared none,
    * which for a Group is mixed. Said on a Group's card only.
    */
-  readonly declaredGender: Gender | null
+  readonly declaredGender: Gender | null;
   /** When the Admin paired them, or formed the Group. */
-  readonly pairedAt: Date
-  readonly state: RelationshipState
+  readonly pairedAt: Date;
+  readonly state: RelationshipState;
   /** Empty unless Stalled: which condition fired, in the unit it reports. */
-  readonly reasons: readonly CareReason[]
-  readonly openConcerns: number
+  readonly reasons: readonly CareReason[];
+  readonly openConcerns: number;
   /** The Discipler first, then the Disciples, each side by name. */
-  readonly people: readonly PairCardPerson[]
+  readonly people: readonly PairCardPerson[];
   /** The latest week anybody answered for this pair. Never the words of a Concern. */
   readonly lastCheckIn: {
-    readonly answeredAt: Date
-    readonly met: boolean | null
-    readonly satisfaction: Satisfaction | null
-  } | null
+    readonly answeredAt: Date;
+    readonly met: boolean | null;
+    readonly satisfaction: Satisfaction | null;
+  } | null;
   /** The period running now; a null title is no Material yet. */
-  readonly material: { readonly title: string | null; readonly since: Date } | null
+  readonly material: {
+    readonly title: string | null;
+    readonly since: Date;
+  } | null;
   /** Unresolved, newest first. Their words are read as the card opens. */
-  readonly concerns: readonly OutstandingConcern[]
+  readonly concerns: readonly OutstandingConcern[];
   /** Every recorded reading of those Concerns before this opening, newest first. */
-  readonly readings: readonly ConcernReading[]
+  readonly readings: readonly ConcernReading[];
   /** The signed-in Admin's own name, for the reading this opening records. */
-  readonly readerName: string | null
+  readonly readerName: string | null;
   /** An expired Pause waiting on **Resume**, with the period that ran out. */
-  readonly pauseExpired: { readonly periodWeeks: PausePeriodWeeks } | null
-  readonly timeZone: string
+  readonly pauseExpired: { readonly periodWeeks: PausePeriodWeeks } | null;
+  readonly timeZone: string;
 }
 
 /**
@@ -2381,16 +2540,16 @@ export interface PairCard {
  * surfaces cannot disagree about which relationships are Stalled.
  */
 export interface OverviewRelationship {
-  readonly relationshipId: RelationshipId
-  readonly leaderNames: readonly string[]
-  readonly participantNames: readonly string[]
+  readonly relationshipId: RelationshipId;
+  readonly leaderNames: readonly string[];
+  readonly participantNames: readonly string[];
   /** Null while it is Awaiting Leader Acceptance. */
-  readonly acceptedAt: Date | null
-  readonly state: RelationshipState
+  readonly acceptedAt: Date | null;
+  readonly state: RelationshipState;
   /** Empty unless the state is Stalled. */
-  readonly reasons: readonly CareReason[]
+  readonly reasons: readonly CareReason[];
   /** Unresolved Concerns standing beside it, whatever its state. */
-  readonly openConcerns: number
+  readonly openConcerns: number;
 }
 
 export interface Overview {
@@ -2399,19 +2558,19 @@ export interface Overview {
    * is included only once it has waited the five days ticket 07 surfaces it at;
    * the ones still hidden are counted beside the list because the page prints it.
    */
-  readonly relationships: readonly OverviewRelationship[]
-  readonly unsurfacedUnaccepted: number
+  readonly relationships: readonly OverviewRelationship[];
+  readonly unsurfacedUnaccepted: number;
   /** Accepted, not paused, not ended. */
-  readonly active: number
-  readonly paused: number
+  readonly active: number;
+  readonly paused: number;
   /**
    * Relationship-weeks in last week: the last finished week, the most recent ISO
    * week before the current one whose sequences have all closed or opened
    * forty-eight hours ago, in the Ministry's timezone (`lastFinishedWeek`).
    */
-  readonly counts: CheckInCounts
+  readonly counts: CheckInCounts;
   /** Relationship-weeks in the current ISO week, in the Ministry's timezone, with an `answeredAt`. */
-  readonly completedThisWeek: number
+  readonly completedThisWeek: number;
 }
 
 /**
@@ -2419,23 +2578,23 @@ export interface Overview {
  * list it shares with the Follow-Up badge and the flag lines on its cards.
  */
 export interface OverviewPage {
-  readonly overview: Overview
-  readonly care: readonly CareNeededItem[]
+  readonly overview: Overview;
+  readonly care: readonly CareNeededItem[];
   /** The pair card the address names, or null where it names none this Admin may open. */
-  readonly card: PairCard | null
+  readonly card: PairCard | null;
   /**
    * The growth chart, as the address picked it (Pastor feedback, ticket 05), or
    * null where the Ministry has no zone to count a week in, which only a
    * Ministry the caller cannot see has.
    */
-  readonly growth: OverviewGrowth | null
+  readonly growth: OverviewGrowth | null;
 }
 
 /** The growth chart's line, what it counts, and the zone its weeks and months are the Ministry's in. */
 export interface OverviewGrowth {
-  readonly choice: GrowthChoice
-  readonly series: GrowthSeries
-  readonly timeZone: string
+  readonly choice: GrowthChoice;
+  readonly series: GrowthSeries;
+  readonly timeZone: string;
 }
 
 export interface OverviewReader {
@@ -2445,7 +2604,10 @@ export interface OverviewReader {
    * Ministry; an empty Ministry comes back as zeros and an empty list rather than
    * as a failure.
    */
-  readOverviewPage(card?: RelationshipId | null, growth?: GrowthChoice): Promise<AdminPage<OverviewPage>>
+  readOverviewPage(
+    card?: RelationshipId | null,
+    growth?: GrowthChoice,
+  ): Promise<AdminPage<OverviewPage>>;
 }
 
 /**
@@ -2453,26 +2615,26 @@ export interface OverviewReader {
  * relationship a Check-In Sequence covered this week.
  */
 export interface CheckInThisWeek {
-  readonly relationshipId: RelationshipId
-  readonly leaderNames: readonly string[]
-  readonly participantNames: readonly string[]
+  readonly relationshipId: RelationshipId;
+  readonly leaderNames: readonly string[];
+  readonly participantNames: readonly string[];
   /**
    * When the question about this relationship went out, or null where the
    * sequence covering it has not reached it yet.
    */
-  readonly sentAt: Date | null
-  readonly answeredAt: Date | null
-  readonly met: boolean | null
-  readonly satisfaction: Satisfaction | null
+  readonly sentAt: Date | null;
+  readonly answeredAt: Date | null;
+  readonly met: boolean | null;
+  readonly satisfaction: Satisfaction | null;
   /** Whether the Concern this week's answer raised is still unresolved. */
-  readonly concernOpen: boolean
+  readonly concernOpen: boolean;
 }
 
 export interface ThisWeeksCheckIns {
-  readonly week: IsoWeek
+  readonly week: IsoWeek;
   /** When this week's first sequence opened, or null where none has. */
-  readonly sentAt: Date | null
-  readonly checkIns: readonly CheckInThisWeek[]
+  readonly sentAt: Date | null;
+  readonly checkIns: readonly CheckInThisWeek[];
 }
 
 /**
@@ -2481,14 +2643,14 @@ export interface ThisWeeksCheckIns {
  * of a Concern.
  */
 export interface ThisWeeksAnswer {
-  readonly answeredAt: Date
-  readonly met: boolean | null
-  readonly satisfaction: Satisfaction | null
+  readonly answeredAt: Date;
+  readonly met: boolean | null;
+  readonly satisfaction: Satisfaction | null;
   /**
    * The unresolved Concern this answer raised, whose words the same band
    * carries; null where it raised none or it has been resolved.
    */
-  readonly concernId: ConcernId | null
+  readonly concernId: ConcernId | null;
 }
 
 /**
@@ -2496,12 +2658,12 @@ export interface ThisWeeksAnswer {
  * number, and the pair card the address names (Pastor feedback, ticket 09).
  */
 export interface CheckInsPage {
-  readonly week: ThisWeeksCheckIns
-  readonly followUpCount: number
+  readonly week: ThisWeeksCheckIns;
+  readonly followUpCount: number;
   /** The pair card the address names, or null where it names none this Admin may open. */
-  readonly card: PairCard | null
+  readonly card: PairCard | null;
   /** This week's answer for the card's relationship, or null where none came this week. */
-  readonly cardThisWeek: ThisWeeksAnswer | null
+  readonly cardThisWeek: ThisWeeksAnswer | null;
 }
 
 export interface CheckInsReader {
@@ -2511,7 +2673,9 @@ export interface CheckInsReader {
    * time through `CommandService.openConcern`, and the authenticated role holds
    * no grant on that column.
    */
-  readCheckInsPage(card?: RelationshipId | null): Promise<AdminPage<CheckInsPage>>
+  readCheckInsPage(
+    card?: RelationshipId | null,
+  ): Promise<AdminPage<CheckInsPage>>;
 }
 
 /**
@@ -2528,20 +2692,20 @@ export interface CheckInsReader {
 
 /** One Material on the Ministry's own list, as a folder names it and the edit page fills it in. */
 export interface MaterialOnTheList {
-  readonly materialId: MaterialId
-  readonly title: string
+  readonly materialId: MaterialId;
+  readonly title: string;
   /** The Ministry's own typed content, or null where the Material is files and links alone. */
-  readonly body: string | null
+  readonly body: string | null;
   /** Its files and links, in order, as the edit page lists them. */
-  readonly items: readonly MaterialItem[]
+  readonly items: readonly MaterialItem[];
 }
 
 /** One closed period a card lists on its "Previously" line. */
 export interface ClosedMaterialPeriod {
   /** The Material's title, or null for the stretch with no Material. */
-  readonly title: string | null
-  readonly startedAt: Date
-  readonly endedAt: Date
+  readonly title: string | null;
+  readonly startedAt: Date;
+  readonly endedAt: Date;
 }
 
 /**
@@ -2551,31 +2715,31 @@ export interface ClosedMaterialPeriod {
  * the pill and the flag line here say what they say there.
  */
 export interface MaterialRelationship {
-  readonly relationshipId: RelationshipId
-  readonly leaderNames: readonly string[]
-  readonly participantNames: readonly string[]
+  readonly relationshipId: RelationshipId;
+  readonly leaderNames: readonly string[];
+  readonly participantNames: readonly string[];
   /** The name the group was given, or null where the relationship has none. */
-  readonly groupName: string | null
+  readonly groupName: string | null;
   /**
    * Whether the card reads as a group: named, or with more than one person being
    * discipled in it. From the live count and the name, never from the
    * relationship's kind (ADR-0004).
    */
-  readonly isAGroup: boolean
-  readonly acceptedAt: Date
+  readonly isAGroup: boolean;
+  readonly acceptedAt: Date;
   /** The Material the running period is on, or null on the stretch with none. */
-  readonly runningMaterialId: MaterialId | null
+  readonly runningMaterialId: MaterialId | null;
   /** When the running period began. */
-  readonly since: Date
+  readonly since: Date;
   /** The closed periods with a length, earliest first. */
-  readonly previously: readonly ClosedMaterialPeriod[]
+  readonly previously: readonly ClosedMaterialPeriod[];
   /**
    * Which of the two gender folders the filter files it under, or null for All
    * only: the gender the relationship declared; the Leader's own where a
    * one-to-one declared none; nothing for a group that declared none.
    */
-  readonly gender: Gender | null
-  readonly state: RelationshipState
+  readonly gender: Gender | null;
+  readonly state: RelationshipState;
 }
 
 /** What the Materials tab and its folders derive from their document. */
@@ -2585,17 +2749,18 @@ export interface MaterialsPage {
    * where the caller may not see the Ministry at all -- in which case nothing
    * below is listed and no date is printed.
    */
-  readonly timeZone: string | null
+  readonly timeZone: string | null;
   /** The live Materials, in title order. A removed one is not on the list. */
-  readonly materials: readonly MaterialOnTheList[]
+  readonly materials: readonly MaterialOnTheList[];
   /** Every accepted, unended relationship, in a stable order. */
-  readonly relationships: readonly MaterialRelationship[]
+  readonly relationships: readonly MaterialRelationship[];
   /** The Care Needed list, for the badge and the cards' flag lines. */
-  readonly care: readonly CareNeededItem[]
+  readonly care: readonly CareNeededItem[];
 }
 
 /** The four surfaces that draw from the tab's document, each read under its own name. */
-export type MaterialsSurface = 'materials' | 'material' | 'new-material' | 'edit-material'
+export type MaterialsSurface =
+  "materials" | "material" | "new-material" | "edit-material";
 
 /**
  * The relationship the last press on a Material's assign page was refused over,
@@ -2605,19 +2770,19 @@ export type MaterialsSurface = 'materials' | 'material' | 'new-material' | 'edit
  * not on the list any more.
  */
 export interface RefusedRelationship {
-  readonly relationshipId: RelationshipId
+  readonly relationshipId: RelationshipId;
   /** Who led it: now, or when it ended. */
-  readonly leaderNames: readonly string[]
-  readonly participantNames: readonly string[]
-  readonly groupName: string | null
+  readonly leaderNames: readonly string[];
+  readonly participantNames: readonly string[];
+  readonly groupName: string | null;
   /** Named, or discipling more than one person, as a card decides it. */
-  readonly isAGroup: boolean
+  readonly isAGroup: boolean;
 }
 
 /** What a Material's assign page derives from its document: the tab's, and one name. */
 export interface AssignPage extends MaterialsPage {
   /** The relationship the last press was refused over, or null where none was named or it is not this Ministry's. */
-  readonly refused: RefusedRelationship | null
+  readonly refused: RefusedRelationship | null;
 }
 
 export interface MaterialsReader {
@@ -2625,10 +2790,15 @@ export interface MaterialsReader {
    * The whole tab in one read, against one reading of the clock. The filter is
    * carried to the function for the edge log and applied by the page.
    */
-  readMaterialsPage(surface: MaterialsSurface, gender: Gender | null): Promise<AdminPage<MaterialsPage>>
+  readMaterialsPage(
+    surface: MaterialsSurface,
+    gender: Gender | null,
+  ): Promise<AdminPage<MaterialsPage>>;
   /**
    * A Material's assign page in one read (Richer materials, ticket 02): the tab's
    * document, and the relationship a refused press named, where one did.
    */
-  readAssignPage(refused: RelationshipId | null): Promise<AdminPage<AssignPage>>
+  readAssignPage(
+    refused: RelationshipId | null,
+  ): Promise<AdminPage<AssignPage>>;
 }

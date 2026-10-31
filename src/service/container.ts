@@ -1,55 +1,58 @@
-import { after } from 'next/server'
-import type { RandomSource } from '~/domain/accounts'
-import { systemClock } from '~/domain/clock'
-import type { IdSource, MinistryId } from '~/domain/ids'
-import { createPostgresMaterialPageReader } from '~/platform/supabase/material-page-reader'
-import { sweepUnsavedUploads as sweepUploads } from '~/platform/supabase/material-files'
-import { appBaseUrl, commandDatabaseUrl } from '~/platform/supabase/credentials'
+import { after } from "next/server";
+import type { RandomSource } from "~/domain/accounts";
+import { systemClock } from "~/domain/clock";
+import type { IdSource, MinistryId } from "~/domain/ids";
+import { createPostgresMaterialPageReader } from "~/platform/supabase/material-page-reader";
+import { sweepUnsavedUploads as sweepUploads } from "~/platform/supabase/material-files";
+import {
+  appBaseUrl,
+  commandDatabaseUrl,
+} from "~/platform/supabase/credentials";
 import {
   createPostgresEffectStore,
   createPostgresInboundReader,
   type PostgresEffectStore,
   type PostgresInboundReader,
-} from '~/platform/supabase/effect-store'
+} from "~/platform/supabase/effect-store";
 import {
   createPostgresIntakeReader,
   type PostgresIntakeReader,
-} from '~/platform/supabase/intake-reader'
+} from "~/platform/supabase/intake-reader";
 import {
   createPostgresInvitationReader,
   type PostgresInvitationReader,
-} from '~/platform/supabase/invitation-reader'
-import { createSupabaseCareNeededReader } from '~/platform/supabase/follow-up-page-reader'
-import { createSupabaseCheckInsReader } from '~/platform/supabase/check-ins-reader'
-import { supabaseIntakeFormsReader } from '~/platform/supabase/intake-forms-reader'
-import { supabaseLeaderDashboardReader } from '~/platform/supabase/leader-dashboard'
-import { supabaseMinistrySettingsReader } from '~/platform/supabase/ministry-settings'
+} from "~/platform/supabase/invitation-reader";
+import { createSupabaseCareNeededReader } from "~/platform/supabase/follow-up-page-reader";
+import { createSupabaseCheckInsReader } from "~/platform/supabase/check-ins-reader";
+import { supabaseIntakeFormsReader } from "~/platform/supabase/intake-forms-reader";
+import { supabaseLeaderDashboardReader } from "~/platform/supabase/leader-dashboard";
+import { supabaseMinistrySettingsReader } from "~/platform/supabase/ministry-settings";
 import {
   createSupabaseMinistrySetup,
   type SupabaseMinistrySetup,
-} from '~/platform/supabase/ministry-setup'
+} from "~/platform/supabase/ministry-setup";
 import {
   createPostgresMinistryDirectory,
   type PostgresMinistryDirectory,
-} from '~/platform/supabase/ministry-directory'
+} from "~/platform/supabase/ministry-directory";
 import {
   createPostgresOutboundQueue,
   type PostgresOutboundQueue,
-} from '~/platform/supabase/outbound-queue'
-import { createSupabaseMaterialsReader } from '~/platform/supabase/materials-reader'
-import { createSupabaseOverviewReader } from '~/platform/supabase/overview-reader'
-import { createTwilioTransport } from '~/platform/twilio/message-transport'
-import { supabaseAccounts } from '~/platform/supabase/accounts'
-import { createSupabaseRosterReader } from '~/platform/supabase/roster-reader'
-import { createSupabaseSuggestedPairsReader } from '~/platform/supabase/suggested-pairs-reader'
+} from "~/platform/supabase/outbound-queue";
+import { createSupabaseMaterialsReader } from "~/platform/supabase/materials-reader";
+import { createSupabaseOverviewReader } from "~/platform/supabase/overview-reader";
+import { createTwilioTransport } from "~/platform/twilio/message-transport";
+import { supabaseAccounts } from "~/platform/supabase/accounts";
+import { createSupabaseRosterReader } from "~/platform/supabase/roster-reader";
+import { createSupabaseSuggestedPairsReader } from "~/platform/supabase/suggested-pairs-reader";
 import {
   createPostgresSharedNumbers,
   type PostgresSharedNumbers,
-} from '~/platform/supabase/shared-numbers'
-import type { CapacityConcern } from '~/domain/shared-numbers'
-import { createCommandService, type CommandService } from './command-service'
-import { dispatchQueue, type DispatchOutcome } from './outbound-dispatch'
-import { watchSharedNumberCapacity } from './shared-number-capacity'
+} from "~/platform/supabase/shared-numbers";
+import type { CapacityConcern } from "~/domain/shared-numbers";
+import { createCommandService, type CommandService } from "./command-service";
+import { dispatchQueue, type DispatchOutcome } from "./outbound-dispatch";
+import { watchSharedNumberCapacity } from "./shared-number-capacity";
 import type {
   Accounts,
   CareNeededReader,
@@ -73,7 +76,7 @@ import type {
   SuggestedPairsReader,
   SupportAlerts,
   UnitOfWork,
-} from './ports'
+} from "./ports";
 
 /**
  * The composition root: the one place that decides which real implementations sit
@@ -83,7 +86,7 @@ import type {
  */
 
 /** The real source of identifiers, alongside the real clock. */
-const randomIds: IdSource = { next: () => crypto.randomUUID() }
+const randomIds: IdSource = { next: () => crypto.randomUUID() };
 
 /**
  * The real source of randomness, beside the identifiers. Both exist so the domain
@@ -99,44 +102,44 @@ const randomIds: IdSource = { next: () => crypto.randomUUID() }
 const randomChoices: RandomSource = {
   choose: (upperBound) => {
     if (!Number.isInteger(upperBound) || upperBound < 1) {
-      throw new Error(`Cannot choose from ${upperBound} possibilities`)
+      throw new Error(`Cannot choose from ${upperBound} possibilities`);
     }
 
-    const beyond = 2 ** 32
-    const largestWholeMultiple = Math.floor(beyond / upperBound) * upperBound
-    const drawn = new Uint32Array(1)
+    const beyond = 2 ** 32;
+    const largestWholeMultiple = Math.floor(beyond / upperBound) * upperBound;
+    const drawn = new Uint32Array(1);
 
     do {
-      crypto.getRandomValues(drawn)
-    } while (drawn[0]! >= largestWholeMultiple)
+      crypto.getRandomValues(drawn);
+    } while (drawn[0]! >= largestWholeMultiple);
 
-    return drawn[0]! % upperBound
+    return drawn[0]! % upperBound;
   },
-}
+};
 
-let commandService: CommandService | undefined
-let commandStore: PostgresEffectStore | undefined
-let intakeReader: PostgresIntakeReader | undefined
-let invitationReader: PostgresInvitationReader | undefined
-let ministrySetup: SupabaseMinistrySetup | undefined
-let inboundReader: PostgresInboundReader | undefined
-let outboundQueue: PostgresOutboundQueue | undefined
-let ministryDirectory: PostgresMinistryDirectory | undefined
-let messageTransport: MessageTransport | undefined
-let sharedNumbers: PostgresSharedNumbers | undefined
+let commandService: CommandService | undefined;
+let commandStore: PostgresEffectStore | undefined;
+let intakeReader: PostgresIntakeReader | undefined;
+let invitationReader: PostgresInvitationReader | undefined;
+let ministrySetup: SupabaseMinistrySetup | undefined;
+let inboundReader: PostgresInboundReader | undefined;
+let outboundQueue: PostgresOutboundQueue | undefined;
+let ministryDirectory: PostgresMinistryDirectory | undefined;
+let messageTransport: MessageTransport | undefined;
+let sharedNumbers: PostgresSharedNumbers | undefined;
 
 export const getCommandService = (): CommandService => {
   if (!commandService) {
-    commandStore = createPostgresEffectStore(commandDatabaseUrl())
+    commandStore = createPostgresEffectStore(commandDatabaseUrl());
     commandService = createCommandService({
       clock: systemClock,
       ids: randomIds,
       store: sendingWhatItQueues(commandStore),
       appBaseUrl: appBaseUrl(),
-    })
+    });
   }
-  return commandService
-}
+  return commandService;
+};
 
 /**
  * The store every command commits through, with one thing added: a transaction
@@ -159,26 +162,26 @@ export const getCommandService = (): CommandService => {
  */
 const sendingWhatItQueues = (store: EffectStore): EffectStore => ({
   async transact(ministryId, work) {
-    let queued = false
+    let queued = false;
     const result = await store.transact(ministryId, (unit) =>
       work(
         // The unit as it is, with its own `this`, and only the write watched.
         Object.create(unit, {
           enqueueMessages: {
-            value: (messages: Parameters<UnitOfWork['enqueueMessages']>[0]) => {
-              if (messages.length > 0) queued = true
-              return unit.enqueueMessages(messages)
+            value: (messages: Parameters<UnitOfWork["enqueueMessages"]>[0]) => {
+              if (messages.length > 0) queued = true;
+              return unit.enqueueMessages(messages);
             },
           },
         }) as UnitOfWork,
       ),
-    )
+    );
     // After the commit, which `transact` returning is: a rolled-back transaction
     // throws past this, and its messages were never there to send.
-    if (queued) sendAfterTheResponse(ministryId)
-    return result
+    if (queued) sendAfterTheResponse(ministryId);
+    return result;
   },
-})
+});
 
 /**
  * Drains one Ministry's queue once the current response has gone. Every commit
@@ -190,21 +193,24 @@ export const sendAfterTheResponse = (ministryId: MinistryId): void => {
     // After the response rather than before it, so nobody's page waits on the
     // vendor's round trip. A drain that fails leaves its rows neither sent nor
     // withheld, and the scheduler's next pass retries them.
-    after(() => sendWhatWasQueued(ministryId))
+    after(() => sendWhatWasQueued(ministryId));
   } catch {
     // Outside a request -- a script or a test driving the container -- there is
     // no response to wait for and nothing to schedule on. The scheduler's next
     // pass sends it, which is all any message had before this.
   }
-}
+};
 
 const sendWhatWasQueued = async (ministryId: MinistryId): Promise<void> => {
   try {
-    await drainOutboundQueue(ministryId)
+    await drainOutboundQueue(ministryId);
   } catch (error) {
-    console.error(`Could not send what was queued in ministry ${ministryId}`, error)
+    console.error(
+      `Could not send what was queued in ministry ${ministryId}`,
+      error,
+    );
   }
-}
+};
 
 /**
  * The Intake form is served to a visitor with no session, so it reads on the same
@@ -213,9 +219,10 @@ const sendWhatWasQueued = async (ministryId: MinistryId): Promise<void> => {
  * a pool exists and exactly one thing that can close it.
  */
 export const getIntakeReader = (): IntakeReader => {
-  if (!intakeReader) intakeReader = createPostgresIntakeReader(commandDatabaseUrl())
-  return intakeReader
-}
+  if (!intakeReader)
+    intakeReader = createPostgresIntakeReader(commandDatabaseUrl());
+  return intakeReader;
+};
 
 /**
  * The Invitation Link's page is served to a Leader with no account and no
@@ -224,12 +231,12 @@ export const getIntakeReader = (): IntakeReader => {
  */
 export const getInvitationReader = (): InvitationReader => {
   if (!invitationReader) {
-    invitationReader = createPostgresInvitationReader(commandDatabaseUrl())
+    invitationReader = createPostgresInvitationReader(commandDatabaseUrl());
   }
-  return invitationReader
-}
+  return invitationReader;
+};
 
-let materialPageReader: MaterialPageReader | undefined
+let materialPageReader: MaterialPageReader | undefined;
 
 /**
  * A Disciple's Material page is served to somebody with no session, so it reads
@@ -238,10 +245,10 @@ let materialPageReader: MaterialPageReader | undefined
  */
 export const getMaterialPageReader = (): MaterialPageReader => {
   if (!materialPageReader) {
-    materialPageReader = createPostgresMaterialPageReader(commandDatabaseUrl())
+    materialPageReader = createPostgresMaterialPageReader(commandDatabaseUrl());
   }
-  return materialPageReader
-}
+  return materialPageReader;
+};
 
 /**
  * The Ministry Setup Link's page is served to a pastor with no account and no
@@ -250,9 +257,10 @@ export const getMaterialPageReader = (): MaterialPageReader => {
  * provisioning because they have no link to spend.
  */
 export const getMinistrySetup = (): MinistrySetup => {
-  if (!ministrySetup) ministrySetup = createSupabaseMinistrySetup(commandDatabaseUrl())
-  return ministrySetup
-}
+  if (!ministrySetup)
+    ministrySetup = createSupabaseMinistrySetup(commandDatabaseUrl());
+  return ministrySetup;
+};
 
 /**
  * An inbound text carries a phone number and no session, so the webhook reads on
@@ -261,9 +269,10 @@ export const getMinistrySetup = (): MinistrySetup => {
  * itself to, before anything is scoped at all.
  */
 export const getInboundReader = (): InboundReader => {
-  if (!inboundReader) inboundReader = createPostgresInboundReader(commandDatabaseUrl())
-  return inboundReader
-}
+  if (!inboundReader)
+    inboundReader = createPostgresInboundReader(commandDatabaseUrl());
+  return inboundReader;
+};
 
 /**
  * The queue the sending layer drains. It reads and writes on the trusted
@@ -272,9 +281,10 @@ export const getInboundReader = (): InboundReader => {
  * behind it to say which Ministry a row belongs to.
  */
 export const getOutboundQueue = (): OutboundQueue => {
-  if (!outboundQueue) outboundQueue = createPostgresOutboundQueue(commandDatabaseUrl())
-  return outboundQueue
-}
+  if (!outboundQueue)
+    outboundQueue = createPostgresOutboundQueue(commandDatabaseUrl());
+  return outboundQueue;
+};
 
 /**
  * Where a message actually leaves the building. Twilio is behind this and nowhere
@@ -286,9 +296,9 @@ export const getOutboundQueue = (): OutboundQueue => {
  * the Roster locally is not stopped by an account they have no use for.
  */
 export const getMessageTransport = (): MessageTransport => {
-  if (!messageTransport) messageTransport = createTwilioTransport()
-  return messageTransport
-}
+  if (!messageTransport) messageTransport = createTwilioTransport();
+  return messageTransport;
+};
 
 /**
  * One drain of one Ministry's queue, assembled from the parts above so that its
@@ -299,13 +309,15 @@ export const getMessageTransport = (): MessageTransport => {
  * by nothing but a drain, so an act that only enqueued left its text waiting for
  * the next pass on the hour.
  */
-export const drainOutboundQueue = (ministryId: MinistryId): Promise<DispatchOutcome> =>
+export const drainOutboundQueue = (
+  ministryId: MinistryId,
+): Promise<DispatchOutcome> =>
   dispatchQueue({
     queue: getOutboundQueue(),
     transport: getMessageTransport(),
     clock: systemClock,
     ministryId,
-  })
+  });
 
 /**
  * The shared set of Discipler numbers, read across every church for the capacity
@@ -313,9 +325,10 @@ export const drainOutboundQueue = (ministryId: MinistryId): Promise<DispatchOutc
  * to no church.
  */
 export const getSharedNumbers = (): SharedNumberCapacity => {
-  if (!sharedNumbers) sharedNumbers = createPostgresSharedNumbers(commandDatabaseUrl())
-  return sharedNumbers
-}
+  if (!sharedNumbers)
+    sharedNumbers = createPostgresSharedNumbers(commandDatabaseUrl());
+  return sharedNumbers;
+};
 
 /**
  * What support@ is told about. **Logged, not yet emailed:** the email sender is
@@ -324,17 +337,22 @@ export const getSharedNumbers = (): SharedNumberCapacity => {
  * alert is until then, written so it is found by searching for `support@`.
  */
 const loggedSupportAlerts: SupportAlerts = {
-  async sharedNumbersNearCapacity({ concern, load }) {
+  async sharedNumbersNearCapacity({
+    concern,
+    numbers,
+    recipients,
+    mostChurchesOnOnePhone,
+  }) {
     console.error(
       `support@: the shared numbers are near capacity (${concern}): ` +
-        `${load.numbers} numbers carry ${load.recipients} recipients, ` +
-        `and one phone is in ${load.mostChurchesOnOnePhone} churches. Buy a number, ` +
-        'add it to discipler-sms, then run scripts/shared-number.ts.',
-    )
+        `${numbers} numbers carry ${recipients} recipients, ` +
+        `and one phone is in ${mostChurchesOnOnePhone} churches. Buy a number, ` +
+        "add it to discipler-sms, then run scripts/shared-number.ts.",
+    );
   },
-}
+};
 
-export const getSupportAlerts = (): SupportAlerts => loggedSupportAlerts
+export const getSupportAlerts = (): SupportAlerts => loggedSupportAlerts;
 
 /** One pass of the capacity watch, assembled so its callers cannot assemble it differently. */
 export const watchTheSharedNumbers = (): Promise<readonly CapacityConcern[]> =>
@@ -342,7 +360,7 @@ export const watchTheSharedNumbers = (): Promise<readonly CapacityConcern[]> =>
     numbers: getSharedNumbers(),
     alerts: getSupportAlerts(),
     clock: systemClock,
-  })
+  });
 
 /**
  * Settles the pairings an import planned for one Ministry, and never fails the
@@ -352,13 +370,18 @@ export const watchTheSharedNumbers = (): Promise<readonly CapacityConcern[]> =>
  * an Admin's arrangement, and a fault in settling it is logged for the Admin's
  * benefit rather than shown to the Person who just completed their form.
  */
-export const settlePlannedPairings = async (ministryId: MinistryId): Promise<void> => {
+export const settlePlannedPairings = async (
+  ministryId: MinistryId,
+): Promise<void> => {
   try {
-    await getCommandService().settleIntendedPairings(ministryId)
+    await getCommandService().settleIntendedPairings(ministryId);
   } catch (error) {
-    console.error(`Could not settle the planned pairings in ministry ${ministryId}`, error)
+    console.error(
+      `Could not settle the planned pairings in ministry ${ministryId}`,
+      error,
+    );
   }
-}
+};
 
 /**
  * Which Ministries the scheduler has to run for. The one unscoped read in the app,
@@ -370,14 +393,14 @@ export const settlePlannedPairings = async (ministryId: MinistryId): Promise<voi
  * passed down, as it is to every reader here.
  */
 export const sweepUnsavedUploads = (ministryId: MinistryId): Promise<number> =>
-  sweepUploads(ministryId, systemClock)
+  sweepUploads(ministryId, systemClock);
 
 export const getMinistryDirectory = (): MinistryDirectory => {
   if (!ministryDirectory) {
-    ministryDirectory = createPostgresMinistryDirectory(commandDatabaseUrl())
+    ministryDirectory = createPostgresMinistryDirectory(commandDatabaseUrl());
   }
-  return ministryDirectory
-}
+  return ministryDirectory;
+};
 
 /**
  * Gives back the connection pool the store holds. The running app never calls this
@@ -385,34 +408,35 @@ export const getMinistryDirectory = (): MinistryDirectory => {
  * container has no other way to let go of it when the suite ends.
  */
 export const closeCommandService = async (): Promise<void> => {
-  const store = commandStore
-  const reader = intakeReader
-  const invitations = invitationReader
-  const inbound = inboundReader
-  const queue = outboundQueue
-  const directory = ministryDirectory
-  const shared = sharedNumbers
-  commandService = undefined
-  commandStore = undefined
-  intakeReader = undefined
-  invitationReader = undefined
-  inboundReader = undefined
-  outboundQueue = undefined
-  ministryDirectory = undefined
-  sharedNumbers = undefined
+  const store = commandStore;
+  const reader = intakeReader;
+  const invitations = invitationReader;
+  const inbound = inboundReader;
+  const queue = outboundQueue;
+  const directory = ministryDirectory;
+  const shared = sharedNumbers;
+  commandService = undefined;
+  commandStore = undefined;
+  intakeReader = undefined;
+  invitationReader = undefined;
+  inboundReader = undefined;
+  outboundQueue = undefined;
+  ministryDirectory = undefined;
+  sharedNumbers = undefined;
   // The transport holds no pool -- it is `fetch` and a pair of credentials -- so
   // there is nothing of its to close, only the reference to drop.
-  messageTransport = undefined
-  await store?.close()
-  await reader?.close()
-  await invitations?.close()
-  await inbound?.close()
-  await queue?.close()
-  await directory?.close()
-  await shared?.close()
-}
+  messageTransport = undefined;
+  await store?.close();
+  await reader?.close();
+  await invitations?.close();
+  await inbound?.close();
+  await queue?.close();
+  await directory?.close();
+  await shared?.close();
+};
 
-export const getRosterReader = (): RosterReader => createSupabaseRosterReader(systemClock)
+export const getRosterReader = (): RosterReader =>
+  createSupabaseRosterReader(systemClock);
 
 /**
  * Intake forms reads through the signed-in Admin's session -- the groups, the
@@ -420,7 +444,8 @@ export const getRosterReader = (): RosterReader => createSupabaseRosterReader(sy
  * names on the Roster in one document -- so the policies say which Ministry's
  * list it is, and the page never has to.
  */
-export const getIntakeFormsReader = (): IntakeFormsReader => supabaseIntakeFormsReader
+export const getIntakeFormsReader = (): IntakeFormsReader =>
+  supabaseIntakeFormsReader;
 
 /**
  * The settings surface reads through the signed-in Admin's session, so
@@ -428,7 +453,7 @@ export const getIntakeFormsReader = (): IntakeFormsReader => supabaseIntakeForms
  * the Ministry and nobody else.
  */
 export const getMinistrySettingsReader = (): MinistrySettingsReader =>
-  supabaseMinistrySettingsReader
+  supabaseMinistrySettingsReader;
 
 /**
  * Care Needed reads through the signed-in Admin's session, so the policy on
@@ -437,7 +462,7 @@ export const getMinistrySettingsReader = (): MinistrySettingsReader =>
  * waited is computed at the moment of the read.
  */
 export const getCareNeededReader = (): CareNeededReader =>
-  createSupabaseCareNeededReader(systemClock)
+  createSupabaseCareNeededReader(systemClock);
 
 /**
  * Suggested Pairs reads through the signed-in Admin's session, so the Roster's own
@@ -445,7 +470,7 @@ export const getCareNeededReader = (): CareNeededReader =>
  * ranking needs none.
  */
 export const getSuggestedPairsReader = (): SuggestedPairsReader =>
-  createSupabaseSuggestedPairsReader(systemClock)
+  createSupabaseSuggestedPairsReader(systemClock);
 
 /**
  * The Overview reads through the signed-in Admin's session, so the policies on
@@ -454,21 +479,24 @@ export const getSuggestedPairsReader = (): SuggestedPairsReader =>
  * down, because which unaccepted relationships have waited long enough to surface,
  * and which ISO week is this week, are both computed at the moment of the read.
  */
-export const getOverviewReader = (): OverviewReader => createSupabaseOverviewReader(systemClock)
+export const getOverviewReader = (): OverviewReader =>
+  createSupabaseOverviewReader(systemClock);
 
 /**
  * The Check-Ins tab reads through the signed-in Admin's session for the same
  * reason, and takes the clock because *this week* is a reading of it against the
  * Ministry's own timezone.
  */
-export const getCheckInsReader = (): CheckInsReader => createSupabaseCheckInsReader(systemClock)
+export const getCheckInsReader = (): CheckInsReader =>
+  createSupabaseCheckInsReader(systemClock);
 
 /**
  * The Materials tab reads through the signed-in Admin's session for the same
  * reason, and takes the clock because which Material period is running is a
  * question about now, as is the state each card's pill shows.
  */
-export const getMaterialsReader = (): MaterialsReader => createSupabaseMaterialsReader(systemClock)
+export const getMaterialsReader = (): MaterialsReader =>
+  createSupabaseMaterialsReader(systemClock);
 
 /**
  * The Leader Dashboard reads through the signed-in user's session and takes no
@@ -476,14 +504,14 @@ export const getMaterialsReader = (): MaterialsReader => createSupabaseMaterials
  * leader memberships, and an Admin who leads is the same person on both surfaces.
  */
 export const getLeaderDashboardReader = (): LeaderDashboardReader =>
-  supabaseLeaderDashboardReader
+  supabaseLeaderDashboardReader;
 
 /**
  * Acceptance mints an account, and so does provisioning a Ministry's first Admin,
  * but both reach the adapter the same way every other surface does. A route
  * holding a concrete adapter is how a composition root stops being one.
  */
-export const getAccounts = (): Accounts => supabaseAccounts
+export const getAccounts = (): Accounts => supabaseAccounts;
 
 /**
  * Where a generated password's words come from. The reset surface asks for it the
@@ -491,4 +519,4 @@ export const getAccounts = (): Accounts => supabaseAccounts
  * how a composition root stops being one, and it is also how a test loses the only
  * seam that lets it name the password it expects.
  */
-export const getRandomSource = (): RandomSource => randomChoices
+export const getRandomSource = (): RandomSource => randomChoices;
