@@ -116,6 +116,7 @@ import type {
 import type { ParticipationStatus } from '~/domain/participation'
 import type { SuggestionQuestion, Suggestions } from '~/domain/suggestions'
 import type { CardShape, NewRelationship } from '~/domain/relationships'
+import type { Email, EmailEnvelope } from '~/domain/email'
 import type { RatesLineHistory, SettledMessage } from '~/domain/rates-line'
 import type { CareReason, RelationshipState, SettledRelationshipState } from '~/domain/relationship-state'
 import type { InvitationState } from '~/domain/invitations'
@@ -1559,6 +1560,30 @@ export interface MessageTransport {
    * from taking the rest of the queue down with it.
    */
   deliver(from: string, to: string, body: string): Promise<void>
+}
+
+/**
+ * Resend lives behind this and nowhere else (Exponential launch, ticket 10). It is
+ * handed an envelope the domain opened and nothing it could be handed loose
+ * strings in, so where an email goes and what it says are decided above the
+ * vendor, as consent is for a text.
+ *
+ * Throws when the vendor refuses. Nothing is retried here: the caller that sends
+ * an alert from the tick sends it again on the next pass, and a person waiting on
+ * a code asks again.
+ */
+export interface EmailTransport {
+  deliver(envelope: EmailEnvelope): Promise<void>
+}
+
+/** The one way an email leaves Discipler. */
+export interface EmailSender {
+  /**
+   * Opens the email -- its route, every reply to support@, its idempotency key --
+   * and hands it to the vendor. Rejects a subject or body the domain's tags did not
+   * compose, and never hands it on.
+   */
+  send(email: Email): Promise<void>
 }
 
 export interface DiscipleshipGoalOption {
