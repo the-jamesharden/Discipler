@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto'
 import { NextResponse, type NextRequest } from 'next/server'
 import type { MinistryId } from '~/domain/ids'
+import type { CapacityConcern } from '~/domain/shared-numbers'
 import type { SettledPairings } from '~/service/command-service'
 import {
   drainOutboundQueue,
@@ -135,7 +136,7 @@ export async function GET(request: NextRequest) {
   // (Exponential launch, ticket 06). Caught on its own, because an alert that could
   // not be raised is no reason to report a church's week as failed; it is raised on
   // the next pass instead.
-  let capacity: readonly string[] | 'failed' = []
+  let capacity: readonly CapacityConcern[] | 'failed' = []
   try {
     capacity = await watchTheSharedNumbers()
   } catch (error) {

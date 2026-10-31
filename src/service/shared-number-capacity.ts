@@ -32,12 +32,10 @@ export const watchSharedNumberCapacity = async ({
   for (const concern of capacityConcerns(load)) {
     if (await numbers.alreadyRaised(concern, load.numbers)) continue
 
-    await alerts.sharedNumbersNearCapacity({
-      concern,
-      load,
-      day: clock.now().toISOString().slice(0, 10),
-    })
-    await numbers.recordRaised(concern, clock.now(), load)
+    // One reading of the clock, so the email's day and the record's moment agree.
+    const at = clock.now()
+    await alerts.sharedNumbersNearCapacity({ concern, load, day: at.toISOString().slice(0, 10) })
+    await numbers.recordRaised(concern, at, load)
     told.push(concern)
   }
 

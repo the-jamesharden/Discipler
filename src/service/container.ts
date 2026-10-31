@@ -451,6 +451,7 @@ export const closeCommandService = async (): Promise<void> => {
   const directory = ministryDirectory
   const checks = phoneChecks
   const shared = sharedNumbers
+  const limit = signInLimit
   commandService = undefined
   commandStore = undefined
   intakeReader = undefined
@@ -461,6 +462,7 @@ export const closeCommandService = async (): Promise<void> => {
   phoneChecks = undefined
   phoneCheck = undefined
   sharedNumbers = undefined
+  signInLimit = undefined
   // The transport holds no pool -- it is `fetch` and a pair of credentials -- so
   // there is nothing of its to close, only the reference to drop.
   messageTransport = undefined
@@ -473,6 +475,7 @@ export const closeCommandService = async (): Promise<void> => {
   await directory?.close()
   await checks?.close()
   await shared?.close()
+  await limit?.close()
 }
 
 export const getRosterReader = (): RosterReader => createSupabaseRosterReader(systemClock)
