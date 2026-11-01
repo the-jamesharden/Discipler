@@ -53,3 +53,6 @@
 - Read the pages: they speak for Discipler about billing, offers and texting at launch.
 - Until ticket 06 merges, the quoted example texts start "Riverside Chapel:" while the texting page says every text starts "{church} via Discipler:"; once 06 changes the composers, the quotes follow by themselves.
 - At merge, tickets that define their own copy of a number in `src/domain/launch-terms.ts` should import it from there instead (or move it and leave `app/help/facts.ts` pointing at the new place).
+
+- James, 2026-11-01: `/help` ships to production with this branch as it is, public and unlinked, though its billing, referral, Ask Discipler and test check-in pages describe features that land later in the launch.
+  Alternatives offered: a switch holding `/help` at 404 until launch, or hiding only the pages for unbuilt features.
