@@ -2,10 +2,13 @@ import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createTestClock } from '~/domain/clock'
 import type { IdSource } from '~/domain/ids'
+import { capacityConcerns } from '~/domain/shared-numbers'
 import { createPostgresEffectStore } from '~/platform/supabase/effect-store'
+import { createPostgresSharedNumbers } from '~/platform/supabase/shared-numbers'
 import { createCommandService } from '~/service/command-service'
 import { baseUrl, cronSecret, skipUnlessAppIsRunning } from '../support/app'
 import {
+  addASharedNumber,
   createMinistryWithAdmin,
   enoughForATick,
   localSupabase,
@@ -47,6 +50,19 @@ describe.skipIf(skipUnlessAppIsRunning)('the scheduled tick, as the scheduler ru
     ministry = await createMinistryWithAdmin('Cron Chapel')
     store = createPostgresEffectStore(localSupabase().databaseUrl)
     pool = new pg.Pool({ connectionString: localSupabase().databaseUrl })
+
+    // A concern makes the capacity watch email support@, which a test cannot do, so
+    // the pass would read as `failed`. A freshly reset database is quiet only until
+    // a tick gives a phone its first number, so this counts one more church per phone
+    // than there is today; only a suite that happened to run first would otherwise
+    // have added the number that keeps it quiet.
+    const numbers = createPostgresSharedNumbers(localSupabase().databaseUrl)
+    const afterAPass = async () => {
+      const load = await numbers.load()
+      return { ...load, mostChurchesOnOnePhone: load.mostChurchesOnOnePhone + 1 }
+    }
+    while (capacityConcerns(await afterAPass()).length > 0) await addASharedNumber()
+    await numbers.close()
   })
 
   afterAll(async () => {
