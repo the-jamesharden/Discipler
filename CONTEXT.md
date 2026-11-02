@@ -309,7 +309,7 @@ The short SMS conversation Discipler opens when an inbound keyword needs somethi
 _Avoid_: Menu, prompt (as model terms). "Prompt" is doubly unhelpful here: it is a model term, and where it does appear in the schema it names an Outstanding Reply, which is a different thing.
 
 **Silence Gap**:
-Thirty rolling days since Discipler last sent a person a message, measured per person per ministry. It was the trigger for the compliance identification prefix and for re-sending opt-out language to a participant. Nothing keys off it any more: the Message Frame names Discipler on every text, and the Rates Line keeps its own monthly rule.
+The rolling window since Discipler last sent a person a message, measured per person per ministry. Its length lives in `docs/product-rules.md`, *Settled: A Silence Gap Is Thirty Days, Per Person Per Ministry*. It was the trigger for the compliance identification prefix and for re-sending opt-out language to a participant. Nothing keys off it any more: the Message Frame names Discipler on every text, and the Rates Line keeps its own monthly rule.
 
 **Check-In Sequence**:
 The single conversation in which a leader answers for every relationship they lead, one after another, in one thread on one day. Relationships are asked about earliest-started first, and the shape of the conversation is fixed when it opens. It advances on a reply, or when a question it asked has been reminded once and still gone unanswered; at most one runs against a leader at a time. A relationship awaiting leader acceptance or paused is not covered by it and accrues no silence.
