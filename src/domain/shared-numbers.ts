@@ -39,9 +39,9 @@ export interface SharedNumberLoad {
 
 /**
  * The two ways the set runs out. `recipients`: the numbers carry most of what they
- * are meant to. `one_phone`: the person in the most churches has one number left
- * that none of their churches has used, and a phone needs a different number for
- * every church that texts it.
+ * are meant to. `one_phone`: the person in the most churches has at most one number
+ * left that none of their churches has used, and a phone needs a different number
+ * for every church that texts it.
  */
 export type CapacityConcern = 'recipients' | 'one_phone'
 

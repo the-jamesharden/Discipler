@@ -47,8 +47,25 @@ describe('telling support@ the shared numbers are near capacity', () => {
     await alerts.sharedNumbersNearCapacity({ ...nearCapacity, concern: 'one_phone' })
 
     expect(delivered[0]?.text).toContain(
-      'The person in the most churches has one shared number left.',
+      'The person in the most churches has at most one shared number left.',
     )
+  })
+
+  it('still holds when the person in the most churches has no shared number left', async () => {
+    const { delivered, alerts } = recording()
+
+    await alerts.sharedNumbersNearCapacity({
+      ...nearCapacity,
+      concern: 'one_phone',
+      load: { numbers: 3, recipients: 61, mostChurchesOnOnePhone: 3 },
+    })
+
+    const text = delivered[0]?.text
+    expect(text).toContain('at most one shared number left')
+    expect(text).not.toContain('has one shared number left')
+    expect(text).toContain('3 numbers carry 61 (phone, church) pairs')
+    expect(text).toContain('one phone is in 3 churches')
+    expect(text).toContain('already hears from every number waits on the queue')
   })
 
   it('keys the email on the concern, the size of the set and the day, so a retry that day is dropped', async () => {

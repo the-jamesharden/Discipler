@@ -141,8 +141,8 @@ Discipler's recurring text-message rhythm for gathering information about whethe
 _Avoid_: Twilio Rhythm (Twilio is a delivery vendor, not a domain concept)
 
 **Shared Number**:
-One of the Discipler-owned numbers every Ministry sends from. Each phone a Ministry texts is given one the first time and keeps it, and a phone in two Ministries hears from a different one for each, so the number a reply was sent to says which Ministry it is for. When the set is near capacity is `src/domain/shared-numbers.ts`'s to decide.
-_Avoid_: the Ministry's number, sending number (no Ministry has a number of its own)
+One of the Discipler-owned numbers every Ministry sends from. Each phone a Ministry texts is given one the first time and keeps it, and a phone in two Ministries hears from a different one for each, so the number a reply or a `STOP` was sent to says which Ministry it is for. When the set is near capacity is `src/domain/shared-numbers.ts`'s to decide. See `docs/adr/0033-a-shared-set-of-discipler-numbers.md`.
+_Avoid_: Discipler Number, the Ministry's number, sending number (no Ministry has a number of its own)
 
 **Welcome Message**:
 The message a person receives on completing intake, before any relationship exists.
@@ -363,12 +363,8 @@ The ISO week in the Ministry Timezone. Defined independently of the Check-In Cad
 The nouns a Ministry uses for the two roles in a relationship, carried into every message that names a role. Wording a Ministry owns, in the same way it owns its Discipleship Goal options; the structure of a message is not. ADR-0015 records the two rules the wording has to obey — the word sits in noun position and names the reader's own role — and why a word a Ministry typed can be neither conjugated nor pluralised on its behalf.
 
 **Sending Name**:
-The name a Ministry's messages read as, distinct from both the display name an Admin sees on their own screens and the Discipler Number the messages are sent from. Unset means *speak as the display name*. Settings calls it *Messages read as*, and every text starts with it followed by "via Discipler", so a church run by one person can text as that person.
-_Avoid_: From name in prose (it is the column, `from_name`), and sender (that is the Discipler Number)
-
-**Discipler Number**:
-One of the shared set of phone numbers Discipler owns and sends every church's texts from. Each Person, in each Ministry, is given one the first time that Ministry texts them and always hears from it; a Person in two Ministries hears from a different one for each, so a reply or a `STOP` reaches the right Ministry. A number belongs to Discipler and never to a Ministry. See `docs/adr/0033-a-shared-set-of-discipler-numbers.md`.
-_Avoid_: The church's number, sending number (no Ministry has one any more)
+The name a Ministry's messages read as, distinct from both the display name an Admin sees on their own screens and the Shared Number the messages are sent from. Unset means *speak as the display name*. Settings calls it *Messages read as*, and every text starts with it followed by "via Discipler", so a church run by one person can text as that person.
+_Avoid_: From name in prose (it is the column, `from_name`), and sender (that is the Shared Number)
 
 **Message Frame**:
 The part of every text Discipler always writes: the "{Sending Name} via Discipler:" start, the reply choices, and the rates and opt-out lines. No church may change it, as a permanent rule, because every church's texts go out under Discipler's carrier registration. See `docs/adr/0034-discipler-writes-the-frame-of-every-text.md`.

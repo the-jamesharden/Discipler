@@ -1,4 +1,4 @@
-# A Shared Set of Discipler Numbers
+# A Shared Set of Discipler-Owned Numbers
 
 ## Status
 
@@ -13,8 +13,8 @@ Supersedes the part of ADR-0019 in which a Ministry Setup Link names the number 
 James decided it in the grilling (Q66), and the start of every text in the mock-up 3 review (2026-10-30).
 
 - A number belongs to Discipler, not to a church.
-- Each person, in each church, is given one Discipler number the first time that church texts them, and always hears from it.
-- A person in two churches hears from a different Discipler number for each, so their replies never mix and a `STOP` to one church leaves the other running.
+- Each person, in each church, is given one shared number the first time that church texts them, and always hears from it.
+- A person in two churches hears from a different shared number for each, so their replies never mix and a `STOP` to one church leaves the other running.
   That holds only because each text is sent with its number as Twilio's `From`, never by the Messaging Service's SID: Twilio scopes a `STOP` to the number it was sent to when a text names its sender, and to every number in the service when the service picks one ([Twilio, opt-out keywords](https://support.twilio.com/hc/en-us/articles/223134027-Twilio-Support-for-Opt-Out-Keywords-SMS-STOP-Filtering)).
   It is to be confirmed on two real phones, a `STOP` to one church's number and a text from the other's, before any phone is in two churches.
 - A reply is matched by the sender's phone, as before; when that phone is in more than one church, the number it was sent to decides which.
@@ -39,7 +39,7 @@ The open question that nothing computed a Silence Gap, so `Discipler:` never rea
 Rejected.
 Per-church registration means a brand and EIN per church, fees per church, and days of carrier review before a new church can text, which a church signing up at a booth cannot wait for.
 
-**One Discipler number for every church.**
+**One shared number for every church.**
 Rejected.
 A person in two churches could not be told apart by their replies, and a `STOP` to one church would stop them all.
 
