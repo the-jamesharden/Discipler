@@ -27,7 +27,7 @@ export const OPERATOR_ONLY_TABLES: readonly string[] = [
   'phone_check_code',
   // The sign-in guessing limit (Exponential launch, ticket 13).
   'sign_in_attempt',
-  // The shared Discipler numbers and the capacity watch's history (Exponential launch, ticket 06).
+  // The shared numbers and the capacity watch's history (Exponential launch, ticket 06).
   'shared_number',
   'shared_number_capacity_alert',
 ]

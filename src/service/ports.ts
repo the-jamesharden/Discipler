@@ -1618,7 +1618,7 @@ export interface MessageTransport {
 }
 
 /**
- * The shared set of Discipler numbers, as the capacity watch reads it (Exponential
+ * The set of shared numbers, as the capacity watch reads it (Exponential
  * launch, ticket 06). Across every church, because the set is shared by all of them;
  * it holds nothing about any one church and returns counts only.
  */

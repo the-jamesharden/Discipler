@@ -84,6 +84,8 @@ What makes it safe is in the code, not in anyone's memory:
 - `src/platform/deployment.ts` refuses a staging environment, at build in `next.config.ts` and at start in `instrumentation.ts`, that carries production's Supabase project under any variable, any `TWILIO_*` value, a Stripe live key (`sk_live_`, `rk_live_`, `pk_live_`) under any name, production's `NEXT_PUBLIC_APP_URL`, or a `MESSAGE_TRANSPORT` other than `record`.
   A refused build fails, so the staging deployment before it goes on serving; the build log lists every refusal by variable name.
 - With `MESSAGE_TRANSPORT=record` every text is written to the log as `Text recorded, not sent: {...}` and sent nowhere, and the queue marks it sent as Twilio's acceptance would.
+- A Verify code is recorded the same way, as `Verify code recorded, not sent: {...}`, and staging accepts only the constant that line shows (`src/platform/recording-verifier.ts`).
+- Every email goes to `STAGING_EMAIL_RECIPIENT` instead of whoever it was for, and a send without it is refused (`src/platform/resend/credentials.ts`).
 - `/sms/inbound` on staging accepts only requests signed with `STAGING_SMS_SIGNING_SECRET`, and ignores `TWILIO_AUTH_TOKEN` there.
 
 ### Deploying to staging
@@ -104,7 +106,8 @@ A browser signed in to Vercel reaches it; a script, Stripe and anything else aut
 ### Texts on staging
 
 - What staging would have texted is in the staging deployment's runtime logs in Vercel (search `Text recorded`), and in `outbound_message` in staging's database.
-- A reply, a `STOP` or a `PAUSE` is sent in with `STAGING_URL=https://<staging host> STAGING_SMS_SIGNING_SECRET=... VERCEL_AUTOMATION_BYPASS_SECRET=... npm run staging:text -- "<from phone>" "<body>"`.
+- A reply, a `STOP` or a `PAUSE` is sent in with `STAGING_URL=https://<staging host> STAGING_SMS_SIGNING_SECRET=... VERCEL_AUTOMATION_BYPASS_SECRET=... npm run staging:text -- "<from phone>" "<body>" ["<shared number>"]`.
+  The shared number it was sent to decides the church when that phone is in more than one.
   `200` means it was taken; `403` means the signature was not staging's.
 
 ### Stripe test events against staging

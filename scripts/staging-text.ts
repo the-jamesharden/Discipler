@@ -13,7 +13,7 @@
  *     npm run staging:text -- "+15551234567" "1"
  *
  * The first argument is the phone the text is from, the second what it says, and an
- * optional third is the Discipler number it was sent to.
+ * optional third is the shared number it was sent to.
  */
 import { twilioSignature } from '../src/platform/twilio/inbound-signature'
 

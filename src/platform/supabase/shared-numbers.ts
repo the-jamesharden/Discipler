@@ -4,7 +4,7 @@ import { asPhoneNumber } from '~/domain/roster'
 import type { SharedNumberCapacity } from '~/service/ports'
 
 /**
- * The shared set of Discipler numbers, on the trusted connection and nothing else
+ * The set of shared numbers, on the trusted connection and nothing else
  * (Exponential launch, ticket 06).
  *
  * `shared_number` and `shared_number_capacity_alert` belong to no church, so like

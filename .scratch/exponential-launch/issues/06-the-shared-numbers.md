@@ -70,7 +70,7 @@
 
 ### Decisions made on gaps
 
-- **Near capacity means either of two things.** `recipients`: the pairs reach four in five of 200 per number (1,280 on eight numbers). `one_phone`: the person in the most churches has one number left. Alternative: a single per-number load figure only. 200 per number is the old per-long-code guidance taken as a conservative stand-in; it is a constant James can change.
+- **Near capacity means either of two things.** `recipients`: the pairs reach four in five of 200 per number (1,280 on eight numbers). `one_phone`: the person in the most churches has at most one number left. Alternative: a single per-number load figure only. 200 per number is the old per-long-code guidance taken as a conservative stand-in; it is a constant James can change.
 - **Told once per concern per size of the set**, recorded in `shared_number_capacity_alert`, so adding a number re-arms it. Alternative: once a day while near capacity.
 - **A missing `To` is not refused.** A phone in one church is placed without it, as before; a phone in two is placed with nobody. Twilio always sends it.
 - **Pairs are per phone, not per Person**, because a number is one conversation (ADR-0005); an Admin texted from no Person row gets one too.

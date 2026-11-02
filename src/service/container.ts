@@ -382,7 +382,7 @@ export const drainOutboundQueue = (ministryId: MinistryId): Promise<DispatchOutc
   })
 
 /**
- * The shared set of Discipler numbers, read across every church for the capacity
+ * The set of shared numbers, read across every church for the capacity
  * watch. On the trusted connection, as the Setup Link is, because the set belongs
  * to no church.
  */

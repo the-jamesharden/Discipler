@@ -61,4 +61,4 @@ It belongs to the test alone; real check-ins still need none, because nothing bu
 The test's first text pluralises the church's leader noun ("the same one your {leader noun}s get"), which ADR-0015 says Discipler never does on a church's behalf.
 It is James's wording from the mock-up 3 review and is recorded here as a known conflict for him to settle, not resolved by inference.
 
-A test texts the Admin through a Discipler number (ADR-0033) under the church's Messages read as, so what the Admin sees is exactly what a Leader sees, frame included.
+A test texts the Admin through a shared number (ADR-0033) under the church's Messages read as, so what the Admin sees is exactly what a Leader sees, frame included.

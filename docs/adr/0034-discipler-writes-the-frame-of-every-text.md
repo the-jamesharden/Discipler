@@ -22,7 +22,7 @@ James decided the frame in the mock-up 3 review (2026-10-30), and how far a chur
 
 ## Context
 
-Every text goes out from a Discipler number under Discipler LLC's carrier registration (ADR-0033), so Discipler is answerable for every word of it.
+Every text goes out from a shared number under Discipler LLC's carrier registration (ADR-0033), so Discipler is answerable for every word of it.
 The registration describes Discipler's messages, the opt-out language carriers require has to be on them, and the reply router can only count a reply to a question whose choices it wrote.
 
 Churches asked to sound like themselves, and a church run by one person wanted its texts to sound like that person.
