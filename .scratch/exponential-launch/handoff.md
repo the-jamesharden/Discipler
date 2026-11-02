@@ -4,7 +4,7 @@ Written 2026-10-30 when the first session's context filled up; updated 2026-10-3
 The grilling is finished and James confirmed shared understanding.
 All five Lavish mock-ups are done (James, 2026-10-31), and every decision from them is in the spec.
 Stripe and Resend are provisioned (see Blocked on James).
-On 2026-10-31 eleven tickets were built by parallel agents and merged into `launch/exponential` (see "Built so far").
+On 2026-10-31 eleven tickets were built by parallel agents, and they are now on `main` (see "Built so far").
 
 ## Read first
 
@@ -94,4 +94,4 @@ Next: triage 15 to 25 (23 first), rewrite 04, 18 and 19, then build the next wav
 
 - The main checkout is on `ship/waves-2026-09-22` and holds another session's uncommitted Overview changes; do not commit or revert them.
 - Build the launch on a fresh worktree branched from `origin/main`, and commit only named paths.
-- Everything under `.scratch/exponential-launch/` and `.lavish/` from this work is uncommitted.
+- Everything under `.lavish/` from this work is uncommitted; `.scratch/exponential-launch/` is on `main`.
