@@ -84,7 +84,8 @@
   `app.sender_of_inbound` declares `texted_number text default null`, so its one-argument call still resolves as one function with the same grants.
   `ministry.sending_number` is kept rather than dropped; it has been nullable since `20260909000100`, so it needed no `drop not null`.
   The new build neither reads nor writes it.
-  **Follow-up, done 2026-11-02:** `20261102120000_drop_ministry_sending_number.sql` drops `ministry.sending_number`.
+  **Follow-up, 2026-11-02:** `20261102120000_drop_ministry_sending_number.sql` drops `ministry.sending_number`.
+  It is written, and is pushed to production by hand, separately from PR #35; nothing here records that push, so check production before relying on the column being gone.
   Before it was written, production showed all three churches' numbers in the shared set, 61 pairs, none on another number and no texted phone without a pair, so the push-to-deploy window left nothing to carry.
   The one-argument form needs no drop of its own, because it is the same function as the two-argument one; removing the default is optional, and it stays, since `create or replace` cannot remove one and the default costs nothing.
   Alternative: one step and an accepted window at a quiet hour, in which a `STOP` or an answer could be lost.

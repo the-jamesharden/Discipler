@@ -58,6 +58,6 @@
 
 ### Closed out (2026-11-02)
 
-Merged in PR #35 (49d4bb2) and its migrations are on production.
+Merged in PR #35 (49d4bb2).
 The drafts are in `docs/legal/`, unpublished; sign-up does not exist yet, and ticket 15 holds its gate.
 What is left for James moved to `docs/open-questions.md`: *publishing the legal drafts*, *sign-up consent with no checkbox* and *the live opt-in page's sample messages*.

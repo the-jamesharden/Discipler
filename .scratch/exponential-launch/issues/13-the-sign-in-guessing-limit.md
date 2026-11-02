@@ -80,3 +80,4 @@ The finding holds, and Discipler's own limit is built.
 ### Closed out (2026-11-02)
 
 Merged in PR #35 (49d4bb2) and its migrations are on production.
+What is left for James moved to `docs/open-questions.md`: *a second layer on the sign-in guessing limit*.

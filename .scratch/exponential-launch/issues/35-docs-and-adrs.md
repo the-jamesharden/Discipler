@@ -69,5 +69,5 @@
 
 ### Closed out (2026-11-02)
 
-Merged in PR #35 (49d4bb2) and its migrations are on production.
+Merged in PR #35 (49d4bb2).
 What is left for James moved to `docs/open-questions.md`: *"{leader noun}s" in the test check-in's first text*, *whether "points" comes off the non-goals list*, *whether a past-due church keeps texting* and *the reply choices ticket 40 lists*.

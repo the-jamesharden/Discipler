@@ -55,4 +55,4 @@ They were run red against a stubbed check (eight failed on their assertions) bef
 
 ### Closed out (2026-11-02)
 
-Merged in PR #35 (49d4bb2) and its migrations are on production.
+Merged in PR #35 (49d4bb2).

@@ -495,7 +495,7 @@ What needs deciding: whether that stands, or that one Admin needs another way.
 
 Raised on 2026-11-01 by the Exponential launch, ticket 12.
 The minimum password length on production is a dashboard setting, and it should be 8 so the public Auth API agrees with the app.
-Leaked-password protection is a separate, optional Pro plan setting, also listed as finding F2 in `.scratch/security-hardening/spec.md`.
+Leaked-password protection is a separate, optional Pro plan setting.
 What needs deciding: whether to turn on leaked-password protection, once the minimum is set.
 
 ## Open: whether the list the unpaired card opens leaves Admins out
@@ -560,3 +560,13 @@ Raised on 2026-11-01 by the Exponential launch, ticket 36.
 The live page's samples are out of date whatever the launch does: three ratings and the old prefix.
 `docs/legal/sms-opt-in-sign-up-section.md` lists the lines to change.
 What needs deciding: the new lines, and publishing them with the drafts above.
+
+## Open: a second layer on the sign-in guessing limit
+
+Raised on 2026-11-01 by the Exponential launch, ticket 13.
+Discipler's own limit counts failed sign-ins per account and per network, and it needs nothing set up.
+Three optional layers could go with it, and none is built.
+Supabase's IP address forwarding could be turned on, sending `Sb-Forwarded-For` with a secret key, so Supabase's own per-network limit sees the person's address rather than Vercel's.
+A Vercel Firewall rate-limit rule could cover `POST /auth/sign-in`.
+A CAPTCHA could be added to sign-in.
+What needs deciding: whether to add any of them, and which.

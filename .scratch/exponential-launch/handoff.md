@@ -68,7 +68,7 @@ Tickets 01, 02, 06, 09, 10, 12, 13, 29, 34, 35 and 36 are built and on `main` (P
 Each ticket's `## Comments` records what was built and every decision made on a gap, and what they left for a human is in `docs/open-questions.md`.
 Nine are `shipped`; 02 and 10 are `ready-for-human`, each with the reason at the end of its comments.
 
-- `20261101060000` was the first of two steps; `20261102120000_drop_ministry_sending_number.sql` is the second (ticket 06's comments).
+- `20261101060000` was the first of two steps; `20261102120000_drop_ministry_sending_number.sql` is the second, written and pushed to production by hand, separately from PR #35, and nothing here records that push (ticket 06's comments).
 - New environment variables: `TWILIO_VERIFY_SERVICE_SID`, `DISCIPLER_ENVIRONMENT`, `MESSAGE_TRANSPORT`, `STAGING_SMS_SIGNING_SECRET`, `STAGING_EMAIL_RECIPIENT`.
 - Operator-only tables added: `phone_check`, `phone_check_code`, `sign_in_attempt`, `shared_number`, `shared_number_capacity_alert`.
 - Texts must keep naming their number as Twilio's `From`: sending by the Messaging Service's SID would make one `STOP` silence every church (ADR-0033).
