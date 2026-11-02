@@ -181,7 +181,10 @@ enable_anonymous_sign_ins = false
 # Allow/disallow testing manual linking of accounts
 enable_manual_linking = false
 # Passwords shorter than this value will be rejected as weak. Minimum 6, recommended 8 or more.
-minimum_password_length = 6
+# The same number as `SHORTEST_PASSWORD` in `src/domain/accounts.ts`, which
+# `tests/app/a-password-policy-copy.test.ts` holds. This file governs only the
+# local stack: production's minimum is a setting on the hosted project.
+minimum_password_length = 8
 # Passwords that do not meet the following requirements will be rejected as weak. Supported values
 # are: `letters_digits`, `lower_upper_letters_digits`, `lower_upper_letters_digits_symbols`
 password_requirements = ""
@@ -307,9 +310,9 @@ max_frequency = "5s"
 #
 # The values are substituted from the environment and are empty in local
 # development, where no code is ever requested. Discipler's own outbound SMS does
-# not come through here at all: it goes through `MessageTransport` and sends as
-# `ministry.sending_number`, which is a property of the Ministry and not of the
-# deployment.
+# not come through here at all: it goes through `MessageTransport` and sends from
+# the shared number each (phone, church) pair was given (`sending_number_assignment`),
+# never one number for the whole deployment.
 [auth.sms.twilio]
 enabled = true
 account_sid = "env(SUPABASE_AUTH_SMS_TWILIO_ACCOUNT_SID)"

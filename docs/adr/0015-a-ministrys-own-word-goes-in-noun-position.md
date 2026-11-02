@@ -4,6 +4,8 @@
 
 accepted
 
+Amended by ADR-0034: a Ministry may now reword the check-in's sentences inside the frame Discipler writes, and these two rules govern the words Discipler writes, not a Ministry's own sentence.
+
 ## Decision
 
 `leader_noun` and `participant_noun` are used in message copy under two rules, and every

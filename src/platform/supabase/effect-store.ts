@@ -4089,10 +4089,10 @@ export const createPostgresEffectStore = (connectionString: string): PostgresEff
 }
 
 /**
- * The one read that cannot name its Ministry up front. A text arrives with a
- * phone number and nothing else, so this answers which Ministry the connection
- * should scope itself to and who on it sent the message -- and everything after
- * that runs inside an ordinary Ministry-scoped unit of work.
+ * The one read that cannot name its Ministry up front. A text arrives with the
+ * sender's phone and the shared number it texted, so this answers which Ministry
+ * the connection should scope itself to and who on it sent the message -- and
+ * everything after that runs inside an ordinary Ministry-scoped unit of work.
  */
 export interface PostgresInboundReader extends InboundReader {
   close(): Promise<void>
@@ -4104,7 +4104,7 @@ export const createPostgresInboundReader = (
   const pool = new pg.Pool({ connectionString })
 
   return {
-    async resolveSender(fromPhone: string): Promise<InboundSender | null> {
+    async resolveSender(fromPhone: string, toNumber: string | null): Promise<InboundSender | null> {
       const client = await pool.connect()
       try {
         // Inside a transaction, like every other read here. `set local` outside
@@ -4113,8 +4113,8 @@ export const createPostgresInboundReader = (
         await client.query('begin')
         await client.query('set local role discipler_command')
         const { rows } = await client.query<{ ministry_id: string; person_id: string }>(
-          `select ministry_id, person_id from app.sender_of_inbound($1)`,
-          [fromPhone],
+          `select ministry_id, person_id from app.sender_of_inbound($1, $2)`,
+          [fromPhone, toNumber],
         )
         // Rolled back rather than committed: this reads and writes nothing, and a
         // rollback is what resets the role.

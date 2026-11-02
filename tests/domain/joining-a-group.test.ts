@@ -562,7 +562,7 @@ describe('what a named group is called in the weekly question', () => {
 
   it('asks about the group by its name where it has one', () => {
     expect(readAfterTheLineThisMonth(start('Tuesday Women’s Group').effects)[0]!.body).toBe(
-      'ABC Church: Did you meet with Tuesday Women’s Group this week? Reply 1 for yes, 2 for no.',
+      'ABC Church via Discipler: Did you meet with Tuesday Women’s Group this week? Reply 1 for yes, 2 for no.',
     )
   })
 

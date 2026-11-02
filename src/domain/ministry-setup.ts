@@ -4,8 +4,9 @@ import { hasRunOut, INVITATION_LIFETIME_DAYS, type InvitationState } from './inv
 /**
  * The Ministry Setup Link: how a Ministry comes into existence.
  *
- * Whoever runs Discipler mints one, naming the church, the number it sends from
- * and the phone its first Admin signs in with. The Admin opens it, types their
+ * Whoever runs Discipler mints one, naming the church and the phone its first
+ * Admin signs in with. It names no number to send from: every church sends from
+ * Discipler's shared numbers (Exponential launch, ticket 06). The Admin opens it, types their
  * name and a password, and that one submit opens the Ministry. It is the shape of
  * the Invitation Link pointed at a pastor instead of a Leader, and it keeps every
  * property of one that matters: possession of the link is the whole
@@ -35,8 +36,7 @@ const DAY_IN_MS = 24 * 60 * 60 * 1000
 export interface NewMinistrySetup {
   readonly token: MinistrySetupToken
   readonly ministryName: string
-  /** Both numbers already read into the form the Ministry and the account store. */
-  readonly sendingNumber: string
+  /** Already read into the form the account stores. */
   readonly adminPhone: string
   readonly createdAt: Date
   readonly expiresAt: Date
@@ -45,7 +45,6 @@ export interface NewMinistrySetup {
 export interface IssueMinistrySetup {
   readonly token: MinistrySetupToken
   readonly ministryName: string
-  readonly sendingNumber: string
   readonly adminPhone: string
   readonly at: Date
 }
@@ -53,13 +52,11 @@ export interface IssueMinistrySetup {
 export const issueMinistrySetup = ({
   token,
   ministryName,
-  sendingNumber,
   adminPhone,
   at,
 }: IssueMinistrySetup): NewMinistrySetup => ({
   token,
   ministryName,
-  sendingNumber,
   adminPhone,
   createdAt: at,
   expiresAt: new Date(at.getTime() + MINISTRY_SETUP_LIFETIME_DAYS * DAY_IN_MS),

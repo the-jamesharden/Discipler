@@ -105,7 +105,7 @@ const asked = (effects: readonly Effect[]) =>
 describe('answering the meeting question', () => {
   it('follows a yes with the satisfaction question', () => {
     expect(bodies(reply('1', open('met')).effects)).toEqual([
-      'ABC Church: How did the meeting go? ' +
+      'ABC Church via Discipler: How did the meeting go? ' +
         'Reply A for outstanding, B for good, C for okay, D for concern.',
     ])
   })
@@ -116,7 +116,7 @@ describe('answering the meeting question', () => {
     const { effects } = reply('1', open('met', 1, [emilysTurn, theGroupsTurn], 'a_to_c'))
     expect(asked(effects)[0]).toMatchObject({ question: 'satisfaction', wording: 'a_to_d' })
     expect(bodies(effects)).toEqual([
-      'ABC Church: How did the meeting go? ' +
+      'ABC Church via Discipler: How did the meeting go? ' +
         'Reply A for outstanding, B for good, C for okay, D for concern.',
     ])
   })
@@ -125,7 +125,7 @@ describe('answering the meeting question', () => {
     // A missed week costs one reply. Nothing here frames it as a failure and
     // nothing asks how a meeting that did not happen went.
     expect(bodies(reply('2', open('met')).effects)).toEqual([
-      'ABC Church: Did you meet with Marcus and Dan this week? Reply 1 for yes, 2 for no.',
+      'ABC Church via Discipler: Did you meet with Marcus and Dan this week? Reply 1 for yes, 2 for no.',
     ])
   })
 
@@ -166,11 +166,11 @@ describe('answering the satisfaction question', () => {
 
   it('asks what the Concern was, and only after a D', () => {
     expect(bodies(reply('D', open('satisfaction')).effects)).toEqual([
-      'ABC Church: Please tell us more about the concern.',
+      'ABC Church via Discipler: Please tell us more about the concern.',
     ])
     for (const token of ['A', 'B', 'C']) {
       expect(bodies(reply(token, open('satisfaction')).effects)).toEqual([
-        'ABC Church: Did you meet with Marcus and Dan this week? Reply 1 for yes, 2 for no.',
+        'ABC Church via Discipler: Did you meet with Marcus and Dan this week? Reply 1 for yes, 2 for no.',
       ])
     }
   })
@@ -196,7 +196,7 @@ describe('answering a satisfaction question sent before the change', () => {
   it('stores its C as the concern it offered, and asks what the Concern was', () => {
     const { effects } = reply('C', sentBefore())
     expect(answers(effects)).toMatchObject([{ satisfaction: 'concern' }])
-    expect(bodies(effects)).toEqual(['ABC Church: Please tell us more about the concern.'])
+    expect(bodies(effects)).toEqual(['ABC Church via Discipler: Please tell us more about the concern.'])
   })
 
   it('reads its A and B as they always read', () => {
@@ -208,7 +208,7 @@ describe('answering a satisfaction question sent before the change', () => {
     const { effects } = reply('D', sentBefore())
     expect(answers(effects)).toEqual([])
     expect(bodies(effects)).toEqual([
-      'ABC Church: Sorry, we didn’t catch that. Reply A for outstanding, B for good, C for concern.',
+      'ABC Church via Discipler: Sorry, we didn’t catch that. Reply A for outstanding, B for good, C for concern.',
     ])
   })
 })
@@ -218,7 +218,7 @@ describe('answering the Concern detail request', () => {
     const { effects } = reply('He has lost his job.', open('concern_detail'))
     expect(answers(effects)[0]?.detail).toBe('He has lost his job.')
     expect(bodies(effects)).toEqual([
-      'ABC Church: Did you meet with Marcus and Dan this week? Reply 1 for yes, 2 for no.',
+      'ABC Church via Discipler: Did you meet with Marcus and Dan this week? Reply 1 for yes, 2 for no.',
     ])
   })
 })
@@ -228,7 +228,7 @@ describe('finishing the conversation', () => {
     // Second of two. Where a thank-you would have fallen after Emily's turn, the
     // group's opening question went instead.
     expect(bodies(reply('2', open('met', 2)).effects)).toEqual([
-      'ABC Church: Thank you. We’ll check in with you next week.',
+      'ABC Church via Discipler: Thank you. We’ll check in with you next week.',
     ])
   })
 
@@ -243,7 +243,7 @@ describe('finishing the conversation', () => {
 
   it('sends no thank-you while relationships remain', () => {
     expect(bodies(reply('2', open('met', 1)).effects)).not.toContain(
-      'ABC Church: Thank you. We’ll check in with you next week.',
+      'ABC Church via Discipler: Thank you. We’ll check in with you next week.',
     )
   })
 })

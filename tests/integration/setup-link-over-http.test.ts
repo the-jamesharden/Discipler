@@ -30,7 +30,7 @@ describe.skipIf(skipUnlessAppIsRunning)('a pastor opening their Ministry Setup L
   })
 
   const aLink = (name: string) =>
-    setup.issue({ ministryName: name, sendingNumber: aTestPhoneNumber(), adminPhone: aTestPhoneNumber() })
+    setup.issue({ ministryName: name, adminPhone: aTestPhoneNumber() })
 
   const open = async (token: string) => {
     const response = await fetch(`${baseUrl}/setup/${token}`, { redirect: 'manual' })
@@ -128,6 +128,17 @@ describe.skipIf(skipUnlessAppIsRunning)('a pastor opening their Ministry Setup L
     // Where the redirect sends them: the same link, with the reason on it.
     const { html } = await open(`${link.token}${new URL(location).search}`)
     expect(html).toContain('at least 8 characters')
+    expect(html).toContain('name="password"')
+  })
+
+  it('refuses a common password on the page, and the link stays live (Exponential launch, ticket 12)', async () => {
+    const link = await aLink('Commonpass Chapel')
+
+    const { location } = await post(link.token, { fullName: 'Too Common', password: 'Password1', timezone: 'America/Chicago' })
+    expect(location).toContain('error=account.password_too_common')
+
+    const { html } = await open(`${link.token}${new URL(location).search}`)
+    expect(html).toContain('one of the most common')
     expect(html).toContain('name="password"')
   })
 

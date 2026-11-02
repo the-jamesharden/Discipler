@@ -7,6 +7,12 @@ import type {
 import type { IntendedPairingId } from '~/domain/ids'
 import type { PersonRemoval, PersonRestoration, PersonToRemove } from '~/domain/removal'
 import type { PairingRefusal } from '~/domain/errors'
+import type {
+  PhoneCheckAttempt,
+  PhoneCheckEnding,
+  PhoneCode,
+  RecentCodeRequests,
+} from '~/domain/phone-check'
 import type { AccountCreationRefusal, PasswordChangeRefusal } from '~/domain/accounts'
 import type {
   HeldImportRow,
@@ -27,6 +33,7 @@ import type {
 } from '~/domain/boundary'
 import type { CheckInSnapshot, Satisfaction } from '~/domain/check-in'
 import type { CheckInCounts } from '~/domain/overview'
+import type { CapacityConcern, SharedNumberLoad } from '~/domain/shared-numbers'
 import type { GrowthChoice, GrowthSeries } from '~/domain/growth'
 import type { IsoWeek } from '~/domain/week'
 import type { ConcernResolution, ConcernViewing, NewConcern } from '~/domain/concerns'
@@ -116,12 +123,14 @@ import type {
 import type { ParticipationStatus } from '~/domain/participation'
 import type { SuggestionQuestion, Suggestions } from '~/domain/suggestions'
 import type { CardShape, NewRelationship } from '~/domain/relationships'
+import type { Email, EmailEnvelope } from '~/domain/email'
 import type { RatesLineHistory, SettledMessage } from '~/domain/rates-line'
 import type { CareReason, RelationshipState, SettledRelationshipState } from '~/domain/relationship-state'
 import type { InvitationState } from '~/domain/invitations'
 import type { MemberRole } from '~/domain/relationships'
 import type { PausePeriodWeeks } from '~/domain/pause'
 import type { NewPerson, PhoneNumber, RosterKey } from '~/domain/roster'
+import type { WaitingOnYou } from '~/domain/waiting-on-you'
 
 /**
  * Everything the application service needs from the outside world. The domain
@@ -765,6 +774,37 @@ export interface UnitOfWork {
 }
 
 /**
+ * Whose account a sign-in is trying, as far as the guessing limit is concerned.
+ * The number typed at the sign-in form, or the account of the session whose
+ * current password is being checked at a change of password.
+ */
+export type SignInAccount = { readonly phone: string } | { readonly userId: string }
+
+/**
+ * One try at a password, reserved before Supabase Auth is asked. It stays counted
+ * as a failure unless the caller says otherwise -- so a try whose request died
+ * half-way counts against the guesser, not for them.
+ */
+export interface SignInAttempt {
+  /** The password was right, or Supabase never answered: this was not a wrong guess. */
+  notAFailure(): Promise<void>
+}
+
+/**
+ * The sign-in guessing limit (Exponential launch, ticket 13; Q34): ten failed
+ * sign-ins per account and per network in fifteen minutes, from
+ * `src/domain/sign-in-limit.ts`.
+ *
+ * One method that counts and reserves together, rather than a check beside a
+ * record, so that simultaneous guesses cannot all read a count of nine. Null is
+ * *held back*: the caller refuses without asking Supabase Auth anything, and says
+ * the same thing whether or not the account exists.
+ */
+export interface SignInLimit {
+  attempt(account: SignInAccount, network: string | null): Promise<SignInAttempt | null>
+}
+
+/**
  * Minting the account somebody signs in with. It is the one thing the application
  * needs from the outside world that creates a user rather than reading or writing
  * a row, which is why it is a port of its own rather than part of the unit of work:
@@ -810,8 +850,9 @@ export interface Accounts {
    *
    * It takes no refusals. Whether this account may be reset at all is decided
    * before anything reaches here -- on the Roster, against the acting Admin's own
-   * Ministry -- and the password is one Discipler generated, so there is no rule
-   * left for the adapter to enforce and nothing an Admin could act on if it did.
+   * Ministry -- and the password is one Discipler generated, so there is nothing
+   * an Admin could act on. A password the rule refuses is thrown on, as a caller
+   * that skipped the rule, rather than set.
    */
   setPassword(userId: string, password: string): Promise<void>
   /**
@@ -828,10 +869,11 @@ export interface Accounts {
    *
    * The current password is checked against the account's own phone, which the
    * adapter reads from the account and never from a caller -- a form carries no
-   * number. A wrong one is a refusal and touches nothing. Too short is refused at
-   * this edge for the reason `create` refuses it, so a caller that forgot the form
-   * rule cannot set what the invitation form would have refused; whether the two
-   * new passwords matched is the form's question alone and never reaches here.
+   * number. A wrong one is a refusal and touches nothing. The password rule
+   * (`newPasswordRefusal`) is applied at this edge for the reason `create` applies
+   * it, so a caller that forgot the form rule cannot set what the invitation form
+   * would have refused; whether the two new passwords matched is the form's
+   * question alone and never reaches here.
    */
   changePassword(
     userId: string,
@@ -839,7 +881,12 @@ export interface Accounts {
     newPassword: string,
   ): Promise<
     | { readonly changed: true }
-    | { readonly refusal: Exclude<PasswordChangeRefusal, 'account.passwords_differ'> }
+    | {
+        readonly refusal: Exclude<
+          PasswordChangeRefusal,
+          'account.passwords_differ' | 'account.too_many_attempts'
+        >
+      }
   >
 }
 
@@ -848,10 +895,11 @@ export interface Accounts {
  * question that cannot be answered inside a Ministry-scoped unit of work, because
  * a text message arrives with a phone number and no session, no URL and no token.
  *
- * A number held by more than one Person resolves to nobody rather than to a
- * guess: filing one congregant's answer against another's relationship is worse
- * than not reading the message. Ticket 26 is what makes a shared number
- * resolvable.
+ * A number held by more than one Person in the church it texted resolves to nobody
+ * rather than to a guess: filing one congregant's answer against another's
+ * relationship is worse than not reading the message. A number held in two churches
+ * is placed by the shared number it texted, since each church texts it from its own
+ * (Exponential launch, ticket 06).
  */
 export interface InboundSender {
   readonly ministryId: MinistryId
@@ -859,7 +907,12 @@ export interface InboundSender {
 }
 
 export interface InboundReader {
-  resolveSender(fromPhone: string): Promise<InboundSender | null>
+  /**
+   * `toNumber` is the shared number the text was sent to, Twilio's `To`. A phone in
+   * one church resolves without it; a phone in two is placed with the church that
+   * texts it from that number, and with nobody when there is none.
+   */
+  resolveSender(fromPhone: string, toNumber: string | null): Promise<InboundSender | null>
 }
 
 export interface EffectStore {
@@ -1492,14 +1545,17 @@ export interface OutboundQueue {
   /** Everything enqueued for this Ministry and neither sent nor withheld. */
   due(ministryId: MinistryId): Promise<readonly QueuedMessage[]>
   /**
-   * The number this Ministry sends from, or null where none is provisioned yet.
+   * The shared number this Ministry texts `toPhone` from: the one the pair was
+   * given, or, the first time, one given now and kept (Exponential launch, ticket
+   * 06). Null when every shared number is already this phone's for another church,
+   * which leaves the message on the queue until a number is added.
    *
-   * Read here rather than taken from configuration because sending identity is a
-   * property of the Ministry: a number in the environment is one congregation's
-   * people receiving texts from another's the first time a second Ministry is
-   * onboarded, and by then it is a migration against live message history.
+   * Read here rather than taken from configuration because a number in the
+   * environment would be every church texting every person from one number, so
+   * that a `STOP` to one church silenced all of them. `at` is when the pair is first
+   * texted, on the drain's clock.
    */
-  sendingNumber(ministryId: MinistryId): Promise<string | null>
+  sendingNumberFor(ministryId: MinistryId, toPhone: string, at: Date): Promise<string | null>
   /** Whether this Person may be sent to *right now*, not when they were queued. */
   mayReceive(ministryId: MinistryId, personId: PersonId): Promise<WithholdingReason | null>
   /** The details to disclose, or null where the Person has not agreed to share. */
@@ -1549,16 +1605,155 @@ export interface OutboundQueue {
 /** Twilio lives behind this and nowhere else. It is not a domain concept. */
 export interface MessageTransport {
   /**
-   * `from` is passed rather than held, because one transport serves every Ministry
-   * and each of them sends as itself. A transport that closed over a number would
-   * make the identity a property of the deployment, which is the thing the spec
-   * rules out.
+   * `from` is passed rather than held, and sent as Twilio's `From` rather than left
+   * to a Messaging Service to pick: which shared number a person hears from is
+   * decided per (phone, church) in the database, and a vendor's own pick would be
+   * one number per phone for every church, so one `STOP` would silence all of them.
    *
    * Throws when the vendor refuses. The row stays neither sent nor withheld, so the
    * next drain picks it up again -- see `dispatchQueue`, which keeps one refusal
    * from taking the rest of the queue down with it.
    */
   deliver(from: string, to: string, body: string): Promise<void>
+}
+
+/**
+ * The set of shared numbers, as the capacity watch reads it (Exponential
+ * launch, ticket 06). Across every church, because the set is shared by all of them;
+ * it holds nothing about any one church and returns counts only.
+ */
+export interface SharedNumberCapacity {
+  load(): Promise<SharedNumberLoad>
+  /**
+   * Whether support@ has already been told about this concern while the set held
+   * this many numbers. Keyed by the size so that adding a number re-arms it: the
+   * bigger set filling up is news, the same set staying full is not.
+   */
+  alreadyRaised(concern: CapacityConcern, numbers: number): Promise<boolean>
+  /** Kept as history, with the load it was raised on. */
+  recordRaised(concern: CapacityConcern, at: Date, load: SharedNumberLoad): Promise<void>
+}
+
+/**
+ * The shared numbers are near capacity: a number should be bought and added.
+ *
+ * Counts and a day only, never a number: the alert goes to support@ as the
+ * `numbersNearCapacity` email (Exponential launch, ticket 10), whose fields strip
+ * anything shaped like a phone number. `day` is the UTC date the watch read the
+ * counts, for the email's `once` key, so a retry on the same day is not sent twice.
+ */
+export interface SharedNumbersNearCapacity {
+  readonly concern: CapacityConcern
+  /** The counts the watch read. */
+  readonly load: SharedNumberLoad
+  /** YYYY-MM-DD, UTC. */
+  readonly day: string
+}
+
+/**
+ * What support@ is told about. One method per alert, so a message is never assembled
+ * by a caller who does not know what it says.
+ */
+export interface SupportAlerts {
+  sharedNumbersNearCapacity(alert: SharedNumbersNearCapacity): Promise<void>
+}
+
+/**
+ * Resend lives behind this and nowhere else (Exponential launch, ticket 10). It is
+ * handed an envelope the domain opened and nothing it could be handed loose
+ * strings in, so where an email goes and what it says are decided above the
+ * vendor, as consent is for a text.
+ *
+ * Throws when the vendor refuses. Nothing is retried here: the caller that sends
+ * an alert from the tick sends it again on the next pass, and a person waiting on
+ * a code asks again.
+ */
+export interface EmailTransport {
+  deliver(envelope: EmailEnvelope): Promise<void>
+}
+
+/** The one way an email leaves Discipler. */
+export interface EmailSender {
+  /**
+   * Opens the email -- its route, every reply to support@, its idempotency key --
+   * and hands it to the vendor. Rejects a subject or body the domain's tags did not
+   * compose, and never hands it on.
+   */
+  send(email: Email): Promise<void>
+}
+
+/**
+ * Twilio Verify, behind this and nowhere else (Exponential launch, ticket 09).
+ * It texts a 6-digit code to an Admin's own phone from Twilio's own senders and
+ * judges the code typed back, so the code itself never passes through Discipler.
+ *
+ * Not a `MessageTransport`: nothing it sends is a Discipler message. It goes out
+ * under the Verify service rather than from Discipler's numbers, so it is neither
+ * held by the texting gate nor counted against the campaign.
+ */
+export interface PhoneVerifier {
+  /**
+   * Asks Twilio to text a code. A second ask while a code is still live resends
+   * within the same verification, so the SID may be one already held.
+   *
+   * A refusal Twilio gives about the number comes back as a value; anything else
+   * -- a 5xx, a socket that died, a service that is not configured -- is thrown.
+   */
+  sendCode(to: PhoneNumber): Promise<PhoneCodeSending>
+  /** Throws on anything that is not Twilio's verdict on the code. */
+  checkCode(verificationSid: string, code: PhoneCode): Promise<PhoneCodeVerdict>
+  /** Stops a verification's code from working. Already gone is not a failure. */
+  cancel(verificationSid: string): Promise<void>
+}
+
+export type PhoneCodeSending =
+  | { readonly sent: string }
+  /**
+   * `outside_permitted_countries` is the service's own geographic permissions
+   * refusing the number, the backstop behind `isUsPhone`; `undeliverable` is
+   * every other refusal about the number, a landline or one Twilio cannot route.
+   */
+  | { readonly refused: 'outside_permitted_countries' | 'undeliverable' }
+
+/**
+ * Twilio's answer to a code. `gone` is a verification Twilio no longer holds --
+ * expired, approved already, or canceled -- and `tries_used_up` is Twilio's own
+ * limit on checks reached.
+ */
+export type PhoneCodeVerdict = 'approved' | 'wrong' | 'gone' | 'tries_used_up'
+
+/**
+ * Where phone checks are kept: one row per attempt and one per code asked for,
+ * on the trusted connection, because they belong to an Admin's account and to no
+ * single Ministry.
+ */
+export interface PhoneChecks {
+  /** The phone on the Admin's own Roster row, or null where they hold none. */
+  adminPhone(ministryId: MinistryId, userId: string): Promise<PhoneNumber | null>
+  /** Whether this Admin has ever verified this phone. */
+  isVerified(userId: string, phone: PhoneNumber): Promise<boolean>
+  /**
+   * One transaction holding this Admin's and this phone's locks, so a double
+   * click cannot pass the code limits twice or open two attempts.
+   */
+  transact<T>(userId: string, phone: PhoneNumber, work: (unit: PhoneCheckUnit) => Promise<T>): Promise<T>
+}
+
+export interface PhoneCheckUnit {
+  /** This Admin's latest attempt at this phone, ended or not. */
+  latestAttempt(): Promise<PhoneCheckAttempt | null>
+  /** Every code asked for since `since`, by this Admin to any phone and to this phone by anybody. */
+  recentCodeRequests(since: Date): Promise<RecentCodeRequests>
+  /** A new attempt, with no code yet. Returns its id. */
+  startAttempt(at: Date): Promise<string>
+  recordCodeRequest(attemptId: string, at: Date): Promise<void>
+  recordVerificationSid(attemptId: string, verificationSid: string): Promise<void>
+  /** One more code tried, counted before Twilio is asked so no sixth can slip past. */
+  recordTry(attemptId: string): Promise<void>
+  /** A try Twilio never judged, given back. */
+  returnTry(attemptId: string): Promise<void>
+  /** Ends an attempt that has not ended. One that already has keeps its ending. */
+  end(attemptId: string, ending: PhoneCheckEnding, at: Date): Promise<void>
 }
 
 export interface DiscipleshipGoalOption {
@@ -1867,7 +2062,6 @@ export interface MinistrySetup {
    */
   issue(link: {
     readonly ministryName: string
-    readonly sendingNumber: string
     readonly adminPhone: string
   }): Promise<NewMinistrySetup>
   /**
@@ -2388,6 +2582,18 @@ export interface OverviewPage {
    * Ministry the caller cannot see has.
    */
   readonly growth: OverviewGrowth | null
+  /**
+   * The unpaired pop-up's counts and which showing of it this visit belongs to
+   * (Exponential launch, ticket 29), or null where the Ministry has no zone to
+   * count a day in or the token names no session.
+   */
+  readonly waiting: OverviewWaiting | null
+}
+
+/** Who is waiting on the Admin, and the showing (`showingOf`) the card is shown once in. */
+export interface OverviewWaiting {
+  readonly waiting: WaitingOnYou
+  readonly showing: string
 }
 
 /** The growth chart's line, what it counts, and the zone its weeks and months are the Ministry's in. */

@@ -254,22 +254,22 @@ describe('what the texts call a 1:2 pair', () => {
       }),
     )
     expect(bodies(effects)[0]).toMatch(
-      /^ABC Church: Did you meet with Ana Diaz and Sam Park this week\? Reply 1 for yes, 2 for no\./,
+      /^ABC Church via Discipler: Did you meet with Ana Diaz and Sam Park this week\? Reply 1 for yes, 2 for no\./,
     )
   })
 
   it('lists the pair by its Disciples in Claire’s PAUSE and RESUME menus', () => {
     expect(bodies(texting(claire, 'PAUSE', { holds: claireHolds() }))).toEqual([
-      'ABC Church: Which check-ins would you like to pause? 1. Emily Davis 2. Ana Diaz and Sam Park',
+      'ABC Church via Discipler: Which check-ins would you like to pause? 1. Emily Davis 2. Ana Diaz and Sam Park',
     ])
     expect(bodies(texting(claire, 'RESUME', { holds: claireHolds({ paused: true }) }))).toEqual([
-      'ABC Church: Which check-ins would you like to restart? 1. Emily Davis 2. Ana Diaz and Sam Park',
+      'ABC Church via Discipler: Which check-ins would you like to restart? 1. Emily Davis 2. Ana Diaz and Sam Park',
     ])
   })
 
   it('asks and confirms Claire’s pause by the pair’s Disciples', () => {
     expect(bodies(texting(claire, '2', { holds: claireHolds(), exchange: menuOf('PAUSE', claireHolds()) }))).toEqual([
-      'ABC Church: Pause check-ins with Ana Diaz and Sam Park for 2 weeks? Reply YES to confirm, ' +
+      'ABC Church via Discipler: Pause check-ins with Ana Diaz and Sam Park for 2 weeks? Reply YES to confirm, ' +
         'or reply 1, 4, 8, or 12 for a different number of weeks.',
     ])
     expect(
@@ -280,7 +280,7 @@ describe('what the texts call a 1:2 pair', () => {
         }),
       ),
     ).toEqual([
-      'ABC Church: Done — your check-ins about Ana Diaz and Sam Park are paused for 2 weeks. ' +
+      'ABC Church via Discipler: Done — your check-ins about Ana Diaz and Sam Park are paused for 2 weeks. ' +
         'Reply RESUME any time to start them again sooner.',
     ])
   })
@@ -291,18 +291,18 @@ describe('what the texts call a 1:2 pair', () => {
     })
     expect(recipients(effects)).toEqual([claire, ana, sam])
     expect(bodies(effects)).toEqual([
-      'ABC Church: Your discipleship with Ana Diaz and Sam Park has been resumed! ' +
+      'ABC Church via Discipler: Your discipleship with Ana Diaz and Sam Park has been resumed! ' +
         'Msg & data rates may apply. Reply STOP to opt out, HELP for help.',
-      'ABC Church: Your discipleship with Claire Lee has been resumed! ' +
+      'ABC Church via Discipler: Your discipleship with Claire Lee has been resumed! ' +
         'Msg & data rates may apply. Reply STOP to opt out, HELP for help.',
-      'ABC Church: Your discipleship with Claire Lee has been resumed! ' +
+      'ABC Church via Discipler: Your discipleship with Claire Lee has been resumed! ' +
         'Msg & data rates may apply. Reply STOP to opt out, HELP for help.',
     ])
   })
 
   it('thanks Ana for a SWAP by her Discipler’s name', () => {
     expect(bodies(texting(ana, 'SWAP', { holds: [heldAs('participant')] }))).toEqual([
-      "ABC Church: Thanks for letting us know about Claire Lee. We've passed this on and " +
+      "ABC Church via Discipler: Thanks for letting us know about Claire Lee. We've passed this on and " +
         'someone will be in touch. Nothing changes in the meantime.',
     ])
   })
@@ -332,9 +332,9 @@ describe('what the texts call a 1:2 pair', () => {
     )
     expect(recipients(effects)).toEqual([claire, ana, sam])
     expect(bodies(effects).map((body) => body.replace(/ Msg & data.*$/, ''))).toEqual([
-      'ABC Church: Your discipleship with Ana Diaz and Sam Park has been resumed!',
-      'ABC Church: Your discipleship with Claire Lee has been resumed!',
-      'ABC Church: Your discipleship with Claire Lee has been resumed!',
+      'ABC Church via Discipler: Your discipleship with Ana Diaz and Sam Park has been resumed!',
+      'ABC Church via Discipler: Your discipleship with Claire Lee has been resumed!',
+      'ABC Church via Discipler: Your discipleship with Claire Lee has been resumed!',
     ])
   })
 
@@ -344,6 +344,6 @@ describe('what the texts call a 1:2 pair', () => {
       context({ groupToJoin: running(), joinRequest: null, placementWanted: null }),
     )
     expect(recipients(effects)).toEqual([claire])
-    expect(bodies(effects)[0]).toMatch(/^ABC Church: Rosa just joined your group\. See full name and contact info at /)
+    expect(bodies(effects)[0]).toMatch(/^ABC Church via Discipler: Rosa just joined your group\. See full name and contact info at /)
   })
 })

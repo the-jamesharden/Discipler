@@ -38,17 +38,37 @@ import {
 } from '~/platform/supabase/outbound-queue'
 import { createSupabaseMaterialsReader } from '~/platform/supabase/materials-reader'
 import { createSupabaseOverviewReader } from '~/platform/supabase/overview-reader'
+import { messageTransportKind } from '~/platform/deployment'
+import { createRecordingTransport } from '~/platform/recording-transport'
+import { createRecordingVerifier } from '~/platform/recording-verifier'
 import { createTwilioTransport } from '~/platform/twilio/message-transport'
+import { createResendTransport } from '~/platform/resend/email-transport'
+import { createTwilioVerifier } from '~/platform/twilio/phone-verifier'
+import {
+  createPostgresPhoneChecks,
+  type PostgresPhoneChecks,
+} from '~/platform/supabase/phone-checks'
 import { supabaseAccounts } from '~/platform/supabase/accounts'
+import { createPostgresSignInLimit, type PostgresSignInLimit } from '~/platform/supabase/sign-in-limit'
 import { createSupabaseRosterReader } from '~/platform/supabase/roster-reader'
 import { createSupabaseSuggestedPairsReader } from '~/platform/supabase/suggested-pairs-reader'
+import {
+  createPostgresSharedNumbers,
+  type PostgresSharedNumbers,
+} from '~/platform/supabase/shared-numbers'
+import type { CapacityConcern } from '~/domain/shared-numbers'
 import { createCommandService, type CommandService } from './command-service'
-import { dispatchQueue, NoSendingNumber, type DispatchOutcome } from './outbound-dispatch'
+import { createEmailSender } from './email-sender'
+import { dispatchQueue, type DispatchOutcome } from './outbound-dispatch'
+import { createPhoneCheck, type PhoneCheck } from './phone-check'
+import { watchSharedNumberCapacity } from './shared-number-capacity'
+import { createEmailSupportAlerts } from './support-alerts'
 import type {
   Accounts,
   CareNeededReader,
   CheckInsReader,
   EffectStore,
+  EmailSender,
   LeaderDashboardReader,
   InboundReader,
   IntakeFormsReader,
@@ -63,7 +83,10 @@ import type {
   OutboundQueue,
   OverviewReader,
   RosterReader,
+  SharedNumberCapacity,
+  SignInLimit,
   SuggestedPairsReader,
+  SupportAlerts,
   UnitOfWork,
 } from './ports'
 
@@ -111,10 +134,15 @@ let commandStore: PostgresEffectStore | undefined
 let intakeReader: PostgresIntakeReader | undefined
 let invitationReader: PostgresInvitationReader | undefined
 let ministrySetup: SupabaseMinistrySetup | undefined
+let signInLimit: PostgresSignInLimit | undefined
 let inboundReader: PostgresInboundReader | undefined
 let outboundQueue: PostgresOutboundQueue | undefined
 let ministryDirectory: PostgresMinistryDirectory | undefined
 let messageTransport: MessageTransport | undefined
+let emailSender: EmailSender | undefined
+let phoneChecks: PostgresPhoneChecks | undefined
+let phoneCheck: PhoneCheck | undefined
+let sharedNumbers: PostgresSharedNumbers | undefined
 
 export const getCommandService = (): CommandService => {
   if (!commandService) {
@@ -193,10 +221,6 @@ const sendWhatWasQueued = async (ministryId: MinistryId): Promise<void> => {
   try {
     await drainOutboundQueue(ministryId)
   } catch (error) {
-    // A Ministry nobody has bought a number for yet is set up and not sending, the
-    // state the scheduler names rather than logs.
-    if (error instanceof NoSendingNumber) return
-
     console.error(`Could not send what was queued in ministry ${ministryId}`, error)
   }
 }
@@ -250,6 +274,16 @@ export const getMinistrySetup = (): MinistrySetup => {
 }
 
 /**
+ * The sign-in guessing limit counts on the trusted connection, because a sign-in
+ * has no session yet and its table belongs to no Ministry (Exponential launch,
+ * ticket 13).
+ */
+export const getSignInLimit = (): SignInLimit => {
+  if (!signInLimit) signInLimit = createPostgresSignInLimit(commandDatabaseUrl(), systemClock)
+  return signInLimit
+}
+
+/**
  * An inbound text carries a phone number and no session, so the webhook reads on
  * the same trusted connection the Intake form and the Invitation Link do -- and
  * for the same reason: it is answering which Ministry the connection should scope
@@ -279,10 +313,55 @@ export const getOutboundQueue = (): OutboundQueue => {
  * Built lazily like everything else here, which matters more than usual: its
  * credentials are only required by a deployment that sends, so a developer running
  * the Roster locally is not stopped by an account they have no use for.
+ *
+ * On staging, and wherever `MESSAGE_TRANSPORT=record` says so, a text is written
+ * to the log instead of sent (Exponential launch, ticket 02).
  */
 export const getMessageTransport = (): MessageTransport => {
-  if (!messageTransport) messageTransport = createTwilioTransport()
+  if (!messageTransport) {
+    messageTransport =
+      messageTransportKind(process.env) === 'record'
+        ? createRecordingTransport()
+        : createTwilioTransport()
+  }
   return messageTransport
+}
+
+/**
+ * The one way an email leaves Discipler (Exponential launch, ticket 10). Resend is
+ * behind it and nowhere else, and the sender opens every email in the domain
+ * before the vendor sees it, so there is no transport to reach around it: this
+ * getter is the only thing that builds one.
+ *
+ * Built lazily, and its credentials read per send, for the reason the message
+ * transport's are: only Production has a Resend key, and Preview and a
+ * developer's machine run every page without one.
+ */
+export const getEmailSender = (): EmailSender => {
+  if (!emailSender) emailSender = createEmailSender(createResendTransport())
+  return emailSender
+}
+
+/**
+ * Checking an Admin's own phone with a Twilio Verify code (Exponential launch,
+ * ticket 09). Its records belong to an account and to no Ministry, so they are
+ * kept on the trusted connection; Verify texts from Twilio's own senders, so
+ * nothing here passes through the outbound queue or its drain. Wherever texts are
+ * recorded rather than sent, so is the code (Exponential launch, ticket 02).
+ */
+export const getPhoneCheck = (): PhoneCheck => {
+  if (!phoneCheck) {
+    phoneChecks = createPostgresPhoneChecks(commandDatabaseUrl())
+    phoneCheck = createPhoneCheck({
+      checks: phoneChecks,
+      verifier:
+        messageTransportKind(process.env) === 'record'
+          ? createRecordingVerifier()
+          : createTwilioVerifier(),
+      clock: systemClock,
+    })
+  }
+  return phoneCheck
 }
 
 /**
@@ -300,6 +379,27 @@ export const drainOutboundQueue = (ministryId: MinistryId): Promise<DispatchOutc
     transport: getMessageTransport(),
     clock: systemClock,
     ministryId,
+  })
+
+/**
+ * The set of shared numbers, read across every church for the capacity
+ * watch. On the trusted connection, as the Setup Link is, because the set belongs
+ * to no church.
+ */
+export const getSharedNumbers = (): SharedNumberCapacity => {
+  if (!sharedNumbers) sharedNumbers = createPostgresSharedNumbers(commandDatabaseUrl())
+  return sharedNumbers
+}
+
+/** What support@ is told about, emailed through the one sender. */
+export const getSupportAlerts = (): SupportAlerts => createEmailSupportAlerts(getEmailSender())
+
+/** One pass of the capacity watch, assembled so its callers cannot assemble it differently. */
+export const watchTheSharedNumbers = (): Promise<readonly CapacityConcern[]> =>
+  watchSharedNumberCapacity({
+    numbers: getSharedNumbers(),
+    alerts: getSupportAlerts(),
+    clock: systemClock,
   })
 
 /**
@@ -349,6 +449,9 @@ export const closeCommandService = async (): Promise<void> => {
   const inbound = inboundReader
   const queue = outboundQueue
   const directory = ministryDirectory
+  const checks = phoneChecks
+  const shared = sharedNumbers
+  const limit = signInLimit
   commandService = undefined
   commandStore = undefined
   intakeReader = undefined
@@ -356,15 +459,23 @@ export const closeCommandService = async (): Promise<void> => {
   inboundReader = undefined
   outboundQueue = undefined
   ministryDirectory = undefined
+  phoneChecks = undefined
+  phoneCheck = undefined
+  sharedNumbers = undefined
+  signInLimit = undefined
   // The transport holds no pool -- it is `fetch` and a pair of credentials -- so
   // there is nothing of its to close, only the reference to drop.
   messageTransport = undefined
+  emailSender = undefined
   await store?.close()
   await reader?.close()
   await invitations?.close()
   await inbound?.close()
   await queue?.close()
   await directory?.close()
+  await checks?.close()
+  await shared?.close()
+  await limit?.close()
 }
 
 export const getRosterReader = (): RosterReader => createSupabaseRosterReader(systemClock)

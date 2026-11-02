@@ -173,7 +173,7 @@ describe('resolving which relationship a keyword is about', () => {
     expect(exchange?.target).toBeNull()
 
     expect(bodies(effects)).toEqual([
-      'ABC Church: Which one would you like us to look at? 1. Emily Johnson 2. Sarah Reed',
+      'ABC Church via Discipler: Which one would you like us to look at? 1. Emily Johnson 2. Sarah Reed',
     ])
 
     // Nothing has happened to either relationship.
@@ -187,7 +187,7 @@ describe('resolving which relationship a keyword is about', () => {
     })
 
     expect(bodies(effects)).toEqual([
-      'ABC Church: You have no paused check-ins to restart at the moment.',
+      'ABC Church via Discipler: You have no paused check-ins to restart at the moment.',
     ])
     expect(events(effects)).toEqual([])
     expect(items(effects)).toEqual([])
@@ -249,7 +249,7 @@ describe('resolving which relationship a keyword is about', () => {
     })
 
     expect(bodies(effects)).toEqual([
-      'ABC Church: There are no check-ins to pause at the moment.',
+      'ABC Church via Discipler: There are no check-ins to pause at the moment.',
     ])
   })
 })
@@ -265,7 +265,7 @@ describe('PAUSE', () => {
     const { effects } = texting('PAUSE', { inbound: alone })
 
     expect(bodies(effects)).toEqual([
-      'ABC Church: Pause check-ins with Emily Johnson for 2 weeks? Reply YES to ' +
+      'ABC Church via Discipler: Pause check-ins with Emily Johnson for 2 weeks? Reply YES to ' +
         'confirm, or reply 1, 4, 8, or 12 for a different number of weeks.',
     ])
     // Confirmed, not applied. Nothing is paused until the Leader says so.
@@ -307,7 +307,7 @@ describe('PAUSE', () => {
 
     expect(recipients(effects)).toEqual([james])
     expect(bodies(effects)).toEqual([
-      'ABC Church: Done — your check-ins about Emily Johnson are paused for 2 ' +
+      'ABC Church via Discipler: Done — your check-ins about Emily Johnson are paused for 2 ' +
         'weeks. Reply RESUME any time to start them again sooner.',
     ])
   })
@@ -373,9 +373,9 @@ describe('RESUME', () => {
 
     expect(recipients(effects)).toEqual([james, emily])
     expect(bodies(effects)).toEqual([
-      'ABC Church: Your discipleship with Emily Johnson has been resumed! Msg & ' +
+      'ABC Church via Discipler: Your discipleship with Emily Johnson has been resumed! Msg & ' +
         'data rates may apply. Reply STOP to opt out, HELP for help.',
-      'ABC Church: Your discipleship with James Harden has been resumed! Msg & ' +
+      'ABC Church via Discipler: Your discipleship with James Harden has been resumed! Msg & ' +
         'data rates may apply. Reply STOP to opt out, HELP for help.',
     ])
   })
@@ -429,7 +429,7 @@ describe('SWAP', () => {
     // Nothing ends it, nothing resumes it, nobody moves.
     expect(eventTypes(effects)).toEqual(['relationship.swap_requested'])
     expect(bodies(effects)).toEqual([
-      "ABC Church: Thanks for letting us know about Emily Johnson. We've passed " +
+      "ABC Church via Discipler: Thanks for letting us know about Emily Johnson. We've passed " +
         'this on and someone will be in touch. Nothing changes in the meantime.',
     ])
   })
@@ -504,7 +504,7 @@ describe('the Keyword Exchange', () => {
     }, nearlyExpired)
 
     expect(bodies(effects)).toEqual([
-      "ABC Church: Sorry, we didn't catch that. Reply YES to confirm, or a number of weeks.",
+      "ABC Church via Discipler: Sorry, we didn't catch that. Reply YES to confirm, or a number of weeks.",
     ])
   })
 
@@ -534,7 +534,7 @@ describe('the Keyword Exchange', () => {
     })
 
     expect(bodies(effects)).toEqual([
-      "ABC Church: Sorry, we didn't catch that. 1. Emily Johnson 2. Sarah Reed",
+      "ABC Church via Discipler: Sorry, we didn't catch that. 1. Emily Johnson 2. Sarah Reed",
     ])
   })
 
@@ -548,7 +548,7 @@ describe('the Keyword Exchange', () => {
 
     expect(events(effects)).toEqual([])
     expect(bodies(effects)).toEqual([
-      'ABC Church: Pause check-ins with Sarah Reed for 2 weeks? Reply YES to ' +
+      'ABC Church via Discipler: Pause check-ins with Sarah Reed for 2 weeks? Reply YES to ' +
         'confirm, or reply 1, 4, 8, or 12 for a different number of weeks.',
     ])
   })
@@ -577,7 +577,7 @@ describe('the Keyword Exchange', () => {
     expect(exchangesClosed(effects)).toMatchObject([{ outcome: 'overtaken' }])
     expect(events(effects)).toEqual([])
     expect(bodies(effects)).toEqual([
-      'ABC Church: There are no check-ins to pause at the moment.',
+      'ABC Church via Discipler: There are no check-ins to pause at the moment.',
     ])
   })
 })
@@ -721,7 +721,7 @@ describe('HELP', () => {
     })
 
     expect(bodies(effects)).toEqual([
-      'Discipler: ABC Church: Reply PAUSE to pause your check-ins, RESUME to start ' +
+      'ABC Church via Discipler: Reply PAUSE to pause your check-ins, RESUME to start ' +
         'them again, or SWAP to ask about a different match. For anything else, ' +
         'please contact ABC Church directly. Msg & data rates may apply. Reply STOP ' +
         'to opt out, HELP for help.',
@@ -759,7 +759,7 @@ describe('a Person who leads nothing', () => {
       },
     ])
     expect(bodies(effects)).toEqual([
-      "ABC Church: Thanks — we've passed this on to ABC Church and someone will be " +
+      "ABC Church via Discipler: Thanks — we've passed this on to ABC Church and someone will be " +
         'in touch. Nothing changes in the meantime.',
     ])
     // And nothing at all has happened to the relationship.
@@ -787,7 +787,7 @@ describe('free text nothing can be made of', () => {
     })
 
     expect(bodies(effects)).toEqual([
-      "ABC Church: Thanks for your message. We can't reply to texts here — please " +
+      "ABC Church via Discipler: Thanks for your message. We can't reply to texts here — please " +
         'contact ABC Church directly and someone will get back to you.',
     ])
     expect(items(effects)).toEqual([])
@@ -985,19 +985,19 @@ describe('a named group, in a keyword text', () => {
     const effects = textingAs(hannah, 'SWAP', { holds: hannahsHolds })
 
     expect(bodies(effects)).toEqual([
-      "Riverside Chapel: Which one would you like us to look at? 1. Grace Lee 2. Tuesday Women's",
+      "Riverside Chapel via Discipler: Which one would you like us to look at? 1. Grace Lee 2. Tuesday Women's",
     ])
   })
 
   it('names the group by its name from the leading side too', () => {
     expect(bodies(textingAs(grace, 'PAUSE', { holds: gracesHolds() }))).toEqual([
-      'Riverside Chapel: Which check-ins would you like to pause? ' +
+      'Riverside Chapel via Discipler: Which check-ins would you like to pause? ' +
         "1. Emily Davis 2. Hannah Brooks 3. Tuesday Women's",
     ])
     expect(
       bodies(textingAs(grace, 'RESUME', { holds: gracesHolds({ paused: true }) })),
     ).toEqual([
-      'Riverside Chapel: Which check-ins would you like to restart? ' +
+      'Riverside Chapel via Discipler: Which check-ins would you like to restart? ' +
         "1. Emily Davis 2. Hannah Brooks 3. Tuesday Women's",
     ])
   })
@@ -1009,7 +1009,7 @@ describe('a named group, in a keyword text', () => {
     })
 
     expect(bodies(effects)).toEqual([
-      "Riverside Chapel: Sorry, we didn't catch that. 1. Grace Lee 2. Tuesday Women's",
+      "Riverside Chapel via Discipler: Sorry, we didn't catch that. 1. Grace Lee 2. Tuesday Women's",
     ])
   })
 
@@ -1020,7 +1020,7 @@ describe('a named group, in a keyword text', () => {
     })
 
     expect(bodies(effects)).toEqual([
-      "Riverside Chapel: Pause check-ins with Tuesday Women's for 2 weeks? Reply YES to " +
+      "Riverside Chapel via Discipler: Pause check-ins with Tuesday Women's for 2 weeks? Reply YES to " +
         'confirm, or reply 1, 4, 8, or 12 for a different number of weeks.',
     ])
   })
@@ -1035,7 +1035,7 @@ describe('a named group, in a keyword text', () => {
     })
 
     expect(bodies(effects)).toEqual([
-      "Riverside Chapel: Done — your check-ins about Tuesday Women's are paused for 2 " +
+      "Riverside Chapel via Discipler: Done — your check-ins about Tuesday Women's are paused for 2 " +
         'weeks. Reply RESUME any time to start them again sooner.',
     ])
   })
@@ -1050,7 +1050,7 @@ describe('a named group, in a keyword text', () => {
       { relationshipId: tuesdayWomens, requestedBy: 'participant' },
     ])
     expect(bodies(effects)).toEqual([
-      "Riverside Chapel: Thanks for letting us know about Tuesday Women's. We've passed " +
+      "Riverside Chapel via Discipler: Thanks for letting us know about Tuesday Women's. We've passed " +
         'this on and someone will be in touch. Nothing changes in the meantime.',
     ])
   })
@@ -1068,7 +1068,7 @@ describe('a named group, in a keyword text', () => {
     expect(bodies(effects)).toEqual(
       [grace, hannah, lily].map(
         () =>
-          "Riverside Chapel: Your discipleship with Tuesday Women's has been resumed! " +
+          "Riverside Chapel via Discipler: Your discipleship with Tuesday Women's has been resumed! " +
           'Msg & data rates may apply. Reply STOP to opt out, HELP for help.',
       ),
     )
@@ -1084,7 +1084,7 @@ describe('a named group, in a keyword text', () => {
         }),
       ),
     ).toEqual([
-      'Riverside Chapel: Which check-ins would you like to pause? ' +
+      'Riverside Chapel via Discipler: Which check-ins would you like to pause? ' +
         '1. Emily Davis 2. Hannah Brooks 3. Hannah Brooks and Lily Evans',
     ])
     expect(
@@ -1094,7 +1094,7 @@ describe('a named group, in a keyword text', () => {
         }),
       ),
     ).toEqual([
-      'Riverside Chapel: Which one would you like us to look at? 1. Grace Lee 2. Grace Lee',
+      'Riverside Chapel via Discipler: Which one would you like us to look at? 1. Grace Lee 2. Grace Lee',
     ])
   })
 })

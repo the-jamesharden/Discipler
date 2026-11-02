@@ -6,7 +6,7 @@ import type { IntakeFormFields } from '~/domain/intake'
 import { createPostgresEffectStore } from '~/platform/supabase/effect-store'
 import { createPostgresOutboundQueue } from '~/platform/supabase/outbound-queue'
 import { createCommandService } from '~/service/command-service'
-import { dispatchQueue, NoSendingNumber } from '~/service/outbound-dispatch'
+import { dispatchQueue } from '~/service/outbound-dispatch'
 import type { MessageTransport } from '~/service/ports'
 import {
   addPerson,
@@ -273,75 +273,26 @@ describe('The sending layer checks every recipient', () => {
     expect(state.withheld_reason).toBe('recipient_has_no_sms_consent')
   })
 
-  it('sends as the Ministry, never as a number the deployment happens to hold', async () => {
+  it('sends from the shared number the pair was given, never a number the deployment holds', async () => {
     await intake({ fullName: 'Naomi Okafor', phone: '5553330008' })
 
     await run()
 
     const theirs = sent.filter((message) => message.to === '+15553330008')
     expect(theirs.length).toBeGreaterThan(0)
-    // Read off the Ministry row, so a second Ministry onboarded tomorrow does not
-    // text its people from this one's number. This is the assertion that fails the
-    // day somebody moves the sender into an environment variable.
-    for (const message of theirs) expect(message.from).toBe(ministry.sendingNumber)
-  })
-
-  it('refuses to drain a Ministry that has no number to send as', async () => {
-    const unprovisioned = await createMinistryWithAdmin('Northgate Unprovisioned')
-    await pool.query(`update ministry set sending_number = null where id = $1`, [
-      unprovisioned.id,
-    ])
-
-    const { rows: goals } = await pool.query(
-      `select id from discipleship_goal where ministry_id = $1 order by position limit 1`,
-      [unprovisioned.id],
+    // Read off the pair's own row, so this is the assertion that fails the day
+    // somebody moves the sender into an environment variable, or lets a vendor pick
+    // one: every church would then text this person from one number, and one `STOP`
+    // would silence them all (Exponential launch, ticket 06).
+    const { rows } = await pool.query<{ sending_number: string }>(
+      `select a.sending_number
+         from sending_number_assignment a
+         join shared_number s on s.phone = a.sending_number
+        where a.ministry_id = $1 and a.phone = $2`,
+      [ministry.id, '+15553330008'],
     )
-    const service = createCommandService({
-      clock,
-      ids,
-      store,
-      appBaseUrl: 'https://discipler.test',
-    })
-    await service.execute({
-      type: 'intake.submit',
-      ministryId: unprovisioned.id,
-      form: {
-        fullName: 'Ade Balogun',
-        phone: '5553339001',
-        email: null,
-        ageBand: '25-34',
-        gender: 'male',
-        goalId: goals[0].id as string,
-        goalOther: null,
-        availability: ['monday:12'],
-        smsConsent: true,
-        contactSharing: 'granted',
-        source: 'pastor_link',
-        intakePath: null,
-        declaredSide: null,
-        experience: null,
-        oneToTwo: null,
-        groupId: null,
-      },
-    })
-
-    // Raised, not withheld. A withholding is a fact about a recipient and this
-    // recipient is fine -- what is missing is the Ministry's own identity, and
-    // borrowing another Ministry's is the one outcome worse than not sending.
-    await expect(
-      dispatchQueue({ queue, transport, clock, ministryId: unprovisioned.id }),
-    ).rejects.toThrow(NoSendingNumber)
-
-    const { rows } = await pool.query(
-      `select sent_at, withheld_at from outbound_message where ministry_id = $1`,
-      [unprovisioned.id],
-    )
-    expect(rows.length).toBeGreaterThan(0)
-    for (const row of rows) {
-      expect(row.sent_at).toBeNull()
-      // Not written off either. The message is still owed once a number exists.
-      expect(row.withheld_at).toBeNull()
-    }
+    expect(rows).toHaveLength(1)
+    for (const message of theirs) expect(message.from).toBe(rows[0]!.sending_number)
   })
 
   it('lets the rest of the queue through when the vendor refuses one message', async () => {

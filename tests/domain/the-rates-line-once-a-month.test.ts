@@ -101,7 +101,7 @@ describe('the rates line, once a month', () => {
     const [sent] = aQueue().send(welcome(emily, new Date('2026-10-02T15:00:00Z')))
     expect(sent!.carriesRatesLine).toBe(true)
     expect(sent!.body).toBe(
-      'Discipler: ABC Church: Thanks, Emily — you’re all set. We’ll text you once '
+      'ABC Church via Discipler: Thanks, Emily — you’re all set. We’ll text you once '
         + `you’ve been paired with someone to meet with. ${LINE}`,
     )
   })
@@ -113,7 +113,7 @@ describe('the rates line, once a month', () => {
     const [starter] = queue.send(starterToParticipant(emily, new Date('2026-10-06T18:00:00Z')))
 
     expect(starter!.carriesRatesLine).toBe(false)
-    expect(starter!.body).toBe('ABC Church: You have been paired for discipleship with James.')
+    expect(starter!.body).toBe('ABC Church via Discipler: You have been paired for discipleship with James.')
   })
 
   it('rides on a Starter Message in a later month than the Welcome', () => {
@@ -124,7 +124,7 @@ describe('the rates line, once a month', () => {
 
     expect(starter!.carriesRatesLine).toBe(true)
     expect(starter!.body).toBe(
-      `ABC Church: You have been paired for discipleship with James. ${LINE}`,
+      `ABC Church via Discipler: You have been paired for discipleship with James. ${LINE}`,
     )
   })
 
@@ -205,7 +205,7 @@ describe('the rates line, once a month', () => {
     const composedWithIt = starterMessageToLeader({ ministryName, dashboardLink })
     expect(() => aQueue().send(text(james, composedWithIt, 'never', at))).toThrow(/rates line/)
     expect(() =>
-      aQueue().send(text(james, 'ABC Church: hello.', 'once_a_month', at)),
+      aQueue().send(text(james, 'ABC Church via Discipler: hello.', 'once_a_month', at)),
     ).toThrow(/rates line/)
   })
 })
@@ -273,7 +273,7 @@ describe('a check-in’s opening question', () => {
 
     expect(question!.carriesRatesLine).toBe(false)
     expect(question!.body).toBe(
-      'ABC Church: Did you meet with Emily this week? Reply 1 for yes, 2 for no.',
+      'ABC Church via Discipler: Did you meet with Emily this week? Reply 1 for yes, 2 for no.',
     )
   })
 
@@ -285,7 +285,7 @@ describe('a check-in’s opening question', () => {
     const [nextWeek] = queue.send(...opening(new Date('2026-10-12T09:00:00Z')))
 
     expect(october!.body).toBe(
-      `ABC Church: Did you meet with Emily this week? Reply 1 for yes, 2 for no. ${LINE}`,
+      `ABC Church via Discipler: Did you meet with Emily this week? Reply 1 for yes, 2 for no. ${LINE}`,
     )
     expect(nextWeek!.carriesRatesLine).toBe(false)
   })

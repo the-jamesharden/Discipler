@@ -103,7 +103,7 @@ describe('what a Material change waits for, and who it reaches', () => {
     await tick(ministry, at(61))
 
     expect(await textsTo(leader.personId)).toEqual([
-      expect.stringMatching(/^Riverside Chapel: The material for your discipleship is now Romans\./),
+      expect.stringMatching(/^Riverside Chapel via Discipler: The material for your discipleship is now Romans\./),
     ])
     expect(await textsTo(emily)).toEqual([])
     // Nothing recorded for her either: a change still pending when she can be
@@ -190,7 +190,7 @@ describe('what a Material change waits for, and who it reaches', () => {
 
     await tick(ministry, at(61))
     expect(await textsTo(newcomer)).toEqual([
-      expect.stringMatching(/^Riverside Chapel: Your discipleship material with Grace Lee is now Romans\./),
+      expect.stringMatching(/^Riverside Chapel via Discipler: Your discipleship material with Grace Lee is now Romans\./),
     ])
     // The Leader's Material did not change, so the Leader hears nothing more.
     expect(await textsTo(leader.personId)).toHaveLength(1)

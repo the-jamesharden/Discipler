@@ -173,16 +173,16 @@ export const createPostgresOutboundQueue = (
       })
     },
 
-    async sendingNumber(ministryId: MinistryId) {
+    async sendingNumberFor(ministryId: MinistryId, toPhone: string, at: Date) {
       return inMinistry(ministryId, async (client) => {
+        // The pick sees every church's pairs, which nothing acting for one church
+        // may read, so it is the database's: the function reads which church from
+        // the scope `inMinistry` set, and returns one number and nothing else.
         const { rows } = await client.query<{ sending_number: string | null }>(
-          `select sending_number from ministry where id = $1`,
-          [ministryId],
+          `select app.sending_number_for($1, $2) as sending_number`,
+          [toPhone, at],
         )
 
-        // No row and a null column are the same answer to the sending layer -- there
-        // is no number to send as -- and neither is a fact about any recipient, so
-        // neither is a withholding. `dispatchQueue` refuses the drain on both.
         return rows[0]?.sending_number ?? null
       })
     },

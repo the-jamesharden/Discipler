@@ -10,7 +10,7 @@ import {
   type AccountFixture,
   type MinistryFixture,
 } from '../support/local-supabase'
-import { baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app'
+import { aNetwork, baseUrl, getPage, signIn, skipUnlessAppIsRunning } from '../support/app'
 
 /**
  * The reset as an Admin performs it: from the row they are looking at, through a
@@ -256,6 +256,24 @@ describe.skipIf(skipUnlessAppIsRunning)('resetting a password over HTTP', () => 
     expect((await signInAttempt(ministry.adminPhone, ministry.adminPassword)).error).toBeNull()
   })
 
+  it('refuses a common password composed by hand, and changes nothing (Exponential launch, ticket 12)', async () => {
+    const { cookie } = await signIn(ministry)
+    const leader = await addPersonWithAccount(ministry, 'Omar Commonpass', 'leader', {
+      phone: number(),
+    })
+
+    // An edited form, since every button arrives with four generated words. The
+    // reset is a place a password is set, so it is held to the same rule.
+    const { response, location } = await post(`/roster/reset/${leader.personId}/done`, cookie, {
+      password: 'password1',
+    })
+
+    expect(response.status).toBe(303)
+    expect(location).toContain(`/roster/reset/${leader.personId}`)
+    expect((await signInAttempt(leader.phone, leader.password)).error).toBeNull()
+    expect((await signInAttempt(leader.phone, 'password1')).error).not.toBeNull()
+  })
+
   it('refuses a Person on another Ministry’s Roster before touching the password', async () => {
     const northside = await createMinistryWithAdmin('Northside Fellowship')
     const theirs = await addPersonWithAccount(northside, 'Ezra Kimani', 'leader', {
@@ -303,7 +321,7 @@ describe.skipIf(skipUnlessAppIsRunning)('resetting a password over HTTP', () => 
     const theirSignIn = await fetch(`${baseUrl}/auth/sign-in`, {
       method: 'POST',
       redirect: 'manual',
-      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      headers: { 'content-type': 'application/x-www-form-urlencoded', 'x-forwarded-for': aNetwork() },
       body: new URLSearchParams({ phone: leader.phone, password: leader.password }),
     })
     const theirCookie = theirSignIn.headers

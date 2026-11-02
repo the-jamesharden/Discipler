@@ -87,7 +87,7 @@ describe('the check-in conversation', () => {
     // One conversation and one question. Three relationships do not mean three
     // threads, and the sequence advances only in response to a reply.
     expect(await inbox(james)).toEqual([
-      'ABC Church: Did you meet with Emily Shaw this week? Reply 1 for yes, 2 for no. ' +
+      'ABC Church via Discipler: Did you meet with Emily Shaw this week? Reply 1 for yes, 2 for no. ' +
         'Msg & data rates may apply. Reply STOP to opt out, HELP for help.',
     ])
 
@@ -102,14 +102,14 @@ describe('the check-in conversation', () => {
     await texts(james, 'A')
 
     expect((await inbox(james)).slice(1)).toEqual([
-      'ABC Church: How did the meeting go? ' +
+      'ABC Church via Discipler: How did the meeting go? ' +
         'Reply A for outstanding, B for good, C for okay, D for concern.',
-      'ABC Church: Please tell us more about the concern.',
-      'ABC Church: Did you meet with Marcus Bell this week? Reply 1 for yes, 2 for no.',
-      'ABC Church: Did you meet with Ade Okafor this week? Reply 1 for yes, 2 for no.',
-      'ABC Church: How did the meeting go? ' +
+      'ABC Church via Discipler: Please tell us more about the concern.',
+      'ABC Church via Discipler: Did you meet with Marcus Bell this week? Reply 1 for yes, 2 for no.',
+      'ABC Church via Discipler: Did you meet with Ade Okafor this week? Reply 1 for yes, 2 for no.',
+      'ABC Church via Discipler: How did the meeting go? ' +
         'Reply A for outstanding, B for good, C for okay, D for concern.',
-      'ABC Church: Thank you. We’ll check in with you next week.',
+      'ABC Church via Discipler: Thank you. We’ll check in with you next week.',
     ])
 
     // Each answer against the relationship it was asked about, and against the
@@ -177,9 +177,9 @@ describe('the check-in conversation', () => {
     await texts(leader, 'C')
 
     expect((await inbox(leader)).slice(1)).toEqual([
-      'ABC Church: How did the meeting go? ' +
+      'ABC Church via Discipler: How did the meeting go? ' +
         'Reply A for outstanding, B for good, C for okay, D for concern.',
-      'ABC Church: Thank you. We’ll check in with you next week.',
+      'ABC Church via Discipler: Thank you. We’ll check in with you next week.',
     ])
 
     const { rows } = await pool.query<{ satisfaction: string | null }>(
@@ -215,7 +215,7 @@ describe('the check-in conversation', () => {
     }
 
     const clarification =
-      'ABC Church: Sorry, we didn’t catch that. Reply 1 for yes, 2 for no.'
+      'ABC Church via Discipler: Sorry, we didn’t catch that. Reply 1 for yes, 2 for no.'
     expect(await inbox(leader)).toEqual([
       expect.stringContaining('Did you meet with Lena Vogt this week?'),
       clarification,
@@ -287,10 +287,10 @@ describe('the check-in conversation', () => {
     await texts(priya, '2')
     await texts(priya, '2')
     expect(await inbox(priya)).toEqual([
-      'ABC Church: Did you meet with Nina Adeyemi this week? Reply 1 for yes, 2 for no. ' +
+      'ABC Church via Discipler: Did you meet with Nina Adeyemi this week? Reply 1 for yes, 2 for no. ' +
         'Msg & data rates may apply. Reply STOP to opt out, HELP for help.',
-      'ABC Church: Did you meet with Tom Bright this week? Reply 1 for yes, 2 for no.',
-      'ABC Church: Thank you. We’ll check in with you next week.',
+      'ABC Church via Discipler: Did you meet with Tom Bright this week? Reply 1 for yes, 2 for no.',
+      'ABC Church via Discipler: Thank you. We’ll check in with you next week.',
     ])
   })
 
@@ -355,7 +355,7 @@ describe('the check-in conversation', () => {
     // Only Beth's. Neither of the other two is asked about, so neither can accrue
     // an unanswered question against it.
     expect(await inbox(leader)).toEqual([
-      'ABC Church: Did you meet with Beth Nkomo this week? Reply 1 for yes, 2 for no. ' +
+      'ABC Church via Discipler: Did you meet with Beth Nkomo this week? Reply 1 for yes, 2 for no. ' +
         'Msg & data rates may apply. Reply STOP to opt out, HELP for help.',
     ])
 
@@ -486,7 +486,7 @@ describe('the check-in conversation', () => {
     await texts(leader, '2')
 
     expect((await inbox(leader)).at(-1)).toBe(
-      'ABC Church: Did you meet with Hugo Marsh this week? Reply 1 for yes, 2 for no.',
+      'ABC Church via Discipler: Did you meet with Hugo Marsh this week? Reply 1 for yes, 2 for no.',
     )
 
     const { rows } = await pool.query<{ relationship_id: string; question: string }>(

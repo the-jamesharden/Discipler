@@ -54,14 +54,14 @@ export interface DispatchOutcome {
    * A failed row stays neither sent nor withheld, so the next drain tries it again.
    */
   readonly failed: number
-}
-
-/** Raised when a Ministry has no number to send as. Not a per-message outcome. */
-export class NoSendingNumber extends Error {
-  constructor(readonly ministryId: MinistryId) {
-    super(`Ministry ${ministryId} has no sending number, so nothing can be sent as it`)
-    this.name = 'NoSendingNumber'
-  }
+  /**
+   * Messages left on the queue because no shared number was free for the recipient:
+   * each church texts a phone from a different number, and this phone already hears
+   * from every one of them for some other church. Not a withholding -- nothing about
+   * the recipient refuses it -- and not a failure: it goes on the first drain after
+   * a number is added, which the capacity watch has asked support@ for.
+   */
+  readonly awaitingANumber: number
 }
 
 /**
@@ -84,18 +84,11 @@ const drainOnce = async ({
 }: Dispatch): Promise<DispatchOutcome> => {
   const messages = await queue.due(ministryId)
 
-  // Before the first send and once for the drain. A Ministry with no number cannot
-  // send as itself, and sending as somebody else is the one outcome worse than not
-  // sending: it puts one congregation's number on another's messages. Raised rather
-  // than withheld -- a withholding is a fact about a recipient, and every recipient
-  // here is fine.
-  const from = messages.length > 0 ? await queue.sendingNumber(ministryId) : null
-  if (messages.length > 0 && !from) throw new NoSendingNumber(ministryId)
-
   let sent = 0
   let withheld = 0
   let failed = 0
   let held = 0
+  let awaitingANumber = 0
 
   for (const message of messages) {
     const now = clock.now()
@@ -124,6 +117,16 @@ const drainOnce = async ({
     if (message.disclosesPersonId) {
       const contact = await queue.contactToShare(ministryId, message.disclosesPersonId)
       if (contact) body = withSharedContact(body, contact)
+    }
+
+    // The shared number this church texts this phone from, given the first time and
+    // kept (Exponential launch, ticket 06). After the recipient checks, so nobody is
+    // given a number for a text they were never going to be sent, and before the
+    // claim, so a message with no number to go from does not take the conversation.
+    const from = await queue.sendingNumberFor(ministryId, message.toPhone, now)
+    if (!from) {
+      awaitingANumber++
+      continue
     }
 
     // Last of the checks and immediately before the vendor, because the claim is
@@ -162,7 +165,7 @@ const drainOnce = async ({
     // design. `MessageNotDelivered.isPermanent` is what that decision gets made
     // against.
     try {
-      await transport.deliver(from as string, message.toPhone, body)
+      await transport.deliver(from, message.toPhone, body)
     } catch (error) {
       failed++
       // The number back, before anything else. A message the vendor never accepted
@@ -180,5 +183,5 @@ const drainOnce = async ({
     sent++
   }
 
-  return { sent, withheld, failed, held }
+  return { sent, withheld, failed, held, awaitingANumber }
 }

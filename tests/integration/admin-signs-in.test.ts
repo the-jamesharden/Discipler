@@ -8,6 +8,7 @@ import {
   serviceRoleClient,
 } from '../support/local-supabase'
 import {
+  aNetwork,
   baseUrl,
   cookiesFrom,
   getPage,
@@ -107,7 +108,7 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin signing in', () => {
     const response = await fetch(`${baseUrl}/auth/sign-in`, {
       method: 'POST',
       redirect: 'manual',
-      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      headers: { 'content-type': 'application/x-www-form-urlencoded', 'x-forwarded-for': aNetwork() },
       body: new URLSearchParams({
         phone: riverside.adminPhone,
         password: 'not the password',
@@ -132,7 +133,7 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin signing in', () => {
     const response = await fetch(`${baseUrl}/auth/sign-in`, {
       method: 'POST',
       redirect: 'manual',
-      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      headers: { 'content-type': 'application/x-www-form-urlencoded', 'x-forwarded-for': aNetwork() },
       body: new URLSearchParams({
         phone: 'admin@riverside.example',
         password: riverside.adminPassword,
@@ -174,7 +175,7 @@ describe.skipIf(skipUnlessAppIsRunning)('an Admin signing in', () => {
       const response = await fetch(`${baseUrl}/auth/sign-in`, {
         method: 'POST',
         redirect: 'manual',
-        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        headers: { 'content-type': 'application/x-www-form-urlencoded', 'x-forwarded-for': aNetwork() },
         body: new URLSearchParams({ phone: email, password }),
       })
 

@@ -5,6 +5,15 @@ The settled product flow. This is a product model, not an implementation specifi
 ## Canonical flow
 
 ```text
+CHURCH  (signs itself up; a comped church opens a Setup Link instead)
+   ├── are you human · email and phone · email code
+   ├── account and church · card or bank account · free trial
+   └── lands on Overview with onboarding open
+   ↓
+ONBOARDING  (each Admin)
+   ├── welcome video · tour · test check-in to their own phone
+   └── setup meter: seven real steps, ticked as they happen
+   ↓
 ROSTER
    ├── added by pasting a spreadsheet, or manually by an admin
    └── status: No Intake Submitted
@@ -66,11 +75,28 @@ WEEK-BY-WEEK HISTORY
 
 A discipleship relationship is **one leader and N participants**. A relationship with one participant is one-to-one; a relationship with more is a group. There is no separate group entity, one state machine, and one check-in cadence. Copy branches on how many participants a relationship has — never on a group-versus-one-to-one distinction.
 
+## A church arrives
+
+A church signs itself up at `app.trydiscipler.com/signup`: a human check, its email and mobile phone with the Admin's consent to be texted, a code emailed to that address, one page setting up the account and the church, and a card or bank account taken by Stripe, with nothing charged until the free trial ends.
+The Admin lands signed in on Overview with onboarding open.
+A church James comps opens from a Ministry Setup Link instead, and is billed outside Stripe.
+`docs/product-rules.md` holds the steps, the prices and offers, and the billing states; `docs/adr/0029-a-church-signs-itself-up.md` holds why.
+
+Onboarding is the same for every Admin, and opens on their first sign-in: James's welcome video, then three cards, the tour, the test check-in and the team's office hours.
+The tour is a full-screen demo of Example Ministry, labelled DEMO, that nothing on can be clicked.
+The test check-in texts a real check-in to the Admin's own phone and is counted nowhere (`docs/adr/0031-the-test-check-in-texts-an-admin.md`).
+Until setup is done, a slim bar under the tabs on every Admin page, "Jumpstart discipleship", counts seven steps the church takes for real, from confirming the check-in time to its first relationship being accepted, and points at the next one.
+Nothing about ratings, meetings or Follow-Up earns progress.
+`docs/pastor-dashboard.md` describes each surface.
+
+Every text the church's people get comes from Discipler's shared numbers, starts "{Messages read as} via Discipler:", and keeps a frame Discipler writes; a church may reword only the check-in's sentences inside it (`docs/adr/0033-a-shared-set-of-discipler-numbers.md`, `docs/adr/0034-discipler-writes-the-frame-of-every-text.md`).
+
 ## Roster and intake
 
 Roster membership, intake completion, and pairing eligibility are three different facts. A person uploaded by an admin appears as `No Intake Submitted`, cannot be paired, and receives nothing. Only completing intake — where they give both consents themselves — moves them to `Ready to Pair`. Importing a person is never consent.
 
 **Intake is the single consent gate.** Completing the form creates the SMS consent record, and nothing else does. Discipler sends no SMS to anyone who has not completed intake, and pairs nobody who has not completed intake — on either side of the relationship. Finding an intake-less person on a roster is ordinary, because an import puts a whole congregation there at once; it is a fact about the roster, not a licence to pair them or text them.
+The one other consent is the Admin's own at sign-up, which lets Discipler text that Admin a code and the test check-in and nothing else; it is not an Intake and pairs nobody (`docs/consent-language.md`).
 
 There are two ways to reach the form, and they produce the same record with a different `source`:
 

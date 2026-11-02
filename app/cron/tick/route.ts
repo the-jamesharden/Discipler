@@ -1,13 +1,14 @@
 import { timingSafeEqual } from 'node:crypto'
 import { NextResponse, type NextRequest } from 'next/server'
 import type { MinistryId } from '~/domain/ids'
-import { NoSendingNumber } from '~/service/outbound-dispatch'
+import type { CapacityConcern } from '~/domain/shared-numbers'
 import type { SettledPairings } from '~/service/command-service'
 import {
   drainOutboundQueue,
   getCommandService,
   getMinistryDirectory,
   sweepUnsavedUploads,
+  watchTheSharedNumbers,
 } from '~/service/container'
 
 /**
@@ -67,13 +68,15 @@ interface MinistryOutcome {
    */
   readonly held: number
   readonly failed: number
+  /** Messages left for a shared number to be added, see `DispatchOutcome`. */
+  readonly awaitingANumber: number
   /** The pairings an import planned, settled on this pass. */
   readonly settled: SettledPairings
   readonly error: string | null
 }
 
 const runOneMinistry = async (ministryId: MinistryId): Promise<MinistryOutcome> => {
-  const nothing = { sent: 0, withheld: 0, held: 0, failed: 0, settled: { fulfilled: 0, refused: 0, waiting: 0 } }
+  const nothing = { sent: 0, withheld: 0, held: 0, failed: 0, awaitingANumber: 0, settled: { fulfilled: 0, refused: 0, waiting: 0 } }
 
   try {
     // The tick first, then the drain, in that order and in the same run: the tick is
@@ -111,13 +114,6 @@ const runOneMinistry = async (ministryId: MinistryId): Promise<MinistryOutcome> 
 
     return { ministryId, ...outcome, settled, error: null }
   } catch (error) {
-    // A Ministry nobody has bought a number for yet is the ordinary case here, not a
-    // fault: it is set up and not yet sending. Named rather than folded into
-    // `unexpected` so it is legible in a log without opening the code.
-    if (error instanceof NoSendingNumber) {
-      return { ministryId, ...nothing, error: 'no_sending_number' }
-    }
-
     console.error(`The scheduled tick failed for ministry ${ministryId}`, error)
     return { ministryId, ...nothing, error: 'failed' }
   }
@@ -136,6 +132,18 @@ export async function GET(request: NextRequest) {
     ran.push(await runOneMinistry(ministryId))
   }
 
+  // Once a pass, after every church: the shared numbers belong to none of them
+  // (Exponential launch, ticket 06). Caught on its own, because an alert that could
+  // not be raised is no reason to report a church's week as failed; it is raised on
+  // the next pass instead.
+  let capacity: readonly CapacityConcern[] | 'failed' = []
+  try {
+    capacity = await watchTheSharedNumbers()
+  } catch (error) {
+    console.error('Watching the shared numbers failed', error)
+    capacity = 'failed'
+  }
+
   // Always 200 once authorised, even where a Ministry failed. The scheduler retries
   // a non-2xx, and retrying the whole run to recover one Ministry would re-drain
   // every other one -- the outcomes say what happened instead, per Ministry, where
@@ -146,11 +154,14 @@ export async function GET(request: NextRequest) {
     withheld: ran.reduce((total, one) => total + one.withheld, 0),
     held: ran.reduce((total, one) => total + one.held, 0),
     failed: ran.reduce((total, one) => total + one.failed, 0),
+    awaitingANumber: ran.reduce((total, one) => total + one.awaitingANumber, 0),
     settled: {
       fulfilled: ran.reduce((total, one) => total + one.settled.fulfilled, 0),
       refused: ran.reduce((total, one) => total + one.settled.refused, 0),
       waiting: ran.reduce((total, one) => total + one.settled.waiting, 0),
     },
+    // The capacity concerns support@ was told about on this pass.
+    capacity,
     errors: ran.filter((one) => one.error !== null).map((one) => ({
       ministryId: one.ministryId,
       error: one.error,

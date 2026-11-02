@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { SHORTEST_PASSWORD } from '~/domain/accounts'
+import { newPasswordRefusal } from '~/domain/accounts'
 import type { Accounts } from '~/service/ports'
 import { serviceRoleClient, supabaseCredentials } from './credentials'
 
@@ -21,6 +21,14 @@ import { serviceRoleClient, supabaseCredentials } from './credentials'
  * and a change cannot drift from a reset.
  */
 const setPassword = async (userId: string, password: string): Promise<void> => {
+  // Thrown rather than refused, for the reason the error below is: the callers
+  // that reach here have already applied the rule -- a generated password always
+  // passes it, and a person's own change was refused before this -- so a password
+  // that fails it now is a caller that skipped the rule, and setting it anyway
+  // would be the one door round the policy.
+  const refused = newPasswordRefusal(password)
+  if (refused) throw new Error(`Refusing to set a password the policy refuses: ${refused}`)
+
   // Every session on the account ends here, and this one call is the whole of
   // how. GoTrue revokes on an admin password update: the access token the old
   // session holds is refused with `session_not_found` and its refresh token is
@@ -47,7 +55,8 @@ const setPassword = async (userId: string, password: string): Promise<void> => {
 export const supabaseAccounts: Accounts = {
   async create(phone, password) {
     if (!phone) return { refusal: 'account.no_number_on_file' }
-    if (password.length < SHORTEST_PASSWORD) return { refusal: 'account.password_too_short' }
+    const refused = newPasswordRefusal(password)
+    if (refused) return { refusal: refused }
 
     const admin = serviceRoleClient()
 
@@ -81,7 +90,8 @@ export const supabaseAccounts: Accounts = {
   setPassword,
 
   async changePassword(userId, currentPassword, newPassword) {
-    if (newPassword.length < SHORTEST_PASSWORD) return { refusal: 'account.password_too_short' }
+    const refused = newPasswordRefusal(newPassword)
+    if (refused) return { refusal: refused }
 
     // The number comes from the account and never from the caller. The form that
     // reaches here carries none, and a check against a number somebody typed would
@@ -93,9 +103,10 @@ export const supabaseAccounts: Accounts = {
 
     // The check is a password sign-in, on a client that keeps nothing. There is no
     // verify-only endpoint, and this one goes through the same door as the sign-in
-    // form and sits behind the same per-IP rate limit -- which is why there is no
-    // limiter of Discipler's own here: the exposure is exactly the one the sign-in
-    // form already has. The session this mints is ended by the update that follows,
+    // form. Supabase's per-address limit on that door counts the server's address,
+    // not the person's, so it is not the limiter: the route that calls this holds
+    // it to Discipler's own sign-in guessing limit first (`SignInLimit`, Exponential
+    // launch ticket 13). The session this mints is ended by the update that follows,
     // like every other session on the account.
     const { anonKey, url } = supabaseCredentials()
     const checking = createClient(url, anonKey, {

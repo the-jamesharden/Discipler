@@ -73,6 +73,54 @@ The listening process renames itself to `next-server`, so `pkill -f "next start"
 Stop a server by the pid that owns your port: `lsof -tnP -iTCP:<your port> -sTCP:LISTEN`.
 Never stop a server on a port that is not yours.
 
+## Staging
+
+Staging is a copy of Discipler with its own Supabase project, Stripe in test mode and no real texting, where every billing and sign-up change is tried before production (Exponential launch, ticket 02).
+It is the Vercel custom environment `staging` of the `discipler` project, built from the `staging` branch.
+Preview deployments are not staging: they share production's database, Supabase keys and Twilio, and must never be used as a stand-in.
+
+What makes it safe is in the code, not in anyone's memory:
+
+- `src/platform/deployment.ts` refuses a staging environment, at build in `next.config.ts` and at start in `instrumentation.ts`, that carries production's Supabase project under any variable, any `TWILIO_*` value, a Stripe live key (`sk_live_`, `rk_live_`, `pk_live_`) under any name, production's `NEXT_PUBLIC_APP_URL`, or a `MESSAGE_TRANSPORT` other than `record`.
+  A refused build fails, so the staging deployment before it goes on serving; the build log lists every refusal by variable name.
+- With `MESSAGE_TRANSPORT=record` every text is written to the log as `Text recorded, not sent: {...}` and sent nowhere, and the queue marks it sent as Twilio's acceptance would.
+- A Verify code is recorded the same way, as `Verify code recorded, not sent: {...}`, and staging accepts only the constant that line shows (`src/platform/recording-verifier.ts`).
+- Every email goes to `STAGING_EMAIL_RECIPIENT` instead of whoever it was for, and a send without it is refused (`src/platform/resend/credentials.ts`).
+- `/sms/inbound` on staging accepts only requests signed with `STAGING_SMS_SIGNING_SECRET`, and ignores `TWILIO_AUTH_TOKEN` there.
+
+### Deploying to staging
+
+1. Push the migrations first, as for production, to staging's database by its URL: `supabase db push --db-url "<staging session or direct connection string>"`.
+   Do not `supabase link` to staging: the main checkout is linked to production, and a link left pointing the other way sends the next push to the wrong project.
+   The transaction pooler (port 6543) cannot run migrations; use the session pooler or the direct connection (port 5432).
+2. Deploy the commit by pushing it to the `staging` branch, `git push --force-with-lease origin <sha>:staging`; Vercel builds it into the staging environment.
+   From a checkout linked to `discipler` (`vercel link --project discipler`, never a bare `vercel link`), `vercel deploy --target=staging` does the same for uncommitted work.
+3. If the build fails with `Discipler refuses to run as staging on this environment`, fix the variables it names in Vercel's staging environment and redeploy.
+4. Seed demo churches once after the first push, or after the database is recreated, by exporting staging's four values for the one command: `NEXT_PUBLIC_SUPABASE_URL=... NEXT_PUBLIC_SUPABASE_ANON_KEY=... SUPABASE_SERVICE_ROLE_KEY=... DATABASE_URL=... npm run seed`.
+   It prints the demo Admins' phones and password, and refuses a value that points at production.
+5. Vercel Cron runs only on production, so on staging the hourly tick runs when it is called: `curl -H "Authorization: Bearer <staging CRON_SECRET>" -H "x-vercel-protection-bypass: <bypass secret>" https://<staging host>/cron/tick`.
+
+Staging sits behind Vercel's sign-in, like every non-production deployment.
+A browser signed in to Vercel reaches it; a script, Stripe and anything else automated passes the Protection Bypass for Automation secret, as the `x-vercel-protection-bypass` header or, where only a URL can be given, the query parameter of the same name.
+
+### Texts on staging
+
+- What staging would have texted is in the staging deployment's runtime logs in Vercel (search `Text recorded`), and in `outbound_message` in staging's database.
+- A reply, a `STOP` or a `PAUSE` is sent in with `STAGING_URL=https://<staging host> STAGING_SMS_SIGNING_SECRET=... VERCEL_AUTOMATION_BYPASS_SECRET=... npm run staging:text -- "<from phone>" "<body>" ["<shared number>"]`.
+  The shared number it was sent to decides the church when that phone is in more than one.
+  `200` means it was taken; `403` means the signature was not staging's.
+
+### Stripe test events against staging
+
+Staging's Stripe is a Stripe sandbox (test mode), whose webhook endpoint is staging's webhook route with the bypass secret in its query string, for example `https://<staging host>/stripe/webhook?x-vercel-protection-bypass=<bypass secret>`, signed with the endpoint's own `whsec_` held in staging's `STRIPE_WEBHOOK_SECRET`.
+
+- A real event: sign up on staging and pay with Stripe's test card `4242 4242 4242 4242`, any future expiry and any CVC.
+- A replay of one already sent, to prove it is processed once: in the sandbox's Dashboard open Workbench, then Events, pick the event and resend it to the staging endpoint; or with the Stripe CLI, `stripe events resend <evt_...> --webhook-endpoint <we_...> --api-key <sandbox secret key>`.
+- A late or out-of-order event: resend an older `customer.subscription.updated` after a newer one; the webhook re-reads the subscription, so the church's state must not move.
+- Time passing (a trial ending, a renewal, a failed payment): create the customer on a Stripe test clock in the sandbox and advance the clock; the events it produces arrive at staging like any other.
+- `stripe trigger <event>` makes objects that belong to no church on staging, so the webhook should refuse them; it is a test of the refusal, not of a sign-up.
+- `stripe listen --forward-to` is for a server on this machine only: it signs with a secret of its own that staging does not hold, so its events are refused there.
+
 ## Other facts
 
 - There is no `psql` on this machine. Query the local database with a `node` one-liner using `pg` and `DATABASE_URL` from `.env.local`.

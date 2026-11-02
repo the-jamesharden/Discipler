@@ -13,7 +13,6 @@ const aLink = () =>
   issueMinistrySetup({
     token: ministrySetupToken('a-token'),
     ministryName: 'Anthem Church',
-    sendingNumber: '+15550100',
     adminPhone: '+15550101',
     at: issuedAt,
   })
@@ -27,13 +26,16 @@ describe('issuing a Ministry Setup Link', () => {
     expect(days).toBe(INVITATION_LIFETIME_DAYS)
   })
 
-  it('carries the church and both numbers, so the Admin types neither', () => {
+  it('carries the church and the Admin’s number, so the Admin types neither', () => {
     expect(aLink()).toMatchObject({
       token: 'a-token',
       ministryName: 'Anthem Church',
-      sendingNumber: '+15550100',
       adminPhone: '+15550101',
     })
+  })
+
+  it('names no number to send from, since every church sends from the shared numbers', () => {
+    expect(aLink()).not.toHaveProperty('sendingNumber')
   })
 })
 

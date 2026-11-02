@@ -91,7 +91,7 @@ describe('opening a check-in sequence', () => {
     // a reply, so the June and September relationships are not asked about until
     // March's turn is over.
     expect(bodies(start().effects)).toEqual([
-      'ABC Church: Did you meet with Emily this week? Reply 1 for yes, 2 for no.',
+      'ABC Church via Discipler: Did you meet with Emily this week? Reply 1 for yes, 2 for no.',
     ])
   })
 
@@ -108,7 +108,7 @@ describe('opening a check-in sequence', () => {
   it('names everyone in a group rather than picking one of them', () => {
     const onlyTheGroup = snapshot({ leads: [leads('b2', june, ['Marcus', 'Dan'])] })
     expect(bodies(start(onlyTheGroup).effects)).toEqual([
-      'ABC Church: Did you meet with Marcus and Dan this week? Reply 1 for yes, 2 for no.',
+      'ABC Church via Discipler: Did you meet with Marcus and Dan this week? Reply 1 for yes, 2 for no.',
     ])
   })
 
@@ -120,7 +120,7 @@ describe('opening a check-in sequence', () => {
       ],
     })
     expect(bodies(start(unaccepted).effects)).toEqual([
-      'ABC Church: Did you meet with Marcus and Dan this week? Reply 1 for yes, 2 for no.',
+      'ABC Church via Discipler: Did you meet with Marcus and Dan this week? Reply 1 for yes, 2 for no.',
     ])
   })
 
@@ -132,7 +132,7 @@ describe('opening a check-in sequence', () => {
       ],
     })
     expect(bodies(start(paused).effects)).toEqual([
-      'ABC Church: Did you meet with Marcus and Dan this week? Reply 1 for yes, 2 for no.',
+      'ABC Church via Discipler: Did you meet with Marcus and Dan this week? Reply 1 for yes, 2 for no.',
     ])
   })
 
@@ -166,8 +166,10 @@ describe('the rates line on a check-in', () => {
     expect(opening(snapshot({ lastCheckInAt: null }))).toEqual(opening(snapshot()))
   })
 
-  it('does not identify the delivery brand, because a Leader is not first contact', () => {
-    expect(opening(snapshot({ lastCheckInAt: null })).body).not.toContain('Discipler:')
+  it('starts with the frame every text starts with, and names Discipler once', () => {
+    const body = opening(snapshot({ lastCheckInAt: null })).body
+    expect(body.startsWith('ABC Church via Discipler: ')).toBe(true)
+    expect(body.match(/Discipler/g)).toHaveLength(1)
   })
 
   it('asks about relationships formed in the same instant in a reproducible order', () => {

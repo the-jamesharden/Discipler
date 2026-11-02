@@ -13,8 +13,15 @@ import { relationshipId, type MinistryId, type RelationshipId } from '~/domain/i
 import { NO_CHECK_INS, lastFinishedWeek, type CheckInCounts } from '~/domain/overview'
 import { deriveRelationshipState } from '~/domain/relationship-state'
 import { ACCEPTANCE_ESCALATION_DAYS } from '~/domain/relationships'
+import { showingOf } from '~/domain/waiting-on-you'
 import { isoWeekOf } from '~/domain/week'
-import type { Overview, OverviewGrowth, OverviewReader, OverviewRelationship } from '~/service/ports'
+import type {
+  Overview,
+  OverviewGrowth,
+  OverviewReader,
+  OverviewRelationship,
+  OverviewWaiting,
+} from '~/service/ports'
 import { careNeededFrom } from './care-needed-reader'
 import { adminPage, documentFor, list, readPageDocument, section, type PageDocument } from './page'
 import { pairCardFrom } from './pair-card-reader'
@@ -31,7 +38,7 @@ import {
   type HistoryInputs,
   type RelationshipWeekAnswer,
 } from './relationship-history'
-import { text } from './rows'
+import { count, text } from './rows'
 import { createSupabaseServerClient } from './server-client'
 
 /**
@@ -264,7 +271,47 @@ export const overviewPageFrom = (doc: PageDocument, clock: Clock, growth: Growth
     care: careNeededFrom(history, clock),
     card: pairCardFrom(doc, history, clock),
     growth: growthChartFrom(doc, history.timeZone, growth, clock),
+    waiting: waitingFrom(doc, history.timeZone, clock),
   }
+}
+
+/**
+ * The `waiting` part of the Overview's document, for the unpaired pop-up
+ * (Exponential launch, ticket 29; `20261101230000_waiting_on_you.sql`): the two
+ * counts, and the showing this visit belongs to, which is the session the token
+ * names on the church's own day by the same clock as the rest of the tab.
+ *
+ * None for a Ministry with no zone, which only one the caller cannot see has, or
+ * for a token that names no session, which no held session has: a day is only a
+ * day against a zone, and a sign-in only one against a session. A count that
+ * came back as anything but a count is raised, for the reason the rest of this
+ * reader raises.
+ */
+const waitingFrom = (doc: PageDocument, timeZone: string | null, clock: Clock): OverviewWaiting | null => {
+  const part = section(doc, 'waiting')
+  const toPair = count(part.to_pair)
+  const awaitingIntake = count(part.awaiting_intake)
+  if (toPair === null || awaitingIntake === null) {
+    throw new Error(`The unpaired pop-up's counts arrived as something other than counts: ${JSON.stringify(part)}`)
+  }
+  const session = text(part.session_id)
+  return timeZone && session
+    ? { waiting: { toPair, awaitingIntake }, showing: showingOf(session, clock.now(), timeZone) }
+    : null
+}
+
+/**
+ * The unpaired pop-up's part against whichever signed-in client it is handed,
+ * for the tests that drive it with a real session; null where the session does
+ * not administer the Ministry named.
+ */
+export const readWaitingOnYou = async (
+  supabase: SupabaseClient,
+  ministryId: MinistryId,
+  clock: Clock,
+): Promise<OverviewWaiting | null> => {
+  const doc = await documentFor(supabase, ministryId, 'overview_page')
+  return doc ? waitingFrom(doc, historyOf(doc).timeZone, clock) : null
 }
 
 /**
