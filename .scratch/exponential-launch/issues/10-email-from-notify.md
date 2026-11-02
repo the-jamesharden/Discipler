@@ -38,7 +38,7 @@
 - `src/service/email-sender.ts` is the one sender: it opens the envelope in the domain, then hands it to the `EmailTransport` port.
   `getEmailSender()` in the container is the only thing that builds one.
 - `src/platform/resend/email-transport.ts` posts plain text (no HTML part) to Resend's REST API with `fetch`, from `Discipler <hello@$RESEND_EMAIL_DOMAIN>`, with `reply_to` support@ and an `Idempotency-Key` of `<kind>/<once>`.
-  It refuses anything `openEnvelope` did not make, and its refusals carry Resend's error name and whether a retry could succeed.
+  It refuses anything `openEnvelope` did not make, and its refusals carry Resend's status and error name.
 - `scripts/send-test-email.ts` (`npm run email:check`) sends the deliverability check to support@ for the Acceptance's SPF, DKIM and DMARC check.
 
 ### Adding a kind of email

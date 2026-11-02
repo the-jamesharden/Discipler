@@ -27,7 +27,7 @@
   Search (ticket 24) lists `HELP_PAGES`; the AI guide (ticket 31) answers from `helpCenterAsText()`, where each page is headed by its title and its address.
 - Every number in a page is a placeholder, `{{name}}`, filled from `app/help/facts.ts`, which reads the constant that enforces it.
   A placeholder with no fact throws, a fact no page uses fails a test, and a test fails on any digit typed in a page outside a placeholder, an ordered list's numbering, and the shape names 1:1 and 1:2.
-  `tests/app/a-changed-constant-changes-the-help-page.test.ts` changes `REMINDER_AFTER_HOURS`, `TRIAL_DAYS` and `TEST_CHECK_INS_PER_DAY` and reads the pages that state them.
+  `tests/app/a-changed-constant-changes-the-help-page.test.ts` changes `REMINDER_AFTER_HOURS`, `TRIAL_DAYS`, `TEST_CHECK_INS_PER_DAY` and `LONGEST_PASSWORD_BYTES` and reads the pages that state them.
 - The example texts on the check-ins and texting pages are composed by the functions that compose the real texts (`meetingQuestion`, `satisfactionQuestion`, `concernDetailRequest`, `checkInThankYou`, `helpMessage`), for a made-up church and person.
 - `/help` lists every page by section with its first sentence; `/help/<slug>` renders a page in a card, with Previous and Next and the support address under it.
   Both are built at build time and read no session; any other slug is a 404.

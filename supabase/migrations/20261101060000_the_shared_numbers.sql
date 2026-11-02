@@ -169,9 +169,9 @@ select known.ministry_id, known.phone, m.sending_number, known.first_known_at
  order by m.created_at, known.ministry_id, known.phone
 on conflict do nothing;
 
--- Checked, not assumed: every phone a church with its own number knows now hears from that number, unless another
--- church already held that number for the same phone. Anything else stops the
--- migration with nothing applied.
+-- Checked, not assumed: every phone a church with its own number knows now hears
+-- from that number, unless another church already held that number for the same
+-- phone. Anything else stops the migration with nothing applied.
 do $$
 declare
   missing integer;
