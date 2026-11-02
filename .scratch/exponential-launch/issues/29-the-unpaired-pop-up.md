@@ -7,7 +7,7 @@
 
 **Blocked by:** Nothing
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 ## The card
 
@@ -78,3 +78,8 @@
 - `npx vitest run tests/domain tests/app`: 108 files and 2242 tests passed.
 - `npx tsc --noEmit`: clean.
 - `scripts/locked-tests.sh` with a server on 3161, over `the-unpaired-pop-up`, `rls-coverage`, `the-overview`, `the-admin-tabs-answer-in-one-read`, `every-page-function-answers`, `the-growth-chart`, `overview-cards-over-http` and `the-admin-tabs-over-http`: 8 files and 64 tests passed, none skipped.
+
+### Closed out (2026-11-02)
+
+Merged in PR #35 (49d4bb2) and its migrations are on production.
+What is left for James moved to `docs/open-questions.md`: *whether the list the unpaired card opens leaves Admins out*.

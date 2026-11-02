@@ -4,7 +4,7 @@
 
 **Blocked by:** nothing
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 ## Why
 
@@ -76,3 +76,7 @@ The finding holds, and Discipler's own limit is built.
 - `tests/integration/the-sign-in-guessing-limit.test.ts` (the port, against the table, with a test clock) and `tests/integration/the-sign-in-guessing-limit-over-http.test.ts` (the front door and the change form) pass, with the suites around sign-in, invitation, setup, change and reset and `rls-coverage`: 12 files, 124 passed and 1 skipped (the existing `it.skip` in `invitation-over-http`).
 - The first locked run, at a load average near 70 on 14 cores, timed out 15 tests at the 5-second default across the password suites; none failed on an assertion.
   The over-HTTP limit tests sign in a dozen times or more each, so they now take a 30-second timeout of their own.
+
+### Closed out (2026-11-02)
+
+Merged in PR #35 (49d4bb2) and its migrations are on production.

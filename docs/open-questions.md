@@ -464,3 +464,99 @@ It lists who read the concern, from `concern_viewing`, because every opening of 
 It does not list who opened the contact details, because nothing records that: *See contact details*, which is `Nudge` (`docs/adr/0010-nudge-reveals-a-number-and-sends-nothing.md`), never wrote anything, and opening the card keeps whatever record Nudge kept.
 Listing it would need a new recorded act on every opening of a card that shows contact details, which is a new event and a migration.
 What needs deciding: whether an Admin seeing a Person's contact details is a ministry event worth recording, or whether *What has happened* stays without it.
+
+## Open: what is left in Twilio for the Shared Numbers
+
+Raised on 2026-10-31 by the Exponential launch, ticket 06.
+Three numbers serve today, and the ticket plans for five more at about $6 a month, each added with `npm run shared-number`.
+The rejected toll-free number is still to be taken out of the Messaging Service and kept.
+Before any phone is in two churches, a `STOP` to one church's number needs checking on two real phones, since only Twilio's own handling proves the other church's texts keep running.
+What needs deciding: when to buy the five numbers.
+
+## Open: whether a church's reworded sentences need the A2P samples widened
+
+Raised on 2026-10-31 by the Exponential launch, ticket 06.
+The campaign's sample messages show Discipler's words, and ticket 40 will let a church reword the check-in's sentences inside Discipler's frame.
+What needs deciding: whether that needs the samples widened, which is a question for Twilio, before ticket 40 ships.
+
+## Open: the sentences an Admin's phone check refuses with
+
+Raised on 2026-10-31 by the Exponential launch, ticket 09.
+The mock-up drew only the card asking for the code, so the refusal sentences in `app/account/phone/copy.ts` are drafts.
+What needs deciding: whether to approve or reword them.
+
+## Open: how an Admin with a non-US phone gets a test check-in
+
+Raised on 2026-10-31 by the Exponential launch, ticket 09.
+A non-US number is refused before Twilio is called, and the SAU BCM Admin's phone is Canadian, so that Admin cannot be checked or sent a test check-in.
+What needs deciding: whether that stands, or that one Admin needs another way.
+
+## Open: Supabase Auth's own password settings on production
+
+Raised on 2026-11-01 by the Exponential launch, ticket 12.
+The minimum password length on production is a dashboard setting, and it should be 8 so the public Auth API agrees with the app.
+Leaked-password protection is a separate, optional Pro plan setting, also listed as finding F2 in `.scratch/security-hardening/spec.md`.
+What needs deciding: whether to turn on leaked-password protection, once the minimum is set.
+
+## Open: whether the list the unpaired card opens leaves Admins out
+
+Raised on 2026-10-31 by the Exponential launch, ticket 29.
+The card's count leaves Admins out, but the Roster it opens includes an Admin who has not sent an Intake, which provisioning leaves every Admin as.
+So a church whose pastor has no Intake reads "2 people haven't" and lands on three rows, the pastor's own first.
+The recommendation is to keep the count and leave Admins off the list opened from the card, which adds an address-only Roster view with no menu option.
+The alternative is to count Admins on the card.
+The card's singular forms, "1 person is ready to pair and isn't in a relationship yet." and "1 person hasn't filled in their Intake form yet.", are also new screen copy to read.
+
+## Open: the wording of the help pages
+
+Raised on 2026-11-01 by the Exponential launch, ticket 34.
+The pages speak for Discipler about billing, offers and texting at launch, and had no mock-up.
+`/help` is live and unlinked, and its billing, referral, Ask Discipler and test check-in pages describe features that land later.
+What needs deciding: whether the wording stands.
+
+## Open: "{leader noun}s" in the test check-in's first text
+
+Raised on 2026-11-01 by the Exponential launch, ticket 35.
+ADR-0031 records a conflict instead of resolving it: "the same one your {leader noun}s get" pluralises the church's noun, which ADR-0015 says Discipler never does.
+What needs deciding: whether the wording changes, for example to "the same one we send each week", or ADR-0015 gains an exception, before ticket 28 ships.
+
+## Open: whether "points" comes off the non-goals list
+
+Raised on 2026-11-01 by the Exponential launch, ticket 35.
+The spec says "points and the What's new item come off the list", and also says "Points are removed from the plan entirely".
+`docs/non-goals.md` keeps "points", because removing it would read as approving points, and it has no What's new item to remove.
+What needs deciding: whether that reading stands.
+
+## Open: whether a past-due church keeps texting
+
+Raised on 2026-11-01 by the Exponential launch, ticket 35.
+The spec's Billing section says "everything keeps running during Stripe's retries", while its Q32 says texts go out only while trialing or active.
+The docs and ticket 05 follow "everything keeps running", so a `past_due` church keeps texting.
+What needs deciding: whether that stands, before ticket 05 is built.
+
+## Open: the reply choices ticket 40 lists
+
+Raised on 2026-11-01 by the Exponential launch, ticket 35.
+Ticket 40 still lists "Reply A for outstanding, B for good, C for concern.", the three-rating copy, and there have been four ratings since 2026-10-12.
+What needs deciding: the four-rating wording, when ticket 40 is triaged.
+
+## Open: publishing the legal drafts
+
+Raised on 2026-11-01 by the Exponential launch, ticket 36.
+`docs/legal/` holds drafts of the privacy policy, the terms of service and the opt-in page's sign-up section, each with square brackets to fill in, for James or a lawyer.
+All three are to be published on trydiscipler.com before 2026-11-04, and sign-up stays off in production until they are live.
+Whether a cancellation is refunded is one of the brackets, since the terms as drafted give no refund.
+What needs deciding: the review, the brackets and the publishing.
+
+## Open: sign-up consent with no checkbox
+
+Raised on 2026-11-01 by the Exponential launch, ticket 36.
+The sign-up consent is given by continuing, with no checkbox, on a page where a phone number is required.
+What needs deciding: whether Twilio or a lawyer accepts that, before ticket 15 ships.
+
+## Open: the live opt-in page's sample messages
+
+Raised on 2026-11-01 by the Exponential launch, ticket 36.
+The live page's samples are out of date whatever the launch does: three ratings and the old prefix.
+`docs/legal/sms-opt-in-sign-up-section.md` lists the lines to change.
+What needs deciding: the new lines, and publishing them with the drafts above.

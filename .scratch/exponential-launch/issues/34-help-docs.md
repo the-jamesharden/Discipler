@@ -4,7 +4,7 @@
 
 **Blocked by:** nothing
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 ## The rule
 
@@ -56,3 +56,9 @@
 
 - James, 2026-11-01: `/help` ships to production with this branch as it is, public and unlinked, though its billing, referral, Ask Discipler and test check-in pages describe features that land later in the launch.
   Alternatives offered: a switch holding `/help` at 404 until launch, or hiding only the pages for unbuilt features.
+
+### Closed out (2026-11-02)
+
+Merged in PR #35 (49d4bb2) and its migrations are on production.
+Ticket 06 merged with this one, so the quoted example texts now start "{church} via Discipler:".
+What is left for James moved to `docs/open-questions.md`: *the wording of the help pages*.

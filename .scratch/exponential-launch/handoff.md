@@ -63,35 +63,32 @@ How mock-ups are made, per James's standing preferences (see memory `mock-up-bef
 
 ## Built so far
 
-Tickets 01, 02, 06, 09, 10, 12, 13, 29, 34, 35 and 36 are built and merged on the branch `launch/exponential`, in the worktree `~/Downloads/discipler-worktrees/launch`, cut from `origin/main`.
-That branch, not the main checkout's untracked copy, holds the current `.scratch/exponential-launch`.
-Each ticket's `## Comments` records what was built and every decision made on a gap.
-Their status stays `ready-for-agent` until the branch is merged to main, when they become `shipped`.
-Nothing is pushed: the branch is local, and James pushes the migrations.
+Tickets 01, 02, 06, 09, 10, 12, 13, 29, 34, 35 and 36 are built and on `main` (PR #35, merge 49d4bb2, 2026-11-02), with their migrations pushed to production.
+`main`, not the main checkout's untracked copy, holds the current `.scratch/exponential-launch`.
+Each ticket's `## Comments` records what was built and every decision made on a gap, and what they left for a human is in `docs/open-questions.md`.
+Nine are `shipped`; 02 and 10 are `ready-for-human`, each with the reason at the end of its comments.
 
-- Migrations to review before the push: `20261101060000_the_shared_numbers.sql` (06, with a data step that keeps every existing phone on its number), 09's phone checks, `20261101120000` (12 and 13), `20261101200000` (34, reserves "help") and `20261101230000` (29, redefines `overview_page`).
-- `20261101060000` is the first of two steps, so the build still serving keeps working once it is pushed.
-  Once this deploy is live, a follow-up migration drops `ministry.sending_number`; it is not on this branch (ticket 06's comments).
+- `20261101060000` was the first of two steps; `20261102120000_drop_ministry_sending_number.sql` is the second (ticket 06's comments).
 - New environment variables: `TWILIO_VERIFY_SERVICE_SID`, `DISCIPLER_ENVIRONMENT`, `MESSAGE_TRANSPORT`, `STAGING_SMS_SIGNING_SECRET`, `STAGING_EMAIL_RECIPIENT`.
 - Operator-only tables added: `phone_check`, `phone_check_code`, `sign_in_attempt`, `shared_number`, `shared_number_capacity_alert`.
 - Texts must keep naming their number as Twilio's `From`: sending by the Messaging Service's SID would make one `STOP` silence every church (ADR-0033).
 
-Next: triage 15 to 25 (23 first), rewrite 04, 18 and 19, then build the next wave in the same way, one worktree per ticket merged into `launch/exponential`.
+Next: triage 15 to 25 (23 first), rewrite 04, 18 and 19, then build the next wave in the same way, one worktree per ticket merged into one launch branch cut from `origin/main`.
 
 ## Blocked on James
 
 - **Stripe and Resend are provisioned** (2026-10-30), both connected to the `discipler` Vercel project:
   - `discipler-stripe-sandbox`, a Stripe sandbox on Development only (`STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_MCP_KEY`). Claim it into a real account later with `vercel integration resource claim discipler-stripe-sandbox`; live keys go on Production only after James activates Stripe with Discipler LLC's details.
-  - `discipler-resend` on Production only, domain `notify.trydiscipler.com`, region us-east-1 (`RESEND_API_KEY`, `RESEND_EMAIL_DOMAIN`). James still has to add its three DNS records at GoDaddy: TXT `resend._domainkey.notify` (the DKIM key, from the Resend API or dashboard), CNAME `send.notify` to `send.forge.rmta.net`, CNAME `rsend.notify` to `rsend.forge.rmta.net`. Read them with `GET https://api.resend.com/domains/{id}`; the domain is `pending` until they resolve.
+  - `discipler-resend` on Production only, domain `notify.trydiscipler.com`, region us-east-1 (`RESEND_API_KEY`, `RESEND_EMAIL_DOMAIN`). Its DNS records are published and the domain is verified (James, 2026-11-01).
 - **Done by James on 2026-10-30, as Twilio organization owner:** the support ticket (number not yet shared), auto-recharge on, and Billing access for his everyday login.
   Open: auto-recharge is set to refill below $10 back up to $50 with no backup card; recommended below $100 back up to $500 plus a backup card.
-  Open: the Resend DNS records were not yet published at GoDaddy when checked (`dig @ns67.domaincontrol.com` found none); James is re-checking that they were saved.
 - **Originally asked of James in Twilio** (kept for reference):
   - file the support ticket in `research/twilio-support-ticket.md`
   - turn on auto-recharge (add $500 below $100, with a backup card)
   - grant his everyday login Billing and Support access
   His everyday login could not open tickets or see Billing.
-- Still to do in Twilio once allowed: buy 5 shared numbers into Messaging Service `discipler-sms`, create the "Discipler" Verify service, remove the rejected toll-free +18335050572 from the service, and prepare the Standard brand vetting and the Mixed campaign for James to sign.
+- The "Discipler" Verify service exists and `TWILIO_VERIFY_SERVICE_SID` is set (James, 2026-11-02).
+- Still to do in Twilio once allowed: buy 5 shared numbers into Messaging Service `discipler-sms`, remove the rejected toll-free +18335050572 from the service, and prepare the Standard brand vetting and the Mixed campaign for James to sign.
 
 ## Working-tree cautions
 

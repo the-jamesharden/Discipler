@@ -164,19 +164,14 @@ describe('provisioning a Ministry and its first Admin', () => {
   })
 
   it('provisions no number: a Ministry sends from the shared numbers the moment it opens', async () => {
-    // Exponential launch, ticket 06. Nothing fills the column an operator once had
-    // to, so a church can text its first person with no operator step at all.
+    // Exponential launch, ticket 06. A church has no number of its own for an operator
+    // to fill, so it can text its first person with no operator step at all.
     const provisioned = await provisionMinistry({
       name: 'Shared Sender Chapel',
       timezone: 'America/New_York',
       admin: { fullName: 'Sender Shared', phone: aTestPhoneNumber(), password: 'a-long-enough-password' },
     })
 
-    const { rows } = await pool.query<{ sending_number: string | null }>(
-      `select sending_number from ministry where id = $1`,
-      [provisioned.ministryId],
-    )
-    expect(rows).toEqual([{ sending_number: null }])
     expect(provisioned).not.toHaveProperty('sendingNumber')
   })
 

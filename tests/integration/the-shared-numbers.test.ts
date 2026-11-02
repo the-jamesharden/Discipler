@@ -17,7 +17,7 @@ import {
 } from '../support/local-supabase'
 
 /**
- * Every church sends from one shared set of Discipler numbers (Exponential launch,
+ * Every church sends from one set of Shared Numbers (Exponential launch,
  * ticket 06). Each (phone, church) pair is given one the first time that church texts
  * that phone and keeps it; a phone in two churches hears from a different number for
  * each, and the number a reply was sent to says which church it is for.
@@ -151,8 +151,8 @@ describe('The shared numbers', () => {
     expect(await inbound.resolveSender(both.phone, null)).toBeNull()
   })
 
-  describe('for the build still serving when the migration is pushed', () => {
-    /** Exactly the read it does, as the role it does it under. */
+  describe('for a caller that names no number', () => {
+    /** The one-argument read, as the role it runs under. */
     const senderOfInbound = async (phone: string) => {
       const client = await pool.connect()
       try {
@@ -176,30 +176,6 @@ describe('The shared numbers', () => {
 
       const both = await inBothChurches('Ian Vale')
       expect(await senderOfInbound(both.phone)).toEqual([])
-    })
-
-    it('can still fill and read the number a church sends from', async () => {
-      const number = aTestPhoneNumber()
-      const { rows: created } = await pool.query<{ id: string }>(
-        `insert into ministry (name, sending_number, timezone)
-         values ('An Old Build Chapel', $1, 'America/New_York') returning id`,
-        [number],
-      )
-
-      const client = await pool.connect()
-      try {
-        await client.query('begin')
-        await client.query('set local role discipler_command')
-        await client.query(`select set_config('discipler.ministry_id', $1, true)`, [created[0]!.id])
-        const { rows } = await client.query<{ sending_number: string | null }>(
-          `select sending_number from ministry where id = $1`,
-          [created[0]!.id],
-        )
-        await client.query('rollback')
-        expect(rows).toEqual([{ sending_number: number }])
-      } finally {
-        client.release()
-      }
     })
   })
 

@@ -4,7 +4,7 @@
 
 **Blocked by:** nothing
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 ## The rule
 
@@ -61,3 +61,10 @@ The card itself, and sending the test check-in after a code is confirmed, are ti
 - Set `TWILIO_VERIFY_SERVICE_SID` on Production (and Preview) to the service's `VA...` SID.
 - Approve or reword the refusal sentences in `app/account/phone/copy.ts`.
 - The SAU BCM Admin's phone is Canadian, so it cannot be checked, and so cannot be sent a test check-in, under the US-only rule.
+
+### Closed out (2026-11-02)
+
+Merged in PR #35 (49d4bb2) and its migrations are on production.
+The Verify service and `TWILIO_VERIFY_SERVICE_SID` are done (James, 2026-11-02).
+No code has gone through the real service yet: the Acceptance line's "the test check-in goes out" is ticket 28's, as this ticket says, and that is where the real service is first exercised.
+What is left for James moved to `docs/open-questions.md`: *the sentences an Admin's phone check refuses with* and *how an Admin with a non-US phone gets a test check-in*.

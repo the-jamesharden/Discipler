@@ -4,7 +4,7 @@
 
 **Blocked by:** nothing
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 ## Why
 
@@ -52,3 +52,7 @@ They were run red against a stubbed check (eight failed on their assertions) bef
   The alternative was to cover tables only, which would let a view over an operator-only table be granted to `authenticated` unnoticed.
 - The church-scoped suite now also finds partitioned tables (`relkind` `p`), not only plain ones; none exists today.
 - The list lives in `src/platform/supabase/` beside the adapters that know the schema, not in `tests/support/`, so a migration author finds it next to `ministry-setup.ts`.
+
+### Closed out (2026-11-02)
+
+Merged in PR #35 (49d4bb2) and its migrations are on production.

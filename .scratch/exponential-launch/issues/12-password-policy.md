@@ -4,7 +4,7 @@
 
 **Blocked by:** nothing
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 ## The rule
 
@@ -58,3 +58,9 @@
 ### Checked
 
 - The ticket 12 tests at the Invitation Link, the Ministry Setup Link, the change form (route and port) and the reset passed in the locked run together with ticket 13's: 12 files, 124 passed and 1 skipped (an existing `it.skip`).
+
+### Closed out (2026-11-02)
+
+Merged in PR #35 (49d4bb2) and its migrations are on production.
+The Acceptance line on 100 characters gave way to the 72-byte ceiling above, and the line on sign-up holds when ticket 17 builds that form on this same policy.
+What is left for James moved to `docs/open-questions.md`: *Supabase Auth's own password settings on production*.

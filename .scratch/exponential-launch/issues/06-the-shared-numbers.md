@@ -6,7 +6,7 @@
 
 **Blocked by:** nothing
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 ## What is true today
 
@@ -84,8 +84,9 @@
   `app.sender_of_inbound` declares `texted_number text default null`, so its one-argument call still resolves as one function with the same grants.
   `ministry.sending_number` is kept rather than dropped; it has been nullable since `20260909000100`, so it needed no `drop not null`.
   The new build neither reads nor writes it.
-  **Follow-up, once this deploy is live:** a new migration drops `ministry.sending_number`.
-  The one-argument form needs no drop of its own, because it is the same function as the two-argument one; removing the default is optional.
+  **Follow-up, done 2026-11-02:** `20261102120000_drop_ministry_sending_number.sql` drops `ministry.sending_number`.
+  Before it was written, production showed all three churches' numbers in the shared set, 61 pairs, none on another number and no texted phone without a pair, so the push-to-deploy window left nothing to carry.
+  The one-argument form needs no drop of its own, because it is the same function as the two-argument one; removing the default is optional, and it stays, since `create or replace` cannot remove one and the default costs nothing.
   Alternative: one step and an accepted window at a quiet hour, in which a `STOP` or an answer could be lost.
   In the window the old build sends without writing a pair, so a phone a church first texts then is given its shared number on the next text after the deploy, which may not be the number it heard from in the window.
 
@@ -99,3 +100,8 @@
 - Locked run 3 (`the-person-page-over-http` and `relationship-state-and-care` alone): 2 files, 35 tests, all passed.
 - The data step, checked in a rolled-back transaction on a production-shaped world (the three churches' numbers, their phones from Person rows and queued texts, a removed person, two churches once sharing a number): every (phone, church) kept the number it hears from today (70 of 70), no pair it was not given, a reply to SAU BCM's and to Anthem's number is placed with that church, and SAU BCM's next text goes from its own number.
 - Settings at 1280 and 390 wide: the message preview reads "Riverside Chapel via Discipler: David, you've been paired ...", and nothing else on the page changed.
+
+### Closed out (2026-11-02)
+
+Merged in PR #35 (49d4bb2) and its migrations are on production.
+What is left for James moved to `docs/open-questions.md`: *what is left in Twilio for the Shared Numbers* and *whether a church's reworded sentences need the A2P samples widened*.

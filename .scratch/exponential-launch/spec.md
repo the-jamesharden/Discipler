@@ -471,19 +471,19 @@ James answered these when tickets 26 to 33 and 40 were triaged.
 
 | Ticket | What | Status | Blocked by |
 | --- | --- | --- | --- |
-| 01 - Operator-only tables and the coverage test | Every table is church-scoped or operator-only, proven by the test | ready-for-agent | Nothing |
-| 02 - Staging | A copy with its own database, Stripe in test mode and no real texting | ready-for-agent | Nothing |
+| 01 - Operator-only tables and the coverage test | Every table is church-scoped or operator-only, proven by the test | shipped | Nothing |
+| 02 - Staging | A copy with its own database, Stripe in test mode and no real texting | ready-for-human | Nothing |
 | 03 - Billing records and the Stripe webhook | The only writer of billing state | ready-for-agent | 01 |
 | 04 - Prices, offers and the Checkout session | $97, $147, the trial, the offers, and the hosted Checkout | ready-for-agent | 03 |
 | 05 - The texting gate | No text leaves for a church without a live subscription | ready-for-agent | 03 |
-| 06 - The shared numbers | A Discipler number per person per church, replacing a number per church | ready-for-agent | Nothing |
+| 06 - The shared numbers | A Discipler number per person per church, replacing a number per church | shipped | Nothing |
 | 07 - The daily cap | Spread check-ins, hold texts on error 30023, alert once a day | ready-for-agent | 06 |
 | 08 - The Twilio balance and spend alarm | An email before an empty balance stops every text | ready-for-agent | 10 |
-| 09 - Verify | The Twilio Verify service and the Admin's phone check | ready-for-agent | Nothing |
-| 10 - Email from notify.trydiscipler.com | Resend, the domain, and the no-PII sender | ready-for-agent | Nothing |
+| 09 - Verify | The Twilio Verify service and the Admin's phone check | shipped | Nothing |
+| 10 - Email from notify.trydiscipler.com | Resend, the domain, and the no-PII sender | ready-for-human | Nothing |
 | 11 - Email codes and the human check | Turnstile and the 6-digit email code, on the server | ready-for-agent | 01, 10 |
-| 12 - Password policy | 8 characters, a blocklist, 64 and more allowed | ready-for-agent | Nothing |
-| 13 - The sign-in guessing limit | Test the hole, and close it if it is real | ready-for-agent | Nothing |
+| 12 - Password policy | 8 characters, a blocklist, 64 and more allowed | shipped | Nothing |
+| 13 - The sign-in guessing limit | Test the hole, and close it if it is real | shipped | Nothing |
 | 14 - The over-200 follow-up | An email when a church stays above 200 people for a month | ready-for-agent | 03, 10 |
 | 15 - Sign-up: are you human, email and phone | Steps 1 and 2 of sign-up | needs-info | 11 |
 | 16 - Sign-up: verify your email | Step 3 of sign-up | needs-info | 15 |
@@ -499,14 +499,14 @@ James answered these when tickets 26 to 33 and 40 were triaged.
 | 26 - The setup meter and the badge | Seven steps, never going down, one badge per Admin | ready-for-agent | 23 |
 | 27 - The onboarding modal and the tour | The modal, the welcome video, the three cards, the checklist and the seven-step demo tour | ready-for-agent | 26, 30 |
 | 28 - The test check-in | A check-in to the Admin's own phone, never counted | ready-for-agent | 05, 09, 27, 40 |
-| 29 - The unpaired pop-up | The bottom-right card on Overview | ready-for-agent | Nothing |
+| 29 - The unpaired pop-up | The bottom-right card on Overview | shipped | Nothing |
 | 30 - What's new and office hours | The two cards, from repo files | ready-for-agent | 23 |
 | 31 - The AI guide | Help-docs-only answers through the AI Gateway | ready-for-agent | 26, 34 |
 | 32 - Refer and the referral credit | The Refer page and the credit | ready-for-agent | 04, 20 |
 | 33 - Billing in Settings and the billing states | The Billing row, the banners and the restart page | ready-for-agent | 04, 05 |
-| 34 - Help docs | Markdown at `/help` | ready-for-agent | Nothing |
-| 35 - Docs and ADRs | Every amendment and ADR listed above | ready-for-agent | Nothing |
-| 36 - Legal pages and the opt-in page | Drafts James publishes | ready-for-agent | Nothing |
+| 34 - Help docs | Markdown at `/help` | shipped | Nothing |
+| 35 - Docs and ADRs | Every amendment and ADR listed above | shipped | Nothing |
+| 36 - Legal pages and the opt-in page | Drafts James publishes | shipped | Nothing |
 | 37 - Security headers and the extra hardening | Q57's list | ready-for-agent | 03, 05 |
 | 38 - The Standard registration | Vetting, the Mixed campaign and moving the numbers | ready-for-human | 06, 36 |
 | 39 - The rehearsal | James's run of the booth flow on 2026-11-05 | ready-for-human | Every other ticket |
