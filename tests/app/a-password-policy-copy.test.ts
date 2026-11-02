@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { parse } from 'smol-toml'
 import { describe, expect, it } from 'vitest'
 import { passwordChangeRefusalMessages } from '../../app/account/copy'
 import { invitationProblemMessage } from '../../app/invitation/copy'
@@ -55,10 +56,12 @@ describe('what a password refusal says', () => {
 describe('the local Supabase Auth', () => {
   it('asks for the same shortest password the domain does', () => {
     // Only the local stack reads this file. Production's minimum is a setting on
-    // the hosted project, which ticket 12's comments list for James.
-    const config = readFileSync(new URL('../../supabase/config.toml', import.meta.url), 'utf8')
-    const minimum = /^minimum_password_length\s*=\s*(\d+)/m.exec(config)?.[1]
+    // the hosted project, which ticket 12's comments list for James. Parsed rather
+    // than asked of Auth: a running stack keeps the value it was started with until
+    // `supabase stop` and `supabase start`, so asking it says when it last started.
+    const config = parse(readFileSync(new URL('../../supabase/config.toml', import.meta.url), 'utf8'))
+    const auth = config.auth as { minimum_password_length?: unknown }
 
-    expect(Number(minimum)).toBe(SHORTEST_PASSWORD)
+    expect(auth.minimum_password_length).toBe(SHORTEST_PASSWORD)
   })
 })

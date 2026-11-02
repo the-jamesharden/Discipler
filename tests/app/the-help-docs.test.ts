@@ -10,6 +10,8 @@ import {
   HELP_SOURCES,
   helpCenterAsText,
   helpPage,
+  readHelpPage,
+  type HelpPage,
 } from '../../app/help/library'
 import { renderMarkdown } from '../../app/help/markdown'
 
@@ -94,23 +96,26 @@ describe('the help pages', () => {
 })
 
 describe('the numbers in a help page', () => {
+  /** Every fact in words with no digit, so any digit left on a page was typed there. */
+  const FACTS_WITH_NO_DIGITS = Object.fromEntries(
+    Object.keys(HELP_FACTS).map((name) => [name, 'a fact']),
+  )
+
   /**
-   * What a file may say with a digit: nothing, except an ordered list's numbering
-   * and the two shapes the Pair popup names, 1:1 and 1:2. Every other number is a
-   * placeholder.
+   * What a page may say with a digit of its own: nothing, except an ordered list's
+   * numbering and the two shapes the Pair popup names, 1:1 and 1:2.
    */
-  const typedNumbers = (source: string): string[] =>
-    source
-      .replace(/\{\{[^}]*\}\}/g, '')
+  const typedNumbers = ({ title, markdown }: HelpPage): string[] =>
+    `${title}\n${markdown}`
       .replace(/^\s*\d+\.\s/gm, '')
       .replace(/\b1:[12]\b/g, '')
       .split('\n')
       .filter((line) => /\d/.test(line))
 
-  it.each(HELP_SOURCES.map((source) => [source.slug, source.source]))(
+  it.each(HELP_SOURCES.map((source) => [source.slug, source] as const))(
     'are never typed by hand: %s',
     (_slug, source) => {
-      expect(typedNumbers(source)).toEqual([])
+      expect(typedNumbers(readHelpPage(source, FACTS_WITH_NO_DIGITS))).toEqual([])
     },
   )
 
@@ -119,7 +124,7 @@ describe('the numbers in a help page', () => {
     expect(page('check-ins').markdown).toContain('no answer for 2 weeks in a row')
     expect(page('test-check-in').markdown).toContain('up to 3 test check-ins a day')
     expect(page('test-check-in').markdown).toContain('ends after an hour')
-    expect(page('signing-in').markdown).toContain('at least 8 characters')
+    expect(page('signing-in').markdown).toContain('at least 8 characters and no more than 72.')
     expect(page('settings').markdown).toContain('between 8am and 9pm')
   })
 
@@ -145,8 +150,14 @@ describe('the numbers in a help page', () => {
 
   it('leave no placeholder unfilled and no fact unused', () => {
     for (const help of HELP_PAGES) expect(help.markdown, help.slug).not.toMatch(/\{\{|\}\}/)
-    const used = HELP_SOURCES.map((source) => source.source).join('\n')
-    for (const name of Object.keys(HELP_FACTS)) expect(used, name).toContain(`{{${name}}}`)
+    const words = ({ title, markdown }: HelpPage) => `${title}\n${markdown}`
+    for (const name of Object.keys(HELP_FACTS)) {
+      const changed = { ...HELP_FACTS, [name]: 'a changed fact' }
+      const shows = HELP_SOURCES.some(
+        (source) => words(readHelpPage(source, changed)) !== words(readHelpPage(source)),
+      )
+      expect(shows, name).toBe(true)
+    }
   })
 
   it('refuse a placeholder with no fact rather than show braces', () => {
@@ -167,10 +178,10 @@ describe('the numbers in a help page', () => {
 })
 
 describe('the words in a help page', () => {
-  it.each(HELP_SOURCES.map((source) => [source.slug, source.source]))(
+  it.each(HELP_PAGES.map((help) => [help.slug, help] as const))(
     'use no em dash: %s',
-    (_slug, source) => {
-      expect(source).not.toContain('—')
+    (_slug, { title, markdown }) => {
+      expect(`${title}\n${markdown}`).not.toContain('\u2014')
     },
   )
 

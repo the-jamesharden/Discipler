@@ -52,7 +52,8 @@
 - Every text starts "{Messages read as} via Discipler:", the first text ever sent included; `composeMessage` in `src/domain/outbound-copy.ts` writes the start and the rates line, and the reply choices stay constants in the same module, so the frame lives in one place for ticket 40 to build inside.
   The `identifyDelivery` flag and the stacked `Discipler:` prefix are gone.
 - Migration `20261101060000_the_shared_numbers.sql` adds `shared_number` (operator-only), `sending_number_assignment` (church-scoped, one row per (church, phone), unique per (phone, number)) and `shared_number_capacity_alert` (operator-only).
-  Its data step puts each church's own number into the shared set and gives every phone the church knows (each Person's, and every `to_phone` it ever queued) that church's number, checks that nothing moved, then drops `ministry.sending_number`.
+  Its data step puts each church's own number into the shared set and gives every phone the church knows (each Person's, and every `to_phone` it ever queued) that church's number and checks that nothing moved.
+  `ministry.sending_number` stays for now (see "A two-step migration" below).
   `ministry_setup.sending_number` becomes nullable and keeps the numbers already issued links named, as history.
 - `app.sending_number_for(phone, at)` gives a pair the least-loaded shared number this phone does not already hear from for another church, under a per-phone advisory lock, and keeps it.
   The sending layer asks for it per message after the recipient checks and before the claim; a phone with no number free waits on the queue (`awaitingANumber`) unclaimed.
@@ -78,6 +79,15 @@
 - **No number is ever taken out of the set by code.** A person keeps their number, so removing one would strand its people; that is an operator decision for later.
 - **Acceptance "a church's own check-in sentence still goes out with Discipler's start and reply choices"**: no church can reword yet (ticket 40), so it is held by the frame being composed in one place and tested on today's words; ticket 40 adds the church sentence inside it.
 - **Acceptance "tickets 01 to 03 still hold"**: they are needs-triage and unbuilt, so a phone held by two Persons in one church still resolves to nobody, now judged within the church the reply texted; nothing here builds or blocks them.
+
+- **A two-step migration (James, 2026-11-01).** The migration is pushed before the merged build is live, so the build still serving must keep working against it.
+  `app.sender_of_inbound` declares `texted_number text default null`, so its one-argument call still resolves as one function with the same grants.
+  `ministry.sending_number` is kept rather than dropped; it has been nullable since `20260909000100`, so it needed no `drop not null`.
+  The new build neither reads nor writes it.
+  **Follow-up, once this deploy is live:** a new migration drops `ministry.sending_number`.
+  The one-argument form needs no drop of its own, because it is the same function as the two-argument one; removing the default is optional.
+  Alternative: one step and an accepted window at a quiet hour, in which a `STOP` or an answer could be lost.
+  In the window the old build sends without writing a pair, so a phone a church first texts then is given its shared number on the next text after the deploy, which may not be the number it heard from in the window.
 
 ### Tested (2026-10-31)
 

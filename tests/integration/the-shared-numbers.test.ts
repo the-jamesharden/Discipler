@@ -151,6 +151,58 @@ describe('The shared numbers', () => {
     expect(await inbound.resolveSender(both.phone, null)).toBeNull()
   })
 
+  describe('for the build still serving when the migration is pushed', () => {
+    /** Exactly the read it does, as the role it does it under. */
+    const senderOfInbound = async (phone: string) => {
+      const client = await pool.connect()
+      try {
+        await client.query('begin')
+        await client.query('set local role discipler_command')
+        const { rows } = await client.query<{ ministry_id: string; person_id: string }>(
+          `select ministry_id, person_id from app.sender_of_inbound($1)`,
+          [phone],
+        )
+        await client.query('rollback')
+        return rows
+      } finally {
+        client.release()
+      }
+    }
+
+    it('places a reply with no number to go on, as it always did', async () => {
+      const phone = aTestPhoneNumber()
+      const only = await addPerson(riverside, 'Ada Lowe', { phone })
+      expect(await senderOfInbound(phone)).toEqual([{ ministry_id: riverside.id, person_id: only }])
+
+      const both = await inBothChurches('Ian Vale')
+      expect(await senderOfInbound(both.phone)).toEqual([])
+    })
+
+    it('can still fill and read the number a church sends from', async () => {
+      const number = aTestPhoneNumber()
+      const { rows: created } = await pool.query<{ id: string }>(
+        `insert into ministry (name, sending_number, timezone)
+         values ('An Old Build Chapel', $1, 'America/New_York') returning id`,
+        [number],
+      )
+
+      const client = await pool.connect()
+      try {
+        await client.query('begin')
+        await client.query('set local role discipler_command')
+        await client.query(`select set_config('discipler.ministry_id', $1, true)`, [created[0]!.id])
+        const { rows } = await client.query<{ sending_number: string | null }>(
+          `select sending_number from ministry where id = $1`,
+          [created[0]!.id],
+        )
+        await client.query('rollback')
+        expect(rows).toEqual([{ sending_number: number }])
+      } finally {
+        client.release()
+      }
+    })
+  })
+
   it('places a reply from a phone in one church whatever number it was sent to, as before', async () => {
     const phone = aTestPhoneNumber()
     const only = personId(await addPerson(riverside, 'Ruth Callan', { phone }))

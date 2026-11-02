@@ -17,7 +17,7 @@ The Admin is shown the new password once, to read out or write down; it is never
 
 ## Choosing a password
 
-A password needs at least {{shortestPassword}} characters, and can be as long as you like.
+A password needs at least {{shortestPassword}} characters and no more than {{longestPassword}}.
 Very common passwords are refused, so pick something only you would know.
 
 Change yours any time with **Change your password** in your account menu.

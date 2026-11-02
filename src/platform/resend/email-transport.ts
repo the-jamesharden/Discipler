@@ -29,18 +29,6 @@ export class EmailNotDelivered extends Error {
     super(message)
     this.name = 'EmailNotDelivered'
   }
-
-  /**
-   * Whether sending the same email again could ever succeed. A 4xx is Resend
-   * saying the request is wrong -- an unverified domain, a bad address, the same
-   * key with a different email -- except a rate limit and a key whose first
-   * request is still in flight, which are worth another try. A 5xx and a socket
-   * that died are always worth another try.
-   */
-  get isPermanent(): boolean {
-    if (this.status === 429 || this.reason === 'concurrent_idempotent_requests') return false
-    return this.status >= 400 && this.status < 500
-  }
 }
 
 /**

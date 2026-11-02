@@ -70,6 +70,8 @@ Their status stays `ready-for-agent` until the branch is merged to main, when th
 Nothing is pushed: the branch is local, and James pushes the migrations.
 
 - Migrations to review before the push: `20261101060000_the_shared_numbers.sql` (06, with a data step that keeps every existing phone on its number), 09's phone checks, `20261101120000` (12 and 13), `20261101200000` (34, reserves "help") and `20261101230000` (29, redefines `overview_page`).
+- `20261101060000` is the first of two steps, so the build still serving keeps working once it is pushed.
+  Once this deploy is live, a follow-up migration drops `ministry.sending_number`; it is not on this branch (ticket 06's comments).
 - New environment variables: `TWILIO_VERIFY_SERVICE_SID`, `DISCIPLER_ENVIRONMENT`, `MESSAGE_TRANSPORT`, `STAGING_SMS_SIGNING_SECRET`, `STAGING_EMAIL_RECIPIENT`.
 - Operator-only tables added: `phone_check`, `phone_check_code`, `sign_in_attempt`, `shared_number`, `shared_number_capacity_alert`.
 - Texts must keep naming their number as Twilio's `From`: sending by the Messaging Service's SID would make one `STOP` silence every church (ADR-0033).

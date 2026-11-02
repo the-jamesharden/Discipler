@@ -30,7 +30,8 @@
   The file's header says how to derive it again.
 - Applied at every place a password is set: the Invitation Link and the Ministry Setup Link (through `supabaseAccounts.create`), a person's own change (the form's `passwordChangeRefusals` and `supabaseAccounts.changePassword`), and an Admin's reset (the `done` route sends an edited candidate back, and `setPassword` throws on a password the rule refuses rather than set it).
 - The three surfaces word the codes from one `PASSWORD_REFUSALS` record in `app/invitation/copy.ts`, with the numbers read from the constants.
-- `minimum_password_length` in `supabase/config.toml` is 8, and `tests/app/a-password-policy-copy.test.ts` fails if it and `SHORTEST_PASSWORD` disagree.
+- `minimum_password_length` in `supabase/config.toml` is 8, and `tests/app/a-password-policy-copy.test.ts` parses that file and fails if the `auth` section's value and `SHORTEST_PASSWORD` disagree.
+  It does not ask a running Auth, which keeps the value it was started with until `supabase stop` and `supabase start`.
 
 ### Decisions made
 

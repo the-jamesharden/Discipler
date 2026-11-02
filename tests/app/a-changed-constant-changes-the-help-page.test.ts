@@ -16,6 +16,11 @@ vi.mock('~/domain/check-in', async (original) => ({
   REMINDER_AFTER_HOURS: 36,
 }))
 
+vi.mock('~/domain/accounts', async (original) => ({
+  ...(await original<typeof import('~/domain/accounts')>()),
+  LONGEST_PASSWORD_BYTES: 64,
+}))
+
 vi.mock('~/domain/launch-terms', async (original) => ({
   ...(await original<typeof import('~/domain/launch-terms')>()),
   TRIAL_DAYS: 45,
@@ -23,6 +28,10 @@ vi.mock('~/domain/launch-terms', async (original) => ({
 }))
 
 describe('a help page', () => {
+  it('says the longest password the sign-up rule allows', () => {
+    expect(helpPage('signing-in')!.markdown).toContain('no more than 64.')
+  })
+
   it('says the reminder delay the check-in enforces', () => {
     const checkIns = helpPage('check-ins')!.markdown
     expect(checkIns).toContain('sends it again after 36 hours')

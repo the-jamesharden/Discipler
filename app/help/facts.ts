@@ -42,7 +42,7 @@ import { SCHEDULED_QUESTION_TIMES_OUT_AFTER_HOURS } from '~/domain/outstanding-r
 import { DEFAULT_PAUSE_PERIOD_WEEKS, PAUSE_PERIODS } from '~/domain/pause'
 import { NOT_MEETING_WEEKS_BEFORE_STALLED, UNANSWERED_WEEKS_BEFORE_STALLED } from '~/domain/relationship-state'
 import { ACCEPTANCE_ESCALATION_DAYS, ACCEPTANCE_REMINDER_DAYS } from '~/domain/relationships'
-import { SHORTEST_PASSWORD } from '~/domain/accounts'
+import { LONGEST_PASSWORD_BYTES, SHORTEST_PASSWORD } from '~/domain/accounts'
 import { TIER_CUTOFFS } from '~/domain/suggestions'
 import { WEEKS_ON_THE_CHART } from '~/domain/growth'
 import { hourLabel } from '../settings/copy'
@@ -146,6 +146,7 @@ export const HELP_FACTS: Readonly<Record<string, string>> = {
   largestFile: `${LARGEST_FILE_BYTES / (1024 * 1024)} MB`,
   materialTextWait: duration(QUIET_MINUTES_BEFORE_A_MATERIAL_TEXT, 'minute'),
   shortestPassword: String(SHORTEST_PASSWORD),
+  longestPassword: String(LONGEST_PASSWORD_BYTES),
   passwordResetLink: duration(PASSWORD_RESET_LINK_MINUTES, 'minute'),
 
   // Sign-up and setup.

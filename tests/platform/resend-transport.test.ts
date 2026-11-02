@@ -106,20 +106,6 @@ describe('handing an email to Resend', () => {
     })
   })
 
-  it('separates a refusal that will always refuse from one worth retrying', async () => {
-    const refusal = async (status: number, name: string) => {
-      vi.restoreAllMocks()
-      respondWith(status, { statusCode: status, name, message: name })
-      return (await transport.deliver(envelope).catch((error: unknown) => error)) as EmailNotDelivered
-    }
-
-    expect((await refusal(422, 'validation_error')).isPermanent).toBe(true)
-    expect((await refusal(409, 'invalid_idempotent_request')).isPermanent).toBe(true)
-    expect((await refusal(409, 'concurrent_idempotent_requests')).isPermanent).toBe(false)
-    expect((await refusal(429, 'rate_limit_exceeded')).isPermanent).toBe(false)
-    expect((await refusal(500, 'internal_server_error')).isPermanent).toBe(false)
-  })
-
   it('keeps the status when the vendor answers with something that is not JSON', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response('<html>502 Bad Gateway</html>', { status: 502 }),

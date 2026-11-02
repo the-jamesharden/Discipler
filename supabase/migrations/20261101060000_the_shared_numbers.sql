@@ -19,7 +19,12 @@
 --
 -- The data step keeps every (phone, church) Discipler knows today on the number it
 -- hears from today: the three numbers in use join the shared set, and each church's
--- people are given its number. It is checked before the old column is dropped.
+-- people are given its number, and that is checked.
+--
+-- The first of two steps. This migration is pushed before the build that uses it is
+-- live, so the build still serving must keep working against it: the old column
+-- stays and the old one-argument call to `app.sender_of_inbound` still resolves. A
+-- follow-up migration drops the column once this deploy is live (ticket 06).
 
 -- ---------------------------------------------------------------------------
 -- The set: Discipler's, not any church's
@@ -164,8 +169,7 @@ select known.ministry_id, known.phone, m.sending_number, known.first_known_at
  order by m.created_at, known.ministry_id, known.phone
 on conflict do nothing;
 
--- Checked, not assumed, before the column it came from is dropped: every phone a
--- church with its own number knows now hears from that number, unless another
+-- Checked, not assumed: every phone a church with its own number knows now hears from that number, unless another
 -- church already held that number for the same phone. Anything else stops the
 -- migration with nothing applied.
 do $$
@@ -286,10 +290,11 @@ grant execute on function app.sending_number_for(text, timestamptz) to discipler
 -- it always did, whatever number it texted.
 --
 -- `texted_number` is Twilio's `To`. Null where a caller has none, which places a
--- phone in one church and nobody else.
+-- phone in one church and nobody else. Defaulted because the build still serving
+-- when this is pushed calls this with one argument.
 drop function app.sender_of_inbound(text);
 
-create function app.sender_of_inbound(candidate_phone text, texted_number text)
+create function app.sender_of_inbound(candidate_phone text, texted_number text default null)
 returns table (ministry_id uuid, person_id uuid)
 language sql
 stable
@@ -330,11 +335,16 @@ revoke execute on function app.sender_of_inbound(text, text) from public, anon, 
 grant execute on function app.sender_of_inbound(text, text) to discipler_command;
 
 -- ---------------------------------------------------------------------------
--- The number per church goes
+-- The number per church stops being used
 -- ---------------------------------------------------------------------------
 
--- Carried into the shared set and the pairs above, and read by nothing any more.
-alter table ministry drop column sending_number;
+-- Carried into the shared set and the pairs above. Kept, and already nullable since
+-- `20260909000100`, for the build still serving when this is pushed: it reads this
+-- column to send and fills it when it provisions a church. The new build neither
+-- reads nor writes it.
+comment on column ministry.sending_number is
+  'Superseded by `shared_number` and `sending_number_assignment`. Kept only for the '
+  'build serving while this migration went out; a follow-up migration drops it.';
 
 -- A Setup Link no longer names a number, since the church it opens sends from the
 -- shared set. The links already issued keep the number they named, as the history
