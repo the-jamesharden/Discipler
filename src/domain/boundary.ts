@@ -544,6 +544,11 @@ export interface CommandContext {
    */
   readonly checkInsDue?: readonly CheckInSnapshot[]
   /**
+   * Whether this church may text, for the tick (Exponential launch, ticket 05). Read
+   * only for the tick; a church without access has nothing further to chase or ask.
+   */
+  readonly churchHasAccess?: boolean
+  /**
    * Every Discipleship Goal option this Ministry currently offers, with how many
    * people's answer each one holds. Loaded on the four `goal.*` commands' behalf.
    *
@@ -1593,7 +1598,7 @@ const abandonSequence = (abandonment: {
   readonly personId: PersonId
   readonly sequenceId: CheckInSequenceId
   readonly at: Date
-  readonly reason: 'displaced' | 'unanswered' | 'opted_out' | NotAskedAboutBecause
+  readonly reason: 'displaced' | 'unanswered' | 'opted_out' | 'church_has_no_access' | NotAskedAboutBecause
 }): readonly Effect[] => {
   const { ministryId, personId, sequenceId, at, reason } = abandonment
   return [
@@ -3245,6 +3250,32 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
           cutoffs: outstandingReplyCutoffs(now),
         }),
       )
+
+      // A church without access is asked and reminded nothing (Exponential launch,
+      // ticket 05), and the gate would close it all anyway. What would be wrong to
+      // write is the rest of it: history saying a reminder went out, and a Material
+      // notice recorded as told, about texts that never left.
+      //
+      // Its open conversations end here rather than standing until a restart. Left
+      // open, the first tick after one would chase a weeks-old question as if it had
+      // only just lapsed, and that is the old check-in going out on restart by
+      // another road. Nothing else is left behind: the next conversation is this
+      // week's, opened at the church's own hour.
+      if (context.churchHasAccess === false) {
+        for (const leader of checkInsDue) {
+          if (!leader.openSequence) continue
+          effects.push(
+            ...abandonSequence({
+              ministryId: command.ministryId,
+              personId: leader.personId,
+              sequenceId: leader.openSequence.sequenceId,
+              at: now,
+              reason: 'church_has_no_access',
+            }),
+          )
+        }
+        return { effects, rejections: [] }
+      }
 
       // The check-in cadence. This is what makes a Leader due -- the direct
       // trigger 08a was built against is now the Admin's *send one additional

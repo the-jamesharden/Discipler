@@ -10,6 +10,7 @@ import {
   getMinistryDirectory,
   sweepTheStripeEvents,
   sweepUnsavedUploads,
+  tellSupportTheTextingGateIsUnread,
   watchTheSharedNumbers,
   watchTheTwilioBalance,
 } from '~/service/container'
@@ -75,13 +76,17 @@ interface MinistryOutcome {
   readonly awaitingANumber: number
   /** Messages left for Twilio's daily limit to reset, see `DispatchOutcome`. */
   readonly waitingOnTheCap: number
+  /** Messages closed for good because the church holds no access, see `DispatchOutcome`. */
+  readonly closedWithoutAccess: number
+  /** The church's access could not be read, and its drain went on unchecked. */
+  readonly accessUnread: boolean
   /** The pairings an import planned, settled on this pass. */
   readonly settled: SettledPairings
   readonly error: string | null
 }
 
 const runOneMinistry = async (ministryId: MinistryId): Promise<MinistryOutcome> => {
-  const nothing = { sent: 0, withheld: 0, held: 0, failed: 0, awaitingANumber: 0, waitingOnTheCap: 0, settled: { fulfilled: 0, refused: 0, waiting: 0 } }
+  const nothing = { sent: 0, withheld: 0, held: 0, failed: 0, awaitingANumber: 0, waitingOnTheCap: 0, closedWithoutAccess: 0, accessUnread: false, settled: { fulfilled: 0, refused: 0, waiting: 0 } }
 
   try {
     // The tick first, then the drain, in that order and in the same run: the tick is
@@ -137,6 +142,18 @@ export async function GET(request: NextRequest) {
     ran.push(await runOneMinistry(ministryId))
   }
 
+  // Once a pass, after every church, and caught on its own for the reason the watch
+  // below is. The read failing is why this is said out loud: the texts went on, so
+  // nothing else about the pass would show it (Exponential launch, ticket 05).
+  const accessUnread = ran.some((one) => one.accessUnread)
+  if (accessUnread) {
+    try {
+      await tellSupportTheTextingGateIsUnread()
+    } catch (error) {
+      console.error('Telling support the texting gate could not read failed', error)
+    }
+  }
+
   // Once a pass, after every church: the shared numbers belong to none of them
   // (Exponential launch, ticket 06). Caught on its own, because an alert that could
   // not be raised is no reason to report a church's week as failed; it is raised on
@@ -179,6 +196,8 @@ export async function GET(request: NextRequest) {
     failed: ran.reduce((total, one) => total + one.failed, 0),
     awaitingANumber: ran.reduce((total, one) => total + one.awaitingANumber, 0),
     waitingOnTheCap: ran.reduce((total, one) => total + one.waitingOnTheCap, 0),
+    closedWithoutAccess: ran.reduce((total, one) => total + one.closedWithoutAccess, 0),
+    accessUnread,
     settled: {
       fulfilled: ran.reduce((total, one) => total + one.settled.fulfilled, 0),
       refused: ran.reduce((total, one) => total + one.settled.refused, 0),

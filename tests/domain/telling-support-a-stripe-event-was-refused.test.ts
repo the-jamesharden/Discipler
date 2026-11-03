@@ -47,3 +47,26 @@ describe('telling support@ a Stripe event was refused', () => {
     expect(delivered[0]!.text).toContain('belongs to no church')
   })
 })
+
+/** What support@ reads when the texting gate could not get an answer (Exponential launch, ticket 05). */
+describe('telling support@ the texting gate could not read', () => {
+  it('says texts went on, once a day', async () => {
+    const delivered: EmailEnvelope[] = []
+    const alerts = createEmailSupportAlerts(
+      createEmailSender({
+        async deliver(envelope) {
+          delivered.push(envelope)
+        },
+      }),
+    )
+
+    await alerts.textingGateUnread({ day: '2031-03-03' })
+
+    expect(delivered).toHaveLength(1)
+    expect(delivered[0]).toMatchObject({
+      to: ['support@trydiscipler.com'],
+      idempotencyKey: 'textingGateUnread/texting-gate-unread:2031-03-03',
+    })
+    expect(delivered[0]!.text).toContain('Discipler keeps texting')
+  })
+})

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { ReinvitationRefused } from '~/domain/errors'
 import { personId, relationshipId } from '~/domain/ids'
 import { currentAdmin } from '~/platform/supabase/current-admin'
 import { getCommandService } from '~/service/container'
@@ -35,16 +36,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.redirect(new URL('/roster', request.url), { status: 303 })
   }
 
-  const { effects } = await getCommandService().execute({
-    type: 'invitation.reissue',
-    // From the session and never from the form. The relationship id is whatever was
-    // posted; what stops it naming another Ministry's relationship is that the
-    // command is scoped to this Admin's Ministry and the snapshot it reads holds
-    // nothing outside it.
-    ministryId: admin.ministryId,
-    relationshipId: relationshipId(relationship),
-    personId: personId(person),
-  })
+  const page = `/roster/${encodeURIComponent(person)}`
+
+  let effects: Awaited<ReturnType<ReturnType<typeof getCommandService>['execute']>>['effects']
+  try {
+    ;({ effects } = await getCommandService().execute({
+      type: 'invitation.reissue',
+      // From the session and never from the form. The relationship id is whatever was
+      // posted; what stops it naming another Ministry's relationship is that the
+      // command is scoped to this Admin's Ministry and the snapshot it reads holds
+      // nothing outside it.
+      ministryId: admin.ministryId,
+      relationshipId: relationshipId(relationship),
+      personId: personId(person),
+    }))
+  } catch (error) {
+    // The one refusal this act has (Exponential launch, ticket 05). Everything else
+    // the command decides is a no-op, as above.
+    if (error instanceof ReinvitationRefused && error.refusal === 'reinvite.church_has_no_access') {
+      return NextResponse.redirect(new URL(`${page}?noAccess=1`, request.url), { status: 303 })
+    }
+    throw error
+  }
 
   // The receipt is claimed from what actually happened, never from having asked.
   // Every no-op path above leaves the Leader on the Roster under their own name, so
@@ -53,7 +66,6 @@ export async function POST(request: NextRequest) {
   // accepted while they were clicking.
   const sent = effects.some((effect) => effect.kind === 'message.enqueue')
 
-  const page = `/roster/${encodeURIComponent(person)}`
   return NextResponse.redirect(new URL(sent ? `${page}?reinvited=1` : page, request.url), {
     status: 303,
   })

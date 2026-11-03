@@ -179,6 +179,8 @@ export interface InMemoryStore extends EffectStore {
   personToRemove: PersonToRemove | null
   /** Who `peopleOnRoster` says was removed from the Roster and has not come back. */
   removedFromTheRoster: Set<PersonId>
+  /** What `app.billing_has_access` would answer. */
+  churchHasAccess: boolean
   readonly removals: readonly PersonRemoval[]
   readonly restorations: readonly PersonRestoration[]
   readonly concerns: readonly NewConcern[]
@@ -476,6 +478,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
     accountHeld: null,
     personToRemove: null,
     removedFromTheRoster: new Set<PersonId>(),
+    churchHasAccess: true,
     get removals() {
       return [...removals]
     },
@@ -831,6 +834,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
           return new Set<PersonId>(
             [...intakes, ...stagedIntakes].map((intake) => intake.personId),
           )
+        },
+        async churchHasAccess() {
+          return store.churchHasAccess
         },
         async ministryVoice() {
           return {

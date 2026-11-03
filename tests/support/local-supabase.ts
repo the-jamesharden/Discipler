@@ -209,6 +209,10 @@ export const createMinistryWithAdmin = async (
   // dual-role suites, which need to read his name on a page. Everywhere else the
   // Admin is furniture and a derived name says so.
   adminName: string = `Admin of ${name}`,
+  // A fixture church texts with no subscription, so a suite about anything else is
+  // not about billing as well. A suite about the texting gate or a billing state says
+  // `billedOutsideStripe: false` and gets the church self sign-up makes.
+  { billedOutsideStripe = true }: { readonly billedOutsideStripe?: boolean } = {},
 ): Promise<MinistryFixture> => {
   // Before provisioning, so the keys the adapter needs are in the environment by
   // the time it looks for them.
@@ -220,6 +224,7 @@ export const createMinistryWithAdmin = async (
       // UTC and said so: every suite was written against the clock a Ministry had
       // before provisioning asked for one, and a suite about a zone sets its own.
       timezone: 'UTC',
+      billedOutsideStripe,
       admin: {
         fullName: adminName,
         phone: aTestPhoneNumber(),

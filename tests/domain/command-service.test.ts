@@ -67,6 +67,9 @@ describe('applying a command\'s effects', () => {
         ratesLineHistory: async () => {
           throw new Error('nobody’s rates line should have been looked up')
         },
+        churchHasAccess: async () => {
+          throw new Error('nobody should have asked whether this church may text')
+        },
         materialRecipients: async () => {
           throw new Error('nobody should have been looked up for a Material text')
         },

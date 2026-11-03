@@ -73,6 +73,14 @@ export interface DispatchOutcome {
    * then.
    */
   readonly waitingOnTheCap: number
+  /**
+   * Messages closed for good because the church holds no access (Exponential launch,
+   * ticket 05). Apart from `withheld`, which is a promise kept to a Person: these say
+   * nothing about anybody's recipient.
+   */
+  readonly closedWithoutAccess: number
+  /** The access read failed, and this drain went on unchecked. See `OutboundQueue.due`. */
+  readonly accessUnread: boolean
 }
 
 /**
@@ -96,7 +104,7 @@ const drainOnce = async ({
 }: Dispatch): Promise<DispatchOutcome> => {
   const startedAt = clock.now()
   const hold = await dailyCap.latestHold(startedAt)
-  const messages = await queue.due(ministryId, startedAt)
+  const { messages, closedWithoutAccess, accessUnread } = await queue.due(ministryId, startedAt)
 
   let sent = 0
   let withheld = 0
@@ -109,7 +117,16 @@ const drainOnce = async ({
   // next is the one that finds out the limit has reset, on the pass after midnight
   // Pacific, and nothing has to be done to any row for that to happen.
   if (hold && holdIsStanding(hold, startedAt)) {
-    return { sent, withheld, failed, held, awaitingANumber, waitingOnTheCap: messages.length }
+    return {
+      sent,
+      withheld,
+      failed,
+      held,
+      awaitingANumber,
+      waitingOnTheCap: messages.length,
+      closedWithoutAccess,
+      accessUnread,
+    }
   }
 
   const timeZone = hold && messages.length > 0 ? await queue.timeZoneOf(ministryId) : null
@@ -192,9 +209,9 @@ const drainOnce = async ({
     // The row is left neither sent nor withheld, so the next pass tries it again.
     // A permanently-refused message therefore retries forever, which is a known
     // cost and not the intended end state: parking one needs a column to record
-    // that it was parked and why, and `withheld_reason` is recipient-level by
-    // design. `MessageNotDelivered.isPermanent` is what that decision gets made
-    // against.
+    // that it was parked and why, and `withheld_reason` says a row must never go,
+    // which a vendor's refusal does not. `MessageNotDelivered.isPermanent` is what
+    // that decision gets made against.
     try {
       await transport.deliver(from, message.toPhone, body)
     } catch (error) {
@@ -225,5 +242,5 @@ const drainOnce = async ({
     sent++
   }
 
-  return { sent, withheld, failed, held, awaitingANumber, waitingOnTheCap }
+  return { sent, withheld, failed, held, awaitingANumber, waitingOnTheCap, closedWithoutAccess, accessUnread }
 }

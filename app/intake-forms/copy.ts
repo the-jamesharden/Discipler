@@ -1,3 +1,4 @@
+import { CHURCH_HAS_NO_ACCESS_TO_TEXTING } from '../texting-gate-copy'
 import type { FollowUpRefusal, GroupRefusal, MaterialAssignmentRefusal } from '~/domain/errors'
 import type { Gender } from '~/domain/intake'
 import { SHORT_NAME_LONGEST, type ShortNameRefusal } from '~/domain/short-name'
@@ -151,6 +152,7 @@ export const askedToJoin = (groupName: string | null): string =>
   groupName === null ? 'asked to join a group that has since lost its name' : `asked to join ${groupName}`
 
 const GROUP_REFUSALS: Record<GroupRefusal, string> = {
+  'group.church_has_no_access': CHURCH_HAS_NO_ACCESS_TO_TEXTING,
   'group.relationship_not_found': 'That group is not on this Roster any more.',
   'group.name_missing': 'Give the group a name. It cannot be saved without one.',
   'group.relationship_ended': 'That group has ended, so there is nothing left to change.',

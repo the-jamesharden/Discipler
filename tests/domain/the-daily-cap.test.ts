@@ -113,7 +113,11 @@ const world = () => {
 
   const queue: OutboundQueue = {
     whileDraining: (_, drain) => drain(),
-    due: async (church) => (queued.get(church) ?? []).filter((one) => !sent.has(one.id)),
+    due: async (church) => ({
+      messages: (queued.get(church) ?? []).filter((one) => !sent.has(one.id)),
+      closedWithoutAccess: 0,
+      accessUnread: false,
+    }),
     timeZoneOf: async (church) => ZONES[church]!,
     sendingNumberFor: async () => '+13185316138',
     mayReceive: async () => null,
@@ -197,6 +201,8 @@ describe('When Twilio answers 30023', () => {
       failed: 0,
       awaitingANumber: 0,
       waitingOnTheCap: 2,
+      closedWithoutAccess: 0,
+      accessUnread: false,
     })
   })
 

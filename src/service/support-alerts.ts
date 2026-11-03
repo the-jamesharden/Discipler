@@ -42,6 +42,19 @@ Buy a number into the discipler-sms Messaging Service in Twilio, then add it to 
     })
   },
 
+  async textingGateUnread({ day }) {
+    await sender.send({
+      kind: 'textingGateUnread',
+      subject: emailSubject`The texting gate could not read a church's access`,
+      body: emailBody`On at least one church, the query that says whether it may text failed on ${EmailField.line(day)}.
+
+Discipler keeps texting when that happens, so a broken read cannot silence a church. That means a church without a live subscription may be sending texts until this is fixed. Look at the database first, and at the app.billing_has_access function.
+
+This email is sent once a day for as long as it goes on.`,
+      once: `texting-gate-unread:${day}`,
+    })
+  },
+
   async twilioBalanceLow({ id, balanceCents, fellAt }) {
     const floor = EmailField.line(dollars(TWILIO_BALANCE_FLOOR_CENTS))
     await sender.send({

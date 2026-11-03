@@ -4,6 +4,7 @@ import {
   type AccountCreationRefusal,
   type NewPasswordRefusal,
 } from '~/domain/accounts'
+import { CHURCH_HAS_NO_ACCESS_TO_TEXTING } from '../texting-gate-copy'
 import type { InvitationRefusal } from '~/domain/errors'
 import { asList } from '~/domain/outbound-copy'
 
@@ -43,6 +44,9 @@ const PROBLEMS: Record<Problem, string> = {
   'invitation.already_used':
     'You’ve already set up your account with this link. Sign in with your phone number and password.',
   'invitation.not_a_leader': 'This link isn’t yours to accept.',
+  // An Admin's act from a page. The person page says it; nobody holding the link can
+  // meet it, and this entry is here because this table is every refusal's.
+  'invitation.church_has_no_access': CHURCH_HAS_NO_ACCESS_TO_TEXTING,
   'invitation.declined':
     'You declined this invitation, so this link doesn’t open it any more. If you’ve changed your mind, let whoever invited you know.',
   ...PASSWORD_REFUSALS,

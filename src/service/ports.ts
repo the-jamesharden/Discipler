@@ -205,6 +205,13 @@ export interface UnitOfWork {
    */
   ministryVoice(): Promise<MinistryVoice>
   /**
+   * Whether this church may text (Exponential launch, ticket 05), as the one answer
+   * in `app.billing_state_of` gives it. True where the read failed, which is logged:
+   * a broken read must not silence a church, or refuse its Admin. It leaves the
+   * transaction usable either way.
+   */
+  churchHasAccess(): Promise<boolean>
+  /**
    * Refuses with a `RosterImportRefused` when one of these people is already on the
    * Roster -- the case the read above is meant to catch, left to the database as the
    * backstop against two imports racing each other.
@@ -1509,6 +1516,12 @@ export type WithholdingReason =
   | 'recipient_opted_out'
   | 'recipient_has_no_sms_consent'
   | 'recipient_has_no_phone'
+  /**
+   * The church holds no access to texting (Exponential launch, ticket 05). The one
+   * reason here that is about the church and not the recipient. As final as the
+   * others: a restart does not reopen the row, so nothing from before it goes.
+   */
+  | 'church_has_no_access'
 
 export interface QueuedMessage {
   readonly id: OutboundMessageId
@@ -1543,6 +1556,18 @@ export interface ContactDetails {
  * which Ministry a read belongs to -- and a port that took only a `PersonId` would
  * be asking the database to answer across all of them.
  */
+/** What a drain has to work through, and what the texting gate did on the way. */
+export interface DueMessages {
+  readonly messages: readonly QueuedMessage[]
+  /** Rows the gate closed on this call, because the church holds no access. */
+  readonly closedWithoutAccess: number
+  /**
+   * The access read failed, so the gate did not answer and `messages` went unchecked.
+   * A failed read never closes a row and never stops a church: see `due`.
+   */
+  readonly accessUnread: boolean
+}
+
 export interface OutboundQueue {
   /**
    * Runs `drain` as the only drain of this Ministry: a second caller waits for the
@@ -1561,8 +1586,14 @@ export interface OutboundQueue {
   /**
    * Everything enqueued for this Ministry and neither sent nor withheld, leaving out
    * a spread check-in whose own moment is still after `at`.
+   *
+   * **The texting gate lives here** (Exponential launch, ticket 05), because every
+   * text passes through this and no page does. A church with a definite no has every
+   * unsent row closed, withheld for good, and is given nothing, so a restart finds
+   * nothing old to send. A read that failed is not a no: the rows are given out as
+   * they were before the gate, and `accessUnread` says so.
    */
-  due(ministryId: MinistryId, at: Date): Promise<readonly QueuedMessage[]>
+  due(ministryId: MinistryId, at: Date): Promise<DueMessages>
   /** This Ministry's zone, which is what says when it is morning there. */
   timeZoneOf(ministryId: MinistryId): Promise<string>
   /**
@@ -1698,6 +1729,11 @@ export interface SupportAlerts {
   /** `day` is the Pacific day it was reached in, and what makes the email once a day. */
   dailyCapReached(alert: { readonly day: string }): Promise<void>
   billingEventRefused(alert: BillingEventRefused): Promise<void>
+  /**
+   * The texting gate could not read a church's access, so texts went unchecked
+   * (Exponential launch, ticket 05). `day` is what makes the email once a day.
+   */
+  textingGateUnread(alert: { readonly day: string }): Promise<void>
 }
 
 /**

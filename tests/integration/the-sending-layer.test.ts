@@ -142,7 +142,7 @@ describe('The sending layer checks every recipient', () => {
 
     // And the queue does not hand another Ministry's message out to be drained.
     const due = await queue.due(ministry.id, clock.now())
-    expect(due.map((queued) => queued.id)).not.toContain(message)
+    expect(due.messages.map((queued) => queued.id)).not.toContain(message)
   })
 
   it('sends the Welcome Message that Intake enqueued', async () => {
