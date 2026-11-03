@@ -1,5 +1,5 @@
 import pg from 'pg'
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createTestClock, minutes, weeks } from '~/domain/clock'
 import { personId, type IdSource } from '~/domain/ids'
 import { createPostgresEffectStore } from '~/platform/supabase/effect-store'
@@ -19,22 +19,10 @@ import {
 } from '../support/local-supabase'
 
 /**
- * Check-ins spread across their hour (Exponential launch, ticket 07), which is **off
- * in the product** while `/cron/tick` runs hourly. This suite is what says switching
- * it on is all that remains: it runs the real tick and the real queue as if the send
- * pass ran every five minutes, by the one thing a flip would change.
+ * Check-ins spread across their hour (Exponential launch, ticket 07): the real tick
+ * and the real queue, on the five-minute send pass `/cron/tick` runs.
  */
-vi.mock('~/domain/daily-cap', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('~/domain/daily-cap')>()
-  return {
-    ...actual,
-    SEND_PASS_EVERY_MINUTES: 5,
-    checkInNotBefore: (slot: Parameters<typeof actual.checkInNotBefore>[0]) =>
-      actual.checkInNotBefore({ ...slot, passEveryMinutes: 5 }),
-  }
-})
-
-describe('Spreading check-ins, as a more frequent pass would', () => {
+describe('Spreading check-ins', () => {
   // Monday 2026-03-02, 8pm in New York.
   const CHECK_IN_HOUR = new Date('2026-03-03T01:00:00Z')
 

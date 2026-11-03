@@ -164,6 +164,17 @@ for _ in $(seq 1 120); do
 done
 [ "$auth_ready" = 1 ] || die "Auth did not answer on $SUPABASE_URL/auth/v1/health within two minutes. This is the local stack, not a test failure: 'supabase stop --no-backup' then 'supabase start', and run this again."
 
+# A reset restarts Storage too, and it can come back on a new address while Kong
+# keeps calling the old one, for several minutes on 2026-11-03. Only the suites that
+# touch a Material's files notice, as a 502 or an empty answer, which reads as a bug
+# in Materials and is none. Auth answering says nothing about this, so wait for it too.
+storage_ready=0
+for _ in $(seq 1 600); do
+  if [ "$(curl -s -o /dev/null -w '%{http_code}' "$SUPABASE_URL/storage/v1/status" || true)" = 200 ]; then storage_ready=1; break; fi
+  sleep 1
+done
+[ "$storage_ready" = 1 ] || die "Storage did not answer on $SUPABASE_URL/storage/v1/status within ten minutes. This is the local stack, not a test failure: 'supabase stop --no-backup' then 'supabase start', and run this again."
+
 # --- this checkout's server -----------------------------------------------------
 
 export APP_URL="http://127.0.0.1:$PORT"

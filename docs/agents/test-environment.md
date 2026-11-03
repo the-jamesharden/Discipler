@@ -98,7 +98,7 @@ What makes it safe is in the code, not in anyone's memory:
 3. If the build fails with `Discipler refuses to run as staging on this environment`, fix the variables it names in Vercel's staging environment and redeploy.
 4. Seed demo churches once after the first push, or after the database is recreated, by exporting staging's four values for the one command: `NEXT_PUBLIC_SUPABASE_URL=... NEXT_PUBLIC_SUPABASE_ANON_KEY=... SUPABASE_SERVICE_ROLE_KEY=... DATABASE_URL=... npm run seed`.
    It prints the demo Admins' phones and password, and refuses a value that points at production.
-5. Vercel Cron runs only on production, so on staging the hourly tick runs when it is called: `curl -H "Authorization: Bearer <staging CRON_SECRET>" -H "x-vercel-protection-bypass: <bypass secret>" https://<staging host>/cron/tick`.
+5. Vercel Cron runs only on production, so on staging the tick runs when it is called: `curl -H "Authorization: Bearer <staging CRON_SECRET>" -H "x-vercel-protection-bypass: <bypass secret>" https://<staging host>/cron/tick`.
 
 Staging sits behind Vercel's sign-in, like every non-production deployment.
 A browser signed in to Vercel reaches it; a script, Stripe and anything else automated passes the Protection Bypass for Automation secret, as the `x-vercel-protection-bypass` header or, where only a URL can be given, the query parameter of the same name.

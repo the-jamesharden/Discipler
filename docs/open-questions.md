@@ -583,13 +583,11 @@ The email to Admins is new, so its wording is James's to approve.
 What needs deciding: which tickets own the jobs, and the wording of that email.
 The Billing help page and ticket 33 still say a church's information is "kept", and they change with the deletion job.
 
-## Open: whether the send pass runs more often than hourly
+## Resolved: the send pass runs every five minutes
 
-Raised on 2026-11-03 by the Exponential launch, ticket 07.
-Check-ins leave all at once on the hourly tick, so "Check-ins for one hour leave spread across that hour" is not met and ticket 07 stays `needs-info`.
-Switching means changing `/cron/tick` in `vercel.json` to `*/5 * * * *` and `SEND_PASS_EVERY_MINUTES` in `src/domain/daily-cap.ts` to `5`, in one commit, and a test fails if only one changes.
-Running `/cron/tick` every five minutes also runs everything else the tick does, and nobody has yet checked that all of it is safe at that rate.
-What needs deciding: whether to switch, and whether the send pass should be its own route instead.
+Raised on 2026-11-03 by the Exponential launch, ticket 07, and switched on the same day when James asked for the partial requirements to be fixed.
+`/cron/tick` in `vercel.json` is `*/5 * * * *` and `SEND_PASS_EVERY_MINUTES` in `src/domain/daily-cap.ts` is `5`, so a church's check-ins leave spread across its hour.
+Everything else the tick does now runs at that rate too.
 
 ## Open: how Twilio reports error 30023
 

@@ -4,9 +4,7 @@
 
 **Blocked by:** 06
 
-**Status:** needs-info
-
-Merged with the hold, the alert and the spacing in place, but one acceptance line is not met until James answers the first item under "For James".
+**Status:** shipped
 
 ## Why
 
@@ -28,14 +26,21 @@ Over it, sends fail with Twilio error 30023 until midnight Pacific.
 
 ## For James
 
-1. Decide whether the send pass runs more often than hourly.
-   Until it does, "Check-ins for one hour leave spread across that hour" is **not met**: check-ins leave all at once on the hourly tick, as they do today.
-   To switch it on, change `/cron/tick` in `vercel.json` to `*/5 * * * *` and `SEND_PASS_EVERY_MINUTES` in `src/domain/daily-cap.ts` to `5`, in one commit.
-   A test fails if only one of the two changes.
+1. Done 2026-11-03, when James asked for the partial requirements to be fixed: `/cron/tick` runs every five minutes and `SEND_PASS_EVERY_MINUTES` is `5`, so check-ins are spread.
+   To turn it off, set them back to `0 * * * *` and `60`, in one commit; a test fails if only one changes.
 2. Find out how Twilio reports 30023, by asking in the open support ticket or by reading one in the message log.
    See "Not known: when Twilio says 30023" below, because it decides whether the hold ever fires on production.
 
 ## Comments
+
+### Spreading switched on (2026-11-03)
+
+What runs on every pass was read for what a five-minute rate would do.
+The check-in and reminder logic is written to be run more than once, the sweeps and alarms repeat harmlessly, and ticket 08 already asks for the balance to be read every few minutes.
+A spread check-in has no quiet-hours check of its own, because that check is made when the tick opens the check-in.
+So a church whose check-in hour is 9pm can send its last few minutes past 10pm if the pass that opened it ran late.
+This was left as it is, since it is minutes and only on a late pass.
+Everything below that says spreading is off describes the build before this change.
 
 ### Built (2026-11-03)
 

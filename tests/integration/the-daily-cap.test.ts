@@ -1,6 +1,6 @@
 import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { createTestClock, weeks } from '~/domain/clock'
+import { createTestClock, minutes, weeks } from '~/domain/clock'
 import { DailyCapReached, holdFrom } from '~/domain/daily-cap'
 import { personId, type IdSource, type MinistryId } from '~/domain/ids'
 import { createPostgresDailyCapHolds } from '~/platform/supabase/daily-cap-holds'
@@ -154,16 +154,31 @@ describe('The daily cap on the real queue', () => {
   it('walks one hold through from the check-in hour to the next morning', async () => {
     await tickAt(CHECK_IN_HOUR)
 
-    // On today's hourly tick no check-in is given a moment of its own.
-    for (const phone of phones) {
-      expect((await rowsFor(phone)).map((row) => row.not_before)).toEqual([null])
-    }
+    // The hour's three check-ins are given their moments across it.
+    const SECOND_MOMENT = new Date(CHECK_IN_HOUR.getTime() + minutes(20))
+    const THIRD_MOMENT = new Date(CHECK_IN_HOUR.getTime() + minutes(40))
+    const moments = await Promise.all(
+      phones.map(async (phone) => (await rowsFor(phone)).map((row) => row.not_before?.getTime())),
+    )
+    expect(moments.flat().sort()).toEqual(
+      [CHECK_IN_HOUR, SECOND_MOMENT, THIRD_MOMENT].map((moment) => moment.getTime()),
+    )
 
+    // The first goes on its moment, and only then does Twilio start refusing.
     refuseAfter = 1
-    const atTheCap = await drainAt(CHECK_IN_HOUR)
-    expect(atTheCap.sent).toBe(1)
+    const first = await drainAt(CHECK_IN_HOUR)
+    expect(first.sent).toBe(1)
+    expect(first.waitingOnTheCap).toBe(0)
+
+    const atTheCap = await drainAt(SECOND_MOMENT)
+    expect(atTheCap.sent).toBe(0)
     expect(atTheCap.failed).toBe(0)
-    expect(atTheCap.waitingOnTheCap).toBe(2)
+    expect(atTheCap.waitingOnTheCap).toBe(1)
+
+    // A moment that comes during the hold joins it, without asking Twilio again.
+    const during = await drainAt(THIRD_MOMENT)
+    expect(during.sent).toBe(0)
+    expect(during.waitingOnTheCap).toBe(2)
 
     const told = delivered[0]!.to
     const heldPhones = phones.filter((phone) => phone !== told)
@@ -177,9 +192,9 @@ describe('The daily cap on the real queue', () => {
     expect(holdRows).toEqual([
       {
         day: PACIFIC_DAY,
-        reached_at: CHECK_IN_HOUR,
+        reached_at: SECOND_MOMENT,
         held_until: MIDNIGHT_PACIFIC,
-        alerted_at: CHECK_IN_HOUR,
+        alerted_at: SECOND_MOMENT,
       },
     ])
     expect(emails).toEqual([`dailyCapReached/daily-cap:${PACIFIC_DAY}`])
@@ -187,13 +202,12 @@ describe('The daily cap on the real queue', () => {
     // A held row is neither sent nor withheld, and holds nobody's number.
     for (const phone of heldPhones) {
       expect(await rowsFor(phone)).toEqual([
-        {
+        expect.objectContaining({
           sent_at: null,
           withheld_at: null,
           prompt_state: null,
           reply_opened_at: null,
-          not_before: null,
-        },
+        }),
       ])
     }
 
@@ -228,13 +242,12 @@ describe('The daily cap on the real queue', () => {
     // A conversation opens when it is really sent, so its timeout runs from there.
     for (const phone of heldPhones) {
       expect(await rowsFor(phone)).toEqual([
-        {
+        expect.objectContaining({
           sent_at: MORNING_IN_NEW_YORK,
           withheld_at: null,
           prompt_state: 'open',
           reply_opened_at: MORNING_IN_NEW_YORK,
-          not_before: null,
-        },
+        }),
       ])
     }
 
@@ -256,7 +269,7 @@ describe('The daily cap on the real queue', () => {
           personId: null,
           toPhone: aTestPhoneNumber(),
           body: 'Northgate Fellowship via Discipler: hello.',
-          enqueuedAt: new Date(CHECK_IN_HOUR.getTime() + 60_000),
+          enqueuedAt: new Date(CHECK_IN_HOUR.getTime() + minutes(41)),
           scheduledFor: null,
           notBefore: null,
           disclosesPersonId: null,
@@ -266,7 +279,7 @@ describe('The daily cap on the real queue', () => {
       ]),
     )
 
-    const during = await drainAt(new Date(CHECK_IN_HOUR.getTime() + 120_000), other.id)
+    const during = await drainAt(new Date(CHECK_IN_HOUR.getTime() + minutes(42)), other.id)
     expect(during.sent).toBe(0)
     expect(during.waitingOnTheCap).toBe(1)
 

@@ -478,7 +478,7 @@ James answered these when tickets 26 to 33 and 40 were triaged.
 | 04 - Prices, offers and the Checkout session | $97, $147, the trial, the offers, and the hosted Checkout | ready-for-agent | 03 |
 | 05 - The texting gate | No text leaves for a church without a live subscription | ready-for-agent | 03 |
 | 06 - The shared numbers | A Discipler number per person per church, replacing a number per church | shipped | Nothing |
-| 07 - The daily cap | Spread check-ins, hold texts on error 30023, alert once a day | needs-info | 06 |
+| 07 - The daily cap | Spread check-ins, hold texts on error 30023, alert once a day | shipped | 06 |
 | 08 - The Twilio balance and spend alarm | An email before an empty balance stops every text | shipped | 10 |
 | 09 - Verify | The Twilio Verify service and the Admin's phone check | shipped | Nothing |
 | 10 - Email from notify.trydiscipler.com | Resend, the domain, and the no-PII sender | shipped | Nothing |

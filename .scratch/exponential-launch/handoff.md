@@ -74,7 +74,7 @@ Ten are `shipped`; 02 is `ready-for-human`, with the reason at the end of its co
 - Texts must keep naming their number as Twilio's `From`: sending by the Messaging Service's SID would make one `STOP` silence every church (ADR-0033).
 
 Tickets 03, 07, 08, 11, 23 and 40 and the intake form's consent links were built on 2026-11-03 and merged into one branch, `launch/wave-2026-11-03`.
-Five are `shipped`; 07 is `needs-info`, because check-ins are not spread until James decides whether the send pass runs more often than hourly.
+All six are `shipped`, and `/cron/tick` now runs every five minutes so that check-ins are spread.
 Sign-up stays shut until `SIGN_UP_OPEN=true`, and nothing reads a church's billing access until ticket 05.
 What they left for a human is in `docs/open-questions.md`.
 

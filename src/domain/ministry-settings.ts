@@ -56,7 +56,7 @@ export const QUIET_HOURS = { earliest: 8, latest: 21 } as const
 /**
  * Whether the tick may text anybody at this instant, on this Ministry's clock.
  *
- * The hour is the unit because the tick runs on the hour: `latest` is the last
+ * The hour is the unit because a check-in hour is what an Admin chooses: `latest` is the last
  * hour a text may start in, so 9:00pm is inside and 10:00pm is not. An act a
  * person takes -- a reply, a keyword -- is answered whatever the hour; it is only
  * what Discipler starts on its own schedule that waits for the morning.

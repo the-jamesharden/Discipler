@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
 
   // Everything the reply produced is on the queue, and nothing sends the queue but
   // a drain. Without this one the next question left with the scheduler's next pass
-  // on the hour, and a Leader who replied at ten past waited fifty minutes to be
+  // and a Leader who replied waited for that pass to be
   // asked the next thing -- a conversation only a cron job could hold.
   //
   // Asked for here even though the command's own commit asks for one whenever it
