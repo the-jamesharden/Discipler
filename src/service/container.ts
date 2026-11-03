@@ -73,6 +73,7 @@ import {
 } from '~/platform/supabase/twilio-balance-falls'
 import type { CapacityConcern } from '~/domain/shared-numbers'
 import { createStripeBilling } from '~/platform/stripe/billing'
+import { createStripeTrials } from '~/platform/stripe/trials'
 import { createPostgresBilling, type PostgresBilling } from '~/platform/supabase/billing'
 import { createCommandService, type CommandService } from './command-service'
 import { createDailyCap, type DailyCap } from './daily-cap'
@@ -87,6 +88,7 @@ import {
   type StripeEventSweep,
   type StripeEventWork,
 } from './stripe-events'
+import type { Invitations, TrialWork } from './open-trial'
 import { createEmailSupportAlerts } from './support-alerts'
 import { watchTwilioBalance, type TwilioBalanceWatchOutcome } from './twilio-balance-watch'
 import type {
@@ -481,7 +483,24 @@ const stripeEventWork = (): StripeEventWork => ({
   inbox: billing().inbox,
   records: billing().records,
   stripe: createStripeBilling(),
+  trials: createStripeTrials(),
   alerts: getSupportAlerts(),
+  clock: systemClock,
+})
+
+/**
+ * Who invited a church. Nobody, until ticket 32's `referral` table holds the answer:
+ * that table is written when a church opens (ticket 17) and not taken from the browser,
+ * so this is the one line for it to change.
+ */
+export const getInvitations = (): Invitations => ({ wasInvited: async () => false })
+
+/** Opening a church's trial, on the server's word about everything but the choice. */
+export const getTrialWork = (): TrialWork => ({
+  records: billing().records,
+  stripe: createStripeBilling(),
+  trials: createStripeTrials(),
+  invitations: getInvitations(),
   clock: systemClock,
 })
 

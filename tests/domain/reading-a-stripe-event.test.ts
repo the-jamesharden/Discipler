@@ -138,10 +138,46 @@ describe('reading a Stripe event', () => {
     })
   })
 
-  it('acts on the twelve events the endpoint subscribes to and no others', () => {
-    expect(STRIPE_EVENTS_ACTED_ON).toHaveLength(12)
+  it('acts on the thirteen events the endpoint subscribes to and no others', () => {
+    expect(STRIPE_EVENTS_ACTED_ON).toHaveLength(13)
     expect(isStripeEventActedOn('invoice.paid')).toBe(true)
     expect(isStripeEventActedOn('customer.created')).toBe(false)
+  })
+})
+
+describe('a confirmed setup intent', () => {
+  it('is acted on, and says which customer to look at', () => {
+    expect(isStripeEventActedOn('setup_intent.succeeded')).toBe(true)
+
+    expect(
+      stripeInboxEntryOf(
+        anEvent('setup_intent.succeeded', {
+          object: 'setup_intent',
+          id: 'seti_1',
+          customer: 'cus_1',
+          payment_method: 'pm_1',
+          metadata: {},
+        }),
+      ),
+    ).toMatchObject({
+      customerId: 'cus_1',
+      subscriptionId: null,
+      invoiceId: null,
+      chargeId: null,
+      namedChurches: [],
+    })
+  })
+
+  it('finds an expanded customer, and any church it names', () => {
+    expect(
+      stripeInboxEntryOf(
+        anEvent('setup_intent.succeeded', {
+          object: 'setup_intent',
+          customer: { id: 'cus_1', object: 'customer' },
+          metadata: { ministry_id: 'church-1' },
+        }),
+      ),
+    ).toMatchObject({ customerId: 'cus_1', namedChurches: ['church-1'] })
   })
 })
 
@@ -153,6 +189,7 @@ describe('the current subscription', () => {
   ): StripeSubscriptionFacts => ({
     id,
     status,
+    awaitingPaymentMethod: false,
     createdAt: new Date(created),
     priceId: null,
     latestInvoiceId: null,
@@ -182,6 +219,29 @@ describe('the current subscription', () => {
     ])
 
     expect(current?.id).toBe('sub_paying')
+  })
+
+  it('is a confirmed one over a newer trial still waiting for its payment method', () => {
+    const confirmed = aSubscription('sub_confirmed', 'trialing', '2026-01-01')
+    const waiting = {
+      ...aSubscription('sub_waiting', 'trialing', '2026-06-01'),
+      awaitingPaymentMethod: true,
+    }
+
+    expect(currentSubscription([waiting, confirmed])?.id).toBe('sub_confirmed')
+  })
+
+  it('is the new trial over an older one that ran out waiting', () => {
+    const ranOut = {
+      ...aSubscription('sub_ran_out', 'canceled', '2026-01-01'),
+      awaitingPaymentMethod: true,
+    }
+    const fresh = {
+      ...aSubscription('sub_fresh', 'trialing', '2026-06-01'),
+      awaitingPaymentMethod: true,
+    }
+
+    expect(currentSubscription([ranOut, fresh])?.id).toBe('sub_fresh')
   })
 
   it('is the restart, whichever order Stripe lists them in', () => {

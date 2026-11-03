@@ -47,6 +47,7 @@ import type {
   StripeInboxEntry,
   StripeSubscriptionFacts,
 } from '~/domain/billing'
+import type { BillingCycle, FingerprintGrant, PaidPhase, TrialOffer } from '~/domain/offers'
 import type { GrowthChoice, GrowthSeries } from '~/domain/growth'
 import type { IsoWeek } from '~/domain/week'
 import type { ConcernResolution, ConcernViewing, NewConcern } from '~/domain/concerns'
@@ -1755,17 +1756,69 @@ export interface BillingEventRefused {
 }
 
 /**
- * Stripe's API, behind this and nowhere else. Reads only: the webhook's processing
- * asks what is true now and never changes anything at Stripe.
+ * Stripe's API as read, behind this and nowhere else: the webhook's processing asks
+ * what is true now. What is written is `StripeTrials`.
  *
  * Throws when Stripe cannot answer, which leaves the event unprocessed for the next
  * sweep.
  */
 export interface StripeBilling {
-  /** Every Subscription the customer has ever held, in no promised order. */
+  /**
+   * Every Subscription the customer has ever held, in no promised order, each with
+   * whether its setup intent has been confirmed.
+   */
   subscriptionsOf(customerId: string): Promise<readonly StripeSubscriptionFacts[]>
   /** The customer a charge was made to, for a dispute, which names only its charge. */
   customerOfCharge(chargeId: string): Promise<string | null>
+}
+
+/** A trial just opened, and the secret the Payment Element confirms its setup intent with. */
+export interface OpenedTrial {
+  readonly subscription: StripeSubscriptionFacts
+  readonly clientSecret: string
+}
+
+/**
+ * What is written to Stripe (Exponential launch, ticket 04), which is all about a
+ * church's trial. Throws when Stripe cannot do it; nothing is half-done in a way a
+ * second try cannot finish.
+ */
+export interface StripeTrials {
+  /** A Customer with the church's name and the Admin's email, and nothing else. */
+  createCustomer(customer: {
+    readonly church: MinistryId
+    readonly churchName: string
+    readonly email: string | null
+  }): Promise<{ readonly id: string; readonly livemode: boolean }>
+  /**
+   * A Subscription on the starting price of `cycle`, trialing for `trialDays`, naming
+   * its church in its metadata. Its setup intent awaits the Payment Element.
+   */
+  openTrial(trial: {
+    readonly customerId: string
+    readonly church: MinistryId
+    readonly cycle: BillingCycle
+    readonly trialDays: number
+  }): Promise<OpenedTrial>
+  /** The secret of a Subscription's setup intent still to be confirmed, or null. */
+  setupSecretOf(subscriptionId: string): Promise<string | null>
+  /** Ends a Subscription nobody confirmed, and its setup intent with it. */
+  cancelUnconfirmed(subscriptionId: string): Promise<void>
+  /**
+   * Makes sure the payment method saved for this Subscription is its default, so its
+   * trial does not end as though it had none. Answers that method's fingerprint, which
+   * is null for a method that has none, or null in place of the whole answer where the
+   * customer holds no payment method at all.
+   */
+  confirmDefaultPaymentMethod(
+    subscriptionId: string,
+    customerId: string,
+  ): Promise<{ readonly fingerprint: string | null } | null>
+  /**
+   * Replaces what a Subscription bills after its free days with these phases, through
+   * its schedule, made if it has none. Doing it twice is doing it once.
+   */
+  schedulePhases(subscriptionId: string, phases: readonly PaidPhase[]): Promise<void>
 }
 
 /**
@@ -1805,10 +1858,37 @@ export interface ChurchBilling {
   readonly priceId: string | null
 }
 
-/** One scoped, per-church transaction's writes. See `BillingRecords.establish`. */
+/** What a Subscription was opened with (ticket 04). */
+export interface TrialOpening {
+  readonly subscriptionId: string
+  readonly cycle: BillingCycle
+  readonly offer: TrialOffer
+  /** Whether what follows its confirmed setup intent has been done. */
+  readonly settled: boolean
+}
+
+/** One scoped, per-church transaction's work. See `BillingRecords.establish`. */
 export interface BillingUnit {
   /** Appends what an event established. A second call for one event changes nothing. */
   record(fact: BillingFact, at: Date): Promise<void>
+  /** Keeps what a Subscription was just opened with (ticket 04). */
+  recordOpening(
+    opening: Pick<TrialOpening, 'subscriptionId' | 'cycle' | 'offer'>,
+    at: Date,
+  ): Promise<void>
+  /** What a Subscription of this church was opened with, or null if it was not opened here. */
+  openingOf(subscriptionId: string): Promise<TrialOpening | null>
+  /** Says what followed its confirmed setup intent is done. */
+  settleOpening(
+    subscriptionId: string,
+    settledAs: 'as_opened' | 'free_month_refused',
+    at: Date,
+  ): Promise<void>
+  /**
+   * Whether this church may have this grant on this card or bank account: yes the first
+   * time and every time after for the church that has it, no for every other church.
+   */
+  claimFingerprint(fingerprint: string, grant: FingerprintGrant, at: Date): Promise<boolean>
 }
 
 /**
