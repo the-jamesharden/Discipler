@@ -113,8 +113,22 @@ The sender is not changed, and this is how the form sits inside it.
   `/join/{shortName}` and `/intake/{shortName}` keep a church's own public short name.
 - **The form posts with `fetch` and stays on screen**, as the phone check does, so a refusal never costs anybody what they typed.
   Without a script it says to write to support@, and a press before the page comes alive still posts rather than putting the message in an address, landing on the route's JSON.
-- **Turnstile shows nothing unless it needs a press** (`appearance: 'interaction-only'`), and pressing Send before it has answered says to wait a moment.
+- **Turnstile shows nothing unless it needs a press** (`appearance: 'interaction-only'`), and pressing Send before it has answered says to wait a moment or write to support@, because a browser that blocks Cloudflare never gets an answer.
 - **Rows go with their church** (`on delete cascade`), and `submitted_by` is no foreign key, so a row outlives an account until its own day.
 - **`whyNotSent` moved from `src/service/sign-up.ts` to `src/service/email-sender.ts`**, unchanged, because two callers now need it.
 - **Mail in the support@ inbox is not touched.**
   The privacy policy promises "support emails" are deleted after 12 months too, and that is a retention setting on the mailbox.
+
+### Looked at in a browser (2026-11-03)
+
+Headless Chrome on a production build, at 1440, 390 and 320 wide, with Cloudflare's public test site key: the Help menu, the form, a bug report, sent, refused, signed out and the "Still stuck?" line.
+The menu's row matches mock-up 2, no page scrolls sideways, and a person's page reaches the form as `/roster/{id}`.
+Turnstile's script loaded and its box stayed at no height, and no signed-out send passed through a real Cloudflare answer in the browser.
+
+**Open: an intermittent React error 418 on Admin pages, cause not found.**
+The page recovers by rendering in the browser, and nothing looked wrong on screen.
+It came on some visits and not others, with the machine under heavy load.
+In the one run that tracked the page across both kinds, it came on 3 of 20 visits to pages with the Admin header and 0 of 10 to pages without.
+In a paired run of 40 visits each, the build as committed had 2, both on `/roster`, and the build without `FromThisPageLink` had none.
+That points at the link without proving it, because the two runs were not under equal load and 2 in 40 is few.
+What mismatched was never captured, which needs a dev server under the shared lock.
