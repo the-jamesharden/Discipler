@@ -22,6 +22,7 @@ If the token verifies but names no held session the document says `signed-out` a
 If the session administers no Ministry it says `not-an-admin` and carries no ministry data.
 The shell's Follow-Up badge is handed in by every page from that document, so the shell never reads on its own.
 The same goes for the Admin's name, which the top nav draws on every Admin page, and the What's new entries they have dismissed, which its New tag follows: each is one more field of `app.page_session()`, which every page function starts from.
+So too the setup meter under the tabs, whose steps are read by `app.setup_meter_of` inside that same call; once an Admin has seen its badge that function answers from their own membership row and reads no history.
 
 ## Context
 

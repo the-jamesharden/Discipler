@@ -62,3 +62,62 @@ What ticks each one (James, triage 2026-10-31, for step 1):
 - Pressing Save on the check-in section without changing it ticks step 1.
 - A second Admin sees the badge once, on their next sign-in after 100%, and never again.
 - SAU BCM shows its real progress on the first sign-in after launch.
+
+## Comments
+
+**Built (2026-11-03, branch `launch/26-setup-meter`).**
+`supabase/migrations/20261104102600_the_setup_meter.sql` adds `app.setup_meter_of(ministry)` and one key, `setup`, to `app.page_session()`, copied from the newest definition with nothing else changed.
+The bookmark is two columns on `ministry_member`: `setup_steps_seen` and `setup_badge_seen_at`.
+`src/domain/setup-meter.ts` holds the steps and the history names, `app/setup-meter-copy.ts` holds every word and each step's address, and `app/setup-meter-bar.tsx` plays it.
+
+**One read, counted.**
+From the Kong log, with the bar drawn on each page, each of these made exactly one REST call: `/overview`, `/check-ins`, `/suggested-pairs`, `/follow-up`, `/materials`, `/materials/new`, `/roster`, `/roster/{person}`, `/settings`, `/intake-forms`, `/account`, `/relationships`.
+Each "has this happened" is a single probe of a partial index, `ministry_event_setup_step_idx`, and the whole thing short-circuits once this Admin has seen the badge.
+
+**Decided: Start the tour and Send test (steps 2 and 3).**
+Their tickets are not built, so each step's address in `STEP_COPY` is `null`.
+A step with no address is listed in the bar with no button, and "Next:" passes over it to the first step that has one.
+The alternatives were a "Next:" line with no button, a greyed button, or hiding the bar until 27 and 28 ship; the first two lead an Admin to something that does nothing, and the third loses SAU BCM's real progress at launch.
+The consequence, on purpose: no church can reach 100% or see the badge until 27 and 28 ship, and a church with only those two left, SAU BCM's shape at 5 of 7, shows no "Next:" line at all.
+Each of 27 and 28 has one line to change, the address, and one thing to record.
+
+**Decided: what 27 and 28 record.**
+Ticket 27 appends `setup.tour_finished` with the builder `tourFinished`, and ticket 28 appends `setup.test_check_in_sent` with `testCheckInSent`, both in `src/domain/setup-meter.ts`.
+The alternative was reading ticket 28's table, which does not exist yet and would have had this migration name it.
+The SQL already reads both, so neither ticket has to touch the meter's read.
+
+**Decided: an unchanged Save writes its own event.**
+It appends `setup.check_in_time_confirmed`, not an empty `ministry.settings_changed`, because that event's meaning is that something changed.
+Pressing Save unchanged over and over appends each time, which I accepted as rare and harmless.
+Any Save on the one Settings form counts, since the form has one button, and any past `ministry.settings_changed` counts for a church from before launch.
+
+**Decided: row or event for steps 4 to 7.**
+Each reads its event or the row, because a church from before launch has rows that no event describes, such as a pilot's hand-made people.
+The event half is what keeps a step from going down: ending or removing the row leaves the event.
+A row-only step could still go down if that row were deleted, which is the pre-launch shape only.
+Production was not read, so this is proven against a fixture of SAU BCM's shape and not its real numbers.
+
+**Decided: the bar opens itself to play.**
+The ticket's checkboxes are hidden when the bar is folded, so unseen steps grow it, pop in turn, and fold it again.
+The alternative was waiting until the Admin opens it, which most would never see.
+An Admin at a church from before launch sees all its done steps pop once, in turn.
+
+**Decided: the badge is recorded as it plays.**
+It plays once however the Admin leaves it, rather than replaying until "Thank you!" is pressed.
+A reload in the moment before the record lands can replay it, which is harmless.
+"Thank you!" is still a real form that works with no script, landing on Overview.
+Steps are not played separately when the badge is due.
+
+**Decided, smaller.**
+"Pair someone" and "See who is waiting" both go to `/roster`: Follow-Up lists unaccepted relationships only after the escalation wait, and the empty Overview already says to pair from the Roster.
+Every undone step with an address carries its button when grown, as the mock-up draws, with the next one highlighted.
+The route is `/settings/setup-seen`, so no new top-level name.
+Pages under `PageShell` have the bar under the header, since they have no tabs.
+Help pages have no Admin tabs and are not counted as Admin pages; the reset-done page draws outside the shell and has no bar.
+The seen bookmark is not ministry history and writes no event.
+
+**Words.**
+All from this ticket and the mock-ups, except one draft: "(done)", the text only a screen reader hears on a ticked step.
+
+**For ticket 27.**
+A first sign-in at a church from before launch would play the bar's confetti behind the onboarding modal, so the bar should hold back while the modal is open; ticket 27 carries the same note.

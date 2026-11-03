@@ -318,6 +318,9 @@ describe('applying a command\'s effects', () => {
         ministryShortName: async () => {
           throw new Error('the short name should not have been read')
         },
+        markSetupSeen: async () => {
+          throw new Error('nothing should have been marked seen')
+        },
         changeShortName: async () => {
           throw new Error('the short name should not have been changed')
         },

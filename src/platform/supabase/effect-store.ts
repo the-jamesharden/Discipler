@@ -45,6 +45,7 @@ import type {
   ParticipantDeparture,
   RelationshipCancellation,
   RelationshipEnding,
+  SetupSeen,
   ShortNameChange,
   IntakeAnswersRemoval,
   IntakeFormSaving,
@@ -1237,6 +1238,24 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     if (rowCount !== 1) {
       throw new Error('This command has no Ministry to give a short name to')
     }
+  },
+
+  async markSetupSeen(seen: SetupSeen) {
+    // Added to and never replaced, so two tabs reporting different steps both land.
+    const { rowCount } = await client.query(
+      `update ministry_member
+          set setup_steps_seen = array(
+                select distinct step
+                  from unnest(setup_steps_seen || $2::text[]) as step
+                 order by step
+              ),
+              setup_badge_seen_at = coalesce(setup_badge_seen_at, $3)
+        where user_id = $1
+          and tier = 'admin'`,
+      [seen.userId, seen.steps, seen.badgeSeenAt],
+    )
+
+    if (rowCount !== 1) throw new Error('This command has no Admin to mark the setup meter seen for')
   },
 
   async createPeople(people: readonly NewPerson[]) {

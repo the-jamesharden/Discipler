@@ -50,6 +50,8 @@ describe('the signed-in Admin answers in one read', () => {
         whats_new_dismissed: [],
       },
       billing: OUTSIDE_STRIPE,
+      // The setup meter's own document (ticket 26), proved in `the-setup-meter-over-http`.
+      setup: expect.objectContaining({ finished: false }),
     })
   })
 

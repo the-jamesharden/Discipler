@@ -45,7 +45,7 @@ create policy whats_new_dismissal_command on whats_new_dismissal
   using (ministry_id = app.command_ministry_id())
   with check (ministry_id = app.command_ministry_id());
 
--- The newest definition (`20261103102300_the_page_session_names_the_admin.sql`), with
+-- The newest definition (`20261104102600_the_setup_meter.sql`), with
 -- `whats_new_dismissed` added to `admin` and nothing else changed.
 create or replace function app.page_session()
 returns jsonb
@@ -98,7 +98,8 @@ begin
            and d.user_id = uid
       )
     ),
-    'billing', (select to_jsonb(s) from app.billing_state_of(membership.ministry_id) s)
+    'billing', (select to_jsonb(s) from app.billing_state_of(membership.ministry_id) s),
+    'setup', app.setup_meter_of(membership.ministry_id)
   );
 end;
 $$;

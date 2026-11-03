@@ -49,6 +49,7 @@ export default async function AccountPage({
       subtitle="Discipler"
       back={{ href: '/', label: 'Back' }}
       actions={resolution.status === 'admin' ? <AdminNav admin={resolution.admin} /> : <AccountMenu />}
+      {...(resolution.status === 'admin' ? { admin: resolution.admin } : {})}
     >
       <div className="card">
         {refusals.length > 0 ? (

@@ -10,6 +10,7 @@ import type {
   RelationshipId,
 } from './ids'
 import type { GoalDirection } from './discipleship-goals'
+import type { SetupStep } from './setup-meter'
 import type { MaterialFile } from './materials'
 
 /** A link as the form sent it. Whether it is a link at all is the boundary's to say. */
@@ -721,6 +722,19 @@ export type Command =
       readonly shortName: string
       /** The Admin's account, as the session named it, for the record. */
       readonly changedBy: string
+    }
+  /**
+   * An Admin has watched these setup steps tick, or been shown the badge at 100%
+   * (Exponential launch, ticket 26). Sent by the bar itself, and only when there was
+   * something new to play.
+   */
+  | {
+      readonly type: 'setup.mark_seen'
+      readonly ministryId: MinistryId
+      /** The Admin's account, from the session and never from the page. */
+      readonly seenBy: string
+      readonly steps: readonly SetupStep[]
+      readonly badge: boolean
     }
   /**
    * The six ways an Admin edits one of the Ministry's two Intake forms (Pastor

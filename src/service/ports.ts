@@ -91,6 +91,7 @@ import type {
   PersonRenaming,
   RelationshipCancellation,
   RelationshipEnding,
+  SetupSeen,
   ShortNameChange,
   IntakeAnswersRemoval,
   IntakeFormSaving,
@@ -107,6 +108,7 @@ import type { OfferedGoal, StatedGoal } from '~/domain/discipleship-goals'
 import type { MaterialItem, MaterialOnOffer } from '~/domain/materials'
 import type { MaterialRecipient } from '~/domain/material-notices'
 import type { MinistrySettings, MinistryVoice } from '~/domain/ministry-settings'
+import type { SetupMeter } from '~/domain/setup-meter'
 import type { ShortName } from '~/domain/short-name'
 import type { IntakeLinkState, IntakeLinkToken, NewIntakeLink } from '~/domain/intake-link'
 import type { InboundSnapshot } from '~/domain/keywords'
@@ -621,6 +623,9 @@ export interface UnitOfWork {
    * when another Ministry holds it or ever held it, which only the database can see.
    */
   changeShortName(change: ShortNameChange): Promise<void>
+
+  /** Adds to what one Admin has watched of the setup meter, and never takes away. */
+  markSetupSeen(seen: SetupSeen): Promise<void>
 
   /**
    * One of this Ministry's Intake forms as it stands now (Pastor feedback, ticket
@@ -2748,6 +2753,13 @@ export interface SignedInAdmin {
    * same one read, for the Overview card and the Help menu's New tag on every page.
    */
   readonly whatsNewDismissed: readonly string[]
+
+  /**
+   * Where they stand with their church's setup meter, which every page's document
+   * carries so the bar under the tabs needs no read of its own (Exponential launch,
+   * ticket 26).
+   */
+  readonly setup: SetupMeter
 }
 
 /**

@@ -1,11 +1,10 @@
 import { existsSync } from 'node:fs'
-import { helpPage } from '../../app/help/library'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { HEADINGS } from '../../app/search/copy'
 import { labelParts, rowMatches, termsOf, type DirectoryRow } from '../../app/search/match'
 import { DIRECTORY_PAGES, directoryFor, type DirectoryPage, type SearchNames } from '../../app/search/pages'
-import { HELP_PAGES } from '../../app/help/library'
+import { HELP_PAGES, helpPage } from '../../app/help/library'
 
 /**
  * What search lists and what a typed word finds (Exponential launch, ticket 24). Pure:

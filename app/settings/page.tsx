@@ -72,6 +72,7 @@ export default async function MinistrySettingsPage({
       subtitle={settings.name}
       back={{ href: '/overview', label: 'Back to the overview' }}
       actions={<AdminNav admin={admin} />}
+      admin={admin}
     >
       {refusals.length > 0 ? (
         <p className="toast error" role="alert">
