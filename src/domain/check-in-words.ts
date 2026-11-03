@@ -164,20 +164,21 @@ const isAToken = (word: string): boolean =>
  * stands between has to be filler: `did you text [name] 2 times` is a question, and
  * `please reply with more detail` is what the concern line is for.
  */
-const asksForAToken = (sentence: string): boolean => {
-  const words = sentence.match(/[\p{L}\p{N}]+/gu) ?? []
+const asksForAToken = (line: string): boolean =>
+  line.split(/[.!?]/).some((sentence) => {
+    const words = sentence.match(/[\p{L}\p{N}]+/gu) ?? []
 
-  return words.some((word, index) => {
-    if (!REPLY_VERBS.has(word.toLowerCase())) return false
+    return words.some((word, index) => {
+      if (!REPLY_VERBS.has(word.toLowerCase())) return false
 
-    // A capital `A` is the rating and not the article, so a token is looked for first.
-    const rest = words.slice(index + 1)
-    const token = rest.find(
-      (each) => isAToken(each) || !BETWEEN_THE_VERB_AND_THE_TOKEN.has(each.toLowerCase()),
-    )
-    return token !== undefined && isAToken(token)
+      // A capital `A` is the rating and not the article, so a token is looked for first.
+      const rest = words.slice(index + 1)
+      const token = rest.find(
+        (each) => isAToken(each) || !BETWEEN_THE_VERB_AND_THE_TOKEN.has(each.toLowerCase()),
+      )
+      return token !== undefined && isAToken(token)
+    })
   })
-}
 
 /** `1 for yes`, `A = great`, `2 means no`: reply choices with no verb in front. */
 const OFFERS_A_CHOICE = /(?<![\p{L}\p{N}])(?:\d|[A-D])\s*(?:for|=|means|if)\s+\S/u

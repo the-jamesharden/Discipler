@@ -302,6 +302,8 @@ describe('reading the four lines off the form', () => {
       'Did you meet with [name] at the end of the week?',
       'Did [name] answer your text?',
       'Thank you. We’ll check in with you next week.',
+      'Thanks for your reply. A pastor will follow up this week.',
+      'Thank you for your answer. Stop by the office anytime.',
     ]
 
     for (const sentence of natural) {
