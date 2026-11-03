@@ -1,6 +1,14 @@
 import { EmailField, emailBody, emailSubject } from '~/domain/email'
 import type { CapacityConcern } from '~/domain/shared-numbers'
+import { TWILIO_BALANCE_FLOOR_CENTS, dollars } from '~/domain/twilio-balance'
 import type { EmailSender, SupportAlerts } from './ports'
+
+const NOT_SAID = 'Twilio did not say'
+
+const amountOf = (cents: number | null): string => (cents === null ? NOT_SAID : dollars(cents))
+
+/** `2026-11-09 15:00 UTC`. */
+const atTheMinute = (at: Date): string => `${at.toISOString().slice(0, 16).replace('T', ' ')} UTC`
 
 const CONCERN_SAYS: Readonly<Record<CapacityConcern, string>> = {
   recipients: 'The shared numbers carry close to as many people as they safely can.',
@@ -25,6 +33,35 @@ Right now ${EmailField.line(String(numbers))} numbers carry ${EmailField.line(St
 
 Buy a number into the discipler-sms Messaging Service in Twilio, then add it to the shared set with npm run shared-number against production. Until one is added, a church's first text to a phone that already hears from every number waits on the queue.`,
       once: `numbers-near-capacity:${concern}:${numbers}:${day}`,
+    })
+  },
+
+  async twilioBalanceLow({ id, balanceCents, fellAt }) {
+    const floor = EmailField.line(dollars(TWILIO_BALANCE_FLOOR_CENTS))
+    await sender.send({
+      kind: 'twilioBalanceLow',
+      subject: emailSubject`The Twilio balance is below ${floor}`,
+      body: emailBody`The Twilio balance was ${EmailField.line(dollars(balanceCents))} when Discipler read it at ${EmailField.line(atTheMinute(fellAt))}, which is below ${floor}.
+
+Auto-recharge should have refilled it before now, so a recharge may have failed. Check the card and the auto-recharge setting in Twilio's billing. If the balance runs out, every church's texts and phone codes stop.
+
+This email is not sent again until the balance has recovered and fallen again.`,
+      once: id,
+    })
+  },
+
+  async twilioSpendPassed({ spentCents, markCents, watching, once }) {
+    await sender.send({
+      kind: 'twilioSpendPassed',
+      subject: emailSubject`A day of Twilio spending passed its mark`,
+      body: emailBody`Twilio's usage trigger fired: one day's spending has passed the amount set on it.
+
+Spent so far: ${EmailField.line(amountOf(spentCents))}
+The amount set: ${EmailField.line(amountOf(markCents))}
+What it watches: ${EmailField.line(watching ?? NOT_SAID)}
+
+Nothing has been stopped, and texts keep going. Look at usage in Twilio's console to see what is sending.`,
+      once,
     })
   },
 })

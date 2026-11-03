@@ -30,4 +30,6 @@ export const OPERATOR_ONLY_TABLES: readonly string[] = [
   // The shared numbers and the capacity watch's history (Exponential launch, ticket 06).
   'shared_number',
   'shared_number_capacity_alert',
+  // The falls of the Twilio balance below its floor (Exponential launch, ticket 08).
+  'twilio_balance_fall',
 ]

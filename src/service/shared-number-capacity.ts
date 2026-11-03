@@ -4,7 +4,7 @@ import type { SharedNumberCapacity, SupportAlerts } from './ports'
 
 export interface CapacityWatch {
   readonly numbers: SharedNumberCapacity
-  readonly alerts: SupportAlerts
+  readonly alerts: Pick<SupportAlerts, 'sharedNumbersNearCapacity'>
   readonly clock: Clock
 }
 
