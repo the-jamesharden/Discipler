@@ -9,6 +9,7 @@ import type {
   Satisfaction,
 } from './check-in'
 import type { ConcernResolution, ConcernViewing, NewConcern } from './concerns'
+import type { WhatsNewDismissal } from './whats-new'
 import type { NewHistoryEvent } from './history'
 import type { ImportRowId, MaterialId, MinistryId, PersonId, RelationshipId } from './ids'
 import type {
@@ -948,6 +949,7 @@ export type Effect =
   | { readonly kind: 'materialLink.issue'; readonly link: NewMaterialLink }
   | { readonly kind: 'concern.raise'; readonly concern: NewConcern }
   | { readonly kind: 'concern.view'; readonly viewing: ConcernViewing }
+  | { readonly kind: 'whatsNew.dismiss'; readonly dismissal: WhatsNewDismissal }
   | { readonly kind: 'concern.resolve'; readonly resolution: ConcernResolution }
 
 export const appendHistory = (event: NewHistoryEvent): Effect => ({
@@ -1310,6 +1312,11 @@ export const raiseConcern = (concern: NewConcern): Effect => ({
 export const recordConcernViewing = (viewing: ConcernViewing): Effect => ({
   kind: 'concern.view',
   viewing,
+})
+
+export const recordWhatsNewDismissal = (dismissal: WhatsNewDismissal): Effect => ({
+  kind: 'whatsNew.dismiss',
+  dismissal,
 })
 
 export const resolveConcern = (resolution: ConcernResolution): Effect => ({

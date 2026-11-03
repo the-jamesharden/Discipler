@@ -21,7 +21,7 @@ A request with no verified token is answered `signed-out` by the reader before a
 If the token verifies but names no held session the document says `signed-out` and carries no ministry data.
 If the session administers no Ministry it says `not-an-admin` and carries no ministry data.
 The shell's Follow-Up badge is handed in by every page from that document, so the shell never reads on its own.
-The same goes for the Admin's name, which the top nav draws on every Admin page: it is one more field of `app.page_session()`, which every page function starts from.
+The same goes for the Admin's name, which the top nav draws on every Admin page, and the What's new entries they have dismissed, which its New tag follows: each is one more field of `app.page_session()`, which every page function starts from.
 
 ## Context
 

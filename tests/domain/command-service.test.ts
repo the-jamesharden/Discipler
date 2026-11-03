@@ -214,6 +214,9 @@ describe('applying a command\'s effects', () => {
         recordConcernViewing: async () => {
           throw new Error('no Concern should have been opened')
         },
+        recordWhatsNewDismissal: async () => {
+          throw new Error('no What\u2019s new entry should have been dismissed')
+        },
         resolveConcern: async () => {
           throw new Error('no Concern should have been resolved')
         },

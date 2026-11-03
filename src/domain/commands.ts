@@ -476,6 +476,14 @@ export type Command =
       /** The Admin's account, as the session named it. */
       readonly viewedBy: string
     }
+  /** An Admin closing a What's new entry, for themselves alone (Exponential launch, ticket 30). */
+  | {
+      readonly type: 'whats_new.dismiss'
+      readonly ministryId: MinistryId
+      readonly entryId: string
+      /** The Admin's account, as the session named it. */
+      readonly dismissedBy: string
+    }
   /**
    * An Admin resolving a Concern, which is the only thing that closes one. No
    * answered check-in clears it and it never clears itself -- that is the whole

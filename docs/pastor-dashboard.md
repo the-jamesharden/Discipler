@@ -257,8 +257,12 @@ It can be closed, it goes away when the Admin moves to another tab, and it hides
 ## What's new and office hours
 
 Two cards sit in a row at the top of Overview.
-What's new reads its entries from a file in the repo, and each Admin dismisses them for themselves.
-Office hours shows the team's next Zoom call, every two weeks, from a file in the repo, and hides itself once the date has passed.
+What's new reads its entries from a file in the repo, `app/help/whats-new.ts`, and shows the newest this Admin has not dismissed; each Admin dismisses them for themselves.
+Office hours shows the team's next Zoom call, every two weeks, from a file in the repo, `app/help/office-hours.ts`, and hides itself once the date has passed where the call is held.
+One card alone takes the row, and with neither there is no row.
+
+In the Help menu, What's new opens every entry at `/help/whats-new`, and wears its New tag while this Admin has an undismissed entry.
+Office hours is there only while the Overview card is, and opens that card.
 
 ## Refer and Billing
 

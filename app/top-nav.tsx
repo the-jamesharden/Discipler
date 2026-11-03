@@ -1,7 +1,11 @@
 import Link from 'next/link'
 import type { ComponentType } from 'react'
+import { upcomingOfficeHours } from '~/domain/office-hours'
+import { newestUndismissed } from '~/domain/whats-new'
 import type { SignedInAdmin } from '~/service/ports'
 import { CHANGE_YOUR_PASSWORD, SIGN_OUT } from './account/copy'
+import { NEXT_OFFICE_HOURS } from './help/office-hours'
+import { WHATS_NEW } from './help/whats-new'
 import {
   Book,
   Calendar,
@@ -22,7 +26,7 @@ import {
 import { initialsOf } from './initials'
 import { INTAKE_FORMS } from './intake-forms/copy'
 import { TopNavMenusClose } from './top-nav-menus-close'
-import { HELP_MENU, liveMenu, REFER_A_CHURCH, type TopNavIcon } from './top-nav-menus'
+import { helpMenuFor, liveMenu, REFER_A_CHURCH, type TopNavIcon } from './top-nav-menus'
 
 /**
  * The top nav: the buttons at the right of every Admin page's header (Exponential
@@ -54,13 +58,18 @@ const ICONS: Readonly<Record<TopNavIcon, ComponentType>> = {
   pen: Pen,
 }
 
-const HelpMenu = () => (
+const HelpMenu = ({ admin }: { readonly admin: SignedInAdmin }) => (
   <details className="top-menu" name={MENU_GROUP}>
     <summary className="icon-btn" aria-label="Help and feedback" title="Help">
       <QuestionMark />
     </summary>
     <div className="top-menu-panel">
-      {liveMenu(HELP_MENU).map((group) => (
+      {liveMenu(
+        helpMenuFor({
+          whatsNewIsNew: newestUndismissed(WHATS_NEW, admin.whatsNewDismissed) !== null,
+          officeHours: upcomingOfficeHours(NEXT_OFFICE_HOURS, new Date()),
+        }),
+      ).map((group) => (
         <div className="top-menu-group" key={group.label}>
           <p className="top-menu-label">{group.label}</p>
           {group.items.map((item) => {
@@ -134,7 +143,7 @@ export const AdminNav = ({ admin }: { readonly admin: SignedInAdmin }) => (
         <span className="refer-text">{REFER_A_CHURCH.label}</span>
       </Link>
     ) : null}
-    <HelpMenu />
+    <HelpMenu admin={admin} />
     <Link className="icon-btn" href="/settings" aria-label="Settings" title="Settings">
       <Gear />
     </Link>

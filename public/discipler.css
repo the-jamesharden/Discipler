@@ -542,6 +542,21 @@ a.rel-card:hover { box-shadow: 0 3px 14px rgba(45, 80, 22, 0.12); }
 .unpaired .line { font-size: 1.02rem; margin-top: 0.55rem; line-height: 1.45; }
 .unpaired .acts { display: flex; gap: 0.6rem; margin-top: 1rem; flex-wrap: wrap; }
 .unpaired .acts .btn { font-size: 0.95rem; padding: 0.55rem 1rem; }
+
+/* What's new and office hours (Exponential launch, ticket 30): side by side at the top
+   of Overview, and one alone takes the row. */
+.news-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 1rem; margin-bottom: 1.25rem; }
+.news-card { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 0.9rem 1.1rem 1rem; box-shadow: 0 2px 12px var(--shadow); min-width: 0; }
+.news-card .kicker { display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; color: var(--amber-ink); }
+.news-card .kicker .ico { width: 1rem; height: 1rem; }
+.news-card h2 { font-family: var(--sans); font-size: 1rem; font-weight: 700; color: var(--text); margin: 0.3rem 0 0.15rem; padding-right: 1.5rem; }
+.news-card p:not(.kicker) { font-size: 0.86rem; color: var(--text-light); }
+.news-card > a:not(.btn) { display: inline-block; font-size: 0.86rem; font-weight: 600; color: var(--primary); margin-top: 0.45rem; }
+.news-card .btn { margin-top: 0.6rem; }
+.news-card .x { position: absolute; top: 0.55rem; right: 0.55rem; background: transparent; color: var(--text-light); padding: 0.2rem; border-radius: 6px; line-height: 0; }
+.news-card .x:hover { background: rgba(0, 0, 0, 0.05); color: var(--text); }
+.news-card .x .ico { width: 1rem; height: 1rem; }
+@media (max-width: 760px) { .news-row { grid-auto-flow: row; } }
 @media (max-width: 560px) {
   .unpaired { left: 1rem; right: 1rem; bottom: 1rem; width: auto; max-width: none; }
 }

@@ -45,9 +45,11 @@ import { NOT_MEETING_WEEKS_BEFORE_STALLED, UNANSWERED_WEEKS_BEFORE_STALLED } fro
 import { ACCEPTANCE_ESCALATION_DAYS, ACCEPTANCE_REMINDER_DAYS } from '~/domain/relationships'
 import { LONGEST_PASSWORD_BYTES, SHORTEST_PASSWORD } from '~/domain/accounts'
 import { TIER_CUTOFFS } from '~/domain/suggestions'
+import type { WhatsNewEntry } from '~/domain/whats-new'
 import { WEEKS_ON_THE_CHART } from '~/domain/growth'
 import { hourLabel } from '../settings/copy'
 import { SETUP_VIDEOS, type SetupVideo } from './setup-videos'
+import { WHATS_NEW } from './whats-new'
 
 /**
  * What the help docs' placeholders stand for. A page never types a number: it
@@ -107,6 +109,15 @@ export const setupVideoList = (videos: readonly SetupVideo[]): string =>
     : videos
         .map((video) => `- [${video.title.replace(/[[\]\\]/g, '\\$&')}](${encodeURI(video.url)})`)
         .join('\n')
+
+/** The What's new page's entries, newest first, each under its own heading. */
+export const whatsNewList = (entries: readonly WhatsNewEntry[]): string =>
+  [...entries]
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .map(({ title, date, sentence, readMore }) =>
+      [`## ${title}`, calendarDate(date), sentence, ...(readMore ? [`[Read more](${readMore})`] : [])].join('\n\n'),
+    )
+    .join('\n\n')
 
 /** The church and the person every example text names. Made up, and nobody's. */
 const EXAMPLE_CHURCH = 'Riverside Chapel'
@@ -189,6 +200,7 @@ export const HELP_FACTS: Readonly<Record<string, string>> = {
   aiChatKept: duration(AI_GUIDE_CHAT_KEPT_DAYS, 'day'),
   officeHoursEvery: duration(OFFICE_HOURS_EVERY_WEEKS, 'week'),
   setupVideos: setupVideoList(SETUP_VIDEOS),
+  whatsNewEntries: whatsNewList(WHATS_NEW),
 
   // Texts, word for word, from the composers that send them.
   exampleChurch: EXAMPLE_CHURCH,
