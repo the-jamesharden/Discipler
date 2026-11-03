@@ -41,6 +41,7 @@ import { createSupabaseOverviewReader } from '~/platform/supabase/overview-reade
 import { messageTransportKind } from '~/platform/deployment'
 import { createRecordingTransport } from '~/platform/recording-transport'
 import { createRecordingVerifier } from '~/platform/recording-verifier'
+import { createTwilioBalanceReader } from '~/platform/twilio/account-balance'
 import { createTwilioTransport } from '~/platform/twilio/message-transport'
 import { createResendTransport } from '~/platform/resend/email-transport'
 import { createTwilioVerifier } from '~/platform/twilio/phone-verifier'
@@ -56,6 +57,10 @@ import {
   createPostgresSharedNumbers,
   type PostgresSharedNumbers,
 } from '~/platform/supabase/shared-numbers'
+import {
+  createPostgresTwilioBalanceFalls,
+  type PostgresTwilioBalanceFalls,
+} from '~/platform/supabase/twilio-balance-falls'
 import type { CapacityConcern } from '~/domain/shared-numbers'
 import { createCommandService, type CommandService } from './command-service'
 import { createEmailSender } from './email-sender'
@@ -63,6 +68,7 @@ import { dispatchQueue, type DispatchOutcome } from './outbound-dispatch'
 import { createPhoneCheck, type PhoneCheck } from './phone-check'
 import { watchSharedNumberCapacity } from './shared-number-capacity'
 import { createEmailSupportAlerts } from './support-alerts'
+import { watchTwilioBalance, type TwilioBalanceWatchOutcome } from './twilio-balance-watch'
 import type {
   Accounts,
   CareNeededReader,
@@ -143,6 +149,7 @@ let emailSender: EmailSender | undefined
 let phoneChecks: PostgresPhoneChecks | undefined
 let phoneCheck: PhoneCheck | undefined
 let sharedNumbers: PostgresSharedNumbers | undefined
+let twilioBalanceFalls: PostgresTwilioBalanceFalls | undefined
 
 export const getCommandService = (): CommandService => {
   if (!commandService) {
@@ -403,6 +410,26 @@ export const watchTheSharedNumbers = (): Promise<readonly CapacityConcern[]> =>
   })
 
 /**
+ * One pass of the Twilio balance watch (Exponential launch, ticket 08). Wherever texts
+ * are recorded rather than sent there is no Twilio account to read, so nothing is
+ * read: on staging that is the promise, and a read could only fail. Throws when the
+ * balance could not be read, and the tick catches it.
+ */
+export const watchTheTwilioBalance = async (): Promise<TwilioBalanceWatchOutcome | 'no_account'> => {
+  if (messageTransportKind(process.env) === 'record') return 'no_account'
+
+  if (!twilioBalanceFalls) {
+    twilioBalanceFalls = createPostgresTwilioBalanceFalls(commandDatabaseUrl())
+  }
+  return watchTwilioBalance({
+    balance: createTwilioBalanceReader(),
+    falls: twilioBalanceFalls,
+    alerts: getSupportAlerts(),
+    clock: systemClock,
+  })
+}
+
+/**
  * Settles the pairings an import planned for one Ministry, and never fails the
  * page that called it. Three routes call this after a Person's own act -- an
  * Intake submission through any of the three forms -- and one after an import;
@@ -451,6 +478,7 @@ export const closeCommandService = async (): Promise<void> => {
   const directory = ministryDirectory
   const checks = phoneChecks
   const shared = sharedNumbers
+  const balanceFalls = twilioBalanceFalls
   const limit = signInLimit
   commandService = undefined
   commandStore = undefined
@@ -462,6 +490,7 @@ export const closeCommandService = async (): Promise<void> => {
   phoneChecks = undefined
   phoneCheck = undefined
   sharedNumbers = undefined
+  twilioBalanceFalls = undefined
   signInLimit = undefined
   // The transport holds no pool -- it is `fetch` and a pair of credentials -- so
   // there is nothing of its to close, only the reference to drop.
@@ -475,6 +504,7 @@ export const closeCommandService = async (): Promise<void> => {
   await directory?.close()
   await checks?.close()
   await shared?.close()
+  await balanceFalls?.close()
   await limit?.close()
 }
 

@@ -1656,6 +1656,53 @@ export interface SharedNumbersNearCapacity {
  */
 export interface SupportAlerts {
   sharedNumbersNearCapacity(alert: SharedNumbersNearCapacity): Promise<void>
+  /** Words only from the fall as it was recorded, so a retry is the same message. */
+  twilioBalanceLow(fall: TwilioBalanceFall): Promise<void>
+  twilioSpendPassed(alert: TwilioSpendPassed): Promise<void>
+}
+
+/**
+ * The Twilio account's balance, behind this and nowhere else (Exponential launch,
+ * ticket 08).
+ */
+export interface TwilioBalanceReader {
+  /**
+   * The balance in whole cents, which can be below zero. Throws when Twilio did not
+   * say, and never turns that into a number.
+   */
+  readCents(): Promise<number>
+}
+
+/** One time the balance fell below its floor, as it was recorded. */
+export interface TwilioBalanceFall {
+  readonly id: string
+  readonly fellAt: Date
+  readonly balanceCents: number
+  readonly toldAt: Date | null
+}
+
+/** Each fall of the balance: what lets a stateless tick say a thing once. */
+export interface TwilioBalanceFalls {
+  /** The fall the balance has not recovered from, if there is one. */
+  open(): Promise<TwilioBalanceFall | null>
+  /** Opens a fall, or returns the open one if another pass got there first. */
+  recordFall(at: Date, balanceCents: number): Promise<TwilioBalanceFall>
+  recordTold(id: string, at: Date): Promise<void>
+  /** Closes the open fall, which re-arms the alarm. False when there was none. */
+  recordRecovery(at: Date, balanceCents: number): Promise<boolean>
+}
+
+/**
+ * Twilio's Usage Trigger fired: one day's spending passed the amount set on it.
+ * An amount is null where Twilio's callback gave none that could be read.
+ */
+export interface TwilioSpendPassed {
+  readonly spentCents: number | null
+  readonly markCents: number | null
+  /** The usage category the trigger watches, in Twilio's own word for it. */
+  readonly watching: string | null
+  /** What makes this firing the message it is: see `Email`'s `once`. */
+  readonly once: string
 }
 
 /**

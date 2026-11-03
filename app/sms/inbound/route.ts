@@ -1,9 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import {
-  calledUrl,
-  inboundSigningSecret,
-  signatureMatches,
-} from '~/platform/twilio/inbound-signature'
+import { signedByTwilio } from '~/platform/twilio/inbound-signature'
 import {
   getCommandService,
   getInboundReader,
@@ -25,17 +21,8 @@ import {
  * where anybody can drive the webhook. The tests sign their requests rather than
  * being let past.
  */
-const fromTwilio = (request: NextRequest, parameters: Readonly<Record<string, string>>) => {
-  const secret = inboundSigningSecret(process.env)
-  if (!secret) return false
-
-  return signatureMatches(
-    secret,
-    request.headers.get('x-twilio-signature'),
-    calledUrl(request.url, request.headers),
-    parameters,
-  )
-}
+const fromTwilio = (request: NextRequest, parameters: Readonly<Record<string, string>>) =>
+  signedByTwilio(process.env, request.url, request.headers, parameters)
 
 /**
  * The one webhook. Every inbound text arrives here -- a check-in answer, a

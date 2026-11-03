@@ -9,6 +9,7 @@ import {
   getMinistryDirectory,
   sweepUnsavedUploads,
   watchTheSharedNumbers,
+  watchTheTwilioBalance,
 } from '~/service/container'
 
 /**
@@ -144,6 +145,14 @@ export async function GET(request: NextRequest) {
     capacity = 'failed'
   }
 
+  // Once a pass too, so as often as this route is called (Exponential launch, ticket
+  // 08). Caught on its own: a read that failed sends no alarm and changes nothing, and
+  // the next pass reads again.
+  const twilioBalance = await watchTheTwilioBalance().catch((error: unknown) => {
+    console.error('Watching the Twilio balance failed', error)
+    return 'failed' as const
+  })
+
   // Always 200 once authorised, even where a Ministry failed. The scheduler retries
   // a non-2xx, and retrying the whole run to recover one Ministry would re-drain
   // every other one -- the outcomes say what happened instead, per Ministry, where
@@ -162,6 +171,7 @@ export async function GET(request: NextRequest) {
     },
     // The capacity concerns support@ was told about on this pass.
     capacity,
+    twilioBalance,
     errors: ran.filter((one) => one.error !== null).map((one) => ({
       ministryId: one.ministryId,
       error: one.error,

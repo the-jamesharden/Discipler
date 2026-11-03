@@ -27,7 +27,7 @@ const world = (start: SharedNumberLoad, now = '2026-11-09T15:00:00Z') => {
       raised.push({ concern, numbers: size.numbers, at })
     },
   }
-  const alerts: SupportAlerts = {
+  const alerts: Pick<SupportAlerts, 'sharedNumbersNearCapacity'> = {
     async sharedNumbersNearCapacity(alert) {
       if (failing) throw new Error('the sender is down')
       told.push(alert)
