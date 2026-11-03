@@ -543,16 +543,17 @@ What needs deciding: the four-rating wording, when ticket 40 is triaged.
 ## Open: publishing the legal drafts
 
 Raised on 2026-11-01 by the Exponential launch, ticket 36.
-`docs/legal/` holds drafts of the privacy policy, the terms of service and the opt-in page's sign-up section, each with square brackets to fill in, for James or a lawyer.
-All three are to be published on trydiscipler.com before 2026-11-04, and sign-up stays off in production until they are live.
-Whether a cancellation is refunded is one of the brackets, since the terms as drafted give no refund.
-What needs deciding: the review, the brackets and the publishing.
+James filled every bracket in the privacy policy and the terms of service on 2026-11-03, with no refund on cancellation and an effective date of November 3, 2026.
+No lawyer or accountant has reviewed them, including the tax line and the Stripe and Cloudflare disclosures.
+The opt-in page's sign-up section still has its screenshot, which waits on ticket 15, and the checks of the Twilio Verify, HELP and STOP wording.
+All three are to be published on trydiscipler.com, and sign-up stays off in production until they are live.
+What is left: James publishes the two finished documents, registers himself with the US Copyright Office as the copyright agent, and adds the address's ZIP code if he wants it shown.
 
-## Open: sign-up consent with no checkbox
+## Resolved: sign-up consent with no checkbox
 
 Raised on 2026-11-01 by the Exponential launch, ticket 36.
 The sign-up consent is given by continuing, with no checkbox, on a page where a phone number is required.
-What needs deciding: whether Twilio or a lawyer accepts that, before ticket 15 ships.
+James reviewed it on 2026-11-02 and kept it as drafted, with no checkbox.
 
 ## Open: the live opt-in page's sample messages
 
@@ -570,3 +571,11 @@ Supabase's IP address forwarding could be turned on, sending `Sb-Forwarded-For` 
 A Vercel Firewall rate-limit rule could cover `POST /auth/sign-in`.
 A CAPTCHA could be added to sign-in.
 What needs deciding: whether to add any of them, and which.
+
+## Open: nothing deletes what the privacy policy says is deleted
+
+Raised on 2026-11-03 when James approved the retention periods in `docs/legal/privacy-policy.md`, section 7.
+No job in the code deletes anything yet, so each period is a promise to build before it first falls due.
+The periods with no job are support messages at 12 months, help assistant chats at 90 days, abandoned sign-ups at 30 days, billing records and agreements at 7 years, and the information of an ended church or of a church that never completed Checkout and has no subscription at 12 months with an email to its Admins 30 days before.
+The email to Admins is new, so its wording is James's to approve.
+What needs deciding: which tickets own the jobs, and the wording of that email.

@@ -52,23 +52,30 @@ Phone confirmation code
 
 Test check-in, first message
 
-> Riverside Chapel via Discipler: This is your test check-in, the same one your mentors get. Did you meet with your mentee this week? Reply 1 for yes, 2 for no.
+> Riverside Chapel via Discipler: This is your test check-in, the same one your mentors get. Did you meet with your mentee this week? Reply 1 for yes, 2 for no. Msg & data rates may apply. Reply STOP to opt out, HELP for help.
 
 Test check-in, last message
 
 > Riverside Chapel via Discipler: Thank you! Glad you are getting to experience what Discipler can do for your ministry!!
 
-[Confirm whether a test check-in's first message also ends with "Msg & data rates may apply. Reply STOP to opt out, HELP for help." when it is the first text that phone has had that month, as other check-ins do; if it does, show it here.]
+The rates line, "Msg & data rates may apply. Reply STOP to opt out, HELP for help.", appears on the first text a phone may carry it on in a month, so a test check-in's first message may not show it.
 
 ## Other changes on the same page
 
 The rest of the live page, as read on 2026-10-31, says things this launch makes untrue.
 Each needs changing when the section above is published.
 
+- **The opt-in form** in section 01 does not match the real intake form, which James said on 2026-11-03 the page should match word for word.
+  The real checkbox is required and reads: "I agree to receive text messages from [Ministry Name] through Discipler about my discipleship relationship, including a weekly check-in. Message frequency varies. Message and data rates may apply. Reply STOP to opt out or HELP for help."
+  The live sample's "approximately 3-5 messages per week" and "Consent is not a condition of participation" come off.
+- **The contact line** at the foot of the page says "Discipler LLC, Athens, Georgia."
+  It becomes "Discipler LLC, Carrollton, Georgia."
 - **The introduction** says "Only people enrolled as participants in one of those programs receive messages, and only after they opt in themselves."
   Suggested: "Only people enrolled in one of those programs, and the administrators who sign a church up, receive messages, and only after they opt in themselves."
 - **How opt-in works** says "This form is the only opt-in method used for this program."
   Suggested: "There are two opt-in methods: the intake form above, for people taking part in a program, and the sign-up page in section 02, for the administrator who signs a church up. There is no verbal, paper, in-store, or keyword-based opt-in."
+  It also says "Consent is not required to participate in the mentorship program."
+  That sentence is removed with no replacement.
 - **Program details**, Recipients, gains: "Church administrators who opted in when signing their church up, for codes and test check-ins they request."
   Message types gains: "Phone confirmation codes and test check-ins, for administrators."
   Sender gains: "Messages come from phone numbers Discipler owns and shares across the ministries it serves."
@@ -76,7 +83,9 @@ Each needs changing when the section above is published.
   - Every message now starts "[Ministry Name] via Discipler:", the first message included, so the confirmation sample's "Discipler:" start becomes "[Ministry Name] via Discipler:".
   - The follow-up sample offers three answers ("Reply A for great, B for good, C for concern."); since 2026-10-12 it offers four: "Reply A for outstanding, B for good, C for okay, D for concern."
   - The check-in prompt sample ("Did you meet today?") reads "Did you meet with [Name] this week? Reply 1 for yes, 2 for no." in the product.
-  - [Check the confirmation, HELP and STOP samples against the texts the product sends today, in `src/domain/outbound-copy.ts`.]
+  - The confirmation sample is the Welcome Message in the product: "[Ministry Name] via Discipler: Thanks, [Name] - you're all set. We'll text you once you've been paired with someone to meet with. Msg & data rates may apply. Reply STOP to opt out, HELP for help."
+  - The product's own HELP reply differs from the live sample: "[Ministry Name] via Discipler: Reply PAUSE to pause your check-ins, RESUME to start them again, or SWAP to ask about a different match. For anything else, please contact [Ministry Name] directly. Msg & data rates may apply. Reply STOP to opt out, HELP for help."
+  - [Text HELP and STOP from a test phone and match the samples to what arrives. Discipler sends no STOP reply of its own, so that one comes from Twilio, and Twilio may answer HELP as well as Discipler.]
 - **Privacy** keeps its two sentences, and both still hold.
 
 ## For James
@@ -84,5 +93,5 @@ Each needs changing when the section above is published.
 1. Publish the section and the other changes above on trydiscipler.com/sms-opt-in, with the screenshot, before sign-up is switched on in production and before the Standard campaign (ticket 38) is submitted.
 2. The sign-up wording is consent by continuing, with no checkbox, and giving a phone number is required to sign up.
    Carriers sometimes question an opt-in that is a condition of using a product.
-   The intake form avoids that with an unchecked box and "Consent is not required to participate".
-   Whether the sign-up page needs the same, for example an unchecked box or a line saying the texts are only sent when the administrator asks for them, is worth asking Twilio or a lawyer before the campaign is submitted.
+   The real intake form has an unchecked box that must be ticked to continue, so it makes the same condition.
+   James reviewed this on 2026-11-02 and kept the wording as drafted, with no checkbox.

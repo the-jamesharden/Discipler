@@ -1276,8 +1276,8 @@ A church's billing state is derived from the history the Stripe webhook records,
 - **In the trial, or paying.** Everything runs.
 - **Payment failed.** Everything keeps running while Stripe retries, and every Admin page carries a banner that cannot be closed until the payment goes through: "Your last payment didn't go through. Discipler keeps running while Stripe tries again." with "Update payment method".
 - **Ended.** Check-ins stop, the dashboard is read-only, and every Admin page carries "Your subscription has ended. Check-ins have stopped and these pages are read-only. Everything is still here." with "Restart Discipler".
-  History is kept.
-  Links people were already texted (Intake forms, accept links, Material pages) keep working and their answers are kept, but nothing is texted until the church restarts.
+  History is kept for the time `docs/legal/privacy-policy.md`, section 7, states, and nothing deletes it yet (`docs/open-questions.md`, *nothing deletes what the privacy policy says is deleted*).
+  While it is kept, links people were already texted (Intake forms, accept links, Material pages) keep working and their answers are kept, but nothing is texted until the church restarts.
 - **Billed outside Stripe.** An operator flag for a church billed by agreement, such as SAU BCM and Anthem Community Church, which runs as a paying church with no subscription.
 
 A text goes out for a church only while it is in its trial, paying, in a failed payment's retries, or billed outside Stripe, checked in the one query every outbound text passes through.

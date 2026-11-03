@@ -13,6 +13,7 @@
 
 - It walks the same check-in steps as a real check-in, composed by the same composer with the church's own words (ticket 40), Messages read as and nouns.
 - The first text: "{Messages read as} via Discipler: This is your test check-in, the same one your {leader noun}s get. Did you meet with your {participant noun} this week? Reply 1 for yes, 2 for no."
+  It ends with "Msg & data rates may apply. Reply STOP to opt out, HELP for help." when it is the first text that phone may carry the rates line on that month, as `docs/consent-language.md` says.
 - The last text, whichever way the Admin answered, is James's, word for word: "{Messages read as} via Discipler: Thank you! Glad you are getting to experience what Discipler can do for your ministry!!"
 
 ## The card (in ticket 27's modal)
