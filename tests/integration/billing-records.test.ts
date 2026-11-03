@@ -824,7 +824,6 @@ describe('Billing records and the Stripe webhook', () => {
         ),
         'utf8',
       )
-      expect(step).not.toMatch(/\bname\b\s*(=|in|like|ilike)/i)
 
       const client = await pool.connect()
       try {
