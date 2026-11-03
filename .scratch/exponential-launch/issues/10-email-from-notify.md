@@ -4,7 +4,7 @@
 
 **Blocked by:** nothing
 
-**Status:** ready-for-human
+**Status:** shipped
 
 ## The rule
 
@@ -67,4 +67,5 @@ A value that is not a line, typed words, a Discipler link or a code gets a new `
 
 Merged in PR #35 (49d4bb2).
 The DNS records are published and the domain is verified, and the test email reached support@ from `hello@notify.trydiscipler.com` (James, 2026-11-01).
-One Acceptance check is left, so this is not `shipped`: reading SPF, DKIM and DMARC as passing in that email's headers, which only James can see.
+SPF, DKIM and DMARC all pass in that email's headers (read by James, 2026-11-02), with a DKIM signature from `notify.trydiscipler.com`.
+`notify.trydiscipler.com` has no DMARC record of its own, so it takes `p=quarantine` from `_dmarc.trydiscipler.com` (checked with `dig`, 2026-11-02), which the rule above leaves untouched.

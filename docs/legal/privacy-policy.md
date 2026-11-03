@@ -1,14 +1,6 @@
 # Discipler Privacy Policy
 
-> **Draft, not yet published or reviewed by a lawyer.**
-> Written for James and a lawyer to review; it is not legal advice.
-> Replaces the policy live at trydiscipler.com/privacy (effective July 23, 2026).
-> Updated on 2026-10-31 for the Exponential launch: self sign-up, Stripe billing, email from Discipler, referrals, the contact form and the AI help assistant.
-> Self sign-up stays off in production until this policy and the Terms of Service are published.
-> Everything in [square brackets] is still to be filled in before publishing.
-> Delete this box before publishing.
-
-Effective date: [DATE]
+Effective date: November 3, 2026
 
 Discipler helps churches and ministries run discipleship and mentorship relationships: pairing people, checking in by text each week, and showing ministry leaders where care is needed.
 This policy explains what information Discipler handles, why, who can see it, and the choices you have.
@@ -110,8 +102,6 @@ Two providers we rely on run their own technology in your browser:
 
 - When you add or change a card or bank account, Stripe's payment form loads from Stripe and uses its own cookies and device information to prevent fraud, as Stripe's privacy policy describes.
 - When you sign up, or use our contact form without signing in, Cloudflare Turnstile checks that a person rather than a program is using the form, using information about your browser and device, as Cloudflare's privacy policy describes.
-
-[Lawyer: confirm the cookie and device-information disclosures for Stripe.js and Cloudflare Turnstile, and whether either needs consent anywhere Discipler operates.]
 
 Our public website loads its fonts from Google Fonts, which means your browser tells Google your IP address when the page loads.
 
@@ -245,12 +235,14 @@ Some information is kept for a set time, whatever else happens:
 - Messages sent through the contact, bug report or feature request form, and support emails, are kept for 12 months and then deleted.
 - Help assistant conversations are deleted 90 days after they are written.
 - Email codes stop working after 10 minutes, and are stored only in a form that cannot be turned back into the code.
-- A sign-up abandoned before the account was created is deleted after [period].
-- Billing records, such as invoices and payments, are kept for [period] to meet tax and accounting obligations.
-- Each agreement to our terms is kept, with its version and time, for as long as the account exists and for [period] afterwards.
+- A sign-up abandoned before the account was created is deleted after 30 days.
+- Billing records, such as invoices and payments, are kept for 7 years to meet tax and accounting obligations.
+- Each agreement to our terms is kept, with its version and time, for as long as the account exists and for 7 years afterwards.
 
 When a church's subscription ends, by cancelling or because payment could not be collected, its information is kept and its pages become read-only, so it can restart.
-[How long an ended subscription's information is kept before it is deleted, if the church does not restart.]
+If the church does not restart, we delete its information 12 months after the subscription ended, after emailing its administrators 30 days beforehand, except the records this section says are kept longer.
+Backups are overwritten on a rolling basis within 30 more days.
+A church that created an account but never finished paying is treated the same way, with the 12 months counted from the day it signed up.
 
 When a ministry stops using Discipler and asks to close its account, it can ask for a copy of its information within 30 days.
 We then delete the ministry's information within 90 days, except backups, which are overwritten on a rolling basis within 30 more days, and anything we must keep by law.
@@ -320,5 +312,5 @@ We will never use information already collected in a materially different way wi
 Questions, requests and complaints about this policy or your information:
 
 Discipler LLC
-[Mailing address]
+116 Beaver St., Carrollton, GA
 support@trydiscipler.com

@@ -480,7 +480,7 @@ James answered these when tickets 26 to 33 and 40 were triaged.
 | 07 - The daily cap | Spread check-ins, hold texts on error 30023, alert once a day | ready-for-agent | 06 |
 | 08 - The Twilio balance and spend alarm | An email before an empty balance stops every text | ready-for-agent | 10 |
 | 09 - Verify | The Twilio Verify service and the Admin's phone check | shipped | Nothing |
-| 10 - Email from notify.trydiscipler.com | Resend, the domain, and the no-PII sender | ready-for-human | Nothing |
+| 10 - Email from notify.trydiscipler.com | Resend, the domain, and the no-PII sender | shipped | Nothing |
 | 11 - Email codes and the human check | Turnstile and the 6-digit email code, on the server | ready-for-agent | 01, 10 |
 | 12 - Password policy | 8 characters, a blocklist, 64 and more allowed | shipped | Nothing |
 | 13 - The sign-in guessing limit | Test the hole, and close it if it is real | shipped | Nothing |

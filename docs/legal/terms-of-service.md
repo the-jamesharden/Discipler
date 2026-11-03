@@ -1,14 +1,6 @@
 # Discipler Terms of Service
 
-> **Draft, not yet published or reviewed by a lawyer.**
-> Written for James and a lawyer to review; it is not legal advice.
-> Replaces the terms live at trydiscipler.com/terms (effective July 3, 2026).
-> Updated on 2026-10-31 for the Exponential launch: self sign-up, self-serve monthly and yearly billing through Stripe, the free trial, the three offers, cancellation, and the AI help assistant.
-> Self sign-up stays off in production until these terms and the Privacy Policy are published.
-> Everything in [square brackets] is still to be filled in before publishing.
-> Delete this box before publishing.
-
-Effective date: [DATE]
+Effective date: November 3, 2026
 
 These Terms of Service ("Terms") govern your use of Discipler, a service operated by Discipler LLC, a Georgia limited liability company ("Discipler," "we," "us").
 Discipler helps churches and ministries run discipleship and mentorship relationships.
@@ -141,7 +133,7 @@ If you believe material in Discipler infringes your copyright, email support@try
 We will remove material that infringes, and may end the access of anyone who infringes repeatedly.
 If your material was removed and you believe that was a mistake, you may send us a counter-notice.
 
-Our designated agent for copyright notices is [agent name], Discipler LLC, [mailing address], support@trydiscipler.com.
+Our designated agent for copyright notices is James Harden, Discipler LLC, 116 Beaver St., Carrollton, GA, support@trydiscipler.com.
 
 ## 10. Intellectual property
 
@@ -184,8 +176,7 @@ You authorize us, through Stripe, to make those charges.
 A bank account can be added only through Stripe's instant bank sign-in.
 To change to a different bank account, email support@trydiscipler.com.
 
-Prices do not include taxes.
-[Whether sales tax or any other tax applies, and who collects it: confirm with an accountant before publishing.]
+Prices do not include taxes, and any sales or similar tax that applies is the Organization's to pay.
 
 If a payment fails, Discipler keeps running while Stripe tries again, and your Administrators see a notice asking them to update the payment method.
 If the payment still cannot be collected, the subscription ends.
@@ -218,11 +209,11 @@ Every offer ends when its subscription ends, and a subscription restarted afterw
 
 Any Administrator may cancel the subscription from the Billing page.
 A cancellation takes effect at the end of the month or year already paid for, and Discipler keeps working until then.
-[Refunds: whether any part of a monthly or yearly payment is refunded on cancellation; as drafted, none is.]
+Cancelling does not refund any part of a monthly or yearly payment, unless the law requires it.
 
 When a subscription ends, weekly check-ins and other text messages stop, the Organization's pages become read-only, and its information is kept as our Privacy Policy describes.
 Links people were already sent keep working.
-The Organization may restart at any time from the same account.
+The Organization may restart from the same account for as long as its information is kept.
 
 ### Changes to prices
 
@@ -266,7 +257,7 @@ An Organization also agrees to defend and indemnify Discipler LLC against claims
 If you have a dispute with us, please email support@trydiscipler.com first and give us 30 days to try to resolve it informally.
 
 These Terms are governed by the laws of the State of Georgia, without regard to its conflict-of-law rules.
-Any dispute that is not resolved informally will be brought in the state or federal courts located in [county], Georgia, and you and Discipler consent to their jurisdiction, unless the law where you live requires otherwise.
+Any dispute that is not resolved informally will be brought in the state courts located in Carroll County, Georgia, or the federal court for the Northern District of Georgia, and you and Discipler consent to their jurisdiction, unless the law where you live requires otherwise.
 
 To the extent permitted by law, any claim must be brought within one year after it arises.
 
@@ -292,5 +283,5 @@ Continuing to use Discipler after a change takes effect means you accept the upd
 ## 21. Contact us
 
 Discipler LLC
-[Mailing address]
+116 Beaver St., Carrollton, GA
 support@trydiscipler.com
