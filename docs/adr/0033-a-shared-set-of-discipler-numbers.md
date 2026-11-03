@@ -52,7 +52,8 @@ A text from a number shared by many churches needs to say on its face which chur
 **The cost is shared fate.**
 A number per church meant a church that over-messaged lost its own number.
 Now every church shares Discipler's brand, its daily carrier limit and its reputation, so one church's misuse can slow or stop texts for all of them.
-That is why Discipler writes the frame of every text (ADR-0034), why no interface action sends free-form text (ADR-0031), and why texts are spread across the check-in hour and held when the daily limit is reached.
+That is why Discipler writes the frame of every text (ADR-0034), why no interface action sends free-form text (ADR-0031), and why texts are held when the daily limit is reached.
+Spreading check-ins across the check-in hour answers the same risk, and it stays off until `docs/open-questions.md` settles what it needs.
 
 The church is still the speaker of every text and still named first; Discipler is named after it as the service delivering it.
 *Every Message Is the Ministry's Voice* is narrowed accordingly: Discipler never speaks for itself in a text, and every text says it comes through Discipler.

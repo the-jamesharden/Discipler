@@ -55,10 +55,10 @@ jobs:
       # stack's keys by shelling out to `supabase status` itself, but the running
       # app has no other source.
       #
-      # The two secrets at the end are not credentials for anything: the webhook
-      # refuses unsigned requests and the tick refuses an unauthorised caller, and
+      # The three secrets at the end are not credentials for anything: the webhooks
+      # refuse unsigned requests and the tick refuses an unauthorised caller, and
       # the suite signs with whatever the app was started with. Any non-empty
-      # value exercises both routes; unset, both refuse everybody and their tests
+      # value exercises those routes; unset, they refuse everybody and their tests
       # fail. The app's own base URL is the test suite's APP_URL, so the links it
       # composes open against the server the tests are driving.
       - name: Export the local stack's credentials

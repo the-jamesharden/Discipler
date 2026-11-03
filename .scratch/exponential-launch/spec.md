@@ -211,6 +211,7 @@ Today's registration is Low Volume Standard: about 2,000 texts a day to T-Mobile
 Texts over it fail with Twilio error 30023 until midnight Pacific.
 
 - Check-ins are spread across the check-in hour instead of all being sent at once.
+  James decided on 2026-11-03 to keep the send pass hourly for the launch, so this stays off until "Open: spreading check-ins needs more than a faster send pass" in `docs/open-questions.md` is settled.
 - When Twilio reports that the daily limit is reached, Discipler holds the remaining texts and sends them after midnight Pacific.
 - support@ gets an email the first time that happens each day.
 
@@ -226,7 +227,7 @@ Texts over it fail with Twilio error 30023 until midnight Pacific.
 
 - Auto-recharge adds $500 when the balance falls below $100, with a backup card.
   It is one switch for the whole account, not per church.
-- Discipler's scheduled tick reads the Twilio balance every few minutes and emails support@ when it is below $75, which can only happen if a recharge failed.
+- Discipler's scheduled tick reads the Twilio balance on every pass, once an hour while the send pass stays hourly, and emails support@ when it is below $75, which can only happen if a recharge failed.
 - A Twilio usage trigger emails when one day's spending passes a set amount.
 
 ### Verify

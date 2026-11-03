@@ -68,9 +68,10 @@ export interface OutboundMessageDraft {
   readonly scheduledFor: Date | null
   /**
    * The moment this text may leave, or null for the next pass. A gate, as
-   * `scheduledFor` is not: a check-in is given its own moment in its hour so an
-   * hour's check-ins go spread across it (Exponential launch, ticket 07). Null on
-   * everything else. See `SEND_PASS_EVERY_MINUTES`.
+   * `scheduledFor` is not: with spreading on, a check-in is given its own moment in
+   * its hour so an hour's check-ins go spread across it (Exponential launch, ticket
+   * 07). Null on everything else, and on every check-in while spreading is off. See
+   * `SEND_PASS_EVERY_MINUTES`.
    */
   readonly notBefore: Date | null
   /**
