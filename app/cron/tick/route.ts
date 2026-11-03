@@ -4,11 +4,13 @@ import type { MinistryId } from '~/domain/ids'
 import type { CapacityConcern } from '~/domain/shared-numbers'
 import type { SettledPairings } from '~/service/command-service'
 import type { StripeEventSweep } from '~/service/stripe-events'
+import type { SupportSweep } from '~/service/support-form'
 import {
   drainOutboundQueue,
   getCommandService,
   getMinistryDirectory,
   sweepTheStripeEvents,
+  sweepTheSupportSubmissions,
   sweepUnsavedUploads,
   tellSupportTheTextingGateIsUnread,
   watchTheOver200Churches,
@@ -193,6 +195,17 @@ export async function GET(request: NextRequest) {
     return 'failed' as const
   })
 
+  // Then the support form's submissions: what has been kept as long as the privacy
+  // policy promises is deleted, and what a failed send left waiting goes (Exponential
+  // launch, ticket 25). Caught on its own, and logged by name alone.
+  let supportSubmissions: SupportSweep | 'failed'
+  try {
+    supportSubmissions = await sweepTheSupportSubmissions()
+  } catch (error) {
+    console.error(`Sweeping the support submissions failed: ${error instanceof Error ? error.name : 'unknown'}`)
+    supportSubmissions = 'failed'
+  }
+
   // Always 200 once authorised, even where a Ministry failed. The scheduler retries
   // a non-2xx, and retrying the whole run to recover one Ministry would re-drain
   // every other one -- the outcomes say what happened instead, per Ministry, where
@@ -217,6 +230,7 @@ export async function GET(request: NextRequest) {
     twilioBalance,
     stripeEvents,
     over200,
+    supportSubmissions,
     errors: ran.filter((one) => one.error !== null).map((one) => ({
       ministryId: one.ministryId,
       error: one.error,

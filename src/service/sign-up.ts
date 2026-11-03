@@ -17,6 +17,7 @@ import {
   type SignUpAttemptToken,
   type SignUpStanding,
 } from '~/domain/sign-up-attempt'
+import { whyNotSent } from './email-sender'
 import type { EmailSender, HumanCheck, PendingSignups, SignUpCodeKeeper } from './ports'
 
 /**
@@ -158,13 +159,6 @@ interface CodeToSend {
   readonly once: string
   readonly hasAccount: boolean
   readonly code: string
-}
-
-/** Why an email did not go, in words that cannot hold what the email held. */
-const whyNotSent = (error: unknown): string => {
-  if (typeof error !== 'object' || error === null) return 'unknown'
-  const { name, status, reason } = error as { name?: unknown; status?: unknown; reason?: unknown }
-  return [name, status, reason].filter((part) => typeof part === 'string' || typeof part === 'number').join(' ')
 }
 
 export const createSignUp = ({

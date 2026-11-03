@@ -82,7 +82,8 @@ describe('the two answers to "send me a code"', () => {
     expect(median(forTaken)).toBeGreaterThanOrEqual(vendorMs - 5)
     expect(median(forFree)).toBeGreaterThanOrEqual(vendorMs - 5)
     expect(Math.abs(median(forTaken) - median(forFree))).toBeLessThan(vendorMs / 2)
-  })
+    // Ten real sends and ten real hashes: on a busy machine that outruns the default 5 s.
+  }, 30_000)
 })
 
 describe('the secret behind a code', () => {

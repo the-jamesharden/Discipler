@@ -126,6 +126,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the top nav', () => {
       'What&#x27;s new',
       'New',
       ...officeHours,
+      'Contact support',
     ])
     expect(topMenu(html, 'Help and feedback')).toContain('href="/help"')
     expect((await getPage('/help', '')).response.status).toBe(200)
@@ -134,7 +135,6 @@ describe.skipIf(skipUnlessAppIsRunning)('the top nav', () => {
     for (const notYet of [
       'Ask Discipler',
       'Restart onboarding',
-      'Contact support',
       'Setup videos',
       'Blog',
       'Refer a church',

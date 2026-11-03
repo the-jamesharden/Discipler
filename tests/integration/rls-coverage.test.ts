@@ -98,6 +98,7 @@ describe('every ministry-owned table', () => {
       'sending_number_assignment',
       'trial_opening',
       'whats_new_dismissal',
+      'support_submission',
     ])
   })
 

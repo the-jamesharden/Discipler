@@ -43,4 +43,6 @@ export const OPERATOR_ONLY_TABLES: readonly string[] = [
   'stripe_event',
   // One first free month and one plant year per card or bank account (ticket 04).
   'payment_fingerprint_grant',
+  // The support form, from somebody not signed in as an Admin (Exponential launch, ticket 25).
+  'signed_out_support_submission',
 ]
