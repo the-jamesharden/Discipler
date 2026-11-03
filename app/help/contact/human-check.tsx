@@ -82,8 +82,8 @@ export const HumanCheck = ({
           'error-callback': () => onToken(''),
         })
       })
-      // Nothing to show. Send is then refused by the server with a sentence that says
-      // to write to support@ instead.
+      // Nothing to show. With no token Send stays on the form's own sentence, which
+      // names support@ as the way round.
       .catch(() => onToken(''))
 
     return () => {

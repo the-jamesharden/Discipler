@@ -63,8 +63,11 @@ export const FORM_IS_SHUT = {
 
 export const NEEDS_A_SCRIPT = `This form needs JavaScript. Please write to ${SUPPORT_EMAIL} and we'll help.`
 
-/** The human check has not answered yet, which is a second or two. */
-export const STILL_CHECKING = 'One moment, please. We are still checking this browser. Please press Send again.'
+/**
+ * The human check has not answered yet, which is a second or two, or it never will
+ * because something blocked Cloudflare, so this has to name the way round it.
+ */
+export const STILL_CHECKING = `One moment, please. We are still checking this browser. Please press Send again, or write to ${SUPPORT_EMAIL}.`
 
 /** Whatever could not be read as an answer: a fault, not a refusal. */
 export const NOT_SENT = `We couldn't send that just now. Please try again in a minute, or write to ${SUPPORT_EMAIL}.`
