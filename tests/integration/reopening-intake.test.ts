@@ -2,6 +2,7 @@ import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { systemClock } from '~/domain/clock'
+import { CONSENT_VERSION } from '~/domain/consent'
 import { IntakeRefused } from '~/domain/errors'
 import { personId, type IdSource, type MinistryId } from '~/domain/ids'
 import type { IntakeFormFields } from '~/domain/intake'
@@ -272,6 +273,19 @@ describe('reopening a Person’s Intake', () => {
     )
     expect(rows).toHaveLength(2)
     expect(rows.map((row) => row.granted)).toEqual([true, true])
+  })
+
+  it('leaves an earlier record on the version it agreed to, and puts the new one on today’s', async () => {
+    const person = await addPerson(ministry, 'Naomi Clarke', { phone: aNumber() })
+
+    await resubmit(await linkFor(person), { fullName: 'Naomi Clarke' })
+
+    const { rows } = await pool.query<{ version: string }>(
+      `select version from consent_record
+        where person_id = $1 and consent = 'sms' order by decided_at`,
+      [person],
+    )
+    expect(rows.map((row) => row.version)).toEqual(['2026-09-v1', CONSENT_VERSION])
   })
 
   it('stops the number reaching a Leader once contact sharing is declined', async () => {

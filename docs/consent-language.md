@@ -6,9 +6,14 @@ The exact wording a person agrees to at intake. Discipler records each consent i
 
 ## Current version
 
-`consent_version = "2026-09-v1"`
+`consent_version = "2026-11-v1"`
 
 Changing any wording below requires a new version identifier. Existing consent records keep pointing at the version the person actually saw; they are never migrated forward.
+
+A new version asks nothing new of anybody who already agreed.
+Nothing reads a record's version to decide what to send or who may be paired: what counts is the person's latest decision on each consent, whatever version it was made under.
+
+The wording of each earlier version is under [Earlier versions](#earlier-versions).
 
 ## How a person reaches this form
 
@@ -38,7 +43,7 @@ It is not an Intake: it does not change the Admin's Participation Status, and be
 An Admin from before sign-up has no such consent.
 The test check-in's card shows them the same sentence with "By sending" in place of "By continuing", above its button, and sending is their agreement.
 
-This is different wording from Statement 1, so it is recorded with a version identifier of its own, never `2026-09-v1`.
+This is different wording from Statement 1, so it is recorded with a version identifier of its own, never one of the identifiers on this page.
 The public description of this opt-in, for the carrier registration, is drafted for trydiscipler.com/sms-opt-in in `docs/legal/sms-opt-in-sign-up-section.md`.
 
 ## Statement 1 — SMS consent
@@ -46,7 +51,9 @@ The public description of this opt-in, for the carrier registration, is drafted 
 Presented as a required checkbox.
 Discipler sends nothing to anyone whose record lacks it, except the texts an Admin's own consent above names.
 
-> I agree to receive text messages from **{{ministry_name}}** through Discipler about my discipleship relationship, including a weekly check-in. Message frequency varies. Message and data rates may apply. Reply STOP to opt out or HELP for help.
+> I agree to receive text messages from **{{ministry_name}}** through Discipler about my discipleship relationship, including a weekly check-in. Message frequency varies. Message and data rates may apply. Reply STOP to opt out or HELP for help. See our [Privacy Policy](https://trydiscipler.com/privacy/) and [Terms of Service](https://trydiscipler.com/terms/).
+
+The two links open in a new tab, so reading one does not cost a person a half-filled form, and pressing one does not tick the box.
 
 ## Statement 2 — Contact sharing consent
 
@@ -90,6 +97,18 @@ That reading has not been checked against the A2P campaign as registered, and sh
 
 ## What is not covered here
 
-These statements cover messaging and contact sharing only. They are not a privacy policy, not terms of service, and not consent to any use of a person's data beyond operating their own discipleship relationship and their own ministry's reporting.
+These statements cover messaging and contact sharing only. They point at the privacy policy and the terms of service without being either, and they are not consent to any use of a person's data beyond operating their own discipleship relationship and their own ministry's reporting.
 
 Nothing in this wording permits a person's data to leave their ministry. See the Ministry isolation rule in `docs/product-rules.md`.
+
+## Earlier versions
+
+### `2026-09-v1`
+
+In use until November 2026.
+Statement 2 is the same as above.
+Statement 1 read:
+
+> I agree to receive text messages from **{{ministry_name}}** through Discipler about my discipleship relationship, including a weekly check-in. Message frequency varies. Message and data rates may apply. Reply STOP to opt out or HELP for help.
+
+`2026-11-v1` added the last sentence and its two links to Statement 1 and changed nothing else.

@@ -180,7 +180,7 @@ describe('Completing Intake', () => {
     )
 
     expect(rows.map((row) => row.consent)).toEqual(['sms', 'contact_sharing'])
-    expect(rows.every((row) => row.version === '2026-09-v1')).toBe(true)
+    expect(rows.every((row) => row.version === '2026-11-v1')).toBe(true)
     expect(rows.every((row) => row.source === 'qr_code')).toBe(true)
     expect(rows.every((row) => row.decided_at instanceof Date)).toBe(true)
   })
