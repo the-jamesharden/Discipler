@@ -298,6 +298,7 @@ describe('reading the four lines off the form', () => {
       'Please reply and tell us what happened.',
       'Please reply with more detail.',
       'Did you text [name] this week?',
+      'Did you text [name] 2 times this week?',
       'Did you meet with [name] at the end of the week?',
       'Did [name] answer your text?',
       'Thank you. We’ll check in with you next week.',

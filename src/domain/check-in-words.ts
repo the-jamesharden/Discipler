@@ -238,7 +238,7 @@ export const checkInSentenceRefusals = (
   if (/\[[^\]]*\]|\{[^}]*\}/.test(sentence.split(NAME_BLANK).join(''))) {
     refusals.push('settings.check_in_sentence_unknown_blank')
   }
-  if (saysTheFrame(sentence.split(NAME_BLANK).join(' '))) {
+  if (saysTheFrame(sentence.split(NAME_BLANK).join(' name '))) {
     refusals.push('settings.check_in_sentence_says_the_frame')
   }
   if (A_LINK.test(sentence) || A_PHONE_NUMBER.test(sentence)) {

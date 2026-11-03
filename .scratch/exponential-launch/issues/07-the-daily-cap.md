@@ -4,7 +4,7 @@
 
 **Blocked by:** 06
 
-**Status:** shipped
+**Status:** needs-info
 
 ## Why
 
@@ -26,21 +26,17 @@ Over it, sends fail with Twilio error 30023 until midnight Pacific.
 
 ## For James
 
-1. Done 2026-11-03, when James asked for the partial requirements to be fixed: `/cron/tick` runs every five minutes and `SEND_PASS_EVERY_MINUTES` is `5`, so check-ins are spread.
-   To turn it off, set them back to `0 * * * *` and `60`, in one commit; a test fails if only one changes.
+1. James decided on 2026-11-03 to keep the send pass hourly for the launch, so "Check-ins for one hour leave spread across that hour" is **not met**.
+   Spreading needs the follow-up in `docs/open-questions.md` first.
 2. Find out how Twilio reports 30023, by asking in the open support ticket or by reading one in the message log.
    See "Not known: when Twilio says 30023" below, because it decides whether the hold ever fires on production.
 
 ## Comments
 
-### Spreading switched on (2026-11-03)
+### Spreading tried and turned back off (2026-11-03)
 
-What runs on every pass was read for what a five-minute rate would do.
-The check-in and reminder logic is written to be run more than once, the sweeps and alarms repeat harmlessly, and ticket 08 already asks for the balance to be read every few minutes.
-A spread check-in has no quiet-hours check of its own, because that check is made when the tick opens the check-in.
-So a church whose check-in hour is 9pm can send its last few minutes past 10pm if the pass that opened it ran late.
-This was left as it is, since it is minutes and only on a late pass.
-Everything below that says spreading is off describes the build before this change.
+The five-minute pass was switched on and turned off the same day, before shipping, because review found the problems listed in `docs/open-questions.md`.
+The earlier claim that a spread check-in only passes 10pm on a late pass was wrong.
 
 ### Built (2026-11-03)
 

@@ -424,7 +424,7 @@ export const getSignUp = (): SignUp => {
  * inbound webhook's included: everything an act produces -- the next question, a
  * Discipler's invitation, a Welcome Message -- is enqueued by the command and sent
  * by nothing but a drain, so an act that only enqueued left its text waiting for
- * the next pass.
+ * the next pass on the hour.
  */
 export const drainOutboundQueue = (ministryId: MinistryId): Promise<DispatchOutcome> =>
   dispatchQueue({

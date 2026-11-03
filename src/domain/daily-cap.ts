@@ -68,11 +68,11 @@ export const waitsForTheMorning = (
  * How often the send pass runs: `/cron/tick` in `vercel.json`, which a test holds
  * this to.
  *
- * **Spreading needs passes under an hour apart.** A text only leaves on a pass, so a
- * check-in given 10:40 by a tick that runs at 10:00 and 11:00 would go an hour late.
- * At 60 spreading is off, so change the cron and this constant in one commit.
+ * **Spreading is off while this is 60.** A text only leaves on a pass, so a check-in
+ * given 10:40 by a tick that runs at 10:00 and 11:00 would go an hour late. To switch
+ * spreading on, change the cron and this constant in one commit, and nothing else.
  */
-export const SEND_PASS_EVERY_MINUTES: number = 5
+export const SEND_PASS_EVERY_MINUTES: number = 60
 
 const HOUR = minutes(60)
 

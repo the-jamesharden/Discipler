@@ -106,7 +106,7 @@ export const createPostgresOutboundQueue = (
       // lock with it, so nothing stays held by a process that no longer exists.
       //
       // Blocking rather than `try`. A drain that found the lock taken and skipped
-      // would leave the message it came for to the next pass, which is
+      // would leave the message it came for to the next pass on the hour, which is
       // exactly the wait a reply's drain exists to remove; the drain it waits behind
       // is a few vendor calls long.
       const holder = await drainLocks.connect()

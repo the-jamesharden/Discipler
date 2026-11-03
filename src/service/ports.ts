@@ -1546,7 +1546,7 @@ export interface ContactDetails {
 export interface OutboundQueue {
   /**
    * Runs `drain` as the only drain of this Ministry: a second caller waits for the
-   * first to finish and then runs. Two callers exist -- the scheduler,
+   * first to finish and then runs. Two callers exist -- the scheduler on the hour,
    * and the webhook the moment a reply arrives -- and the row lock inside `claim`
    * keeps them off one row only for as long as the claim's own transaction. The
    * vendor is called after that commits, so a drain that lists the queue during

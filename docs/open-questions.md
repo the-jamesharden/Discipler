@@ -583,11 +583,17 @@ The email to Admins is new, so its wording is James's to approve.
 What needs deciding: which tickets own the jobs, and the wording of that email.
 The Billing help page and ticket 33 still say a church's information is "kept", and they change with the deletion job.
 
-## Resolved: the send pass runs every five minutes
+## Open: spreading check-ins needs more than a faster send pass
 
-Raised on 2026-11-03 by the Exponential launch, ticket 07, and switched on the same day when James asked for the partial requirements to be fixed.
-`/cron/tick` in `vercel.json` is `*/5 * * * *` and `SEND_PASS_EVERY_MINUTES` in `src/domain/daily-cap.ts` is `5`, so a church's check-ins leave spread across its hour.
-Everything else the tick does now runs at that rate too.
+Raised on 2026-11-03 by the Exponential launch, ticket 07.
+James kept the send pass hourly for the launch, so check-ins leave all at once, as they do on production today.
+Three problems were found when it was tried:
+
+- A check-in's conversation opens at the tick while its text can wait up to an hour, so a reply in that gap is recorded as the answer to a question never sent, or gets a clarification about it.
+- A Pause or an ending in that gap withholds nothing, so the question about a finished pairing still goes out.
+- A church with a 9pm check-in hour can send at 10pm or later, even on an on-time pass, for example the last of 13 Leaders, and up to about 40 minutes past it if the tick opens late.
+
+What needs deciding: whether to open the question when its text is sent, or make replies, Pause and endings aware of an unsent question, and how to keep the moments inside quiet hours, before spreading is switched on.
 
 ## Open: how Twilio reports error 30023
 
@@ -597,6 +603,7 @@ Nothing read here confirms that Twilio ever does.
 If Twilio reports it later, on the message's status, the row is marked sent, the text is lost, and no hold or email happens.
 Catching that needs a signed status-callback route, or keeping each message's SID and reading its status on the tick, and either one must put the refused row back on the queue.
 What needs deciding: ask Twilio in the open support ticket, then whether a follow-up ticket is needed.
+James decided on 2026-11-03 to merge with this open and ask Twilio, since today's volume is far below the limit.
 
 ## Open: held texts wait for the church's morning
 
