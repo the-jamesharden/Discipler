@@ -37,7 +37,7 @@ export default async function NewMaterialPage({
   if (page.status === 'signed-out') redirect('/login')
 
   return (
-    <PageShell title={MATERIALS} subtitle={page.admin.ministryName} actions={<AdminNav admin={page.admin} />}>
+    <PageShell title={MATERIALS} subtitle={page.admin.ministryName} actions={<AdminNav admin={page.admin} />} admin={page.admin}>
       <BackLink small className="mat-back" href="/materials" label={BACK_TO_MATERIALS} />
       <div className="card">
         <div className="card-head">

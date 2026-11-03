@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { billingStateOf } from '~/domain/billing'
 import { ministryId, personId, type MinistryId } from '~/domain/ids'
+import { setupMeterOf } from '~/domain/setup-meter'
 import type { AdminPage, AdminResolution } from '~/service/ports'
 import { text } from './rows'
 import { verifiedTokenSubject } from './session'
@@ -96,6 +97,7 @@ export const resolutionOf = (doc: PageDocument): AdminResolution => {
       billing: billingStateOf(section(doc, 'billing')),
       personId: own ? personId(own) : null,
       fullName: text(admin.full_name),
+      setup: setupMeterOf(section(doc, 'setup')),
     },
   }
 }

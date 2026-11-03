@@ -55,6 +55,8 @@ describe('the settings page answers in one read', () => {
         full_name: riverside.adminName,
       },
       billing: NOTHING_ESTABLISHED,
+      // The setup meter's own document (ticket 26), proved in `the-setup-meter-over-http`.
+      setup: expect.objectContaining({ finished: false }),
       settings: separate,
       // Which of Discipler's questions each edited form asks (Pastor feedback,
       // ticket 13): none edited, so none listed.

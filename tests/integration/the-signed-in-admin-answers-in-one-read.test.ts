@@ -48,6 +48,8 @@ describe('the signed-in Admin answers in one read', () => {
         full_name: riverside.adminName,
       },
       billing: NOTHING_ESTABLISHED,
+      // The setup meter's own document (ticket 26), proved in `the-setup-meter-over-http`.
+      setup: expect.objectContaining({ finished: false }),
     })
   })
 

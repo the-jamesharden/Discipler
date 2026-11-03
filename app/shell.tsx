@@ -4,6 +4,7 @@ import type { SignedInAdmin } from '~/service/ports'
 import { CHANGE_YOUR_PASSWORD, SIGN_OUT } from './account/copy'
 import { BotanicalFrame } from './botanical'
 import { ArrowLeft } from './icons'
+import { SetupMeter } from './setup-meter'
 import { TabSlider } from './tab-slider'
 import { AdminNav } from './top-nav'
 
@@ -171,6 +172,8 @@ export const AdminShell = ({
 
       <TabBar current={current} followUpCount={badge} />
 
+      <SetupMeter admin={admin} />
+
       <main>{children}</main>
     </div>
   )
@@ -209,6 +212,7 @@ export const PageShell = ({
   subtitle,
   back,
   actions,
+  admin,
   wide = false,
   children,
 }: {
@@ -216,6 +220,8 @@ export const PageShell = ({
   readonly subtitle?: string
   readonly back?: { readonly href: string; readonly label: string }
   readonly actions?: ReactNode
+  /** The Admin, on an Admin's page, for the setup meter under the header. A Leader's has none. */
+  readonly admin?: SignedInAdmin
   /** The Leader Dashboard's two-column layout needs the whole width. */
   readonly wide?: boolean
   readonly children: ReactNode
@@ -231,6 +237,7 @@ export const PageShell = ({
         {actions}
       </div>
     </header>
+    {admin ? <SetupMeter admin={admin} /> : null}
     <main>{children}</main>
   </div>
 )

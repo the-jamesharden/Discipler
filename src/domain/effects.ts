@@ -39,6 +39,7 @@ import type { RatesLineOccasion } from './rates-line'
 import type { PersonRemoval, PersonRestoration } from './removal'
 import type { MemberRole, NewRelationship, RelationshipOutcome } from './relationships'
 import type { HeldImportRow, ImportRowAnswer, NewPerson, PhoneNumber } from './roster'
+import type { SetupStep } from './setup-meter'
 import type { ShortName } from './short-name'
 
 /**
@@ -598,6 +599,19 @@ export interface IntakeAnswersRemoval {
 }
 
 /**
+ * What one Admin has now watched of their church's setup meter (Exponential launch,
+ * ticket 26). Only ever added to, so the confetti and the badge play once for each
+ * Admin. Their bookmark and no fact about the church, so history says nothing of it.
+ */
+export interface SetupSeen {
+  /** The Admin's account. */
+  readonly userId: string
+  readonly steps: readonly SetupStep[]
+  /** When they were shown the badge, or null where this was not the badge. */
+  readonly badgeSeenAt: Date | null
+}
+
+/**
  * The short name a Ministry now goes by (Pastor feedback, ticket 04). Nothing
  * here lets the old one go: the database holds every name a Ministry has had,
  * and keeps it opening that Ministry's forms.
@@ -935,6 +949,7 @@ export type Effect =
   | { readonly kind: 'intendedPairing.close'; readonly closure: IntendedPairingClosure }
   | { readonly kind: 'settings.save'; readonly saving: MinistrySettingsSaving }
   | { readonly kind: 'shortName.change'; readonly change: ShortNameChange }
+  | { readonly kind: 'setup.markSeen'; readonly seen: SetupSeen }
   | { readonly kind: 'intakeForm.save'; readonly saving: IntakeFormSaving }
   | { readonly kind: 'intakeForm.removeAnswers'; readonly removal: IntakeAnswersRemoval }
   | { readonly kind: 'goal.add'; readonly goal: NewDiscipleshipGoal }
@@ -978,6 +993,11 @@ export const saveMinistrySettings = (saving: MinistrySettingsSaving): Effect => 
 export const changeShortName = (change: ShortNameChange): Effect => ({
   kind: 'shortName.change',
   change,
+})
+
+export const markSetupSeen = (seen: SetupSeen): Effect => ({
+  kind: 'setup.markSeen',
+  seen,
 })
 
 export const saveIntakeForm = (saving: IntakeFormSaving): Effect => ({

@@ -851,6 +851,10 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         async changeShortName(change) {
           stagedShortNames.push(change)
         },
+        async markSetupSeen() {
+          // What an Admin has watched is read back by the page session, which this
+          // store has no face for; `the-setup-meter-over-http` proves it.
+        },
         async intakeForm(name) {
           const saved = store.intakeForms.filter((form) => form.name === name)
           return saved[saved.length - 1] ?? presetForm(name)

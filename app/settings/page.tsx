@@ -72,6 +72,7 @@ export default async function MinistrySettingsPage({
       subtitle={settings.name}
       back={{ href: '/overview', label: 'Back to the overview' }}
       actions={<AdminNav admin={admin} />}
+      admin={admin}
     >
       {refusals.length > 0 ? (
         <p className="toast error" role="alert">
@@ -253,7 +254,7 @@ export default async function MinistrySettingsPage({
             </p>
           ) : null}
 
-          <h3>Check-in</h3>
+          <h3 id="check-in">Check-in</h3>
           <p className="subtle">
             When each leader is asked how their week went, on the timezone set above. A
             change takes effect from the next check-in; anything already scheduled

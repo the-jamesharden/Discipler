@@ -101,6 +101,7 @@ export default async function PersonPage({
       subtitle={admin.ministryName}
       back={{ href: '/roster', label: 'Back to the Roster' }}
       actions={<AdminNav admin={admin} />}
+      admin={admin}
     >
       {query.reinvited ? (
         <p className="toast" role="status">{REINVITED(person.fullName)}</p>

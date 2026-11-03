@@ -276,6 +276,9 @@ export const applyEffects = async (
   const shortNameChanges = effects.flatMap((effect) =>
     effect.kind === 'shortName.change' ? [effect.change] : [],
   )
+  const setupSeen = effects.flatMap((effect) =>
+    effect.kind === 'setup.markSeen' ? [effect.seen] : [],
+  )
   const intakeFormSaves = effects.flatMap((effect) =>
     effect.kind === 'intakeForm.save' ? [effect.saving] : [],
   )
@@ -476,6 +479,8 @@ export const applyEffects = async (
   // after history had recorded the change would leave a record of a link nobody
   // can open.
   for (const change of shortNameChanges) await unit.changeShortName(change)
+
+  for (const seen of setupSeen) await unit.markSetupSeen(seen)
 
   // Before the history saying it happened, like every other write here: the
   // database refuses a version number already taken, and being refused after

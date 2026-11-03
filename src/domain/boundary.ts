@@ -60,6 +60,7 @@ import {
   removeIntakeAnswers,
   saveIntakeForm,
   changeShortName,
+  markSetupSeen,
   setKeywordExchangeTarget,
   sweepOutstandingReplies,
   withdrawInvitation,
@@ -300,6 +301,7 @@ import {
   type RowRejection,
 } from './roster'
 import { readRosterFile } from './roster-csv'
+import { SETUP_HISTORY } from './setup-meter'
 import { readShortName, type ShortName } from './short-name'
 import { classifyImport, type SideRef } from './roster-import'
 
@@ -5686,14 +5688,33 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         ).flatMap(([field, from, to]) => (from === to ? [] : [[field, { from, to }]])),
       )
 
-      // Nothing moved: an Admin opened the form, changed their mind and pressed
-      // save. That is not an edit, so nothing is written and history says nothing
-      // -- the same answer `goal.move` gives the Admin who pressed *up* on the top
-      // option. A `ministry.settings_changed` event recording no change would be a
-      // diary entry in a record that exists to be read for the changes that matter.
-      if (Object.keys(changes).length === 0) return { effects: [], rejections: [] }
-
       const now = context.clock.now()
+
+      // Nothing moved. That is not an edit, so the row is not written and
+      // `ministry.settings_changed` says nothing: an event recording no change would
+      // be a diary entry in a record that exists to be read for the changes that
+      // matter. But an Admin looked at the check-in day and hour and pressed Save,
+      // which is setup step 1 changed or not (James, triage 2026-10-31), and that act
+      // is a fact the setup meter reads, so it gets an event of its own.
+      if (Object.keys(changes).length === 0) {
+        return {
+          effects: [
+            appendHistory({
+              ministryId: command.ministryId,
+              occurredAt: now,
+              type: SETUP_HISTORY.checkInTimeConfirmed,
+              subjectType: 'ministry',
+              subjectId: command.ministryId,
+              payload: {
+                confirmedBy: command.changedBy,
+                checkinDay: settings.cadence.day,
+                checkinHour: settings.cadence.hour,
+              },
+            }),
+          ],
+          rejections: [],
+        }
+      }
 
       return {
         effects: [
@@ -5715,6 +5736,18 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       }
     }
 
+    case 'setup.mark_seen':
+      return {
+        effects: [
+          markSetupSeen({
+            userId: command.seenBy,
+            steps: command.steps,
+            badgeSeenAt: command.badge ? context.clock.now() : null,
+          }),
+        ],
+        rejections: [],
+      }
+
     case 'short_name.change': {
       const was = context.shortName
       if (!was) throw new Error('short_name.change was handed no short name to change')
@@ -5723,7 +5756,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       if ('refusal' in reading) throw new ShortNameRefused(reading.refusal)
 
       // The name it already has, typed again. Nothing happened, so nothing is
-      // written and history says nothing, as with a settings form saved unchanged.
+      // written and history says nothing.
       if (reading.shortName === was) return { effects: [], rejections: [] }
 
       const now = context.clock.now()

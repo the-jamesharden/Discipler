@@ -41,3 +41,17 @@
 
 1. Provide the photo of yourself.
 2. Record the welcome video and give its address.
+
+## Comments
+
+### From building ticket 26 (2026-11-03)
+
+The setup meter already reads step 2, so this ticket has only to record it and give the bar its button.
+
+1. When an Admin presses Done on the tour's last step, append `tourFinished({ ministryId, finishedBy, at })` from `src/domain/setup-meter.ts` as history, through a command like every other Admin act.
+   Leaving the tour early records nothing.
+2. Set `tour`'s `href` in `STEP_COPY` in `app/setup-meter-copy.ts`.
+   The button and its place in "Next:" appear from that one line, and `tests/app/the-setup-meter-words.test.ts` and `tests/integration/the-setup-meter-over-http.test.ts` are the tests that then say to change.
+
+The bar plays a step this Admin has not seen as soon as a page mounts, and marks it seen at once.
+The modal opens over it on an Admin's first sign-in, so that Admin's confetti would play behind the modal: hold the bar back while the modal is open, or let it play only once the modal has closed.

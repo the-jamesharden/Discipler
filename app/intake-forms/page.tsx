@@ -159,6 +159,7 @@ export default async function IntakeFormsPage({
       subtitle={admin.ministryName}
       back={{ href: '/overview', label: 'Back to the overview' }}
       actions={<AdminNav admin={admin} />}
+      admin={admin}
       wide
     >
       {/* The short name and the two readable links built from it, with their QR

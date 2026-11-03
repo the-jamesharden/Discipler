@@ -1,3 +1,4 @@
+import { SETUP_HISTORY } from '~/domain/setup-meter'
 import { describe, expect, it } from 'vitest'
 import { handleCommand, type CommandContext } from '~/domain/boundary'
 import { createTestClock } from '~/domain/clock'
@@ -309,13 +310,32 @@ describe('saving a Ministry’s settings', () => {
   })
 
   /**
-   * Nothing moved, so nothing happened. The same answer `goal.move` gives the
-   * Admin who pressed *up* on the top option: they have asked for the settings
-   * they are already looking at, and an event recording that they changed nothing
-   * would be a diary entry in a record that is read for the changes that matter.
+   * Nothing moved, so the row is not written and no change is claimed: an event
+   * recording that they changed nothing would be a diary entry in a record that is
+   * read for the changes that matter. But they did look at the check-in day and hour
+   * and press Save, which is setup step 1 changed or not, so that act is recorded as
+   * what it is (Exponential launch, ticket 26).
    */
-  it('writes nothing at all for a form that changed nothing', () => {
-    expect(save({})).toEqual([])
+  it('saves nothing for a form that changed nothing, and records the check-in time confirmed', () => {
+    const effects = save({})
+
+    expect(savedBy(effects)).toEqual([])
+    expect(recordedBy(effects)).toEqual([
+      {
+        ministryId: ministry,
+        occurredAt: at,
+        type: SETUP_HISTORY.checkInTimeConfirmed,
+        subjectType: 'ministry',
+        subjectId: ministry,
+        payload: { confirmedBy: 'admin@riverside.test', checkinDay: 1, checkinHour: 9 },
+      },
+    ])
+  })
+
+  it('claims no confirmation for a save that changed something, which already says so', () => {
+    const types = recordedBy(save({ leaderNoun: 'coach' })).map((event) => event.type)
+
+    expect(types).toEqual(['ministry.settings_changed'])
   })
 
   /**
