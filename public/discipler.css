@@ -225,10 +225,61 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; }
 .tab-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 1.2rem; height: 1.2rem; padding: 0 0.35rem; margin-left: 0.4rem; background: var(--primary); color: #fff; border-radius: 10px; font-size: 0.7rem; font-weight: 700; }
 
 /* The tab row slides on a phone (`app/tab-slider.tsx`). Every tab fits on anything
-   wider, so the arrows are drawn only below this width. */
-.tabs-wrap { position: relative; margin-bottom: 1.75rem; }
-.tabs-wrap .tabs { margin-bottom: 0; }
+   wider, so the arrows are drawn only below this width. Search sits at its right end
+   (`app/search/search.tsx`), layout B of mock-up 2. */
+.tabs-row { display: flex; align-items: flex-end; gap: 1rem; border-bottom: 2px solid var(--border); margin-bottom: 1.75rem; }
+.tabs-wrap { position: relative; flex: 1; min-width: 0; }
+.tabs-wrap .tabs { margin-bottom: 0; border-bottom: 0; }
 .tab-arrow { display: none; }
+
+/* The search bar: a button that looks like a field, and grows when clicked. */
+button.search-bar { display: flex; flex: none; align-items: center; gap: 0.55rem; width: 17rem; margin-bottom: 0.45rem; padding: 0.5rem 0.75rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text-light); font-size: 0.88rem; font-weight: 400; line-height: 1.6; text-align: left; cursor: text; transition: width 0.25s ease, box-shadow 0.25s ease; }
+button.search-bar:hover { background: var(--surface); border-color: var(--primary-light); }
+button.search-bar.on { width: 24rem; }
+button.search-bar.on, button.search-bar:focus-visible { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(45, 80, 22, 0.1); }
+.search-bar .ico { width: 1rem; height: 1rem; flex: none; }
+.search-bar-word { flex: 1; min-width: 0; }
+.search-bar kbd, .palette kbd, button.palette-esc { font-family: var(--sans); font-size: 0.7rem; font-weight: 600; line-height: 1.6; color: var(--text-light); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 0.02rem 0.35rem; background: var(--bg); }
+@media (prefers-reduced-motion: reduce) { button.search-bar { transition: none; } }
+
+/* Search, open: over the whole page, in the browser's own top layer. */
+dialog.palette { inset: 12vh 0 auto; width: calc(100% - 2rem); max-width: 620px; margin: 0 auto; padding: 0; overflow: hidden; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); box-shadow: 0 24px 64px rgba(0, 0, 0, 0.2); }
+dialog.palette::backdrop { background: rgba(45, 45, 45, 0.28); }
+.palette-input { display: flex; align-items: center; gap: 0.7rem; padding: 0.95rem 1.1rem; border-bottom: 1px solid var(--border); }
+.palette-input .ico { width: 1.15rem; height: 1.15rem; color: var(--primary); flex: none; }
+.palette-input input[type="text"] { flex: 1; width: auto; min-width: 0; margin: 0; padding: 0; border: 0; border-radius: 0; outline: none; background: transparent; box-shadow: none; font-size: 1.05rem; }
+button.palette-esc { flex: none; cursor: pointer; }
+button.palette-esc:hover { background: var(--bg); color: var(--primary); }
+.palette-body { max-height: 52vh; max-height: 52dvh; overflow-y: auto; overscroll-behavior: contain; padding: 0.4rem 0 0.6rem; }
+.palette-group { padding: 0.35rem 0; }
+.palette-group h4 { padding: 0.35rem 1.1rem; font-family: var(--sans); font-size: 0.66rem; font-weight: 700; letter-spacing: 0.07em; color: var(--text-light); text-transform: uppercase; }
+.palette-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.55rem 1.1rem; color: var(--text); font-size: 0.92rem; text-decoration: none; }
+.palette-row.on { background: rgba(45, 80, 22, 0.06); box-shadow: inset 3px 0 0 var(--primary); }
+.palette-mark { display: grid; flex: none; place-items: center; width: 1.9rem; height: 1.9rem; border-radius: 7px; background: var(--bg); color: var(--primary); font-size: 0.75rem; font-weight: 700; }
+.palette-mark .ico { width: 1rem; height: 1rem; }
+.palette-mark.palette-initials { border-radius: 50%; background: var(--primary); color: #fff; }
+.palette-words { flex: 1; min-width: 0; }
+.palette-label { display: block; overflow-wrap: anywhere; }
+.palette-words small { display: block; overflow: hidden; color: var(--text-light); font-size: 0.78rem; text-overflow: ellipsis; white-space: nowrap; }
+.palette-row mark { padding: 0 1px; border-radius: 2px; background: rgba(201, 168, 106, 0.35); color: inherit; }
+.palette-where { flex: none; margin-left: auto; color: var(--text-light); font-size: 0.75rem; white-space: nowrap; }
+.palette-note { padding: 0.9rem 1.1rem; color: var(--text-light); font-size: 0.9rem; }
+.palette-foot { display: flex; flex-wrap: wrap; gap: 1.1rem; padding: 0.6rem 1.1rem; border-top: 1px solid var(--border); background: var(--bg); color: var(--text-light); font-size: 0.75rem; }
+/* Where a search for a relationship lands. */
+.rel-card:target { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* A window too narrow for the tabs and the bar side by side, and a phone, as drawn: the
+   bar has its own row under the tabs, the width of the page, and the row's line runs
+   under it. There is nothing left to grow into, so clicking it only colours it. */
+@media (max-width: 1060px) {
+  .tabs-row { display: block; }
+  button.search-bar, button.search-bar.on { width: 100%; }
+}
+/* No keyboard to say a shortcut for. By the kind of screen and not its width, so a
+   narrow window on a laptop keeps them. */
+@media (hover: none) and (pointer: coarse) {
+  .search-bar kbd, .palette-foot { display: none; }
+}
 
 @media (max-width: 760px) {
   /* The buttons sit to the right, with a page's way back, if it has one, to the left. */
@@ -245,7 +296,7 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; }
   .botanical .header > div:first-child { padding: 0.55rem 0.75rem; margin: -0.55rem -0.75rem 0; background: rgba(245, 241, 235, 0.88); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); border-radius: 10px; }
 
   /* Three tabs to a view, and the arrow pages to the other three. */
-  .tabs-wrap { padding: 0 1.4rem; border-bottom: 2px solid var(--border); }
+  .tabs-wrap { padding: 0 1.4rem; }
   .tabs-wrap .tabs { gap: 0; border-bottom: 0; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; }
   .tabs-wrap .tabs::-webkit-scrollbar { display: none; }
   .tabs-wrap .tabs li { flex: 0 0 calc(100% / 3); min-width: 0; scroll-snap-align: start; }
@@ -485,7 +536,7 @@ fieldset.fe-choice-boxes { display: grid; gap: 0.5rem; margin: 0; padding: 0; bo
 
 /* ---- relationship cards ---- */
 
-.rel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; }
+.rel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); gap: 1rem; }
 .rel-card { display: block; padding: 1.1rem 1.25rem; border: 1px solid var(--border); border-left-width: 4px; border-left-color: var(--border); border-radius: 6px; background: rgba(45, 80, 22, 0.02); color: inherit; text-decoration: none; transition: background 0.2s ease; }
 a.rel-card:hover { box-shadow: 0 3px 14px rgba(45, 80, 22, 0.12); }
 .rel-card.s-needs_care { border-left-color: var(--red-concern); background: linear-gradient(135deg, rgba(220, 53, 69, 0.06), rgba(220, 53, 69, 0.03)); }

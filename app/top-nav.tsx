@@ -21,6 +21,7 @@ import {
 } from './icons'
 import { initialsOf } from './initials'
 import { INTAKE_FORMS } from './intake-forms/copy'
+import { SearchDirectory } from './search/search'
 import { TopNavMenusClose } from './top-nav-menus-close'
 import { HELP_MENU, liveMenu, REFER_A_CHURCH, type TopNavIcon } from './top-nav-menus'
 
@@ -140,5 +141,6 @@ export const AdminNav = ({ admin }: { readonly admin: SignedInAdmin }) => (
     </Link>
     <AccountCircle admin={admin} />
     <TopNavMenusClose />
+    <SearchDirectory />
   </div>
 )

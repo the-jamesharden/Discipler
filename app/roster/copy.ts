@@ -170,7 +170,9 @@ const groupHeld = (pairing: RosterRelationship): string =>
  * capitalised here to start a line. A one-to-one that names nobody on the other
  * side says nothing.
  */
-const pairingWithItsDirection = (pairing: RosterRelationship): string | null => {
+export const pairingWithItsDirection = (
+  pairing: Pick<RosterRelationship, 'role' | 'name' | 'leaderNames' | 'participantNames' | 'participantCount'>,
+): string | null => {
   const other = pairing.role === 'leader' ? pairing.participantNames : pairing.leaderNames
   if (!isAGroupNow(pairing) && other.length === 0) return null
   const { direction, who } = pairingTagSaid(pairing, isAGroupNow(pairing))

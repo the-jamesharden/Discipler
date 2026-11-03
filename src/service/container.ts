@@ -38,6 +38,7 @@ import {
 } from '~/platform/supabase/outbound-queue'
 import { createSupabaseMaterialsReader } from '~/platform/supabase/materials-reader'
 import { createSupabaseOverviewReader } from '~/platform/supabase/overview-reader'
+import { createSupabaseSearchReader } from '~/platform/supabase/search-reader'
 import { messageTransportKind } from '~/platform/deployment'
 import { createRecordingTransport } from '~/platform/recording-transport'
 import { createRecordingVerifier } from '~/platform/recording-verifier'
@@ -110,6 +111,7 @@ import type {
   OutboundQueue,
   OverviewReader,
   RosterReader,
+  SearchReader,
   SharedNumberCapacity,
   SignInLimit,
   StripeEventInbox,
@@ -659,6 +661,13 @@ export const getCheckInsReader = (): CheckInsReader => createSupabaseCheckInsRea
  * question about now, as is the state each card's pill shows.
  */
 export const getMaterialsReader = (): MaterialsReader => createSupabaseMaterialsReader(systemClock)
+
+/**
+ * Search reads through the signed-in Admin's session like every page, and takes the
+ * clock because whether the Overview draws an unaccepted relationship yet is a
+ * question about now.
+ */
+export const getSearchReader = (): SearchReader => createSupabaseSearchReader(systemClock)
 
 /**
  * The Leader Dashboard reads through the signed-in user's session and takes no
