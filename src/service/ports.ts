@@ -2339,6 +2339,13 @@ export interface SignedInAdmin {
    * treat specially then, which is what null says.
    */
   readonly personId: PersonId | null
+  /**
+   * Their name, off that same row, for the top nav's circle and menu. Null with
+   * `personId`, for the same reason: no row means no name to draw, and the top nav
+   * says nothing rather than making one up. It comes with every page's one read
+   * (`docs/adr/0023-a-page-is-one-read.md`), so drawing it costs no request.
+   */
+  readonly fullName: string | null
 }
 
 /**

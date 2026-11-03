@@ -6,7 +6,8 @@ import {
   speakingName,
 } from '~/domain/ministry-settings'
 import { getMinistrySettingsReader } from '~/service/container'
-import { AccountMenu, NotAnAdmin, PageShell } from '../shell'
+import { NotAnAdmin, PageShell } from '../shell'
+import { AdminNav } from '../top-nav'
 import { TimezoneSelect } from '../timezone-select'
 import {
   AGE_NOT_ASKED,
@@ -68,7 +69,7 @@ export default async function MinistrySettingsPage({
       title="Ministry Settings"
       subtitle={settings.name}
       back={{ href: '/overview', label: 'Back to the overview' }}
-      actions={<AccountMenu ministry />}
+      actions={<AdminNav admin={admin} />}
     >
       {refusals.length > 0 ? (
         <p className="toast error" role="alert">

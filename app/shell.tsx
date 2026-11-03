@@ -1,10 +1,11 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 import type { SignedInAdmin } from '~/service/ports'
-import { CHANGE_YOUR_PASSWORD } from './account/copy'
+import { CHANGE_YOUR_PASSWORD, SIGN_OUT } from './account/copy'
 import { BotanicalFrame } from './botanical'
 import { ArrowLeft } from './icons'
-import { INTAKE_FORMS } from './intake-forms/copy'
+import { TabSlider } from './tab-slider'
+import { AdminNav } from './top-nav'
 
 /**
  * The page shells every screen renders inside. Three shapes and no fourth: the
@@ -37,8 +38,6 @@ export const ADMIN_TABS = [
 
 export type AdminTab = (typeof ADMIN_TABS)[number]['key']
 
-export const SIGN_OUT = 'Sign out'
-
 /** The sign-out control: a form, because signing out is a POST. */
 export const SignOut = () => (
   <form method="post" action="/auth/sign-out">
@@ -51,20 +50,15 @@ export const SignOut = () => (
 export const ACCOUNT = 'Account'
 
 /**
- * The one control every signed-in header carries besides its own way back: a menu
- * of the places that are not the page's own. Two groups, named for what they act
- * on. *This Ministry* -- Ministry settings and Intake forms -- is offered only to
- * somebody who administers one; *You* -- Change your password and Sign out -- is
- * everybody's, and goes unlabelled when it is the only group.
+ * The header's menu for somebody who holds a session and administers nothing: a
+ * Leader on the Leader Dashboard, or an account with no Ministry at all. An Admin
+ * has the top nav instead (`./top-nav`), on every page of theirs.
  *
  * A `details` element and nothing more (ticket 32, decision 2). It opens and closes
  * with no script, which keeps the shell's rule that nothing here depends on one; the
  * price is that it closes only when its summary is pressed again.
- *
- * The summary says *Account* and not the person's name: the signed-in Admin is a
- * Ministry and a person id, and putting a name here would add a read to every page.
  */
-export const AccountMenu = ({ ministry }: { readonly ministry: boolean }) => (
+export const AccountMenu = () => (
   <details className="account">
     <summary>
       <svg
@@ -94,15 +88,7 @@ export const AccountMenu = ({ ministry }: { readonly ministry: boolean }) => (
       </svg>
     </summary>
     <div className="account-menu">
-      {ministry ? (
-        <div className="account-group">
-          <p className="account-label">This Ministry</p>
-          <Link href="/settings">Ministry settings</Link>
-          <Link href="/intake-forms">{INTAKE_FORMS}</Link>
-        </div>
-      ) : null}
       <div className="account-group">
-        {ministry ? <p className="account-label">You</p> : null}
         <Link href="/account">{CHANGE_YOUR_PASSWORD}</Link>
         <SignOut />
       </div>
@@ -118,30 +104,32 @@ export const TabBar = ({
   readonly followUpCount: number
 }) => (
   <nav aria-label="Admin surfaces">
-    <ul className="tabs">
-      {ADMIN_TABS.map((tab) => (
-        <li key={tab.key}>
-          <Link
-            href={tab.href}
-            className="tab"
-            aria-current={tab.key === current ? 'page' : undefined}
-          >
-            {tab.label}
-            {tab.key === 'follow-up' && followUpCount > 0 ? (
-              <span className="tab-badge" aria-label={`${followUpCount} needing attention`}>
-                {followUpCount}
-              </span>
-            ) : null}
-          </Link>
-        </li>
-      ))}
-    </ul>
+    <TabSlider>
+      <ul className="tabs">
+        {ADMIN_TABS.map((tab) => (
+          <li key={tab.key}>
+            <Link
+              href={tab.href}
+              className="tab"
+              aria-current={tab.key === current ? 'page' : undefined}
+            >
+              {tab.label}
+              {tab.key === 'follow-up' && followUpCount > 0 ? (
+                <span className="tab-badge" aria-label={`${followUpCount} needing attention`}>
+                  {followUpCount}
+                </span>
+              ) : null}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </TabSlider>
   </nav>
 )
 
 /**
- * The Admin shell: the Ministry's name in the header, the way to the Leader
- * surface, the Account menu, and the six tabs with the current one marked.
+ * The Admin shell: the Ministry's name in the header, the top nav, and the six tabs
+ * with the current one marked.
  *
  * The Follow-Up badge is the length of Care Needed, which is the same number the
  * Overview's Needs Follow-Up tile shows. Every page hands the count in, because a
@@ -177,16 +165,7 @@ export const AdminShell = ({
           <p>{subtitle ?? (title ? admin.ministryName : 'Discipleship relationships, week by week')}</p>
         </div>
         <div className="header-actions">
-          {/* Both surfaces, in one session, from one `ministry_member` row that says
-              `admin`. An Admin who also leads is the same person on both, and the
-              Leader surface is a live query for open leader memberships -- so this
-              link is offered unconditionally and answers honestly when they lead
-              nothing. Visible beside the menu rather than inside it, because it is
-              a place and not a setting (ticket 32, decision 1). */}
-          <Link href="/relationships" className="ghost-btn">
-            The relationships you lead
-          </Link>
-          <AccountMenu ministry />
+          <AdminNav admin={admin} />
         </div>
       </header>
 
@@ -306,7 +285,7 @@ export const Centred = ({
  * to sign in would only loop, so it says what is wrong.
  */
 export const NotAnAdmin = ({ title }: { readonly title: string }) => (
-  <PageShell title={title} subtitle="Discipler" actions={<AccountMenu ministry={false} />}>
+  <PageShell title={title} subtitle="Discipler" actions={<AccountMenu />}>
     <div className="card">
       <p className="empty">
         This account is not an Admin of a Ministry. Ask whoever invited you to add you

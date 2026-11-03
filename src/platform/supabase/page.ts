@@ -93,6 +93,7 @@ export const resolutionOf = (doc: PageDocument): AdminResolution => {
       ministryId: ministryId(ministry),
       ministryName: text(admin.ministry_name) ?? 'Your ministry',
       personId: own ? personId(own) : null,
+      fullName: text(admin.full_name),
     },
   }
 }

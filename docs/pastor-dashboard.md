@@ -181,6 +181,7 @@ There is no switch between churches, because a person belongs to one church.
 On a phone the tab names show three at a time, with a discreet "›" and "‹" to slide between them.
 
 The Help menu holds the Help center, Restart onboarding, What's new (with a New tag), Office hours, Contact support, and a Learn section with Setup videos and the Blog.
+An item shows only once what it opens exists, and so does Refer a church, so no button goes nowhere.
 The Help center is the help docs, written in the repo and served at `/help`.
 Contact support is one form for questions, bugs and feature requests, stored and emailed to support@; a bug report carries the page's address and the browser, never what was on the page.
 

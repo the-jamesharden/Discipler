@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { ItemsToOpen, LinkedText } from '../materials/items'
 import { AccountMenu, PageShell } from '../shell'
+import { AdminNav } from '../top-nav'
 import { SLOT_HOURS, WEEKDAYS } from '~/domain/intake'
 import { getLeaderDashboardReader } from '~/service/container'
 import type { RelationshipLed } from '~/service/ports'
@@ -284,7 +285,7 @@ export default async function RelationshipsPage() {
               Ministry overview
             </Link>
           ) : null}
-          <AccountMenu ministry={resolution.status === 'admin'} />
+          {resolution.status === 'admin' ? <AdminNav admin={resolution.admin} /> : <AccountMenu />}
         </>
       }
     >

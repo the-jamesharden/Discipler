@@ -116,6 +116,7 @@ describe('the relationships page answers in one read', () => {
       ministry_id: riverside.id,
       ministry_name: 'Riverside Chapel',
       person_id: riverside.adminPersonId,
+      full_name: riverside.adminName,
     })
 
     const dashboard = section(doc, 'dashboard')

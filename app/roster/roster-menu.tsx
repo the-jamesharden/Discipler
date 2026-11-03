@@ -5,7 +5,7 @@ import { theMenu, type MenuSection, type RosterView } from './menu'
 
 /**
  * The Everyone menu over the Roster (Roles per pairing, ticket 02), in place of the
- * All / Disciplers / Disciples toggle. A details element like the Account menu,
+ * All / Disciplers / Disciples toggle. A details element like the top nav's menus,
  * open and closed by its button, and every option a plain link to the Roster with
  * that one option changed: it works before any script and after none, and what is
  * ticked is in the address, so a refresh keeps it.
