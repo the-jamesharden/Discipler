@@ -4,7 +4,7 @@
 
 **Blocked by:** nothing
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
 ## The rule
 
@@ -62,3 +62,9 @@ A value that is not a line, typed words, a Discipler link or a code gets a new `
 - Nothing retries inside the transport, as with Twilio; the tick's alerts send again on the next pass.
 - There is no local stand-in transport: without `RESEND_API_KEY` a send throws, on Preview and on a developer's machine alike.
   Ticket 11's tests will need a recording transport through the `EmailTransport` port, like the one in `tests/domain/sending-an-email.test.ts`.
+
+### Closed out (2026-11-02)
+
+Merged in PR #35 (49d4bb2).
+The DNS records are published and the domain is verified, and the test email reached support@ from `hello@notify.trydiscipler.com` (James, 2026-11-01).
+One Acceptance check is left, so this is not `shipped`: reading SPF, DKIM and DMARC as passing in that email's headers, which only James can see.

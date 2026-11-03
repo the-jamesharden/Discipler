@@ -4,7 +4,7 @@
 
 **Blocked by:** nothing
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
 ## Why
 
@@ -156,3 +156,9 @@ Every value below goes on the `staging` environment only, never on Production or
 - `src/platform/recording-verifier.ts` writes a Verify code to the log instead of texting it, and the container picks it wherever `messageTransportKind` is `record`, so staging and a developer's `MESSAGE_TRANSPORT=record` never put a real code on a real phone.
 - The code it accepts is always `000000`: the instance that checks a code is not the one that sent it, so it cannot remember one it made up.
   Production cannot reach it, because `deploymentRefusals` refuses a production deployment set to record.
+
+### Closed out (2026-11-02)
+
+The repo side is merged in PR #35 (49d4bb2); staging itself does not exist yet, so this is not `shipped`.
+What is left is James approving the second Supabase project's monthly cost and working through the provisioning checklist above.
+The first Acceptance line also needs the sign-up and Checkout tickets (04 and 18), which are not built.

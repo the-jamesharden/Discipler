@@ -4,7 +4,7 @@
 
 **Blocked by:** nothing
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 ## What changes
 
@@ -55,3 +55,9 @@
 1. Review both drafts and the opt-in section, or have a lawyer review them, fill in every bracket, and publish all three on trydiscipler.com before 2026-11-04; sign-up stays off in production until they are live.
 2. The opt-in draft's "For James" section raises one question for Twilio or a lawyer: the sign-up consent is given by continuing, with no checkbox, on a page where a phone number is required.
 3. The live opt-in page's sample messages are out of date apart from this launch (three ratings, the old prefix); the draft lists the lines to change.
+
+### Closed out (2026-11-02)
+
+Merged in PR #35 (49d4bb2).
+The drafts are in `docs/legal/`, unpublished; sign-up does not exist yet, and ticket 15 holds its gate.
+What is left for James moved to `docs/open-questions.md`: *publishing the legal drafts*, *sign-up consent with no checkbox* and *the live opt-in page's sample messages*.

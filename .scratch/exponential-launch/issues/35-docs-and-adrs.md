@@ -4,7 +4,7 @@
 
 **Blocked by:** nothing
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 ## The list
 
@@ -66,3 +66,8 @@
 - ADR-0031 records a conflict instead of resolving it: the test check-in's first text, "the same one your {leader noun}s get", pluralises the church's noun, which ADR-0015 says Discipler never does.
   Either the wording changes (for example "the same one your {leader noun} gets" or "the same one we send each week") or ADR-0015 gains an exception.
 - Ticket 40 still lists the reply choices as "Reply A for outstanding, B for good, C for concern.", the three-rating copy; there are four ratings since 2026-10-12.
+
+### Closed out (2026-11-02)
+
+Merged in PR #35 (49d4bb2).
+What is left for James moved to `docs/open-questions.md`: *"{leader noun}s" in the test check-in's first text*, *whether "points" comes off the non-goals list*, *whether a past-due church keeps texting* and *the reply choices ticket 40 lists*.
