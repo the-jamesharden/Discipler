@@ -55,7 +55,8 @@ begin
       'ministry_name', membership.name,
       'person_id', own.id,
       'full_name', own.full_name
-    )
+    ),
+    'billing', (select to_jsonb(s) from app.billing_state_of(membership.ministry_id) s)
   );
 end;
 $$;

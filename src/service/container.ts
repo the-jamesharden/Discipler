@@ -72,6 +72,8 @@ import {
   type PostgresTwilioBalanceFalls,
 } from '~/platform/supabase/twilio-balance-falls'
 import type { CapacityConcern } from '~/domain/shared-numbers'
+import { createStripeBilling } from '~/platform/stripe/billing'
+import { createPostgresBilling, type PostgresBilling } from '~/platform/supabase/billing'
 import { createCommandService, type CommandService } from './command-service'
 import { createDailyCap, type DailyCap } from './daily-cap'
 import { createEmailSender } from './email-sender'
@@ -79,10 +81,17 @@ import { dispatchQueue, type DispatchOutcome } from './outbound-dispatch'
 import { createPhoneCheck, type PhoneCheck } from './phone-check'
 import { createSignUp, type SignUp } from './sign-up'
 import { watchSharedNumberCapacity } from './shared-number-capacity'
+import {
+  processStripeEventQuietly,
+  sweepStripeEvents,
+  type StripeEventSweep,
+  type StripeEventWork,
+} from './stripe-events'
 import { createEmailSupportAlerts } from './support-alerts'
 import { watchTwilioBalance, type TwilioBalanceWatchOutcome } from './twilio-balance-watch'
 import type {
   Accounts,
+  BillingRecords,
   CareNeededReader,
   CheckInsReader,
   EffectStore,
@@ -103,6 +112,7 @@ import type {
   RosterReader,
   SharedNumberCapacity,
   SignInLimit,
+  StripeEventInbox,
   SuggestedPairsReader,
   SupportAlerts,
   UnitOfWork,
@@ -165,6 +175,7 @@ let twilioBalanceFalls: PostgresTwilioBalanceFalls | undefined
 let dailyCapHolds: PostgresDailyCapHolds | undefined
 let pendingSignups: PostgresPendingSignups | undefined
 let signUp: SignUp | undefined
+let postgresBilling: PostgresBilling | undefined
 
 export const getCommandService = (): CommandService => {
   if (!commandService) {
@@ -455,6 +466,33 @@ export const watchTheSharedNumbers = (): Promise<readonly CapacityConcern[]> =>
     clock: systemClock,
   })
 
+const billing = (): PostgresBilling => {
+  if (!postgresBilling) postgresBilling = createPostgresBilling(commandDatabaseUrl())
+  return postgresBilling
+}
+
+/** Billing's church-scoped records (Exponential launch, ticket 03), for the server only. */
+export const getBillingRecords = (): BillingRecords => billing().records
+
+/** The Stripe webhook's inbox, which only the webhook and its processing touch. */
+export const getStripeEventInbox = (): StripeEventInbox => billing().inbox
+
+const stripeEventWork = (): StripeEventWork => ({
+  inbox: billing().inbox,
+  records: billing().records,
+  stripe: createStripeBilling(),
+  alerts: getSupportAlerts(),
+  clock: systemClock,
+})
+
+/** One event, once the webhook has answered. A failure is left for the sweep. */
+export const processStripeEventAfterTheResponse = (eventId: string): Promise<void> =>
+  processStripeEventQuietly(stripeEventWork, eventId)
+
+/** One pass over the events the responses missed, for the scheduled tick. */
+export const sweepTheStripeEvents = (): Promise<StripeEventSweep> =>
+  sweepStripeEvents(stripeEventWork())
+
 /**
  * One pass of the Twilio balance watch (Exponential launch, ticket 08). Wherever texts
  * are recorded rather than sent there is no Twilio account to read, so nothing is
@@ -528,6 +566,7 @@ export const closeCommandService = async (): Promise<void> => {
   const capHolds = dailyCapHolds
   const limit = signInLimit
   const signUps = pendingSignups
+  const billed = postgresBilling
   commandService = undefined
   commandStore = undefined
   intakeReader = undefined
@@ -543,6 +582,7 @@ export const closeCommandService = async (): Promise<void> => {
   signInLimit = undefined
   pendingSignups = undefined
   signUp = undefined
+  postgresBilling = undefined
   // The transport holds no pool -- it is `fetch` and a pair of credentials -- so
   // there is nothing of its to close, only the reference to drop.
   messageTransport = undefined
@@ -559,6 +599,7 @@ export const closeCommandService = async (): Promise<void> => {
   await capHolds?.close()
   await limit?.close()
   await signUps?.close()
+  await billed?.close()
 }
 
 export const getRosterReader = (): RosterReader => createSupabaseRosterReader(systemClock)

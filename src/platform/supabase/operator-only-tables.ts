@@ -37,4 +37,6 @@ export const OPERATOR_ONLY_TABLES: readonly string[] = [
   // The human check and the email code at sign-up (Exponential launch, ticket 11).
   'pending_signup',
   'pending_signup_send',
+  // The Stripe webhook's inbox (Exponential launch, ticket 03).
+  'stripe_event',
 ]

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { billingStateOf } from '~/domain/billing'
 import { ministryId, personId, type MinistryId } from '~/domain/ids'
 import type { AdminPage, AdminResolution } from '~/service/ports'
 import { text } from './rows'
@@ -92,6 +93,7 @@ export const resolutionOf = (doc: PageDocument): AdminResolution => {
       userId,
       ministryId: ministryId(ministry),
       ministryName: text(admin.ministry_name) ?? 'Your ministry',
+      billing: billingStateOf(section(doc, 'billing')),
       personId: own ? personId(own) : null,
       fullName: text(admin.full_name),
     },

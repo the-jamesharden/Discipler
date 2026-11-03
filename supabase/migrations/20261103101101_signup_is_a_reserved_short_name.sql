@@ -25,7 +25,7 @@ as $$
   select candidate = any (array[
     'account', 'api', 'auth', 'check-ins', 'cron', 'follow-up', 'groups', 'help',
     'intake', 'intake-forms', 'invitation', 'join', 'login', 'material', 'materials',
-    'overview', 'relationships', 'roster', 'settings', 'setup', 'signup', 'sms',
+    'overview', 'relationships', 'roster', 'settings', 'setup', 'signup', 'sms', 'stripe',
     'suggested-pairs'
   ]);
 $$;

@@ -18,6 +18,15 @@ import {
  * names, which is what lets the reader's parsing move without changing.
  */
 
+// A church that has not paid, on any page's document (Exponential launch, ticket 03).
+const NOTHING_ESTABLISHED = {
+  standing: 'no_subscription',
+  has_access: false,
+  trial_ends_at: null,
+  current_period_ends_at: null,
+  cancels_at: null,
+}
+
 describe('the settings page answers in one read', () => {
   let riverside: MinistryFixture
   let admin: SupabaseClient
@@ -45,6 +54,7 @@ describe('the settings page answers in one read', () => {
         person_id: riverside.adminPersonId,
         full_name: riverside.adminName,
       },
+      billing: NOTHING_ESTABLISHED,
       settings: separate,
       // Which of Discipler's questions each edited form asks (Pastor feedback,
       // ticket 13): none edited, so none listed.

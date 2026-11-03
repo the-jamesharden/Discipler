@@ -40,6 +40,13 @@ import type {
 import type { CheckInSnapshot, Satisfaction } from '~/domain/check-in'
 import type { CheckInCounts } from '~/domain/overview'
 import type { CapacityConcern, SharedNumberLoad } from '~/domain/shared-numbers'
+import type {
+  BillingFact,
+  BillingState,
+  StripeEventRefusal,
+  StripeInboxEntry,
+  StripeSubscriptionFacts,
+} from '~/domain/billing'
 import type { GrowthChoice, GrowthSeries } from '~/domain/growth'
 import type { IsoWeek } from '~/domain/week'
 import type { ConcernResolution, ConcernViewing, NewConcern } from '~/domain/concerns'
@@ -1690,6 +1697,7 @@ export interface SupportAlerts {
   twilioSpendPassed(alert: TwilioSpendPassed): Promise<void>
   /** `day` is the Pacific day it was reached in, and what makes the email once a day. */
   dailyCapReached(alert: { readonly day: string }): Promise<void>
+  billingEventRefused(alert: BillingEventRefused): Promise<void>
 }
 
 /**
@@ -1734,6 +1742,102 @@ export interface TwilioSpendPassed {
   readonly watching: string | null
   /** What makes this firing the message it is: see `Email`'s `once`. */
   readonly once: string
+}
+
+/**
+ * A Stripe event was refused (Exponential launch, ticket 03). The event's ID and type
+ * and why, and nothing about a church: whoever reads it opens the event in Stripe.
+ */
+export interface BillingEventRefused {
+  readonly eventId: string
+  readonly eventType: string
+  readonly refusal: StripeEventRefusal
+}
+
+/**
+ * Stripe's API, behind this and nowhere else. Reads only: the webhook's processing
+ * asks what is true now and never changes anything at Stripe.
+ *
+ * Throws when Stripe cannot answer, which leaves the event unprocessed for the next
+ * sweep.
+ */
+export interface StripeBilling {
+  /** Every Subscription the customer has ever held, in no promised order. */
+  subscriptionsOf(customerId: string): Promise<readonly StripeSubscriptionFacts[]>
+  /** The customer a charge was made to, for a dispute, which names only its charge. */
+  customerOfCharge(chargeId: string): Promise<string | null>
+}
+
+/**
+ * The webhook's inbox. Operator-only, so it is on the trusted connection and acts for
+ * no church.
+ */
+export interface StripeEventInbox {
+  /** Keeps a verified event. False where its ID was already here, which changes nothing. */
+  receive(entry: StripeInboxEntry, at: Date): Promise<boolean>
+  /**
+   * Takes one event to process, for `heldFor` milliseconds. Null where it has been
+   * processed or something else holds it, which is how an event being swept and
+   * replayed at the same moment is processed once.
+   */
+  claim(eventId: string, at: Date, heldFor: number): Promise<StripeInboxEntry | null>
+  /** Says how it ended. Only an event that has been finished is never tried again. */
+  finish(eventId: string, ending: StripeEventEnding, at: Date): Promise<void>
+  /** The IDs of events not yet finished and not held, the least tried first. */
+  unprocessed(at: Date, limit: number): Promise<readonly string[]>
+}
+
+export type StripeEventEnding =
+  | { readonly outcome: 'recorded'; readonly church: MinistryId }
+  | {
+      readonly outcome: 'refused'
+      readonly refusal: StripeEventRefusal
+      readonly church: MinistryId | null
+    }
+  | { readonly outcome: 'ignored' }
+
+/** One church's Stripe IDs and its billing state, for the server and never a browser. */
+export interface ChurchBilling {
+  readonly state: BillingState
+  readonly customerId: string | null
+  readonly subscriptionId: string | null
+  readonly latestInvoiceId: string | null
+  readonly priceId: string | null
+}
+
+/** One scoped, per-church transaction's writes. See `BillingRecords.establish`. */
+export interface BillingUnit {
+  /** Appends what an event established. A second call for one event changes nothing. */
+  record(fact: BillingFact, at: Date): Promise<void>
+}
+
+/**
+ * The church-scoped billing records, written as `discipler_command` for one church at
+ * a time and never as `service_role`.
+ */
+export interface BillingRecords {
+  /**
+   * The church whose stored customer this is, or null. Answers which church to scope
+   * to, so it cannot itself be scoped.
+   */
+  churchOfCustomer(customerId: string): Promise<MinistryId | null>
+  /**
+   * Stores the Stripe customer made for a church (ticket 04), and answers the one on
+   * record: where a double click has made two, the first stands and the caller goes
+   * on with it.
+   */
+  rememberCustomer(church: MinistryId, customerId: string, livemode: boolean): Promise<string>
+  /** One church's billing, on the trusted connection (tickets 04, 14 and 33). */
+  of(church: MinistryId): Promise<ChurchBilling>
+  /**
+   * One transaction for one church, holding that church's billing lock throughout.
+   *
+   * `work` reads Stripe inside it. That is the point: two events processed at once
+   * must not be able to read Stripe in one order and commit in the other, or an older
+   * reading would land last and bring a canceled church back to active. The cost is a
+   * connection held across one Stripe read.
+   */
+  establish<T>(church: MinistryId, work: (unit: BillingUnit) => Promise<T>): Promise<T>
 }
 
 /**
@@ -2405,6 +2509,12 @@ export interface SignedInAdmin {
   readonly userId: string
   readonly ministryId: MinistryId
   readonly ministryName: string
+  /**
+   * Where their church stands with billing, which every page's document carries so
+   * the banners on every Admin page need no read of their own (Exponential launch,
+   * ticket 03). No Stripe ID is part of it.
+   */
+  readonly billing: BillingState
   /**
    * Their own row on their own Roster, or null where they hold none.
    *

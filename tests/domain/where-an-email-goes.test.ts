@@ -71,6 +71,7 @@ describe('the routing', () => {
     // A kind with no route here would be a kind nobody decided the inbox of.
     expect(Object.keys(EMAIL_KINDS).sort()).toEqual(
       [
+        'billingEventRefused',
         'bugReport',
         'checkoutReminder',
         'churchPlantApplication',

@@ -3,10 +3,12 @@ import { NextResponse, type NextRequest } from 'next/server'
 import type { MinistryId } from '~/domain/ids'
 import type { CapacityConcern } from '~/domain/shared-numbers'
 import type { SettledPairings } from '~/service/command-service'
+import type { StripeEventSweep } from '~/service/stripe-events'
 import {
   drainOutboundQueue,
   getCommandService,
   getMinistryDirectory,
+  sweepTheStripeEvents,
   sweepUnsavedUploads,
   watchTheSharedNumbers,
   watchTheTwilioBalance,
@@ -154,6 +156,16 @@ export async function GET(request: NextRequest) {
     console.error('Watching the Twilio balance failed', error)
     return 'failed' as const
   })
+  // Then the Stripe events whose processing after the webhook's response did not
+  // finish (Exponential launch, ticket 03). Caught on its own, and logged by name
+  // alone because the logs carry no Stripe detail.
+  let stripeEvents: StripeEventSweep | 'failed'
+  try {
+    stripeEvents = await sweepTheStripeEvents()
+  } catch (error) {
+    console.error(`Sweeping the Stripe events failed: ${error instanceof Error ? error.name : 'unknown'}`)
+    stripeEvents = 'failed'
+  }
 
   // Always 200 once authorised, even where a Ministry failed. The scheduler retries
   // a non-2xx, and retrying the whole run to recover one Ministry would re-drain
@@ -175,6 +187,7 @@ export async function GET(request: NextRequest) {
     // The capacity concerns support@ was told about on this pass.
     capacity,
     twilioBalance,
+    stripeEvents,
     errors: ran.filter((one) => one.error !== null).map((one) => ({
       ministryId: one.ministryId,
       error: one.error,

@@ -62,6 +62,13 @@ export interface NewMinistry {
    */
   readonly openedThrough?: MinistrySetupToken
   /**
+   * Whether it keeps working with no subscription (Exponential launch, ticket 03).
+   * Always so for a Ministry opened through a Setup Link, which is how a comped church
+   * opens now that a church can sign itself up; the seed says so for its demo churches.
+   * Self sign-up leaves it off.
+   */
+  readonly billedOutsideStripe?: boolean
+  /**
    * When the Ministry opens: the moment its first event occurred and the moment
    * the link, if there is one, is spent. The caller's clock and never the
    * database's, so the page that read the link as live and the transaction that
@@ -182,6 +189,12 @@ export const provisionMinistry = async (
     )
     const ministryId = created.rows[0]!.id
     const shortName = created.rows[0]!.short_name
+
+    // Its billing row, there from the first moment so the webhook only ever fills it in.
+    await client.query(
+      `insert into ministry_billing (ministry_id, billed_outside_stripe) values ($1, $2)`,
+      [ministryId, ministry.openedThrough !== undefined || ministry.billedOutsideStripe === true],
+    )
 
     // The link, and the whole reason this is a product path rather than a fixture.
     // An Admin who is later sent an Invitation Link is found here by Acceptance and

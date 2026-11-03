@@ -79,6 +79,15 @@ export const messageTransportKind = (env: Environment): MessageTransportKind => 
 }
 
 /**
+ * Whether a Stripe event sent here should be a live-mode one. Production takes live
+ * mode and nothing else does: staging is a Stripe sandbox, and a developer's machine
+ * has no business with real money. A test-mode event at production, or the reverse,
+ * is an endpoint or a secret pointed at the wrong deployment.
+ */
+export const stripeTakesLiveEvents = (env: Environment): boolean =>
+  deploymentOf(env) === 'production'
+
+/**
  * Everything wrong with this environment for the deployment it is, as sentences a
  * person can act on, all at once so a dashboard is fixed in one pass. Empty means
  * it may run.

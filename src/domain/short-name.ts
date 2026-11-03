@@ -56,6 +56,7 @@ export const RESERVED_SHORT_NAMES: readonly string[] = [
   'setup',
   'signup',
   'sms',
+  'stripe',
   'suggested-pairs',
 ]
 

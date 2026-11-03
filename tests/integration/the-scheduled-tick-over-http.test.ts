@@ -175,6 +175,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the scheduled tick, as the scheduler ru
       awaitingANumber: number
       capacity: readonly string[] | 'failed'
       twilioBalance: string
+      stripeEvents: { failed: number } | 'failed'
       errors: { ministryId: string; error: string }[]
     }
 
@@ -187,6 +188,8 @@ describe.skipIf(skipUnlessAppIsRunning)('the scheduled tick, as the scheduler ru
     // failing: reported, and everything above went on regardless. It proves too that
     // the read never reached the real Twilio from here.
     expect(outcome.twilioBalance).toBe('failed')
+    // So did the sweep of the Stripe events (Exponential launch, ticket 03).
+    expect(outcome.stripeEvents).not.toBe('failed')
 
     // The Welcome went to a number from the shared set, given to this pair on its
     // first text and kept. Whether Twilio then took it is the transport's business,
