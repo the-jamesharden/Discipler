@@ -73,7 +73,15 @@ Ten are `shipped`; 02 is `ready-for-human`, with the reason at the end of its co
 - Operator-only tables added: `phone_check`, `phone_check_code`, `sign_in_attempt`, `shared_number`, `shared_number_capacity_alert`.
 - Texts must keep naming their number as Twilio's `From`: sending by the Messaging Service's SID would make one `STOP` silence every church (ADR-0033).
 
-Next: triage 15 to 25 (23 first), rewrite 04, 18 and 19, then build the next wave in the same way, one worktree per ticket merged into one launch branch cut from `origin/main`.
+Tickets 03, 07, 08, 11, 23 and 40 and the intake form's consent links were built on 2026-11-03 and merged into one branch, `launch/wave-2026-11-03`.
+Five are `shipped`; 07 is `needs-info`, because check-ins are not spread until James decides whether the send pass runs more often than hourly.
+Sign-up stays shut until `SIGN_UP_OPEN=true`, and nothing reads a church's billing access until ticket 05.
+What they left for a human is in `docs/open-questions.md`.
+
+- Every later replacement of `app.page_session()` or `app.short_name_is_reserved` must keep every field and name, including `billing`, `full_name`, `signup` and `stripe`.
+- `dailyCap` is required on `dispatchQueue`, and ticket 05's fixtures need `billedOutsideStripe: true`.
+
+Next: triage 15 to 22, 24 and 25, rewrite 04, 18 and 19, then build the next wave in the same way, one worktree per ticket merged into one launch branch cut from `origin/main`.
 
 ## Blocked on James
 

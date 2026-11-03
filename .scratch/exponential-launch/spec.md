@@ -474,15 +474,15 @@ James answered these when tickets 26 to 33 and 40 were triaged.
 | --- | --- | --- | --- |
 | 01 - Operator-only tables and the coverage test | Every table is church-scoped or operator-only, proven by the test | shipped | Nothing |
 | 02 - Staging | A copy with its own database, Stripe in test mode and no real texting | ready-for-human | Nothing |
-| 03 - Billing records and the Stripe webhook | The only writer of billing state | ready-for-agent | 01 |
+| 03 - Billing records and the Stripe webhook | The only writer of billing state | shipped | 01 |
 | 04 - Prices, offers and the Checkout session | $97, $147, the trial, the offers, and the hosted Checkout | ready-for-agent | 03 |
 | 05 - The texting gate | No text leaves for a church without a live subscription | ready-for-agent | 03 |
 | 06 - The shared numbers | A Discipler number per person per church, replacing a number per church | shipped | Nothing |
-| 07 - The daily cap | Spread check-ins, hold texts on error 30023, alert once a day | ready-for-agent | 06 |
-| 08 - The Twilio balance and spend alarm | An email before an empty balance stops every text | ready-for-agent | 10 |
+| 07 - The daily cap | Spread check-ins, hold texts on error 30023, alert once a day | needs-info | 06 |
+| 08 - The Twilio balance and spend alarm | An email before an empty balance stops every text | shipped | 10 |
 | 09 - Verify | The Twilio Verify service and the Admin's phone check | shipped | Nothing |
 | 10 - Email from notify.trydiscipler.com | Resend, the domain, and the no-PII sender | shipped | Nothing |
-| 11 - Email codes and the human check | Turnstile and the 6-digit email code, on the server | ready-for-agent | 01, 10 |
+| 11 - Email codes and the human check | Turnstile and the 6-digit email code, on the server | shipped | 01, 10 |
 | 12 - Password policy | 8 characters, a blocklist, 64 and more allowed | shipped | Nothing |
 | 13 - The sign-in guessing limit | Test the hole, and close it if it is real | shipped | Nothing |
 | 14 - The over-200 follow-up | An email when a church stays above 200 people for a month | ready-for-agent | 03, 10 |
@@ -494,7 +494,7 @@ James answered these when tickets 26 to 33 and 40 were triaged.
 | 20 - Sign-up: the Exponential special offer and referral links | `EXPO26`, the booth QR link and `/r/<code>` | needs-info | 18 |
 | 21 - Sign in with email or phone | One box for both | needs-info | 17 |
 | 22 - Forgot password | The emailed reset link for Admins | needs-info | 10, 21 |
-| 23 - The top nav and Help menu | The gear, the avatar, the meter's place and the six Help items | needs-info | Nothing |
+| 23 - The top nav and Help menu | The gear, the avatar, the meter's place and the six Help items | shipped | Nothing |
 | 24 - Search | The directory behind ⌘K, `/` and the search bar | needs-info | 23 |
 | 25 - Contact, bug and feature form | Stored and emailed to support@ | needs-info | 10, 23 |
 | 26 - The setup meter and the badge | Seven steps, never going down, one badge per Admin | ready-for-agent | 23 |
@@ -511,4 +511,4 @@ James answered these when tickets 26 to 33 and 40 were triaged.
 | 37 - Security headers and the extra hardening | Q57's list | ready-for-agent | 03, 05 |
 | 38 - The Standard registration | Vetting, the Mixed campaign and moving the numbers | ready-for-human | 06, 36 |
 | 39 - The rehearsal | James's run of the booth flow on 2026-11-05 | ready-for-human | Every other ticket |
-| 40 - The check-in's words in Settings | Four sentences a church may reword inside Discipler's frame, with a live phone | ready-for-agent | 06 |
+| 40 - The check-in's words in Settings | Four sentences a church may reword inside Discipler's frame, with a live phone | shipped | 06 |

@@ -6,7 +6,7 @@
 
 **Blocked by:** 06
 
-**Status:** ready-for-human
+**Status:** shipped
 
 ## The rule
 
@@ -37,9 +37,17 @@
 
 ## For James
 
-1. The Twilio question in ticket 06 (whether reworded sentences need the A2P campaign's sample messages widened) should be answered before this ships.
+1. Decided 2026-11-03: ship it live before Twilio answers ticket 06's question about the A2P campaign's sample messages.
+   The question itself is still open, in `docs/open-questions.md`.
 
 ## Comments
+
+### Note: shipped live before Twilio answered (James, 2026-11-03)
+
+James said the check-in's wording is fine and to ship the block live, with no switch hiding it.
+This sets aside "before ticket 40 ships" in ADR-0034 and in this ticket.
+From the deploy, any Admin can reword the four sentences, and those sentences go out on the shared numbers before Twilio has said whether the campaign's samples need widening.
+
 
 ### Built (2026-11-03)
 
@@ -113,8 +121,10 @@ The function is `relationshipSubject`, which names a group by name and everythin
 
 ### For James
 
+All three are in `docs/open-questions.md`.
+
 - The Twilio question is still open: whether reworded sentences need the A2P campaign's sample messages widened.
-  It should be answered before this ships.
+  It no longer holds this ticket back (see the note above).
 - The refusal sentences in `app/settings/check-in-words-copy.ts` are drafts, as the mock-up drew none.
 - `Messages read as` is not validated beyond blank, and it starts every text: it has no length limit and could say "Reply STOP".
   This ticket only took control characters out of it, and whether it needs the same refusals is an open question.

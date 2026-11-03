@@ -8,7 +8,7 @@
 
 **Blocked by:** Nothing
 
-**Status:** ready-for-human
+**Status:** shipped
 
 ## What was true before
 

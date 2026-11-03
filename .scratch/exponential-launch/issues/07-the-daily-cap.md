@@ -4,7 +4,9 @@
 
 **Blocked by:** 06
 
-**Status:** ready-for-human
+**Status:** needs-info
+
+Merged with the hold, the alert and the spacing in place, but one acceptance line is not met until James answers the first item under "For James".
 
 ## Why
 

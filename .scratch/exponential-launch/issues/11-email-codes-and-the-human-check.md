@@ -4,7 +4,7 @@
 
 **Blocked by:** 01, 10
 
-**Status:** ready-for-human
+**Status:** shipped
 
 ## The rule
 
