@@ -1,7 +1,9 @@
 import type { StripeEventRefusal } from '~/domain/billing'
 import { EmailField, emailBody, emailSubject } from '~/domain/email'
 import type { CapacityConcern } from '~/domain/shared-numbers'
+import { MONTHLY_PRICE_CENTS, PEOPLE_ON_THE_FIRST_PRICE } from '~/domain/launch-terms'
 import { TWILIO_BALANCE_FLOOR_CENTS, dollars } from '~/domain/twilio-balance'
+import type { CalendarMonth } from '~/domain/week'
 import type { EmailSender, SupportAlerts } from './ports'
 
 const NOT_SAID = 'Twilio did not say'
@@ -10,6 +12,15 @@ const amountOf = (cents: number | null): string => (cents === null ? NOT_SAID : 
 
 /** `2026-11-09 15:00 UTC`. */
 const atTheMinute = (at: Date): string => `${at.toISOString().slice(0, 16).replace('T', ' ')} UTC`
+
+/** `October 2026`. A month is a label here, so it is read in no zone but its own. */
+const monthAsWritten = (month: CalendarMonth): string =>
+  new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(
+    new Date(`${month}-01T00:00:00Z`),
+  )
+
+/** `$97`: both prices are whole dollars. */
+const wholeDollars = (cents: number): string => `$${cents / 100}`
 
 const CONCERN_SAYS: Readonly<Record<CapacityConcern, string>> = {
   recipients: 'The shared numbers carry close to as many people as they safely can.',
@@ -83,6 +94,27 @@ Discipler has stopped sending for every church. Nothing is lost: every text stay
 
 This email is sent once a day. If it keeps coming, the registration needs a higher limit.`,
       once: `daily-cap:${day}`,
+    })
+  },
+
+  // The church's name and its Stripe customer, so someone can follow up, and a count:
+  // nobody in the congregation. Written only from what was recorded, so a retry is the
+  // same message under the same key.
+  async over200FollowUp({ church, churchName, customerId, month, fewestPeople }) {
+    const name = EmailField.line(churchName)
+    const limit = EmailField.line(String(PEOPLE_ON_THE_FIRST_PRICE))
+    const written = EmailField.line(monthAsWritten(month))
+    await sender.send({
+      kind: 'over200FollowUp',
+      subject: emailSubject`${name} stayed above ${limit} people through ${written}`,
+      body: emailBody`${name} had more than ${limit} people in active relationships for the whole of ${written}, in the church's own time zone. The fewest at any moment that month was ${EmailField.line(String(fewestPeople))}.
+
+It is on the ${EmailField.line(wholeDollars(MONTHLY_PRICE_CENTS.upToTheLimit))} price. Nothing moves it to ${EmailField.line(wholeDollars(MONTHLY_PRICE_CENTS.aboveTheLimit))} on its own, so someone should follow up with the church.
+
+Stripe customer: ${EmailField.line(customerId)}
+
+This email is sent once for each month a church stays above the limit.`,
+      once: `over-200:${church}:${month}`,
     })
   },
 

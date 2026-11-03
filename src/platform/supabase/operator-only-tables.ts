@@ -32,6 +32,8 @@ export const OPERATOR_ONLY_TABLES: readonly string[] = [
   'shared_number_capacity_alert',
   // The falls of the Twilio balance below its floor (Exponential launch, ticket 08).
   'twilio_balance_fall',
+  // The churches support@ follows up for staying above the limit (Exponential launch, ticket 14).
+  'over_200_follow_up',
   // Each Pacific day Twilio's daily limit was reached (Exponential launch, ticket 07).
   'daily_cap_hold',
   // The human check and the email code at sign-up (Exponential launch, ticket 11).

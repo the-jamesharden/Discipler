@@ -41,6 +41,7 @@ import { createSupabaseOverviewReader } from '~/platform/supabase/overview-reade
 import { messageTransportKind } from '~/platform/deployment'
 import { createRecordingTransport } from '~/platform/recording-transport'
 import { createRecordingVerifier } from '~/platform/recording-verifier'
+import { firstPriceIdsIn } from '~/platform/stripe/prices'
 import { createTwilioBalanceReader } from '~/platform/twilio/account-balance'
 import { createTwilioTransport } from '~/platform/twilio/message-transport'
 import { createResendTransport } from '~/platform/resend/email-transport'
@@ -68,11 +69,15 @@ import {
   type PostgresSharedNumbers,
 } from '~/platform/supabase/shared-numbers'
 import {
+  createPostgresOver200FollowUps,
+  type PostgresOver200FollowUps,
+} from '~/platform/supabase/over-200-follow-ups'
+import {
   createPostgresTwilioBalanceFalls,
   type PostgresTwilioBalanceFalls,
 } from '~/platform/supabase/twilio-balance-falls'
 import type { CapacityConcern } from '~/domain/shared-numbers'
-import { createStripeBilling } from '~/platform/stripe/billing'
+import { createStripeBilling, stripeClient } from '~/platform/stripe/billing'
 import { createPostgresBilling, type PostgresBilling } from '~/platform/supabase/billing'
 import { createCommandService, type CommandService } from './command-service'
 import { createDailyCap, type DailyCap } from './daily-cap'
@@ -87,6 +92,7 @@ import {
   type StripeEventSweep,
   type StripeEventWork,
 } from './stripe-events'
+import { watchOver200Churches, type Over200WatchOutcome } from './over-200-watch'
 import { createEmailSupportAlerts } from './support-alerts'
 import { watchTwilioBalance, type TwilioBalanceWatchOutcome } from './twilio-balance-watch'
 import type {
@@ -172,6 +178,7 @@ let phoneChecks: PostgresPhoneChecks | undefined
 let phoneCheck: PhoneCheck | undefined
 let sharedNumbers: PostgresSharedNumbers | undefined
 let twilioBalanceFalls: PostgresTwilioBalanceFalls | undefined
+let over200FollowUps: PostgresOver200FollowUps | undefined
 let dailyCapHolds: PostgresDailyCapHolds | undefined
 let pendingSignups: PostgresPendingSignups | undefined
 let signUp: SignUp | undefined
@@ -514,6 +521,27 @@ export const watchTheTwilioBalance = async (): Promise<TwilioBalanceWatchOutcome
 }
 
 /**
+ * One pass of the over-200 watch (Exponential launch, ticket 14). Where there is no
+ * Stripe, or its catalog does not have both of the first price's billing choices,
+ * nobody can be said to be on it, so nothing more is read, and the tick's response says
+ * so rather than reporting a quiet month. Throws when Stripe or the churches could not
+ * be read, and the tick catches it.
+ */
+export const watchTheOver200Churches = async (): Promise<Over200WatchOutcome | 'no_prices'> => {
+  if (!process.env.STRIPE_SECRET_KEY) return 'no_prices'
+  const firstPrices = await firstPriceIdsIn(stripeClient())
+  if (!firstPrices) return 'no_prices'
+
+  if (!over200FollowUps) over200FollowUps = createPostgresOver200FollowUps(commandDatabaseUrl())
+  return watchOver200Churches({
+    followUps: over200FollowUps,
+    alerts: getSupportAlerts(),
+    clock: systemClock,
+    firstPrices,
+  })
+}
+
+/**
  * Settles the pairings an import planned for one Ministry, and never fails the
  * page that called it. Three routes call this after a Person's own act -- an
  * Intake submission through any of the three forms -- and one after an import;
@@ -563,6 +591,7 @@ export const closeCommandService = async (): Promise<void> => {
   const checks = phoneChecks
   const shared = sharedNumbers
   const balanceFalls = twilioBalanceFalls
+  const followUps = over200FollowUps
   const capHolds = dailyCapHolds
   const limit = signInLimit
   const signUps = pendingSignups
@@ -578,6 +607,7 @@ export const closeCommandService = async (): Promise<void> => {
   phoneCheck = undefined
   sharedNumbers = undefined
   twilioBalanceFalls = undefined
+  over200FollowUps = undefined
   dailyCapHolds = undefined
   signInLimit = undefined
   pendingSignups = undefined
@@ -596,6 +626,7 @@ export const closeCommandService = async (): Promise<void> => {
   await checks?.close()
   await shared?.close()
   await balanceFalls?.close()
+  await followUps?.close()
   await capHolds?.close()
   await limit?.close()
   await signUps?.close()
