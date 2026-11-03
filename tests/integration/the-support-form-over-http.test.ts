@@ -92,9 +92,12 @@ describe.skipIf(skipUnlessAppIsRunning)('the support form', () => {
     })
 
     it('throws away a page address that is not one of Discipler’s', async () => {
-      const { html } = await getPage(`/help/contact?from=${encodeURIComponent('https://example.com/a')}`, cookie)
+      const { html, response } = await getPage(`/help/contact?from=${encodeURIComponent('https://example.com/a')}`, cookie)
 
-      expect(html).not.toContain('example.com')
+      expect(response.status).toBe(200)
+      // The form carries no address at all. Next's own payload repeats the request's URL.
+      expect(html).toContain('name="message"')
+      expect(html).not.toContain('name="page"')
     })
   })
 
