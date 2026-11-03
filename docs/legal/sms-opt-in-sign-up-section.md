@@ -74,6 +74,8 @@ Each needs changing when the section above is published.
   Suggested: "Only people enrolled in one of those programs, and the administrators who sign a church up, receive messages, and only after they opt in themselves."
 - **How opt-in works** says "This form is the only opt-in method used for this program."
   Suggested: "There are two opt-in methods: the intake form above, for people taking part in a program, and the sign-up page in section 02, for the administrator who signs a church up. There is no verbal, paper, in-store, or keyword-based opt-in."
+  It also says "Consent is not required to participate in the mentorship program."
+  That sentence is removed with no replacement.
 - **Program details**, Recipients, gains: "Church administrators who opted in when signing their church up, for codes and test check-ins they request."
   Message types gains: "Phone confirmation codes and test check-ins, for administrators."
   Sender gains: "Messages come from phone numbers Discipler owns and shares across the ministries it serves."

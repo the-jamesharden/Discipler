@@ -81,7 +81,8 @@ By giving your mobile number when you sign an Organization up, you agree to rece
   Leaders typically receive 3-5 messages per week during an active relationship (up to approximately 24 per month), and Participants receive far fewer.
   An Administrator receives only the codes and test check-ins they ask for.
 - Msg & data rates may apply.
-- Consent to receive text messages is not a condition of any purchase.
+- Consent to receive check-in texts is not a condition of any purchase.
+  An administrator who signs a church up agrees to receive sign-in codes and test check-ins as part of signing up.
 - Reply STOP at any time to stop all messages, and START to opt back in.
 - Reply HELP for help, or email support@trydiscipler.com.
 - Carriers are not liable for delayed or undelivered messages.

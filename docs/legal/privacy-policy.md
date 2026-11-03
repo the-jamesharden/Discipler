@@ -161,7 +161,8 @@ There are two ways to agree to receive text messages through Discipler, and samp
   Leaders typically receive 3-5 messages per week during an active relationship (up to approximately 24 per month), and people being discipled receive far fewer.
   An administrator receives a code when they confirm their phone, and the messages of each test check-in they send themselves, at most 3 test check-ins a day.
 - Msg & data rates may apply.
-- Consent to receive text messages is not a condition of any purchase.
+- Consent to receive check-in texts is not a condition of any purchase.
+  An administrator who signs a church up agrees to receive sign-in codes and test check-ins as part of signing up.
   Discipler's check-ins run by text, so the intake form asks for this consent.
   If you do not want texts, talk to your ministry about being discipled without Discipler.
 - Reply STOP at any time to stop all messages.
