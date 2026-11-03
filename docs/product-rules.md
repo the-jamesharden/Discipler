@@ -1253,6 +1253,7 @@ See `docs/adr/0029-a-church-signs-itself-up.md`.
 
 One flat price per church, billed monthly or yearly, yearly being 20% off: $97 a month for a church with up to 200 people in active relationships, Disciplers and Disciples counted together, and $147 above 200.
 Every church starts on $97; a church that stays above 200 for a whole month causes an email to support@ asking someone to follow up, and nothing is upgraded automatically.
+A whole month is a calendar month in the church's own time zone, above 200 at every moment of it and on the $97 price throughout, so a church that signs up mid-month is first counted for its first whole month.
 Every church gets a free trial with a card or bank account required up front, and nothing is charged until the free days end.
 
 During sign-up a price appears only beside its billing choice, one price and the offer as a percentage, never two prices.

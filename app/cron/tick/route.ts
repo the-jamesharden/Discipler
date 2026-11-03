@@ -11,6 +11,7 @@ import {
   sweepTheStripeEvents,
   sweepUnsavedUploads,
   tellSupportTheTextingGateIsUnread,
+  watchTheOver200Churches,
   watchTheSharedNumbers,
   watchTheTwilioBalance,
 } from '~/service/container'
@@ -184,6 +185,14 @@ export async function GET(request: NextRequest) {
     stripeEvents = 'failed'
   }
 
+  // Then the churches that stayed above the first price's limit for a month (Exponential
+  // launch, ticket 14), last, so it reads what the sweep just recorded. Caught on its
+  // own: nothing it found is lost, and the next pass asks again and tells what is owed.
+  const over200 = await watchTheOver200Churches().catch((error: unknown) => {
+    console.error(`Watching the over-200 churches failed: ${error instanceof Error ? error.name : 'unknown'}`)
+    return 'failed' as const
+  })
+
   // Always 200 once authorised, even where a Ministry failed. The scheduler retries
   // a non-2xx, and retrying the whole run to recover one Ministry would re-drain
   // every other one -- the outcomes say what happened instead, per Ministry, where
@@ -207,6 +216,7 @@ export async function GET(request: NextRequest) {
     capacity,
     twilioBalance,
     stripeEvents,
+    over200,
     errors: ran.filter((one) => one.error !== null).map((one) => ({
       ministryId: one.ministryId,
       error: one.error,

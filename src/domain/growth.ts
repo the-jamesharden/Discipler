@@ -144,25 +144,37 @@ const pausedAt = (pauses: readonly GrowthPause[], instant: Date): boolean => {
   return paused
 }
 
+/**
+ * Who a relationship had in it at an instant, if it was running then: accepted, not
+ * ended, not paused, and with a Disciple in it. A Leader counts as leading once they
+ * had accepted, as `countsAsLeading` reads it.
+ */
+const runningAt = ({ relationship, members, pauses }: Arranged[number], instant: Date) => {
+  const { acceptedAt, endedAt } = relationship
+  if (acceptedAt === null || !covers(acceptedAt, endedAt, instant)) return null
+  if (pausedAt(pauses, instant)) return null
+
+  const present = members.filter((member) => covers(member.startedAt, member.endedAt, instant))
+  const disciples = present.filter((member) => member.role === 'participant')
+  if (disciples.length === 0) return null
+
+  const leaders = present.filter(
+    (member) =>
+      member.role === 'leader' && member.acceptedAt !== null && member.acceptedAt.getTime() <= instant.getTime(),
+  )
+  return { relationship, disciples, leaders }
+}
+
 const countAt = (arranged: Arranged, measure: GrowthMeasure, instant: Date): number => {
   const counted = new Set<string>()
 
-  for (const { relationship, members, pauses } of arranged) {
-    const { acceptedAt, endedAt } = relationship
-    if (acceptedAt === null || !covers(acceptedAt, endedAt, instant)) continue
-    if (pausedAt(pauses, instant)) continue
-
-    const present = members.filter((member) => covers(member.startedAt, member.endedAt, instant))
-    const disciples = present.filter((member) => member.role === 'participant')
-    if (disciples.length === 0) continue
+  for (const entry of arranged) {
+    const running = runningAt(entry, instant)
+    if (!running) continue
+    const { relationship, disciples, leaders } = running
 
     // A pair or a Group as the Overview would have called it then: by its name
-    // and who was in it, never by its kind (ADR-0004). A Leader counts as
-    // leading once they had accepted, as `countsAsLeading` reads it.
-    const leaders = present.filter(
-      (member) =>
-        member.role === 'leader' && member.acceptedAt !== null && member.acceptedAt.getTime() <= instant.getTime(),
-    )
+    // and who was in it, never by its kind (ADR-0004).
     const isAGroup = cardShapeOf(relationship.name, leaders.length, disciples.length) === A_GROUP
     if (measure === 'mentorship' && isAGroup) continue
     if (measure === 'groups' && !isAGroup) continue
@@ -171,6 +183,61 @@ const countAt = (arranged: Arranged, measure: GrowthMeasure, instant: Date): num
   }
 
   return counted.size
+}
+
+/**
+ * The people in active relationships at an instant, the number a church's price
+ * turns on (Exponential launch, ticket 14). The same running relationships the chart
+ * counts, but with the Disciplers who lead them as well as the Disciples, each person
+ * once however many relationships they are in.
+ */
+const peopleAt = (arranged: Arranged, instant: Date): number => {
+  const counted = new Set<string>()
+  for (const entry of arranged) {
+    const running = runningAt(entry, instant)
+    if (!running) continue
+    for (const member of running.disciples) counted.add(member.personId)
+    for (const member of running.leaders) counted.add(member.personId)
+  }
+  return counted.size
+}
+
+/** How many people were in active relationships at an instant. */
+export const peopleInActiveRelationshipsAt = (history: GrowthHistory, instant: Date): number =>
+  peopleAt(arrange(history), instant)
+
+/**
+ * The fewest people in active relationships at any instant from `from` up to but not
+ * including `until`, read off the history rather than sampled, so a dip of a minute
+ * is seen as surely as a dip of a week.
+ *
+ * The count only moves when something in the history happened, and each of those
+ * takes effect at its own instant, so it is enough to count at the start of the span
+ * and at every such instant inside it. Something that ends and something that starts
+ * at one instant are one change: a person moved in a single command is no dip.
+ */
+export const fewestPeopleInActiveRelationships = (history: GrowthHistory, from: Date, until: Date): number => {
+  const arranged = arrange(history)
+  const instants = new Set<number>([from.getTime()])
+  const consider = (instant: Date | null): void => {
+    if (instant && instant.getTime() > from.getTime() && instant.getTime() < until.getTime()) {
+      instants.add(instant.getTime())
+    }
+  }
+  for (const { acceptedAt, endedAt } of history.relationships) {
+    consider(acceptedAt)
+    consider(endedAt)
+  }
+  for (const { startedAt, endedAt, acceptedAt } of history.members) {
+    consider(startedAt)
+    consider(endedAt)
+    consider(acceptedAt)
+  }
+  for (const { at } of history.pauses) consider(at)
+
+  let fewest = Number.POSITIVE_INFINITY
+  for (const instant of instants) fewest = Math.min(fewest, peopleAt(arranged, new Date(instant)))
+  return fewest
 }
 
 /** How many people were being discipled at an instant, on one measure, each person once. */

@@ -176,6 +176,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the scheduled tick, as the scheduler ru
       capacity: readonly string[] | 'failed'
       twilioBalance: string
       stripeEvents: { failed: number } | 'failed'
+      over200: string
       errors: { ministryId: string; error: string }[]
     }
 
@@ -190,6 +191,10 @@ describe.skipIf(skipUnlessAppIsRunning)('the scheduled tick, as the scheduler ru
     expect(outcome.twilioBalance).toBe('failed')
     // So did the sweep of the Stripe events (Exponential launch, ticket 03).
     expect(outcome.stripeEvents).not.toBe('failed')
+    // A local server has no Stripe to ask which price is the first, so the over-200
+    // watch reads nothing (Exponential launch, ticket 14). Reported and not `failed`,
+    // and it proves too that the question never reached the real Stripe from here.
+    expect(outcome.over200).toBe('no_prices')
 
     // The Welcome went to a number from the shared set, given to this pair on its
     // first text and kept. Whether Twilio then took it is the transport's business,

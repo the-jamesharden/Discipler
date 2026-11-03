@@ -44,12 +44,14 @@ import type {
   BillingFact,
   BillingState,
   StripeEventRefusal,
+  BillingStanding,
   StripeInboxEntry,
   StripeSubscriptionFacts,
 } from '~/domain/billing'
 import type { BillingCycle, FingerprintGrant, PaidPhase, TrialOffer } from '~/domain/offers'
-import type { GrowthChoice, GrowthSeries } from '~/domain/growth'
-import type { IsoWeek } from '~/domain/week'
+import type { GrowthChoice, GrowthHistory, GrowthSeries } from '~/domain/growth'
+import type { ChurchPriceRecord } from '~/domain/over-200'
+import type { CalendarMonth, IsoWeek } from '~/domain/week'
 import type { ConcernResolution, ConcernViewing, NewConcern } from '~/domain/concerns'
 import type {
   CheckInAnswer,
@@ -1726,6 +1728,8 @@ export interface SupportAlerts {
   sharedNumbersNearCapacity(alert: SharedNumbersNearCapacity): Promise<void>
   /** Words only from the fall as it was recorded, so a retry is the same message. */
   twilioBalanceLow(fall: TwilioBalanceFall): Promise<void>
+  /** Words only from what was recorded, so a retry is the same message. */
+  over200FollowUp(followUp: Over200FollowUp): Promise<void>
   twilioSpendPassed(alert: TwilioSpendPassed): Promise<void>
   /** `day` is the Pacific day it was reached in, and what makes the email once a day. */
   dailyCapReached(alert: { readonly day: string }): Promise<void>
@@ -1789,6 +1793,56 @@ export interface BillingEventRefused {
   readonly eventId: string
   readonly eventType: string
   readonly refusal: StripeEventRefusal
+}
+
+/**
+ * A church on the first price that stayed above its limit for a whole calendar month
+ * (Exponential launch, ticket 14), as it was recorded when that was found. The email
+ * is written from this and nothing later, so a retry is the same message.
+ */
+export interface Over200FollowUp {
+  readonly church: MinistryId
+  /** The church's name when it was found. Never anybody in the congregation. */
+  readonly churchName: string
+  readonly customerId: string
+  readonly month: CalendarMonth
+  readonly fewestPeople: number
+}
+
+/** A church the watch has to look at more closely. */
+export interface Over200Church {
+  readonly id: MinistryId
+  readonly name: string
+  readonly timeZone: string
+  readonly customerId: string
+  /** The months already recorded for it, whether or not support@ has been told yet. */
+  readonly followedUp: readonly CalendarMonth[]
+}
+
+/**
+ * What the over-200 watch reads and remembers. A tick has no memory of its own, so the
+ * row per church per month is what makes the email go once; everything the question
+ * is answered from is the church's stored history.
+ */
+export interface Over200FollowUps {
+  /**
+   * Every church on one of these prices, not billed outside Stripe, that has held more
+   * than `limit` people in relationships since `since`. Far wider than the answer: it
+   * is there so the histories of the churches that plainly cannot be above the limit
+   * are not read on every pass.
+   */
+  churchesToAsk(firstPrices: readonly string[], since: Date, limit: number): Promise<readonly Over200Church[]>
+  /** One church's history and billing history, read as that church. */
+  recordsOf(church: MinistryId): Promise<{
+    readonly history: GrowthHistory
+    readonly prices: readonly ChurchPriceRecord[]
+    readonly standing: BillingStanding
+  }>
+  /** Keeps what was found. A second call for one church and month changes nothing. */
+  record(followUp: Over200FollowUp, at: Date): Promise<void>
+  /** Everything recorded that support@ has not been told about, whichever month it is. */
+  unsent(): Promise<readonly Over200FollowUp[]>
+  recordTold(church: MinistryId, month: CalendarMonth, at: Date): Promise<void>
 }
 
 /**

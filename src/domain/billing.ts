@@ -52,6 +52,9 @@ export type SubscriptionStatus =
   | 'unpaid'
   | 'paused'
 
+/** Whether a Subscription in this status is still going: on a free trial, paid or in Stripe's retries. */
+export const subscriptionIsLive = (status: SubscriptionStatus): boolean => LIVE.has(status)
+
 /**
  * Where a church stands, as its pages and the texting gate read it. Derived by
  * `app.billing_state_of` from the church's history, and never stored.
