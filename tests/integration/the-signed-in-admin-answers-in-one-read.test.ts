@@ -47,6 +47,7 @@ describe('the signed-in Admin answers in one read', () => {
         ministry_name: 'Riverside Chapel',
         person_id: riverside.adminPersonId,
         full_name: riverside.adminName,
+        whats_new_dismissed: [],
       },
       billing: OUTSIDE_STRIPE,
     })
@@ -68,6 +69,7 @@ describe('the signed-in Admin answers in one read', () => {
       ministry_name: 'The Chapel With No Row',
       person_id: null,
       full_name: null,
+      whats_new_dismissed: [],
     })
     const resolution = resolutionOf(doc)
     expect(resolution.status === 'admin' && resolution.admin.fullName).toBeNull()
@@ -140,6 +142,7 @@ describe('the signed-in Admin answers in one read', () => {
       ministry_name: 'Northgate Community Church',
       person_id: northgate.adminPersonId,
       full_name: northgate.adminName,
+      whats_new_dismissed: [],
     })
     expect(JSON.stringify(doc)).not.toContain(riverside.id)
   })

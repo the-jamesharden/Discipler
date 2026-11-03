@@ -47,6 +47,7 @@ import {
   resolveFollowUpItem,
   raiseConcern,
   recordConcernViewing,
+  recordWhatsNewDismissal,
   removeDiscipleshipGoal,
   removeMaterial,
   removePerson,
@@ -4691,6 +4692,20 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
         ],
       }
     }
+
+    // A preference and not an act of ministry, so no history: see `WhatsNewDismissal`.
+    case 'whats_new.dismiss':
+      return {
+        rejections: [],
+        effects: [
+          recordWhatsNewDismissal({
+            ministryId: command.ministryId,
+            userId: command.dismissedBy,
+            entryId: command.entryId,
+            dismissedAt: context.clock.now(),
+          }),
+        ],
+      }
 
     case 'concern.resolve': {
       const now = context.clock.now()

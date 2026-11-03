@@ -26,6 +26,7 @@ import { flagsFor } from './flags'
 import { GrowthChart } from './growth'
 import { growthChoiceFrom, overviewAddress } from './growth-address'
 import { cardPill, needOf } from './need'
+import { NewsCards } from './news-cards'
 import { WaitingOnYouCard } from './waiting-on-you-card'
 
 export const dynamic = 'force-dynamic'
@@ -55,6 +56,9 @@ export const dynamic = 'force-dynamic'
  * (Pastor feedback, ticket 05): what it counts and whether by weeks or months
  * is in the address as well, at `?growth=` and `?by=`, and moves nothing else
  * on the page. A card opened and closed keeps it.
+ *
+ * At the top, above the numbers, the What's new and office hours cards (Exponential
+ * launch, ticket 30).
  *
  * At the bottom right, the unpaired pop-up (Exponential launch, ticket 29):
  * who is waiting on the Admin, once a sign-in and once a day.
@@ -131,6 +135,8 @@ export default async function OverviewPage({
           {notice.said}
         </p>
       ) : null}
+      <NewsCards admin={admin} chart={chart} />
+
       <ul className="stats">
         {tiles.map((tile) => (
           <li key={tile.label} className="stat">

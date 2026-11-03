@@ -96,6 +96,7 @@ import { materialItemFrom } from './material-items'
 import { count, text } from './rows'
 import type { MemberRole, RelationshipOutcome } from '~/domain/relationships'
 import type { ConcernResolution, ConcernViewing, NewConcern } from '~/domain/concerns'
+import type { WhatsNewDismissal } from '~/domain/whats-new'
 import {
   CancellationRefused,
   ConcernRefused,
@@ -3921,6 +3922,15 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       }
       throw error
     }
+  },
+
+  async recordWhatsNewDismissal(dismissal: WhatsNewDismissal) {
+    await client.query(
+      `insert into whats_new_dismissal (ministry_id, user_id, entry_id, dismissed_at)
+       values ($1, $2, $3, $4)
+       on conflict do nothing`,
+      [dismissal.ministryId, dismissal.userId, dismissal.entryId, dismissal.dismissedAt],
+    )
   },
 
   async resolveConcern(resolution: ConcernResolution) {

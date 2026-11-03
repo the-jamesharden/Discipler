@@ -6,7 +6,7 @@ There is a real team behind Discipler, and we would love to hear from you.
 
 Every {{officeHoursEvery}}, the team holds office hours on Zoom.
 Any Admin is welcome to drop in with a question, or just to talk through how your church is getting started.
-The next date and the Join on Zoom link are under Office hours in the Help menu, and on your Overview.
+When the next date is set, it shows on your Overview with a Join on Zoom link, and Office hours in the Help menu takes you there.
 
 ## Contact support
 
@@ -18,7 +18,7 @@ We are happy to import your spreadsheet of people for you, too.
 
 ## More ways to learn
 
-- **What's new** in the Help menu shows what has changed in Discipler lately.
+- **[What's new](/help/whats-new)** in the Help menu shows what has changed in Discipler lately.
 - **[Setup videos](/help/setup-videos)** are short videos walking through setup.
 - **[Ask Discipler](/help/ask-discipler)** answers questions from these pages any time.
 - **Restart onboarding** in the Help menu brings back your welcome window and the tour.

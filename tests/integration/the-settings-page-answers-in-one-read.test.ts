@@ -54,6 +54,7 @@ describe('the settings page answers in one read', () => {
         ministry_name: 'Riverside Chapel',
         person_id: riverside.adminPersonId,
         full_name: riverside.adminName,
+        whats_new_dismissed: [],
       },
       billing: OUTSIDE_STRIPE,
       settings: separate,

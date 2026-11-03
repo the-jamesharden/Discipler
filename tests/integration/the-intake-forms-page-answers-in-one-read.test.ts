@@ -106,6 +106,7 @@ describe('the Intake forms page answers in one read', () => {
       ministry_name: 'Riverside Chapel',
       person_id: riverside.adminPersonId,
       full_name: riverside.adminName,
+      whats_new_dismissed: [],
     })
 
     // Each list is what the separate function answers the same session, row for

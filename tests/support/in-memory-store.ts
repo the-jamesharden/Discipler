@@ -744,6 +744,9 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
         async recordConcernViewing(viewing) {
           stagedViewings.push(viewing)
         },
+        async recordWhatsNewDismissal() {
+          // Nothing a domain test reads: the row is held to its rules over HTTP.
+        },
         async resolveConcern(resolution) {
           stagedConcernResolutions.push(resolution)
         },

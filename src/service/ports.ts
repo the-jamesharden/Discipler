@@ -53,6 +53,7 @@ import type { GrowthChoice, GrowthHistory, GrowthSeries } from '~/domain/growth'
 import type { ChurchPriceRecord } from '~/domain/over-200'
 import type { CalendarMonth, IsoWeek } from '~/domain/week'
 import type { ConcernResolution, ConcernViewing, NewConcern } from '~/domain/concerns'
+import type { WhatsNewDismissal } from '~/domain/whats-new'
 import type {
   CheckInAnswer,
   CheckInClarification,
@@ -778,6 +779,8 @@ export interface UnitOfWork {
   raiseConcern(concern: NewConcern): Promise<void>
   /** One Admin opening one Concern's text, recorded before the text is handed over. */
   recordConcernViewing(viewing: ConcernViewing): Promise<void>
+  /** One Admin closing one What's new entry. Closing it twice is closing it. */
+  recordWhatsNewDismissal(dismissal: WhatsNewDismissal): Promise<void>
   /**
    * Refuses with a `ConcernRefused` when the Concern is gone or somebody else has
    * already closed it -- the second Admin's click must not overwrite the first
@@ -2705,6 +2708,11 @@ export interface SignedInAdmin {
    * (`docs/adr/0023-a-page-is-one-read.md`), so drawing it costs no request.
    */
   readonly fullName: string | null
+  /**
+   * The What's new entries they have closed (Exponential launch, ticket 30), from that
+   * same one read, for the Overview card and the Help menu's New tag on every page.
+   */
+  readonly whatsNewDismissed: readonly string[]
 }
 
 /**

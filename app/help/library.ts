@@ -15,6 +15,7 @@ import setupVideos from './content/setup-videos.md?raw'
 import signingIn from './content/signing-in.md?raw'
 import testCheckIn from './content/test-check-in.md?raw'
 import texting from './content/texting.md?raw'
+import whatsNew from './content/whats-new.md?raw'
 import { HELP_FACTS } from './facts'
 import { headingAnchor } from './markdown'
 
@@ -70,6 +71,7 @@ export const HELP_SOURCES: readonly {
   { slug: 'ask-discipler', section: 'help', source: askDiscipler },
   { slug: 'getting-help', section: 'help', source: gettingHelp },
   { slug: 'setup-videos', section: 'help', source: setupVideos },
+  { slug: 'whats-new', section: 'help', source: whatsNew },
 ]
 
 export interface HelpHeading {

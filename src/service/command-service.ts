@@ -315,6 +315,9 @@ export const applyEffects = async (
   const viewings = effects.flatMap((effect) =>
     effect.kind === 'concern.view' ? [effect.viewing] : [],
   )
+  const whatsNewDismissals = effects.flatMap((effect) =>
+    effect.kind === 'whatsNew.dismiss' ? [effect.dismissal] : [],
+  )
   const concernResolutions = effects.flatMap((effect) =>
     effect.kind === 'concern.resolve' ? [effect.resolution] : [],
   )
@@ -444,6 +447,7 @@ export const applyEffects = async (
   // decision nobody made -- and, worse here, claiming words were cleared that are
   // still on the row.
   for (const viewing of viewings) await unit.recordConcernViewing(viewing)
+  for (const dismissal of whatsNewDismissals) await unit.recordWhatsNewDismissal(dismissal)
   for (const resolution of concernResolutions) await unit.resolveConcern(resolution)
 
   // The exchange that is ending, then the one that replaces it, then the moves
