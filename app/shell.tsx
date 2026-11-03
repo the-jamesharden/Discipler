@@ -255,8 +255,8 @@ export const Centred = ({
   readonly ministryName?: string
   readonly subtitle?: string
   /**
-   * The watercolour frame the Admin surface wears. Sign-in only: every other
-   * centred page is opened on a Ministry's behalf and is dressed as theirs.
+   * The watercolour frame the Admin surface wears. Sign-in and sign-up only: every
+   * other centred page is opened on a Ministry's behalf and is dressed as theirs.
    */
   readonly botanical?: boolean
   readonly children: ReactNode

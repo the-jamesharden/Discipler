@@ -26,6 +26,63 @@ const REFUSALS: Record<Exclude<SignUpRefusal, 'signup.wrong_code' | 'signup.not_
   'signup.not_checked': "We couldn't check that code just now. Please try again in a minute.",
 }
 
+/** Every sign-up page's subtitle (spec, decided in the mock-up 1 review). */
+export const CREATE_AN_ACCOUNT = 'Create an account'
+
+/**
+ * Under the phone field, word for word. The privacy policy, the opt-in page and the
+ * Twilio registration all quote this sentence, so it changes only with all of them;
+ * `tests/app/the-sign-up-pages.test.ts` reads the two that are in this repository.
+ */
+export const TEXTING_FINE_PRINT =
+  'By continuing, you agree to receive texts from Discipler at this number, including sign-in codes and test check-ins. Msg frequency varies. Msg & data rates may apply. Reply STOP to opt out, HELP for help.'
+
+/** The words of mock-up 1 (`.lavish/signup-checkout/`), which James approved. */
+export const ALREADY_HAVE_AN_ACCOUNT = 'Already have an account?'
+export const SIGN_IN = 'Sign in'
+
+export const EMAIL_PAGE = {
+  title: 'Start your free trial',
+  step: 'Step 1 of 3',
+  stepName: 'Your email',
+  emailLabel: 'Email',
+  emailHint: 'This will be your login email.',
+  phoneLabel: 'Mobile phone',
+  submit: 'Email me a code',
+} as const
+
+export const CODE_PAGE = {
+  title: 'Check your email',
+  step: 'Step 1 of 3',
+  stepName: 'Check your email',
+  sentBefore: `We sent a ${EMAIL_CODE.digits}-digit code to `,
+  sentAfter: `. Please enter it below. It works for ${EMAIL_CODE.lifetimeMinutes} minutes.`,
+  codeLabel: 'Your code',
+  submit: 'Continue',
+  differentEmail: 'Use a different email',
+  newCode: 'Send a new code',
+  newCodeIn: (wait: string) => `Send a new code in ${wait}`,
+  cantFindIt: "Can't find it? Please check your spam or promotions folder. The email comes from notify.trydiscipler.com.",
+} as const
+
+/**
+ * Drafted, for James: the mock-up draws neither a failed check nor a dropped connection
+ * nor a second code being sent, and the stopping point below stands only until ticket
+ * 17 replaces it.
+ */
+export const TRY_AGAIN = 'Try again'
+export const COULD_NOT_REACH = "We couldn't reach Discipler just now. Please check your connection and try again."
+export const newCodeSent = (email: string) => `We sent a new code to ${email}.`
+
+export const STOPPING_POINT = {
+  title: 'Set up your account',
+  step: 'Step 2 of 3',
+  stepName: 'Your account',
+  confirmedBefore: 'Your email is confirmed: ',
+  confirmedAfter: '.',
+  notOpenYet: "The next step, setting up your account, isn't open yet.",
+} as const
+
 /** The sentence for a refusal. A wrong code says how many tries are left. */
 export const signUpRefusalMessage = (
   refusal: Exclude<SignUpRefusal, 'signup.not_verified'>,
