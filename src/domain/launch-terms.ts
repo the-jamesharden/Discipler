@@ -69,6 +69,10 @@ export const EMAIL_CODE = {
   lifetimeMinutes: 10,
   tries: 5,
   resendAfterSeconds: 60,
+  /** Emails one address may be sent in an hour, whichever attempts ask. */
+  perEmailPerHour: 5,
+  /** Emails one network may ask for in an hour. A conference's wifi is one network. */
+  perNetworkPerHour: 30,
 } as const
 
 /** How long the emailed "Forgot password?" link works (ticket 22). */

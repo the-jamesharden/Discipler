@@ -43,6 +43,12 @@ import { createRecordingTransport } from '~/platform/recording-transport'
 import { createRecordingVerifier } from '~/platform/recording-verifier'
 import { createTwilioTransport } from '~/platform/twilio/message-transport'
 import { createResendTransport } from '~/platform/resend/email-transport'
+import { createTurnstile } from '~/platform/cloudflare/turnstile'
+import { createSignUpCodeKeeper } from '~/platform/sign-up-code-keeper'
+import {
+  createPostgresPendingSignups,
+  type PostgresPendingSignups,
+} from '~/platform/supabase/pending-signups'
 import { createTwilioVerifier } from '~/platform/twilio/phone-verifier'
 import {
   createPostgresPhoneChecks,
@@ -61,6 +67,7 @@ import { createCommandService, type CommandService } from './command-service'
 import { createEmailSender } from './email-sender'
 import { dispatchQueue, type DispatchOutcome } from './outbound-dispatch'
 import { createPhoneCheck, type PhoneCheck } from './phone-check'
+import { createSignUp, type SignUp } from './sign-up'
 import { watchSharedNumberCapacity } from './shared-number-capacity'
 import { createEmailSupportAlerts } from './support-alerts'
 import type {
@@ -143,6 +150,8 @@ let emailSender: EmailSender | undefined
 let phoneChecks: PostgresPhoneChecks | undefined
 let phoneCheck: PhoneCheck | undefined
 let sharedNumbers: PostgresSharedNumbers | undefined
+let pendingSignups: PostgresPendingSignups | undefined
+let signUp: SignUp | undefined
 
 export const getCommandService = (): CommandService => {
   if (!commandService) {
@@ -365,6 +374,26 @@ export const getPhoneCheck = (): PhoneCheck => {
 }
 
 /**
+ * Sign-up's human check and email code (Exponential launch, ticket 11). On the
+ * trusted connection, because somebody signing up has no session and no Ministry.
+ * Turnstile's secret and the code's HMAC secret are read per use, so a deployment
+ * with neither runs every other page and refuses only this.
+ */
+export const getSignUp = (): SignUp => {
+  if (!signUp) {
+    pendingSignups = createPostgresPendingSignups(commandDatabaseUrl())
+    signUp = createSignUp({
+      signUps: pendingSignups,
+      humanCheck: createTurnstile(),
+      keeper: createSignUpCodeKeeper(),
+      sender: getEmailSender(),
+      clock: systemClock,
+    })
+  }
+  return signUp
+}
+
+/**
  * One drain of one Ministry's queue, assembled from the parts above so that its
  * callers cannot assemble it differently. The scheduler drains after its tick, and
  * every request whose command queued a message drains after its response, the
@@ -452,6 +481,7 @@ export const closeCommandService = async (): Promise<void> => {
   const checks = phoneChecks
   const shared = sharedNumbers
   const limit = signInLimit
+  const signUps = pendingSignups
   commandService = undefined
   commandStore = undefined
   intakeReader = undefined
@@ -463,6 +493,8 @@ export const closeCommandService = async (): Promise<void> => {
   phoneCheck = undefined
   sharedNumbers = undefined
   signInLimit = undefined
+  pendingSignups = undefined
+  signUp = undefined
   // The transport holds no pool -- it is `fetch` and a pair of credentials -- so
   // there is nothing of its to close, only the reference to drop.
   messageTransport = undefined
@@ -476,6 +508,7 @@ export const closeCommandService = async (): Promise<void> => {
   await checks?.close()
   await shared?.close()
   await limit?.close()
+  await signUps?.close()
 }
 
 export const getRosterReader = (): RosterReader => createSupabaseRosterReader(systemClock)

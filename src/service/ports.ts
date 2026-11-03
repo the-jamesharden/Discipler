@@ -13,6 +13,12 @@ import type {
   PhoneCode,
   RecentCodeRequests,
 } from '~/domain/phone-check'
+import type {
+  HumanCheckAction,
+  PendingSignup,
+  RecentSends,
+  SignUpAttemptToken,
+} from '~/domain/sign-up-attempt'
 import type { AccountCreationRefusal, PasswordChangeRefusal } from '~/domain/accounts'
 import type {
   HeldImportRow,
@@ -123,7 +129,7 @@ import type {
 import type { ParticipationStatus } from '~/domain/participation'
 import type { SuggestionQuestion, Suggestions } from '~/domain/suggestions'
 import type { CardShape, NewRelationship } from '~/domain/relationships'
-import type { Email, EmailEnvelope } from '~/domain/email'
+import type { Email, EmailAddress, EmailEnvelope } from '~/domain/email'
 import type { RatesLineHistory, SettledMessage } from '~/domain/rates-line'
 import type { CareReason, RelationshipState, SettledRelationshipState } from '~/domain/relationship-state'
 import type { InvitationState } from '~/domain/invitations'
@@ -1754,6 +1760,79 @@ export interface PhoneCheckUnit {
   returnTry(attemptId: string): Promise<void>
   /** Ends an attempt that has not ended. One that already has keeps its ending. */
   end(attemptId: string, ending: PhoneCheckEnding, at: Date): Promise<void>
+}
+
+/**
+ * Cloudflare Turnstile lives behind this and nowhere else (Exponential launch, ticket
+ * 11). A yes says the token was solved on this deployment's own host, for this
+ * action, and nobody has spent it before. Everything else is a no, an unset secret
+ * and a Cloudflare that did not answer included. It never throws.
+ */
+export interface HumanCheck {
+  verify(token: string, action: HumanCheckAction): Promise<boolean>
+}
+
+/** The randomness and the HMAC behind sign-up's email code (ticket 11). */
+export interface SignUpCodeKeeper {
+  /** The random ID an attempt's cookie carries. */
+  newAttemptToken(): SignUpAttemptToken
+  /** Six digits from `crypto.randomInt`. */
+  newCode(): string
+  /** A code as the table may hold it. Throws `SignUpCodeSecretMissing` with no secret. */
+  seal(attemptId: string, code: string): string
+  /**
+   * Whether what was typed is the code sealed for this attempt, in constant time. A
+   * null seal is an attempt with no code, and is a no that takes just as long.
+   */
+  matches(attemptId: string, typed: string, sealed: string | null): boolean
+}
+
+/**
+ * Sign-up's attempts, on the trusted connection, because somebody signing up has no
+ * session and no Ministry (ticket 11). An attempt is named by the token from its
+ * cookie, and each transaction holds that attempt's row locked for its length.
+ */
+export interface PendingSignups {
+  /** A new attempt, from a human check that has just passed. */
+  begin(attempt: SignUpAttemptToken, at: Date): Promise<void>
+  read(attempt: SignUpAttemptToken): Promise<PendingSignup | null>
+  /**
+   * One transaction holding this address's and this network's locks as well, so a
+   * burst cannot pass the caps together. Nothing is sent inside it.
+   */
+  sending<T>(
+    attempt: SignUpAttemptToken,
+    email: EmailAddress,
+    network: string | null,
+    work: (unit: PendingSignupSending) => Promise<T>,
+  ): Promise<T>
+  /** One transaction judging one code, so two typed at once cannot both be the fifth. */
+  trying<T>(attempt: SignUpAttemptToken, work: (unit: PendingSignupTrying) => Promise<T>): Promise<T>
+  /** The email did not go: no live code and no wait is left behind. */
+  codeNotSent(attempt: SignUpAttemptToken): Promise<void>
+}
+
+export interface PendingSignupSending {
+  /** The attempt, locked. Null when there is none. */
+  readonly pending: PendingSignup | null
+  /** Emails in the caps' window, to this address and from this network. */
+  recentSends(since: Date): Promise<RecentSends>
+  /** Whether an account holds this address, in any spelling of its case. */
+  emailHasAccount(): Promise<boolean>
+  /**
+   * Names the address and phone on the attempt, replaces its code with no wrong tries,
+   * and counts the send. Returns which send of this attempt it is. A null seal is an
+   * address with an account.
+   */
+  issue(issued: { readonly phone: PhoneNumber; readonly codeDigest: string | null; readonly at: Date }): Promise<number>
+}
+
+export interface PendingSignupTrying {
+  /** The attempt, locked. Null when there is none. */
+  readonly pending: PendingSignup | null
+  recordWrongTry(): Promise<void>
+  /** The address is proven, and the code is gone so it cannot be used again. */
+  markVerified(at: Date): Promise<void>
 }
 
 export interface DiscipleshipGoalOption {
