@@ -25,6 +25,7 @@ const OWN: readonly GroupJoinRefusal[] = [
   'joining.already_in_the_group',
   'joining.already_leads_a_group',
   'joining.role_not_recognised',
+  'joining.church_has_no_access',
 ]
 
 describe('why somebody could not be put into a group', () => {

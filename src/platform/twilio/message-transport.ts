@@ -39,7 +39,7 @@ export class MessageNotDelivered extends Error {
    *
    * Nothing acts on this yet: `dispatchQueue` leaves a refused row for the next
    * drain either way, because parking one permanently needs somewhere to record
-   * that it was parked and why, and `withheld_reason` is recipient-level by design.
+   * that it was parked and why, and `withheld_reason` says a row must never go.
    * It is here so the decision has something to be made against rather than a
    * status code to be re-derived.
    */

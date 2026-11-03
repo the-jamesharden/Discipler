@@ -88,6 +88,13 @@ export async function POST(request: NextRequest) {
     })
     return back('ended')
   } catch (error) {
+    // The one refusal that is not the pairing changing under the page (ticket 05).
+    if (error instanceof InvitationRefused && error.refusal === 'invitation.church_has_no_access') {
+      return NextResponse.redirect(
+        new URL(`/roster/${encodeURIComponent(person.personId)}?noAccess=1`, request.url),
+        { status: 303 },
+      )
+    }
     if (
       error instanceof CancellationRefused ||
       error instanceof EndingRefused ||

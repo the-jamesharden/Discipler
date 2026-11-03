@@ -86,6 +86,7 @@ describe('the routing', () => {
         'passwordReset',
         'signUpAttemptNotice',
         'supportRequest',
+        'textingGateUnread',
         'trialEnding',
         'twilioBalanceLow',
         'twilioSpendPassed',

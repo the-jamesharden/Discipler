@@ -10,6 +10,7 @@ import { phoneNumber } from '~/domain/roster'
 import type {
   ClaimOutcome,
   ContactDetails,
+  DueMessages,
   OutboundQueue,
   QueuedMessage,
   WithholdingReason,
@@ -137,8 +138,37 @@ export const createPostgresOutboundQueue = (
       }
     },
 
-    async due(ministryId: MinistryId, at: Date) {
-      return inMinistry(ministryId, async (client) => {
+    async due(ministryId: MinistryId, at: Date): Promise<DueMessages> {
+      // Its own transaction, so a read that fails takes nothing with it. Only `false`
+      // is a no. Anything else that comes back, and any failure, leaves the church
+      // texting: a wrong no closes rows for good and silences a church, and a missed
+      // no costs a few texts for a church that has ended, until the read is mended.
+      let hasAccess: boolean | null = null
+      try {
+        hasAccess = await inMinistry(ministryId, async (client) => {
+          const { rows } = await client.query<{ has_access: boolean | null }>(
+            `select app.billing_has_access($1) as has_access`,
+            [ministryId],
+          )
+          return rows[0]?.has_access ?? null
+        })
+      } catch (error) {
+        console.error(`Could not read texting access for ministry ${ministryId}`, error)
+      }
+
+      return inMinistry(ministryId, async (client): Promise<DueMessages> => {
+        if (hasAccess === false) {
+          // Every unsent row, a spread check-in's included. Closed rather than left
+          // out, because a row merely left out would go the moment the church
+          // restarted: weeks-old check-ins, sent all at once. See ticket 05.
+          const { rowCount } = await client.query(
+            `update outbound_message set withheld_at = $2, withheld_reason = $3
+              where ministry_id = $1 and sent_at is null and withheld_at is null`,
+            [ministryId, at, 'church_has_no_access' satisfies WithholdingReason],
+          )
+          return { messages: [], closedWithoutAccess: rowCount ?? 0, accessUnread: false }
+        }
+
         const { rows } = await client.query<{
           id: string
           person_id: string | null
@@ -160,19 +190,23 @@ export const createPostgresOutboundQueue = (
           [ministryId, at],
         )
 
-        return rows.map(
-          (row): QueuedMessage => ({
-            id: outboundMessageId(row.id),
-            personId: row.person_id ? personId(row.person_id) : null,
-            toPhone: row.to_phone,
-            body: row.body,
-            disclosesPersonId: row.discloses_person_id
-              ? personId(row.discloses_person_id)
-              : null,
-            kind: row.message_kind,
-            enqueuedAt: row.enqueued_at,
-          }),
-        )
+        return {
+          messages: rows.map(
+            (row): QueuedMessage => ({
+              id: outboundMessageId(row.id),
+              personId: row.person_id ? personId(row.person_id) : null,
+              toPhone: row.to_phone,
+              body: row.body,
+              disclosesPersonId: row.discloses_person_id
+                ? personId(row.discloses_person_id)
+                : null,
+              kind: row.message_kind,
+              enqueuedAt: row.enqueued_at,
+            }),
+          ),
+          closedWithoutAccess: 0,
+          accessUnread: hasAccess !== true,
+        }
       })
     },
 

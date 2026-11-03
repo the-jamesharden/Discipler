@@ -458,6 +458,10 @@ export const getSharedNumbers = (): SharedNumberCapacity => {
 /** What support@ is told about, emailed through the one sender. */
 export const getSupportAlerts = (): SupportAlerts => createEmailSupportAlerts(getEmailSender())
 
+/** Once a day, by the email's own key, however many passes find it (Exponential launch, ticket 05). */
+export const tellSupportTheTextingGateIsUnread = (): Promise<void> =>
+  getSupportAlerts().textingGateUnread({ day: systemClock.now().toISOString().slice(0, 10) })
+
 /** One pass of the capacity watch, assembled so its callers cannot assemble it differently. */
 export const watchTheSharedNumbers = (): Promise<readonly CapacityConcern[]> =>
   watchSharedNumberCapacity({

@@ -919,6 +919,23 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
     return new Set<PersonId>(rows.map((row) => personId(row.person_id)))
   },
 
+  async churchHasAccess(): Promise<boolean> {
+    // A savepoint, because a statement that fails aborts the whole transaction, and
+    // the command it is inside has to be able to go on. Only `false` is a no.
+    await client.query('savepoint texting_access')
+    try {
+      const { rows } = await client.query<{ has_access: boolean | null }>(
+        `select app.billing_has_access(app.command_ministry_id()) as has_access`,
+      )
+      await client.query('release savepoint texting_access')
+      return rows[0]?.has_access !== false
+    } catch (error) {
+      console.error('Could not read a church\'s texting access for a command', error)
+      await client.query('rollback to savepoint texting_access')
+      return true
+    }
+  },
+
   async ministryVoice(): Promise<MinistryVoice> {
     // Scoped by the policy on `ministry`, like everything else on this connection.
     //

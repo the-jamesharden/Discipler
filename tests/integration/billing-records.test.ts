@@ -88,7 +88,7 @@ describe('Billing records and the Stripe webhook', () => {
   beforeAll(async () => {
     pool = new pg.Pool({ connectionString: localSupabase().databaseUrl })
     billing = createPostgresBilling(localSupabase().databaseUrl)
-    northgate = await createMinistryWithAdmin('Northgate Fellowship')
+    northgate = await createMinistryWithAdmin('Northgate Fellowship', undefined, { billedOutsideStripe: false })
   })
 
   afterAll(async () => {
@@ -108,12 +108,13 @@ describe('Billing records and the Stripe webhook', () => {
       async billingEventRefused(alert) {
         told.push(alert)
       },
+      async textingGateUnread() {},
     }
     work = { inbox: billing.inbox, records: billing.records, stripe: fake.stripe, alerts, clock }
 
     // A church of its own per test: a customer can be stored once and history can
     // never be cleared, so nothing carries between them.
-    riverside = await createMinistryWithAdmin('Riverside Chapel')
+    riverside = await createMinistryWithAdmin('Riverside Chapel', undefined, { billedOutsideStripe: false })
     customer = aCustomer()
     await billing.records.rememberCustomer(riverside.id, customer, false)
   })
