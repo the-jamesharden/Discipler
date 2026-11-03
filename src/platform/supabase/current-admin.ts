@@ -30,3 +30,16 @@ export const currentAdmin = async (): Promise<SignedInAdmin | null> => {
   const resolution = await resolveAdmin()
   return resolution.status === 'admin' ? resolution.admin : null
 }
+
+/**
+ * The email on the signed-in session's token, or null for a phone identity, which has
+ * none (`provisioning.ts`). For the one thing that asks: a church's Stripe Customer
+ * (Exponential launch, ticket 04). Who the session is has already been answered by
+ * `resolveAdmin`, and this adds no request.
+ */
+export const adminEmailFromToken = async (): Promise<string | null> => {
+  const supabase = await createSupabaseServerClient()
+  const { data } = await supabase.auth.getClaims()
+  const email = data?.claims.email
+  return typeof email === 'string' && email !== '' ? email : null
+}

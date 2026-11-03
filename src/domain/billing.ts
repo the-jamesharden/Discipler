@@ -21,6 +21,8 @@ export const STRIPE_EVENTS_ACTED_ON = [
   'customer.subscription.trial_will_end',
   'customer.subscription.paused',
   'customer.subscription.resumed',
+  // What opens a church's access: its trial's card or bank account was saved (ticket 04).
+  'setup_intent.succeeded',
   'invoice.paid',
   'invoice.payment_failed',
   'invoice.payment_action_required',
@@ -55,8 +57,10 @@ export type SubscriptionStatus =
  * `app.billing_state_of` from the church's history, and never stored.
  *
  * - `outside_stripe`: the operator flag; it keeps working with no subscription.
- * - `no_subscription`: nothing established yet, a church that has not finished paying.
- * - `incomplete`: a subscription whose first payment has not gone through.
+ * - `no_subscription`: nothing established yet, a church that has not finished paying,
+ *   or one whose trial ran out or was replaced before its setup intent was confirmed.
+ * - `incomplete`: a subscription that has not finished starting: its first payment has
+ *   not gone through, or its trial's setup intent has not been confirmed (ticket 04).
  * - `trialing`, `active`: as Stripe says.
  * - `past_due`: Stripe is still retrying, and everything keeps running.
  * - `ended`: canceled, unpaid, incomplete_expired or paused.
@@ -117,6 +121,13 @@ export const billingStateOf = (row: Readonly<Record<string, unknown>>): BillingS
 export interface StripeSubscriptionFacts {
   readonly id: string
   readonly status: SubscriptionStatus
+  /**
+   * Its setup intent has not been confirmed, so no card or bank account was saved for
+   * it. Stripe says `trialing` from creation regardless, and leaves the setup intent
+   * in place if the Subscription ends. Never true once a Subscription has been paying,
+   * whatever a later setup intent is doing (ticket 04).
+   */
+  readonly awaitingPaymentMethod: boolean
   readonly createdAt: Date
   readonly priceId: string | null
   readonly latestInvoiceId: string | null
@@ -129,18 +140,22 @@ export interface StripeSubscriptionFacts {
 
 const LIVE: ReadonlySet<SubscriptionStatus> = new Set(['trialing', 'active', 'past_due'])
 
+/** Whether this Subscription is paying, or on a trial with a payment method behind it. */
+export const isConfirmedAndLive = (subscription: StripeSubscriptionFacts): boolean =>
+  LIVE.has(subscription.status) && !subscription.awaitingPaymentMethod
+
 /**
  * The one Subscription a customer's billing state is read from, or null where it has
  * none. A church that ended and restarted holds two, and a late event about the old
  * one must not end the new one, so a live Subscription wins over any that is not, and
- * the newest wins among equals.
+ * the newest wins among equals. One still waiting for its payment method is not live.
  */
 export const currentSubscription = (
   subscriptions: readonly StripeSubscriptionFacts[],
 ): StripeSubscriptionFacts | null =>
   [...subscriptions].sort(
     (a, b) =>
-      Number(LIVE.has(b.status)) - Number(LIVE.has(a.status)) ||
+      Number(isConfirmedAndLive(b)) - Number(isConfirmedAndLive(a)) ||
       b.createdAt.getTime() - a.createdAt.getTime(),
   )[0] ?? null
 
@@ -236,6 +251,9 @@ export const stripeInboxEntryOf = (event: StripeEventEnvelope): StripeInboxEntry
       case 'dispute':
         // A dispute names its charge and no customer: the charge is read to find one.
         return { ...nothing, chargeId: idOf(object.charge), namedChurches: present([own]) }
+      case 'setup_intent':
+        // Names its customer, and its Subscription only through the re-read.
+        return { ...nothing, customerId: idOf(object.customer), namedChurches: present([own]) }
       case 'checkout.session':
         return {
           ...nothing,

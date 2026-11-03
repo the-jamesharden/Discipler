@@ -7,7 +7,7 @@ import { baseUrl, skipUnlessAppIsRunning } from '../support/app'
  * are not published yet, so nothing here may be able to send an email.
  */
 describe.skipIf(skipUnlessAppIsRunning)('sign-up on a built server with the switch off', () => {
-  it.each(['human-check', 'send-code', 'resend-code', 'confirm-code'])('answers 404 at %s', async (route) => {
+  it.each(['human-check', 'send-code', 'resend-code', 'confirm-code', 'payment/open'])('answers 404 at %s', async (route) => {
     const response = await fetch(`${baseUrl}/signup/${route}`, {
       method: 'POST',
       redirect: 'manual',
@@ -17,6 +17,7 @@ describe.skipIf(skipUnlessAppIsRunning)('sign-up on a built server with the swit
         email: 'pastor@grace.example',
         phone: '+12055550100',
         code: '123456',
+        cycle: 'month',
       }),
     })
 

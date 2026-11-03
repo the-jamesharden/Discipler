@@ -4,8 +4,8 @@ import { STRIPE_CHURCH_METADATA_KEY } from '~/domain/billing'
 import type { StripeBilling } from '~/service/ports'
 
 /**
- * Stripe's API, read and never written (Exponential launch, ticket 03). The API
- * version is the one this SDK pins, so it moves only when the package does, and the
+ * Stripe's API, read and never written (Exponential launch, ticket 03); what is
+ * written is in `./trials.ts`. The API version is the one this SDK pins, so it moves only when the package does, and the
  * webhook endpoint should be created on the same one.
  *
  * Read per call, as the Resend key is: only a deployment with Stripe has the key, and
@@ -23,7 +23,20 @@ const dateOf = (seconds: number | null | undefined): Date | null =>
 const idOf = (value: string | { readonly id: string } | null | undefined): string | null =>
   typeof value === 'string' ? value : (value?.id ?? null)
 
-const factsOf = (subscription: Stripe.Subscription): StripeSubscriptionFacts => {
+/**
+ * Whether its setup intent is still to be confirmed. Null means done: Stripe clears the
+ * field when it succeeds. An ID that was not expanded is read as not done, since every
+ * read here expands it and failing closed is the only safe answer about access. A
+ * Subscription past its trial is left alone, because it has been paid for.
+ */
+const stillAwaitsPaymentMethod = (subscription: Stripe.Subscription): boolean => {
+  const pending = subscription.pending_setup_intent
+  if (!['trialing', 'canceled', 'incomplete_expired'].includes(subscription.status)) return false
+  if (!pending) return false
+  return typeof pending === 'string' || pending.status !== 'succeeded'
+}
+
+export const factsOf = (subscription: Stripe.Subscription): StripeSubscriptionFacts => {
   // Discipler sells one thing, so a Subscription has one item.
   const item = subscription.items.data[0]
   const currentPeriodEndsAt = dateOf(item?.current_period_end)
@@ -31,6 +44,7 @@ const factsOf = (subscription: Stripe.Subscription): StripeSubscriptionFacts => 
   return {
     id: subscription.id,
     status: subscription.status as SubscriptionStatus,
+    awaitingPaymentMethod: stillAwaitsPaymentMethod(subscription),
     createdAt: new Date(subscription.created * 1000),
     priceId: item?.price?.id ?? null,
     latestInvoiceId: idOf(subscription.latest_invoice),
@@ -51,6 +65,7 @@ export const createStripeBilling = (client: () => Stripe = stripeClient): Stripe
       customer: customerId,
       status: 'all',
       limit: 100,
+      expand: ['data.pending_setup_intent'],
     })
     return data.map(factsOf)
   },
