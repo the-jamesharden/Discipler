@@ -1,6 +1,7 @@
 import type { MemberRole } from './relationships'
 import type { PersonId, RelationshipId } from './ids'
 import type { Branded } from './branded'
+import type { CheckInWords } from './check-in-words'
 import { hours } from './clock'
 import { plainWords, withoutPleasantries } from './inbound-text'
 import { cadenceInstantOf, isoWeekOf, localHourOf, type Cadence } from './week'
@@ -351,6 +352,13 @@ export interface OpenSequence {
   readonly covering: readonly CheckInRelationship[]
   /** Null once the final question has been answered and before it is closed. */
   readonly awaiting: OpenPrompt | null
+  /**
+   * The sentences this conversation opened with, which it finishes with whatever a
+   * church has saved since: a change applies from the next check-in sent (ticket
+   * 40), and a reminder is the question as it first went out. Absent or null on one
+   * opened before a church could reword, which went out in Discipler's words.
+   */
+  readonly words?: CheckInWords | null
 }
 
 /**

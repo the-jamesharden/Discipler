@@ -1,4 +1,5 @@
 import type { CheckInQuestion, CheckInWording } from './check-in'
+import { fillingInTheName, type CheckInWords } from './check-in-words'
 import type { MaterialText } from './material-notices'
 import type { ShortName } from './short-name'
 import type { RelationshipKeyword } from './keywords'
@@ -13,8 +14,9 @@ import type { RelationshipKeyword } from './keywords'
  *
  * **Discipler writes the frame of every text**, as a permanent rule (James, mock-up 3,
  * 2026-10-30): the "{Messages read as} via Discipler:" start, the reply choices and
- * the rates line. Each is composed here and nowhere else, so whatever a church may
- * one day reword inside a text, none of them is a church's to change.
+ * the rates line. Each is composed here and nowhere else, so what a church rewords
+ * inside a check-in (`check-in-words.ts`, Exponential launch ticket 40) is put between
+ * them and none of them is a church's to change.
  */
 
 /**
@@ -544,7 +546,9 @@ export const relationshipSubject = ({ name, otherSide }: RelationshipNaming): st
 
 const MEETING_REPLIES = 'Reply 1 for yes, 2 for no.'
 // The Concern step names no tokens, because it takes prose. What it offers
-// instead is the whole of what it wants.
+// instead is the whole of what it wants. Discipler's words whatever a church has
+// rewritten: this is what a clarification says back, and a clarification is the
+// frame's (the church's own sentence for this step is `words.concern`).
 const CONCERN_DETAIL_WANTED = 'Please tell us more about the concern.'
 
 /**
@@ -579,10 +583,31 @@ const VALID_REPLIES_TO: Readonly<Record<CheckInWording, Readonly<Record<CheckInQ
   },
 }
 
-export interface MeetingQuestion {
+/**
+ * The reply choices a question always ends with, for the screen that says so beside
+ * the sentence a church may rewrite. The same strings the texts carry, so the screen
+ * cannot promise an ending the texts do not have.
+ */
+export const replyChoicesTo = (question: CheckInQuestion, wording: CheckInWording): string =>
+  VALID_REPLIES_TO[wording][question]
+
+/**
+ * **The check-in's four composers below are the one way its texts are made**, for a
+ * real conversation, for the phone in Settings and for the test check-in (ticket 28).
+ * Each takes the four sentences to speak in, `words`, and who `[name]` stands for,
+ * `subject`, both stated rather than defaulted: a caller that did not think about a
+ * church's words should not be quietly answered with Discipler's. A church's words
+ * in force are `MinistryVoice.checkInWords`; a conversation already open keeps
+ * `OpenSequence.words`.
+ */
+export interface CheckInSentence {
   readonly ministryName: string
-  /** As `relationshipSubject` composed it. */
+  /** As `relationshipSubject` composed it: who `[name]` stands for. */
   readonly subject: string
+  readonly words: CheckInWords
+}
+
+export interface MeetingQuestion extends CheckInSentence {
   /**
    * Whether this question may carry the rates line: the opening question of a
    * conversation may, and a reminder re-sending it may not. Whether the opening
@@ -603,11 +628,12 @@ export const meetingQuestion = ({
   ministryName,
   subject,
   discloseOptOut,
+  words,
 }: MeetingQuestion): string =>
   composeMessage({
     ministryName,
     discloseOptOut,
-    body: `Did you meet with ${subject} this week? ${MEETING_REPLIES}`,
+    body: `${fillingInTheName(words.question, subject)} ${MEETING_REPLIES}`,
   })
 
 export interface CheckInMessage {
@@ -615,17 +641,17 @@ export interface CheckInMessage {
 }
 
 /**
- * The rest of a conversation, after its opening question: one fixed sentence,
- * naming nobody and carrying no disclosure. Only `meetingQuestion` differs -- it
- * names a subject and it is where the rates line may ride -- so
- * everything downstream of it shares one envelope and varies only in what it says.
+ * The rest of a conversation, after its opening question: one sentence, carrying no
+ * disclosure. Only `meetingQuestion` differs -- it is where the rates line may ride
+ * -- so everything downstream of it shares one envelope and varies only in what it
+ * says. Discipler's own sentences here name nobody; a church's may.
  */
 const checkInSentence =
   (body: string) =>
   ({ ministryName }: CheckInMessage): string =>
     composeMessage({ ministryName, discloseOptOut: false, body })
 
-export interface SatisfactionQuestion extends CheckInMessage {
+export interface SatisfactionQuestion extends CheckInSentence {
   /** The wording it is sent with: the one in force, or a reminder's own. */
   readonly wording: CheckInWording
 }
@@ -639,17 +665,23 @@ export interface SatisfactionQuestion extends CheckInMessage {
  * Ministry's history -- which is how `C` went from concern to okay without one
  * stored concern becoming anything else.
  */
-export const satisfactionQuestion = ({ ministryName, wording }: SatisfactionQuestion): string =>
-  checkInSentence(`How did the meeting go? ${VALID_REPLIES_TO[wording].satisfaction}`)({
-    ministryName,
-  })
+export const satisfactionQuestion = ({
+  ministryName,
+  wording,
+  subject,
+  words,
+}: SatisfactionQuestion): string =>
+  checkInSentence(
+    `${fillingInTheName(words.rating, subject)} ${VALID_REPLIES_TO[wording].satisfaction}`,
+  )({ ministryName })
 
 /**
  * Asked only after a concern. The Concern is already recorded by the time this
  * goes out, so an unanswered request for detail loses nothing that was already
  * said.
  */
-export const concernDetailRequest = checkInSentence(CONCERN_DETAIL_WANTED)
+export const concernDetailRequest = ({ ministryName, subject, words }: CheckInSentence): string =>
+  checkInSentence(fillingInTheName(words.concern, subject))({ ministryName })
 
 export interface ClarificationMessage extends CheckInMessage {
   readonly question: CheckInQuestion
@@ -685,8 +717,11 @@ export const checkInClarification = ({
  * Sent after the *final* relationship and nowhere else. Where a thank-you would
  * otherwise fall, the next relationship's opening question is sent instead -- so
  * receiving this is how a Leader knows the conversation is over.
+ *
+ * Its `subject` is everyone the conversation was about, since it closes all of them.
  */
-export const checkInThankYou = checkInSentence('Thank you. We’ll check in with you next week.')
+export const checkInThankYou = ({ ministryName, subject, words }: CheckInSentence): string =>
+  checkInSentence(fillingInTheName(words.thanks, subject))({ ministryName })
 
 export interface KeywordMenu {
   readonly ministryName: string

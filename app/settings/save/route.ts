@@ -57,6 +57,12 @@ export async function POST(request: NextRequest) {
         suggestMaxAgeBandGap: typed(form, 'suggestMaxAgeBandGap'),
         checkinDay: typed(form, 'checkinDay'),
         checkinHour: typed(form, 'checkinHour'),
+        checkInWords: {
+          question: typed(form, 'checkInQuestion'),
+          rating: typed(form, 'checkInRating'),
+          concern: typed(form, 'checkInConcern'),
+          thanks: typed(form, 'checkInThanks'),
+        },
       },
     })
   } catch (error) {

@@ -1,3 +1,4 @@
+import type { CheckInWords } from './check-in-words'
 import type { IntendedPairingClosure, NewIntendedPairing } from './intended-pairing'
 import type { GoalWording } from './discipleship-goals'
 import type {
@@ -446,6 +447,11 @@ export interface NewCheckInSequence {
    * relationship-week that went unanswered.
    */
   readonly covering: readonly RelationshipId[]
+  /**
+   * The sentences it opens with, held for the rest of the conversation: a church
+   * rewording them mid-week changes the next check-in and not this one.
+   */
+  readonly words: CheckInWords
 }
 
 /**

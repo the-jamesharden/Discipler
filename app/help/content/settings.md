@@ -43,11 +43,13 @@ Pressing Save here also ticks the first step of Jumpstart discipleship, whether 
 ## What the check-in says
 
 Under the day and hour, each sentence of the check-in is a line you can rewrite in your own words.
-Write \[name\] where the person's name goes.
+Write \[name\] where the person's name goes, and the question has to have it, so someone with several people knows which one it is asking about.
 Each sentence can be up to {{checkInSentenceLongest}} characters, and a blank line uses Discipler's words.
 A phone beside it shows exactly how the text will read.
+A change starts with the next check-in; one already under way finishes in the words it started with.
 
 The start of each text, the reply choices and the rates line stay as Discipler writes them, so replies keep working and the texts stay within the carriers' rules.
+So a sentence can't offer its own replies or opt-out words, or carry a link or a phone number.
 Your [test check-in](/help/test-check-in) uses your words too.
 
 ## Elsewhere
