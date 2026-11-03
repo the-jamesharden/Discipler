@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getMaterialsReader } from '~/service/container'
-import { AccountMenu, BackLink, NotAnAdmin, PageShell } from '../../shell'
+import { BackLink, NotAnAdmin, PageShell } from '../../shell'
+import { AdminNav } from '../../top-nav'
 import { MaterialForm, type MaterialQuery } from '../material-form'
 import {
   BACK_TO_MATERIALS,
@@ -36,7 +37,7 @@ export default async function NewMaterialPage({
   if (page.status === 'signed-out') redirect('/login')
 
   return (
-    <PageShell title={MATERIALS} subtitle={page.admin.ministryName} actions={<AccountMenu ministry />}>
+    <PageShell title={MATERIALS} subtitle={page.admin.ministryName} actions={<AdminNav admin={page.admin} />}>
       <BackLink small className="mat-back" href="/materials" label={BACK_TO_MATERIALS} />
       <div className="card">
         <div className="card-head">

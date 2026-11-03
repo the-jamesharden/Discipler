@@ -30,4 +30,13 @@ export const OPERATOR_ONLY_TABLES: readonly string[] = [
   // The shared numbers and the capacity watch's history (Exponential launch, ticket 06).
   'shared_number',
   'shared_number_capacity_alert',
+  // The falls of the Twilio balance below its floor (Exponential launch, ticket 08).
+  'twilio_balance_fall',
+  // Each Pacific day Twilio's daily limit was reached (Exponential launch, ticket 07).
+  'daily_cap_hold',
+  // The human check and the email code at sign-up (Exponential launch, ticket 11).
+  'pending_signup',
+  'pending_signup_send',
+  // The Stripe webhook's inbox (Exponential launch, ticket 03).
+  'stripe_event',
 ]

@@ -331,6 +331,8 @@ export const EMAIL_KINDS = {
   twilioSpendPassed: 'support',
   /** A church on $97 stayed above 200 people for a whole month (ticket 14). */
   over200FollowUp: 'support',
+  /** A Stripe event named a church other than its customer's, or a customer of no church (ticket 03). */
+  billingEventRefused: 'support',
   /** A church-plant application, with no approve link in it (ticket 19). */
   churchPlantApplication: 'founders',
   /** Sign-up's 6-digit code, and the notice sent instead when the address has an account (ticket 11). */

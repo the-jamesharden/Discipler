@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { handleCommand, type CommandContext } from '~/domain/boundary'
 import { createTestClock } from '~/domain/clock'
 import type { Effect } from '~/domain/effects'
+import { NO_SAVED_CHECK_IN_WORDS } from '~/domain/check-in-words'
 import { MinistrySettingsRefused } from '~/domain/errors'
 import { createSequentialIds, ministryId } from '~/domain/ids'
 import {
@@ -34,6 +35,7 @@ const filled: MinistrySettingsFields = {
   suggestMaxAgeBandGap: '1',
   checkinDay: '1',
   checkinHour: '9',
+  checkInWords: NO_SAVED_CHECK_IN_WORDS,
 }
 
 const readOrThrow = (fields: MinistrySettingsFields): MinistrySettings => {
@@ -60,6 +62,7 @@ describe('reading a Ministry’s settings off the form', () => {
       suggestGenderMatch: true,
       suggestMaxAgeBandGap: 1,
       cadence: { day: 1, hour: 9 },
+      checkInWords: NO_SAVED_CHECK_IN_WORDS,
     })
   })
 
@@ -221,6 +224,7 @@ describe('saving a Ministry’s settings', () => {
     suggestGenderMatch: true,
     suggestMaxAgeBandGap: 1,
     cadence: { day: 1, hour: 9 },
+    checkInWords: NO_SAVED_CHECK_IN_WORDS,
   }
 
   const context: CommandContext = {
@@ -246,6 +250,7 @@ describe('saving a Ministry’s settings', () => {
           suggestMaxAgeBandGap: String(stood.suggestMaxAgeBandGap),
           checkinDay: String(stood.cadence.day),
           checkinHour: String(stood.cadence.hour),
+          checkInWords: stood.checkInWords,
           ...fields,
         },
       },

@@ -476,8 +476,11 @@ What needs deciding: when to buy the five numbers.
 ## Open: whether a church's reworded sentences need the A2P samples widened
 
 Raised on 2026-10-31 by the Exponential launch, ticket 06.
-The campaign's sample messages show Discipler's words, and ticket 40 will let a church reword the check-in's sentences inside Discipler's frame.
-What needs deciding: whether that needs the samples widened, which is a question for Twilio, before ticket 40 ships.
+The campaign's sample messages show Discipler's words, and ticket 40 lets a church reword the check-in's sentences inside Discipler's frame.
+James decided on 2026-11-03 to ship ticket 40 live, with no switch, before Twilio answers, and said the check-in's wording is fine.
+That sets aside what ADR-0034 and ticket 40 said about settling this first.
+Until Twilio answers, a church can send reworded sentences that the campaign's samples do not show.
+What needs deciding: whether the samples need widening, which is still a question for Twilio, including the campaign's declaration of links and numbers.
 
 ## Open: the sentences an Admin's phone check refuses with
 
@@ -534,11 +537,10 @@ The spec's Billing section says "everything keeps running during Stripe's retrie
 The docs and ticket 05 follow "everything keeps running", so a `past_due` church keeps texting.
 What needs deciding: whether that stands, before ticket 05 is built.
 
-## Open: the reply choices ticket 40 lists
+## Resolved: the reply choices ticket 40 lists
 
 Raised on 2026-11-01 by the Exponential launch, ticket 35.
-Ticket 40 still lists "Reply A for outstanding, B for good, C for concern.", the three-rating copy, and there have been four ratings since 2026-10-12.
-What needs deciding: the four-rating wording, when ticket 40 is triaged.
+Ticket 40 was triaged with the four ratings, and it is built with "Reply A for outstanding, B for good, C for okay, D for concern."
 
 ## Open: publishing the legal drafts
 
@@ -558,9 +560,9 @@ James reviewed it on 2026-11-02 and kept it as drafted, with no checkbox.
 ## Open: the live opt-in page's sample messages
 
 Raised on 2026-11-01 by the Exponential launch, ticket 36.
-The live page's samples are out of date whatever the launch does: three ratings and the old prefix.
-`docs/legal/sms-opt-in-sign-up-section.md` lists the lines to change.
-What needs deciding: the new lines, and publishing them with the drafts above.
+James approved the corrections on 2026-11-03 and they are live: the form's wording, the confirmation, check-in prompt and follow-up samples, and Carrollton.
+The HELP and STOP samples are unchanged, and the sign-up section is not published.
+What is left: text HELP and STOP from a test phone and match those two samples to what arrives, and publish the sign-up section with its screenshot.
 
 ## Open: a second layer on the sign-in guessing limit
 
@@ -579,3 +581,96 @@ No job in the code deletes anything yet, so each period is a promise to build be
 The periods with no job are support messages at 12 months, help assistant chats at 90 days, abandoned sign-ups at 30 days, billing records and agreements at 7 years, and the information of an ended church or of a church that never completed Checkout and has no subscription at 12 months with an email to its Admins 30 days before.
 The email to Admins is new, so its wording is James's to approve.
 What needs deciding: which tickets own the jobs, and the wording of that email.
+The Billing help page and ticket 33 still say a church's information is "kept", and they change with the deletion job.
+
+## Open: spreading check-ins needs more than a faster send pass
+
+Raised on 2026-11-03 by the Exponential launch, ticket 07.
+James kept the send pass hourly for the launch, so check-ins leave all at once, as they do on production today.
+Three problems were found when it was tried:
+
+- A check-in's conversation opens at the tick while its text can wait up to an hour, so a reply in that gap is recorded as the answer to a question never sent, or gets a clarification about it.
+- A Pause or an ending in that gap withholds nothing, so the question about a finished pairing still goes out.
+- A church with a 9pm check-in hour can send at 10pm or later, even on an on-time pass, for example the last of 13 Leaders, and up to about 40 minutes past it if the tick opens late.
+
+A daily cap hold reaches the same gap for longer: a check-in held overnight has its conversation open with its text unsent, so a reply, a Pause or an ending that evening has the same problems.
+Rows waiting for a shared number have them too.
+A hold is rare today, since it needs Twilio to answer 30023 at the POST and volume near the cap.
+The eventual fix should cover all of these.
+
+What needs deciding: whether to open the question when its text is sent, or make replies, Pause and endings aware of an unsent question, and how to keep the moments inside quiet hours, before spreading is switched on.
+
+## Open: how Twilio reports error 30023
+
+Raised on 2026-11-03 by the Exponential launch, ticket 07.
+The hold fires when Twilio answers a send with 30023, and the tests answer it at the `POST`.
+Nothing read here confirms that Twilio ever does.
+If Twilio reports it later, on the message's status, the row is marked sent, the text is lost, and no hold or email happens.
+Catching that needs a signed status-callback route, or keeping each message's SID and reading its status on the tick, and either one must put the refused row back on the queue.
+What needs deciding: ask Twilio in the open support ticket, then whether a follow-up ticket is needed.
+James decided on 2026-11-03 to merge with this open and ask Twilio, since today's volume is far below the limit.
+
+## Open: held texts wait for the church's morning
+
+Raised on 2026-11-03 by the Exponential launch, ticket 07.
+The ticket says held texts are sent after midnight Pacific.
+As built, a held text also waits for the church's own morning, so nobody is texted in the night (`waitsForTheMorning` in `src/domain/daily-cap.ts`).
+What needs deciding: whether that rule stands.
+
+## Open: the Twilio balance and spend alarm's quiet failures
+
+Raised on 2026-11-03 by the Exponential launch, ticket 08.
+A failed balance read sends no email, so a rotated token or a changed answer silences the alarm, and it shows only in the tick's response and the log.
+If Resend is down through all of Twilio's retries, that day's spend alarm is lost.
+Neither the balance read nor the Usage Trigger's signed callback has met the real Twilio.
+What needs deciding: whether repeated failed reads should email support@, and James's one check of both against the real Twilio, with auto-recharge set to add $500 below $100 and a backup card.
+
+## Open: sign-up's numbers and wording, before ticket 15
+
+Raised on 2026-11-03 by the Exponential launch, ticket 11.
+The spec gives none of these, so the build chose: 5 emails per address and 30 per network each hour, a human check lasting 30 minutes, a proven address lasting 60, and one human pass per address.
+The two emails, `codeEmail` and `signUpAttemptNotice` in `src/domain/sign-up-attempt.ts`, and the refusal sentences in `app/signup/copy.ts` are drafts.
+A phone outside the US is refused at sign-up (`signup.phone_not_us`), so a Canadian Admin, like SAU BCM's, could not sign up.
+What needs deciding: the numbers, the wording, and whether sign-up stays US-only.
+
+## Open: the check-in words' refusals and `Messages read as`
+
+Raised on 2026-11-03 by the Exponential launch, ticket 40.
+The build refuses a question without `[name]`, wording that reads as the frame, links and phone numbers, none of which the spec asked for, and the refusal sentences in `app/settings/check-in-words-copy.ts` are drafts.
+`Messages read as` starts every text, has no length limit and is validated only for blank, so it could say "Reply STOP".
+An emoji counts as one character toward the 160, and it can make a text cost more to send.
+ADR-0034 lists "reminders" as Discipler's words and `docs/product-rules.md` says a conversation keeps its sentences, reminders included; the build reads ADR-0034's as the acceptance reminder.
+What needs deciding: whether those refusals stand, the wording, whether `Messages read as` gets the same refusals, and which reading of reminders is right.
+
+## Open: a trial Subscription reads as access before payment is confirmed
+
+Raised on 2026-11-03 by the Exponential launch, ticket 03.
+The spec says a church that leaves the payment step sends no texts.
+With the Payment Element, a trial Subscription reads `trialing` from when the server creates it, before its setup intent is confirmed, and the webhook subscribes to no setup-intent event.
+Nothing reads access until ticket 05, so this does nothing yet.
+What needs deciding: when tickets 04 and 18 are rewritten, whether the Subscription is created only once the payment method is confirmed, or a pending setup intent counts as no access.
+
+## Open: Setup Link churches are billed outside Stripe automatically
+
+Raised on 2026-11-03 by the Exponential launch, ticket 03.
+The spec names SAU BCM and Anthem Community Church for the operator flag and says it is for churches James chooses to comp.
+As built, a church opened by a Setup Link gets the flag automatically.
+What needs deciding: whether that stands, before ticket 05 makes the flag matter.
+
+## Open: consent Statement 2's wording
+
+Raised on 2026-11-03 by the intake consent links.
+`docs/consent-language.md` words Statement 2 as "I agree that...", and the intake form asks "May we share your name and phone number...?"
+What needs deciding: which one is right.
+
+## Open: the help pages name Help menu items not yet shown
+
+Raised on 2026-11-03 by the Exponential launch, ticket 23.
+The Help menu holds only what exists, so items that wait on tickets 25, 27 and 30 are not there yet, and the help docs already mention them.
+What needs deciding: nothing if those tickets ship by the launch; otherwise the wording of those pages.
+
+## Open: the wording Twilio Verify really sends
+
+Raised on 2026-11-03 by the Exponential launch, ticket 36.
+The opt-in draft's sample is "Your Discipler verification code is: 123456", from Twilio's documented pattern rather than a code anyone has received.
+What needs deciding: nothing; James checks a real code against the sample before the sign-up section is published.

@@ -6,6 +6,7 @@ import type {
   OpenIntendedPairing,
   PairingSideSnapshot,
 } from '~/domain/intended-pairing'
+import { checkInWordsInForce, type CheckInWords } from '~/domain/check-in-words'
 import { isParticipationStatus } from '~/domain/participation'
 import { GENDERS, isOneOf } from '~/domain/intake'
 import type { PoolClient } from 'pg'
@@ -930,10 +931,18 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       name: string
       leader_noun: string
       participant_noun: string
+      checkin_question_sentence: string | null
+      checkin_rating_sentence: string | null
+      checkin_concern_sentence: string | null
+      checkin_thanks_sentence: string | null
     }>(
       `select coalesce(nullif(btrim(from_name), ''), name) as name,
               leader_noun,
-              participant_noun
+              participant_noun,
+              checkin_question_sentence,
+              checkin_rating_sentence,
+              checkin_concern_sentence,
+              checkin_thanks_sentence
          from ministry`,
     )
 
@@ -944,6 +953,12 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       name: voice.name,
       leaderNoun: roleNoun(voice.leader_noun),
       participantNoun: roleNoun(voice.participant_noun),
+      checkInWords: checkInWordsInForce({
+        question: voice.checkin_question_sentence,
+        rating: voice.checkin_rating_sentence,
+        concern: voice.checkin_concern_sentence,
+        thanks: voice.checkin_thanks_sentence,
+      }),
     }
   },
 
@@ -963,10 +978,16 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       suggest_max_age_band_gap: number
       checkin_day: number
       checkin_hour: number
+      checkin_question_sentence: string | null
+      checkin_rating_sentence: string | null
+      checkin_concern_sentence: string | null
+      checkin_thanks_sentence: string | null
     }>(
       `select name, from_name, timezone, leader_noun, participant_noun,
               suggest_gender_match, suggest_max_age_band_gap,
-              checkin_day, checkin_hour
+              checkin_day, checkin_hour,
+              checkin_question_sentence, checkin_rating_sentence,
+              checkin_concern_sentence, checkin_thanks_sentence
          from ministry`,
     )
 
@@ -986,6 +1007,12 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       suggestGenderMatch: row.suggest_gender_match,
       suggestMaxAgeBandGap: Number(row.suggest_max_age_band_gap),
       cadence: { day: Number(row.checkin_day), hour: Number(row.checkin_hour) },
+      checkInWords: {
+        question: text(row.checkin_question_sentence),
+        rating: text(row.checkin_rating_sentence),
+        concern: text(row.checkin_concern_sentence),
+        thanks: text(row.checkin_thanks_sentence),
+      },
     }
   },
 
@@ -1003,7 +1030,11 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
               suggest_gender_match = $6,
               suggest_max_age_band_gap = $7,
               checkin_day = $8,
-              checkin_hour = $9`,
+              checkin_hour = $9,
+              checkin_question_sentence = $10,
+              checkin_rating_sentence = $11,
+              checkin_concern_sentence = $12,
+              checkin_thanks_sentence = $13`,
       [
         settings.name,
         settings.fromName,
@@ -1014,6 +1045,10 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
         settings.suggestMaxAgeBandGap,
         settings.cadence.day,
         settings.cadence.hour,
+        settings.checkInWords.question,
+        settings.checkInWords.rating,
+        settings.checkInWords.concern,
+        settings.checkInWords.thanks,
       ],
     )
 
@@ -2894,8 +2929,9 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       id: string
       started_at: Date
       covering: string[]
+      words: CheckInWords | null
     }>(
-      `select id, started_at, covering
+      `select id, started_at, covering, words
          from checkin_sequence
         where person_id = $1 and closed_at is null`,
       [id],
@@ -2970,6 +3006,9 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
       openSequence = {
         sequenceId: checkInSequenceId(sequence.id),
         startedAt: sequence.started_at,
+        // Null on one opened before a church could reword, which the boundary reads
+        // as Discipler's words. The migration's check holds the shape of the rest.
+        words: sequence.words,
         covering: sequence.covering.flatMap((each) => {
           const row = byId.get(each)
           return row ? [asCheckInRelationship(row)] : []
@@ -3086,14 +3125,15 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
 
   async openCheckInSequence(sequence) {
     await client.query(
-      `insert into checkin_sequence (id, ministry_id, person_id, started_at, covering)
-       values ($1, $2, $3, $4, $5)`,
+      `insert into checkin_sequence (id, ministry_id, person_id, started_at, covering, words)
+       values ($1, $2, $3, $4, $5, $6)`,
       [
         sequence.id,
         sequence.ministryId,
         sequence.personId,
         sequence.startedAt,
         sequence.covering,
+        sequence.words,
       ],
     )
   },
@@ -4005,8 +4045,8 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
         `insert into outbound_message
            (ministry_id, person_id, to_phone, body, enqueued_at, scheduled_for,
             discloses_person_id, prompt_key, prompt_state, message_kind,
-            carries_rates_line)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+            carries_rates_line, not_before)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
         [
           message.ministryId,
           message.personId,
@@ -4039,6 +4079,9 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
           // month's texts to this Person are decided against. Never read back out
           // of `body` (Text wording, ticket 01).
           message.carriesRatesLine,
+          // When a spread check-in may leave, and null on anything that may go on
+          // the next pass (Exponential launch, ticket 07).
+          message.notBefore,
         ],
       )
     }

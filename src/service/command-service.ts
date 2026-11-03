@@ -1049,6 +1049,7 @@ export const createCommandService = ({
         ...(voice
           ? {
               ministryName: voice.name,
+              checkInWords: voice.checkInWords,
               ...(namesARole(command) ? { language: voice } : {}),
             }
           : {}),

@@ -137,7 +137,7 @@ export const createPostgresOutboundQueue = (
       }
     },
 
-    async due(ministryId: MinistryId) {
+    async due(ministryId: MinistryId, at: Date) {
       return inMinistry(ministryId, async (client) => {
         const { rows } = await client.query<{
           id: string
@@ -146,16 +146,18 @@ export const createPostgresOutboundQueue = (
           body: string
           discloses_person_id: string | null
           message_kind: OutboundMessageKind
+          enqueued_at: Date
         }>(
-          `select id, person_id, to_phone, body, discloses_person_id, message_kind
+          `select id, person_id, to_phone, body, discloses_person_id, message_kind, enqueued_at
              from outbound_message
             where ministry_id = $1 and sent_at is null and withheld_at is null
+              and (not_before is null or not_before <= $2)
             -- Insertion order breaks the tie, and the tie is the ordinary case:
             -- one command reads the clock once and enqueues everything it produces
             -- at that instant. Left to the planner, two questions to one number
             -- would be held in whichever order the rows happened to come back.
             order by enqueued_at, created_at`,
-          [ministryId],
+          [ministryId, at],
         )
 
         return rows.map(
@@ -168,8 +170,21 @@ export const createPostgresOutboundQueue = (
               ? personId(row.discloses_person_id)
               : null,
             kind: row.message_kind,
+            enqueuedAt: row.enqueued_at,
           }),
         )
+      })
+    },
+
+    async timeZoneOf(ministryId: MinistryId) {
+      return inMinistry(ministryId, async (client) => {
+        const { rows } = await client.query<{ timezone: string }>(
+          `select timezone from ministry where id = $1`,
+          [ministryId],
+        )
+        const timeZone = rows[0]?.timezone
+        if (!timeZone) throw new Error(`No timezone came back for ministry ${ministryId}`)
+        return timeZone
       })
     },
 

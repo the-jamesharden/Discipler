@@ -8,6 +8,7 @@ import { createCommandService } from '~/service/command-service'
 import { serialisationOf } from '~/domain/outstanding-reply'
 import { dispatchQueue } from '~/service/outbound-dispatch'
 import type { MessageTransport } from '~/service/ports'
+import { noDailyCap } from '../support/daily-cap'
 import {
   addPerson,
   completeIntake,
@@ -95,7 +96,7 @@ describe('one conversation per phone', () => {
         }),
       tick: () => service().execute({ type: 'scheduled.tick', ministryId: ministry.id }),
       drain: () =>
-        dispatchQueue({ queue, transport, clock, ministryId: ministry.id }),
+        dispatchQueue({ queue, transport, clock, ministryId: ministry.id, dailyCap: noDailyCap }),
       /** What actually left, in the order the vendor was handed it. */
       arrivedAt: (phone: string) =>
         sent.filter((message) => message.to === phone).map((message) => message.body),

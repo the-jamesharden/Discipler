@@ -51,6 +51,9 @@ export const cronSecret = fromEnvironment('CRON_SECRET')
  */
 export const twilioAuthToken = fromEnvironment('TWILIO_AUTH_TOKEN')
 
+/** And for Stripe's: `scripts/locked-tests.sh` starts the server with a test-only one. */
+export const stripeWebhookSecret = fromEnvironment('STRIPE_WEBHOOK_SECRET')
+
 export const appIsRunning = await fetch(`${baseUrl}/login`, { redirect: 'manual' })
   .then((response) => response.ok)
   .catch(() => false)

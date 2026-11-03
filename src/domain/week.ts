@@ -267,6 +267,21 @@ export const calendarDayOf = (instant: Date, timeZone: string): string => {
   return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 }
 
+/**
+ * The midnight that ends the calendar day an instant falls on in this zone. What
+ * Twilio's daily limit is held until (Exponential launch, ticket 07).
+ */
+export const startOfNextDayIn = (instant: Date, timeZone: string): Date => {
+  const tomorrow = new Date(asCalendarPoint(zonedTime(instant, timeZone)) + DAY)
+  return instantOfLocalTime(
+    timeZone,
+    tomorrow.getUTCFullYear(),
+    tomorrow.getUTCMonth() + 1,
+    tomorrow.getUTCDate(),
+    0,
+  )
+}
+
 /** The hour an instant falls in on a Ministry's clock, 0 to 23. */
 export const localHourOf = (instant: Date, timeZone: string): number =>
   zonedTime(instant, timeZone).hour % 24

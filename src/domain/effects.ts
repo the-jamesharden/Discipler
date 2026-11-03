@@ -1,3 +1,4 @@
+import type { CheckInWords } from './check-in-words'
 import type { IntendedPairingClosure, NewIntendedPairing } from './intended-pairing'
 import type { GoalWording } from './discipleship-goals'
 import type {
@@ -65,6 +66,14 @@ export interface OutboundMessageDraft {
    * exactly as it was sent.
    */
   readonly scheduledFor: Date | null
+  /**
+   * The moment this text may leave, or null for the next pass. A gate, as
+   * `scheduledFor` is not: with spreading on, a check-in is given its own moment in
+   * its hour so an hour's check-ins go spread across it (Exponential launch, ticket
+   * 07). Null on everything else, and on every check-in while spreading is off. See
+   * `SEND_PASS_EVERY_MINUTES`.
+   */
+  readonly notBefore: Date | null
   /**
    * Whose contact details this message offers to disclose, resolved at send time
    * against contact-sharing consent as it stands *then*. Null on almost every
@@ -439,6 +448,11 @@ export interface NewCheckInSequence {
    * relationship-week that went unanswered.
    */
   readonly covering: readonly RelationshipId[]
+  /**
+   * The sentences it opens with, held for the rest of the conversation: a church
+   * rewording them mid-week changes the next check-in and not this one.
+   */
+  readonly words: CheckInWords
 }
 
 /**
@@ -1043,7 +1057,7 @@ export const configureGroup = (configuration: GroupConfiguration): Effect => ({
 })
 
 export const enqueueMessage = (
-  message: Omit<OutboundMessageDraft, 'scheduledFor'> & {
+  message: Omit<OutboundMessageDraft, 'scheduledFor' | 'notBefore'> & {
     readonly scheduledFor?: Date | null
   },
 ): Effect => ({
@@ -1051,8 +1065,18 @@ export const enqueueMessage = (
   // Null unless the caller names a cadence, because almost nothing has one: a
   // message answers an act, and only the dispatcher enqueues *because* a cadence
   // instant arrived. Stated once here rather than on every call that has none.
-  message: { ...message, scheduledFor: message.scheduledFor ?? null },
+  message: { ...message, scheduledFor: message.scheduledFor ?? null, notBefore: null },
 })
+
+/** The texts among these effects, held back until this moment. Null leaves them be. */
+export const notSentBefore = (effects: readonly Effect[], at: Date | null): readonly Effect[] =>
+  at === null
+    ? effects
+    : effects.map((effect) =>
+        effect.kind === 'message.enqueue'
+          ? { ...effect, message: { ...effect.message, notBefore: at } }
+          : effect,
+      )
 
 /**
  * The number is free again. Emitted where a reply binds to what was asked, and

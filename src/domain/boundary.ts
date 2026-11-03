@@ -35,6 +35,7 @@ import {
   joinRelationship,
   closeOutstandingReply,
   enqueueMessage,
+  notSentBefore,
   issueInvitationLink,
   reissueInvitationLink,
   recordIntakeLink,
@@ -100,6 +101,7 @@ import {
   type PairingRefusal,
 } from './errors'
 import type { PersonToRemove } from './removal'
+import { DISCIPLERS_CHECK_IN_WORDS, type CheckInWords } from './check-in-words'
 import {
   CHECK_IN_WORDING,
   CLARIFICATIONS_PER_QUESTION,
@@ -211,6 +213,7 @@ import {
 import {
   acceptanceReminderMessage,
   acknowledgedMessage,
+  asList,
   checkInClarification,
   groupJoinedMessage,
   leaderDashboardLink,
@@ -281,6 +284,7 @@ import {
   type PausePeriodWeeks,
   type StandingPause,
 } from './pause'
+import { checkInNotBefore } from './daily-cap'
 import {
   readMinistrySettings,
   withinQuietHours,
@@ -347,6 +351,12 @@ export interface CommandContext {
    * to make impossible.
    */
   readonly language?: MinistryLanguage
+  /**
+   * The check-in's four sentences as a new conversation opens with them, loaded with
+   * the rest of the Ministry's voice. Absent reads as Discipler's words, which is
+   * what the command service's every read of a church with nothing saved says too.
+   */
+  readonly checkInWords?: CheckInWords
   /**
    * This Ministry's settings as they stand, loaded on `settings.update`'s behalf
    * so that history can record what each field used to be. Absent on everything
@@ -1373,10 +1383,16 @@ const memberHolding = (invitation: InvitationSnapshot, id: PersonId): InvitedMem
   return member
 }
 
+/** The words a conversation went out in: those it opened with, or Discipler's before there were any. */
+const wordsOf = (sequence: OpenSequence): CheckInWords =>
+  sequence.words ?? DISCIPLERS_CHECK_IN_WORDS
+
 /** What every question in a conversation needs in order to be sent and recorded. */
 interface Asking {
   readonly ministryId: MinistryId
   readonly ministryName: string
+  /** The sentences this conversation goes out in, fixed when it opened. */
+  readonly words: CheckInWords
   readonly sequenceId: CheckInSequenceId
   readonly personId: PersonId
   readonly phone: string | null
@@ -1469,24 +1485,23 @@ const bodyOfQuestion = (
   relationship: CheckInRelationship,
   discloseOptOut: boolean,
 ): string => {
-  const { ministryName } = asking
+  const { ministryName, words } = asking
+  const subject = subjectOfTurn(relationship)
   if (question === 'met') {
-    return meetingQuestion({
-      ministryName,
-      // A named group is asked about by name; everything else by the people in
-      // it. A fact about the row and never about its kind, and the rule every
-      // keyword text names a relationship by too.
-      subject: relationshipSubject({
-        name: relationship.name,
-        otherSide: relationship.participantNames,
-      }),
-      discloseOptOut,
-    })
+    return meetingQuestion({ ministryName, subject, discloseOptOut, words })
   }
   return question === 'satisfaction'
-    ? satisfactionQuestion({ ministryName, wording })
-    : concernDetailRequest({ ministryName })
+    ? satisfactionQuestion({ ministryName, wording, subject, words })
+    : concernDetailRequest({ ministryName, subject, words })
 }
+
+/**
+ * Who a turn is about. A named group is asked about by name; everything else by the
+ * people in it. A fact about the row and never about its kind, and the rule every
+ * keyword text names a relationship by too.
+ */
+const subjectOfTurn = (relationship: CheckInRelationship): string =>
+  relationshipSubject({ name: relationship.name, otherSide: relationship.participantNames })
 
 /**
  * The question that opens a conversation. It may carry the rates line, and does
@@ -1747,12 +1762,13 @@ const openConversationWith = (
   opening: {
     readonly ministryId: MinistryId
     readonly ministryName: string
+    readonly words: CheckInWords
     readonly now: Date
     readonly ids: IdSource
     readonly scheduledFor: Date | null
   },
 ): readonly Effect[] => {
-  const { ministryId, ministryName, now, ids, scheduledFor } = opening
+  const { ministryId, ministryName, words, now, ids, scheduledFor } = opening
   const effects: Effect[] = []
 
   // Two sequences never run for one Leader at once. The displaced one's
@@ -1828,6 +1844,7 @@ const openConversationWith = (
   const asking: Asking = {
     ministryId,
     ministryName,
+    words,
     sequenceId,
     personId: checkIn.personId,
     phone: checkIn.phone,
@@ -1843,6 +1860,7 @@ const openConversationWith = (
       personId: checkIn.personId,
       startedAt: now,
       covering: covering.map((each) => each.relationshipId),
+      words,
     }),
     appendHistory({
       ministryId,
@@ -1902,6 +1920,7 @@ const chaseTheOpenQuestion = (
   const asking: Asking = {
     ministryId,
     ministryName,
+    words: wordsOf(sequence),
     sequenceId: sequence.sequenceId,
     personId: checkIn.personId,
     phone: checkIn.phone,
@@ -2217,6 +2236,7 @@ const pauseTakesBackTheOpenQuestion = (
     {
       ministryId: keywording.ministryId,
       ministryName: keywording.ministryName,
+      words: wordsOf(sequence),
       sequenceId: sequence.sequenceId,
       personId: checkIn.personId,
       phone: keywording.phone,
@@ -3234,22 +3254,30 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       // is due at most once per ISO week and stays due for the rest of the week
       // once their hour has passed, so an hourly tick asks once and a tick that
       // never ran on Monday evening asks on Tuesday rather than skipping a week.
+      const dueThisPass = checkInsDue.filter((leader) => checkInDueThisWeek(leader, now)).length
+      let openedThisPass = 0
+
       for (const leader of checkInsDue) {
         const due = checkInDueThisWeek(leader, now)
 
         if (due) {
           effects.push(
-            ...openConversationWith(leader, {
-              ministryId: command.ministryId,
-              ministryName,
-              now,
-              ids: context.ids,
-              // The cadence as it was read at this moment, stamped on the message.
-              // Not `now`: the two differ by however long the tick took to reach
-              // this Leader, and it is the cadence that has to be recoverable from
-              // the row -- that is what makes an edit demonstrably future-only.
-              scheduledFor: due,
-            }),
+            ...notSentBefore(
+              openConversationWith(leader, {
+                words: context.checkInWords ?? DISCIPLERS_CHECK_IN_WORDS,
+                ministryId: command.ministryId,
+                ministryName,
+                now,
+                ids: context.ids,
+                // The cadence as it was read at this moment, stamped on the message.
+                // Not `now`: the two differ by however long the tick took to reach
+                // this Leader, and it is the cadence that has to be recoverable from
+                // the row -- that is what makes an edit demonstrably future-only.
+                scheduledFor: due,
+              }),
+              // This Leader's own moment in the hour (Exponential launch, ticket 07).
+              checkInNotBefore({ index: openedThisPass++, count: dueThisPass, now }),
+            ),
           )
           // A new week has just abandoned whatever was open and asked its first
           // question. There is nothing of last week's left to chase.
@@ -3489,6 +3517,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       // nothing scheduled this one, so its message carries no stamp.
       return {
         effects: openConversationWith(checkIn, {
+          words: context.checkInWords ?? DISCIPLERS_CHECK_IN_WORDS,
           ministryId: command.ministryId,
           ministryName,
           now: context.clock.now(),
@@ -3729,6 +3758,7 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       const asking: Asking = {
         ministryId: command.ministryId,
         ministryName,
+        words: wordsOf(sequence),
         sequenceId: sequence.sequenceId,
         personId: checkIn.personId,
         phone: checkIn.phone,
@@ -3873,7 +3903,17 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
 
       if (advance.kind === 'finish') {
         effects.push(
-          sayToLeader(asking, checkInThankYou({ ministryName }), 'no_reply', 'never'),
+          sayToLeader(
+            asking,
+            checkInThankYou({
+              ministryName,
+              words: asking.words,
+              // Everyone it was about, since this closes all of them.
+              subject: asList(sequence.covering.map(subjectOfTurn)),
+            }),
+            'no_reply',
+            'never',
+          ),
           closeCheckInSequence({
             ministryId: command.ministryId,
             sequenceId: sequence.sequenceId,
@@ -5636,6 +5676,12 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
             ],
             ['checkinDay', were.cadence.day, settings.cadence.day],
             ['checkinHour', were.cadence.hour, settings.cadence.hour],
+            // A sentence is a fact about what a church's people were asked, and this
+            // is the record of which words were in force when.
+            ['checkInQuestion', were.checkInWords.question, settings.checkInWords.question],
+            ['checkInRating', were.checkInWords.rating, settings.checkInWords.rating],
+            ['checkInConcern', were.checkInWords.concern, settings.checkInWords.concern],
+            ['checkInThanks', were.checkInWords.thanks, settings.checkInWords.thanks],
           ] as const
         ).flatMap(([field, from, to]) => (from === to ? [] : [[field, { from, to }]])),
       )

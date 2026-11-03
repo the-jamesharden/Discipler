@@ -3,12 +3,15 @@ import { NextResponse, type NextRequest } from 'next/server'
 import type { MinistryId } from '~/domain/ids'
 import type { CapacityConcern } from '~/domain/shared-numbers'
 import type { SettledPairings } from '~/service/command-service'
+import type { StripeEventSweep } from '~/service/stripe-events'
 import {
   drainOutboundQueue,
   getCommandService,
   getMinistryDirectory,
+  sweepTheStripeEvents,
   sweepUnsavedUploads,
   watchTheSharedNumbers,
+  watchTheTwilioBalance,
 } from '~/service/container'
 
 /**
@@ -70,13 +73,15 @@ interface MinistryOutcome {
   readonly failed: number
   /** Messages left for a shared number to be added, see `DispatchOutcome`. */
   readonly awaitingANumber: number
+  /** Messages left for Twilio's daily limit to reset, see `DispatchOutcome`. */
+  readonly waitingOnTheCap: number
   /** The pairings an import planned, settled on this pass. */
   readonly settled: SettledPairings
   readonly error: string | null
 }
 
 const runOneMinistry = async (ministryId: MinistryId): Promise<MinistryOutcome> => {
-  const nothing = { sent: 0, withheld: 0, held: 0, failed: 0, awaitingANumber: 0, settled: { fulfilled: 0, refused: 0, waiting: 0 } }
+  const nothing = { sent: 0, withheld: 0, held: 0, failed: 0, awaitingANumber: 0, waitingOnTheCap: 0, settled: { fulfilled: 0, refused: 0, waiting: 0 } }
 
   try {
     // The tick first, then the drain, in that order and in the same run: the tick is
@@ -144,6 +149,24 @@ export async function GET(request: NextRequest) {
     capacity = 'failed'
   }
 
+  // Once a pass too, so as often as this route is called (Exponential launch, ticket
+  // 08). Caught on its own: a read that failed sends no alarm and changes nothing, and
+  // the next pass reads again.
+  const twilioBalance = await watchTheTwilioBalance().catch((error: unknown) => {
+    console.error('Watching the Twilio balance failed', error)
+    return 'failed' as const
+  })
+  // Then the Stripe events whose processing after the webhook's response did not
+  // finish (Exponential launch, ticket 03). Caught on its own, and logged by name
+  // alone because the logs carry no Stripe detail.
+  let stripeEvents: StripeEventSweep | 'failed'
+  try {
+    stripeEvents = await sweepTheStripeEvents()
+  } catch (error) {
+    console.error(`Sweeping the Stripe events failed: ${error instanceof Error ? error.name : 'unknown'}`)
+    stripeEvents = 'failed'
+  }
+
   // Always 200 once authorised, even where a Ministry failed. The scheduler retries
   // a non-2xx, and retrying the whole run to recover one Ministry would re-drain
   // every other one -- the outcomes say what happened instead, per Ministry, where
@@ -155,6 +178,7 @@ export async function GET(request: NextRequest) {
     held: ran.reduce((total, one) => total + one.held, 0),
     failed: ran.reduce((total, one) => total + one.failed, 0),
     awaitingANumber: ran.reduce((total, one) => total + one.awaitingANumber, 0),
+    waitingOnTheCap: ran.reduce((total, one) => total + one.waitingOnTheCap, 0),
     settled: {
       fulfilled: ran.reduce((total, one) => total + one.settled.fulfilled, 0),
       refused: ran.reduce((total, one) => total + one.settled.refused, 0),
@@ -162,6 +186,8 @@ export async function GET(request: NextRequest) {
     },
     // The capacity concerns support@ was told about on this pass.
     capacity,
+    twilioBalance,
+    stripeEvents,
     errors: ran.filter((one) => one.error !== null).map((one) => ({
       ministryId: one.ministryId,
       error: one.error,

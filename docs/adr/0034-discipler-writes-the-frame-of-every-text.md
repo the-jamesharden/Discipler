@@ -48,7 +48,8 @@ Chosen.
 
 **The trade-off is a church's voice against everyone's numbers.**
 A church gets four sentences and no more, and Discipler accepts a little content it did not write on its numbers.
-Whether the carrier registration's sample messages need widening for reworded sentences is for James to settle with Twilio before ticket 40 ships.
+Whether the carrier registration's sample messages need widening for reworded sentences is for James to settle with Twilio.
+James decided on 2026-11-03 that ticket 40 ships live before Twilio answers, so that answer no longer gates it; `docs/open-questions.md` holds the question.
 
 This changes the rule, as the spec put it, that Discipler only ever sends texts it writes: Discipler now writes the frame of every text and all of most texts, and a church writes up to four sentences of one.
 

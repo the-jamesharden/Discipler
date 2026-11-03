@@ -1,5 +1,6 @@
 import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { NO_SAVED_CHECK_IN_WORDS } from '~/domain/check-in-words'
 import { createTestClock } from '~/domain/clock'
 import { MinistrySettingsRefused, PairingRefused } from '~/domain/errors'
 import { personId, type IdSource } from '~/domain/ids'
@@ -91,6 +92,7 @@ describe('what a Ministry may vary', () => {
     suggestMaxAgeBandGap: '1',
     checkinDay: '1',
     checkinHour: '9',
+    checkInWords: NO_SAVED_CHECK_IN_WORDS,
     ...fields,
   })
 

@@ -13,6 +13,12 @@ import type {
   PhoneCode,
   RecentCodeRequests,
 } from '~/domain/phone-check'
+import type {
+  HumanCheckAction,
+  PendingSignup,
+  RecentSends,
+  SignUpAttemptToken,
+} from '~/domain/sign-up-attempt'
 import type { AccountCreationRefusal, PasswordChangeRefusal } from '~/domain/accounts'
 import type {
   HeldImportRow,
@@ -34,6 +40,13 @@ import type {
 import type { CheckInSnapshot, Satisfaction } from '~/domain/check-in'
 import type { CheckInCounts } from '~/domain/overview'
 import type { CapacityConcern, SharedNumberLoad } from '~/domain/shared-numbers'
+import type {
+  BillingFact,
+  BillingState,
+  StripeEventRefusal,
+  StripeInboxEntry,
+  StripeSubscriptionFacts,
+} from '~/domain/billing'
 import type { GrowthChoice, GrowthSeries } from '~/domain/growth'
 import type { IsoWeek } from '~/domain/week'
 import type { ConcernResolution, ConcernViewing, NewConcern } from '~/domain/concerns'
@@ -123,7 +136,8 @@ import type {
 import type { ParticipationStatus } from '~/domain/participation'
 import type { SuggestionQuestion, Suggestions } from '~/domain/suggestions'
 import type { CardShape, NewRelationship } from '~/domain/relationships'
-import type { Email, EmailEnvelope } from '~/domain/email'
+import type { DailyCapHold, NewDailyCapHold } from '~/domain/daily-cap'
+import type { Email, EmailAddress, EmailEnvelope } from '~/domain/email'
 import type { RatesLineHistory, SettledMessage } from '~/domain/rates-line'
 import type { CareReason, RelationshipState, SettledRelationshipState } from '~/domain/relationship-state'
 import type { InvitationState } from '~/domain/invitations'
@@ -1514,6 +1528,8 @@ export interface QueuedMessage {
    * leave nothing to withhold.
    */
   readonly disclosesPersonId: PersonId | null
+  /** What says whether a daily cap's hold kept this text back. See `waitsForTheMorning`. */
+  readonly enqueuedAt: Date
 }
 
 export interface ContactDetails {
@@ -1542,8 +1558,13 @@ export interface OutboundQueue {
    * Ministry: one congregation's slow vendor call must not hold another's replies.
    */
   whileDraining<T>(ministryId: MinistryId, drain: () => Promise<T>): Promise<T>
-  /** Everything enqueued for this Ministry and neither sent nor withheld. */
-  due(ministryId: MinistryId): Promise<readonly QueuedMessage[]>
+  /**
+   * Everything enqueued for this Ministry and neither sent nor withheld, leaving out
+   * a spread check-in whose own moment is still after `at`.
+   */
+  due(ministryId: MinistryId, at: Date): Promise<readonly QueuedMessage[]>
+  /** This Ministry's zone, which is what says when it is morning there. */
+  timeZoneOf(ministryId: MinistryId): Promise<string>
   /**
    * The shared number this Ministry texts `toPhone` from: the one the pair was
    * given, or, the first time, one given now and kept (Exponential launch, ticket
@@ -1612,9 +1633,24 @@ export interface MessageTransport {
    *
    * Throws when the vendor refuses. The row stays neither sent nor withheld, so the
    * next drain picks it up again -- see `dispatchQueue`, which keeps one refusal
-   * from taking the rest of the queue down with it.
+   * from taking the rest of the queue down with it. Throws `DailyCapReached` when
+   * the refusal is the day's limit, which does take the rest of the queue with it.
    */
   deliver(from: string, to: string, body: string): Promise<void>
+}
+
+/**
+ * The record of each Pacific day Twilio's daily limit was reached (Exponential
+ * launch, ticket 07). Across every church, because the limit is the brand's. One
+ * row a day, and it holds no phone and no church.
+ */
+export interface DailyCapHolds {
+  /** The hold most recently reached at or before `at`, standing or long over. */
+  latest(at: Date): Promise<DailyCapHold | null>
+  /** The first reach of a day is the one kept: a later one has nothing to add. */
+  record(hold: NewDailyCapHold): Promise<void>
+  /** support@ has been told about this day. */
+  recordAlerted(day: string, at: Date): Promise<void>
 }
 
 /**
@@ -1656,6 +1692,152 @@ export interface SharedNumbersNearCapacity {
  */
 export interface SupportAlerts {
   sharedNumbersNearCapacity(alert: SharedNumbersNearCapacity): Promise<void>
+  /** Words only from the fall as it was recorded, so a retry is the same message. */
+  twilioBalanceLow(fall: TwilioBalanceFall): Promise<void>
+  twilioSpendPassed(alert: TwilioSpendPassed): Promise<void>
+  /** `day` is the Pacific day it was reached in, and what makes the email once a day. */
+  dailyCapReached(alert: { readonly day: string }): Promise<void>
+  billingEventRefused(alert: BillingEventRefused): Promise<void>
+}
+
+/**
+ * The Twilio account's balance, behind this and nowhere else (Exponential launch,
+ * ticket 08).
+ */
+export interface TwilioBalanceReader {
+  /**
+   * The balance in whole cents, which can be below zero. Throws when Twilio did not
+   * say, and never turns that into a number.
+   */
+  readCents(): Promise<number>
+}
+
+/** One time the balance fell below its floor, as it was recorded. */
+export interface TwilioBalanceFall {
+  readonly id: string
+  readonly fellAt: Date
+  readonly balanceCents: number
+  readonly toldAt: Date | null
+}
+
+/** Each fall of the balance: what lets a stateless tick say a thing once. */
+export interface TwilioBalanceFalls {
+  /** The fall the balance has not recovered from, if there is one. */
+  open(): Promise<TwilioBalanceFall | null>
+  /** Opens a fall, or returns the open one if another pass got there first. */
+  recordFall(at: Date, balanceCents: number): Promise<TwilioBalanceFall>
+  recordTold(id: string, at: Date): Promise<void>
+  /** Closes the open fall, which re-arms the alarm. False when there was none. */
+  recordRecovery(at: Date, balanceCents: number): Promise<boolean>
+}
+
+/**
+ * Twilio's Usage Trigger fired: one day's spending passed the amount set on it.
+ * An amount is null where Twilio's callback gave none that could be read.
+ */
+export interface TwilioSpendPassed {
+  readonly spentCents: number | null
+  readonly markCents: number | null
+  /** The usage category the trigger watches, in Twilio's own word for it. */
+  readonly watching: string | null
+  /** What makes this firing the message it is: see `Email`'s `once`. */
+  readonly once: string
+}
+
+/**
+ * A Stripe event was refused (Exponential launch, ticket 03). The event's ID and type
+ * and why, and nothing about a church: whoever reads it opens the event in Stripe.
+ */
+export interface BillingEventRefused {
+  readonly eventId: string
+  readonly eventType: string
+  readonly refusal: StripeEventRefusal
+}
+
+/**
+ * Stripe's API, behind this and nowhere else. Reads only: the webhook's processing
+ * asks what is true now and never changes anything at Stripe.
+ *
+ * Throws when Stripe cannot answer, which leaves the event unprocessed for the next
+ * sweep.
+ */
+export interface StripeBilling {
+  /** Every Subscription the customer has ever held, in no promised order. */
+  subscriptionsOf(customerId: string): Promise<readonly StripeSubscriptionFacts[]>
+  /** The customer a charge was made to, for a dispute, which names only its charge. */
+  customerOfCharge(chargeId: string): Promise<string | null>
+}
+
+/**
+ * The webhook's inbox. Operator-only, so it is on the trusted connection and acts for
+ * no church.
+ */
+export interface StripeEventInbox {
+  /** Keeps a verified event. False where its ID was already here, which changes nothing. */
+  receive(entry: StripeInboxEntry, at: Date): Promise<boolean>
+  /**
+   * Takes one event to process, for `heldFor` milliseconds. Null where it has been
+   * processed or something else holds it, which is how an event being swept and
+   * replayed at the same moment is processed once.
+   */
+  claim(eventId: string, at: Date, heldFor: number): Promise<StripeInboxEntry | null>
+  /** Says how it ended. Only an event that has been finished is never tried again. */
+  finish(eventId: string, ending: StripeEventEnding, at: Date): Promise<void>
+  /** The IDs of events not yet finished and not held, the least tried first. */
+  unprocessed(at: Date, limit: number): Promise<readonly string[]>
+}
+
+export type StripeEventEnding =
+  | { readonly outcome: 'recorded'; readonly church: MinistryId }
+  | {
+      readonly outcome: 'refused'
+      readonly refusal: StripeEventRefusal
+      readonly church: MinistryId | null
+    }
+  | { readonly outcome: 'ignored' }
+
+/** One church's Stripe IDs and its billing state, for the server and never a browser. */
+export interface ChurchBilling {
+  readonly state: BillingState
+  readonly customerId: string | null
+  readonly subscriptionId: string | null
+  readonly latestInvoiceId: string | null
+  readonly priceId: string | null
+}
+
+/** One scoped, per-church transaction's writes. See `BillingRecords.establish`. */
+export interface BillingUnit {
+  /** Appends what an event established. A second call for one event changes nothing. */
+  record(fact: BillingFact, at: Date): Promise<void>
+}
+
+/**
+ * The church-scoped billing records, written as `discipler_command` for one church at
+ * a time and never as `service_role`.
+ */
+export interface BillingRecords {
+  /**
+   * The church whose stored customer this is, or null. Answers which church to scope
+   * to, so it cannot itself be scoped.
+   */
+  churchOfCustomer(customerId: string): Promise<MinistryId | null>
+  /**
+   * Stores the Stripe customer made for a church (ticket 04), and answers the one on
+   * record: where a double click has made two, the first stands and the caller goes
+   * on with it.
+   */
+  rememberCustomer(church: MinistryId, customerId: string, livemode: boolean): Promise<string>
+  /** One church's billing, on the trusted connection (tickets 04, 14 and 33). */
+  of(church: MinistryId): Promise<ChurchBilling>
+  /**
+   * One transaction for one church, holding that church's billing lock throughout.
+   *
+   * `work` reads Stripe inside it. That is the point: two events processed at once
+   * must not be able to read Stripe in one order and commit in the other, or an older
+   * reading would land last and bring a canceled church back to active. The cost is a
+   * connection held across one Stripe read.
+   */
+  establish<T>(church: MinistryId, work: (unit: BillingUnit) => Promise<T>): Promise<T>
 }
 
 /**
@@ -1754,6 +1936,79 @@ export interface PhoneCheckUnit {
   returnTry(attemptId: string): Promise<void>
   /** Ends an attempt that has not ended. One that already has keeps its ending. */
   end(attemptId: string, ending: PhoneCheckEnding, at: Date): Promise<void>
+}
+
+/**
+ * Cloudflare Turnstile lives behind this and nowhere else (Exponential launch, ticket
+ * 11). A yes says the token was solved on this deployment's own host, for this
+ * action, and nobody has spent it before. Everything else is a no, an unset secret
+ * and a Cloudflare that did not answer included. It never throws.
+ */
+export interface HumanCheck {
+  verify(token: string, action: HumanCheckAction): Promise<boolean>
+}
+
+/** The randomness and the HMAC behind sign-up's email code (ticket 11). */
+export interface SignUpCodeKeeper {
+  /** The random ID an attempt's cookie carries. */
+  newAttemptToken(): SignUpAttemptToken
+  /** Six digits from `crypto.randomInt`. */
+  newCode(): string
+  /** A code as the table may hold it. Throws `SignUpCodeSecretMissing` with no secret. */
+  seal(attemptId: string, code: string): string
+  /**
+   * Whether what was typed is the code sealed for this attempt, in constant time. A
+   * null seal is an attempt with no code, and is a no that takes just as long.
+   */
+  matches(attemptId: string, typed: string, sealed: string | null): boolean
+}
+
+/**
+ * Sign-up's attempts, on the trusted connection, because somebody signing up has no
+ * session and no Ministry (ticket 11). An attempt is named by the token from its
+ * cookie, and each transaction holds that attempt's row locked for its length.
+ */
+export interface PendingSignups {
+  /** A new attempt, from a human check that has just passed. */
+  begin(attempt: SignUpAttemptToken, at: Date): Promise<void>
+  read(attempt: SignUpAttemptToken): Promise<PendingSignup | null>
+  /**
+   * One transaction holding this address's and this network's locks as well, so a
+   * burst cannot pass the caps together. Nothing is sent inside it.
+   */
+  sending<T>(
+    attempt: SignUpAttemptToken,
+    email: EmailAddress,
+    network: string | null,
+    work: (unit: PendingSignupSending) => Promise<T>,
+  ): Promise<T>
+  /** One transaction judging one code, so two typed at once cannot both be the fifth. */
+  trying<T>(attempt: SignUpAttemptToken, work: (unit: PendingSignupTrying) => Promise<T>): Promise<T>
+  /** The email did not go: no live code and no wait is left behind. */
+  codeNotSent(attempt: SignUpAttemptToken): Promise<void>
+}
+
+export interface PendingSignupSending {
+  /** The attempt, locked. Null when there is none. */
+  readonly pending: PendingSignup | null
+  /** Emails in the caps' window, to this address and from this network. */
+  recentSends(since: Date): Promise<RecentSends>
+  /** Whether an account holds this address, in any spelling of its case. */
+  emailHasAccount(): Promise<boolean>
+  /**
+   * Names the address and phone on the attempt, replaces its code with no wrong tries,
+   * and counts the send. Returns which send of this attempt it is. A null seal is an
+   * address with an account.
+   */
+  issue(issued: { readonly phone: PhoneNumber; readonly codeDigest: string | null; readonly at: Date }): Promise<number>
+}
+
+export interface PendingSignupTrying {
+  /** The attempt, locked. Null when there is none. */
+  readonly pending: PendingSignup | null
+  recordWrongTry(): Promise<void>
+  /** The address is proven, and the code is gone so it cannot be used again. */
+  markVerified(at: Date): Promise<void>
 }
 
 export interface DiscipleshipGoalOption {
@@ -2255,6 +2510,12 @@ export interface SignedInAdmin {
   readonly ministryId: MinistryId
   readonly ministryName: string
   /**
+   * Where their church stands with billing, which every page's document carries so
+   * the banners on every Admin page need no read of their own (Exponential launch,
+   * ticket 03). No Stripe ID is part of it.
+   */
+  readonly billing: BillingState
+  /**
    * Their own row on their own Roster, or null where they hold none.
    *
    * An Admin is a Person in their own Ministry like everybody else -- provisioning
@@ -2267,6 +2528,13 @@ export interface SignedInAdmin {
    * treat specially then, which is what null says.
    */
   readonly personId: PersonId | null
+  /**
+   * Their name, off that same row, for the top nav's circle and menu. Null with
+   * `personId`, for the same reason: no row means no name to draw, and the top nav
+   * says nothing rather than making one up. It comes with every page's one read
+   * (`docs/adr/0023-a-page-is-one-read.md`), so drawing it costs no request.
+   */
+  readonly fullName: string | null
 }
 
 /**

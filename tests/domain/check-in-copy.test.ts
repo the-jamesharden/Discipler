@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { DISCIPLERS_CHECK_IN_WORDS } from '~/domain/check-in-words'
 import {
   checkInClarification,
   checkInThankYou,
@@ -16,6 +17,14 @@ import {
  */
 
 const ministryName = 'ABC Church'
+
+/**
+ * A church with no words of its own. These strings are today's, byte for byte, and
+ * stayed as they were when a church could first rewrite them (Exponential launch,
+ * ticket 40): a church with nothing saved sends exactly these.
+ */
+const words = DISCIPLERS_CHECK_IN_WORDS
+const subject = 'Emily'
 
 /**
  * The one rule every text that names a relationship names it by: the check-in's
@@ -42,7 +51,7 @@ describe('how a text names a relationship', () => {
 
 describe('the check-in conversation', () => {
   it('asks whether the meeting happened, naming who it was with', () => {
-    expect(meetingQuestion({ ministryName, subject: 'Emily', discloseOptOut: false })).toBe(
+    expect(meetingQuestion({ ministryName, subject: 'Emily', discloseOptOut: false, words })).toBe(
       'ABC Church via Discipler: Did you meet with Emily this week? Reply 1 for yes, 2 for no.',
     )
   })
@@ -53,6 +62,7 @@ describe('the check-in conversation', () => {
         ministryName,
         subject: 'Marcus, Dan and Ade',
         discloseOptOut: false,
+        words,
       }),
     ).toBe(
       'ABC Church via Discipler: Did you meet with Marcus, Dan and Ade this week? Reply 1 for yes, 2 for no.',
@@ -64,7 +74,7 @@ describe('the check-in conversation', () => {
    * concern (Pastor feedback, ticket 03). Word for word as James wrote it.
    */
   it('offers the four satisfaction tokens by name', () => {
-    expect(satisfactionQuestion({ ministryName, wording: 'a_to_d' })).toBe(
+    expect(satisfactionQuestion({ ministryName, wording: 'a_to_d', subject, words })).toBe(
       'ABC Church via Discipler: How did the meeting go? ' +
         'Reply A for outstanding, B for good, C for okay, D for concern.',
     )
@@ -76,19 +86,19 @@ describe('the check-in conversation', () => {
    * it is reminded, and clarified in them: its `C` is read as concern.
    */
   it('composes the three-answer question as it was sent before the change', () => {
-    expect(satisfactionQuestion({ ministryName, wording: 'a_to_c' })).toBe(
+    expect(satisfactionQuestion({ ministryName, wording: 'a_to_c', subject, words })).toBe(
       'ABC Church via Discipler: How did the meeting go? Reply A for outstanding, B for good, C for concern.',
     )
   })
 
   it('asks for the Concern in prose', () => {
-    expect(concernDetailRequest({ ministryName })).toBe(
+    expect(concernDetailRequest({ ministryName, subject, words })).toBe(
       'ABC Church via Discipler: Please tell us more about the concern.',
     )
   })
 
   it('closes the conversation so the Leader knows it is finished', () => {
-    expect(checkInThankYou({ ministryName })).toBe(
+    expect(checkInThankYou({ ministryName, subject, words })).toBe(
       'ABC Church via Discipler: Thank you. We’ll check in with you next week.',
     )
   })
@@ -138,7 +148,7 @@ describe('the check-in conversation', () => {
    * eleven months into a pilot is not being contacted for the first time.
    */
   it('carries the opt-out and rate disclosure on the month’s first check-in', () => {
-    expect(meetingQuestion({ ministryName, subject: 'Emily', discloseOptOut: true })).toBe(
+    expect(meetingQuestion({ ministryName, subject: 'Emily', discloseOptOut: true, words })).toBe(
       'ABC Church via Discipler: Did you meet with Emily this week? Reply 1 for yes, 2 for no. ' +
         'Msg & data rates may apply. Reply STOP to opt out, HELP for help.',
     )

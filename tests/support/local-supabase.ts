@@ -361,6 +361,8 @@ export const completeIntake = async (
 
   if (consents.length === 0) return
 
+  // Not the current version, on purpose: every suite built on this fixture then
+  // shows that a Person who agreed to earlier wording goes on being texted and paired.
   const { error: consentError } = await admin.from('consent_record').insert(
     consents.map((consent) => ({
       ministry_id: ministry.id,

@@ -3,6 +3,7 @@ import { createTestClock } from '~/domain/clock'
 import { ministryId, outboundMessageId, personId } from '~/domain/ids'
 import { dispatchQueue } from '~/service/outbound-dispatch'
 import type { MessageTransport, OutboundQueue, QueuedMessage } from '~/service/ports'
+import { noDailyCap } from '../support/daily-cap'
 
 /**
  * The sending layer sends each text from the shared number its (phone, church) pair
@@ -19,6 +20,7 @@ const aMessage = (n: number, toPhone: string): QueuedMessage => ({
   body: `Riverside Chapel via Discipler: message ${n}`,
   kind: 'no_reply',
   disclosesPersonId: null,
+  enqueuedAt: new Date('2026-11-09T14:00:00Z'),
 })
 
 const world = (
@@ -34,6 +36,7 @@ const world = (
   const queue: OutboundQueue = {
     whileDraining: (_, drain) => drain(),
     due: async () => messages.filter((message) => !sentIds.includes(message.id)),
+    timeZoneOf: async () => 'America/New_York',
     sendingNumberFor: async (_, phone, at) => {
       asked.push({ phone, at })
       return numbers[phone] ?? null
@@ -62,7 +65,7 @@ const world = (
     asked,
     claimed,
     delivered,
-    drain: () => dispatchQueue({ queue, transport, clock, ministryId: church }),
+    drain: () => dispatchQueue({ queue, transport, clock, ministryId: church, dailyCap: noDailyCap }),
   }
 }
 
@@ -79,7 +82,7 @@ describe('Sending from the shared numbers', () => {
       { from: '+13185316138', to: '+15553330001' },
       { from: '+15674303906', to: '+15553330002' },
     ])
-    expect(outcome).toEqual({ sent: 2, withheld: 0, held: 0, failed: 0, awaitingANumber: 0 })
+    expect(outcome).toEqual({ sent: 2, withheld: 0, held: 0, failed: 0, awaitingANumber: 0, waitingOnTheCap: 0 })
   })
 
   it('asks for the number on the drain’s clock, the moment the pair is first texted', async () => {
@@ -114,6 +117,6 @@ describe('Sending from the shared numbers', () => {
     expect(it_.delivered.map(({ to }) => to)).toEqual(['+15553330002'])
     // Not claimed, so it holds no conversation while it waits.
     expect(it_.claimed).toEqual([aMessage(2, '+15553330002').id])
-    expect(outcome).toEqual({ sent: 1, withheld: 0, held: 0, failed: 0, awaitingANumber: 1 })
+    expect(outcome).toEqual({ sent: 1, withheld: 0, held: 0, failed: 0, awaitingANumber: 1, waitingOnTheCap: 0 })
   })
 })

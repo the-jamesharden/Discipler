@@ -84,6 +84,30 @@ export const signatureMatches = (
 }
 
 /**
+ * Whether Twilio signed this request: the door every route it calls stands behind,
+ * `/sms/inbound` and `/sms/usage-trigger`. Every form field goes in, not only the ones
+ * a route reads, because Twilio signs what it sent and a subset would never match.
+ *
+ * **An unset secret is a closed door**, for the reason `/sms/inbound` gives.
+ */
+export const signedByTwilio = (
+  env: Environment,
+  requestUrl: string,
+  headers: Headers,
+  parameters: Readonly<Record<string, string>>,
+): boolean => {
+  const secret = inboundSigningSecret(env)
+  if (!secret) return false
+
+  return signatureMatches(
+    secret,
+    headers.get('x-twilio-signature'),
+    calledUrl(requestUrl, headers),
+    parameters,
+  )
+}
+
+/**
  * Both forwarded headers are lists, because each proxy in a chain appends to what it
  * was given. The first entry is the one nearest the caller, which is what Twilio
  * actually dialled; everything after it is an internal hop.
