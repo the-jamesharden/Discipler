@@ -8,6 +8,7 @@ import {
 import { getMinistrySettingsReader } from '~/service/container'
 import { AccountMenu, NotAnAdmin, PageShell } from '../shell'
 import { TimezoneSelect } from '../timezone-select'
+import { CheckInWordsBlock } from './check-in-words'
 import {
   AGE_NOT_ASKED,
   DAYS,
@@ -38,7 +39,8 @@ const GAPS = Array.from({ length: MOST_BANDS_APART + 1 }, (_unused, bands) => ba
  * **Message structure, reply tokens and the opt-out footer are not on this page,
  * and are not on it as disabled fields either.** The first two are a state machine
  * and the third is a carrier obligation; none of the three is a ministry's to vary,
- * and a greyed-out box invites *can you turn that on for us?*
+ * and a greyed-out box invites *can you turn that on for us?* What is here is the
+ * check-in's four sentences, which go inside them (ADR-0034).
  */
 export default async function MinistrySettingsPage({
   searchParams,
@@ -104,8 +106,9 @@ export default async function MinistrySettingsPage({
           <div className="field">
             <label className="label" htmlFor="fromName">Messages read as</label>
             <p className="subtle">
-              The name in front of every text you send. Leave it blank to use the
-              ministry name.
+              The name in front of every text, before “via Discipler”. If one person
+              runs discipleship, use their own name. Leave it blank to use the ministry
+              name.
             </p>
             <input
               id="fromName"
@@ -286,6 +289,13 @@ export default async function MinistrySettingsPage({
             {hourLabel(QUIET_HOURS.latest)}, on the hour. Nobody in your ministry is
             texted outside those hours.
           </p>
+
+          <CheckInWordsBlock
+            saved={settings.checkInWords}
+            readsAs={readsAs}
+            leaderNoun={settings.leaderNoun}
+            participantNoun={settings.participantNoun}
+          />
         </div>
 
         <div className="form-actions">

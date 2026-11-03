@@ -154,8 +154,9 @@ describe.skipIf(skipUnlessAppIsRunning)('the Ministry settings screen', () => {
     // The message around them, not a fragment of one: the prefix in front and the
     // rest of the real composed invitation behind. It carries no opt-out line,
     // because it is neither first contact nor the Starter Message.
-    expect(page).toContain('Have a look and let us know: discipler.example/invitation/')
-    expect(page).not.toContain('Reply STOP to opt out')
+    const invitation = page.slice(page.indexOf('<blockquote'), page.indexOf('</blockquote>'))
+    expect(invitation).toContain('Have a look and let us know: discipler.example/invitation/')
+    expect(invitation).not.toContain('Reply STOP to opt out')
   })
 
   it('says what was wrong and saves nothing when the form cannot be taken', async () => {
@@ -247,6 +248,174 @@ describe.skipIf(skipUnlessAppIsRunning)('the Ministry settings screen', () => {
     // `Reply STOP` appears exactly where it belongs -- inside the preview of a real
     // message -- and never as a field an Admin could edit.
     expect(page).not.toMatch(/<input[^>]*Reply STOP/)
+  })
+
+  /**
+   * The check-in's four sentences (Exponential launch, ticket 40). The phone is the
+   * point: it is composed by the functions that send, so what is on it is the frame
+   * around whatever the church wrote.
+   */
+  describe('what the check-in says', () => {
+    const wordsOf = async () => {
+      const { rows } = await pool.query<Record<string, string | null>>(
+        `select checkin_question_sentence as question, checkin_rating_sentence as rating,
+                checkin_concern_sentence as concern, checkin_thanks_sentence as thanks
+           from ministry where id = $1`,
+        [ministry.id],
+      )
+      return rows[0]!
+    }
+
+    const nothingSaved = { question: null, rating: null, concern: null, thanks: null }
+
+    // As it reads: entities undone, and without the comment React puts between a
+    // piece of text and a value beside it.
+    const unescaped = (html: string) =>
+      html.replaceAll('<!-- -->', '').replaceAll('&#x27;', "'").replaceAll('&amp;', '&')
+
+    const phoneOn = (page: string) => {
+      const phone = page.indexOf('class="w-screen"')
+      return unescaped(page.slice(phone, page.indexOf('</figure>', phone)))
+    }
+
+    it('sits under the check-in hour, with Discipler’s words on every line', async () => {
+      const { cookie } = await signIn(ministry)
+      await post(cookie, filled)
+
+      const { html } = await getPage('/settings', cookie)
+      const page = unescaped(asRendered(html))
+
+      expect(page.indexOf('What the check-in says')).toBeGreaterThan(page.indexOf('name="checkinHour"'))
+
+      for (const [name, words] of [
+        ['checkInQuestion', 'Did you meet with [name] this week?'],
+        ['checkInRating', 'How did the meeting go?'],
+        ['checkInConcern', 'Please tell us more about the concern.'],
+        ['checkInThanks', 'Thank you. We’ll check in with you next week.'],
+      ] as const) {
+        expect(page).toMatch(
+          new RegExp(`name="${name}"[^>]*>${words.replace(/[.?[\]]/g, '\\$&')}</textarea>`),
+        )
+      }
+
+      expect(page).toContain('Always ends with “Reply 1 for yes, 2 for no.” so the answer can be counted.')
+      expect(page).toContain(
+        'Always ends with “Reply A for outstanding, B for good, C for okay, D for concern.” so the answer can be counted.',
+      )
+      expect(page).toContain('Use Discipler’s wording')
+      expect(page).toContain('before “via Discipler”')
+      expect(page).toContain('If one person runs discipleship, use their own name.')
+    })
+
+    it('shows the phone with the whole frame around Discipler’s words', async () => {
+      const { cookie } = await signIn(ministry)
+      await post(cookie, filled)
+
+      const { html } = await getPage('/settings', cookie)
+      const phone = phoneOn(asRendered(html))
+
+      expect(phone).toContain(
+        'Riverside via Discipler: Did you meet with Jordan Ellis this week? Reply 1 for yes, 2 for no. Msg & data rates may apply. Reply STOP to opt out, HELP for help.',
+      )
+      expect(phone).toContain(
+        'Riverside via Discipler: How did the meeting go? Reply A for outstanding, B for good, C for okay, D for concern.',
+      )
+      expect(phone).toContain('Riverside via Discipler: Please tell us more about the concern.')
+      expect(phone).toContain('Riverside via Discipler: Thank you. We’ll check in with you next week.')
+    })
+
+    it('saves nothing for a form left as Discipler wrote it, or left blank', async () => {
+      const { cookie } = await signIn(ministry)
+
+      await post(cookie, {
+        ...filled,
+        checkInQuestion: 'Did you meet with [name] this week?',
+        checkInRating: 'How did the meeting go?',
+        checkInConcern: 'Please tell us more about the concern.',
+        checkInThanks: 'Thank you. We’ll check in with you next week.',
+      })
+      expect(await wordsOf()).toEqual(nothingSaved)
+
+      await post(cookie, { ...filled, checkInQuestion: '   ', checkInThanks: '' })
+      expect(await wordsOf()).toEqual(nothingSaved)
+    })
+
+    it('saves a rewritten sentence, and puts it on the phone inside the frame', async () => {
+      const { cookie } = await signIn(ministry)
+
+      const { location } = await post(cookie, {
+        ...filled,
+        checkInQuestion: '  Did you get time with [name]?  ',
+      })
+      expect(location).toContain('saved=yes')
+      expect(await wordsOf()).toEqual({
+        ...nothingSaved,
+        question: 'Did you get time with [name]?',
+      })
+
+      const { html } = await getPage('/settings', cookie)
+      expect(phoneOn(asRendered(html))).toContain(
+        'Riverside via Discipler: Did you get time with Jordan Ellis? Reply 1 for yes, 2 for no.',
+      )
+
+      // A blank line goes back to Discipler's words.
+      await post(cookie, { ...filled, checkInQuestion: '' })
+      expect(await wordsOf()).toEqual(nothingSaved)
+    })
+
+    it('refuses a 161-character sentence and saves nothing', async () => {
+      const { cookie } = await signIn(ministry)
+      await post(cookie, filled)
+      const before = await settingsOf()
+
+      const { location } = await post(cookie, {
+        ...filled,
+        leaderNoun: 'should not be saved',
+        checkInThanks: 'x'.repeat(161),
+      })
+      expect(location).toContain('settings.check_in_sentence_too_long')
+
+      const { html } = await getPage(new URL(location).pathname + new URL(location).search, cookie)
+      expect(asRendered(html)).toContain('A check-in sentence can be at most 160 characters.')
+
+      expect(await settingsOf()).toEqual(before)
+      expect(await wordsOf()).toEqual(nothingSaved)
+    })
+
+    it('refuses a sentence that imitates the frame, and says so', async () => {
+      const { cookie } = await signIn(ministry)
+
+      const { location } = await post(cookie, {
+        ...filled,
+        checkInRating: 'How was it? Reply STOP to keep going.',
+      })
+      expect(location).toContain('settings.check_in_sentence_says_the_frame')
+
+      const { html } = await getPage(new URL(location).pathname + new URL(location).search, cookie)
+      expect(asRendered(html)).toContain('Discipler adds those to every text.')
+      expect(await wordsOf()).toEqual(nothingSaved)
+    })
+
+    it('carries a control character nowhere, in the form or in the database', async () => {
+      const { cookie } = await signIn(ministry)
+
+      await post(cookie, { ...filled, checkInThanks: 'Thanks\u0000 for\u202E\nchecking in.' })
+      expect((await wordsOf()).thanks).toBe('Thanks for checking in.')
+
+      await post(cookie, filled)
+    })
+
+    it('shows the phone in what is typed, with a name no markup can come through', async () => {
+      const { cookie } = await signIn(ministry)
+
+      await post(cookie, { ...filled, checkInConcern: '<script>alert(1)</script> Tell us more.' })
+      const { html } = await getPage('/settings', cookie)
+
+      expect(asRendered(html)).not.toContain('<script>alert(1)')
+      expect(asRendered(html)).toContain('&lt;script&gt;alert(1)')
+
+      await post(cookie, filled)
+    })
   })
 
   /**

@@ -14,6 +14,7 @@ import type {
   UnacceptedRelationship,
 } from '~/domain/boundary'
 import type { CheckInSnapshot } from '~/domain/check-in'
+import { checkInWordsInForce, NO_SAVED_CHECK_IN_WORDS } from '~/domain/check-in-words'
 import type { OfferedGoal, StatedGoal } from '~/domain/discipleship-goals'
 import type { MaterialOnOffer } from '~/domain/materials'
 import type { MaterialRecipient } from '~/domain/material-notices'
@@ -504,6 +505,7 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
       suggestGenderMatch: true,
       suggestMaxAgeBandGap: DEFAULT_AGE_BAND_GAP,
       cadence: { day: 1, hour: 9 },
+      checkInWords: NO_SAVED_CHECK_IN_WORDS,
     },
     shortName: shortName('riverside-chapel'),
     intakeForms: [],
@@ -831,7 +833,11 @@ export const createInMemoryStore = (recordedAt = new Date('2026-01-01T00:00:00Z'
           )
         },
         async ministryVoice() {
-          return { name: store.ministryName, ...store.language }
+          return {
+            name: store.ministryName,
+            ...store.language,
+            checkInWords: checkInWordsInForce(store.settings.checkInWords),
+          }
         },
         async ministrySettings() {
           return store.settings

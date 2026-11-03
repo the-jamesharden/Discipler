@@ -6,6 +6,7 @@ import {
 } from '~/domain/ministry-settings'
 import { invitationMessage } from '~/domain/outbound-copy'
 import { refusalsIn } from '../refusals'
+import { CHECK_IN_SENTENCE_REFUSALS } from './check-in-words-copy'
 
 /**
  * Everything the Ministry settings say in words, in one place. The boundary deals
@@ -31,6 +32,7 @@ const REFUSALS: Record<MinistrySettingsRefusal, string> = {
   'settings.age_band_gap_unreadable': `The age gap is a whole number of bands, from 0 to ${MOST_BANDS_APART}.`,
   'settings.checkin_day_unreadable': 'Pick a day of the week for the check-in.',
   'settings.checkin_hour_outside_quiet_hours': `Check-ins go out on the hour, between ${hourLabel(QUIET_HOURS.earliest)} and ${hourLabel(QUIET_HOURS.latest)} in your own timezone.`,
+  ...CHECK_IN_SENTENCE_REFUSALS,
 }
 
 /**

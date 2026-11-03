@@ -60,6 +60,13 @@ const asSettings = (row: Record<string, unknown>): MinistrySettings => {
     suggestGenderMatch: row.suggest_gender_match,
     suggestMaxAgeBandGap: gap,
     cadence: { day, hour },
+    // Blank is unset, as it is for `from_name`, and the columns refuse a blank anyway.
+    checkInWords: {
+      question: text(row.checkin_question_sentence),
+      rating: text(row.checkin_rating_sentence),
+      concern: text(row.checkin_concern_sentence),
+      thanks: text(row.checkin_thanks_sentence),
+    },
   }
 }
 

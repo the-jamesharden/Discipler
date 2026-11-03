@@ -3,6 +3,7 @@ import {
   CHECK_IN_WORDING,
   REMINDER_AFTER_HOURS,
 } from '~/domain/check-in'
+import { DISCIPLERS_CHECK_IN_WORDS } from '~/domain/check-in-words'
 import { AGE_BANDS, FIRST_HOUR, LAST_HOUR } from '~/domain/intake'
 import { INTAKE_LINK_LIFETIME_DAYS } from '~/domain/intake-link'
 import { INVITATION_LIFETIME_DAYS } from '~/domain/invitations'
@@ -110,6 +111,12 @@ export const setupVideoList = (videos: readonly SetupVideo[]): string =>
 /** The church and the person every example text names. Made up, and nobody's. */
 const EXAMPLE_CHURCH = 'Riverside Chapel'
 const EXAMPLE_DISCIPLE = 'Jordan'
+/** Help shows a check-in as a church with no words of its own sends it. */
+const EXAMPLE_CHECK_IN = {
+  ministryName: EXAMPLE_CHURCH,
+  subject: EXAMPLE_DISCIPLE,
+  words: DISCIPLERS_CHECK_IN_WORDS,
+}
 
 /** `your first year`, which is how the offer is said to a church, while it is twelve months. */
 const firstMonths = (months: number): string => (months === 12 ? 'your first year' : `your first ${months} months`)
@@ -186,15 +193,14 @@ export const HELP_FACTS: Readonly<Record<string, string>> = {
   // Texts, word for word, from the composers that send them.
   exampleChurch: EXAMPLE_CHURCH,
   exampleMeetingQuestion: meetingQuestion({
-    ministryName: EXAMPLE_CHURCH,
-    subject: EXAMPLE_DISCIPLE,
+    ...EXAMPLE_CHECK_IN,
     discloseOptOut: false,
   }),
   exampleSatisfactionQuestion: satisfactionQuestion({
-    ministryName: EXAMPLE_CHURCH,
+    ...EXAMPLE_CHECK_IN,
     wording: CHECK_IN_WORDING,
   }),
-  exampleConcernRequest: concernDetailRequest({ ministryName: EXAMPLE_CHURCH }),
-  exampleThankYou: checkInThankYou({ ministryName: EXAMPLE_CHURCH }),
+  exampleConcernRequest: concernDetailRequest(EXAMPLE_CHECK_IN),
+  exampleThankYou: checkInThankYou(EXAMPLE_CHECK_IN),
   exampleHelpReply: helpMessage({ ministryName: EXAMPLE_CHURCH }),
 }

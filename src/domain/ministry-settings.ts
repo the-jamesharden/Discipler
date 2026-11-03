@@ -1,4 +1,11 @@
 import type { Branded } from './branded'
+import {
+  readCheckInWords,
+  type CheckInSentenceRefusal,
+  type CheckInWords,
+  type SavedCheckInWords,
+  type SubmittedCheckInWords,
+} from './check-in-words'
 import { AGE_BANDS } from './intake'
 import { isKnownTimezone, localHourOf, type Cadence } from './week'
 import { readWording } from './wording'
@@ -12,7 +19,8 @@ import { readWording } from './wording'
  * reply tokens and the opt-out footer are deliberately not here -- the first two
  * are a state machine and the third is a carrier obligation -- and they are not
  * here as disabled fields either, because a greyed-out box invites *can you turn
- * that on for us?*
+ * that on for us?* The check-in's four sentences are here, and go inside that frame
+ * (ADR-0034).
  *
  * Nothing in this module reaches a database, and every rule below is enforced a
  * second time by one. That is not duplication: pilot settings get written by SQL
@@ -110,6 +118,8 @@ export interface MinistrySettings {
    */
   readonly suggestMaxAgeBandGap: number
   readonly cadence: Cadence
+  /** The sentences of the check-in this Ministry has rewritten, null on the rest. */
+  readonly checkInWords: SavedCheckInWords
 }
 
 /**
@@ -134,6 +144,8 @@ export interface MinistryLanguage {
  */
 export interface MinistryVoice extends MinistryLanguage {
   readonly name: string
+  /** The check-in's four sentences as a new conversation would open with them. */
+  readonly checkInWords: CheckInWords
 }
 
 /** The form as it arrives, before anything has decided whether it is settings. */
@@ -152,6 +164,7 @@ export interface MinistrySettingsFields {
   readonly suggestMaxAgeBandGap: string | null
   readonly checkinDay: string | null
   readonly checkinHour: string | null
+  readonly checkInWords: SubmittedCheckInWords
 }
 
 /**
@@ -176,6 +189,7 @@ export type MinistrySettingsRefusal =
    * out between 8am and 9pm, on the hour.*
    */
   | 'settings.checkin_hour_outside_quiet_hours'
+  | CheckInSentenceRefusal
 
 export type MinistrySettingsReading =
   | { readonly settings: MinistrySettings }
@@ -235,7 +249,10 @@ export const readMinistrySettings = (
     refusals.push('settings.checkin_hour_outside_quiet_hours')
   }
 
-  if (refusals.length > 0) return { refusals }
+  const checkInWords = readCheckInWords(fields.checkInWords)
+  if ('refusals' in checkInWords) refusals.push(...checkInWords.refusals)
+
+  if (refusals.length > 0 || 'refusals' in checkInWords) return { refusals }
 
   return {
     settings: {
@@ -247,6 +264,7 @@ export const readMinistrySettings = (
       suggestGenderMatch: fields.suggestGenderMatch,
       suggestMaxAgeBandGap: gap!,
       cadence: { day: day!, hour: hour! },
+      checkInWords: checkInWords.words,
     },
   }
 }

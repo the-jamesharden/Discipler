@@ -823,6 +823,8 @@ for us?* They are simply not on the screen.
 
 > **Amended (Exponential launch, 2026-10-30):** Settings gains *What the check-in says*, under the check-in day and hour, where an Admin rewrites the check-in's four sentences.
 > The structure, the reply choices and the opt-out footer still stay out: they are the frame Discipler writes around every text, and the composer adds them to whatever the church writes.
+> A sentence may not read as that frame: it is refused if it offers its own replies or opt-out words, or carries a link or a phone number, and the question must say `[name]` so a Leader of several knows which one it asks about (ticket 40).
+> A conversation keeps the sentences it opened with, its reminders and its later questions included; a change applies from the next check-in sent.
 > The help line under `from_name`, shown as Messages read as, says it is followed by "via Discipler" and that a church run by one person can use that person's name.
 > Settings also gains a Billing card, first of its cards; see *Settings Has a Billing Card and a Billing Page*.
 > See `docs/adr/0034-discipler-writes-the-frame-of-every-text.md`.
