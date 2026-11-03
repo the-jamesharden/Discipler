@@ -3,7 +3,9 @@ import type { ReactNode } from 'react'
 import type { SignedInAdmin } from '~/service/ports'
 import { CHANGE_YOUR_PASSWORD, SIGN_OUT } from './account/copy'
 import { BotanicalFrame } from './botanical'
+import { ADMIN_TABS, type AdminTab } from './admin-tabs'
 import { ArrowLeft } from './icons'
+import { SearchBar } from './search/search'
 import { TabSlider } from './tab-slider'
 import { AdminNav } from './top-nav'
 
@@ -18,25 +20,7 @@ import { AdminNav } from './top-nav'
  * what the app already has, and the current one is marked with `aria-current`.
  */
 
-/**
- * The six Admin tabs, left to right and named as the prototype names them.
- * Materials was greyed out from ticket 31 until the tab was built
- * (`.scratch/materials/spec.md`); every tab is a link now.
- *
- * Three of them wear a painting behind the cards, each its own, and three wear
- * none (James, 2026-09-25): Blossom on the Overview, Trees where Care Needed is
- * worked, tulips on the Roster.
- */
-export const ADMIN_TABS = [
-  { key: 'overview', href: '/overview', label: 'Overview', design: 'blossom' },
-  { key: 'check-ins', href: '/check-ins', label: 'Check-Ins', design: null },
-  { key: 'suggested-pairs', href: '/suggested-pairs', label: 'Suggested Pairs', design: null },
-  { key: 'follow-up', href: '/follow-up', label: 'Follow-Up', design: 'trees' },
-  { key: 'materials', href: '/materials', label: 'Materials', design: null },
-  { key: 'roster', href: '/roster', label: 'Roster', design: 'tulips' },
-] as const
-
-export type AdminTab = (typeof ADMIN_TABS)[number]['key']
+export { ADMIN_TABS, type AdminTab }
 
 /** The sign-out control: a form, because signing out is a POST. */
 export const SignOut = () => (
@@ -104,26 +88,29 @@ export const TabBar = ({
   readonly followUpCount: number
 }) => (
   <nav aria-label="Admin surfaces">
-    <TabSlider>
-      <ul className="tabs">
-        {ADMIN_TABS.map((tab) => (
-          <li key={tab.key}>
-            <Link
-              href={tab.href}
-              className="tab"
-              aria-current={tab.key === current ? 'page' : undefined}
-            >
-              {tab.label}
-              {tab.key === 'follow-up' && followUpCount > 0 ? (
-                <span className="tab-badge" aria-label={`${followUpCount} needing attention`}>
-                  {followUpCount}
-                </span>
-              ) : null}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </TabSlider>
+    <div className="tabs-row">
+      <TabSlider>
+        <ul className="tabs">
+          {ADMIN_TABS.map((tab) => (
+            <li key={tab.key}>
+              <Link
+                href={tab.href}
+                className="tab"
+                aria-current={tab.key === current ? 'page' : undefined}
+              >
+                {tab.label}
+                {tab.key === 'follow-up' && followUpCount > 0 ? (
+                  <span className="tab-badge" aria-label={`${followUpCount} needing attention`}>
+                    {followUpCount}
+                  </span>
+                ) : null}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </TabSlider>
+      <SearchBar />
+    </div>
   </nav>
 )
 

@@ -34,6 +34,7 @@ const PAGE_FUNCTIONS = [
   'person_page',
   'relationships_page',
   'roster_page',
+  'search_page',
   'settings_page',
   'signed_in_admin',
   'suggested_pairs_page',

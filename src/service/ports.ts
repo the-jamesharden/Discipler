@@ -3207,6 +3207,55 @@ export type MaterialsSurface = 'materials' | 'material' | 'new-material' | 'edit
  * is the one that ended while the page was open, and an ended relationship is
  * not on the list any more.
  */
+/**
+ * One person as search names them (Exponential launch, ticket 24): a name and what
+ * the line beneath it needs, with no phone, no email and nothing they wrote.
+ */
+export interface SearchPerson {
+  readonly personId: PersonId
+  readonly fullName: string
+  readonly participationStatus: ParticipationStatus
+  readonly isAdmin: boolean
+  /** The open pairings they hold, each with who is on either side. */
+  readonly pairings: readonly SearchPairing[]
+}
+
+/** One open pairing from one person's side, in the Roster's own words. */
+export type SearchPairing = Pick<
+  RosterRelationship,
+  'role' | 'name' | 'leaderNames' | 'participantNames' | 'participantCount'
+>
+
+/** One relationship that has not ended, as search names it. */
+export interface SearchRelationship {
+  readonly relationshipId: RelationshipId
+  readonly groupName: string | null
+  readonly leaderNames: readonly string[]
+  readonly participantNames: readonly string[]
+  /** Named, or discipling more than one person, as a card decides it. */
+  readonly isAGroup: boolean
+  /** Null while it is Awaiting Leader Acceptance. */
+  readonly acceptedAt: Date | null
+  /** Whether the Overview draws its card: not until it has waited the days it surfaces at. */
+  readonly onTheOverview: boolean
+  /** Whose page says it instead while it is not on the Overview. */
+  readonly leaderId: PersonId | null
+}
+
+/** Everything search reads when it is opened: names, and nothing anybody wrote in a text. */
+export interface SearchPage {
+  /** The zone a relationship's start date is said in. */
+  readonly timeZone: string
+  readonly people: readonly SearchPerson[]
+  readonly relationships: readonly SearchRelationship[]
+  readonly materials: readonly { readonly materialId: MaterialId; readonly title: string }[]
+}
+
+export interface SearchReader {
+  /** One read, through the signed-in Admin's session, made when search is opened. */
+  readSearchPage(): Promise<AdminPage<SearchPage>>
+}
+
 export interface RefusedRelationship {
   readonly relationshipId: RelationshipId
   /** Who led it: now, or when it ended. */
