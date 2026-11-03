@@ -62,6 +62,7 @@ describe('every ministry-owned table', () => {
 
   it('is actually discovered by this test', () => {
     expect(tables.map((t) => t.table_name)).toEqual([
+      'billing_event',
       'checkin_prompt',
       'checkin_sequence',
       'concern',
@@ -85,6 +86,7 @@ describe('every ministry-owned table', () => {
       'material_link',
       'material_notice',
       'ministry',
+      'ministry_billing',
       'ministry_event',
       'ministry_member',
       'outbound_message',
@@ -146,7 +148,7 @@ describe('every ministry-owned table', () => {
       select grantee, privilege_type
         from information_schema.role_table_grants
        where table_schema = 'public'
-         and table_name = 'ministry_event'
+         and table_name in ('ministry_event', 'billing_event')
          and privilege_type in ('UPDATE', 'DELETE')
          and grantee <> 'postgres'
     `)
@@ -414,5 +416,6 @@ describe('history', () => {
   it('cannot be erased by truncating the table', async () => {
     // TRUNCATE is filtered by neither row-level security nor a delete trigger.
     await expect(pool.query('truncate table ministry_event')).rejects.toThrow(/append-only/)
+    await expect(pool.query('truncate table billing_event')).rejects.toThrow(/append-only/)
   })
 })

@@ -174,6 +174,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the scheduled tick, as the scheduler ru
     const outcome = JSON.parse(body) as {
       awaitingANumber: number
       capacity: readonly string[] | 'failed'
+      stripeEvents: { failed: number } | 'failed'
       errors: { ministryId: string; error: string }[]
     }
 
@@ -182,6 +183,8 @@ describe.skipIf(skipUnlessAppIsRunning)('the scheduled tick, as the scheduler ru
     expect(Number.isInteger(outcome.awaitingANumber)).toBe(true)
     // The capacity watch ran once on the pass, whatever it found.
     expect(outcome.capacity).not.toBe('failed')
+    // So did the sweep of the Stripe events (Exponential launch, ticket 03).
+    expect(outcome.stripeEvents).not.toBe('failed')
 
     // The Welcome went to a number from the shared set, given to this pair on its
     // first text and kept. Whether Twilio then took it is the transport's business,

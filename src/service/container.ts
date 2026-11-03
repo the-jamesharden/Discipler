@@ -57,14 +57,23 @@ import {
   type PostgresSharedNumbers,
 } from '~/platform/supabase/shared-numbers'
 import type { CapacityConcern } from '~/domain/shared-numbers'
+import { createStripeBilling } from '~/platform/stripe/billing'
+import { createPostgresBilling, type PostgresBilling } from '~/platform/supabase/billing'
 import { createCommandService, type CommandService } from './command-service'
 import { createEmailSender } from './email-sender'
 import { dispatchQueue, type DispatchOutcome } from './outbound-dispatch'
 import { createPhoneCheck, type PhoneCheck } from './phone-check'
 import { watchSharedNumberCapacity } from './shared-number-capacity'
+import {
+  processStripeEventQuietly,
+  sweepStripeEvents,
+  type StripeEventSweep,
+  type StripeEventWork,
+} from './stripe-events'
 import { createEmailSupportAlerts } from './support-alerts'
 import type {
   Accounts,
+  BillingRecords,
   CareNeededReader,
   CheckInsReader,
   EffectStore,
@@ -85,6 +94,7 @@ import type {
   RosterReader,
   SharedNumberCapacity,
   SignInLimit,
+  StripeEventInbox,
   SuggestedPairsReader,
   SupportAlerts,
   UnitOfWork,
@@ -143,6 +153,7 @@ let emailSender: EmailSender | undefined
 let phoneChecks: PostgresPhoneChecks | undefined
 let phoneCheck: PhoneCheck | undefined
 let sharedNumbers: PostgresSharedNumbers | undefined
+let postgresBilling: PostgresBilling | undefined
 
 export const getCommandService = (): CommandService => {
   if (!commandService) {
@@ -402,6 +413,33 @@ export const watchTheSharedNumbers = (): Promise<readonly CapacityConcern[]> =>
     clock: systemClock,
   })
 
+const billing = (): PostgresBilling => {
+  if (!postgresBilling) postgresBilling = createPostgresBilling(commandDatabaseUrl())
+  return postgresBilling
+}
+
+/** Billing's church-scoped records (Exponential launch, ticket 03), for the server only. */
+export const getBillingRecords = (): BillingRecords => billing().records
+
+/** The Stripe webhook's inbox, which only the webhook and its processing touch. */
+export const getStripeEventInbox = (): StripeEventInbox => billing().inbox
+
+const stripeEventWork = (): StripeEventWork => ({
+  inbox: billing().inbox,
+  records: billing().records,
+  stripe: createStripeBilling(),
+  alerts: getSupportAlerts(),
+  clock: systemClock,
+})
+
+/** One event, once the webhook has answered. A failure is left for the sweep. */
+export const processStripeEventAfterTheResponse = (eventId: string): Promise<void> =>
+  processStripeEventQuietly(stripeEventWork, eventId)
+
+/** One pass over the events the responses missed, for the scheduled tick. */
+export const sweepTheStripeEvents = (): Promise<StripeEventSweep> =>
+  sweepStripeEvents(stripeEventWork())
+
 /**
  * Settles the pairings an import planned for one Ministry, and never fails the
  * page that called it. Three routes call this after a Person's own act -- an
@@ -452,6 +490,7 @@ export const closeCommandService = async (): Promise<void> => {
   const checks = phoneChecks
   const shared = sharedNumbers
   const limit = signInLimit
+  const billed = postgresBilling
   commandService = undefined
   commandStore = undefined
   intakeReader = undefined
@@ -463,6 +502,7 @@ export const closeCommandService = async (): Promise<void> => {
   phoneCheck = undefined
   sharedNumbers = undefined
   signInLimit = undefined
+  postgresBilling = undefined
   // The transport holds no pool -- it is `fetch` and a pair of credentials -- so
   // there is nothing of its to close, only the reference to drop.
   messageTransport = undefined
@@ -476,6 +516,7 @@ export const closeCommandService = async (): Promise<void> => {
   await checks?.close()
   await shared?.close()
   await limit?.close()
+  await billed?.close()
 }
 
 export const getRosterReader = (): RosterReader => createSupabaseRosterReader(systemClock)

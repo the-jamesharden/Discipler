@@ -83,6 +83,19 @@ describe('a Ministry Setup Link', () => {
     expect(rows[0].consumed_at).toBeNull()
   })
 
+  it('opens a church that is billed outside Stripe, because a link is how a comped church opens', async () => {
+    const link = await aLink('Comped Chapel')
+
+    const opened = await setup.open(link.token, { fullName: 'Tom Halloran', password: 'a-long-enough-password', timezone: 'America/New_York' })
+    if ('refusal' in opened) throw new Error(opened.refusal)
+
+    const { rows } = await pool.query(
+      `select billed_outside_stripe, stripe_customer_id from ministry_billing where ministry_id = $1`,
+      [opened.ministryId],
+    )
+    expect(rows).toEqual([{ billed_outside_stripe: true, stripe_customer_id: null }])
+  })
+
   it('resolves nothing for a token that was never minted, or is not the shape of one', async () => {
     expect(await setup.read(crypto.randomUUID())).toBeNull()
     expect(await setup.read("' or 1=1 --")).toBeNull()

@@ -53,6 +53,8 @@ const seed = async (name: string, adminName: string) => {
   const provisioned = await provisionMinistry({
     name,
     timezone: 'America/New_York',
+    // A demo church pays nobody, and must go on texting once the gate is in.
+    billedOutsideStripe: true,
     admin: { fullName: adminName, phone: aTestPhoneNumber(), password: ACCOUNT_PASSWORD },
   })
 

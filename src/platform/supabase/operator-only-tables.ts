@@ -30,4 +30,6 @@ export const OPERATOR_ONLY_TABLES: readonly string[] = [
   // The shared numbers and the capacity watch's history (Exponential launch, ticket 06).
   'shared_number',
   'shared_number_capacity_alert',
+  // The Stripe webhook's inbox (Exponential launch, ticket 03).
+  'stripe_event',
 ]

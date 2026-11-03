@@ -18,6 +18,15 @@ import {
  * and each is checked here from the session that earns it.
  */
 
+// A church that has not paid, on any page's document (Exponential launch, ticket 03).
+const NOTHING_ESTABLISHED = {
+  standing: 'no_subscription',
+  has_access: false,
+  trial_ends_at: null,
+  current_period_ends_at: null,
+  cancels_at: null,
+}
+
 describe('the signed-in Admin answers in one read', () => {
   let riverside: MinistryFixture
 
@@ -36,6 +45,7 @@ describe('the signed-in Admin answers in one read', () => {
         ministry_name: 'Riverside Chapel',
         person_id: riverside.adminPersonId,
       },
+      billing: NOTHING_ESTABLISHED,
     })
   })
 
