@@ -4005,8 +4005,8 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
         `insert into outbound_message
            (ministry_id, person_id, to_phone, body, enqueued_at, scheduled_for,
             discloses_person_id, prompt_key, prompt_state, message_kind,
-            carries_rates_line)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+            carries_rates_line, not_before)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
         [
           message.ministryId,
           message.personId,
@@ -4039,6 +4039,9 @@ const unitFor = (client: PoolClient): UnitOfWork => ({
           // month's texts to this Person are decided against. Never read back out
           // of `body` (Text wording, ticket 01).
           message.carriesRatesLine,
+          // When a spread check-in may leave, and null on anything that may go on
+          // the next pass (Exponential launch, ticket 07).
+          message.notBefore,
         ],
       )
     }

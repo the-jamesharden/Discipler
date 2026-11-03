@@ -9,6 +9,7 @@ import { createPostgresOutboundQueue } from '~/platform/supabase/outbound-queue'
 import { applyEffects, createCommandService } from '~/service/command-service'
 import { dispatchQueue } from '~/service/outbound-dispatch'
 import type { MessageTransport } from '~/service/ports'
+import { noDailyCap } from '../support/daily-cap'
 import {
   aTestPhoneNumber,
   addPerson,
@@ -341,7 +342,7 @@ describe('the rates line, once a month', () => {
       const emily = await church.congregant('Emily Hart')
       const relationship = await church.aRelationship(leader, emily)
       const drain = (transport: MessageTransport, at: Date) =>
-        dispatchQueue({ queue, transport, clock: createTestClock(at), ministryId: church.ministry.id })
+        dispatchQueue({ queue, transport, clock: createTestClock(at), ministryId: church.ministry.id, dailyCap: noDailyCap })
 
       // Queued carrying the line, and then she says STOP before it goes: the
       // sending layer withholds it, so she never read it.
@@ -385,6 +386,7 @@ describe('the rates line, once a month', () => {
         transport: refusing,
         clock: createTestClock(new Date('2026-07-06T18:05:00Z')),
         ministryId: church.ministry.id,
+        dailyCap: noDailyCap,
       })
       expect(outcome.failed).toBe(2)
 

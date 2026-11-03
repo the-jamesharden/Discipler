@@ -35,6 +35,7 @@ import {
   joinRelationship,
   closeOutstandingReply,
   enqueueMessage,
+  notSentBefore,
   issueInvitationLink,
   reissueInvitationLink,
   recordIntakeLink,
@@ -281,6 +282,7 @@ import {
   type PausePeriodWeeks,
   type StandingPause,
 } from './pause'
+import { checkInNotBefore } from './daily-cap'
 import {
   readMinistrySettings,
   withinQuietHours,
@@ -3234,22 +3236,29 @@ export const handleCommand = (command: Command, context: CommandContext): Comman
       // is due at most once per ISO week and stays due for the rest of the week
       // once their hour has passed, so an hourly tick asks once and a tick that
       // never ran on Monday evening asks on Tuesday rather than skipping a week.
+      const dueThisPass = checkInsDue.filter((leader) => checkInDueThisWeek(leader, now)).length
+      let openedThisPass = 0
+
       for (const leader of checkInsDue) {
         const due = checkInDueThisWeek(leader, now)
 
         if (due) {
           effects.push(
-            ...openConversationWith(leader, {
-              ministryId: command.ministryId,
-              ministryName,
-              now,
-              ids: context.ids,
-              // The cadence as it was read at this moment, stamped on the message.
-              // Not `now`: the two differ by however long the tick took to reach
-              // this Leader, and it is the cadence that has to be recoverable from
-              // the row -- that is what makes an edit demonstrably future-only.
-              scheduledFor: due,
-            }),
+            ...notSentBefore(
+              openConversationWith(leader, {
+                ministryId: command.ministryId,
+                ministryName,
+                now,
+                ids: context.ids,
+                // The cadence as it was read at this moment, stamped on the message.
+                // Not `now`: the two differ by however long the tick took to reach
+                // this Leader, and it is the cadence that has to be recoverable from
+                // the row -- that is what makes an edit demonstrably future-only.
+                scheduledFor: due,
+              }),
+              // This Leader's own moment in the hour (Exponential launch, ticket 07).
+              checkInNotBefore({ index: openedThisPass++, count: dueThisPass, now }),
+            ),
           )
           // A new week has just abandoned whatever was open and asked its first
           // question. There is nothing of last week's left to chase.

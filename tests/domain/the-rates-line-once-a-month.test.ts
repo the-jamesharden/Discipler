@@ -48,6 +48,7 @@ const text = (
   toPhone: '+15550100001',
   body,
   enqueuedAt: at,
+  notBefore: null,
   scheduledFor: null,
   disclosesPersonId: null,
   kind: 'no_reply',

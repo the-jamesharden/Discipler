@@ -32,6 +32,7 @@ const world = (start: SharedNumberLoad, now = '2026-11-09T15:00:00Z') => {
       if (failing) throw new Error('the sender is down')
       told.push(alert)
     },
+    dailyCapReached: async () => undefined,
   }
   const clock = createTestClock(new Date(now))
 
