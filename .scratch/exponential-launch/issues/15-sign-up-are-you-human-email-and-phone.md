@@ -76,4 +76,6 @@ It stays off on production until James says the privacy policy and terms are liv
 - **A double click sends one email:** the second is answered "too soon", which goes on to the code page.
 - **The widget is let out into the card's padding** so its fixed 300 pixels fit a 360-pixel phone, and is the compact one where even that is too narrow.
 - **A failed check offers "Try again", which reloads**, because a reload also helps when Cloudflare's script never arrived. It uses Turnstile's `retry: never`, so the words and the widget do not disagree.
+- **A refusal takes the widget's place**, because the widget's own "Success!" above "We couldn't confirm you're a real person" contradicts it, as a token Cloudflare passed and the server refused would show.
+- **The widget is always light**, because Discipler is, and left to itself it follows the device's dark mode.
 - **Cloudflare's dummy site key was used for the browser check**, with `siteverify` and Resend answered inside the local server, so neither vendor was called with anything real.

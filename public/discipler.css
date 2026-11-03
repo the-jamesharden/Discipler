@@ -769,7 +769,10 @@ button.link-button, button.link-button:hover { display: inline; width: auto; pad
    card leaves it, so it is let out into the card's padding. Its height is held so the
    card does not jump when it arrives. */
 .human-check { display: flex; justify-content: center; min-height: 65px; margin: 0.5rem -0.75rem 1rem; }
-.human-check-refused { text-align: center; margin-bottom: 1rem; }
+/* A refusal takes the widget's place: its own "Success!" beside "We couldn't confirm"
+   reads as a contradiction, and a script that never arrived leaves only a gap. */
+.human-check:has(+ .human-check-refused) { display: none; }
+.human-check-refused { text-align: center; margin: 0.5rem 0 1rem; }
 .human-check-refused .field-error { margin: 0 0 0.75rem; }
 
 /* ---- the wizard's progress bar ---- */
