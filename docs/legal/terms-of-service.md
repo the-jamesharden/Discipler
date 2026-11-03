@@ -133,7 +133,7 @@ If you believe material in Discipler infringes your copyright, email support@try
 We will remove material that infringes, and may end the access of anyone who infringes repeatedly.
 If your material was removed and you believe that was a mistake, you may send us a counter-notice.
 
-Our designated agent for copyright notices is James Harden, Discipler LLC, 116 Beaver St., Carrollton, GA, support@trydiscipler.com.
+Our designated agent for copyright notices is James Harden, Discipler LLC, 116 Beaver St., Carrollton, GA, 205-602-4308, support@trydiscipler.com.
 
 ## 10. Intellectual property
 
@@ -212,8 +212,7 @@ A cancellation takes effect at the end of the month or year already paid for, an
 Cancelling does not refund any part of a monthly or yearly payment, unless the law requires it.
 
 When a subscription ends, weekly check-ins and other text messages stop, the Organization's pages become read-only, and its information is kept as our Privacy Policy describes.
-Links people were already sent keep working.
-The Organization may restart from the same account for as long as its information is kept.
+Links people were already sent keep working, and the Organization may restart from the same account, for as long as its information is kept.
 
 ### Changes to prices
 

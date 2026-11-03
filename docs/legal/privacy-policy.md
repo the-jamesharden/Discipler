@@ -132,7 +132,7 @@ The product does not need them.
 - To answer support requests and administrators' questions to the help assistant.
 - To fix problems and improve how Discipler works for your ministry.
 - To bill ministries for the service through Stripe, apply offers and referral credits, review church plant applications, and keep business records.
-- To email administrators about their own account: sign-in and confirmation codes, password reset links, reminders before a free trial ends, payment notices, and one reminder if a sign-up was left unfinished.
+- To email administrators about their own account: sign-in and confirmation codes, password reset links, reminders before a free trial ends, payment notices, one reminder if a sign-up was left unfinished, and a warning before an ended church's information is deleted.
 - To meet legal obligations and enforce our Terms of Service.
 
 We do not use your information to market other products or services to you, and we never sell or rent email addresses or phone numbers.
@@ -242,7 +242,7 @@ Some information is kept for a set time, whatever else happens:
 When a church's subscription ends, by cancelling or because payment could not be collected, its information is kept and its pages become read-only, so it can restart.
 If the church does not restart, we delete its information 12 months after the subscription ended, after emailing its administrators 30 days beforehand, except the records this section says are kept longer.
 Backups are overwritten on a rolling basis within 30 more days.
-A church that created an account but never finished paying is treated the same way, with the 12 months counted from the day it signed up.
+A church that created an account but never completed Checkout and has no subscription is treated the same way, with the 12 months counted from the day it signed up.
 
 When a ministry stops using Discipler and asks to close its account, it can ask for a copy of its information within 30 days.
 We then delete the ministry's information within 90 days, except backups, which are overwritten on a rolling basis within 30 more days, and anything we must keep by law.

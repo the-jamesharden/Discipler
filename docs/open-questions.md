@@ -576,6 +576,6 @@ What needs deciding: whether to add any of them, and which.
 
 Raised on 2026-11-03 when James approved the retention periods in `docs/legal/privacy-policy.md`, section 7.
 No job in the code deletes anything yet, so each period is a promise to build before it first falls due.
-The periods with no job are support messages at 12 months, help assistant chats at 90 days, abandoned sign-ups at 30 days, billing records and agreements at 7 years, and an ended or never-paid church's information at 12 months with an email to its Admins 30 days before.
+The periods with no job are support messages at 12 months, help assistant chats at 90 days, abandoned sign-ups at 30 days, billing records and agreements at 7 years, and the information of an ended church or of a church that never completed Checkout and has no subscription at 12 months with an email to its Admins 30 days before.
 The email to Admins is new, so its wording is James's to approve.
 What needs deciding: which tickets own the jobs, and the wording of that email.

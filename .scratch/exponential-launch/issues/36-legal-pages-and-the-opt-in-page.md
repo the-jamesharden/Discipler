@@ -62,9 +62,10 @@ Merged in PR #35 (49d4bb2).
 The drafts are in `docs/legal/`, unpublished; sign-up does not exist yet, and ticket 15 holds its gate.
 What is left for James moved to `docs/open-questions.md`: *publishing the legal drafts* and *the live opt-in page's sample messages*.
 James reviewed the sign-up consent on 2026-11-02 and kept it as drafted, with no checkbox.
-James approved the retention periods on 2026-11-03: an abandoned sign-up 30 days, billing records 7 years, agreements 7 years after the account ends, and an ended or never-paid church's information 12 months with an email to its Admins 30 days before.
+James approved the retention periods on 2026-11-03: an abandoned sign-up 30 days, billing records 7 years, agreements 7 years after the account ends, and 12 months for the information of an ended church or of a church that never completed Checkout and has no subscription, with an email to its Admins 30 days before.
 Nothing deletes any of it yet; see *nothing deletes what the privacy policy says is deleted* in `docs/open-questions.md`.
 On 2026-11-03 James also set the effective date to November 3, 2026, chose Carroll County, kept no refund on cancellation, and took the plain tax line and the cookie disclosures without an accountant's or lawyer's confirmation.
+The live terms promise only to revise the effective date, so the new 30-day notice applies to later changes, and James kept the date.
 He gave 116 Beaver St., Carrollton, GA as the address and named himself copyright agent, and said the opt-in page's form sample should match the real intake form word for word.
 The privacy policy and the terms now have no brackets and no draft box.
 Production has sent no Verify code (`phone_check` is empty), so the sample code text is still unconfirmed.

@@ -284,6 +284,7 @@ Texts over it fail with Twilio error 30023 until midnight Pacific.
   The last Next reads Done, and only Done ticks step 2.
   On a phone it shows the app's phone layout at full size and the camera only glides up and down; Back and Next sit in the caption's footer beside the dots instead of over the page, and a note the caption would hide shows above what it points at.
 - The test check-in asks about "your {participant noun}", and its first text reads "{Messages read as} via Discipler: This is your test check-in, the same one your {leader noun}s get. Did you meet with your {participant noun} this week? Reply 1 for yes, 2 for no."
+  It ends with "Msg & data rates may apply. Reply STOP to opt out, HELP for help." when it is the first text that phone may carry the rates line on that month, as `docs/consent-language.md` says.
 - The test's last text is James's, word for word: "{Messages read as} via Discipler: Thank you! Glad you are getting to experience what Discipler can do for your ministry!!"
 - The unpaired pop-up's Pair them opens Suggested Pairs, and Send Intake links opens the Roster showing only people who haven't sent an Intake.
 - Settings gains "What the check-in says", under the check-in day and hour, at James's request: each sentence of the check-in is a line an Admin can rewrite, "[name]" stands for the {participant noun}'s name, a blank line falls back to Discipler's words, and a live phone shows the result.
