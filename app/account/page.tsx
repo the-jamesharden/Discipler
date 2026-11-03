@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { resolveAdmin } from '~/platform/supabase/current-admin'
 import { AccountMenu, PageShell } from '../shell'
+import { AdminNav } from '../top-nav'
 import {
   CHANGE_ACTION,
   CHANGE_YOUR_PASSWORD,
@@ -14,8 +15,8 @@ export const dynamic = 'force-dynamic'
  * Where a signed-in person changes their own password: a password form and nothing
  * more.
  *
- * No name, no number, nothing else about the person. A name and a number are
- * Roster facts an Admin owns (`docs/adr/0005-a-person-is-a-name-and-a-number.md`),
+ * The form holds no name, no number, nothing else about the person. A name and a
+ * number are Roster facts an Admin owns (`docs/adr/0005-a-person-is-a-name-and-a-number.md`),
  * a name change would bear on history and safeguarding, and the number is the
  * credential. It shows no phone number for the reason the reset surface shows
  * none: the current-password check takes the number from the account itself, never
@@ -25,7 +26,7 @@ export const dynamic = 'force-dynamic'
  * Ministry membership at all. The credential is theirs and not the Ministry's, and
  * a membership check would leave an orphaned account with a password it can never
  * change. That is why this is not under `/settings`, which is Admin-gated: it asks
- * `resolveAdmin` only to decide what the Account menu offers, and turns nobody with
+ * `resolveAdmin` only to decide which header to draw, and turns nobody with
  * a session away.
  *
  * Nothing typed is carried across the round trip. A refusal comes back as codes on
@@ -47,7 +48,7 @@ export default async function AccountPage({
       title={CHANGE_YOUR_PASSWORD}
       subtitle="Discipler"
       back={{ href: '/', label: 'Back' }}
-      actions={<AccountMenu ministry={resolution.status === 'admin'} />}
+      actions={resolution.status === 'admin' ? <AdminNav admin={resolution.admin} /> : <AccountMenu />}
     >
       <div className="card">
         {refusals.length > 0 ? (

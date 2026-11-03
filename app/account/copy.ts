@@ -36,6 +36,8 @@ export const passwordChangeRefusalMessages = (codes: string | undefined): readon
  */
 export const CHANGE_YOUR_PASSWORD = 'Change your password'
 
+export const SIGN_OUT = 'Sign out'
+
 /**
  * What pressing the button does, said before the button and not after it. Success
  * ends every session on the account, this one included, and a person who was not

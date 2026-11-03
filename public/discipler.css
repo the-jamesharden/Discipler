@@ -162,8 +162,8 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; }
 .ico { width: 1em; height: 1em; flex-shrink: 0; }
 .btn-row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin: 0; }
 
-/* The Account menu: a details element, open and closed by its summary and by
-   nothing else, so it works before any script and after none. */
+/* The Account menu a Leader's pages carry: a details element, open and closed by its
+   summary and by nothing else, so it works before any script and after none. */
 .account { position: relative; }
 .account > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.9rem; border: 1px solid var(--border); border-radius: 5px; font-size: 0.88rem; color: var(--text); background: transparent; line-height: normal; }
 .account > summary::-webkit-details-marker { display: none; }
@@ -174,10 +174,38 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; }
 .account-menu { position: absolute; right: 0; top: calc(100% + 0.4rem); min-width: 240px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 32px var(--shadow); padding: 0.35rem 0; z-index: 5; }
 .account-group { padding: 0.35rem 0; }
 .account-group + .account-group { border-top: 1px solid var(--border); }
-.account-label { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-light); font-weight: 700; padding: 0.3rem 1rem 0.2rem; }
 .account-menu form { display: block; }
 .account-menu a, .account-menu .ghost-btn { display: block; width: 100%; text-align: left; padding: 0.5rem 1rem; color: var(--text); text-decoration: none; font-size: 0.9rem; font-weight: 400; background: none; border: 0; border-radius: 0; line-height: 1.4; white-space: nowrap; }
 .account-menu a:hover, .account-menu .ghost-btn:hover { background: var(--bg); color: var(--primary); }
+
+/* The top nav on every Admin page: Refer a church, Help, the Settings gear, and the
+   circle with the Admin's initials (Exponential launch, ticket 23). Both menus are
+   details elements, for the same reason as the Account menu. */
+.top-nav { display: flex; align-items: center; gap: 0.75rem; }
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 2.25rem; height: 2.25rem; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: var(--surface); color: var(--text); cursor: pointer; }
+.icon-btn:hover, .top-menu[open] > summary.icon-btn { border-color: var(--primary); color: var(--primary); }
+.icon-btn .ico { width: 1.05rem; height: 1.05rem; }
+.initials-btn { display: inline-flex; align-items: center; justify-content: center; width: 2.25rem; height: 2.25rem; border: 2px solid var(--surface); border-radius: 50%; box-shadow: 0 0 0 1px var(--border); background: var(--primary); color: #fff; font-size: 0.82rem; font-weight: 700; letter-spacing: 0.03em; cursor: pointer; }
+.initials-btn:hover, .top-menu[open] > summary.initials-btn { box-shadow: 0 0 0 2px var(--primary); }
+.initials-btn .ico { width: 1.05rem; height: 1.05rem; }
+.refer { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.45rem 0.9rem; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--primary); font-size: 0.85rem; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.refer:hover { border-color: var(--primary); }
+.refer .ico { width: 1rem; height: 1rem; }
+.top-menu { position: relative; }
+.top-menu > summary { list-style: none; }
+.top-menu > summary::-webkit-details-marker { display: none; }
+.top-menu-panel { position: absolute; right: 0; top: calc(100% + 0.45rem); z-index: 30; min-width: 250px; padding: 0.35rem 0; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 32px var(--shadow); }
+.top-menu-group + .top-menu-group, .top-menu-who + .top-menu-group { margin-top: 0.3rem; padding-top: 0.3rem; border-top: 1px solid var(--border); }
+/* Two classes, to outrank `.header p`. */
+.top-menu-panel .top-menu-label { padding: 0.3rem 1rem 0.2rem; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-light); }
+.top-menu-who { padding: 0.55rem 1rem 0.6rem; }
+.top-menu-who strong { display: block; font-size: 0.92rem; overflow-wrap: anywhere; }
+.top-menu-who span { display: block; font-size: 0.8rem; color: var(--text-light); overflow-wrap: anywhere; }
+.top-menu-panel form { display: block; }
+.top-menu-panel a, .top-menu-panel button { display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.5rem 1rem; background: none; border: 0; border-radius: 0; color: var(--text); font-size: 0.9rem; font-weight: 400; line-height: 1.6; text-align: left; text-decoration: none; white-space: nowrap; cursor: pointer; }
+.top-menu-panel a:hover, .top-menu-panel button:hover { background: var(--bg); color: var(--primary); }
+.top-menu-panel .ico { width: 1rem; height: 1rem; color: var(--text-light); }
+.top-menu-tag { margin-left: auto; padding: 0.05rem 0.45rem; border-radius: 999px; background: var(--primary); color: #fff; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
 
 /* A popup under a button: the Roster's import. The same details element as the
    Account menu, for the same reason, holding a small form rather than links. */
@@ -195,6 +223,43 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; }
 .tab[aria-disabled="true"] { color: var(--border); cursor: default; }
 .tab[aria-disabled="true"]:hover { color: var(--border); }
 .tab-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 1.2rem; height: 1.2rem; padding: 0 0.35rem; margin-left: 0.4rem; background: var(--primary); color: #fff; border-radius: 10px; font-size: 0.7rem; font-weight: 700; }
+
+/* The tab row slides on a phone (`app/tab-slider.tsx`). Every tab fits on anything
+   wider, so the arrows are drawn only below this width. */
+.tabs-wrap { position: relative; margin-bottom: 1.75rem; }
+.tabs-wrap .tabs { margin-bottom: 0; }
+.tab-arrow { display: none; }
+
+@media (max-width: 760px) {
+  /* The buttons sit to the right, with a page's way back, if it has one, to the left. */
+  .header-actions:has(> .top-nav) { margin-left: auto; justify-content: flex-end; }
+  .header-actions:has(> .top-nav):has(> .ghost-btn) { width: 100%; justify-content: space-between; }
+  /* Each menu hangs from the row's right edge rather than from its own button, so a
+     wide one cannot run off the left of a narrow phone. */
+  .top-nav { position: relative; margin-left: auto; }
+  .top-menu { position: static; }
+  .top-menu-panel { max-width: calc(100vw - 2rem); }
+  .refer { padding: 0.45rem 0.7rem; }
+  .refer-text { display: none; }
+  /* The church's name on a soft backing, so the botanical frame cannot blend into it. */
+  .botanical .header > div:first-child { padding: 0.55rem 0.75rem; margin: -0.55rem -0.75rem 0; background: rgba(245, 241, 235, 0.88); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); border-radius: 10px; }
+
+  /* Three tabs to a view, and the arrow pages to the other three. */
+  .tabs-wrap { padding: 0 1.4rem; border-bottom: 2px solid var(--border); }
+  .tabs-wrap .tabs { gap: 0; border-bottom: 0; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; }
+  .tabs-wrap .tabs::-webkit-scrollbar { display: none; }
+  .tabs-wrap .tabs li { flex: 0 0 calc(100% / 3); min-width: 0; scroll-snap-align: start; }
+  /* Scaled with the window below about 400px, so "Suggested Pairs" still fits its third. */
+  .tabs-wrap .tab { display: block; padding: 0.7rem 0; font-size: min(0.86rem, 3.4vw); text-align: center; }
+  .tab-arrow { display: block; visibility: hidden; position: absolute; top: 0; bottom: 0; width: 1.4rem; padding: 0; background: none; border: 0; border-radius: 0; color: var(--primary); font-size: 1.15rem; font-weight: 700; text-align: center; cursor: pointer; }
+  .tab-arrow:hover { background: none; color: var(--primary-light); }
+  .tab-arrow.on { visibility: visible; }
+  .tab-arrow.prev { left: 0; }
+  .tab-arrow.next { right: 0; }
+}
+@media (max-width: 760px) and (prefers-reduced-motion: no-preference) {
+  .tabs-wrap .tabs { scroll-behavior: smooth; }
+}
 
 /* ---- cards ---- */
 

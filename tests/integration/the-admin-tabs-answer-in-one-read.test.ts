@@ -65,6 +65,7 @@ describe('the Admin tabs answer in one read', () => {
         ministry_id: ministry.id,
         ministry_name: ministry.name,
         person_id: ministry.adminPersonId,
+        full_name: ministry.adminName,
       })
     }
   })

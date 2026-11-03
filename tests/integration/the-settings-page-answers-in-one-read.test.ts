@@ -43,6 +43,7 @@ describe('the settings page answers in one read', () => {
         ministry_id: riverside.id,
         ministry_name: 'Riverside Chapel',
         person_id: riverside.adminPersonId,
+        full_name: riverside.adminName,
       },
       settings: separate,
       // Which of Discipler's questions each edited form asks (Pastor feedback,

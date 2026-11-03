@@ -105,11 +105,12 @@ describe.skipIf(skipUnlessAppIsRunning)('changing your own password over HTTP', 
     expect(html).toContain('Change your password')
 
     // Three fields, in this order, and every one of them a password. Nothing about
-    // the person: a name and a number are Roster facts an Admin owns.
+    // the person: a name and a number are Roster facts an Admin owns. The form says
+    // neither; the header's own menu names whoever is signed in, as on every Admin page.
     const fields = [...html.matchAll(/<input[^>]*name="([^"]+)"[^>]*>/g)].map((m) => m[1])
     expect(fields).toEqual(['currentPassword', 'newPassword', 'newPasswordAgain'])
     expect(html.match(/type="password"/g)).toHaveLength(3)
-    expect(html).not.toContain(ministry.adminName)
+    expect(html.slice(html.indexOf('<main'), html.indexOf('</main>'))).not.toContain(ministry.adminName)
     expect(html).not.toContain(ministry.adminPhone)
     expect(html).not.toContain(ministry.adminPhone.replace('+', ''))
   })
@@ -300,11 +301,11 @@ describe.skipIf(skipUnlessAppIsRunning)('changing your own password over HTTP', 
     }
   })
 
-  it('is linked from the Account menu, from the Admin’s own row, and from the relationships a Leader sees', async () => {
+  it('is linked from the Admin’s own menu, from the Admin’s own row, and from the relationships a Leader sees', async () => {
     const { cookie } = await signIn(ministry)
     const { html: roster } = await getPage('/roster', cookie)
 
-    // In the menu the Roster's header carries, since ticket 32.
+    // In the menu the Roster's header carries.
     expect(roster).toContain('href="/account"')
     expect(roster).toContain('Change your password')
 

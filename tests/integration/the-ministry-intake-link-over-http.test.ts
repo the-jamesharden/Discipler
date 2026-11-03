@@ -15,7 +15,7 @@ import { baseUrl, getPage, signIn, signInAs, skipUnlessAppIsRunning } from '../s
 
 /**
  * The Admin's half of the Intake sentence, driven the way an Admin drives it: sign
- * in, open Intake forms from the Account menu, read the links off the page, and
+ * in, open Intake forms from the Admin's own menu, read the links off the page, and
  * then open them the way somebody they were sent to would.
  *
  * Since Pastor feedback ticket 04 the two links are readable -- `/join/<short
@@ -112,7 +112,7 @@ describe.skipIf(skipUnlessAppIsRunning)('the readable links an Admin hands out',
     return shortName(rows[0]!.short_name)
   }
 
-  it('is reached from the Account menu on the screen an Admin is already on', async () => {
+  it('is reached from the Admin’s own menu on the screen an Admin is already on', async () => {
     const { html: roster } = await getPage('/roster', cookie)
     expect(roster).toContain('href="/intake-forms"')
     expect(roster).not.toContain('/join/')

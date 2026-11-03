@@ -6,7 +6,8 @@ import type { MaterialOption, MinistryGroup } from '~/service/ports'
 import { getIntakeFormsReader } from '~/service/container'
 import { groupMaterialField, MATERIAL_FIELD } from '../materials/assigning'
 import { dayMonthYear, NO_MATERIAL } from '../materials/copy'
-import { AccountMenu, NotAnAdmin, PageShell } from '../shell'
+import { NotAnAdmin, PageShell } from '../shell'
+import { AdminNav } from '../top-nav'
 import { GROUP_PATH, INTAKE_PATHS, isOneOf } from '~/domain/intake'
 import { isFormText, isOwnKind, questionOn } from '~/domain/intake-form'
 import { FormEditor } from './form-editor'
@@ -53,7 +54,7 @@ export const dynamic = 'force-dynamic'
  *
  * All of it sat at the foot of the Roster from ticket 27 to ticket 32, below the
  * import. Ticket 32 moved it here so the Roster is a list of people and the things
- * an Admin hands out are in one place, reached from the Account menu on every Admin
+ * an Admin hands out are in one place, reached from the Admin's own menu on every Admin
  * page. Groups and the waiting requests came with the group link because they are
  * about it: a group is on the link once it is named, and a request exists because
  * somebody picked a group on the link that asks first.
@@ -157,7 +158,7 @@ export default async function IntakeFormsPage({
       title={INTAKE_FORMS}
       subtitle={admin.ministryName}
       back={{ href: '/overview', label: 'Back to the overview' }}
-      actions={<AccountMenu ministry />}
+      actions={<AdminNav admin={admin} />}
       wide
     >
       {/* The short name and the two readable links built from it, with their QR

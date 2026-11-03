@@ -3,7 +3,8 @@ import { notFound, redirect } from 'next/navigation'
 import { CHANGE_YOUR_PASSWORD } from '../../account/copy'
 import { ClipboardField } from '../../intake-forms/clipboard-field'
 import { OwnAnswers } from '../../own-answers'
-import { AccountMenu, initialsOf, NotAnAdmin, PageShell } from '../../shell'
+import { initialsOf, NotAnAdmin, PageShell } from '../../shell'
+import { AdminNav } from '../../top-nav'
 import { getRosterReader } from '~/service/container'
 import { personId as asPersonId } from '~/domain/ids'
 import { goalAsShown } from '~/domain/discipleship-goals'
@@ -99,7 +100,7 @@ export default async function PersonPage({
       title={person.fullName}
       subtitle={admin.ministryName}
       back={{ href: '/roster', label: 'Back to the Roster' }}
-      actions={<AccountMenu ministry />}
+      actions={<AdminNav admin={admin} />}
     >
       {query.reinvited ? (
         <p className="toast" role="status">{REINVITED(person.fullName)}</p>

@@ -1,7 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
+import pg from 'pg'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { supabaseAccounts } from '~/platform/supabase/accounts'
-import { readPageDocument } from '~/platform/supabase/page'
+import { readPageDocument, resolutionOf } from '~/platform/supabase/page'
 import {
   addPersonWithAccount,
   createMinistryWithAdmin,
@@ -35,8 +36,44 @@ describe('the signed-in Admin answers in one read', () => {
         ministry_id: riverside.id,
         ministry_name: 'Riverside Chapel',
         person_id: riverside.adminPersonId,
+        full_name: riverside.adminName,
       },
     })
+  })
+
+  it('names nobody for an Admin the Roster holds no row for, rather than failing', async () => {
+    const chapel = await createMinistryWithAdmin('The Chapel With No Row')
+    const session = await signInAs(chapel)
+
+    // Reachable: an Admin membership does not depend on a row on the Roster.
+    const pool = new pg.Pool({ connectionString: localSupabase().databaseUrl })
+    await pool.query('update person set user_id = null where id = $1', [chapel.adminPersonId])
+    await pool.end()
+
+    const doc = await readPageDocument(session, 'signed_in_admin')
+
+    expect(doc.admin).toEqual({
+      ministry_id: chapel.id,
+      ministry_name: 'The Chapel With No Row',
+      person_id: null,
+      full_name: null,
+    })
+    const resolution = resolutionOf(doc)
+    expect(resolution.status === 'admin' && resolution.admin.fullName).toBeNull()
+  })
+
+  it('reads the name the Roster holds now, not one kept anywhere else', async () => {
+    const chapel = await createMinistryWithAdmin('The Renaming Chapel', 'Grace Adeyemi')
+    const session = await signInAs(chapel)
+    const first = resolutionOf(await readPageDocument(session, 'signed_in_admin'))
+    expect(first.status === 'admin' && first.admin.fullName).toBe('Grace Adeyemi')
+
+    const pool = new pg.Pool({ connectionString: localSupabase().databaseUrl })
+    await pool.query('update person set full_name = $2 where id = $1', [chapel.adminPersonId, 'Grace Okafor'])
+    await pool.end()
+
+    const after = resolutionOf(await readPageDocument(session, 'signed_in_admin'))
+    expect(after.status === 'admin' && after.admin.fullName).toBe('Grace Okafor')
   })
 
   it('says a Leader who administers nothing is not an Admin, and names no Ministry', async () => {
@@ -91,6 +128,7 @@ describe('the signed-in Admin answers in one read', () => {
       ministry_id: northgate.id,
       ministry_name: 'Northgate Community Church',
       person_id: northgate.adminPersonId,
+      full_name: northgate.adminName,
     })
     expect(JSON.stringify(doc)).not.toContain(riverside.id)
   })
