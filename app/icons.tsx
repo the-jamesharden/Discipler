@@ -165,6 +165,14 @@ export const Video = () => (
   </Line>
 )
 
+/** A video camera, on the office hours card. */
+export const VideoCamera = () => (
+  <Line>
+    <rect x="2.5" y="6" width="13" height="12" rx="2" />
+    <path d="M15.5 10.5l6-3.5v10l-6-3.5z" />
+  </Line>
+)
+
 /** A pen, on the Blog. */
 export const Pen = () => (
   <Line>

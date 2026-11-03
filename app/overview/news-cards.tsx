@@ -5,7 +5,7 @@ import { newestUndismissed, type WhatsNewEntry } from '~/domain/whats-new'
 import type { SignedInAdmin } from '~/service/ports'
 import { NEXT_OFFICE_HOURS } from '../help/office-hours'
 import { WHATS_NEW } from '../help/whats-new'
-import { Cross, Megaphone, Video } from '../icons'
+import { Cross, Megaphone, VideoCamera } from '../icons'
 import { MEASURE_PARAMETER, SCALE_PARAMETER } from './growth-address'
 import {
   DISMISS,
@@ -59,7 +59,7 @@ export const NewsRow = ({
       {officeHours ? (
         <article className="news-card" id="office-hours">
           <p className="kicker">
-            <Video />
+            <VideoCamera />
             {OFFICE_HOURS_KICKER}
           </p>
           <h2>{`${officeHours.date}, ${officeHours.time}`}</h2>
