@@ -72,16 +72,24 @@ export const createPostgresPendingSignups = (connectionString: string): Postgres
 
   const inTransaction = async <T>(work: (client: pg.PoolClient) => Promise<T>): Promise<T> => {
     const client = await pool.connect()
+    let connectionIsSuspect: Error | undefined
     try {
       await client.query('begin')
       const result = await work(client)
       await client.query('commit')
       return result
     } catch (error) {
-      await client.query('rollback').catch(() => undefined)
+      try {
+        await client.query('rollback')
+      } catch (rollbackError) {
+        // A connection that could not roll back may still hold the transaction and
+        // its locks, so it is destroyed rather than handed to the next borrower.
+        connectionIsSuspect =
+          rollbackError instanceof Error ? rollbackError : new Error(String(rollbackError))
+      }
       throw error
     } finally {
-      client.release()
+      client.release(connectionIsSuspect)
     }
   }
 

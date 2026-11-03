@@ -102,6 +102,9 @@ describe('Billing records and the Stripe webhook', () => {
     told = []
     const alerts: SupportAlerts = {
       async sharedNumbersNearCapacity() {},
+      async twilioBalanceLow() {},
+      async twilioSpendPassed() {},
+      async dailyCapReached() {},
       async billingEventRefused(alert) {
         told.push(alert)
       },

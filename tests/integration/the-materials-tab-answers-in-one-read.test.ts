@@ -141,7 +141,7 @@ describe('the Materials tab answers in one read', () => {
     expect(doc.session).toBe('admin')
     expect(asDocument(doc.admin).ministry_id).toBe(ministry.id)
     expect(Object.keys(doc).sort()).toEqual(
-      ['admin', 'genders', 'history', 'material_periods', 'materials', 'relationships', 'session', 'user_id'],
+      ['admin', 'billing', 'genders', 'history', 'material_periods', 'materials', 'relationships', 'session', 'user_id'],
     )
 
     // The Overview's history, row for row. Its lists are aggregated with no

@@ -2,11 +2,11 @@
  * Characters nobody can see, or that nothing should be sent: every control character,
  * and those that change how text reads without being seen (the direction overrides
  * that turn a sentence round, zero-width spaces, the byte-order mark). `email.ts`
- * holds the same set for a line in an email. The joiners U+200C and U+200D stay,
+ * holds its own set for a line in an email, which takes the joiners out too. Here the joiners U+200C and U+200D stay,
  * because an emoji or a script needs them.
  */
 const NOT_FOR_WORDING =
-  /[\u0000-\u0008\u000E-\u001F\u007F-\u0084\u0086-\u009F­؜​‎‏‪-‮⁠-⁩﻿]/g
+  /[\u0000-\u0008\u000E-\u001F\u007F-\u0084\u0086-\u009F\u00AD\u061C\u200B\u200E\u200F\u202A-\u202E\u2060-\u2069\uFEFF]/g
 
 /** The next-line control, which is a line break and not nothing. */
 const NEXT_LINE = /\u0085/g
