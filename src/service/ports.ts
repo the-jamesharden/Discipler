@@ -123,6 +123,7 @@ import type {
 import type { ParticipationStatus } from '~/domain/participation'
 import type { SuggestionQuestion, Suggestions } from '~/domain/suggestions'
 import type { CardShape, NewRelationship } from '~/domain/relationships'
+import type { DailyCapHold, NewDailyCapHold } from '~/domain/daily-cap'
 import type { Email, EmailEnvelope } from '~/domain/email'
 import type { RatesLineHistory, SettledMessage } from '~/domain/rates-line'
 import type { CareReason, RelationshipState, SettledRelationshipState } from '~/domain/relationship-state'
@@ -1514,6 +1515,8 @@ export interface QueuedMessage {
    * leave nothing to withhold.
    */
   readonly disclosesPersonId: PersonId | null
+  /** What says whether a daily cap's hold kept this text back. See `waitsForTheMorning`. */
+  readonly enqueuedAt: Date
 }
 
 export interface ContactDetails {
@@ -1542,8 +1545,13 @@ export interface OutboundQueue {
    * Ministry: one congregation's slow vendor call must not hold another's replies.
    */
   whileDraining<T>(ministryId: MinistryId, drain: () => Promise<T>): Promise<T>
-  /** Everything enqueued for this Ministry and neither sent nor withheld. */
-  due(ministryId: MinistryId): Promise<readonly QueuedMessage[]>
+  /**
+   * Everything enqueued for this Ministry and neither sent nor withheld, leaving out
+   * a spread check-in whose own moment is still after `at`.
+   */
+  due(ministryId: MinistryId, at: Date): Promise<readonly QueuedMessage[]>
+  /** This Ministry's zone, which is what says when it is morning there. */
+  timeZoneOf(ministryId: MinistryId): Promise<string>
   /**
    * The shared number this Ministry texts `toPhone` from: the one the pair was
    * given, or, the first time, one given now and kept (Exponential launch, ticket
@@ -1612,9 +1620,24 @@ export interface MessageTransport {
    *
    * Throws when the vendor refuses. The row stays neither sent nor withheld, so the
    * next drain picks it up again -- see `dispatchQueue`, which keeps one refusal
-   * from taking the rest of the queue down with it.
+   * from taking the rest of the queue down with it. Throws `DailyCapReached` when
+   * the refusal is the day's limit, which does take the rest of the queue with it.
    */
   deliver(from: string, to: string, body: string): Promise<void>
+}
+
+/**
+ * The record of each Pacific day Twilio's daily limit was reached (Exponential
+ * launch, ticket 07). Across every church, because the limit is the brand's. One
+ * row a day, and it holds no phone and no church.
+ */
+export interface DailyCapHolds {
+  /** The hold most recently reached at or before `at`, standing or long over. */
+  latest(at: Date): Promise<DailyCapHold | null>
+  /** The first reach of a day is the one kept: a later one has nothing to add. */
+  record(hold: NewDailyCapHold): Promise<void>
+  /** support@ has been told about this day. */
+  recordAlerted(day: string, at: Date): Promise<void>
 }
 
 /**
@@ -1659,6 +1682,8 @@ export interface SupportAlerts {
   /** Words only from the fall as it was recorded, so a retry is the same message. */
   twilioBalanceLow(fall: TwilioBalanceFall): Promise<void>
   twilioSpendPassed(alert: TwilioSpendPassed): Promise<void>
+  /** `day` is the Pacific day it was reached in, and what makes the email once a day. */
+  dailyCapReached(alert: { readonly day: string }): Promise<void>
 }
 
 /**

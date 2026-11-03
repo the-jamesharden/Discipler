@@ -71,13 +71,15 @@ interface MinistryOutcome {
   readonly failed: number
   /** Messages left for a shared number to be added, see `DispatchOutcome`. */
   readonly awaitingANumber: number
+  /** Messages left for Twilio's daily limit to reset, see `DispatchOutcome`. */
+  readonly waitingOnTheCap: number
   /** The pairings an import planned, settled on this pass. */
   readonly settled: SettledPairings
   readonly error: string | null
 }
 
 const runOneMinistry = async (ministryId: MinistryId): Promise<MinistryOutcome> => {
-  const nothing = { sent: 0, withheld: 0, held: 0, failed: 0, awaitingANumber: 0, settled: { fulfilled: 0, refused: 0, waiting: 0 } }
+  const nothing = { sent: 0, withheld: 0, held: 0, failed: 0, awaitingANumber: 0, waitingOnTheCap: 0, settled: { fulfilled: 0, refused: 0, waiting: 0 } }
 
   try {
     // The tick first, then the drain, in that order and in the same run: the tick is
@@ -164,6 +166,7 @@ export async function GET(request: NextRequest) {
     held: ran.reduce((total, one) => total + one.held, 0),
     failed: ran.reduce((total, one) => total + one.failed, 0),
     awaitingANumber: ran.reduce((total, one) => total + one.awaitingANumber, 0),
+    waitingOnTheCap: ran.reduce((total, one) => total + one.waitingOnTheCap, 0),
     settled: {
       fulfilled: ran.reduce((total, one) => total + one.settled.fulfilled, 0),
       refused: ran.reduce((total, one) => total + one.settled.refused, 0),

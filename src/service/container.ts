@@ -54,6 +54,10 @@ import { createPostgresSignInLimit, type PostgresSignInLimit } from '~/platform/
 import { createSupabaseRosterReader } from '~/platform/supabase/roster-reader'
 import { createSupabaseSuggestedPairsReader } from '~/platform/supabase/suggested-pairs-reader'
 import {
+  createPostgresDailyCapHolds,
+  type PostgresDailyCapHolds,
+} from '~/platform/supabase/daily-cap-holds'
+import {
   createPostgresSharedNumbers,
   type PostgresSharedNumbers,
 } from '~/platform/supabase/shared-numbers'
@@ -63,6 +67,7 @@ import {
 } from '~/platform/supabase/twilio-balance-falls'
 import type { CapacityConcern } from '~/domain/shared-numbers'
 import { createCommandService, type CommandService } from './command-service'
+import { createDailyCap, type DailyCap } from './daily-cap'
 import { createEmailSender } from './email-sender'
 import { dispatchQueue, type DispatchOutcome } from './outbound-dispatch'
 import { createPhoneCheck, type PhoneCheck } from './phone-check'
@@ -150,6 +155,7 @@ let phoneChecks: PostgresPhoneChecks | undefined
 let phoneCheck: PhoneCheck | undefined
 let sharedNumbers: PostgresSharedNumbers | undefined
 let twilioBalanceFalls: PostgresTwilioBalanceFalls | undefined
+let dailyCapHolds: PostgresDailyCapHolds | undefined
 
 export const getCommandService = (): CommandService => {
   if (!commandService) {
@@ -386,7 +392,18 @@ export const drainOutboundQueue = (ministryId: MinistryId): Promise<DispatchOutc
     transport: getMessageTransport(),
     clock: systemClock,
     ministryId,
+    dailyCap: getDailyCap(),
   })
+
+/**
+ * Twilio's daily limit, as every drain reads it (Exponential launch, ticket 07). On
+ * the trusted connection, as the shared numbers are, because the limit belongs to no
+ * church.
+ */
+const getDailyCap = (): DailyCap => {
+  if (!dailyCapHolds) dailyCapHolds = createPostgresDailyCapHolds(commandDatabaseUrl())
+  return createDailyCap({ holds: dailyCapHolds, alerts: getSupportAlerts() })
+}
 
 /**
  * The set of shared numbers, read across every church for the capacity
@@ -479,6 +496,7 @@ export const closeCommandService = async (): Promise<void> => {
   const checks = phoneChecks
   const shared = sharedNumbers
   const balanceFalls = twilioBalanceFalls
+  const capHolds = dailyCapHolds
   const limit = signInLimit
   commandService = undefined
   commandStore = undefined
@@ -491,6 +509,7 @@ export const closeCommandService = async (): Promise<void> => {
   phoneCheck = undefined
   sharedNumbers = undefined
   twilioBalanceFalls = undefined
+  dailyCapHolds = undefined
   signInLimit = undefined
   // The transport holds no pool -- it is `fetch` and a pair of credentials -- so
   // there is nothing of its to close, only the reference to drop.
@@ -505,6 +524,7 @@ export const closeCommandService = async (): Promise<void> => {
   await checks?.close()
   await shared?.close()
   await balanceFalls?.close()
+  await capHolds?.close()
   await limit?.close()
 }
 

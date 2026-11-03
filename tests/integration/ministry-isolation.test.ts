@@ -187,6 +187,7 @@ describe('the write side', () => {
             body: 'Northgate Community Church: hello.',
             enqueuedAt: at,
             scheduledFor: null,
+            notBefore: null,
             disclosesPersonId: null,
             kind: 'no_reply',
             carriesRatesLine: false,

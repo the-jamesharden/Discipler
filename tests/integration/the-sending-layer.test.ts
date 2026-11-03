@@ -8,6 +8,7 @@ import { createPostgresOutboundQueue } from '~/platform/supabase/outbound-queue'
 import { createCommandService } from '~/service/command-service'
 import { dispatchQueue } from '~/service/outbound-dispatch'
 import type { MessageTransport } from '~/service/ports'
+import { noDailyCap } from '../support/daily-cap'
 import {
   addPerson,
   createMinistryWithAdmin,
@@ -86,7 +87,7 @@ describe('The sending layer checks every recipient', () => {
     return rows[0].id as string
   }
 
-  const run = () => dispatchQueue({ queue, transport, clock, ministryId: ministry.id })
+  const run = () => dispatchQueue({ queue, transport, clock, ministryId: ministry.id, dailyCap: noDailyCap })
 
   const stateOf = async (personId: string) => {
     const { rows } = await pool.query(
@@ -140,7 +141,7 @@ describe('The sending layer checks every recipient', () => {
     expect(after[0].withheld_at).toBeNull()
 
     // And the queue does not hand another Ministry's message out to be drained.
-    const due = await queue.due(ministry.id)
+    const due = await queue.due(ministry.id, clock.now())
     expect(due.map((queued) => queued.id)).not.toContain(message)
   })
 
@@ -199,7 +200,7 @@ describe('The sending layer checks every recipient', () => {
       },
     }
     const drain = () =>
-      dispatchQueue({ queue, transport: slow, clock, ministryId: ministry.id })
+      dispatchQueue({ queue, transport: slow, clock, ministryId: ministry.id, dailyCap: noDailyCap })
 
     // The second drain starts while the first is at the vendor, which is the
     // interleaving the row lock cannot see: the claim has committed and the send
@@ -311,6 +312,7 @@ describe('The sending layer checks every recipient', () => {
       transport: failing,
       clock,
       ministryId: ministry.id,
+      dailyCap: noDailyCap,
     })
 
     // The reachable Person still hears from their church. One mistyped number must

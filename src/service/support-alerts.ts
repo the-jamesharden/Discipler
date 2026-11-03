@@ -64,4 +64,19 @@ Nothing has been stopped, and texts keep going. Look at usage in Twilio's consol
       once,
     })
   },
+
+  // Nothing in it but the day, so a retry is the same email and the vendor's
+  // idempotency key can drop it.
+  async dailyCapReached({ day }) {
+    await sender.send({
+      kind: 'dailyCapReached',
+      subject: emailSubject`Twilio's daily text limit was reached`,
+      body: emailBody`Twilio answered a text with error 30023 on ${EmailField.line(day)}, Pacific time: Discipler's brand has reached its daily limit.
+
+Discipler has stopped sending for every church. Nothing is lost: every text stays on the queue. Sending starts again after midnight Pacific, and what was held goes out once it is morning at each church.
+
+This email is sent once a day. If it keeps coming, the registration needs a higher limit.`,
+      once: `daily-cap:${day}`,
+    })
+  },
 })

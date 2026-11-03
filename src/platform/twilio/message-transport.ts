@@ -1,3 +1,4 @@
+import { DailyCapReached } from '~/domain/daily-cap'
 import type { MessageTransport } from '~/service/ports'
 import { twilioCredentials, type TwilioCredentials } from './credentials'
 
@@ -14,6 +15,9 @@ import { twilioCredentials, type TwilioCredentials } from './credentials'
  * checked in `dispatchQueue` and again by the database, deliberately above the
  * vendor, so no future transport can be written that forgets to ask.
  */
+
+/** Twilio's "US A2P 10DLC - Daily Message Cap Reached". */
+const DAILY_CAP_REACHED = 30023
 
 /** Where the vendor's own refusals arrive, so a caller can tell them apart. */
 export class MessageNotDelivered extends Error {
@@ -68,7 +72,19 @@ export const createTwilioTransport = (
       },
     )
 
-    if (response.ok) return
+    if (response.ok) {
+      // Taken, but a message resource can come back already carrying its error. Read
+      // defensively, for the reason below: nothing about this body is what makes
+      // the send a success.
+      const accepted = await response
+        .json()
+        .then((payload: unknown) => (payload ?? {}) as { error_code?: unknown })
+        .catch(() => ({}) as { error_code?: unknown })
+      if (Number(accepted.error_code) === DAILY_CAP_REACHED) {
+        throw new DailyCapReached(`Twilio took the message with error ${DAILY_CAP_REACHED}`)
+      }
+      return
+    }
 
     // The vendor's own words where it sent any, because "sending failed" with the
     // reason thrown away is the message that costs somebody an afternoon. The body
@@ -79,6 +95,12 @@ export const createTwilioTransport = (
       .json()
       .then((payload: unknown) => (payload ?? {}) as { message?: unknown; code?: unknown })
       .catch(() => ({}) as { message?: unknown; code?: unknown })
+
+    if (detail.code === DAILY_CAP_REACHED) {
+      throw new DailyCapReached(
+        typeof detail.message === 'string' ? detail.message : 'Twilio daily cap reached',
+      )
+    }
 
     throw new MessageNotDelivered(
       response.status,

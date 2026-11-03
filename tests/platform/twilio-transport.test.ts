@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { DailyCapReached } from '~/domain/daily-cap'
 import {
   createTwilioTransport,
   MessageNotDelivered,
@@ -25,6 +26,30 @@ const respondWith = (status: number, payload: unknown = {}) =>
 afterEach(() => vi.restoreAllMocks())
 
 describe('handing a message to the delivery vendor', () => {
+  it('names the daily cap apart from every other refusal', async () => {
+    respondWith(400, { code: 30023, message: 'Daily message cap reached' })
+
+    await expect(
+      transport.deliver('+15550000001', '+15551230000', 'anything'),
+    ).rejects.toBeInstanceOf(DailyCapReached)
+  })
+
+  it('names the daily cap on a message Twilio made and marked with it', async () => {
+    respondWith(201, { sid: 'SM123', status: 'failed', error_code: 30023 })
+
+    await expect(
+      transport.deliver('+15550000001', '+15551230000', 'anything'),
+    ).rejects.toBeInstanceOf(DailyCapReached)
+  })
+
+  it('takes any other error code on an accepted message as accepted, as it always has', async () => {
+    respondWith(201, { sid: 'SM123', status: 'queued', error_code: null })
+
+    await expect(
+      transport.deliver('+15550000001', '+15551230000', 'anything'),
+    ).resolves.toBeUndefined()
+  })
+
   it('posts the Ministry’s own number as the sender', async () => {
     const fetched = respondWith(201, { sid: 'SM123' })
 
