@@ -78,6 +78,12 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person completing Intake from a link'
       { redirect: 'manual' },
     ).then((r) => r.text())
     expect(last).toContain('name="smsConsent"')
+    expect(last).toContain(
+      'See our <a href="https://trydiscipler.com/privacy/" target="_blank" rel="noopener noreferrer">Privacy Policy</a>',
+    )
+    expect(last).toContain(
+      'and <a href="https://trydiscipler.com/terms/" target="_blank" rel="noopener noreferrer">Terms of Service</a>.',
+    )
     expect(last).toContain('value="declined"')
   })
 
@@ -109,12 +115,14 @@ describe.skipIf(skipUnlessAppIsRunning)('a Person completing Intake from a link'
     expect(rows[0].status).toBe('paired')
 
     const { rows: consents } = await pool.query(
-      `select c.source from consent_record c join person p on p.id = c.person_id
+      `select c.source, c.version from consent_record c join person p on p.id = c.person_id
         where c.ministry_id = $1 and p.full_name = 'Hannah Reeves'`,
       [ministry.id],
     )
     // A QR code at a leaders' meeting is the other route, and the record says so.
     expect(consents.every((row) => row.source === 'qr_code')).toBe(true)
+    // The wording they were shown, on both decisions.
+    expect(consents.map((row) => row.version)).toEqual(['2026-11-v1', '2026-11-v1'])
   })
 
   it('sends an incomplete form back to the page with codes, never with what was typed', async () => {

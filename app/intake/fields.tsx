@@ -1,3 +1,4 @@
+import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '~/domain/consent'
 import {
   AGE_BANDS,
   DECLARED_SIDES,
@@ -740,6 +741,17 @@ export const AskedQuestion = ({
 }
 
 /**
+ * A link inside the SMS agreement. A new tab, so reading it does not cost somebody a
+ * half-filled form. Pressing it leaves the box as it was with no script: a label
+ * does not pass a press on to its control when the press lands on a link inside it.
+ */
+const AgreementLink = ({ href, children }: { readonly href: string; readonly children: string }) => (
+  <a href={href} target="_blank" rel="noopener noreferrer">
+    {children}
+  </a>
+)
+
+/**
  * Both consents, and always on the screen with the Submit button. The checkbox that
  * grants consent belongs on the same screen as the write it authorises.
  *
@@ -770,7 +782,8 @@ export const Agreements = ({
         I agree to receive text messages from {ministryName} through Discipler about
         my discipleship relationship, including a weekly check-in. Message frequency
         varies. Message and data rates may apply. Reply STOP to opt out or HELP for
-        help.
+        help. See our <AgreementLink href={PRIVACY_POLICY_URL}>Privacy Policy</AgreementLink>{' '}
+        and <AgreementLink href={TERMS_OF_SERVICE_URL}>Terms of Service</AgreementLink>.
       </span>
     </label>
 

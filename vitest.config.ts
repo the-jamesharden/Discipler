@@ -2,6 +2,8 @@ import { defineConfig } from 'vitest/config'
 import { fileURLToPath } from 'node:url'
 
 export default defineConfig({
+  // The runtime Next compiles JSX for, so a test can render a component as the app does.
+  esbuild: { jsx: 'automatic' },
   resolve: {
     alias: { '~': fileURLToPath(new URL('./src', import.meta.url)) },
   },
