@@ -2,12 +2,12 @@ import { Centred } from '../../shell'
 import { CODE_PAGE, CREATE_AN_ACCOUNT, signUpRefusalMessage } from '../copy'
 import { carriedFrom } from '../flow'
 import { SignUpProgress, type SearchParams } from '../parts'
-import { standingOnPage } from '../standing'
+import { standingOnPage, titleWhileOpen } from '../standing'
 import { CodeForm } from './form'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata = { title: CODE_PAGE.title }
+export const generateMetadata = titleWhileOpen(CODE_PAGE.title)
 
 /** What the page says on arriving, about a code that can no longer work. */
 const STANDING_REFUSAL = {

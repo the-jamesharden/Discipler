@@ -33,7 +33,14 @@ describe.skipIf(skipUnlessAppIsRunning)('sign-up on a built server with the swit
 
       expect(response.status).toBe(404)
       expect(response.headers.getSetCookie().filter((cookie) => cookie.includes('signup'))).toEqual([])
-      for (const giveaway of ['Create an account', 'Start your free trial', 'challenges.cloudflare.com', 'Email me a code']) {
+      for (const giveaway of [
+        'Create an account',
+        'Start your free trial',
+        'Check your email',
+        'Set up your account',
+        'challenges.cloudflare.com',
+        'Email me a code',
+      ]) {
         expect(html).not.toContain(giveaway)
       }
     },

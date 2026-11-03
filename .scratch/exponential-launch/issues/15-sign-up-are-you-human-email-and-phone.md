@@ -67,6 +67,7 @@ It stays off on production until James says the privacy policy and terms are liv
   `consent_record` belongs to a Person in a Ministry, and neither exists on page two, so the spec's sentence cannot be built as written without a new table.
   Nothing is texted before the church opens, so no text goes out without the record, and this ticket stands. The spec's sentence should be reworded when this ticket is merged.
   Ticket 17 should decide whether the record's time is the opening or the press of "Email me a code", because the row keeps only the latest send.
+- **The tab's title exists only while sign-up is open.** A fixed `metadata` put "Start your free trial" in the head of the shut 404, which the over-HTTP test caught.
 - **Carried names:** `code`, as the mock-up's `/signup?code=EXPO26` draws it, and `ref` for what `/r/<code>` redirects with, which no document names; ticket 20 may rename it in `app/signup/flow.ts`.
   A value is carried only if it could be a code (`[A-Za-z0-9_-]`, up to 64 characters), so nothing a stranger puts in a link is repeated back. The alternative was carrying any value and leaving it to ticket 20.
 - **Going through page one again** is `/signup?again=1`, because page one otherwise sends somebody with an attempt on to the page they stand on.

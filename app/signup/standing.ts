@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
 import { notFound, redirect } from 'next/navigation'
 import type { SignUpStanding } from '~/domain/sign-up-attempt'
@@ -16,6 +17,13 @@ import { signUpHref, type SignUpStep } from './flow'
 export const holdWhileSignUpIsShut = (): void => {
   if (!signUpIsOpen(process.env)) notFound()
 }
+
+/**
+ * A page's `generateMetadata`. The title goes in the head of whatever is rendered, the
+ * 404 included, so a fixed `metadata` would tell anybody that sign-up exists.
+ */
+export const titleWhileOpen = (title: string) => (): Metadata =>
+  signUpIsOpen(process.env) ? { title } : {}
 
 /**
  * The attempt's standing, if this is the page it belongs on, and otherwise a redirect

@@ -4,11 +4,11 @@ import { CREATE_AN_ACCOUNT, EMAIL_PAGE, signUpRefusalMessage } from './copy'
 import { carriedFrom, signUpHref } from './flow'
 import { HumanCheck } from './human-check'
 import { AlreadyHaveAnAccount, type SearchParams } from './parts'
-import { holdWhileSignUpIsShut, standingOnPage } from './standing'
+import { holdWhileSignUpIsShut, standingOnPage, titleWhileOpen } from './standing'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata = { title: EMAIL_PAGE.title }
+export const generateMetadata = titleWhileOpen(EMAIL_PAGE.title)
 
 /**
  * Sign-up's first page, at the address the booth's QR code and the marketing site

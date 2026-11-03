@@ -2,12 +2,12 @@ import { Centred } from '../../shell'
 import { CREATE_AN_ACCOUNT, EMAIL_PAGE } from '../copy'
 import { carriedFrom } from '../flow'
 import { AlreadyHaveAnAccount, SignUpProgress, type SearchParams } from '../parts'
-import { standingOnPage } from '../standing'
+import { standingOnPage, titleWhileOpen } from '../standing'
 import { EmailAndPhoneForm } from './form'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata = { title: EMAIL_PAGE.title }
+export const generateMetadata = titleWhileOpen(EMAIL_PAGE.title)
 
 /**
  * Sign-up's second page: one form, an email and a mobile phone (Exponential launch,

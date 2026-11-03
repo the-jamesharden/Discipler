@@ -2,11 +2,11 @@ import { Centred } from '../../shell'
 import { CREATE_AN_ACCOUNT, STOPPING_POINT } from '../copy'
 import { carriedFrom } from '../flow'
 import { SignUpProgress, type SearchParams } from '../parts'
-import { standingOnPage } from '../standing'
+import { standingOnPage, titleWhileOpen } from '../standing'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata = { title: STOPPING_POINT.title }
+export const generateMetadata = titleWhileOpen(STOPPING_POINT.title)
 
 /**
  * Where sign-up stops until ticket 17 replaces this page with "Set up your account"

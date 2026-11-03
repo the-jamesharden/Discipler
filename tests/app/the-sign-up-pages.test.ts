@@ -8,11 +8,11 @@ import { HUMAN_PASS_LIFETIME_MINUTES } from '~/domain/sign-up-attempt'
 import type { SignUp } from '~/service/sign-up'
 import { createInMemoryPendingSignups } from '../support/pending-signups-in-memory'
 import { aNetworkAddress, anAddress, buildHarness, codeIn, notThe } from '../support/sign-up-scenarios'
-import AccountPage from '../../app/signup/account/page'
-import CodePage from '../../app/signup/code/page'
+import AccountPage, { generateMetadata as accountTitle } from '../../app/signup/account/page'
+import CodePage, { generateMetadata as codeTitle } from '../../app/signup/code/page'
 import { CREATE_AN_ACCOUNT, TEXTING_FINE_PRINT } from '../../app/signup/copy'
-import EmailPage from '../../app/signup/email/page'
-import HumanCheckPage from '../../app/signup/page'
+import EmailPage, { generateMetadata as emailTitle } from '../../app/signup/email/page'
+import HumanCheckPage, { generateMetadata as humanCheckTitle } from '../../app/signup/page'
 
 /**
  * Sign-up's pages (Exponential launch, tickets 15 and 16), rendered as the server
@@ -126,6 +126,25 @@ describe('while sign-up is shut', () => {
 
     for (const [, page] of PAGES) expect(await open(page)).toEqual({ notFound: true })
     expect(await open(HumanCheckPage, { again: '1' })).toEqual({ notFound: true })
+  })
+})
+
+describe('the title in the head', () => {
+  const titles = [humanCheckTitle, emailTitle, codeTitle, accountTitle]
+
+  it('says nothing while sign-up is shut, because the 404 wears it too', () => {
+    vi.stubEnv('SIGN_UP_OPEN', '')
+
+    for (const title of titles) expect(title()).toEqual({})
+  })
+
+  it('is the mock-up’s while it is open', () => {
+    expect(titles.map((title) => title().title)).toEqual([
+      'Start your free trial',
+      'Start your free trial',
+      'Check your email',
+      'Set up your account',
+    ])
   })
 })
 
