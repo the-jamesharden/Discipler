@@ -10,29 +10,6 @@ const TURNSTILE_SCRIPT = 'https://challenges.cloudflare.com/turnstile/v0/api.js?
 /** How wide Turnstile's normal widget is. Narrower than this it has to be the compact one. */
 const FULL_WIDGET_WIDTH = 300
 
-interface Turnstile {
-  render(
-    host: HTMLElement,
-    options: {
-      readonly sitekey: string
-      readonly action: string
-      readonly theme: 'light'
-      readonly size: 'normal' | 'compact'
-      readonly retry: 'never'
-      readonly callback: (token: string) => void
-      readonly 'error-callback': () => boolean
-      readonly 'timeout-callback': () => void
-      readonly 'unsupported-callback': () => void
-    },
-  ): string | undefined
-}
-
-declare global {
-  interface Window {
-    turnstile?: Turnstile
-  }
-}
-
 /**
  * Page one's whole job (Exponential launch, ticket 15): Cloudflare Turnstile, which
  * passes by itself when it can, and the page goes on by itself when it has.

@@ -13,27 +13,6 @@ import { useEffect, useRef } from 'react'
  * unless it needs somebody to press something.
  */
 
-interface Turnstile {
-  render(
-    container: HTMLElement,
-    options: {
-      readonly sitekey: string
-      readonly action: string
-      readonly appearance: 'interaction-only'
-      readonly callback: (token: string) => void
-      readonly 'expired-callback': () => void
-      readonly 'error-callback': () => void
-    },
-  ): string
-  remove(widget: string): void
-}
-
-declare global {
-  interface Window {
-    turnstile?: Turnstile
-  }
-}
-
 const SCRIPT = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
 
 let loading: Promise<void> | undefined

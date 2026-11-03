@@ -16,10 +16,10 @@ const labels = (groups: readonly HelpMenuGroup[]) =>
   groups.map((group) => ({ label: group.label, items: group.items.map((item) => item.label) }))
 
 /** The page a path inside the app is served from. */
+// A page of its own, or a page of the Help center's library behind `/help/[slug]`.
 const hasAPage = (href: string) =>
-  href.startsWith('/help/')
-    ? helpPage(href.slice('/help/'.length)) !== null
-    : existsSync(fileURLToPath(new URL(`../../app${href}/page.tsx`, import.meta.url)))
+  existsSync(fileURLToPath(new URL(`../../app${href}/page.tsx`, import.meta.url))) ||
+  (href.startsWith('/help/') && helpPage(href.slice('/help/'.length)) !== null)
 
 describe('the Help menu', () => {
   it('holds the spec’s items, in the spec’s order, and Ask Discipler is not one of them', () => {

@@ -96,6 +96,7 @@ describe('The texting gate', { timeout: 60_000 }, () => {
       createdAt: at,
       priceId: 'price_97',
       latestInvoiceId: `in_${unique}`,
+      awaitingPaymentMethod: false,
       trialEndsAt: null,
       currentPeriodEndsAt: new Date(at.getTime() + weeks(4)),
       cancelsAt: null,

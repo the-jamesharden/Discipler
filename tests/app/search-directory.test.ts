@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs'
+import { helpPage } from '../../app/help/library'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { HEADINGS } from '../../app/search/copy'
@@ -97,7 +98,10 @@ describe('a page that does not exist yet', () => {
 
   it('never appears as a dead row: every address listed is a route the app has', () => {
     const app = fileURLToPath(new URL('../../app', import.meta.url))
-    const served = (path: string) => existsSync(`${app}${path}/page.tsx`)
+    // A page of its own, or a page of the Help center's library behind `/help/[slug]`.
+    const served = (path: string) =>
+      existsSync(`${app}${path}/page.tsx`) ||
+      (path.startsWith('/help/') && helpPage(path.slice('/help/'.length)) !== null)
 
     for (const page of DIRECTORY_PAGES) {
       if (page.href === null || page.newTab) continue

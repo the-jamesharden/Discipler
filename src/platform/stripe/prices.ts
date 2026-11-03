@@ -6,7 +6,7 @@ import { startingPrice } from '~/domain/offers'
  * how the code names a price in whichever Stripe account it is running against, so
  * there is no ID to configure and staging's differ from production's by themselves.
  */
-export const FIRST_PRICE_LOOKUP_KEYS: readonly string[] = [
+export const FIRST_PRICE_LOOKUP_KEYS: readonly [string, string] = [
   startingPrice('month').lookupKey,
   startingPrice('year').lookupKey,
 ]
