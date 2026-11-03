@@ -20,9 +20,10 @@ import {
 
 /**
  * Check-ins spread across their hour (Exponential launch, ticket 07), which is **off
- * in the product** while `/cron/tick` runs hourly. This suite is what says switching
- * it on is all that remains: it runs the real tick and the real queue as if the send
- * pass ran every five minutes, by the one thing a flip would change.
+ * in the product** while `/cron/tick` runs hourly. It stays off until "Open: spreading
+ * check-ins needs more than a faster send pass" in `docs/open-questions.md` is settled.
+ * This suite runs the real tick and the real queue as if the send pass ran every five
+ * minutes, so it says the spacing works and not that spreading is safe to switch on.
  */
 vi.mock('~/domain/daily-cap', async (importOriginal) => {
   const actual = await importOriginal<typeof import('~/domain/daily-cap')>()

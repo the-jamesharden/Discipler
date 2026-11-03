@@ -69,8 +69,9 @@ export const waitsForTheMorning = (
  * this to.
  *
  * **Spreading is off while this is 60.** A text only leaves on a pass, so a check-in
- * given 10:40 by a tick that runs at 10:00 and 11:00 would go an hour late. To switch
- * spreading on, change the cron and this constant in one commit, and nothing else.
+ * given 10:40 by a tick that runs at 10:00 and 11:00 would go an hour late. Spreading
+ * stays off until "Open: spreading check-ins needs more than a faster send pass" in
+ * `docs/open-questions.md` is settled.
  */
 export const SEND_PASS_EVERY_MINUTES: number = 60
 

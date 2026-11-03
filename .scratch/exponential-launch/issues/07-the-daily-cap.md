@@ -65,7 +65,8 @@ The earlier claim that a spread check-in only passes 10pm on a late pass was wro
   `checkInNotBefore` returns null then, so every row's `not_before` is null and today's sends are unchanged.
   It is a constant and not an environment variable, because the cron it describes is a file in the same repository and can then only change with it.
   `tests/domain/the-daily-cap.test.ts` holds the constant to `vercel.json`, so a not-before can never be stamped on a pass that cannot honour it.
-  `tests/integration/spreading-check-ins.test.ts` runs the real tick and queue as if the constant were 5, and is what says nothing else is needed.
+  `tests/integration/spreading-check-ins.test.ts` runs the real tick and queue as if the constant were 5, so it says the spacing works and not that spreading is safe to switch on.
+  Spreading stays off until "Open: spreading check-ins needs more than a faster send pass" in `docs/open-questions.md` is settled.
 - A spread check-in is spaced from the pass that made it, not from the top of the church's hour, so a late pass stays evenly spread and may run past the hour.
 - A hold stops every text to every carrier, as the spec says, though Twilio's page says this limit is about T-Mobile.
   Texts to other carriers wait for a limit they had not reached, which costs a few hours and loses nothing.

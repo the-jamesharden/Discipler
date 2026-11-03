@@ -593,6 +593,11 @@ Three problems were found when it was tried:
 - A Pause or an ending in that gap withholds nothing, so the question about a finished pairing still goes out.
 - A church with a 9pm check-in hour can send at 10pm or later, even on an on-time pass, for example the last of 13 Leaders, and up to about 40 minutes past it if the tick opens late.
 
+A daily cap hold reaches the same gap for longer: a check-in held overnight has its conversation open with its text unsent, so a reply, a Pause or an ending that evening has the same problems.
+Rows waiting for a shared number have them too.
+A hold is rare today, since it needs Twilio to answer 30023 at the POST and volume near the cap.
+The eventual fix should cover all of these.
+
 What needs deciding: whether to open the question when its text is sent, or make replies, Pause and endings aware of an unsent question, and how to keep the moments inside quiet hours, before spreading is switched on.
 
 ## Open: how Twilio reports error 30023
