@@ -39,4 +39,6 @@ export const OPERATOR_ONLY_TABLES: readonly string[] = [
   'pending_signup_send',
   // The Stripe webhook's inbox (Exponential launch, ticket 03).
   'stripe_event',
+  // The support form, from somebody not signed in as an Admin (Exponential launch, ticket 25).
+  'signed_out_support_submission',
 ]

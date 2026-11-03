@@ -71,6 +71,10 @@ import {
   createPostgresTwilioBalanceFalls,
   type PostgresTwilioBalanceFalls,
 } from '~/platform/supabase/twilio-balance-falls'
+import {
+  createPostgresSupportSubmissions,
+  type PostgresSupportSubmissions,
+} from '~/platform/supabase/support-submissions'
 import type { CapacityConcern } from '~/domain/shared-numbers'
 import { createStripeBilling } from '~/platform/stripe/billing'
 import { createPostgresBilling, type PostgresBilling } from '~/platform/supabase/billing'
@@ -88,6 +92,7 @@ import {
   type StripeEventWork,
 } from './stripe-events'
 import { createEmailSupportAlerts } from './support-alerts'
+import { createSupportForm, type SupportForm, type SupportSweep } from './support-form'
 import { watchTwilioBalance, type TwilioBalanceWatchOutcome } from './twilio-balance-watch'
 import type {
   Accounts,
@@ -168,6 +173,8 @@ let outboundQueue: PostgresOutboundQueue | undefined
 let ministryDirectory: PostgresMinistryDirectory | undefined
 let messageTransport: MessageTransport | undefined
 let emailSender: EmailSender | undefined
+let supportSubmissions: PostgresSupportSubmissions | undefined
+let supportForm: SupportForm | undefined
 let phoneChecks: PostgresPhoneChecks | undefined
 let phoneCheck: PhoneCheck | undefined
 let sharedNumbers: PostgresSharedNumbers | undefined
@@ -418,6 +425,27 @@ export const getSignUp = (): SignUp => {
 }
 
 /**
+ * The Help menu's form (Exponential launch, ticket 25). The store is on the trusted
+ * connection, and drops into `discipler_command` for a church's own write, because
+ * somebody signed out has no session to write with. Turnstile's secret is read per use.
+ */
+export const getSupportForm = (): SupportForm => {
+  if (!supportForm) {
+    supportSubmissions = createPostgresSupportSubmissions(commandDatabaseUrl())
+    supportForm = createSupportForm({
+      submissions: supportSubmissions,
+      humanCheck: createTurnstile(),
+      sender: getEmailSender(),
+      clock: systemClock,
+    })
+  }
+  return supportForm
+}
+
+/** The tick's pass over the form's two tables. It throws when the database does, and the tick catches it. */
+export const sweepTheSupportSubmissions = (): Promise<SupportSweep> => getSupportForm().sweep()
+
+/**
  * One drain of one Ministry's queue, assembled from the parts above so that its
  * callers cannot assemble it differently. The scheduler drains after its tick, and
  * every request whose command queued a message drains after its response, the
@@ -567,6 +595,7 @@ export const closeCommandService = async (): Promise<void> => {
   const limit = signInLimit
   const signUps = pendingSignups
   const billed = postgresBilling
+  const submissions = supportSubmissions
   commandService = undefined
   commandStore = undefined
   intakeReader = undefined
@@ -583,6 +612,8 @@ export const closeCommandService = async (): Promise<void> => {
   pendingSignups = undefined
   signUp = undefined
   postgresBilling = undefined
+  supportSubmissions = undefined
+  supportForm = undefined
   // The transport holds no pool -- it is `fetch` and a pair of credentials -- so
   // there is nothing of its to close, only the reference to drop.
   messageTransport = undefined
@@ -600,6 +631,7 @@ export const closeCommandService = async (): Promise<void> => {
   await limit?.close()
   await signUps?.close()
   await billed?.close()
+  await submissions?.close()
 }
 
 export const getRosterReader = (): RosterReader => createSupabaseRosterReader(systemClock)

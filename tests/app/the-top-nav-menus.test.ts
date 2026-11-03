@@ -29,8 +29,10 @@ describe('the Help menu', () => {
     ])
   })
 
-  it('shows only what works today: the Help center', () => {
-    expect(labels(liveMenu(HELP_MENU))).toEqual([{ label: 'Help and feedback', items: ['Help center'] }])
+  it('shows only what works today: the Help center and Contact support', () => {
+    expect(labels(liveMenu(HELP_MENU))).toEqual([
+      { label: 'Help and feedback', items: ['Help center', 'Contact support'] },
+    ])
   })
 
   it('sends every item it shows to a page that exists', () => {
@@ -49,7 +51,7 @@ describe('the Help menu', () => {
     }))
 
     expect(labels(liveMenu(landed))).toEqual([
-      { label: 'Help and feedback', items: ['Help center'] },
+      { label: 'Help and feedback', items: ['Help center', 'Contact support'] },
       { label: 'Learn', items: ['Blog'] },
     ])
   })

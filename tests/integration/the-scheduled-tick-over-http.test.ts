@@ -170,12 +170,29 @@ describe.skipIf(skipUnlessAppIsRunning)('the scheduled tick, as the scheduler ru
       },
     })
 
+    // One submission to the support form past what the privacy policy promises to
+    // keep, and one short of it (Exponential launch, ticket 25). Both marked as sent, so
+    // this says nothing about the mail vendor a local server does not have.
+    const submitted = async (monthsAgo: number) =>
+      (
+        await pool.query<{ id: string }>(
+          `insert into support_submission
+             (ministry_id, submitted_by, kind, message, reply_to, submitted_at, emailed_at)
+           values ($1, $2, 'support', 'Help.', 'a@example.org', now() - make_interval(months => $3), now())
+           returning id`,
+          [opened.id, opened.adminUserId, monthsAgo],
+        )
+      ).rows[0]!.id
+    const pastItsYear = await submitted(13)
+    const inItsYear = await submitted(11)
+
     const { status, body } = await tick(`Bearer ${secret}`)
     const outcome = JSON.parse(body) as {
       awaitingANumber: number
       capacity: readonly string[] | 'failed'
       twilioBalance: string
       stripeEvents: { failed: number } | 'failed'
+      supportSubmissions: { deleted: number } | 'failed'
       errors: { ministryId: string; error: string }[]
     }
 
@@ -190,6 +207,13 @@ describe.skipIf(skipUnlessAppIsRunning)('the scheduled tick, as the scheduler ru
     expect(outcome.twilioBalance).toBe('failed')
     // So did the sweep of the Stripe events (Exponential launch, ticket 03).
     expect(outcome.stripeEvents).not.toBe('failed')
+    // And the support form's submissions: the old one is gone and the young one is not.
+    expect(outcome.supportSubmissions).not.toBe('failed')
+    const { rows: kept } = await pool.query<{ id: string }>(
+      `select id from support_submission where id = any($1::uuid[])`,
+      [[pastItsYear, inItsYear]],
+    )
+    expect(kept.map((row) => row.id)).toEqual([inItsYear])
 
     // The Welcome went to a number from the shared set, given to this pair on its
     // first text and kept. Whether Twilio then took it is the transport's business,

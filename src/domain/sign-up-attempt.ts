@@ -50,6 +50,8 @@ export const PENDING_SIGNUP_KEPT_HOURS = 24
 export const HUMAN_CHECK_ACTIONS = {
   startSignUp: 'signup_start',
   openChurch: 'signup_open',
+  /** The support form, for somebody who is not signed in (ticket 25). */
+  contactSupport: 'support_contact',
 } as const
 
 export type HumanCheckAction = (typeof HUMAN_CHECK_ACTIONS)[keyof typeof HUMAN_CHECK_ACTIONS]

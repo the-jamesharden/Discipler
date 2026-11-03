@@ -75,6 +75,16 @@ export const EMAIL_CODE = {
   perNetworkPerHour: 30,
 } as const
 
+/** The Help menu's contact, bug and feature form (ticket 25). */
+export const SUPPORT_SUBMISSIONS = {
+  /** A submission is deleted this long after it came in (the privacy policy promises it). */
+  keptMonths: 12,
+  /** What one signed-in Admin may send in an hour. */
+  perAdminPerHour: 5,
+  /** What one network may send signed out in an hour. A conference's wifi is one network. */
+  perNetworkPerHour: 10,
+} as const
+
 /** How long the emailed "Forgot password?" link works (ticket 22). */
 export const PASSWORD_RESET_LINK_MINUTES = 30
 

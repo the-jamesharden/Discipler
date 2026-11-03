@@ -116,7 +116,11 @@ describe.skipIf(skipUnlessAppIsRunning)('the top nav', () => {
     const { html, response } = await getPage('/overview', cookie)
     expect(response.status).toBe(200)
 
-    expect(wordsIn(topMenu(html, 'Help and feedback'))).toEqual(['Help and feedback', 'Help center'])
+    expect(wordsIn(topMenu(html, 'Help and feedback'))).toEqual([
+      'Help and feedback',
+      'Help center',
+      'Contact support',
+    ])
     expect(topMenu(html, 'Help and feedback')).toContain('href="/help"')
     expect((await getPage('/help', '')).response.status).toBe(200)
 
@@ -126,7 +130,6 @@ describe.skipIf(skipUnlessAppIsRunning)('the top nav', () => {
       'Restart onboarding',
       'What&#x27;s new',
       'Office hours',
-      'Contact support',
       'Setup videos',
       'Blog',
       'Refer a church',

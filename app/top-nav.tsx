@@ -19,6 +19,7 @@ import {
   Restart,
   Video,
 } from './icons'
+import { FromThisPageLink } from './help/contact/from-this-page-link'
 import { initialsOf } from './initials'
 import { INTAKE_FORMS } from './intake-forms/copy'
 import { TopNavMenusClose } from './top-nav-menus-close'
@@ -70,6 +71,11 @@ const HelpMenu = () => (
                 <Icon />
                 {item.label}
               </a>
+            ) : item.carriesThePage ? (
+              <FromThisPageLink key={item.label} href={item.href}>
+                <Icon />
+                {item.label}
+              </FromThisPageLink>
             ) : (
               <Link key={item.label} href={item.href}>
                 <Icon />

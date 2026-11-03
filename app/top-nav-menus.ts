@@ -1,3 +1,4 @@
+import { CONTACT_SUPPORT, CONTACT_SUPPORT_PAGE } from './help/contact/copy'
 import { HELP_CENTER } from './help/copy'
 import { SETUP_VIDEOS } from './help/setup-videos'
 
@@ -29,6 +30,8 @@ export interface HelpMenuItem {
   readonly tag?: string
   /** Somewhere outside Discipler, which opens in a tab of its own. */
   readonly newTab?: boolean
+  /** Its address names the page the menu was opened on. */
+  readonly carriesThePage?: boolean
 }
 
 export interface HelpMenuGroup {
@@ -45,7 +48,8 @@ export const HELP_MENU: readonly HelpMenuGroup[] = [
       // Ticket 30, which also makes the tag follow each Admin's own dismissal.
       { label: "What's new", icon: 'megaphone', href: null, tag: 'New' },
       { label: 'Office hours', icon: 'calendar', href: null }, // Ticket 30.
-      { label: 'Contact support', icon: 'mail', href: null }, // Ticket 25.
+      // A bug report attaches the page it was reported from, so the link says which.
+      { label: CONTACT_SUPPORT, icon: 'mail', href: CONTACT_SUPPORT_PAGE, carriesThePage: true },
     ],
   },
   {

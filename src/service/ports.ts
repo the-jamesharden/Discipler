@@ -7,6 +7,7 @@ import type {
 import type { IntendedPairingId } from '~/domain/ids'
 import type { PersonRemoval, PersonRestoration, PersonToRemove } from '~/domain/removal'
 import type { PairingRefusal } from '~/domain/errors'
+import type { SupportFormFields, SupportSubmission } from '~/domain/support-form'
 import type {
   PhoneCheckAttempt,
   PhoneCheckEnding,
@@ -1946,6 +1947,40 @@ export interface PhoneCheckUnit {
  */
 export interface HumanCheck {
   verify(token: string, action: HumanCheckAction): Promise<boolean>
+}
+
+/** How many a sender may have kept since when, for the store to count under its lock. */
+export interface SupportSubmissionLimit {
+  readonly since: Date
+  readonly most: number
+}
+
+/**
+ * Where the Help menu's form is kept (Exponential launch, ticket 25): with the
+ * church for a signed-in Admin, operator-only for anybody else. Nothing a page can
+ * read holds either. Each `keep` counts and adds under one lock, so a burst cannot
+ * pass the limit, and answers the new row's ID, or null when the limit is reached.
+ */
+export interface SupportSubmissions {
+  keepFromAChurch(submission: {
+    readonly fields: SupportFormFields
+    readonly ministryId: string
+    readonly submittedBy: string
+    readonly at: Date
+    readonly limit: SupportSubmissionLimit
+  }): Promise<string | null>
+  /** `network` is null when the request's could not be read, which still counts. */
+  keepSignedOut(submission: {
+    readonly fields: SupportFormFields
+    readonly network: string | null
+    readonly at: Date
+    readonly limit: SupportSubmissionLimit
+  }): Promise<string | null>
+  markEmailed(id: string, at: Date): Promise<void>
+  /** Whatever has not reached support@ yet, oldest first. */
+  waitingForEmail(most: number): Promise<readonly SupportSubmission[]>
+  /** Deletes what came in before `before`, and answers how many went. */
+  deleteSubmittedBefore(before: Date): Promise<number>
 }
 
 /** The randomness and the HMAC behind sign-up's email code (ticket 11). */

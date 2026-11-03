@@ -1418,6 +1418,14 @@ details.pc-member[open] .pc-chev { transform: rotate(180deg); }
 .help-pager-label { display: inline-flex; align-items: center; gap: 0.3rem; font-family: var(--sans); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-light); }
 .help-pager-next .help-pager-label { align-self: flex-end; }
 
+/* The support form (Exponential launch, ticket 25). Turnstile draws nothing unless it
+   needs somebody to press something, so an empty box takes no room. */
+.contact-kinds { margin-bottom: 1rem; }
+.contact-field-hint { display: block; font-size: 0.82rem; color: var(--text-light); margin: 0.35rem 0 0; line-height: 1.45; }
+.contact-attached { margin-bottom: 1rem; overflow-wrap: anywhere; }
+.contact-sent-link { margin: 0.75rem 0 0; }
+.human-check:empty { display: none; }
+.human-check { margin-bottom: 1rem; max-width: 100%; overflow: hidden; }
 .help-foot { text-align: center; font-size: 0.88rem; color: var(--text-light); margin: 0.5rem 0 1rem; }
 
 @media (max-width: 600px) {
