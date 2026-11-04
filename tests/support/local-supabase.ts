@@ -136,9 +136,13 @@ export interface MinistryFixture extends MinistryRef {
  * an account therefore step past a number that is already taken (`TAKEN_NUMBER_TRIES`)
  * rather than fail a whole suite in its `beforeAll` for it; a number a test named on
  * purpose is never stepped past.
+ *
+ * The seven digits start at 2_000_000 because no North American exchange begins
+ * with 0 or 1, and `isUsPhone` refuses a number that does.
  */
-let nextNumber = Math.floor(Math.random() * 10_000_000)
-export const aTestPhoneNumber = () => `+1555${String(nextNumber++ % 10_000_000).padStart(7, '0')}`
+const TEST_NUMBERS = 8_000_000
+let nextNumber = Math.floor(Math.random() * TEST_NUMBERS)
+export const aTestPhoneNumber = () => `+1555${2_000_000 + nextNumber++ % TEST_NUMBERS}`
 
 /**
  * How long a test that drives the whole scheduled tick may take. The tick route
