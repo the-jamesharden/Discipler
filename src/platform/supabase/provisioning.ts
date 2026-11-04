@@ -21,9 +21,10 @@ import { spendPendingSignup } from './pending-signups'
  * that follow live here, and nothing else in the product could hold them.
  *
  * The first is the credential. The Admin gets a phone identity with a password, the
- * same mint a Leader gets at Acceptance, because the credential is the same for every
- * user -- see `docs/adr/0008-the-phone-number-is-the-sign-in-credential.md`. An Admin
- * who signed up also has the address they proved.
+ * same mint a Leader gets at Acceptance. An Admin who signed up also has the address
+ * they proved, and may sign in with either -- see
+ * `docs/adr/0030-an-admin-signs-in-with-email-or-phone.md`, and ADR-0008 for everybody
+ * without one.
  *
  * The second is the link. The Admin is given a Person row in their own Ministry
  * with `person.user_id` set, so they are a Person like everybody else and one human

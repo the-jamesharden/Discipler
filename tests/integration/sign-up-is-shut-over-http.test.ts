@@ -8,6 +8,16 @@ import { baseUrl, skipUnlessAppIsRunning } from '../support/app'
  * page may show a person that sign-up exists.
  */
 describe.skipIf(skipUnlessAppIsRunning)('sign-up on a built server with the switch off', () => {
+  it('is not offered on the sign-in page, which would be offering a 404', async () => {
+    const response = await fetch(`${baseUrl}/login`, { redirect: 'manual' })
+    const html = await response.text()
+
+    expect(response.status).toBe(200)
+    expect(html).not.toContain('Create an account')
+    expect(html).not.toContain('new to Discipler?')
+    expect(html).not.toContain('href="/signup"')
+  })
+
   it.each(['human-check', 'send-code', 'resend-code', 'confirm-code', 'payment/open'])('answers 404 at %s', async (route) => {
     const response = await fetch(`${baseUrl}/signup/${route}`, {
       method: 'POST',

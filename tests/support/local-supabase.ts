@@ -99,9 +99,9 @@ export interface MinistryFixture extends MinistryRef {
   /** The Admin's own name, which is also their row on their Ministry's Roster. */
   readonly adminName: string
   /**
-   * The credential. A phone number and a password, for every user including
-   * Admins -- see docs/adr/0008-the-phone-number-is-the-sign-in-credential.md.
-   * There is no email here because provisioning creates none.
+   * The credential. A phone number and a password. There is no email here because
+   * this fixture's Admin has none, the same as an Admin from a Setup Link -- see
+   * docs/adr/0030-an-admin-signs-in-with-email-or-phone.md.
    */
   readonly adminPhone: string
   readonly adminPassword: string
@@ -458,9 +458,8 @@ export const addPerson = async (
 /**
  * A client carrying a real signed-in session, so reads are policed by RLS.
  *
- * By phone number, which is the only credential the product has -- a fixture
- * signing in by email would be proving authorisation against a door
- * `app/auth/sign-in` does not open.
+ * By phone number, which is the credential every fixture account holds. What the
+ * email door adds is `tests/integration/signing-in-with-email-or-phone-over-http.test.ts`.
  */
 export const signInAs = async (ministry: MinistryFixture): Promise<SupabaseClient> =>
   signedInWith(ministry.adminPhone, ministry.adminPassword)

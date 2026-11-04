@@ -38,12 +38,40 @@ const WINDOW_MS = SIGN_IN_WINDOW_MINUTES * 60 * 1000
 const digestOf = (key: string): string => createHash('sha256').update(key).digest('hex')
 
 /**
- * Namespaced, so a phone number and a user id can never be one account by
- * accident. A sign-in counts against the number typed and a change of password
- * against the session's account: the two are counted apart, each held to ten.
+ * The count an address belongs to: the phone of the account holding it, so ten tries
+ * by email and ten by phone are ten tries and not twenty (Exponential launch, ticket
+ * 21). An address nobody holds, or an account with no phone, counts under its own key.
+ *
+ * Asked every time, before any lock, so an address somebody holds costs the same as
+ * one nobody does.
+ *
+ * Supabase Auth keeps a phone without its `+`, and a number read from the sign-in box
+ * has one. Left as it comes, the two would be different counts for the one account.
+ *
+ * A NUL is taken out because Postgres refuses one in text. Only a hand-made request
+ * can hold one, and it should be told what any other wrong address is told rather than
+ * getting a 500.
  */
-const accountKey = (account: SignInAccount): string =>
-  'phone' in account ? `phone:${account.phone}` : `user:${account.userId}`
+const emailKey = async (email: string, client: pg.PoolClient): Promise<string> => {
+  const address = email.toLowerCase().replaceAll('\0', '')
+  const { rows } = await client.query<{ phone: string | null }>(
+    `select phone from auth.users where email = $1 and is_sso_user = false limit 1`,
+    [address],
+  )
+  const phone = rows[0]?.phone
+  return phone ? `phone:+${phone.replace(/^\+/, '')}` : `email:${address}`
+}
+
+/**
+ * Namespaced, so a phone number, an address and a user id can never be one account
+ * by accident. A sign-in counts against what was typed and a change of password
+ * against the session's account: those two are counted apart, each held to ten.
+ */
+const accountKey = async (account: SignInAccount, client: pg.PoolClient): Promise<string> => {
+  if ('phone' in account) return `phone:${account.phone}`
+  if ('email' in account) return emailKey(account.email, client)
+  return `user:${account.userId}`
+}
 
 /**
  * The advisory lock a key's count is taken under. Two classes, so an account and
@@ -61,13 +89,14 @@ export const createPostgresSignInLimit = (
 
   return {
     async attempt(account, network) {
-      const accountDigest = digestOf(accountKey(account))
       const networkDigest = network === null ? null : digestOf(`network:${network}`)
       const at = clock.now()
 
       const client = await pool.connect()
       let id: string | null = null
       try {
+        const accountDigest = digestOf(await accountKey(account, client))
+
         await client.query('begin')
 
         // Account first, then network, in one statement and in that order every

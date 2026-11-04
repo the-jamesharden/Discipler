@@ -24,17 +24,19 @@ export type SignInFailure =
 export const TOO_MANY_ATTEMPTS = `Too many tries. Wait ${SIGN_IN_WINDOW_MINUTES} minutes, then try again.`
 
 const messages: Record<SignInFailure, string> = {
-  'missing-credentials': 'Enter your phone number and password.',
+  'missing-credentials': 'Enter your email or phone and your password.',
   /**
-   * Separate from the one below, and the difference is worth the extra code. A
-   * number Discipler could not read is a typo the person can fix; folding it into
-   * "that did not match" would have them retyping a correct password against a
-   * number that was never going to be looked up.
+   * Separate from the one below, and the difference is worth the extra code. An
+   * entry with no `@` that Discipler could not read as a number is a typo the person
+   * can fix, and says nothing about any account; folding it into "that did not match"
+   * would have them retyping a correct password against a number that was never going
+   * to be looked up.
    */
-  'unreadable-phone': 'That does not look like a phone number. Include the area code.',
-  // Deliberately vague: a precise message would tell an outsider which phone
-  // numbers belong to a Ministry.
-  'no-such-account': 'That phone number and password did not match.',
+  'unreadable-phone': 'That does not look like an email or a phone number. Include the area code.',
+  // Deliberately vague, and one sentence for an unknown email, an unknown phone and
+  // a wrong password: a precise message would tell an outsider which of them belong
+  // to a Ministry.
+  'no-such-account': 'That email or phone and password did not match.',
   'too-many-attempts': TOO_MANY_ATTEMPTS,
 }
 
