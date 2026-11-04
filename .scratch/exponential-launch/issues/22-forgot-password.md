@@ -50,6 +50,11 @@ These are recorded so James can overrule them.
 
 - A reset clears that account's sign-in failures, so somebody who locked themselves out by guessing can get straight back in.
 
+## Follow-up after launch
+
+A reset email that fails to send is only logged, and the person has been told "Email sent."
+An alert by email would not help when Resend is what failed, so this waits for a channel that does not depend on Resend.
+
 ## For James
 
 1. Done 2026-11-04: the request page, the new-password page and the email are as redrawn in mock-up 6 round 2. The Leaders' sentence and the "Saving signs you out everywhere" sentence are removed.
